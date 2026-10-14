@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { withStudio } from "./control-studio-three-page.integration.test";
+import { engineAnswerRecorderScript } from "./control-studio-rendered-harness";
 import { pollValue, requiredEnvironment } from "./plant-rendered-harness";
 import { runtimeLifecycleService } from "../../runtimeLifecycle";
 import { RuntimeRecordingSession } from "../../controlStudio/runtimeRecording";
@@ -35,12 +36,14 @@ suite("Control Studio connected live identification", () => {
       const started = await runtimeLifecycleService.startLocalSimulator(); assert.ok(started.ok);
       await pollValue("live readings", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.pointCount;"), value => Number(value) >= 8, 15000);
       await inner("d.defaultView.__liveEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__liveEvents.push(e.detail));const m=d.querySelector('[data-engineer-acquisition-method]');m.value='mv_step';m.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'step';");
+      // The engine route reports the run's progress as `control-studio.engine.*` messages, not as page events: the evidence keeps both.
+      await inner(engineAnswerRecorderScript());
       await new Promise(resolve => setTimeout(resolve, 200));
       const loop = JSON.parse(await inner("return d.querySelector('[data-studio-three-page]').dataset.studioLoop;"));
       const observed = await RuntimeRecordingSession.start(loop);
       await inner("d.querySelector('[data-engineer-find]').click();return 'identify';");
       await new Promise(resolve => setTimeout(resolve, 10000));
-      const state = JSON.parse(await inner("return JSON.stringify({range:JSON.parse(d.querySelector('[data-control-studio-chart]').dataset.timeRange),busy:d.querySelector('[data-studio-three-page]').dataset.busy,events:d.defaultView.__liveEvents.map(p=>({status:p.status,reason:p.reason,experiment:p.identificationExperiment}))});"));
+      const state = JSON.parse(await inner("return JSON.stringify({range:JSON.parse(d.querySelector('[data-control-studio-chart]').dataset.timeRange),busy:d.querySelector('[data-studio-three-page]').dataset.busy,events:d.defaultView.__liveEvents.map(p=>({status:p.status,reason:p.reason,experiment:p.identificationExperiment})),engine:(d.defaultView.__engineAnswers||[]).map(e=>({status:e.status,flowStage:e.flowStage,reason:e.reason}))});"));
       fs.writeFileSync(path.join(path.dirname(requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT")), "identify-live-progress.json"), JSON.stringify(state));
       await capture("identify-live-progress");
       try {

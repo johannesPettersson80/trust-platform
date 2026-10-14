@@ -25,6 +25,8 @@ use super::trajectory::{automatic_trajectory, experiment_trajectory};
 #[path = "plan_project.rs"]
 mod project;
 
+pub(crate) use project::project_stop_conditions;
+
 use project::{project_experiment, project_sequence_plan};
 
 const DURATION_REFUSAL: &str = "Duration must be between 1 s and 24 h.";

@@ -23,13 +23,13 @@ use crate::identification::refusal::Refusal;
 use crate::loop_definition::{ControllerLaw, LoopDefinition, Parameter};
 use crate::messages::{ComparisonEntry, TuneMethod, TuneRequest, TuneResult};
 use crate::model::GeneralModel;
-use crate::stages::{stage_availability, StageAvailability};
+use crate::stages::StageEvidence;
 use crate::study::identify::IdentifySection;
 use crate::study::tune::comparison::simc_comparison;
 use crate::study::tune::manual;
 use crate::study::tune::model::tuning_model;
 use crate::study::tune::prediction::{
-    candidate_margins, candidate_outcome, candidate_prediction, TraceNames,
+    candidate_margins, candidate_outcome, candidate_prediction, current_prediction, TraceNames,
 };
 use crate::study::tune::record::{
     candidate_record, gains_map, gains_of_map, pinned_settings, record_settings, record_shaping,
@@ -50,7 +50,7 @@ use crate::tuning::formula::{action_sign, tune_pi, PiTuning};
 use crate::tuning::objective::{TuningMethod, TuningObjective, AUTOMATIC_OBJECTIVE};
 use crate::tuning::placement::{ModelPlacement, PolePlacement};
 use crate::tuning::plant::{check_normalized_error, check_plant, from_identified, TuningPlant};
-use crate::tuning::prediction::{RecordShaping, SelectedModelPredictor};
+use crate::tuning::prediction::{PredictedGains, RecordShaping, SelectedModelPredictor};
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::recommendation::{
     recommend, Attempt, AttemptStatus, RecommendationError, RecommendationInputs,
@@ -88,10 +88,12 @@ const NO_PROPORTIONAL: &str = "The constrained comparison holds no P candidate."
 /// structure that meets the requirements; a relay record that does not qualify; settings that the bounds or the pins refuse;
 /// or a candidate record whose limits are not in order.
 ///
-/// `held` is the requirements the study holds when the engineer recorded them (B4.3); see `requirements_for`.
+/// `held` is the requirements the study holds when the engineer recorded them (B4.3); see `requirements_for`. `running` is the
+/// settings of the running controller, when the engine read them (B4.5); see `current_prediction`.
 pub(crate) fn run(
     inputs: &TuneInputs<'_>,
     held: Option<&TuningRequirements>,
+    running: Option<&BTreeMap<String, f64>>,
 ) -> Result<TuneOutcome, Failure> {
     check_before_start(inputs)?;
     let Some(identify) = inputs.identify else {
@@ -146,12 +148,9 @@ pub(crate) fn run(
         pins: request.pins.clone(),
     };
     // The Identify section names the recording its model was fitted on, so the study holds a recording.
-    let stages = stage_availability(&stage_evidence(
-        loop_definition,
-        Some(identify),
-        Some(&section),
-        true,
-    ));
+    let evidence = stage_evidence(loop_definition, Some(identify), Some(&section), true);
+    let current = running
+        .and_then(|running| current_prediction(&predictor, loop_definition, &mapped, running));
     let evaluation = Evaluation {
         model: &model,
         requirements: &requirements,
@@ -159,13 +158,14 @@ pub(crate) fn run(
         context: &context,
         names: TraceNames::of(loop_definition),
         parameters: &mapped,
+        current,
     };
     let result = answer(
         request.method,
         designed,
         candidate,
         comparison,
-        stages,
+        evidence,
         &evaluation,
     );
     Ok(TuneOutcome { section, result })
@@ -792,16 +792,18 @@ struct Evaluation<'a> {
     names: TraceNames<'a>,
     /// The loop's bound parameters, which name the candidate's settings (B4.2).
     parameters: &'a [MappedParameter],
+    /// The settings of the running controller as the comparison predicts them (B4.5), when the engine read them.
+    current: Option<PredictedGains>,
 }
 
 /// The answer of a run (B4.3 to B4.6): the design and its candidate, the candidate's outcome, predicted response and margins
-/// on the model, and for a SIMC request the constrained comparison (N5.10).
+/// on the model, and for a SIMC request the constrained comparison (N5.10). `stage_evidence` is the evidence the stages come from.
 fn answer(
     method: Option<TuneMethod>,
     designed: Design,
     candidate: ControlPidCandidate,
     comparison: Vec<ComparisonEntry>,
-    stages: Vec<StageAvailability>,
+    stage_evidence: StageEvidence,
     evaluation: &Evaluation<'_>,
 ) -> TuneResult {
     let requirements = evaluation.requirements;
@@ -833,10 +835,16 @@ fn answer(
         description: designed.description,
         requirements: requirements.clone(),
         outcome,
-        prediction: candidate_prediction(predictor, designed.gains, requirements, evaluation.names),
+        prediction: candidate_prediction(
+            predictor,
+            designed.gains,
+            requirements,
+            evaluation.names,
+            evaluation.current,
+        ),
         margins: candidate_margins(evaluation.model, &predictor.predicted_gains(designed.gains)),
         comparison,
-        stages,
+        stage_evidence,
     })
 }
 

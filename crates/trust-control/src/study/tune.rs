@@ -16,6 +16,8 @@
 
 #![allow(clippy::module_name_repetitions)] // The section keeps the name of its stage.
 
+use std::collections::BTreeMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use trust_control_math::identify::gain::ControllerAction;
@@ -233,34 +235,43 @@ pub fn check_before_start(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
 /// The failure of the design: the requirements cannot be formed, no structure meets them, or the method does not apply
 /// (B4.7).
 pub fn tune(inputs: &TuneInputs<'_>) -> Result<TuneOutcome, Failure> {
-    tune_held(inputs, None)
+    tune_held(inputs, None, None)
 }
 
-/// [`tune`] with the requirements the study holds (B4.3): `held` is the requirements the engineer recorded in the study's inputs,
-/// which the design takes as given, and `None` keeps the earlier Tune section's record as [`tune`] does.
+/// [`tune`] with the requirements the study holds (B4.3) and the settings of the running controller (B4.5): `held` is the
+/// requirements the engineer recorded in the study's inputs, which the design takes as given, and `None` keeps the earlier Tune
+/// section's record as [`tune`] does. `running` is the record's values as the running controller holds them, which the engine
+/// reads through the request's connection (B5.3); `None` predicts the candidate alone.
 ///
 /// # Errors
 /// The failure of the design, as [`tune`] names it (B4.7).
 pub fn tune_held(
     inputs: &TuneInputs<'_>,
     held: Option<&TuningRequirements>,
+    running: Option<&BTreeMap<String, f64>>,
 ) -> Result<TuneOutcome, Failure> {
-    design::run(inputs, held)
+    design::run(inputs, held, running)
 }
 
 /// The answer of a manual preview (B4.5): the result that Tune with the manual method would finish with, on the study as it
-/// is. Nothing is kept: the stages are the study's own, with its earlier Tune section, and not as if the candidate were kept.
+/// is, with the running controller's settings when `running` is given. Nothing is kept: the stages are the study's own, with its
+/// earlier Tune section, and not as if the candidate were kept.
 ///
 /// # Errors
 /// The refusals of [`check_before_start`] and of the design (B4.7).
-pub fn preview(inputs: &TuneInputs<'_>) -> Result<TuneResult, Failure> {
-    let mut result = design::run(inputs, None)?.result;
-    result.stages = stage_availability(&stage_evidence(
+pub fn preview(
+    inputs: &TuneInputs<'_>,
+    running: Option<&BTreeMap<String, f64>>,
+) -> Result<TuneResult, Failure> {
+    let mut result = design::run(inputs, None, running)?.result;
+    let evidence = stage_evidence(
         inputs.loop_definition,
         inputs.identify,
         inputs.previous,
         true,
-    ));
+    );
+    result.stages = stage_availability(&evidence);
+    result.stage_evidence = evidence;
     Ok(result)
 }
 

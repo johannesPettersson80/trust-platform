@@ -13,6 +13,8 @@ pub mod engineer_scenario_effects;
 pub mod engineer_verification_campaign;
 pub mod engineer_verification_plan;
 pub mod engineering_plots;
+pub mod initialization_case;
+pub mod initialization_texts;
 pub mod isolated_run_protocol;
 pub mod isolated_run_sampling;
 pub mod model_prediction_runs;

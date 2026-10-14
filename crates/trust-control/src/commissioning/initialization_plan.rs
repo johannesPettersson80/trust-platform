@@ -91,6 +91,9 @@ pub(super) struct StartTiming {
     pub(super) window: Window,
     /// The run from the transfer to its end, in seconds.
     pub(super) transfer_window: Window,
+    /// The run up to the first output after the transfer, in seconds: the Manual scans and the transfer's own scan, whose output
+    /// A6.4 bounds. The law's response in the scans after it is the controller acting on its error, which A6.4 does not bound.
+    pub(super) first_output_window: Window,
 }
 
 /// The timing of a start from its task period.
@@ -110,6 +113,12 @@ pub(super) fn start_timing(step_ms: u64) -> StartTiming {
         transfer_window: Window {
             start: seconds_of(transfer_at_ms),
             end: window.end,
+        },
+        // Up to the transfer's own sample: a run samples each scan after it ran, so that sample holds the first output after
+        // the transfer, and a window's edges lie on the run's sample times (N8.4).
+        first_output_window: Window {
+            start: 0.0,
+            end: seconds_of(transfer_at_ms),
         },
     }
 }
@@ -355,7 +364,7 @@ pub fn pid_initialization_plan(
         bounds(
             "transfer-continuity",
             &applied_symbol,
-            timing.window,
+            timing.first_output_window,
             point.applied - tolerance,
             point.applied + tolerance,
         ),
@@ -450,7 +459,7 @@ pub fn proportional_initialization_plan(
         bounds(
             "transfer-continuity",
             &binding.output.symbol,
-            timing.window,
+            timing.first_output_window,
             applied - tolerance,
             applied + tolerance,
         ),

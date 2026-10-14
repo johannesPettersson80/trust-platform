@@ -16,6 +16,7 @@ use super::found_mode::FoundMode;
 use super::parameter_status::ParameterStatus;
 use super::reviewed_application::ApplicationAction;
 use crate::identification::independent_validation::digest;
+use crate::loop_definition::LoopDefinition;
 use crate::recording::RecordedRun;
 
 /// What a review is for (§0.1b): an Apply (B6.1) or a Restore of the previous settings (B6.4). It is the answered form of
@@ -79,6 +80,127 @@ pub struct ApplicationReview {
     pub physical: bool,
     /// The operating point the candidate was validated at (B6.2); `None` when the review has none to show.
     pub operating_point: Option<ReviewedOperatingPoint>,
+    /// What one physical approval covers (A2.5, B9.3), filled in Rust for the page to show; a simulated target shows it too.
+    pub approval: ApprovalBlock,
+}
+
+/// One signal that a reviewed operation writes, as its approval shows it (A2.5, B9.3): the value in force, the value written, and the
+/// limits the parameter's declared range gives (`minimum` and `maximum`, the range Tune may choose within).
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovedSignal {
+    /// The signal's symbol.
+    pub symbol: String,
+    /// The signal's unit.
+    pub unit: String,
+    /// The value in force now.
+    pub running: f64,
+    /// The value the confirmation writes.
+    pub next: f64,
+    /// The smallest value the signal may take; not a number when the loop declares no range for it.
+    pub minimum: f64,
+    /// The largest value the signal may take; not a number when the loop declares no range for it.
+    pub maximum: f64,
+}
+
+/// What one physical approval covers (A2.5, B9.3): the loop, every signal the operation writes with its values and limits, the
+/// duration of the observation, the stop conditions and the restoration. The engineer approves exactly this, and one approval covers
+/// one reviewed operation shown in full (A2.5).
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovalBlock {
+    /// The loop the operation works on.
+    pub loop_id: String,
+    /// Every signal the operation writes.
+    pub signals: Vec<ApprovedSignal>,
+    /// The duration the observation records, in seconds; `None` for a Restore, which records nothing (B6.4).
+    pub duration_seconds: Option<f64>,
+    /// What ends the operation before its end, and what the runtime does then (A2.5, B6.3, B6.7).
+    pub stop_conditions: Vec<String>,
+    /// What the restoration returns, and when the engineer can ask for it (A2.5, B6.4).
+    pub restoration: String,
+}
+
+/// The stop conditions of an Apply, in the words the approval shows (B6.3, B6.7).
+const APPLY_STOP_CONDITIONS: [&str; 3] = [
+    "A measured output leaves its permitted range: the previous settings are restored at once.",
+    "A requirement fails: the response is reported, and Restore previous settings is offered.",
+    "A Cancel, or a step the runtime refuses after the first write: the previous settings are restored at once.",
+];
+
+/// The stop conditions of a Restore, in the words the approval shows (B6.4, B6.7).
+const RESTORE_STOP_CONDITIONS: [&str; 1] = [
+    "A step the runtime does not confirm: Restore stops there, and Restore previous settings is offered again.",
+];
+
+/// The restoration an Apply's approval names (A2.5, B6.4).
+const APPLY_RESTORATION: &str = "Restore previous settings returns the parameter record and the mode found before Apply. It stays offered \
+    until the runtime confirms it.";
+
+/// The restoration a Restore's approval names (A2.5, B6.4).
+const RESTORE_RESTORATION: &str = "The parameter record and the mode found before Apply go back to the values Apply replaced. Restored is \
+    shown only after the runtime confirms it.";
+
+/// The approval of one reviewed operation (A2.5, B9.3). Its signals take their limits from the loop's parameter binding, and the
+/// `parameters` are the signals the review writes; `duration_seconds` is the observation's duration, and `None` for a Restore.
+#[must_use]
+pub fn approval_block(
+    loop_definition: &LoopDefinition,
+    action: ReviewedAction,
+    parameters: &[ReviewedParameter],
+    duration_seconds: Option<f64>,
+) -> ApprovalBlock {
+    let ranges: BTreeMap<&str, (f64, f64)> = loop_definition
+        .parameter_binding
+        .iter()
+        .flat_map(|binding| binding.parameters.iter())
+        .map(|parameter| {
+            (
+                parameter.symbol.as_str(),
+                (parameter.minimum, parameter.maximum),
+            )
+        })
+        .collect();
+    let signals: Vec<ApprovedSignal> = parameters
+        .iter()
+        .map(|parameter| {
+            let (minimum, maximum) = ranges
+                .get(parameter.symbol.as_str())
+                .copied()
+                .unwrap_or((f64::NAN, f64::NAN));
+            ApprovedSignal {
+                symbol: parameter.symbol.clone(),
+                unit: parameter.unit.clone(),
+                running: parameter.running,
+                next: parameter.next,
+                minimum,
+                maximum,
+            }
+        })
+        .collect();
+    let (stop_conditions, restoration): (Vec<String>, String) = match action {
+        ReviewedAction::Apply => (
+            APPLY_STOP_CONDITIONS
+                .iter()
+                .map(|text| (*text).to_owned())
+                .collect(),
+            APPLY_RESTORATION.to_owned(),
+        ),
+        ReviewedAction::Restore => (
+            RESTORE_STOP_CONDITIONS
+                .iter()
+                .map(|text| (*text).to_owned())
+                .collect(),
+            RESTORE_RESTORATION.to_owned(),
+        ),
+    };
+    ApprovalBlock {
+        loop_id: loop_definition.id.clone(),
+        signals,
+        duration_seconds,
+        stop_conditions,
+        restoration,
+    }
 }
 
 /// The outcome of a confirmed Apply (B6.1 to B6.3, B6.7): the commissioning result, and what the engineer may do next.
@@ -116,6 +238,11 @@ pub struct RestoreOutcome {
     /// The recording the Restore stopped and kept as evidence (E11.6, A8.1); `None` when no recording was held.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording: Option<RecordedRun>,
+    /// Whether Restore previous settings is still offered for the checkpoint: a Restore the runtime did not confirm leaves it
+    /// offered (B6.7), a confirmed one closes the checkpoint (B6.4).
+    pub restore_available: bool,
+    /// Whether Keep in project is offered: never after a Restore (B6.5).
+    pub keep_available: bool,
 }
 
 /// The review identity (§0.1b Confirmation): `sha256:` followed by the lowercase hexadecimal SHA-256 digest of the canonical

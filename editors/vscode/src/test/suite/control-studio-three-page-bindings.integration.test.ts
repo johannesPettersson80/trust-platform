@@ -40,6 +40,10 @@ suite("Control Studio three-page binding selection", () => {
       session = await attachControlStudio(connection, port, "", extra.id);
       await pollValue("selected target host state", () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 15000);
       assert.notStrictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.editorSessionId;"), oldScope);
+      // The engine lists the loops and names the selected loop's file (threePageBindingRoute.ts, §0.1a setupDiscover), and it serves
+      // the loop it opens: its open answer gives each stage tab the engine's status (webview/engineShared.ts applyStageStatuses).
+      assert.notStrictEqual(await inner("return d.querySelector('[data-engineer-stage-tab=model]').dataset.status ?? '';"), "",
+        "The engine serves the selected loop, so its stage tabs show the engine's status");
       const target = JSON.parse(await inner("return d.querySelector('[data-studio-three-page]').dataset.studioLoop;"));
       assert.strictEqual(target.controller.instance, "P1.OtherController");
       assert.ok(target.parameterBinding.parameters.every((parameter: { symbol: string }) => parameter.symbol.startsWith("P1.OtherParameters.")));
@@ -59,6 +63,8 @@ suite("Control Studio three-page binding selection", () => {
     const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
     const base = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
     const loop = JSON.parse(JSON.stringify(base));
+    // This MIMO loop stays on the TypeScript route: a loop with channels is parked (crates/trust-control/src/loop_definition.rs
+    // rust_engine_support), and this one is not a project file, which the engine does not open (crates/trust-control-studio/src/loops.rs).
     loop.id = `${base.id}-mimo-requirements`; loop.revision = `${base.revision}-mimo-requirements`; loop.name = "MIMO requirements review"; loop.parameterBinding.loop_id = loop.id; loop.schemaVersion = 2;
     loop.signals.additional = [
       ...(loop.signals.additional ?? []),

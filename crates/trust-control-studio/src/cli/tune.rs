@@ -2,7 +2,8 @@
 //! Automatic or the method named, against the requirements the study holds and the criteria Automatic fills (B4.3). The
 //! verb sends `controlStudio/tune` through `ControlStudio::execute`, the entry that `serve` uses, so every rule, limit and
 //! refusal is the method's. A refusal comes at once (B4.7); otherwise the method starts an operation, which the verb follows
-//! to its final update. Tune never reaches the runtime and never writes to the controller (B4.1).
+//! to its final update. Tune never writes to the controller (B4.1); with a runtime it reads the running controller's settings for
+//! the comparison of the predicted responses (B4.5).
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -10,14 +11,15 @@ use std::io::Write;
 use serde_json::Value;
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::messages::TuneRequest;
+use trust_control::runtime::RuntimeConnection;
 
 use super::{
-    follow, json_answer_of, output, places, refused, settle, text_of, Exit, TuneArgs,
+    follow, json_answer_of, output, places, refused, settle, text_of, Exit, Places, TuneArgs,
     TuneChoiceWord, TuneMethodWord, TuneStructureWord, SELECTED_RUNTIME,
 };
 use crate::commands::{self, ControlStudio};
 use crate::interrupt::Presses;
-use crate::settings::Environment;
+use crate::settings::{self, Environment};
 
 /// Runs `tune` (§0.1b). While its operation runs, the first Ctrl-C counted in `presses` cancels it and the verb waits for its
 /// final update; the second leaves it to the runtime.
@@ -49,10 +51,10 @@ pub(super) fn run(
     follow::ended(followed, as_json, output::tune_text, stdout, stderr)
 }
 
-/// The request that the arguments make (§0.1b). Tune never reaches the runtime (B4.1), so the request carries no connection and
-/// the verb reads no endpoint or token: `--endpoint` and `--token-file` are accepted with the other common arguments and are
-/// not used. `automatic` names no formula method, so the request carries none; the pinned settings of B4.2 have no argument. The
-/// settings that `--setting` names go in the request; the engine decides whether the method takes them.
+/// The request that the arguments make (§0.1b). With a runtime, `--endpoint` or the project's `runtime.toml`, the request carries
+/// its connection, so that Tune reads the running controller's settings for the comparison (B4.5); without one it carries none,
+/// and Tune designs without the comparison. `automatic` names no formula method, so the request carries none; the pinned settings
+/// of B4.2 have no argument. The settings that `--setting` names go in the request; the engine decides whether the method takes them.
 fn request(args: &TuneArgs, environment: Environment<'_>) -> Result<TuneRequest, Failure> {
     let places = places(&args.common, environment)?;
     Ok(TuneRequest {
@@ -65,7 +67,31 @@ fn request(args: &TuneArgs, environment: Environment<'_>) -> Result<TuneRequest,
         structure: args.structure.map(TuneStructureWord::structure),
         settings: settings_of(&args.setting),
         pins: None,
+        connection: connection_of(args, &places, environment)?,
     })
+}
+
+/// The runtime that the arguments name, read as `identify` reads it (§0.1b): `--endpoint`, else the project's `runtime.toml`, with
+/// the token of `--token-file` or `TRUST_CONTROL_TOKEN`. A project with no runtime gives none. A runtime or token file that the
+/// arguments name must be readable, so a refusal names it, as `identify` refuses it.
+///
+/// # Errors
+/// The `--endpoint` or `--token-file` that the arguments name cannot be read.
+fn connection_of(
+    args: &TuneArgs,
+    places: &Places,
+    environment: Environment<'_>,
+) -> Result<Option<RuntimeConnection>, Failure> {
+    match settings::runtime_connection(
+        args.common.endpoint.as_deref(),
+        &places.project,
+        args.common.token_file.as_deref(),
+        environment,
+    ) {
+        Ok(connection) => Ok(Some(connection)),
+        Err(_) if args.common.endpoint.is_none() && args.common.token_file.is_none() => Ok(None),
+        Err(failure) => Err(failure),
+    }
 }
 
 /// The settings that `--setting` names (B4.2): `None` when none is named, else each record symbol with its number. A symbol named
@@ -119,9 +145,9 @@ mod tests {
     use super::*;
     use crate::cli::{CommandLine, Verb};
 
-    /// The request that `tune --loop tank` with `extra` makes in the project folder `project`, with its journal folder beside
-    /// it. No environment variable is set.
-    fn request_in(project: &str, extra: &[&str]) -> TuneRequest {
+    /// The arguments that `tune --loop tank` with `extra` parse to in the project folder `project`, with its journal folder beside
+    /// it.
+    fn args_in(project: &str, extra: &[&str]) -> TuneArgs {
         let journal = format!("{project}/journal");
         let mut arguments = vec![
             "trust-control-studio",
@@ -140,9 +166,15 @@ mod tests {
         else {
             panic!("tune is read as tune");
         };
+        args
+    }
+
+    /// The request that `tune --loop tank` with `extra` makes in the project folder `project`, with its journal folder beside
+    /// it. No environment variable is set.
+    fn request_in(project: &str, extra: &[&str]) -> TuneRequest {
         let no_variables = |_: &str| None::<OsString>;
         let environment: Environment<'_> = &no_variables;
-        request(&args, environment).expect("the folders are named")
+        request(&args_in(project, extra), environment).expect("the folders are named")
     }
 
     #[test]
@@ -160,6 +192,7 @@ mod tests {
                 structure: None,
                 settings: None,
                 pins: None,
+                connection: None,
             }
         );
         assert_eq!(
@@ -170,7 +203,7 @@ mod tests {
     }
 
     #[test]
-    fn the_words_reach_the_request_and_the_runtime_arguments_are_not_needed() {
+    fn the_words_reach_the_request_and_the_endpoint_names_its_connection() {
         let named = request_in(
             "/project",
             &[
@@ -182,8 +215,6 @@ mod tests {
                 "pd",
                 "--endpoint",
                 "tcp://127.0.0.1:1",
-                "--token-file",
-                "/no-such-token",
             ],
         );
         assert_eq!(
@@ -194,6 +225,33 @@ mod tests {
                 Some(Structure::PD),
                 None
             )
+        );
+        assert_eq!(
+            named.connection,
+            Some(RuntimeConnection {
+                endpoint: "tcp://127.0.0.1:1".to_string(),
+                token: None,
+            }),
+            "the endpoint that the arguments name is the runtime the comparison reads (B4.5)"
+        );
+    }
+
+    #[test]
+    fn a_token_file_that_the_arguments_name_must_be_readable() {
+        let args = args_in(
+            "/project",
+            &[
+                "--endpoint",
+                "tcp://127.0.0.1:1",
+                "--token-file",
+                "/no-such-token",
+            ],
+        );
+        let no_variables = |_: &str| None::<OsString>;
+        let environment: Environment<'_> = &no_variables;
+        assert!(
+            request(&args, environment).is_err(),
+            "a token file that cannot be read refuses the request, as identify refuses it"
         );
     }
 

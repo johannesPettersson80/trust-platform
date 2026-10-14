@@ -170,6 +170,7 @@ mod tests {
             operation_id: OPERATION.to_string(),
             command: "identify".to_string(),
             state,
+            stage: None,
             progress: None,
             result: None,
             failure: None,

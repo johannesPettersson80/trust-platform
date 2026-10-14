@@ -9,10 +9,15 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::OperationUpdate;
+use trust_control::study::STUDY_FORMAT;
 
+use super::{entry_noise, ValidateWork};
 use crate::commands::{ControlStudio, METHODS, VALIDATE};
 use crate::operation::UpdateSink;
 use crate::runtime_client::fake_runtime::FakeRuntime;
+use crate::runtime_client::runtime_recording::PendingReleases;
+use crate::storage;
+use crate::workflow::apply::test_support::model;
 
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
 
@@ -92,5 +97,30 @@ fn a_validation_without_a_model_is_refused_before_any_isolated_run_starts() {
         "a refused validation starts no isolated run"
     );
     assert!(studio.operations().status("operation-1").is_err());
+    fs::remove_dir_all(&root).expect("clean up");
+}
+
+#[test]
+fn a_study_that_cannot_be_read_ends_the_validation_instead_of_making_the_entry_case_inconclusive() {
+    // The study and the noise of the Manual-to-Auto entry case are reads of the validation itself (B5.4): a study that cannot be
+    // read fails `entry_noise`, which the validation returns with `?`. Only a planning refusal makes the case Inconclusive.
+    let (root, example, _request) = example_project("unreadable-study", None);
+    let directory = storage::study_directory(&root, &example.id);
+    fs::create_dir_all(&directory).expect("study folder");
+    fs::write(
+        directory.join("study.json"),
+        format!("{{\"format\": {STUDY_FORMAT}}}"),
+    )
+    .expect("a study that does not decode");
+    let work = ValidateWork {
+        project_root: root.clone(),
+        storage_folder: root.join("storage"),
+        pending: Arc::new(PendingReleases::default()),
+        loop_definition: example.clone(),
+    };
+    assert!(
+        entry_noise(&work, &example, &model()).is_err(),
+        "an unreadable study is a failure of the validation"
+    );
     fs::remove_dir_all(&root).expect("clean up");
 }

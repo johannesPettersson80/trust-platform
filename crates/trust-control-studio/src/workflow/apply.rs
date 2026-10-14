@@ -29,7 +29,7 @@ use std::time::{Duration, Instant};
 
 use trust_control::commissioning::application::ApplySource;
 use trust_control::commissioning::application_records::{
-    ApplicationReview, ApplyOutcome, ReviewedAction,
+    approval_block, ApplicationReview, ApplyOutcome, ReviewedAction,
 };
 use trust_control::failure::Failure;
 use trust_control::loop_definition::LoopDefinition;
@@ -45,6 +45,7 @@ pub(crate) use ending::{
 };
 pub(crate) use journaling::{checkpoint_stage, CheckpointWriter};
 pub(crate) use law::law_target;
+pub(crate) use review::{candidate_gains, measured_noise};
 
 use law::{LawSetup, LawStart};
 use review::{preconditions, prepare, reviewed_parameters, ApplyInputs, Clients, Prepared};
@@ -129,6 +130,13 @@ pub(crate) fn review_with(
         ..
     } = prepared;
     let start = LawStart::begin(kind, setup_of(context, inputs), binding, review, &first)?;
+    // A2.5: what a physical approval names, for the parameters the confirmation writes and the observation's duration.
+    let approval = approval_block(
+        context.loop_definition,
+        ReviewedAction::Apply,
+        &parameters,
+        Some(inputs.task.duration_seconds),
+    );
     Ok(ApplicationReview {
         action: ReviewedAction::Apply,
         identity,
@@ -137,6 +145,7 @@ pub(crate) fn review_with(
         description: start.description().to_owned(),
         physical: source == ApplySource::Physical,
         operating_point: inputs.model.identity().operating_point.clone(),
+        approval,
     })
 }
 

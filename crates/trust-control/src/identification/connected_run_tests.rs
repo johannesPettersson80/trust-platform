@@ -346,6 +346,75 @@ fn a_live_write_on_a_physical_target_needs_the_engineers_approval() {
 }
 
 #[test]
+fn an_approved_physical_campaign_passes_its_refusal_and_an_unapproved_one_does_not() {
+    let loop_def = loop_definition();
+    let physical = sample(EvidenceSource::PhysicalPlant, ControllerMode::Auto);
+    assert_eq!(
+        approved_campaign_refusal(&loop_def, setpoint_step(), Some(&physical), true),
+        None,
+        "one approval covers the reviewed campaign on a physical target"
+    );
+    let refusal = approved_campaign_refusal(&loop_def, setpoint_step(), Some(&physical), false)
+        .expect("a physical target without approval is refused");
+    assert_eq!(refusal.message, PHYSICAL_TARGET_TEXT);
+    assert_eq!(
+        campaign_refusal(&loop_def, setpoint_step(), Some(&physical))
+            .map(|failure| failure.message),
+        Some(PHYSICAL_TARGET_TEXT.to_owned()),
+        "a run without an approval is refused as before"
+    );
+}
+
+#[test]
+fn an_approved_physical_setpoint_step_is_planned_on_the_physical_target_and_an_unapproved_one_is_not(
+) {
+    let loop_def = loop_definition();
+    let physical = sample(EvidenceSource::PhysicalPlant, ControllerMode::Auto);
+    let planned = approved_step_plan(
+        &loop_def,
+        Some(&physical),
+        setpoint_step(),
+        &baseline(),
+        570_000.0,
+        false,
+        true,
+    )
+    .expect("the approved physical setpoint step is planned");
+    assert_eq!(planned.source, PlanSource::Physical);
+    assert!(
+        planned.requires_physical_approval,
+        "the start must carry the runtime's approval"
+    );
+    assert!(
+        approved_step_plan(
+            &loop_def,
+            Some(&physical),
+            setpoint_step(),
+            &baseline(),
+            570_000.0,
+            false,
+            false,
+        )
+        .is_err(),
+        "a physical plan without the approval is refused"
+    );
+}
+
+#[test]
+fn a_start_whose_review_changed_is_refused_with_no_next_action() {
+    let refusal = review_changed_refusal();
+    assert_eq!(
+        refusal.message,
+        "The campaign changed since it was reviewed: its loop, its mode or its settings differ."
+    );
+    assert_eq!(refusal.detail.as_deref(), Some(REVIEW_CHANGED_TEXT));
+    assert_eq!(
+        (refusal.cause, refusal.next_action),
+        (Cause::Approval, NextAction::None)
+    );
+}
+
+#[test]
 fn a_hold_completes_only_when_its_command_is_restored_after_its_planned_end() {
     let finished = json!({ "status": "completed", "restoration": "restored", "stop_reason": "finished_early" });
     assert_eq!(hold_end(&finished), HoldEnd::Completed);

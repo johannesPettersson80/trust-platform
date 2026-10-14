@@ -37,6 +37,7 @@ pub mod recorded_model;
 pub mod recording_import;
 pub mod refusal;
 pub mod review;
+pub mod saved_result;
 pub mod selected_model_analysis;
 pub mod selected_recording;
 pub mod selection;

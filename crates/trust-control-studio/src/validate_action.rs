@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::Value;
+use trust_control::commissioning::adapters::controller_adapter;
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::connected_run::runtime_required;
 use trust_control::identification::connected_run::unfinished_operation_refusal;
@@ -27,10 +28,10 @@ use trust_control::model::{GeneralModel, SimulationOverride};
 use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
 use trust_control::study::identify::IdentifySection;
-use trust_control::study::inputs::{tune_as_held, InputsSection};
+use trust_control::study::inputs::{held_loop, held_scenarios, tune_as_held, InputsSection};
 use trust_control::study::tune::TuneSection;
 use trust_control::study::validate::{
-    check_before_start, stage_evidence, validate_outcome, CaseJobs, ModelQualification,
+    check_before_start, stage_evidence, validate_outcome, CaseJobs, EntryJob, ModelQualification,
     ValidateInputs, ValidateOutcome, ValidationInput,
 };
 use trust_control::study::Study;
@@ -41,7 +42,12 @@ use trust_control::validation::configured_plant_verification::{
 use trust_control::validation::engineer_verification_campaign::{
     engineer_verification_campaign, CampaignCase,
 };
-use trust_control::validation::isolated_run_protocol::{IsolatedRunRequest, IsolatedRunStatus};
+use trust_control::validation::initialization_case::{
+    entry_start_model, plan_entry_case, EntryCase,
+};
+use trust_control::validation::isolated_run_protocol::{
+    IsolatedRunRecord, IsolatedRunRequest, IsolatedRunStatus,
+};
 use trust_control::validation::model_route::{model_route, ModelRoute};
 use trust_control::validation::model_validation_session::maximum_normalized_error;
 use trust_control::validation::plant_choice::model_replacement;
@@ -56,6 +62,7 @@ use crate::operation::{cancelled, OperationContext, Operations};
 use crate::runtime_client::runtime_recording::PendingReleases;
 use crate::runtime_client::RuntimeClient;
 use crate::storage;
+use crate::workflow::apply::{candidate_gains, measured_noise};
 use crate::workflow::identify::IdentifyPorts;
 use crate::workflow::validate::{
     new_job_id, run_job, run_scenarios, JobTiming, RunIdentity, RunSession, ScenarioRuns, Settings,
@@ -70,6 +77,8 @@ const OPERATION_NAME: &str = "Validate";
 const CHECKING_MODEL: &str = "Checking the model against its own recording…";
 const PREPARING_RUNS: &str = "Preparing the isolated simulations…";
 const ASSESSING_RUNS: &str = "Assessing the isolated runs…";
+const ENTRY_JOB_MISSING: &str =
+    "The Manual-to-Auto entry case was planned, but its job is missing.";
 const MODEL_CHECK_PASSED: &str = "The independent model check passed: the frozen model predicted the recorded run within the identification error limit.";
 
 /// What the Validate operation works with: owned, so that it moves to the operation's thread.
@@ -206,7 +215,11 @@ fn actual_part(
     tune: &TuneSection,
     qualification: ModelQualification,
 ) -> Result<ValidateOutcome, Failure> {
-    let loop_definition = &work.loop_definition;
+    // Validate runs on the loop with the scenarios the study holds in place of its own (B4.3, A8.4). The campaign, the runs and the
+    // validation it records all take this loop, so the scenarios that ran are the ones the section keeps.
+    let study_inputs = working_study(work)?.section::<InputsSection>()?;
+    let held = held_loop(&work.loop_definition, study_inputs.as_ref())?;
+    let loop_definition = &held;
     context.progress(PREPARING_RUNS);
     let mut client = RuntimeClient::connect(connection)?;
     // The settings the controller runs with now (B5.3): the current run writes them as its record, as the candidate run writes
@@ -222,6 +235,9 @@ fn actual_part(
         &observed,
         &BTreeMap::new(),
     )?;
+    // The noise of the Manual-to-Auto entry case is read before the runs, and its failure ends the validation (`entry_noise`). The case
+    // itself is planned after the runs, from the point its plant starts at (B5.3), so a refusal of its plan is the case's own (B5.4, C1).
+    let noise = entry_noise(work, loop_definition, model)?;
     let mut journal = Journal::open(
         &work.storage_folder,
         &loop_definition.project_id,
@@ -251,6 +267,30 @@ fn actual_part(
         project_revision,
     };
     let routed = run_on_plant(&mut session, &inputs, &plant, configured)?;
+    // The entry case starts where its plant starts (B5.3): on the configured plant, at the first sample of the target-response run that
+    // the runs have just recorded, so the case is planned on that start model.
+    let start = entry_start_model(loop_definition, model, routed.entry_start_record());
+    let planned = plan_entry(loop_definition, &start, tune, &observed, noise);
+    let entry_job = planned
+        .as_ref()
+        .ok()
+        .map(|plan| run_entry(&mut session, plan, &inputs, &routed.plant))
+        .transpose()?;
+    let entry = match (&planned, &entry_job) {
+        (Ok(plan), Some(job)) => EntryJob::Ran {
+            case: &plan.case,
+            job,
+            plant: &routed.plant,
+        },
+        (Err(refusal), _) => EntryJob::Refused(refusal),
+        (Ok(_), None) => {
+            return Err(Failure::new(
+                ENTRY_JOB_MISSING,
+                Cause::Implementation,
+                NextAction::None,
+            ))
+        }
+    };
     // A cancelled operation keeps nothing: its runs ended, and the study is written only by a finished one.
     if context.is_cancelled() {
         return Err(cancelled());
@@ -272,6 +312,7 @@ fn actual_part(
         Some(tune),
         None,
         !study.recordings.is_empty(),
+        &held_scenarios(loop_definition, study_inputs.as_ref()),
     );
     validate_outcome(&ValidationInput {
         loop_definition,
@@ -282,7 +323,62 @@ fn actual_part(
         jobs: &jobs,
         qualification,
         plant_reason: routed.reason,
+        entry: Some(entry),
     })
+}
+
+/// Reads the measured noise that the Manual-to-Auto entry case judges with (A6.4): the noise that Apply's Auto entry uses, so the case
+/// judges the same allowance that Apply will. The study and the noise are reads of the validation itself, so a failure here ends
+/// Validate (`?`) rather than making the case Inconclusive (B5.4).
+fn entry_noise(
+    work: &ValidateWork,
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+) -> Result<f64, Failure> {
+    let study = working_study(work)?;
+    measured_noise(&work.project_root, &study, loop_definition, model)
+}
+
+/// Plans the Manual-to-Auto entry case of this validation (B5.3) on `model`, the case's start model (`entry_start_model`). Every Apply
+/// enters Auto (B6.1, A6.2), so every Validate plans the case. The candidate's record is materialized as Apply materializes it. The
+/// refusals of the controller adapter, of the materialization and of the case's plan are the case's refusal (B5.4, C1), not the
+/// validation's.
+fn plan_entry(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    tune: &TuneSection,
+    observed: &BTreeMap<String, f64>,
+    noise: f64,
+) -> Result<EntryCase, Failure> {
+    let gains = candidate_gains(loop_definition, &tune.candidate);
+    let values = controller_adapter(loop_definition)?.materialize(&gains, observed)?;
+    plan_entry_case(loop_definition, model, &tune.requirements, &values, noise)
+}
+
+/// Runs the Manual-to-Auto entry case as one isolated job (B5.3, E8.4) on the plant that the campaign ran on: the selected model's
+/// inline plant when the model is the plant, and the configured plant otherwise. The job carries the candidate's record.
+fn run_entry(
+    session: &mut RunSession<'_>,
+    entry: &EntryCase,
+    inputs: &RunInputs<'_>,
+    plant: &VerificationPlant,
+) -> Result<IsolatedRunStatus, Failure> {
+    let simulation = match plant {
+        VerificationPlant::Model => {
+            Some(model_route(inputs.loop_definition, inputs.model, inputs.observed)?.simulation)
+        }
+        VerificationPlant::Configured { .. } => None,
+    };
+    let job = new_job_id();
+    let request = entry.request(
+        inputs.loop_definition,
+        inputs.model,
+        &inputs.tune.candidate,
+        simulation.as_ref(),
+        &job,
+        inputs.project_revision,
+    )?;
+    run_job(session, &request)
 }
 
 /// The inputs that every run of one Validate is built from (B5.3): the loop, its selected model, the Tune section, the current settings
@@ -371,6 +467,17 @@ fn run_on_plant(
                     reason: None,
                 })
             }
+        }
+    }
+}
+
+impl RoutedRuns {
+    /// The run that the Manual-to-Auto entry case starts from (B5.3): on the configured plant, the current settings' target-response run,
+    /// which the runs put first. On the model the case starts at the model's operating point, so there is no such run.
+    fn entry_start_record(&self) -> Option<&IsolatedRunRecord> {
+        match self.plant {
+            VerificationPlant::Configured { .. } => self.runs.first()?.current.run.as_ref(),
+            VerificationPlant::Model => None,
         }
     }
 }

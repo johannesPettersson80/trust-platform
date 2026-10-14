@@ -1,7 +1,8 @@
 //! The review of an identification campaign (specification 35, §0.1a `controlStudio/identify` with `action: "review"`, B3.2 to
-//! B3.4 and C12): the campaign Identify would run, answered before the engineer starts it. The review is given by the loop, the
-//! settings the engineer asks for and, when a runtime is connected, one live sample of the loop. It starts nothing and writes
-//! nothing.
+//! B3.4, B9.3 and C12): the campaign Identify would run, answered before the engineer starts it. The review is given by the loop,
+//! the settings the engineer asks for and, when a runtime is connected, one live sample of the loop. It starts nothing and writes
+//! nothing. It answers an identity, the digest of what the campaign runs, which a start names (E11.8), and on a physical target
+//! the approval block that the engineer approves (A2.5).
 //!
 //! The campaign's own preconditions and rules decide the review (`configured_acquisition`, `require_campaign_limits`,
 //! `identification_method`), so the review refuses what the campaign refuses, with the same next action. What the campaign
@@ -12,7 +13,10 @@
 
 use schemars::JsonSchema;
 use serde::Serialize;
+use serde_json::json;
 
+use crate::commissioning::application_records::review_identity;
+use crate::experiment::plan::project_stop_conditions;
 use crate::experiment::{ControlExperimentKind, ExperimentSample};
 use crate::failure::Failure;
 use crate::identification::acquisition_settings::{configured_acquisition, AcquisitionSettings};
@@ -21,12 +25,18 @@ use crate::identification::campaign::{
 };
 use crate::identification::policy::{identification_method, project_scripted};
 use crate::limits::RESTORATION_CONFIRMATION_EXECUTIONS;
-use crate::loop_definition::{Activation, Execution, Experiment, LoopDefinition, Range};
+use crate::loop_definition::{
+    Activation, AuxiliaryRole, Direction, Execution, Experiment, LoopDefinition, LoopSignal, Range,
+};
+use crate::recording::EvidenceSource;
 
 /// The review of the campaign that Identify would run (B3.2 to B3.4, C12).
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IdentifyReview {
+    /// The identity of this review (§0.1a, E11.8): `sha256:` followed by the digest of what the campaign runs. A start names it,
+    /// and the engine refuses a start whose identity no longer matches.
+    pub identity: String,
     /// The experiment kind the runtime runs (B3.3): Identify (Automatic) chooses it from the loop's mode and policy.
     pub kind: ControlExperimentKind,
     /// Whether Identify chose the method from the loop's mode and policy (B3.3); false for a method the engineer or the loop names.
@@ -46,6 +56,45 @@ pub struct IdentifyReview {
     /// The project's scenario, for a project-scripted experiment (C12); absent for an experiment Control Studio runs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_scripted: Option<ProjectScriptedReview>,
+    /// What one physical approval covers (A2.5, B3.4 step 1, B9.3): present only on a physical target, where the start needs the
+    /// engineer's approval. A simulated target shows no block; pressing the action confirms the start.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval: Option<CampaignApproval>,
+}
+
+/// What one physical approval of an identification campaign covers (A2.5, B3.4 step 1, B9.3): the loop, each signal the campaign
+/// writes with its limits, the amplitude, the maximum duration, the stop conditions and the restoration. It shows limits, not
+/// measured values: the steady baseline sets the operating point (B3.4 step 2).
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CampaignApproval {
+    /// The loop the campaign works on.
+    pub loop_id: String,
+    /// Each signal the campaign writes, with the limits it keeps the signal in.
+    pub signals: Vec<ApprovalSignal>,
+    /// The step's amplitude; zero when Identify sizes the step after the steady baseline (B3.3).
+    pub amplitude: f64,
+    /// The longest the campaign runs, in s (A7, B3.4 step 2).
+    pub duration_seconds: f64,
+    /// What ends the campaign before its end, and what the runtime does then (B3.4 step 6, B3.9).
+    pub stop_conditions: Vec<String>,
+    /// What the restoration returns, and when it is confirmed (B3.4 step 5, A7).
+    pub restoration: String,
+}
+
+/// One signal an identification campaign writes, with the limits it keeps it in (A2.5, B3.4). A limit the loop does not declare
+/// is not a number, and the page shows it as not declared (B9.3).
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovalSignal {
+    /// The signal's symbol.
+    pub symbol: String,
+    /// The signal's unit; empty means dimensionless or not applicable.
+    pub unit: String,
+    /// The smallest value the signal may take; not a number when no limit is declared.
+    pub minimum: f64,
+    /// The largest value the signal may take; not a number when no limit is declared.
+    pub maximum: f64,
 }
 
 /// What a project-scripted experiment writes and asserts (C12): its baseline, its activation and its abort.
@@ -65,6 +114,8 @@ pub struct ProjectScriptedReview {
     /// The restoration of the activation after the experiment ends (C12, A7); absent when the scenario has no activation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub restoration: Option<RestorationReview>,
+    /// The stop conditions the runtime applies to the scenario (E5.5, C12): the list the test's plan names.
+    pub stop_conditions: Vec<String>,
 }
 
 /// How the activation of a project-scripted experiment is restored (C12, A7).
@@ -100,12 +151,26 @@ pub struct AbortReview {
     pub asserted_value: Option<bool>,
 }
 
+/// The stop conditions of an identification campaign that Control Studio runs, in the words its approval shows (B3.4 step 6, B3.9).
+const CAMPAIGN_STOP_CONDITIONS: [&str; 2] = [
+    "The runtime stops the campaign when the plant input it writes leaves its limits (B3.4 step 6).",
+    "Abort, a failure, a forced signal, a mode left, a reload or a restart stops it at once, and the runtime restores what it wrote (B3.9).",
+];
+
+/// The restoration of an identification campaign, in the words its approval shows (B3.4 step 5, A6.2).
+const CAMPAIGN_RESTORATION: &str = "The runtime restores the written signal to its value from before the campaign and confirms the restoration (B3.4 step 5). A Manual campaign returns the loop to its starting mode (A6.2).";
+
+/// The restoration of a campaign that writes nothing, in the words its approval shows.
+const NOTHING_WRITTEN: &str = "Nothing is written, so nothing is restored.";
+
 /// The review of the campaign that `settings` ask for on `loop_definition`, with the loop's live `sample` when a runtime
 /// answered one (B3.3). The campaign's checks run first, in its order, so the first refusal is the one the campaign would give.
+/// A live sample on a physical target gives the review its approval block (A2.5).
 ///
 /// # Errors
 /// The settings cannot configure the loop (B3.2); a limit the campaign needs is missing or not ordered (B3.4 step 1, next action
-/// Limits); or the method cannot be chosen from the loop's mode and policy (B3.3), with the next action the policy names.
+/// Limits); the maximum duration is outside 1 s to 24 h (A7, next action Limits); or the method cannot be chosen from the loop's
+/// mode and policy (B3.3), with the next action the policy names.
 pub fn campaign_review(
     loop_definition: &LoopDefinition,
     settings: &AcquisitionSettings,
@@ -118,21 +183,61 @@ pub fn campaign_review(
     let maximum_ms = campaign_maximum_ms(&configured)?;
     let input_range = plant_input_range(&configured)?;
     let experiment = configured.experiment.as_ref();
+    let maximum_duration_seconds = ms_as_f64(maximum_ms) / 1_000.0;
+    let execution = experiment.map_or(Execution::ControlStudio, |experiment| experiment.execution);
+    let amplitude = experiment.map_or(0.0, |experiment| experiment.amplitude);
+    let output_range = configured.signals.process_variable.range;
+    let scripted = project_scripted(&configured)
+        .map(|experiment| project_scripted_review(experiment, maximum_duration_seconds));
+    let approval = sample
+        .is_some_and(|sample| sample.source == EvidenceSource::PhysicalPlant)
+        .then(|| {
+            campaign_approval(
+                loop_definition,
+                method.kind,
+                input_range,
+                amplitude,
+                maximum_duration_seconds,
+                scripted.as_ref(),
+            )
+        });
+    // What the confirmation runs (E11.8): the loop and its revision, the settings, and everything the review derives from them
+    // and from the target's kind. The running values of the process are not part of it, because they move with every scan.
+    let identity = review_identity(&json!({
+        "loopId": loop_definition.id,
+        "loopRevision": loop_definition.revision,
+        "settings": settings,
+        "kind": method.kind,
+        "automatic": method.automatic,
+        "manual": method.manual,
+        "execution": execution,
+        "inputRange": input_range,
+        "outputRange": output_range,
+        "maximumDurationSeconds": maximum_duration_seconds,
+        "amplitude": amplitude,
+        "projectScripted": scripted,
+        "approval": approval,
+    }));
     Ok(IdentifyReview {
+        identity,
         kind: method.kind,
         automatic: method.automatic,
         manual: method.manual,
-        execution: experiment.map_or(Execution::ControlStudio, |experiment| experiment.execution),
+        execution,
         input_range,
-        output_range: configured.signals.process_variable.range,
-        maximum_duration_seconds: ms_as_f64(maximum_ms) / 1_000.0,
-        amplitude: experiment.map_or(0.0, |experiment| experiment.amplitude),
-        project_scripted: project_scripted(&configured).map(project_scripted_review),
+        output_range,
+        maximum_duration_seconds,
+        amplitude,
+        project_scripted: scripted,
+        approval,
     })
 }
 
-/// What a project-scripted experiment writes and asserts, as the loop declares it (C12).
-fn project_scripted_review(experiment: &Experiment) -> ProjectScriptedReview {
+/// What a project-scripted experiment writes, asserts and stops on, as the loop declares it (C12, E5.5).
+fn project_scripted_review(
+    experiment: &Experiment,
+    duration_seconds: f64,
+) -> ProjectScriptedReview {
     ProjectScriptedReview {
         baseline_seconds: experiment.baseline_seconds,
         activation: experiment.activation.as_ref().map(activation_review),
@@ -141,6 +246,14 @@ fn project_scripted_review(experiment: &Experiment) -> ProjectScriptedReview {
             activation_restored_to: false,
             confirmed_after_executions: RESTORATION_CONFIRMATION_EXECUTIONS,
         }),
+        stop_conditions: project_stop_conditions(
+            duration_seconds,
+            experiment.abort.as_ref().and_then(|abort| {
+                abort
+                    .asserted_value
+                    .map(|asserted| (abort.symbol.as_str(), asserted))
+            }),
+        ),
     }
 }
 
@@ -156,6 +269,107 @@ fn abort_review(abort: &Activation) -> AbortReview {
         symbol: abort.symbol.clone(),
         address: abort.address.clone(),
         asserted_value: abort.asserted_value,
+    }
+}
+
+/// The approval block of a campaign of `kind` on a physical target (A2.5, B3.4 step 1, B9.3). The signals are those the campaign
+/// writes, and the restoration and the stop conditions are the ones its kind names.
+fn campaign_approval(
+    loop_definition: &LoopDefinition,
+    kind: ControlExperimentKind,
+    input_range: Range,
+    amplitude: f64,
+    duration_seconds: f64,
+    project_scripted: Option<&ProjectScriptedReview>,
+) -> CampaignApproval {
+    let signals = written_signals(loop_definition, kind, input_range);
+    let restoration = match (signals.is_empty(), project_scripted.and_then(|scripted| scripted.restoration.as_ref())) {
+        (true, _) => NOTHING_WRITTEN.to_owned(),
+        (false, Some(restoration)) => format!(
+            "The activation returns to {} however the test ends, and its restoration is confirmed after {} executions of the loop's task (C12, A7).",
+            if restoration.activation_restored_to { "TRUE" } else { "FALSE" },
+            restoration.confirmed_after_executions,
+        ),
+        (false, None) => CAMPAIGN_RESTORATION.to_owned(),
+    };
+    let stop_conditions = match project_scripted {
+        Some(scripted) => scripted.stop_conditions.clone(),
+        None => CAMPAIGN_STOP_CONDITIONS
+            .iter()
+            .map(|text| (*text).to_owned())
+            .collect(),
+    };
+    CampaignApproval {
+        loop_id: loop_definition.id.clone(),
+        signals,
+        amplitude,
+        duration_seconds,
+        stop_conditions,
+        restoration,
+    }
+}
+
+/// The signals a campaign of `kind` writes, each with the limits it keeps it in (A2.5, B3.4): the activation of a project-scripted
+/// test (its limits are not declared), the setpoint of a setpoint step (the permitted output range it is capped by, B3.3), the
+/// writable disturbance of a load step, or the plant input of every other step (the plant input range, B3.4 step 1). An
+/// observation writes nothing.
+fn written_signals(
+    loop_definition: &LoopDefinition,
+    kind: ControlExperimentKind,
+    input_range: Range,
+) -> Vec<ApprovalSignal> {
+    let output_range = loop_definition.signals.process_variable.range;
+    match kind {
+        ControlExperimentKind::Observation => Vec::new(),
+        ControlExperimentKind::ProjectSequence => loop_definition
+            .experiment
+            .as_ref()
+            .and_then(|experiment| experiment.activation.as_ref())
+            .map(|activation| ApprovalSignal {
+                symbol: activation.symbol.clone(),
+                unit: String::new(),
+                minimum: f64::NAN,
+                maximum: f64::NAN,
+            })
+            .into_iter()
+            .collect(),
+        ControlExperimentKind::SetpointStep => loop_definition
+            .signals
+            .setpoint
+            .as_ref()
+            .map(|setpoint| approval_signal(setpoint, output_range))
+            .into_iter()
+            .collect(),
+        ControlExperimentKind::LoadStep => loop_definition
+            .signals
+            .additional
+            .iter()
+            .flatten()
+            .find(|signal| {
+                signal.role == AuxiliaryRole::Disturbance && signal.direction == Direction::Write
+            })
+            .map(|signal| ApprovalSignal {
+                symbol: signal.symbol.clone(),
+                unit: signal.unit.clone(),
+                minimum: signal.range.minimum,
+                maximum: signal.range.maximum,
+            })
+            .into_iter()
+            .collect(),
+        _ => vec![approval_signal(
+            &loop_definition.signals.manipulated_variable,
+            input_range,
+        )],
+    }
+}
+
+/// A loop signal with the limits given for it.
+fn approval_signal(signal: &LoopSignal, range: Range) -> ApprovalSignal {
+    ApprovalSignal {
+        symbol: signal.symbol.clone(),
+        unit: signal.unit.clone(),
+        minimum: range.minimum,
+        maximum: range.maximum,
     }
 }
 

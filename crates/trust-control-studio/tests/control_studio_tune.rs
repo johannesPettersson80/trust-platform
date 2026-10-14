@@ -12,8 +12,9 @@
 //! the model it identifies, `K` 0.2 degC per %, `T` 4.9 s and `L` 1.1 s, at `λ` = 6.5 s: More robust, `4·max(L, T/3)` (N5.4).
 //!
 //! The tests prove that `tune` before `identify` is refused with the next action Identify and stores nothing (B4.7); that `tune`
-//! never reaches the runtime (B4.1), since it finishes with its result although its `--endpoint` is one that nothing listens on
-//! and it has no control token, with an unapplied candidate of the loop's gain sign (N6.4) and finite margins (B4.6), stored in
+//! needs no runtime (B4.1, B4.5: a runtime it cannot read only leaves out the current settings' prediction), since it finishes
+//! with its result although its `--endpoint` is one that nothing listens on and it has no control token, with an unapplied
+//! candidate of the loop's gain sign (N6.4) and finite margins (B4.6), stored in
 //! a Tune section designed on the study's model (A8.4); and that `tune --method simc` gives the gains that N5.2 and N5.4 give
 //! for the identified model's own parameters, close to the README's. A failed check is recorded as a finding and the test goes
 //! on; a step that needs the result of the last ends the test with the findings so far and the JSON they read.
@@ -283,7 +284,7 @@ impl Lab {
         section
     }
 
-    /// Runs `tune --json` with `extra` arguments and without the control token: Tune never reaches the runtime (B4.1). Returns
+    /// Runs `tune --json` with `extra` arguments and without the control token: Tune needs no runtime (B4.1, B4.5). Returns
     /// the `result` of its answer; the test ends here with the findings so far when the verb does not finish with one.
     fn tune(&self, findings: &mut Findings, extra: &[&str]) -> Value {
         let mut arguments = vec!["--json"];
@@ -561,7 +562,7 @@ fn tune_before_identify_is_refused_with_identify_as_the_next_action() {
     findings.conclude();
 }
 
-/// `tune` never reaches the runtime and designs an unapplied candidate (B4.1, B4.3 to B4.6, A8.4). The heater is identified
+/// `tune` needs no runtime and designs an unapplied candidate (B4.1, B4.3 to B4.6, A8.4). The heater is identified
 /// through the program, then `tune --json` runs with `--endpoint tcp://127.0.0.1:1`, which nothing listens on, and without a
 /// control token: it finishes with its result only if it never connects.
 ///

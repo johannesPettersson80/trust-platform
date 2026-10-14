@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Control Studio's panel in VS Code now runs on its engine, `trust-control-studio serve`, so the panel and the command line
+  decide everything the same way: identification, tuning, validation, Apply, Restore and Keep, which stages are available, and
+  every refusal with its next action. Reopening a loop shows its identified model with the response plot, its candidate, its
+  requirements (Automatic's values marked Automatic), its last current validation and Apply's offers, and it follows an operation
+  that kept running while the panel was closed; Abort still stops it. Tune predicts the current settings beside the candidate when
+  a runtime is connected. Validate also runs the Manual-to-Auto entry that Apply performs and needs it to pass; its table shows
+  failures first and counts the passing range, state and transfer checks in one row. Reset clears the model, its plot and the
+  tuning and validation results that depended on it.
 - Control Studio's Apply no longer starts when the process has only touched its settling band. It waits until every measured output
   has stayed inside its band for a settle dwell: the longer of twenty samples at the loop's task period and a tenth of the expected
   settling time (B6.2, B3.4).

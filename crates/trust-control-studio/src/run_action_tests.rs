@@ -9,9 +9,13 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use trust_control::failure::{Cause, NextAction};
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{InputsRequest, OperationState, OperationUpdate, TuneMethod};
+use trust_control::messages::{
+    InputsRequest, OperationState, OperationUpdate, RunRequest, RunResult, TuneMethod,
+};
+use trust_control::stages::StageEvidence;
 use trust_control::study::inputs::InputsSection;
 use trust_control::study::tune::TuneSection;
+use trust_control::study::Page;
 
 use crate::busy_loops::LoopClaims;
 use crate::commands::{ControlStudio, RUN};
@@ -118,6 +122,10 @@ fn the_manual_method_without_its_settings_ends_the_run_before_any_stage_with_the
         OperationState::Finished,
         "a needed input is a result, not a failure: {update:?}"
     );
+    assert_eq!(
+        update.stage, None,
+        "the run entered no stage before it asked"
+    );
     let result = update.result.expect("the run's result");
     assert_eq!(result["needs"], json!("manual-settings"), "{result}");
     let study = storage::open_study(
@@ -149,8 +157,48 @@ fn a_loop_without_its_experiment_duration_ends_the_run_at_identify_with_the_limi
         OperationState::Finished,
         "the limits are checked before the runtime is reached: {update:?}"
     );
+    assert_eq!(
+        update.stage,
+        Some(Page::Identify),
+        "the run stopped in Identify, and its final update names that stage"
+    );
     let result = update.result.expect("the run's result");
     assert_eq!(result["needs"], json!("limits"), "{result}");
+    assert_eq!(
+        result["stageEvidence"]["hasModel"],
+        json!(false),
+        "{result}"
+    );
+    assert!(
+        result.get("identification").is_none(),
+        "the identification stage never ran, so the answer carries none: {result}"
+    );
+}
+
+#[test]
+fn the_answer_carries_the_identification_the_run_made_and_the_evidence_the_page_gates_on() {
+    let answer = RunResult {
+        stages: Vec::new(),
+        stage_evidence: StageEvidence {
+            has_model: true,
+            ..StageEvidence::default()
+        },
+        identification: Some(json!({ "modelType": "first-order" })),
+        needs: None,
+    };
+    let value = serde_json::to_value(&answer).expect("the answer");
+    assert_eq!(
+        value["identification"]["modelType"],
+        json!("first-order"),
+        "{value}"
+    );
+    assert_eq!(value["stageEvidence"]["hasModel"], json!(true), "{value}");
+    assert_eq!(
+        value["stageEvidence"]["hasCandidate"],
+        json!(false),
+        "{value}"
+    );
+    assert!(value.get("needs").is_none(), "{value}");
 }
 
 #[test]
@@ -178,5 +226,27 @@ fn a_run_names_its_stage_through_a_kebab_case_word_and_refuses_an_unknown_one() 
     assert!(
         unknown.get("failure").is_some(),
         "Apply is not a stage of a run (B8): {unknown}"
+    );
+}
+
+#[test]
+fn the_run_request_names_identify_again_and_absent_it_reuses_the_current_model() {
+    let mut request = json!({
+        "projectRoot": "/project",
+        "runtimeId": "runtime-1",
+        "loopId": "loop-1",
+        "storageFolder": "",
+        "through": "identify",
+    });
+    let reused: RunRequest = serde_json::from_value(request.clone()).expect("the request");
+    assert!(
+        !reused.identify_again,
+        "absent, the current model is reused"
+    );
+    request["identifyAgain"] = json!(true);
+    let again: RunRequest = serde_json::from_value(request).expect("the request");
+    assert!(
+        again.identify_again,
+        "Identify plant asks for a new campaign"
     );
 }

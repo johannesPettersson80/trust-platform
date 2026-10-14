@@ -33,6 +33,7 @@ use trust_control::recording::EvidenceSource;
 use trust_control::runtime::{RuntimeConnection, RuntimeStatus};
 use trust_control::stages::apply_available;
 use trust_control::study::identify::IdentifySection;
+use trust_control::study::inputs::{held_scenarios, InputsSection};
 use trust_control::study::tune::TuneSection;
 use trust_control::study::validate::{stage_evidence, ValidateSection};
 use trust_control::study::Study;
@@ -98,12 +99,14 @@ fn validated_sections(
     let identify = study.section::<IdentifySection>()?;
     let tune = study.section::<TuneSection>()?;
     let validate = study.section::<ValidateSection>()?;
+    let inputs = study.section::<InputsSection>()?;
     let evidence = stage_evidence(
         loop_definition,
         identify.as_ref(),
         tune.as_ref(),
         validate.as_ref(),
         !study.recordings.is_empty(),
+        &held_scenarios(loop_definition, inputs.as_ref()),
     );
     match (identify, validate) {
         (Some(identify), Some(validate)) if apply_available(&evidence) => Ok((identify, validate)),
@@ -160,7 +163,7 @@ pub(crate) fn checkpoint_to_retire(
 /// The measured output's noise as single executions see it (A6.4; `measuredProcessNoise`): from the steady baseline of the recording the
 /// model was fitted from, rebuilt from the study with the request it was taken with (B3.6). Zero without a baseline: an Identify result
 /// without its request, or a recording that does not rebuild into a record.
-fn measured_noise(
+pub(crate) fn measured_noise(
     project_root: &Path,
     study: &Study,
     loop_definition: &LoopDefinition,

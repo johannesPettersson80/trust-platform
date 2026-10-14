@@ -1,20 +1,36 @@
 //! What an identification gives the page and the command line (specification 35, A8.4 and B3.8; Identify page specification,
 //! "Identified model and plot"): the signals an identification used, the readable result of a stored Identify section with
-//! its response plot, and the evidence the study gives the stages.
+//! its response plot, the evidence the study gives the stages, and the candidate a study keeps, as Tune answers it (A8.6).
 //!
 //! The result is read from the stored section, never from a fit run again (A8.6): the model type and the key numbers come
 //! from its presentation ([`identified_model_type_text`], [`identified_model_key_numbers`]), and the plot from the traces of
 //! the experiment and the predicted response the presentation keeps.
 
 use crate::experiment::ControlExperimentKind;
+use crate::failure::Failure;
 use crate::identification::experiment_trace::ExperimentTrace;
 use crate::identification::presentation::{
     identified_model_key_numbers, identified_model_type_text,
 };
+use crate::identification::recording_import::display_engineering_unit;
 use crate::loop_definition::LoopDefinition;
-use crate::messages::{IdentifyPlot, IdentifyResult, PlotRole, PlotTrace};
-use crate::stages::{StageAvailability, StageEvidence};
+use crate::messages::{
+    CandidateOutcome, IdentifyPlot, IdentifyResult, PlotRole, PlotTrace, TuneMethod, TuneResult,
+};
+use crate::stages::{stage_availability, StageEvidence};
 use crate::study::identify::{IdentifySection, IdentifySignals};
+use crate::study::inputs::InputsSection;
+use crate::study::tune::model::tuning_model;
+use crate::study::tune::prediction::CandidateResponse;
+use crate::study::tune::record::record_settings;
+use crate::study::tune::requirements::study_requirements;
+use crate::study::tune::result::{tune_result, ResultInputs};
+use crate::study::tune::{controller_action, TuneSection};
+use crate::study::Study;
+use crate::tuning::objective::AUTOMATIC_OBJECTIVE;
+use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::settings_pins::mapped_parameters;
+use crate::tuning::texts::MANUAL_DESCRIPTION;
 
 /// What the text adds to the model type of a provisional model (B3.5).
 const PROVISIONAL_LABEL: &str = " · Provisional";
@@ -40,12 +56,15 @@ pub fn identify_signals(
 }
 
 /// The result of the identification a section stores (B3.8): its model type, equation and key numbers, whether it is
-/// provisional, the readable text, the response plot, the recording the model was fitted from, and `stages`. The text is the
-/// model type, " · Provisional" for a provisional model, then the equation and the key numbers, each on its own line.
+/// provisional, the readable text, the response plot, the recording the model was fitted from, the revision of the model, the
+/// requirements it is given, and `stages`. The text is the model type, " · Provisional" for a provisional model, then the
+/// equation and the key numbers, each on its own line. The revision is the one Validate's model check names for this model
+/// (B5.2). The requirements are the record [`identify_answer`] works out, and `None` where Automatic cannot form one.
 #[must_use]
 pub fn identify_result(
     section: &IdentifySection,
-    stages: Vec<StageAvailability>,
+    evidence: StageEvidence,
+    requirements: Option<TuningRequirements>,
 ) -> IdentifyResult {
     let shown = &section.presentation.presentation;
     let model_type = identified_model_type_text(shown);
@@ -64,8 +83,138 @@ pub fn identify_result(
         text,
         plot: response_plot(section),
         recording_id: section.estimation_recording_id.clone(),
-        stages,
+        model_revision: section.selected_model.identity().revision.clone(),
+        requirements,
+        stage_evidence: evidence,
+        stages: stage_availability(&evidence),
     }
+}
+
+/// The Identify answer of `section`, a section of `study` (B3.8, A8.6): [`identify_result`] with the requirements Tune designs
+/// to for the section's model now (B4.3), which come from the study's Tune section and its recorded inputs.
+///
+/// # Errors
+/// The study's Tune section or its inputs cannot be read.
+pub fn identify_answer(
+    study: &Study,
+    loop_definition: &LoopDefinition,
+    section: &IdentifySection,
+    evidence: StageEvidence,
+) -> Result<IdentifyResult, Failure> {
+    let previous = study.section::<TuneSection>()?;
+    let inputs = study.section::<InputsSection>()?;
+    let requirements =
+        study_requirements(loop_definition, section, previous.as_ref(), inputs.as_ref());
+    Ok(identify_result(section, evidence, requirements))
+}
+
+/// The identification a study holds, as `controlStudio/open` answers it (A8.6): the Identify answer of its Identify section when
+/// that section is current for the loop (A8.4). A study with no section, or one that is not current, holds none, as it does after
+/// Reset.
+///
+/// # Errors
+/// The study's sections cannot be read.
+pub fn study_identification(
+    study: &Study,
+    loop_definition: &LoopDefinition,
+    evidence: StageEvidence,
+) -> Result<Option<IdentifyResult>, Failure> {
+    let Some(section) = study.section::<IdentifySection>()? else {
+        return Ok(None);
+    };
+    if !section.is_current_for(loop_definition) {
+        return Ok(None);
+    }
+    identify_answer(study, loop_definition, &section, evidence).map(Some)
+}
+
+/// The text of a kept candidate's answer where the study keeps no prediction: the response and the margins are not predicted on
+/// open, and Tune runs again to show them (B4.5, A8.6).
+const NOT_KEPT_PREDICTION: &str =
+    "The study keeps the candidate but not its prediction, so the response and the margins are not shown until Tune runs again.";
+
+/// The candidate a study keeps, answered as `controlStudio/tune` answers it (B4.5, A8.6): the builder of the Tune answer
+/// ([`tune_result`]) on the study's Tune section and its model. The study keeps the design, its candidate, method, reason,
+/// attempts, `λ` and requirements, but no prediction. So the answer holds no response, settling time or overshoot, its outcome is
+/// unpredicted, and it gives no margins and no comparison: nothing is predicted on open. Two values are rebuilt from what the
+/// study keeps and are not the answer's own words: a relay candidate's description is its reason, because the relay cycle's
+/// numbers are not kept, and the objective of an Automatic candidate is its declared response, or More robust, because the study
+/// keeps the `λ` of a SIMC candidate and not the response it was chosen with. It is `None` without an identification or a Tune
+/// section, or when the model cannot be read.
+#[must_use]
+pub fn kept_candidate(
+    loop_definition: &LoopDefinition,
+    identify: Option<&IdentifySection>,
+    previous: Option<&TuneSection>,
+    evidence: StageEvidence,
+) -> Option<TuneResult> {
+    let identify = identify?;
+    let section = previous?;
+    let model = tuning_model(&identify.selected_model, identify).ok()?;
+    let signals = &loop_definition.signals;
+    let process_unit = display_engineering_unit(&signals.process_variable.unit);
+    let manipulated_unit = display_engineering_unit(&signals.manipulated_variable.unit);
+    let requirements = &section.requirements;
+    let objective = match section.method.and_then(TuneMethod::formula) {
+        Some(_) => requirements.formula_objective(),
+        None => requirements.tuning_objective.unwrap_or(AUTOMATIC_OBJECTIVE),
+    };
+    let description = match section.method {
+        Some(TuneMethod::Manual) => Some(MANUAL_DESCRIPTION.to_owned()),
+        Some(TuneMethod::Relay) => Some(section.reason.clone()),
+        _ => None,
+    };
+    Some(tune_result(ResultInputs {
+        model: &model,
+        method: section.method,
+        description,
+        action: controller_action(loop_definition),
+        process_unit: &process_unit,
+        manipulated_unit: &manipulated_unit,
+        candidate: section.candidate,
+        settings: record_settings(&section.candidate, &mapped_parameters(loop_definition)),
+        objective,
+        closed_loop_time_seconds: section.closed_loop_time_seconds,
+        attempts: section.attempts.clone(),
+        reason: section.reason.clone(),
+        requirements: requirements.clone(),
+        outcome: CandidateOutcome::Unpredicted {
+            reason: NOT_KEPT_PREDICTION.to_owned(),
+        },
+        prediction: CandidateResponse {
+            response: None,
+            unavailable: Some(NOT_KEPT_PREDICTION.to_owned()),
+            settling_time_seconds: None,
+            overshoot_percent: None,
+        },
+        margins: (None, Some(NOT_KEPT_PREDICTION.to_owned())),
+        comparison: Vec::new(),
+        stage_evidence: evidence,
+    }))
+}
+
+/// The candidate that `controlStudio/open` holds for a study (B4.5, A8.6): [`kept_candidate`] of the study's sections, given only
+/// when the stage evidence says the study has a current candidate (A8.4). The caller passes the evidence `stage_evidence_of`
+/// gives, so the rule for a current candidate is decided in one place.
+///
+/// # Errors
+/// The study's sections cannot be read.
+pub fn study_candidate(
+    study: &Study,
+    loop_definition: &LoopDefinition,
+    evidence: StageEvidence,
+) -> Result<Option<TuneResult>, Failure> {
+    if !evidence.has_candidate {
+        return Ok(None);
+    }
+    let identify = study.section::<IdentifySection>()?;
+    let previous = study.section::<TuneSection>()?;
+    Ok(kept_candidate(
+        loop_definition,
+        identify.as_ref(),
+        previous.as_ref(),
+        evidence,
+    ))
 }
 
 /// The evidence of a study of `loop_definition` that sets the stages' status: the loop is bound, a model exists when the

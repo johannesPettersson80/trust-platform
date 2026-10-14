@@ -19,7 +19,8 @@ use std::collections::BTreeMap;
 use trust_control::commissioning::adapters::controller_adapter;
 use trust_control::commissioning::application::ApplySource;
 use trust_control::commissioning::application_records::{
-    restore_identity_parts, review_identity, ApplicationReview, RestoreOutcome, ReviewedAction,
+    approval_block, restore_identity_parts, review_identity, ApplicationReview, RestoreOutcome,
+    ReviewedAction,
 };
 use trust_control::commissioning::application_texts::review_changed;
 use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
@@ -227,6 +228,10 @@ pub(crate) fn restore_with_approval(
         mode: rules::reported_mode(&checkpoint, &values),
         parameters,
         recording,
+        // B6.4: the runtime confirmed the restoration and the checkpoint is cleared, so Restore is not offered again; B6.5: Keep in
+        // project is not offered after a Restore.
+        restore_available: false,
+        keep_available: false,
     })
 }
 
@@ -261,6 +266,9 @@ fn reviewed(
     let transfer = transfer_session(client, &checkpoint).status()?;
     rules::check_transfer_owner(&checkpoint, &transfer)?;
     let reenterable = rules::reenterable(loop_definition, &checkpoint)?;
+    let parameters = rules::reviewed_parameters(loop_definition, &checkpoint, &observed);
+    // A2.5: the approval names the signals this Restore writes, with their limits, and its restoration (no observation, so no duration).
+    let approval = approval_block(loop_definition, ReviewedAction::Restore, &parameters, None);
     let review = ApplicationReview {
         action: ReviewedAction::Restore,
         identity: review_identity(&restore_identity_parts(
@@ -271,7 +279,7 @@ fn reviewed(
             &checkpoint.id,
         )),
         found_mode: checkpoint.found_mode,
-        parameters: rules::reviewed_parameters(loop_definition, &checkpoint, &observed),
+        parameters,
         description: rules::texts::restore_description(
             checkpoint.stage,
             checkpoint.found_mode,
@@ -279,6 +287,7 @@ fn reviewed(
         ),
         physical: source == ApplySource::Physical,
         operating_point: None,
+        approval,
     };
     Ok(Reviewed { review, checkpoint })
 }

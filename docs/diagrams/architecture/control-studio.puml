@@ -19,10 +19,11 @@ package "VS Code webview" {
 
 package "VS Code extension host" {
   component "Panel message boundary\nproject, loop revision and editor session\ndeduplicated requests and current-scope checks" as panel
+  component "Engine panel route (engine/enginePanelRoute.ts)\nstarts one trust-control-studio serve per window\na loop the engine serves: each page request goes to the engine\nin the order the page made it (study inputs first),\nand the engine's answers, updates and opened study go to the page\nno rule of its own; presentation and wiring only" as engine_route
   component "Compiled binding discovery\nexplicit configured loops, ST instances and PID group members\ncomplete signal/parameter/state mappings, compiled member checks" as bindings
   component "Loop setup generators\ncompiled catalog: symbols, call links, writes\none loop definition per structure\nwrites control-loops/<name>.json, never overwrites" as setup
   component "Automatic flow coordinator\nIdentify → model review\nexplicit Tune stops at candidate\nexplicit Validate checks model then controller\npause for missing inputs or failure" as flow
-  component "Engineer workflow session\nrequest guards, input invalidation and recovery\none explicit session state: model, candidate,\nrequirements and retained outcomes" as engineer
+  component "TypeScript session (until V7)\nEngineer workflow session: request guards, input invalidation and recovery\none explicit session state: model, candidate, requirements and retained outcomes\nfor parked loops, and for what the engine does not serve yet:\nfits from an opened file, supplied models, analysis tools" as engineer
   component "Engineer action owners\nIdentify, Tune, Validate, Apply/confirm,\nRestore and runtime review; each works only\nthrough the session host and its state" as actions
   component "Study Reset\nidle/recovery guard; clear working results\npersist empty draft before refreshing view" as reset
   component "Model and recording owners\nopened or retained recordings\nindependent identification data and selected model" as models
@@ -37,7 +38,7 @@ package "VS Code extension host" {
   component "Configured-plant validation\nCurrent/Tuned actual ST execution\nnominal campaign has no fitted-model override" as configured_validation
   component "Reviewed application coordinator\nfresh review and single confirmation\nexplicit Apply or Restore only" as application
   component "Commissioning and recovery\nwaits (bounded, cancellable) for the validated operating point\ncoherent parameters/state adoption; state-feedback entry allowance\nobserves the test in runtime time; monitoring and rollback" as commissioning
-  database "Project study store\ncontrol-studio/[loop id]/study.json: draft, history,\npage, mimo sections; recordings/ and history/ folders\natomic writes in a later turn; refused over the storage limit\nchecked results are shared, never checked again (A10.7)" as persistence
+  database "TypeScript session study store\ncontrol-studio/[loop id]/typescript-session/study.json: draft, history,\npage, mimo sections; its own recordings/ and history/ folders,\nbeside the engine's study, never in its files (A8.3, §0.1a)\natomic writes in a later turn; refused over the loop's storage limit\nchecked results are shared, never checked again (A10.7)" as persistence
   database "VS Code workspace state\noperation journals only: identification campaign, recording\nowner, mode, commissioning checkpoints, experiment and apply\nrecovery, isolated-operation identity" as journals
   component "Identification campaign (identificationCampaign.ts)\nprocess time from recording samples; the wall clock only paces\nand supervises connection loss\n1. recording starts first  2. steady baseline (settleDetection.ts)\n3. one step per plant input, held until settled; a single step\nis finished early, pulses and relays run their duration\n4. restoration confirmed by the runtime before the next step" as ident_campaign
   component "Apply observation (applyObservation.ts)\nrecording starts before the validated target change;\nfollowed on process time; leaving the permitted range\nrestores the previous settings at once" as apply_obs
@@ -141,6 +142,9 @@ note bottom of flow
   Model comparisons retain the matching experiment inputs.
   Automatic continuation never dispatches Apply.
   All pages display the same host-owned study.
+  A loop the engine serves runs Identify, Tune, Validate, Apply, Restore
+  and Keep in trust-control-studio; the TypeScript session keeps parked
+  loops and the features the engine does not serve yet (V7).
 end note
 
 note bottom of transactions
@@ -162,7 +166,9 @@ apply_obs --> journals : observation identity and recording
 actor "Engineer, script or CI" as cli_user
 component "trust-lsp inline values\n(no Control Studio part)" as lsp_inline
 cli_user --> rust_commands : trust-control-studio <verb>
-panel ..> rust_commands : from V6: starts serve, JSON-RPC over stdio
+panel --> engine_route : a loop the engine serves (V6)
+engine_route --> rust_commands : serve: JSON-RPC 2.0 over stdio, methods of §0.1a
+engine_route --> projection : engine answers, updates and the opened study
 lsp_inline --> rust_client : trust-runtime-client
 rust_commands --> rust_control : decode, check, decide
 rust_control --> rust_math : numbers in, typed results out

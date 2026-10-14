@@ -102,10 +102,11 @@ export class ThreePageRecovery {
   }
 
   private captureAndLock(): void {
-    // Recovery locks every button as well as the run-locked fields; only its own recovery action stays available.
+    // Recovery locks every button as well as the run-locked fields; only its own recovery action stays available. The Apply button
+    // is not locked here: the application holds it through the recovery's `active` gate (threePageApplication.ts is its one writer).
     const controls = new Set<HTMLElement>([...runLockedControls(this.root), ...Array.from(this.root.querySelectorAll<HTMLElement>("button"))]);
     for (const control of Array.from(controls)) {
-      if (control.matches("[data-studio-recovery-action],[data-engineer-stage-tab]")) continue;
+      if (control.matches("[data-studio-recovery-action],[data-engineer-stage-tab],[data-engineer-apply]")) continue;
       if ("disabled" in control) this.originalDisabled.set(control, Boolean((control as HTMLInputElement).disabled));
     }
     this.lockControls();

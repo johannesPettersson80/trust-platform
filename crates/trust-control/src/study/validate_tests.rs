@@ -19,7 +19,7 @@ use crate::validation::engineer_verification_plan::{
     engineer_requirements, engineer_verification_plan, EngineerRequirements,
 };
 use crate::validation::isolated_run_protocol::IsolatedJobState;
-use crate::validation::run_validation::Window;
+use crate::validation::run_validation::{ErrorStatistic, Window};
 
 const FIXTURE: &str = include_str!(
     "../../../../editors/vscode/src/test/fixtures/control-studio-engineer/control-loop.json"
@@ -27,7 +27,7 @@ const FIXTURE: &str = include_str!(
 
 /// The engineer fixture as the campaign tests build it: a first-order proportional loop with the PID law and the parameters
 /// `Main.Kp`, `Main.Ki` and `Main.Kd`, each bounded from 0 to 100.
-fn fixture_loop() -> LoopDefinition {
+pub(super) fn fixture_loop() -> LoopDefinition {
     let mut value: Value = crate::json::parse_text(FIXTURE).expect("the fixture is JSON");
     if let Some(fields) = value.as_object_mut() {
         fields.remove("analysis");
@@ -52,7 +52,7 @@ fn fixture_loop() -> LoopDefinition {
 }
 
 /// The suite's campaign model: a first-order process with a 0.5 s delay, validated as `model-4`.
-fn fixture_model() -> GeneralModel {
+pub(super) fn fixture_model() -> GeneralModel {
     decode_general_model(&json!({
         "kind": "transfer-function",
         "numerator": [1.5],
@@ -70,7 +70,7 @@ fn fixture_model() -> GeneralModel {
 
 /// The suite's campaign task: a unit reference change, a 0.2 m error limit, a 0.1 m settling band, 15 s to settle, and a 30 s
 /// validation.
-fn fixture_task() -> EngineerRequirements {
+pub(super) fn fixture_task() -> EngineerRequirements {
     engineer_requirements(&json!({
         "referenceChange": 1.0,
         "maximumError": 0.2,
@@ -91,7 +91,7 @@ fn fixture_gains() -> BTreeMap<String, f64> {
 }
 
 /// The verification plan of the fixture.
-fn plan_of(loop_definition: &LoopDefinition) -> VerificationPlan {
+pub(super) fn plan_of(loop_definition: &LoopDefinition) -> VerificationPlan {
     engineer_verification_plan(
         loop_definition,
         &fixture_model(),
@@ -103,7 +103,7 @@ fn plan_of(loop_definition: &LoopDefinition) -> VerificationPlan {
 }
 
 /// The target-response case of a plan: the plan's own requirements, with no events, overrides or effects.
-fn nominal_case(plan: &VerificationPlan) -> CampaignCase {
+pub(super) fn nominal_case(plan: &VerificationPlan) -> CampaignCase {
     CampaignCase {
         id: "target-response".to_owned(),
         plan: plan.clone(),
@@ -115,7 +115,7 @@ fn nominal_case(plan: &VerificationPlan) -> CampaignCase {
 }
 
 /// A candidate record with the given proportional and integral gains, valid under `validate_parameters`.
-fn sample_candidate(proportional: f64, integral: f64) -> ControlPidCandidate {
+pub(super) fn sample_candidate(proportional: f64, integral: f64) -> ControlPidCandidate {
     ControlPidCandidate {
         applied: false,
         source: CandidateSource::Simc,
@@ -139,7 +139,10 @@ fn sample_candidate(proportional: f64, integral: f64) -> ControlPidCandidate {
 }
 
 /// The Tune section that designed `candidate` on the fixture model, to `requirements`.
-fn tune_section(candidate: ControlPidCandidate, requirements: TuningRequirements) -> TuneSection {
+pub(super) fn tune_section(
+    candidate: ControlPidCandidate,
+    requirements: TuningRequirements,
+) -> TuneSection {
     TuneSection {
         method: None,
         model_revision: "model-4".to_owned(),
@@ -184,6 +187,7 @@ fn run_outcome(run_id: &str, status: RequirementStatus) -> RunOutcome {
 fn scenario(id: &str, candidate: RequirementStatus) -> ScenarioOutcome {
     ScenarioOutcome {
         id: id.to_owned(),
+        label: texts::scenario_label(id),
         plant: "model model-4".to_owned(),
         current: run_outcome(&format!("{id}-current"), RequirementStatus::Pass),
         candidate: run_outcome(&format!("{id}-candidate"), candidate),
@@ -199,6 +203,7 @@ fn passing_section(
         model_revision: "model-4".to_owned(),
         candidate,
         requirements,
+        declared_scenarios: Vec::new(),
         conditions: ValidationConditions {
             step_ms: 20,
             duration_ms: 30_000,
@@ -209,13 +214,15 @@ fn passing_section(
         },
         model_check: Some(model_check(RequirementStatus::Pass)),
         scenarios: vec![scenario("target-response", RequirementStatus::Pass)],
+        initialization: None,
+        entry_refusal: None,
         status: RequirementStatus::Pass,
         apply_available: true,
     }
 }
 
 /// An isolated job's answer of the given state, on the given project revision, with no run.
-fn job(status: IsolatedJobState, revision: &str, job_id: &str) -> IsolatedRunStatus {
+pub(super) fn job(status: IsolatedJobState, revision: &str, job_id: &str) -> IsolatedRunStatus {
     IsolatedRunStatus {
         job_id: job_id.to_owned(),
         project_revision: revision.to_owned(),
@@ -279,30 +286,39 @@ fn a_section_whose_result_or_apply_rule_does_not_follow_from_its_runs_is_refused
 #[test]
 fn the_overall_result_follows_the_campaign_rule() {
     assert_eq!(
-        overall_status(&[]),
+        overall_status(&[], None),
         RequirementStatus::Inconclusive,
         "no case, no evidence"
     );
     assert_eq!(
-        overall_status(&[
-            scenario("a", RequirementStatus::Pass),
-            scenario("b", RequirementStatus::Pass)
-        ]),
+        overall_status(
+            &[
+                scenario("a", RequirementStatus::Pass),
+                scenario("b", RequirementStatus::Pass)
+            ],
+            None
+        ),
         RequirementStatus::Pass
     );
     assert_eq!(
-        overall_status(&[
-            scenario("a", RequirementStatus::Pass),
-            scenario("b", RequirementStatus::Inconclusive)
-        ]),
+        overall_status(
+            &[
+                scenario("a", RequirementStatus::Pass),
+                scenario("b", RequirementStatus::Inconclusive)
+            ],
+            None
+        ),
         RequirementStatus::Inconclusive,
         "missing evidence never passes"
     );
     assert_eq!(
-        overall_status(&[
-            scenario("a", RequirementStatus::Fail),
-            scenario("b", RequirementStatus::Inconclusive)
-        ]),
+        overall_status(
+            &[
+                scenario("a", RequirementStatus::Fail),
+                scenario("b", RequirementStatus::Inconclusive)
+            ],
+            None
+        ),
         RequirementStatus::Fail
     );
 }
@@ -332,37 +348,86 @@ fn apply_needs_a_qualified_model_and_a_passed_candidate() {
 }
 
 #[test]
-fn a_validation_is_current_only_for_its_model_candidate_and_requirements() {
+fn a_validation_is_current_only_for_its_model_candidate_requirements_and_scenarios() {
     let model = fixture_model();
     let candidate = sample_candidate(2.0, 0.5);
     let requirements = fixture_task();
     let tune = tune_section(candidate, requirements.clone());
     let section = passing_section(candidate, requirements.clone());
     assert!(
-        section.is_current(&model, &tune),
-        "the same model, candidate and requirements"
+        section.is_current(&model, &tune, &[]),
+        "the same model, candidate, requirements and scenarios"
     );
     let other_model = ValidateSection {
         model_revision: "model-3".to_owned(),
         ..section.clone()
     };
     assert!(
-        !other_model.is_current(&model, &tune),
+        !other_model.is_current(&model, &tune, &[]),
         "a new model invalidates it"
     );
     let mut changed = candidate;
     changed.parameters.proportional_gain = 3.0;
     let changed_tune = tune_section(changed, requirements.clone());
     assert!(
-        !section.is_current(&model, &changed_tune),
+        !section.is_current(&model, &changed_tune, &[]),
         "a changed candidate invalidates it"
     );
     let mut other_requirements = requirements.clone();
     other_requirements.maximum_error = 0.3;
     let requirements_tune = tune_section(candidate, other_requirements);
     assert!(
-        !section.is_current(&model, &requirements_tune),
+        !section.is_current(&model, &requirements_tune, &[]),
         "changed requirements invalidate it"
+    );
+    let declared = declared_scenarios_named("load-step");
+    assert!(
+        !section.is_current(&model, &tune, &declared),
+        "a declared scenario the validation did not run with invalidates it (A8.4)"
+    );
+    let ran_with = ValidateSection {
+        declared_scenarios: declared.clone(),
+        ..section.clone()
+    };
+    assert!(
+        ran_with.is_current(&model, &tune, &declared),
+        "the scenarios it ran with keep it current"
+    );
+    assert!(
+        !ran_with.is_current(&model, &tune, &[]),
+        "removing the declared scenarios invalidates it"
+    );
+}
+
+/// One declared scenario that the campaign accepts: a named scenario with one bounds requirement on the loop's measurement.
+fn declared_scenarios_named(id: &str) -> Vec<EngineerScenario> {
+    vec![serde_json::from_value(json!({
+        "id": id,
+        "initialValues": { "Main.PV": 2 },
+        "events": [{ "atMs": 100, "symbol": "Main.SP", "value": 3 }],
+        "requirements": [{ "id": "r", "kind": "bounds", "channel": "Main.PV",
+            "window": { "start": 0, "end": 1 }, "minimum": 0, "maximum": 5 }]
+    }))
+    .expect("a scenario in the stored form")]
+}
+
+#[test]
+fn a_section_whose_declared_scenarios_the_campaign_refuses_is_not_kept() {
+    let candidate = sample_candidate(2.0, 0.5);
+    let requirements = fixture_task();
+    let refused = ValidateSection {
+        declared_scenarios: vec![serde_json::from_value(json!({
+            "id": "no-requirement",
+            "initialValues": {},
+            "events": [],
+            "requirements": [],
+        }))
+        .expect("a scenario in the stored form")],
+        ..passing_section(candidate, requirements)
+    };
+    assert!(
+        refused.check().is_err(),
+        "a scenario without a requirement is not a campaign's scenario"
     );
 }
 
@@ -388,7 +453,7 @@ fn check_before_start_needs_a_current_model_first() {
 
 #[test]
 fn a_validation_that_has_not_run_is_not_a_stage_result() {
-    let evidence = stage_evidence(&fixture_loop(), None, None, None, true);
+    let evidence = stage_evidence(&fixture_loop(), None, None, None, true, &[]);
     assert!(!evidence.validation_has_result);
     assert!(!apply_available(&evidence));
 }
@@ -404,6 +469,7 @@ fn a_run_that_did_not_complete_gives_inconclusive_requirements_with_their_reason
         &failed,
         "configured plant pl",
         false,
+        None,
     )
     .expect("the outcome");
     assert!(outcome.evaluation.is_none(), "no run, no evaluation");
@@ -484,12 +550,23 @@ fn the_failure_names_the_model_check_then_a_failed_requirement_then_the_missing_
         .requirements
         .push(RequirementOutcome {
             id: "settling-time".to_owned(),
+            label: "Maximum settling time".to_owned(),
+            channel: RequirementChannel {
+                role: "Measurement".to_owned(),
+                unit: "m".to_owned(),
+                symbol: "Main.PV".to_owned(),
+            },
+            limit_side: LimitSide::AtMost,
             status: RequirementStatus::Fail,
             value: Some(20.0),
             limit: Some(15.0),
             unit: "s".to_owned(),
             source: "model model-4".to_owned(),
             reason: "The response settles at 20 s, after the 15 s limit.".to_owned(),
+            automatic: false,
+            guard: false,
+            measured_range: None,
+            limit_range: None,
         });
     let failing_check = model_check(RequirementStatus::Fail);
     let by_model = failure_of(
@@ -497,11 +574,13 @@ fn the_failure_names_the_model_check_then_a_failed_requirement_then_the_missing_
         RequirementStatus::Fail,
         &scenarios,
         &[],
+        None,
+        None,
     );
     assert_eq!(by_model.next_action, NextAction::Identify);
     assert_eq!(by_model.cause, Cause::ModelOrData);
     assert!(by_model.message.contains("check"), "{}", by_model.message);
-    let by_requirement = failure_of(None, RequirementStatus::Fail, &scenarios, &[]);
+    let by_requirement = failure_of(None, RequirementStatus::Fail, &scenarios, &[], None, None);
     assert_eq!(by_requirement.next_action, NextAction::Tune);
     assert_eq!(by_requirement.cause, Cause::Settings);
     assert!(
@@ -514,6 +593,8 @@ fn the_failure_names_the_model_check_then_a_failed_requirement_then_the_missing_
         RequirementStatus::Inconclusive,
         &[scenario("declared", RequirementStatus::Inconclusive)],
         &[None],
+        None,
+        None,
     );
     assert_eq!(missing.next_action, NextAction::None);
     assert_eq!(missing.cause, Cause::Runtime, "a run did not complete");
@@ -551,12 +632,27 @@ fn a_validation_without_passed_runs_is_inconclusive_and_says_why() {
         jobs: &jobs,
         qualification: ModelQualification::Qualified,
         plant_reason: None,
+        entry: None,
     })
     .expect("composed");
     assert_eq!(outcome.section.status, RequirementStatus::Inconclusive);
     assert!(!outcome.result.apply_available);
     assert!(!outcome.section.apply_available);
+    // The answer's evidence is the study's before this validation, with its result: a result that did not pass (B5.4), and
+    // inconclusive. Its stages are computed from that evidence.
+    let evidence = outcome.result.stage_evidence;
+    assert!(evidence.has_model && evidence.has_candidate);
+    assert!(evidence.validation_has_result && evidence.validation_inconclusive);
+    assert!(
+        !evidence.validation_passed,
+        "an inconclusive result is not a pass"
+    );
+    assert_eq!(outcome.result.stages, stage_availability(&evidence));
     assert_eq!(outcome.result.scenarios.len(), 1);
+    assert_eq!(
+        outcome.result.failure, outcome.failure,
+        "the result carries the failure that stops Apply, with its next action"
+    );
     assert!(
         outcome.section.check().is_ok(),
         "the section it composes reads back"
@@ -606,6 +702,7 @@ fn a_failed_model_check_stops_apply_and_names_identify() {
         jobs: &jobs,
         qualification: ModelQualification::Checked(model_check(RequirementStatus::Fail)),
         plant_reason: None,
+        entry: None,
     })
     .expect("composed");
     assert_eq!(
@@ -613,6 +710,7 @@ fn a_failed_model_check_stops_apply_and_names_identify() {
         Some(model_check(RequirementStatus::Fail))
     );
     assert!(!outcome.result.apply_available);
+    assert_eq!(outcome.result.failure, outcome.failure);
     let failure = outcome.failure.expect("the failed check stops Apply");
     assert_eq!(failure.next_action, NextAction::Identify);
     assert_eq!(failure.cause, Cause::ModelOrData);
@@ -623,6 +721,52 @@ fn a_failed_model_check_stops_apply_and_names_identify() {
         vec![recording.as_str()],
         "the check's recording is kept with the section"
     );
+    // B5.2, N3.4: the check is the table's first row, in percent of the span, and the table names its rows (B9.9).
+    let row = outcome
+        .result
+        .model_agreement
+        .as_ref()
+        .expect("a checked model has a row");
+    assert_eq!(row.status, RequirementStatus::Fail);
+    assert!((row.value.expect("the error was measured") - 4.0).abs() < 1e-9);
+    assert!((row.limit.expect("the limit is declared") - 15.0).abs() < 1e-9);
+    assert_eq!(outcome.result.labels.candidate_overall, "Candidate overall");
+    assert_eq!(
+        outcome.result.plot, None,
+        "no run had samples, so there is no plot"
+    );
+}
+
+/// B4.3, B5.4: a settling time that Automatic generated is marked in its row; a maximum error that it did not generate is not.
+#[test]
+fn the_limits_that_automatic_generated_are_marked_in_their_rows() {
+    let loop_definition = fixture_loop();
+    let case = nominal_case(&plan_of(&loop_definition));
+    let criteria = AutomaticCriteria {
+        model_revision: "model-4".to_owned(),
+        fields: vec!["settlingTimeSeconds".to_owned()],
+    };
+    let failed = job(IsolatedJobState::Failed, "rev-1", "run-9");
+    let outcome = job_outcome(
+        &loop_definition,
+        &case,
+        &failed,
+        "configured plant pl",
+        false,
+        Some(&criteria),
+    )
+    .expect("the outcome");
+    let marked = |id: &str| {
+        outcome
+            .run
+            .requirements
+            .iter()
+            .find(|requirement| requirement.id == id)
+            .map(|requirement| requirement.automatic)
+    };
+    assert_eq!(marked("response-deadline"), Some(true));
+    assert_eq!(marked("target-error"), Some(false));
+    assert_eq!(marked("process-bounds"), Some(false));
 }
 
 #[test]
@@ -641,6 +785,7 @@ fn the_composition_refuses_jobs_that_do_not_match_the_campaign_or_ran_on_two_rev
         jobs: &[],
         qualification: ModelQualification::Qualified,
         plant_reason: None,
+        entry: None,
     })
     .expect_err("one case, no job");
     assert_eq!(no_jobs.cause, Cause::Implementation);
@@ -660,6 +805,7 @@ fn the_composition_refuses_jobs_that_do_not_match_the_campaign_or_ran_on_two_rev
         jobs: &jobs,
         qualification: ModelQualification::Qualified,
         plant_reason: None,
+        entry: None,
     })
     .expect_err("two program revisions");
     assert_eq!(changed.next_action, NextAction::Validate);
@@ -694,6 +840,7 @@ fn the_result_names_why_the_model_replaced_the_configured_plant_and_omits_the_re
         jobs: &jobs,
         qualification: ModelQualification::Qualified,
         plant_reason: Some(reason.to_owned()),
+        entry: None,
     })
     .expect("composed");
     assert_eq!(replaced.result.plant_reason.as_deref(), Some(reason));
@@ -710,9 +857,218 @@ fn the_result_names_why_the_model_replaced_the_configured_plant_and_omits_the_re
         jobs: &jobs,
         qualification: ModelQualification::Qualified,
         plant_reason: None,
+        entry: None,
     })
     .expect("composed");
     assert_eq!(kept.result.plant_reason, None);
     let serialized = serde_json::to_value(&kept.result).expect("the result serializes");
     assert!(serialized.get("plantReason").is_none(), "{serialized}");
+}
+
+#[test]
+fn a_requirement_is_named_by_its_check_and_its_role_never_its_symbol() {
+    let loop_definition = fixture_loop();
+    let plan = plan_of(&loop_definition);
+    let naming = |id: &str| {
+        let requirement = plan
+            .requirements
+            .iter()
+            .find(|requirement| requirement.id == id)
+            .unwrap_or_else(|| panic!("the plan holds {id}"));
+        Naming::of(requirement, &loop_definition, None, &plan)
+    };
+    let settling = naming("response-deadline");
+    assert_eq!(settling.label, "Maximum settling time");
+    assert_eq!(
+        settling.channel,
+        RequirementChannel {
+            role: "Measurement".to_owned(),
+            unit: "m".to_owned(),
+            symbol: "Main.PV".to_owned(),
+        },
+        "the measurement is named by its role and unit; its symbol is kept for the hover text"
+    );
+    assert_eq!(settling.limit_side, LimitSide::AtMost);
+    assert_eq!(
+        naming("target-error").label,
+        "Maximum steady-state error",
+        "an error measured from the setpoint is the steady-state error"
+    );
+    assert_eq!(naming("process-bounds").label, "Operating range");
+    let output = naming("output-bounds");
+    assert_eq!(output.channel.role, "Output");
+    assert_eq!(output.channel.unit, "V");
+}
+
+/// B9.9: an error measured from a reference other than the setpoint, such as a planned trajectory, is named after that reference.
+#[test]
+fn an_error_measured_from_another_reference_is_named_after_it() {
+    let loop_definition = fixture_loop();
+    let requirement = RunRequirement {
+        id: "trajectory-error".to_owned(),
+        channel: "Main.PV".to_owned(),
+        window: Window {
+            start: 0.0,
+            end: 30.0,
+        },
+        check: RunCheck::Error {
+            reference: ErrorReference::Channel {
+                channel: "Main.Trajectory".to_owned(),
+            },
+            statistic: ErrorStatistic::Maximum,
+            maximum: 0.1,
+        },
+    };
+    let naming = Naming::of(
+        &requirement,
+        &loop_definition,
+        None,
+        &plan_of(&loop_definition),
+    );
+    assert_eq!(naming.label, "Maximum error from Trajectory");
+    assert_eq!(texts::maximum_error_from("Trajectory"), naming.label);
+}
+
+#[test]
+fn a_dwell_limit_is_a_lower_bound_and_its_name_says_which_state() {
+    let loop_definition = fixture_loop();
+    let requirement = RunRequirement {
+        id: "on-time".to_owned(),
+        channel: "Main.MV".to_owned(),
+        window: Window {
+            start: 0.0,
+            end: 30.0,
+        },
+        check: RunCheck::Dwell {
+            threshold: 10.0,
+            state: DwellState::High,
+            minimum_seconds: 5.0,
+        },
+    };
+    let naming = Naming::of(
+        &requirement,
+        &loop_definition,
+        None,
+        &plan_of(&loop_definition),
+    );
+    assert_eq!(naming.label, "Minimum ON time");
+    assert_eq!(
+        naming.limit_side,
+        LimitSide::AtLeast,
+        "the shortest stay must reach the minimum"
+    );
+    assert_eq!(naming.channel.role, "Output");
+}
+
+#[test]
+fn a_fixed_parameter_and_a_scenario_are_named_in_words() {
+    let loop_definition = fixture_loop();
+    let requirement = RunRequirement {
+        id: format!("{FIXED_PARAMETER_PREFIX}Main.Kp"),
+        channel: "Main.Kp".to_owned(),
+        window: Window {
+            start: 0.0,
+            end: 30.0,
+        },
+        check: RunCheck::Bounds {
+            minimum: 1.0,
+            maximum: 1.0,
+        },
+    };
+    let naming = Naming::of(
+        &requirement,
+        &loop_definition,
+        None,
+        &plan_of(&loop_definition),
+    );
+    assert_eq!(naming.label, "Parameter unchanged");
+    assert_eq!(
+        naming.channel,
+        RequirementChannel {
+            role: "Kp".to_owned(),
+            unit: "V/m".to_owned(),
+            symbol: "Main.Kp".to_owned(),
+        },
+        "a parameter is named by its own name and unit"
+    );
+    assert_eq!(
+        texts::readable_name("P1.Parameters.ProportionalGain"),
+        "Proportional Gain"
+    );
+    assert_eq!(
+        texts::readable_name("outdoorTemperature"),
+        "outdoor Temperature"
+    );
+    assert_eq!(texts::scenario_label("target-response"), "Target response");
+    assert_eq!(texts::scenario_label("cold-start"), "Cold start");
+}
+
+#[test]
+fn a_reopened_validation_answers_its_table_and_apply_but_no_plot_or_plant_reason() {
+    // A8.6, B5.4: the study keeps the table and the verdicts, so a reopened loop shows them and whether Apply is available; the plot
+    // and the plant reason are answers of the run, and the study keeps neither.
+    let section = passing_section(sample_candidate(2.0, 0.5), fixture_task());
+    let evidence = StageEvidence {
+        validation_has_result: true,
+        validation_passed: true,
+        ..StageEvidence::default()
+    };
+    let result = section.result(evidence);
+    assert_eq!(
+        result.stage_evidence, evidence,
+        "the answer carries the evidence its stages are computed from (B9.4)"
+    );
+    assert_eq!(result.stages, stage_availability(&evidence));
+    assert!(
+        result.apply_available,
+        "a passed validation authorizes Apply (B5.4)"
+    );
+    assert_eq!(result.failure, None);
+    assert_eq!(result.scenarios, section.scenarios);
+    assert_eq!(result.status, RequirementStatus::Pass);
+    assert_eq!(
+        result.model_agreement.map(|row| row.id),
+        Some("model-check".to_owned()),
+        "the model check is the table's first row"
+    );
+    assert_eq!(result.plot, None, "the study keeps no plot (B5.4)");
+    assert_eq!(result.plant_reason, None, "the study keeps no plant reason");
+
+    // A refused validation names the requirement that failed and its next action (B5.5).
+    let mut failing = scenario("target-response", RequirementStatus::Fail);
+    failing.candidate.requirements = vec![RequirementOutcome {
+        id: "response-deadline".to_owned(),
+        label: "Maximum settling time".to_owned(),
+        channel: RequirementChannel {
+            role: "Measurement".to_owned(),
+            unit: "m".to_owned(),
+            symbol: "Main.PV".to_owned(),
+        },
+        limit_side: LimitSide::AtMost,
+        status: RequirementStatus::Fail,
+        value: Some(20.0),
+        limit: Some(15.0),
+        unit: "s".to_owned(),
+        source: "model model-4".to_owned(),
+        reason: "The response settles at 20 s, after the 15 s limit.".to_owned(),
+        automatic: false,
+        guard: false,
+        measured_range: None,
+        limit_range: None,
+    }];
+    let refused = ValidateSection {
+        apply_available: false,
+        status: RequirementStatus::Fail,
+        scenarios: vec![failing],
+        ..section
+    };
+    let failure = refused
+        .result(StageEvidence::default())
+        .failure
+        .expect("a refused Apply names its reason (B5.5)");
+    assert_eq!(
+        failure.message,
+        "The response settles at 20 s, after the 15 s limit."
+    );
+    assert_eq!(failure.next_action, NextAction::Tune);
 }

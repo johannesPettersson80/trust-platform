@@ -1,7 +1,8 @@
 import { connectedIdentificationPanelPorts, clearIdentificationRecording, journalledIdentificationExperimentId } from "./connectedIdentificationPanel";
 import { routeIdentificationRecordingImport } from "./identificationRecordingImport";
 import { decodeLoopReady, decodeControlStudioHostCommand, decodeManualPreviewRequest, type ControlStudioHostCommand } from "./messages";
-import { ThreePageBindingRoute, adoptStudioBinding, type StudioBindingOpen } from "./threePageBindingRoute";
+import { ThreePageBindingRoute, adoptStudioBinding, adoptStudioFamily, type StudioBindingOpen } from "./threePageBindingRoute";
+import type { ControllerFamily } from "./controllerFamilies";
 import { createControlStudioRuntimeStartHandler, routeControlStudioRuntimeStart } from "./runtimeStartAction";
 import { restoredEngineerStage, restoredEngineerViewSelection, storeEngineerStage } from "./engineerNavigationStorage";
 import { completedCommissioningMatchesCheckpoint } from "./commissioningCheckpoint";
@@ -78,6 +79,10 @@ type ControlStudioWorkflowResult,
 } from "./workflowResult";
 import { createManualWorkflowState, handleManualWorkflowCommand, restoreManualWorkflowState, type ManualWorkflowState } from "./manualWorkflowCommands";
 import { handleMimoAnalysisCommand } from "./mimoPanelActions";
+import { controlStudioEngine, controlStudioStorageFolder, createEnginePanelRoute, type EnginePanelRoute } from "./engine/enginePanelRoute";
+import { studyRuntimeConnection } from "./engine/engineConnection";
+import { createEngineClient } from "./engine/engineClient";
+import { getBinaryPath } from "../binary";
 import { CONNECTION_LOSS_TIMEOUT_MS, RECORDING_SAMPLE_LIMIT } from "./controlStudioLimits";
 
 export const CONTROL_STUDIO_OPEN_COMMAND = "trust-lsp.controlStudio.open";
@@ -98,6 +103,10 @@ let bindingDiscovery: import("./configureLoop").DiscoverControlSignals | undefin
 let bindingRoute: ThreePageBindingRoute | undefined;
 let openRequestGeneration = 0;
 let draftSessions: StudioAnalysisSessions | undefined;
+/** The engine's side of the open loop: the loops the engine runs are opened and paged through it (V6 S3, §0.1a). */
+let engineRoute: EnginePanelRoute | undefined;
+/** The controller family the binding chose for the loop being opened: the TypeScript session takes it when the engine does not serve the loop (B1.3). */
+let bindingFamilyToAdopt: ControllerFamily | undefined;
 let refreshTimer: NodeJS.Timeout | undefined;
 const experimentStatusPoller = new ExperimentStatusPoller(() => { void refreshExperimentStatus(); });
 let symbolicLoopObservation = new SymbolicLoopObservation();
@@ -239,6 +248,30 @@ async function showControlStudio(
   const runtimeTarget = loopRequest ? await resolveStudyRuntimeTarget(loopRequest).catch(() => undefined) : undefined;
   const studyRoot = loopRequest ? await projectRootHoldingLoop(loopRequest, vscode.workspace.workspaceFolders ?? []) : undefined;
   if (analysisSessions !== sessions || openTicket !== openRequestGeneration) return;
+  bindingFamilyToAdopt = undefined;
+  engineRoute = loopRequest && studyRoot ? createEnginePanelRoute({
+    engine: controlStudioEngine(context),
+    projectRoot: studyRoot,
+    storageFolder: controlStudioStorageFolder(),
+    post: message => panel?.webview.postMessage(message),
+    isCurrent: () => analysisSessions === sessions,
+    connection: () => loopRequest ? studyRuntimeConnection(loopRequest) : Promise.resolve(undefined),
+    // A copy: the engine's request type is an open record, which an interface value does not satisfy.
+    acquisitionSettings: () => {
+      const settings = sessions.engineer?.snapshotStudy()?.acquisitionSettings;
+      return settings && { ...settings };
+    },
+    // The pins and the controller choice that the session holds, which a manual preview is answered with (B4.2, B4.5).
+    // snapshotStudy refuses while the session is busy; the preview is then answered without them.
+    tuningInputs: () => {
+      try {
+        const study = sessions.engineer?.snapshotStudy();
+        return study && { settingsPins: study.settingsPins, controllerChoice: study.controllerChoice };
+      } catch {
+        return undefined;
+      }
+    },
+  }) : undefined;
   activeRuntimeTarget = runtimeTarget;
   const initialTargetLabel = await readTargetLabel(runtimeTarget);
   if (analysisSessions !== sessions || openTicket !== openRequestGeneration) return;
@@ -289,11 +322,17 @@ async function showControlStudio(
       ?? [...(draft?.verificationAttempts ?? [])].reverse().find(attempt => attempt.status === "cancellation-unconfirmed");
     if (isolated) sessions.engineer?.restoreIsolatedOperation(isolated);
   }
-  if (loopRequest && bindingOpen) await adoptStudioBinding(context, loopRequest, sessions, loopMessageScope(loopRequest), bindingOpen);
+  // The engine route takes the family when it opens the loop; a loop the engine does not serve takes it in the TypeScript session.
+  if (loopRequest && bindingOpen) await adoptStudioBinding(context, loopRequest, sessions, loopMessageScope(loopRequest), bindingOpen, {
+    bindingFamily: family => { bindingFamilyToAdopt = family; engineRoute?.bindingFamily(family); },
+  });
   bindingRoute = loopRequest ? new ThreePageBindingRoute(loopRequest, loopMessageScope(loopRequest), bindingDiscovery,
     () => analysisSessions === sessions && activeLoop === loopRequest,
     () => { if (currentExperimentId || experimentRecorder.recording) throw new Error("Finish or abort the current experiment before changing its binding."); sessions.engineer?.assertModelReplacementAllowed(); },
-    (request, sessionId, family) => showControlStudio(context, request, { sessionId, family, sourceLoop: loopRequest, sourceStudy: sessions.engineer?.snapshotStudy() })) : undefined;
+    (request, sessionId, family) => showControlStudio(context, request, { sessionId, family, sourceLoop: loopRequest, sourceStudy: sessions.engineer?.snapshotStudy() }),
+    // The engine discovers and selects the bindings of a loop in a project (§0.1a `setupDiscover`); the compiled project is read
+    // through the language tool.
+    studyRoot ? { engine: createEngineClient(controlStudioEngine(context)), projectRoot: studyRoot, languageTool: getBinaryPath(context, "trust-lsp", "server.path") } : undefined) : undefined;
   manualRecoveryReconciled = false;
   const title = activeLoop?.name ?? text(activeHandoff?.plantId, "Unbound loop");
   if (panel) {
@@ -339,6 +378,7 @@ async function showControlStudio(
       // A reused webview keeps its message listener, but owns the newly selected session.
       const sessions = analysisSessions;
       const expected = loopMessageScope(loop);
+      const route = engineRoute;
       const ownerPanel = panel;
       const stillCurrent = () => panel === ownerPanel && activeLoop === loop && editorSessionId === expected.editorSessionId;
       if (await routeControlStudioRuntimeStart(message, expected, loop.runtimeId, startStudioSimulator,
@@ -356,6 +396,7 @@ async function showControlStudio(
         }, async value => { if (stillCurrent()) await ownerPanel?.webview.postMessage(value); })) return;
       const hostCommand = decodeControlStudioHostCommand(message, expected);
       if (hostCommand) { await runControlStudioHostCommand(hostCommand); return; }
+      if (await route?.preview(message, expected)) return;
       const preview = decodeManualPreviewRequest(message, expected);
       if (preview && sessions.engineer) {
         const serial = manualPreviewRequests.begin();
@@ -365,6 +406,10 @@ async function showControlStudio(
         return;
       }
       if (await bindingRoute?.handle(message, payload => postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "bindings", payload))) return;
+      if (await route?.navigation(message, expected)) return;
+      if (await route?.identify(message, expected)) return;
+      if (await route?.tune(message, expected)) return;
+      if (await route?.handle(message, expected)) return;
       if (await storeEngineerStage(loop, message, expected)) return;
       if (await sessions.handle(message, expected, async (stage, payload) => {
         if (!stillCurrent()) return;
@@ -443,7 +488,13 @@ async function showControlStudio(
           void vscode.window.showWarningMessage(`The Apply observation could not be reattached: ${String(error)}`);
         });
         await bindingRoute?.publish(payload => postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "bindings", payload));
-        await ownerPanel?.webview.postMessage({ schemaVersion: 1, kind: "control-studio.navigation.restore", ...expected,
+        // The engine's open answer names the page of an engine-served loop; the TypeScript view restore is then not sent.
+        const engineServes = route ? await route.open(loop, expected) : false;
+        // A loop the engine does not serve keeps the controller family its binding chose in the TypeScript session (B1.3).
+        const boundFamily = bindingFamilyToAdopt;
+        bindingFamilyToAdopt = undefined;
+        if (!engineServes && boundFamily) await adoptStudioFamily(sessions, expected, boundFamily);
+        if (!engineServes) await ownerPanel?.webview.postMessage({ schemaVersion: 1, kind: "control-studio.navigation.restore", ...expected,
           stage: restoredEngineerStage(loop), view: restoredEngineerViewSelection(loop) });
         if (currentExperimentId) void refreshMonitor();
       } else if (experimentCommand) {
@@ -893,6 +944,8 @@ async function activateWorkflowResult(result: ControlStudioWorkflowResult, resto
 }
 
 function disposeCurrentAnalysisSessions(context: vscode.ExtensionContext): void {
+  engineRoute?.dispose();
+  engineRoute = undefined;
   draftRetention.cancel();
   try {
     if (activeLoop) void retainCurrentWorkflowDraft(context, activeLoop)

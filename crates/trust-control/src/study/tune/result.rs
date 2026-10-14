@@ -11,7 +11,7 @@ use trust_control_math::identify::LowOrderModelKind;
 
 use crate::identification::plant::IdentifiedModel;
 use crate::messages::{CandidateOutcome, ComparisonEntry, TuneGainUnits, TuneMethod, TuneResult};
-use crate::stages::StageAvailability;
+use crate::stages::{stage_availability, StageEvidence};
 use crate::study::tune::prediction::CandidateResponse;
 use crate::tuning::candidate::ControlPidCandidate;
 use crate::tuning::candidate_margins::CandidateMargins;
@@ -67,8 +67,8 @@ pub(crate) struct ResultInputs<'a> {
     pub(crate) margins: (Option<CandidateMargins>, Option<String>),
     /// The constrained comparison of a SIMC request; empty otherwise.
     pub(crate) comparison: Vec<ComparisonEntry>,
-    /// The status of every stage after this result.
-    pub(crate) stages: Vec<StageAvailability>,
+    /// The stage evidence after this result, from which the stages are computed.
+    pub(crate) stage_evidence: StageEvidence,
 }
 
 /// The answer of a run (B4.3 to B4.6): the inputs, with the method's title, its description and the units of the gains
@@ -130,7 +130,8 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
         margins,
         margins_unavailable,
         comparison: inputs.comparison,
-        stages: inputs.stages,
+        stages: stage_availability(&inputs.stage_evidence),
+        stage_evidence: inputs.stage_evidence,
     }
 }
 

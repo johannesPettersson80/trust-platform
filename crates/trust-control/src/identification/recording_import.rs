@@ -4,14 +4,17 @@
 //!
 //! The rules here are the checks of an import: the size limit, the acquisition and its steady record period, the
 //! provenance (an aborted experiment or other units are refused), the display of units, and the routing of the scoped
-//! import message. The file's own decoding (`decodeWorkflowResult`, `workflowResult.ts`, 762 lines) validates every section of
-//! a saved result, including sections of later stages, so it is not ported here: the caller decodes the result and passes its
-//! recording to these rules. Until that decoder is ported, the import of a file is not complete (named in the report).
+//! import message. [`check_import`] reads a saved result through [`read_saved_result`] (`decodeWorkflowResult`, B10.4), then
+//! applies those checks. The decoder lives in `saved_result`, with the limits of what it reads and the TypeScript decoder
+//! sections it does not port yet. A step-response reference is refused here. Fitting an imported file and keeping it in the
+//! study are not ported yet.
 
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::identification::refusal::Refusal;
 use crate::identification::review::IdentificationModelSelection;
+use crate::identification::saved_result::read_saved_result;
 use crate::identification::state::{RecordingProvenance, SavedIdentificationInput};
 use crate::limits::RECORDING_SAMPLE_LIMIT;
 use crate::loop_definition::LoopDefinition;
@@ -256,6 +259,55 @@ pub fn import_failure_reply(scope: &ImportScope, message_id: &str, reason: &str)
         "editorSessionId": scope.editor_session_id,
         "expectedLoopRevision": scope.loop_revision,
         "payload": { "status": "failed", "reason": reason },
+    })
+}
+
+/// The sentence of a file that keeps a step-response reference, which the engine does not read yet.
+const REFERENCE_SENTENCE: &str =
+    "This recording keeps a step-response identification reference, which the engine cannot read yet.";
+
+/// The answer of a checked import (`identify` with `importRecording`; specification 35, §0.1a): the identity of the saved result
+/// and the number of its raw samples. Nothing is kept or fitted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCheck {
+    /// Always `checked`.
+    pub status: &'static str,
+    /// The identifier of the saved result.
+    pub result_id: String,
+    /// The revision of the saved result.
+    pub result_revision: u64,
+    /// The project the result was saved in.
+    pub project_id: String,
+    /// The source of the recording as the file writes it: `Simulation` or `Physical`.
+    pub source: String,
+    /// The number of raw samples.
+    pub samples: u64,
+}
+
+/// Checks a saved Control Studio result or recording file against `loop_definition` (`readIdentificationRecordingImport`;
+/// B3.6, B3.9, B10.4 and A9). The text is read and its result decoded as a whole, then the recording is checked for its
+/// acquisition, its provenance and its units. Nothing is kept or fitted.
+///
+/// # Errors
+/// The text is larger than 32 MiB or is not JSON; the saved result does not decode (B10.4); it keeps a step-response
+/// reference; its recording is not a complete runtime scan buffer at a steady record period; its experiment did not
+/// complete; or its units differ from the loop's.
+pub fn check_import(json: &str, loop_definition: &LoopDefinition) -> Result<ImportCheck, Refusal> {
+    check_import_length(json)?;
+    let saved = read_saved_result(json)?;
+    if saved.step_response_reference {
+        return Err(Refusal::new(REFERENCE_SENTENCE));
+    }
+    check_saved_acquisition(&saved.recording)?;
+    check_saved_provenance(&saved.provenance, loop_definition)?;
+    Ok(ImportCheck {
+        status: "checked",
+        result_id: saved.result_id,
+        result_revision: saved.result_revision,
+        project_id: saved.project_id,
+        source: saved.source,
+        samples: saved.samples,
     })
 }
 

@@ -105,9 +105,20 @@ fn a_parallel_pid_start_holds_its_history_and_setpoint_and_enters_auto_at_the_tr
         "the output stays within the allowance of its operating value 0"
     );
     assert!(
-        close(window.end, 0.06, 1e-12),
-        "the continuity is checked over the whole run"
+        close(window.start, 0.0, 1e-12) && close(window.end, 0.03, 1e-12),
+        "the continuity bounds the Manual scans and the first output after the transfer (A6.4), not the law's response after it"
     );
+    for requirement in &start.plan.requirements {
+        let on_a_scan = |edge: f64| {
+            (0..=run.duration_ms / run.step_ms)
+                .any(|scan| close(edge, seconds_of(scan * run.step_ms), 1e-9))
+        };
+        assert!(
+            on_a_scan(requirement.window.start) && on_a_scan(requirement.window.end),
+            "{}: a window's edges lie on the run's sample times, or the evaluation refuses the run (N8.4)",
+            requirement.id
+        );
+    }
     let (auto, _, auto_window) = bounds_of(&start.plan.requirements, "auto-mode");
     assert!(close(auto, 1.0, 1e-12));
     assert!(

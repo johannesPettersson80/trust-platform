@@ -13,10 +13,13 @@ use crate::identification::experiment_trace::{IdentificationExperiment, TracePoi
 use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::presentation::identified_model_presentation;
+use crate::messages::TuneRequest;
 use crate::model::decode_general_model;
 use crate::recording::EvidenceSource;
 use crate::stages::stage_availability;
 use crate::study::identify::IdentifyMethod;
+use crate::study::tune::{tune, TuneInputs};
+use crate::tuning::automatic_criteria::{AutomaticCriteria, REQUIREMENT_KEYS};
 
 /// The recording file the section's model was fitted from.
 const RECORDING_ID: &str = "rec-00112233445566778899aabbccddeeff";
@@ -147,11 +150,11 @@ fn plot_trace(role: PlotRole, symbol: &str, unit: &str, values: &[Option<f64>]) 
 #[test]
 fn the_result_reads_the_stored_presentation_and_labels_a_provisional_model() {
     let section = first_order_section();
-    let stages = stage_availability(&StageEvidence {
+    let evidence = StageEvidence {
         has_model: true,
         ..StageEvidence::default()
-    });
-    let result = identify_result(&section, stages.clone());
+    };
+    let result = identify_result(&section, evidence, None);
     assert_eq!(result.model_type, "First-order model with delay");
     assert_eq!(result.equation, "G(s) = 0.5 e^(-1s) / (2s + 1)");
     assert_eq!(
@@ -164,13 +167,14 @@ fn the_result_reads_the_stored_presentation_and_labels_a_provisional_model() {
         "First-order model with delay · Provisional\nG(s) = 0.5 e^(-1s) / (2s + 1)\nGain 0.5 m per V, time constant 2 s, delay 1 s"
     );
     assert_eq!(result.recording_id, RECORDING_ID);
-    assert_eq!(result.stages, stages);
+    assert_eq!(result.stages, stage_availability(&evidence));
+    assert_eq!(result.stage_evidence, evidence);
 
     let validated = IdentifySection {
         provisional: false,
         ..first_order_section()
     };
-    let result = identify_result(&validated, Vec::new());
+    let result = identify_result(&validated, StageEvidence::default(), None);
     assert!(!result.provisional);
     assert_eq!(
         result.text,
@@ -180,7 +184,7 @@ fn the_result_reads_the_stored_presentation_and_labels_a_provisional_model() {
 
 #[test]
 fn the_plot_shows_the_applied_input_the_measurement_and_the_prediction_on_the_recordings_times() {
-    let plot = identify_result(&first_order_section(), Vec::new()).plot;
+    let plot = identify_result(&first_order_section(), StageEvidence::default(), None).plot;
     assert_eq!(plot.time_seconds, [0.0, 1.0, 2.0, 3.0]);
     assert_eq!(
         plot.traces,
@@ -213,7 +217,7 @@ fn without_the_experiments_traces_the_plot_shows_the_measured_values_of_the_fit(
     let mut section = first_order_section();
     section.presentation.experiment = None;
     section.presentation.output_id = None;
-    let plot = identify_result(&section, Vec::new()).plot;
+    let plot = identify_result(&section, StageEvidence::default(), None).plot;
     assert_eq!(plot.time_seconds, [1.0, 2.0, 3.0]);
     assert_eq!(
         plot.traces,
@@ -281,4 +285,155 @@ fn the_study_has_a_model_only_when_its_identify_section_is_current() {
         !study_evidence(&moved, Some(&section), true).has_model,
         "a model of another measured output is not current"
     );
+}
+
+// Specification 35, B5.2 and B4.3: the answer names the model's revision, the one Validate's model check names, and carries the
+// requirements it is given.
+#[test]
+fn the_answer_names_the_model_revision_and_carries_the_requirements_it_is_given() {
+    let section = first_order_section();
+    let requirements = TuningRequirements {
+        reference_change: 1.0,
+        maximum_error: 0.2,
+        settling_band: 0.05,
+        settling_time_seconds: 20.0,
+        duration_seconds: 40.0,
+        constant_input_disturbance: None,
+        measurement_noise_band: None,
+        gain_uncertainty_fraction: None,
+        transfer_tolerance: None,
+        maximum_overshoot_percent: None,
+        tuning_method: None,
+        tuning_objective: None,
+        automatic_criteria: Some(AutomaticCriteria {
+            model_revision: "model:fitted:1".to_owned(),
+            fields: vec!["referenceChange".to_owned()],
+        }),
+    };
+    let result = identify_result(
+        &section,
+        StageEvidence::default(),
+        Some(requirements.clone()),
+    );
+    assert_eq!(result.model_revision, "model:fitted:1");
+    assert_eq!(result.requirements, Some(requirements));
+    let wire = serde_json::to_value(identify_result(&section, StageEvidence::default(), None))
+        .expect("the answer is written");
+    assert_eq!(wire["modelRevision"], "model:fitted:1");
+    assert!(
+        wire.get("requirements").is_none(),
+        "no requirements are written when there are none"
+    );
+}
+
+// Specification 35, B4.3 and B4.7: where Automatic cannot form the test, the answer names no requirements.
+#[test]
+fn the_answer_names_no_requirements_where_automatic_cannot_form_them() {
+    // The first-order fixture has no operating point, which Automatic needs to generate a test.
+    let answer = identify_answer(
+        &Study::new("tank", "sha256:loop-1"),
+        &plant_loop(),
+        &first_order_section(),
+        StageEvidence::default(),
+    )
+    .expect("the answer");
+    assert_eq!(answer.model_revision, "model:fitted:1");
+    assert_eq!(answer.requirements, None);
+}
+
+// Specification 35, A8.6: a study with no Identify section holds no identification, as it does after Reset.
+#[test]
+fn the_study_holds_no_identification_without_an_identify_section() {
+    let study = Study::new("tank", "sha256:loop-1");
+    assert!(
+        study_identification(&study, &plant_loop(), StageEvidence::default())
+            .expect("the study reads")
+            .is_none()
+    );
+}
+
+// Specification 35, B4.3: the answer carries the record Tune designs to for the study's model, with Automatic's values listed.
+#[test]
+fn the_answer_carries_the_record_automatic_forms_for_the_study_model() {
+    let loop_definition = LoopDefinition::decode(include_str!(
+        "../../../../examples/control-pid-commissioning/control-loop.json"
+    ))
+    .expect("the commissioning example's loop");
+    let section = crate::study::tune::model::tests::identify_section(None);
+    let evidence = study_evidence(&loop_definition, Some(&section), true);
+    let answer = identify_answer(
+        &Study::new(&loop_definition.id, &loop_definition.revision),
+        &loop_definition,
+        &section,
+        evidence,
+    )
+    .expect("the answer");
+    assert_eq!(answer.model_revision, "sha256:fopdt-model");
+    // The identification leaves a model and no candidate or validation current (A8.4), and the answer says so.
+    assert_eq!(answer.stage_evidence, evidence);
+    assert!(answer.stage_evidence.has_model);
+    assert!(!answer.stage_evidence.has_candidate);
+    assert!(!answer.stage_evidence.validation_has_result);
+    let requirements = answer.requirements.expect("Automatic forms the record");
+    let criteria = requirements
+        .automatic_criteria
+        .expect("the generated values are marked");
+    assert_eq!(criteria.model_revision, "sha256:fopdt-model");
+    for key in REQUIREMENT_KEYS {
+        assert!(
+            criteria.fields.iter().any(|field| field == key),
+            "{key} is marked Automatic"
+        );
+    }
+}
+
+// Specification 35, B4.5 and A8.6: the candidate a study keeps answers its settings and no prediction; without a model or a Tune
+// section it answers none.
+#[test]
+fn a_kept_candidate_answers_its_settings_and_no_prediction() {
+    let loop_definition = LoopDefinition::decode(include_str!(
+        "../../../../examples/control-pid-commissioning/control-loop.json"
+    ))
+    .expect("the commissioning example's loop");
+    let identify = crate::study::tune::model::tests::identify_section(None);
+    let request = TuneRequest {
+        project_root: "/projects/control-pid-commissioning".to_owned(),
+        runtime_id: "simulator".to_owned(),
+        loop_id: "control-pid-commissioning".to_owned(),
+        storage_folder: "/state/trust".to_owned(),
+        method: None,
+        choice: None,
+        structure: None,
+        pins: None,
+        settings: None,
+        connection: None,
+    };
+    let section = tune(&TuneInputs {
+        loop_definition: &loop_definition,
+        identify: Some(&identify),
+        previous: None,
+        request: &request,
+        relay: None,
+    })
+    .expect("Automatic designs a candidate")
+    .section;
+    let evidence = study_evidence(&loop_definition, Some(&identify), true);
+    let answer = kept_candidate(&loop_definition, Some(&identify), Some(&section), evidence)
+        .expect("the study keeps a candidate");
+    assert_eq!(answer.candidate, section.candidate);
+    assert_eq!(
+        answer.settings,
+        record_settings(&section.candidate, &mapped_parameters(&loop_definition))
+    );
+    assert_eq!(answer.reason, section.reason);
+    assert!(answer.response.is_none(), "the study keeps no prediction");
+    assert!(answer.prediction_unavailable.is_some());
+    assert!(matches!(
+        answer.outcome,
+        CandidateOutcome::Unpredicted { .. }
+    ));
+    assert!(answer.margins.is_none() && answer.comparison.is_empty());
+    assert_eq!(answer.stages, stage_availability(&evidence));
+    assert!(kept_candidate(&loop_definition, None, Some(&section), evidence).is_none());
+    assert!(kept_candidate(&loop_definition, Some(&identify), None, evidence).is_none());
 }

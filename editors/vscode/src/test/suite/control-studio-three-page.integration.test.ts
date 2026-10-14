@@ -2,7 +2,8 @@ import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { attachControlStudio } from "./control-studio-rendered-harness";
+import { runtimeLifecycleService } from "../../runtimeLifecycle";
+import { attachControlStudio, engineAnswerRecorderScript, type EngineAnswerRecord } from "./control-studio-rendered-harness";
 import { recordingArchive } from "./control-studio-recording-flow.test";
 import { captureRenderedWorkbenchCdp, connectCdp, devToolsPort, evaluateInWebview, httpJson, pollValue, requiredEnvironment } from "./plant-rendered-harness";
 import { formatDurationSeconds } from "../../controlStudio/webview/durationField";
@@ -114,6 +115,9 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Review project test");
       const loop = JSON.parse(await inner("return d.querySelector('[data-studio-three-page]').dataset.studioLoop;"));
       const recording = JSON.parse(recordingArchive(loop, "project-recorded-signals", 2)).recording;
+      // The engine route does not send this message: it answers the project test as an identification (the plant input, the
+      // measurement and the prediction, IdentifyResult in crates/trust-control/src/messages.rs), and no engine answer carries the
+      // recorded experiment signals the engineer selects. The page-side state stays a TypeScript-route fixture (reported gap).
       await inner(`const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.recording.evidence',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,payload:{recording:${JSON.stringify(recording)}}},'*');return 'recorded';`);
       await pollValue("project experiment signals", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), value => Number(value) >= 2, 10000);
       assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /°C/);
@@ -148,6 +152,7 @@ suite("Control Studio three-page workflow", () => {
       outputs: [{ id: "y", unit: "°C", operatingRange: { minimum: 0, maximum: 100 } }],
       operatingPoint: { inputs: [20], outputs: [20] } };
     await withStudio(async (inner, reopen) => {
+      const gaps: string[] = [];
       assert.strictEqual(await inner("return String(!!d.querySelector('[data-engineer-acquisition-method] option[value=supplied-model]'));"), "true", "Identify exposes supplied models through its method selector");
       await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='supplied-model';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'selected';");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Open model…");
@@ -161,13 +166,16 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
       await reopen();
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'identify';");
-      assert.strictEqual(await inner("return d.querySelector('[data-engineer-acquisition-method]').value;"), "supplied-model", "Reopening preserves the supplied-model entry path");
+      // The later checks do not depend on this one: the model file is read whatever method is selected (threePageSuppliedModel.ts `read`).
+      await reportedGap(gaps, "Reopen gap: the chosen method is not restored, because enginePanelRoute.ts navigation stores only the page and panel.ts:497 sends the view restore only for loops the engine does not serve",
+        async () => assert.strictEqual(await inner("return d.querySelector('[data-engineer-acquisition-method]').value;"), "supplied-model", "Reopening preserves the supplied-model entry path"));
       assert.match(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), /5/);
       await choose("not json");
       await pollValue("invalid supplied model", () => inner("return d.querySelector('[data-studio-message=model]').textContent;"), text => /model|JSON/i.test(text), 10000);
       assert.strictEqual(await inner("return d.querySelector('[data-studio-message=model]').textContent;"), "Choose a valid plant model JSON file.");
       assert.match(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), /5/, "A failed import preserves the selected model");
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
+      assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
     }, { capture: "supplied-model" });
   });
   test("shows retained checks and an inconclusive row for every unfinished mandatory scenario", async function () {
@@ -175,8 +183,16 @@ suite("Control Studio three-page workflow", () => {
     this.timeout(60000);
     await withStudio(async inner => {
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'validate';");
-      await inner(hostUpdate({ status: "failed", reason: "The load-change run was interrupted.", requiredScenarios: ["target-response", "load-change"],
-        scenarioResults: [{ id: "target-response", result: { evaluation: { status: "Pass", requirements: [{id:"settling",kind:"settling",status:"Pass",value:4,limit:5,unit:"s"}], specification: [{id:"settling",kind:"settling",channel:"P1.ProcessValue"}] } } }] }));
+      // The engine answers an interrupted scenario inside its Validate result: the retained target-response check keeps its row, and
+      // the unfinished scenario's runs are Inconclusive with the engine's reason (crates/trust-control/src/study/validate.rs
+      // `job_outcome`, `not_run_requirements`, `failure_of`; validation/texts.rs `run_not_completed`, `scenario_label`).
+      const interrupted = "The isolated run ended failed before it completed, so this requirement has no evidence. The runtime said: The load-change run was interrupted.";
+      await inner(engineResult("validate", { scenarios: [
+        scenarioOutcome("target-response", "Target response", "Pass", [requirementOutcome("settling", "Maximum settling time", "Pass", "s", "Within the limit.", { value: 4, limit: 5 })]),
+        scenarioOutcome("load-change", "Load change", "Inconclusive", [requirementOutcome("settling", "Maximum settling time", "Inconclusive", "s", interrupted)]),
+      ], status: "Inconclusive", applyAvailable: false, failure: { message: interrupted, cause: "runtime", nextAction: "none" },
+      stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: false },
+      stages: engineStages("complete", "complete", "needs-data"), labels: VALIDATE_LABELS }));
       assert.strictEqual(await inner("const empty=d.querySelector('[data-studio-chart-empty]');return String(!!empty&&!empty.hidden&&['Start the runtime to see live values','Waiting for the first samples'].includes(empty.textContent)&&d.querySelector('[data-control-studio-chart]').dataset.seriesCount==='0');"), "true", "A missing response shows one line in the plot area instead of empty axes");
       const table = await inner("return d.querySelector('[data-studio-validation-result]').textContent;");
       assert.match(table, /Maximum settling time/);
@@ -189,6 +205,7 @@ suite("Control Studio three-page workflow", () => {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     await withStudio(async inner => {
+      const gaps: string[] = [];
       const project = vscode.workspace.workspaceFolders![0].uri.fsPath;
       const loop = JSON.parse(fs.readFileSync(path.join(project, "control-loop.json"), "utf8"));
       for (const [id, amplitude] of [["manual-model-estimation", 2], ["manual-model-validation", 1.5]] as const) {
@@ -198,22 +215,33 @@ suite("Control Studio three-page workflow", () => {
         await pollValue("opened model analysis", () => inner("return String(d.defaultView.__recordingBusy && d.querySelector('[data-studio-three-page]').dataset.busy === 'false');"), value => value === "true", 15000);
       }
       assert.strictEqual(await inner("return String(!!d.querySelector('dialog[open]'));"), "false", "Opening recordings stays on Identify and never opens an empty Tune editor");
-      await inner(hostUpdate({ status: "candidate", family: "PI", availableFamilies: ["P", "PI", "PD", "PID"],
-        values: { "P1.Parameters.ProportionalGain": 1.23456789012345, "P1.Parameters.IntegralGain": .5, "P1.Parameters.DerivativeGain": 0 },
-        stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false } }));
+      // The engine answers Tune with the candidate's structure and settings (TuneResult; engineTune.ts tuneCandidatePayload gives the
+      // page the family, the values and the stage evidence). The controller families come from the bindings (threePageBindings.ts),
+      // not from the Tune answer. engineOpened.ts posts the candidate on the `engineer` stage, the stage the page's router takes for it.
+      await inner(engineResult("tune", { candidate: { structure: "PI" },
+        settings: { "P1.Parameters.ProportionalGain": 1.23456789012345, "P1.Parameters.IntegralGain": .5, "P1.Parameters.DerivativeGain": 0 },
+        stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false },
+        stages: engineStages("complete", "complete", "ready") }));
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();const method=d.querySelector('[data-engineer-tuning-method]');method.value='manual';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual';");
-      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-manual-value]').length);"), "2", "Manual PI shows only its relevant settings");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').value;"), "1.23456789012345");
-      assert.ok((await inner("return d.querySelector('[data-studio-tuning-result]').textContent;")).includes("Proportional gain (Kp)"));
-      await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='2.123456789';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'edited';");
-      await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='automatic';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'automatic';");
-      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-manual-value]').length);"), "0", "Automatic results stay plain and compact");
-      await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='manual';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual again';");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').value;"), "2.123456789");
-      assert.strictEqual(await inner("return String(!!d.querySelector('[data-studio-manual-pin]'));"), "false", "Manual settings have no Pin checkboxes");
-      await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-engineer-tune]').click();return 'incomplete';");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').getAttribute('aria-invalid');"), "true");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.busy??'false';"), "false", "An incomplete manual value does not start Tune");
+      const manualRows = await inner("return String(d.querySelectorAll('[data-studio-manual-value]').length);");
+      await reportedGap(gaps, `${TUNE_STAGE_GAP}: the manual rows of the candidate's family`, () => assert.strictEqual(manualRows, "2", "Manual PI shows only its relevant settings"));
+      await reportedGap(gaps, `${TUNE_STAGE_GAP}: the candidate's settings`, async () => assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').value;"), "1.23456789012345"));
+      await reportedGap(gaps, `${TUNE_STAGE_GAP}: the tuning result text`, async () => assert.ok((await inner("return d.querySelector('[data-studio-tuning-result]').textContent;")).includes("Proportional gain (Kp)")));
+      if (manualRows === "0") {
+        // A dependent chain: editing a setting, changing the method and the incomplete Tune all need the manual settings on the page.
+        gaps.push(`${TUNE_STAGE_GAP}: the manual-settings steps not run, because the Tune page shows no manual settings`);
+      } else {
+        await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='2.123456789';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'edited';");
+        await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='automatic';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'automatic';");
+        assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-manual-value]').length);"), "0", "Automatic results stay plain and compact");
+        await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='manual';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual again';");
+        assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').value;"), "2.123456789");
+        assert.strictEqual(await inner("return String(!!d.querySelector('[data-studio-manual-pin]'));"), "false", "Manual settings have no Pin checkboxes");
+        await inner("const input=d.querySelector('[data-studio-manual-value]');input.value='';input.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-engineer-tune]').click();return 'incomplete';");
+        assert.strictEqual(await inner("return d.querySelector('[data-studio-manual-value]').getAttribute('aria-invalid');"), "true");
+        assert.strictEqual(await inner("return d.querySelector('[data-studio-three-page]').dataset.busy??'false';"), "false", "An incomplete manual value does not start Tune");
+      }
+      assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
     }, { capture: "manual-settings", loop: loop => { loop.id += "-manual-fields"; loop.parameterBinding.loop_id = loop.id; } });
   });
   test("renders state-design policy and preserves finite design drafts across reopen", async function () {
@@ -358,28 +386,56 @@ suite("Control Studio three-page workflow", () => {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     await withStudio(async inner => {
-      const checks = Array.from({ length: 32 }, (_, index) => ({ id: `controller-state:${index}`, kind: "state-bounds", status: "Pass", value: 0, limit: 0, unit: "°C", reason: "Within limits." }));
-      checks.push({ id: "tracking-error", kind: "error", status: "Fail", value: 2, limit: 1, unit: "°C", reason: "The measured error exceeds the limit." });
-      const evaluation = { status: "Fail", run: { channels: [{ id: "P1.ProcessValue", unit: "°C" }], samples: [{ timeSeconds: 0, values: { "P1.ProcessValue": { value: 20, quality: "good" } } }, { timeSeconds: 1, values: { "P1.ProcessValue": { value: 21, quality: "good" } } }] },
-        requirements: checks, specification: checks.map(check => ({ id: check.id, channel: "P1.ProcessValue", kind: check.kind, minimum: 0, maximum: 100, window: { start: 0, end: 1 } })) };
-      await inner(hostUpdate({ status: "verification-failed", candidate: evaluation, scenarioResults: [{ id: "nominal", result: { evaluation } }] }));
+      const gaps: string[] = [];
+      // The engine's Validate answer for the same campaign: 32 passing state-range guards, then the failing error check, in the order
+      // the scenario declares them (RequirementOutcome rows; crates/trust-control/src/study/validate.rs `requirement_label`,
+      // `failure_of`). The scenario's one requirement list judges both runs, so each run holds the 32 guards (guard: true) and the
+      // failing check: the table names each run's failure first, counts the passing guards of both runs in one row, and ends with the
+      // candidate's overall row (specification 35, B5.4 and B9.9; engineValidate.ts renderValidation).
+      const checks = Array.from({ length: 32 }, (_, index) => requirementOutcome(`controller-state:${index}`, "State range", "Pass", "°C", "Within limits.",
+        { measuredRange: { minimum: 0, maximum: 0 }, limitRange: { minimum: 0, maximum: 100 }, guard: true }));
+      checks.push(requirementOutcome("tracking-error", "Maximum steady-state error", "Fail", "°C", "The measured error exceeds the limit.", { value: 2, limit: 1 }));
+      await inner(engineResult("validate", { scenarios: [scenarioOutcome("nominal", "Nominal", "Fail", checks)], status: "Fail", applyAvailable: false,
+        stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: false },
+        failure: { message: "The measured error exceeds the limit.", cause: "settings", nextAction: "tune", nextActionLabel: "Tune controller" },
+        stages: engineStages("complete", "complete", "failed"), labels: VALIDATE_LABELS, plot: MEASURED_RESPONSE }));
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'inspect results';");
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-validation-result] tbody tr').dataset.studioRequirement;"), "tracking-error", "Failures appear directly at the top of the results");
-      assert.deepStrictEqual(JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-validation-result] tbody tr')].map(row=>[...row.cells].map(cell=>cell.textContent)));")).map((row: string[]) => row[0] + " | " + row[1]).slice(1),
-        ["Ranges, states and transfer | 32 checks"], "The passing generated guards are counted in one row beneath the failure (CPREL-B13)");
+      await reportedGap(gaps, "Validate order gap: failures are not shown first, because engineValidate.ts renderValidation draws the rows in the answer's order",
+        async () => assert.strictEqual(await inner("return d.querySelector('[data-studio-validation-result] tbody tr').dataset.studioRequirement;"), "tracking-error", "Failures appear directly at the top of the results"));
+      await reportedGap(gaps, "Validate grouping gap: each passing generated guard has its own row, because engineValidate.ts renderValidation draws one row per requirement (threePageResults.ts grouped them on the TypeScript route)",
+        async () => {
+          const rows = JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-validation-result] tbody tr')].map(row=>({id:row.dataset.studioRequirement,cells:[...row.cells].map(cell=>cell.textContent)})));")) as { id: string; cells: string[] }[];
+          // The shape the engine answers on purpose: both runs' failing check, then one counted row of the passing guards of both runs,
+          // then the candidate's overall row (B5.4 names each scenario's runs; B9.9 the counted row).
+          assert.deepStrictEqual(rows.slice(1).map(row => row.id), ["tracking-error", "limit-and-controller-checks", "overall"],
+            "The passing generated guards are counted in one row beneath the failures, and the overall row closes the table (CPREL-B13)");
+          assert.deepStrictEqual(rows.find(row => row.id === "limit-and-controller-checks")?.cells.slice(0, 2), ["Ranges, states and transfer", "64 checks"],
+            "The counted row names the guards of both runs (32 each)");
+        });
+      // The table scrolls in its own region (threePageStyles.ts `.studio-validation-scroll`), so Apply stays in view with every row.
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').getBoundingClientRect().bottom<=d.defaultView.innerHeight-8);"), "true", "Apply remains visible beside the response, without scrolling through technical checks");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"), "true", "A failed requirement keeps Apply unavailable");
+      assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
     });
   });
   test("starts guarded application and reports rejection without claiming adoption", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     await withStudio(async inner => {
-      await inner(hostUpdate({ status: "verified", stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: true } }));
-      await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();d.defaultView.__application=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>{if(event.detail.applicationAction)d.defaultView.__application.push(event.detail);});return 'listen';");
+      // The engine route answers a passed validation as the Validate result with Apply available (engineValidate.ts relayApplyAnswer).
+      await inner(engineResult("validate", { scenarios: [scenarioOutcome("target-response", "Target response", "Pass",
+        [requirementOutcome("settling", "Maximum settling time", "Pass", "s", "Within the limit.", { value: 4, limit: 8 })])],
+      status: "Pass", applyAvailable: true, stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: true },
+        stages: engineStages("complete", "complete", "complete"), labels: VALIDATE_LABELS }));
+      const before = Number(await inner(ENGINE_ANSWER_COUNT));
+      await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'validate';");
       assert.strictEqual(await inner("d.querySelector('[data-engineer-apply]').click();return d.querySelector('[data-engineer-apply]').textContent;"), "Applying…");
-      const messages = JSON.parse(await pollValue("unverified application rejection", () => inner("return JSON.stringify(d.defaultView.__application);"), text => JSON.parse(text).some((event: {status:string}) => event.status === "failed"), 10000));
-      assert.ok(messages.some((event: {status:string}) => event.status === "failed"));
+      // The engine refuses the request (`control-studio.engine.failure`, method apply): the study holds no validation the engine ran
+      // and no runtime is connected (crates/trust-control-studio/src/apply_action.rs). The engine route dispatches no application
+      // event, so the wait reads the engine's answers (engineAnswerRecorderScript).
+      const messages = (JSON.parse(await pollValue("unverified application rejection", () => inner(engineAnswersAfter(before)),
+        text => (JSON.parse(text) as EngineAnswer[]).some(event => isApplicationAnswer(event) && event.status === "failed"), 10000)) as EngineAnswer[]).filter(isApplicationAnswer);
+      assert.ok(messages.some(event => event.status === "failed"));
       assert.strictEqual(await inner("return String(Array.from(d.querySelectorAll('[data-studio-application] button')).filter(button=>!button.hidden).length);"), "1");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-keep]').hidden);"), "true", "Keep in project waits for a successful Apply");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-apply]').textContent;"), "Apply");
@@ -390,24 +446,43 @@ suite("Control Studio three-page workflow", () => {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     await withStudio(async inner => {
-      await inner(hostUpdate({ status: "candidate", family: "PI", values: { "P1.Parameters.ProportionalGain": 5, "P1.Parameters.IntegralGain": 1 },
+      const gaps: string[] = [];
+      // The engine's Tune answer: the candidate's structure and settings, its predicted measurement and the predicted measurement of the
+      // current settings beside it (TuneResult; the traces `measurement` and `current-measurement`, TuneRole in crates/trust-control/src/messages.rs).
+      await inner(engineResult("tune", { candidate: { structure: "PI" }, settings: { "P1.Parameters.ProportionalGain": 5, "P1.Parameters.IntegralGain": 1 },
+        response: { timeSeconds: [0, 1, 2], traces: [{ role: "measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 21, 21.8] },
+          { role: "current-measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 20.4, 20.9] }] },
         stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false },
-        plots: { timeResponse: [{ timeSeconds: 0, currentPv: 20, candidatePv: 20 }, { timeSeconds: 1, currentPv: 20.5, candidatePv: 21 }, { timeSeconds: 2, currentPv: 21, candidatePv: 21.8 }] } }));
+        stages: engineStages("complete", "complete", "ready") }));
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'inspect tuning';");
-      assert.strictEqual(await inner("return String(d.querySelector('[data-studio-tuning-result]').checkVisibility());"), "true");
+      // The Tune-page checks are reported gaps; the Validate checks below depend only on the Validate answer, not on Tune.
+      await reportedGap(gaps, `${TUNE_STAGE_GAP}: the tuning result`, async () => assert.strictEqual(await inner("return String(d.querySelector('[data-studio-tuning-result]').checkVisibility());"), "true"));
       const tuning = await inner("return d.querySelector('[data-studio-tuning-result]').textContent;");
-      assert.match(tuning, /PI/); assert.match(tuning, /Proportional gain/i); assert.match(tuning, /5/); assert.match(tuning, /%/);
-      assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "2", "Compare current and tuned predictions");
-      const run = { channels: [{ id: "P1.ProcessValue", unit: "°C" }], samples: [{ timeSeconds: 0, values: { "P1.ProcessValue": { value: 20, quality: "good" } } }, { timeSeconds: 1, values: { "P1.ProcessValue": { value: 21, quality: "good" } } }] };
-      const evaluation = { status: "Pass", run, requirements: [{ id: "nominal-error", kind: "error", status: "Pass", value: 0.02, limit: 0.1, unit: "°C", reason: "Within limit." }, { id: "nominal-settling", kind: "settling", status: "Pass", value: 4, limit: 8, unit: "s", reason: "Within deadline." }], specification: [{ id: "nominal-error", channel: "P1.ProcessValue", kind: "error", maximum: 0.1 }, { id: "nominal-settling", channel: "P1.ProcessValue", kind: "settling", deadlineSeconds: 8 }] };
-      await inner(hostUpdate({ status: "verified", candidate: evaluation, scenarioResults: [{ id: "nominal", result: { run, evaluation } }], stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: true } }));
+      await reportedGap(gaps, `${TUNE_STAGE_GAP}: the tuning result text`, () => { assert.match(tuning, /PI/); assert.match(tuning, /Proportional gain/i); assert.match(tuning, /5/); assert.match(tuning, /%/); });
+      await reportedGap(gaps, `${TUNE_STAGE_GAP}, and the current settings' predicted response beside the tuned one (TuneRole current-measurement)`,
+        async () => assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "2", "Compare current and tuned predictions"));
+      // The engine's Validate answer: the nominal scenario's current settings and candidate runs, and the measured response of the
+      // candidate's run (ValidateResult; its plot has no current run when that run has no sample).
+      const requirements = [requirementOutcome("nominal-error", "Maximum steady-state error", "Pass", "°C", "Within limit.", { value: 0.02, limit: 0.1 }),
+        requirementOutcome("nominal-settling", "Maximum settling time", "Pass", "s", "Within deadline.", { value: 4, limit: 8 })];
+      await inner(engineResult("validate", { scenarios: [scenarioOutcome("nominal", "Nominal", "Pass", requirements)], status: "Pass", applyAvailable: true,
+        stageEvidence: { ...VALIDATION_EVIDENCE, validationPassed: true },
+        stages: engineStages("complete", "complete", "complete"), labels: VALIDATE_LABELS, plot: MEASURED_RESPONSE }));
       await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'inspect validation';");
-      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-validation-result] tbody tr').length);"), "2", "Retain both mandatory requirements");
+      // The engine's table holds each scenario's Current settings run, then its Candidate run, each with both mandatory requirements, and
+      // ends with the candidate's overall row (engineValidate.ts renderValidation): every row is checked, in order.
+      assert.deepStrictEqual(JSON.parse(await inner("return JSON.stringify([...d.querySelectorAll('[data-studio-validation-result] tbody tr')].map(row=>row.dataset.studioRequirement));")),
+        ["nominal-error", "nominal-settling", "nominal-error", "nominal-settling", "overall"], "Retain both mandatory requirements");
+      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-validation-result] tbody tr').length);"), "5", "The validation table holds no other rows");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-apply]').disabled);"), "false");
       assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "1", "Show measured validation output");
-      await inner(hostUpdate({ status: "edited", stageEvidence: { hasModel: true, hasCandidate: false, validationPassed: false } }));
+      // A requirement change leaves the validation stale, which the engine's inputs answer states (InputsResult `invalidated`,
+      // engineInputs.ts). The stale plot's check is reported gap G6.
+      await inner(engineResult("inputs", { stages: engineStages("complete", "complete", "ready"), invalidated: { validation: true } }));
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-validation-result]').hidden);"), "true", "Previous passing rows are no longer presented as current validation after inputs change");
-      assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "0", "Stale response is retained in history, not shown for current inputs");
+      await reportedGap(gaps, "G6 the chart keeps the Tune and Validate plots after inputs change, because threePageChart.ts:116 keys on an edited status event that the engine route does not dispatch",
+        async () => assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "0", "Stale response is retained in history, not shown for current inputs"));
+      assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
     });
   });
   test("starts identification from its visible button with the actual Control.PID plant", async function () {
@@ -415,49 +490,94 @@ suite("Control Studio three-page workflow", () => {
     // Identifying again waits, bounded, for the plant to settle after the first experiment.
     this.timeout(240000);
     await withStudio(async (inner, reopen, capture) => {
-      await inner("d.querySelector('[data-engineer-stage-tab=model]').click();d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>d.defaultView.__studioEvents.push(event.detail));d.querySelector('[data-engineer-find]').click();return 'started';");
+      const gaps: string[] = [];
+      // Identify plant is one `controlStudio/run` through Identify on the engine route (engine/routes/runRoute.ts), and a live
+      // identification needs a connected target (specification 35, B3.4 step 1; B3.9): without one the engine answers "Start the
+      // runtime before running a live action." (crates/trust-control/src/identification/connected_run.rs). The TypeScript route
+      // started the simulator itself (engineerActions/find.ts, runtimeSearchConnection.ts); here the engineer starts it first with the
+      // same call, and withStudio stops it.
+      const started = await runtimeLifecycleService.startLocalSimulator();
+      assert.ok(started.ok, JSON.stringify(started));
+      const before = Number(await inner(ENGINE_ANSWER_COUNT));
+      await inner(`d.querySelector('[data-engineer-stage-tab=model]').click();d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>d.defaultView.__studioEvents.push(event.detail));${liveRecordingObserver(before)}d.querySelector('[data-engineer-find]').click();return 'started';`);
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Abort", "Identify starts the operation and offers Abort");
-      const finished = JSON.parse(await pollValue("native identification result", () => inner("return JSON.stringify(d.defaultView.__studioEvents);"), text => JSON.parse(text).some((event: {status: string}) => ["model-ready", "failed", "paused"].includes(event.status)), 60000));
-      const model = finished.find((event: {status: string}) => event.status === "model-ready");
-      assert.ok(model?.model, JSON.stringify(finished));
-      assert.ok(model.identificationPresentation?.predictedResponse?.length > 2, "The native model has measured-versus-predicted evidence");
-      assert.ok(finished.slice(0, finished.indexOf(model)).some((event: any) => event.liveIdentification === true), "Show the live experiment recording before the model result");
-      const experiment = model.identificationPresentation.experiment;
-      assert.ok(experiment?.inputs?.length, "Retain the applied plant input with its model response");
-      const inputValues = experiment.inputs[0].points.map((point: any) => point.value);
-      assert.ok(Math.min(...inputValues) === 0 && Math.max(...inputValues) > 0, "The chart evidence includes the applied excitation");
-      assert.strictEqual(experiment.inputs[0].unit, "%");
-      assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "3", "Plot applied input, measured output and model prediction together");
-      assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Applied input.*%/);
+      // The engine route dispatches no status events, so the wait reads the engine's answers: the run's result follows its last
+      // update and carries Identify's answer as `identification` (RunResult in crates/trust-control/src/messages.rs).
+      const finished = JSON.parse(await pollValue("native identification result", () => inner(engineAnswersAfter(before)),
+        text => (JSON.parse(text) as EngineAnswer[]).some(endsIdentification), 60000)) as EngineAnswer[];
+      const answered = finished.findIndex(answersIdentification);
+      const identified = (answered < 0 ? null : JSON.parse(await inner(engineIdentificationAt(before + answered)))) as EngineIdentification | null;
+      // The engine names the identified model by its type and equation; it answers no TypeScript model object (gap G4).
+      assert.ok(identified?.modelType && identified.equation, JSON.stringify(finished));
+      const presentations = JSON.parse(await inner("return JSON.stringify(d.defaultView.__studioEvents.filter(e=>e&&e.identificationPresentation).map(e=>(e.identificationPresentation.predictedResponse||[]).length));")) as number[];
+      assert.ok(presentations.length > 0 && presentations[presentations.length - 1] > 2, "The native model has measured-versus-predicted evidence");
+      // The engine route sends no liveIdentification event: while the engine reports the Identify stage running, the chart plots the
+      // plant live from the loop monitor (threePageChart.ts), which is the recording the engineer sees before the model result.
+      const live = JSON.parse(await inner("return JSON.stringify(d.defaultView.__liveRecording??null);")) as { answers: number } | null;
+      assert.ok(live !== null && live.answers <= before + answered, "Show the live experiment recording before the model result");
+      // The applied plant input is the plant-input trace of the engine's plot, taken from the same experiment record (IdentifyResult).
+      const input = identified?.plantInput ?? null;
+      assert.ok(input && input.count > 0, "Retain the applied plant input with its model response");
+      assert.ok(input.minimum === 0 && input.maximum !== null && input.maximum > 0, "The chart evidence includes the applied excitation");
+      assert.strictEqual(input.unit, "%");
+      // Gap G2: engineIdentify.ts showPlot forwards only the measured and predicted traces, so the applied input is not drawn yet. Both
+      // checks of it are reported gaps, so that the journey goes on to the reset on this live page.
+      await reportedGap(gaps, "G2 applied input on the Identify plot", async () => assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "3", "Plot applied input, measured output and model prediction together"));
+      await reportedGap(gaps, "G2 applied input in the plot description", async () => assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Applied input.*%/));
 
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'inspect identified model';");
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-model-result]').checkVisibility());"), "true");
       await pollValue("initial identification finished", () => inner("return d.querySelector('[data-studio-three-page]').dataset.busy;"), value => value === "false", 10000);
-      const terminalEvents = JSON.parse(await inner("return JSON.stringify(d.defaultView.__studioEvents.map(e=>({status:e.status,reason:e.reason,flowStage:e.flowStage})));"));
-      assert.ok(terminalEvents.some((event: any) => event.status === "completed" && event.flowStage === "Identify"), JSON.stringify(terminalEvents));
-      assert.ok(!terminalEvents.some((event: any) => event.status === "paused"), "Completed trial cleanup must not overwrite the model-ready result");
+      // Every update of a run names the stage it is in (crates/trust-control-studio/src/operation.rs), so its end is completed on Identify.
+      const terminalEvents = JSON.parse(await inner(engineAnswersAfter(before))) as EngineAnswer[];
+      assert.ok(terminalEvents.some(event => event.status === "completed" && event.flowStage === "Identify"), JSON.stringify(terminalEvents));
+      assert.ok(!terminalEvents.some(event => event.status === "paused"), "Completed trial cleanup must not overwrite the model-ready result");
+      // Reset runs on this live page, which shows the identified model: a reopened page shows none (gap G3), so a reset there would
+      // pass its checks on an empty page.
+      await inner("d.querySelector('[data-studio-reset-chart]').click();Array.from(d.querySelectorAll('.studio-reset-confirm button')).find(b=>b.textContent==='Reset study').click();return 'reset';");
+      // The engine answers the reset at once (`control-studio.engine.result`, method identify, without a model type) and the page
+      // stays open, so the wait reads that answer as well as the page.
+      await pollValue("reset study", () => inner("return String(d?.querySelector('[data-studio-three-page]')?.dataset.hostReady === 'true' && d?.querySelector('[data-studio-model-result]')?.hidden === true && (d.defaultView.__engineAnswers||[]).some(e=>e.status==='reset'));").catch(() => "loading"), value => value === "true", 15000);
+      // Gap G1, the R3 failure: clearEngineIdentification (engineIdentify.ts) hides the model result but keeps its equation and type.
+      await reportedGap(gaps, "G1 Reset keeps the model equation (engineIdentify.ts clearEngineIdentification)",
+        async () => assert.strictEqual(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), "", "Reset clears the model equation"));
+      // Reset clears the recorded experiment and its model comparison, then resumes live observation (Identify spec).
+      await reportedGap(gaps, "Behind G1: the chart still shows the model comparison after Reset (clearEngineIdentification sends the chart nothing)",
+        async () => assert.doesNotMatch(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label') ?? '';"), /Model prediction/, "Reset clears the displayed experiment"));
+      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "true");
+      // The TypeScript route reloaded the page after a reset; the engine route keeps it, so its reset must free Identify plant again.
+      const identifyDisabled = await inner("return String(d.querySelector('[data-engineer-find]').disabled);");
+      await reportedGap(gaps, "G5 the page stays busy after an engine Reset (threePageOperation.ts:92 ends the reset only on a failure)",
+        () => assert.strictEqual(identifyDisabled, "false", "After the reset, Identify plant can start a new identification"));
+      if (identifyDisabled === "false") {
+        const again = Number(await inner(ENGINE_ANSWER_COUNT));
+        await inner("d.querySelector('[data-engineer-find]').click();return 'new identification';");
+        const repeated = JSON.parse(await pollValue("repeated native identification result", () => inner(engineAnswersAfter(again)),
+          text => (JSON.parse(text) as EngineAnswer[]).some(endsIdentification), 150000)) as EngineAnswer[];
+        assert.ok(repeated.some(event => event.status === "completed" && event.flowStage === "Identify"), JSON.stringify(repeated));
+        assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Model prediction/, "The new result replaces the cleared chart");
+      } else {
+        // A dependent step: the repeated identification needs Identify plant, so it is neither clicked nor waited for.
+        gaps.push("G5 repeated identification not run: Identify plant disabled after Reset");
+      }
+      // The screenshot after the reset (and the new result when it ran), taken here because the reopen below now ends the journey.
+      await capture("identify-and-reset-chart");
       await reopen();
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',event=>d.defaultView.__studioEvents.push(event.detail));return 'reopened';");
       await capture("reopened-identification");
-      assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "3", "Reopening preserves the actual experiment input and model comparison");
-      await inner("d.querySelector('[data-studio-reset-chart]').click();Array.from(d.querySelectorAll('.studio-reset-confirm button')).find(b=>b.textContent==='Reset study').click();return 'reset';");
-      await pollValue("reset study", () => inner("return String(d?.querySelector('[data-studio-three-page]')?.dataset.hostReady === 'true' && d?.querySelector('[data-studio-model-result]')?.hidden === true);").catch(() => "loading"), value => value === "true", 15000);
-      assert.strictEqual(await inner("return d.querySelector('[data-studio-model-equation]').textContent;"), "", "Reset clears the model equation");
-      // Reset clears the recorded experiment and its model comparison, then resumes live observation (Identify spec).
-      assert.doesNotMatch(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label') ?? '';"), /Model prediction/, "Reset clears the displayed experiment");
-      assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "true");
-      await inner("d.defaultView.__studioEvents=[];d.defaultView.addEventListener('trust-control-studio-engineer',e=>d.defaultView.__studioEvents.push(e.detail));return 'listen';");
-      await inner("d.querySelector('[data-engineer-find]').click();return 'new identification';");
-      const repeated = JSON.parse(await pollValue("repeated native identification result", () => inner("return JSON.stringify(d.defaultView.__studioEvents.map(e=>({status:e.status,flowStage:e.flowStage,reason:e.reason})));"), text => JSON.parse(text).some((event: {status: string}) => ["completed", "failed", "paused"].includes(event.status)), 150000));
-      assert.ok(repeated.some((event: {status:string;flowStage:string}) => event.status === "completed" && event.flowStage === "Identify"), JSON.stringify(repeated));
-      assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Model prediction/, "The new result replaces the cleared chart");
-    }, { capture: "identify-and-reset-chart" });
+      // Gaps G3 and G2: the engine's open answer carries no identification (OpenResult), and the plot draws no applied input.
+      await reportedGap(gaps, "G3 and G2 reopened identification plot", async () => assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "3", "Reopening preserves the actual experiment input and model comparison"));
+      assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
+    });
   });
   test("plots measured and predicted identification responses with their units", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     await withStudio(async inner => {
-      await inner(`d.querySelector('[data-engineer-stage-tab=model]').click();const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.engineering.result',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,stage:'engineer',payload:{status:'model-ready',identificationPresentation:{units:{output:'°C'},predictedResponse:[{timeSeconds:0,measured:20,predicted:20},{timeSeconds:1,measured:21,predicted:20.9},{timeSeconds:2,measured:21.8,predicted:21.7}]}}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`);
+      // The engine's Identify answer carries the response plot: the measurement and the model's prediction on one time base, each with
+      // its unit (IdentifyResult.plot); engineIdentify.ts showPlot hands them to the chart as the identification presentation.
+      await inner(`d.querySelector('[data-engineer-stage-tab=model]').click();${engineResult("identify", identifyResult("First-order model", "G(s) = 0.2 / (1.5s + 1)", "Gain 0.2 °C per %, time constant 1.5 s",
+        { timeSeconds: [0, 1, 2], traces: [{ role: "measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 21, 21.8] }, { role: "prediction", symbol: "y", unit: "°C", values: [20, 20.9, 21.7] }] }))}`);
       assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "2", "The response plot includes measured data and model prediction");
       assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /°C/);
     });
@@ -481,7 +601,10 @@ suite("Control Studio three-page workflow", () => {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
     this.timeout(60000);
     await withStudio(async inner => {
-      await inner(`d.querySelector('[data-engineer-stage-tab=model]').click();const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.engineering.result',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,stage:'engineer',payload:{status:'model-ready',model:{kind:'transfer-function',numerator:[2],denominator:[4,1],delaySeconds:0.5,revision:'model-1',source:'fitted',validation:'validated',evidence:[],inputs:[{id:'input',unit:'%',operatingRange:{minimum:0,maximum:100}}],outputs:[{id:'output',unit:'°C',operatingRange:{minimum:0,maximum:100}}]}}},'*');await new Promise(resolve=>setTimeout(resolve,50));return 'received';`);
+      // The engine answers the identified model in its own words: the gain 2, the time constant 4 s and the delay 0.5 s of the model
+      // as crates/trust-control/src/identification/presentation.rs writes them (IdentifyResult). The page shows them as they come.
+      await inner(`d.querySelector('[data-engineer-stage-tab=model]').click();${engineResult("identify", identifyResult("First-order model with delay", "G(s) = 2 e^(-0.5s) / (4s + 1)",
+        "Gain 2 °C per %, time constant 4 s, delay 0.5 s", { timeSeconds: [], traces: [] }))}`);
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-model-result]').checkVisibility());"), "true", "The actual identified model is visible on Identify");
       const equation = await inner("return d.querySelector('[data-studio-model-equation]').textContent;");
       for (const coefficient of ["2", "4", "0.5"]) assert.ok(equation.includes(coefficient), `The equation includes the actual ${coefficient} coefficient`);
@@ -608,11 +731,15 @@ export async function withStudio(exercise: (inner: (body: string) => Promise<str
     let session = await attachControlStudio(connection, port, "", loop.id);
     const inner = (body: string) => evaluateInWebview(connection, session, body);
     await pollValue("three-page handlers", () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
+    // A served loop's answers reach the page as `control-studio.engine.*` messages, with no status events: record them for the waits.
+    await inner(engineAnswerRecorderScript());
     const reopen = async () => {
       await vscode.commands.executeCommand("workbench.action.closeAllEditors");
       await vscode.commands.executeCommand("trust-lsp.controlStudio.open", { schemaVersion: 1, source: "ConfiguredLoop", scope: { projectId: loop.projectId, runtimeId: loop.runtimeId }, loopDefinition: loop });
       session = await attachControlStudio(connection, port, "", loop.id);
       await pollValue("reopened host state", () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
+      // A reopened editor is a new document, so its engine answers are recorded again.
+      await inner(engineAnswerRecorderScript());
     };
     await exercise(inner, reopen, name => captureRenderedWorkbenchCdp(connection, requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT").replace(/\.png$/, `-${name}.png`)));
     if (options.capture) await captureRenderedWorkbenchCdp(connection, requiredEnvironment("TRUST_CONTROL_STUDIO_RENDERED_SCREENSHOT").replace(/\.png$/, `-${options.capture}.png`));
@@ -627,6 +754,130 @@ export async function withStudio(exercise: (inner: (body: string) => Promise<str
   }
 }
 
-function hostUpdate(payload: Record<string, unknown>): string {
-  return `const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.engineering.result',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,stage:'engineer',payload:${JSON.stringify(payload)}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`;
+/** One engine answer as a journey reads it from the page's recorder (`engineAnswerRecorderScript`): a small projection. */
+type EngineAnswer = Pick<EngineAnswerRecord, "kind" | "method" | "status" | "flowStage" | "reason" | "applicationAction">;
+
+/** What a journey checks of an identification the engine answered (IdentifyResult): its model, and its applied plant input. */
+interface EngineIdentification {
+  modelType?: string;
+  equation?: string;
+  plantInput: { unit: string; count: number; minimum: number | null; maximum: number | null } | null;
+}
+
+/** A verdict of the engine's Validate answer (RequirementStatus in crates/trust-control/src/messages.rs). */
+type Verdict = "Pass" | "Fail" | "Inconclusive";
+
+/** A stage's status in the engine's answers (StageStatus in crates/trust-control/src/stages.rs). */
+type StageStatus = "ready" | "needs-data" | "complete" | "failed";
+
+const REPORTED_GAPS = "Checks the engine route cannot pass yet (reported gaps)";
+/** The Tune page's check of the engine's candidate: engineOpened.ts hands the Tune result to the page's router as stage "engineer". */
+const TUNE_STAGE_GAP = "Tune stage check: the engine's candidate on the Tune page (engineOpened.ts, stage \"engineer\"; threePageWorkflow.ts router)";
+/**
+ * Runs one check of a value the engine route does not show yet (a reported gap) where it stands, logs it when it fails, and lets the
+ * journey go on, so that one run shows every gap; the test fails at its end when any gap failed.
+ */
+async function reportedGap(gaps: string[], name: string, check: () => unknown): Promise<void> {
+  try { await check(); }
+  catch (error) {
+    const gap = `${name}: ${error instanceof Error ? error.message : String(error)}`;
+    gaps.push(gap);
+    console.error(`Reported gap: ${gap}`);
+  }
+}
+
+/** The script that counts the engine answers the page has recorded: a later read takes the answers after this mark. */
+const ENGINE_ANSWER_COUNT = "return String((d.defaultView.__engineAnswers||[]).length);";
+
+/** The words the engine names the rows of the Validate table with (crates/trust-control/src/validation/texts.rs). */
+const VALIDATE_LABELS = { currentSettings: "Current settings", candidate: "Candidate", candidateOverall: "Candidate overall", automatic: "Automatic", guards: "Ranges, states and transfer", guardsLimit: "Within declared limits" };
+
+/** The stage evidence the engine answers a Validate result with: the model and the candidate it validated (StageEvidence, B9.4). */
+const VALIDATION_EVIDENCE = { hasModel: true, hasCandidate: true, validationHasResult: true };
+
+/** The engine's Validate plot of a candidate run whose measurement rose from 20 to 21 °C, with no current run (ValidationPlot). */
+const MEASURED_RESPONSE = { title: "Measured response", role: "Measurement", unit: "°C", tuned: { name: "Tuned", timeSeconds: [0, 1], values: [20, 21] } };
+
+/** The script that reads the engine answers recorded after the first `from`, as small projections (a plot can hold many points). */
+function engineAnswersAfter(from: number): string {
+  return `return JSON.stringify((d.defaultView.__engineAnswers||[]).slice(${from}).map(e=>({kind:e.kind,method:e.method,status:e.status,flowStage:e.flowStage,reason:e.reason,applicationAction:e.applicationAction})));`;
+}
+
+/**
+ * Whether an engine answer ends an identification: Identify's own result (`model-ready`), the result of the automatic flow that
+ * Identify plant starts (`completed`, or `paused` for an input it waits for; engine/routes/runRoute.ts), or a failure.
+ */
+function endsIdentification(answer: EngineAnswer): boolean {
+  return answer.status === "failed" || (answer.kind === "control-studio.engine.result" && ["model-ready", "completed", "paused"].includes(answer.status));
+}
+
+/** Whether an engine answer carries an identification: Identify's result, or the automatic flow's result with its `identification`. */
+function answersIdentification(answer: EngineAnswer): boolean {
+  return answer.kind === "control-studio.engine.result" && (answer.status === "model-ready" || answer.method === "run");
+}
+
+/** Whether an engine answer belongs to Apply, Restore or Keep in project (engineApplication.ts names them by their method). */
+function isApplicationAnswer(answer: EngineAnswer): boolean {
+  return answer.applicationAction !== undefined || ["apply", "restore", "keep"].includes(answer.method ?? "");
+}
+
+/**
+ * The script that reads the identification of the engine answer recorded at `index`: the model's type and equation, and a summary of
+ * the plot's plant-input trace (its unit, its number of values, its lowest and its highest value), so that the read stays small.
+ */
+function engineIdentificationAt(index: number): string {
+  return `const answer=(d.defaultView.__engineAnswers||[])[${index}];const result=answer&&answer.result||{};`
+    + "const found=answer&&answer.method==='run'?result.identification:result;if(!found||typeof found!=='object')return 'null';"
+    + "const input=(found.plot&&Array.isArray(found.plot.traces)?found.plot.traces:[]).find(trace=>trace.role==='plant-input');"
+    + "const values=input&&Array.isArray(input.values)?input.values.filter(value=>typeof value==='number'):[];"
+    + "return JSON.stringify({modelType:found.modelType,equation:found.equation,plantInput:input?{unit:input.unit,count:values.length,"
+    + "minimum:values.length?values.reduce((low,value)=>Math.min(low,value)):null,maximum:values.length?values.reduce((high,value)=>Math.max(high,value)):null}:null});";
+}
+
+/**
+ * The script that records, once, the chart plotting the plant live (a series and no model prediction, threePageChart.ts) while a flow
+ * runs and the engine has reported the Identify stage running after the mark `from`, with the number of engine answers recorded by
+ * then. The loop monitor feeds that live plot; the engine route sends no live recording of its own.
+ */
+function liveRecordingObserver(from: number): string {
+  return "d.defaultView.__liveRecording=null;{const root=d.querySelector('[data-studio-three-page]');const chart=d.querySelector('[data-control-studio-chart]');"
+    + "new d.defaultView.MutationObserver(()=>{const answers=d.defaultView.__engineAnswers||[];const label=chart.getAttribute('aria-label')||'';"
+    + "if(d.defaultView.__liveRecording||root.dataset.busy!=='true'||Number(chart.dataset.seriesCount)<1||/Model prediction/.test(label))return;"
+    + `if(answers.slice(${from}).some(e=>e.status==='running'&&e.flowStage==='Identify'))d.defaultView.__liveRecording={answers:answers.length,series:chart.dataset.seriesCount,label};`
+    + "}).observe(chart,{attributes:true,attributeFilter:['aria-label']});}";
+}
+
+/** The script that posts one message as the engine route posts it to the page: its kind, the page's scope and its fields (`scopeFields`). */
+function engineMessage(kind: string, fields: Record<string, unknown>): string {
+  return `const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:${JSON.stringify(kind)},projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,...${JSON.stringify(fields)}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`;
+}
+
+/** The script that posts the engine's answer to `method` (`control-studio.engine.result`, enginePanelRoute.ts). */
+function engineResult(method: string, result: Record<string, unknown>): string {
+  return engineMessage("control-studio.engine.result", { method, result });
+}
+
+/** The stage tabs' statuses as the engine answers them, each with its words (StageAvailability, crates/trust-control/src/stages.rs). */
+function engineStages(identify: StageStatus, tune: StageStatus, validate: StageStatus): Array<Record<string, string>> {
+  const words: Record<StageStatus, string> = { ready: "Ready", "needs-data": "Needs data", complete: "Complete", failed: "Failed" };
+  return ([["Identify", identify], ["Tune", tune], ["Validate", validate]] as const).map(([stage, status]) => ({ stage, status, label: words[status] }));
+}
+
+/** An Identify answer in the engine's words (IdentifyResult): the model type, the equation, the key numbers and the response plot. */
+function identifyResult(modelType: string, equation: string, keyNumbers: string, plot: Record<string, unknown>): Record<string, unknown> {
+  return { modelType, equation, keyNumbers, provisional: false, text: [modelType, equation, keyNumbers].join("\n"), plot,
+    recordingId: "rec-rendered-fixture", stageEvidence: { hasModel: true, hasCandidate: false, validationPassed: false },
+    stages: engineStages("complete", "ready", "ready") };
+}
+
+/** One requirement's row of a Validate answer, on the loop's measurement (RequirementOutcome); `measured` adds its value and limit or ranges. */
+function requirementOutcome(id: string, label: string, status: Verdict, unit: string, reason: string, measured: Record<string, unknown> = {}): Record<string, unknown> {
+  return { id, label, channel: { role: "Measurement", unit: "°C", symbol: "P1.ProcessValue" }, limitSide: "atMost", status, ...measured, unit,
+    source: "temperature-process", reason, automatic: false };
+}
+
+/** One scenario of a Validate answer (ScenarioOutcome): the current settings' run and the candidate's, both judged by `requirements`. */
+function scenarioOutcome(id: string, label: string, status: Verdict, requirements: Array<Record<string, unknown>>): Record<string, unknown> {
+  const run = (settings: string) => ({ runId: `rendered-${id}-${settings}`, projectRevision: "rendered-fixture", evidence: "ST-executed", status, requirements });
+  return { id, plant: "temperature-process", label, current: run("current"), candidate: run("candidate") };
 }

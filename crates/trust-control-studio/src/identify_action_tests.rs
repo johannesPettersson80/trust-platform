@@ -878,3 +878,20 @@ fn a_loop_this_engine_works_on_refuses_another_request_until_that_work_ends() {
         "the ended operation let the loop go: {reset}"
     );
 }
+
+#[test]
+fn import_recording_refuses_a_file_that_is_not_a_saved_result_with_its_sentence_and_starts_nothing()
+{
+    let project = Project::new("import-recording");
+    let (studio, _updates) = engine();
+    let answer = identify(
+        &studio,
+        project.request(json!({ "action": "importRecording", "json": "{" })),
+    );
+    assert_eq!(
+        refusal(&answer),
+        ("Choose a valid Control Studio result JSON file.", "none"),
+        "a refused file names no next action: {answer}"
+    );
+    assert!(nothing_started(&studio), "the check starts no operation");
+}

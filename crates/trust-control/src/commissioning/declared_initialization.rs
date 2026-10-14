@@ -434,7 +434,7 @@ fn declared_requirements(
         bounds(
             "transfer-continuity",
             &binding.output.symbol,
-            timing.window,
+            timing.first_output_window,
             applied - tolerance,
             applied + tolerance,
         ),

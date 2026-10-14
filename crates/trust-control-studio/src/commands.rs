@@ -4,25 +4,31 @@
 //! (V3), `controlStudio/apply`, `controlStudio/restore` and `controlStudio/keep` (V4),
 //! `controlStudio/setupDiscover` and `controlStudio/setupSave` (V5).
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
+use trust_control::commissioning::observation_assessment::observation_in_progress;
 use trust_control::failure::{Cause, Failure, NextAction};
+use trust_control::identification::identify_result::{study_candidate, study_identification};
 use trust_control::messages::{
-    OpenRequest, OpenResult, OperationRequest, PageRequest, PreviewRequest,
+    OpenRequest, OpenResult, OperationRequest, OperationState, PageRequest, PreviewRequest,
 };
 use trust_control::setup::messages::{SetupDiscoverRequest, SetupSaveRequest};
 use trust_control::stages::stage_availability;
+use trust_control::study::apply::ApplySection;
 use trust_control::study::inputs::{stage_evidence_of, InputsSection};
+use trust_control::study::validate::ValidateSection;
 
 use super::apply_action;
 use super::busy_loops::LoopClaims;
 use super::identify_action;
 use super::inputs_action;
-use super::journal::Journal;
+use super::journal::{Journal, JournalEntry};
 use super::keep_action;
 use super::operation::{Operations, UpdateSink};
 use super::preview_action;
@@ -102,6 +108,9 @@ pub struct ControlStudio {
     pending: Arc<PendingReleases>,
     /// The loops this engine's operations are working on: one operation per loop at a time (A8.5).
     claims: LoopClaims,
+    /// The operations this engine started for each loop, by project folder and loop identifier, so that `controlStudio/open`
+    /// names the ones that still run (A8.6). An operation that has ended is dropped from it when the loop is opened.
+    started: Mutex<BTreeMap<(String, String), Vec<String>>>,
 }
 
 impl ControlStudio {
@@ -111,6 +120,7 @@ impl ControlStudio {
             operations: Operations::new(sink),
             pending: Arc::new(PendingReleases::default()),
             claims: LoopClaims::default(),
+            started: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -139,7 +149,7 @@ impl ControlStudio {
     pub fn execute(&self, command: &str, arguments: &[Value]) -> Option<Value> {
         let answer = match command {
             OPEN => argument(arguments)
-                .and_then(|request| open(&request))
+                .and_then(|request: OpenRequest| self.open_loop(&request))
                 .and_then(|result| to_value(&result)),
             STATUS => argument(arguments)
                 .and_then(|request: OperationRequest| self.operations.status(&request.operation_id))
@@ -177,21 +187,80 @@ impl ControlStudio {
                 .and_then(|request: SetupSaveRequest| setup_action::answer_save(&request)),
             _ => return None,
         };
+        if let Ok(value) = &answer {
+            self.remember_started(arguments, value);
+        }
         Some(match answer {
             Ok(result) => json!({ "result": result }),
             Err(failure) => json!({ "failure": failure }),
         })
     }
+
+    /// `controlStudio/open` (A8.6): the loop's answer, with the operations this engine runs for it, which the page follows.
+    fn open_loop(&self, request: &OpenRequest) -> Result<OpenResult, Failure> {
+        let running = request.loop_id.as_deref().map_or_else(Vec::new, |loop_id| {
+            self.running_operations(&request.project_root, loop_id)
+        });
+        open_with_running(request, running)
+    }
+
+    /// The operations this engine started for the loop that still run, in the order they started (A8.6). One that has ended is
+    /// dropped: its result is in the study, which `open` answers as the stages and the validation.
+    fn running_operations(&self, project_root: &str, loop_id: &str) -> Vec<String> {
+        let mut started = self.started.lock();
+        let Some(operations) = started.get_mut(&(project_root.to_owned(), loop_id.to_owned()))
+        else {
+            return Vec::new();
+        };
+        operations.retain(|id| {
+            self.operations
+                .status(id)
+                .is_ok_and(|update| update.state == OperationState::Running)
+        });
+        operations.clone()
+    }
+
+    /// Records the operation that a method answered with an `operationId` started for the loop its arguments name, so that
+    /// `open` can name it while it runs. A method whose arguments name no loop starts nothing that `open` reports.
+    fn remember_started(&self, arguments: &[Value], answer: &Value) {
+        let Some(operation) = answer.get("operationId").and_then(Value::as_str) else {
+            return;
+        };
+        let Some((project_root, loop_id)) = loop_of(arguments) else {
+            return;
+        };
+        self.started
+            .lock()
+            .entry((project_root, loop_id))
+            .or_default()
+            .push(operation.to_owned());
+    }
 }
 
-/// Lists the project's loops, or opens the loop's study: the checked loop, its stages, the page last
-/// viewed (A8.6) and the journaled operations it reattaches to. The stages follow the study's evidence: its recordings,
-/// its Identify result while that is current for the loop's signals, and its Tune candidate while it was designed on that
-/// current model (A8.4). Opening starts no test, tuning, validation or write (A8.6).
+/// The project folder and the loop that a method's arguments name, when both are given.
+fn loop_of(arguments: &[Value]) -> Option<(String, String)> {
+    let request = arguments.first()?;
+    Some((
+        request.get("projectRoot")?.as_str()?.to_owned(),
+        request.get("loopId")?.as_str()?.to_owned(),
+    ))
+}
+
+/// Lists the project's loops, or opens the loop's study: the checked loop, its stages and their evidence, the page last
+/// viewed (A8.6), the last Validate result and the Identify result while each is current, and the journaled operations it
+/// reattaches to. The stages follow
+/// the study's evidence: its recordings, its Identify result while that is current for the loop's signals, and its Tune candidate
+/// while it was designed on that current model (A8.4). Opening starts no test, tuning, validation or write (A8.6).
 ///
 /// # Errors
 /// The loop cannot be opened, or its study, its Identify or Tune section or its journal cannot be read.
 pub fn open(request: &OpenRequest) -> Result<OpenResult, Failure> {
+    open_with_running(request, Vec::new())
+}
+
+/// [`open`] with the operations this engine runs for the loop, which the page follows (A8.6). The command line runs its own
+/// operations inside its verb, so it opens with none.
+fn open_with_running(request: &OpenRequest, running: Vec<String>) -> Result<OpenResult, Failure> {
     let project_root = Path::new(&request.project_root);
     let Some(loop_id) = &request.loop_id else {
         return Ok(OpenResult::Loops {
@@ -208,18 +277,79 @@ pub fn open(request: &OpenRequest) -> Result<OpenResult, Failure> {
         &loop_definition.project_id,
         &loop_definition.id,
     )?;
+    let applied = study.section::<ApplySection>()?.unwrap_or_default();
+    let offers = apply_offers(journal.entries(), &applied);
+    let evidence = stage_evidence_of(&loop_definition, &study)?;
+    let stages = stage_availability(&evidence);
+    // The last Validate result is answered while the study holds it as current (A8.4, A8.6): a stale one is history.
+    let validation = if evidence.validation_has_result {
+        study
+            .section::<ValidateSection>()?
+            .map(|section| section.result(evidence))
+    } else {
+        None
+    };
+    let identification = study_identification(&study, &loop_definition, evidence)?;
+    let tune = study_candidate(&study, &loop_definition, evidence)?;
     Ok(OpenResult::Opened {
-        stages: stage_availability(&stage_evidence_of(&loop_definition, &study)?),
-        reattached: journal
-            .entries()
-            .iter()
-            .filter(|entry| entry.holds_unfinished_operation())
-            .map(|entry| entry.operation_id().to_string())
-            .collect(),
+        stages,
+        reattached: journaled_operations(journal.entries()),
+        running,
+        validation,
+        stage_evidence: evidence,
+        identification,
+        tune,
         loop_definition: Box::new(loop_definition),
         page: study.page,
         inputs: study.section::<InputsSection>()?.unwrap_or_default(),
+        restore_available: offers.restore,
+        keep_available: offers.keep,
+        apply_observation_resumable: offers.observation_resumable,
     })
+}
+
+/// The journaled operations that reopening reattaches to (A8.5, A8.6): the recordings, experiments, campaigns and isolated jobs that
+/// the journal holds unfinished. A checkpoint is not an operation the runtime runs: an Apply's checkpoint is answered as Restore and
+/// Keep availability, and a mode checkpoint is returned by the identification's resume (B6.4), so neither is listed here.
+fn journaled_operations(entries: &[JournalEntry]) -> Vec<String> {
+    entries
+        .iter()
+        .filter(|entry| {
+            entry.holds_unfinished_operation()
+                && !matches!(
+                    entry,
+                    JournalEntry::Commissioning { .. } | JournalEntry::IdentificationMode { .. }
+                )
+        })
+        .map(|entry| entry.operation_id().to_string())
+        .collect()
+}
+
+/// What Apply offers an opened loop (A8.6): Restore previous settings while the journal holds the Apply's checkpoint (B6.4), Keep in
+/// project as `controlStudio/keep` decides it from the study's receipts (B6.5), and whether the journaled Apply observation can be
+/// followed to its end (A8.5, A8.6): a checkpoint whose observation the runtime may still record. Opening reads the runtime for none of
+/// it; a Restore or a Keep whose review the runtime no longer matches is refused when it is asked for.
+pub(crate) struct ApplyOffers {
+    pub(crate) restore: bool,
+    pub(crate) keep: bool,
+    pub(crate) observation_resumable: bool,
+}
+
+/// The offers of [`ApplyOffers`] for the journal's entries and the study's Apply section.
+pub(crate) fn apply_offers(journal: &[JournalEntry], applied: &ApplySection) -> ApplyOffers {
+    let checkpoint = journal.iter().find_map(|entry| match entry {
+        JournalEntry::Commissioning { checkpoint } => Some(&**checkpoint),
+        _ => None,
+    });
+    let observation_resumable = checkpoint.is_some_and(|checkpoint| {
+        let recorded = checkpoint.recording.is_some();
+        observation_in_progress(checkpoint.stage.journal_stage(), recorded, recorded)
+    });
+    ApplyOffers {
+        restore: checkpoint.is_some(),
+        keep: applied.keep_available(),
+        observation_resumable,
+    }
 }
 
 /// Records the page the engineer last viewed in the loop's study (A8.1), so that `open` returns it (A8.6). The study is read as
@@ -285,8 +415,14 @@ pub(crate) fn to_value(value: &impl Serialize) -> Result<Value, Failure> {
 mod tests {
     use std::fs;
 
+    use trust_control::experiment::ControlExperimentKind;
+    use trust_control::identification::identify_result::identify_signals;
+    use trust_control::identification::model_comparison::ComparisonPresentation;
     use trust_control::loop_definition::LoopDefinition;
     use trust_control::messages::OperationUpdate;
+    use trust_control::model::decode_general_model;
+    use trust_control::recording::EvidenceSource;
+    use trust_control::study::identify::{IdentifyMethod, IdentifySection};
     use trust_control::study::{Page, Study};
 
     use super::*;
@@ -381,6 +517,10 @@ mod tests {
         assert_eq!(opened["result"]["stages"][2]["stage"], "Identify");
         assert_eq!(opened["result"]["stages"][2]["status"], "needs-data");
         assert_eq!(opened["result"]["reattached"], json!([]));
+        // A8.6: a study that never applied offers neither Restore nor Keep, and no Apply observation waits to be resumed.
+        assert_eq!(opened["result"]["restoreAvailable"], json!(false));
+        assert_eq!(opened["result"]["keepAvailable"], json!(false));
+        assert_eq!(opened["result"]["applyObservationResumable"], json!(false));
         assert!(
             !root.join("control-studio").exists(),
             "opening writes nothing"
@@ -500,5 +640,250 @@ mod tests {
         assert_eq!(unknown["failure"]["cause"], "implementation", "{unknown}");
         assert_eq!(unknown["failure"]["nextAction"], "none", "{unknown}");
         assert!(unknown.get("result").is_none(), "{unknown}");
+    }
+
+    #[test]
+    fn an_opened_loop_offers_restore_and_keep_only_from_the_journal_and_the_study() {
+        // A8.6: Restore starts from the journaled checkpoint, so an interrupted Apply offers it; Keep follows the study's receipts.
+        let nothing = apply_offers(&[], &ApplySection::default());
+        assert!(!nothing.restore && !nothing.keep && !nothing.observation_resumable);
+    }
+
+    #[test]
+    fn open_names_the_operations_the_loop_runs_while_they_run_and_forgets_them_once_they_end() {
+        // A8.6: a reopened panel follows the operations that still run for the loop. An ended one is in the study, not in `running`.
+        let (root, _example, request) = example_project("running-operations");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let (release, wait) = std::sync::mpsc::channel::<()>();
+        let started = studio.operations().start("identify", move |_| {
+            let _ = wait.recv();
+            Ok(json!({}))
+        });
+        studio.remember_started(
+            std::slice::from_ref(&request),
+            &json!({ "operationId": started.operation_id }),
+        );
+        let running = studio
+            .execute(OPEN, std::slice::from_ref(&request))
+            .expect("answered");
+        assert_eq!(
+            running["result"]["running"],
+            json!([started.operation_id]),
+            "{running}"
+        );
+        release.send(()).expect("the operation is released");
+        for _ in 0..500 {
+            let ended = studio
+                .operations()
+                .status(&started.operation_id)
+                .is_ok_and(|update| update.state != OperationState::Running);
+            if ended {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let ended = studio
+            .execute(OPEN, std::slice::from_ref(&request))
+            .expect("answered");
+        assert_eq!(ended["result"]["running"], json!([]), "{ended}");
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn an_operation_of_another_loop_is_not_named_by_this_loops_open() {
+        let (root, _example, request) = example_project("running-other-loop");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let started = studio.operations().start("identify", |_| Ok(json!({})));
+        let other = json!({ "projectRoot": root.display().to_string(), "loopId": "another-loop" });
+        studio.remember_started(
+            std::slice::from_ref(&other),
+            &json!({ "operationId": started.operation_id }),
+        );
+        studio.remember_started(
+            std::slice::from_ref(&request),
+            &json!({ "operationId": "operation-unknown" }),
+        );
+        let opened = studio
+            .execute(OPEN, std::slice::from_ref(&request))
+            .expect("answered");
+        assert_eq!(opened["result"]["running"], json!([]), "{opened}");
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn reattached_lists_the_unfinished_journaled_recording_by_its_identifier() {
+        // A8.5, A8.6: a journaled recording is reattached by its identifier; the list holds journaled operations only.
+        use trust_control::experiment::{
+            ControlEvidenceSource, RecordingRecoveryBinding, RecordingRecoveryOwner,
+        };
+        let owner = RecordingRecoveryOwner {
+            schema_version: 1,
+            recording_id: "recording-1".into(),
+            project_id: "project:sha256:abc".into(),
+            runtime_id: "runtime:local".into(),
+            loop_id: "loop:tank".into(),
+            loop_revision: "sha256:loop".into(),
+            source: ControlEvidenceSource::Simulation,
+            program_revision: None,
+            start_acknowledgement_unconfirmed: None,
+            bindings: vec![RecordingRecoveryBinding {
+                id: "processVariable".into(),
+                address: Some("%IL0".into()),
+                symbol: None,
+                iec_type: "LREAL".into(),
+            }],
+        };
+        let entries = [JournalEntry::RecordingOwner { owner }];
+        assert_eq!(
+            journaled_operations(&entries),
+            vec!["recording-1".to_owned()]
+        );
+        assert_eq!(journaled_operations(&[]), Vec::<String>::new());
+    }
+
+    /// The estimation recording of the Identify sections the tests keep, and the validation recording of a qualified one.
+    const ESTIMATION: &str = "rec-00112233445566778899aabbccddeeff";
+    const VALIDATION: &str = "rec-ffeeddccbbaa99887766554433221100";
+
+    /// What the page shows of the fitted model `1 / (s + 1)`, as the identify fixtures of `identify_action_tests` show it.
+    fn presentation() -> ComparisonPresentation {
+        trust_control::json::decode_value(json!({
+            "equation": "G(s) = 1 / (1s + 1)",
+            "units": { "input": "V", "output": "m", "gain": "m/V", "time": "s" },
+            "parameters": [
+                { "name": "Gain", "value": 1.0, "unit": "m/V" },
+                { "name": "Time constant 1", "value": 1.0, "unit": "s" },
+                { "name": "Dead time", "value": 0.0, "unit": "s" }
+            ],
+            "poles": [-1.0], "zeros": [], "delaySeconds": 0.0,
+            "uncertainty": { "label": "Sample-resolution envelope from the estimation record; not statistical confidence" },
+            "estimation": { "normalizedError": 0.1 }, "validation": {},
+            "predictedResponse": [
+                { "timeSeconds": 0.0, "measured": 0.0, "predicted": 0.0, "residual": 0.0 },
+                { "timeSeconds": 2.0, "measured": 1.0, "predicted": 0.9, "residual": 0.1 }
+            ],
+            "validityRange": { "inputMinimum": 0.0, "inputMaximum": 1.0, "outputMinimum": 0.0, "outputMaximum": 1.0 },
+            "warnings": []
+        }))
+        .expect("the presentation decodes")
+    }
+
+    /// The Identify section of the example loop: the fitted model `1 / (s + 1)` from a command in V to a position in m. A
+    /// `validated` section names a validation recording, as a model that Validate qualified does (B5.2), so it is not provisional.
+    fn identified_section(example: &LoopDefinition, validated: bool) -> IdentifySection {
+        let channel = |id: &str, unit: &str| json!({ "id": id, "unit": unit, "operatingRange": { "minimum": -10.0, "maximum": 10.0 } });
+        let (validation, evidence) = if validated {
+            (
+                "validated",
+                json!(["sha256:recording", "sha256:validation"]),
+            )
+        } else {
+            ("unvalidated", json!(["sha256:recording"]))
+        };
+        let model = decode_general_model(&json!({
+            "kind": "transfer-function", "revision": "model:fitted:1", "source": "fitted",
+            "validation": validation, "evidence": evidence, "delaySeconds": 0.0,
+            "inputs": [channel("command", "V")], "outputs": [channel("position", "m")],
+            "numerator": [1.0], "denominator": [1.0, 1.0]
+        }))
+        .expect("a fitted model");
+        IdentifySection::new(
+            IdentifyMethod::Live(ControlExperimentKind::MvStep),
+            EvidenceSource::SimulatedPlant,
+            identify_signals(example, ControlExperimentKind::MvStep),
+            ESTIMATION,
+            validated.then_some(VALIDATION),
+            model,
+            presentation(),
+        )
+    }
+
+    #[test]
+    fn open_holds_a_current_identification_with_its_evidence_and_none_after_reset() {
+        // A8.6, B9.4: a reopened study with a current model holds its identification and says it has a model, so the page enables
+        // Tune without deducing it. Reset starts a new study, which holds neither.
+        let (root, example, request) = example_project("identification");
+        let mut study = Study::new(&example.id, &example.revision);
+        study
+            .set_section(&identified_section(&example, false))
+            .expect("the Identify section is kept");
+        storage::save_study(&root, &study, &[]).expect("the study is kept");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let opened = studio
+            .execute(OPEN, std::slice::from_ref(&request))
+            .expect("answered");
+        assert_eq!(
+            opened["result"]["stageEvidence"]["hasModel"],
+            json!(true),
+            "{opened}"
+        );
+        let identification = &opened["result"]["identification"];
+        assert_eq!(
+            identification["modelRevision"], "model:fitted:1",
+            "{opened}"
+        );
+        assert_eq!(identification["provisional"], json!(true), "{opened}");
+        assert!(
+            opened["result"].get("tune").is_none(),
+            "a study with no candidate holds none: {opened}"
+        );
+        assert!(
+            identification["plot"]["timeSeconds"]
+                .as_array()
+                .is_some_and(|times| !times.is_empty()),
+            "the answer holds the plot: {opened}"
+        );
+        storage::start_new_study(&root, &study).expect("the study is reset");
+        let reset = studio.execute(OPEN, &[request]).expect("answered");
+        assert_eq!(
+            reset["result"]["stageEvidence"]["hasModel"],
+            json!(false),
+            "{reset}"
+        );
+        assert!(reset["result"].get("identification").is_none(), "{reset}");
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn open_holds_a_model_that_validate_qualified_as_not_provisional() {
+        // B5.2, A8.6: a model whose independent check passed names its validation recording, and reopens as not provisional.
+        let (root, example, request) = example_project("identification-qualified");
+        let mut study = Study::new(&example.id, &example.revision);
+        study
+            .set_section(&identified_section(&example, true))
+            .expect("the qualified Identify section is kept");
+        storage::save_study(&root, &study, &[]).expect("the study is kept");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let opened = studio.execute(OPEN, &[request]).expect("answered");
+        assert_eq!(
+            opened["result"]["identification"]["provisional"],
+            json!(false),
+            "{opened}"
+        );
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn reset_answers_the_stage_evidence_of_the_fresh_study() {
+        // A8.4, B9.4: after Reset the new study holds no model, candidate or passed validation, and the answer says so, so the page
+        // takes that evidence from the engine rather than assuming it.
+        let (root, example, request) = example_project("reset-evidence");
+        let mut study = Study::new(&example.id, &example.revision);
+        study
+            .set_section(&identified_section(&example, false))
+            .expect("the Identify section is kept");
+        storage::save_study(&root, &study, &[]).expect("the study is kept");
+        let studio = ControlStudio::new(Arc::new(Ignore));
+        let mut reset_request = request;
+        reset_request["action"] = json!({ "action": "reset" });
+        let answer = studio
+            .execute(IDENTIFY, &[reset_request])
+            .expect("answered");
+        let evidence = &answer["result"]["stageEvidence"];
+        assert_eq!(evidence["hasModel"], json!(false), "{answer}");
+        assert_eq!(evidence["hasCandidate"], json!(false), "{answer}");
+        assert_eq!(evidence["validationHasResult"], json!(false), "{answer}");
+        assert_eq!(evidence["validationPassed"], json!(false), "{answer}");
+        fs::remove_dir_all(&root).expect("clean up");
     }
 }

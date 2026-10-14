@@ -348,4 +348,32 @@ suite("Control Studio project study store", () => {
     assert.strictEqual(await startExperimentWithRecording(owner, loop, async () => { sent += 1; return "started"; }, journal), "started");
     assert.strictEqual(sent, 1, "the experiment is started once, through the journal");
   });
+
+  test("keeps the TypeScript session's study beside the engine's study of the loop, never in its files (A8.3, §0.1a)", async () => {
+    // The engine keeps the loop's study document and recordings in control-studio/<loop id>/; the TypeScript session keeps what it
+    // still owns in its own folder there, so writes, a reset and a new binding revision of either leave the other's files as they were.
+    const root = tempRoot();
+    const loop = loopAt("sha256:v1");
+    const loopFolder = path.join(root, "control-studio", studyFolderName(loop.id));
+    const directory = studyDirectory(root, loop.id);
+    assert.strictEqual(path.dirname(directory), loopFolder, "the TypeScript session's folder is inside the loop's study folder");
+    assert.notStrictEqual(directory, loopFolder, "the TypeScript session never uses the engine's folder itself");
+    fs.mkdirSync(path.join(loopFolder, "recordings"), { recursive: true });
+    const engineStudy = `${JSON.stringify({ format: 1, loopId: loop.id, loopRevision: "sha256:v1", sections: { identify: { kept: true } }, recordings: ["r1"] }, null, 2)}\n`;
+    const engineRecording = `${JSON.stringify({ format: 1, id: "r1" })}\n`;
+    fs.writeFileSync(path.join(loopFolder, "study.json"), engineStudy);
+    fs.writeFileSync(path.join(loopFolder, "recordings", "r1.json"), engineRecording);
+    const engineFiles = (): string[] => [fs.readFileSync(path.join(loopFolder, "study.json"), "utf8"),
+      fs.readFileSync(path.join(loopFolder, "recordings", "r1.json"), "utf8")];
+    assert.deepStrictEqual(await openProjectStudy(root, loop), {}, "the engine's study is not the TypeScript session's");
+    await updateProjectStudy(loop, "draft", { campaigns: [] });
+    assert.ok(fs.existsSync(path.join(directory, "study.json")), "the TypeScript session writes its own document");
+    assert.deepStrictEqual(engineFiles(), [engineStudy, engineRecording], "a TypeScript write leaves the engine's files as they were");
+    assert.deepStrictEqual((await openProjectStudy(root, loop)).draft, { campaigns: [] }, "reopening reads the TypeScript session's document back");
+    await startNewWorkingStudy(loop, {});
+    assert.deepStrictEqual(engineFiles(), [engineStudy, engineRecording], "a TypeScript reset archives only the TypeScript session's study");
+    assert.strictEqual(fs.existsSync(path.join(loopFolder, "history")), false, "nothing of the engine's moves to history");
+    await openProjectStudy(root, loopAt("sha256:v2"));
+    assert.deepStrictEqual(engineFiles(), [engineStudy, engineRecording], "a new binding revision leaves the engine's study to the engine");
+  });
 });

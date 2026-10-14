@@ -20,7 +20,8 @@ use crate::identification::connected_record::RunEvidence;
 use crate::identification::independent_validation::RequirementStatus;
 use crate::loop_definition::LoopDefinition;
 use crate::messages::{
-    ModelCheck, RequirementOutcome, RunOutcome, ScenarioOutcome, ValidateResult,
+    InitializationOutcome, LimitSide, ModelCheck, RequirementChannel, RequirementOutcome,
+    RunOutcome, ScenarioOutcome, ValidateResult, ValidationPlot, ValueRange,
 };
 use crate::model::GeneralModel;
 use crate::stages::{stage_availability, StageEvidence};
@@ -28,21 +29,27 @@ use crate::study::identify::IdentifySection;
 use crate::study::is_recording_id;
 use crate::study::tune::{refused_as, stage_evidence as tune_stage_evidence, TuneSection};
 use crate::study::StudySection;
-use crate::tuning::automatic_criteria::validate_criteria;
+use crate::tuning::automatic_criteria::{validate_criteria, AutomaticCriteria};
 use crate::tuning::candidate::{validate_parameters, ControlPidCandidate};
 use crate::tuning::requirements::TuningRequirements;
 use crate::validation::configured_plant_verification::{isolated_plant_name, VerificationPlant};
-use crate::validation::engineer_verification_campaign::CampaignCase;
+use crate::validation::engineer_scenario_effects::requirements_failure;
+use crate::validation::engineer_verification_campaign::{declared_scenarios, CampaignCase};
 use crate::validation::engineer_verification_plan::{VerificationPlan, FIXED_PARAMETER_PREFIX};
+use crate::validation::initialization_case::ENTRY_CASE_ID;
+use crate::validation::initialization_texts;
 use crate::validation::isolated_run_protocol::{
     IsolatedJobState, IsolatedRunEvidence, IsolatedRunStatus,
 };
 use crate::validation::run_requests::{observation_unit, run_seed, validation_run_of};
 use crate::validation::run_validation::{
-    apply_eligible, evaluate_recorded_run, RecordedRunEvaluation, RunCheck, RunRequirement,
-    RunRequirementResult,
+    apply_eligible, evaluate_recorded_run, DwellState, ErrorReference, Movement,
+    RecordedRunEvaluation, RunCheck, RunRequirement, RunRequirementResult,
 };
+use crate::validation::scenario_contract::{valid_engineer_scenarios, EngineerScenario};
 use crate::validation::texts;
+
+mod answer;
 
 /// The refusal of Validate without a model that is current for the loop's signals (B5.5: Identify).
 const NO_MODEL: &str = "The study has no model for the loop's current signals. Identify the plant first, so Validate has a model to check.";
@@ -86,6 +93,11 @@ pub struct ValidateSection {
     pub candidate: ControlPidCandidate,
     /// The requirements that were validated (B4.3). Changed requirements invalidate the validation (A8.4).
     pub requirements: TuningRequirements,
+    /// The verification scenarios that the validation ran with (B4.3): the list the study declared, or the loop's own. A changed
+    /// list invalidates the validation as changed requirements do (A8.4). A study written before this list was recorded reads it
+    /// as empty, so its validation is current only where no scenario is declared.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub declared_scenarios: Vec<EngineerScenario>,
     /// The conditions that the runs shared (N8.1).
     pub conditions: ValidationConditions,
     /// The independent model check that this validation ran (B5.2). Absent when the model was already qualified.
@@ -93,6 +105,15 @@ pub struct ValidateSection {
     pub model_check: Option<ModelCheck>,
     /// Each scenario's current and candidate runs and their requirement results (B5.3, B5.4), in the campaign's order.
     pub scenarios: Vec<ScenarioOutcome>,
+    /// The Manual-to-Auto entry case of an Auto commissioning, when this validation ran it (B5.3, B5.4). Absent when it ran none, and
+    /// for a study written before the case was recorded (B10.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initialization: Option<InitializationOutcome>,
+    /// The sentence of the refusal that kept the Manual-to-Auto entry case from being planned (C1), when this validation refused it. The
+    /// case is then Inconclusive with that sentence (B5.4). The study keeps the sentence, not its cause or next action, as it keeps no
+    /// cause of a failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_refusal: Option<String>,
     /// The overall result of the candidate (N8.5).
     pub status: RequirementStatus,
     /// Whether Apply may write the candidate: the model is qualified and the candidate passed (B5.4).
@@ -100,13 +121,57 @@ pub struct ValidateSection {
 }
 
 impl ValidateSection {
-    /// Whether the validation is current for the model and the Tune section (A8.4): it validated the study's model, the candidate
-    /// that Tune designed on it, and the requirements that candidate was designed to.
+    /// Whether the validation is current (A8.4): it validated the study's model, the candidate that Tune designed on it, the
+    /// requirements that candidate was designed to, and the declared scenarios the study holds now (`declared`).
     #[must_use]
-    pub fn is_current(&self, model: &GeneralModel, tune: &TuneSection) -> bool {
+    pub fn is_current(
+        &self,
+        model: &GeneralModel,
+        tune: &TuneSection,
+        declared: &[EngineerScenario],
+    ) -> bool {
         self.model_revision == model.identity().revision
             && self.candidate == tune.candidate
             && self.requirements == tune.requirements
+            && self.declared_scenarios == declared
+    }
+
+    /// The result of this validation as the study holds it (A8.6): the table's rows, the model check's row and whether Apply is
+    /// available, with the failure that stops Apply when it does (B5.5). The plot and the plant reason are answer-only, because the
+    /// study keeps neither (B5.4), so the result holds neither. `evidence` is the stage evidence the result is answered with, and
+    /// its stages are computed from it.
+    #[must_use]
+    pub fn result(&self, evidence: StageEvidence) -> ValidateResult {
+        // A refusal that the study kept is named by its sentence; a stored failure keeps no cause or next action of its own.
+        let refusal = self
+            .entry_refusal
+            .as_ref()
+            .map(|message| Failure::new(message, Cause::ModelOrData, NextAction::None));
+        ValidateResult {
+            model_check: self.model_check.clone(),
+            scenarios: self.scenarios.clone(),
+            requirements: self.requirements.clone(),
+            status: self.status,
+            apply_available: self.apply_available,
+            // The study keeps no cause of a run, so a failure it holds is named without one (the cause is not shown on the page).
+            failure: (!self.apply_available).then(|| {
+                failure_of(
+                    self.model_check.as_ref(),
+                    self.status,
+                    &self.scenarios,
+                    &[],
+                    self.initialization.as_ref(),
+                    refusal.as_ref(),
+                )
+            }),
+            plant_reason: None,
+            stages: stage_availability(&evidence),
+            stage_evidence: evidence,
+            model_agreement: self.model_check.as_ref().map(answer::model_agreement),
+            initialization: self.initialization.clone(),
+            labels: answer::labels(),
+            plot: None,
+        }
     }
 }
 
@@ -148,8 +213,23 @@ impl StudySection for ValidateSection {
                 Cause::ModelOrData,
             ));
         }
+        if !valid_engineer_scenarios(&self.declared_scenarios) {
+            return Err(requirements_failure(&texts::scenarios_invalid()));
+        }
         check_scenarios(&self.scenarios)?;
-        if self.status != overall_status(&self.scenarios) {
+        if let Some(entry) = &self.initialization {
+            check_entry(entry)?;
+        }
+        if self.entry_refusal.is_some()
+            && self.initialization.as_ref().map(|entry| entry.status)
+                != Some(RequirementStatus::Inconclusive)
+        {
+            return Err(invalid(
+                "its refused entry case is not Inconclusive (B5.4)",
+                Cause::ModelOrData,
+            ));
+        }
+        if self.status != overall_status(&self.scenarios, self.initialization.as_ref()) {
             return Err(invalid(
                 "its overall result does not follow from its runs (N8.5)",
                 Cause::ModelOrData,
@@ -209,15 +289,26 @@ pub fn check_before_start(inputs: &ValidateInputs<'_>) -> Result<(), Failure> {
     }
 }
 
-/// The overall result of a validation (N8.5, the campaign rule): Fail when a scenario's candidate run fails; Pass when every
-/// scenario's candidate run passes and there is at least one scenario; Inconclusive otherwise. A run that did not complete,
-/// or a scenario without its run, is Inconclusive, so missing evidence never passes.
+/// The overall result of a validation (N8.5, the campaign rule): Fail when a scenario's candidate run or the Manual-to-Auto entry case
+/// fails; Pass when every one of them passes and there is at least one; Inconclusive otherwise. A run that did not complete, or a
+/// scenario without its run, is Inconclusive, so missing evidence never passes (B5.4).
 #[must_use]
-pub fn overall_status(scenarios: &[ScenarioOutcome]) -> RequirementStatus {
-    let statuses: Vec<RequirementStatus> = scenarios
-        .iter()
-        .map(|scenario| scenario.candidate.status)
-        .collect();
+pub fn overall_status(
+    scenarios: &[ScenarioOutcome],
+    initialization: Option<&InitializationOutcome>,
+) -> RequirementStatus {
+    combined_status(
+        scenarios
+            .iter()
+            .map(|scenario| scenario.candidate.status)
+            .chain(initialization.map(|entry| entry.status)),
+    )
+}
+
+/// The result of a set of statuses under the campaign rule (N8.5): Fail when one fails; Pass when all pass and there is at least one;
+/// Inconclusive otherwise.
+fn combined_status(statuses: impl Iterator<Item = RequirementStatus>) -> RequirementStatus {
+    let statuses: Vec<RequirementStatus> = statuses.collect();
     if statuses.contains(&RequirementStatus::Fail) {
         RequirementStatus::Fail
     } else if !statuses.is_empty()
@@ -283,6 +374,27 @@ pub struct ValidationInput<'a> {
     pub qualification: ModelQualification,
     /// Why the model replaced the configured plant for every case (B5.3), when it did; the result carries it.
     pub plant_reason: Option<String>,
+    /// The Manual-to-Auto entry case of this Auto commissioning (B5.3), planned and run or refused (`EntryJob`); `None` when this
+    /// validation has no such case at all.
+    pub entry: Option<EntryJob<'a>>,
+}
+
+/// The Manual-to-Auto entry case of an Auto commissioning, as this validation has it (B5.3): planned and run, with the job that the
+/// runtime ended for it, or refused because the loop's Auto entry cannot be planned (C1). A refused case is not run; it is Inconclusive.
+#[derive(Debug, Clone, Copy)]
+pub enum EntryJob<'a> {
+    /// The case was planned and its job ended on the plant it ran on.
+    Ran {
+        /// The campaign case of the entry run, whose requirements judge its first output, its mode, its states and its bounds.
+        case: &'a CampaignCase,
+        /// The entry run's job, checked against its answer (`IsolatedRunStatus::check`).
+        job: &'a IsolatedRunStatus,
+        /// The plant the entry run ran against: the configured plant, or the model.
+        plant: &'a VerificationPlant,
+    },
+    /// The case could not be planned, so Auto is blocked (C1): the refusal is the case's one Inconclusive row and the failure that stops
+    /// Apply (B5.4, B5.5).
+    Refused(&'a Failure),
 }
 
 /// What Validate composes: the section to keep in the study, the result to answer, and the failure that stops Apply, with its
@@ -309,6 +421,100 @@ pub struct ValidateOutcome {
 pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, Failure> {
     let loop_definition = input.loop_definition;
     let tune = input.tune;
+    check_jobs(input)?;
+    let nominal = input
+        .cases
+        .first()
+        .ok_or_else(|| Failure::new(JOBS_MISMATCH, Cause::Implementation, NextAction::None))?;
+    let model_revision = input.model.identity().revision.clone();
+    let campaign = campaign_outcomes(input, &model_revision)?;
+    let initialization = input
+        .entry
+        .as_ref()
+        .map(|entry| {
+            entry_outcome(
+                loop_definition,
+                entry,
+                &model_revision,
+                tune.requirements.automatic_criteria.as_ref(),
+            )
+        })
+        .transpose()?;
+    let status = overall_status(&campaign.scenarios, initialization.as_ref());
+    let refusal = match input.entry {
+        Some(EntryJob::Refused(refusal)) => Some(refusal),
+        Some(EntryJob::Ran { .. }) | None => None,
+    };
+    let model_status = match &input.qualification {
+        ModelQualification::Qualified => RequirementStatus::Pass,
+        ModelQualification::Checked(check) => check.status,
+    };
+    let model_check = match &input.qualification {
+        ModelQualification::Qualified => None,
+        ModelQualification::Checked(check) => Some(check.clone()),
+    };
+    let eligible = status == RequirementStatus::Pass
+        && matches!(
+            campaign.candidate_evaluations.first(),
+            Some(Some(evaluation)) if apply_eligible(model_status, evaluation)
+        );
+    let section = ValidateSection {
+        model_revision,
+        candidate: tune.candidate,
+        requirements: tune.requirements.clone(),
+        declared_scenarios: declared_scenarios(loop_definition)?,
+        conditions: conditions_of(loop_definition, &nominal.plan),
+        model_check: model_check.clone(),
+        scenarios: campaign.scenarios.clone(),
+        initialization: initialization.clone(),
+        entry_refusal: refusal.map(|refusal| refusal.message.clone()),
+        status,
+        apply_available: eligible,
+    };
+    let evidence = StageEvidence {
+        validation_has_result: true,
+        validation_passed: eligible,
+        validation_inconclusive: status == RequirementStatus::Inconclusive,
+        ..input.before
+    };
+    let failure = if eligible {
+        None
+    } else {
+        Some(failure_of(
+            model_check.as_ref(),
+            status,
+            &campaign.scenarios,
+            &campaign.candidate_evaluations,
+            initialization.as_ref(),
+            refusal,
+        ))
+    };
+    Ok(ValidateOutcome {
+        section,
+        result: ValidateResult {
+            model_agreement: model_check.as_ref().map(answer::model_agreement),
+            initialization,
+            model_check,
+            scenarios: campaign.scenarios,
+            requirements: tune.requirements.clone(),
+            status,
+            apply_available: eligible,
+            failure: failure.clone(),
+            plant_reason: input.plant_reason.clone(),
+            stages: stage_availability(&evidence),
+            stage_evidence: evidence,
+            labels: answer::labels(),
+            plot: campaign.plot,
+        },
+        failure,
+    })
+}
+
+/// The jobs answer the campaign's cases one for one, and every run of the campaign ran on one program revision (B5.3).
+///
+/// # Errors
+/// The jobs do not match the cases, or the runs ran on different program revisions.
+fn check_jobs(input: &ValidationInput<'_>) -> Result<(), Failure> {
     if input.cases.len() != input.jobs.len() {
         return Err(Failure::new(
             JOBS_MISMATCH,
@@ -323,83 +529,80 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
             NextAction::Validate,
         ));
     }
-    let nominal = input
-        .cases
-        .first()
-        .ok_or_else(|| Failure::new(JOBS_MISMATCH, Cause::Implementation, NextAction::None))?;
-    let model_revision = input.model.identity().revision.clone();
-    let mut scenarios = Vec::with_capacity(input.cases.len());
-    let mut candidate_evaluations = Vec::with_capacity(input.cases.len());
-    for (case, jobs) in input.cases.iter().zip(input.jobs) {
-        let plant = isolated_plant_name(jobs.plant, &model_revision);
+    Ok(())
+}
+
+/// What the cases of a campaign produce: each scenario in the campaign's order, the candidate's evaluation of each (`None` when
+/// its job did not complete), and the plot of the target-response case (B5.3, B9.6).
+struct CampaignOutcomes {
+    scenarios: Vec<ScenarioOutcome>,
+    candidate_evaluations: Vec<Option<RecordedRunEvaluation>>,
+    plot: Option<ValidationPlot>,
+}
+
+/// Judges the current and the candidate job of each case against the case's requirements (B5.3, B5.4), in the order of the cases.
+///
+/// # Errors
+/// A completed run is not one the evaluator accepts (its requirements or its record).
+fn campaign_outcomes(
+    input: &ValidationInput<'_>,
+    model_revision: &str,
+) -> Result<CampaignOutcomes, Failure> {
+    let loop_definition = input.loop_definition;
+    let criteria = input.tune.requirements.automatic_criteria.as_ref();
+    let mut outcomes = CampaignOutcomes {
+        scenarios: Vec::with_capacity(input.cases.len()),
+        candidate_evaluations: Vec::with_capacity(input.cases.len()),
+        plot: None,
+    };
+    for (index, (case, jobs)) in input.cases.iter().zip(input.jobs).enumerate() {
+        let plant = isolated_plant_name(jobs.plant, model_revision);
         let averaged = case.plan.record_every > 1;
-        let current = job_outcome(loop_definition, case, jobs.current, &plant, averaged)?;
-        let candidate = job_outcome(loop_definition, case, jobs.candidate, &plant, averaged)?;
-        scenarios.push(ScenarioOutcome {
+        let current = job_outcome(
+            loop_definition,
+            case,
+            jobs.current,
+            &plant,
+            averaged,
+            criteria,
+        )?;
+        let candidate = job_outcome(
+            loop_definition,
+            case,
+            jobs.candidate,
+            &plant,
+            averaged,
+            criteria,
+        )?;
+        // The plot shows the target-response case, the campaign's first (B5.3, B9.6).
+        if index == 0 {
+            outcomes.plot = answer::plot(
+                loop_definition,
+                current
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| &evaluation.run),
+                candidate
+                    .evaluation
+                    .as_ref()
+                    .map(|evaluation| &evaluation.run),
+            );
+        }
+        outcomes.scenarios.push(ScenarioOutcome {
             id: case.id.clone(),
+            label: texts::scenario_label(&case.id),
             plant,
             current: current.run,
             candidate: candidate.run,
         });
-        candidate_evaluations.push(candidate.evaluation);
+        outcomes.candidate_evaluations.push(candidate.evaluation);
     }
-    let status = overall_status(&scenarios);
-    let model_status = match &input.qualification {
-        ModelQualification::Qualified => RequirementStatus::Pass,
-        ModelQualification::Checked(check) => check.status,
-    };
-    let model_check = match &input.qualification {
-        ModelQualification::Qualified => None,
-        ModelQualification::Checked(check) => Some(check.clone()),
-    };
-    let eligible = status == RequirementStatus::Pass
-        && matches!(
-            candidate_evaluations.first(),
-            Some(Some(evaluation)) if apply_eligible(model_status, evaluation)
-        );
-    let section = ValidateSection {
-        model_revision,
-        candidate: tune.candidate,
-        requirements: tune.requirements.clone(),
-        conditions: conditions_of(loop_definition, &nominal.plan),
-        model_check: model_check.clone(),
-        scenarios: scenarios.clone(),
-        status,
-        apply_available: eligible,
-    };
-    let stages = stage_availability(&StageEvidence {
-        validation_has_result: true,
-        validation_passed: eligible,
-        validation_inconclusive: status == RequirementStatus::Inconclusive,
-        ..input.before
-    });
-    let failure = if eligible {
-        None
-    } else {
-        Some(failure_of(
-            model_check.as_ref(),
-            status,
-            &scenarios,
-            &candidate_evaluations,
-        ))
-    };
-    Ok(ValidateOutcome {
-        section,
-        result: ValidateResult {
-            model_check,
-            scenarios,
-            status,
-            apply_available: eligible,
-            plant_reason: input.plant_reason.clone(),
-            stages,
-        },
-        failure,
-    })
+    Ok(outcomes)
 }
 
 /// The evidence that sets the stages' status (A8.4): the Tune stage's evidence, and the Validate result when it is current for
-/// the study's model, its Tune candidate and its requirements. A passed current result makes Apply available; an inconclusive
-/// one needs data, and a failed one has failed.
+/// the study's model, its Tune candidate, its requirements and the declared scenarios the study holds (`declared`). A passed
+/// current result makes Apply available; an inconclusive one needs data, and a failed one has failed.
 #[must_use]
 pub fn stage_evidence(
     loop_definition: &LoopDefinition,
@@ -407,12 +610,13 @@ pub fn stage_evidence(
     tune: Option<&TuneSection>,
     validate: Option<&ValidateSection>,
     has_recording: bool,
+    declared: &[EngineerScenario],
 ) -> StageEvidence {
     let evidence = tune_stage_evidence(loop_definition, identify, tune, has_recording);
     let current = validate.filter(|section| {
         identify.zip(tune).is_some_and(|(identify, tune)| {
             identify.is_current_for(loop_definition)
-                && section.is_current(&identify.selected_model, tune)
+                && section.is_current(&identify.selected_model, tune, declared)
         })
     });
     StageEvidence {
@@ -440,6 +644,7 @@ fn job_outcome(
     job: &IsolatedRunStatus,
     plant: &str,
     averaged: bool,
+    criteria: Option<&AutomaticCriteria>,
 ) -> Result<JobOutcome, Failure> {
     let evaluation = if let IsolatedRunEvidence::Complete(record) = job.evidence() {
         let run = validation_run_of(record)?;
@@ -454,16 +659,37 @@ fn job_outcome(
             evaluation
                 .requirements
                 .iter()
-                .map(|result| requirement_of(result, plant))
+                .map(|result| {
+                    let naming = case
+                        .requirements
+                        .iter()
+                        .find(|requirement| requirement.id == result.id)
+                        .map_or_else(
+                            || Naming::unknown(&result.id, &result.unit),
+                            |requirement| {
+                                Naming::of(requirement, loop_definition, criteria, &case.plan)
+                            },
+                        );
+                    // The ranges come from the requirement the run was evaluated against, with any fixed parameter held (B5.4).
+                    let ranges = evaluation
+                        .specification
+                        .iter()
+                        .find(|requirement| requirement.id == result.id)
+                        .map_or((None, None), |requirement| {
+                            answer::bounds_of(requirement, &evaluation.run)
+                        });
+                    requirement_of(result, naming, plant, ranges)
+                })
                 .collect(),
         ),
         None => (
             RequirementStatus::Inconclusive,
             not_run_requirements(
                 loop_definition,
-                &case.requirements,
+                case,
                 plant,
                 &texts::run_not_completed(job_state_word(job.status), job.reason.as_deref()),
+                criteria,
             ),
         ),
     };
@@ -477,6 +703,68 @@ fn job_outcome(
         },
         evaluation,
     })
+}
+
+/// The Manual-to-Auto entry case judged (B5.3, B5.4): its run is judged against the case's requirements as every other case is, and
+/// each row is a guard (B9.9), because the engine generated the checks from the loop's declaration. A run that did not complete is
+/// Inconclusive with its reason (`job_outcome`).
+///
+/// # Errors
+/// A completed run is not one the evaluator accepts (its requirements or its record).
+fn entry_outcome(
+    loop_definition: &LoopDefinition,
+    entry: &EntryJob<'_>,
+    model_revision: &str,
+    criteria: Option<&AutomaticCriteria>,
+) -> Result<InitializationOutcome, Failure> {
+    let (case, job, plant) = match *entry {
+        EntryJob::Ran { case, job, plant } => (case, job, plant),
+        EntryJob::Refused(refusal) => {
+            return Ok(InitializationOutcome {
+                label: texts::MANUAL_TO_AUTO_ENTRY.to_owned(),
+                status: RequirementStatus::Inconclusive,
+                requirements: vec![refused_row(refusal)],
+            });
+        }
+    };
+    let plant = isolated_plant_name(plant, model_revision);
+    let averaged = case.plan.record_every > 1;
+    let outcome = job_outcome(loop_definition, case, job, &plant, averaged, criteria)?;
+    Ok(InitializationOutcome {
+        label: texts::MANUAL_TO_AUTO_ENTRY.to_owned(),
+        status: outcome.run.status,
+        requirements: outcome
+            .run
+            .requirements
+            .into_iter()
+            .map(|row| RequirementOutcome { guard: true, ..row })
+            .collect(),
+    })
+}
+
+/// The one row of a refused Manual-to-Auto entry case (B5.4, B9.9): Inconclusive, under the case's identity, with the refusal's sentence
+/// as its reason. It is a guard, because the engine generated the case from the loop's declaration.
+fn refused_row(refusal: &Failure) -> RequirementOutcome {
+    RequirementOutcome {
+        id: ENTRY_CASE_ID.to_owned(),
+        label: texts::MANUAL_TO_AUTO_ENTRY.to_owned(),
+        channel: RequirementChannel {
+            role: String::new(),
+            unit: String::new(),
+            symbol: String::new(),
+        },
+        limit_side: LimitSide::AtMost,
+        status: RequirementStatus::Inconclusive,
+        value: None,
+        limit: None,
+        unit: String::new(),
+        source: String::new(),
+        reason: refusal.message.clone(),
+        automatic: false,
+        guard: true,
+        measured_range: None,
+        limit_range: None,
+    }
 }
 
 /// The requirements of a run with its parameter overrides (B5.3, C0): a fixed parameter that the run overrode must hold the
@@ -506,38 +794,217 @@ fn held_parameters(
         .collect()
 }
 
-/// One requirement's result as the result keeps it, with the plant the run ran against as its source (B5.4).
-fn requirement_of(result: &RunRequirementResult, source: &str) -> RequirementOutcome {
+/// One requirement's result as the result keeps it, named as the page shows it (B9.9), with the plant the run ran against as its
+/// source (B5.4) and the measured range and the declared bounds of its check, when it has them (`answer::bounds_of`).
+fn requirement_of(
+    result: &RunRequirementResult,
+    naming: Naming,
+    source: &str,
+    ranges: (Option<ValueRange>, Option<ValueRange>),
+) -> RequirementOutcome {
     RequirementOutcome {
         id: result.id.clone(),
+        label: naming.label,
+        channel: naming.channel,
+        limit_side: naming.limit_side,
         status: result.status,
         value: result.value,
         limit: result.limit,
         unit: result.unit.clone(),
         source: source.to_owned(),
         reason: result.reason.clone(),
+        automatic: naming.automatic,
+        guard: naming.guard,
+        measured_range: ranges.0,
+        limit_range: ranges.1,
     }
 }
 
 /// The requirements of a job that did not complete: each is Inconclusive and names the unit of its channel (B5.4).
 fn not_run_requirements(
     loop_definition: &LoopDefinition,
-    requirements: &[RunRequirement],
+    case: &CampaignCase,
     source: &str,
     reason: &str,
+    criteria: Option<&AutomaticCriteria>,
 ) -> Vec<RequirementOutcome> {
-    requirements
+    case.requirements
         .iter()
-        .map(|requirement| RequirementOutcome {
-            id: requirement.id.clone(),
-            status: RequirementStatus::Inconclusive,
-            value: None,
-            limit: None,
-            unit: observation_unit(loop_definition, &requirement.channel).unwrap_or_default(),
-            source: source.to_owned(),
-            reason: reason.to_owned(),
+        .map(|requirement| {
+            let naming = Naming::of(requirement, loop_definition, criteria, &case.plan);
+            RequirementOutcome {
+                id: requirement.id.clone(),
+                unit: naming.channel.unit.clone(),
+                label: naming.label,
+                channel: naming.channel,
+                limit_side: naming.limit_side,
+                status: RequirementStatus::Inconclusive,
+                value: None,
+                limit: None,
+                source: source.to_owned(),
+                reason: reason.to_owned(),
+                automatic: naming.automatic,
+                guard: naming.guard,
+                measured_range: None,
+                limit_range: None,
+            }
         })
         .collect()
+}
+
+/// How a requirement reads on the page (B9.9): its label in words, its channel named by its role and unit, which way its
+/// limit bounds its value (B5.4), whether Automatic generated its limit (B4.3), and whether it is a guard (B9.9).
+struct Naming {
+    label: String,
+    channel: RequirementChannel,
+    limit_side: LimitSide,
+    automatic: bool,
+    guard: bool,
+}
+
+impl Naming {
+    /// The naming of a requirement the campaign holds, with the criteria that Automatic generated, if any, and the plan that
+    /// generated its guards.
+    fn of(
+        requirement: &RunRequirement,
+        loop_definition: &LoopDefinition,
+        criteria: Option<&AutomaticCriteria>,
+        plan: &VerificationPlan,
+    ) -> Self {
+        // A parameter and a controller state are named by their own names, never by a signal's role.
+        let by_name = requirement.id.starts_with(FIXED_PARAMETER_PREFIX)
+            || matches!(requirement.check, RunCheck::StateBounds { .. });
+        let role = if by_name {
+            texts::readable_name(&requirement.channel)
+        } else {
+            signal_role(loop_definition, &requirement.channel)
+                .unwrap_or_else(|| texts::readable_name(&requirement.channel))
+        };
+        Self {
+            label: requirement_label(requirement, loop_definition),
+            channel: RequirementChannel {
+                role,
+                unit: observation_unit(loop_definition, &requirement.channel).unwrap_or_default(),
+                symbol: requirement.channel.clone(),
+            },
+            limit_side: if matches!(requirement.check, RunCheck::Dwell { .. }) {
+                LimitSide::AtLeast
+            } else {
+                LimitSide::AtMost
+            },
+            automatic: answer::generated_limit(&requirement.check, criteria),
+            guard: answer::is_guard(requirement, plan),
+        }
+    }
+
+    /// The naming of a result whose requirement the campaign does not hold: its identity, made readable.
+    fn unknown(id: &str, unit: &str) -> Self {
+        Self {
+            label: texts::readable_name(id),
+            channel: RequirementChannel {
+                role: texts::readable_name(id),
+                unit: unit.to_owned(),
+                symbol: String::new(),
+            },
+            limit_side: LimitSide::AtMost,
+            automatic: false,
+            guard: false,
+        }
+    }
+}
+
+/// The requirement's label in words (B9.9): the name of its check, with the reference or the direction that its name needs.
+fn requirement_label(requirement: &RunRequirement, loop_definition: &LoopDefinition) -> String {
+    if let Some(label) = entry_label(&requirement.id) {
+        return label.to_owned();
+    }
+    if requirement.id.starts_with(FIXED_PARAMETER_PREFIX) {
+        return texts::PARAMETER_UNCHANGED.to_owned();
+    }
+    match &requirement.check {
+        RunCheck::Settling { .. } => texts::MAXIMUM_SETTLING_TIME.to_owned(),
+        RunCheck::Overshoot { .. } => texts::MAXIMUM_OVERSHOOT.to_owned(),
+        RunCheck::Error {
+            reference: ErrorReference::Channel { channel },
+            ..
+        } if !is_setpoint(loop_definition, channel) => {
+            let from = signal_role(loop_definition, channel)
+                .unwrap_or_else(|| texts::readable_name(channel));
+            texts::maximum_error_from(&from)
+        }
+        RunCheck::Error { .. } => texts::MAXIMUM_STEADY_STATE_ERROR.to_owned(),
+        RunCheck::Bounds { .. } => texts::OPERATING_RANGE.to_owned(),
+        RunCheck::StateBounds { .. } => texts::STATE_RANGE.to_owned(),
+        RunCheck::Levels { .. } => texts::ALLOWED_OUTPUT_LEVELS.to_owned(),
+        RunCheck::Dwell {
+            state: DwellState::High,
+            ..
+        } => texts::MINIMUM_ON_TIME.to_owned(),
+        RunCheck::Dwell {
+            state: DwellState::Low,
+            ..
+        } => texts::MINIMUM_OFF_TIME.to_owned(),
+        RunCheck::Rate {
+            direction: Some(Movement::Up),
+            ..
+        } => texts::MAXIMUM_INCREASE_RATE.to_owned(),
+        RunCheck::Rate {
+            direction: Some(Movement::Down),
+            ..
+        } => texts::MAXIMUM_DECREASE_RATE.to_owned(),
+        RunCheck::Rate {
+            direction: None, ..
+        } => texts::MAXIMUM_RATE.to_owned(),
+        RunCheck::Saturation { .. } => texts::MAXIMUM_SATURATION_TIME.to_owned(),
+        RunCheck::Switching { .. } => texts::MAXIMUM_SWITCHING_COUNT.to_owned(),
+        RunCheck::Activity { .. } => texts::COMMAND_ACTIVITY.to_owned(),
+    }
+}
+
+/// The name in words of a row of the Manual-to-Auto entry case (B5.3), by the identity the case gives it.
+fn entry_label(id: &str) -> Option<&'static str> {
+    match id {
+        "transfer-continuity" => Some(initialization_texts::FIRST_OUTPUT_AFTER_ENTRY),
+        "auto-mode" => Some(initialization_texts::MODE_AFTER_ENTRY),
+        "integral-state" => Some(initialization_texts::INTEGRAL_AT_ENTRY),
+        "derivative-state" => Some(initialization_texts::DERIVATIVE_AT_ENTRY),
+        _ => None,
+    }
+}
+
+/// Whether `symbol` is the loop's setpoint.
+fn is_setpoint(loop_definition: &LoopDefinition, symbol: &str) -> bool {
+    loop_definition
+        .signals
+        .setpoint
+        .as_ref()
+        .is_some_and(|signal| signal.symbol == symbol)
+}
+
+/// The role of a signal of the loop in words (B9.9): Measurement, Output, Setpoint or Actuator, or an auxiliary signal's id.
+/// `None` when the loop declares no signal with that symbol.
+fn signal_role(loop_definition: &LoopDefinition, symbol: &str) -> Option<String> {
+    let signals = &loop_definition.signals;
+    if signals.process_variable.symbol == symbol {
+        Some(texts::MEASUREMENT.to_owned())
+    } else if signals.manipulated_variable.symbol == symbol {
+        Some(texts::OUTPUT.to_owned())
+    } else if is_setpoint(loop_definition, symbol) {
+        Some(texts::SETPOINT.to_owned())
+    } else if signals
+        .actuator
+        .as_ref()
+        .is_some_and(|signal| signal.symbol == symbol)
+    {
+        Some(texts::ACTUATOR.to_owned())
+    } else {
+        signals
+            .additional
+            .iter()
+            .flatten()
+            .find(|signal| signal.symbol == symbol)
+            .map(|signal| signal.id.clone())
+    }
 }
 
 /// The word of a job's state as the runtime writes it (E8.4), for the reason of a run that did not complete.
@@ -568,21 +1035,42 @@ fn failure_of(
     status: RequirementStatus,
     scenarios: &[ScenarioOutcome],
     evaluations: &[Option<RecordedRunEvaluation>],
+    initialization: Option<&InitializationOutcome>,
+    refusal: Option<&Failure>,
 ) -> Failure {
     if let Some(check) = model_check.filter(|check| check.status != RequirementStatus::Pass) {
         return Failure::new(&check.reason, Cause::ModelOrData, NextAction::Identify);
     }
+    let entry_rows = initialization.map_or(&[][..], |entry| entry.requirements.as_slice());
     if status == RequirementStatus::Fail {
         if let Some(failed) = candidate_requirements(scenarios)
             .find(|requirement| requirement.status == RequirementStatus::Fail)
         {
             return Failure::new(&failed.reason, Cause::Settings, NextAction::Tune);
         }
+        // A failed row of the entry case names the first output, the mode, the states or the bounds after Auto entry (B5.3).
+        if let Some(failed) = entry_rows
+            .iter()
+            .find(|row| row.status == RequirementStatus::Fail)
+        {
+            return Failure::new(
+                &failed.reason,
+                Cause::Implementation,
+                NextAction::OpenLoopSetup,
+            );
+        }
+    }
+    // An Auto entry that cannot be planned names its own refusal, with the cause and next action that it carries (B5.5, C1).
+    if let Some(refusal) = refusal {
+        return refusal.clone();
     }
     let reason = candidate_requirements(scenarios)
+        .chain(entry_rows.iter())
         .find(|requirement| requirement.status != RequirementStatus::Pass)
         .map_or(NO_EVIDENCE, |requirement| requirement.reason.as_str());
-    let cause = if evaluations.iter().any(Option::is_none) {
+    let entry_incomplete =
+        initialization.is_some_and(|entry| entry.status == RequirementStatus::Inconclusive);
+    let cause = if evaluations.iter().any(Option::is_none) || entry_incomplete {
         Cause::Runtime
     } else {
         Cause::ModelOrData
@@ -648,6 +1136,23 @@ fn check_scenarios(scenarios: &[ScenarioOutcome]) -> Result<(), Failure> {
     Ok(())
 }
 
+/// A stored Manual-to-Auto entry case is kept only when each of its rows is a guard (B9.9) and its status follows from its rows (N8.5).
+fn check_entry(entry: &InitializationOutcome) -> Result<(), Failure> {
+    if entry.requirements.iter().any(|row| !row.guard) {
+        return Err(invalid(
+            "its entry rows are not all guards (B9.9)",
+            Cause::ModelOrData,
+        ));
+    }
+    if entry.status != combined_status(entry.requirements.iter().map(|row| row.status)) {
+        return Err(invalid(
+            "its entry result does not follow from its rows (N8.5)",
+            Cause::ModelOrData,
+        ));
+    }
+    Ok(())
+}
+
 /// The failure of a stored Validate section that breaks one of its rules.
 fn invalid(reason: &str, cause: Cause) -> Failure {
     Failure::new(
@@ -670,3 +1175,10 @@ fn no_candidate() -> Failure {
 #[cfg(test)]
 #[path = "validate_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod guard_rows_tests;
+
+#[cfg(test)]
+#[path = "validate_entry_tests.rs"]
+mod entry_tests;

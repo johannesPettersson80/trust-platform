@@ -50,6 +50,13 @@ async function main(): Promise<void> {
   const extensionsDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "trust-lsp-vscode-extensions-")
   );
+  // Control Studio's engine keeps its operation journals in truST's state folder, $XDG_STATE_HOME/trust on Linux (specification
+  // 35, A8.3), where the command line finds them too. Each launch gets its own, so that an operation one launch leaves journaled
+  // (for example a journey that closes the panel while its experiment runs) never refuses another launch's run, even while shards
+  // run side by side.
+  const stateDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "trust-lsp-vscode-state-")
+  );
 
   const defaultServerName =
     process.platform === "win32" ? "trust-lsp.exe" : "trust-lsp";
@@ -64,21 +71,24 @@ async function main(): Promise<void> {
   const devPath = cargoDebugBinary(repoRoot, devName);
 
   const debugPath = cargoDebugBinary(repoRoot, process.platform === "win32" ? "trust-debug.exe" : "trust-debug");
+  const enginePath = cargoDebugBinary(repoRoot, process.platform === "win32" ? "trust-control-studio.exe" : "trust-control-studio");
   if (process.env.TRUST_VSCODE_REUSE_NATIVE_BINARIES === "1") {
     // Explicit caller-owned reuse after a frozen native build. Never silently fall back to a
     // rebuild, or proceed with a missing binary from a different validation copy.
-    for (const binary of [serverPath, runtimePath, devPath, debugPath]) {
+    for (const binary of [serverPath, runtimePath, devPath, debugPath, enginePath]) {
       if (!fs.existsSync(binary) || !fs.statSync(binary).isFile()) throw new Error(`Prebuilt test binary not found: ${binary}`);
     }
   } else {
     if (configured && !fs.existsSync(serverPath)) throw new Error(`ST_LSP_TEST_SERVER not found at ${serverPath}`);
-    buildRustPackages(repoRoot, [...(!configured ? ["trust-lsp"] : []), "trust-runtime", "trust-dev", "trust-debug"]);
+    buildRustPackages(repoRoot, [...(!configured ? ["trust-lsp"] : []), "trust-runtime", "trust-dev", "trust-debug", "trust-control-studio"]);
   }
 
   const extensionTestsEnv: NodeJS.ProcessEnv = {
+    XDG_STATE_HOME: stateDir,
     ST_LSP_TEST_SERVER: serverPath,
     ST_RUNTIME_TEST_BIN: runtimePath,
     ST_DEV_TEST_BIN: devPath,
+    ST_CONTROL_STUDIO_TEST_BIN: enginePath,
   };
   const configuredTestGrep = process.env.TRUST_VSCODE_TEST_GREP?.trim();
   if (configuredTestGrep) {
@@ -125,6 +135,7 @@ async function main(): Promise<void> {
     removeTestTempDirectory(workspacePath);
     removeTestTempDirectory(userDataDir);
     removeTestTempDirectory(extensionsDir);
+    removeTestTempDirectory(stateDir);
   }
 
   const fixture = (name: string) => path.join(extensionDevelopmentPath, "src", "test", "fixtures", name);
@@ -243,6 +254,8 @@ async function main(): Promise<void> {
     const renderedWorkspacePath = path.join(renderedRunDir, "workspace");
     const renderedUserDataDir = path.join(renderedRunDir, "user-data");
     const renderedExtensionsDir = path.join(renderedRunDir, "extensions");
+    // The journey's own state folder for the engine's operation journals (see `stateDir` above).
+    const renderedStateDir = path.join(renderedRunDir, "state");
     try {
       const nativePidGroup = renderedTestFullTitle.startsWith("Control Studio native PID group");
       const studioCase = nativePidGroup || renderedTestFullTitle.startsWith("Control Studio ");
@@ -307,6 +320,7 @@ async function main(): Promise<void> {
                   .toLowerCase()}.json`,
               }
             : {}),
+          XDG_STATE_HOME: renderedStateDir,
           TRUST_PLANT_RENDERED_TEST: "1",
           ...(studioCase ? { TRUST_CONTROL_STUDIO_THREE_PAGE: "1" } : {}),
           ...(nativePidGroup ? { TRUST_CONTROL_STUDIO_PID_GROUP_NATIVE: "1" } : {}),

@@ -195,6 +195,21 @@ fn a_project_scripted_review_names_the_activation_the_abort_and_the_baseline() {
         }),
         "the activation is restored to FALSE, confirmed by the third execution (C12, A7)"
     );
+    assert_eq!(
+        project.stop_conditions,
+        vec![
+            "Abort".to_owned(),
+            format!("{} s timeout", review.maximum_duration_seconds),
+            "Loop mode changed".to_owned(),
+            "Bad runtime data".to_owned(),
+            "Signal force".to_owned(),
+            "Signal outside its limits".to_owned(),
+            "Runtime fault".to_owned(),
+            "Abort or failure asserts P1.Experiment.Abort = true; normal completion does not."
+                .to_owned(),
+        ],
+        "the review names the stop conditions the test's plan names (E5.5, C12)"
+    );
 }
 
 #[test]
@@ -218,4 +233,107 @@ fn a_project_scripted_loop_without_an_activation_is_observation_only() {
         "nothing is activated, so nothing is restored"
     );
     assert_eq!(project.baseline_seconds, None);
+}
+
+#[test]
+fn a_physical_review_names_the_signal_it_writes_with_its_limits_and_a_simulated_one_shows_no_block()
+{
+    let loop_def = example();
+    let simulated = campaign_review(
+        &loop_def,
+        &settings(AcquisitionMethod::Automatic, 16.0),
+        Some(&auto_sample()),
+    )
+    .expect("the simulated review");
+    assert_eq!(
+        simulated.approval, None,
+        "a simulated target shows no block"
+    );
+    let mut physical_sample = auto_sample();
+    physical_sample.source = EvidenceSource::PhysicalPlant;
+    let physical = campaign_review(
+        &loop_def,
+        &settings(AcquisitionMethod::Automatic, 16.0),
+        Some(&physical_sample),
+    )
+    .expect("the physical review");
+    let approval = physical
+        .approval
+        .expect("a physical target shows the approval block");
+    assert_eq!(approval.loop_id, loop_def.id);
+    assert_eq!(approval.duration_seconds, 16.0);
+    assert_eq!(
+        approval.amplitude, 0.0,
+        "Identify sizes the step after the baseline"
+    );
+    assert_eq!(
+        approval.signals.len(),
+        1,
+        "a setpoint step writes the setpoint only"
+    );
+    let written = &approval.signals[0];
+    assert_eq!(written.symbol, "P1.Setpoint");
+    assert_eq!(written.unit, "°C");
+    assert_eq!((written.minimum, written.maximum), (0.0, 100.0));
+    assert_eq!(
+        approval.stop_conditions.len(),
+        2,
+        "{:?}",
+        approval.stop_conditions
+    );
+    assert!(
+        approval.restoration.contains("restores the written signal"),
+        "{}",
+        approval.restoration
+    );
+}
+
+#[test]
+fn the_physical_approval_of_a_project_test_names_its_activation_without_declared_limits() {
+    let scripted = example_with(|document| {
+        document["signals"]["manipulatedVariable"]["direction"] = json!("read");
+        let experiment = &mut document["experiment"];
+        experiment["execution"] = json!("project-scripted");
+        experiment["activation"] = json!({
+            "symbol": "P1.Experiment.Active",
+            "address": "%QX0.0",
+            "iecType": "BOOL",
+            "direction": "write",
+        });
+        experiment["abort"] = json!({
+            "symbol": "P1.Experiment.Abort",
+            "address": "%QX0.1",
+            "iecType": "BOOL",
+            "direction": "write",
+            "assertedValue": true,
+        });
+    });
+    let mut physical_sample = auto_sample();
+    physical_sample.source = EvidenceSource::PhysicalPlant;
+    let review = campaign_review(
+        &scripted,
+        &settings(AcquisitionMethod::Automatic, 30.0),
+        Some(&physical_sample),
+    )
+    .expect("the project's scenario is reviewed on the physical target");
+    let approval = review.approval.expect("the approval block");
+    assert_eq!(approval.signals.len(), 1);
+    assert_eq!(approval.signals[0].symbol, "P1.Experiment.Active");
+    assert!(
+        approval.signals[0].minimum.is_nan() && approval.signals[0].maximum.is_nan(),
+        "a Boolean activation declares no limits, so none is shown"
+    );
+    assert!(
+        approval.restoration.contains("returns to FALSE"),
+        "{}",
+        approval.restoration
+    );
+    assert_eq!(
+        approval.stop_conditions,
+        review
+            .project_scripted
+            .expect("the project's scenario")
+            .stop_conditions,
+        "the project's stop conditions are the ones the approval names"
+    );
 }

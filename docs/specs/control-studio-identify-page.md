@@ -182,6 +182,10 @@ Once identification completes, show the retained measured/model comparison.
 Before identification produces a result, omit the model name and equation.
 Do not fill that space with placeholder reports or explanatory paragraphs.
 
+Reopening a study shows its identification again, as the engine answers it (A8.6):
+the model type, equation and key numbers, the response plot with the applied input,
+and the requirements the model is tuned to. Reopening starts no experiment.
+
 ## Layout
 
 Example after identification:

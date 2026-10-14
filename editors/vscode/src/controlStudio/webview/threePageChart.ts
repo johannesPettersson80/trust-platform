@@ -31,6 +31,8 @@ if (host) {
   if (loop) host.title = signalRoleTitle(loop);
   const empty = root.querySelector<HTMLElement>("[data-studio-chart-empty]");
   const plots: Partial<Record<StudioPage, ResponseGroup[]>> = {};
+  // The Validate plot's title as the engine names it; the page's own word stands until an engine plot arrives.
+  let measuredTitle: string | undefined;
   let live = loop ? new ThreePageLiveSignals(loop) : undefined;
   let recordedSource = false;
   let livePage: StudioPage = "model";
@@ -47,7 +49,7 @@ if (host) {
     host.closest<HTMLElement>(".studio-response")!.hidden = groups.length === 0 && page === "tune";
     if (empty) { empty.hidden = groups.length > 0; empty.textContent = groups.length ? "" : live?.emptyMessage() ?? "Start the runtime to see live values"; }
     const title = root.querySelector<HTMLElement>("[data-studio-response-title]")!;
-    title.textContent = page === "tune" ? "Predicted response" : page === "verify" ? "Measured response" : "";
+    title.textContent = page === "tune" ? "Predicted response" : page === "verify" ? measuredTitle ?? "Measured response" : "";
     title.hidden = !groups.length || !title.textContent;
     const rows: ResponseGroup[] = groups.length ? groups : [{ name: "", unit: "", series: [] }];
     // The Apply block sits above the plot on Validate, so the plot needs no room for it.
@@ -111,7 +113,11 @@ if (host) {
       delete plots.verify; recordedSource = false; livePage = "verify"; live = new ThreePageLiveSignals(loop);
     }
     if (payload.recordingCatalog) recordedSource = true;
-    if (["edited", "model-ready"].includes(String(payload.status))) { delete plots.tune; delete plots.verify; }
+    // A reset drops the Tune and Validate plots with the model they were drawn for (the Identify page specification, Reset).
+    if (["edited", "model-ready", "reset"].includes(String(payload.status))) { delete plots.tune; delete plots.verify; }
+    // A new candidate or manual preview replaces the Tune plot; one without a predicted response shows none (B4.5). A payload that
+    // carries its plots draws them after this, so the prediction of the settings on the page is the one shown.
+    if (payload.status === "candidate" || payload.status === "preview") delete plots.tune;
     const experiment = decodeIdentificationExperiment(payload.identificationExperiment);
     if (experiment) { plots.model = experimentResponses(experiment, true, loop); recordedSource = true; }
     const presentation = payload.identificationPresentation as IdentifiedModelPresentation | undefined;
@@ -138,6 +144,11 @@ if (host) {
         { name: "Tuned", points: points.map(point => [point.timeSeconds, point.candidatePv]) },
         ...(points.some(point => typeof point.currentPv === "number") ? [{ name: "Current", dashed: true, points: points.map(point => [point.timeSeconds, point.currentPv ?? null]) }] : []),
       ] }];
+    }
+    // The engine's Validate plot, named and bounded by Rust (B5.4, B9.6); a plot the engine withdraws leaves no older curve.
+    if (payload.validationPlot !== undefined) {
+      const measured = payload.validationPlot as { title: string; groups: ResponseGroup[] } | null;
+      if (measured) { plots.verify = measured.groups; measuredTitle = measured.title; } else delete plots.verify;
     }
     const evaluation = payload.candidate as RunEvaluation | undefined;
     if (loop && evaluation?.run?.samples?.length) plots.verify = runResponses(loop, evaluation, payload.baseline as RunEvaluation | undefined);

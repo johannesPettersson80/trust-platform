@@ -2,7 +2,7 @@
 
 use serde_json::{json, Value};
 use trust_control_math::linalg::DenseMatrix;
-use trust_control_math::model::TransferFunction;
+use trust_control_math::model::{OperatingPoint, TransferFunction};
 
 use super::*;
 
@@ -182,6 +182,45 @@ fn decoding_refuses_malformed_unsupported_and_falsely_validated_models() {
     ] {
         assert!(decode_general_model(&model).is_none(), "{model}");
     }
+}
+
+/// The model as JSON without its operating point, so that two models compare on everything else.
+fn without_operating_point(model: &GeneralModel) -> Value {
+    let mut value = serde_json::to_value(model).expect("a model serializes");
+    if let Some(object) = value.as_object_mut() {
+        object.remove("operatingPoint");
+    }
+    value
+}
+
+#[test]
+fn a_copy_with_another_operating_point_changes_only_that_point() {
+    // The Manual-to-Auto entry case plans on such a copy (B5.3): its start is the one thing that differs from the model it came from.
+    let model = decode_general_model(&base()).expect("the base model decodes");
+    let point = OperatingPoint {
+        inputs: vec![1.5, -0.5],
+        outputs: vec![4.0],
+    };
+    let copy = model.with_operating_point(point.clone());
+    assert_eq!(
+        copy.identity().operating_point,
+        Some(point),
+        "the copy starts from the given point"
+    );
+    assert!(
+        model.identity().operating_point.is_none(),
+        "the model keeps its own point"
+    );
+    assert_eq!(
+        copy.identity().revision,
+        model.identity().revision,
+        "the copy keeps the model's revision"
+    );
+    assert_eq!(
+        without_operating_point(&copy),
+        without_operating_point(&model),
+        "nothing but the operating point differs"
+    );
 }
 
 #[test]

@@ -36,6 +36,21 @@ pub fn run_plan(evidence: &StageEvidence, through: RunThrough) -> RunPlan {
     }
 }
 
+/// The evidence a run plans its stages from (A8.4). Identify plant identifies again (B8): the new model replaces the old one, and
+/// the candidates and validations based on the old model are no longer current, so `run_plan` plans every stage after a missing
+/// model. Without that request a current model is reused.
+#[must_use]
+pub fn planned_evidence(evidence: StageEvidence, identify_again: bool) -> StageEvidence {
+    if identify_again {
+        StageEvidence {
+            has_model: false,
+            ..evidence
+        }
+    } else {
+        evidence
+    }
+}
+
 /// The input the engineer must give for a stage that failed on it (B8): the limits, or a requirement that Automatic cannot fill
 /// or that the engineer must correct. The failure's own next action says which (A11.2). Every other failure stops the run as a
 /// failure, and this returns `None` for it.

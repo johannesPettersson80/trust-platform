@@ -105,7 +105,7 @@ export class ThreePageBindings {
     if (this.pending) this.controllerSelect.value = this.pending;
     else if (ambiguous) this.controllerSelect.value = "";
     else if (Array.from(this.controllerSelect.options).some(option => option.value === current)) this.controllerSelect.value = current;
-    if (!this.canRun) for (const button of Array.from(this.root.querySelectorAll<HTMLButtonElement>("[data-engineer-find],[data-engineer-tune],[data-engineer-verify],[data-engineer-apply],[data-identify-import]"))) button.disabled = true;
+    if (!this.canRun) for (const button of Array.from(this.root.querySelectorAll<HTMLButtonElement>("[data-engineer-find],[data-engineer-tune],[data-engineer-verify],[data-identify-import]"))) button.disabled = true;
     if (this.pending) this.controllerSelect.disabled = true;
     this.root.dataset.bindingDraft = String(this.invalid || this.recordingStale);
   }

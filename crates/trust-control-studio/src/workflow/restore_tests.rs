@@ -429,7 +429,108 @@ fn a_pid_loop_found_in_auto_returns_to_auto_once_its_previous_settings_are_back(
         outcome.recording, None,
         "the checkpoint retains no recording"
     );
+    assert!(
+        !outcome.restore_available && !outcome.keep_available,
+        "a confirmed Restore offers neither Restore nor Keep in project (B6.4, B6.5)"
+    );
     assert_eq!(journaled(&folder, &setup), None);
+}
+
+/// A8.6, B6.4: an opened loop offers Restore while its journal holds the Apply's checkpoint, and stops offering it once a confirmed
+/// Restore clears the checkpoint. Keep in project follows the study's receipts, so a study without an Apply offers none.
+#[test]
+fn an_opened_loop_offers_restore_only_while_the_journal_holds_the_checkpoint() {
+    let setup = setup(
+        Kind::Pid,
+        Some(FoundMode::Auto),
+        CheckpointStage::Parameters,
+    );
+    let folder = Folder::new("offers");
+    journal_checkpoint(&folder, &setup);
+    let (fake, _world) = World::applied(&setup, true).serve();
+    let journal = open_journal(&folder, &setup);
+    let offers = crate::commands::apply_offers(
+        journal.entries(),
+        &trust_control::study::apply::ApplySection::default(),
+    );
+    assert!(offers.restore, "the journaled checkpoint offers Restore");
+    assert!(!offers.keep, "no receipt kept, so no Keep in project");
+    assert!(
+        !offers.observation_resumable,
+        "a checkpoint without a recording has no observation to follow"
+    );
+    drop(journal);
+    restore(&fake, &folder, &setup).expect("the runtime confirms the Restore");
+    let journal = open_journal(&folder, &setup);
+    let offers = crate::commands::apply_offers(
+        journal.entries(),
+        &trust_control::study::apply::ApplySection::default(),
+    );
+    assert!(
+        !offers.restore,
+        "the confirmed Restore cleared the checkpoint"
+    );
+}
+
+/// A2.5 and B9.3: the Restore's review names each signal it returns with the limits the loop declares for it, names its restoration and
+/// stop conditions, and has no duration, because a Restore records nothing.
+#[test]
+fn a_restore_review_names_each_signal_with_its_declared_limits_and_no_duration() {
+    let setup = setup(
+        Kind::Pid,
+        Some(FoundMode::Auto),
+        CheckpointStage::Parameters,
+    );
+    let folder = Folder::new("approval");
+    journal_checkpoint(&folder, &setup);
+    let (fake, _world) = World::applied(&setup, true).serve();
+    let review = review(&fake, &folder, &setup, &empty_study(&setup)).expect("the review holds");
+    let approval = &review.approval;
+    assert_eq!(approval.loop_id, setup.loop_definition.id);
+    assert_eq!(approval.duration_seconds, None, "a Restore records nothing");
+    assert_eq!(approval.signals.len(), review.parameters.len());
+    for (signal, parameter) in approval.signals.iter().zip(&review.parameters) {
+        assert_eq!(signal.symbol, parameter.symbol);
+        assert_eq!(
+            (signal.running, signal.next),
+            (parameter.running, parameter.next)
+        );
+        let declared = setup
+            .loop_definition
+            .parameter_binding
+            .iter()
+            .flat_map(|binding| binding.parameters.iter())
+            .find(|declared| declared.symbol == signal.symbol)
+            .expect("the record declares every signal the Restore writes");
+        assert_eq!(
+            (signal.minimum, signal.maximum),
+            (declared.minimum, declared.maximum)
+        );
+    }
+    assert!(approval.restoration.starts_with("The parameter record"));
+    assert_eq!(approval.stop_conditions.len(), 1);
+}
+
+/// B6.4, B6.7: a Restore that the runtime refuses answers no outcome, so no availability is shown for it, and the checkpoint stays
+/// journaled for another try.
+#[test]
+fn a_refused_restore_answers_no_outcome_and_keeps_the_checkpoint_for_another_try() {
+    let setup = setup(
+        Kind::Pid,
+        Some(FoundMode::Auto),
+        CheckpointStage::Parameters,
+    );
+    let folder = Folder::new("unconfirmed");
+    journal_checkpoint(&folder, &setup);
+    let mut world = World::applied(&setup, true);
+    world.program = "program-2".to_owned();
+    let (fake, _world) = world.serve();
+    review(&fake, &folder, &setup, &empty_study(&setup))
+        .expect_err("Restore is unavailable after a runtime change");
+    assert!(
+        journaled(&folder, &setup).is_some(),
+        "the checkpoint stays journaled for another try (B6.7)"
+    );
 }
 
 /// control-studio-found-mode.test.ts, "a proportional loop found in Auto returns to Auto once its previous gain is back" (A6.2, C13.3):

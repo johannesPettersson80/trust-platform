@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::discovery::{
-    ControllerCompatibility, DiscoveredController, Rejection, SelectableSignal,
+    BindingSelection, ControllerCompatibility, DiscoveredController, Rejection, SelectableSignal,
 };
 use super::form::SetupFormModel;
 
-/// A request to discover the loops of a project (B1.2).
+/// A request to discover the loops of a project (B1.2), or to select one of them (B1.3).
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SetupDiscoverRequest {
@@ -21,6 +21,11 @@ pub struct SetupDiscoverRequest {
     pub runtime_id: String,
     /// The language tool's executable, when it is not beside the engine or on the PATH (§0.1a).
     pub language_tool: Option<String>,
+    /// The binding the engineer chose on the three-page panel: the loop, its controller and its channels. The engine checks it and
+    /// answers the loop's file; absent for a listing (B1.3).
+    pub selection: Option<BindingSelection>,
+    /// The controller family the engineer chose with the binding, which the selected loop's adapter must realize (C0).
+    pub family: Option<String>,
 }
 
 /// The answer to a discovery: the form's model, the discovered loops and the refusals (B1.2, B1.3).
@@ -33,6 +38,9 @@ pub struct SetupDiscoverResult {
     pub loops: Vec<LoopSummary>,
     /// The loop files that are refused, and why.
     pub rejected: Vec<Rejection>,
+    /// The file of the loop the request's selection names, when the engine accepts the selection (B1.3); absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_file: Option<String>,
 }
 
 /// One discovered loop, as the setup page lists it (B1.2).
@@ -88,3 +96,7 @@ pub struct SetupSaveResult {
     /// The loops written.
     pub loops: Vec<SavedLoop>,
 }
+
+#[cfg(test)]
+#[path = "messages_tests.rs"]
+mod tests;

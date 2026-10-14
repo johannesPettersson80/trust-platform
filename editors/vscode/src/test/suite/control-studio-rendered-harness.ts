@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { pollValue, httpJson, evaluateInWebview, type CdpConnection } from "./plant-rendered-harness";
 export async function attachControlStudio(connection: CdpConnection, port: number, previousEditorSession = "", expectedLoopId = ""): Promise<string> {
   return pollValue("Control Studio webview", async () => {
@@ -38,4 +39,100 @@ export async function attachWebview(connection: CdpConnection, port: number, sel
     }
     return "";
   }, value => value.length > 0, 20000);
+}
+
+/** One engine answer as the page holds it: the status its receiver gives it, and the answer's fields a journey checks. */
+export interface EngineAnswerRecord {
+  kind: string;
+  method?: string;
+  status: string;
+  command?: string;
+  state?: string;
+  operationId?: string;
+  flowStage?: string;
+  reason?: string;
+  failure?: Record<string, unknown>;
+  family?: string;
+  values?: Record<string, number>;
+  provisional?: boolean;
+  applicationAction?: string;
+  result?: Record<string, any>;
+}
+
+/**
+ * Records, in the webview, every `control-studio.engine.*` envelope the host posts to the page, as `window.__engineAnswers`.
+ * Each record carries the status that the page's receivers give the answer (`webview/engineOpened.ts`, `engineStages.ts` and
+ * the stage receivers), because the engine route dispatches no `trust-control-studio-engineer` status events: a wait reads this
+ * record, and the DOM checks confirm what the engineer sees. Self-contained (no names from outside), because
+ * `engineAnswerRecorderScript` sends its source into the webview.
+ */
+export function installEngineAnswerRecorder(d: Document): void {
+  const win = d.defaultView as (Window & { __engineAnswers?: EngineAnswerRecord[] }) | null;
+  if (!win || win.__engineAnswers) return;
+  const answers: EngineAnswerRecord[] = [];
+  win.__engineAnswers = answers;
+  const flowStageOf: Record<string, string> = { identify: "Identify", tune: "Tune", validate: "Validate" };
+  /** The status of an Apply, Restore or Keep answer, by the fields the answer names itself with (`webview/engineApplication.ts`). */
+  const applicationStatus = (result: Record<string, any>): string => {
+    if (typeof result.action === "string" && Array.isArray(result.parameters)) return "review";
+    if (Array.isArray(result.files)) return "review";
+    if ("checkpointId" in result) {
+      const commissioning = result.result ?? {};
+      return commissioning.status === "passed" ? "applied" : commissioning.status === "cancelled" ? "cancelled" : "failed";
+    }
+    if ("restored" in result) return result.restored === true ? "commissioned" : "failed";
+    if ("kept" in result && "record" in result) return "kept";
+    return "failed";
+  };
+  const project = (message: Record<string, any>): EngineAnswerRecord => {
+    const kind = String(message.kind);
+    const update = message.update as Record<string, any> | undefined;
+    if (kind === "control-studio.engine.opened") return { kind, status: "opened", result: message.result };
+    if (kind === "control-studio.engine.update") {
+      const command = String(update?.command ?? "");
+      const base = { kind, method: command, command, state: String(update?.state ?? ""), operationId: update?.operationId,
+        flowStage: typeof update?.stage === "string" ? update.stage : flowStageOf[command] };
+      if (base.state === "running") return { ...base, status: "running", reason: typeof update?.progress === "string" ? update.progress : undefined };
+      if (base.state === "cancelled") return { ...base, status: "cancelled" };
+      if (base.state === "finished") return { ...base, status: "completed" };
+      return { ...base, status: "failed", failure: update?.failure, reason: update?.failure?.message };
+    }
+    const method = typeof message.method === "string" ? message.method : undefined;
+    if (kind === "control-studio.engine.failure") {
+      return { kind, method, status: "failed", failure: message.failure, reason: message.failure?.message, flowStage: method ? flowStageOf[method] : undefined };
+    }
+    const result = (message.result ?? {}) as Record<string, any>;
+    const base = { kind, method, result: message.result };
+    switch (method) {
+      case "identify":
+        return typeof result.modelType === "string"
+          ? { ...base, status: "model-ready", provisional: result.provisional === true }
+          : { ...base, status: "reset" };
+      case "tune":
+        return { ...base, status: "candidate", family: result.candidate?.structure, values: result.settings };
+      case "preview":
+        return { ...base, status: "preview", reason: typeof result.reason === "string" ? result.reason : result.predictionUnavailable };
+      case "validate":
+        return { ...base, status: result.applyAvailable === true ? "verified" : "verification-failed", failure: result.failure };
+      case "inputs":
+        return { ...base, status: result.invalidated?.validation === true ? "edited" : "inputs" };
+      case "run":
+        return { ...base, status: result.needs ? "paused" : "completed" };
+      case "apply":
+      case "restore":
+      case "keep":
+        return { ...base, status: applicationStatus(result), applicationAction: method };
+      default:
+        return { ...base, status: "result" };
+    }
+  };
+  win.addEventListener("message", (event: MessageEvent) => {
+    const message = event.data as Record<string, any> | null;
+    if (message && typeof message.kind === "string" && message.kind.startsWith("control-studio.engine.")) answers.push(project(message));
+  });
+}
+
+/** The webview script that installs the recorder. Send it once the page has loaded, and again after each reopen (a new document). */
+export function engineAnswerRecorderScript(): string {
+  return `(${installEngineAnswerRecorder.toString()})(d);return 'engine answers recorded';`;
 }

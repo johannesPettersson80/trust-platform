@@ -14,6 +14,7 @@ use serde_json::Value;
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::connected_run::identification_cancelled;
 use trust_control::messages::{OperationStarted, OperationState, OperationUpdate};
+use trust_control::study::Page;
 
 /// Where operation updates go: the `trust/controlStudio/update` notification in the language
 /// server, a list in tests.
@@ -42,6 +43,8 @@ pub struct OperationContext {
     cancelled: Arc<AtomicBool>,
     entries: Arc<Mutex<HashMap<String, Entry>>>,
     sink: Arc<dyn UpdateSink>,
+    /// The stage a run is in (B8), shared by every clone of the context; none for an operation that runs no stages.
+    stage: Arc<Mutex<Option<Page>>>,
 }
 
 impl OperationContext {
@@ -62,6 +65,12 @@ impl OperationContext {
         self.report(OperationState::Running, Some(text.to_string()), None, None);
     }
 
+    /// Reports that a run has entered `stage` (B8). Every later update of the operation names that stage, until the next one.
+    pub fn enter_stage(&self, stage: Page) {
+        *self.stage.lock() = Some(stage);
+        self.report(OperationState::Running, None, None, None);
+    }
+
     fn report(
         &self,
         state: OperationState,
@@ -73,6 +82,7 @@ impl OperationContext {
             operation_id: self.id.clone(),
             command: self.command.clone(),
             state,
+            stage: *self.stage.lock(),
             progress,
             result,
             failure,
@@ -108,11 +118,13 @@ impl Operations {
             cancelled: Arc::new(AtomicBool::new(false)),
             entries: Arc::clone(&self.entries),
             sink: Arc::clone(&self.sink),
+            stage: Arc::new(Mutex::new(None)),
         };
         let latest = OperationUpdate {
             operation_id: id.clone(),
             command: command.to_string(),
             state: OperationState::Running,
+            stage: None,
             progress: None,
             result: None,
             failure: None,
@@ -319,5 +331,59 @@ mod tests {
             failed.failure.map(|failure| failure.next_action),
             Some(NextAction::ConnectRuntime)
         );
+    }
+
+    #[test]
+    fn a_run_names_its_stage_on_every_update_until_the_next_stage() {
+        let (operations, updates) = operations();
+        let started = operations.start("run", |context| {
+            context.enter_stage(Page::Identify);
+            context.progress("Recording the plant");
+            context.enter_stage(Page::Tune);
+            Ok(json!({ "stages": [] }))
+        });
+        let entered = next(&updates);
+        assert_eq!(
+            (entered.state, entered.stage),
+            (OperationState::Running, Some(Page::Identify))
+        );
+        let progress = next(&updates);
+        assert_eq!(
+            (progress.progress.as_deref(), progress.stage),
+            (Some("Recording the plant"), Some(Page::Identify))
+        );
+        let tune = next(&updates);
+        assert_eq!(tune.stage, Some(Page::Tune));
+        assert_eq!(
+            serde_json::to_value(&tune).expect("the update")["stage"],
+            json!("Tune"),
+            "the page reads the stage's name"
+        );
+        let finished = next(&updates);
+        assert_eq!(
+            (finished.state, finished.stage),
+            (OperationState::Finished, Some(Page::Tune))
+        );
+        assert_eq!(
+            operations
+                .status(&started.operation_id)
+                .expect("known")
+                .stage,
+            Some(Page::Tune),
+            "status names the stage the run is in"
+        );
+    }
+
+    #[test]
+    fn an_operation_that_runs_no_stages_names_none_and_sends_no_stage_field() {
+        let (operations, updates) = operations();
+        operations.start("identify", |context| {
+            context.progress("Recording the plant");
+            Ok(json!({}))
+        });
+        let progress = next(&updates);
+        assert_eq!(progress.stage, None);
+        let value = serde_json::to_value(&progress).expect("the update");
+        assert!(value.get("stage").is_none(), "{value}");
     }
 }

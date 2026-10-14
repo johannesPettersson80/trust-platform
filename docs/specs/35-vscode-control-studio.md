@@ -54,28 +54,97 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   `controlStudio/setupSave`.
 - `controlStudio/inputs` records the engineer's study inputs (A8.1), as the page's editors change
   them: the identification method and the experiment limits (B3.2, the Limits editor), the
-  requirements (B4.3, the Requirements editor), the tuning method with its response choice and a
-  fixed structure, and the pinned settings (B4.2). It answers at once with the stages; a change
-  invalidates exactly the results that depend on it (A8.4). `controlStudio/open` answers the
-  recorded inputs, so reopening shows them. Tune and Validate use the requirements the study
-  holds: the recorded ones over the loop's declared ones.
+  requirements with the verification scenario list declared beside them (B4.3, the Requirements
+  editor), the tuning method, a fixed structure, and the pinned settings (B4.2). The response of a
+  formula method is a field of the requirements (B4.3), so it is recorded once, and the requirements
+  keep no tuning method of their own: the method is the one the inputs name. Tune reads that response
+  from the requirements when its request names none (`controlStudio/tune` and the automatic run alike,
+  B4.3), so the page sends no response of its own. It answers at once with
+  the stages; a change invalidates exactly the results that depend on it (A8.4). `controlStudio/open`
+  answers the recorded inputs; the Apply availability of B6.4, B6.5 and A8.6 (Restore, Keep in
+  project, and a journaled observation to resume); the last Validate result while it is current for the
+  study's model, candidate, requirements and scenarios (A8.4), with its table and whether Apply is
+  available (B5.4); the operations this engine runs for the loop (`running`), which the page follows
+  (A8.6); and the journaled operations that reopening reattaches to (`reattached`): the recordings,
+  experiments, campaigns and isolated jobs that the journal holds unfinished. A journaled checkpoint is
+  no operation and is not listed: an Apply's checkpoint is answered as Restore availability, and a
+  mode checkpoint is returned to its mode by the campaign's resume (A6.2, A8.6). So reopening shows
+  them. The answer also holds `stageEvidence`, the evidence its stages are computed from, which the page
+  gates its actions on (B9.4, A8.6), and `identification`, the study's current Identify result as Identify
+  answers it, absent without a current model and after Reset (A8.6), and `tune`, the study's current candidate as
+  Tune answers it (B4.5), rebuilt from its Tune section and absent without a current candidate (A8.4); its `response`
+  is absent, because the study keeps no prediction and none is run on open. Tune and Validate use the requirements the
+  study holds: the recorded ones over the loop's declared ones. Validate runs the scenario list the
+  study holds in the same order of precedence: the recorded list over the loop's declared list.
 - `controlStudio/run` is the automatic progression of B8: it runs, from the earliest stage whose
   result is missing or no longer current (A8.4), each stage in order up to and including the one
-  it names (Identify, Tune or Validate), reusing the current results. It is one operation with one
-  Cancel. It stops at the first failure and keeps every result obtained; when a stage needs an
+  it names (Identify, Tune or Validate), reusing the current results. Identify plant is the one run
+  that identifies again: its request sets `identifyAgain`, and its Identify stage then runs a new
+  campaign even when the study holds a current model (the complete workflow specification, "Identify,
+  review, then tune"). A new model replaces the candidates and validations based on the old one
+  (A8.4), so such a run plans every later stage. It is one operation with one Cancel. It stops at the
+  first failure and keeps every result obtained; when a stage needs an
   input the engineer must give (manual settings, a requirement Automatic cannot fill), it ends
   naming that input, so the page opens the editor that owns it and **Done** runs it again.
-  A successful Validate stops at Apply: `run` never applies.
+  A successful Validate stops at Apply: `run` never applies. Its final result carries the status
+  of every stage, the stage evidence the page gates its actions on (a model, a candidate, a passed
+  validation), the identification the run made when it identified, and the input it waits for, if
+  any. Open recording… with a method other than Recorded-data fit (B3.3) identifies from a file,
+  which is not a run. The engine checks such a file (`identify` with `importRecording`, below) but
+  does not fit or keep it yet, so the page keeps that start on the TypeScript session until it
+  does. The engine fits only a recording the study keeps (`identify` with `openRecording`, B3.6).
+  Until then, what the TypeScript session keeps for a loop (a model fitted from an opened file, a
+  supplied model, the model tools' results) is stored beside the engine's study, in
+  `control-studio/<loop id>/typescript-session/`, and neither writes the other's files (A8.3).
 - `controlStudio/identify` with `action: "review"` answers the campaign Identify would run (the
   method, its excitation and limits, the duration, and for a project-scripted experiment its
   activation, abort and restoration, C12) and starts nothing; the page shows it before the
-  engineer starts the campaign. `controlStudio/page`
+  engineer starts the campaign. The project test of a project-scripted loop on the Identify page
+  (C12) is this review and the campaign it starts: its review asks `identify` with `action:
+  "review"`, the Automatic method, the declared duration and zero amplitude; its start asks
+  `identify` with the same settings; its Abort is `controlStudio/cancel` of that operation. The
+  review answers an `identity`, the digest of what the campaign runs: the loop and its revision, the settings, the
+  experiment and limits the review chose, the duration, the project's scenario of a project-scripted experiment, and
+  whether the target is physical. A start names that identity in `review`. The engine answers the identity of the same
+  settings on the live target and refuses a start that names an identity it no longer matches, with no next action:
+  the review is asked for again (A2.5, E11.8). A review of a physical target carries an `approval` block (B3.4 step 1,
+  B9.3). On a physical target the start is refused unless `review` names the current identity and `physicalApproved`
+  is true, with the next action Approve. A simulated target needs no review: pressing the action is the confirmation
+  (A2.5). A duration outside 1 s to 24 h (A7) is refused with Limits as the next action, by the review and by the
+  start. The manual parameter tool has no method, because Apply writes only the validated candidate (B6.1);
+  a served loop refuses its parameter requests, and the page shows no parameter controls for it.
+  `controlStudio/page`
   records the page last viewed (A8.1), which `controlStudio/open` returns so reopening shows it
   (A8.6); it changes nothing else and starts nothing. `controlStudio/preview` answers at once with
   the predicted response, margins and outcome of entered controller settings on the study's model,
   as Tune with the manual method would finish, and stores nothing (B4.5).
+- `controlStudio/identify` with `action: "importRecording"` checks a saved Control Studio result or
+  recording file, given as its text in `json` (at most 32 MiB of text). It answers at once, starts
+  nothing and keeps nothing. The engine reads the file as B10.4 requires: a result of a schema
+  version other than 3 or 4 (B10.2), a malformed identity, a nonfinite or out-of-order sample,
+  inconsistent units or source, an invalid selected interval, or a credential field is refused as
+  a whole, with the sentence that says why. It then checks the recording as B3.6 and B3.9 require:
+  a complete runtime scan buffer at a steady record period (A7, annex E4.5), an experiment that
+  completed, and the loop's units, with no conversion (A9). A file whose identification keeps a
+  step-response reference is refused, because the engine does not read that reference yet.
+  This check does not read the sections of later stages (B10.2); the TypeScript decoder still
+  checks them for parked loops until V7. The answer is `{"status": "checked", "resultId",
+  "resultRevision", "projectId", "source", "samples"}`: `source` is `Simulation` or `Physical` as the
+  file writes it, and `samples` is the number of raw samples.
+- The result of a completed identification (the final update of `controlStudio/identify`, and the
+  `identification` of a run) names `modelRevision`, the revision Validate's model check names for the model
+  (B5.2), and `requirements`, the requirements Tune designs to for the model now (B4.3): the values the study
+  records as given, with Automatic's values for the rest, listed in `automaticCriteria`. `requirements` is
+  absent where Automatic cannot form them, and Tune then names the missing prerequisite (B4.7). The identify, run,
+  reset and open answers also name `stageEvidence`, the evidence their stages are computed from: an
+  identification leaves no candidate and no validation current (A8.4), and a reset answers the evidence of the new
+  study, which holds no model, candidate or passed validation. A Tune answer names the evidence of the model and the candidate it
+  designed, and a Validate answer the evidence of its validation's result, passed or not (B9.4); a preview keeps nothing, so it names
+  the study's own evidence (B4.5).
 - A long method answers at once with an operation identifier. Its progress and result follow as
-  the notification `controlStudio/update`. `controlStudio/status` answers for an operation, and
+  the notification `controlStudio/update`. A run's updates name the stage it is in (`stage`:
+  Identify, Tune or Validate, B8), so the page shows where the flow is; the updates of the other
+  methods name none. `controlStudio/status` answers for an operation, and
   `controlStudio/cancel` cancels it as Cancel does.
 - A method's JSON-RPC result is `{"result": …}` or `{"failure": …}`; a failure carries its cause
   and next action (A11). A malformed message or an unknown method is a JSON-RPC error.
@@ -541,7 +610,8 @@ whose signals still exist are carried over.
 
 **A8.3 Location.** Studies are stored in the project, in
 `control-studio/<loop id>/`: one versioned study document and one file per
-recording. The operation journals (A8.5) stay outside the project, one file per
+recording (and, while the TypeScript session keeps part of a study, its own folder there,
+§0.1a). The operation journals (A8.5) stay outside the project, one file per
 loop, in truST's folder in the user's local state folder (§0.1b); the engine
 writes them for both of its front ends (§0.1a). Studies travel with the project,
 and large recordings stay out of VS Code's state. A study file of an earlier format is not read: it moves to
@@ -551,9 +621,11 @@ and large recordings stay out of VS Code's state. A study file of an earlier for
 it:
 
 - changed signals or limits: the provisional model is no longer current when its
-  signals changed; recordings are never deleted;
+  signals changed. A changed limit alone keeps the model; a changed signal is a changed
+  loop definition, which starts a new study (A8.2). Recordings are never deleted;
 - a new or replaced model: candidates and validations based on the old model;
-- changed requirements: validations;
+- changed requirements, or a changed list of declared verification scenarios (B4.3):
+  validations;
 - a changed candidate: its validation.
 
 Invalidated results remain in the study as history and cannot authorize Apply.
@@ -573,7 +645,12 @@ completes them as they would have completed, including returning a mode that an
 interrupted identification changed (A6.2); that completion is part of the
 journaled operation, not a new one. Closing the panel releases only its client,
 as closing VS Code does (A10.4): the runtime keeps the operation, and reopening
-reattaches to it at once instead of waiting for it to end. After a runtime
+reattaches to it at once instead of waiting for it to end. The engine names the
+operations it still runs for the loop (`running` in `controlStudio/open`), and the
+page follows them from their latest update; the page's Cancel stops each one, as it
+stops an operation the page started. The last Validate result the study
+holds is shown again while it is current (A8.4), with its table and whether Apply
+is available; its plot is not kept (B5.4). After a runtime
 restart Control Studio reads the actual controller values before reporting
 anything as active; an old application receipt is not evidence of the settings
 now active.
@@ -776,7 +853,17 @@ Supplied plant model. Every live method follows B3.4.
    not forced; the limits present (otherwise **Limits…** opens at the missing
    field); physical approval on a physical target (A2.5). A Manual method
    switches the loop to Manual through a transfer that holds the present output
-   (A6.3) and returns it to its starting mode afterwards (A6.2).
+   (A6.3) and returns it to its starting mode afterwards (A6.2). The approval
+   block of the review (B9.3) names what the campaign may do: each signal it
+   writes with its limits (the plant input range of B3.4 step 1 for a plant
+   input step, the setpoint's and the output's ranges for a setpoint step, the
+   declared range of the writable disturbance of a load step, and the
+   activation of a project-scripted test, whose limits are not declared),
+   the amplitude (zero when Identify sizes the step after the steady baseline,
+   B3.3), the maximum duration, the stop conditions of step 6 and of B3.9, and
+   the restoration of step 5. It shows limits, not measured values: the steady
+   baseline (step 2) sets the operating point, so the values are not known
+   before the campaign starts.
 2. **Steady baseline.** The baseline window is the longer of 5 % of the maximum
    duration and, when declared, 10 % of the expected settling time, capped at
    30 minutes, and never shorter than 20 samples: a slow process recorded at a
@@ -861,6 +948,8 @@ page specification).
 | A limit missing or invalid | Open **Limits…** at the field |
 | A signal stale, bad or forced (named) | Wait, or remove the force |
 | Physical approval declined | None |
+| Physical target, and the campaign has no approval of its reviewed identity yet (A2.5) | Approve, from the approval block the review shows (B9.3) |
+| The campaign changed since it was reviewed: its loop, its mode or its settings (§0.1a) | None; the review is asked for again |
 | Not steady: the measured output still changing (rate given) | Wait; or Setpoint step for a loop in Auto |
 | Mode change refused (the runtime's reason) | As the reason states |
 | Experiment stopped: limit reached, forced signal, mode left, Abort, reload or restart | None; the recording is kept, not qualified for a fit (B3.4 step 6) |
@@ -896,6 +985,13 @@ page specification describes. Automatic criteria are marked as such, frozen befo
 never relaxed by its results. Settling times and observation windows may be as
 long as the limits of A7 allow.
 
+The response of a formula method (N5.4) is the requirements' declared response,
+`tuningObjective`. Automatic marks it when it fills it, and a response the engineer
+declares replaces that mark. The verification scenarios that the Requirements editor
+declares (B9.9) are part of the requirements the study holds: Validate runs them in
+place of the loop's own declared scenarios, and a changed list leaves the validations
+behind (A8.4).
+
 **B4.4 Design.** The numerical annex defines the formula methods and the
 Automatic design to requirements; Part C defines each structure's design. The
 simplest structure that meets every mandatory requirement is recommended; a
@@ -908,7 +1004,13 @@ itself (Control.PID and the program-owned P, PI and PID laws) it calculates
 the closed loop; for any other program-owned law it runs the actual Structured
 Text in an isolated simulation on the selected model (A2.6). When that is
 unavailable, the candidate is shown with the reason there is no prediction.
-The settling time, the overshoot and every assessment use the full prediction.
+When a runtime is connected, the current settings are read from the running
+controller as B5.3 reads them, and predicted beside the candidate on the same
+conditions and time base; without a runtime only the candidate is predicted.
+A failed read, values that give no proportional gain, or a run of the current
+settings that cannot be simulated leaves them out, and Tune does not fail for them.
+The settling time, the overshoot and every assessment use the candidate's full
+prediction alone.
 When the prediction holds more than 6,000 points, the response the answer
 carries for the plot is reduced: the points are split into 1,000 consecutive
 groups of equal size, and each group keeps, in time order, the points where
@@ -943,7 +1045,10 @@ free-running prediction from the recorded plant input is compared with the
 recorded measured output on the grid of A4.3. The check passes when the error
 is within the identification error limit over the whole response and over its
 final 10 %. A passing check makes the model **qualified**; a failing check
-blocks Apply.
+blocks Apply. The qualified model's validation recording is the check's
+recording, and its validation error is the check's error over the whole
+response: Tune reads that error for a qualified model (B4.2), and a reopened
+study shows its candidate on it (A8.6).
 
 **B5.3 Actual-ST controller validation.** The current and the candidate settings
 run in isolated simulations (A2.6) under one immutable validation-conditions
@@ -978,13 +1083,49 @@ delivers it: a program that sets its own parameter record during its first
 execution has the candidate written again at the task boundary after that scan,
 and must keep it from there (protocol annex E8.3). The current settings are the
 record's values as the running controller holds them, read before the runs, and
-reach the program the same way.
+reach the program the same way. An Auto commissioning is a validation whose Apply
+enters Auto, which every Apply does (B6.1, A6.2). Its Manual-to-Auto entry case, named
+so in the table (B9.9), runs on the plant of the other scenarios, from the point where
+that plant starts: on the model, the selected model's operating point; on the configured
+plant, the plant's configured state, as the first sample of the current settings'
+target-response run on that plant records it (its measured output and its plant input).
+Where that sample has no measured value of either, the case starts at the model's operating
+point. The case is planned after that run: its reference and initialized states are set for
+its start, with the candidate's record and the declared initialization. It judges its first
+output, mode, gains and signal bounds under the Auto-entry allowance of A6.4 that Apply uses;
+Apply needs that case to pass (B5.4). A loop whose Auto entry cannot be planned still runs its other scenarios, and its case is Inconclusive with the refusal as its reason, so Apply is unavailable (B5.5). A failure to read the study or the measured noise is a failure of the validation itself: Validate ends with that failure, and the case is not answered Inconclusive.
 
 **B5.4 Results.** Every requirement reports Pass, Fail or Inconclusive with its
 measured value, limit, unit and source. A scenario that did not run is
 Inconclusive; missing evidence never passes. **Apply** becomes available only
 when the model check passed and every mandatory requirement passes for the
 current candidate.
+
+The result states these rows in these words (B9.9):
+
+- The independent model check, when this validation ran it, is the first row:
+  its normalized error and its limit in percent of the measured output's span
+  (N3.4). The row is named Model agreement.
+- A signal or state bounds requirement (N8.3: Operating range, State range, or
+  a fixed parameter named "Parameter unchanged") has as its measured value the
+  lowest and the highest good value of its channel in its window, and as its
+  limit the declared bounds. When the two bounds are one value, the limit reads
+  "= value". The verdict of the check is unchanged.
+- A settling time or a maximum error that Automatic generated, as the criteria
+  record names it (B4.3), is marked Automatic in its row. A declared limit and
+  an overshoot limit are never marked.
+- The candidate's overall row is named Candidate overall. Each scenario's runs
+  are named Current settings and Candidate.
+
+The Validate plot shows the measured output of the target-response case: the
+current settings' run and the candidate's run, each as its isolated simulation
+recorded it. The answer carries the plot bounded as B4.5 bounds the Tune plot
+(B9.6); the exact samples stay with the run's record.
+
+The plot and the plant reason are answer-only: the study keeps each run's verdict, its
+requirement results and the plant each case ran on, but neither the samples nor the reason
+the model replaced the configured plant. So a reopened loop (A8.6) shows the table and
+whether Apply is available, and no plot and no plant reason, until Validate runs again.
 
 **B5.5 Failure states.**
 
@@ -1065,6 +1206,21 @@ under their journaled identities; otherwise the settings changed since Apply and
 Restore is unavailable. When the runtime was restarted or its program reloaded since Apply,
 nothing of the checkpoint can be restored: Restore says so, the checkpoint is
 kept as history, and the loop continues from a new validation.
+
+**Reopening and recovery (A8.6, B6.4).** When the panel opens a loop, the engine
+answers two things without asking the runtime. Restore previous settings is
+offered while the loop's journal holds the Apply's checkpoint, which is the
+record Restore starts from, so an interrupted Apply offers it too. Keep in
+project is offered as `controlStudio/keep` decides it from the study's Apply
+record (B6.5). A journaled observation that the runtime may still record is
+offered as **Resume**: the engine follows it to its end and writes nothing
+meanwhile (A8.5, A8.6); the engine refuses the Resume while an operation of the
+same engine holds the loop. The Restore and Keep reviews still refuse what
+changed since Apply. Every recovery action of an interrupted Apply (**Review
+restore**, **Review restarted runtime**, **Retry recovery** and **Confirm**)
+asks for the Restore review, and its confirmation names that review's identity,
+so there is one Restore path. **Confirm cancellation** stops the running
+operation through Cancel (A10.4).
 
 **B6.5 Keep in project** is the separate, explicit action after Apply: the
 values the loop's parameter record holds in the running PLC become the record's
@@ -1216,7 +1372,14 @@ the reasons an action is unavailable.
   signal written with its values and limits, the duration, the stop conditions
   and the restoration. It offers **Approve** and **Cancel**. A2.5 defines what
   one approval covers. A simulated target shows no block; pressing the action
-  confirms it (A2.5).
+  confirms it (A2.5). The engine fills the block's fields in its review. A
+  signal's limits are the range its parameter declares; a signal without a
+  declared range is shown as not declared. The stop conditions are those of
+  B6.3 and B6.7: a measured output that leaves its permitted range, a failed
+  requirement, a Cancel or a step the runtime refuses after the first write (for
+  Apply); a step the runtime does not confirm (for Restore). A Restore records
+  nothing, so its block gives no duration. Cancel leaves the approval without
+  sending anything.
 - **Progress.** A long operation MUST show its elapsed and remaining process
   time (A3.6). When the observed time scale differs from 1 by more than 5 %, it
   MUST also show that time scale and the expected finish in wall time. The
@@ -1346,10 +1509,19 @@ page of settings. These rules follow the user's direction of 8 October 2026.
   optional input disturbance. A collapsed **More…** holds the test design: the test
   setpoint change, the validation duration, the Auto-entry tolerance, measurement
   noise and scenarios, filled automatically and marked Automatic. The signal column
-  appears only for loops with several outputs.
+  appears only for loops with several outputs. From Identify on, the editor holds the
+  requirements Tune would design to for the identified model, with Automatic's values
+  marked Automatic; a reopened study holds the requirements it recorded.
 - **Validate.** Apply, or Restore previous settings, sits directly under the results
   table. Pass, Fail and Inconclusive are marked with an icon and colour as well as
-  the word.
+  the word. Failed rows come first, then inconclusive rows, then passing rows, each
+  group in the engine's order (the model agreement row stays first unless it fails),
+  and the candidate's overall row is last. The passing guards, the checks the engine
+  generated from the loop's declaration (operating ranges, state ranges, output
+  rates, fixed parameters and the controller transfer, B5.3), are counted in one row
+  after the passing rows, named "Ranges, states and transfer", which reads "N checks",
+  "Within declared limits" and Pass. The rows of the Manual-to-Auto entry carry the case's
+  words, "Manual-to-Auto entry", before their own names, as a scenario's rows carry their run's words.
 
 ### B10. Study storage, results and export
 
@@ -2286,7 +2458,7 @@ This structure has no controller. No controller is designed or written, so the T
 
 - **Excitation.** `control-studio` execution follows B3 and A6.5. `project-scripted` execution is observation only. Its recording covers the declared duration and the project's scenario. Identification of that recording follows B3.5. Identify (Automatic) runs the project's scenario whatever the controller mode; an explicitly chosen method is refused, because the project owns the experiment kind and Control Studio writes no duplicate excitation.
 - **Timing.** Experiments follow the timing of B3.4, not a fixed fraction of the duration (A10.2).
-- **Review.** The review shows the abort assertion together with the activation and its restoration. Starting an experiment never clears an asserted abort.
+- **Review.** The review shows the abort assertion together with the activation and its restoration. Starting an experiment never clears an asserted abort. The review also names the stop conditions the runtime applies (E5.5), so the engineer sees them before the start.
 - **Terminations.**
   - A normal completion of the duration restores the activation value, without asserting the abort.
   - A user abort, a runtime fault, invalid data (a forced, missing or out-of-range value) or any other failed termination asserts the declared abort input, and then restores the activation.

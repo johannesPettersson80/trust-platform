@@ -12,10 +12,12 @@ import {
 import { shareCopy } from "./recordedEvidence";
 
 /**
- * The project study of one loop (Specification 35, A8.2 to A8.4 and B10.1). A study is one versioned document,
- * `control-studio/<loop id>/study.json`, plus one file per recording under `recordings/`. Earlier studies of the
- * same loop stay readable under `history/`. Writes are atomic and serialised per loop; a study over the storage
- * limit is refused before anything is written.
+ * The TypeScript session's study of one loop (Specification 35, A8.2 to A8.4, B10.1 and §0.1a). The engine keeps the loop's
+ * study in `control-studio/<loop id>/`; what the TypeScript session still keeps (a model fitted from an opened file, a supplied
+ * model, the model tools' results) is one versioned document in its own folder there, `typescript-session/study.json`, plus one
+ * file per recording under its `recordings/`, so that neither writes over the other's files. Earlier studies stay readable
+ * under its `history/`. Writes are atomic and serialised per loop; a write that would take the loop's whole folder over the
+ * storage limit is refused before anything is written.
  */
 
 /** The sections of a study document (A8.1). Recordings are not sections; each lives in its own file. */
@@ -34,6 +36,7 @@ export interface StudyIdentity { readonly projectId: string; readonly id: string
 export interface StudyStoreOptions { readonly storageLimitBytes?: number }
 
 const SCHEMA_VERSION = 1;
+const TYPESCRIPT_SESSION = "typescript-session";
 const STUDY_FILE = "study.json";
 const RECORDINGS = "recordings";
 const HISTORY = "history";
@@ -56,9 +59,9 @@ export function studyFolderName(loopId: string): string {
   return `${stem || "loop"}-${hash}`;
 }
 
-/** The folder that holds one loop's study in a project: `control-studio/<loop id>/`. */
+/** The folder of the TypeScript session's study of one loop: `control-studio/<loop id>/typescript-session/`, beside the engine's study. */
 export function studyDirectory(projectRoot: string, loopId: string): string {
-  return path.join(projectRoot, "control-studio", studyFolderName(loopId));
+  return path.join(projectRoot, "control-studio", studyFolderName(loopId), TYPESCRIPT_SESSION);
 }
 
 /** Writes a file through a temporary file in the same folder, so a failed write leaves the previous file whole. */
@@ -258,9 +261,10 @@ async function readRecording(directory: string, id: string): Promise<CompactReco
 
 /**
  * Writes a study document and its new recording files into `directory`. Recordings already on disk are never
- * rewritten. The size of the whole loop folder, history included, is checked before anything is written.
+ * rewritten. The size of the loop's whole folder, the engine's study and history included, is checked before anything is
+ * written (A7: one limit for a loop's study storage).
  */
-async function writeDocument(loopDirectory: string, directory: string, identity: StudyIdentity, state: StudyState,
+async function writeDocument(sessionDirectory: string, directory: string, identity: StudyIdentity, state: StudyState,
   limit: number): Promise<void> {
   const runs = new Map<string, CompactRecordedRun>();
   const sections: Record<string, unknown> = {};
@@ -279,7 +283,8 @@ async function writeDocument(loopDirectory: string, directory: string, identity:
     if (!(await exists(recordingFile(directory, id)))) incoming.set(id, `${JSON.stringify({ schemaVersion: SCHEMA_VERSION, run })}\n`);
   }
   const documentFile = path.join(directory, STUDY_FILE);
-  const kept = await bytesIn(loopDirectory) - await sizeOf(documentFile);
+  const loopFolder = path.dirname(sessionDirectory);
+  const kept = await bytesIn(loopFolder) - await sizeOf(documentFile);
   const total = kept + Buffer.byteLength(document, "utf8")
     + [...incoming.values()].reduce((sum, text) => sum + Buffer.byteLength(text, "utf8"), 0);
   if (total > limit) {
@@ -290,12 +295,12 @@ async function writeDocument(loopDirectory: string, directory: string, identity:
 }
 
 /** Moves the working study into `history/<revision>/`. Returns false when there was no working study to move. */
-async function archiveWorkingStudy(loopDirectory: string, revision: string): Promise<boolean> {
-  const study = path.join(loopDirectory, STUDY_FILE);
+async function archiveWorkingStudy(sessionDirectory: string, revision: string): Promise<boolean> {
+  const study = path.join(sessionDirectory, STUDY_FILE);
   if (!(await exists(study))) return false;
-  const folder = await uniqueFolder(path.join(loopDirectory, HISTORY), studyFolderName(revision));
+  const folder = await uniqueFolder(path.join(sessionDirectory, HISTORY), studyFolderName(revision));
   await fs.promises.mkdir(folder, { recursive: true });
-  const recordings = path.join(loopDirectory, RECORDINGS);
+  const recordings = path.join(sessionDirectory, RECORDINGS);
   const movedRecordings = await exists(recordings);
   if (movedRecordings) await fs.promises.rename(recordings, path.join(folder, RECORDINGS));
   try {

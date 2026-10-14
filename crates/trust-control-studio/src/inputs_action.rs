@@ -12,7 +12,7 @@ use trust_control::failure::Failure;
 use trust_control::messages::{InputsRequest, InputsResult};
 use trust_control::stages::stage_availability;
 use trust_control::study::inputs::{
-    held_requirements, invalidation, stage_evidence_of, InputsSection,
+    held_requirements, held_scenarios, invalidation, stage_evidence_of, HeldTest, InputsSection,
 };
 use trust_control::study::tune::TuneSection;
 
@@ -52,9 +52,19 @@ pub fn answer(claims: &LoopClaims, request: InputsRequest) -> Result<Value, Fail
     )?;
     let tune = study.section::<TuneSection>()?;
     let before = study.section::<InputsSection>()?;
+    // The tuning method is the `method` input alone: a requirement record keeps no copy of it (A8.1).
+    let inputs = inputs.without_requirement_method();
+    let before_scenarios = held_scenarios(&loop_definition, before.as_ref());
+    let after_scenarios = held_scenarios(&loop_definition, Some(&inputs));
     let invalidated = invalidation(
-        held_requirements(before.as_ref(), tune.as_ref()),
-        held_requirements(Some(&inputs), tune.as_ref()),
+        &HeldTest {
+            requirements: held_requirements(before.as_ref(), tune.as_ref()),
+            scenarios: &before_scenarios,
+        },
+        &HeldTest {
+            requirements: held_requirements(Some(&inputs), tune.as_ref()),
+            scenarios: &after_scenarios,
+        },
     );
     let mut next = study.clone();
     // A section that breaks one of its rules is refused here, and nothing is written (B10.4).

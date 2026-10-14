@@ -15,7 +15,7 @@ use crate::identification::identify_result::tests::plant_loop;
 use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::identified_model_presentation;
 use crate::loop_definition::{ControllerLaw, Parameter, PidLaw, RealType};
-use crate::messages::{CandidateOutcome, PreviewRequest, TuneChoice, TuneMethod};
+use crate::messages::{CandidateOutcome, PreviewRequest, TuneChoice, TuneMethod, TuneRole};
 use crate::model::decode_general_model;
 use crate::recording::EvidenceSource;
 use crate::stages::{stage_availability, Stage, StageStatus};
@@ -196,6 +196,7 @@ fn tune_request(method: Option<TuneMethod>) -> TuneRequest {
         structure: None,
         pins: None,
         settings: None,
+        connection: None,
     }
 }
 
@@ -625,6 +626,7 @@ fn example_request(method: Option<TuneMethod>) -> TuneRequest {
         structure: None,
         pins: None,
         settings: None,
+        connection: None,
     }
 }
 
@@ -755,6 +757,12 @@ fn a_manual_entry_is_the_same_candidate_through_tune_and_through_preview_and_pre
     assert_eq!(outcome.result.candidate.structure, Structure::PI);
     assert!(!outcome.result.candidate.applied, "Tune never applies");
     assert_eq!(outcome.result.reason, texts::MANUAL_READY);
+    // The answer carries the evidence its stages are computed from: the model and the candidate it designed (B9.4).
+    assert!(outcome.result.stage_evidence.has_model && outcome.result.stage_evidence.has_candidate);
+    assert_eq!(
+        outcome.result.stages,
+        stage_availability(&outcome.result.stage_evidence)
+    );
 
     // The preview answers the same settings with the same candidate and prediction. Its result is a `TuneResult`, which has
     // no study section, so nothing is stored.
@@ -765,24 +773,101 @@ fn a_manual_entry_is_the_same_candidate_through_tune_and_through_preview_and_pre
         structure: None,
         settings,
         pins: None,
+        connection: None,
     }
     .tune_request();
-    let previewed = preview(&TuneInputs {
-        request: &preview_request,
-        ..inputs
-    })
+    let previewed = preview(
+        &TuneInputs {
+            request: &preview_request,
+            ..inputs
+        },
+        None,
+    )
     .expect("the preview answers the entered settings");
     assert_eq!(previewed.candidate, outcome.result.candidate);
     assert_eq!(previewed.outcome, outcome.result.outcome);
     assert_eq!(previewed.response, outcome.result.response);
+    // A preview keeps nothing, so its evidence is the study's own: the model, and no candidate, because the study holds no earlier
+    // Tune section (B4.5). Its stages are computed from that evidence.
+    assert!(previewed.stage_evidence.has_model && !previewed.stage_evidence.has_candidate);
+    assert_eq!(
+        previewed.stages,
+        stage_availability(&previewed.stage_evidence)
+    );
 
     // Without a model, the preview is refused at once, with the next action Identify (B4.7).
-    let without_model = preview(&TuneInputs {
-        identify: None,
-        ..inputs
-    })
+    let without_model = preview(
+        &TuneInputs {
+            identify: None,
+            ..inputs
+        },
+        None,
+    )
     .expect_err("a preview needs a model");
     assert_eq!(without_model.next_action, NextAction::Identify);
+}
+
+/// B4.5: the running controller's settings, when the engine read them, add the two current traces to the prediction on the
+/// candidate's time base, and the candidate keeps its own settling time, overshoot, outcome and traces. Without them the response
+/// holds the candidate's three traces.
+#[test]
+fn the_running_settings_add_the_current_traces_and_leave_the_candidate_alone() {
+    let loop_definition = example_loop();
+    let identify = example_identify(&loop_definition);
+    let mut request = example_request(Some(TuneMethod::Manual));
+    request.settings = Some(BTreeMap::from([
+        (PROPORTIONAL.to_owned(), 2.0),
+        (INTEGRAL.to_owned(), 0.5),
+    ]));
+    let inputs = TuneInputs {
+        loop_definition: &loop_definition,
+        identify: Some(&identify),
+        previous: None,
+        request: &request,
+        relay: None,
+    };
+    let alone = tune(&inputs).expect("the entered PI settings are a candidate");
+    let alone_traces = &alone
+        .result
+        .response
+        .as_ref()
+        .expect("a predicted response")
+        .traces;
+    assert_eq!(alone_traces.len(), 3, "the candidate's three traces");
+
+    let running = BTreeMap::from([(PROPORTIONAL.to_owned(), 1.0), (INTEGRAL.to_owned(), 0.1)]);
+    let compared = tune_held(&inputs, None, Some(&running)).expect("the comparison is predicted");
+    let response = compared
+        .result
+        .response
+        .as_ref()
+        .expect("a predicted response");
+    let roles: Vec<TuneRole> = response.traces.iter().map(|trace| trace.role).collect();
+    assert_eq!(
+        roles,
+        [
+            TuneRole::Setpoint,
+            TuneRole::Measurement,
+            TuneRole::Command,
+            TuneRole::CurrentMeasurement,
+            TuneRole::CurrentCommand,
+        ]
+    );
+    assert_eq!(response.traces[..3], alone_traces[..]);
+    assert_eq!(compared.result.candidate, alone.result.candidate);
+    assert_eq!(compared.result.outcome, alone.result.outcome);
+    assert_eq!(
+        compared.result.settling_time_seconds,
+        alone.result.settling_time_seconds
+    );
+    assert_eq!(
+        compared.result.overshoot_percent,
+        alone.result.overshoot_percent
+    );
+
+    // The preview with the same running settings predicts the same comparison, and keeps nothing (B4.5).
+    let previewed = preview(&inputs, Some(&running)).expect("the preview answers the settings");
+    assert_eq!(previewed.response, compared.result.response);
 }
 
 #[test]

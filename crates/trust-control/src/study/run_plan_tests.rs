@@ -114,3 +114,42 @@ fn every_other_failure_stops_the_run_as_a_failure() {
     let unnamed = Failure::new("Stopped.", Cause::Settings, NextAction::None);
     assert_eq!(needs_input(&unnamed), None);
 }
+
+#[test]
+fn identify_plant_identifies_again_though_a_model_is_current_and_other_runs_reuse_it() {
+    let current = StageEvidence {
+        has_model: true,
+        has_candidate: true,
+        validation_has_result: true,
+        validation_passed: true,
+        ..StageEvidence::default()
+    };
+    assert_eq!(
+        run_plan(&current, RunThrough::Identify),
+        RunPlan {
+            identify: false,
+            tune: false,
+            validate: false,
+        },
+        "a current model is reused"
+    );
+    assert_eq!(
+        run_plan(&planned_evidence(current, true), RunThrough::Identify),
+        RunPlan {
+            identify: true,
+            tune: false,
+            validate: false,
+        },
+        "Identify plant runs a new campaign and stops on Identify (B8)"
+    );
+    assert_eq!(
+        run_plan(&planned_evidence(current, true), RunThrough::Validate),
+        RunPlan {
+            identify: true,
+            tune: true,
+            validate: true,
+        },
+        "a new model retires the candidate and the validation that depend on it (A8.4)"
+    );
+    assert_eq!(planned_evidence(current, false), current);
+}

@@ -483,3 +483,111 @@ pub fn identification_policy_invalid() -> String {
     "The stored identification policy does not hold: its maximum normalized error must be above 0 and below 1, and its other settings must be valid."
         .to_owned()
 }
+
+// The words of the Validate table and plot (B5.4, B9.9). A requirement's label names its check; a role names a signal by its
+// part in the loop, never by its symbol.
+
+/// The name of a fixed parameter that the run keeps at its value.
+pub const PARAMETER_UNCHANGED: &str = "Parameter unchanged";
+/// The name of the settling requirement of a response (N8.3).
+pub const MAXIMUM_SETTLING_TIME: &str = "Maximum settling time";
+/// The name of the overshoot requirement of a step (N8.3).
+pub const MAXIMUM_OVERSHOOT: &str = "Maximum overshoot";
+/// The name of an error measured from the setpoint (N8.3).
+pub const MAXIMUM_STEADY_STATE_ERROR: &str = "Maximum steady-state error";
+/// The start of the name of an error measured from another reference; see [`maximum_error_from`].
+pub const MAXIMUM_ERROR_FROM: &str = "Maximum error from";
+/// The name of a signal's bounds over the window (N8.3).
+pub const OPERATING_RANGE: &str = "Operating range";
+/// The name of a state's bounds over the window (N8.3).
+pub const STATE_RANGE: &str = "State range";
+/// The name of the Manual-to-Auto entry case in the table (B5.3, B9.9): the case's rows are named under it.
+pub const MANUAL_TO_AUTO_ENTRY: &str = "Manual-to-Auto entry";
+/// The name of a levels requirement (N8.3).
+pub const ALLOWED_OUTPUT_LEVELS: &str = "Allowed output levels";
+/// The name of the shortest ON stay of a switching output.
+pub const MINIMUM_ON_TIME: &str = "Minimum ON time";
+/// The name of the shortest OFF stay of a switching output.
+pub const MINIMUM_OFF_TIME: &str = "Minimum OFF time";
+/// The name of the rate limit of an upward movement (N8.3).
+pub const MAXIMUM_INCREASE_RATE: &str = "Maximum increase rate";
+/// The name of the rate limit of a downward movement (N8.3).
+pub const MAXIMUM_DECREASE_RATE: &str = "Maximum decrease rate";
+/// The name of the rate limit of a movement in either direction (N8.3).
+pub const MAXIMUM_RATE: &str = "Maximum rate";
+/// The name of the saturation requirement (N8.3).
+pub const MAXIMUM_SATURATION_TIME: &str = "Maximum saturation time";
+/// The name of the switching requirement (N8.3).
+pub const MAXIMUM_SWITCHING_COUNT: &str = "Maximum switching count";
+/// The name of the command activity requirement.
+pub const COMMAND_ACTIVITY: &str = "Command activity";
+/// The name of the independent model check's row (B5.2).
+pub const MODEL_AGREEMENT: &str = "Model agreement";
+/// The name of the run of the current settings in a scenario (B5.3).
+pub const CURRENT_SETTINGS: &str = "Current settings";
+/// The name of the run of the candidate in a scenario (B5.3).
+pub const CANDIDATE: &str = "Candidate";
+/// The name of the candidate's overall row (N8.5).
+pub const CANDIDATE_OVERALL: &str = "Candidate overall";
+/// The mark of a limit that Automatic generated (B4.3).
+pub const AUTOMATIC: &str = "Automatic";
+/// The words of the row that counts the passing guards: the generated ranges, states and transfer (B9.9).
+pub const GUARDS: &str = "Ranges, states and transfer";
+/// The limit column of the row that counts the passing guards: they stayed within their declared limits (B9.9).
+pub const GUARDS_LIMIT: &str = "Within declared limits";
+/// The title of the Validate plot (B9.9).
+pub const MEASURED_RESPONSE: &str = "Measured response";
+/// The name of the candidate's trace on the Validate plot.
+pub const TUNED: &str = "Tuned";
+/// The name of the current settings' trace on the Validate plot.
+pub const CURRENT: &str = "Current";
+/// The role of the loop's process variable (B9.9).
+pub const MEASUREMENT: &str = "Measurement";
+/// The role of the loop's manipulated variable (B9.9).
+pub const OUTPUT: &str = "Output";
+/// The role of the loop's setpoint (B9.9).
+pub const SETPOINT: &str = "Setpoint";
+/// The role of the loop's actuator signal (B9.9).
+pub const ACTUATOR: &str = "Actuator";
+
+/// The name of an error measured from `reference`, which is named after that reference's role or name (B9.9), for example
+/// "Maximum error from Trajectory".
+#[must_use]
+pub fn maximum_error_from(reference: &str) -> String {
+    format!("{MAXIMUM_ERROR_FROM} {reference}")
+}
+
+/// A scenario's name in words (B9.9): its identity made readable, with its first letter capitalized.
+#[must_use]
+pub fn scenario_label(id: &str) -> String {
+    let words = readable_words(id);
+    let mut chars = words.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
+}
+
+/// A symbol's last part, made readable: `P1.Parameters.ProportionalGain` reads "Proportional Gain" (B9.2).
+#[must_use]
+pub fn readable_name(symbol: &str) -> String {
+    readable_words(symbol.rsplit('.').next().unwrap_or(symbol))
+}
+
+/// Identifier-like words made readable: camelCase, hyphenated and underscored names read as separate words (B9.2).
+fn readable_words(text: &str) -> String {
+    let mut words = String::with_capacity(text.len() + 4);
+    let mut after_lower = false;
+    for ch in text.chars() {
+        if ch == '-' || ch == '_' {
+            words.push(' ');
+            after_lower = false;
+        } else {
+            if after_lower && ch.is_ascii_uppercase() {
+                words.push(' ');
+            }
+            words.push(ch);
+            after_lower = ch.is_ascii_lowercase();
+        }
+    }
+    words
+}

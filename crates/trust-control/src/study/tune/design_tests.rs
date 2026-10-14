@@ -460,6 +460,7 @@ fn the_answer_of_a_simc_pi_carries_its_lambda_its_margins_and_its_response() {
                 context: basis.context,
                 names: TraceNames::of(&loop_definition),
                 parameters: &mapped,
+                current: None,
             };
             let comparison = simc_comparison(
                 basis.plant,
@@ -473,7 +474,7 @@ fn the_answer_of_a_simc_pi_carries_its_lambda_its_margins_and_its_response() {
                 designed,
                 candidate,
                 comparison,
-                Vec::new(),
+                StageEvidence::default(),
                 &evaluation,
             )
         },

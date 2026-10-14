@@ -125,8 +125,11 @@ pub fn engineer_verification_campaign(
 }
 
 /// The loop's declared scenarios, decoded and checked: an absent list is empty (`verificationScenarios ?? []`), and a
-/// list that does not decode or is not valid is refused (`validEngineerScenarios`).
-fn declared_scenarios(loop_definition: &LoopDefinition) -> Result<Vec<EngineerScenario>, Failure> {
+/// list that does not decode or is not valid is refused (`validEngineerScenarios`). The study's inputs and its validations
+/// read the same list (`study::inputs`, `study::validate`).
+pub(crate) fn declared_scenarios(
+    loop_definition: &LoopDefinition,
+) -> Result<Vec<EngineerScenario>, Failure> {
     let scenarios = match &loop_definition.verification_scenarios {
         None => Vec::new(),
         Some(value) => decode_value::<Vec<EngineerScenario>>(value.clone())

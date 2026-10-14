@@ -135,14 +135,19 @@ pub(crate) fn run_model_check(
     if let Some(failure) = check_failure(check.status, &check.rows) {
         return Ok(ModelCheck::Failed(failure));
     }
-    let file_id = kept_file_id(retention, &outcome.recording_id)?;
-    let qualified = qualified_section(section, &file_id, recording_fingerprint(&check.record.run));
-    storage::save_identify(request.project_root, retention.study(), &qualified, &[])?;
     let normalized_error = check
         .rows
         .iter()
         .filter_map(|row| row.normalized_error)
         .reduce(f64::max);
+    let file_id = kept_file_id(retention, &outcome.recording_id)?;
+    let qualified = qualified_section(
+        section,
+        &file_id,
+        recording_fingerprint(&check.record.run),
+        normalized_error,
+    );
+    storage::save_identify(request.project_root, retention.study(), &qualified, &[])?;
     Ok(ModelCheck::Passed {
         recording_id: file_id,
         normalized_error,
@@ -204,17 +209,22 @@ fn check_failure(status: RequirementStatus, rows: &[IndependentRow]) -> Option<F
 }
 
 /// The Identify result a passing check keeps (B5.2): the check's recording is its validation recording, so it is no longer
-/// provisional, and its model is validated on that recording. The other parts of the result are unchanged.
+/// provisional; its model is validated on that recording, and the check's error over the whole response is the model's validation
+/// error, which Tune reads for a qualified model (B4.2). The other parts of the result are unchanged.
 #[must_use]
 fn qualified_section(
     section: &IdentifySection,
     file_id: &str,
     fingerprint: String,
+    normalized_error: Option<f64>,
 ) -> IdentifySection {
+    let mut presentation = section.presentation.clone();
+    presentation.presentation.validation.normalized_error = normalized_error;
     IdentifySection {
         validation_recording_id: Some(file_id.to_string()),
         provisional: false,
         selected_model: qualified_model(&section.selected_model, fingerprint),
+        presentation,
         ..section.clone()
     }
 }

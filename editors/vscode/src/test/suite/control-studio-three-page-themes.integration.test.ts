@@ -28,6 +28,11 @@ suite("Control Studio approved three-page theme review", () => {
       await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar");
       for (const [slug, theme, zoom] of [...themes.map(([slug, theme]) => [slug, theme, 0] as const), ["dark-plus-zoom", "Default Dark+", 4] as const]) {
         const loop = structuredClone(base); loop.id += `-theme-${slug}`; loop.parameterBinding.loop_id = loop.id;
+        // The engine opens a configured loop from the project's loop files (crates/trust-control-studio/src/loops.rs open) and refuses
+        // an identifier no file declares, so each theme's loop is written beside the project's own and removed after its review.
+        const loopFile = path.join(project, "control-loops", `theme-${slug}.json`);
+        fs.mkdirSync(path.dirname(loopFile), { recursive: true });
+        fs.writeFileSync(loopFile, JSON.stringify(loop));
         await workbench.update("colorTheme", theme, vscode.ConfigurationTarget.Global);
         await windowConfiguration.update("zoomLevel", zoom, vscode.ConfigurationTarget.Global);
         await vscode.commands.executeCommand("trust-lsp.controlStudio.open", {
@@ -40,16 +45,20 @@ suite("Control Studio approved three-page theme review", () => {
           const inner = (body: string) => evaluateInWebview(connection, session, body);
           await pollValue(`${theme} host ready`, () => inner("return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 15000);
           await pollValue("theme applied", () => inner("return d.body.dataset.vscodeThemeId??d.body.dataset.vscodeThemeName;"), name => name === theme || name === theme.replace("Default ", ""), 10000);
+          // The engine serves the loop: its open answer gives each stage tab the engine's status (webview/engineShared.ts applyStageStatuses).
+          assert.notStrictEqual(await inner("return d.querySelector('[data-engineer-stage-tab=model]').dataset.status ?? '';"), "",
+            `${theme}: the engine serves the loop, so its stage tabs show the engine's status`);
           const prefix = path.join(outputDirectory, slug);
           await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'identify';");
-          await inner(hostUpdate({ status: "model-ready", model: { kind: "transfer-function", numerator: [2], denominator: [4, 1], delaySeconds: .5, revision: "theme-model", source: "provided", validation: "validated", evidence: [], inputs: [{id:"u", unit:"%",operatingRange:{minimum:0,maximum:100}}],outputs:[{id:"y",unit:"°C",operatingRange:{minimum:0,maximum:100}}] }, stageEvidence: {hasModel:true,hasCandidate:false,validationPassed:false},
-            identificationPresentation: { units: {input:"%",output:"°C"}, predictedResponse: [{timeSeconds:0,measured:20,predicted:20},{timeSeconds:1,measured:20.5,predicted:20.6},{timeSeconds:2,measured:21,predicted:21}] } }));
+          // The loop is served by the engine, so the page's states are the engine's answers (webview/engineOpened.ts).
+          await inner(engineResult("identify", IDENTIFIED));
           await assertViewport(inner, "[data-engineer-find]", "Identify action");
           await captureRenderedWorkbenchCdp(connection, `${prefix}-identify.png`);
 
           await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune';");
 
-          await inner(hostUpdate({ status: "candidate", family: "PI", availableFamilies: ["P","PI","PD","PID"], values: { "P1.Parameters.ProportionalGain": 2, "P1.Parameters.IntegralGain": 0.5 }, plots: {timeResponse:[{timeSeconds:0,currentPv:20,candidatePv:20},{timeSeconds:1,currentPv:20.3,candidatePv:20.8},{timeSeconds:2,currentPv:20.7,candidatePv:21}]}, stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false } }));
+          // The controller families come from the engine's binding list on open (threePageBindings.ts), not from the Tune answer.
+          await inner(engineResult("tune", TUNED));
           await assertViewport(inner, "[data-engineer-tune]", "Tune action");
           await captureRenderedWorkbenchCdp(connection, `${prefix}-tune.png`);
           await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='manual';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'manual';");
@@ -66,8 +75,7 @@ suite("Control Studio approved three-page theme review", () => {
           await captureRenderedWorkbenchCdp(connection, `${prefix}-limits.png`);
           await inner("d.querySelector('[data-studio-editor-cancel]').click();return 'close limits';");
 
-          const run = { channels: [{id:"P1.ProcessValue",unit:"°C"}], samples: [{timeSeconds:0,values:{"P1.ProcessValue":{value:20,quality:"good"}}},{timeSeconds:1,values:{"P1.ProcessValue":{value:21,quality:"good"}}}] };
-          await inner(hostUpdate({ status: "verified", candidate: {status:"Pass",run,requirements:[{id:"error",kind:"error",status:"Pass",value:.02,limit:.1,unit:"°C",reason:"Within limit."}],specification:[{id:"error",kind:"error",channel:"P1.ProcessValue",maximum:.1}]}, stageEvidence:{hasModel:true,hasCandidate:true,validationPassed:true} }));
+          await inner(engineResult("validate", VALIDATED));
           await inner("d.querySelector('[data-engineer-stage-tab=verify]').click();return 'validate';");
           await assertViewport(inner, "[data-engineer-apply]", "Apply action");
           await captureRenderedWorkbenchCdp(connection, `${prefix}-validate.png`);
@@ -75,6 +83,7 @@ suite("Control Studio approved three-page theme review", () => {
           await captureRenderedWorkbenchCdp(connection, path.join(outputDirectory, `${slug}-final.png`));
           connection.close();
           await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+          fs.rmSync(loopFile, { force: true });
         }
       }
     } finally {
@@ -84,8 +93,65 @@ suite("Control Studio approved three-page theme review", () => {
   });
 });
 
-function hostUpdate(payload: Record<string, unknown>): string {
-  return `const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.engineering.result',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,stage:'engineer',payload:${JSON.stringify(payload)}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`;
+type StageStatus = "complete" | "ready" | "needs-data";
+const STAGE_LABELS: Record<StageStatus, string> = { complete: "Complete", ready: "Ready", "needs-data": "Needs data" };
+
+/** The status of the page's three stages in an engine answer, with the engine's words (crates/trust-control/src/stages.rs). */
+function stages(identify: StageStatus, tune: StageStatus, validate: StageStatus): { stage: string; status: StageStatus; label: string }[] {
+  return ([["Identify", identify], ["Tune", tune], ["Validate", validate]] as const).map(([stage, status]) => ({ stage, status, label: STAGE_LABELS[status] }));
+}
+
+/** The fixture's identification as the engine answers it (IdentifyResult, crates/trust-control/src/messages.rs): 2 e^(-0.5s) / (4s + 1). */
+const IDENTIFIED = {
+  modelType: "First-order model with delay",
+  equation: "G(s) = 2 e^(-0.5s) / (4s + 1)",
+  keyNumbers: "Gain 2 °C per %, time constant 4 s, delay 0.5 s",
+  provisional: false,
+  text: "First-order model with delay\nG(s) = 2 e^(-0.5s) / (4s + 1)\nGain 2 °C per %, time constant 4 s, delay 0.5 s",
+  plot: { timeSeconds: [0, 1, 2], traces: [
+    { role: "plant-input", symbol: "P1.ManipulatedValue", unit: "%", values: [0, 10, 10] },
+    { role: "measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 20.5, 21] },
+    { role: "prediction", symbol: "y", unit: "°C", values: [20, 20.6, 21] },
+  ] },
+  recordingId: `rec-${"0".repeat(32)}`,
+  stageEvidence: { hasModel: true, hasCandidate: false, validationPassed: false },
+  stages: stages("complete", "ready", "needs-data"),
+};
+
+/** The fixture's PI candidate as the engine answers Tune (TuneResult): the fields the page shows (webview/engineTune.ts). */
+const TUNED = {
+  candidate: { applied: false, structure: "PI" },
+  settings: { "P1.Parameters.ProportionalGain": 2, "P1.Parameters.IntegralGain": 0.5 },
+  methodTitle: "Automatic",
+  outcome: { status: "meets" },
+  comparison: [],
+  response: { timeSeconds: [0, 1, 2], traces: [{ role: "measurement", symbol: "P1.ProcessValue", unit: "°C", values: [20, 20.8, 21] }] },
+  stageEvidence: { hasModel: true, hasCandidate: true, validationPassed: false },
+  stages: stages("complete", "complete", "ready"),
+};
+
+/** One run of the fixture's target response with its one requirement, as Validate answers it (RunOutcome, RequirementOutcome). */
+function validatedRun(runId: string): Record<string, unknown> {
+  return { runId, projectRevision: "theme", evidence: "ST-executed", status: "Pass", requirements: [{
+    id: "error", label: "Maximum steady-state error", channel: { role: "Measurement", unit: "°C", symbol: "P1.ProcessValue" }, limitSide: "atMost",
+    status: "Pass", value: 0.02, limit: 0.1, unit: "°C", source: "model theme-model", reason: "Within limit.", automatic: false,
+  }] };
+}
+
+/** The fixture's passed validation as the engine answers it (ValidateResult): Apply is available. */
+const VALIDATED = {
+  scenarios: [{ id: "target-response", plant: "model theme-model", label: "Target response", current: validatedRun("theme-current"), candidate: validatedRun("theme-candidate") }],
+  status: "Pass",
+  applyAvailable: true,
+  stageEvidence: { hasModel: true, hasCandidate: true, validationHasResult: true, validationPassed: true },
+  stages: stages("complete", "complete", "complete"),
+  labels: { currentSettings: "Current settings", candidate: "Candidate", candidateOverall: "Candidate overall", automatic: "Automatic" },
+  plot: { title: "Measured response", role: "Measurement", unit: "°C", tuned: { name: "Tuned", timeSeconds: [0, 1], values: [20, 21] } },
+};
+
+/** Posts one engine answer to the page as the host does (engine/enginePanelRoute.ts): `control-studio.engine.result` in the loop's scope. */
+function engineResult(method: string, result: Record<string, unknown>): string {
+  return `const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.engine.result',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,method:${JSON.stringify(method)},result:${JSON.stringify(result)}},'*');await new Promise(resolve=>setTimeout(resolve,100));return 'received';`;
 }
 
 async function assertViewport(inner: (body: string) => Promise<string>, selector: string, label: string): Promise<void> {

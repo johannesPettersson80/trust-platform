@@ -3,8 +3,9 @@
 //!
 //! `preview` answers at once with the result that `controlStudio/tune` with the manual method would finish with: the controller
 //! settings the engineer entered, predicted on the study's current model, with their margins and outcome. It starts no operation,
-//! claims no loop and keeps no candidate. It names no connection either, because Tune never reaches the runtime (B4.1). Every rule
-//! is trust-control's (`study::tune::preview`); this module reads the loop and its study, and forwards the request.
+//! claims no loop and keeps no candidate. With a connection it reads the running controller's settings for the comparison, and
+//! writes nothing (B4.5). Every rule is trust-control's (`study::tune::preview`); this module reads the loop, its study and the
+//! running settings, and forwards the request.
 
 use std::path::Path;
 
@@ -15,11 +16,13 @@ use trust_control::study::identify::IdentifySection;
 use trust_control::study::tune::{preview, TuneInputs, TuneSection};
 
 use crate::commands::to_value;
+use crate::tune_action::running_settings;
 use crate::{loops, storage};
 
 /// Answers `controlStudio/preview` (B4.5): the result that Tune with the manual method would finish with for the settings the
 /// request enters, answered at once. The loop and its study are read as `controlStudio/open` and Tune read them, so the study's
-/// Identify result gives the model and its Tune section supplies the requirements it holds. Nothing is kept: no operation starts,
+/// Identify result gives the model and its Tune section supplies the requirements it holds. With the request's connection, the
+/// running controller's settings are read for the comparison; a read that fails leaves it out. Nothing is kept: no operation starts,
 /// no loop is claimed and no candidate is stored.
 ///
 /// # Errors
@@ -40,7 +43,8 @@ pub fn answer(request: &PreviewRequest) -> Result<Value, Failure> {
         relay: None,
         request: &tune_request,
     };
-    to_value(&preview(&inputs)?)
+    let running = running_settings(request.connection.as_ref(), &loop_definition);
+    to_value(&preview(&inputs, running.as_ref())?)
 }
 
 #[cfg(test)]

@@ -6,13 +6,16 @@
 //!   end (A8.5, A8.6). Each answers at once with its operation's identifier. Its final update carries trust-control's
 //!   `IdentifyResult`, once the study keeps the Identify section with the request its recording was taken with.
 //! - `reset` starts a new working study and keeps the previous one as history (A8.4), and answers at once with the stages.
+//! - `importRecording` checks a saved result or recording file and answers at once; it keeps and fits nothing
+//!   (`identify_import`, B3.6, B10.4).
 //! - `cancel_loop` cancels the journaled operation the command line names (§0.1b, E5.5, E11.6): a campaign through its
 //!   restoration path, a lone recording owner by stopping and keeping its recording. Its final update is a [`CancelResult`].
 //!
 //! What needs no runtime is checked before anything starts: the loop opens, the loop's journal holds no operation (for
 //! `identify`, `openRecording` and `reset`), the engineer's acquisition settings, and the recording a refit names. `identify`
-//! and `resume` reach the runtime, so they are refused at once without a connection (E11.1). Every rule and refusal is
-//! trust-control's; the workflow makes the runtime calls, and the storage writes the files.
+//! and `resume` reach the runtime, so they are refused at once without a connection (E11.1). The review and the approval of an
+//! `identify` start need the runtime's sample, so they are checked inside its operation, and a refusal ends that operation
+//! (§0.1a). Every rule and refusal is trust-control's; the workflow makes the runtime calls, and the storage writes the files.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -25,14 +28,15 @@ use trust_control::identification::acquisition_settings::{
 };
 use trust_control::identification::automatic::AutomaticIdentificationResult;
 use trust_control::identification::campaign::{campaign_maximum_ms, require_campaign_limits};
-use trust_control::identification::campaign_review::campaign_review;
+use trust_control::identification::campaign_review::{campaign_review, IdentifyReview};
 use trust_control::identification::connected_run::{
-    accepted_model_from_one_record, checked_acquisition_settings, model_check_instead_of_model,
-    model_not_from_one_record, not_journaled, qualification, recording_not_kept,
-    resumed_without_experiment, runtime_required, stored_fit_window, unfinished_operation_refusal,
+    accepted_model_from_one_record, checked_acquisition_settings, live_write_refusal,
+    model_check_instead_of_model, model_not_from_one_record, not_journaled, qualification,
+    recording_not_kept, resumed_without_experiment, review_changed_refusal, runtime_required,
+    stored_fit_window, unfinished_operation_refusal, IDENTIFY_OPERATION,
 };
 use trust_control::identification::identify_result::{
-    identify_result, identify_signals, study_evidence,
+    identify_answer, identify_signals, study_evidence,
 };
 use trust_control::identification::recorded_limits::{
     evaluate_recorded_limits, RecordedLimitsEvaluation,
@@ -47,11 +51,13 @@ use trust_control::stages::stage_availability;
 use trust_control::study::identify::{
     refit_refusal, IdentifyMethod, IdentifySection, StoredRecordRequest,
 };
+use trust_control::study::inputs::stage_evidence_of;
 use trust_control::study::Study;
 
 use crate::busy_loops::{LoopClaim, LoopClaims};
 use crate::commands::to_value;
 use crate::identify_adapters::{RuntimeSampler, StudyRetention};
+use crate::identify_import;
 use crate::journal::{Journal, JournalEntry};
 use crate::operation::{OperationContext, Operations};
 use crate::runtime_client::runtime_recording::PendingReleases;
@@ -134,7 +140,11 @@ pub fn answer(
         loop_definition,
     };
     match action {
-        IdentifyAction::Identify { settings } => {
+        IdentifyAction::Identify {
+            settings,
+            review,
+            physical_approved,
+        } => {
             refuse_while_journaled(&journal)?;
             let connection = connection.ok_or_else(runtime_required)?;
             let settings =
@@ -142,7 +152,16 @@ pub fn answer(
             // Settings that cannot configure the loop are refused before anything starts; the run configures it again.
             configured_acquisition(&work.loop_definition, Some(&settings))
                 .map_err(|error| error.failure())?;
+            // The review and the approval read the runtime's sample, so they are checked inside the operation (§0.1a): the
+            // answer comes at once, and a refused start ends the operation with its refusal before anything is written.
             started(operations, claim, move |context| {
+                confirm_start(
+                    &work.loop_definition,
+                    &connection,
+                    &settings,
+                    review.as_deref(),
+                    physical_approved,
+                )?;
                 run_identify(context, &work, &connection, &settings)
             })
         }
@@ -170,6 +189,10 @@ pub fn answer(
         IdentifyAction::Review { settings } => {
             review(&work.loop_definition, connection.as_ref(), &settings)
         }
+        // The check answers at once, with its claim, and keeps nothing (B3.6, B10.4).
+        IdentifyAction::ImportRecording { json } => {
+            identify_import::check(&work.loop_definition, &json)
+        }
     }
 }
 
@@ -181,6 +204,7 @@ fn operation_name(action: &IdentifyAction) -> &'static str {
         IdentifyAction::Resume => "Resume",
         IdentifyAction::Reset => "Reset",
         IdentifyAction::Review { .. } => "Review",
+        IdentifyAction::ImportRecording { .. } => "Import recording",
     }
 }
 
@@ -208,6 +232,52 @@ fn review(
         settings,
         sample.as_ref(),
     )?)
+}
+
+/// The engine's check of a start that `controlStudio/identify` runs inside its operation (§0.1a, A2.5, E11.8): the campaign the
+/// start would run now, on the live target, must be the one the engineer reviewed, and on a physical target the engineer must
+/// have approved it. A refused start writes nothing, and its operation ends with the refusal.
+///
+/// # Errors
+/// The runtime cannot be read for its sample; the campaign's own checks refuse the settings; or [`start_refusal`] refuses the start.
+fn confirm_start(
+    loop_definition: &LoopDefinition,
+    connection: &RuntimeConnection,
+    settings: &AcquisitionSettings,
+    review: Option<&str>,
+    physical_approved: bool,
+) -> Result<(), Failure> {
+    let source = runtime_source(connection)?;
+    let sample = RuntimeSampler::new(connection, loop_definition, source).sample()?;
+    let reviewed = campaign_review(loop_definition, settings, sample.as_ref())?;
+    match start_refusal(&reviewed, review, physical_approved) {
+        Some(refusal) => Err(refusal),
+        None => Ok(()),
+    }
+}
+
+/// The refusal of a start, from the review the engineer saw and the approval the start carries (§0.1a, A2.5, E11.8). A review
+/// that names another identity than the campaign reviewed now is refused. On a physical target, which the reviewed campaign
+/// shows with an approval block, the start needs both the review and the engineer's approval; the approval covers that identity
+/// and nothing else. A start that names no review passes on a simulated target, where pressing the action is the confirmation.
+/// `None` when the start may run.
+fn start_refusal(
+    reviewed: &IdentifyReview,
+    review: Option<&str>,
+    physical_approved: bool,
+) -> Option<Failure> {
+    if review.is_some_and(|identity| identity != reviewed.identity) {
+        return Some(review_changed_refusal());
+    }
+    if physical_approved && review.is_some() {
+        return None;
+    }
+    let source = if reviewed.approval.is_some() {
+        EvidenceSource::PhysicalPlant
+    } else {
+        EvidenceSource::SimulatedPlant
+    };
+    live_write_refusal(source, IDENTIFY_OPERATION)
 }
 
 /// The identification stage of a run (B8): the live campaign of `controlStudio/identify` with `settings`, inside the run's own
@@ -492,9 +562,10 @@ fn run_cancel(
 fn reset(work: &LoopWork, journal: &Journal) -> Result<Value, Failure> {
     refuse_while_journaled(journal)?;
     let fresh = storage::start_new_study(&work.project_root, &working_study(work)?)?;
-    let evidence = study_evidence(&work.loop_definition, None, !fresh.recordings.is_empty());
+    let evidence = stage_evidence_of(&work.loop_definition, &fresh)?;
     to_value(&ResetResult {
         stages: stage_availability(&evidence),
+        stage_evidence: evidence,
     })
 }
 
@@ -535,7 +606,8 @@ fn keep_result(work: &LoopWork, study: &Study, fitted: Fitted) -> Result<Value, 
     });
     let kept = storage::save_identify(&work.project_root, study, &section, &[])?;
     let evidence = study_evidence(loop_definition, Some(&section), !kept.recordings.is_empty());
-    to_value(&identify_result(&section, stage_availability(&evidence)))
+    let answer = identify_answer(&kept, loop_definition, &section, evidence)?;
+    to_value(&answer)
 }
 
 /// Refuses an action while the loop's journal holds an operation that runs or whose outcome is unconfirmed (A8.5).

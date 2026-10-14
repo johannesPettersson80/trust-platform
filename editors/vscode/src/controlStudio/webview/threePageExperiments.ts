@@ -31,6 +31,12 @@ export class ThreePageExperiments {
   private pending: PendingAction = undefined;
   private parameterPhase: ParameterPhase = "idle";
   private parameterReviewId: string | undefined;
+  /** The engine's review of the project test and the identity its start is confirmed with (C12); none for a TypeScript plan. */
+  private reviewId: string | undefined;
+  /** Set when the engine's review carries an approval block: the project test runs on a physical target (A2.5). */
+  private reviewNeedsApproval = false;
+  /** Set once the engine answers that the manual parameter tool is unavailable for a served loop (B6.1). */
+  private parameterUnavailable = false;
   private selectedMethod = false;
 
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition,
@@ -69,7 +75,13 @@ export class ThreePageExperiments {
 
   get isSelected(): boolean { return this.selectedMethod; }
   get busy(): boolean { return this.pending !== undefined || this.experimentId !== undefined; }
-  get hasReviewedPlan(): boolean { return this.plan !== undefined; }
+  get hasReviewedPlan(): boolean { return this.hasReview; }
+  /** A test the page can start: the TypeScript plan, or the engine's review of the project test. */
+  private get hasReview(): boolean { return this.plan !== undefined || this.reviewId !== undefined; }
+  /** The engine's review needs the engineer's approval of its block (A2.5); a TypeScript plan never does. */
+  private get approvalNeeded(): boolean { return this.reviewId !== undefined && this.reviewNeedsApproval; }
+  /** The parameter tool is offered unless the engine has said it is unavailable for the served loop (B6.1). */
+  private get parameterFlow(): boolean { return this.parameterBinding !== undefined && !this.parameterUnavailable; }
   get primaryActionLabel(): string {
     if (this.experimentId) return "Abort test";
     if (this.pending === "review") return "Reviewing…";
@@ -77,8 +89,8 @@ export class ThreePageExperiments {
     if (this.pending === "parameter-inspect") return "Inspecting…";
     if (this.pending === "parameter-review") return "Reviewing values…";
     if (this.pending === "parameter-apply") return "Applying values…";
-    if (this.plan) return "Confirm and start";
-    if (this.parameterBinding) {
+    if (this.hasReview) return this.approvalNeeded ? "Approve" : "Confirm and start";
+    if (this.parameterFlow) {
       if (this.parameterPhase === "reviewed") return "Apply reviewed values";
       if (this.parameterPhase === "applied") return "Review project test";
       if (this.parameterPhase === "inspected" || this.parameterPhase === "edited") return "Review parameter values";
@@ -94,11 +106,11 @@ export class ThreePageExperiments {
       this.abort();
       return true;
     }
-    if (this.plan) {
+    if (this.hasReview) {
       this.approve();
       return true;
     }
-    if (this.parameterBinding) {
+    if (this.parameterFlow) {
       if (this.parameterPhase === "idle") return this.inspectParameters();
       if (this.parameterPhase === "inspected" || this.parameterPhase === "edited") return this.reviewParameters();
       if (this.parameterPhase === "reviewed") return this.applyParameters();
@@ -120,13 +132,15 @@ export class ThreePageExperiments {
   cancelReview(): void {
     if (this.busy) return;
     this.plan = undefined;
+    this.reviewId = undefined;
+    this.reviewNeedsApproval = false;
     this.planView.hidden = true;
     if (this.parameterBinding && this.parameterPhase === "applied") this.parameterPhase = "inspected";
     this.status.textContent = "";
     this.render();
   }
 
-  receive(phase: ControlExperimentRuntimePhase | "review" | "failed" | "restoring" | "recording" | "parameters", rawPayload: unknown): void {
+  receive(phase: ControlExperimentRuntimePhase | "review" | "failed" | "restoring" | "recording" | "parameters" | "engine-ended", rawPayload: unknown): void {
     const payload = record(rawPayload) ? rawPayload : {};
     if (phase === "recording") {
       if (record(payload.experiment)) {
@@ -142,20 +156,33 @@ export class ThreePageExperiments {
     this.publishRecording(phase, payload);
     if (phase === "review") {
       if (payload.kind === "accepted" && isControlExperimentPlan(payload.plan)) {
+        this.reviewId = undefined;
         this.plan = payload.plan;
         this.status.textContent = payload.plan.requiresPhysicalApproval
           ? "Project test reviewed. Physical approval remains with the host before confirmation."
           : "";
         this.renderPlan(payload.plan);
+      } else if (payload.kind === "reviewed" && typeof payload.planId === "string" && record(payload.review)) {
+        // The engine's review of the project test: it names what the start will run (specification 35, §0.1a and C12).
+        this.plan = undefined;
+        this.reviewId = payload.planId;
+        this.reviewNeedsApproval = record(payload.review.approval);
+        this.status.textContent = this.reviewNeedsApproval
+          ? "Physical target. Approve the reviewed test before it starts; nothing is written before your approval."
+          : "";
+        this.renderReview(payload.review);
       } else {
         this.status.textContent = text(payload.reason) ?? "The project test could not be reviewed.";
         this.plan = undefined;
+        this.reviewId = undefined;
         this.planView.hidden = true;
       }
       this.render();
       return;
     }
     if (phase === "running") {
+      // A started test is no longer a review: the engine's review is spent with its start (specification 35, C12).
+      this.reviewId = undefined;
       const id = text(payload.experiment_id);
       if (id && id !== this.experimentId) {
         this.experimentId = id;
@@ -189,27 +216,43 @@ export class ThreePageExperiments {
       this.render();
       return;
     }
-    // Generic host failures preserve the reviewed plan and active experiment;
+    if (phase === "engine-ended") {
+      // The engine ended the campaign it ran for the test: its Abort, its completion or its failure (specification 35, C12).
+      this.experimentId = undefined;
+      this.plan = undefined;
+      this.reviewId = undefined;
+      this.planView.hidden = true;
+      const reason = text(payload.reason);
+      this.status.textContent = payload.status === "finished" ? "Project test completed."
+        : payload.status === "cancelled" ? "Project test aborted."
+          : reason ?? (payload.status === "failed" ? "Project test failed." : "Project test ended.");
+      this.render();
+      return;
+    }
+    // Generic host failures preserve a TypeScript plan and the active experiment;
     // the host recovery owner remains authoritative until a terminal phase.
     if (phase === "failed") {
+      // A refused start consumes the engine's review (E11.8): the page reviews the test again before it starts it.
+      if (this.reviewId !== undefined) {
+        this.reviewId = undefined;
+        this.reviewNeedsApproval = false;
+        this.planView.hidden = true;
+      }
       this.status.textContent = text(payload.reason) ?? "The project test could not be completed.";
       this.render();
     }
   }
 
   private review(): void {
-    const duration = this.loop.experiment?.durationSeconds;
-    if (!Number.isFinite(duration) || duration! < 1) {
-      this.status.textContent = "The project has no valid declared test duration.";
-      return;
-    }
+    // The engine checks the duration (A7: 1 s to 24 h) and names a missing one, so the page sends the declared duration as it is.
+    // Zero is the engine's value for a loop that declares none (`declared_settings`), and the engine refuses it with Limits.
     this.pending = "review";
     this.status.textContent = "Reviewing test…";
     this.render();
     this.post("control-studio.experiment.review", {
       kind: "observation",
       amplitude: 0,
-      durationSeconds: duration,
+      durationSeconds: this.loop.experiment?.durationSeconds ?? 0,
       physicalTopologyReviewed: false,
     });
   }
@@ -254,6 +297,14 @@ export class ThreePageExperiments {
     if (!this.parameterBinding) return;
     const pending = this.pending;
     this.pending = undefined;
+    if (payload.status === "unavailable") {
+      // A served loop has no engine method for the manual parameter tool (B6.1): its controls are hidden and nothing is sent.
+      this.parameterUnavailable = true;
+      this.parameterReviewId = undefined;
+      this.parameterPhase = "idle";
+      this.render();
+      return;
+    }
     const binding = isParameterBinding(payload.binding) ? payload.binding : this.parameterBinding;
     this.parameterFields?.configure(binding);
     if (payload.status === "inspected" || payload.status === "draft") {
@@ -291,6 +342,15 @@ export class ThreePageExperiments {
   }
 
   private approve(): void {
+    if (this.reviewId) {
+      // The engine's review is confirmed by its identity; the engine starts the campaign that it describes.
+      this.pending = "approve";
+      this.status.textContent = "Starting test…";
+      this.render();
+      // The start names the reviewed identity; on a physical target the press of Approve is the engineer's approval (A2.5).
+      this.post("control-studio.experiment.approve", { planId: this.reviewId, physicalApproved: this.approvalNeeded });
+      return;
+    }
     if (!this.plan || this.plan.requiresPhysicalApproval) {
       this.status.textContent = "The host must complete physical approval before this project test can start.";
       return;
@@ -309,6 +369,25 @@ export class ThreePageExperiments {
     this.post("control-studio.experiment.abort", { experimentId: this.experimentId });
   }
 
+  /** Shows the engine's review of the project test (C12): the signal it sets, its duration, its restoration and its stop conditions. */
+  private renderReview(review: Record<string, unknown>): void {
+    const scripted = record(review.projectScripted) ? review.projectScripted : undefined;
+    const activation = scripted && record(scripted.activation) ? scripted.activation : undefined;
+    const restoration = scripted && record(scripted.restoration) ? scripted.restoration : undefined;
+    const baseline = scripted && typeof scripted.baselineSeconds === "number" ? scripted.baselineSeconds : undefined;
+    const stops = scripted && Array.isArray(scripted.stopConditions)
+      ? scripted.stopConditions.filter((stop): stop is string => typeof stop === "string") : [];
+    const duration = typeof review.maximumDurationSeconds === "number" ? review.maximumDurationSeconds : undefined;
+    this.planView.hidden = false;
+    this.setText("[data-three-page-experiment-bound]", activation ? `${text(activation.symbol) ?? ""} · TRUE while the test runs`
+      : "Observation only: no signal is written");
+    this.setText("[data-three-page-experiment-duration]", duration === undefined ? ""
+      : `${formatEngineeringNumber(duration)} s${baseline === undefined ? "" : ` · ${formatEngineeringNumber(baseline)} s baseline`}`);
+    this.setText("[data-three-page-experiment-restoration]", activation && restoration
+      ? `${text(activation.symbol) ?? ""} = ${formatValue(restoration.activationRestoredTo === true, "")}` : "");
+    this.setText("[data-three-page-experiment-stops]", stops.join(", "));
+  }
+
   private renderPlan(plan: ControlExperimentPlan): void {
     this.planView.hidden = false;
     this.setText("[data-three-page-experiment-bound]", `${plan.affectedSignal} · ${formatValue(plan.from, plan.unit)} → ${formatValue(plan.to, plan.unit)}`);
@@ -319,7 +398,7 @@ export class ThreePageExperiments {
 
   private render(): void {
     this.section.hidden = !this.selectedMethod;
-    this.planView.hidden = !this.plan || Boolean(this.experimentId);
+    this.planView.hidden = !this.hasReview || Boolean(this.experimentId);
     this.status.hidden = !this.status.textContent;
     this.renderParameters();
     const button = this.root.querySelector<HTMLButtonElement>("[data-engineer-find]");
@@ -334,7 +413,8 @@ export class ThreePageExperiments {
 
   private renderParameters(): void {
     if (!this.parameterSection) return;
-    const editable = !this.pending && !this.experimentId && !this.plan &&
+    this.parameterSection.hidden = this.parameterUnavailable;
+    const editable = !this.pending && !this.experimentId && !this.hasReview &&
       (this.parameterPhase === "inspected" || this.parameterPhase === "edited");
     for (const input of Array.from(this.parameterSection.querySelectorAll<HTMLInputElement>("input"))) input.disabled = !editable;
     if (this.parameterStatus) this.parameterStatus.hidden = false;

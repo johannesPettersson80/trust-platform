@@ -13,11 +13,9 @@ use trust_control_math::margins::MarginValue;
 use crate::commissioning::application_records::ApplicationReview;
 use crate::failure::Failure;
 use crate::identification::acquisition_settings::AcquisitionSettings;
-use crate::identification::connected_record::RunEvidence;
-use crate::identification::independent_validation::RequirementStatus;
 use crate::loop_definition::LoopDefinition;
 use crate::runtime::RuntimeConnection;
-use crate::stages::StageAvailability;
+use crate::stages::{StageAvailability, StageEvidence};
 use crate::study::inputs::{InputsSection, Invalidation};
 use crate::study::Page;
 use crate::tuning::candidate::ControlPidCandidate;
@@ -27,6 +25,15 @@ use crate::tuning::recommendation::Attempt;
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::settings_pins::ControllerSettingsPins;
 use crate::tuning::structure::{ParallelGains, Structure};
+
+mod validate_answer;
+mod validate_initialization;
+
+pub use validate_answer::{
+    LimitSide, ModelCheck, PlotSeries, RequirementChannel, RequirementOutcome, RunOutcome,
+    ScenarioOutcome, ValidateLabels, ValidateResult, ValidationPlot, ValueRange,
+};
+pub use validate_initialization::InitializationOutcome;
 
 /// The arguments of `trust-lsp.controlStudioOpen`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -62,12 +69,40 @@ pub enum OpenResult {
         loop_definition: Box<LoopDefinition>,
         /// The status of every stage.
         stages: Vec<StageAvailability>,
-        /// The operations that were journaled for this loop and are reattached (A8.5, A8.6).
+        /// The journaled operations of the loop that reopening reattaches to (A8.5, A8.6): the recordings, experiments, campaigns and
+        /// isolated jobs that the journal holds unfinished. A checkpoint is not an operation, so it is not listed (B6.4).
         reattached: Vec<String>,
+        /// The operations this engine runs for the loop now, which the page follows: their updates reach it (A8.6).
+        running: Vec<String>,
+        /// The last Validate result while it is current for the study's model, candidate, requirements and scenarios (A8.4, A8.6): its
+        /// table and whether Apply is available (B5.4). Absent otherwise. The study keeps no plot and no plant reason, so the result has none.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        validation: Option<ValidateResult>,
+        /// The stage evidence of the opened study, which the page gates its actions on (B9.4, A8.6): whether a model, a candidate
+        /// and a passed validation exist now. It is the evidence `stages` is computed from, as `controlStudio/run` answers it.
+        stage_evidence: StageEvidence,
+        /// The study's current identification, as Identify answers it (A8.6): its readable result, plot, model revision and
+        /// requirements. Absent without a current model, and after Reset.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        identification: Option<IdentifyResult>,
+        /// The study's current candidate, as Tune answers it (B4.5, A8.6), rebuilt from the study's Tune section: its settings,
+        /// method, reason, attempts and requirements. The study keeps no prediction, so `response` is absent, the outcome is
+        /// unpredicted and no margins or comparison are given; a new prediction is not run on open. Absent without a current
+        /// candidate (A8.4).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tune: Option<TuneResult>,
         /// The page last viewed, which reopening shows (A8.1, A8.6); Identify for a new study.
         page: Page,
         /// The inputs the study records, which the editors show again (A8.1, A8.6); empty when none was recorded.
         inputs: InputsSection,
+        /// Whether Restore previous settings is offered from the journaled checkpoint of the loop's Apply (A8.6, B6.4): a reopened
+        /// loop offers it, and the runtime confirms the review when the engineer asks for it.
+        restore_available: bool,
+        /// Whether Keep in project is offered from the study's Apply receipts (A8.6, B6.5), the same rule `controlStudio/keep` applies.
+        keep_available: bool,
+        /// Whether a journaled Apply observation is left to follow to its end, with `controlStudio/apply` and `resume` (A8.5, A8.6): the
+        /// journal holds the observation while the runtime may still record it.
+        apply_observation_resumable: bool,
     },
 }
 
@@ -136,6 +171,9 @@ pub struct OperationUpdate {
     pub command: String,
     /// Its state.
     pub state: OperationState,
+    /// The stage a run is in (specification 35, B8): Identify, Tune or Validate. Absent for an operation that runs no stages.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage: Option<Page>,
     /// What it is doing, in words.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub progress: Option<String>,
@@ -185,10 +223,18 @@ pub struct IdentifyRequest {
 )]
 pub enum IdentifyAction {
     /// Runs a live campaign with the method and the experiment limits of `settings` (B3.2, B3.3, B3.4). The answer is the
-    /// operation's identifier, at once; the result follows as the operation's update.
+    /// operation's identifier, at once; the result follows as the operation's update. A start that names a review must name
+    /// the review's current identity, and on a physical target it must also carry the engineer's approval (§0.1a, A2.5).
     Identify {
         /// The method (`automatic`, or a named one) and the limits of the experiment.
         settings: AcquisitionSettings,
+        /// The identity of the review the engineer saw (`identity` of the review, §0.1a). The start is refused when the campaign
+        /// now differs from the reviewed one (E11.8). Absent on a simulated target, where pressing the action is the confirmation.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        review: Option<String>,
+        /// Whether the engineer approved the reviewed campaign on a physical target (A2.5). Accepted with `review` only.
+        #[serde(default)]
+        physical_approved: bool,
     },
     /// Fits a recording of the study again, without live excitation (B3.6). The study's Identify result must name it.
     OpenRecording {
@@ -200,6 +246,13 @@ pub enum IdentifyAction {
     /// Starts a new working identification study; the previous one moves to history (A8.4). Refused while an operation of the
     /// loop runs or is unconfirmed. The answer is at once, as [`ResetResult`].
     Reset,
+    /// Checks a saved Control Studio result or recording file, given as its text (B10.4, B3.6, B3.9): the file is read and
+    /// checked against the loop, and nothing is kept or fitted. The answer is at once, as
+    /// [`crate::identification::recording_import::ImportCheck`].
+    ImportRecording {
+        /// The text of the saved result or recording file (at most 32 MiB of text).
+        json: String,
+    },
     /// Answers the campaign that `identify` would run with these settings: its method, excitation, limits and duration, and for
     /// a project-scripted experiment its activation, abort and restoration (C12). It starts nothing and writes nothing; the answer
     /// is the review of the identification campaign (`identification::campaign_review`), at once.
@@ -215,6 +268,9 @@ pub enum IdentifyAction {
 pub struct ResetResult {
     /// The status of every stage.
     pub stages: Vec<StageAvailability>,
+    /// The stage evidence of the new working study, from which `stages` is computed: a new study holds no model, candidate or
+    /// validation, so the page takes that from the engine (A8.4, B9.4).
+    pub stage_evidence: StageEvidence,
 }
 
 /// The arguments of `controlStudio/inputs` (specification 35, §0.1a; A8.1, A8.4): the inputs the study records, as the editors
@@ -272,6 +328,10 @@ pub struct RunRequest {
     pub connection: Option<RuntimeConnection>,
     /// The stage the run goes through to (B8).
     pub through: RunThrough,
+    /// Whether Identify runs its campaign even when the study holds a current model: Identify plant does (specification 35,
+    /// §0.1a; the complete workflow specification). Absent or false, a current model is reused.
+    #[serde(default)]
+    pub identify_again: bool,
 }
 
 /// An input the engineer must give before a run can go on (B8): the page opens the editor that owns it, and Done runs the
@@ -294,6 +354,13 @@ pub enum RunNeeds {
 pub struct RunResult {
     /// The status of every stage after the run.
     pub stages: Vec<StageAvailability>,
+    /// The stage evidence after the run: whether a model, a candidate and a passed validation exist now. The page gates its
+    /// actions on it (B9.4).
+    pub stage_evidence: StageEvidence,
+    /// The identification the run made, as Identify answers it (B3.8); absent when the run did not identify, because a current
+    /// model was reused.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identification: Option<Value>,
     /// The input the engineer must give (B8); absent when the run went through to its stage.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub needs: Option<RunNeeds>,
@@ -327,6 +394,16 @@ pub struct IdentifyResult {
     pub plot: IdentifyPlot,
     /// The recording the model was fitted from, by its identifier (A8.3).
     pub recording_id: String,
+    /// The revision of the identified model: the one Validate's model check names when it checks this model (B5.2).
+    pub model_revision: String,
+    /// The requirements Tune designs to for this model now (B4.3): the values the study records as given, and Automatic's
+    /// values for the rest, listed in `automaticCriteria`. Absent where Automatic cannot form them (B4.7): Tune then names the
+    /// missing prerequisite when it runs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirements: Option<TuningRequirements>,
+    /// The stage evidence after this result, from which `stages` is computed. An identification leaves no candidate and no
+    /// validation current for the new model (A8.4), so the answer says so, and the page does not deduce it.
+    pub stage_evidence: StageEvidence,
     /// The status of every stage after this result.
     pub stages: Vec<StageAvailability>,
 }
@@ -391,6 +468,16 @@ impl TuneChoice {
             Self::MoreRobust => TuningObjective::Robust,
         }
     }
+
+    /// The choice that a requirement record's declared response stands for: the inverse of [`TuneChoice::objective`].
+    #[must_use]
+    pub fn of_objective(objective: TuningObjective) -> Self {
+        match objective {
+            TuningObjective::Fast => Self::Faster,
+            TuningObjective::Balanced => Self::Balanced,
+            TuningObjective::Robust => Self::MoreRobust,
+        }
+    }
 }
 
 /// The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
@@ -434,9 +521,9 @@ impl TuneMethod {
     }
 }
 
-/// The arguments of `controlStudio/tune` (specification 35, §0.1a; B4.1 and B4.2): the loop, the method, the declared
-/// response, the structure and the pinned settings. Tune never reaches the runtime (B4.1), so the request carries no
-/// connection.
+/// The arguments of `controlStudio/tune` (specification 35, §0.1a; B4.1, B4.2 and B4.5): the loop, the method, the declared
+/// response, the structure and the pinned settings. Tune never writes to the runtime (B4.1); with a connection it reads the
+/// running controller's settings for the comparison of the predicted responses (B4.5).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TuneRequest {
@@ -466,10 +553,15 @@ pub struct TuneRequest {
     /// are refused with any other method.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settings: Option<BTreeMap<String, f64>>,
+    /// Where the runtime listens, and its control token (E11.1); absent when no runtime is connected. Tune reads the running
+    /// controller's settings through it for the comparison (B4.5) and writes nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection: Option<RuntimeConnection>,
 }
 
 /// The arguments of `controlStudio/preview` (specification 35, §0.1a; B4.5): the loop and the settings the engineer enters.
-/// It answers at once with the predicted response of those settings, and stores nothing.
+/// It answers at once with the predicted response of those settings, and stores nothing. With a connection it also reads the
+/// running controller's settings for the comparison (B4.5).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreviewRequest {
@@ -487,11 +579,15 @@ pub struct PreviewRequest {
     /// The settings the engineer pinned (B4.2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pins: Option<ControllerSettingsPins>,
+    /// Where the runtime listens, and its control token (E11.1); absent when no runtime is connected. A preview reads the
+    /// running controller's settings through it for the comparison (B4.5) and writes nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection: Option<RuntimeConnection>,
 }
 
 impl PreviewRequest {
-    /// The Tune request that a preview evaluates: the manual method with these settings. The storage folder is empty,
-    /// because a preview keeps no journal.
+    /// The Tune request that a preview evaluates: the manual method with these settings, and the connection the preview names.
+    /// The storage folder is empty, because a preview keeps no journal.
     #[must_use]
     pub fn tune_request(&self) -> TuneRequest {
         TuneRequest {
@@ -504,6 +600,7 @@ impl PreviewRequest {
             structure: self.structure,
             pins: self.pins.clone(),
             settings: Some(self.settings.clone()),
+            connection: self.connection.clone(),
         }
     }
 }
@@ -552,6 +649,10 @@ pub enum TuneRole {
     Measurement,
     /// The predicted controller output.
     Command,
+    /// The predicted measurement of the current settings, on the candidate's time base and symbols (B4.5).
+    CurrentMeasurement,
+    /// The predicted controller output of the current settings, on the candidate's time base and symbols (B4.5).
+    CurrentCommand,
 }
 
 /// One trace of the predicted response, with the symbol and the unit the loop declares for the signal.
@@ -628,7 +729,8 @@ pub struct TuneResult {
     pub requirements: TuningRequirements,
     /// How the candidate stands against the mandatory requirements on its prediction.
     pub outcome: CandidateOutcome,
-    /// The predicted response of the candidate (B4.5); absent when none is available.
+    /// The predicted response of the candidate (B4.5); absent when none is available. It holds the two traces of the current
+    /// settings as well when the running controller's settings were read and can be predicted (B4.5).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response: Option<TuneResponse>,
     /// Why there is no predicted response, when there is none (B4.5).
@@ -654,6 +756,9 @@ pub struct TuneResult {
     /// The constrained comparison around the SIMC candidate (N5.10), which a request for SIMC gives; empty
     /// otherwise. It creates no candidate.
     pub comparison: Vec<ComparisonEntry>,
+    /// The stage evidence after this result, from which `stages` is computed: whether the model and the candidate this result
+    /// is the answer of exist (B9.4). A preview keeps nothing, so it carries the study's own evidence (B4.5).
+    pub stage_evidence: StageEvidence,
     /// The status of every stage after this result.
     pub stages: Vec<StageAvailability>,
 }
@@ -791,112 +896,11 @@ pub struct KeepResult {
 #[serde(untagged)]
 pub enum ApplicationAnswer {
     /// The review of the change, answered when the request carried no review identity.
-    Review(ApplicationReview),
+    Review(Box<ApplicationReview>),
     /// The operation that runs the reviewed change.
     Started {
         /// The operation's identifier.
         #[serde(rename = "operationId")]
         operation_id: String,
     },
-}
-
-/// The final result of `controlStudio/validate` (specification 35, B5.1 to B5.5), and the `result` of the command line's
-/// `validate --json` object. It holds the independent model check when Validate ran one, each scenario's current and
-/// candidate runs, the overall result of the candidate and whether Apply is available. Nothing in it is written to the
-/// controller (N8.9).
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ValidateResult {
-    /// The independent model check (B5.2), when this validation ran it; absent when the model was already qualified.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model_check: Option<ModelCheck>,
-    /// Each scenario of the campaign in its order, the target-response case first: the current settings' run and the
-    /// candidate's (B5.3).
-    pub scenarios: Vec<ScenarioOutcome>,
-    /// The overall result of the candidate (N8.5): Fail when a requirement fails, Inconclusive when one lacks evidence,
-    /// and Pass otherwise.
-    pub status: RequirementStatus,
-    /// Whether Apply is available: the model is qualified and the candidate passed every requirement (B5.4).
-    pub apply_available: bool,
-    /// Why the model replaced the configured plant for every case (B5.3): the target-response run of the current settings started
-    /// outside the settling band around the model's operating point. Absent when the configured plant ran the cases, and when the
-    /// model was the plant from the start.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub plant_reason: Option<String>,
-    /// The status of every stage after this result.
-    pub stages: Vec<StageAvailability>,
-}
-
-/// The independent model check of a provisional model (B5.2; numerical annex N3.4): the frozen model's free-running prediction
-/// against the recorded output of a distinct live campaign. The study keeps the recording the check used.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ModelCheck {
-    /// Pass when the error is within the identification error limit over the whole response and over its final 10 %; Fail
-    /// when it is not; Inconclusive when the check could not be made (B5.4).
-    pub status: RequirementStatus,
-    /// The revision of the frozen model that was checked.
-    pub model_revision: String,
-    /// The identifier of the check's recording, `rec-…` (A8.3, B10.3).
-    pub recording_id: String,
-    /// The error limit, normalized by the measured output's span (N3.4).
-    pub limit: f64,
-    /// The largest normalized error over the checked channels, when one was measured.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub normalized_error: Option<f64>,
-    /// The reason in words: the error and the limit, and what to change when the check failed (B5.5).
-    pub reason: String,
-}
-
-/// One scenario of the campaign (B5.3): the current settings' run and the candidate's, on the same plant. The runs are the
-/// isolated simulations of the project's actual Structured Text (A9); their samples stay in the runtime's answer.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ScenarioOutcome {
-    /// The scenario's identity: `target-response`, an envelope case's identity, or a declared scenario's id.
-    pub id: String,
-    /// The plant the runs ran against, named as the evidence names it (A9): the configured plant by its id, or the model.
-    pub plant: String,
-    /// The run of the current settings: the program's own compiled record, without parameter overrides.
-    pub current: RunOutcome,
-    /// The run of the candidate settings, its record written as parameter overrides.
-    pub candidate: RunOutcome,
-}
-
-/// One isolated run of a scenario: its identity, its evidence, its status and what each requirement found (B5.4).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RunOutcome {
-    /// The run's identifier: the job's request identifier, which the operation journals (E8.4, E11.2).
-    pub run_id: String,
-    /// The project revision the run ran on (E8.2).
-    pub project_revision: String,
-    /// Where its values come from: `ST-executed`, the project's Structured Text in an isolated simulation (A9).
-    pub evidence: RunEvidence,
-    /// The run's status: the overall result of its requirements (N8.5). A run that did not complete is Inconclusive.
-    pub status: RequirementStatus,
-    /// Each requirement's result, in the order of the scenario's requirements.
-    pub requirements: Vec<RequirementOutcome>,
-}
-
-/// One requirement's result (B5.4): its measured value, its limit, its unit, its source and its reason.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RequirementOutcome {
-    /// The requirement's identity.
-    pub id: String,
-    /// Pass, Fail or Inconclusive (N8.4, N8.5).
-    pub status: RequirementStatus,
-    /// The measured value, when one was measured.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<f64>,
-    /// The limit the value was judged against, when there is one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub limit: Option<f64>,
-    /// The unit of the value and of the limit.
-    pub unit: String,
-    /// The source of the result: the plant the isolated run ran against (A9).
-    pub source: String,
-    /// The reason in words (A11.1).
-    pub reason: String,
 }

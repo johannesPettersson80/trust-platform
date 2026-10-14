@@ -5,24 +5,29 @@
 //! numbers and the outcome describe one response.
 //!
 //! The settling time, the overshoot and the outcome read every controller period of the test. The response the answer carries
-//! for the plot keeps each group's extremes of every trace when the prediction is long (B4.5).
+//! for the plot keeps each group's extremes of every trace when the prediction is long (B4.5). When the settings of the running
+//! controller are predicted too, the response holds their two traces on the candidate's time base (B4.5).
+
+use std::collections::BTreeMap;
 
 use crate::identification::plant::IdentifiedModel;
 use crate::loop_definition::LoopDefinition;
 use crate::messages::{CandidateOutcome, TuneResponse, TuneRole, TuneTrace};
+use crate::study::tune::record::{gains_of_map, record_shaping};
 use crate::tuning::candidate_margins::{pid_margins, CandidateMargins};
 use crate::tuning::prediction::{
     predict_response, PredictedGains, PredictionConditions, ResponsePoint, SelectedModelPredictor,
 };
 use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::settings_pins::{current_gains, MappedParameter};
 use crate::tuning::shortfall::{has_load, Outcome};
 use crate::tuning::structure::{is_exactly_zero, ParallelGains};
 use trust_control_math::sampling::plot_extrema::extrema_indices;
 
-/// A prediction longer than this many points is reduced for the plot (B4.5).
-const PLOT_POINT_LIMIT: usize = 6_000;
+/// A prediction longer than this many points is reduced for the plot (B4.5). The Validate plot reduces its runs the same way.
+pub(crate) const PLOT_POINT_LIMIT: usize = 6_000;
 /// The groups a long prediction is split into for the plot; each keeps its extremes of every trace (B4.5).
-const PLOT_GROUPS: usize = 1_000;
+pub(crate) const PLOT_GROUPS: usize = 1_000;
 
 /// The reason of a candidate whose predictions run but leave no sample from the settling deadline on.
 const NO_SAMPLE_AFTER_DEADLINE: &str =
@@ -76,18 +81,21 @@ pub(crate) struct CandidateResponse {
 
 /// The predicted setpoint response of a candidate's gains on the predictor's loop (B4.5, B9.6): the traces with the loop's
 /// symbols and units, the settling time and the overshoot, or the prediction's refusal when there is no response. The test
-/// is the requirements' setpoint change from the operating point, over their duration, with no load.
+/// is the requirements' setpoint change from the operating point, over their duration, with no load. With `current`, the
+/// settings of the running controller predicted on the same test add their two traces (B4.5); the candidate's settling time,
+/// overshoot and traces stay its own.
 pub(crate) fn candidate_prediction(
     predictor: &SelectedModelPredictor<'_>,
     gains: ParallelGains,
     requirements: &TuningRequirements,
     names: TraceNames<'_>,
+    current: Option<PredictedGains>,
 ) -> CandidateResponse {
     let conditions = trial_conditions(predictor, requirements, requirements.reference_change, 0.0);
     match predict_response(
         predictor.model,
         &predictor.predicted_gains(gains),
-        None,
+        current.as_ref(),
         &conditions,
     ) {
         Ok(response) => {
@@ -114,6 +122,24 @@ pub(crate) fn candidate_prediction(
             overshoot_percent: None,
         },
     }
+}
+
+/// The settings of the running controller as the comparison predicts them (B4.5, B5.3): the values of the loop's bound parameters
+/// that `running` holds, with the setpoint weights and the measurement filter they hold (C0), on the predictor's loop. `None` when
+/// the values give no proportional gain, so that the comparison is left out. `mapped` is the loop's bound parameters.
+#[must_use]
+pub(crate) fn current_prediction(
+    predictor: &SelectedModelPredictor<'_>,
+    loop_definition: &LoopDefinition,
+    mapped: &[MappedParameter],
+    running: &BTreeMap<String, f64>,
+) -> Option<PredictedGains> {
+    let settings = current_gains(running, mapped)?;
+    let running_predictor = SelectedModelPredictor {
+        shaping: record_shaping(loop_definition, &settings),
+        ..*predictor
+    };
+    Some(running_predictor.predicted_gains(gains_of_map(&settings)))
 }
 
 /// The margins of a candidate's record on the selected model (B4.6, N7.7, C0), as the result shows them: the margins, with the
@@ -190,46 +216,82 @@ fn trial_conditions(
 }
 
 /// The traces of a response (B4.5, B9.6): the setpoint, and the candidate's measurement and command, on the times of the
-/// response.
+/// response. When every point holds the current settings' values, their measurement and command follow as two traces with the
+/// same symbols and units (B4.5).
 fn traces(points: &[ResponsePoint], names: TraceNames<'_>) -> TuneResponse {
     let setpoint = series(points, |point| point.setpoint);
     let measurement = series(points, |point| point.candidate_process_value);
     let command = series(points, |point| point.candidate_manipulated);
-    // The plot keeps each group's extremes of every trace (B4.5); the assessments above read the full prediction.
-    let kept = extrema_indices(
-        points.len(),
-        &[&setpoint, &measurement, &command],
-        PLOT_GROUPS,
-        PLOT_POINT_LIMIT,
-    );
+    let running = current_series(points);
+    // The plot keeps each group's extremes of every trace, the current settings' included (B4.5); the assessments above read
+    // the full prediction.
+    let mut every = vec![
+        setpoint.as_slice(),
+        measurement.as_slice(),
+        command.as_slice(),
+    ];
+    if let Some((running_measurement, running_command)) = &running {
+        every.push(running_measurement.as_slice());
+        every.push(running_command.as_slice());
+    }
+    let kept = extrema_indices(points.len(), &every, PLOT_GROUPS, PLOT_POINT_LIMIT);
     let pick = |values: &[f64]| {
         kept.iter()
             .map(|index| values[*index])
             .collect::<Vec<f64>>()
     };
+    let mut traces = vec![
+        trace(
+            TuneRole::Setpoint,
+            names.setpoint,
+            names.process_unit,
+            pick(&setpoint),
+        ),
+        trace(
+            TuneRole::Measurement,
+            names.measurement,
+            names.process_unit,
+            pick(&measurement),
+        ),
+        trace(
+            TuneRole::Command,
+            names.command,
+            names.manipulated_unit,
+            pick(&command),
+        ),
+    ];
+    if let Some((running_measurement, running_command)) = &running {
+        traces.push(trace(
+            TuneRole::CurrentMeasurement,
+            names.measurement,
+            names.process_unit,
+            pick(running_measurement),
+        ));
+        traces.push(trace(
+            TuneRole::CurrentCommand,
+            names.command,
+            names.manipulated_unit,
+            pick(running_command),
+        ));
+    }
     TuneResponse {
         time_seconds: pick(&series(points, |point| point.time_seconds)),
-        traces: vec![
-            trace(
-                TuneRole::Setpoint,
-                names.setpoint,
-                names.process_unit,
-                pick(&setpoint),
-            ),
-            trace(
-                TuneRole::Measurement,
-                names.measurement,
-                names.process_unit,
-                pick(&measurement),
-            ),
-            trace(
-                TuneRole::Command,
-                names.command,
-                names.manipulated_unit,
-                pick(&command),
-            ),
-        ],
+        traces,
     }
+}
+
+/// The current settings' measurement and command at each point, when every point holds both (B4.5). A response whose current
+/// run was not simulated holds neither.
+fn current_series(points: &[ResponsePoint]) -> Option<(Vec<f64>, Vec<f64>)> {
+    let measurement = points
+        .iter()
+        .map(|point| point.current_process_value)
+        .collect::<Option<Vec<f64>>>()?;
+    let command = points
+        .iter()
+        .map(|point| point.current_manipulated)
+        .collect::<Option<Vec<f64>>>()?;
+    Some((measurement, command))
 }
 
 /// One trace of the response: its role, its symbol, its unit and its values.

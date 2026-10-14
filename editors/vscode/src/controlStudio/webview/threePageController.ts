@@ -37,6 +37,15 @@ export class ThreePageController {
     }
     // The host recommends from the model and requirements; an explicit choice never changes what is recommended.
     if ("recommendedFamily" in payload) this.recommended = typeof payload.recommendedFamily === "string" ? payload.recommendedFamily : undefined;
+    this.renderOptions();
+  }
+  /** Shows the controller the study recorded (A8.6): a declared family, or Automatic. The options follow once the families are known. */
+  restoreChoice(family: string | undefined): void {
+    this.choice = family ?? "automatic";
+    this.explicit = this.choice !== "automatic";
+    this.renderOptions();
+  }
+  private renderOptions(): void {
     if (!this.families.length) return;
     const options: HTMLOptionElement[] = [];
     if (this.choice === "automatic") {
@@ -47,8 +56,15 @@ export class ThreePageController {
       const option = new Option(`${controllerInstanceLabel(this.loop.controller)} · ${familyLabel(family)}${family === this.recommended ? " — recommended" : ""}`, `${this.loop.controller.instance}::${family}`);
       option.dataset.family = family; options.push(option);
     }
-    this.select.replaceChildren(...options);
+    // The same select lists the other compiled PID instances and the placeholder that ThreePageBindings adds (its options carry
+    // data-binding-loop-id, its placeholder data-binding-placeholder). They are the bindings' to change, so they stay in place.
+    const previous = this.select.value;
+    const placeholders = Array.from(this.select.querySelectorAll<HTMLOptionElement>("[data-binding-placeholder]"));
+    const alternatives = Array.from(this.select.querySelectorAll<HTMLOptionElement>("[data-binding-loop-id]"));
+    this.select.replaceChildren(...placeholders, ...options, ...alternatives);
+    const kept = [...placeholders, ...alternatives].some(option => option.value === previous);
     const selected = options.find(option => option.dataset.family === this.selectedFamily) ?? options.find(option => option.dataset.family === "automatic");
-    if (selected) this.select.value = selected.value;
+    if (kept) this.select.value = previous;
+    else if (selected) this.select.value = selected.value;
   }
 }

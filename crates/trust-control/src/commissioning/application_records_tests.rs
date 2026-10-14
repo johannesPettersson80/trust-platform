@@ -433,12 +433,27 @@ fn the_review_serializes_with_exactly_its_camel_case_keys() {
         description: "Restore the previous settings.".to_owned(),
         physical: false,
         operating_point: None,
+        approval: ApprovalBlock {
+            loop_id: "Main.Heater".to_owned(),
+            signals: vec![ApprovedSignal {
+                symbol: "Main.Parameters.Kp".to_owned(),
+                unit: "%/%".to_owned(),
+                running: 2.0,
+                next: 0.5,
+                minimum: 0.0,
+                maximum: 10.0,
+            }],
+            duration_seconds: None,
+            stop_conditions: vec!["A step the runtime does not confirm.".to_owned()],
+            restoration: "The record goes back.".to_owned(),
+        },
     };
     let value = serde_json::to_value(&review).expect("the review serializes");
     assert_eq!(
         keys(&value),
         BTreeSet::from([
             "action",
+            "approval",
             "description",
             "foundMode",
             "identity",
@@ -462,6 +477,23 @@ fn the_review_serializes_with_exactly_its_camel_case_keys() {
     assert_eq!(parameter["unit"], "%/%");
     assert_eq!(parameter["running"], 2.0);
     assert_eq!(parameter["next"], 0.5);
+    assert_eq!(
+        keys(&value["approval"]),
+        BTreeSet::from([
+            "durationSeconds",
+            "loopId",
+            "restoration",
+            "signals",
+            "stopConditions",
+        ])
+    );
+    assert_eq!(value["approval"]["durationSeconds"], Value::Null);
+    assert_eq!(value["approval"]["loopId"], "Main.Heater");
+    assert_eq!(
+        keys(&value["approval"]["signals"][0]),
+        BTreeSet::from(["maximum", "minimum", "next", "running", "symbol", "unit"])
+    );
+    assert_eq!(value["approval"]["signals"][0]["maximum"], 10.0);
 
     let apply = ApplicationReview {
         action: ReviewedAction::Apply,
@@ -525,14 +557,25 @@ fn the_outcomes_serialize_with_exactly_their_camel_case_keys() {
         mode: Some(FoundMode::Auto),
         parameters: status(),
         recording: None,
+        restore_available: false,
+        keep_available: false,
     };
     let value = serde_json::to_value(&confirmed).expect("the outcome serializes");
     assert_eq!(
         keys(&value),
-        BTreeSet::from(["mode", "parameters", "reason", "restored"]),
+        BTreeSet::from([
+            "keepAvailable",
+            "mode",
+            "parameters",
+            "reason",
+            "restoreAvailable",
+            "restored",
+        ]),
         "no recording was held, so none is named"
     );
     assert_eq!(value["restored"], json!(true));
+    assert_eq!(value["restoreAvailable"], json!(false));
+    assert_eq!(value["keepAvailable"], json!(false));
     assert_eq!(value["reason"], "The previous settings are restored.");
     assert_eq!(value["mode"], "auto");
     assert_eq!(value["parameters"]["program_revision"], "program:1");
@@ -549,9 +592,71 @@ fn the_outcomes_serialize_with_exactly_their_camel_case_keys() {
     let value = serde_json::to_value(&kept).expect("the outcome serializes");
     assert_eq!(
         keys(&value),
-        BTreeSet::from(["mode", "parameters", "reason", "recording", "restored"])
+        BTreeSet::from([
+            "keepAvailable",
+            "mode",
+            "parameters",
+            "reason",
+            "recording",
+            "restoreAvailable",
+            "restored",
+        ])
     );
     assert_eq!(value["recording"]["recording_id"], "rec-fixture");
+}
+
+/// A2.5 and B9.3: the approval names each signal the review writes with its declared limits, the observation's duration, the stop
+/// conditions and the restoration. A Restore records nothing, so it has no duration; a signal the loop declares no range for is named
+/// without limits.
+#[test]
+fn an_approval_names_each_written_signal_with_its_limits_and_the_stop_conditions() {
+    let loop_definition = crate::commissioning::fixture_loops::parallel_pid_loop();
+    let first = loop_definition
+        .parameter_binding
+        .as_ref()
+        .and_then(|binding| binding.parameters.first())
+        .expect("the fixture loop writes a parameter record");
+    let written = vec![ReviewedParameter {
+        symbol: first.symbol.clone(),
+        unit: first.unit.clone(),
+        running: 2.0,
+        next: 3.0,
+    }];
+
+    let apply = approval_block(
+        &loop_definition,
+        ReviewedAction::Apply,
+        &written,
+        Some(12.5),
+    );
+    assert_eq!(apply.loop_id, loop_definition.id);
+    assert_eq!(apply.duration_seconds, Some(12.5));
+    assert_eq!(apply.signals.len(), 1);
+    let signal = &apply.signals[0];
+    assert_eq!(signal.symbol, first.symbol);
+    assert_eq!((signal.running, signal.next), (2.0, 3.0));
+    assert_eq!(signal.minimum, first.minimum);
+    assert_eq!(signal.maximum, first.maximum);
+    assert!(apply
+        .stop_conditions
+        .iter()
+        .any(|text| text.contains("permitted range")));
+    assert!(apply.restoration.starts_with("Restore previous settings"));
+
+    let restore = approval_block(&loop_definition, ReviewedAction::Restore, &written, None);
+    assert_eq!(restore.duration_seconds, None);
+    assert_eq!(restore.stop_conditions.len(), 1);
+    assert!(restore.restoration.starts_with("The parameter record"));
+
+    let undeclared = vec![ReviewedParameter {
+        symbol: "Main.NotDeclared".to_owned(),
+        unit: String::new(),
+        running: 1.0,
+        next: 1.0,
+    }];
+    let approval = approval_block(&loop_definition, ReviewedAction::Apply, &undeclared, None);
+    assert!(approval.signals[0].minimum.is_nan());
+    assert!(approval.signals[0].maximum.is_nan());
 }
 
 /// §0.1b: the action a review is for serializes to the word of layer 1's action (`ApplicationAction::word`), and only those two

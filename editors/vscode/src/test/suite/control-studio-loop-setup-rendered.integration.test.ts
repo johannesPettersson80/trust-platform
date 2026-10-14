@@ -43,6 +43,10 @@ suite("Control Studio loop setup form rendered", () => {
       const studio = await attachControlStudio(connection, port, "", "loop:fixture-temperature");
       await pollValue("Control Studio ready", () => evaluateInWebview(connection, studio, "return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
       assert.strictEqual(await evaluateInWebview(connection, studio, "return d.querySelector('[data-studio-three-page]').dataset.loopId;"), "loop:fixture-temperature");
+      // The engine saved the PID loop (§0.1a setupSave, loopSetup/loopSetupPanel.ts) and serves it: its open answer gives each stage tab
+      // the engine's status (webview/engineShared.ts applyStageStatuses).
+      assert.notStrictEqual(await evaluateInWebview(connection, studio, "return d.querySelector('[data-engineer-stage-tab=model]').dataset.status ?? '';"), "",
+        "The engine serves the loop the setup saved, so its stage tabs show the engine's status");
       await shot("studio");
       const saved = JSON.parse(fs.readFileSync(path.join(project, "control-loops", "fixture-temperature.json"), "utf8"));
       assert.strictEqual(validateControlLoopDefinition(saved, { projectId: saved.projectId, runtimeId: saved.runtimeId }).kind, "accepted");

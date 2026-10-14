@@ -1,8 +1,9 @@
-//! The routing of `controlStudio/tune` (specification 35, §0.1a, A8.4, A8.5, B4.1 and B4.7): what the method decides before an
-//! operation starts, and how `controlStudio/open` reports the Tune stage. The design is trust-control's (`study::tune`, tested
-//! there), and the whole method runs against a real runtime in `tests/control_studio_tune.rs`. No runtime runs here, because
-//! Tune never reaches one (B4.1), and no project below holds an Identify result, so every request is refused before an
-//! operation starts. A run that designs and stores a candidate needs a study with an Identify result and is not tested here.
+//! The routing of `controlStudio/tune` (specification 35, §0.1a, A8.4, A8.5, B4.1, B4.5 and B4.7): what the method decides before an
+//! operation starts, how `controlStudio/open` reports the Tune stage, and how the running settings are read for the comparison.
+//! The design is trust-control's (`study::tune`, tested there), and the whole method runs against a real runtime in
+//! `tests/control_studio_tune.rs`. No runtime runs here: a connection in these tests names a port nothing listens on, and no
+//! project below holds an Identify result, so every request is refused before an operation starts. A run that designs and stores
+//! a candidate needs a study with an Identify result and is not tested here.
 
 use std::fs;
 use std::path::PathBuf;
@@ -12,9 +13,10 @@ use serde_json::{json, Value};
 use trust_control::failure::{Cause, NextAction};
 use trust_control::identification::connected_run::loop_busy_refusal;
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{OperationUpdate, TuneRequest};
+use trust_control::messages::{OperationUpdate, TuneChoice, TuneRequest};
+use trust_control::runtime::RuntimeConnection;
 
-use super::answer;
+use super::{answer, running_settings, with_declared_response};
 use crate::busy_loops::LoopClaims;
 use crate::commands::{ControlStudio, METHODS, OPEN, TUNE};
 use crate::operation::{Operations, UpdateSink};
@@ -112,18 +114,63 @@ fn nothing_started(operations: &Operations) -> bool {
 }
 
 #[test]
-fn tune_is_a_method_of_the_engine_and_refuses_a_malformed_request_or_a_runtime_connection() {
+fn tune_is_a_method_of_the_engine_and_refuses_a_malformed_request() {
     assert!(METHODS.contains(&TUNE), "the engine answers {TUNE}");
-    let project = Project::new("malformed");
     let studio = engine();
-    // Tune never reaches the runtime (B4.1), so its arguments name no connection.
-    let mut with_connection = project.request();
-    with_connection["connection"] = json!({ "endpoint": "tcp://127.0.0.1:9" });
-    for request in [json!({ "projectRoot": "/x" }), with_connection] {
-        let reply = tune(&studio, request);
-        assert!(refusal(&reply).0.contains("invalid arguments"), "{reply}");
-    }
+    let reply = tune(&studio, json!({ "projectRoot": "/x" }));
+    assert!(refusal(&reply).0.contains("invalid arguments"), "{reply}");
     assert!(nothing_started(studio.operations()), "nothing was started");
+}
+
+/// B4.5: a connection is a valid part of a Tune request. Tune reads the running settings only once it designs, so a request that
+/// is refused for its model is refused as it is without one, and it starts nothing.
+#[test]
+fn a_connection_is_a_valid_request_part_and_changes_no_refusal_before_the_design() {
+    let project = Project::new("connection-refusal");
+    let studio = engine();
+    let without = tune(&studio, project.request());
+    let mut with_connection = project.request();
+    with_connection["connection"] =
+        json!({ "endpoint": "tcp://127.0.0.1:9", "token": "control-token" });
+    let with = tune(&studio, with_connection);
+    assert_eq!(refusal(&with), refusal(&without), "{with}");
+    assert_eq!(refusal(&with).1, "identify", "{with}");
+    assert!(nothing_started(studio.operations()), "nothing was started");
+    assert!(!project.has_study(), "a refusal writes nothing");
+}
+
+/// B4.5: a Tune request decodes with or without its connection, and the connection keeps the runtime's address and token.
+#[test]
+fn a_tune_request_decodes_with_or_without_its_connection() {
+    let project = Project::new("connection-decode");
+    assert_eq!(project.tune_request().connection, None);
+    let mut request = project.request();
+    request["connection"] = json!({ "endpoint": "tcp://127.0.0.1:9", "token": "control-token" });
+    let connected: TuneRequest =
+        trust_control::json::decode_value(request).expect("a Tune request with a connection");
+    assert_eq!(
+        connected.connection,
+        Some(RuntimeConnection {
+            endpoint: "tcp://127.0.0.1:9".to_string(),
+            token: Some("control-token".to_string()),
+        })
+    );
+}
+
+/// B4.5 and B5.3: the running settings are read only through a connection, and a read that fails gives none, so that Tune designs
+/// without the comparison and does not fail.
+#[test]
+fn the_running_settings_are_read_through_a_connection_and_a_failed_read_gives_none() {
+    let project = Project::new("running-settings");
+    assert_eq!(running_settings(None, &project.loop_definition), None);
+    let unreachable = RuntimeConnection {
+        endpoint: "tcp://127.0.0.1:1".to_string(),
+        token: None,
+    };
+    assert_eq!(
+        running_settings(Some(&unreachable), &project.loop_definition),
+        None
+    );
 }
 
 #[test]
@@ -221,4 +268,25 @@ fn the_relay_rule_without_a_model_is_refused_for_the_model_and_starts_nothing() 
     assert_eq!(refusal(&reply).1, "identify", "{reply}");
     assert!(nothing_started(studio.operations()), "nothing was started");
     assert!(!project.has_study(), "a refusal writes nothing");
+}
+
+#[test]
+fn tune_takes_the_response_the_study_declares_when_its_request_names_none() {
+    // B4.3: a request that names no response reads the study's declared one, as the automatic run does; a response it names is kept.
+    let project = Project::new("declared-response");
+    let request = project.tune_request();
+    assert_eq!(
+        with_declared_response(request.clone(), Some(TuneChoice::Faster)).choice,
+        Some(TuneChoice::Faster)
+    );
+    let named = TuneRequest {
+        choice: Some(TuneChoice::Balanced),
+        ..request.clone()
+    };
+    assert_eq!(
+        with_declared_response(named, Some(TuneChoice::Faster)).choice,
+        Some(TuneChoice::Balanced),
+        "the response the request names replaces the declared one"
+    );
+    assert_eq!(with_declared_response(request, None).choice, None);
 }

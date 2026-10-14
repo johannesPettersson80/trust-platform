@@ -16,6 +16,7 @@ use sha2::{Digest, Sha256};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::json::parse_text;
 use trust_control::loop_definition::LoopScope;
+use trust_control::setup::binding_route::answer_selection;
 use trust_control::setup::catalog::{decode_catalog_answer, CatalogAnswer};
 use trust_control::setup::discovery::{
     discover_bindings, refused, BindingTarget, LoopFileRead, LoopFileText, MAXIMUM_LOOP_BYTES,
@@ -56,10 +57,20 @@ pub fn answer_discover(request: &SetupDiscoverRequest) -> Result<Value, Failure>
             &failure.message,
         ),
     };
+    // The binding the three-page panel chose is checked against the loops this discovery lists (B1.3, C0).
+    let selected_file = request
+        .selection
+        .as_ref()
+        .map(|selection| {
+            answer_selection(&discovery, selection, request.family.as_deref())
+                .map(|target| target.configuration_path.clone())
+        })
+        .transpose()?;
     to_value(&SetupDiscoverResult {
         form_model: setup_form_model(&catalog.control),
         loops: discovery.targets.iter().map(loop_summary).collect(),
         rejected: discovery.rejected,
+        selected_file,
     })
 }
 

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::OperationUpdate;
+use trust_control::messages::{OperationUpdate, PreviewRequest};
 
 use crate::commands::{ControlStudio, METHODS, PAGE, PREVIEW};
 use crate::operation::{Operations, UpdateSink};
@@ -144,4 +144,28 @@ fn preview_of_a_loop_the_project_does_not_declare_is_refused_to_open_the_loop_se
         .expect("the engine answers its own method");
     assert_eq!(reply["failure"]["nextAction"], "open-loop-setup", "{reply}");
     assert!(!project.study_file().exists(), "a refusal writes nothing");
+}
+
+/// B4.5: a preview decodes with or without its connection, and the Tune request that it evaluates carries the connection it names.
+#[test]
+fn a_preview_request_decodes_with_or_without_its_connection_and_carries_it_to_tune() {
+    let plain: PreviewRequest = trust_control::json::decode_value(json!({
+        "projectRoot": "/x",
+        "runtimeId": "simulator",
+        "loopId": "tank",
+        "settings": { "Kp": 2.5 },
+    }))
+    .expect("a preview request without a connection");
+    assert_eq!(plain.connection, None);
+    assert_eq!(plain.tune_request().connection, None);
+    let connected: PreviewRequest = trust_control::json::decode_value(json!({
+        "projectRoot": "/x",
+        "runtimeId": "simulator",
+        "loopId": "tank",
+        "settings": { "Kp": 2.5 },
+        "connection": { "endpoint": "tcp://127.0.0.1:9", "token": "control-token" },
+    }))
+    .expect("a preview request with a connection");
+    assert!(connected.connection.is_some(), "{connected:?}");
+    assert_eq!(connected.tune_request().connection, connected.connection);
 }

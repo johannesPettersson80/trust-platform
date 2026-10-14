@@ -54,6 +54,8 @@ pub const FITTING_TEXT: &str = "Fitting the measured response…";
 /// The refusal of a physical target, before anything is recorded or written (A2.5): this path carries no approval.
 pub const PHYSICAL_TARGET_TEXT: &str =
     "Live physical identification requires the reviewed physical experiment approval.";
+/// The refusal of a start whose review no longer matches the campaign (§0.1a, E11.8).
+pub const REVIEW_CHANGED_TEXT: &str = "The campaign changed since it was reviewed: its loop, its mode or its settings differ. Review it again before it starts.";
 /// The refusal of a relay experiment whose first direction is downward.
 pub const NEGATIVE_RELAY_TEXT: &str =
     "The connected runtime does not support negative-gain relay feedback.";
@@ -184,16 +186,31 @@ pub fn identification_cancelled() -> Failure {
     Failure::new(CANCELLED_TEXT, Cause::Unclassified, NextAction::None)
 }
 
-/// The refusal of a run before anything is recorded or written (`acquire`): a physical target, which needs the reviewed
-/// physical approval this path does not carry (A2.5), or a relay whose first direction is downward, which the runtime does not
-/// support. `None` when the run may record.
+/// The refusal of a run before anything is recorded or written (`acquire`) that carries no approval: a physical target, or a
+/// relay whose first direction is downward, which the runtime does not support. `None` when the run may record. It is
+/// [`approved_campaign_refusal`] without an approval.
 #[must_use]
 pub fn campaign_refusal(
     loop_definition: &LoopDefinition,
     method: IdentificationMethod,
     sample: Option<&ExperimentSample>,
 ) -> Option<Failure> {
-    if sample.is_some_and(|sample| sample.source == EvidenceSource::PhysicalPlant) {
+    approved_campaign_refusal(loop_definition, method, sample, false)
+}
+
+/// The refusal of a run before anything is recorded or written (`acquire`), with the engineer's approval of the reviewed campaign
+/// on a physical target (A2.5): a physical target is refused unless `physical_approved` is set, because one approval covers one
+/// reviewed campaign and nothing else (A2.5, §0.1a). A relay whose first direction is downward is refused on either target.
+#[must_use]
+pub fn approved_campaign_refusal(
+    loop_definition: &LoopDefinition,
+    method: IdentificationMethod,
+    sample: Option<&ExperimentSample>,
+    physical_approved: bool,
+) -> Option<Failure> {
+    if !physical_approved
+        && sample.is_some_and(|sample| sample.source == EvidenceSource::PhysicalPlant)
+    {
         return Some(physical_target());
     }
     let downward = loop_definition
@@ -350,6 +367,32 @@ pub fn step_plan(
     hold_ms: f64,
     validation: bool,
 ) -> Result<ControlExperimentPlan, Failure> {
+    approved_step_plan(
+        loop_definition,
+        sample,
+        method,
+        baseline,
+        hold_ms,
+        validation,
+        false,
+    )
+}
+
+/// The reviewed plan of the step with the engineer's approval of a physical target (`approved_step_plan`, A2.5): as
+/// [`step_plan`], but a plan on a physical target is accepted when `physical_approved` is set. The plan then needs the runtime's
+/// own approval at its start (E10.2), which the start sends with the approval.
+///
+/// # Errors
+/// As [`step_plan`]; and a plan on a physical target that the approval does not cover.
+pub fn approved_step_plan(
+    loop_definition: &LoopDefinition,
+    sample: Option<&ExperimentSample>,
+    method: IdentificationMethod,
+    baseline: &BaselineSummary,
+    hold_ms: f64,
+    validation: bool,
+    physical_approved: bool,
+) -> Result<ControlExperimentPlan, Failure> {
     let range = plant_input_range(loop_definition)?;
     let amplitude = identification_amplitude(&AmplitudeInput {
         loop_definition,
@@ -368,14 +411,16 @@ pub fn step_plan(
         kind: ControlExperimentRequestKind::from(method.kind),
         amplitude,
         duration_seconds: hold_ms / 1_000.0,
-        physical_topology_reviewed: false,
+        physical_topology_reviewed: physical_approved,
         seed: Some(step_seed(loop_definition, validation)),
         process_center: Some(baseline.mean),
         process_noise: Some(baseline.half_range),
         hold_seconds: None,
     });
     match reviewed {
-        ControlExperimentPlanResult::Accepted { plan } if plan.source == PlanSource::Simulation => {
+        ControlExperimentPlanResult::Accepted { plan }
+            if plan.source == PlanSource::Simulation || physical_approved =>
+        {
             Ok(*plan)
         }
         ControlExperimentPlanResult::Accepted { .. } => Err(physical_target()),
@@ -763,6 +808,13 @@ pub fn qualification<E>(
 /// The refusal of a physical target on this path (A2.5). Declining approval offers no action (B3.9).
 fn physical_target() -> Failure {
     Failure::new(PHYSICAL_TARGET_TEXT, Cause::Approval, NextAction::None)
+}
+
+/// The refusal of a start whose review no longer describes the campaign (§0.1a, E11.8). It offers no action of its own: the
+/// review is asked for again (B3.9).
+#[must_use]
+pub fn review_changed_refusal() -> Failure {
+    Failure::new(REVIEW_CHANGED_TEXT, Cause::Approval, NextAction::None)
 }
 
 /// The restoration a status answer reports, when it is one of the runtime's words (E5.6).

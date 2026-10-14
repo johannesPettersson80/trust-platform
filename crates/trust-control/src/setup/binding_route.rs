@@ -5,8 +5,8 @@
 use serde_json::Value;
 
 use super::discovery::{
-    BindingSelection, ControllerCompatibility, Discovery, LoopFileRead, LoopFileText,
-    MAXIMUM_SELECTED_CHANNELS,
+    select_binding, BindingSelection, BindingTarget, ControllerCompatibility, Discovery,
+    LoopFileRead, LoopFileText, MAXIMUM_SELECTED_CHANNELS,
 };
 use super::texts::discovery as texts;
 use crate::failure::{Cause, Failure, NextAction};
@@ -95,6 +95,26 @@ pub fn check_family(
             NextAction::ChooseMethod,
         )),
     }
+}
+
+/// The target a binding selection names, once the engine has checked it (B1.3, C0): the selection's shape, the chosen family, the loop
+/// the discovery lists, the controller it runs in and its declared channels. `discovery` is the one the selector lists.
+///
+/// # Errors
+/// The selection's shape or the family is refused (`check_selection`); no listed loop has the selection's id, the controller is
+/// another one, or a side names no channel, a partial set, an undeclared channel or one channel twice (`select_binding`); or the
+/// loop's adapter does not realize the chosen family (`check_family`).
+pub fn answer_selection<'a>(
+    discovery: &'a Discovery,
+    selection: &BindingSelection,
+    family: Option<&str>,
+) -> Result<&'a BindingTarget, Failure> {
+    check_selection(selection, family)?;
+    let target = select_binding(discovery, selection)?;
+    if let Some(family) = family {
+        check_family(discovery, selection, family)?;
+    }
+    Ok(target)
 }
 
 /// The loop files of one workspace project (the multi-root rule of `threePageBindingRoute.ts`).

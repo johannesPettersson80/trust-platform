@@ -13,9 +13,11 @@ use super::{
     ControllerCompatibility, Discovery, LoopFileRead, LoopFileText, MAXIMUM_LOOP_BYTES,
     MAXIMUM_LOOP_FILES,
 };
+use crate::failure::{Cause, NextAction};
 use crate::loop_definition::{
     LoopDefinition, LoopScope, ModeBinding, Parameter, ParameterBinding, RealType,
 };
+use crate::setup::binding_route::answer_selection;
 use crate::setup::catalog::{
     CatalogAnswer, CompiledCatalog, CompiledController, CompiledSignal, CompiledSymbol,
     CompiledTask,
@@ -696,4 +698,76 @@ fn an_empty_discovery_has_no_target_and_no_refusal() {
     assert_eq!(Discovery::default().targets.len(), 0);
     let discovered = discover_bindings("/project", &catalog(), RUNTIME, &[]);
     assert_eq!(discovered, Discovery::default());
+}
+
+#[test]
+fn the_engine_answers_a_selection_with_the_loop_it_names_or_with_the_refusal_that_stops_it() {
+    // The engine's rule for the three-page panel's selection (B1.3, C0): the shape, the listed loop, its channels, and the family.
+    let discovered = discover_bindings(
+        "/project",
+        &catalog(),
+        RUNTIME,
+        &[text_file(
+            "/project/control-loop.json",
+            &tank_json("loop:tank"),
+        )],
+    );
+    let named = answer_selection(
+        &discovered,
+        &selection(
+            "loop:tank",
+            CONTROLLER,
+            &["manipulatedVariable"],
+            &["processVariable"],
+        ),
+        None,
+    )
+    .expect("the selection names the listed loop");
+    assert_eq!(named.configuration_path, "/project/control-loop.json");
+
+    let refusal = |chosen: BindingSelection, family: Option<&str>| {
+        answer_selection(&discovered, &chosen, family).expect_err("the selection is refused")
+    };
+    let shape = refusal(
+        selection("loop:tank", CONTROLLER, &[], &["processVariable"]),
+        None,
+    );
+    assert_eq!(
+        (shape.cause, shape.next_action),
+        (Cause::Implementation, NextAction::OpenLoopSetup)
+    );
+    let unknown_family = refusal(
+        selection(
+            "loop:tank",
+            CONTROLLER,
+            &["manipulatedVariable"],
+            &["processVariable"],
+        ),
+        Some("XYZ"),
+    );
+    assert_eq!(unknown_family.cause, Cause::Implementation);
+    let unlisted = refusal(
+        selection(
+            "loop:none",
+            CONTROLLER,
+            &["manipulatedVariable"],
+            &["processVariable"],
+        ),
+        None,
+    );
+    assert_eq!(unlisted.message, "No discovered loop has ID loop:none.");
+    // The tank has no parameter record or law, so its adapter realizes no family (C0).
+    let unrealized = refusal(
+        selection(
+            "loop:tank",
+            CONTROLLER,
+            &["manipulatedVariable"],
+            &["processVariable"],
+        ),
+        Some("PI"),
+    );
+    assert_eq!(
+        (unrealized.cause, unrealized.next_action),
+        (Cause::ControllerCapability, NextAction::ChooseMethod)
+    );
 }

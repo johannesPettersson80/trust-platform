@@ -280,6 +280,12 @@
           "title": "Runtime ignore pragmas",
           "description": "Top-of-file pragma tokens that exclude a file from runtime loading."
         },
+        "trust.controlStudio.executablePath": {
+          "type": "string",
+          "default": "",
+          "title": "Control Studio engine path",
+          "description": "Path to the truST Control Studio engine executable (trust-control-studio). Leave empty to use the bundled/default engine."
+        },
         "trust.runtime.executablePath": {
           "type": "string",
           "default": "",
@@ -5117,6 +5123,7 @@
     "build:hmi-builder": "node ./scripts/build-hmi-builder-webview.js",
     "clean:out": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
+    "generate:control-studio-types": "node ./scripts/generate-control-studio-types.js",
     "check:canvas-geometry": "node ./scripts/network-canvas-overlap-check.js --require-browser",
     "compile": "npm run build:libraries && npm run build:examples && npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:control-studio && npm run build:hmi-builder && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",
@@ -5139,6 +5146,7 @@
     "ml-matrix": "6.15.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "vscode-jsonrpc": "8.2.0",
     "vscode-languageclient": "^9.0.1",
     "ws": "8.21.1"
   },
@@ -5155,6 +5163,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^10.0.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "json-schema-to-typescript": "15.0.4",
     "mocha": "^11.7.6",
     "prettier": "^3.9.9",
     "typescript": "^5.9.3"

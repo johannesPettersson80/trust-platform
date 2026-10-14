@@ -169,6 +169,20 @@ impl GeneralModel {
             Self::TransferFunction { .. } | Self::ContinuousStateSpace { .. } => Timing::Continuous,
         }
     }
+
+    /// A copy of the model that starts from `point`, and is the same model in every other respect, its revision included. Only the
+    /// Manual-to-Auto entry case uses it: that case starts where its plant starts (specification 35, B5.3), so the model that Validate
+    /// qualifies keeps its own operating point.
+    #[must_use]
+    pub fn with_operating_point(&self, point: OperatingPoint) -> Self {
+        let mut copy = self.clone();
+        match &mut copy {
+            Self::TransferFunction { identity, .. }
+            | Self::ContinuousStateSpace { identity, .. }
+            | Self::DiscreteStateSpace { identity, .. } => identity.operating_point = Some(point),
+        }
+        copy
+    }
 }
 
 /// Decodes an imported model. Returns the model only when every rule of the model contract holds:

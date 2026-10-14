@@ -1,13 +1,15 @@
 //! Tests of the predicted response of a Tune candidate (specification 35, B4.3, B4.5 and B9.6; numerical annex N8.3): the
-//! settling time and the overshoot on hand-built responses, the traces of a SIMC PI on a first-order model with delay, and
-//! the reason of a candidate that has no prediction.
+//! settling time and the overshoot on hand-built responses, the traces of a SIMC PI on a first-order model with delay, the
+//! two traces of the settings of the running controller (B4.5), and the reason of a candidate that has no prediction.
 
 use trust_control_math::identify::{LowOrderModelKind, ParameterInterval};
 
 use super::*;
 use crate::identification::identify_result::tests::plant_loop;
+use crate::loop_definition::ControllerLaw;
 use crate::tuning::candidate::DEFAULT_RATE_LIMIT_PER_S;
 use crate::tuning::prediction::RecordShaping;
+use crate::tuning::settings_pins::mapped_parameters;
 use crate::tuning::shortfall::OutputLimits;
 
 /// The first-order model with delay of these tests: `1.5·exp(−2·s)/(4·s + 1)`.
@@ -137,6 +139,7 @@ fn the_predicted_response_of_a_simc_pi_has_the_loop_traces_and_settles() {
         simc_pi(),
         &requirements(),
         TraceNames::of(&loop_definition),
+        None,
     );
     assert_eq!(predicted.unavailable, None);
     let response = predicted.response.expect("a predicted response");
@@ -180,6 +183,7 @@ fn a_candidate_without_a_prediction_says_why() {
         simc_pi(),
         &requirements(),
         TraceNames::of(&loop_definition),
+        None,
     );
     assert_eq!(predicted.response, None);
     assert_eq!(
@@ -213,6 +217,7 @@ fn a_long_prediction_keeps_its_extremes_for_the_plot_and_its_numbers_from_every_
         simc_pi(),
         &requirements(),
         TraceNames::of(&loop_definition),
+        None,
     );
     // Two hours at the 100 ms period: 72,001 predicted points, more than the plot keeps (B4.5).
     let long_requirements = TuningRequirements {
@@ -224,6 +229,7 @@ fn a_long_prediction_keeps_its_extremes_for_the_plot_and_its_numbers_from_every_
         simc_pi(),
         &long_requirements,
         TraceNames::of(&loop_definition),
+        None,
     );
     let response = long.response.expect("a predicted response");
     assert!(
@@ -254,4 +260,191 @@ fn a_long_prediction_keeps_its_extremes_for_the_plot_and_its_numbers_from_every_
     };
     let short_response = short.response.expect("a predicted response");
     assert!(peak(&response) >= peak(&short_response) - 1e-12);
+}
+
+#[test]
+fn the_current_settings_add_two_traces_on_the_candidates_time_base_and_leave_the_candidate_alone() {
+    let model = first_order();
+    let loop_definition = plant_loop();
+    let running = PredictedGains::parallel(0.5, 0.05, 0.0);
+    let compared = candidate_prediction(
+        &predictor(&model),
+        simc_pi(),
+        &requirements(),
+        TraceNames::of(&loop_definition),
+        Some(running),
+    );
+    let alone = candidate_prediction(
+        &predictor(&model),
+        simc_pi(),
+        &requirements(),
+        TraceNames::of(&loop_definition),
+        None,
+    );
+    let response = compared.response.expect("a predicted response");
+    let roles: Vec<TuneRole> = response.traces.iter().map(|trace| trace.role).collect();
+    assert_eq!(
+        roles,
+        [
+            TuneRole::Setpoint,
+            TuneRole::Measurement,
+            TuneRole::Command,
+            TuneRole::CurrentMeasurement,
+            TuneRole::CurrentCommand,
+        ]
+    );
+    // The current traces carry the loop's measurement and command, with their units, on the candidate's times.
+    let symbols: Vec<(&str, &str)> = response.traces[3..]
+        .iter()
+        .map(|trace| (trace.symbol.as_str(), trace.unit.as_str()))
+        .collect();
+    assert_eq!(symbols, [("Plant.Position", "m"), ("Plant.Command", "V")]);
+    assert!(response
+        .traces
+        .iter()
+        .all(|trace| trace.values.len() == response.time_seconds.len()));
+    // The candidate keeps its traces, numbers and time base, as it has them without the current settings.
+    let alone_response = alone.response.expect("a predicted response");
+    assert_eq!(response.time_seconds, alone_response.time_seconds);
+    assert_eq!(response.traces[..3], alone_response.traces[..]);
+    assert_eq!(compared.settling_time_seconds, alone.settling_time_seconds);
+    assert_eq!(compared.overshoot_percent, alone.overshoot_percent);
+    // Weaker gains are another run, so the current measurement is not the candidate's.
+    assert_ne!(response.traces[3].values, response.traces[1].values);
+}
+
+#[test]
+fn a_running_controller_that_cannot_be_simulated_leaves_its_traces_out() {
+    let model = first_order();
+    let loop_definition = plant_loop();
+    // A negative measurement filter time is refused by the simulation, so the running settings have no run to plot.
+    let refused = PredictedGains {
+        measurement_filter_seconds: -1.0,
+        ..PredictedGains::parallel(0.5, 0.05, 0.0)
+    };
+    let compared = candidate_prediction(
+        &predictor(&model),
+        simc_pi(),
+        &requirements(),
+        TraceNames::of(&loop_definition),
+        Some(refused),
+    );
+    let alone = candidate_prediction(
+        &predictor(&model),
+        simc_pi(),
+        &requirements(),
+        TraceNames::of(&loop_definition),
+        None,
+    );
+    let response = compared.response.as_ref().expect("a predicted response");
+    assert_eq!(
+        response.traces.len(),
+        3,
+        "the candidate's three traces stand"
+    );
+    assert_eq!(compared.response, alone.response);
+    assert_eq!(compared.settling_time_seconds, alone.settling_time_seconds);
+}
+
+#[test]
+fn the_plot_keeps_the_extremes_of_the_current_traces_as_well() {
+    let model = first_order();
+    let loop_definition = plant_loop();
+    // A lightly damped running controller: its measurement overshoots, so its extremes lie inside the test.
+    let running = PredictedGains::parallel(1.0, 0.2, 0.0);
+    // Two hours at the 100 ms period, as the long-prediction test runs them: more points than the plot keeps (B4.5).
+    let long_requirements = TuningRequirements {
+        duration_seconds: 7_200.0,
+        ..requirements()
+    };
+    let predicted = candidate_prediction(
+        &predictor(&model),
+        simc_pi(),
+        &long_requirements,
+        TraceNames::of(&loop_definition),
+        Some(running),
+    );
+    let response = predicted.response.expect("a predicted response");
+    assert!(
+        response.time_seconds.len() <= 2 * 5 * PLOT_GROUPS + 2,
+        "{} points",
+        response.time_seconds.len()
+    );
+    assert!(response
+        .traces
+        .iter()
+        .all(|trace| trace.values.len() == response.time_seconds.len()));
+    // The whole running run, as the prediction holds it: the reduced traces keep its highest measurement and its lowest command.
+    let conditions = trial_conditions(
+        &predictor(&model),
+        &long_requirements,
+        long_requirements.reference_change,
+        0.0,
+    );
+    let whole = predict_response(
+        &model,
+        &predictor(&model).predicted_gains(simc_pi()),
+        Some(&running),
+        &conditions,
+    )
+    .expect("both runs simulate");
+    let highest = whole
+        .points
+        .iter()
+        .filter_map(|point| point.current_process_value)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let lowest = whole
+        .points
+        .iter()
+        .filter_map(|point| point.current_manipulated)
+        .fold(f64::INFINITY, f64::min);
+    let kept_highest = response.traces[3]
+        .values
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let kept_lowest = response.traces[4]
+        .values
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    assert_eq!((kept_highest, kept_lowest), (highest, lowest));
+}
+
+#[test]
+fn the_running_settings_are_the_gains_their_bound_parameters_hold_with_the_weights_they_hold() {
+    let model = first_order();
+    let mut loop_definition = LoopDefinition::decode(include_str!(
+        "../../../../../examples/control-pid-commissioning/control-loop.json"
+    ))
+    .expect("the commissioning example's loop");
+    // The example's law names no setpoint weight, so this test names the bound one, whose running value then counts.
+    if let Some(ControllerLaw::Pid(pid)) = &mut loop_definition.controller.law {
+        pid.proportional_setpoint_weight_symbol =
+            Some("P1.Parameters.ProportionalSetpointWeight".to_owned());
+    }
+    let mapped = mapped_parameters(&loop_definition);
+    let on_model = predictor(&model);
+    let running = BTreeMap::from([
+        ("P1.Parameters.ProportionalGain".to_owned(), 2.0),
+        ("P1.Parameters.IntegralGain".to_owned(), 0.25),
+        ("P1.Parameters.ProportionalSetpointWeight".to_owned(), 0.5),
+    ]);
+    assert_eq!(
+        current_prediction(&on_model, &loop_definition, &mapped, &running),
+        Some(PredictedGains {
+            proportional_gain: 2.0,
+            integral_gain: 0.25,
+            derivative_gain: 0.0,
+            proportional_setpoint_weight: 0.5,
+            derivative_setpoint_weight: 0.0,
+            measurement_filter_seconds: 0.0,
+        })
+    );
+    // Without a proportional gain there is no comparison to predict.
+    let integral_only = BTreeMap::from([("P1.Parameters.IntegralGain".to_owned(), 0.25)]);
+    assert_eq!(
+        current_prediction(&on_model, &loop_definition, &mapped, &integral_only),
+        None
+    );
 }

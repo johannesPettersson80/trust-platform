@@ -234,6 +234,7 @@ mod tests {
             operation_id: "operation-1".to_string(),
             command: "identify".to_string(),
             state: OperationState::Running,
+            stage: None,
             progress: Some("Recording the plant".to_string()),
             result: None,
             failure: None,

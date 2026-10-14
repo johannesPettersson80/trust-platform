@@ -65,7 +65,7 @@ pub fn answer(
     match request.review {
         None => {
             let review = work.with_context(review_apply)?;
-            to_value(&ApplicationAnswer::Review(review))
+            to_value(&ApplicationAnswer::Review(Box::new(review)))
         }
         Some(identity) => started(
             operations,
@@ -101,7 +101,7 @@ pub fn answer_restore(
     match request.review {
         None => {
             let review = work.with_context(review_restore)?;
-            to_value(&ApplicationAnswer::Review(review))
+            to_value(&ApplicationAnswer::Review(Box::new(review)))
         }
         Some(identity) => started(
             operations,

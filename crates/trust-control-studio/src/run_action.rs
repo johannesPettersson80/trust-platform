@@ -43,6 +43,7 @@ pub fn answer(
         storage_folder,
         connection,
         through,
+        identify_again,
     } = request;
     let project_root = PathBuf::from(project_root);
     let loop_definition = loops::open(&project_root, &runtime_id, &loop_id)?;
@@ -58,6 +59,7 @@ pub fn answer(
         loop_definition,
         connection,
         through,
+        identify_again,
     };
     // The claim ends before the operation reports its end; a panic of the work ends it too, because the claim is dropped with the work.
     let started = operations.start(RUN_COMMAND, move |context| {

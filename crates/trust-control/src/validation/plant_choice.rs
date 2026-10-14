@@ -8,14 +8,20 @@ use crate::loop_definition::LoopDefinition;
 use crate::model::GeneralModel;
 use crate::signals::Quality;
 use crate::tuning::texts::significant;
-use crate::validation::isolated_run_protocol::IsolatedRunStatus;
+use crate::validation::isolated_run_protocol::{IsolatedRunRecord, IsolatedRunStatus};
 
 /// The first measured output of a run: the measured output's value at the run's first sample. A bad or missing value is no
 /// measurement (A4.2), so it gives none, and so does a run without a record.
 #[must_use]
 pub fn first_measured_output(probe: &IsolatedRunStatus, symbol: &str) -> Option<f64> {
-    let sample = probe.run.as_ref()?.samples.first()?;
-    let value = sample.values.get(symbol)?;
+    first_sample_value(probe.run.as_ref()?, symbol)
+}
+
+/// A channel's value at the run's first sample, when that value is a measurement (A4.2): a bad or missing value gives none, and so
+/// does a run without samples or without the channel. The entry case of the validation takes its start from it (B5.3).
+#[must_use]
+pub fn first_sample_value(run: &IsolatedRunRecord, symbol: &str) -> Option<f64> {
+    let value = run.samples.first()?.values.get(symbol)?;
     match value.quality {
         Quality::Good | Quality::Forced => value.value.filter(|measured| measured.is_finite()),
         Quality::Bad | Quality::Missing => None,

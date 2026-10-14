@@ -113,8 +113,25 @@ fn a_passing_check_validates_the_model_on_its_recording_and_keeps_the_rest_of_it
 }
 
 #[test]
+fn a_passing_check_keeps_the_frozen_coefficients() {
+    let model = fitted_model();
+    let qualified = qualified_model(&model, FINGERPRINT.to_string());
+    let frozen = serde_json::to_value(&model).expect("the frozen model encodes");
+    let checked = serde_json::to_value(&qualified).expect("the qualified model encodes");
+    assert_eq!(frozen["numerator"], json!([1.0]));
+    assert_eq!(frozen["denominator"], json!([1.0, 1.0]));
+    assert_eq!(checked["numerator"], frozen["numerator"]);
+    assert_eq!(checked["denominator"], frozen["denominator"]);
+}
+
+#[test]
 fn a_qualified_identify_result_names_its_check_recording_and_passes_the_study_check() {
-    let qualified = qualified_section(&identified(None), VALIDATION, FINGERPRINT.to_string());
+    let qualified = qualified_section(
+        &identified(None),
+        VALIDATION,
+        FINGERPRINT.to_string(),
+        Some(0.04),
+    );
     assert_eq!(
         qualified.validation_recording_id.as_deref(),
         Some(VALIDATION)
@@ -122,6 +139,33 @@ fn a_qualified_identify_result_names_its_check_recording_and_passes_the_study_ch
     assert!(!qualified.provisional);
     assert_eq!(qualified.estimation_recording_id, ESTIMATION);
     assert_eq!(qualified.check(), Ok(()));
+}
+
+#[test]
+fn a_qualified_identify_result_keeps_the_check_error_as_its_validation_error() {
+    // B5.2, B4.2: Tune reads a qualified model's validation error, so a passing check records its error over the whole response
+    // there; without it every later Tune and every reopened candidate of the qualified model is refused (14 October 2026).
+    let provisional = identified(None);
+    let qualified = qualified_section(
+        &provisional,
+        VALIDATION,
+        FINGERPRINT.to_string(),
+        Some(0.04),
+    );
+    assert_eq!(
+        qualified
+            .presentation
+            .presentation
+            .validation
+            .normalized_error,
+        Some(0.04),
+        "the check's error is the qualified model's validation error"
+    );
+    assert_eq!(
+        qualified.presentation.presentation.estimation,
+        provisional.presentation.presentation.estimation,
+        "the estimation evidence stays as the fit recorded it"
+    );
 }
 
 #[test]

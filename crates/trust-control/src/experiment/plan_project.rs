@@ -73,22 +73,10 @@ pub(super) fn project_sequence_plan(
         .abort
         .as_ref()
         .and_then(|abort| abort.asserted_value.map(|asserted| (abort, asserted)));
-    let mut stop_conditions = vec![
-        "Abort".to_string(),
-        format!("{} s timeout", js_number(duration_ms / 1000.0)),
-        "Loop mode changed".to_string(),
-        "Bad runtime data".to_string(),
-        "Signal force".to_string(),
-        "Signal outside its limits".to_string(),
-        "Runtime fault".to_string(),
-    ];
-    if let Some((abort, asserted)) = abort {
-        stop_conditions.push(format!(
-            "Abort or failure asserts {} = {}; normal completion does not.",
-            abort.symbol,
-            js_bool(asserted)
-        ));
-    }
+    let stop_conditions = project_stop_conditions(
+        duration_ms / 1000.0,
+        abort.map(|(abort, asserted)| (abort.symbol.as_str(), asserted)),
+    );
     let trajectory = if baseline_ms > 0.0 {
         vec![point(0.0, 0.0), point(baseline_ms, 1.0)]
     } else {
@@ -128,4 +116,28 @@ pub(super) fn project_sequence_plan(
         seed: None,
         frequencies_hz: None,
     })
+}
+
+/// The stop conditions of a project-owned experiment (E5.5, C12). The plan and the Identify review name the same list.
+/// `abort` is the abort symbol and the value its assertion writes, when the loop declares an abort.
+pub(crate) fn project_stop_conditions(
+    duration_seconds: f64,
+    abort: Option<(&str, bool)>,
+) -> Vec<String> {
+    let mut stop_conditions = vec![
+        "Abort".to_string(),
+        format!("{} s timeout", js_number(duration_seconds)),
+        "Loop mode changed".to_string(),
+        "Bad runtime data".to_string(),
+        "Signal force".to_string(),
+        "Signal outside its limits".to_string(),
+        "Runtime fault".to_string(),
+    ];
+    if let Some((symbol, asserted)) = abort {
+        stop_conditions.push(format!(
+            "Abort or failure asserts {symbol} = {}; normal completion does not.",
+            js_bool(asserted)
+        ));
+    }
+    stop_conditions
 }

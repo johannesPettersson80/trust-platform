@@ -67,16 +67,27 @@ suite("HMI Builder: My Symbols", function () {
       "the symbol is a component",
     );
     assert.strictEqual(first.symbols?.[0]?.name, "agitator");
-    fs.writeFileSync(path.join(root, "hmi", "symbols", "stirrer.svg"), DRAWING);
-    fs.writeFileSync(path.join(root, "hmi", "symbols", "stirrer.toml"), DEFINITION.replace("Agitator", "Stirrer"));
-    await until(
-      "the catalogue with the new symbol",
-      () =>
-        postedOfType(webview, "catalogue").find((message) =>
-          message.symbols?.some((symbol) => symbol.name === "stirrer"),
-        ),
-      30000,
-    );
+    // VS Code starts a watcher of a folder outside the workspace in the background and gives no signal when it is ready, so a
+    // file written at once can come before it. The symbol is written again every few seconds until the catalogue follows: each
+    // write is a change the editor must answer with the catalogue.
+    const writeSymbol = (): void => {
+      fs.writeFileSync(path.join(root, "hmi", "symbols", "stirrer.svg"), DRAWING);
+      fs.writeFileSync(path.join(root, "hmi", "symbols", "stirrer.toml"), DEFINITION.replace("Agitator", "Stirrer"));
+    };
+    writeSymbol();
+    const rewrite = setInterval(writeSymbol, 3000);
+    try {
+      await until(
+        "the catalogue with the new symbol",
+        () =>
+          postedOfType(webview, "catalogue").find((message) =>
+            message.symbols?.some((symbol) => symbol.name === "stirrer"),
+          ),
+        30000,
+      );
+    } finally {
+      clearInterval(rewrite);
+    }
     panel.dispose();
   });
 

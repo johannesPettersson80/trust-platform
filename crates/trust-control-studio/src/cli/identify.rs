@@ -60,8 +60,11 @@ fn request(args: &IdentifyArgs, environment: Environment<'_>) -> Result<Identify
         Requested::Live(method) => {
             let connection = connection_of(args, &places, environment)?;
             let loop_definition = loops::open(&places.project, SELECTED_RUNTIME, &args.loop_id)?;
+            // The command line names no review and no approval: a physical target is refused here, as in the panel (A2.5).
             let action = IdentifyAction::Identify {
                 settings: declared_settings(&loop_definition, method),
+                review: None,
+                physical_approved: false,
             };
             (action, Some(connection))
         }

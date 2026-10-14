@@ -19,6 +19,8 @@ use crate::loop_definition::LoopDefinition;
 use crate::messages::{TuneChoice, TuneMethod, TuneRequest};
 use crate::model::{GeneralModel, ModelChannel};
 use crate::study::identify::IdentifySection;
+use crate::study::inputs::InputsSection;
+use crate::study::tune::model::tuning_model;
 use crate::study::tune::TuneSection;
 use crate::tuning::automatic_criteria::{fill_requirements, FillEvidence, SuppliedRequirements};
 use crate::tuning::candidate_margins::{loop_value, magnitude, plant_transfer};
@@ -73,24 +75,73 @@ pub(crate) fn requirements_for(
     held: Option<&TuningRequirements>,
     request: &TuneRequest,
 ) -> Result<TuningRequirements, Refusal> {
+    requirements_with(
+        loop_definition,
+        model,
+        general,
+        previous,
+        held,
+        request.method,
+        request.choice,
+    )
+}
+
+/// [`requirements_for`] with the method and the declared response of the request, which are the only parts of a request the
+/// record reads. The Identify answer calls it with the method and the response the study's inputs name
+/// ([`study_requirements`]), so both answers fill one record by one rule.
+pub(crate) fn requirements_with(
+    loop_definition: &LoopDefinition,
+    model: &IdentifiedModel,
+    general: &GeneralModel,
+    previous: Option<&TuneSection>,
+    held: Option<&TuningRequirements>,
+    method: Option<TuneMethod>,
+    choice: Option<TuneChoice>,
+) -> Result<TuningRequirements, Refusal> {
     let evidence = fill_evidence(loop_definition, model, general)?;
     let recorded = held.or_else(|| previous.map(|section| &section.requirements));
     let supplied = supplied_requirements(
         recorded,
-        request.method.and_then(TuneMethod::formula),
-        request.choice.map(TuneChoice::objective),
+        method.and_then(TuneMethod::formula),
+        choice.map(TuneChoice::objective),
     );
     // A response the request declares is the engineer's value, so it is no longer the one Tune generated before (B4.3).
     let criteria = recorded
         .and_then(|requirements| requirements.automatic_criteria.as_ref())
         .map(|criteria| {
             let mut criteria = criteria.clone();
-            if request.choice.is_some() {
+            if choice.is_some() {
                 criteria.fields.retain(|field| field != "tuningObjective");
             }
             criteria
         });
     fill_requirements(&evidence, supplied, criteria.as_ref())
+}
+
+/// The requirements the study's model needs now, as Tune designs to them (B4.3; the Identify answer names them): the values the
+/// study records as given, the method and the declared response its inputs name (the request that the automatic run's Tune is
+/// given from the same inputs), and Automatic's values for the rest, listed in `automaticCriteria`. `None` when Automatic cannot
+/// form the record or the record breaks its rules: Tune then names the missing prerequisite when it runs (B4.7).
+#[must_use]
+pub(crate) fn study_requirements(
+    loop_definition: &LoopDefinition,
+    identify: &IdentifySection,
+    previous: Option<&TuneSection>,
+    inputs: Option<&InputsSection>,
+) -> Option<TuningRequirements> {
+    let model = tuning_model(&identify.selected_model, identify).ok()?;
+    let requirements = requirements_with(
+        loop_definition,
+        &model,
+        &identify.selected_model,
+        previous,
+        inputs.and_then(|inputs| inputs.requirements.as_ref()),
+        inputs.and_then(|inputs| inputs.method),
+        inputs.and_then(InputsSection::declared_response),
+    )
+    .ok()?;
+    requirements.validate().ok()?;
+    Some(requirements)
 }
 
 /// The values Tune keeps (B4.3; Tune page, "Control requirements"): every value of the previous record, the request's

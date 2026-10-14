@@ -17,6 +17,8 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
   const area = root.querySelector<HTMLElement>("[data-studio-tuning-result]")!;
   const family = String(payload.family ?? loop.controller.type);
   const title = document.createElement("p"); title.textContent = `${familyLabel(family)} controller · ${loop.controller.type}`;
+  // The engine's description of the method is read on hover, so the page carries no permanent text for it (B9.1).
+  if (typeof payload.methodDescription === "string") title.title = payload.methodDescription;
   const list = document.createElement("dl"); list.className = "studio-setting-values";
   const law = loop.controller.law;
   const groupSymbols = groupSettingSymbols(loop);
@@ -41,12 +43,23 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
   area.replaceChildren(title, list);
   const margins = payload.robustness as CandidateRobustness | undefined;
   if (margins) {
-    const text = (value: Margin, unit: string) => value === "unbounded" ? "unbounded" : `${formatEngineeringNumber(value)}${unit}`;
+    // A margin the engine names in words (unbounded, or not observed in the range) is shown as those words (B9.5).
+    const text = (value: Margin, unit: string) => typeof value === "string" ? value : `${formatEngineeringNumber(value)}${unit}`;
     const line = document.createElement("p"); line.dataset.studioRobustness = "";
     line.textContent = `Gain margin ${text(margins.gainMarginDb, " dB")} · phase margin ${text(margins.phaseMarginDegrees, "°")}`
       + ` · delay margin ${text(margins.delayMarginSeconds, " s")} · peak sensitivity Ms ${formatEngineeringNumber(margins.peakSensitivity)}`;
     area.append(line);
   }
+  // The engine's outcome against the mandatory requirements, and the reasons that a prediction or the margins are missing (B4.5, B4.6).
+  const outcome = payload.outcome as CandidateOutcomeView | undefined;
+  if (outcome) {
+    const line = document.createElement("p"); line.dataset.studioOutcome = String(outcome.status); line.textContent = outcomeText(outcome);
+    area.append(line);
+  }
+  if (Array.isArray(payload.unavailable)) for (const note of payload.unavailable) {
+    const line = document.createElement("p"); line.dataset.studioTuneNote = ""; line.textContent = String(note); area.append(line);
+  }
+  if (Array.isArray(payload.comparison) && payload.comparison.length > 0) area.append(comparisonTable(payload.comparison));
   const design = payload.design as { horizon?: { steps: number; policy: string; gainSequence: number[][][]; riccatiSequence: number[][][] };
     decentralized?: { members: { inputId: string; outputId: string; pathGain: number; relativeGain: number; effectiveGain: number; timeConstantSeconds: number; delaySeconds: number }[] };
     feedforward?: FeedforwardDesign; decoupler?: { matrix: number[][]; inputIds: string[]; memberIds: string[] } } | undefined;
@@ -93,6 +106,29 @@ export function seededGainLabels(loop: ControlLoopDefinition): Map<string, strin
   return new Map([[seed.proportionalSymbol, PID_GAIN_LABELS.ProportionalGain],
     ...(seed.integralSymbol ? [[seed.integralSymbol, PID_GAIN_LABELS.IntegralGain]] : []),
     ...(seed.derivativeSymbol ? [[seed.derivativeSymbol, PID_GAIN_LABELS.DerivativeGain]] : [])] as [string, string][]);
+}
+
+/** How a candidate stands against the mandatory requirements on its prediction, in the page's words (B4.4, B4.5). */
+interface CandidateOutcomeView { status?: unknown; shortfall?: unknown; reason?: unknown }
+function outcomeText(outcome: CandidateOutcomeView): string {
+  return outcome.status === "meets" ? "Meets the requirements"
+    : outcome.status === "misses" ? `Misses: ${String(outcome.shortfall)}` : `No prediction: ${String(outcome.reason)}`;
+}
+
+/** The constrained comparison around the SIMC candidate (N5.10): each candidate's structure, gains and outcome, as the engine gives them. */
+function comparisonTable(entries: unknown[]): HTMLTableElement {
+  const table = document.createElement("table"); table.className = "trust-table"; table.dataset.studioComparison = "";
+  const header = table.createTHead().insertRow();
+  for (const name of ["Candidate", "Structure", "Kp", "Ki", "Kd", "Outcome"]) { const th = document.createElement("th"); th.textContent = name; header.append(th); }
+  const body = table.createTBody();
+  for (const item of entries) {
+    const entry = item as { label?: unknown; structure?: unknown; gains?: Record<string, number>; outcome?: CandidateOutcomeView };
+    const gains = entry.gains ?? {};
+    const row = body.insertRow(); row.dataset.studioComparisonStructure = String(entry.structure);
+    for (const text of [String(entry.label), String(entry.structure), formatEngineeringNumber(gains.proportionalGain ?? 0),
+      formatEngineeringNumber(gains.integralGain ?? 0), formatEngineeringNumber(gains.derivativeGain ?? 0), outcomeText(entry.outcome ?? {})]) row.insertCell().textContent = text;
+  }
+  return table;
 }
 
 /** Specification 35 §17.15: the decoupler D, one row per plant input and one column per member. */
@@ -183,6 +219,13 @@ function verdictCell(text: string): HTMLTableCellElement {
 export function renderValidationResults(root: HTMLElement, payload: Record<string, unknown>): void {
   if (["edited", "model-ready", "candidate"].includes(String(payload.status))) {
     root.querySelector<HTMLTableElement>("[data-studio-validation-result]")!.hidden = true; return;
+  }
+  // A reset drops the validation results that depended on the model (A8.4): the rows and the plant reason go with them.
+  if (payload.status === "reset") {
+    const table = root.querySelector<HTMLTableElement>("[data-studio-validation-result]")!;
+    table.tBodies[0].replaceChildren(); table.hidden = true;
+    root.querySelector<HTMLElement>("[data-studio-plant-reason]")?.remove();
+    return;
   }
   if (!["verified", "verification-failed", "restored", "failed", "cancelled"].includes(String(payload.status))) return;
   if (!payload.scenarioResults && !payload.candidate && !payload.requiredScenarios && !payload.modelValidation) return;

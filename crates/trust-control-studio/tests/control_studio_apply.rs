@@ -278,6 +278,7 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
             program.report(status)
         ),
     );
+    let tuned_candidate = program.answer()["result"]["candidate"].clone();
     let (program, status) = lab.run("validate", "validate", &["--json"], true, LIMIT);
     findings.require(
         program.answer()["result"]["applyAvailable"] == true,
@@ -438,6 +439,23 @@ fn apply_restore_and_keep_run_through_the_command_line_on_lesson_30() {
             CheckpointStage::Completed,
         ),
         "the journal holds the completed checkpoint of the Apply (A8.5)",
+    );
+
+    // Reopening after the Apply holds the study's candidate with its settings (A8.6): the Tune page shows it, and the manual method
+    // starts from those settings.
+    let (program, status) = lab.run("open-after-apply", "open", &["--json"], false, LIMIT);
+    let opened = program.answer();
+    findings.check(
+        status.code() == Some(0)
+            && opened["result"]["stageEvidence"]["hasCandidate"] == true
+            && opened["result"]["tune"]["candidate"] == tuned_candidate
+            && opened["result"]["tune"]["settings"]
+                .as_object()
+                .is_some_and(|settings| !settings.is_empty()),
+        format!(
+            "open after the Apply holds the study's candidate and its settings (A8.6):\n{}",
+            program.report(status)
+        ),
     );
 
     // With the checkpoint completed, Identify, Tune and Validate are not held back (B7).

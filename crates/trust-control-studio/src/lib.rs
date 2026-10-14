@@ -9,6 +9,7 @@ pub mod cli;
 pub mod commands;
 pub mod identify_action;
 pub mod identify_adapters;
+pub mod identify_import;
 pub mod inputs_action;
 pub mod interrupt;
 pub mod journal;

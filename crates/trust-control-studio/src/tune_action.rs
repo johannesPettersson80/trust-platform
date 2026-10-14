@@ -4,9 +4,11 @@
 //! Tune section (A8.1). It answers at once with its operation's identifier. The operation's final update carries trust-control's
 //! `TuneResult`: the candidate, its predicted response, its margins and the stages.
 //!
-//! Tune never reaches the runtime and never writes to the controller (B4.1), so its request carries no runtime connection. It
-//! also keeps no journal: the study is all it writes, and it owns no runtime operation that a restart would have to reattach
-//! (A8.5). The request's `storageFolder`, the folder of the operation journals, is therefore not read here.
+//! Tune never writes to the controller (B4.1). When the request names a runtime connection, Tune reads the running controller's
+//! settings once, before the design, for the comparison of the predicted responses (B4.5); a read that fails leaves the comparison
+//! out, and Tune does not fail for it. Tune keeps no journal: the study is all it writes, and it owns no runtime operation that a
+//! restart would have to reattach (A8.5). The request's `storageFolder`, the folder of the operation journals, is therefore not
+//! read here.
 //!
 //! What can be refused without the design is refused before anything starts: the loop must open, no operation of this engine
 //! may work on it, and the study must hold a current model that the request's method can tune (B4.7, A8.4). Those last checks
@@ -22,12 +24,14 @@
 //! [`run_stage`] is the same Tune for a run (`controlStudio/run`, B8): it makes the same checks and the same design inside the
 //! run's own operation, and claims nothing, because the run holds the loop.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 use trust_control::failure::Failure;
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{TuneMethod, TuneRequest};
+use trust_control::messages::{TuneChoice, TuneMethod, TuneRequest};
+use trust_control::runtime::RuntimeConnection;
 use trust_control::study::identify::IdentifySection;
 use trust_control::study::inputs::InputsSection;
 use trust_control::study::tune::{
@@ -40,6 +44,7 @@ use trust_control::tuning::texts;
 use crate::busy_loops::LoopClaims;
 use crate::commands::to_value;
 use crate::operation::{cancelled, OperationContext, Operations};
+use crate::runtime_client::RuntimeClient;
 use crate::{loops, storage};
 
 /// The command of the operation that `tune` starts (§0.1a).
@@ -142,17 +147,26 @@ fn study_work(
     let study = storage::open_study(project_root, &loop_definition.id, &loop_definition.revision)?;
     let identify = study.section::<IdentifySection>()?;
     let relay = relay_evidence(project_root, loop_definition, identify.as_ref(), &request)?;
+    let inputs = study.section::<InputsSection>()?;
+    let declared = inputs.as_ref().and_then(InputsSection::declared_response);
     Ok(TuneWork {
         previous: study.section::<TuneSection>()?,
-        held: study
-            .section::<InputsSection>()?
-            .and_then(|inputs| inputs.requirements),
+        held: inputs.and_then(|inputs| inputs.requirements),
         identify,
         relay,
         project_root: project_root.to_path_buf(),
         loop_definition: loop_definition.clone(),
-        request,
+        request: with_declared_response(request, declared),
     })
+}
+
+/// The request with the response the study declares when the request names none (B4.3): Tune reads the response from the study's
+/// requirements, as the automatic run does, so the page sends none of its own. A response the request names is kept.
+fn with_declared_response(request: TuneRequest, declared: Option<TuneChoice>) -> TuneRequest {
+    TuneRequest {
+        choice: request.choice.or(declared),
+        ..request
+    }
 }
 
 /// The relay cycle of the study's estimation recording (N5.R), read only when the request asks for the relay rule: the file is
@@ -181,11 +195,24 @@ fn relay_evidence(
     Ok(relay_evidence_for(identify, loop_definition, &recording))
 }
 
+/// The settings the running controller holds now (B4.5, B5.3): the values of the loop's bound parameters, read through the runtime
+/// connection as Validate reads them. `None` without a connection, and when the read fails: the comparison is then left out, and
+/// Tune does not fail for it.
+pub(crate) fn running_settings(
+    connection: Option<&RuntimeConnection>,
+    loop_definition: &LoopDefinition,
+) -> Option<BTreeMap<String, f64>> {
+    let mut client = RuntimeClient::connect(connection?).ok()?;
+    client.parameter_values(loop_definition).ok()
+}
+
 /// The design (B4.4 to B4.6) on the study's model, kept unapplied in the study's Tune section (A8.1, N8.9); its result is the
-/// operation's. A cancelled operation keeps nothing.
+/// operation's. The running controller's settings are read first, through the request's connection (B4.5). A cancelled operation
+/// keeps nothing.
 fn run_tune(context: &OperationContext, work: &TuneWork) -> Result<Value, Failure> {
     context.progress(texts::DESIGNING);
-    let outcome = tune_held(&work.inputs(), work.held.as_ref())?;
+    let running = running_settings(work.request.connection.as_ref(), &work.loop_definition);
+    let outcome = tune_held(&work.inputs(), work.held.as_ref(), running.as_ref())?;
     if context.is_cancelled() {
         return Err(cancelled());
     }

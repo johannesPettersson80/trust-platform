@@ -399,6 +399,15 @@ export function run(): Promise<void> {
   require("./control-studio-sidebar.test");
   require("./hmi-sidebar.test");
   require("./control-studio-plant-monitor.test");
+  require("./control-studio-engine-process.test");
+  require("./control-studio-engine-route.test");
+  require("./control-studio-engine-validate.test");
+  require("./control-studio-engine-inputs.test");
+  require("./control-studio-engine-application.test");
+  require("./control-studio-engine-run.test");
+  require("./control-studio-engine-setup.test");
+  require("./control-studio-engine-experiment.test");
+  require("./control-studio-engine-parked.test");
   require("./network-canvas-fleet-identity.test");
   require("./ads-status-summary.test");
   require("./connector-status-contract.test");

@@ -8,9 +8,11 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 use trust_control::failure::NextAction;
 use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{InputsRequest, OperationUpdate, TuneChoice, TuneMethod};
+use trust_control::messages::{InputsRequest, OperationUpdate, TuneMethod};
 use trust_control::study::inputs::InputsSection;
+use trust_control::tuning::objective::TuningMethod;
 use trust_control::tuning::requirements::TuningRequirements;
+use trust_control::validation::scenario_contract::EngineerScenario;
 
 use super::answer;
 use crate::busy_loops::LoopClaims;
@@ -104,7 +106,6 @@ fn recorded_inputs_are_answered_by_open_and_the_stages_are_answered_at_once() {
     let project = Project::new("inputs-open");
     let inputs = InputsSection {
         method: Some(TuneMethod::Simc),
-        choice: Some(TuneChoice::Faster),
         ..InputsSection::default()
     };
     let answered =
@@ -122,11 +123,6 @@ fn recorded_inputs_are_answered_by_open_and_the_stages_are_answered_at_once() {
     assert_eq!(
         opened["result"]["inputs"]["method"],
         json!("SIMC"),
-        "{opened}"
-    );
-    assert_eq!(
-        opened["result"]["inputs"]["choice"],
-        json!("faster"),
         "{opened}"
     );
     assert_eq!(opened["result"]["page"], json!("Identify"), "{opened}");
@@ -210,7 +206,6 @@ fn the_request_decodes_as_the_page_writes_it_and_refuses_an_unknown_field() {
         "loopId": "control-pid-commissioning",
         "inputs": {
             "method": "SIMC",
-            "choice": "balanced",
             "acquisition": {
                 "method": "automatic",
                 "durationSeconds": 30.0,
@@ -222,12 +217,145 @@ fn the_request_decodes_as_the_page_writes_it_and_refuses_an_unknown_field() {
     let decoded: InputsRequest =
         trust_control::json::decode_value(request.clone()).expect("the page's request");
     assert_eq!(decoded.inputs.method, Some(TuneMethod::Simc));
-    assert_eq!(decoded.inputs.choice, Some(TuneChoice::Balanced));
     assert!(decoded.inputs.acquisition.is_some());
     let mut unknown = request;
     unknown["bogus"] = json!(1);
     assert!(
         trust_control::json::decode_value::<InputsRequest>(unknown).is_err(),
         "a field the request does not know is refused (deny_unknown_fields)"
+    );
+}
+
+#[test]
+fn the_declared_scenarios_are_answered_by_open_as_declared() {
+    let project = Project::new("inputs-scenarios");
+    let declared = InputsSection {
+        scenarios: Some(Vec::new()),
+        ..InputsSection::default()
+    };
+    answer(&LoopClaims::default(), project.inputs_request(declared)).expect("recorded");
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let opened = studio
+        .execute(OPEN, &[project.open_request()])
+        .expect("answered");
+    assert_eq!(
+        opened["result"]["inputs"]["scenarios"],
+        json!([]),
+        "a declared list, even an empty one, comes back as declared: {opened}"
+    );
+}
+
+#[test]
+fn an_invalid_scenario_is_refused_with_its_next_action_and_nothing_is_recorded() {
+    let project = Project::new("inputs-bad-scenario");
+    let unnamed: EngineerScenario = serde_json::from_value(json!({
+        "id": "",
+        "initialValues": {},
+        "events": [],
+        "requirements": [],
+    }))
+    .expect("the scenario decodes; its empty identity is refused");
+    let refused = answer(
+        &LoopClaims::default(),
+        project.inputs_request(InputsSection {
+            scenarios: Some(vec![unnamed]),
+            ..InputsSection::default()
+        }),
+    )
+    .expect_err("a scenario without an identity");
+    assert_eq!(refused.next_action, NextAction::OpenRequirements);
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let opened = studio
+        .execute(OPEN, &[project.open_request()])
+        .expect("answered");
+    assert!(
+        opened["result"]["inputs"].get("scenarios").is_none(),
+        "the refused list is not recorded: {opened}"
+    );
+}
+
+#[test]
+fn a_requirement_keeps_no_tuning_method_of_its_own_and_the_method_is_the_inputs_one() {
+    let project = Project::new("inputs-one-method");
+    let mut with_method = requirements(2.0);
+    with_method.tuning_method = Some(TuningMethod::Simc);
+    answer(
+        &LoopClaims::default(),
+        project.inputs_request(InputsSection {
+            method: Some(TuneMethod::Simc),
+            requirements: Some(with_method),
+            ..InputsSection::default()
+        }),
+    )
+    .expect("recorded");
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let opened = studio
+        .execute(OPEN, &[project.open_request()])
+        .expect("answered");
+    assert_eq!(
+        opened["result"]["inputs"]["method"],
+        json!("SIMC"),
+        "{opened}"
+    );
+    assert!(
+        opened["result"]["inputs"]["requirements"]["tuningMethod"].is_null(),
+        "the requirement's copy of the method is not recorded (A8.1): {opened}"
+    );
+    assert_eq!(
+        opened["result"]["inputs"]["requirements"]["referenceChange"],
+        json!(2.0),
+        "{opened}"
+    );
+}
+
+/// One declared scenario that the campaign accepts, named `id`.
+fn declared_scenario(id: &str) -> EngineerScenario {
+    serde_json::from_value(json!({
+        "id": id,
+        "initialValues": { "Main.PV": 2 },
+        "events": [{ "atMs": 100, "symbol": "Main.SP", "value": 3 }],
+        "requirements": [{ "id": "r", "kind": "bounds", "channel": "Main.PV",
+            "window": { "start": 0, "end": 1 }, "minimum": 0, "maximum": 5 }]
+    }))
+    .expect("a scenario in the stored form")
+}
+
+#[test]
+fn a_change_of_the_declared_scenarios_is_reported_as_invalidating_the_validations() {
+    let project = Project::new("inputs-scenario-change");
+    let claims = LoopClaims::default();
+    let with_scenarios = |scenarios: Vec<EngineerScenario>| InputsSection {
+        scenarios: Some(scenarios),
+        ..InputsSection::default()
+    };
+    let first = answer(
+        &claims,
+        project.inputs_request(with_scenarios(vec![declared_scenario("load-step")])),
+    )
+    .expect("recorded");
+    assert_eq!(
+        first["invalidated"]["validation"],
+        json!(true),
+        "scenarios declared where none were held are a change (A8.4)"
+    );
+    let same = answer(
+        &claims,
+        project.inputs_request(with_scenarios(vec![declared_scenario("load-step")])),
+    )
+    .expect("recorded");
+    assert_eq!(
+        same["invalidated"]["validation"],
+        json!(false),
+        "the same scenario list invalidates nothing"
+    );
+    let other = answer(
+        &claims,
+        project.inputs_request(with_scenarios(vec![declared_scenario("noise")])),
+    )
+    .expect("recorded");
+    assert_eq!(
+        other["invalidated"]["validation"],
+        json!(true),
+        "another scenario list is a change (A8.4)"
     );
 }

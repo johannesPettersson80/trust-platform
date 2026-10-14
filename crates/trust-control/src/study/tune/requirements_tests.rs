@@ -41,6 +41,7 @@ fn request(method: Option<TuneMethod>, choice: Option<TuneChoice>) -> TuneReques
         structure: None,
         pins: None,
         settings: None,
+        connection: None,
     }
 }
 
@@ -425,5 +426,70 @@ fn the_requirements_the_study_holds_are_taken_as_given_over_an_earlier_generated
     assert_eq!(
         given.automatic_criteria, None,
         "no value of the record is generated"
+    );
+}
+
+// Specification 35, B4.3 and B9.9: the Identify answer names the record Tune designs to, and it is the same record.
+#[test]
+fn the_study_requirements_are_the_record_tune_designs_to_for_the_same_model() {
+    let loop_definition = commissioning_loop();
+    let (_, identify, _) = fopdt();
+    let now = study_requirements(&loop_definition, &identify, None, None)
+        .expect("Automatic forms the record");
+    assert_eq!(
+        now,
+        first_requirements(&loop_definition, None, None).expect("Automatic's test")
+    );
+    let criteria = now
+        .automatic_criteria
+        .expect("the generated values are marked");
+    assert_eq!(criteria.model_revision, "sha256:fopdt-model");
+    for key in REQUIREMENT_KEYS {
+        assert!(
+            criteria.fields.iter().any(|field| field == key),
+            "{key} is marked Automatic"
+        );
+    }
+}
+
+// Specification 35, B4.3: the study's recorded values are kept as given, and its method and declared response are the request's.
+#[test]
+fn the_study_requirements_keep_what_the_study_records_with_its_method_and_response() {
+    let (_, identify, _) = fopdt();
+    let inputs = InputsSection {
+        requirements: Some(declared_record()),
+        method: Some(TuneMethod::Simc),
+        ..InputsSection::default()
+    };
+    let now = study_requirements(&commissioning_loop(), &identify, None, Some(&inputs))
+        .expect("the record holds its rules");
+    assert_eq!(now.maximum_error, 0.3);
+    assert_eq!(now.settling_band, 0.1);
+    assert_eq!(now.settling_time_seconds, 30.0);
+    assert_eq!(now.constant_input_disturbance, Some(-2.0));
+    assert_eq!(now.maximum_overshoot_percent, Some(10.0));
+    assert_eq!(now.tuning_method, Some(TuningMethod::Simc));
+    assert_eq!(now.tuning_objective, Some(TuningObjective::Fast));
+    // The generated test change follows the model; the record marked it, and the declared response is not marked.
+    assert!(close(now.reference_change, 5.0));
+    assert_eq!(
+        now.automatic_criteria,
+        Some(AutomaticCriteria {
+            model_revision: "sha256:fopdt-model".to_owned(),
+            fields: vec!["referenceChange".to_owned(), "durationSeconds".to_owned()],
+        })
+    );
+}
+
+// Specification 35, B4.7: where Automatic cannot form the test, the answer names no requirements and Tune names the prerequisite.
+#[test]
+fn the_study_requirements_are_none_where_automatic_cannot_form_the_test() {
+    // The operating input is 50 %, below the 60 % output minimum the loop declares, so no test change is possible.
+    let mut loop_definition = commissioning_loop();
+    loop_definition.limits.output_minimum = Some(60.0);
+    let (_, identify, _) = fopdt();
+    assert_eq!(
+        study_requirements(&loop_definition, &identify, None, None),
+        None
     );
 }

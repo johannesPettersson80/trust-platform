@@ -15,7 +15,6 @@ export class ThreePageOperation {
   private resetting = false;
   private hasModel = false;
   private hasCandidate = false;
-  private passed = false;
   private page: StudioPage = "model";
   private resetConfirm?: HTMLElement;
   private readonly pendingActions = new Map<StudioPage, StudioNextAction>();
@@ -25,7 +24,9 @@ export class ThreePageOperation {
     /** Gates owned by other modules, such as an incomplete plant mapping or a simulator start in progress. */
     private readonly external: () => string | undefined = () => undefined,
     /** Performs a failure's typed next action on its own page; it never starts work by itself. */
-    private readonly nextAction: (kind: string, page: StudioPage) => void = () => undefined) {
+    private readonly nextAction: (kind: string, page: StudioPage) => void = () => undefined,
+    /** Re-renders the Apply button after this module's state changed: the application owns that button (threePageApplication.ts). */
+    private readonly changed: () => void = () => undefined) {
     for (const page of PAGE_IDS) {
       this.root.querySelector<HTMLElement>(`[data-studio-message="${page}"]`)?.addEventListener("click", event => {
         const target = event.target as HTMLElement | null;
@@ -81,7 +82,7 @@ export class ThreePageOperation {
   navigated(): void { if (this.busy) this.follows = false; }
   start(from: StudioStart, payload: Record<string, unknown>): void {
     if (this.busy) { this.post("control-studio.flow.cancel"); this.notice(this.page, "Aborting…"); return; }
-    this.busy = true; this.follows = true; this.page = pages[from]; this.passed = false;
+    this.busy = true; this.follows = true; this.page = pages[from];
     this.select(this.page, true);
     this.render();
     this.notice(this.page, this.progress());
@@ -89,7 +90,9 @@ export class ThreePageOperation {
   }
   receive(stage: string, payload: Record<string, unknown>): void {
     const status = String(payload.status);
-    if (status === "failed") this.resetting = false;
+    // A failed or reset study ends the page's Reset. The engine answers a reset in place (the page is not reloaded), so its answer ends it here.
+    if (status === "failed" || status === "reset") this.resetting = false;
+    if (status === "reset") this.notice("model", "");
     if (payload.flowStage === "Identify") this.page = "model";
     if (payload.flowStage === "Tune") this.page = "tune";
     if (payload.flowStage === "Validate") this.page = "verify";
@@ -97,11 +100,9 @@ export class ThreePageOperation {
       const evidence = payload.stageEvidence as Record<string, unknown>;
       this.hasModel = evidence.hasModel === true;
       this.hasCandidate = evidence.hasCandidate === true;
-      this.passed = evidence.validationPassed === true;
     }
     if (!payload.stageEvidence && (payload.model || status === "model-ready")) this.hasModel = payload.compatibleControllerRequired !== true;
     if (status === "candidate") this.hasCandidate = true;
-    if (status === "verified") this.passed = true;
     if (["model-ready", "candidate", "verified"].includes(status)) this.notice(this.page, "");
     // An unavailable Tune shows why beside it; an available one needs no explanation.
     if (status === "model-ready" || status === "unavailable") {
@@ -109,7 +110,8 @@ export class ThreePageOperation {
       else this.show("tune", payload);
     }
     if (status === "candidate" || status === "verified") this.notice("verify", "");
-    if (status === "running" && payload.flowStage) {
+    // The engine's automatic flow sends its progress without a flow stage (`run`): it shows on the page the flow started on.
+    if (status === "running" && (payload.flowStage || stage === "flow")) {
       this.busy = true;
       if (this.follows) this.select(this.page, true);
       // The host's own progress sentence, such as the settling time left, replaces the generic one when it sends one.
@@ -124,7 +126,7 @@ export class ThreePageOperation {
       this.busy = false;
       this.show(this.page, payload, "The operation could not finish.");
     }
-    if (status === "edited") { this.hasCandidate = false; this.passed = false; if (this.hasModel) this.notice("verify", "Tune again to validate the changed settings."); }
+    if (status === "edited") { this.hasCandidate = false; if (this.hasModel) this.notice("verify", "Tune again to validate the changed settings."); }
     if (status === "restored" && this.hasModel) this.notice("verify", "Tune again to validate new settings.");
     this.render();
     if (stage === "flow" && status === "paused" && typeof payload.missing === "string") this.missing(payload.missing);
@@ -182,9 +184,9 @@ export class ThreePageOperation {
     }
     // The idle lock never re-enables an import that the bindings gate or another gate has closed.
     for (const control of runLockedControls(this.root)) control.disabled = this.busy || this.resetting || (blocked && control.matches("[data-identify-import]"));
-    this.root.querySelector<HTMLButtonElement>("[data-engineer-apply]")!.disabled = this.busy || this.resetting || !this.passed || blocked;
     if (this.resetConfirm && (this.busy || this.resetting)) this.resetConfirm.hidden = true;
     this.root.dataset.busy = String(this.busy || this.resetting);
+    this.changed();
   }
 }
 

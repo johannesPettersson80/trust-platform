@@ -184,6 +184,7 @@ fn without_a_fixed_structure_the_entered_gains_give_it_and_the_method_must_be_ma
         structure: None,
         pins: None,
         settings: Some(settings),
+        connection: None,
     };
     let proportional_only = candidate_of(
         &loop_definition,

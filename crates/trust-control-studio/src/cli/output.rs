@@ -508,6 +508,7 @@ mod tests {
             operation_id: "operation-3".to_string(),
             command: "identify".to_string(),
             state,
+            stage: None,
             progress: None,
             result: None,
             failure: None,

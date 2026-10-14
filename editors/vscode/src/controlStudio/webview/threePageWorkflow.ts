@@ -106,12 +106,13 @@ if (root) {
   const operation = new ThreePageOperation(root, post, select, field => {
     if (field === "requirements") editRequirements(() => start("tune"));
     if (field === "limits") { waitingForLimits = true; root.querySelector<HTMLButtonElement>("[data-studio-limits]")!.click(); }
-  }, () => bindingsBlock ?? (startingExperiment ? "Starting simulator…" : undefined), runNextAction);
+  }, () => bindingsBlock ?? (startingExperiment ? "Starting simulator…" : undefined), runNextAction, () => application.synchronize());
   const resetButton = root.querySelector<HTMLButtonElement>("[data-studio-reset-chart]");
   if (resetButton) operation.bindReset(resetButton, () => Boolean(experiments?.busy || startingExperiment || application.active || recovery?.active));
   const tuning = loop ? new ThreePageTuning(root, loop, post, () => controller?.selectedFamily ?? "automatic", () => controller?.choice ?? "automatic") : undefined;
   const application = new ThreePageApplication(root, post, () => operation.busy, message => operation.notice("verify", message),
-    failure => operation.failure("verify", failure));
+    failure => operation.failure("verify", failure),
+    () => operation.stageBlock() !== undefined || experiments?.busy === true || recovery?.active === true);
   recovery = new ThreePageRecovery(root, post, () => operation.busy || application.active);
   const suppliedModel = new ThreePageSuppliedModel(root, post, () => operation.busy || application.active || recovery?.active === true,
     message => operation.notice("model", message));
@@ -177,10 +178,12 @@ if (root) {
     experiments?.setSelectedMethod(acquisitionMethod.value === "project");
     identification.setSelectedMethod(acquisitionMethod.value === "recorded-fit");
     if (experiments?.busy || startingExperiment) {
-      for (const control of [...runLockedControls(root), ...Array.from(root.querySelectorAll<HTMLButtonElement>("[data-engineer-tune],[data-engineer-verify],[data-engineer-apply]"))]) control.disabled = true;
+      for (const control of [...runLockedControls(root), ...Array.from(root.querySelectorAll<HTMLButtonElement>("[data-engineer-tune],[data-engineer-verify]"))]) control.disabled = true;
     }
     if (startingExperiment) root.querySelector<HTMLButtonElement>("[data-engineer-find]")!.disabled = true;
     recovery?.synchronize();
+    // The Apply button's gates changed with the experiment, the start or the recovery: the application writes it (threePageApplication.ts).
+    application.synchronize();
   };
   tuningMethod.addEventListener("change", () => { operation.synchronize(); synchronizeTools(); });
   synchronizeTools();
@@ -246,6 +249,16 @@ if (root) {
     });
   }
   select("model", false);
+  /** The acquisition settings the study holds (B3.2), as the page shows them: the Limits, the method and the setpoint signal. */
+  const restoreAcquisition = (saved: AcquisitionSettings): void => {
+    if (!loop) return;
+    limits = { ...initialExperimentLimits(loop), durationSeconds: saved.durationSeconds,
+      ...(saved.inputRanges ? { inputRanges: saved.inputRanges } : {}), ...(saved.outputRanges ? { outputRanges: saved.outputRanges } : {}),
+      ...(saved.inputRange ? { inputMinimum: saved.inputRange.minimum, inputMaximum: saved.inputRange.maximum } : {}),
+      ...(saved.outputRange ? { outputMinimum: saved.outputRange.minimum, outputMaximum: saved.outputRange.maximum } : {}) };
+    root.querySelector<HTMLSelectElement>("[data-engineer-acquisition-method]")!.value = saved.method === "configured" ? "automatic" : saved.method;
+    reference?.restore(saved.setpointSignalId);
+  };
   bindThreePageHostState(root, (stage, payload) => {
     // A manual-tuning preview is a prediction: it draws the plot and never counts as a finished Tune, so Validate stays locked.
     // Its refusal names the reason in the Tune area. The analysis presenter never sees these messages.
@@ -259,6 +272,8 @@ if (root) {
       synchronizeTools();
       return;
     }
+    // The engine opened a served loop: it has no method for the manual parameter tool (B6.1), so the parameter controls hide at once.
+    if (stage === "engineer" && payload.status === "opened") experiments?.receive("parameters", { status: "unavailable" });
     analysis.receive(stage, payload);
     if (stage !== "engineer" && stage !== "flow" && stage !== "bindings") {
       suppliedModel.receive(stage, payload);
@@ -281,15 +296,7 @@ if (root) {
     renderValidationResults(root, payload);
     if (payload.task && typeof payload.task === "object") task = payload.task as EngineerRequirements;
     if (Array.isArray(payload.scenarioDefinitions)) scenarioDefinitions = payload.scenarioDefinitions;
-    if (loop && payload.acquisitionSettings && typeof payload.acquisitionSettings === "object") {
-      const saved = payload.acquisitionSettings as AcquisitionSettings;
-      limits = { ...initialExperimentLimits(loop), durationSeconds: saved.durationSeconds,
-        ...(saved.inputRanges ? { inputRanges: saved.inputRanges } : {}), ...(saved.outputRanges ? { outputRanges: saved.outputRanges } : {}),
-        ...(saved.inputRange ? { inputMinimum: saved.inputRange.minimum, inputMaximum: saved.inputRange.maximum } : {}),
-        ...(saved.outputRange ? { outputMinimum: saved.outputRange.minimum, outputMaximum: saved.outputRange.maximum } : {}) };
-      root.querySelector<HTMLSelectElement>("[data-engineer-acquisition-method]")!.value = saved.method === "configured" ? "automatic" : saved.method;
-      reference?.restore(saved.setpointSignalId);
-    }
+    if (loop && payload.acquisitionSettings && typeof payload.acquisitionSettings === "object") restoreAcquisition(payload.acquisitionSettings as AcquisitionSettings);
     operation.receive(stage, payload);
     application.receive(payload);
     bindings?.synchronize();
@@ -342,6 +349,27 @@ if (root) {
     }
     synchronizeTools();
   }, () => operation.modelArrived());
+  /** The study's recorded inputs, which an opened loop answers (A8.6): they fill the editors as the engine recorded them (§0.1a `inputs`). */
+  const restoreRecordedInputs = (recorded: Record<string, unknown>): void => {
+    if (!loop) return;
+    if (isRecord(recorded.requirements)) task = recorded.requirements as unknown as Partial<EngineerRequirements>;
+    if (Array.isArray(recorded.scenarios)) scenarioDefinitions = recorded.scenarios as typeof scenarioDefinitions;
+    if (isRecord(recorded.acquisition)) restoreAcquisition(recorded.acquisition as unknown as AcquisitionSettings);
+    controller?.restoreChoice(typeof recorded.structure === "string" ? recorded.structure : undefined);
+    tuning?.restoreInputs({
+      method: (typeof recorded.method === "string" ? recorded.method : "automatic") as ControllerTuningPreferences["method"],
+      ...(isRecord(recorded.settings) ? { settings: recorded.settings as Record<string, number> } : {}),
+      ...(isRecord(recorded.pins) && isRecord(recorded.pins.values) ? { pins: recorded.pins.values as Record<string, number> } : {}),
+    });
+    operation.synchronize();
+    synchronizeTools();
+  };
+  window.addEventListener(ENGINE_INPUTS_EVENT, event => restoreRecordedInputs((event as CustomEvent<Record<string, unknown>>).detail));
+  // The requirements an engine answer holds (B4.3): the record becomes the page's requirements, which the editor opens with, and nothing else.
+  window.addEventListener(ENGINE_REQUIREMENTS_EVENT, event => {
+    const requirements = (event as CustomEvent<unknown>).detail;
+    if (isRecord(requirements)) task = requirements as unknown as Partial<EngineerRequirements>;
+  });
   root.dataset.ready = "true";
   post("control-studio.ready");
 }
@@ -365,6 +393,9 @@ import { bindRecordingOpen } from "./threePageRecording";
 import { ThreePageTuning } from "./threePageTuning";
 import { ThreePageBindings } from "./threePageBindings";
 import { runLockedControls } from "./runLock";
+import { ENGINE_INPUTS_EVENT } from "./engineInputs";
+import { ENGINE_REQUIREMENTS_EVENT } from "./engineRequirements";
+import type { ControllerTuningPreferences } from "../controllerTuningPreferences";
 
 import { initializeMultiSelect } from "../../webview/multiSelect";
 
