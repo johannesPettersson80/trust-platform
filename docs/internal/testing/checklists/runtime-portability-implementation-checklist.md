@@ -128,9 +128,22 @@ professional runtime"). The validated run-4 source is backed up externally
   other `tiny_http` exceptions. `scripts/supply_chain_gate.sh` passes with the fix on a
   builder scratch copy. Run 5's PERF-01 binaries linked `rustls` 0.23.45; the timed workloads
   never execute TLS code, so the timing evidence stands.
-- [ ] Guard attempt 3 on the fix commit, then push and a draft PR marked validation-only (CI
-  runs only on pull requests to `main`) for native Windows/macOS evidence. `main` needs the
-  same `rustls` fix separately.
+- [x] Guard attempt 3 on `ae1dacf50` stopped at the rule-file bootstrap: another session had
+  changed the primary checkout's `AGENTS.md` at 13:31 UTC; `ee1f7dfc4` carries the canonical
+  copy. Guard attempt 4 on `ee1f7dfc4` passed (13:58-14:21 UTC; workspace 9,278 passed, 0
+  failed, 28 ignored). Branch pushed; draft PR #137 (validation only, do not merge). `main`
+  needs the same `rustls` fix separately.
+- [x] PR #137 CI: format, Clippy, supply chain, architecture, MSRV, VS Code, conformance, fuzz
+  smoke, documentation and both portable-core targets pass. The Test job failed on every OS
+  on a test H had changed, and stopped there (`cargo test` fails fast: 72 of about 337 test
+  binaries ran on Linux and macOS, 62 on Windows):
+  - Linux and macOS: the traffic-light MQTT test now runs a cycle (HOST-09 removed raw image
+    access), which hands outputs to the MQTT worker; without a broker the default fault
+    policy fails the cycle. The builder's local broker hid this. The test now sets
+    `on_error = "warn"`, like the other broker-free MQTT tests; product behaviour unchanged.
+  - Windows: the host clock test stepped 1 ns before the epoch, which a 100 ns Windows clock
+    rounds to the epoch itself. It now steps 1 µs.
+- [ ] Guard attempt 5 on the test fixes, push, and the complete native Test results on PR #137.
 
 **Earlier on 14 October (Claude review and correction): validated except PERF-01 `call_binding`.**
 The owner asked for a review and fix of H. Root causes found:

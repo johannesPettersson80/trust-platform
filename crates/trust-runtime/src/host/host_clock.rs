@@ -42,8 +42,10 @@ mod tests {
             runtime_clock_value_at("TIME", Duration::from_millis(37), now),
             Ok(Value::Time(Duration::from_millis(37)))
         );
+        // One microsecond, not one nanosecond: Windows clocks have 100 ns
+        // resolution, so a 1 ns step before the epoch rounds to the epoch.
         assert_eq!(
-            current_dt(UNIX_EPOCH - std::time::Duration::from_nanos(1)),
+            current_dt(UNIX_EPOCH - std::time::Duration::from_micros(1)),
             Err(RuntimeError::Overflow)
         );
     }

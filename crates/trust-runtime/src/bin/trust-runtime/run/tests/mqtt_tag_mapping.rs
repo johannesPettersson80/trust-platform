@@ -39,6 +39,9 @@ END_CONFIGURATION
             params: toml::from_str(
                 r#"
 broker = "tcp://127.0.0.1:1883"
+# No broker runs in the test: a pending output handoff degrades the driver
+# instead of failing the cycle, so the scan still publishes its image.
+on_error = "warn"
 mappings = [
   { tag = "MainInstance.Green", topic = "traffic/north/green", direction = "write" },
   { tag = "MainInstance.Yellow", topic = "traffic/north/yellow", direction = "write" },
