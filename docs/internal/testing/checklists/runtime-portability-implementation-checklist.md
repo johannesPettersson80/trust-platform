@@ -143,7 +143,13 @@ professional runtime"). The validated run-4 source is backed up externally
     `on_error = "warn"`, like the other broker-free MQTT tests; product behaviour unchanged.
   - Windows: the host clock test stepped 1 ns before the epoch, which a 100 ns Windows clock
     rounds to the epoch itself. It now steps 1 µs.
-- [ ] Guard attempt 5 on the test fixes, push, and the complete native Test results on PR #137.
+- [x] Guard attempt 5 on `96211712f` passed (workspace 9,278 passed, 0 failed); pushed. PR #137
+  rerun: the Test job passes on Linux and macOS (the first complete native macOS run of H).
+  Windows stopped at two H `xtask` browser-command tests: `<nul set /p=...` exits with
+  ERRORLEVEL 1, and Rust's argument quoting is not what `cmd.exe` parses, so the
+  descendant-cleanup command never ran as written. Both tests now end with `exit 0` and the
+  cleanup test passes its command line verbatim (`raw_arg`).
+- [ ] Guard attempt 6 on the Windows test fixes, push, and the remaining Windows results.
 
 **Earlier on 14 October (Claude review and correction): validated except PERF-01 `call_binding`.**
 The owner asked for a review and fix of H. Root causes found:

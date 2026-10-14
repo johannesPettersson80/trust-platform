@@ -290,8 +290,9 @@ mod host {
         #[cfg(windows)]
         #[test]
         fn windows_browser_success_preserves_output_and_nonzero_is_failure() {
+            // `set /p` with no input sets ERRORLEVEL 1, so the command ends with `exit 0`.
             let output = execute(
-                Command::new("cmd.exe").args(["/C", "<nul set /p=rendered-dom"]),
+                Command::new("cmd.exe").args(["/C", "<nul set /p=rendered-dom & exit 0"]),
                 Duration::from_secs(1),
             )
             .unwrap();
@@ -306,6 +307,8 @@ mod host {
         #[cfg(windows)]
         #[test]
         fn windows_successful_leader_exit_cleans_its_live_descendant() {
+            use std::os::windows::process::CommandExt;
+
             let nonce = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -314,13 +317,15 @@ mod host {
                 "trust-browser-descendant-{}-{nonce}",
                 std::process::id()
             ));
+            // cmd.exe does not parse the quoting Rust applies to ordinary arguments, so the
+            // command line is passed verbatim; `exit 0` overrides `set /p`'s ERRORLEVEL 1.
             let command = format!(
-                "start \"\" /B cmd.exe /C \"ping -n 4 127.0.0.1 > nul & echo escaped > \"{}\"\" & <nul set /p=dom",
+                "start \"\" /B cmd.exe /C \"ping -n 4 127.0.0.1 > nul & echo escaped > \"{}\"\" & <nul set /p=dom & exit 0",
                 marker.display()
             );
             let start = Instant::now();
             let output = execute(
-                Command::new("cmd.exe").args(["/C", &command]),
+                Command::new("cmd.exe").arg("/C").raw_arg(&command),
                 Duration::from_secs(2),
             )
             .unwrap();
