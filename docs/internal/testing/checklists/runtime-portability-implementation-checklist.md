@@ -68,10 +68,38 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   RETAIN-01 checkpoint sequence and completion fields (C); the debugger write queue is unbounded
   without an explicit exhaustion failure (C); test seams for projection and capture failures;
   the F401 profile limits are not host-testable.
-- [ ] A01 validation batch on the committed source: release guard (format, Clippy, workspace
-  tests, supply chain, architecture, VS Code), the trimmed run-5 harness (`batch-a01.sh`: core
-  lanes, i686, firmware link and size, compositions, applications, real databases, VS Code
-  1.109.0 and stable, docs, PERF-01) and the F401 board replay; then push to PR #137.
+- [x] A01 batch 6 on `482503bfe` (builder, `H-cost-model-6`, the trimmed run-5 harness
+  `batch-a01.sh`): 50 of 54 steps pass, including core lanes, i686, firmware link and
+  inspection, compositions, applications, real databases, VS Code 1.109.0 and stable, rustdoc
+  and docs. Failures:
+  - `environment` and `canonical` are harness defects: `df` on a target directory cargo had not
+    created yet, and a checksum list recorded before the 14 October `AGENTS.md` update that also
+    listed `.pyc` caches. A direct comparison shows H's `AGENTS.md`, `CLAUDE.md`, skills and
+    purpose file identical to the primary checkout.
+  - `architecture-fullmap` (FULLMAP-CHECK-10): A01's guide doc-test harness was a new top-level
+    `trust-runtime` module without a subsystem decision note. `561afed39` moves it under `runtime`.
+  - PERF-01: `call_binding` round 1 median ratio 1.1032 (limit 1.10); rounds 2 to 5 pass; the
+    pooled p99 passes for all three workloads (0.909, 0.456, 1.122).
+- [x] F401 replay of batch 6's firmware (`H-cost-model-board-6`; ELF `f39504f9…`, application
+  `71cb8c62…`): `xtask portability verify` passes 101 samples, GPIO, call depths 1 to 4,
+  watchdog reset and DONE; MSP peak 11,616 B, longest main scan 3,753 µs. The link leaves
+  5,152 B upper flash (run 5: 6,208) and 704 B sector-0 free (run 5: 736). Button, LED and
+  board markings stay bench-only.
+- [x] PERF-01 diagnosis (diagnostic, not evidence; `H-perf-diag-6/ab`): six rotating rounds on a
+  quiet builder give U 5,328 ns, run 5's H 5,523 ns and batch 6's H 5,628 ns (median of round
+  medians). Batch 6's H is 1.9% slower than run 5's (ratio to U 1.056 against 1.037) while U is
+  unchanged, so the code moved; the failing round is that shift plus disturbance (H 5,904 ns).
+  The repeats of rounds 3 and 5 were disturbed for U (about 7,700 ns) and still count as final
+  under the disturbed-round rule, which skews those rounds in H's favour.
+- [ ] Follow-up (owner decision 14 October: rerun now and track the regression): find the 1.9%
+  `call_binding` slowdown between run 5 and batch 6 (A01 or #135/#136; the builder has no
+  profiler, so bisect with rebuilt benchmark binaries) and remove it if it is avoidable.
+- [x] Owner-authorized rerun of the two failed checks on `561afed39` (`H-cost-model-6-rerun`,
+  source identical at start and end): the architecture full map passes; PERF-01 passes, with
+  `call_binding` medians 1.042 to 1.060 in all five rounds and pooled p99 ratios 1.115
+  (`call_binding`), 0.556 (`refs_sizeof`) and 0.894 (`string_stdlib`). Round 3's per-round
+  `call_binding` p99 of 1.336 is recorded only, under the pooled rule.
+- [ ] Release guard on the commit that records this evidence, the push to PR #137 and native CI.
 
 **14 October, later: owner chose to fix the call path; Claude now leads the remaining scopes.**
 The owner retired Codex and rejected accepting the `call_binding` trade-off ("we need a
