@@ -4,8 +4,9 @@ use alloc::boxed::Box;
 use core::{cell::Cell, fmt::Write};
 use trust_platform_stm32f4::Board;
 use trust_runtime_core::{
+    error::RuntimeError,
     value::{Duration, Value},
-    vm::{PreparedModule, VmTrap},
+    vm::PreparedModule,
 };
 
 type Result<T> = core::result::Result<T, &'static str>;
@@ -100,9 +101,10 @@ pub fn main_fixture(board: &mut Board, bytes: &[u8]) -> Result<()> {
     writeln!(console, "B1,STATE,STOP\r").map_err(|_| "uart")?;
     // Exercise the engine's actual deadline-fault path before safe publication.
     services.deadline.set(Some(clock.micros()));
-    let expected = VmTrap::DeadlineExceeded.into_runtime_error();
+    let expected = RuntimeError::ExecutionTimeout;
     match state.execute_cycle(Duration::from_millis(1010)) {
-        Err(error) if error == expected && state.fault() == Some(&error) => {}
+        Err(RuntimeError::ExecutionTimeout)
+            if matches!(state.fault(), Some(RuntimeError::ExecutionTimeout)) => {}
         _ => return Err("deadline-fault-not-latched"),
     }
     io.safe_off();
@@ -337,10 +339,10 @@ pub fn gpio_fixture(board: &mut Board, bytes: &[u8]) -> Result<()> {
         trace::io(console, io, "gpio-pre-safe", true)?;
         if boundary == "gpio-FAULT" {
             services.deadline.set(Some(clock.micros()));
-            let expected = VmTrap::DeadlineExceeded.into_runtime_error();
-            if state.execute_cycle(Duration::from_millis(now_ms as i64 + 10))
-                != Err(expected.clone())
-                || state.fault() != Some(&expected)
+            if !matches!(
+                state.execute_cycle(Duration::from_millis(now_ms as i64 + 10)),
+                Err(RuntimeError::ExecutionTimeout)
+            ) || !matches!(state.fault(), Some(RuntimeError::ExecutionTimeout))
             {
                 return Err("gpio-fault-not-latched");
             }

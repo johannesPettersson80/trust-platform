@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use trust_runtime::io::{GpioDriver, IoAddress, IoSafeState};
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 fn temp_sysfs_base() -> PathBuf {
     let nanos = SystemTime::now()
@@ -46,14 +46,14 @@ fn gpio_safe_state_writes_outputs_on_fault() {
     let initial = fs::read_to_string(&value_path).expect("read value");
     assert_eq!(initial.trim(), "1");
 
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver("gpio", Box::new(driver));
 
     let address = IoAddress::parse("%QX0.0").expect("address");
     runtime
-        .io_mut()
-        .write(&address, Value::Bool(true))
+        .write_io(&address, Value::Bool(true))
         .expect("write output");
 
     let mut safe_state = IoSafeState::default();

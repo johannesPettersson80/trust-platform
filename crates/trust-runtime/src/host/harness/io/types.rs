@@ -16,7 +16,7 @@ pub(crate) struct InstanceBinding {
 }
 
 #[derive(Debug, Clone)]
-enum FieldAddress {
+pub(crate) enum FieldAddress {
     Relative { offset_bytes: u64, bit_offset: u8 },
     Absolute(IoAddress),
 }
@@ -38,6 +38,10 @@ pub(crate) fn bind_value_ref_to_address(
             binding.size,
             binding.bit_offset,
         )?;
+        // Admission must preserve the common address/capacity cause before the
+        // declaration is serialized or any runtime image is allocated.
+        trust_runtime_core::io_image::validate_process_image_address(&target)
+            .map_err(|error| CompileError::new(error.to_string()))?;
         if let Some(name) = display_name.clone() {
             io.bind_ref_named_typed(binding.reference, target, binding.value_type, name);
         } else {

@@ -122,10 +122,4 @@ impl Runtime {
     pub fn clear_fault(&mut self) {
         self.faults.clear();
     }
-
-    /// Get the overrun count for a task by name.
-    #[must_use]
-    pub fn task_overrun_count(&self, name: &str) -> Option<u64> {
-        self.task_state.get(name).map(|state| state.overrun_count)
-    }
 }

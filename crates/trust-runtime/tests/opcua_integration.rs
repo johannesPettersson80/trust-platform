@@ -50,6 +50,7 @@ fn snapshot_provider() -> Arc<dyn Fn() -> Option<trust_runtime::debug::DebugSnap
     let _ = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };
@@ -62,6 +63,7 @@ fn fixture_snapshot() -> trust_runtime::debug::DebugSnapshot {
     let _ = harness.runtime_mut().enable_debug();
     harness.cycle();
     trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     }

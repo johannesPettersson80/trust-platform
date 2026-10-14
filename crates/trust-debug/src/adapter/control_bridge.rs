@@ -237,6 +237,7 @@ fn disabled_ads_status(summary: &str) -> trust_runtime::ads::diagnostics::AdsSta
 
 fn empty_debug_snapshot() -> DebugSnapshot {
     DebugSnapshot {
+        storage_abi: Default::default(),
         storage: trust_runtime::memory::VariableStorage::new(),
         now: trust_runtime::value::Duration::ZERO,
     }

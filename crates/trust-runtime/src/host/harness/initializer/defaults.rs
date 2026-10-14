@@ -5,7 +5,9 @@ use trust_hir::{Type, TypeId};
 use crate::error::RuntimeError;
 use crate::value::{ArrayValue, StructValue, Value};
 
-use super::{coerce_initializer_value, evaluate_initializer, InitContext, MAX_INITIALIZER_DEPTH};
+use super::{
+    coerce_initializer_value, evaluate_initializer_with_abi, InitContext, MAX_INITIALIZER_DEPTH,
+};
 
 pub(super) fn materialize_default_value(
     ctx: &InitContext<'_>,
@@ -50,9 +52,10 @@ fn materialize_type_default(
         .catalog
         .initializer(initializer_id)
         .ok_or(RuntimeError::TypeMismatch)?;
-    let value = crate::helper_eval::eval_storage_expr_with_stdlib(
+    let value = crate::helper_eval::eval_storage_expr_with_abi(
         ctx.storage,
         ctx.registry,
+        ctx.storage_abi,
         ctx.profile,
         ctx.current_instance,
         Some(ctx.stdlib),
@@ -147,9 +150,10 @@ fn materialize_member_default(
             .catalog
             .initializer(initializer_id)
             .ok_or(RuntimeError::TypeMismatch)?;
-        return evaluate_initializer(
+        return evaluate_initializer_with_abi(
             ctx.storage,
             ctx.registry,
+            ctx.storage_abi,
             ctx.catalog,
             ctx.profile,
             ctx.current_instance,

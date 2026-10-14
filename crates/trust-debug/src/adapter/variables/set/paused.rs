@@ -130,6 +130,9 @@ impl DebugAdapter {
                                     };
                                 }
                             };
+                            // Success acknowledges staging and the detached display
+                            // only. The owner reports a retired frame at next scan;
+                            // continuation never copies this snapshot into VM locals.
                             self.session.debug_control().enqueue_local_write(
                                 frame_id,
                                 args.name.clone(),
@@ -240,8 +243,19 @@ impl DebugAdapter {
                 }
             }
             VariableHandle::Retain => {
-                let current = match snapshot.storage.get_retain(args.name.as_str()) {
-                    Some(value) => value.clone(),
+                let reference = super::super::retained::reference(
+                    self.session.metadata(),
+                    &snapshot.storage,
+                    args.name.as_str(),
+                );
+                let Some(reference) = reference else {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, "unknown retain variable")],
+                        ..DispatchOutcome::default()
+                    };
+                };
+                let current = match snapshot.storage.materialize_by_ref_ref(&reference) {
+                    Some(value) => value,
                     None => {
                         return DispatchOutcome {
                             responses: vec![
@@ -253,7 +267,17 @@ impl DebugAdapter {
                 };
                 match &directive {
                     SetDirective::Release => {
-                        self.session.debug_control().release_retain(&args.name);
+                        if let Err(error) = super::super::retained::force(
+                            &self.session.debug_control(),
+                            &snapshot.storage,
+                            &reference,
+                            None,
+                        ) {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
+                        }
                         current
                     }
                     SetDirective::Write(raw) | SetDirective::Force(raw) => {
@@ -276,19 +300,31 @@ impl DebugAdapter {
                                 };
                             }
                         };
-                        if force_requested {
-                            self.session
-                                .debug_control()
-                                .force_retain(args.name.clone(), coerced.clone());
+                        let result = if force_requested {
+                            super::super::retained::force(
+                                &self.session.debug_control(),
+                                &snapshot.storage,
+                                &reference,
+                                Some(coerced.clone()),
+                            )
                         } else {
-                            self.session
-                                .debug_control()
-                                .enqueue_retain_write(args.name.clone(), coerced.clone());
+                            super::super::retained::queue_write(
+                                &self.session.debug_control(),
+                                &snapshot.storage,
+                                &reference,
+                                coerced.clone(),
+                            )
+                        };
+                        if let Err(error) = result {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
                         }
                         let _ = self.session.debug_control().with_snapshot(|snapshot| {
                             snapshot
                                 .storage
-                                .set_retain(args.name.clone(), coerced.clone());
+                                .write_by_ref_ref(&reference, coerced.clone());
                         });
                         coerced
                     }

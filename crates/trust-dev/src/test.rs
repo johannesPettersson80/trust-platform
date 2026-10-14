@@ -163,10 +163,5 @@ fn compile_test_runtime(project_root: &Path, tests: &[DiscoveredTest]) -> anyhow
         .collect::<BTreeSet<_>>();
     let session = CompileSession::from_sources(compile_sources)
         .with_extra_program_instances(extra_program_instances);
-    let mut runtime = session.build_runtime()?;
-    let bytecode = session.build_bytecode_bytes()?;
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .context("failed to preload bytecode for ST test execution")?;
-    Ok(runtime)
+    Ok(session.build_runtime()?)
 }

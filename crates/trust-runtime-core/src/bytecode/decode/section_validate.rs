@@ -13,7 +13,7 @@ pub(super) fn validate_section_entries(
     let mut standardized_ids = 0u32;
     for entry in entries {
         if SectionId::from_raw(entry.id).is_some()
-            && (version.major == 2 || entry.id < SectionId::StorageLayout.as_raw())
+            && (version.is_source_free() || entry.id < SectionId::StorageLayout.as_raw())
         {
             let mask = 1u32 << entry.id;
             if standardized_ids & mask != 0 {

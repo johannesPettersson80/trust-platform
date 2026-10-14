@@ -39,12 +39,7 @@ impl DebugControl {
     }
 
     /// Queue a pending lvalue write to apply at the next cycle boundary.
-    pub fn enqueue_lvalue_write(
-        &self,
-        frame_id: Option<FrameId>,
-        target: LValue,
-        value: Value,
-    ) {
+    pub fn enqueue_lvalue_write(&self, frame_id: Option<FrameId>, target: LValue, value: Value) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         state.pending_lvalue_writes.push(PendingLValueWrite {
@@ -74,11 +69,7 @@ impl DebugControl {
     pub(crate) fn clear_runtime_mutations(&self) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.io_writes.clear();
-        state.pending_var_writes.clear();
-        state.pending_lvalue_writes.clear();
-        state.forced_vars.clear();
-        state.forced_io.clear();
+        state.clear_runtime_mutations();
     }
 
     fn enqueue_var_write(&self, target: PendingVarTarget, value: Value) {
@@ -188,5 +179,14 @@ impl DebugControl {
         let mut state = lock.lock().expect("debug state poisoned");
         state.forced_vars.retain(|entry| !predicate(&entry.target));
     }
+}
 
+impl DebugState {
+    fn clear_runtime_mutations(&mut self) {
+        self.io_writes.clear();
+        self.pending_var_writes.clear();
+        self.pending_lvalue_writes.clear();
+        self.forced_vars.clear();
+        self.forced_io.clear();
+    }
 }

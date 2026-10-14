@@ -73,6 +73,7 @@ fn control_state(source: &str, mode: ControlMode, auth_token: Option<&str>) -> A
     harness.cycle();
 
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };

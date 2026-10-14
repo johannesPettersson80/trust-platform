@@ -10,6 +10,8 @@ fn register_ir_verifier_rejects_unknown_block_target() {
         target: BlockTarget::Block(9999),
     });
     lowered.blocks[0].instruction_costs.push(0);
+    // The deliberately injected verifier edge has no original bytecode step.
+    lowered.blocks[0].instruction_cost_steps.push(vec![0]);
     let err = verify_register_program(&lowered).expect_err("verification should fail");
     let RuntimeError::Bytecode {
         detail: message, ..
@@ -36,6 +38,7 @@ fn register_ir_verifier_rejects_undefined_source_register() {
             entry_stack_depth: 0,
             bytecode_instruction_count: 1,
             instruction_costs: vec![1],
+            instruction_cost_steps: vec![vec![1]],
             instructions: vec![RegisterInstr::StoreRef {
                 ref_idx: 0,
                 src: RegisterId(0),
@@ -60,6 +63,7 @@ fn register_ir_verifier_rejects_move_destination_out_of_bounds() {
             entry_stack_depth: 1,
             bytecode_instruction_count: 1,
             instruction_costs: vec![1],
+            instruction_cost_steps: vec![vec![1]],
             instructions: vec![RegisterInstr::Move {
                 src: RegisterId(0),
                 dest: RegisterId(1),
@@ -84,6 +88,7 @@ fn register_ir_verifier_rejects_missing_instruction_costs() {
             entry_stack_depth: 0,
             bytecode_instruction_count: 1,
             instruction_costs: vec![],
+            instruction_cost_steps: vec![],
             instructions: vec![RegisterInstr::Return],
         }],
     };
@@ -105,6 +110,7 @@ fn register_ir_verifier_rejects_original_instruction_count_drift() {
             entry_stack_depth: 0,
             bytecode_instruction_count: 2,
             instruction_costs: vec![1],
+            instruction_cost_steps: vec![vec![1]],
             instructions: vec![RegisterInstr::Return],
         }],
     };

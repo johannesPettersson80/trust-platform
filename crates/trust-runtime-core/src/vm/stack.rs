@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::vec::{Drain, Vec};
 
 use crate::value::Value;
 
@@ -12,6 +12,24 @@ pub struct OperandStack {
 }
 
 impl OperandStack {
+    /// Payload bytes held by the pre-reserved scratch backing.
+    #[cfg(all(feature = "register-ir", any(test, feature = "test-support")))]
+    pub fn storage_bytes(&self) -> usize {
+        self.values
+            .capacity()
+            .saturating_mul(core::mem::size_of::<Value>())
+    }
+    /// Reserve native operand scratch during controller construction.
+    #[cfg(feature = "register-ir")]
+    pub fn try_reserve_values(&mut self, capacity: usize) -> Result<(), VmTrap> {
+        if capacity > VM_MAX_OPERAND_STACK {
+            return Err(VmTrap::StackOverflow);
+        }
+        self.values
+            .try_reserve_exact(capacity.saturating_sub(self.values.len()))
+            .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::PreparationLimit))
+    }
+
     pub(super) fn enter_call(&mut self) -> (usize, usize) {
         let previous = self.floor;
         self.floor = self.values.len();
@@ -20,6 +38,21 @@ impl OperandStack {
     pub(super) fn leave_call(&mut self, base: usize, previous: usize) {
         self.values.truncate(base);
         self.floor = previous;
+    }
+
+    /// Drain the active frame's top `count` values in stack order, oldest first.
+    ///
+    /// If the active frame does not contain enough values, consume only its
+    /// available values and leave the suspended caller prefix untouched.
+    pub(super) fn drain_top(&mut self, count: usize) -> Result<Drain<'_, Value>, VmTrap> {
+        let available = self.values.len() - self.floor;
+        if available < count {
+            self.values.truncate(self.floor);
+            return Err(VmTrap::StackUnderflow);
+        }
+
+        let start = self.values.len() - count;
+        Ok(self.values.drain(start..))
     }
 
     /// Remove every value from the operand stack.
@@ -46,6 +79,11 @@ impl OperandStack {
             return Err(VmTrap::StackUnderflow);
         }
         self.values.pop().ok_or(VmTrap::StackUnderflow)
+    }
+
+    #[cfg(test)]
+    pub(super) fn storage_capacity(&self) -> usize {
+        self.values.capacity()
     }
 
     /// Pop the right and left operands for a binary operation.

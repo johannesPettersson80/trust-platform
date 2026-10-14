@@ -7,7 +7,7 @@ mod buffer;
 mod construction;
 use super::{
     BytecodeError, BytecodeModuleView, BytecodeVersion, SectionData, SectionEntry, TypeData,
-    TypeEntry, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
+    TypeEntry, TypeKind, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
 };
 use buffer::{encoded_count, encoded_extent, Buffer};
 
@@ -273,7 +273,7 @@ fn encode_section_data(
         | SectionData::ConstructionRoots(_)
         | SectionData::Initializers(_)
         | SectionData::AccessBindings(_) => {
-            if version != BytecodeVersion::SOURCE_FREE {
+            if !version.is_source_free() {
                 return Err(crate::bytecode::RejectionReason::InvalidConstructionRecord.into());
             }
             construction::encode_construction(data, &mut out)?;
@@ -288,6 +288,16 @@ fn encode_type_table(
     table: &TypeTable,
     limit: usize,
 ) -> Result<Buffer, BytecodeError> {
+    if !version.has_relative_layouts()
+        && table.entries.iter().any(|entry| {
+            matches!(
+                entry.kind,
+                super::TypeKind::OverlappingStruct | super::TypeKind::LocatedStruct
+            )
+        })
+    {
+        return Err(super::RejectionReason::InvalidTypeKind.into());
+    }
     let mut out = Buffer::new(limit);
     out.extend_from_slice(&encoded_count(table.entries.len())?.to_le_bytes())?;
     if version.uses_extended_layout() {
@@ -328,6 +338,16 @@ fn encode_type_entry(entry: &TypeEntry, out: &mut Buffer) -> Result<(), Bytecode
             for field in fields {
                 out.extend_from_slice(&field.name_idx.to_le_bytes())?;
                 out.extend_from_slice(&field.type_id.to_le_bytes())?;
+                if matches!(
+                    entry.kind,
+                    TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+                ) {
+                    out.extend_from_slice(&field.bit_offset.unwrap_or(u32::MAX).to_le_bytes())?;
+                } else if field.bit_offset.is_some() {
+                    return Err(BytecodeError::section_static(
+                        "relative field layout requires a located structure kind",
+                    ));
+                }
             }
         }
         TypeData::Enum {

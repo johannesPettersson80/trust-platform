@@ -13,7 +13,7 @@ fn stdio_roundtrip() {
 
 #[test]
 fn dispatch_set_breakpoints_returns_adjusted_positions() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let source = "x := 1;\n  y := 2;\n";
     let x_start = source.find("x := 1;").unwrap();
     let x_end = x_start + "x := 1;".len();
@@ -27,7 +27,7 @@ fn dispatch_set_breakpoints_returns_adjusted_positions() {
         ],
     );
 
-    let mut session = DebugSession::new(runtime);
+    let mut session = DebugSession::new(runtime.build().unwrap());
     session.register_source("main.st", 0, source);
     let mut adapter = DebugAdapter::new(session);
 
@@ -127,7 +127,7 @@ END_PROGRAM
 
 #[test]
 fn dispatch_breakpoint_locations_returns_statement_starts() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let source = "x := 1;\n  y := 2;\n";
     let x_start = source.find("x := 1;").unwrap();
     let x_end = x_start + "x := 1;".len();
@@ -141,7 +141,7 @@ fn dispatch_breakpoint_locations_returns_statement_starts() {
         ],
     );
 
-    let mut session = DebugSession::new(runtime);
+    let mut session = DebugSession::new(runtime.build().unwrap());
     session.register_source("main.st", 0, source);
     let mut adapter = DebugAdapter::new(session);
 
@@ -176,7 +176,7 @@ fn dispatch_breakpoint_locations_returns_statement_starts() {
 
 #[test]
 fn dispatch_io_state_emits_event() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
     let speed_addr = IoAddress::parse("%MD0").unwrap();
@@ -207,7 +207,7 @@ fn dispatch_io_state_emits_event() {
         .write(&label_addr, RuntimeValue::String("Ready".into()))
         .unwrap();
 
-    let session = DebugSession::new(runtime);
+    let session = DebugSession::new(install_io_fixture(runtime));
     let mut adapter = DebugAdapter::new(session);
 
     let request = Request::<serde_json::Value> {
@@ -244,11 +244,11 @@ fn dispatch_io_state_emits_event() {
 
 #[test]
 fn dispatch_io_write_updates_input() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let input_addr = IoAddress::parse("%IX0.2").unwrap();
     runtime.io_mut().bind("IN2", input_addr.clone());
 
-    let session = DebugSession::new(runtime);
+    let session = DebugSession::new(install_io_fixture(runtime));
     let mut adapter = DebugAdapter::new(session);
 
     let args = IoWriteArguments {
@@ -300,7 +300,7 @@ fn dispatch_io_write_updates_input() {
 
 #[test]
 fn dispatch_io_write_accepts_configured_real_and_time_values() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let real_addr = IoAddress::parse("%ID0").unwrap();
     let time_addr = IoAddress::parse("%ID4").unwrap();
     let mut string_addr = IoAddress::parse("%IB8").unwrap();
@@ -315,7 +315,7 @@ fn dispatch_io_write_accepts_configured_real_and_time_values() {
         .io_mut()
         .bind_typed("Label", string_addr.clone(), trust_hir::TypeId::STRING);
 
-    let session = DebugSession::new(runtime);
+    let session = DebugSession::new(install_io_fixture(runtime));
     let mut adapter = DebugAdapter::new(session);
 
     for (seq, address, value) in [
@@ -360,7 +360,7 @@ fn dispatch_io_write_accepts_configured_real_and_time_values() {
 fn dispatch_typed_real_io_write_and_force_reject_non_finite_before_side_effects() {
     for command in ["stIoWrite", "stIoForce"] {
         for value in ["NaN", "inf", "-inf", "1e100"] {
-            let mut runtime = Runtime::new();
+            let mut runtime = trust_runtime::RuntimeBuilder::new();
             let address = IoAddress::parse("%ID0").unwrap();
             runtime
                 .io_mut()
@@ -369,7 +369,7 @@ fn dispatch_typed_real_io_write_and_force_reject_non_finite_before_side_effects(
                 .io_mut()
                 .write(&address, RuntimeValue::DWord(1.5f32.to_bits()))
                 .unwrap();
-            let session = DebugSession::new(runtime);
+            let session = DebugSession::new(install_io_fixture(runtime));
             let mut adapter = DebugAdapter::new(session);
 
             let request = Request {
@@ -427,7 +427,7 @@ fn dispatch_typed_lreal_io_write_and_force_use_finite_semantic_values() {
             "16#7FF8000000000000",
             "16#FFF0000000000000",
         ] {
-            let mut runtime = Runtime::new();
+            let mut runtime = trust_runtime::RuntimeBuilder::new();
             let address = IoAddress::parse("%IL0").unwrap();
             runtime
                 .io_mut()
@@ -436,7 +436,7 @@ fn dispatch_typed_lreal_io_write_and_force_use_finite_semantic_values() {
                 .io_mut()
                 .write(&address, RuntimeValue::LWord(1.5f64.to_bits()))
                 .unwrap();
-            let session = DebugSession::new(runtime);
+            let session = DebugSession::new(install_io_fixture(runtime));
             let mut adapter = DebugAdapter::new(session);
 
             let request = Request {
@@ -474,12 +474,12 @@ fn dispatch_typed_lreal_io_write_and_force_use_finite_semantic_values() {
             assert!(adapter.forced_io_addresses.lock().unwrap().is_empty());
         }
 
-        let mut runtime = Runtime::new();
+        let mut runtime = trust_runtime::RuntimeBuilder::new();
         let address = IoAddress::parse("%IL0").unwrap();
         runtime
             .io_mut()
             .bind_typed("Precise", address.clone(), trust_hir::TypeId::LREAL);
-        let session = DebugSession::new(runtime);
+        let session = DebugSession::new(install_io_fixture(runtime));
         let mut adapter = DebugAdapter::new(session);
         let request = Request {
             seq: 2,

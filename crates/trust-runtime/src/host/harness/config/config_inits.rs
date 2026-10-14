@@ -1,5 +1,5 @@
 pub(super) fn apply_config_inits(
-    runtime: &mut Runtime,
+    runtime: &mut RuntimeBuilder,
     config_inits: &[ConfigInit],
     wildcards: &mut Vec<WildcardRequirement>,
 ) -> Result<(), CompileError> {
@@ -69,9 +69,10 @@ pub(super) fn apply_config_inits(
             continue;
         };
 
-        let value = crate::harness::initializer::evaluate_initializer(
+        let value = crate::harness::initializer::evaluate_initializer_with_abi(
             runtime.storage(),
             &registry,
+            crate::value::StorageAbi::LegacyTemporal32,
             &initializer_catalog,
             &profile,
             None,

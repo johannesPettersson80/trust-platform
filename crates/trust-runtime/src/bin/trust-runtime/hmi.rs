@@ -54,6 +54,7 @@ fn run_hmi_scaffold(
     let runtime = CompileSession::from_sources(sources.clone()).build_runtime()?;
     let metadata = runtime.metadata_snapshot();
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: runtime.prepared().storage_abi(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
     };

@@ -26,8 +26,13 @@ fn collect_io_bindings(
             let element_size = type_size_bytes(*element, registry)?;
             let lengths: Vec<i64> = dimensions
                 .iter()
-                .map(|(lower, upper)| upper - lower + 1)
-                .collect();
+                .map(|(lower, upper)| {
+                    upper
+                        .checked_sub(*lower)
+                        .and_then(|value| value.checked_add(1))
+                        .ok_or_else(|| CompileError::new("array length overflow for I/O binding"))
+                })
+                .collect::<Result<_, _>>()?;
             if lengths.iter().any(|len| *len <= 0) {
                 return Err(CompileError::new("invalid array bounds for I/O binding"));
             }
@@ -60,11 +65,9 @@ fn collect_io_bindings(
             ) -> Result<(), CompileError> {
                 if current_dim == dimensions.len() {
                     let mut ref_with_index = reference.clone();
-                    ref_with_index
-                        .path
-                        .push(crate::value::RefSegment::Index(
-                            crate::value::ref_indices_from_iter(indices.iter().copied()),
-                        ));
+                    ref_with_index.path.push(crate::value::RefSegment::Index(
+                        crate::value::ref_indices_from_iter(indices.iter().copied()),
+                    ));
                     return collect_io_bindings(
                         registry,
                         element,

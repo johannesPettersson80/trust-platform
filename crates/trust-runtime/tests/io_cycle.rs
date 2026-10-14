@@ -5,16 +5,30 @@ use trust_runtime::eval::stmt::Stmt;
 use trust_runtime::io::{IoAddress, IoSnapshotValue};
 use trust_runtime::task::{ProgramDef, TaskConfig};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 #[test]
 fn io_read_write_order() {
-    let mut runtime = Runtime::new();
-    runtime.storage_mut().set_global("in", Value::Bool(false));
-    runtime.storage_mut().set_global("out", Value::Bool(false));
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("in", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("out", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
 
     let program = ProgramDef {
         name: "P".into(),
@@ -27,7 +41,7 @@ fn io_read_write_order() {
             location: None,
         }],
     };
-    runtime.register_program(program).unwrap();
+    runtime.register_program(program);
 
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
@@ -42,14 +56,10 @@ fn io_read_write_order() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
-    runtime
-        .io_mut()
-        .write(&input_addr, Value::Bool(true))
-        .unwrap();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_io(&input_addr, Value::Bool(true)).unwrap();
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
 
     runtime.execute_cycle().unwrap();
 
@@ -59,12 +69,26 @@ fn io_read_write_order() {
 
 #[test]
 fn io_snapshot_emitted_after_cycle_output_commit() {
-    let mut runtime = Runtime::new();
-    runtime.storage_mut().set_global("in", Value::Bool(false));
-    runtime.storage_mut().set_global("out", Value::Bool(false));
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("in", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("out", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
 
     let program = ProgramDef {
         name: "P".into(),
@@ -77,7 +101,7 @@ fn io_snapshot_emitted_after_cycle_output_commit() {
             location: None,
         }],
     };
-    runtime.register_program(program).unwrap();
+    runtime.register_program(program);
 
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
@@ -100,10 +124,9 @@ fn io_snapshot_emitted_after_cycle_output_commit() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
 
     let control = runtime.enable_debug();
     let (tx, rx) = mpsc::channel();

@@ -141,11 +141,31 @@ fn harness_io_contract_unbounded_and_unsupported_types_fail_closed() {
 }
 
 #[test]
-fn harness_io_contract_type_size_delegates_checked_portable_layout() {
+fn harness_io_contract_wire_extent_uses_codec_widths_and_relative_gaps() {
     let mut registry = TypeRegistry::new();
     let array = registry.register_array(TypeId::WORD, vec![(1, 3)]);
     assert_eq!(type_size_bytes(TypeId::BOOL, &registry).unwrap(), 1);
     assert_eq!(type_size_bytes(array, &registry).unwrap(), 6);
+    let located = registry.register_struct(
+        "TimedPair",
+        vec![
+            field("first", TypeId::TIME, Some("%B0")),
+            field("second", TypeId::TIME, Some("%B8")),
+        ],
+    );
+    let located_array = registry.register_array(located, vec![(0, 1)]);
+    assert_eq!(type_size_bytes(located, &registry).unwrap(), 12);
+    assert_eq!(type_size_bytes(located_array, &registry).unwrap(), 24);
+    assert_eq!(crate::value::size_of_type(located, &registry).unwrap(), 16);
+    assert_eq!(
+        crate::value::size_of_type_with_abi(
+            located,
+            &registry,
+            crate::value::StorageAbi::LegacyTemporal32
+        )
+        .unwrap(),
+        8
+    );
     let unbounded = registry.register("Text", Type::String { max_len: None });
     assert_compile_error(type_size_bytes(unbounded, &registry), "unsupported size");
 }

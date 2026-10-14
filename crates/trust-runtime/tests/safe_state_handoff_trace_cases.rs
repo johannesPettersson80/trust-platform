@@ -10,7 +10,7 @@ use trust_runtime::error::RuntimeError;
 use trust_runtime::io::{IoAddress, IoDriver, IoDriverHealth, IoSafeState};
 use trust_runtime::scheduler::{ResourceControl, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
     TraceStep,
@@ -93,13 +93,14 @@ fn execute_step(step: &TraceStep) -> Result<Observation, String> {
     let first = Arc::new(Mutex::new(Vec::new()));
     let second = Arc::new(Mutex::new(Vec::new()));
 
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
     let mut safe_state = IoSafeState::default();
     safe_state.outputs.push((
         IoAddress::parse("%QX0.0").map_err(|error| error.to_string())?,
         Value::Bool(false),
     ));
+    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
     runtime.set_io_safe_state(safe_state);
     runtime.add_io_driver(
         "first-safe-state",

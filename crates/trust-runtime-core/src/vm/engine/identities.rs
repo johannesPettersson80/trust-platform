@@ -5,6 +5,7 @@ use super::{FrameId, InstanceId, RuntimeError, Vec};
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(super) struct InstanceSet(Entries<u32, ()>);
 impl InstanceSet {
+    #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.0.len()
     }
@@ -40,6 +41,7 @@ impl IntoIterator for InstanceSet {
 #[derive(Default)]
 pub(super) struct InstanceTemplates(Entries<u32, u32>);
 impl InstanceTemplates {
+    #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.0.len()
     }
@@ -61,37 +63,9 @@ impl InstanceTemplates {
     }
 }
 #[derive(Default)]
-pub(super) struct ActivationPous(Entries<u32, u32>);
-impl ActivationPous {
-    pub(super) fn reservation_demand(
-        &self,
-        capacity: usize,
-    ) -> Result<(usize, usize), RuntimeError> {
-        self.0.reservation_demand(capacity)
-    }
-    pub(super) fn reserve_capacity(&mut self, capacity: usize) -> Result<(), RuntimeError> {
-        self.0.reserve_capacity(capacity)
-    }
-    pub(super) fn len(&self) -> usize {
-        self.0.len()
-    }
-    pub(super) fn get(&self, id: &FrameId) -> Option<&u32> {
-        self.0.get(&id.0)
-    }
-    pub(super) fn insertion_demand(&self, id: FrameId) -> Result<(usize, usize), RuntimeError> {
-        self.0.insertion_demand(&id.0)
-    }
-    pub(super) fn insert(&mut self, id: FrameId, pou: u32) -> Result<(), RuntimeError> {
-        self.0.insert(id.0, pou)?;
-        Ok(())
-    }
-    pub(super) fn remove(&mut self, id: &FrameId) {
-        self.0.remove(&id.0);
-    }
-}
-#[derive(Default)]
 pub(super) struct InstanceLifetimes(Entries<u32, Option<u32>>);
 impl InstanceLifetimes {
+    #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.0.len()
     }
@@ -127,7 +101,7 @@ impl InstanceLifetimes {
     }
 }
 #[derive(Default)]
-pub(super) struct OwnedInstances(Entries<u32, Vec<u32>>);
+pub(super) struct OwnedInstances(Entries<u32, Vec<u32>>, #[cfg(test)] core::cell::Cell<usize>);
 impl OwnedInstances {
     pub(super) fn reservation_demand(
         &self,
@@ -137,9 +111,6 @@ impl OwnedInstances {
     }
     pub(super) fn reserve_capacity(&mut self, capacity: usize) -> Result<(), RuntimeError> {
         self.0.reserve_capacity(capacity)
-    }
-    pub(super) fn len(&self) -> usize {
-        self.0.len()
     }
     pub(super) fn count(&self, owner: FrameId) -> usize {
         self.0.get(&owner.0).map_or(0, Vec::len)
@@ -175,13 +146,31 @@ impl OwnedInstances {
         }
         Ok(())
     }
+    #[cfg(test)]
     pub(super) fn snapshot(&self, owner: FrameId) -> impl Iterator<Item = InstanceId> + use<> {
+        self.note_snapshot_copy();
         self.0
             .get(&owner.0)
             .cloned()
             .unwrap_or_default()
             .into_iter()
             .map(InstanceId)
+    }
+    pub(super) fn copy_snapshot(&self, owner: FrameId, output: &mut Vec<InstanceId>) {
+        self.note_snapshot_copy();
+        if let Some(entries) = self.0.get(&owner.0) {
+            output.extend(entries.iter().copied().map(InstanceId));
+        }
+    }
+    #[cfg(test)]
+    fn note_snapshot_copy(&self) {
+        self.1.set(self.1.get() + 1);
+    }
+    #[cfg(not(test))]
+    fn note_snapshot_copy(&self) {}
+    #[cfg(test)]
+    pub(super) fn snapshot_copy_count(&self) -> usize {
+        self.1.get()
     }
     pub(super) fn take(&mut self, owner: FrameId) -> impl Iterator<Item = InstanceId> + use<> {
         self.0
@@ -196,6 +185,7 @@ impl OwnedInstances {
 #[derive(Default)]
 pub(super) struct RetainedGlobals(super::output_transaction::SavedDestinations);
 impl RetainedGlobals {
+    #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.0.len()
     }
@@ -238,26 +228,24 @@ mod tests {
 
     #[test]
     fn bounded_frame_metadata_reserves_outer_entries_before_run() {
-        let mut pous = ActivationPous::default();
+        let mut storage = crate::memory::VariableStorage::default();
         let mut owners = OwnedInstances::default();
         let ordinary = 4;
         let all_frames = 2 * ordinary;
         assert_eq!(
-            pous.reservation_demand(ordinary),
-            Ok((ordinary * core::mem::size_of::<(u32, u32)>(), 1))
-        );
-        assert_eq!(
             owners.reservation_demand(all_frames),
             Ok((all_frames * core::mem::size_of::<(u32, Vec<u32>)>(), 1))
         );
-        pous.reserve_capacity(ordinary).unwrap();
+        storage.reserve_execution_frames(all_frames).unwrap();
         owners.reserve_capacity(all_frames).unwrap();
-        let capacities = (pous.0.capacity(), owners.0.capacity());
+        let capacities = (storage.execution_frame_capacity(), owners.0.capacity());
+        let mut first = None;
         for offset in 0..all_frames {
-            let frame = FrameId(u32::MAX - offset as u32);
+            let frame = storage.reserve_execution_frame().unwrap();
+            first.get_or_insert(frame);
+            storage.activate_execution_frame(frame).unwrap();
             if offset < ordinary {
-                assert_eq!(pous.insertion_demand(frame).unwrap().0, 0);
-                pous.insert(frame, 7).unwrap();
+                storage.set_execution_frame_owner(frame, 7, None).unwrap();
             }
             // Only the nested instance payload needs allocation during this push.
             assert_eq!(
@@ -265,14 +253,21 @@ mod tests {
                 4 * core::mem::size_of::<u32>()
             );
             owners.push(frame, InstanceId(offset as u32)).unwrap();
-            assert_eq!((pous.0.capacity(), owners.0.capacity()), capacities);
+            assert_eq!(
+                (storage.execution_frame_capacity(), owners.0.capacity()),
+                capacities
+            );
         }
+        assert_eq!(storage.execution_frame_owner_count(), ordinary);
         assert_eq!(
-            owners.take(FrameId(u32::MAX)).collect::<Vec<_>>(),
+            owners.take(first.unwrap()).collect::<Vec<_>>(),
             vec![InstanceId(0)]
         );
         assert_eq!(owners.0.capacity(), capacities.1);
-        assert!(pous.reservation_demand(usize::MAX).is_err());
+        assert!(
+            crate::memory::VariableStorage::execution_frame_reservation_charge(usize::MAX)
+                .is_none()
+        );
         assert!(owners.reservation_demand(usize::MAX).is_err());
     }
 
@@ -308,32 +303,38 @@ mod tests {
 
     #[test]
     fn primitive_maps_keep_frame_instance_domains_and_persistent_lifetimes_distinct() {
-        let mut activations = ActivationPous::default();
+        let mut storage = crate::memory::VariableStorage::default();
         let mut templates = InstanceTemplates::default();
         let mut lifetimes = InstanceLifetimes::default();
-        for raw in [0, 1, u32::MAX] {
-            activations.insert(FrameId(raw), 10).unwrap();
-            templates.insert(InstanceId(raw), 20).unwrap();
-            assert_eq!(activations.get(&FrameId(raw)), Some(&10));
-            assert_eq!(templates.get(&InstanceId(raw)), Some(&20));
-            assert_eq!(lifetimes.get(&InstanceId(raw)), None);
-            lifetimes.insert(InstanceId(raw), None).unwrap();
-            assert_eq!(lifetimes.get(&InstanceId(raw)), Some(None));
-            lifetimes
-                .insert(InstanceId(raw), Some(FrameId(u32::MAX)))
-                .unwrap();
-            assert_eq!(
-                lifetimes.get(&InstanceId(raw)),
-                Some(Some(FrameId(u32::MAX)))
-            );
+        let mut frames = Vec::new();
+        for _ in 0..3 {
+            let frame = storage.reserve_execution_frame().unwrap();
+            storage.activate_execution_frame(frame).unwrap();
+            storage.set_execution_frame_owner(frame, 10, None).unwrap();
+            let instance = InstanceId(frame.0);
+            frames.push(frame);
+            templates.insert(instance, 20).unwrap();
+            assert_eq!(storage.execution_frame_owner(frame).unwrap().pou_id, 10);
+            assert_eq!(templates.get(&instance), Some(&20));
+            assert_eq!(lifetimes.get(&instance), None);
+            lifetimes.insert(instance, None).unwrap();
+            assert_eq!(lifetimes.get(&instance), Some(None));
+            lifetimes.insert(instance, Some(FrameId(u32::MAX))).unwrap();
+            assert_eq!(lifetimes.get(&instance), Some(Some(FrameId(u32::MAX))));
         }
-        activations.remove(&FrameId(1));
-        templates.insert(InstanceId(1), 21).unwrap();
-        assert_eq!(activations.get(&FrameId(1)), None);
-        assert_eq!(templates.get(&InstanceId(1)), Some(&21));
-        lifetimes.remove(&InstanceId(1));
-        assert!(!lifetimes.contains_key(&InstanceId(1)));
-        assert_eq!(lifetimes.get(&InstanceId(0)), Some(Some(FrameId(u32::MAX))));
+        templates.insert(InstanceId(u32::MAX), 99).unwrap();
+        assert_eq!(templates.get(&InstanceId(u32::MAX)), Some(&99));
+        let retired = frames[1];
+        storage.release_execution_frame(retired);
+        templates.insert(InstanceId(retired.0), 21).unwrap();
+        assert!(storage.execution_frame_owner(retired).is_none());
+        assert_eq!(templates.get(&InstanceId(retired.0)), Some(&21));
+        lifetimes.remove(&InstanceId(retired.0));
+        assert!(!lifetimes.contains_key(&InstanceId(retired.0)));
+        assert_eq!(
+            lifetimes.get(&InstanceId(frames[0].0)),
+            Some(Some(FrameId(u32::MAX)))
+        );
     }
 
     #[test]
@@ -426,60 +427,87 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state =
-            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-        let destination = state.storage.reserve_execution_frame().unwrap();
-        let source = state.storage.reserve_execution_frame().unwrap();
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let mut state = EngineState::borrow(
+            &mut state_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
+        let destination = state.data.storage.reserve_execution_frame().unwrap();
+        let source = state.data.storage.reserve_execution_frame().unwrap();
         state
-            .lifetimes
-            .live_activations
-            .extend([destination, source]);
+            .data
+            .storage
+            .activate_execution_frame(destination)
+            .unwrap();
+        state.data.storage.activate_execution_frame(source).unwrap();
         let pou = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
         let instance = state.reserve_instance(pou, Some(source)).unwrap();
         state
+            .data
             .construction
             .initialized_instances
             .insert(instance)
             .unwrap();
         state
+            .data
             .construction
             .initialized_declarations
             .insert((0, Some(instance)))
             .unwrap();
-        state.construction.once.insert((0, Some(instance))).unwrap();
+        state
+            .data
+            .construction
+            .once
+            .insert((0, Some(instance)))
+            .unwrap();
         assert_eq!(
-            state.lifetimes.instance_lifetimes.get(&instance),
+            state.data.lifetimes.instance_lifetimes.get(&instance),
             Some(Some(source))
         );
         state
             .promote_constructed_instances(&Value::Instance(instance), source, Some(destination))
             .unwrap();
         state.remove_owned_instances(source).unwrap();
-        assert!(state.storage.get_instance(instance).is_some());
+        assert!(state.data.storage.get_instance(instance).is_some());
         assert_eq!(
-            state.lifetimes.instance_lifetimes.get(&instance),
+            state.data.lifetimes.instance_lifetimes.get(&instance),
             Some(Some(destination))
         );
         assert!(state
+            .data
             .construction
             .initialized_declarations
             .contains(&(0, Some(instance)))
             .unwrap());
         state.remove_owned_instances(destination).unwrap();
-        assert!(state.storage.get_instance(instance).is_none());
-        assert!(!state.lifetimes.instance_lifetimes.contains_key(&instance));
+        assert!(state.data.storage.get_instance(instance).is_none());
+        assert!(!state
+            .data
+            .lifetimes
+            .instance_lifetimes
+            .contains_key(&instance));
         assert!(state
+            .data
             .construction
             .instance_templates
             .get(&instance)
             .is_none());
-        assert!(!state.construction.initialized_instances.contains(&instance));
         assert!(!state
+            .data
+            .construction
+            .initialized_instances
+            .contains(&instance));
+        assert!(!state
+            .data
             .construction
             .initialized_declarations
             .contains(&(0, Some(instance)))
             .unwrap());
         assert!(!state
+            .data
             .construction
             .once
             .contains(&(0, Some(instance)))

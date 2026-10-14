@@ -20,6 +20,7 @@ fn context<'a>(
     registry: &'a TypeRegistry,
 ) -> DebugRuntimeContext<'a> {
     DebugRuntimeContext {
+        storage_abi: Default::default(),
         storage,
         registry,
         stdlib: None,

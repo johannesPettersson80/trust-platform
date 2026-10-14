@@ -52,6 +52,10 @@ pub enum TypeKind {
     Class = 9,
     /// Interface record.
     Interface = 10,
+    /// Structure whose explicitly located fields may overlap.
+    OverlappingStruct = 11,
+    /// Structure with checked non-overlapping relative field locations.
+    LocatedStruct = 12,
 }
 
 impl TypeKind {
@@ -70,6 +74,8 @@ impl TypeKind {
             8 => Some(Self::FunctionBlock),
             9 => Some(Self::Class),
             10 => Some(Self::Interface),
+            11 => Some(Self::OverlappingStruct),
+            12 => Some(Self::LocatedStruct),
             _ => None,
         }
     }
@@ -147,6 +153,8 @@ pub struct Field {
     pub name_idx: u32,
     /// Type index in TYPE_TABLE.
     pub type_id: u32,
+    /// Relative bit location in a located structure; absent in ordinary records.
+    pub bit_offset: Option<u32>,
 }
 
 /// Named enumeration value.

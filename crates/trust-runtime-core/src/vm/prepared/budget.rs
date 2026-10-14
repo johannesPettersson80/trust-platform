@@ -69,7 +69,7 @@ impl PreparationBudget {
     }
     pub(crate) fn metadata(
         &mut self,
-        raw: &BytecodeModule,
+        raw: BytecodeModuleView<'_>,
         _encoded_bytes: usize,
     ) -> Result<(), RuntimeError> {
         let strings = match raw.section(SectionId::StringTable) {
@@ -80,7 +80,7 @@ impl PreparationBudget {
                 )))
             }
         };
-        for section in &raw.sections {
+        for section in raw.sections {
             self.charge(0, 1)?;
             match &section.data {
                 SectionData::StringTable(table) => {
@@ -119,6 +119,7 @@ impl PreparationBudget {
                 }
                 SectionData::RefTable(table) => {
                     self.records::<VmRef>(table.entries.len())?;
+                    self.records::<Option<u32>>(table.entries.len())?;
                     for entry in &table.entries {
                         self.records::<crate::value::RefSegment>(entry.segments.len())?;
                         for segment in &entry.segments {
@@ -130,14 +131,13 @@ impl PreparationBudget {
                 }
                 SectionData::PouIndex(table) => self.pou_metadata(raw, table, strings)?,
                 SectionData::PouBodies(code) => self.records::<u8>(code.len())?,
+                #[cfg(feature = "hir")]
                 SectionData::VarMeta(table) => {
-                    self.map::<u32, u32>(table.entries.len())?;
-                    #[cfg(feature = "hir")]
-                    {
-                        self.map::<SmolStr, u32>(table.entries.len())?;
-                        self.map::<u32, SmolStr>(table.entries.len())?;
-                    }
+                    self.map::<SmolStr, u32>(table.entries.len())?;
+                    self.map::<u32, SmolStr>(table.entries.len())?;
                 }
+                #[cfg(not(feature = "hir"))]
+                SectionData::VarMeta(_) => {}
                 #[cfg(feature = "hir")]
                 SectionData::DebugMap(table) => self
                     .map::<(u32, u32), crate::vm::debug_map::VmSourceLocation>(
@@ -180,9 +180,21 @@ impl PreparationBudget {
         }
         Ok(())
     }
+    fn pou_map<V>(&mut self, count: usize) -> Result<(), RuntimeError> {
+        #[cfg(feature = "std")]
+        {
+            self.map::<u32, V>(count)
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            self.map::<u32, usize>(count)?;
+            self.records::<V>(count)
+        }
+    }
+
     fn pou_metadata(
         &mut self,
-        raw: &BytecodeModule,
+        raw: BytecodeModuleView<'_>,
         table: &PouIndex,
         strings: &StringTable,
     ) -> Result<(), RuntimeError> {
@@ -193,15 +205,14 @@ impl PreparationBudget {
                 .map_or(0, |name| name.len())
         };
         for entry in &table.entries {
-            self.map::<u32, VmPouEntry>(1)?;
-            self.map::<u32, SmolStr>(1)?; // temporary identity/name index
+            self.pou_map::<VmPouEntry>(1)?;
             if entry.kind != PouKind::Method {
                 // Function names remain a preparation-time native-resolution
                 // index without HIR, even though only hosted adapters retain it.
                 self.map::<SmolStr, u32>(1)?;
             }
             self.charge(name_len(entry.name_idx), name_len(entry.name_idx))?;
-            self.map::<u32, Vec<VmParamMeta>>(1)?;
+            self.pou_map::<Vec<VmParamMeta>>(1)?;
             self.records::<VmParamMeta>(entry.params.len())?;
             if entry.return_type_id.is_some() {
                 self.map::<u32, ()>(1)?;
@@ -242,9 +253,12 @@ impl PreparationBudget {
                 if class.parent_pou_id.is_some() {
                     self.map::<u32, u32>(1)?;
                 }
-                self.map::<u32, Vec<u32>>(1)?;
+                self.pou_map::<Vec<u32>>(1)?;
                 self.records::<u32>(class.interfaces.len())?;
+                #[cfg(feature = "std")]
                 self.map::<u32, usize>(1)?;
+                #[cfg(not(feature = "std"))]
+                self.pou_map::<alloc::collections::BTreeMap<SmolStr, u32>>(1)?;
                 self.map::<SmolStr, u32>(class.methods.len())?;
                 for method in &class.methods {
                     self.charge(name_len(method.name_idx), name_len(method.name_idx))?;
@@ -256,7 +270,7 @@ impl PreparationBudget {
 
     fn io_metadata(
         &mut self,
-        raw: &BytecodeModule,
+        raw: BytecodeModuleView<'_>,
         table: &IoMap,
         strings: &StringTable,
     ) -> Result<(), RuntimeError> {
@@ -302,5 +316,91 @@ impl PreparationBudget {
 
     pub(crate) fn usage(&self) -> PreparationUsage {
         self.usage
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bytecode::{
+        BytecodeModule, BytecodeVersion, RefEntry, RefLocation, RefTable, Section, StringTable,
+    };
+    use alloc::vec;
+
+    #[cfg(not(feature = "std"))]
+    #[test]
+    fn portable_pou_map_charges_index_and_reserved_payload() {
+        let count = 3;
+        let required = count
+            * (core::mem::size_of::<u32>()
+                + 5 * core::mem::size_of::<usize>()
+                + core::mem::size_of::<[u8; 24]>());
+        let limits = PreparationLimits {
+            max_preparation_bytes: required,
+            max_preparation_work: usize::MAX,
+            ..PreparationLimits::default()
+        };
+        let mut exact = PreparationBudget::new(limits);
+        exact.pou_map::<[u8; 24]>(count).unwrap();
+        assert_eq!(exact.usage().bytes, required);
+        assert_eq!(exact.usage().work, count * 2);
+        let mut below = PreparationBudget::new(PreparationLimits {
+            max_preparation_bytes: required - 1,
+            ..limits
+        });
+        assert_eq!(
+            below.pou_map::<[u8; 24]>(count),
+            Err(RuntimeError::PreparationLimit)
+        );
+    }
+
+    fn ref_table_module(reference_count: usize) -> BytecodeModule {
+        let mut module = BytecodeModule::new(BytecodeVersion::SOURCE_FREE);
+        module.sections.push(Section {
+            id: SectionId::StringTable.as_raw(),
+            flags: 0,
+            data: SectionData::StringTable(StringTable::default()),
+        });
+        module.sections.push(Section {
+            id: SectionId::RefTable.as_raw(),
+            flags: 0,
+            data: SectionData::RefTable(RefTable {
+                entries: vec![
+                    RefEntry {
+                        location: RefLocation::Global,
+                        owner_id: 0,
+                        offset: 0,
+                        segments: Vec::new(),
+                    };
+                    reference_count
+                ],
+            }),
+        });
+        module
+    }
+
+    #[test]
+    fn ref_table_budget_includes_dense_type_slots_before_materialization() {
+        let reference_count = 3;
+        let module = ref_table_module(reference_count);
+        let required_bytes = reference_count
+            * (core::mem::size_of::<crate::vm::module::VmRef>()
+                + core::mem::size_of::<Option<u32>>());
+        let mut exact = PreparationBudget::new(PreparationLimits {
+            max_preparation_bytes: required_bytes,
+            max_preparation_work: usize::MAX,
+            ..PreparationLimits::default()
+        });
+        exact.metadata(module.view(), 0).unwrap();
+
+        let mut below = PreparationBudget::new(PreparationLimits {
+            max_preparation_bytes: required_bytes - 1,
+            max_preparation_work: usize::MAX,
+            ..PreparationLimits::default()
+        });
+        assert!(matches!(
+            below.metadata(module.view(), 0),
+            Err(RuntimeError::PreparationLimit)
+        ));
     }
 }

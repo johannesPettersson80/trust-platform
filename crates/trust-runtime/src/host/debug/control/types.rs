@@ -83,6 +83,7 @@ struct DebugState {
 #[derive(Debug, Clone)]
 struct WatchEntry {
     expr: Expr,
+    registry: Option<Arc<trust_hir::types::TypeRegistry>>,
     last: Option<Value>,
 }
 

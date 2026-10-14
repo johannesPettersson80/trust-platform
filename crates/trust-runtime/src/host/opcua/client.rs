@@ -138,10 +138,12 @@ fn clear_trusted_certificates_in(pki_dir: &Path) -> Result<usize, RuntimeError> 
     Ok(cleared)
 }
 
+#[cfg(feature = "opcua-wire")]
 fn promote_rejected_opcua_client_server_certificates() -> Result<usize, RuntimeError> {
     promote_rejected_certificates_in(&opcua_client_pki_dir())
 }
 
+#[cfg(any(feature = "opcua-wire", test))]
 fn promote_rejected_certificates_in(pki_dir: &Path) -> Result<usize, RuntimeError> {
     if !certificate_directory_is_safe(pki_dir)? {
         return Ok(0);
@@ -460,6 +462,7 @@ pub fn write_opcua_client_point_values(
     Err(opcua_wire_feature_error())
 }
 
+#[cfg(any(feature = "opcua-wire", test))]
 fn validate_opcua_result_cardinality(
     operation: &str,
     expected: usize,
@@ -758,6 +761,7 @@ fn parse_node_id(text: &str) -> Result<::opcua::types::NodeId, RuntimeError> {
         .map_err(|_| RuntimeError::ControlError(format!("invalid OPC UA node id '{text}'").into()))
 }
 
+#[cfg(feature = "opcua-wire")]
 fn value_from_opcua_variant(
     data_type: OpcUaDataType,
     variant: OpcUaVariant,
@@ -869,6 +873,7 @@ fn certificate_directory_is_safe(root: &std::path::Path) -> Result<bool, Runtime
     }
 }
 
+#[cfg(any(feature = "opcua-wire", test))]
 fn ensure_certificate_directory(root: &std::path::Path) -> Result<(), RuntimeError> {
     match std::fs::symlink_metadata(root) {
         Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => Ok(()),

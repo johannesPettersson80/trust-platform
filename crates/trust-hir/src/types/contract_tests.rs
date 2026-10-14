@@ -321,7 +321,12 @@ fn bit_size_reports_fixed_widths_and_rejects_unsized_types() {
         (Type::UDInt, 32),
         (Type::DWord, 32),
         (Type::Real, 32),
-        (Type::Time, 32),
+        (Type::Time, 64),
+        (Type::Date, 64),
+        (Type::Tod, 64),
+        (Type::Dt, 64),
+        (Type::LTod, 64),
+        (Type::Ldt, 64),
         (Type::LInt, 64),
         (Type::ULInt, 64),
         (Type::LWord, 64),
@@ -351,7 +356,6 @@ fn bit_size_reports_fixed_widths_and_rejects_unsized_types() {
     }
 
     assert_eq!(Type::String { max_len: Some(8) }.bit_size(), None);
-    assert_eq!(Type::Date.bit_size(), None);
     assert_eq!(
         Type::Subrange {
             base: TypeId(9_999),

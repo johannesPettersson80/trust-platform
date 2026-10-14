@@ -177,6 +177,16 @@ Bit offsets carry into bytes, non-BOOL leaves reject a bit offset, and a
 hierarchical address advances only its final path component while preserving
 the root byte identity. No offset or stride may wrap.
 
+External aggregate I/O strides derive from the actual leaf codec widths and
+relative offsets, not artifact `SIZEOF`. A relative structure's wire extent is
+the greatest leaf end, including gaps, rounded to bytes; array stride is that
+complete extent. For example, TIME fields at bytes zero and eight using the
+existing four-byte unsigned-millisecond codec occupy a twelve-byte wire extent,
+even though the new internal structure occupies sixteen bytes. Element two
+starts twelve wire bytes after element one. This distinction preserves existing
+codecs and prevents adjacent bindings from aliasing because gaps were omitted.
+
+
 The HIR layer must not depend on runtime `Value` types or raw CST nodes for
 lowered initializer metadata. Syntax classification helpers delegate to the
 central `trust-syntax` classifier. These are architectural dependency
@@ -615,6 +625,23 @@ runtime behavior (CODESYS/TwinCAT-style):
 
 Conversions or arithmetic that exceed the configured range raise `RuntimeError::DateTimeOutOfRange`.
 
+**Uniform temporal storage (H / STBC 3.0):** TIME, DATE, TOD and DT use eight-byte
+signed storage and report `SIZEOF = 8`, just as their long variants do, on every
+platform. TIME retains its existing nanosecond Duration domain; DATE/TOD/DT retain
+profile ticks. This implementer-specific choice preserves their established
+range and precision rather than reducing them to a vendor's 32-bit model
+(IEC 61131-3 Ed.3 §6.4.2, Table 10, footnote b). The artifact ABI selects physical
+widths: existing 1.1/2.0 retain four-byte short temporal sizes and offsets, with
+checked, atomic rejection of unrepresentable physical writes. Specification 12
+§4.1 defines the version window. Source analysis selects that same ABI before
+layout checks or constant SIZEOF evaluation; a compatibility import must not
+suppress overlap diagnostics or analyze an old four-byte layout as eight bytes.
+The choice is an explicit artifact compatibility input, not a platform setting.
+Changing it invalidates cached semantic results without modifying source text.
+ External DWORD TIME I/O remains the separately
+specified checked unsigned-millisecond transport codec.
+
+
 #### 2.6 Default Values
 
 Per IEC 61131-3, default values for types (IEC 61131-3 Ed.3 §6.4.2, Table 10; §6.4.4.2; §6.4.4.10.2):
@@ -742,16 +769,20 @@ The portable runtime core SHALL preserve these value and program-model rules:
   out-of-bounds indices, checked-arithmetic failures, and offsets that cannot
   be represented by the target `usize` are rejected rather than wrapped.
 - Portable `SIZEOF` type calculation resolves aliases, subranges, and
-  enumerations to their storage type; sums structure fields; selects the
-  largest union variant; multiplies fixed inclusive array dimensions by the
+  enumerations to their storage type; sums ordinary structure fields and uses
+  the complete relative extent, including gaps, for located/overlapping
+  structures under the uniform ABI; selects the largest union variant; multiplies fixed inclusive array dimensions by the
   element size; uses the declared bounded string capacity (twice that capacity
   for `WSTRING`); and uses the runtime reference-handle width for references
   and pointers. Unknown types, unbounded strings, wildcard or reversed array
   dimensions, and unsupported types are rejected. Any representable dimension
-  product or byte-size overflow is rejected rather than wrapped.
+  product or byte-size overflow is rejected rather than wrapped. Legacy ABI
+  calculations retain their historical structure field-sum rule; the selected
+  ABI follows the artifact, not the target processor (section 2.5).
 - Portable runtime-value size calculation uses the exact elementary tag width,
-  counts string content in Unicode scalar elements (`WSTRING` twice), sums
-  structure fields, multiplies a validated array extent by its element size,
+  counts string content in Unicode scalar elements (`WSTRING` twice), resolves
+  located structures through their admitted layout and otherwise sums structure
+  fields, multiplies a validated array extent by its element size,
   resolves an enumeration through its declared base type, and uses the runtime
   reference-handle width. `NULL` has no storage size and is rejected.
 - Stable runtime error identifiers use the exact lower-snake-case strings
@@ -1279,9 +1310,14 @@ Per IEC 61131-3, within each **scheduled task** execution:
 
 The bytecode executor applies the fixed resource limits in
 `12-bytecode.md` section 4.6. In particular, one top-level VM invocation may
-execute at most 1,000,000 original bytecode instructions. Nested calls share
-that remaining budget, and every execution backend charges the same original
-bytecode instruction count. Budget exhaustion is reported through the current
+use at most 1,000,000 work units: one per executed original bytecode
+instruction, plus the value-size work that specification 34 TIME-08 defines
+(array and reference copies, text work, lifetime traversal of reference-holding
+values). Scalar operations add nothing beyond their instruction, and engine
+bookkeeping is never charged. Nested calls share that remaining budget, and
+every execution backend charges the same total. Program construction and
+restart construction run under the separate construction allowance of
+specification 34 TIME-09. Budget exhaustion is reported through the current
 execution-timeout category before the invocation can complete; configured
 deadline and watchdog checks remain independent.
 

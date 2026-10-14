@@ -5,7 +5,7 @@
 use smol_str::SmolStr;
 
 use crate::error;
-use crate::task::{evaluate_task_readiness, ProgramDef, TaskConfig};
+use crate::task::{evaluate_task_readiness, TaskConfig};
 use crate::value::Value;
 use std::sync::Arc;
 use trust_runtime_core::cycle::sort_ready_tasks_by_priority;
@@ -166,9 +166,10 @@ impl Runtime {
                     .with_frame(frame_id, |storage| {
                         let instance_id =
                             storage.current_frame().and_then(|frame| frame.instance_id);
-                        crate::helper_eval::write_storage_lvalue(
+                        crate::helper_eval::write_storage_lvalue_with_abi(
                             storage,
                             &self.registry,
+                            crate::value::StorageAbi::LegacyTemporal32,
                             &self.profile,
                             instance_id,
                             &write.target,
@@ -177,9 +178,10 @@ impl Runtime {
                     })
                     .unwrap_or(Err(error::RuntimeError::InvalidFrame(frame_id.0)))?;
             } else {
-                crate::helper_eval::write_storage_lvalue(
+                crate::helper_eval::write_storage_lvalue_with_abi(
                     &mut self.storage,
                     &self.registry,
+                    crate::value::StorageAbi::LegacyTemporal32,
                     &self.profile,
                     None,
                     &write.target,
@@ -188,50 +190,6 @@ impl Runtime {
             }
         }
         Ok(())
-    }
-
-    /// Execute a program body in the runtime context.
-    pub fn execute_program(&mut self, program: &ProgramDef) -> Result<(), error::RuntimeError> {
-        self.ensure_vm_module_loaded()?;
-        super::vm::execute_program(self, program)
-    }
-
-    /// Execute a function block once by its declared type name.
-    pub fn execute_function_block_by_name(
-        &mut self,
-        name: &str,
-    ) -> Result<(), error::RuntimeError> {
-        let key = SmolStr::new(name.to_ascii_uppercase());
-        let fb = self
-            .function_blocks
-            .get(&key)
-            .cloned()
-            .ok_or_else(|| error::RuntimeError::UndefinedFunctionBlock(name.into()))?;
-        let instance_id = crate::instance::create_fb_instance(
-            &mut self.storage,
-            &self.registry,
-            &self.profile,
-            &self.classes,
-            &self.function_blocks,
-            &self.functions,
-            &self.stdlib,
-            &self.initializer_catalog,
-            &fb,
-        )?;
-
-        const TEMP_FB_REF_OWNER: &str = "__TRUST_TEST_FB_EXEC";
-        const TEMP_FB_REF_LOCAL: &str = "__trust_test_fb_ref";
-
-        self.storage.push_frame(TEMP_FB_REF_OWNER);
-        self.storage
-            .set_local(TEMP_FB_REF_LOCAL, Value::Instance(instance_id));
-        let reference = self
-            .storage
-            .ref_for_local(TEMP_FB_REF_LOCAL)
-            .ok_or(error::RuntimeError::NullReference)?;
-        let result = self.execute_function_block_ref(&reference);
-        self.storage.pop_frame();
-        result
     }
 
     fn execute_program_by_name(&mut self, name: &SmolStr) -> Result<(), error::RuntimeError> {
@@ -356,7 +314,7 @@ impl Runtime {
         super::vm::execute_function_block_ref(self, reference)
     }
 
-    fn ensure_vm_module_loaded(&mut self) -> Result<(), error::RuntimeError> {
+    pub(crate) fn ensure_vm_module_loaded(&mut self) -> Result<(), error::RuntimeError> {
         if self.vm_module.is_some() {
             return Ok(());
         }
@@ -369,7 +327,7 @@ impl Runtime {
 
     fn build_vm_module(&self) -> Result<crate::bytecode::BytecodeModule, error::RuntimeError> {
         if self.source_text_index.is_empty() {
-            return crate::bytecode::build_module_from_runtime(self).map_err(|err| {
+            return crate::bytecode::build_legacy_fixture_module(self, None).map_err(|err| {
                 error::RuntimeError::bytecode(
                     err.stable_code(),
                     format!("vm module build failed: {err}"),
@@ -386,7 +344,7 @@ impl Runtime {
                     .unwrap_or("")
             })
             .collect::<Vec<_>>();
-        crate::bytecode::build_module_from_runtime_with_sources(self, &sources).map_err(|err| {
+        crate::bytecode::build_legacy_fixture_module(self, Some(&sources)).map_err(|err| {
             error::RuntimeError::bytecode(
                 err.stable_code(),
                 format!("vm module build failed: {err}"),
@@ -488,6 +446,7 @@ impl Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::task::ProgramDef;
 
     #[test]
     fn cycle_program_scheduling_is_case_insensitive() {

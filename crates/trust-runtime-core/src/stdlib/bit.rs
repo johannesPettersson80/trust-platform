@@ -11,10 +11,10 @@ use crate::value::Value;
 /// Register the shared bit functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 8] = [
     super::registration::descriptor!("AND", VAR_IN_1_2, bit_and),
     super::registration::descriptor!("NOT", IN, bit_not),
     super::registration::descriptor!("OR", VAR_IN_1_2, bit_or),

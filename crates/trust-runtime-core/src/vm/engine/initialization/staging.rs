@@ -1,6 +1,6 @@
 //! Private initializer transactions for existing FB member override destinations.
 use super::*;
-use crate::bytecode::{InitializationStage, TypeData};
+use crate::bytecode::{InitializationPhase, InitializationStage, InitializationTarget, TypeData};
 use crate::memory::InstanceData;
 
 pub(super) struct InitializerSeed {
@@ -28,13 +28,34 @@ impl EngineState<'_> {
         if entry.stage != InitializationStage::Explicit {
             return Ok(InitializerSeed::empty());
         }
+        let prepared = self.prepared;
         let Some(declaration) = entry
             .declaration_idx
-            .and_then(|id| self.prepared.layout.entries.get(id as usize))
+            .and_then(|id| prepared.layout.entries.get(id as usize))
         else {
             return Ok(InitializerSeed::empty());
         };
-        let Some(type_id) = declaration.type_id.and_then(|id| {
+        // A configuration action selects a persistent path, which may reach a
+        // scalar inside an aggregate declaration. Seed the selected destination,
+        // not its containing declaration or an absent lexical instance.
+        let configured = if entry.phase == InitializationPhase::Configuration
+            && entry.target_kind == InitializationTarget::Reference
+        {
+            Some(
+                self.persistent_io_reference(
+                    entry
+                        .target_idx
+                        .ok_or(RuntimeError::InvalidExecutionState)?,
+                )?,
+            )
+        } else {
+            None
+        };
+        let selected_type = match &configured {
+            Some(reference) => self.reference_type(reference.as_view())?,
+            None => declaration.type_id,
+        };
+        let Some(type_id) = selected_type.and_then(|id| {
             super::super::super::type_policy::resolved_alias_type(&self.prepared.vm.types, id, 0)
         }) else {
             return Ok(InitializerSeed::empty());
@@ -42,42 +63,59 @@ impl EngineState<'_> {
         if !matches!(
             self.prepared.vm.types.entries[type_id as usize].data,
             TypeData::Pou { .. }
+                | TypeData::Struct { .. }
+                | TypeData::Array { .. }
+                | TypeData::Union { .. }
         ) {
             return Ok(InitializerSeed::empty());
         }
         let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-        let value = match declaration.owner {
-            StorageOwner::Global => self.storage.get_global(name),
-            StorageOwner::Instance => {
-                instance.and_then(|id| self.storage.get_instance_var(id, name))
-            }
-            StorageOwner::Frame => {
-                lexical.and_then(|frame| frame.locals.get(declaration.slot as usize))
+        let value = if let Some(reference) = &configured {
+            self.check_read(reference.as_view())?;
+            self.data.storage.read_by_ref_ref(reference)
+        } else {
+            match declaration.owner {
+                StorageOwner::Global => self.data.storage.get_global(name),
+                StorageOwner::Instance => {
+                    instance.and_then(|id| self.data.storage.get_instance_var(id, name))
+                }
+                StorageOwner::Frame => {
+                    lexical.and_then(|frame| frame.locals.get(declaration.slot as usize))
+                }
             }
         }
-        .cloned()
         .ok_or(RuntimeError::InvalidExecutionState)?;
-        let Value::Instance(root) = value else {
+        if matches!(
+            self.prepared.vm.types.entries[type_id as usize].data,
+            TypeData::Pou { .. }
+        ) && !matches!(value, Value::Instance(_))
+        {
             return Err(RuntimeError::TypeMismatch);
-        };
-        let mut pending = vec![root.0];
+        }
+        // Discover ownership from the declared type, never through references or
+        // interface handles. Charge the staged value before cloning its payload.
+        let mut pending = Vec::new();
+        self.owned_value_instances(type_id, value, &mut pending, 0)?;
+        self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
+        let value = value.clone();
         let mut visited = InstanceSet::default();
         let mut backups = Vec::new();
         while let Some(raw_id) = pending.pop() {
             let id = InstanceId(raw_id);
-            self.charge_work_units(1)?;
             self.charge_sorted_growth(visited.insertion_demand(id))?;
             if !visited.insert(id)? {
                 continue;
             }
             let data = self
+                .data
                 .storage
                 .get_instance(id)
                 .ok_or(RuntimeError::InvalidExecutionState)?;
             if let Some(parent) = data.parent {
-                pending.push(parent.0);
+                self.push_owned_instance(&mut pending, parent.0)?;
             }
             let template = self
+                .data
                 .construction
                 .instance_templates
                 .get(&id)
@@ -87,7 +125,6 @@ impl EngineState<'_> {
                 .prepared
                 .declarations(StorageOwner::Instance, Some(template))
             {
-                self.charge_work_units(1)?;
                 let declaration = &self.prepared.layout.entries[declaration_id as usize];
                 if let (Some(type_id), Some((_, value))) = (
                     declaration.type_id,
@@ -106,20 +143,58 @@ impl EngineState<'_> {
                     .checked_add(self.value_clone_charge(value, 0)?)
                     .ok_or(RuntimeError::Overflow)?;
             }
-            ValueConstructionContext::charge_allocation(self, charge)?;
+            self.charge_allocation_bytes(charge)?;
+            if backups.len() == backups.capacity() {
+                let capacity = backups
+                    .capacity()
+                    .max(4)
+                    .checked_mul(2)
+                    .ok_or(RuntimeError::Overflow)?;
+                self.charge_allocation_bytes(
+                    capacity
+                        .checked_mul(core::mem::size_of::<(InstanceId, InstanceData)>())
+                        .ok_or(RuntimeError::Overflow)?,
+                )?;
+                backups
+                    .try_reserve_exact(capacity - backups.len())
+                    .map_err(|_| {
+                        super::super::super::VmTrap::BudgetExceeded.into_runtime_error()
+                    })?;
+            }
             backups.push((
                 id,
-                self.storage
+                self.data
+                    .storage
                     .get_instance(id)
                     .ok_or(RuntimeError::InvalidExecutionState)?
                     .clone(),
             ));
         }
         Ok(InitializerSeed {
-            value: Value::Instance(root),
+            value,
             backups,
             writable_instances: visited,
         })
+    }
+
+    fn push_owned_instance(&self, output: &mut Vec<u32>, id: u32) -> Result<(), RuntimeError> {
+        if output.len() == output.capacity() {
+            let capacity = output
+                .capacity()
+                .max(4)
+                .checked_mul(2)
+                .ok_or(RuntimeError::Overflow)?;
+            self.charge_allocation_bytes(
+                capacity
+                    .checked_mul(core::mem::size_of::<u32>())
+                    .ok_or(RuntimeError::Overflow)?,
+            )?;
+            output
+                .try_reserve_exact(capacity - output.len())
+                .map_err(|_| super::super::super::VmTrap::BudgetExceeded.into_runtime_error())?;
+        }
+        output.push(id);
+        Ok(())
     }
 
     fn owned_value_instances(
@@ -129,9 +204,8 @@ impl EngineState<'_> {
         output: &mut Vec<u32>,
         depth: usize,
     ) -> Result<(), RuntimeError> {
-        self.charge_work_units(1)?;
-        if depth >= self.prepared.limits.max_call_depth {
-            return Err(super::super::super::VmTrap::CallStackOverflow.into_runtime_error());
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
         }
         let ty = self
             .prepared
@@ -144,7 +218,9 @@ impl EngineState<'_> {
             (TypeData::Alias { target_type_id }, _) => {
                 self.owned_value_instances(*target_type_id, value, output, depth + 1)?
             }
-            (TypeData::Pou { .. }, Value::Instance(id)) => output.push(id.0),
+            (TypeData::Pou { .. }, Value::Instance(id)) => {
+                self.push_owned_instance(output, id.0)?
+            }
             (TypeData::Array { elem_type_id, .. }, Value::Array(array)) => {
                 for value in array.elements() {
                     self.owned_value_instances(*elem_type_id, value, output, depth + 1)?;
@@ -174,7 +250,7 @@ impl EngineState<'_> {
         backups: Vec<(InstanceId, InstanceData)>,
     ) {
         for (id, data) in backups {
-            if let Some(instance) = self.storage.get_instance_mut(id) {
+            if let Some(instance) = self.data.storage.get_instance_mut(id) {
                 *instance = data;
             }
         }
@@ -184,6 +260,7 @@ impl EngineState<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::boxed::Box;
 
     #[test]
     fn existing_instance_seed_reuses_exact_visited_identity_set() {
@@ -194,13 +271,24 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state =
-            EngineState::new(&prepared, 0, &super::super::super::services::LOGICAL_ONLY).unwrap();
-        let Some(Value::Instance(program)) = state.storage.get_global("Plant") else {
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let mut state = EngineState::borrow(
+            &mut state_data,
+            &prepared,
+            &super::super::super::services::LOGICAL_ONLY,
+        );
+        let Some(Value::Instance(program)) = state.data.storage.get_global("Plant") else {
             panic!("program")
         };
         let program = *program;
-        let pou = *state.construction.instance_templates.get(&program).unwrap();
+        let pou = *state
+            .data
+            .construction
+            .instance_templates
+            .get(&program)
+            .unwrap();
         let declaration = prepared
             .layout
             .entries
@@ -228,7 +316,160 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         for id in seed.writable_instances {
-            assert!(state.storage.get_instance(id).is_some());
+            assert!(state.data.storage.get_instance(id).is_some());
         }
+    }
+    #[test]
+    fn aggregate_seed_keeps_nested_instance_and_restores_its_graph_on_failure() {
+        let mut prepared = PreparedModule::from_bytes(
+            include_bytes!(
+                "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+            ),
+            crate::vm::PreparationLimits::default(),
+        )
+        .unwrap();
+        let mut data =
+            EngineState::construct_data(&prepared, 0, &super::super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let Some(Value::Instance(program)) = data.storage.get_global("Plant") else {
+            panic!("program")
+        };
+        let program = *program;
+        let pou = *data.construction.instance_templates.get(&program).unwrap();
+        let declaration = prepared
+            .layout
+            .entries
+            .iter()
+            .position(|entry| {
+                entry.owner == StorageOwner::Instance
+                    && entry.owner_pou_id == Some(pou)
+                    && prepared.vm.strings[entry.name_idx as usize].eq_ignore_ascii_case("counter")
+            })
+            .unwrap();
+        let name =
+            prepared.vm.strings[prepared.layout.entries[declaration].name_idx as usize].clone();
+        let Some(Value::Instance(counter)) = data.storage.get_instance_var(program, &name) else {
+            panic!("counter")
+        };
+        let counter = *counter;
+        let member_type = prepared.layout.entries[declaration].type_id.unwrap();
+        let array_type = prepared.vm.types.entries.len() as u32;
+        prepared.vm.types.entries.push(crate::bytecode::TypeEntry {
+            kind: crate::bytecode::TypeKind::Array,
+            name_idx: None,
+            data: TypeData::Array {
+                elem_type_id: member_type,
+                dims: vec![(1, 1)],
+            },
+        });
+        prepared.layout.entries[declaration].type_id = Some(array_type);
+        data.storage.set_instance_var(
+            program,
+            name.as_str(),
+            Value::Array(Box::new(crate::value::ArrayValue::from_canonical_parts(
+                vec![Value::Instance(counter)],
+                vec![(1, 1)],
+            ))),
+        );
+        let original = data
+            .storage
+            .get_instance(counter)
+            .unwrap()
+            .variables
+            .clone();
+        let (changed_name, changed_value) = original
+            .iter()
+            .find_map(|(name, value)| match value {
+                Value::Int(number) => Some((name.clone(), Value::Int(number.wrapping_add(1)))),
+                Value::DInt(number) => Some((name.clone(), Value::DInt(number.wrapping_add(1)))),
+                Value::Bool(value) => Some((name.clone(), Value::Bool(!value))),
+                _ => None,
+            })
+            .expect("fixture mutable scalar");
+        let reference = prepared.vm.refs.len() as u32;
+        prepared
+            .vm
+            .refs
+            .push(crate::vm::module::VmRef::InitializerResult {
+                initializer_id: 0,
+                path: vec![
+                    crate::value::RefSegment::Index(crate::value::ref_indices_from_iter([1])),
+                    crate::value::RefSegment::Field(changed_name),
+                ],
+            });
+        prepared.vm.ref_types.push(None);
+        let constant = prepared.vm.consts.len() as u32;
+        prepared.vm.consts.push(changed_value);
+        let code_offset = prepared.vm.code.len() as u32;
+        prepared.vm.code.push(0x10); // LOAD_CONST
+        prepared.vm.code.extend_from_slice(&constant.to_le_bytes());
+        prepared.vm.code.push(0x21); // STORE_REF through the privately staged aggregate
+        prepared.vm.code.extend_from_slice(&reference.to_le_bytes());
+        prepared.vm.code.push(0xFF); // malformed instruction after the staged write
+        prepared.initializers.entries[0].code_offset = code_offset;
+        prepared.initializers.entries[0].code_length = 11;
+        prepared.initializers.entries[0].stage = InitializationStage::Explicit;
+        prepared.initializers.entries[0].declaration_idx = Some(declaration as u32);
+        let result_ref_idx = prepared.initializers.entries[0].result_ref_idx as usize;
+        *prepared
+            .vm
+            .ref_types
+            .get_mut(result_ref_idx)
+            .expect("initializer reference has a dense type slot") = Some(array_type);
+        let mut state = EngineState::borrow(
+            &mut data,
+            &prepared,
+            &super::super::super::services::LOGICAL_ONLY,
+        );
+        let mut entry = prepared.initializers.entries[0].clone();
+        entry.stage = InitializationStage::Explicit;
+        entry.declaration_idx = Some(declaration as u32);
+        let seed = state.initializer_seed(&entry, Some(program), None).unwrap();
+        let Value::Array(array) = &seed.value else {
+            panic!("staged array")
+        };
+        assert_eq!(array.elements(), &[Value::Instance(counter)]);
+        assert!(seed.writable_instances.contains(&counter));
+        let member = original.get_index(0).unwrap().0.clone();
+        state
+            .data
+            .storage
+            .set_instance_var(counter, member.as_str(), Value::Null);
+        state.restore_initializer_instances(seed.backups);
+        assert_eq!(
+            state.data.storage.get_instance(counter).unwrap().variables,
+            original
+        );
+        // The actual initializer cleanup path must restore an already-written
+        // nested object after the following instruction faults.
+        assert_eq!(
+            state
+                .evaluate_initializer(0, None, Some(program), 0)
+                .unwrap_err()
+                .stable_code(),
+            crate::error::StableErrorCode::BytecodeInvalidOpcode
+        );
+        assert_eq!(
+            state.data.storage.get_instance(counter).unwrap().variables,
+            original
+        );
+        assert_eq!(state.data.storage.execution_frame_count(), 0);
+        assert!(state.data.construction.initializers.is_empty());
+        // An exhausted construction budget rejects before cloning or changing
+        // either the aggregate destination or the owned instance graph.
+        state
+            .data
+            .resources
+            .construction_bytes
+            .set(prepared.limits.max_construction_bytes);
+        assert!(state.initializer_seed(&entry, Some(program), None).is_err());
+        assert_eq!(
+            state.data.storage.get_instance(counter).unwrap().variables,
+            original
+        );
+        let Some(Value::Array(array)) = state.data.storage.get_instance_var(program, &name) else {
+            panic!("original array")
+        };
+        assert_eq!(array.elements(), &[Value::Instance(counter)]);
     }
 }

@@ -88,8 +88,13 @@ fn leaf_width(
                 prim_id,
                 max_length,
             } => {
-                let width = crate::vm::sizeof_primitive_type(*prim_id, *max_length)
-                    .map_err(|_| RejectionReason::InvalidConstructionRecord)?;
+                // This is the established external process-image codec width,
+                // not the artifact's internal temporal storage/SIZEOF ABI.
+                let width = match prim_id {
+                    16 | 18 | 20 | 22 => Ok(4),
+                    _ => crate::vm::sizeof_primitive_type(*prim_id, *max_length),
+                }
+                .map_err(|_| RejectionReason::InvalidConstructionRecord)?;
                 return u32::try_from(width)
                     .map_err(|_| RejectionReason::InvalidConstructionRecord.into());
             }

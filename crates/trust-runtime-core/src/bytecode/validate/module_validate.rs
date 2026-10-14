@@ -89,10 +89,16 @@ impl BytecodeModuleView<'_> {
 
         budget.work(pou_index.entries.len())?;
         validate_declared_resource_limits(ref_table, pou_index)?;
-        validate_type_table(strings, types, &mut budget)?;
+        validate_type_table(
+            strings,
+            types,
+            self.version,
+            self.storage_abi()?,
+            &mut budget,
+        )?;
         for entry in &types.entries {
             budget.work(1)?;
-            if self.version.major == 2
+            if self.version.is_source_free()
                 && let TypeData::Primitive {
                     prim_id,
                     max_length,
@@ -106,10 +112,10 @@ impl BytecodeModuleView<'_> {
                 prim_id: 0x0100,
                 max_length,
             } = entry.data
-                && (self.version.major != 2 || max_length != 0)
+                && (!self.version.is_source_free() || max_length != 0)
             {
                 return Err(BytecodeError::section_static(
-                    "generic native state requires STBC 2.0",
+                    "generic native state requires source-free STBC",
                 ));
             }
         }
@@ -132,7 +138,7 @@ impl BytecodeModuleView<'_> {
             var_meta,
             &mut budget,
         )?;
-        if self.version.major == 2 {
+        if self.version.is_source_free() {
             let aliases = match self.section(SectionId::AccessBindings) {
                 Some(SectionData::AccessBindings(aliases)) => aliases,
                 _ => {
@@ -155,7 +161,7 @@ impl BytecodeModuleView<'_> {
         budget.temporary(|budget| {
             validate_pou_index(&tables, pou_bodies, &mut instruction_count, budget)
         })?;
-        let construction_layout = if self.version.major == 2 {
+        let construction_layout = if self.version.is_source_free() {
             Some(construction::sections(self)?.0)
         } else {
             None
@@ -179,7 +185,7 @@ impl BytecodeModuleView<'_> {
             let file_strings = debug_strings.unwrap_or(strings);
             validate_debug_map(file_strings, &tables, debug_map, &mut budget)?;
         }
-        if self.version.major == 2 {
+        if self.version.is_source_free() {
             construction::validate_construction(
                 self,
                 &tables,
@@ -196,17 +202,7 @@ fn validate_container_records(
     module: &BytecodeModuleView<'_>,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
-    if !module.version.is_supported() {
-        return Err(BytecodeError::UnsupportedVersion {
-            major: module.version.major,
-            minor: module.version.minor,
-        });
-    }
-    if module.version.major == 2 && module.flags != crate::bytecode::HEADER_FLAG_CRC32 {
-        return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
-            "STBC 2.0 requires CRC32 and no reserved flags",
-        )));
-    }
+    module.storage_abi()?;
     u16::try_from(module.sections.len()).map_err(|_| {
         BytecodeError::InvalidHeader(smol_str::SmolStr::new_static("section count overflow"))
     })?;
@@ -214,7 +210,7 @@ fn validate_container_records(
     let mut ids = 0u32;
     for section in module.sections {
         budget.work(1)?;
-        if module.version.major == 2 && section.flags != 0 {
+        if module.version.is_source_free() && section.flags != 0 {
             return Err(RejectionReason::ReservedConstructionSectionFlags.into());
         }
         let expected = match &section.data {
@@ -249,7 +245,7 @@ fn validate_container_records(
             }
         };
         let known = SectionId::from_raw(section.id)
-            .filter(|id| module.version.major == 2 || id.as_raw() < 0x000D);
+            .filter(|id| module.version.is_source_free() || id.as_raw() < 0x000D);
         if expected.map(SectionId::as_raw) != known.map(SectionId::as_raw) {
             return Err(BytecodeError::from(RejectionReason::SectionPayloadMismatch));
         }

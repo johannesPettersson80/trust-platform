@@ -11,6 +11,7 @@ mod eval;
 mod expression;
 mod format;
 mod list;
+pub(in crate::adapter) mod retained;
 mod set;
 mod state;
 mod write;

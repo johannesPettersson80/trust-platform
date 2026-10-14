@@ -25,8 +25,8 @@ pub fn format_user_value(value: &Value) -> String {
         Value::UInt(value) => value.to_string(),
         Value::UDInt(value) => value.to_string(),
         Value::ULInt(value) => value.to_string(),
-        Value::Real(value) => format_real(f64::from(*value)),
-        Value::LReal(value) => format_real(*value),
+        Value::Real(value) => super::float_text::real(f64::from(*value)),
+        Value::LReal(value) => super::float_text::real(*value),
         Value::Byte(value) => value.to_string(),
         Value::Word(value) => value.to_string(),
         Value::DWord(value) => value.to_string(),
@@ -54,14 +54,6 @@ pub fn format_user_value(value: &Value) -> String {
         Value::Instance(_) => "Instance".to_string(),
         Value::Null => "NULL".to_string(),
     }
-}
-
-fn format_real(value: f64) -> String {
-    let mut text = value.to_string();
-    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
-        text.push_str(".0");
-    }
-    text
 }
 
 fn format_duration(prefix: &str, nanos: i64) -> String {

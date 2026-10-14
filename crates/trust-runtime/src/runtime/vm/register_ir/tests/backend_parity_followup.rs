@@ -29,8 +29,14 @@ fn assert_deadline_exceeded(error: RuntimeError) {
 
 fn assert_instruction_budget_exceeded(error: RuntimeError) {
     assert!(
-        matches!(error, RuntimeError::ExecutionTimeout),
-        "expected instruction-budget ExecutionTimeout, got {error:?}",
+        matches!(
+            error,
+            RuntimeError::ExecutionLimit {
+                kind: trust_runtime_core::error::ExecutionLimitKind::Work,
+                ..
+            }
+        ),
+        "expected shared instruction-work exhaustion, got {error:?}",
     );
 }
 
@@ -64,6 +70,8 @@ fn vmpar_register_deadline_traps_without_fallback_or_commit() {
     runtime.reset_vm_register_profile();
     runtime.set_execution_deadline(Some(Instant::now() - Duration::from_secs(1)));
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let error = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect_err("expired deadline must trap register IR before store");
 
@@ -82,6 +90,8 @@ fn vmpar_tier1_deadline_traps_in_compiled_block_without_commit() {
     runtime.reset_vm_tier1_specialized_executor();
     runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let warmup = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("warmup execution");
     assert_eq!(warmup, RegisterExecutionOutcome::Executed);
@@ -137,6 +147,8 @@ fn vmpar_stack_register_and_tier1_paths_produce_expected_forward_value() {
     let mut register_runtime = vmpar_seed_runtime();
     register_runtime.set_vm_register_profile_enabled(true);
     register_runtime.reset_vm_register_profile();
+    let mut register_runtime = LegacyRegisterFixtureContext::new(&mut register_runtime, &module)
+        .expect("prepare legacy register fixture");
     let register_outcome =
         try_execute_pou_with_register_ir(&mut register_runtime, &module, pou_id, None)
             .expect("register IR execution");
@@ -157,6 +169,8 @@ fn vmpar_stack_register_and_tier1_paths_produce_expected_forward_value() {
     tier1_runtime
         .vm_tier1_specialized_executor
         .hot_block_threshold = 1;
+    let mut tier1_runtime = LegacyRegisterFixtureContext::new(&mut tier1_runtime, &module)
+        .expect("prepare legacy register fixture");
     let tier1_outcome = try_execute_pou_with_register_ir(&mut tier1_runtime, &module, pou_id, None)
         .expect("tier1-backed register execution");
     assert_eq!(tier1_outcome, RegisterExecutionOutcome::Executed);
@@ -206,6 +220,9 @@ fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
         let (mut register_module, pou_id) = vmpar_add_store_module();
         register_module.set_legacy_instruction_budget(budget);
         let mut register_runtime = vmpar_seed_runtime();
+        let mut register_runtime =
+            LegacyRegisterFixtureContext::new(&mut register_runtime, &register_module)
+                .expect("prepare legacy register fixture");
         let register_error =
             try_execute_pou_with_register_ir(&mut register_runtime, &register_module, pou_id, None)
                 .expect_err("register path must exhaust the fixed test budget");
@@ -222,6 +239,9 @@ fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
         tier1_runtime
             .vm_tier1_specialized_executor
             .hot_block_threshold = 1;
+        let mut tier1_runtime =
+            LegacyRegisterFixtureContext::new(&mut tier1_runtime, &tier1_module)
+                .expect("prepare legacy register fixture");
         try_execute_pou_with_register_ir(&mut tier1_runtime, &tier1_module, pou_id, None)
             .expect("tier1 warmup must compile the block");
         tier1_runtime
@@ -299,7 +319,9 @@ fn vmpar_nested_function_call_shares_the_top_level_instruction_budget() {
         cycle
             .errors
             .iter()
-            .any(|error| matches!(error, RuntimeError::ExecutionTimeout)),
+            .any(|error| matches!(error, RuntimeError::ExecutionLimit {
+                kind: trust_runtime_core::error::ExecutionLimitKind::Work, ..
+            })),
         "nested call must consume the caller's remaining budget: main={main_count}, callee={callee_count}, errors={:?}",
         cycle.errors
     );

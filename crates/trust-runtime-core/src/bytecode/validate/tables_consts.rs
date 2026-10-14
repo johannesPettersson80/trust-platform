@@ -3,15 +3,28 @@ use super::*;
 pub(super) fn validate_type_table(
     strings: &StringTable,
     types: &TypeTable,
+    version: crate::bytecode::BytecodeVersion,
+    abi: crate::value::StorageAbi,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
     for entry in &types.entries {
         budget.work(1)?;
+        if matches!(
+            entry.kind,
+            TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+        ) && !version.has_relative_layouts()
+        {
+            return Err(RejectionReason::InvalidTypeKind.into());
+        }
         let matches = matches!(
             (&entry.kind, &entry.data),
             (TypeKind::Primitive, TypeData::Primitive { .. })
                 | (TypeKind::Array, TypeData::Array { .. })
                 | (TypeKind::Struct, TypeData::Struct { .. })
+                | (
+                    TypeKind::OverlappingStruct | TypeKind::LocatedStruct,
+                    TypeData::Struct { .. }
+                )
                 | (TypeKind::Union, TypeData::Union { .. })
                 | (TypeKind::Enum, TypeData::Enum { .. })
                 | (TypeKind::Alias, TypeData::Alias { .. })
@@ -44,6 +57,16 @@ pub(super) fn validate_type_table(
                     budget.work(1)?;
                     ensure_string_index(strings, field.name_idx)?;
                     ensure_type_index(types, field.type_id)?;
+                    if field.bit_offset.is_some()
+                        && !matches!(
+                            entry.kind,
+                            TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+                        )
+                    {
+                        return Err(BytecodeError::section_static(
+                            "relative field layout requires a located structure kind",
+                        ));
+                    }
                 }
             }
             TypeData::Enum {
@@ -73,6 +96,30 @@ pub(super) fn validate_type_table(
             }
             TypeData::Primitive { .. } => {}
         }
+    }
+    if types.entries.iter().any(|entry| {
+        matches!(
+            entry.kind,
+            TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+        )
+    }) {
+        let mut quota_error = None;
+        let result = crate::value::overlap::prepare_layouts(
+            types,
+            &strings.entries,
+            abi,
+            &mut |bytes, work| {
+                if let Err(error) = budget.storage(bytes).and_then(|()| budget.work(work)) {
+                    quota_error = Some(error);
+                    return Err(crate::error::RuntimeError::Overflow);
+                }
+                Ok(())
+            },
+        );
+        if let Some(error) = quota_error {
+            return Err(error);
+        }
+        result.map_err(|_| BytecodeError::section_static("invalid relative structure layout"))?;
     }
     Ok(())
 }

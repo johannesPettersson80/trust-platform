@@ -29,7 +29,7 @@ impl EdgeInputTransaction {
         let Some(owner) = module.pou_name(pou_id) else {
             return Ok(None);
         };
-        let inputs = runtime.edge_inputs(owner);
+        let inputs = runtime.edge_inputs_for_pou(module, pou_id, owner);
         if inputs.is_empty() {
             return Ok(None);
         }

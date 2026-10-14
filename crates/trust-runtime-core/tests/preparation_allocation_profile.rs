@@ -111,6 +111,7 @@ fn saved_artifacts_report_actual_preparation_instantiation_and_scan_allocations(
         max_construction_bytes: 128 * 1024,
         max_process_image_bytes: 64,
         max_work: 50_000,
+        max_construction_work: 50_000,
         max_call_depth: 4,
     };
     for (name, bytes) in [
@@ -214,4 +215,51 @@ fn portable_diagnostic_construction_clone_and_equality_do_not_render_or_allocate
     assert!(!sample.invalid_accounting);
     assert_eq!(sample.allocations, 0);
     assert_eq!(sample.live, 0);
+}
+
+#[cfg(feature = "hir")]
+#[test]
+fn native_payload_transfer_allocates_only_the_final_argument_vector() {
+    use trust_runtime_core::value::Value;
+    use trust_runtime_core::vm::hosted::{
+        call::bindings::{unpack_native_call_payload, VmNativeArg, VmNativeArgValue},
+        module::VmNativeArgSpec,
+        OperandStack,
+    };
+
+    let mut stack = OperandStack::default();
+    stack.push(Value::DInt(17)).unwrap();
+    stack.push(Value::DInt(23)).unwrap();
+    let specs = [
+        VmNativeArgSpec {
+            name: None,
+            is_target: false,
+        },
+        VmNativeArgSpec {
+            name: None,
+            is_target: false,
+        },
+    ];
+    let capture = Capture::begin();
+    let (receiver, args) = unpack_native_call_payload(&mut stack, &specs, 0).unwrap();
+    let transfer = Capture::phase();
+    drop(capture);
+
+    assert_eq!(receiver, None);
+    assert_eq!(args.len(), 2);
+    assert!(matches!(
+        args[0].value,
+        VmNativeArgValue::Expr(Value::DInt(17))
+    ));
+    assert!(matches!(
+        args[1].value,
+        VmNativeArgValue::Expr(Value::DInt(23))
+    ));
+    assert!(!transfer.invalid_accounting);
+    assert_eq!(
+        transfer.allocations, 1,
+        "unexpected staging allocation: {transfer:?}"
+    );
+    assert_eq!(transfer.peak, 2 * core::mem::size_of::<VmNativeArg>());
+    assert_eq!(transfer.live, transfer.peak);
 }

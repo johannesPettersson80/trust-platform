@@ -30,6 +30,7 @@ include!("wire.rs");
 include!("client.rs");
 include!("client_cache.rs");
 include!("client_bridge.rs");
+mod client_cycle_port;
 include!("client_worker.rs");
 
 #[cfg(test)]

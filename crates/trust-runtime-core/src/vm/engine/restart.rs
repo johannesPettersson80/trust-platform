@@ -6,58 +6,81 @@ use crate::retain::{value_is_retainable, RestartMode};
 impl EngineState<'_> {
     /// Reconstruct this application, committing only after every initializer succeeds.
     pub fn restart(&mut self, mode: RestartMode) -> Result<(), RuntimeError> {
-        let mut next = Self::build(
+        self.restart_with_snapshot(mode, None).map(|_| ())
+    }
+
+    pub(super) fn restart_with_snapshot(
+        &mut self,
+        mode: RestartMode,
+        snapshot: Option<&crate::retain::RetainSnapshot>,
+    ) -> Result<Vec<super::RetainApplyEvent>, RuntimeError> {
+        let mut next_data = Self::build(
             self.prepared,
-            self.resource_index,
+            self.data.resource_index,
             self.services,
             true,
             (mode == RestartMode::Warm).then_some(&*self),
-            Some(&self.images),
-            self.now,
+            Some(&self.data.images),
+            self.data.now,
         )?;
+        let mut next = Self::borrow(&mut next_data, self.prepared, self.services);
         if mode == RestartMode::Warm {
-            for (index, declaration) in self.prepared.layout.entries.iter().enumerate() {
-                next.charge_work_units(1)?;
-                if declaration.role == StorageRole::External
-                    || declaration.owner != StorageOwner::Instance
-                    || !declaration.is_retained()
-                {
+            next.restore_retained_program_values(self)?;
+        }
+        // Image carry-over and initialization already ran in the staged build.
+        // Expiry during retained restoration also leaves the previous state intact.
+        let events = match snapshot {
+            Some(snapshot) => next.apply_retained_snapshot(snapshot)?,
+            None => Vec::new(),
+        };
+        next.check_entry_deadline()?;
+        // Same-module restart preserves selected plans and profiling, as the
+        // hosted lifecycle did. Move reserved state only after candidate success.
+        #[cfg(feature = "register-ir")]
+        core::mem::swap(
+            &mut next_data.resources.register,
+            &mut self.data.resources.register,
+        );
+        *self.data = *next_data;
+        Ok(events)
+    }
+
+    pub(super) fn restore_retained_program_values(
+        &mut self,
+        source: &EngineState<'_>,
+    ) -> Result<(), RuntimeError> {
+        for (index, declaration) in source.prepared.layout.entries.iter().enumerate() {
+            if declaration.role == StorageRole::External
+                || declaration.owner != StorageOwner::Instance
+                || !declaration.is_retained()
+            {
+                continue;
+            }
+            let name = &source.prepared.vm.strings[declaration.name_idx as usize];
+            let owner = declaration
+                .owner_pou_id
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            for &root_index in source.prepared.program_roots(owner) {
+                let Some(old) = source.data.construction.roots[root_index] else {
                     continue;
-                }
-                let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-                let owner = declaration
-                    .owner_pou_id
+                };
+                let new = self.data.construction.roots[root_index]
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                next.charge_work_units(self.prepared.lookup_work())?;
-                for &root_index in self.prepared.program_roots(owner) {
-                    next.charge_work_units(1)?;
-                    let Some(old) = self.construction.roots[root_index] else {
-                        continue;
-                    };
-                    let new = next.construction.roots[root_index]
-                        .ok_or(RuntimeError::InvalidExecutionState)?;
-                    if let Some(value) = self.storage.get_instance_var(old, name) {
-                        next.charge_retention_walk(value, 0)?;
-                        if value_is_retainable(value) {
-                            next.restore_program_value(new, name, value)?;
-                        }
+                if let Some(value) = source.data.storage.get_instance_var(old, name) {
+                    self.check_retention_walk(value, 0)?;
+                    if value_is_retainable(value) {
+                        self.restore_program_value(new, name, value)?;
                     }
-                    next.charge_work_units(self.prepared.lookup_work())?;
-                    for &phase_id in self.prepared.edge_declarations(index as u32) {
-                        next.charge_work_units(1)?;
-                        let phase = &self.prepared.layout.entries[phase_id as usize];
-                        let phase_name = &self.prepared.vm.strings[phase.name_idx as usize];
-                        if let Some(value) = self.storage.get_instance_var(old, phase_name) {
-                            next.restore_program_value(new, phase_name, value)?;
-                        }
+                }
+                for &phase_id in source.prepared.edge_declarations(index as u32) {
+                    let phase = &source.prepared.layout.entries[phase_id as usize];
+                    let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
+                    if let Some(value) = source.data.storage.get_instance_var(old, phase_name) {
+                        self.restore_program_value(new, phase_name, value)?;
                     }
                 }
             }
         }
-        // Image carry-over and initialization already ran in the staged build.
-        // Expiry during retained restoration also leaves the previous state intact.
-        next.check_entry_deadline()?;
-        *self = next;
         Ok(())
     }
 
@@ -71,11 +94,15 @@ impl EngineState<'_> {
             .checked_add(source.outputs.len())
             .and_then(|n| n.checked_add(source.memory.len()))
             .ok_or(RuntimeError::Overflow)?;
-        self.charge_work_units(image_bytes)?;
         self.charge_allocation_bytes(image_bytes)?;
-        self.images.inputs.copy_from_slice(&source.inputs);
-        self.images.outputs.copy_from_slice(&source.outputs);
-        self.images.memory.copy_from_slice(&source.memory);
+        for (target, source) in [
+            (&mut self.data.images.inputs, &source.inputs),
+            (&mut self.data.images.outputs, &source.outputs),
+            (&mut self.data.images.memory, &source.memory),
+        ] {
+            let shared = target.len().min(source.len());
+            target[..shared].copy_from_slice(&source[..shared]);
+        }
         self.charge_allocation_bytes(
             source
                 .hierarchical
@@ -85,10 +112,14 @@ impl EngineState<'_> {
         )?;
         for (key, value) in &source.hierarchical {
             let key_bytes = key.clone_allocation_bytes().ok_or(RuntimeError::Overflow)?;
-            self.charge_work_units(key_bytes.checked_add(1).ok_or(RuntimeError::Overflow)?)?;
+            // The overflow guard stays; the key copy is bookkeeping and is not charged.
+            key_bytes.checked_add(1).ok_or(RuntimeError::Overflow)?;
             self.charge_allocation_bytes(key_bytes)?;
             self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
-            self.images.hierarchical.insert(key.clone(), value.clone());
+            self.data
+                .images
+                .hierarchical
+                .insert(key.clone(), value.clone());
         }
         Ok(())
     }
@@ -101,6 +132,7 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
         if !self
+            .data
             .storage
             .set_instance_var(instance, name.clone(), value.clone())
         {
@@ -109,24 +141,68 @@ impl EngineState<'_> {
         Ok(())
     }
 
-    fn charge_retention_walk(&self, value: &Value, depth: usize) -> Result<(), RuntimeError> {
-        self.charge_work_units(1)?;
-        if depth >= self.prepared.limits.max_call_depth.min(128) {
-            return Err(super::super::VmTrap::CallStackOverflow.into_runtime_error());
+    /// Depth-check a retained value before it is copied. The walk is bookkeeping:
+    /// the copy itself is charged by `value_clone_charge` (TIME-08).
+    pub(super) fn check_retention_walk(
+        &self,
+        value: &Value,
+        depth: usize,
+    ) -> Result<(), RuntimeError> {
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
         }
         match value {
             Value::Array(array) => {
                 for child in array.elements() {
-                    self.charge_retention_walk(child, depth + 1)?;
+                    self.check_retention_walk(child, depth + 1)?;
                 }
             }
             Value::Struct(structure) => {
                 for child in structure.fields().values() {
-                    self.charge_retention_walk(child, depth + 1)?;
+                    self.check_retention_walk(child, depth + 1)?;
                 }
             }
             _ => {}
         }
         Ok(())
     }
+}
+
+/// Index-based object preservation is valid only for the same admitted identity
+/// graph. Changed executable bodies/default code are allowed; changed physical
+/// declarations, types, inheritance or interface identities require migration.
+#[cfg(feature = "std")]
+pub(super) fn warm_graph_congruent(old: &PreparedModule, new: &PreparedModule) -> bool {
+    old.layout == new.layout
+        && old.roots == new.roots
+        && old.vm.types.entries == new.vm.types.entries
+        && old.vm.physical_layouts.len() == new.vm.physical_layouts.len()
+        && old
+            .vm
+            .physical_layouts
+            .iter()
+            .zip(&new.vm.physical_layouts)
+            .all(|(old, new)| match (old, new) {
+                (None, None) => true,
+                (Some(old), Some(new)) => old.storage_compatible(new),
+                _ => false,
+            })
+        && old
+            .vm
+            .strings
+            .iter()
+            .zip(&new.vm.strings)
+            .all(|(a, b)| a == b)
+        && old.vm.parent_pou_ids == new.vm.parent_pou_ids
+        && old.vm.interface_type_ids_by_pou == new.vm.interface_type_ids_by_pou
+        && old.vm.pou_by_id.len() == new.vm.pou_by_id.len()
+        && old.vm.pou_by_id.iter().all(|(id, pou)| {
+            new.vm.pou(*id).is_some_and(|next| {
+                pou.kind == next.kind
+                    && pou.name == next.name
+                    && pou.local_ref_start == next.local_ref_start
+                    && pou.local_ref_count == next.local_ref_count
+                    && pou.primary_instance_owner == next.primary_instance_owner
+            })
+        })
 }

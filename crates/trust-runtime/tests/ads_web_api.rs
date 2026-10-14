@@ -394,6 +394,7 @@ END_PROGRAM
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };

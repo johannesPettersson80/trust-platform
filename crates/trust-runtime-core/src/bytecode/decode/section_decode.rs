@@ -90,7 +90,7 @@ pub(super) fn decode_ref_table(
         let owner_id = reader.read_u32()?;
         let offset = reader.read_u32()?;
         let segment_count = read_bounded_count(reader, 8, "REF_TABLE segment")?;
-        if location == 5 && version.major != 2 {
+        if location == 5 && !version.is_source_free() {
             return Err(RejectionReason::InvalidRefLocation.into());
         }
         let location = RefLocation::from_raw(location)
@@ -299,9 +299,10 @@ pub(super) fn decode_io_map(
     let binding_count = read_bounded_count(reader, 12, "IO_MAP")?;
     let mut bindings = budget.vector(binding_count)?;
     for _ in 0..binding_count {
-        let address_str_idx = reader.read_u32()?;
-        let ref_idx = reader.read_u32()?;
-        let type_id = optional_u32(reader.read_u32()?);
+        let record = Record::<12>::read(reader)?;
+        let address_str_idx = record.word::<0>();
+        let ref_idx = record.word::<4>();
+        let type_id = record.optional::<8>();
         bindings.push(IoBinding {
             address_str_idx,
             ref_idx,
@@ -318,13 +319,13 @@ pub(super) fn decode_debug_map(
     let entry_count = read_bounded_count(reader, 24, "DEBUG_MAP")?;
     let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
-        let pou_id = reader.read_u32()?;
-        let code_offset = reader.read_u32()?;
-        let file_idx = reader.read_u32()?;
-        let line = reader.read_u32()?;
-        let column = reader.read_u32()?;
-        let kind = reader.read_u8()?;
-        let _reserved = reader.read_bytes(3)?;
+        let record = Record::<24>::read(reader)?;
+        let pou_id = record.word::<0>();
+        let code_offset = record.word::<4>();
+        let file_idx = record.word::<8>();
+        let line = record.word::<12>();
+        let column = record.word::<16>();
+        let kind = record.0[20];
         entries.push(DebugEntry {
             pou_id,
             code_offset,
@@ -344,13 +345,12 @@ pub(super) fn decode_var_meta(
     let entry_count = read_bounded_count(reader, 20, "VAR_META")?;
     let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
-        let name_idx = reader.read_u32()?;
-        let type_id = reader.read_u32()?;
-        let ref_idx = reader.read_u32()?;
-        let retain = reader.read_u8()?;
-        let _flags = reader.read_u8()?;
-        let _reserved = reader.read_u16()?;
-        let init_const_idx = optional_u32(reader.read_u32()?);
+        let record = Record::<20>::read(reader)?;
+        let name_idx = record.word::<0>();
+        let type_id = record.word::<4>();
+        let ref_idx = record.word::<8>();
+        let retain = record.0[12];
+        let init_const_idx = record.optional::<16>();
         entries.push(VarMetaEntry {
             name_idx,
             type_id,
@@ -369,8 +369,9 @@ pub(super) fn decode_retain_init(
     let entry_count = read_bounded_count(reader, 8, "RETAIN_INIT")?;
     let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
-        let ref_idx = reader.read_u32()?;
-        let const_idx = reader.read_u32()?;
+        let record = Record::<8>::read(reader)?;
+        let ref_idx = record.word::<0>();
+        let const_idx = record.word::<4>();
         entries.push(RetainInitEntry { ref_idx, const_idx });
     }
     Ok(RetainInit { entries })
@@ -383,3 +384,6 @@ pub(super) fn optional_u32(value: u32) -> Option<u32> {
         Some(value)
     }
 }
+
+#[cfg(test)]
+mod fixed_record_tests;

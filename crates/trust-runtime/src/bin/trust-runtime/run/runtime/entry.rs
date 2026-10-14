@@ -62,7 +62,7 @@ pub fn run_runtime(
     }
 
     if let Some(bundle) = &bundle {
-        apply_bundle_runtime_overrides(&mut runtime, bundle)?;
+        apply_bundle_runtime_services(&mut runtime, bundle)?;
     }
     runtime
         .set_execution_backend(selected_execution_backend)

@@ -89,9 +89,10 @@ fn evaluate_with_snapshot(
     let eval = |storage: &mut crate::memory::VariableStorage,
                 instance_id: Option<crate::memory::InstanceId>|
      -> Result<Value, RuntimeError> {
-        crate::helper_eval::eval_storage_expr_with_stdlib(
+        crate::helper_eval::eval_storage_expr_with_abi(
             storage,
             registry,
+            snapshot.storage_abi,
             &profile,
             instance_id,
             Some(metadata.stdlib()),

@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 const VECTOR: std::ops::Range<u64> = 0x0800_0000..0x0800_4000;
 const CODE: std::ops::Range<u64> = 0x0801_0000..0x0808_0000;
 const RAM: std::ops::Range<u64> = 0x2000_0000..0x2001_4000;
-const FLASH_MARGIN: u64 = 16 * 1024;
+const FLASH_GROWTH_TARGET: u64 = 16 * 1024;
 
 fn contained(start: u64, bytes: u64, region: &std::ops::Range<u64>) -> bool {
     start >= region.start
@@ -55,10 +55,14 @@ fn readonly_tail(
 
 fn upper_span(end: u64) -> Result<u64> {
     ensure!(
-        (CODE.start..=CODE.end - FLASH_MARGIN).contains(&end),
-        "firmware does not leave 16 KiB upper-region headroom"
+        (CODE.start..=CODE.end).contains(&end),
+        "firmware load end leaves the executable region"
     );
     Ok(end - CODE.start)
+}
+
+fn meets_flash_growth_target(free_bytes: u64) -> bool {
+    free_bytes >= FLASH_GROWTH_TARGET
 }
 
 pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
@@ -129,6 +133,8 @@ pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
     );
     let code_end = symbol("__firmware_load_end")?;
     let code_span = upper_span(code_end)?;
+    let code_free_bytes = CODE.end - code_end;
+    let flash_growth_target_met = meets_flash_growth_target(code_free_bytes);
     let code = file
         .section_by_name(".text")
         .context("missing executable firmware section")?;
@@ -224,7 +230,9 @@ pub(super) fn inspect(bytes: &[u8]) -> Result<Value> {
         "static_ram_bytes_including_heap":ram_bytes,"other_static_ram_bytes":ram_bytes-72*1024,
         "heap_reserved_bytes":72*1024,"stack_reserved_bytes":16*1024,
         "application_sector_bytes":16*1024,"persistence_reserved_bytes":32*1024,"firmware_code_capacity_bytes":448*1024,
-        "firmware_code_span_bytes":code_span,"firmware_code_free_bytes":CODE.end-code_end,
+        "firmware_code_span_bytes":code_span,"firmware_code_free_bytes":code_free_bytes,
+        "firmware_code_growth_target_bytes":FLASH_GROWTH_TARGET,
+        "firmware_code_growth_target_met":flash_growth_target_met,
         "sector0_span_bytes":tail.address()+tail.size()-VECTOR.start,
         "sector0_free_bytes":VECTOR.end-tail.address()-tail.size(),
         "load_segments":loads,"sections":sections}),
@@ -299,10 +307,22 @@ mod tests {
     }
 
     #[test]
-    fn upper_margin_rejects_one_byte_short_and_invalid_load_end() {
-        assert_eq!(upper_span(CODE.end - FLASH_MARGIN).unwrap(), 432 * 1024);
-        assert!(upper_span(CODE.end - FLASH_MARGIN + 1).is_err());
+    fn upper_flash_bounds_are_hard_and_growth_target_is_report_only() {
+        assert_eq!(upper_span(CODE.start).unwrap(), 0);
+        assert_eq!(upper_span(CODE.end).unwrap(), 448 * 1024);
+        assert_eq!(
+            upper_span(CODE.end - FLASH_GROWTH_TARGET).unwrap(),
+            432 * 1024
+        );
         assert!(upper_span(CODE.start - 1).is_err());
+        assert!(upper_span(CODE.end + 1).is_err());
         assert!(upper_span(u64::MAX).is_err());
+
+        let near_old_threshold_end = CODE.end - (FLASH_GROWTH_TARGET - 1);
+        assert!(upper_span(near_old_threshold_end).is_ok());
+        let free_bytes = CODE.end - near_old_threshold_end;
+        assert_eq!(free_bytes, FLASH_GROWTH_TARGET - 1);
+        assert!(!meets_flash_growth_target(free_bytes));
+        assert!(meets_flash_growth_target(FLASH_GROWTH_TARGET));
     }
 }

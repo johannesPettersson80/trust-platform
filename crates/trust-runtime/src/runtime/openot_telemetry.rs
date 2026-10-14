@@ -84,6 +84,7 @@ mod imp {
             Ok(())
         }
 
+        #[cfg(test)]
         #[must_use]
         pub(crate) fn is_enabled(&self) -> bool {
             self.publisher.is_some()
@@ -689,6 +690,7 @@ mod imp {
             Ok(())
         }
 
+        #[cfg(test)]
         #[must_use]
         pub(crate) fn is_enabled(&self) -> bool {
             false

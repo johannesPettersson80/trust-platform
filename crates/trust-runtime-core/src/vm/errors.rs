@@ -304,4 +304,16 @@ mod tests {
         assert_eq!(error.stable_code(), StableErrorCode::BytecodeInvalidIndex);
         assert_eq!(error.to_string(), "invalid bytecode 'vm invalid local ref 4294967295 (frame local range 4294967294..4294967295)'");
     }
+
+    #[test]
+    fn deadline_conversion_preserves_exact_timeout_variant() {
+        assert!(matches!(
+            VmTrap::DeadlineExceeded.into_runtime_error(),
+            RuntimeError::ExecutionTimeout
+        ));
+        assert_eq!(
+            RuntimeError::ExecutionTimeout.stable_code().as_str(),
+            "runtime_execution_timeout"
+        );
+    }
 }

@@ -11,6 +11,7 @@ use super::SourceLocation;
 
 /// Storage-backed debugger evaluation context.
 pub struct DebugRuntimeContext<'a> {
+    pub storage_abi: crate::value::StorageAbi,
     pub storage: &'a mut VariableStorage,
     pub registry: &'a TypeRegistry,
     pub stdlib: Option<&'a StandardLibrary>,

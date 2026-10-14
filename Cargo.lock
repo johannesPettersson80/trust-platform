@@ -2623,6 +2623,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
+name = "lexical-parse-float"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52a9f232fbd6f550bc0137dcb5f99ab674071ac2d690ac69704593cb4abbea56"
+dependencies = [
+ "lexical-parse-integer",
+ "lexical-util",
+]
+
+[[package]]
+name = "lexical-parse-integer"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a7a039f8fb9c19c996cd7b2fcce303c1b2874fe1aca544edc85c4a5f8489b34"
+dependencies = [
+ "lexical-util",
+]
+
+[[package]]
+name = "lexical-util"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2604dd126bb14f13fb5d1bd6a66155079cb9fa655b37f875b3a742c705dbed17"
+
+[[package]]
 name = "libc"
 version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3945,6 +3970,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "process-wrap"
+version = "10.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f21b97672d2dc848e7b25701ab4535618b92f4861c13cc3f7f7bed52ad3c8da"
+dependencies = [
+ "indexmap 2.14.2",
+ "nix 0.31.3",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -5629,7 +5665,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "thiserror 1.0.69",
- "windows",
+ "windows 0.52.0",
 ]
 
 [[package]]
@@ -5926,7 +5962,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-core"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "serde",
  "serde_json",
@@ -5935,14 +5971,14 @@ dependencies = [
 
 [[package]]
 name = "trust-ads-server"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "trust-ads-core",
 ]
 
 [[package]]
 name = "trust-debug"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "glob",
  "indexmap 2.14.2",
@@ -5957,7 +5993,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dev"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -5969,6 +6005,7 @@ dependencies = [
  "smol_str",
  "toml",
  "trust-runtime",
+ "trust-runtime-core",
  "trust-syntax",
  "trust-wasm-analysis",
  "verification-cases",
@@ -5976,7 +6013,7 @@ dependencies = [
 
 [[package]]
 name = "trust-hir"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "boxcar",
  "insta",
@@ -5995,7 +6032,7 @@ dependencies = [
 
 [[package]]
 name = "trust-ide"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "expect-test",
  "once_cell",
@@ -6008,7 +6045,7 @@ dependencies = [
 
 [[package]]
 name = "trust-lsp"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "anyhow",
  "expect-test",
@@ -6038,7 +6075,7 @@ dependencies = [
 
 [[package]]
 name = "trust-platform-stm32f4"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "cortex-m",
  "embedded-hal-nb",
@@ -6049,7 +6086,7 @@ dependencies = [
 
 [[package]]
 name = "trust-plcopen"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "anyhow",
  "crc32fast",
@@ -6061,7 +6098,7 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "ads",
  "anyhow",
@@ -6136,12 +6173,14 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "crc32fast",
  "indexmap 2.14.2",
+ "lexical-parse-float",
  "libm",
  "rustc-hash 2.1.3",
+ "ryu",
  "smol_str",
  "thiserror 2.0.21",
  "trust-hir",
@@ -6150,7 +6189,7 @@ dependencies = [
 
 [[package]]
 name = "trust-syntax"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "drop_bomb",
  "insta",
@@ -6162,14 +6201,14 @@ dependencies = [
 
 [[package]]
 name = "trust-tcads-native"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "libloading 0.9.0",
 ]
 
 [[package]]
 name = "trust-wasm-analysis"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "rowan",
  "serde",
@@ -6465,7 +6504,7 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "verification-cases"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "hex",
  "serde",
@@ -6769,6 +6808,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows"
+version = "0.62.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "527fadee13e0c05939a6a05d5bd6eec6cd2e3dbd648b9f8e447c6518133d8580"
+dependencies = [
+ "windows-collections",
+ "windows-core 0.62.2",
+ "windows-future",
+ "windows-numerics",
+]
+
+[[package]]
+name = "windows-collections"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b2d95af1a8a14a3c7367e1ed4fc9c20e0a26e79551b1454d72583c97cc6610"
+dependencies = [
+ "windows-core 0.62.2",
+]
+
+[[package]]
 name = "windows-core"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6788,6 +6848,17 @@ dependencies = [
  "windows-link",
  "windows-result",
  "windows-strings",
+]
+
+[[package]]
+name = "windows-future"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1d6f90251fe18a279739e78025bd6ddc52a7e22f921070ccdc67dde84c605cb"
+dependencies = [
+ "windows-core 0.62.2",
+ "windows-link",
+ "windows-threading",
 ]
 
 [[package]]
@@ -6817,6 +6888,16 @@ name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
+
+[[package]]
+name = "windows-numerics"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e2e40844ac143cdb44aead537bbf727de9b044e107a0f1220392177d15b0f26"
+dependencies = [
+ "windows-core 0.62.2",
+ "windows-link",
+]
 
 [[package]]
 name = "windows-result"
@@ -6931,6 +7012,15 @@ dependencies = [
  "windows_x86_64_gnu 0.53.1",
  "windows_x86_64_gnullvm 0.53.1",
  "windows_x86_64_msvc 0.53.1",
+]
+
+[[package]]
+name = "windows-threading"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3949bd5b99cafdf1c7ca86b43ca564028dfe27d66958f2470940f73d86d75b37"
+dependencies = [
+ "windows-link",
 ]
 
 [[package]]
@@ -7124,13 +7214,14 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 
 [[package]]
 name = "xtask"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "anyhow",
  "crc32fast",
  "hex",
  "object",
  "proc-macro2",
+ "process-wrap",
  "serde",
  "serde_json",
  "sha2 0.11.0",

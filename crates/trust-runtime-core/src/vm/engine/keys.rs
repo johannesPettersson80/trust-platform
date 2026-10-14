@@ -22,37 +22,98 @@ fn decode_mark(key: u64) -> (u32, Option<InstanceId>) {
     )
 }
 
+/// A checked marker key and the allocation its insertion may need.
+#[derive(Clone, Copy)]
+pub(super) struct MarkerInsertPlan {
+    key: u64,
+    demand: (usize, usize),
+}
+
+impl MarkerInsertPlan {
+    pub(super) fn demand(self) -> (usize, usize) {
+        self.demand
+    }
+}
+
+/// Exclusive prepared insertion. Capacity is reserved and the exclusive borrow
+/// prevents intervening changes, so publication cannot allocate or fail.
+pub(super) struct PreparedMarkerInsert<'a> {
+    marks: &'a mut LifecycleMarks,
+    key: u64,
+}
+
+/// Initialized-declaration and once markers in ascending `(declaration, owner)` order.
 #[derive(Default)]
 pub(super) struct LifecycleMarks(super::ordered::Entries<u64, ()>);
 
 impl LifecycleMarks {
+    #[cfg(test)]
     pub(super) fn insertion_demand(
         &self,
         key: (u32, Option<InstanceId>),
     ) -> Result<(usize, usize), RuntimeError> {
-        self.0.insertion_demand(&encode_mark(key.0, key.1)?)
-    }
-    pub(super) fn prepare_insert(
-        &mut self,
-        key: (u32, Option<InstanceId>),
-    ) -> Result<(), RuntimeError> {
-        self.0.prepare_insert(&encode_mark(key.0, key.1)?)
+        Ok(self.insertion_plan(key)?.demand())
     }
 
-    pub(super) fn insert(&mut self, key: (u32, Option<InstanceId>)) -> Result<bool, RuntimeError> {
-        Ok(self.0.insert(encode_mark(key.0, key.1)?, ())?.is_none())
+    pub(super) fn insertion_plan(
+        &self,
+        key: (u32, Option<InstanceId>),
+    ) -> Result<MarkerInsertPlan, RuntimeError> {
+        let key = encode_mark(key.0, key.1)?;
+        Ok(MarkerInsertPlan {
+            key,
+            demand: self.0.insertion_demand(&key)?,
+        })
     }
+
+    /// Reserve storage for the planned marker before any destination write.
+    pub(super) fn prepare_insert(
+        &mut self,
+        plan: MarkerInsertPlan,
+    ) -> Result<PreparedMarkerInsert<'_>, RuntimeError> {
+        self.0.prepare_insert(&plan.key)?;
+        Ok(PreparedMarkerInsert {
+            marks: self,
+            key: plan.key,
+        })
+    }
+
+    #[cfg(test)]
+    pub(super) fn insert(&mut self, key: (u32, Option<InstanceId>)) -> Result<bool, RuntimeError> {
+        let inserted = !self.contains(&key)?;
+        let plan = self.insertion_plan(key)?;
+        self.prepare_insert(plan)?.publish();
+        Ok(inserted)
+    }
+
     pub(super) fn contains(&self, key: &(u32, Option<InstanceId>)) -> Result<bool, RuntimeError> {
         Ok(self.0.get(&encode_mark(key.0, key.1)?).is_some())
     }
+
+    #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.0.len()
     }
+
+    #[cfg(test)]
+    pub(super) fn capacity_state_for_test(&self) -> usize {
+        self.0.capacity()
+    }
+
     pub(super) fn iter(&self) -> impl Iterator<Item = (u32, Option<InstanceId>)> + '_ {
         self.0.iter().map(|(key, _)| decode_mark(*key))
     }
+
     pub(super) fn retain(&mut self, mut keep: impl FnMut(&(u32, Option<InstanceId>)) -> bool) {
         self.0.retain(|key, _| keep(&decode_mark(*key)));
+    }
+}
+
+impl PreparedMarkerInsert<'_> {
+    /// Publish after all fallible admission and destination writes have succeeded.
+    pub(super) fn publish(self) {
+        let inserted = self.marks.0.insert(self.key, ());
+        debug_assert!(inserted.is_ok(), "prepared marker capacity was reserved");
     }
 }
 
@@ -61,67 +122,5 @@ pub(super) fn root_index(index: usize) -> Result<u32, RuntimeError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn lifecycle_key_is_injective_ordered_and_keeps_all_instance_bits() {
-        let owners = [
-            None,
-            Some(InstanceId(0)),
-            Some(InstanceId(1)),
-            Some(InstanceId(u32::MAX - 1)),
-            Some(InstanceId(u32::MAX)),
-        ];
-        let mut expected = BTreeSet::new();
-        let mut marks = LifecycleMarks::default();
-        for declaration in [u16::MAX as u32, 1, 0] {
-            for owner in owners.into_iter().rev() {
-                let key = (declaration, owner);
-                assert_eq!(decode_mark(encode_mark(declaration, owner).unwrap()), key);
-                assert!(marks.insert(key).unwrap());
-                assert!(!marks.insert(key).unwrap());
-                assert!(marks.contains(&key).unwrap());
-                expected.insert(key);
-            }
-        }
-        assert_eq!(
-            marks.iter().collect::<Vec<_>>(),
-            expected.into_iter().collect::<Vec<_>>()
-        );
-        let before = marks.len();
-        assert_eq!(
-            marks.insert((65_536, None)),
-            Err(RuntimeError::InvalidExecutionState)
-        );
-        assert_eq!(
-            marks.contains(&(u32::MAX, Some(InstanceId(0)))),
-            Err(RuntimeError::InvalidExecutionState)
-        );
-        assert_eq!(marks.len(), before);
-    }
-
-    #[test]
-    fn retiring_an_owner_keeps_global_and_other_generation_marks() {
-        let mut marks = LifecycleMarks::default();
-        for owner in [None, Some(InstanceId(0)), Some(InstanceId(u32::MAX))] {
-            marks.insert((7, owner)).unwrap();
-        }
-        marks.retain(|(_, owner)| *owner != Some(InstanceId(0)));
-        assert!(marks.contains(&(7, None)).unwrap());
-        assert!(!marks.contains(&(7, Some(InstanceId(0)))).unwrap());
-        assert!(marks.contains(&(7, Some(InstanceId(u32::MAX)))).unwrap());
-    }
-
-    #[test]
-    fn root_index_conversion_never_truncates() {
-        assert_eq!(root_index(0), Ok(0));
-        assert_eq!(root_index(u32::MAX as usize), Ok(u32::MAX));
-        if let Some(too_large) = (u32::MAX as usize).checked_add(1) {
-            assert_eq!(
-                root_index(too_large),
-                Err(RuntimeError::InvalidExecutionState)
-            );
-        }
-    }
-}
+#[path = "keys/tests.rs"]
+mod tests;

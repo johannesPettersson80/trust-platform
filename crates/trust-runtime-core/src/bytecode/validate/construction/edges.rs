@@ -72,7 +72,8 @@ fn bool_type(
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
     let mut id = id.ok_or(RejectionReason::InvalidConstructionRecord)?;
-    for _ in 0..64 {
+    // The root is depth zero, so inspect one node beyond the maximum 64 edges.
+    for _ in 0..=crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
         budget.work(1)?;
         match tables
             .types

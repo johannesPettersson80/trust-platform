@@ -6,92 +6,126 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+autobins = false
 
 [dependencies]
-trust-syntax.workspace = true
-trust-hir.workspace = true
-trust-ide.workspace = true
-trust-plcopen.workspace = true
-trust-ads-core.workspace = true
-trust-tcads-native.workspace = true
+
+trust-syntax = { workspace = true, optional = true }
+trust-hir = { workspace = true, optional = true }
+trust-ide = { workspace = true, optional = true }
+trust-plcopen = { workspace = true, optional = true }
+trust-ads-core = { workspace = true, optional = true }
+trust-tcads-native = { workspace = true, optional = true }
 trust-ads-server = { workspace = true, optional = true }
-trust-runtime-core = { workspace = true, features = ["hir"] }
-trust-wasm-analysis.workspace = true
-smol_str = { workspace = true, features = ["std"] }
-rustc-hash = { workspace = true, features = ["std"] }
-text-size.workspace = true
-indexmap = { workspace = true, features = ["std", "serde"] }
-tracing.workspace = true
-crc32fast = { workspace = true, features = ["std"] }
-serde.workspace = true
-serde_json.workspace = true
-toml.workspace = true
-toml_edit.workspace = true
-clap.workspace = true
-clap_complete.workspace = true
-qrcode.workspace = true
-urlencoding.workspace = true
-roxmltree.workspace = true
-anyhow.workspace = true
-glob.workspace = true
-ratatui.workspace = true
-crossterm.workspace = true
-dialoguer.workspace = true
-indicatif.workspace = true
-owo-colors.workspace = true
-rumqttc.workspace = true
-native-tls.workspace = true
-time.workspace = true
-rapier3d.workspace = true
-notify = "8.2.0"
-tiny_http = { version = "0.12.0", features = ["ssl-rustls"] }
-tungstenite = "0.30.0"
-mdns-sd = "0.21.5"
-if-addrs = "0.15.0"
+trust-runtime-core = { workspace = true, default-features = false, features = ["std"] }
+trust-wasm-analysis = { workspace = true, optional = true }
+smol_str = { workspace = true, features = ["std"] , optional = true }
+rustc-hash = { workspace = true, features = ["std"] , optional = true }
+text-size = { workspace = true, optional = true }
+indexmap = { workspace = true, features = ["std", "serde"] , optional = true }
+tracing = { workspace = true, optional = true }
+crc32fast = { workspace = true, features = ["std"] , optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+toml_edit = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
+clap_complete = { workspace = true, optional = true }
+qrcode = { workspace = true, optional = true }
+urlencoding = { workspace = true, optional = true }
+roxmltree = { workspace = true, optional = true }
+anyhow = { workspace = true, optional = true }
+glob = { workspace = true, optional = true }
+ratatui = { workspace = true, optional = true }
+crossterm = { workspace = true, optional = true }
+dialoguer = { workspace = true, optional = true }
+indicatif = { workspace = true, optional = true }
+owo-colors = { workspace = true, optional = true }
+rumqttc = { workspace = true, optional = true }
+native-tls = { workspace = true, optional = true }
+time = { workspace = true, optional = true }
+rapier3d = { workspace = true, optional = true }
+notify = { version = "8.2.0", optional = true }
+tiny_http = { version = "0.12.0", features = ["ssl-rustls"] , optional = true }
+tungstenite = { version = "0.30.0", optional = true }
+mdns-sd = { version = "0.21.5", optional = true }
+if-addrs = { version = "0.15.0", optional = true }
 # The mesh client/router/plugin family is a qualified deployment contract.
-zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp"] }
-base64 = "0.23.1"
-rand = "0.10.3"
-ureq = "3.4.2"
-sha2.workspace = true
-hex.workspace = true
-signal-hook = "0.4.5"
-rustls = "0.23.45"
-tiverse-mmap = "1.0.0"
-region = "4.0.1"
+zenoh = { version = "=1.7.2", default-features = false, features = ["transport_tcp"] , optional = true }
+base64 = { version = "0.23.1", optional = true }
+rand = { version = "0.10.3", optional = true }
+ureq = { version = "3.4.2", optional = true }
+sha2 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+signal-hook = { version = "0.4.5", optional = true }
+rustls = { version = "0.23.45", optional = true }
+tiverse-mmap = { version = "1.0.0", optional = true }
+region = { version = "4.0.1", optional = true }
 rusqlite = { version = "0.40.2", features = ["bundled"], optional = true }
 postgres = { version = "0.19.14", optional = true }
 postgres-native-tls = { version = "0.5.3", optional = true }
 mysql = { version = "28.0.3", default-features = false, features = ["minimal-rust", "rustls-tls"], optional = true }
-open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
-open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
-open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
+open-ot-definition = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
+open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
+open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
 opcua = { version = "0.12.0", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
-crossbeam-channel.workspace = true
+crossbeam-channel = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tokio-util = { version = "0.7.20", features = ["compat"], optional = true }
 tiberius = { version = "0.13.0", default-features = false, features = ["tds73", "native-tls"], optional = true }
-
 [target.'cfg(unix)'.dependencies]
+
 ethercrab = { version = "0.7.1", optional = true }
 # OpenOT Rust crates are pinned so fresh source builds do not need a sibling
 # checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example
 # sources and conformance fixtures that are not Cargo crates.
-open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
-
+open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
 [dev-dependencies]
 verification-cases.workspace = true
+trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
 
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-gpio-cdev = "0.6.0"
-rustix = { version = "1.1.5", features = ["mm", "thread"] }
+
+gpio-cdev = { version = "0.6.0", optional = true }
+rustix = { version = "1.1.5", features = ["mm", "thread"] , optional = true }
+
+[[bin]]
+name = "trust-runtime"
+path = "src/bin/trust-runtime.rs"
+required-features = ["full"]
+
+[[bin]]
+name = "trust-harness"
+path = "src/bin/trust-harness.rs"
+required-features = ["full"]
+
+[[bin]]
+name = "trust-bundle-gen"
+path = "src/bin/trust-bundle-gen.rs"
+required-features = ["full"]
+
+[[example]]
+name = "portability_fixture"
+path = "examples/portability_fixture.rs"
+required-features = ["full"]
+
+[[example]]
+name = "portability_gpio_fixture"
+path = "examples/portability_gpio_fixture.rs"
+required-features = ["full"]
+
+[[example]]
+name = "portability_temporal_fixture"
+path = "examples/portability_temporal_fixture.rs"
+required-features = ["full"]
 
 [features]
 default = [
+    "development",
     "debug",
     "ethercat-wire",
     "ads-wire",
@@ -99,12 +133,78 @@ default = [
     "opcua-wire",
     "openot-database-all",
 ]
-debug = []
-opcua-wire = ["dep:opcua"]
-ethercat-wire = ["dep:ethercrab", "dep:tokio"]
-ads-wire = ["dep:ads"]
-ads-server = ["dep:trust-ads-server"]
-openot-real-database-tests = []
+# Runtime-only owns the std shared engine and host clocks; no product services.
+runtime-only = []
+# Optimization selection does not change the supported IEC function set.
+register-ir = ["trust-runtime-core/register-ir"]
+# Current full-controller tooling metadata uses HIR. It is not compiler-free.
+full = [
+    "runtime-only",
+    "register-ir",
+    "trust-runtime-core/hir",
+    "dep:trust-syntax",
+    "dep:trust-hir",
+    "dep:trust-ide",
+    "dep:trust-plcopen",
+    "dep:trust-ads-core",
+    "dep:trust-tcads-native",
+    "dep:trust-wasm-analysis",
+    "dep:smol_str",
+    "dep:rustc-hash",
+    "dep:text-size",
+    "dep:indexmap",
+    "dep:tracing",
+    "dep:crc32fast",
+    "dep:serde",
+    "dep:serde_json",
+    "dep:toml",
+    "dep:toml_edit",
+    "dep:clap",
+    "dep:clap_complete",
+    "dep:qrcode",
+    "dep:urlencoding",
+    "dep:roxmltree",
+    "dep:anyhow",
+    "dep:glob",
+    "dep:ratatui",
+    "dep:crossterm",
+    "dep:dialoguer",
+    "dep:indicatif",
+    "dep:owo-colors",
+    "dep:rumqttc",
+    "dep:native-tls",
+    "dep:time",
+    "dep:rapier3d",
+    "dep:notify",
+    "dep:tiny_http",
+    "dep:tungstenite",
+    "dep:mdns-sd",
+    "dep:if-addrs",
+    "dep:zenoh",
+    "dep:base64",
+    "dep:rand",
+    "dep:ureq",
+    "dep:sha2",
+    "dep:hex",
+    "dep:signal-hook",
+    "dep:rustls",
+    "dep:tiverse-mmap",
+    "dep:region",
+    "dep:open-ot-definition",
+    "dep:open-ot-document",
+    "dep:open-ot-carriage",
+    "dep:crossbeam-channel",
+    "dep:open-ot-shm",
+    "dep:gpio-cdev",
+    "dep:rustix",
+]
+development = ["full", "debug", "register-ir"]
+debug = ["full"]
+opcua-wire = ["full", "dep:opcua"]
+ethercat-wire = ["full", "dep:ethercrab", "dep:tokio"]
+ads-wire = ["full", "dep:ads"]
+ads-server = ["full", "dep:trust-ads-server"]
+openot-real-database-tests = ["full"]
 openot-database-all = [
     "openot-database-sqlite",
     "openot-database-postgresql",
@@ -113,9 +213,9 @@ openot-database-all = [
     "openot-database-sqlserver",
     "openot-database-influxdb3",
 ]
-openot-database-sqlite = ["dep:rusqlite"]
-openot-database-postgresql = ["dep:postgres", "dep:postgres-native-tls"]
-openot-database-timescaledb = ["dep:postgres", "dep:postgres-native-tls"]
-openot-database-mysql = ["dep:mysql"]
-openot-database-sqlserver = ["dep:tiberius", "dep:tokio", "dep:tokio-util"]
-openot-database-influxdb3 = ["dep:rusqlite"]
+openot-database-sqlite = ["full", "dep:rusqlite"]
+openot-database-postgresql = ["full", "dep:postgres", "dep:postgres-native-tls"]
+openot-database-timescaledb = ["full", "dep:postgres", "dep:postgres-native-tls"]
+openot-database-mysql = ["full", "dep:mysql"]
+openot-database-sqlserver = ["full", "dep:tiberius", "dep:tokio", "dep:tokio-util"]
+openot-database-influxdb3 = ["full", "dep:rusqlite"]

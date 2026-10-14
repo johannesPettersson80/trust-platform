@@ -19,7 +19,8 @@ use crate::Runtime;
 
 const RETAIN_MAGIC: &[u8; 4] = b"STRN";
 const RETAIN_V1_VERSION: u16 = 1;
-const RETAIN_VERSION: u16 = 2;
+const RETAIN_V2_VERSION: u16 = 2;
+const RETAIN_VERSION: u16 = 3;
 const RETAIN_TRAILER: &[u8; 4] = b"ENDR";
 
 include!("retain/manager.rs");

@@ -11,10 +11,10 @@ use crate::value::Value;
 /// Register the shared comparison functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 6] = [
     super::registration::descriptor!("EQ", VAR_IN_1_2, eq),
     super::registration::descriptor!("GE", VAR_IN_1_2, ge),
     super::registration::descriptor!("GT", VAR_IN_1_2, gt),

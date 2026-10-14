@@ -1,33 +1,45 @@
 impl Runtime {
-    /// Evaluate a debug expression within the current runtime context.
-    pub fn evaluate_expression(
-        &mut self,
+    /// Evaluate using a parser-owned type registry, without changing installed types.
+    ///
+    /// Debug lowering may define anonymous SIZEOF types. The caller retains this
+    /// scratch registry for the expression's complete lifetime, including watches.
+    pub fn evaluate_debug_expression(
+        &self,
         expr: &Expr,
+        registry: &TypeRegistry,
         frame_id: Option<FrameId>,
     ) -> Result<Value, error::RuntimeError> {
-        let registry = &self.registry;
-        let profile = &self.profile;
+        let mut storage = self.storage().clone();
         let eval = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
-            crate::helper_eval::eval_storage_expr_with_stdlib(
+            crate::helper_eval::eval_storage_expr_with_abi(
                 storage,
                 registry,
-                profile,
+                crate::value::StorageAbi::LegacyTemporal32,
+                &self.profile,
                 instance_id,
                 Some(&self.stdlib),
                 expr,
             )
         };
-
         if let Some(frame_id) = frame_id {
-            self.storage
+            storage
                 .with_frame(frame_id, |storage| {
                     let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
                     eval(storage, instance_id)
                 })
                 .ok_or(error::RuntimeError::InvalidFrame(frame_id.0))?
         } else {
-            eval(&mut self.storage, None)
+            eval(&mut storage, None)
         }
+    }
+
+    /// Evaluate a debug expression within the current runtime context.
+    pub fn evaluate_expression(
+        &mut self,
+        expr: &Expr,
+        frame_id: Option<FrameId>,
+    ) -> Result<Value, error::RuntimeError> {
+        self.evaluate_debug_expression(expr, &self.registry, frame_id)
     }
 
     /// Read a debugger-targeted lvalue within the current runtime context.
@@ -39,7 +51,14 @@ impl Runtime {
         let registry = &self.registry;
         let profile = &self.profile;
         let read = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
-            crate::helper_eval::read_storage_lvalue(storage, registry, profile, instance_id, target)
+            crate::helper_eval::read_storage_lvalue_with_abi(
+                storage,
+                registry,
+                crate::value::StorageAbi::LegacyTemporal32,
+                profile,
+                instance_id,
+                target,
+            )
         };
 
         if let Some(frame_id) = frame_id {
@@ -64,9 +83,10 @@ impl Runtime {
         let registry = &self.registry;
         let profile = &self.profile;
         let write = |storage: &mut VariableStorage, instance_id: Option<InstanceId>| {
-            crate::helper_eval::write_storage_lvalue(
+            crate::helper_eval::write_storage_lvalue_with_abi(
                 storage,
                 registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 profile,
                 instance_id,
                 target,

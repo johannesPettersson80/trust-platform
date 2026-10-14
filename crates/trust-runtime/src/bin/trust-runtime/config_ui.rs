@@ -143,6 +143,7 @@ fn build_config_mode_control_state(
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };

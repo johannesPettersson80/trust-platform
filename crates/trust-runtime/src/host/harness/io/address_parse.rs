@@ -1,4 +1,4 @@
-fn parse_field_address(text: &str) -> Result<FieldAddress, CompileError> {
+pub(crate) fn parse_field_address(text: &str) -> Result<FieldAddress, CompileError> {
     let trimmed = text.trim();
     if !trimmed.starts_with('%') || trimmed.len() < 2 {
         return Err(CompileError::new("invalid direct address"));

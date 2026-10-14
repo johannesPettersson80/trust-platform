@@ -19,7 +19,7 @@ include!("ops/numeric_arith.rs");
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_binary, apply_unary, BinaryOp, UnaryOp};
+    use super::{apply_binary, apply_unary, checked_signed_remainder, BinaryOp, UnaryOp};
     use crate::error::RuntimeError;
     use crate::value::{
         DateTimeError, DateTimeProfile, DateTimeValue, DateValue, Duration, LDateTimeValue,
@@ -37,6 +37,24 @@ mod tests {
         assert_eq!(
             apply_unary(UnaryOp::Not, Value::Bool(true)),
             Ok(Value::Bool(false))
+        );
+    }
+
+    #[test]
+    fn signed_remainder_matches_iec_minimum_over_negative_one_rule() {
+        assert_eq!(checked_signed_remainder(i64::MIN, -1), Ok(0));
+        assert_eq!(
+            checked_signed_remainder(i64::MIN, 0),
+            Err(RuntimeError::ModuloByZero)
+        );
+        assert_eq!(
+            apply_binary(
+                BinaryOp::Mod,
+                Value::DInt(i32::MIN),
+                Value::DInt(-1),
+                &DateTimeProfile::default(),
+            ),
+            Ok(Value::DInt(0))
         );
     }
 

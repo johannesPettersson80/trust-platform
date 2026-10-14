@@ -56,9 +56,11 @@ pub(crate) fn resolve_project_global_constants(
     file_ids: &[FileId],
     statement_locations: &mut [Vec<SourceLocation>],
     allow_partial: bool,
+    storage_abi: crate::value::StorageAbi,
 ) -> Result<CompileTimeConsts, CompileError> {
     let mut pending = Vec::new();
     let mut constants = CompileTimeConsts::default();
+    constants.storage_abi = storage_abi;
     for (file_index, syntax) in syntaxes.iter().enumerate() {
         for var_block in syntax
             .descendants()

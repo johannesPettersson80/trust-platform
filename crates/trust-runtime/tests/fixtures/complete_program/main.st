@@ -1,5 +1,8 @@
 PROGRAM MainProg
 VAR
+    temporalPackets : ARRAY[0..1] OF UniformTemporalPacket;
+    temporalPacketSize : DINT;
+    temporalArraySize : DINT;
     motor : DemoImpl.Motor;
     sensor : DemoTypes.Sensor;
     values : DemoTypes.ValueArray;
@@ -45,4 +48,12 @@ IF ok THEN
     total := total + swap_a + swap_b;
     color := Color#Green;
 END_IF;
+
+temporalPackets[0].elapsed := T#5s;
+temporalPackets[0].stamp := DT#2026-10-12-12:34:56;
+temporalPackets[0].calendarDay := D#2026-10-12;
+temporalPackets[0].civilClock := TOD#12:34:56;
+temporalPackets[1] := temporalPackets[0];
+temporalPacketSize := SIZEOF(UniformTemporalPacket);
+temporalArraySize := SIZEOF(temporalPackets);
 END_PROGRAM

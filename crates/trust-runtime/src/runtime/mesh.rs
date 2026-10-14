@@ -7,7 +7,7 @@ use smol_str::SmolStr;
 
 use crate::value::Value;
 
-use super::core::Runtime;
+use super::Runtime;
 
 impl Runtime {
     /// Snapshot global values for mesh publishing.
@@ -26,7 +26,8 @@ impl Runtime {
         out
     }
 
-    /// Apply mesh updates to globals (skips unknown names).
+    /// Apply declared mesh globals through common checked value policy (unknown
+    /// names remain skipped). Invalid requests do not become PLC scan faults.
     pub fn apply_mesh_updates(&mut self, updates: &IndexMap<SmolStr, Value>) {
         for (name, value) in updates {
             let canonical = self
@@ -35,8 +36,17 @@ impl Runtime {
                 .keys()
                 .find(|canonical| canonical.eq_ignore_ascii_case(name.as_str()))
                 .cloned();
-            if let Some(canonical) = canonical {
-                self.storage_mut().set_global(canonical, value.clone());
+            if let Some(canonical) = canonical
+                && let Err(error) = self.write_global(&canonical, value.clone())
+            {
+                tracing::warn!(target = "trust_runtime", variable = %canonical, %error, "mesh write rejected");
+                if let Some(debug) = self.debug_control() {
+                    debug.push_runtime_event(crate::debug::RuntimeEvent::WriteRejected {
+                        target: canonical,
+                        error: error.to_string(),
+                        time: self.current_time(),
+                    });
+                }
             }
         }
     }
@@ -48,11 +58,9 @@ mod tests {
 
     #[test]
     fn mesh_snapshot_resolves_case_insensitively_and_preserves_canonical_order() {
-        let mut runtime = Runtime::new();
-        runtime.storage_mut().set_global("Pressure", Value::DInt(7));
-        runtime
-            .storage_mut()
-            .set_global("Enabled", Value::Bool(true));
+        let runtime = crate::harness::CompileSession::from_source(
+            "VAR_GLOBAL Pressure : DINT := DINT#7; Enabled : BOOL := TRUE; END_VAR PROGRAM Main END_PROGRAM"
+        ).build_runtime().unwrap();
 
         let snapshot =
             runtime.snapshot_globals(&["enabled".into(), "missing".into(), "PRESSURE".into()]);
@@ -65,8 +73,11 @@ mod tests {
 
     #[test]
     fn mesh_updates_existing_globals_case_insensitively_without_creating_unknowns() {
-        let mut runtime = Runtime::new();
-        runtime.storage_mut().set_global("Pressure", Value::DInt(7));
+        let mut runtime = crate::harness::CompileSession::from_source(
+            "VAR_GLOBAL Pressure : DINT := DINT#7; END_VAR PROGRAM Main END_PROGRAM",
+        )
+        .build_runtime()
+        .unwrap();
         let updates = IndexMap::from([
             (SmolStr::new("pressure"), Value::DInt(9)),
             (SmolStr::new("Unknown"), Value::DInt(1)),
@@ -80,5 +91,31 @@ mod tests {
         );
         assert_eq!(runtime.storage().get_global("pressure"), None);
         assert_eq!(runtime.storage().get_global("Unknown"), None);
+    }
+
+    #[test]
+    fn mesh_rejects_wrong_types_and_constants_without_faulting_or_mutating_state() {
+        let mut runtime = crate::harness::CompileSession::from_source(
+            "VAR_GLOBAL Pressure : DINT := DINT#7; END_VAR VAR_GLOBAL CONSTANT Fixed : DINT := DINT#3; END_VAR PROGRAM Main END_PROGRAM"
+        ).build_runtime().unwrap();
+        let debug = runtime.enable_debug();
+        runtime.apply_mesh_updates(&IndexMap::from([
+            (SmolStr::new("Pressure"), Value::Bool(true)),
+            (SmolStr::new("Fixed"), Value::DInt(5)),
+        ]));
+        assert_eq!(
+            runtime.storage().get_global("Pressure"),
+            Some(&Value::DInt(7))
+        );
+        assert_eq!(runtime.storage().get_global("Fixed"), Some(&Value::DInt(3)));
+        assert!(!runtime.faulted());
+        assert_eq!(
+            debug
+                .drain_runtime_events()
+                .iter()
+                .filter(|event| matches!(event, crate::debug::RuntimeEvent::WriteRejected { .. }))
+                .count(),
+            2
+        );
     }
 }

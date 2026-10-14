@@ -1,4 +1,5 @@
 //! Host-side packaging and evidence checks for the F401 reference composition.
+mod benchmark;
 mod build;
 mod build_artifacts;
 mod bundle;
@@ -24,6 +25,15 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
         [action, output] if action == "freeze-source" => source_identity::freeze(root, output),
         [action, input] if action == "check-source" => source_identity::check(root, input),
         [action, input] if action == "database-gate" => database_runner::run(root, input),
+        [action, baseline, candidate, output] if action == "compare-benchmarks" => {
+            let baseline = serde_json::from_slice(&fs::read(baseline)?)?;
+            let candidate = serde_json::from_slice(&fs::read(candidate)?)?;
+            let report = benchmark::compare(&baseline, &candidate)?;
+            let passed = report["passed"] == true;
+            write_report(output, report)?;
+            anyhow::ensure!(passed, "hosted benchmark acceptance failed");
+            Ok(())
+        }
         [action, output] if action == "build-firmware" => build::firmware(root, output),
         [action, gpio, output] if action == "pack" => {
             let main = fs::read(root.join(FIXTURES).join("program-v2.stbc"))?;
@@ -53,7 +63,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             report["uart_sha256"] = digest(&raw).into();
             write_report(output, report)
         }
-        _ => bail!("expected portability build-firmware <config.json>, pack <gpio.stbc> <application.bin>, inspect <firmware.elf> <report.json>, verify <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
+        _ => bail!("expected portability build-firmware <config.json>, pack <gpio.stbc> <application.bin>, inspect <firmware.elf> <report.json>, verify <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
     }
 }
 

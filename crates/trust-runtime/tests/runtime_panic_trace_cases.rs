@@ -11,7 +11,7 @@ use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
 use trust_runtime::scheduler::{Clock, ResourceRunner, ResourceState};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::FaultPolicy;
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
     TraceStep,
@@ -96,8 +96,9 @@ fn run_panic_case(case: &CaseRecord, probe: &mut PanicProbe) -> Result<CaseExecu
 fn input_driver_panic_observation(
     restart_policy: bool,
 ) -> Result<BTreeMap<String, serde_json::Value>, String> {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(1, 0, 0);
+    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
     runtime.add_io_driver("panic-input", Box::new(PanickingReadDriver));
     if restart_policy {
         runtime.set_fault_policy(FaultPolicy::Restart);
@@ -119,11 +120,24 @@ fn input_driver_panic_observation(
 
 fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>, String> {
     let writes = Arc::new(Mutex::new(Vec::new()));
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
-    runtime.storage_mut().set_global("out", Value::Bool(true));
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(true))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
     let address = IoAddress::parse("%QX0.0").map_err(|error| error.to_string())?;
     runtime.io_mut().bind("out", address.clone());
+    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
     runtime.add_io_driver(
         "panic-recorder",
         Box::new(PanickingRecordingDriver {
@@ -160,7 +174,9 @@ fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>
 
 fn outer_thread_panic_observation() -> Result<BTreeMap<String, serde_json::Value>, String> {
     let runner = ResourceRunner::new(
-        Runtime::new(),
+        RuntimeBuilder::new()
+            .build()
+            .map_err(|error| error.to_string())?,
         PanicOnFirstSleepClock::new(),
         Duration::from_millis(1),
     );

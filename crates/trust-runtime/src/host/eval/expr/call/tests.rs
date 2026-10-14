@@ -15,6 +15,7 @@ fn make_context<'a>(
         initializer_catalog: None,
         profile: DateTimeProfile::default(),
         now: Duration::ZERO,
+        #[cfg(feature = "debug")]
         debug: None,
         call_depth: 0,
         functions: None,

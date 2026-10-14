@@ -21,6 +21,26 @@ impl IoInterface {
         &self.bindings
     }
 
+    /// Inspect authoring-only hierarchical seed values for artifact production.
+    /// Order is unspecified; the producer must choose its deterministic record
+    /// order. Installed views cannot expose or modify this construction store.
+    pub(crate) fn hierarchical_seeds(
+        &self,
+    ) -> impl Iterator<Item = Result<(IoAddress, &Value), RuntimeError>> {
+        self.hierarchical
+            .iter()
+            .map(|(key, value)| key.address().map(|address| (address, value)))
+    }
+
+    /// Transfer only the immutable presentation schema to installed composition.
+    /// Its live process images are owned by the shared engine.
+    pub(crate) fn clear_authoring_images(&mut self) {
+        self.inputs = Vec::new();
+        self.outputs = Vec::new();
+        self.memory = Vec::new();
+        self.hierarchical = Default::default();
+    }
+
     /// Resize the process image buffers.
     pub fn resize(&mut self, inputs: usize, outputs: usize, memory: usize) {
         self.try_resize(inputs, outputs, memory)
@@ -78,6 +98,26 @@ impl IoInterface {
 
     #[must_use]
     pub fn snapshot(&self) -> IoSnapshot {
+        self.snapshot_with(|address| self.read(address))
+    }
+
+    /// Render the same immutable binding schema against authoritative installed
+    /// images; authoring buffers are never consulted by this path.
+    pub(crate) fn snapshot_with(
+        &self,
+        mut read: impl FnMut(&IoAddress) -> Result<Value, RuntimeError>,
+    ) -> IoSnapshot {
+        self.snapshot_with_fallible(&mut read, |_| false)
+            .expect("snapshot renderer does not propagate read errors")
+    }
+
+    /// Render a bound snapshot, optionally propagating errors that belong to
+    /// the enclosing operation while retaining local failures as display data.
+    pub(crate) fn snapshot_with_fallible(
+        &self,
+        mut read: impl FnMut(&IoAddress) -> Result<Value, RuntimeError>,
+        mut propagate: impl FnMut(&RuntimeError) -> bool,
+    ) -> Result<IoSnapshot, RuntimeError> {
         let mut snapshot = IoSnapshot::default();
         for (binding, codec) in self.bindings.iter().zip(&self.binding_codecs) {
             let name = binding
@@ -90,7 +130,7 @@ impl IoInterface {
             let value = if binding.address.wildcard {
                 IoSnapshotValue::Unresolved
             } else {
-                match self.read(&binding.address) {
+                match read(&binding.address) {
                     Ok(value) => {
                         let value = coerce_binding_from_io(value, binding, codec);
                         match value {
@@ -98,6 +138,7 @@ impl IoInterface {
                             Err(err) => IoSnapshotValue::Error(err.to_string()),
                         }
                     }
+                    Err(err) if propagate(&err) => return Err(err),
                     Err(err) => IoSnapshotValue::Error(err.to_string()),
                 }
             };
@@ -106,8 +147,10 @@ impl IoInterface {
                 address: binding.address.clone(),
                 value_type: binding.value_type,
                 value_type_name: codec
-                    .enum_type
+                    .prepared
                     .as_ref()
+                    .and_then(|prepared| prepared.enum_type.as_ref())
+                    .or(codec.enum_type.as_ref())
                     .map(|enum_type| enum_type.type_name.clone()),
                 value,
                 source: binding.source.clone(),
@@ -118,7 +161,33 @@ impl IoInterface {
                 IoArea::Memory => snapshot.memory.push(entry),
             }
         }
-        snapshot
+        Ok(snapshot)
+    }
+
+    /// Attach an admitted source-free wire codec to immutable hosted presentation
+    /// metadata. `value_type` is a separately resolved optional authoring identity,
+    /// never the artifact's numeric TYPE_TABLE index.
+    pub(crate) fn bind_prepared_ref(
+        &mut self,
+        reference: ValueRef,
+        address: IoAddress,
+        codec: trust_runtime_core::io_image::IoValueCodec,
+        value_type: Option<TypeId>,
+        display_name: Option<SmolStr>,
+    ) {
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type,
+                display_name,
+                source: None,
+            },
+            IoBindingCodec {
+                prepared: Some(codec),
+                ..IoBindingCodec::default()
+            },
+        );
     }
 
     pub fn bind(&mut self, name: impl Into<SmolStr>, address: IoAddress) {
@@ -159,6 +228,7 @@ impl IoInterface {
                 source: None,
             },
             IoBindingCodec {
+                prepared: None,
                 wire_type: Some(value_type),
                 enum_type: None,
             },
@@ -175,6 +245,7 @@ impl IoInterface {
                 source: None,
             },
             IoBindingCodec {
+                prepared: None,
                 wire_type: Some(value_type),
                 enum_type: None,
             },
@@ -197,12 +268,14 @@ impl IoInterface {
                 source: None,
             },
             IoBindingCodec {
+                prepared: None,
                 wire_type: Some(value_type),
                 enum_type: None,
             },
         );
     }
 
+    #[cfg(test)]
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn bind_ref_named_enum(
         &mut self,
@@ -223,6 +296,7 @@ impl IoInterface {
                 source: None,
             },
             IoBindingCodec {
+                prepared: None,
                 wire_type: Some(wire_type),
                 enum_type: Some(IoEnumBinding {
                     type_name,
@@ -230,36 +304,6 @@ impl IoInterface {
                 }),
             },
         );
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn configure_ref_named_enum(
-        &mut self,
-        reference: &ValueRef,
-        address: &IoAddress,
-        enum_type: TypeId,
-        wire_type: TypeId,
-        type_name: SmolStr,
-        variants: Vec<(SmolStr, i64)>,
-        name: impl Into<SmolStr>,
-    ) -> bool {
-        let Some(index) = self.bindings.iter().position(|binding| {
-            binding.address == *address
-                && matches!(&binding.target, IoTarget::Reference(candidate) if candidate == reference)
-        }) else {
-            return false;
-        };
-        let binding = &mut self.bindings[index];
-        binding.value_type = Some(enum_type);
-        self.binding_codecs[index] = IoBindingCodec {
-            wire_type: Some(wire_type),
-            enum_type: Some(IoEnumBinding {
-                type_name,
-                variants,
-            }),
-        };
-        binding.display_name = Some(name.into());
-        true
     }
 
     fn push_binding(&mut self, binding: IoBinding, codec: IoBindingCodec) {
@@ -386,6 +430,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn authoring_hierarchical_seeds_keep_values_and_release_on_binding_freeze() {
+        let mut interface = IoInterface::new();
+        let address = IoAddress::parse("%IX2.4.7").unwrap();
+        interface.write(&address, Value::Bool(true)).unwrap();
+        {
+            let seeds = interface
+                .hierarchical_seeds()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            assert_eq!(seeds.len(), 1);
+            assert_eq!(seeds[0].0, address);
+            assert_eq!(seeds[0].1, &Value::Bool(true));
+            assert_eq!(interface.read(&address), Ok(Value::Bool(true)));
+        }
+        interface.clear_authoring_images();
+        assert_eq!(interface.hierarchical_seeds().count(), 0);
+    }
+
+    #[test]
     fn snapshot_carries_optional_binding_source() {
         let mut interface = IoInterface::new();
         interface.bind("Input0", IoAddress::parse("%IX0.0").expect("address"));
@@ -403,6 +466,37 @@ mod tests {
             snapshot.inputs[0].source.as_deref(),
             Some("Modbus 127.0.0.1:1502 · input reg 0")
         );
+    }
+
+    #[test]
+    fn fallible_snapshot_propagates_cycle_exhaustion_but_displays_local_read_errors() {
+        let mut interface = IoInterface::new();
+        interface.bind("Input0", IoAddress::parse("%IX0.0").expect("address"));
+        let exhausted = RuntimeError::ExecutionLimit {
+            kind: trust_runtime_core::error::ExecutionLimitKind::AllocationBytes,
+            used: 8,
+            requested: 2,
+            limit: 9,
+        };
+        let result = interface.snapshot_with_fallible(
+            |_| Err(exhausted.clone()),
+            |error| matches!(error, RuntimeError::ExecutionLimit { .. }),
+        );
+        assert!(
+            matches!(result, Err(error) if error == exhausted),
+            "cycle budget exhaustion must abort snapshot capture"
+        );
+
+        let snapshot = interface
+            .snapshot_with_fallible(
+                |_| Err(RuntimeError::InvalidIoAddress("bad path".into())),
+                |_| false,
+            )
+            .expect("local read failures remain display data");
+        assert!(matches!(
+            &snapshot.inputs[0].value,
+            IoSnapshotValue::Error(message) if message.contains("bad path")
+        ));
     }
 
     #[test]

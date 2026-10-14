@@ -6885,32 +6885,6 @@ mapping_behavior_refs = ["VM_SEAM_DETERMINISM_LIMITS_001#behavior:8"]
 
 [[tests]]
 schema_version = 2
-id = "TEST_AUTO_2EEF1852335396B08229"
-subject_kind = "generated_test"
-discovery_id = "DISC_2EEF1852335396B08229"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "bytecode_vm"
-path = "crates/trust-runtime/src/runtime/vm/budget.rs"
-name = "rejected_charge_does_not_underflow_the_remaining_budget"
-command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~rejected_charge_does_not_underflow_the_remaining_budget)'"
-owner = "trust-runtime-core"
-status = "mapped"
-invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits"
-oracle_refs = ["SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits"]
-expected_result = "A terminating forward workload that executes more than 1,000,000 original bytecode instructions faults even when it takes fewer than 1,000,000 backward branches."
-expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "very_fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2EEF1852335396B08229.json"
-last_reviewed = "2026-07-30"
-mapping_behavior_refs = ["VM_SEAM_DETERMINISM_LIMITS_001#behavior:8"]
-
-[[tests]]
-schema_version = 2
 id = "TEST_AUTO_06C78E4FD9548CDFEC91"
 subject_kind = "generated_test"
 discovery_id = "DISC_06C78E4FD9548CDFEC91"

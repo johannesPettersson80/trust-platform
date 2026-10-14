@@ -45,7 +45,7 @@ direction = "write"
     )
     .unwrap();
 
-    let mut session = DebugSession::new(Runtime::new());
+    let mut session = DebugSession::new(trust_runtime::RuntimeBuilder::new().build().unwrap());
     session.update_source_options(SourceOptionsUpdate {
         root: Some(project_root.to_string_lossy().to_string()),
         include_globs: None,

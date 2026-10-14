@@ -7,6 +7,184 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**14 October, later: owner chose to fix the call path; Claude now leads the remaining scopes.**
+The owner retired Codex and rejected accepting the `call_binding` trade-off ("we need a
+professional runtime"). The validated run-4 source is backed up externally
+(`claude-validated-run4-20261014/`, tracked patch SHA-256 `9f109ada…`, untracked
+`72c108fb…`). Call-path work since then, all behavior-preserving (spec 34 v0.18 HOST-04
+"Work done in place"):
+
+- [x] Analysis (cycle-only Callgrind with cache simulation, external `h-prof4/`): per call H
+  executed about 7,500 instructions and 450 instruction-cache misses; the code executed at
+  least four times per cycle was 668 cache lines against U's 554, both above the 512-line
+  L1 instruction cache. Moving data (an activation arena, tried and reverted) did not help;
+  executing less distinct code per call did.
+- [x] Direct frame defaults: frame-owned literal and intrinsic scalar defaults without an
+  executable body are written straight into the new frame with the declaration action's
+  checks and charges (unit tests compare both paths, including the type-stack entry charge
+  found by those tests).
+- [x] Fx hashing for the module's POU-id maps (SipHash cost about 470 instructions per call).
+- [x] Tier-1 block selection and register activations borrow prepared data instead of cloning
+  four `Arc`s per call.
+- [x] In-place leaf calls: a register callee whose prepared plan makes no user call runs inside
+  the caller's call instruction with the pump's checks, charges, completion and failure
+  cleanup; nested calls, debugging and occupied callees keep the pump. `complete_call`'s core
+  is shared as `finish_child_call`.
+- [x] Result (diagnostic copy, not acceptance): instructions 75.46M against U's 78.47M, cache
+  misses 3.65M against 2.66M, per-call code 622 lines. Timing (`h-prof4/timing-v4`, 5 rounds):
+  `call_binding` medians 0.978–1.009 and p99 0.84–1.07 in four rounds; round 5 was a
+  disturbed run (H p50 7.84 µs against 5.4 µs otherwise). `refs_sizeof` 0.83–0.85 and
+  `string_stdlib` 0.94–0.97 pass every round.
+- [x] Measurement noise: a U-against-U run (`h-prof4/timing-aa`) failed one `string_stdlib`
+  round (median 1.39, p99 1.42) with identical binaries. Whole-run slowdowns of 40–45% and a
+  second latency mode 2–3 µs above the base occur on the shared builder; p99 over 1,024
+  samples mostly measures that environment. Recorded for the owner; thresholds unchanged.
+- [x] Focused correctness check of v4 (diagnostic copy): core all-features 767, portable
+  register 679, portable stack 626, runtime library 3,957, 13 runtime call suites 123
+  (register parity, differential, depth-33, tier-1 resumption, deferred FB failure), runtime
+  vertical 28 — all pass. The same call suites also pass with in-place calls disabled.
+- [x] New native tests: `frame_defaults/tests.rs` (direct path equals the declaration action
+  for intrinsic and literal defaults, depth refusal and every declined case),
+  `register_ir/prepared/leaf_tests.rs` (leaf flag), `failed_leaf_function_withholds_in_out_copyback`.
+- [x] Independent review (fresh-context Opus reviewer, delta SHA-256 `e1fe4afb…` plus the
+  `leaf_call.rs` single-step edit and rustfmt reflows): no blocker or major finding; every
+  in-place path, frame default and the `complete_call` refactor traced equal to the general
+  path. Minor findings and dispositions:
+  - Accounting follows layouts: handler continuations shrink with the activation (fewer
+    bytes charged on growth) and each prepared plan grows 8 bytes; recorded in HOST-04.
+  - Couplings now pinned: `native_call_may_yield` shared by the leaf flag with a test that a
+    stdlib call completes immediately; an exhaustive `lifetime_check_is_trivial` replaces the
+    literal exclusion list; frame-default parity for every eligible primitive and at every
+    limit (work, type-stack bytes, constructed values, a refused text copy).
+  - Pump/in-place parity: a test-support switch and counter; `in_place_leaf_calls_match_the_pump`
+    (success through tier-1 warmup, faults in a leaf function and a leaf function block,
+    depth refusal) compares results, faults, values and profile/tier-1 counters, and
+    `in_place_leaf_calls_charge_the_pump_work` compares minimum scan work.
+  - The embedded profile also runs the frame-default path and the shared `finish_child_call`:
+    run 5's F401 link, inspection and board replay must show size and stack within margins.
+  - Spec and CHANGELOG wording corrected (guarantee placed under HOST-04; "faster" not
+    claimed before PERF-01 passes); comments corrected.
+- [x] Version 5 (exact source before review fixes, diagnostic): `call_binding` medians
+  0.976–1.017 under a load average near 6 from another session's VS Code journeys; one p99
+  round 1.53 with U's own p99 ranging 8.9–14.1 µs. Run 5's timing step now waits up to 90
+  minutes for a load average below 1.5 and records the wait; criteria unchanged.
+- [x] Run 5 (`H-cost-model-5`, 11:04:36–11:48:28 UTC; tracked diff with full object ids
+  `a78fddd1…` on both machines, the abbreviated identity differs only by git version):
+  61 of 62 steps pass, source identity stable. Full workspace 9,278 passed, 0 failed (28
+  ignored); core all-features 775, portable 633, register 687, i686 686; applications 91;
+  runtime vertical 38; lint, architecture, diagrams, docs, supply chain, compositions, MCU
+  lanes; real-database gate; browser captures 10; VS Code 1.109.0 and stable 519 each.
+- [ ] PERF-01 in run 5 (consumer `0f1b6996…`; quiet wait 0 s, load 1.41): medians pass every
+  round (`call_binding` 1.028–1.051, `refs_sizeof` 0.597–0.835, `string_stdlib`
+  0.950–0.990). The owner-approved disturbed-round rule (spec 34 PERF-01, harness installed
+  11:22:36 UTC before any timing) re-measured `refs_sizeof` round 1 (U +48%, repeat disturbed
+  again, counted, passes) and `string_stdlib` round 5 (H +50%, repeat steady, passes). Two
+  comparisons fail p99 with steady medians: `call_binding` round 2 (1.335) and
+  `string_stdlib` round 3 (1.425). Pooled over the five rounds (5,120 samples per build) the
+  p99 ratios are 1.028, 1.029 and 0.469; the U-against-U calibration gives per-round p99
+  ratios 0.75–1.42 for identical binaries and pooled 0.971/0.936. Under the current rule
+  PERF-01 fails; the owner decides whether p99 is evaluated over the pooled rounds.
+- [x] Run 5 firmware and F401 replay (`H-cost-model-board-5`; ELF `cc444e74…`, application
+  `71cb8c62…`): link leaves 6,208 B upper flash (run 3: 7,232) and 736 B sector-0 free;
+  `xtask portability verify` passes 101 samples, numeric bits, GPIO, call depths 1–4,
+  watchdog reset and DONE; MSP peak 11,616 B (4,768 B left), heap peak 23,496 B, longest
+  main scan 3,754 µs. Button, LED and board markings remain unverified (bench).
+
+**Earlier on 14 October (Claude review and correction): validated except PERF-01 `call_binding`.**
+The owner asked for a review and fix of H. Root causes found:
+
+1. Hosted execution moved onto the portable engine, whose bookkeeping was charged to
+   the work allowance (1 unit per scalar clone, normalization pass and lifetime check,
+   plus index comparisons). The OpenOT changed scan used 219,129 instruction units and
+   about 1.2M bookkeeping units.
+2. Construction ran under the 1M per-scan allowance instead of the preparation profile.
+3. The engine gave a whole scan one allowance; U and specification 10 give each
+   top-level program invocation its own. A six-program resource got a sixth of U's.
+4. VAR_IN_OUT arrays were snapshot and charged per element for work and cumulative
+   allocation (1,038 snapshots of a 1,024-element buffer in one OpenOT scan), although
+   IEC passes them by reference.
+5. Firmware growth after the last fitting image came mostly from work-motivated marker
+   paging (about 4 KB). Codex's proposed typed-array storage targeted (4) only.
+
+- [x] Spec 34 v0.17: TIME-08 cost model (instructions plus value-size work; bookkeeping,
+  including VAR_IN_OUT and rollback snapshots, never charged) and TIME-09 allowances
+  (construction under `max_construction_work`, hosted default 64 Mi, F401 50,000; one
+  `max_work` per top-level invocation). Specs 10 and 12 follow. The ~200-line H
+  implementation block after HOST-04 is reduced to its behavioral guarantees.
+- [x] Core: bookkeeping charges removed; COPY, TEXT, OVERLAP, LIFETIME, CONSTRUCT,
+  NATIVE and INSTR charges kept; character reads keep TEXT via `charge_text_work`;
+  lifecycle markers restored to the sorted-vector form with the plan/reserve/publish
+  API; per-invocation work reset in the cycle.
+- [x] Native tests: `crates/trust-runtime/tests/work_cost_model.rs` (lookup-size
+  invariance, per-element array copy, IN_OUT binding without copy cost, construction
+  allowance), core budget test, debugger observation adds no work.
+- [x] Run 1 (`H-cost-model-1`, superseded source): core lanes 1 test-double failure,
+  workspace 3 failures, OSCAT/PLCopen/work-cost tests pass, clippy, MCU lanes,
+  architecture, diagrams, docs, browser and VS Code 1.109.0/stable pass. Supply-chain and
+  CLI-ordering failures were harness errors, corrected. F401 link 4,704 B over.
+- [x] Diagnostic copy (not acceptance): all 12 OpenOT database-example scans pass at
+  default limits; F401 links with 544 B upper free plus 768 B sector-0 free.
+- [x] Run 2 (`H-cost-model-2`, identity diff `48a004b7…`): 56 of 62 steps pass, including
+  firmware link/inspect/pack, MCU and composition lanes, runtime vertical, workspace (apart
+  from the item below), lint, supply chain, architecture, diagrams, docs, browser and VS Code
+  1.109.0/stable. Failures: two core test expectations (test-only, corrected: the rollback
+  test now needs journal growth after the first four entries; the IN_OUT `snapshot()` keeps
+  copy attribution) across the core, portable, register, i686 and workspace lanes; PERF-01
+  `call_binding` median 1.285–1.321 (references 0.94–0.96 and strings 0.71–1.04 pass).
+  F401 replay (`H-cost-model-board-2`) stopped at `stack-headroom`: instantiation MSP
+  15,104 B, leaving 1,280 B of the required 2,048.
+- [x] Stack correction: the 544-byte engine record is boxed and built in its own short frame
+  instead of staying live under every nested construction initializer; legacy child setup
+  stays out of the dispatch loop. Diagnostic replay `H-cost-model-board-stack2` passes
+  `xtask portability verify`: MSP peak 12,464 B (3,920 B left), heap peak 23,496 B; the
+  link leaves 1,664 B upper flash and 768 B sector-0 free.
+- [x] Call-path performance analysis (Callgrind with cache and branch simulation, external
+  `h-prof2/`, `h-prof3/`): H executed 1.13× U's instructions but 1.70× its instruction-cache
+  misses. Its per-call code path touches about 450 cache lines against U's 340 (dispatch
+  loop, call completion, register activation, frame initialization), so each of the four
+  calls per cycle refetches it. The estimate instructions + 10 × cache misses + 15 ×
+  mispredictions gave 1.27 against the measured 1.29–1.32. Error values built eagerly by
+  `ok_or(...)` on success paths cost 2.8M instructions in drops alone; 215 sites in 27
+  hot-path files now build them lazily. Result: instruction ratio 1.059, estimate 1.208.
+- [x] Run 3 (`H-cost-model-3`, identity diff `1945ca6f…`): 60 of 62 steps pass, including
+  all core, portable, register and i686 lanes, the full workspace, applications, runtime
+  vertical, compositions, MCU lanes, firmware, supply chain, architecture, diagrams, docs,
+  browser and VS Code 1.109.0/stable. Failures: (1) workspace lint: Clippy's
+  `unnecessary_lazy_evaluations` rejects the 212 lazy error constructors (it treats building
+  a variant as free). The crate root now allows that lint with the measured reason; the
+  batch's exact Clippy command then passes on a diagnostic copy. The rewrite had been
+  compile-checked but not Clippy-checked before freezing. (2) PERF-01 `call_binding`:
+  medians 1.129–1.155 (run 2: 1.285–1.321), p99 above 1.25 in rounds 1 and 5 (1.395,
+  1.324). References 0.52–0.84 and strings 0.62–0.96 pass every round.
+- [x] Run 4 (focused, `H-cost-model-4`, identity diff `78571ffa…`, script `focused.sh`): the
+  lint correction only. All 19 steps pass: source identity and stability, format, workspace
+  lint, core all-features (578) and portable tests, F401 core check, firmware link, inspect
+  and pack, release consumer build, architecture. The firmware (ELF `0acacd2f…`, application
+  `71cb8c62…`, report `caf866a3…`) and the measured benchmark consumer are byte-identical to
+  run 3's, so run 3's compiled-code evidence (tests, board replay, performance) applies to
+  this source. H stays uncommitted; commit and push wait for the owner.
+- [x] F401 replay of run 3's firmware (`H-cost-model-board-3`; ELF SHA-256 `0acacd2f…`,
+  application `71cb8c62…`): `xtask portability verify` passes 101 trace samples, numeric
+  bits, GPIO, task depths, watchdog reset and DONE. MSP peak 11,616 B (4,768 B left of
+  16,384; 2,048 required), heap peak 23,496 B of 73,728, longest main scan 3,773 µs. Link:
+  7,232 B upper flash and 800 B sector-0 free. Button transitions, LED observation and
+  board markings stay unverified (they need a person at the bench).
+- [x] PERF-01 `call_binding` stayed above 1.10 in run 3 (medians 1.129–1.155). Owner decision
+  14 October: fix the call path, no exception (see the call-path work above).
+- [x] Core unit tests: Codex's last run had 586, the corrected source 578. Of 58 changed
+  names, 50 are the same scenarios rewritten to assert that bookkeeping draws no work (their
+  result, refusal, rollback and allocation assertions kept). The other 8 covered code that
+  no longer exists: marker page directories and their diagnostic recorder, plan validation
+  against those directories, and the lookup-work formula. Marker order, retirement, plan,
+  reservation and single publication keep tests in `engine/keys/tests.rs`.
+- [x] Codex's open items H-CURRENT-TYPED-ARRAY-DECISION and H-CURRENT-CONSTRUCTOR-PROOF are
+  superseded: TIME-08 makes IN_OUT snapshots bookkeeping, and TIME-09 gives construction its
+  own allowance. Neither storage redesign nor constructor proof is needed for the limits.
+
+Pre-fix snapshot of the H tree: external `claude-fix-baseline-20261014/`.
+
+### U publication checkpoint on `main` at `603278202` (historical)
+
 **U checkpoint `19f3b6787` is scope-verified; PR #133 is held on a retry-rescued macOS native assertion.**
 Candidate `63cab14e3` passed its exact-SHA guard (8,719 native passes,
 24 ignored; 519 default editor passes), all 17 supplement stages and the corrected
@@ -74,6 +252,2069 @@ correction is not new hardware execution. All original preparation, guard, first
 CI failure, SDK sync and corrective validation receipts remain externally retained.
 The owner explicitly authorized necessary fixes and retests without another
 permission question; required checks, functions and hardware margins stay intact.
+
+### Previous checkpoint (Codex, superseded)
+
+**14 October: sparse-owner correction verified; H awaits the storage architecture decision.**
+`H-runtime-sparse-owner-recovery/` ran 23:46:05–23:47:20 UTC on 13 October.
+Frozen manifest: `51b08fcc712c97ebdcda2d0eea22d25ac2bf1528f453998a813445769fd889b6`.
+All required software recovery checks pass: core all-features **586**, portable **470**,
+i686/register **522**, Clippy, formatting and source/harness identity. Its only crate
+changes from the preceding freeze are three test files; 2,590 remaining code records
+match. The preceding 58 hosted tests, both MCU core checks, architecture/diagrams and
+same-artifact cost captures remain applicable. No full workspace/UI rerun occurred.
+
+The completed default F401 link **fails by 8,960 bytes** (maximum FLASH alignment
+extent; .rodata exceeds by 8,944). This is 96 bytes more than the prior measured
+8,864-byte overflow. Map SHA-256:
+`f1076489694dd846e4b415c58c89b37bb4f5307e8065ca977f469feec1a15ff7`.
+No current ELF inspection, board test or physical timing proof exists.
+
+- [x] H-CURRENT-SPARSE-OWNER-CACHE — Full-key-checked count-bounded cache and real
+  collision/corruption/refusal tests verified. Original artifact changed-scan work
+  falls exactly 106,296 to **1,415,377**, with unchanged copy/slot/root behavior and
+  zero diagnostic loss. The unchanged 1M limit still fails; this is not H acceptance.
+- [x] H-CURRENT-RECORDER-RECOVERY — Native compile, drain/retry, scope restoration
+  and lint verified. The old failed ledgers are retained.
+- [ ] H-CURRENT-TYPED-ARRAY-DECISION — Owner question pending: bring forward the
+  planned MEM-06/MEM-11 primitive-array storage slice into H, using one shared typed
+  storage/call interface and private snapshots while preserving full functions,
+  whole-value copyback, rollback, aliases and both execution paths. Public Value
+  compatibility and compound fallback remain. Independent design review is recorded
+  in `H-runtime-borrowed-metadata/analysis/inout-array-copy-review.md`, pinning design
+  SHA `1a7cb7d55c2495fcbf3cb38f995ded003ddff91aeeb136e3182053e8df6860da`.
+  No storage implementation is authorized by this checklist entry; no gain or fit
+  is promised. This is the architectural decision reserved by the user's H goal.
+- [ ] H-CURRENT-CONSTRUCTOR-PROOF — Design review requires actual canonical shell
+  naming and composed nesting-depth proof before removing parent walks. Successful
+  clone-normalize-and-discard does not prove the original value canonical. No proof
+  bypass is implemented; database/PLCopen deficits remain **713,843 / 138,605** units.
+
+H remains uncommitted and not ready for commit. Full functionality, overflow checks,
+original work limits and physical memory bounds remain unchanged. No further test
+or hardware job is running. Resume from the owner architecture decision, then write
+its specification/invariants and native assertions before implementation/review;
+retain targeted correctness/size measurement before any full H validation.
+
+### Previous measured checkpoint
+
+**14 October: sparse-owner measurement confirms the full projected reduction.**
+`H-runtime-sparse-owner/` is terminal, source unchanged; frozen manifest
+`2926b4e2ba3b4804f8f27575a8f41852a65ff3c17bdae4617df3106a472d8ba7`.
+The identical 382,596-byte parameter artifact (`fae19f718198b1f20f3e3cafec23c248f5b5e776d1786310a2534c10bfe37d9d`)
+now completes the observed changed scan in **1,415,377** work units, down exactly
+106,296. Seed scan uses 221,086; construction 299,347 and install 333,008 are unchanged.
+Every exported complete snapshot has zero lost records. The original 1M test still
+fails; this is no default-limit acceptance or elapsed-time performance claim.
+
+Hosted affected suites (58 tests), MCU core checks, architecture, diagram render/drift
+and source/harness stability pass. Core all-features has 583 passes / 3 failed existing
+charge/geometry expectations; portable and i686 each fail the same high-ID fixture
+assumption. The new cache/drain cases pass. Those fixtures assumed POU7 always used
+owner binary search; the folded cache now correctly hits it directly. Correct them
+and add a real collided owner, preserving exact refusal and comparison assertions.
+Clippy also flags an unnecessary immediately-called closure in a diagnostic test.
+
+The planned firmware measurement was **unrun**, not a link overflow: the harness
+incorrectly pre-created xtask's output report and its no-overwrite guard refused it.
+Previous 8,864-byte overflow remains the last measured size, not this source's proof.
+Focused recovery (`H-runtime-sparse-owner-recovery-setup/PLAN.md`) covers test-only
+corrections, lint and the missed default link using a fresh report destination.
+Do not rerun passed hosted/application/MCU suites for test-only edits.
+
+The constructor proof proposal remains design-only: review found missing shell-name
+and composed-depth premises. The narrow safe primitive-array subset cannot close
+constructor deficits. The mutable IN_OUT copy cause has a design candidate: move the planned
+MEM-06/MEM-11 primitive-array storage slice forward, with typed execution slots and
+private typed call snapshots, retaining public Value compatibility and whole-value
+transactional copyback. The same helpers serve stack and register paths; other
+aggregates retain their checked path. No functions or target support are removed.
+Architecture selection is pending the owner response, as the H goal requires.
+External design: `H-runtime-borrowed-metadata/analysis/inout-array-copy-design.md`.
+No typed-storage code, savings, fit or acceptance is claimed. Independent review and
+invariant/test design precede any implementation. The smaller test/lint/measurement
+recovery continues independently; no direct alias or check-skipping workaround is selected.
+
+### Previous attribution checkpoint
+
+**14 October: remaining scan costs now have exact consumers.**
+`H-runtime-consumer-attribution/` completed 23:15:02–23:16:41 UTC on 13 October.
+All nine complete-capture snapshots have zero drops and exactly unchanged coarse
+work/copy/index records, phase results and artifact hashes. Saved artifact bytes
+and decoded identity tables are retained. 529 of 541 target-array copies are mutable
+IN_OUT payloads. `OPENOT_WriteByte.Buffer` accounts for 412 whole-array copies
+(105,472 children, 4,261,728 admitted bytes) to perform indexed byte updates. They
+cannot simply become borrowed reads: the existing POU transfer decision requires
+private execution state and atomic copyback on success.
+
+POU IDs are sparse: 0 and 34–100 across 68 admitted POUs. The current direct cache
+misses high IDs despite available buckets. CRC alone incurs 8,732 owner fallback
+queries / 69,856 comparisons; the total is 13,287 / 106,296. The bounded, full-key-
+checked cache design in spec 34 now folds raw identities into the existing table,
+keeps the first ascending owner on collisions and retains charged binary fallback.
+For this trace, the projected 106,296 avoided comparisons still leave the changed
+scan at 1,415,377 work units, above 1M; this is a projection, not a passing run.
+
+The diagnostic batch passes the runtime vertical, portable check, architecture and
+source/harness stability. Core tests were unrun because one existing test Context
+literal omitted the new optional owner field; lint consequently remains unrun.
+That fixture correction is prepared. Review also found repeated finish() drained
+only attribution vectors while retaining coarse counts; the prepared drain fix and
+native regression cover all event families and failure counters together. Successful
+first-finish application captures remain recorded without claiming unit-test proof.
+
+- [ ] H-CURRENT-SPARSE-OWNER-CACHE — Implement and independently review the bounded
+  folded cache, preserving first-owner precedence, full identities, empty/collision/
+  corruption fallback, actual work charges and admitted storage bounds. Test sparse
+  identities and u32::MAX; replay the original changed-scan artifact before claiming
+  savings. Combine this with the diagnostic unit/lint recovery in one focused batch.
+- [ ] H-CURRENT-INOUT-DESIGN — Compare the measured mutable-array copying with the
+  written call transaction contract and prior code before selecting a representation
+  change. No aliasing shortcut, check removal, work-limit increase or function loss.
+
+The folded cache and four regressions are now authored; independent source and
+harness review is in progress. Focused plan: external
+`H-runtime-sparse-owner-setup/PLAN.md`. This also covers recorder compile/drain
+recovery. No new passing evidence is claimed before the frozen batch.
+
+Next: complete independent review, then focused core/native/i686,
+original changed-scan capture, runtime vertical, MCU compilation and default firmware
+size. No full workspace/UI batch. Constructor proof remains a reviewed design
+proposal only; it is not implemented or credited with savings. H is not ready to commit.
+
+### Previous diagnostic checkpoint
+
+**14 October: metadata/marker correction verified; H remains blocked on measured costs and flash.**
+`H-runtime-borrowed-metadata/` ran 22:49:40–22:55:32 UTC on 13 October, with
+source and harness unchanged. Frozen manifest SHA-256:
+`cbd5d84c625143af2feb48889883e4992ccc40187442dd0a05719d2666fea383`.
+Core library suites pass: all-features 575, HIR without register 509, portable 466,
+portable-register 519 and i686 518. All 64 selected hosted regressions pass, as do
+Clippy, both MCU core checks, architecture, diagram render/drift and the three
+32-bit allocation-profile assertions (largest peak 30,361 bytes, zero after retire).
+These are focused tests; no full workspace/UI rerun or hardware claim follows.
+
+Complete observations using the identical saved artifacts measure database
+construction at **1,713,843**, PLCopen construction at **1,138,605**, and the changed
+scan at **1,521,673** work units. Their original default-limit failures remain;
+the diagnostic-only 10M allowance is not product acceptance. Default F401 link
+fails by **8,864 bytes**, 480 fewer than the preceding map. Performance and ELF
+inspection remain unrun because their respective prerequisites failed.
+
+- [x] H-CURRENT-METADATA-BORROW — Prepared type metadata stays borrowed across
+  mutable constructor and retain callbacks. Array result dimensions retain their
+  actual pre-recipe copy/admission. Native exact-charge and existing recipe/error
+  coverage pass in the feature suites above.
+- [x] H-CURRENT-MARKER-READ — Each necessary marker directory is searched once,
+  after its own admitted bound; row access is charged separately. Missing-directory
+  and each refusal-stage cases pass; insertion/publication safety stays unchanged.
+- [ ] H-CURRENT-CONSUMER-ATTRIBUTION — The remaining 541 target-array copies and
+  13,287 owner fallbacks lack exact consumer/POU attribution. Add bounded numeric
+  identities to existing test-support logging, retain the same artifact bytes for
+  offline identity resolution, and verify zero drops and reconciliation to unchanged
+  coarse accounting. No copy elimination or cache choice is justified from totals alone.
+
+Next: finish diagnostic-only attribution and independent review, then run its small
+native-recorder and original-case capture batch. Do not repeat production feature
+matrices, firmware or UI for logging alone. Continue map analysis independently.
+Any broader typed-value ownership/proof change first needs a concrete design against
+all writers, mutation/lifetime boundaries and the spec; no skipped checks are selected.
+H remains uncommitted and unverified. Complete functions, overflow checks and the
+product work allowance remain unchanged.
+
+### Prior correction checkpoint
+
+**14 October: focused recovery passes; H application and flash acceptance remain open.**
+`H-runtime-reuse-failed-checks/` completed 22:32:59–22:34:12 UTC on 13 October.
+All 11 ledger steps pass: ordinal and marker regressions, owned-call paths,
+i686 ordinals/allocation, affected Clippy, formatting and source/harness stability.
+Frozen manifest SHA-256: `76ccb6441402f8911c7d7b6ad0f1f91ee6ac71642fcc67d187fa6dcbfa5a84dd`.
+The three i686 allocation cases retire to zero live bytes; their largest observed
+peak is 30,361 bytes. This is a 32-bit host estimate, not board RAM proof.
+
+The preceding `H-runtime-reuse-test-recovery/` retains its five feature-lane
+failures (the same new ordinal test expected eight units instead of the actual
+five zero-fill units plus one lookup), a register-only unused-wrapper compile
+failure, and Clippy findings. Corrected assertions also pin work refusal before
+capacity growth; the product budget was not raised. No failed ledger is replaced.
+
+`H-runtime-reuse/` completed 22:08:56–22:14:42 UTC. Its zero-drop complete-operation
+records measure database construction at **1,817,843**, PLCopen construction at
+**1,304,109**, and the changed-input scan at **1,521,673** work units. All three
+original cases still fail the unchanged 1,000,000-unit allowance. Diagnostic-only
+10M captures explain the whole operation; they do not qualify the application.
+Runtime reuse removes measured work but does not close these failures.
+The default F401 link occupies 468,096 bytes against 458,752 bytes in upper flash:
+**9,344 bytes over**. No current ELF inspection, board replay or timing pass exists.
+
+- [x] H-CURRENT-REUSE-REGRESSIONS — Four reviewed corrections are implemented:
+  marker-position reuse with freshness/transaction checks, bounded owner/root
+  ordinals, active type-operation masks, and private owned-local transfer. The
+  feature-lane native coverage and focused recovery above support these mechanisms;
+  this item does not assert application acceptance or performance improvement.
+- [ ] H-CURRENT-METADATA-BORROW — Remove the measured repeated TYPE_TABLE metadata
+  clones by borrowing the admitted immutable tables across mutable construction
+  callbacks. Preserve recursive recipes, type/lifetime checks, refusal order for
+  remaining operations, and actual allocation/copy/hash charges. Update all
+  construction and retain-migration callers and native assertions before review.
+- [ ] H-CURRENT-RESIDUAL-RCA — Inspect remaining owner fallback searches and array
+  target reads against their consumers; select only source-grounded changes that
+  preserve value, lifetime, alias and rollback semantics. Review current firmware
+  symbol growth before selecting a size correction. No claimed savings before maps.
+
+Next: finish this bounded source correction and independent review, then one focused
+batch covering its affected native/feature/retain paths, original application
+captures, allocation and source-matched firmware size. Measure speed when correctness
+passes. Do not repeat the full workspace/UI suite while known application failures
+remain. Keep all functions and overflow checks; no H commit or push.
+
+### Earlier checkpoints (historical results, superseded by the status above)
+
+- [x] H-CURRENT-COMPLETE-CAPTURE — Complete operation records retained in
+  external `H-runtime-complete-work/analysis/work-charge-RCA.md`. Identical saved
+  bytes were observed at default 1M and diagnostic-only 10M; all 15 snapshots
+  reconcile with zero dropped records. The unchanged default acceptance cases
+  still fail. Complete database construction costs 1,985,373 units, PLCopen
+  construction 1,477,986, and the parameter-change scan 1,714,680. These are
+  measurements, not permission to increase the product allowance.
+
+**Latest diagnostic batch — complete costs established; H remains unverified.**
+`H-runtime-complete-work/` ran 21:25:18–21:27:36 UTC (138 seconds).
+Three complete-operation observations and 28 runtime vertical tests pass. Core
+passes 553 tests; one new recorder-overflow test incorrectly used two caller
+locations and fails before demonstrating overflow. Clippy reports a read-only
+Vec parameter, a complex test-only capacity tuple, and an ignored test Result.
+The four small corrections are prepared, not yet tested. Architecture, diagram
+drift and frozen source/harness checks pass. No timing, firmware or hardware run.
+
+- [ ] H-CURRENT-REDUNDANT-WORK — Implementing four corrections from the complete
+  records: retain marker insertion positions through admitted publication; direct
+  owner/root indirection bounded by admitted record counts with sparse fallback;
+  constant-time active `(type, operation)` membership; transfer private owned call
+  locals after selection while keeping borrowed-copy APIs. No lifetime, normalization
+  or staging check is removed. Independent review precedes external
+  `H-runtime-reuse-setup/PLAN.md`: focused correctness and cost captures, speed if
+  correctness passes, default F401 size and allocation measurements. Full H validation
+  waits for these. The recorded costs do not promise that this set closes every gap.
+
+**Latest focused result — correct feature lanes, remaining application and flash failures.**
+`H-runtime-page-index-stack-r2/` ran 20:59:19–21:05:48 UTC (389 seconds).
+HIR/no-register488, portable611, portable-register658, i686657, hosted register104
+and isolated stack/register consumers4 each pass. Selected hosted integrations
+pass95 and retain11 OpenOT failures; OSCAT passes and PLCopen retains a Work refusal.
+All-feature test compilation finds two unconstrained diagnostic test closures;
+lint/timing remain unrun. MCU core, architecture/drift and source/harness identity pass.
+Complete zero-drop captures show construction340,838/install374,499/seed285,967
+for the parameter-change application; its change scan still exhausts1,000,000.
+Default F401 link overflows6,624 bytes. No new hardware proof. i686 allocation
+measurements remain estimates rather than board evidence. Fix the two test closures,
+then use full work/copy and symbol-level map evidence to select further corrections.
+The default allowance, complete function set and overflow checks remain unchanged.
+
+**Focused correction batch failed at compilation; small corrections prepared.**
+`H-runtime-page-index-stack/` ran 20:53:28–20:54:43 UTC (75 seconds). The record
+retains the diagnostic range-type error, private continuation-field accesses and
+isolated-feature unused helpers. Portable register library passed 497 tests; its
+one failing new test assumed a retained global absent from the chosen artifact.
+The corrected fixture uses a real GPIO global and distinct source/target values.
+Architecture/render/drift and source identity pass. Host application diagnostics,
+timing and firmware measurements remain unverified. Complete this correction set
+and independently review before `H-runtime-page-index-stack-r2/`; no full suite.
+
+**Current implementation checkpoint — authored, under independent review.**
+The three corrections below now have code and native assertions. Review identified
+additional concrete accounting gaps in dynamic reference-candidate groups, visited
+instance membership and the method-owner/inheritance fallback; these are corrected
+at their owning lookup, without increasing the allowance. Marker-page review also
+checks all repeated directory searches and retained publication admission.
+Next batch: external `H-runtime-page-index-stack-setup/PLAN.md`. It includes focused
+feature/native/i686/application proof, cost recapture, source-matched F401 size and
+allocation measurements, and timing only if correctness passes. No new result is
+claimed until that frozen batch executes. Full workspace/UI and hardware remain pending.
+
+**Next correction wave: measured marker, lookup and stack-only orchestration costs.**
+`H-runtime-charge-components/` finished 20:03:17–20:05:52 UTC. Core 539,
+i686 485 and runtime vertical 28 assertions pass; lint, MCU checks, architecture,
+drift and source/harness identity pass. Six complete zero-drop snapshots reproduce
+R4's original Work results and all 215 work/152 copy rows. PLCopen marker cost is
+547,847 = 440,930 shifts + 102,866 searches + 2,044 relocation + 2,007 mutation.
+The database constructor separately shifts 99,507 entries for first declarations;
+a sparse outer declaration map would retain that cause.
+
+- [ ] H-CURRENT-MARKER-PAGES — Sparse 64-declaration by 64-owner pages; preserve
+  keys/order, combined admission before publication, actual page/iteration demand,
+  full-width identities, retain/rollback and allocation-failure guarantees. Measure
+  sparse-case and F401 RAM; do not assume a memory saving.
+- [ ] H-CURRENT-INDEX-CHARGES — One entry unit plus the actual branch's index bounds
+  before each search, preserving dense paths and sparse/missing fallback. Recorded
+  change-scan prefix projects 61,826 fewer units; completion is not yet demonstrated.
+- [ ] H-CURRENT-STACK-ONLY — Keep native stack calls in the SAME opcode loop only
+  without register-ir. Keep hosted register pump and call/cleanup semantics unchanged.
+  Review external H-stack-segment-continuation-plan.md. No predicted size credit.
+
+Complete these bounded corrections, native assertions and independent review before
+focused correctness/diagnostic replay, timing and default F401 link/inspection.
+Only then consider full H validation and source-matched physical replay. No commit,
+function removal, overflow-check change, allowance increase or margin waiver.
+
+**Historical R5 capture plan (completed above): `H-runtime-charge-components/`.** Existing test-support
+logging now separates lifecycle insertion components and actual declaration/root
+lookup paths without changing charges or results. Review and freeze before the
+three original application captures. No storage/accounting redesign, full suite,
+performance run or hardware launch in this diagnostic batch. The last fitting
+image and R4 failed map are compared in external `R4/analysis/flash-RCA.md`.
+
+**13 October: R4 targeted corrections pass except one marker-test invariant;
+remaining work and flash failures are measured.**
+`H-runtime-root-corrections-r4/` ran 19:40:06–19:43:34 UTC with stable source/harness.
+All 56 selected hosted assertions pass, including depth-33, tier-1, recursive stack
+fallback, aggregate output transfer and the runtime vertical. Initializer allocation
+preflight now passes. i686 and both MCU graphs compile warning-free; Clippy passes.
+The sole core assertion failure conflates legitimate 16-byte lifetime-check scratch
+with forbidden marker publication. Correct it to observe marker count/content/capacity
+without reordering lifetime checks or removing the value/overflow assertions.
+The test-only CLI recorder dependency needs one ordinary full-map edge classification.
+OpenOT construction, audited scan and PLCopen construction captures retain their
+original failures, every work/copy row, and valid zero-drop snapshots. They are not
+behavior passes. PLCopen marker insertion alone consumes 547,847 work units; further
+attribution precedes any container/accounting change. Default F401 linking fails:
+3,080-byte data overflow, 3,104 bytes including final section alignment. No image was
+installed. Compare the retained map with the last fitting default image before fixes.
+Timing/full-suite/hardware acceptance remain open; no budget increase or function
+removal is authorized by these results. H remains uncommitted.
+
+**13 October: R3 reached native execution; remaining failures are classified.**
+`H-runtime-root-corrections-r3/` ran 19:25:22–19:32:01 UTC with stable frozen
+source and harness. Admitted depth-33 calls and tier-1 resumption now pass, as do
+104 hosted register compatibility tests, OSCAT and external stack/register consumers.
+Four core assertions fail: one real missing root frame allocation preflight and
+three exact accounting fixture expectations. Restore the preflight from the prior
+dispatcher before moving lexical locals; retain its failing assertion. Correct the
+three fixtures against unchanged-before/after counters and the measured lookup bound.
+Two new ST fixtures failed compilation before runtime assertions: static writable
+aliasing is forbidden by spec 10 §7.5, and a bare recursive function name collides
+with its return slot in the encoder. Use legal distinct outputs and a supported
+qualified call; do not change compiler policy to make these fixtures pass.
+Eleven OpenOT tests and PLCopen still refuse Work at the default allowance. Capture
+complete charges on this candidate before selecting further runtime fixes. No budget
+increase, function removal, performance waiver or full-suite retry. Warning-only
+MCU/i686 failures identify unused compatibility wrappers; narrow their feature gates.
+Architecture, diagram drift and metadata pass; performance and firmware remain
+unrun because prerequisites failed. H is not ready for commit.
+
+**13 October: R2 compiler failure retained; focused R3 correction prepared.**
+`H-runtime-root-corrections-r2/` ran from 19:14:11 to 19:16:18 UTC.
+Its sole compiler error is E0382: an error-mapping closure captures the suspended
+parent activation before the success path returns it. An explicit error branch
+preserves ownership without cloning or changing execution semantics. Native tests,
+performance and firmware remain unverified. Architecture, diagram rendering/drift,
+formatting and frozen-source/harness checks pass; rendered outputs are copied back.
+The next focused batch checks compile prerequisites before dependent executions,
+while retaining independent feature/MCU lanes. Independent review precedes its
+freeze. No full workspace/UI retry, H commit or push.
+
+**13 October: runtime correction batch blocked at compilation; fixes underway.**
+`H-runtime-root-corrections/` ran for 130 seconds (18:59:03–19:01:13 UTC).
+Source/harness identity passes. Module-split imports/visibility, feature-specific
+frame APIs, one mutable binding, one counter type and an obsolete import prevent
+native execution. Source review missed these compiler defects. Full-map also
+requires its two existing interpreter-body owner records to follow their renamed
+slice functions. No behavior assertions, performance comparison, firmware link or
+hardware run passed in this batch. Complete failures and frozen source are retained.
+The complete known correction set is being fixed and independently reviewed before
+another focused run under the existing authorization; no full workspace/UI retry.
+
+**13 October: focused corrections pass; measured construction/scan and native-stack fixes in progress.**
+The retained full `H-next-full/` batch has 51 passes, eight failures and one
+explicitly open performance gate across 60 rows. Its original ledger is unchanged.
+Both VS Code versions passed 519 tests each and all ten browser cases passed;
+images were inspected. This is not H acceptance.
+
+`H-post-full-focused/` corrected the producer, typed fault expectations and external
+consumer locks. Its one remaining seed assertion was wrong: the preserved fixture
+ends in opcode 0x01, whose specified trap is ForStepZero. `H-post-full-attribution/`
+passes both seed tests, all 21 correctly selected I/O unit tests, formatting and
+runtime/core Clippy. The earlier zero-test I/O selection remains unverified in its
+own ledger. All five retained performance files now copy with their pinned hashes;
+this is evidence recovery, not a new performance pass.
+
+- [x] H-CURRENT-PRODUCER — Legacy builtin selection respects the supplied POU
+  index; absolute versus relative structure addresses retain the correct domains.
+  Existing sparse seed, legacy TON and struct-field cases and new direct encoder
+  rejection assertions pass in the focused batches.
+- [x] H-CURRENT-FAULTS — Stable timeout code retained with typed Work diagnostics;
+  native tests distinguish work exhaustion from physical deadlines and separately
+  prove bounded string-prefix allocation and genuine refusal with unchanged state.
+- [x] H-CURRENT-WORK-CAPTURE — Complete construction and audited second-scan
+  work/copy records retained. All snapshots have zero dropped/busy records. Caller
+  attribution isolates 390,413 of 1,000,000 constructor work units in lifecycle-mark
+  sorted insertion; its 32 work rows reconcile exactly to the original total.
+- [ ] H-CURRENT-WORK — Implement admitted sparse lifecycle marks with unchanged
+  identity/order, truthful binary-search/name comparison bounds, and transfer of
+  completed function output payloads instead of cloning discarded originals.
+  Preserve allocation/work admission, write/lifetime checks and transactional
+  alias/copyback behavior. No allowance increase or function removal.
+- [ ] H-CURRENT-STACK — Replace synchronous register-call recursion with shared
+  suspended continuations, preserving nested distinct register execution, occupied
+  recursion fallback, tier-1 and fault cleanup. The failing binary reserves 50,584
+  bytes per register activation versus 39,240 in Run15; the admitted depth-33 test
+  aborts. No stack-size workaround, depth reduction or disabling register execution.
+- [x] H-CURRENT-HARNESS — Formatting, consumer locks and retained evidence transfer
+  corrected. Preserve prior failures and the zero-selection log.
+- [ ] H-CURRENT-PERFORMANCE — Current elapsed-time acceptance remains open.
+  Instruction counts or fewer charged work units do not waive timing limits.
+
+Next: complete these measured corrections, independent review, then one focused
+native/portable/i686/runtime-vertical batch including the previously failing
+OpenOT, OSCAT, PLCopen and depth cases. Do not repeat the full suite while known
+causes remain. Measure performance and F401 size/RAM against the corrected source;
+old board results do not qualify changed core bytes. H remains uncommitted.
+Evidence: external `H-post-full-focused/analysis/work-charge-RCA.md`,
+`H-post-full-attribution/`, and `H-next-full-register-call-pump-plan.md`.
+
+**13 October: diagnostic complete; continue independent H software/UI validation.**
+The renewed request to continue advances independent correctness checks; it does
+not grant a latency exception. Six exact-binary Callgrind captures preserve
+traces/counters/inputs and show fewer executed instructions than C21 (calls
+-1,316,786; references -880,585). No new source-proven redundant operation
+justifies another patch. This is not a latency pass. The existing ordinary timing
+failures and current candidate-specific acceptance decision remain open.
+
+Prepare and run the deduplicated full software/UI check set under the standing H
+test authorization. This supersedes the preparation note's requirement to delay
+all independent checks until performance acceptance. Keep a separate unresolved
+performance row, and do not issue SOFTWARE_APPROVED, H-complete or commit-ready
+receipts from software passes alone. Required tests and numeric/functional bounds
+are unchanged; use source-bound hardware/supply evidence only for unchanged inputs.
+No runtime source change, function removal, performance waiver, commit or push.
+Evidence: external `H-current-performance-investigation/RESULTS.md` and
+`reconciliation.json`; full-run harness is being prepared in `H-next-full-setup/`.
+
+
+**13 October: resume the remaining performance investigation.**
+The owner requested continuing the checklist. No new acceptance waiver is inferred.
+Use the exact retained U, C21 and current hosted binaries for six bounded Callgrind
+captures (call-binding and references, three binaries), with identical artifact
+and runtime settings and collection restricted to execute-cycle. Compare native
+execution traces/counters and per-function executed instructions; instrumented
+latency is not a performance pass. No speculative source edit, rebuild, capability
+change or firmware write is included. Plan and raw evidence: external
+`H-current-performance-investigation/`. Full H acceptance remains open.
+
+
+**13 October: current F401 replay passes after the measured compiler-config correction.**
+`H-default-outliner/` passes 41 tooling tests, formatting, xtask lint/build,
+firmware link/inspection and source stability. The extra outliner rerun is removed;
+all runtime functions, overflow checks and safe ICF remain. ELF SHA256
+`4bf713a57305453da8ac5acf026b6e04ce8e326a2916e27853cd6aa33889375c`.
+Upper span 456,576 bytes; upper free 2,176; sector-0 free 832. The accepted
+informational 16 KiB growth target reports false; actual partition bounds pass.
+
+On the connected F401, backup/install verification and checkpoint/firmware
+preservation pass. The unchanged Rust verifier passes the 101-sample trace,
+numerical bits, GPIO/readback/safe-state behavior, task and depth fixtures, and
+watchdog reset/DONE. Recorded heap peak 22,916 bytes; MSP/IRQ peak 14,184 bytes,
+leaving 2,200 bytes (required minimum 2,048). Maximum sampled main scan 4,081 us.
+Manual button transitions, optical observation and printed markings stay unverified;
+C6 hardware and later qualification remain open. Keep the first failed HardFault
+capture and its confirmed LR-loss diagnosis; do not rewrite the failure ledger.
+
+The remaining focused batch confirms 425 portable-core tests, the owned-entry
+regression on host and i686, LSP compilation/lint, architecture, regenerated
+diagrams/drift and strict documentation. Its HMI selector mistakenly selected zero
+library tests; this is not a pass. The corrected binary suite in
+`H-lsp-owned-tests/` passes all nine expected HMI tests and source stability.
+Preserve the raw zero-selection log. Evidence:
+`H-remaining-focused/RESULTS.md` and `evidence.sha256`.
+
+Next within H: finish the remaining risk-targeted assurance and the current
+performance acceptance decision, then complete the deduplicated broad software/UI acceptance. Current
+hosted latency failures remain recorded; the old C21 exception is not a blanket
+waiver. No full H closure, commit or push. Evidence: external
+`H-default-outliner/RESULTS.md`, `evidence.sha256`, `board/report.json`.
+
+
+**13 October: bounded H assurance passes; dependency exception approved.**
+`H-remaining-assurance-correction/` passes five admission tests on each of
+x86_64 and i686, with identical stage outcomes for 768 fixed-seed mutations per
+platform, formatting, Clippy and source stability. The first campaign retains
+its unused-mut/formatting failures; 18 existing malformed-input, initializer-link
+and executor/construction differential cases passed there and were not repeated.
+No production assertion or behavior was changed to obtain the correction pass.
+
+`H-critical-mutations/` passes the 517-test unmutated baseline; all four selected
+function-removal mutants build and fail native assertions. No timeout or build
+failure is counted as a caught mutant. Rollback, lifetime and staging refusals are
+observed directly. Removing declaration-write checking is detected through
+program-root protection and error precedence; this does not independently cover
+every constant-write branch. Source-byte restoration passes. These are partial
+A05/A07 results, not coverage-guided fuzzing, generated state-model coverage or
+full H acceptance. Hardware-input comparison matches 329 relevant recorded
+inputs; no new firmware behavior or reflash is introduced by these tests.
+
+The owner approved the reviewed RUSTSEC-2024-0449 exception through 11 January
+2027. `deny.toml` records ownership, rationale, review and removal criteria;
+no parser implementation, protocol capability or lockfile is changed. The
+root/firmware supply-chain gate and source stability pass in
+`H-supply-disposition/`; preserve the advisory as maintenance risk, not a patched
+dependency.
+
+- [ ] RTP-MAINT-YAML — Separate dependency maintenance, owner runtime/opcua+mesh:
+  before 11 January 2027, migrate both transitive YAML consumers to a maintained
+  parser through reviewed upstream changes or a separately reviewed adapter.
+  Preserve OPC UA configuration serialization/roundtrip/error behavior and Zenoh
+  typed/include/endpoint configuration behavior with native compatibility tests.
+  Prove both locked graphs no longer reach unsafe-libyaml and remove the exception;
+  no automatic renewal. Decision/RCA: external `H-unsafe-libyaml/`.
+
+**13 October: remaining hosted performance decision (pending).**
+Source comparison confirms 1,340 runtime/core/config records still match the
+selected frame-plan benchmark snapshot. Current executable SHA256
+`434a11d17910a69b29cb991ad233072a05a1747a7ce10e97eaf1ac4d95738c03`.
+The current call-binding paired median H/U ratio is 1.222887; H/C21 is 1.030083.
+Four of five call-binding H/U median rounds fail 1.10. Reference workload H/U
+round 2 also fails median at 1.447475. Keep every failed round, not only the
+five-round summary. PLC trace/counter agreement and zero overruns do not waive
+latency acceptance. C21's prior exception does not apply automatically to this
+candidate. The owner has been asked whether to accept the measured current
+trade-off or retain performance as a blocker. No new exception is applied pending
+that choice. Read-only reconciliation: external `H-current-performance-decision.md`
+and `H-current-performance-input-parity.json`. Broader H validation has a prepared
+plan at external `H-next-full-setup/PLAN.md`; it is not launched under an assumed
+waiver. Reuse passing evidence only when its relevant source/configuration/artifact
+inputs match; preserve the full workspace, feature, protocol and UI acceptance
+obligations. No commit or push.
+
+**13 October: current board replay exposes an extra-outliner return-address defect.**
+The approved margin-policy preflight passes 40 tooling tests, lint, formatting,
+exact-ELF inspection and frozen-source identity. Firmware/application installation
+and checkpoint/firmware byte-preservation checks pass on ST-Link
+0671FF575755846687183960. The UART run fails after BOOT with HardFault; the Rust
+trace verifier rejects it. This is retained failed hardware evidence, not H closure.
+
+Register/SRAM/GDB captures identify INVSTATE and a corrupted return into heap.
+The exact linked `OUTLINED_FUNCTION_135` calls a second-pass helper with BL
+without preserving LR, then tail-branches to `read_exact::<1>`. The reader returns
+to that same branch; a hardware breakpoint confirms LR 0x080723a5 and the second
+entry's mutated length 255. Independent disassembly review confirms the lost
+return address. Keep the Rust reader and diagnostic logic unchanged. Remove only
+`-machine-outliner-reruns=1`, reject the override in the reference builder, retain
+safe ICF/full functions/checks, then review, test the build policy, rebuild, inspect
+and replay on the board. Native hosted execution is unchanged; MCU code generation
+must be requalified. Existing test/rebuild/retry authorization applies. No commit.
+Evidence: external `H-flash-margin-policy/board/`, `H-default-outliner/`.
+
+
+**13 October: owner accepts informational flash growth margin; advance to hardware.**
+The owner explicitly accepted that 16 KiB unused flash is optional code-growth
+space and shall not block hardware bring-up, then requested moving on. Spec 34
+and the ELF inspector now retain actual executable-region, sector/load, heap and
+MSP checks while reporting the 16 KiB growth target without rejecting a fitting
+image. This is an approved acceptance change, not a passing result under the old
+rule. The selected frame-only correction passes 145 focused native executions,
+formatting, both core lint modes, C6 and source identity. Upper span is 455,264;
+upper free is 3,488; sector-0 free is 832 bytes. Its prior margin rejection and
+hosted timing failures remain retained. Independent policy/harness review,
+focused tooling tests, inspection of that exact ELF and real F401 replay are next.
+The board preflight receipt proves focused hardware prerequisites only; broader H
+software/performance/release gates remain open. No functions removed or commits.
+Evidence: external `H-frame-plan-construction/`, `H-flash-margin-policy/`.
+
+
+**13 October: grouped-plan candidate passes focused checks but grows flash; isolate it.**
+The completed `H-index-plan-construction/` batch passes 145 native executions,
+formatting, both core lint modes, C6 and frozen-source stability. The firmware
+links at upper 456,640, an 864-byte regression from selected 455,776; reserve
+inspection still fails. Paired speed records retain call-binding median failures
+against U; no new waiver. The declaration merge adds emitted cursor helpers;
+retain the candidate sources, maps, symbol delta and failed ledger, and isolate
+only the direct frame-plan construction for the next focused measurement under
+existing owner authorization. No selected footprint gain, hardware, full suite,
+commit or push. The previously selected source remains the fallback.
+
+
+**13 October: owner resumes correction; simplify cache construction, retain runtime speed.**
+The explicit renewed instruction is to fix the regression from the former fitting
+image. Continue within full-function constraints; the previous architecture-stop
+paragraph is historical. Source comparison identifies frame/declaration cache
+builders that rebuild owner lists and search already completed grouped indexes.
+Derive the same cached ranges directly from those groups, preserving runtime
+representation/lookups and all language behavior. No predicted savings. Complete
+implementation and tests, independent review, focused validation, matched speed,
+allocation and F401 size measurement before broader gates. The currently verified
+candidate remains upper 455,776 / free 2,976 / reserve deficit 13,408; no hardware,
+commit or push. Plan/baseline sources: external `H-index-plan-construction/`.
+
+
+**13 October: architecture boundary after bounded compiler diagnosis.**
+Extra outliner depths 2 and 3 each recover only 32 aligned bytes (upper 455,744),
+still failing the reserve. Both diagnostics retain their failures; canonical
+reruns=1 configuration and frozen source were restored and verified. The retained
+source candidate remains upper 455,776 / free 2,976 / reserve deficit 13,408.
+No task-owned run remains active. No full suite, hardware, commit or push.
+The read-only audits found required physical-layout behavior, not a further
+substantial duplicated emitted codec. A compact physical-layout representation
+would cross into the MEM-06/10/11 storage design; the H goal explicitly stops
+for architecture problems. Preserve the candidate and existing successful checks.
+The concrete design/acceptance boundary is recorded externally in
+`H-footprint-architecture-boundary.md`; it claims neither fit nor savings.
+H is NOT complete. All function, validation, overflow and reserve constraints
+remain. Do not resume a broad representation rewrite as a routine H fix.
+Evidence: `H-split-output-shapes/`, `H-outliner-depth/`.
+
+
+**13 October: full-function firmware links; reserve inspection still fails.**
+Exact SPLIT output shapes and half-integer parity pass 63 focused native executions,
+formatting, core lint, C6 and frozen-source stability. Upper span is 455,776 bytes,
+a measured reduction of 4,192. Physical free space is 2,976 bytes, leaving a
+13,408-byte deficit against the unchanged 16 KiB reserve. The ELF exists, but
+inspection fails that reserve; no board run. Speed comparisons preserve PLC
+traces/counters but retain latency failures. Do not substitute a physical link
+for acceptance. Evidence: `H-split-output-shapes/RESULTS.md`, full failure ledger,
+source identity and independent eight-file review. No function cuts or commits.
+Continue measured investigation from this candidate; broad tests/hardware await
+prerequisites. Required overlap/temporal semantics remain in place.
+
+
+**13 October: immutable table packing recovers 3,200 upper bytes; fit remains open.**
+All 68 targeted native executions, formatting, core/xtask lint, tooling build,
+C6 and source stability pass. All 89 descriptors and eight families pass the
+1,488-byte linker guard. Upper span is 459,968 bytes; lower read-only free space
+is 864 bytes. Physical excess is 1,216 bytes; deficit with the reserve is 17,600.
+Timing traces match, but individual latency gates still fail. No ELF or board
+claim. Retain the full function set and reserve. Next remove the measured repeated
+split-output indexing checks using exact safe slice patterns after the existing
+binding validation, preserving first errors and one write per declared output.
+Implement/review before focused tests and both speed/size assessment. No commit
+or push; full H remains open. Evidence: `H-immutable-table-packing/RESULTS.md`.
+
+**13 October: exact firmware predicates recover 2,720 bytes; immutable packing prepared.**
+Nine focused native error cases, formatting and source stability pass. Upper flash
+is 463,168 bytes: 4,416 bytes physical excess, 20,800 bytes including the reserve.
+Link still fails; no ELF/hardware proof. Keep both exact deadline/latch predicates.
+Next, preserve all 89 registry entries as named static arrays, shorten only source
+root prefixes with distinct recorded namespaces, and select the complete descriptor,
+decimal and compiler lookup tables for sector-0 placement. All relative filenames,
+functions, bounds and overflow checks remain. Independently review, then run focused
+registry/numeric/tooling tests, speed comparison and one size measurement. No saving
+or fit is claimed from source alone. Full H remains unverified; no commit or push.
+Evidence: `H-firmware-deadline-check/`; next plan: `H-immutable-table-packing/`.
+
+**13 October: native payload drain verified; equivalent firmware assertions next.**
+All 1,412 focused native executions pass, including exactly-one-allocation evidence.
+The i686 main/numeric scan counts decrease from 1,162 / 1,320 to 1,002 / 880; GPIO stays 404.
+Formatting, both core Clippy graphs, C6 and source stability pass. Upper flash is
+465,888 bytes (+32); this is an allocation improvement, not a footprint win.
+Timing comparisons retain failures and no new acceptance exception is claimed.
+Reader-only object relocations identify 1,050 bytes of RuntimeError equality plus 18 bytes of Option
+comparison code used solely by two board deadline assertions. Replace generic
+comparison with exact RuntimeError::ExecutionTimeout patterns on both returned
+and latched errors; preserve the full predicate and UART output. Pin the exact
+conversion natively, correct spec 12's stale stable-code spelling to spec 10/current
+contract, review, then run focused error tests and measure the firmware. Production
+hosted execution is unchanged; previous timing failures remain open. Full H, board
+qualification, commit and push remain open. Evidence: `H-native-payload-drain/`.
+
+**13 October: remove measured native-call payload staging.**
+Source and retained ARM code show two argument containers: temporary Vec<Value>
+followed by Vec<VmNativeArg>. Drain the existing active-frame operand suffix into
+only the final argument vector. Preserve receiver/descriptor order, first errors,
+complete payload consumption and caller isolation; tests pin these behaviors.
+No claimed size saving before measurement. Independent review precedes focused
+native/portable/i686 and runtime vertical tests, allocation counters, same-candidate
+release speed comparisons and F401 map measurement. Full H acceptance remains open.
+Plan/evidence: `H-native-payload-drain/`. No broad suite, commit or push.
+
+**13 October: controlled C10 diagnosis identifies and removes the growing change.**
+Two isolated links held all other production input, compiler and target flags fixed.
+C9 upper span: 465,888 bytes; checked reader alone: 465,856; validator checked-entry
+reuse alone: 466,624; both (C10): 466,560. Thus the validator change adds 736 bytes
+alone; the reader saves 32, and their interaction is -32. Both diagnostic links
+still fail physical FLASH capacity; no ELF/hardware acceptance is claimed.
+Restore the C9 validator production code, retain both new error-order tests and
+the checked reader. Independent review confirms no unrelated changes are removed.
+This matches the measured reader-only production variant; its reserve deficit is
+23,488 bytes. The newly registered tests and selected combination still need focused
+validation and same-candidate speed evidence; C10's timing failures remain open.
+Full source checks passed before/after the diagnostic and inputs are retained in
+`H-c10-size-isolation/`. The untested C11 proposal remains held externally.
+No function cuts, overflow changes, lowered reserve, commit or push.
+
+**13 October: C10 measured; stop speculative implementation and isolate the size regression.**
+C10 passes 332 targeted native executions, lint and C6 compilation. Corrected
+formatter invocation passes without source edits or repeated native tests.
+Speed and size were measured on the same frozen candidate. Whole-image size
+is 466,560 bytes, 672 bytes larger than C9; retain this failure. All PLC traces
+match, but call/U median and some individual tail-latency comparisons fail.
+The existing C21 exception is not relabeled as acceptance of C10.
+The untested C11 proposal is held externally; active product source is restored
+to the exact measured C10 candidate. Before selecting another edit, complete
+two compiler-only component measurements (reader-only, entries-only) against
+the retained C9/C10 controls. No assumed additive savings. Preserve each map,
+freeze source per variant and restore C10 on exit. No broad tests or hardware.
+Plans/results: `H-c10-size-isolation/PLAN.md`, `H-footprint-correction-10/RESULTS.md`.
+The best measured image remains C9 at 465,888 bytes: 23,520 bytes short of the
+16 KiB reserve requirement. Fit remains unproven; no function/check/reserve cuts,
+commit or push. A later selected correction needs fresh speed and size assessment.
+
+**13 October: C10 adds same-candidate speed assessment before size measurement.**
+Object-backed decoder/validator reductions reuse checked slices and table entries;
+new tests pin oversized-read cursor preservation and index-before-kind rejection.
+Complete implementation and independent review precede the focused batch. Keep the
+accepted scan benchmark source unchanged and replay U/C21/current on the three
+frozen workloads; separately cover all eight float/text conversions. A small Rust
+consumer measures source-free preparation/instantiation on identical STBC 2.0
+artifacts. Run timing without concurrent builds, pin CPU/configuration, retain raw
+samples and exact traces, and compare using the existing Rust gate. The prior
+specific C21 exception is not a blanket waiver for the new source. Measure F401
+size from the same frozen candidate regardless of a speed-comparison regression,
+provided correctness passes. No physical speed/stack claim before ELF inspection
+and board execution. C9 remains the last measured size: upper 465,888 bytes.
+Plans/evidence: `H-footprint-correction-10/PLAN.md` and `PERFORMANCE-PLAN.md`.
+No full workspace suite, commit or push.
+
+**13 October: C9 focused checks pass and recover another 1,312 bytes.**
+All 216 targeted native executions pass across hosted, portable x86_64, i686
+and the runtime vertical. Formatting, both core library Clippy graphs, C6
+compilation and source stability pass. Upper image span is 465,888 bytes:
+7,136 bytes physical overflow and 23,520 bytes deficit with the required reserve.
+The linker still rejects the image; inspection and hardware remain unrun.
+Retain the reviewed borrowed-record correction and extra outliner pass, with
+all functions, checks and reservations unchanged. Continue investigating emitted
+redundant bounds checks using object/source attribution. No H commit or push.
+Evidence: `H-footprint-correction-9/RESULTS.md`, frozen source, map and ledger.
+
+**13 October: extra outliner pass saves 1,280 bytes; C9 removes decoder row copies.**
+The reviewed extra pass reduces upper span from 468,480 to 467,200 bytes. Retain
+it in the default firmware configuration, subject to hardware qualification.
+The image is still 8,448 bytes over physical capacity, or 24,832 bytes over the
+required reserve threshold. No hardware ran. Preserve `H-size-outliner-1/`.
+C9 changes only the private fixed-record decoder: borrow each checked input row
+instead of copying 8–60 bytes to an array before extracting fields. Existing
+scalar-oracle tests pin values, errors, cursor and resource accounting. Complete
+independent review, then the focused decoder/transport/vertical/MCU batch; use
+the resulting map to measure impact. No predicted saving, function cuts or
+weakened checks. Full H acceptance remains open; no commit or push.
+
+**13 October: one additional compiler outliner pass prepared for measurement.**
+The stable Rust 1.99 compiler exposes LLVM's `machine-outliner-reruns`; its default
+is zero additional passes. Keep C8's fat-LTO source and all accepted settings,
+and compare one extra pass after independent review. This is a firmware-only
+compiler experiment, with no IEC function, admission check, overflow policy,
+reservation or hardware-test change. Revert if it fails to reduce the linked span.
+Retain all maps and require later hardware timing/stack qualification for any
+accepted compiler change. The remaining BTree code occupies only 5,896 distinct
+linked bytes; wholesale container replacement cannot close the 26,112-byte gap.
+External plan: `H-size-outliner-1/PLAN.md`; no new size result yet.
+
+**13 October: thin-LTO comparison rejected; source reduction continues.**
+The independently reviewed compiler-only comparison grows the upper image from
+468,480 to 503,936 bytes and crosses the sector-0 application boundary by 96 bytes.
+Both linker assertions fail. Preserve the map and failed ledger; restore fat LTO
+byte-for-byte on both machines. No hardware ran. C8 remains the accepted source
+candidate: 9,728 bytes physical overflow, or 26,112 bytes including the required
+16 KiB reserve. Full functionality, validation and overflow checks remain.
+Continue investigating concrete remaining storage/decoder representation costs;
+do not stop at this rejected experiment or treat speculative savings as evidence.
+External evidence: `H-size-thin-lto/RESULTS.md` and `retry-1/ledger.tsv`.
+No commit or push; full H acceptance remains open.
+
+**13 October: C8 reviewed and focused-verified; controlled LTO comparison next.**
+Owned validated-table transfer passes 1,441 core test executions across hosted,
+portable 64-bit and i686 builds, both core Clippy checks, C6 compilation,
+architecture, rendering and diagram drift. The runtime vertical's 28 tests pass.
+Four older integration assertions were corrected against the existing contract:
+structured budget causes with the stable timeout code, and explicit STBC 2.0
+production for the retained 2.0 golden artifact. Both affected suites (52 tests)
+and targeted Clippy pass on retry. Original failures and fixture bytes are retained.
+C8's upper flash span is 468,480 bytes, saving 704 bytes. The remaining excess is
+9,728 bytes physically, or 26,112 bytes including the required 16 KiB reserve.
+Measured 32-bit preparation peaks are 21,101 / 18,277 / 10,736 bytes for main,
+numeric and GPIO artifacts; this is neither physical RAM qualification nor a
+measured causal comparison. No ELF or hardware proof exists for this candidate.
+One controlled fat-versus-thin LTO comparison keeps all other source and build
+settings fixed. Retain only an actual improvement. All functions, validation,
+overflow checks and the reserve remain. No commit or push; full H acceptance is open.
+
+
+**13 October: C7 measured; C8 owned preparation transfer implemented for review.**
+C7 passes1,524 focused executions, bothClippy graphs/C6 and source stability.
+Measured upper469184 B saves224 B; physical excess10432, reserve deficit26816.
+The remaining copying redundancy is ordinary from_bytes cloning decoded table
+payloads and then dropping their owner. C8 uses a private sealed validated source:
+owned constructor performs full validation, borrowed token preserves existing
+APIs, and one shared materializer transfers or clones payloads at the existing
+ownership boundaries. No placeholder VM, public mutable token or unsafe code.
+All preparation charges/checks/errors stay. Artifact-retaining hosted entrypoint
+keeps its decoded sections/order. Add route parity, buffer transfer, exact fault/
+usage tests and32-bit allocation measurements; independent review before focused
+validation and the next firmware measurement. No promised saving or feature cuts,
+no commit/push; continue to verified fit or owner-level architecture blocker.
+
+
+**13 October: C7 fixed-record decoder authored for review.**
+The C6 object has 3,420 B of construction decoding inside the 12,220 B section
+parser. Fixed-width count checks prove complete rows before reservation, yet
+scalar reads repeat EOF propagation per field. Read each construction/I/O/debug/
+variable/retain/section-table row once into a fixed array and extract constant
+wire offsets with compile-time bounds. Preserve count/byte/work checks, enum
+order, optional sentinels, reserved fields and trailing-byte behavior. Frozen
+scalar-reader test oracles compare exact values, faults, budget usage and cursor
+where exposed, with every byte mutation, truncation and deterministic mixed data.
+Review complete formatted sources, run focused native/lint/MCU checks then same
+firmware measurement. No byte saving or fit promised before its map; full features,
+validation, overflow checks and16KiB reserve unchanged. Continue until verified fit
+or an owner-level architecture decision. No commit/push.
+
+
+**13 October: initializer ownership gate closed.**
+Move diagnostic-only metadata assembly out of executable initializer orchestration,
+under the same std+test-support gate. Independent review and focused initializer
+checks, all-feature Clippy, architecture-doctor --full-map, canonical diagram
+render and drift checks pass. Copy back generated evidence. FULLMAP-CHECK-10 now
+passes without exemption; existing advisory/partial doctor findings remain visible.
+No MCU compiled code changes or new firmware measurement from this extraction.
+Footprint reduction continues from C6; full H/hardware acceptance remains open.
+
+
+**13 October: C6 passes focused checks; continue larger reductions.**
+Checked fixed-width decoding and borrowed transient I/O metadata pass 1,477
+native executions across hosted/portable64/i686/runtime vertical, both core
+Clippy graphs and C6 compilation. Original formatter failure retained; the only
+follow-up source delta wraps an import, independently reviewed before formatting
+and linked measurement without duplicate native tests. Upper span469408 B:
+672 B recovered, 10656 B physical overflow, 27040 B deficit including the required
+16 KiB reserve. All functions, validation and overflow checks remain. No ELF or
+hardware. External H-footprint-correction-6/RESULTS.md and both ledgers retain
+source/map identity. Continue object-backed reductions; no commit/push.
+
+
+**13 October: continue C6; optimizer comparison rejected.**
+The opt-level=s experiment increased upper span from 470,080 to 575,104 bytes;
+opt-level=z is restored byte-for-byte on both machines. No functionality changed.
+C6 removes repeated per-byte reader bounds branches by converting each checked
+slice to its fixed-size array, and borrows the raw I/O bindings during preparation
+instead of cloning and immediately discarding them. All admission checks, budget
+charges, errors and public ownership contracts remain. New reader tests cover all
+widths, signed values and each truncated cursor boundary. Existing preparation,
+source-free I/O and allocation tests pin the borrowing change. Independent review,
+focused hosted/portable/i686 tests, Clippy, C6 target and one firmware measurement
+follow; hardware requires successful link and inspection. Continue beyond this
+checkpoint under the owner's existing retest authorization. No commit/push.
+
+
+**13 October: C5 placement measured; one compiler size-policy comparison next.**
+C5+placement upper470080 B, physical overflow11328 B, reserve deficit27712 B.
+All functions and checks retained. Compare stable release opt-level s against z
+once on the same source; all other profile flags/reservations stay fixed. This
+current-H measurement does not rewrite historical B-R2 z-only evidence. Keep only
+an actual size improvement and retain hardware/timing as unverified until tested.
+In parallel, inspect emitted panic sites before selecting any source correction.
+Do not stop at a size checkpoint; continue to verified fit or an owner-level
+architecture blocker. No commit/push.
+
+
+**13 October: C5 compatibility correction passes; continue to fit.**
+Initial differential tests found Ryu ties-to-even versus Rust shortest-display
+half-up spelling. Exact integer midpoint detection now changes only the lower
+emitted decimal neighbor; upper-even ties remain untouched. Both failures,
+adjacent values and both signs are pinned. Focused retry passes all five text
+suites on hosted/portable/i686 plus Clippy and C6. Earlier runtime conversion/
+assertion suites pass. No weakened oracle. Supply chain still reports the known
+unsafe-libyaml advisory; no new-codec exception or hidden waiver.
+First C5 map upper 481,760 B (1,184 B below C4). Old float table occupied sector0;
+its removal leaves 12,160 B unused there. Repack measured immutable merged strings
+(11,681 B) into that same permitted region, retaining all physical bounds/asserts.
+This is placement recovery after a real total-image reduction, not a capability
+cut. Review then link/inspect; no repeated native tests for linker placement.
+Keep working beyond this checkpoint; fit/16KiB reserve, hardware and H remain open.
+
+
+**13 October: owner requires continued execution until fit; C5 authored.**
+Do not end the work after each small size result. C4 remains the measured baseline
+(upper 482,944 B; 40,576 B reserve deficit). C5 targets the measured float/text
+family without removing any conversion: lossless lexical compact parsing and
+Ryu small-table formatting, with decimal-spelling compatibility on every platform.
+No lossy mode or profile restriction. Both locks resolve only three new lexical
+packages and the existing Ryu version on firmware. New native differential tests
+cover all exponent boundaries, deterministic f64/f32 samples, syntax/long-input
+rounding, all eight conversion names and assertion diagnostics. Review exact
+formatted bytes before focused checks and same-configuration linked measurement.
+Retain failures and continue root-cause work under existing retry authorization;
+no H commit/push or hardware until its inspection prerequisites pass.
+
+
+
+**13 October: footprint correction 4 passes focused checks and saves 1,408 B.**
+Share the portable instruction decoder between ordinary POU and initializer
+operand callbacks; hosted specialization remains. Exact checks/order preserved.
+Independent review precedes one batch, no retry: hosted core 551, portable64 458,
+i686 portable 457 and runtime vertical 28 passed (1,494 executions). Hosted and
+portable Clippy, C6 warning-denied core check, formatting and 8,599-record source
+stability pass. F401 link still fails: upper span 482,944 B, physical excess
+24,192 B, reserve-preserving deficit 40,576 B. Total recovered since Run22:
+19,520 B. All functions, admission, overflow checks and the 16 KiB reserve stay.
+No ELF/hardware, full workspace suite, commit or completed-H claim. Existing
+architecture/diagram and other H acceptance gaps remain open. External evidence:
+H-footprint-correction-4/RESULTS.md, REVIEW.md, ledger.tsv and firmware/firmware.map.
+Map SHA256 6ff5e768c23b79a451207c09d09833eba6fafb0b85391ece7168854871b49c02.
+Runtime-error packing was investigated but not selected without layout evidence;
+no error allocation, context loss or broad representation rewrite was introduced.
+
+
+**13 October: footprint correction 4 implemented, awaiting review and measurement.**
+C3 object proves two inline instruction-decoder specializations for POU and
+initializer operand callbacks. Share the private no_std decoder through a
+borrowed callback; retain hosted specialization. Framing, work/count charges,
+operand-before-append checks and final jump checks stay in order. New native
+tests pin refusal at each callback, earlier rejection precedence, truncation
+and work cutoffs. No functions, checks, diagnostics or ABI removed. No byte
+saving inferred from overlapping DWARF ranges; measure after focused validation.
+External H-footprint-correction-4 records the plan, review and failure ledger.
+Runtime-error packing remains unselected: retained objects have no type-layout
+DIEs, so no layout or savings claim supports a change. Existing H acceptance,
+architecture and hardware gaps remain open; no full workspace suite or commit.
+
+
+**13 October: footprint correction 3 measured; fit remains open.**
+Portable SIZEOF now shares its private recursive traversal; hosted specialization,
+all functions, both ABIs, accounting and overflow checks remain. Focused evidence:
+11 hosted and 11 portable size/temporal tests, 38 runtime vertical/temporal tests,
+and 453 i686 register tests pass across the reviewed original/retry snapshots.
+Portable/register Clippy and C6 core check pass. Corrected the owning C2 predicate
+mistake (test-only map queries leaked into the register production graph), plus
+one formatting difference. Retain both ledgers. The first measurement invocation
+was rejected before compilation because its output path already existed; the
+fresh-path link reached the linker and failed only the remaining size bound.
+Upper span 484,352 B: another 1,056 B recovered, 18,112 B below Run22. Physical
+excess 25,600 B; reserve-preserving deficit 41,984 B. No functions removed, no
+hardware, full workspace suite or commit. Final 8,598-record source matches.
+Map SHA256 fa1a0d1977f203801043a720cc6d99a4d9f835716ba4fc435ff26f230c3ed93c.
+Evidence: external H-footprint-correction-3/RESULTS.md, original/retry ledgers,
+reviews and measurement/. Current small duplication corrections have not closed
+the gap. Further substantial representation work needs architecture design;
+no safe large saving is established by the remaining map investigation.
+
+
+**13 October: footprint correction 3 in implementation.**
+Continue reduction from C2 (upper 485,408 B; 43,040 B above the reserve ceiling).
+The linked map contains two 980-byte SIZEOF recursive walkers specialized on
+accounting callbacks. Share the private portable traversal; retain hosted
+specialization. Preserve every callback charge, traversal order, ABI and error.
+Add exact located BOOL-alias/temporal visit traces and refusal at every callback
+boundary for both ABIs. Reader-sharing was rejected: the retained object already
+shares primitive decoder readers. No saving assumed, no capabilities removed.
+Independent review precedes focused core/temporal/register and runtime vertical
+checks, lint/cross check and same-configuration F401 measurement. Existing full
+architecture/diagram and H acceptance failures remain open. No full workspace
+suite, commit, push or hardware launch.
+
+
+**13 October: footprint correction 2 reduced flash again; full-function fit remains open.**
+Four portable POU tables share sparse-ID/ordinal indexes plus reserved payloads;
+logical capacity, replacement, sorted iteration and clone/equality behavior are
+pinned. All runtime functions, validation, overflow checks and hosted APIs remain.
+Independent review caught allocator-capacity versus logical-limit confusion before
+execution; it was fixed with native overcapacity/clone tests. The first batch then
+caught unused query methods in the default portable feature graph. Exact test/
+register predicates fixed the owning compile boundary; targeted retry passes.
+Candidate evidence:540 hosted core,447 portable64,446 i686 portable,442 i686
+register,38 hosted temporal/runtime vertical and3 allocator tests pass (1,916
+executions across configurations). Hosted/portable Clippy and C6 core check pass;
+8,598 frozen source records match. Full architecture still fails the pre-existing
+203-line initializer owner/split check; diagram refresh remains unrun.
+Final upper flash span485,408 B, a further4,992 B saved and17,056 B below Run22.
+It still exceeds physical capacity by26,656 B and the margin ceiling by43,040 B.
+Matched i686 preparation peaks drop by488/552/360 B for main/numeric/GPIO;
+preparation allocations rise by4/2/2, while scan/instantiation counts are unchanged.
+These are requested payloads, not MCU RAM/stack/timing proof. No full workspace
+suite, firmware ELF, hardware execution, commit or push. Keep every failed ledger.
+Evidence: external `H-footprint-correction-2/RESULTS.md`, independent reviews and
+`rerun-1/` logs/map/source manifest. Map SHA256
+`1846a1454f1f698cd4ab91daec1ac792e4d920d5b897a7d5ba9d6d5aee27afee`.
+
+
+**13 October: footprint correction 2 authorized and in implementation.**
+Owner says "continue reduce" after the architecture checkpoint. Four portable
+POU metadata indexes share an ID/ordinal tree representation with reserved typed
+payload vectors, instead of specializing tree nodes on each large value type.
+Sparse IDs never index vectors directly. Preserve ID-order iteration, replacement,
+semantic equality, hosted HashMap APIs and every runtime function/check. The
+portable read-only POU lookup facade is an intentional internal Rust surface
+change, recorded in spec34; no artifact/PLC contract changes. Account index and
+payload storage plus the class-count pass before allocation, and check native
+32-bit allocation demand. Required focused batch: hosted/portable core tests,
+i686 portable/register execution, runtime vertical and temporal compatibility,
+core lint, full architecture and dependent diagram refresh, same-config F401
+link/inspection. No full workspace suite, hardware or commits. Keep correction1
+as measured baseline: upper span490,400 B; reserve-preserving target442,368 B.
+No predicted saving or fit claim. Independent review precedes the batch.
+
+
+
+**13 October: footprint correction 1 implemented/reviewed; focused tests pass, fit still fails.**
+Shared dynamic accounting callbacks remove duplicated compiled layout traversal;
+validated POU materialization no longer builds a redundant temporary ID/name map.
+All functions, retained runtime indexes, ABI checks, error propagation and firmware
+overflow checks remain. Only the removed temporary allocation's budget reservation
+was removed. New native tests cover every callback failure boundary and validated
+POU identity/name materialization. Existing portable test feature predicate fixed.
+Independent review and one focused builder batch: core hosted 512 passed, core
+portable 416 passed, hosted temporal/runtime vertical 38 passed; core Clippy and
+8,597-record source stability pass. F401 link fails; no ELF/hardware/full suite.
+Upper span falls from 502,464 to 490,400 bytes: 12,064 bytes recovered. Remaining
+physical overflow is 31,648 bytes; 48,032 bytes must still be recovered to preserve
+the mandatory 16 KiB margin. This is progress, not fit or H closeout. No commit/push.
+External evidence: `H-footprint-correction-1/RESULTS.md`, `REVIEW.md`, logs, map,
+frozen source and failure ledger under the H artifact root. Map SHA256
+`4ed9addba80d0178fff4f628f1ca31c266604fad24cbbae96fa052f966f423c2`.
+The next representation change requires architecture design/review; a blanket
+BTree replacement is not supported by the measured remaining family sizes.
+
+
+**13 October: owner authorized correction of the measured H footprint regression.**
+Preserve all overlap/temporal semantics, functions, validation, overflow checks and
+16 KiB free upper flash. The measured layout walk is emitted separately for
+validation and materialization callback types; first correction shares that
+implementation through borrowed dynamic accounting callbacks, preserving every
+charge and failure. Review materialization indexes against actual consumers before
+changing storage. No blanket replacements or speculative feature restrictions.
+Prepare the complete selected correction and independent review before focused
+correctness, lint and linked-size evidence; defer broad acceptance until these
+pass. Earlier owner authorization permits necessary rebuilds/retests, and requires
+root-cause analysis of each failure. No H commit/push. Measured baseline is
+H22 upper span 502,464 bytes; target with reserve is at most 442,368 bytes.
+
+
+
+**12 October: owner-requested footprint investigation measured the missing H16 checkpoint.**
+One isolated size-only builder link (22 seconds; exit 101 due flash overflow) used
+frozen H16 plus three recorded compile-only corrections. All 8,569 source records
+matched before/after. H15 upper span 439,904 bytes; corrected H16 495,936; H22
+502,464. Thus 56,032 bytes of the 62,560-byte regression precede the later speed
+work; all subsequent changes add a net 6,528 bytes. H16 already exceeded physical
+capacity by 37,184 bytes. The main new footprint is physical overlap/layout and
+module/bytecode materialization; maps contain no temporary profiling symbols.
+Same compiler, flags, firmware source and normalized dependency/features graph.
+This diagnoses the growth; it does not validate H16 semantics or fix H22. No
+active runtime code changed, no full tests or hardware, no commit/push. Preserve
+full functionality, overflow checks and the 16 KiB margin. A performance-only
+revert cannot recover fit. Detailed evidence and hashes:
+`/home/johannes/projects/.artifacts/runtime-portability-h/H-footprint-investigation/RESULTS.md`.
+Current H still needs 60,096 bytes recovered to satisfy the existing margin.
+The earlier paragraphs below are historical checkpoints superseded by this
+intermediate measurement where they say the split was unknown.
+
+
+**12 October: corrected size-regression baseline after owner challenge.**
+H itself already fitted in Run15: upper span 439,904 bytes, 18,848 bytes free,
+passing the 16 KiB floor; ELF `8c3b907709760221fba5191ed8bb3f4c294b42e95d9f2691fd1881ad0622dfa4`.
+Run22 needs 62,560 bytes (61.09375 KiB) more upper flash than that H build. The
+58-package/features graph, target/profile and Rust flags match. Use this fitting
+H checkpoint as the primary regression baseline, not only the older U image.
+Later work contains both correctness/layout changes (new overlap representation
+already present in the Run16 snapshot) and subsequent speed optimizations.
+No linked intermediate measurement yet attributes their separate contributions.
+Investigate that delta before further optimization/redesign; preserve full
+functionality and the achieved flash budget. No new build or code change was
+performed for this source/map history correction; Run22 remains failed.
+
+
+**12 October: Run22 full acceptance failed; F401 footprint is the architectural blocker.**
+The C21 hosted call-performance trade-off is approved and remains narrowly recorded
+in §14.4; it does not waive MCU size/timing/correctness. Run22 finished on frozen
+source `0c2061e030cea8f84ff6800ce9167ce8f5dbe3658885772c00ff1cb88be0f123`
+(8,597 records). Required ledger: 40 passed, 8 failed, 12 dependent unrun;
+advisory metadata passed. Source/harness stability passed. No hardware was flashed,
+no commit/push, and no post-batch test/build has been launched.
+
+Six owning findings explain the failed rows:
+1. Three LSP `DebugSnapshot` literals omitted the new `storage_abi` field; this
+   prevents workspace/product compilation and lint. Prepared correction takes the
+   ABI from the already-available metadata at each source-built snapshot.
+2. One owned-binding unit test calls `execute_sync` without its required
+   HIR/register feature predicate. Prepared correction uses that exact predicate;
+   assertions and production code are unchanged. Register/i686 lanes passed.
+3. F401 link exceeds the upper region by 43,712 bytes (42.6875 KiB). Compared with
+   fitting U at the same Rust 1.99/features/flags/layout, code grows 63,584 bytes
+   and constants grow 3,644 bytes, totaling 67,228 bytes (65.6523 KiB). Recovering
+   the unchanged 16 KiB margin requires 60,096 bytes (58.6875 KiB) reduction.
+   Static RAM and sector-0 use are unchanged. No ELF or physical proof exists.
+4. Supply chain rejects unmaintained `unsafe-libyaml` (RUSTSEC-2024-0449), reached
+   through serde_yaml from OPC UA and Zenoh. No new exception or dependency patch
+   has been made; maintenance disposition remains open.
+5. Full architecture scan requires an owner/split disposition for the 203-line
+   `evaluate_initializer` coordinator. No waiver or source split has been made.
+6. The new spec link to an internal note breaks when MkDocs relocates the spec.
+   Prepared correction retains a plain repository-path reference.
+
+The three snapshot, test-gate and documentation corrections have independent
+source review; they are not yet compiled/tested. All other failures remain open.
+No further footprint redesign or validation launches precede the required
+architectural decision/review. Existing H retest authorization is retained; this
+stop is the goal's architecture condition, not a request for routine retry approval.
+
+The MCU core artifact has `features: []`; std/test-support diagnostic logging is
+excluded and its symbols are absent from the map. Firmware UART/panic/watchdog
+trace source is unchanged from the fitting implementation. New physical overlap/
+layout handling occupies 23,944 mapped bytes; materialization/engine families
+also grow. Family ranges overlap/inlining differs: do not turn them into promised
+savings or remove functionality. Exact analysis and failed raw evidence:
+external `run-22-full/analysis/firmware-footprint.md`, `analysis/lsp-snapshot.md`,
+`software/ledger.tsv`, and the frozen source archive. C6 and native Windows/macOS
+proof remain explicitly unrun. H is not ready for commit.
+
+
+**12 October: C21 hosted performance trade-off approved; full H acceptance authorized.**
+The owner approved the recommendation to accept this specific measured call
+regression and proceed. Spec 34 §14.4 and the H execution record identify C21's
+candidate/analysis hashes and exact exception: calls median 1.164359 remains a
+failed general 1.10 target, accepted for this candidate/workload; no future blanket
+waiver. All functions, safety checks, p99/trace requirements, firmware margin,
+physical timing and hardware resource checks stay unchanged.
+H21's Linux comparison is dispositioned by that exception. H/H22 remain open.
+
+Prepare and independently review `run-22-complete-setup`, then run the required
+full H software acceptance and conditional connected-F401 replay. Reuse the
+frozen C21 comparison only with recorded production equivalence; do not repeat
+optimization or relabel its performance result as a pass. Fix the known portable
+lib-test helper cfg at its HIR-only compatibility boundary before freezing.
+Keep separate Cargo targets for external consumers and firmware. Reconcile
+current source, instructions, firmware/build configuration and UI prerequisites
+before the batch. Existing H authorization permits necessary root-cause fixes and
+retests. No commit or push. Native OS/C6 limitations remain explicit.
+
+
+**Historical C21 result before the approved trade-off: correctness passes, call performance failed.**
+The single activation registry is implemented with reservation/activation, owner,
+suspended-local, monotonic identity, debugger and failure-cleanup invariants intact.
+Independent source review is complete. C20's two bookkeeping failures are corrected
+and retained: a new fixture had four registry records but expected work for three;
+a now-unused private std method needed a no_std API gate. C21 core tests pass:
+490 all-feature, 438 portable-register, 437 i686. Four core feature lints, host lint,
+native/Windows warning checks and all frozen source identities pass. Unchanged
+C20 lifecycle (32), hosted VM (206), services (4), vertical (33), F401/C6 compilation, architecture
+and canonical diagrams/drift pass. Record size: 48 bytes host, 32 bytes i686.
+
+Five alternating release rounds preserve exact traces, VM counters, artifacts and
+zero overruns. Paired C21/U median/p99: calls 1.164359/1.096911 (median FAIL),
+references 0.968249/0.580123 PASS, strings 1.024509/1.151306 PASS. Limits stay 1.10/1.25.
+Calls improve versus C19 in each paired round (median ratio 0.989317), but this does
+not close H21. Exact-binary instruction count falls 87,928,761 → 86,980,917 (1.078%).
+No functions or safety checks removed. No full suite, commit or push. H is not
+ready for commit. Do not launch broad acceptance while focused performance fails.
+Source manifest `0634546b24c21178587259f7465dadc7ca5e81ff99a033dbebe010b142d1862f`;
+candidate `390bfda03a584e7320b4aba0b7c69b2b69f5afd5afd52f655c80f9f4de592704`.
+Evidence: external `H-root-correction-20/` failed ledger and
+`H-root-correction-21/RESULTS.md`, `REVIEW.md`, `POST-REVIEW.md`, `validation/`.
+The current task's redesign review and focused testing are complete; remaining
+call-path design work must use the exact profile before any further optimization.
+
+**12 October: C20 focused batch retained; two corrections before measurement.**
+Independent review found no runtime source blocker. C20 exercised the unified
+registry on native/portable/i686 builds. One new test incorrectly expected a
+non-tail retirement charge of 3 for 4 reserved records (3 active); preserve the
+3-active assertion and correct storage charge to 4. Clippy/warnings found the
+now-unused std-only private `LiveEntries::contains_key`; preserve that API on
+its public no_std `InstanceMap` alias and omit the unreachable std method.
+Core lifecycle, F401/C6 compilation, hosted VM/services/vertical, portable lints,
+architecture and diagram render/drift pass. Release timing was correctly skipped.
+Record sizes are 48 bytes x86_64 and 32 bytes i686. No runtime production behavior
+failed an assertion. C20 raw ledger remains in external `H-root-correction-20/`.
+C21 validates the corrected assertion and feature boundary, then measures the
+unchanged production redesign against U/C19; existing retest authorization applies.
+No full suite, commit or push.
+
+**12 October: owner authorized redesign review and testing; C20 implementation.**
+Authorization: "review the redesign and test it". C19 remains the comparison
+baseline; the 1.10/1.25 limits and full functionality remain unchanged.
+- [x] H21-RCA-15: consolidate activation liveness, ownership and suspended values
+  in one execution-frame registry; preserve reserved versus active distinction,
+  ownerless initializer/temp scopes, monotonic IDs, legacy frames and cleanup.
+- [x] H21-RCA-16: migrate lifetime/read/write/debug/return consumers to that one
+  authority, with exact stale-reference and nested ancestor regressions.
+- [x] Review/freeze complete change, then focused C20/C21 core/all-feature/portable/
+  i686/MCU, hosted call/debug/vertical, feature lint, architecture/diagrams and
+  conditional ordinary-release U/C19 comparison. No full suite, commit or push.
+Independent design review accepted the record model. Spec34 HOST-04 now defines
+actual unified reservation and metadata work charges, including candidate-only
+allocator failure ordering; no shadow charges for removed arrays and no safety
+check removal. Preparation capacity may grow; report actual sizes. C20 evidence
+will be external `H-root-correction-20/`.
+
+
+**12 October: architectural decision point; H is not ready for commit.**
+C19 is the latest measured candidate. Focused correctness and feature checks pass;
+call median is 1.191671 times U against the unchanged 1.10 limit. References,
+strings and call p99 pass. No functions, guards or acceptance thresholds were
+removed. No full suite, commit or push has run.
+
+The independent post-C19 review reconciles the native-call instruction delta:
+nested execution +10,314,384; completion +2,088,669; preparation -4,437,975;
+other direct work +32,973, totaling +7,998,051. Parent/child inclusive costs are
+not added. Frame initialization, tier-1 checked execution and frame-result
+retirement/cleanup are the concrete remaining branches. Current evidence does
+not prove their entire cost unavoidable, nor promise a safe local fix.
+
+H21-RCA-13 descriptor design was reviewed but not implemented: estimated metadata
+slice under 1% of the profile, with added prepared storage/constructor interface.
+H21-RCA-14 exact-binary investigation confirms 496 bytes of control-header moves
+per POU handoff, but only 171,000 profiled memcpy instructions (under 0.2% total).
+A stable-address holder would add preparation allocation for little demonstrated
+benefit; not implemented. Required cleanup and check order remain unchanged.
+Both investigations are complete; neither closes H21.
+
+Per the H goal's explicit architecture stop condition, stop code/test launches
+before redesigning call/frame execution or changing the performance contract.
+The owner decision is whether to pursue a separately designed call-lifecycle
+optimization preserving all safety checks, or explicitly accept/revise the
+measured performance criterion. No permission to weaken it is inferred. A new
+architecture must be reviewable before implementation; no speculative tiny
+optimization loop. Latest code is verified only to the focused C17/C18/C19 chain;
+full H acceptance and H22 remain open. Retained analysis:
+external `H-root-correction-19/REMAINING-RCA.md` and `RESULTS.md`.
+
+
+**Remaining root-cause investigation after C19 (no further runtime edits yet):**
+- [x] H21-RCA-13: review the measured direct-scalar initializer path. A prepared
+  descriptor could remove metadata lookup, but the reviewed design adds a sidecar
+  and constructor hint for less than 1% of current instruction cost. No default
+  payload cache or check removal is authorized; implementation is deferred pending
+  a justified benefit and simpler shape. DATE/DT defaults remain profile-dependent.
+- [x] H21-RCA-14: inspect exact-binary copies of `RegisterExecutionBuffers` on
+  nested take/return/recycle. Separate payload clearing (required) from movement
+  of the owning control structure. Compare the U representation, constructor-time
+  reservation, failure rollback and public compatibility before any change.
+  A stable-address representation is only a candidate; no saving is assumed.
+
+**12 October: C19 focused correctness passes; call performance remains open.**
+All feature-specific lint and binding checks pass (18 each all-feature/portable/
+i686; 57 hosted). C17/C18 retain the unchanged native/vertical, MCU,
+native+Windows warning and architecture/drift evidence. Five ordinary release
+rounds preserve every watched trace, counter and source/artifact identity, with
+zero overruns. Paired median/p99: calls 1.191671/1.047282 (median FAIL), references
+0.962044/0.578278 PASS, strings 1.006027/1.084153 PASS. Call medians U 5.348 us,
+C15 6.421 us, C19 6.369 us. Source manifest
+`7183e27b7cbab1b923c927bd2d572eb42fbb057dab063f36da8f69465df01984`;
+candidate `63138fb3308cdf11209ff3b7da01ca5cdc3b90fd8572ee8a1f4e7bc82a6c3699`.
+Exact-binary profile records 87,928,761 instructions. Hosted deadline checks
+remain 59,909; the absent-deadline path falls from 27 to 11 self instructions
+per call. C16's unsuccessful specialization is reverted; its tests remain.
+H21-RCA-11/12 pass focused validation; H21 itself does not pass. Further work
+must follow measured remaining costs, preserve all safety/phase charges and avoid
+another speculative local optimization. Full acceptance and H22 remain unrun.
+Evidence: external `H-root-correction-19/RESULTS.md`, `validation/`, `profile/`.
+No full suite, commit or push.
+
+**12 October: C18 native and hosted lint pass; portable lint/format corrections prepared.**
+VM tests pass in all-feature (257), portable (243) and i686 (243) shapes;
+host services (4) and vertical/restart (33) pass. All-feature core and hosted
+library Clippy pass. Portable Clippy finds the now-unused borrowed-call adapter:
+its only public export is already HIR-gated, while shared production execution
+uses the owned binder. Gate the borrowed wrapper/impl/function with `hir || test`,
+preserving HIR compatibility and unit assertions without changing MCU behavior.
+Formatting found three older diagnostic-expression wraps in `vm/context.rs`;
+builder rustfmt corrected them. Independent review confirms both changes.
+Retain the C18 failed ledger and C17 passing cross-target/architecture evidence.
+C19 reruns affected call-binding tests in hosted/portable/32-bit shapes,
+feature-specific lint and formatting, then conditional release U/C15 timing.
+No full suite, commit or push; H21 remains open.
+
+**12 October: C17 native/cross-target checks pass; host lint blocks timing.**
+Core all-feature/no-default/i686, lifecycle, hosted VM/services/vertical, MCU,
+core Clippy, host+Windows warning checks, architecture and drift pass. Host-library
+Clippy rejects two redundant tail `return` statements in the non-test-support
+branches of `vm/context.rs` and `vm/engine/context.rs`. Earlier all-feature lint
+excluded those branches. This is a feature-matrix lint gap, not a PLC assertion
+failure. C17 source stayed frozen throughout; release timing did not run.
+The failed ledger remains external `H-root-correction-17/validation/`.
+
+**C18 correction:** remove only those tail returns; mutually exclusive cfg blocks
+retain identical results and refusal order. Independently reviewed. Reuse C17's
+unchanged lifecycle/hosted and target evidence; rerun core VM tests in diagnostic,
+portable and i686 shapes, host-service/vertical tests, both core feature lint
+shapes and hosted library lint/format, then conditional ordinary release U/C15
+comparison. No full suite or commit/push. H21 remains open.
+
+**12 October: C16 correctness passes; measured optimization rejected.**
+Call medians U 5.388 us, C15 6.400 us, C16 6.579 us; paired median 1.219376
+FAIL, p99 1.220510 PASS. Reference/string comparisons pass but are also slower
+than C15. Exact traces/counters hold. All focused gates pass (481 all-feature,
+429 portable, 428 i686, 32 lifecycle, 206 hosted VM, 33 vertical tests).
+The lower instruction count (88,475,893 versus 89,036,325) is not a latency gain.
+H21-RCA-10 is rejected as a performance remedy. Restore its production wrapper
+to C15 while retaining the three new regression tests. Evidence:
+external `H-root-correction-16/RESULTS.md`, `validation/`, `profile/`.
+
+**C17 measured correction scope:**
+- [x] H21-RCA-11: absent hosted deadlines return before unused pause arithmetic;
+  retain every explicit and stride deadline check, active deadline pause handling,
+  suspend/restore behavior and overflow fallback. C15 measures 59,909 calls with
+  27 self instructions each, no clock syscall. This inherited source work became
+  more frequent under H's required checks; removing checks is not authorized.
+- [x] H21-RCA-12: construct Overflow only on refused checked insertion-demand sum;
+  preserve exact growth/search/move charges. Measured success-path temporary drop
+  cost: 5,760 calls, 57,600 instructions, in frame initialization.
+- [ ] Independent review, then focused core/portable/32-bit/MCU, hosted service,
+  VM/vertical, lint/architecture and ordinary release comparison against U/C15.
+  No full suite or commit while PERF-01 remains open.
+
+**12 October: C15 focused correctness passes; call median remains open.**
+All 21 ledger steps pass, with 478 all-feature core, 427 portable, 426 i686,
+32 lifecycle, 206 hosted VM and 33 vertical/restart test executions. Exact saved
+traces, counters and identities agree in all five ordinary release rounds.
+Paired median/p99 ratios: calls 1.193344/1.139898 (median FAIL), references
+0.965389/0.549491 PASS, strings 0.991881/1.029849 PASS. Calls measure U 5.379 us,
+C14 6.570 us and C15 6.419 us. Frozen source manifest
+`7e507ac47ed297edcde94946a48942381bfaa49c709ea204e1752c7713436b9b`.
+C15 exact-binary Callgrind: 89,036,325 instructions. H21-RCA-8/9 are verified;
+overall H21 is not. External evidence: `H-root-correction-15/`.
+
+**C16 measured correction scope:**
+- [ ] H21-RCA-10: keep top-level shallow value-copy admission local to its caller,
+  retaining one work/deadline charge followed by the exact allocation charge.
+  C15 still executes 33,033 tier-1 estimator calls (1,420,419 self instructions)
+  through an outlined `Result<usize, RuntimeError>` boundary for scalar success.
+  Recursive owned-value accounting and depth limits remain unchanged. Diagnostic
+  and ordinary builds must execute the same admission logic.
+- [ ] Independently review, freeze, then run focused native/portable/32-bit/MCU,
+  hosted VM/vertical, Clippy and architecture checks and conditional ordinary
+  release comparison. No full suite, commit or push while PERF-01 is open.
+
+**12 October: C14 correctness passes; call median still fails PERF-01.**
+All focused core/portable/32-bit, hosted/lifecycle/vertical, MCU, Clippy,
+architecture and drift steps pass. Five release rounds retain exact U traces and
+counters. Paired median/p99: calls 1.229937/1.098501 (median FAIL), references
+0.937589/0.574579 PASS, strings 1.017903/0.801122 PASS. Calls measure U 5.358 us,
+C13 6.780 us, C14 6.590 us. Exact binary profile: 91,209,629 instructions.
+Frozen manifest `ed79479b92b3b0204acda24b8a45217b846800cdcf8aebb5edf66d4c584be1ac`.
+No full suite, commit or push. Evidence: external `H-root-correction-14/`.
+
+**C15 measured correction scope (verified by C15; PERF-01 remains open):**
+- [x] H21-RCA-8: construct unit-variant errors only on actual refusal at the
+  measured frame reservation/suspension/resumption, typed-entry lookup, frame
+  commit, buffer selection and scalar-canonical lookup sites. Keep guards,
+  first-error identity/order and all budget/deadline behavior unchanged. Exact
+  C13 disassembly and C14 caller counts show eager errors dropped on success.
+- [x] H21-RCA-9: reset returned frame locals to NULL in place, retaining length,
+  capacity, backing address and destruction order. C14 measures 9,216 generic
+  NULL-clone calls from clear-plus-resize; change only this measured reset method.
+- [ ] Independent review, then focused native/portable/32-bit/MCU and hosted
+  checks, lint/architecture, followed by conditional ordinary release comparison.
+  Preserve the failures, original baseline and thresholds; no full suite or commit.
+
+**C14 corrections (verified; overall PERF-01 open):**
+- [x] H21-RCA-6: return an already exact non-text primitive from the checked
+  assignment boundary without passing it through two additional 40-byte argument
+  temporaries. C11/C13 disassembly and executed Callgrind addresses confirm that
+  path. Retain shared primitive matching, all charges, text/coercion paths, alias
+  depth and subrange rejection. No savings claimed until ordinary measurement.
+- [x] H21-RCA-7: reuse the immutable return-slot fact read during argument binding
+  in private owned call continuation. Keep the public `BoundVmCall` struct and
+  borrowed API unchanged, and retain missing-POU/parameter fault order.
+- [ ] Independently review complete code/tests, freeze, then run focused native,
+  portable/32-bit/MCU, hosted VM/vertical, lint and architecture checks. Conditional
+  ordinary-release U/C13/C14 comparison uses the same artifacts and thresholds.
+  No full workspace suite, commit or push.
+
+**12 October: C13 focused checks pass; call performance remains above the limit.**
+468 all-feature, 417 portable and 416 i686 core tests pass, plus Clippy/format.
+C12's 271 native lifecycle/hosted/vertical and MCU/architecture/diagram passes
+remain applicable to identical production bytes. All five release rounds retain
+exact U traces/counters and zero budget overruns. Calls: median ratio 1.261753,
+p99 ratio 1.282695, both fail. References (0.975105/0.728073) and strings
+(1.022163/1.073369) pass. Candidate `41edc8a161948d807bb389240c7f154f1170bc93ddb28ed13b3faafcdc7fd299`;
+frozen manifest `05c7e4e0d1725402f6d670f63d9dff0d5a75ad787dd30fe6f4a577f1eb925ec2`.
+Exact-binary Callgrind: 92,936,115 instructions; C11: 94,797,767.
+Evidence is external `H-root-correction-13/RESULTS.md`, `validation/`, `profile/`.
+No full suite, commit or push; H21 remains open.
+
+**12 October: C12 retained test-compilation failure; C13 focused retry ready.**
+The new sparse-ID test compared its u32 wire slot to a usize test slot. Core unit
+binaries and Clippy stopped at that compile error; no assertion in those binaries
+ran. C12 passes all 271 executed lifecycle/hosted/vertical tests, both MCU core
+checks, formatting, architecture and diagrams. C13 fixes only the comparison
+width, reuses those passes, and reruns blocked native/core/32-bit and Clippy checks.
+Release timing is conditional on correctness. No production change, full suite,
+commit or push. Failed ledger retained as external `H-root-correction-12/`.
+
+**12 October: C11 focused correctness passes; call-performance criterion remains open.**
+C10 retained compilation/Clippy failures in new test scaffolding and a shared-target
+artifact collision, not PLC assertion failures. C11 corrects the fixture match,
+keeps the old action lookup test-only, and rebuilds only the collided generated
+`trust-wasm-analysis` artifacts. External Cargo roots now use separate targets.
+C11 passes 462 all-feature core, 411 no-default core, 410 i686, 32 lifecycle,
+206 hosted VM and 33 hosted/vertical test executions, plus core Clippy and format.
+C10's unchanged-production F401/C6 checks, architecture and diagram proof are
+retained. The three H21-RCA corrections below are implemented and tested; they do
+not close H21. Five alternating ordinary-release rounds preserve exact U traces
+and counters, with no budget overruns. Paired median/p99 ratios: calls
+1.286963/1.244972, references 1.014761/0.584717, strings 1.053929/1.169904.
+Calls still exceed the 1.10 median limit. Source manifest:
+`07ed1118517910042b00940de550c18b8ab5447e4ef92a7dd40f4f29b8010a33`.
+Candidate SHA256: `77a2e89f693af67af9b89613192b794e2421ced58189181e4a06419a0f0f2f0d`.
+Exact-binary Callgrind records 94,797,767 instructions versus C8's 97,610,596.
+Entry-local clone calls fall by 13,824 (12 per invocation), and journal insertions
+fall from 2,304 to 1,152. These counts prove those operations disappeared; they do
+not assign all latency changes to them. Next: correct measured immutable
+owner/declaration lookup overhead and investigate scalar normalization before
+selecting any further change. No full suite, commit or push. Evidence: external
+`H-root-correction-10/RESULTS.md`, `H-root-correction-11/RESULTS.md`, `validation/`
+and `profile/`. Standing focused-retest authorization applies.
+
+**C12 corrections (verified by C12+C13; overall PERF-01 open):**
+- [x] H21-RCA-4: prepare declaration owner ranges once, preserving sparse wire IDs,
+  slot holes, physical method ownership and runtime fault/charge boundaries. C11
+  attributes about 1.95 million self instructions to declaration lookup.
+- [x] H21-RCA-5: leaf lifetime checks retain their one-unit charge without building
+  a recursive traversal context. C11 attributes about 1.78 million self
+  instructions to the recursive lifetime helper across callers. Savings are not
+  inferred from these totals; retained recursive behavior is tested against the
+  original helper, including budget/deadline refusal and stale references.
+- [ ] Review completed implementation and tests, freeze, then run core native,
+  no-default/i686, MCU graph checks, hosted VM/vertical, lint and architecture.
+  Only after correctness passes, compare ordinary release U/C11/C12 on the same
+  saved traces. No full suite until PERF-01 passes. No commit or push.
+Scalar normalization investigation found no redundant deep copy: keep its checked
+assignment boundaries. Register move accounting is also correct; constant/storage
+materialization is a separate operation. Do not delete these admission calls.
+
+**12 October: focused root-cause diagnostic passes; per-call costs are now observed.**
+C9 passes two recorder tests, core library Clippy, formatting, diagnostic consumer
+build, all source identities and saved-artifact replay with exact original-U
+trace equality. For each of 1,024 recorded cycles: 20 initialization phase queries
+include 12 empty queries, four parameter queries visiting 12 supplied/skipped
+actions, and four return actions; entry copies four NULL and eight INT values.
+Register reads are 32 moves and zero clones per cycle, with no fallback or deopt.
+All recorder overflow/busy/active/unbalanced/error counts are zero. Independent
+raw-profile arithmetic also attributes the completion increase to returned-buffer
+recycling, transactional journal/write checks and preflight, offset partly by
+reduced destruction/freeing. U's corresponding policy/transaction hooks were
+no-ops. Preserve those safety contracts; correct ownership transfer and repeated
+immutable lookup work rather than deleting checks. C9 adds diagnostics only;
+C8's ordinary release call-performance failure remains open. No full suite,
+commit or push. Evidence: external `H-root-cause-9/RESULTS.md`, `validation/`,
+and `H-root-correction-8/PROFILE-PARTITION.md`. Source manifest:
+`7bd3843fc98a46754e2852bd8f4354813b73cf93abdb2574705b7ebdd71522dd`.
+
+**Corrections justified by C9 and verified by C11 (overall PERF-01 remains open):**
+- [x] **H21-RCA-1 — Resolve frame actions during preparation.** Avoid repeated
+  immutable owner/phase searches at call entry; retain declaration order,
+  argument-presence including explicit NULL, return defaults, static/restart
+  behavior, work/deadline fault ordering and preparation-memory admission.
+  Native assertions must cover empty phases, supplied/omitted arguments,
+  explicit return stages, restart and failed initialization.
+- [x] **H21-RCA-2 — Transfer owned call locals at selected execution entry.**
+  Keep borrowed APIs checked-copy compatible, return the original owned payload
+  intact on every optimized fallback, and preserve cleanup/recycling and
+  output/reference lifetime checks. Assert alias independence, explicit NULL,
+  defaults, output copyback, failure/unwind and repeated invocation reuse.
+- [x] **H21-RCA-3 — Review completion storage movement with rollback preserved.**
+  C8 attributes overhead to buffer recycling and temporary-to-active journal
+  transfer. This is not permission to remove preflight/commit checks, mutate
+  fault order or weaken rollback. Implement only a reviewed ownership/collection
+  improvement with specific equivalence evidence; otherwise record it as required
+  cost. Any speedup remains unverified until ordinary release measurement.
+
+**12 October: remaining H call regression under instrumented root-cause investigation.**
+Owner explicitly resumed investigation after correction 8. Ordinary production
+semantics remain unchanged. Retained C8/U profiles have identical workload counts
+and 97,610,596 versus 78,473,206 executed instructions; inclusive costs must not
+be added as independent phases. Call preparation/binding is already cheaper than
+U. Frame initialization, reference policy and register read accounting remain
+measured costs. Existing evidence cannot distinguish empty initializer phase
+queries from supplied-argument skips, so a bounded, opt-in std+test-support
+recorder will capture that distinction. Planned focused diagnostic batch: logger
+unit assertions, touched formatting, core library Clippy, source-bound diagnostic
+consumer build and one saved call-binding replay with trace comparison. No full
+suite or ordinary release remeasurement is needed for count-only attribution.
+Keep instrumented elapsed time separate from PERF-01 acceptance. Evidence belongs
+outside the tree in `runtime-portability-h/H-root-cause-9/`.
+
+**12 October: correction-8 focused checks pass; call performance still fails.**
+The exact marker-refusal test, core all-feature/all-target Clippy, formatting,
+frozen-source checks and ordinary release consumer build pass. C7's 450 core
+and 15 portable call passes and C6's 266 lifecycle/hosted/vertical passes remain
+applicable to unchanged sources. Five alternating rounds retain exact traces and
+execution counters with no budget overruns. Paired candidate/U median ratios:
+calls 1.293801, references 0.96, strings 1.02; call p99 is about 1.27 and also
+exceeds 1.25. References and strings pass this comparison. H21 remains open.
+Profile the exact C8 binary before selecting further corrections; no full suite,
+commit or push. Evidence: external `H-root-correction-8/RESULTS.md` and
+`validation/`; source manifest
+`1eda5307f4f50f59841dde36f7d632bcd5fef2f18a02b85516ccbaa48a9d557a`.
+The 28-category assurance plan below is planned work, not executed evidence.
+
+**12 October: correction-7 native tests pass; correction-8 focused lint retry ready.**
+450 core tests and 15 no_std call tests pass, in addition to correction6's 266
+passing lifecycle/hosted/vertical tests. Clippy found only explicit drop(state)
+in the marker-refusal test; EngineState has no destructor. Removing that call
+uses ordinary non-lexical borrow lifetimes, with every assertion and production
+path unchanged. Independent review agrees. C8 runs the exact affected test,
+core Clippy and formatting, then release performance if clear; passing suites
+and diagrams are reused. The owner's additional assurance request is recorded
+as 28 planned categories below; no mutation/fuzz/soak campaign has run here.
+
+**12 October: correction-6 fixture compilation failure retained; correction-7 ready.**
+266 native tests passed (32 lifecycle, 206 hosted VM, 28 vertical), as did format,
+architecture and diagrams. New edge fixture wrongly assigned String to SmolStr;
+no_std compilation caught the same expression. Core unit tests did not execute.
+The unrun owned-binding fixture also declared INT while asserting DINT. Clippy
+found a non-const TLS initializer in the existing diagnostic logger. All three
+are corrected and independently reviewed; no production assertion is relaxed.
+Correction-7 reruns blocked core/no_std/Clippy checks, reuses the 266 passes and
+diagrams on unchanged ordinary production, then builds/measures release if clear.
+Standing owner authorization applies. No full suite, commit or push.
+
+**12 October: owner resumed root-cause correction; correction-6 in progress.**
+The prior architecture stop did not establish that the remaining regression was
+unavoidable. Continue investigation and focused correction under the owner's
+instruction to find and fix it. C5 profile/source comparison proves two uppercase
+allocations per root edge transaction (2,304 per 1,152 cycles), a POU-ID/name/ID
+round-trip; use the existing ID with compatibility fallback. Private function
+argument binding also copies six uniquely owned expression values per fixture
+cycle before dropping their payloads. Independent review confirms Frame-only
+initialized markers have no semantic consumer; local visibility uses activation
+and ordinal rules. Remove that unused persistent bookkeeping, preserving Global/
+Instance marker refusal coverage and all lifetime/name/slot checks. The register
+read-count setup additionally constructs and drops a discarded error per successful
+slot lookup; use a direct checked branch with the same failure. HOST-04 records the
+ownership and initialization contracts before implementation. Author native tests,
+review complete source/callers, then focused correctness and ordinary release
+comparison. No full suite, commit or push; preserve every prior ledger.
+
+**12 October: tested corrections retained; architectural call-performance issue open.**
+Root-correction-5 is complete as focused evidence (706 passing tests). H is not
+commit-ready: call_binding median H/U remains 1.36650 against 1.10. Reference and
+string comparisons pass. Independent call/write reviews distinguish required
+constant/staging/lifetime/copy admission from the original hosted no-op hooks;
+no safe removal of those checks is established. Next work needs a reviewed shared
+call/write plan that reuses admitted facts while preserving dynamic checks and
+fault/work ordering. Six owned expression copies per cycle are a smaller proven
+ownership opportunity, with no isolated timing saving claimed. No additional
+adapter, runtime edit or full-suite run is launched. Preserve this tested source
+at the owner's architectural stop boundary; no commit or push. Focused retry
+permission remains valid and is not the blocker. Detailed evidence and next design
+constraints: external `runtime-portability-h/H-root-correction-5/REMAINING-CALL-PATH.md`.
+
+**12 October: correction-5 passes 706 native tests; call performance remains open.**
+All focused correctness, formatting, architecture and portable compilation steps
+pass on source manifest `67713aea9fe49bc91efe2c462664bb3688ba5b12af70e5a2d67968c910737020`.
+The five-round ordinary release comparison preserves all traces and execution
+counters. Candidate/U median ratios: calls 1.36650 (fails), references 1.09549
+(passes), strings 1.07167 (passes); all paired p99 median ratios pass. Overall
+PERF-01 is still failed. The fresh exact-binary profile records 101,380,562
+instructions versus correction-3's 109,181,194. Continue measured call-path
+investigation under standing authorization; no full suite, commit or push.
+Evidence: external `runtime-portability-h/H-root-correction-5/RESULTS.md`,
+`validation/` and `profile/`. The failed correction-4 compile ledger is retained.
+
+**12 October: root-correction-4 failed compilation; correction-5 prepared.**
+One declaration lookup retained the old tuple constructor after the packed-key
+change. Review missed that consumer. Two test bindings also became unused.
+All source hashes matched; formatting and architecture passed; native tests and
+performance remain unrun for this change. The three sites are corrected and all
+index/type-table callers are being re-reviewed. Repeat the focused batch under
+standing authorization; retain correction-4 logs. No full suite or commits.
+
+**12 October: root-correction-4 reviewed; focused batch starting.**
+Dense reference-type slots and order-preserving declaration/action keys replace
+measured hash and compound-key lookup costs. Source-only independent review found
+no blocker; formatting is complete. Tests cover ordinal alignment, absent metadata,
+duplicate/bounds rejection, preparation charging and key-order boundary parity.
+Run core library/lifecycle, portable compile, hosted VM and runtime vertical,
+formatting and architecture, then ordinary release comparison only if all pass.
+Standing owner authorization covers focused retests; no full suite or commits.
+Evidence: external `runtime-portability-h/H-root-correction-4/`.
+
+**12 October: root-correction-3 correctness passed; performance remains failed.**
+The one corrected fixture passed, closing 390 focused tests across corrections
+2/3. Full source and consumer identities passed around the release build; all
+three PLC traces and exported execution counters match U. Candidate/U paired
+median ratios are 1.45/1.15/1.13 (calls/references/strings), above 1.10; call p99
+is 1.28, above 1.25. Candidate/previous-H medians are 0.96/1.02/0.95. The comparison
+runner succeeded but PERF-01 did not. Evidence is external
+`runtime-portability-h/H-root-correction-3/RESULTS.md`, `validation/` and `profile/`.
+Current-binary Callgrind recorded 109,181,194 Ir versus previous-H 112,895,749;
+instruction counts are not elapsed time. Further authorized source corrections
+target measured immutable lookup costs: dense reference-type indexing instead of
+hashing REF_TABLE ordinals, and losslessly ordered integer keys for declaration/
+action groups. Preparation allocations stay charged, runtime checks and charge
+points stay intact, and no new mutable cache or feature reduction is authorized.
+Author tests, review, then focused validation/normal-release measurement. No commit
+or push. Preserve all prior failures and do not infer full acceptance from this work.
+
+**12 October: root-correction-3 authorized; focused corrections/retests may continue.**
+The owner approved the one corrected test and release comparison, then instructed
+"approved, dont ask, just fix this shit". Continue evidence-led corrections and
+focused retries within this performance task without repeating permission requests;
+preserve failed runs and source identities. No functionality removal, weakened
+assertions, commit or push. Root-correction-3 is running with manifest
+`cac3b2f1e5a3731e92651d51fe03abedb9efe14ee5523ba0d56d18dcb903af1d`.
+It reuses correction-2's 389 passing tests and checks on unchanged production,
+and runs the one allocation-fixture regression before the release comparison.
+
+**12 October: authorized root-correction-2 completed with one fixture failure.**
+230 core unit, 27 lifecycle, 104 hosted register and 28 runtime-vertical tests
+passed (389 total); one newly authored allocation-refusal fixture failed because
+it did not ensure the already-prepared marker collection needed growth. Portable
+core, formatting, rendering/manifest refresh and architecture passed. Source hash
+`a765b2ba2cd335c788cb6367958ba5833bfe9633618bc7a3e3447468d70fada8`
+matched before/after. No release build/timing ran. Generated diagrams were copied
+back. After the batch, only that test was corrected: isolate empty marker storage
+and assert positive allocation demand, retaining all refusal/publication assertions.
+Production code is unchanged from the passing cases. The fixture correction was
+independently reviewed and remains unrun. A one-test retry followed by normal
+release comparison is prepared under `H-root-correction-3/`; explicit approval
+was requested under the failed-batch rule and is pending. Do not rerun the 389
+passing tests or the other passed gates for this fixture-only change. Evidence:
+`runtime-portability-h/H-root-correction-2/RESULTS.md` and `validation/ledger.tsv`.
+No full suite, commit or push. H21/PERF-01 remains unverified/failed historically.
+
+**12 October: root-correction-1 batch failed at compilation; no timing run.**
+The 3,052-file frozen manifest matched before/after execution. Formatting passed.
+E0433 exposed a missing ExecutionLimitKind import in the new budget test; E0502
+exposed the Tier-1 dynamic-store reference borrow overlapping a mutable counted
+value read. No native tests executed. Architecture checks passed except three
+pre-existing stale diagram hashes; local/builder diagram bytes match. Performance
+was skipped. Ledger, exact logs and source identity are retained externally in
+`runtime-portability-h/H-root-correction-1/validation/`, summarized in `RESULTS.md`.
+After the batch, the import and dynamic-store sequence were corrected using the
+existing interpreter's owned/count-aware reference-then-value reads. Alias/null
+regressions and independent correction review are being completed. Those changes
+remain unverified; no rerun, full suite, commit or push is claimed. H21 stays open.
+
+**12 October: measured-overhead corrections authorized and in progress.**
+The owner instructed implementation of the diagnosed root causes. Scope: the
+three corrections in `FIX-DESIGN.md`, plus reuse of prepared last-use read counts
+in Tier-1 only after source proof covers fused operands, live-outs and errors.
+During implementation, marker-search reuse was deferred: holding a borrowed map
+entry conflicts with whole-EngineState charging. The attempted token substitute
+added runtime guards/address identity and was removed before validation. Existing
+marker storage and accounting remain unchanged; no saving is attributed to them.
+No feature reductions, raised limits or relaxed assertions. Root owns zero-unit
+accounting; host/register agents own declaration bookkeeping and operand movement;
+the integration agent independently reviews the complete correction.
+Finish implementation/tests and review before a focused builder batch: core
+register/engine/budget assertions and affected source-free lifecycle suites,
+portable core check, formatting, required runtime vertical, then normal-release
+U/previous-H/candidate comparisons of the same three saved workloads. Verify all
+crate/build-input hashes before and after builds, not selective changed-file sync.
+Use the mounted-volume Cargo target and TMPDIR; a disk/workload preflight precedes
+the batch. Timing runs do not overlap compilation. Full acceptance remains separate
+and follows only if focused correctness and performance justify it. No commit or
+push is authorized. The previous investigation checkpoint below is historical.
+
+**12 October: source/spec investigation complete; no optimization implemented.**
+The caller evidence was reviewed against HOST-04, MEM-06 and the STBC execution
+contract. Three narrow corrections have a concrete source justification: skip
+zero-unit EngineState charges; reuse the declaration-marker search through
+reservation and commit without changing its charge/fault order; and omit the
+unused owned-name clone for frame declarations while retaining name-index
+validation. Independent read-only review found no design blocker under those
+constraints. The external design and focused proof matrix are
+`runtime-portability-h/run-17-focused/rootcause-instructions/FIX-DESIGN.md`.
+No runtime edits, tests, builds or benchmarks ran in this investigation.
+No latency saving or sufficient performance recovery is claimed. Nonzero copy,
+type/lifetime and fused source-step checks remain; preparation-cache and Tier-1
+last-use proposals require further equivalence justification. H21/PERF-01 stays
+failed/open. The next implementation should follow the narrow design, then
+focused correctness and normal-release measurements before broad acceptance;
+the current investigation has not executed those steps.
+
+**12 October: source-matched caller logging complete; no performance fix applied.**
+The corrected v3 diagnostic verified all 2,515 crate/build-input files against the
+reviewed local tree before and after compilation (manifest SHA-256
+`033295b861db4294e186e955517c519ff4e77d19651ac880e262132e88c5487e`).
+Three saved workloads ran for 128 warmup plus 1,024 measured cycles. Their PLC
+traces, artifact identities, executed-program/block counts and zero fallbacks
+match U. Logger overflow/busy/refusal counts are zero. Warmup compilation-counter
+placement differs as required by HOST-04 (U first-use compilation, H preparation).
+
+For `call_binding`, every one of the 344 work-charge calls per measured cycle is
+attributed to its source site. Against U's 54 calls, the 290 additional calls are:
+96 copy-accounting visits/path charges; 67 assignment/type/lifetime charges;
+42 declaration/owner/reference lookups; 40 initialization charges; 30 frame,
+cycle and output-transaction charges; and 15 extra charge boundaries where H
+preserves individual source-instruction faults inside fused operations. These are
+accounting event counts, not exclusive latency shares or proof that the underlying
+operation is absent in U. H's 89 copy-admission calls charge 3,560 logical bytes;
+their values are scalars/null/empty-path references, not 3,560 bytes of measured
+heap allocation. There is one preflight per checked-register copy, not a proven
+duplicate preflight. Twenty-two charge calls per cycle request zero units; source
+inspection confirms these leave EngineState's allowance/stride unchanged and do
+not poll the deadline. Their isolated timing contribution is unmeasured.
+
+The other workload totals reproduce the prior measurements: `refs_sizeof` has
+201 work/29 copy calls per cycle, and `string_stdlib` has 238/91. The raw caller
+rows and source-matched receipt are external under
+`runtime-portability-h/branch-diagnostic-consumer/callsite-accounting-v3/` and
+`CALLSITE-ACCOUNTING-V3.md`. The owning source/spec reconciliation is under
+`run-17-focused/rootcause-instructions/ROOT-CAUSE.md` and
+`CALLSITE-RECONCILIATION.md`; an independent read-only review confirmed the
+arithmetic and evidence limits. Two focused logger tests passed; no full
+suite or optimization was run in this diagnostic step. H21/PERF-01 remains failed.
+
+**Evidence correction:** selective file synchronization had omitted the caller
+wrapper and left four rejected H-P1 files on the builder. The initial caller
+diagnostics v1/v2 and H-P2 candidate comparison therefore cannot establish the
+claimed isolated local-source effects. They remain retained with invalidation
+notices. Root restored the four known task-owned files, then checked the entire
+crate input tree before v3. The frozen original U/H binary profiles are unaffected.
+Future source receipts must cover the complete build inputs, including reverted
+files, rather than only the newest edits.
+
+**12 October: operation-level debugging required; no further optimization.**
+The owner rejected selecting remedies from aggregate hotspots. The next evidence
+must identify exact callers, value kinds and charged operations, explain why H
+performs them compared with U, and distinguish specification-required work from
+demonstrated redundant work. Use the retained unchanged-binary profiles first;
+add only bounded, count-only diagnostic events for unresolved facts. Account for
+the observed work-charge/copy totals and retain exact PLC trace parity. No inline
+or other performance candidate, full suite, commit or push is authorized by this
+diagnostic step. Record uncertainties explicitly rather than proposing a remedy
+to discover whether it helps.
+
+**12 October: checked-read accounting candidate measured and rejected.** The
+subsequent full-source audit invalidated this run's isolated-candidate claim:
+the builder also contained four rejected H-P1 files (see correction above). The
+following numbers describe that mixed-source run, not the inline attribute alone.
+The
+candidate removed the intended out-of-line helper call, but five alternating
+uninstrumented comparisons showed no consistent benefit: candidate/previous-H
+median per-round p50 ratios were 1.00 (`call_binding`), 1.06 (`refs_sizeof`) and
+1.01 (`string_stdlib`). All 45 reports retained identical PLC traces, profiles
+and input identities. Host `.text` grew 736 bytes. Root removed the inline
+attribute; production code in `engine/allocation.rs` again matches the prechange
+snapshot exactly. Two useful accounting boundary tests remain. Thirteen focused
+tests and formatting passed on the candidate; no post-reversion run is claimed.
+The runtime vertical did not execute: compilation reported three `Serialize`
+trait-identity errors at the web-analysis boundary. Existing derives and a single
+locked serde version were confirmed; shared-target artifact identity is under
+read-only investigation. No web/dependency code was changed to mask that failure.
+The candidate receipt, codegen and raw measurements are retained under external
+`runtime-portability-h/H-P2-accounting/RESULTS.md`. H21/PERF-01 remains failed;
+this mixed-source run cannot establish the isolated effect of helper-call removal.
+No full suite, commit, push or MCU qualification was performed.
+
+**12 October: isolated checked-read accounting candidate authorized.** After the
+diagnostic findings, the owner instructed implementation, focused tests and an
+uninstrumented comparison. The measured register-read edge calls the general
+`value_clone_charge` helper 36,384 times, including 32,973 simple-value cases and
+3,411 reference-path cases. The candidate exposes the existing bounded helper to
+inlining so the constant root depth can specialize without duplicating the
+simple/owned classification. Recursive backing accounting, work/allocation
+amounts, deadline cadence, fault precedence and copy semantics stay unchanged.
+No last-use/move draft is revived. Author boundary assertions and obtain an
+independent review, then run focused tests, inspect generated code and compare
+uninstrumented U/previous-H/candidate on the saved workloads. Retain a candidate
+only with supporting evidence; do not infer a benefit from the inline attribute.
+Evidence is external under `runtime-portability-h/H-P2-accounting/`. The earlier
+diagnosis-only checkpoint below is historical. No full suite, commit or push is
+part of this isolated step; H21 and full acceptance remain open.
+
+**12 October: diagnosis only until a specific cause is measured; optimization edits stopped.**
+The owner clarified: do not guess a solution; log and establish the root cause
+first. This supersedes proceeding from a broad hotspot to an optimization
+candidate. H-P1 was rejected and reverted. The untested H-P2 draft was archived
+and its three files restored to their pre-draft bytes; no optimization candidate
+remains applied. No task-owned build or benchmark is running. The immediate work
+is read-only analysis of the original/current profiles and targeted diagnostics
+that distinguish specific operations and caller counts. Do not introduce another
+optimization based only on a slow aggregate phase or a plausible source pattern.
+
+**Diagnostic checkpoint, 12 October:** unchanged U/H release binaries were
+profiled at instruction addresses on the same saved `call_binding` artifact.
+H executes 112,895,749 instructions against U's 78,473,206; these are instruction
+counts, not elapsed-time shares. The H action-key searches account for 3,290,112
+instructions (24 search iterations per frame). Matched Tier-1 operand reads
+perform 36,384 clones in both versions: the clone subtrees cost approximately
+1.28 million instructions each, while H's checked-read wrapper plus clone costs
+4,653,741, including 1,847,625 in copy preflight. H register-result completion
+also includes activation retirement, return checks and payload recycling that
+are absent from U's result-builder boundary. Parent/child inclusive totals must
+not be added or presented as like-for-like elapsed-time deltas.
+
+A separately reviewed, count-only diagnostic confirms the actual initializer
+branch: over 1,024 measured cycles after 128 warmup cycles, all 4,096 evaluations
+are zero-code `INT` return defaults using `direct_scalar_intrinsic_fast_path`.
+Initializer 174 accounts for 3,072 calls and 178 for 1,024. No staged initializer
+frame or initializer bytecode body is selected. The fixed-capacity log has zero
+overflow/busy events; its complete 1,152-cycle PLC trace equals both original
+U and prior H traces. Seven focused collector tests pass. The debug diagnostic
+build establishes branch/count evidence only; its timings are not acceptance
+evidence. No optimization was applied and no full suite was run.
+
+Evidence: external `runtime-portability-h/run-17-focused/rootcause-instructions/`
+contains `ANALYSIS.md`, `COPY-COMPLETION-ANALYSIS.md` and
+`RETURN-DEFAULT-U-H-COMPARISON.md` with raw profile/source references. External
+`runtime-portability-h/branch-diagnostic-consumer/` contains the raw branch
+report, test/build logs, frozen source hashes and `RESULTS.md`. These establish
+specific additional execution paths; they do not yet attribute every nanosecond
+of the whole-cycle regression or demonstrate a successful remedy. H21/PERF-01
+remain open. Do not revive the rejected optimization drafts from these findings.
+
+The previously selected sequence below is retained for after diagnosis, not as
+permission to implement an unproven remedy.
+The owner requested this sequence be recorded and executed using cheaper
+subagents. Investigate independently where useful; implement and measure one
+owning cause at a time. Focused regression tests and focused reruns are authorized
+before the required full acceptance suite. Preserve the full function set, all
+checks, phase/fault ordering, PERF-01 limits and the firmware margin. No H commit
+or push is authorized.
+
+- [ ] **H-P1 — Frame initialization:** review and implement the smallest safe
+  reuse of the existing prepared action index. Preserve all four phase charge
+  points, phase/trigger selection, supplied parameters/returns and action order.
+  Run focused index/initialization/lifecycle regressions, then compare the
+  uninstrumented candidate with the frozen previous H and original U on the same
+  saved workloads. Retain the change only if evidence supports its benefit.
+  **Attempt 1 rejected and reverted:** the independently reviewed owner-start
+  candidate passed 36 focused tests and built without diagnostic probes. Its
+  five-round candidate/previous-H median p50 ratios were 1.02 (calls), 0.97
+  (references, variable), and 1.02 (strings), with identical traces. No consistent
+  improvement was established. Only the four candidate files were restored, with
+  hashes matching their saved pre-change bytes. This also removes the candidate's
+  unused test-oracle warning. Frame-initialization cost remains open; no larger
+  initialization redesign is authorized by this result. Evidence:
+  `/home/johannes/projects/.artifacts/runtime-portability-h/H-P1/RESULTS.md`.
+- [ ] **H-P2 — Copy accounting:** identify added/repeated calculations in
+  register read/materialization paths. Correct the owning duplication, preserving
+  allocation/work limits and fault boundaries; run focused regressions and measure.
+  **Draft archived and reverted; diagnosis pending:** Tier-1 clones register operands on every read
+  although prepared per-block use counts already let the interpreter move a
+  last-use value. Forward those same counts into Tier-1; retain clone preflight
+  before each actual clone. Review aliasing, live-out values, selection fallback,
+  early errors and read order. This removes copies rather than disabling required
+  accounting. This proposed change was not run and is not approved for continued
+  implementation without the required diagnosis. Benefit is unmeasured. The separate owned-string-element copy
+  candidate does not explain these workloads and is not part of this change.
+- [ ] **H-P3 — Function completion:** reassess the matched completion cost after
+  P1/P2, then correct demonstrated avoidable work with focused proof.
+- [ ] **H-P4 — Budget/deadline reassessment:** distinguish consequences of P1/P2
+  from independent repeated work. Preserve required checks; do not reduce checks
+  or change thresholds to pass performance.
+- [ ] **H-P5 — Final acceptance:** once focused correctness and uninstrumented
+  PERF-01 comparisons pass, obtain review of the complete final diff and run the
+  required full H validation. Report any architectural decision blocker rather
+  than silently changing the contract. Failed/unrun gates remain open.
+
+For every item retain source identity, root-cause finding, isolated diff, review,
+focused command/results, performance/trace comparison and disposition in the
+existing external evidence tree. A failed candidate measurement is evidence,
+not permission to relabel the candidate as an improvement. The H-only timing
+and paired diagnostic results below remain historical evidence. H is not yet
+verified or ready for commit.
+
+**12 October: paired old/new timing diagnostics complete; H21 remains failed.**
+U at `19f3b6787ef1e2d8fd434851684c463baab645e9` and H at the same base were
+measured with the same diagnostic collector, saved performance-4 STBC1.1
+artifacts and CPU 2. Three workloads × six phase modes × five alternating pairs
+produced 90 comparisons and 180 valid reports. All pairs preserved identical
+artifact/workload identities and exact PLC traces; each report has 128 warmup
+and 1,024 measured cycles, zero budget overruns and valid balanced spans. The
+root-only `HostedCycle` H−U means were +3.74 µs/cycle for `call_binding`
+(range +0.34 to +4.97), +1.04 µs for `refs_sizeof` (−0.31 to +3.09), and
++2.21 µs for `string_stdlib` (+1.33 to +3.09). This control still contains the
+collector and root timing span.
+
+Paired phase counts show additional H budget/accounting checks: for
+`call_binding`, copy-accounting calls were 12→89, work charges 54→344,
+deadline checks 12→43 and assignment normalizations stayed at 29; the
+corresponding work-charge counts were 58→201 / deadline 3→24 / normalization
+19→19 for `refs_sizeof`, and 61→238 / 4→22 / 16→16 for `string_stdlib`.
+Source review attributes CopyAccounting additions to register-IR clone-size
+estimation and allocation charging, and WorkCharge additions to scalar/recursive
+clone-size estimates, normalization, reference-lifetime checks and stores;
+deadline additions come from extra charges and explicit boundary checks. The
+phase totals do not identify exact per-callsite contributions.
+However, policy-mode time is strongly observer-dominated: selected probes
+raise the mean of per-run `call_binding` cycle p50s from 10.596 µs in root-only
+control to 44.739 µs. The mean HostedCycle phase span rises from 10.775 to
+46.289 µs (+35.513 µs/cycle) with probes. Its timed WorkCharge/DeadlineCheck spans include
+per-span clock and collector cost, so their measured time is not a product
+regression estimate. Equal-count call-mode scopes show H FrameInitialize
+self-time increases of 1.22 µs/cycle for `call_binding` (5 calls each; range
+1.18–1.34 µs), 73 ns for `refs_sizeof` (1 call; 63–81 ns) and 60 ns for
+`string_stdlib` (1 call; 37–73 ns). `call_binding` CallComplete increases by
+351 ns/cycle (4 calls each; 281–434 ns). The references phase recorded zero
+reference helper calls in these three programs, so it provides no evidence
+about their reference-operation cost. Results and ranges are diagnostic; the
+full paired report and machine audit are at
+`/home/johannes/projects/.artifacts/runtime-portability-h/paired-timing-consumers/RESULTS.md`
+and its `results/` directory. This supersedes the H-only inference about where
+the measured difference lies, but it does not pass PERF-01 or H21.
+
+The owner explicitly changed cadence: run targeted small tests first to catch
+remaining bugs and integration mistakes, then the required full tests. This
+supersedes the one-batch-only restriction for this correction validation sequence.
+The focused source corrections and their applicable native regressions now pass.
+The runtime unit run had 3,951 passes and three obsolete register-fixture failures;
+the corrected register subset then passed all 104 tests. Core all-features passed
+409 unit plus 22 source-free tests; the corrected i686 lane passed 369 unit plus
+21 source-free tests. RETAIN integrity (13), ADS worker/cycle cases (17), the
+affected Clippy checks, and the full-map architecture checks pass. These are
+focused results on their recorded source identities, not a green full-H run.
+
+H21 remains failed: the latest same-CPU release comparison preserves all watched
+PLC traces but has H/U median ratios 1.541 (calls), 1.175 (strings), and 1.129
+(references), above the unchanged 1.10 limit. The call p99 ratio is 1.262 versus
+the 1.25 limit. The independent instruction-profile review found no further small
+accidental duplication that explains the remaining gap. No broader invocation or
+frame-action plan implementation is started. Its benefit is not established by
+the current measurements and must not be assumed.
+
+The earlier H-only timing/logging record below is historical and is superseded
+by the paired evidence above; it was measured in a diagnostic `std`/`test-support`
+build. Its three collector tests and core Clippy pass. All three
+workloads completed 1,024 measured cycles with valid spans and unchanged saved PLC
+traces. In the call workload, execution accounts for 63.5% of instrumented root
+time, call preparation/inline builtins 15.3%, and frame plus initializer work
+13.9%. Empty-span overhead is 70–84 ns; instrumented timings are diagnostic and
+do not replace PERF-01. The frozen 8,579-record source passed stability checking.
+Its H-only phase attribution must not select a redesign. Full H acceptance, current
+hardware/browser evidence and commit readiness remain unverified. No full Run17,
+commit or push was launched. Evidence: external `run-17-focused/FOCUSED-CLOSEOUT.md`
+and `run-17-focused/PERFORMANCE-REVIEW.md`; timing evidence and interpretation are
+in `run-17-focused/NATIVE-TIMING-RESULTS.md` and `NATIVE-TIMING-REVIEW.md`.
+This checkpoint edit follows the diagnostic source freeze; runtime bytes are
+unchanged. The draft full harness retains its
+pending source/review markers; it must not be launched from this checkpoint.
+
+## Historical execution checkpoints
+
+The dated checkpoints below describe their own source and evidence only. They
+are superseded for current action/status by the checkpoint above.
+
+
+**12 October: full-review source corrections prepared; validation remains stopped.**
+Three GPT-6-luna agents implemented the bounded compiler/tooling/architecture,
+hosted compatibility/RETAIN, and register corrections. Root implemented physical
+construction and integrated the changes. Source cross-review covered the new
+physical checkpoint decoder, register payload ownership and fused charges,
+legacy/debug routes and cycle-refusal fixtures. Review-found corrections were
+incorporated before this handoff. This is not compilation or test evidence.
+
+H01–H20 have source dispositions in the external
+`full-review-20261012/corrections/CORRECTIONS.md`. H15 was withdrawn after tracing
+layout selection: the standalone located temporal fixture has no overlay backing;
+its assertions remain unchanged. The other implementation findings have prepared
+corrections and regressions. The correction manifest separately identifies paths
+changed since the original audit and newly included paths.
+
+No correction test, build, formatter, Cargo command, hardware action, commit or
+push has run. Run16 remains the latest failed batch and H is not ready for commit.
+H21 performance and H22 current firmware/board/native-platform acceptance remain
+open; thresholds, the 16 KiB firmware margin and all IEC functions are preserved.
+The existing goal remains paused. Next action: authorize the consolidated batch
+in `full-review-20261012/corrections/validation-plan.md`; formatting and locked
+Windows dependency resolution/audit are still pending in that batch preparation.
+
+
+
+
+**12 October: complete H source review delivered; implementation remains stopped.**
+The owner requested a full read-only review after failed Run16. Root and three
+independent reviewers covered all changed code hunks and new code files in the
+562-path H inventory; the coverage records distinguish surrounding unchanged
+code, historical documentation and unexecuted proof. The external report is
+`/home/johannes/projects/.artifacts/runtime-portability-h/full-review-20261012/REVIEW.md`,
+with exact per-path coverage and a zero-product-drift receipt. It consolidates
+H01–H19 implementation/test/documentation corrections, advisory metadata H20,
+and unclosed performance/hardware acceptance H21–H22. The findings include
+physical constant/initializer/retain lifecycle gaps, swallowed cycle limits,
+optimized arithmetic/budget differences and legacy/debug compatibility defects.
+No correction, build, test, formatter, hardware action, commit or push was made
+as part of this review. Only external review records and this handoff note changed.
+The paused H goal is not complete or ready for commit.
+
+**12 October: Run16 failed; H stopped and not ready for commit.**
+The separately authorized consolidated batch ran 04:58:06–05:01:19 UTC on
+8,569 frozen source records. Its required ledger has 26 passes, 19 failures
+and 12 dependent UNRUN rows; metadata failed separately as advisory. Source
+and harness stability passed. The retained exact source archive has zero
+mismatches. No further test, formatter, product correction, commit or push
+follows this conditional stop. The H goal remains paused.
+
+New compiler defects prevented native behavior assertions: nonexistent Salsa
+derive; four borrowed temporal-input getters passed as owned values; missing
+TypeKind and test Arc imports; an unconstrained sort error type; and an unused
+physical-extent reexport under warning-as-error gates. These are six owning
+integration mistakes fanned out across shared build graphs, not 19 separately
+observed PLC bugs. Cargo.lock is unchanged from Full15; formatting preserved
+the preexisting authoring mistakes. The independent source review missed them.
+
+Architecture also rejects the new unregistered core test-support dev edge,
+new size/owner thresholds and the stale lowerer function-name entry. These
+policy obligations were missed during authoring/review; no check was bypassed.
+Native correctness, benchmarks, current firmware fit and both actual VS Code
+suites remain unverified. Diagrams and dependent browser/physical phases are
+UNRUN; no STM32 was flashed. Tooling24 tests, supply chain, dependency graphs,
+formatting, editor lint/compile, docs and stability checks passed independently.
+
+Evidence and root-cause reports: external `run-16-full/software/ledger.tsv`,
+`run-16-full/analysis/` and `run-16-full/frozen-source.tar.gz`; source archive
+SHA256 `6a80b0f60d586ba187971e124a346ecebd1e6cce0b5d59c9f2d1e95b1dc41397`.
+The following implementation/review checkpoint is historical and superseded
+by these failed compile/gate results.
+
+
+**12 October: H correction implementation and independent source review complete; validation unrun.**
+The owner requested all findings from the complete H review to be fixed.
+Core and hosted corrections are authored in `trust-platform-portability-h`,
+branch `feat/runtime-portability-hosted`, base `19f3b6787`. No correction test,
+build, formatter or validation batch has started. Full15 remains failed evidence.
+The owner subsequently authorized the researched temporal contract. New source
+applications use STBC 3.0 with uniform eight-byte temporal storage and SIZEOF.
+Legacy 1.1/2.0 retain their old widths and interpretation; checked physical writes
+reject loss before mutation. External DWORD TIME milliseconds remain unchanged.
+Implementation and native regression authoring are complete. Corrective
+review also separates structural type/value traversal from invocation depth,
+preserving the existing 64-edge admission bound and actual call-depth limit.
+No validation pass or H commit/push is claimed. No functions are removed from any composition.
+
+- [ ] H-TIME-01: Versioned 3.0 writer/reader/admission and preserved 1.1/2.0 ABI.
+- [ ] H-TIME-02: Uniform temporal SIZEOF, relative extents and array strides.
+- [ ] H-TIME-03: Exact negative/large temporal round trips, legacy atomic refusals,
+  old-reader rejection, retain/update ABI compatibility and unchanged I/O codec.
+  Preserve saved 2.0 corpora; the conditional H board replay uses a separate 3.0
+  GPIO artifact whose existing GPIO/depth oracle depends on full-width physical
+  temporal round trips. No binary generation or board execution is claimed yet.
+- [ ] H-TIME-04: Independent review and the consolidated H validation evidence.
+
+Independent correction review is closed by source inspection, with exact-path
+receipts outside git under `runtime-portability-h/full-audit-20261011/`,
+`h-temporal-reviews/` and `physical-writer-corrections/`. The hosted correction
+inventory has 63 paths: 34 reviewed by the core peer, 27 by the publication peer,
+and two physical-layout paths covered by the separate core review. Core's
+24-path depth/allocation/enum addendum and the final 20-path physical writer
+have independent host receipts. Root's temporal hosted/board fixture review
+and the core peer's HIR/spec review cover the new ABI integration. Author
+exclusions, the invalidated narrow writer review and its repaired full-file
+review remain explicit in those records. Source review establishes no pass
+for the authored native assertions.
+
+The owner authorized the new consolidated batch on12October by replying
+“continue” to the explicit fullHbatch request. Run16 is the sole new batch;
+no automatic retry, commit orpush.
+
+Next action: authorized formatting preparation, reconcile formatter deltas with
+review identities, freeze one source/harness, then one consolidated validation
+batch. The plan is `h-temporal-reviews/validation-plan.md` in the external task
+artifact directory. Full15 remains failed historical evidence; this is a separately authorized batch. H is not
+ready for commit, push or publication. Final size/heap/MSP/performance and the
+current 3.0 board replay remain unverified, including worst-case structural
+aggregate stack use.
+
+
+U publication is now complete: PR #133 merged at
+`603278202e7e60a918a79c98ec4eee9897ce911a`, and v0.24.74 release verification
+passed. The publication receipt is retained outside git at
+`/home/johannes/projects/.artifacts/runtime-portability-u-publication/RELEASED.md`.
+The following U/H paragraphs retain the historical execution sequence; their
+former stop/publication states are superseded by this checkpoint.
+
+**U modernization is scope-verified; publication is authorized and delegated.**
 U is isolated on `feat/runtime-portability-modernization`; all seven U acceptance
 items are checked after independent review and passing software/F401 evidence.
 [U execution](../../../notes/runtime-portability/u-execution.md) and
@@ -92,12 +2333,300 @@ failure and corrected MQTT companion note are historical records in the executio
 note. The immutable checkpoint is unchanged. Generated ladder-bundle whitespace
 is recorded as publication preparation.
 
-**Next development scope: H — full hosted adoption (M2B).** Define its bounded
-implementation and batch before starting: shared source-free hosted construction
+U publication's first PR #133 wave finished before correction. All native
+platform lanes passed; browser worker prerequisites, the cached cargo-deny version,
+and VS Code browser startup failed. The automatic review also identified a pinned
+PATH overridden by a login shell. The publication agent corrected the complete
+known set and obtained independent source/evidence reconciliation.
+
+Successor `0f066c9fbeecceae1e7eefc0f2b5084e46e1173a` has a passing exact-SHA
+guard: 8,710 native tests passed, zero failed, 24 ignored. All 13 required
+supplemental steps passed, including 519 tests on each minimum/current VS Code
+version and four browser checks in each qualified browser composition. The
+corrective push succeeded. All five successor workflows finished successfully;
+current-head reviews found one new source-manifest self-inventory defect. Its
+reviewed correction is committed as `a5b61b633`. Its exact-SHA release guard
+passed 8,713 native tests, zero failures and 24 ignored tests; all 16 supplemental
+steps passed. The corrective push succeeded. Successor `63cab14e3` passed its exact-SHA guard and all 17 supplement steps.
+All 26 public checks completed, but raw macOS logs exposed a scan-timing assertion
+rescued by a retry. Merge remains held; bot review requests were refused for quota.
+The independent-reviewed measurement fixture isolates and pairs the unchanged
+ST/SQLite workload without relaxing its threshold. Its U focused native validation
+passed, and successor `93294e0d3` is committed locally; it has not been pushed or
+qualified by a new guard/CI. Fresh macOS and release proof remain open.
+
+The core/adapter/firmware/compiler/Cargo/STBC source delta from `d823861a2` to
+`0f066c9fb` is zero bytes. Its physical evidence is explicitly the retained
+`d823861a2` tuple, not a new board execution: firmware
+`c010eed884d7d907a22f41d27bd10fce332c40f93a300026fa68672cdbb3abe8`, UART
+`37662b3bb9923287bf36bb45d10de8d9aed669ca19392934692c539b79c7bafb`,
+101 oracle-matched samples, 40 periodic activations, zero missed activations;
+upper flash free 23,520 B, heap peak 28,272 B and MSP peak 13,652 B.
+External evidence remains task-owned; planner/catalog findings are disclosed as
+advisory. Physical markings/manual button/optical LED remain unverified.
+These bytes are U evidence, not acceptance of H's changed core.
+
+**H stopped after failed complete final batch — not ready for commit.**
+The owner's 11 October authorization was one completed implementation/review,
+one full consolidated batch, then STOP if it failed. Full15 ran from
+20:02:33–20:44:17 UTC on branch `feat/runtime-portability-hosted`, base
+`19f3b6787ef1e2d8fd434851684c463baab645e9`, against one frozen dirty source.
+All 8,537 source records and the harness stayed unchanged throughout the batch.
+The ledger contains 50 required passes, four required failures and two dependent
+UNRUN steps; verification metadata failed separately as advisory. The complete
+workspace reported 8,855 passed, 66 failed and 24 ignored assertions across 332
+parent result blocks, excluding nested child stdout from the count.
+
+Required failures: native workspace, unchanged U/H latency acceptance, diagram
+rendering and the real-database ST application gate. Portable stack/register,
+i686, isolated runtime-only/full/development compositions, F401/C6 library
+checks, firmware link/inspection, lint, architecture, supply chain, docs,
+browser workers/captures and both VS Code suites passed. Each VS Code lane ran
+519 passing tests; browser captures ran ten. The fresh F401 image has 18,848 B
+free in the upper code region, above the unchanged 16 KiB floor.
+
+Read-only comparison with specs and old code identifies actual OVERLAP wire-layout
+loss, deliberate STOP force/queued-write cleanup regression, checked-live nonfinite
+admission inconsistency and default-profile resource compatibility failures.
+Enabled return defaults expose an inherited implementation/spec mismatch. Other
+legacy format, tier-reset and fixture expectations require individual dispositions;
+they are not all new execution defects. The unchanged performance medians exceed
+the 1.10 ratio in all three workloads; call_binding p99 also exceeds 1.25.
+The diagram fails at line 303; diagram drift is UNRUN. Physical H replay is UNRUN
+because required software acceptance failed. No hardware was flashed.
+
+Full15 evidence, frozen source archive and read-only root-cause receipts are retained
+outside git at `/home/johannes/projects/.artifacts/runtime-portability-h/run-15-full/`
+and `complete-spec-review/`. [H execution](../../../notes/runtime-portability/h-execution.md)
+records the source/review identity and evidence limits. Source-preserving closeout
+updates are documentation only after the frozen batch. H's goal is paused under
+the owner's explicit conditional STOP: no post-failure product corrections,
+retests, H commit or push. Independent U/#133 publication continues.
+
+**Historical H correction checkpoint:**
+The owner authorized all necessary H tests/rebuilds/retests and all review fixes.
+The independent 41-row review found five owning issues: the legacy consumer,
+anonymous legacy type bindings, default-clone construction accounting, reset
+wording and missing benchmark acceptance comparisons. All five corrections were
+implemented and reviewed. Focused10 finished with 20 required passes and three
+failed suite rows: full/development compositions and hosted corrections. Core
+all-features (480), portable stack (404), portable register (417), i686 (308),
+xtask (112) and debug (95) native assertions passed; F401/C6 library checks,
+Clippy, cross warnings, architecture and source/harness stability passed.
+Counts are per configuration, not distinct tests. Four unique new test failures
+are fixture/expectation defects: methods lacked PUBLIC, a qualified function
+used undeclared EN, VAR_CONFIG pinned a producer diagnostic instead of the
+owning HIR E202, and plain export was compared against opt-in debug sections.
+The complete failed 8,535-record snapshot is archived with zero mismatches.
+These four fixture-only corrections are prepared without production changes.
+The reviewed current U source-identity checker is adopted separately; historical
+byte-only snapshots remain historical, not relabeled as its new identity format.
+Benchmark acceptance will load the same saved U STBC1.1 bytes in both builds,
+compare all 1,152 cycle observations and retain 1,024 raw latency samples.
+Focused9 was frozen but never run. Focused10 remains failed. Corrective11 ended with 17 required passes and two
+external benchmark-consumer compiler failures: sha2 0.11's digest no longer
+implements LowerHex. Both full/development compositions passed 3,797 assertions;
+the default hosted selection passed 3,999 and xtask passed 119. All four fixture
+corrections passed. Lint, cross warnings, architecture and source/harness stability
+also passed. Counts are per configuration. The exact 8,535-record failed source
+is archived with zero mismatches. The owning external-runner correction reuses
+hex::encode, as current xtask already does; production Rust and PLC assertions
+stay unchanged. The consumer-only repair passed all nine required checks, including both release
+compile checks and exact source/harness stability. No production Rust or native
+assertion changed between corrective11 and that repair. Individually passing
+corrective10/11 lanes and the isolated repair form one pinned evidence chain;
+the failed ledgers remain failed. Full H acceptance and a new hardware tuple remain open. The tested U measurement
+fixture/spec correction is adopted through five non-production owners, preserving
+H's existing telemetry API migrations, and requires fresh H native execution.
+Next qualify common-artifact performance and linked/inspected F401 fit before
+expensive final host/editor/hardware acceptance; failed prerequisites remain open.
+Full12 qualification finished with 11 required passes and one failed benchmark
+step. Both builds preserved all 1,152 trace rows, tier counters and zero fallbacks.
+Call binding failed the unchanged latency bounds (median ratio 2.2602, p99 1.6949),
+references/SIZEOF failed (1.9773/1.4051), and string stdlib passed (0.8632/0.8358).
+The fresh F401 image linked and passed inspection with 19,232 bytes free in the
+upper region, above the unchanged 16 KiB floor. Firmware native/Clippy, application
+packing, tuple hashes and source/harness stability passed. Broad host/editor and
+physical H qualification remain unrun; Full12 remains failed. Cycle-only
+Callgrind on the retained binaries identified repeated dynamic-reference owner
+resolution across unrelated reference-table entries as the main reference cost.
+The successor correction prepares kind/slot candidate groups, preserves every
+alias and conflict check, prefilters impossible paths and reuses already checked
+static-reference addresses. Review and focused native/performance proof precede
+any broad acceptance rerun; neither bounds nor functionality are reduced.
+Focused correction13 is terminal: five required infrastructure/stability checks
+passed, and eight compiler/test/lint/MCU lanes failed at the same new E0277.
+No behavior assertion executed. The prefilter borrowed a Vec where strip_prefix
+requires a slice; explicit as_slice restores the old borrowed-slice contract.
+The 8,537-record failed snapshot is archived with zero byte/mode mismatches
+(8,522 regular files and 15 missing records). The one-line correction is prepared;
+independent review and focused native14 validation remain pending. There is no
+performance, fresh successor firmware or hardware acceptance from this failure.
+H is isolated on `feat/runtime-portability-hosted` from immutable U checkpoint
+`19f3b6787ef1e2d8fd434851684c463baab645e9`; no H commit/push is authorized.
+H's first frozen software batch completed on 11 October with 20 required passes,
+16 required failures and 13 dependent steps unrun, plus one advisory pass.
+The isolated runtime-only stack consumer executed four tests successfully; failed
+workspace/core/register/composition lanes stopped at compilation. No failed PLC
+behavior assertion was observed. MCU firmware link and hardware remained unrun.
+The exact 8,527-record source snapshot is preserved externally and reconciled
+without mismatches. Core and host corrections are authored and independently
+reviewed; factory, clock and architecture-owner corrections await final review.
+Focused validation comes before repeating the complete workspace/editor/hardware
+allocation. No H acceptance item closes from an unrun correction.
+The subsequent focused batch finished with 18 required passes and 11 failures,
+with source/harness stability passing. Native assertions now distinguish two new
+fixture error-identity mistakes from the unchanged core timeout contract; numeric
+values pass, but an EXPT body legitimately follows the inherited stack fallback.
+No-driver composition and supply-chain checks pass. Exact failed source is retained
+again. The complete next correction includes positive register proof on the saved
+clock artifact, checked/reference-instruction allocation regressions, feature-owned
+unit fixtures and responsibility splits under unchanged architecture limits.
+Focused run 3 completed at 14:18:04 UTC with 21 required passes, six failures and
+no unrun steps. No native assertion failed: core default library 281 passed,
+portable-register selection 271 passed, i686 selection 298 passed and the
+independent register consumer four passed. F401/C6 core warning checks and the
+full architecture map passed. Hosted tests remained compilation-blocked by two
+missing imports and SQLite fixtures compiled without their driver. The external
+unsafe scanner also detected shifted line registrations for unchanged allocator
+code. All 8,530 source records reconcile with the retained failed snapshot.
+The four-owner correction restores the imports, gates only driver-specific
+fixtures and rebinds all seven existing allocator registrations. Independent
+source review accepted it before focused run 4, whose result follows.
+Focused run 4 completed at 14:53:58 UTC with 10 required passes and five failures.
+Format, unsafe AST, full-map and source/harness stability passed. Hosted native
+assertions did not execute: two allocation-test calls passed a borrowed view where
+the installed facade requires a reference to ValueRef, while warning-denied unit
+builds exposed unused private legacy fixture APIs. Clippy also identified complex
+tuple signatures, two nested conditionals and a helper placed after its tests.
+The exact 8,530-record failed snapshot is retained with zero mismatches.
+The corrective slice changes the two caller arguments, preserves the tuple types
+through aliases and removes only unreachable test-only compatibility code; active
+production services and all native assertions remain.
+Focused run 5 completed at 15:05:35 UTC with 10 required passes and five compiler
+failures. The prior legacy-warning and allocation-call roots are resolved; newly
+reachable compilation found one fixture import still inherited from its removed
+parent API and six unsupported fields in two new DAP request literals. No native
+assertion executed. Both test-only corrections are source-reviewed; focused run 6
+adds DAP native execution and uses supported Clippy compiler keep-going without
+changing test assertions or their no-fail-fast allocation. Earlier core/MCU
+receipts remain historical evidence rather than new executions.
+Focused run 6 completed at 15:15:56 UTC with nine required passes and six failures.
+Native behavior now executed: full/development no-driver compositions each passed
+3,755 assertions and failed 35; the hosted selection passed 3,908 and failed 34;
+DAP passed 94 and failed one. Across configurations there are 39 unique failing
+test names, plus seven lint findings. The existing reference-allocation suite
+passed all three tests, including 128 LOAD_REF and 256 STORE_REF observations;
+registry isolation passed three and register/stack string parity passed one.
+The complete 8,529-record failed snapshot is retained with zero mismatches.
+Corrections address the owning FB-frame validator, equivalent anonymous reference
+shapes, configuration seed target, legacy STRING I/O width, nested register scratch,
+hosted labels/diagnostics and feature-specific protocol expectations. New fixture
+mistakes are recorded separately: explicit tier reset, duplicate PROGRAM type,
+pre-instruction debug observation and retained-label rejection stage. No production
+hook or validation is weakened to fit a test. Focused run 7 is prepared, not run;
+changed core, 32-bit and both MCU graphs require fresh evidence. Full workspace,
+editor/browser, benchmark, firmware link and physical H acceptance remain open.
+
+[H execution and command allocation](../../../notes/runtime-portability/h-execution.md)
+records the owning seams, compatibility audit and validation. Deliver shared source-free hosted construction
 and library coverage, the internal register tier, preserved host APIs/workflows,
 and real runtime-only/full/development compositions. All IEC/runtime functions
 remain available on every platform. E/C6 bring-up stays open until its board is
 available; later bounded-operation and production qualification scopes stay open.
+
+On 11 October the owner delegated selection and specification of the mutation
+lifecycle. Spec 34 v0.14 §4.3.1 / HOST-09 now selects construction-only raw access,
+checked installed-state value writes, separate debug parsing types and isolated
+candidate schema changes. HOST-03 explicitly records the live Rust mutable-reference
+API migration while preserving PLC functions and hosted workflows. Spec 11 carries
+the planned-H cross-reference. The owner resumed the goal after that amendment.
+H now separates owned mutable engine data from operation-scoped metadata/service
+borrows and adds a std owned-controller facade, preserving the borrowed MCU API.
+Ownership/parity/rollback/access tests are authored; independent source review
+accepted the ownership slice, with accounting corrections included. Shared
+optimized plans and ready-scratch reuse are authored and under source review.
+Declaration lowering now owns a non-executable `RuntimeBuilder`; both producers
+borrow a read-only authoring view. Debug expression parsing uses scratch registries,
+watches retain their scratch types, and dynamic assignment indices are resolved
+without extending installed types. Active-frame observers are read-only and suppressed
+during isolated candidate construction. All corresponding assertions are authored,
+not run. Independent source review accepted these slices after comparing explicit
+cache reset and profile reset against old U. Later preparation compilation failed
+before any native assertion; its retained results are recorded below.
+Shared cycle hooks now borrow host adapters through checked owner-local ports,
+including ADS/OPC UA inputs and output capture. The ordinary MCU cycle retains
+its no-hook path; hosted post-output rollback journals only touched flat Q
+windows and preserves the old marker/hierarchical rollback domain. Full live
+caller views and detached named debugger snapshots are authored, with actual
+depth-four, ancestor retirement, observer-failure cleanup, watch/pause and
+conditional-breakpoint regressions. The host clock adapter preserves UTC and
+debug-pause deadline accounting. Source review accepted the caller view and
+root reviewed the hosted service implementation; whole-scope review and every
+H execution check remain pending. Diagram sources are updated, not rendered.
+The public hosted `Runtime` now owns one shared controller and immutable tooling
+metadata, with checked value/image APIs and an immutable image view. Ordinary
+`CompileSession`/test-harness construction is wired to STBC 2.0 admission and the
+same engine; explicit 1.1 production is confined to a non-executable builder.
+The 1.1 import bridge preserves supplied table prefixes, ordinary instruction
+bytes and local ranges while appending initialization metadata/code. Source-free
+tooling types use an explicit artifact-to-HIR mapping, and configured program
+templates remain separate from instance names so `USING` scope is not lost.
+Hosted cycle adapters are wired for drivers, debug queues/forces, protocols,
+retain checkpointing, metrics and safe-output faults. Native constructor,
+25-ms scheduling, rejection/force ordering and expired-watchdog delivery tests
+are authored, not executed. The scalar cycle-image read accounting gap found
+in source review is corrected with native assertions, also unrun.
+Manual-builder installation, atomic retained-value migration and candidate
+replacement are now authored, including typed aggregate/instance seeds, image
+intersections and checked protocol/safe-output rebinding. DAP production callers
+use checked installed operations and detached snapshots; retained scopes project
+actual declared global/program fields, without a second retain bank. Historical
+dispatch/Expr/lifecycle corpora are explicitly private `cfg(test)` fixtures.
+Ordinary exports preserve immutable deployment initializers instead of serializing
+current PLC values. Native regressions cover these paths and publication rollback
+before/after successful driver submission; all remain unrun. Source review found
+and corrected unverifiable source-map association, lost character materialization
+and retained program-object loss on incompatible replacement.
+Resource-only task/image/binding transactions and contextual supplied-artifact
+loading are authored. Engineering ADS writes queue the canonical value returned
+by the shared writer, preserving exact wire encoding after admitted conversion.
+Retained management targets use an ordered metadata index and resolve current
+live global/program destinations; single lookups share the current scan fuel.
+External integration callers now use admitted builders or checked writes; explicitly
+isolated bridge/codec fixtures remain distinct from PLC execution evidence.
+Runtime-only/full/development feature compositions and saved-artifact/clock tests
+are authored. Historical `cfg(test)` fixture types are explicit, without a
+production ingress. The embedding migration guide documents replacement APIs.
+U's committed validation prerequisites are integrated without replacing changed
+H owners; H reserves version 0.24.75. The first preparation completed: formatting,
+frontend/WASM prerequisites, baseline and syntax-corpus generation passed. Fixture
+producer compilation failed on two missing imports after relocation, and the
+consumer setup failed because the clock fixture was unavailable. These are
+retained preparation failures, not PLC assertion failures. The imports and
+dependency guards are corrected for independently reviewed recovery preparation,
+which reuses successful prerequisite receipts. Native software validation and
+fresh H hardware evidence remain unrun. Copy back/review generated outputs and
+freeze before that batch. Diagram sources are updated, not rendered; H is not
+ready for commit.
+
+Recovery preparation R2 reached hosted compilation and retained nine errors and
+eight warnings. Their complete owning corrections preceded R3, whose seven
+required steps passed: both fixture producers and the isolated consumer setup
+are now generated. Twelve subsequent warnings were traced before freeze; one
+revealed missing per-program hosted profiling, now restored with paired optional
+common-engine observations and authored success/fault/deadline assertions. The
+corrected source is not yet native-verified. Failed attempts and source-review
+identities remain in H's execution record; no H acceptance box is closed by
+preparation alone.
+
+Final recovery preparation R4 passed all six required steps and its advisory
+refresh. Both fixture producers compiled without warnings; generators succeeded
+and the independent consumer's clock fixture still matches. The three original
+STBC fixtures match the U base exactly; the new clock fixture is separately
+pinned. Returned formatted bytes are under independent final review before
+freeze. No H PLC execution, consolidated software batch or board phase has run.
+U publication continues independently.
 
 
 Published A1 integration record (10 October): PR #130 merged through the guarded merge at
@@ -647,7 +3176,7 @@ These items closed after reviewed corrections and A2-R6/R7/R8. Runs 1–3 certif
 | B — F401 bring-up (M2A-B), complete | A4; same engine/artifact on NUCLEO-F401RE, frozen 1.95 tuple, timer, process images, UART, IWDG and instrumented bring-up heap. | Physical trace agreement; reset/fault outputs; linked sections, preparation/RUN/heap peaks, native stack paint/MSP/IRQ headroom, numeric timing. B plus A closes M2A. |
 | E — C6 bring-up (M2E) | A4 and an available C6 board; reuse the common corpus promptly to expose second-architecture assumptions. | Actual board execution, I/O/time/watchdog, software-float cost and memory evidence. No board means this gate stays open. |
 | U — Modernization (M0U), scope-verified; publication authorized | Default after A+B, before H; E need not block it. Selected dependency/toolchain/edition/resolver/MSRV/Node migrations implemented and independently reviewed. | MOD-01 ledger, retained software batches and new physical F401 replay passed for the recorded tuple; final release guard/native CI/publication remain separate. |
-| H — Full hosted adoption (M2B) | A+B, normally U; finish shared execution/library coverage, internal register tier and runtime-only/full/development compositions. | Saved-artifact and existing configuration/API/debug/HMI/protocol/restart/update workflows; native Linux/macOS/Windows evidence. |
+| H — Full hosted adoption (M2B), current acceptance open | Shared execution/library coverage and runtime-only/full/development compositions are implemented. The historical C21 performance exception does not qualify subsequent candidates. Constructor/scan work exhaustion is closed by TIME-08/09 (runs 3 and 4) and register-call native stack depth by the admitted depth-33 tests (run 3). Hosted timing: the call-path work in the current checkpoint reaches parity on the diagnostic copy; run 5 on the frozen source, including renewed F401 size, stack and board evidence, is next. No H commit/push yet. | Saved-artifact and existing configuration/API/debug/HMI/protocol/restart/update workflows; native Linux/macOS/Windows evidence. Explicit native-OS limitations if not available before commit. |
 | C — Bounded operation (M3) | Early hardware findings plus relevant H work; compound storage/atomic retirement, import limits, fixed fault records, bounded persistence and real generation lifetimes/admission/deployment. | Allocation instrumentation including first-use/error/destruction; capacity rejection; lifecycle/update/readers and persistence fault injection. Preserve independent PLC value copies. |
 | QH — Hosted qualification (M4H) | H+C+U for each declared build. | Spec 34 §14 on each claimed native OS/architecture, bounded operation and preserved workflows, timing/load/performance records. |
 | QF — F401 qualification (M4) | B+C+U for the final build. | §14 on the actual F401: completion-level timing, memory/stack, power-cut retain/install recovery, real faults/watchdog/I/O and declared soak/disturbances. |
@@ -684,6 +3213,80 @@ If a prerequisite fails, record dependent commands as unrun; collect independent
 planned batch where safe. Do not restart failed commands automatically or count zero selected tests
 as acceptance. Code changed after validation requires another explicitly authorized batch before
 claiming that new code verified.
+
+### H and runtime qualification — expanded assurance plan (12 October)
+
+Owner request: add all applicable test categories for this critical runtime. This
+section turns spec 34 HOST-03/04/09, LOAD, MEM, TIME, UPDATE, COMPAT and TEST-01–05
+into an explicit execution plan. Specs 10, 11 and 12 remain the behavior authority.
+This is a plan, not evidence that a campaign ran or a claim of zero defects.
+Unchecked items require a coverage audit and current evidence; they do not mean
+that the named existing suites have never run. Reuse existing native assertions
+before creating more tests, and retain intentional compatibility decisions.
+
+**Order and scope.** Finish the active focused correctness/performance correction
+first. Then audit current coverage and add missing native assertions. Run targeted
+properties, fault injection, source mutations and bounded fuzz campaigns before
+H's broad acceptance. Freeze source and campaign definitions before each authorized
+run; deduplicate suites and reuse unchanged, source-bound evidence. The owner's
+standing focused-retest authorization remains in force. Full acceptance/release
+rules and later C/QH/QF/QE hardware/qualification obligations are unchanged. New
+hardware, publication, platform features and a second execution engine are not
+implied by this test plan. Tests of C-only functionality run when C implements it.
+
+| Item and scope | Risk, required assertions and starting coverage | Evidence/pass criteria |
+| --- | --- | --- |
+| [ ] A01 — Native contract coverage (H) | Audit each changed H behavior against a native assertion: construction versus installed writes, default/local initialization, owned/borrowed arguments, explicit NULL, OUT/IN_OUT aliasing, references, faults, restart and generation replacement. Start with core unit tests, `owned_runtime_state`, `checked_owner_references`, `checked_owner_images`, `source_free_cycle`, `resource_reconfiguration` and the runtime vertical. | Spec clause, actual test selector, feature/target and current source-bound result. Every identified behavior gap gets a native regression. Zero selected tests is not a pass. |
+| [ ] A02 — Executor differential replay (H) | Run the same saved artifact and complete input/time trace through shared stack, register interpreter and Tier-1 where eligible. Include nested/recursive calls, first invocation, rare branches, debugger fallback, failure/unwind and state reuse. Start with `bytecode_vm_differential`, `portable_register_parity`, `runtime_core_compiler_free_load` and `portable_construction_parity`. | Compare each cycle's values, outputs, tasks, faults and supported restart state. Compare original U only for unchanged contracts; corrected legacy defects are not oracles. Record intended fallback instead of demanding every program specialize. |
+| [ ] A03 — Property-based execution tests (H) | Generate bounded well-typed programs and values: argument permutations, defaults, alias graphs, arrays/strings, references and legal call trees. Cross-check executors and the documented invariants. | Fixed reproducible seeds and case/depth/size limits; shrinking or minimization for failures; independent expected properties rather than copying the implementation into the oracle. |
+| [ ] A04 — Metamorphic tests (H) | Semantics-preserving transformations: positional versus equivalent named arguments, omitted versus explicit defaults where equivalent, serialization round trips, harmless POU/name reordering, and repeated preparation of the same artifact. | Same observable behavior under documented transformations; explicitly exclude transformations that change evaluation order, aliasing or numeric rounding. |
+| [ ] A05 — Focused source-code mutation (H) | Use the existing mutation runner on changed guards and transitions: constant-write checks, staging restrictions, lifetime rejection, bounds, work/deadline limits, failed-candidate preservation, binding/copy admission and cleanup. Existing entry points are `verification/mutation-program.toml` and `scripts/verification/mutation_program_cli.py`; audit selectors against the current sources before execution. | A passing unmutated baseline, exact source/mutant identities and named tests. Every selected viable non-equivalent mutant must fail the intended assertion. Build failures, timeouts and unviable mutants are separate outcomes, not killed-by-test evidence. Investigate survivors; add missing assertions, remove dead code or document a reviewed equivalence/unreachable rationale. Historical mutation evidence remains immutable. |
+| [ ] A06 — Byte-level container fuzzing (H/qualification) | Existing `fuzz/fuzz_targets/bytecode_container.rs` calls decode only, with a 1 MiB input cap. Exercise truncation, lengths, overflow, section order/overlap, checksums and supported-version boundaries. | No panic, hang or uncontrolled resource use within declared limits. Seed corpus, engine/tool version, duration, executions, coverage and minimized failures retained. Decoder survival does not certify validation or execution. |
+| [ ] A07 — Structured validator/admission fuzzing (H/C/qualification) | Add or verify a harness that reaches decode → full validator → profile admission/preparation. Seed valid supported STBC versions and mutate instructions, types, references, calls, imports, initialization, storage/image demand and bound configuration. Recompute integrity fields where needed to reach deeper checks. Start from `bytecode_source_free`, `bytecode_validation_budget`, `bytecode_validation_scale`, `source_free_profile_admission` and saved artifacts. | Inputs rejected deterministically within declared work/memory bounds; no unvalidated executable state. A rejected candidate leaves the installed generation and outputs intact. Native deterministic regressions for every discovered defect. Mark the deeper harness missing until its code actually exists. |
+| [ ] A08 — Stateful operation-sequence testing (H/C) | Generate valid and invalid sequences of load, install, start, scan, checked write, debug operation, stop, warm/cold restart and candidate replacement. Include stale references/generations, repeated failures and recovery. | Compare against a small explicit state-transition model from the spec. Assert legal transitions, ownership, retained state and failure atomicity after every operation. Bound both sequence length and resource demand. |
+| [ ] A09 — Resource-boundary and exhaustion tests (H/C) | Test zero, one, exact-limit and limit-plus-one for stack/call/reference/type depth, instruction/helper work, strings/arrays, images, instances, validation/preparation memory and service queues with explicitly declared capacities. Include compound-size multiplication/offset overflow on 32-bit. | Correct stable fault and first-fault order; no premature publication, leak, stale handle or partially installed candidate. Cover `vm_resource_limit_cases`, `portable_execution_frames`, `bytecode_decode_resource_bounds` and allocation profiles. |
+| [ ] A10 — Failure injection and transactional recovery (H/C) | Inject reservation refusal, clock/deadline expiry at different phases, driver/import failure, copyback failure, retain/checkpoint failure and failed replacement. Include failure after earlier parameters/outputs have been staged. Exercise non-returning driver/import callbacks under external supervision: verify independent recovery or rejection by the applicable capability/profile rule; an in-thread deadline poll cannot cancel a hung callback (PORT-02/TIME-03/TEST-01). | Snapshot pre/post logical state and journal/identity ownership; assert the spec's commit/rollback/safe-state boundary. Physical I/O is qualified separately—do not promise rollback of effects already sent to hardware. Retain the original error while cleanup finishes. |
+| [ ] A11 — Ownership, aliasing and lifetime stress (H/C) | Nested arrays/structures, independent PLC copies, COW, reference escape, IN_OUT/OUT aliases, frame retirement, instance batches, retained graphs and re-entry. Repeat successful and failed operations with reusable scratch. Start with `memory_lifetime`, `bounded_value_semantics`, `checked_owner_references` and source-free restart tests. | No cross-instance/state contamination; dead references rejected; no stranded identities or unrecycled scratch after fault. Existing safety checks remain enabled. |
+| [ ] A12 — Temporal ABI and physical layout (H) | TIME/DATE/TOD/DT and long variants, SIZEOF, relative field placement, nested/overlapping structures, direct/partial access, I/O encoding and external protocol units. Check 32-bit and 64-bit hosts and supported artifact compatibility boundaries. Start with `temporal_storage_abi`, `sizeof_semantics`, `datetime_range` and `io_hierarchy`. | Exact eight-byte product contract and explicit legacy/external conversions; no silent truncation, field overlap or hidden host-size dependence. Include minimum/maximum, negative and fractional-time cases. |
+| [ ] A13 — Numeric and standard-library corpus (H/qualification) | Integer widths/conversions/overflow, REAL/LREAL rounding, subnormals, signed zero, non-finite rejection, division by zero, EXPT/libm range cases; timers, counters, triggers and bistables including edge transitions. Use `source_free_numeric`, `portable_native_functions`, existing IEC trace suites and pinned independent reference vectors. | Exact or tolerance-qualified oracle as NUM specifies, including stable faults and relevant near-threshold PLC decisions. Do not use the function under test to generate its own expected answer. All runtime functions remain enabled. |
+| [ ] A14 — Scheduling and clocks (H/qualification) | Non-multiple task intervals (25 ms/10 ms), priority/due/index ties, missed periods, jumps, timer wrap/backward time, cold/warm state, event/single tasks and deadline expiry mid-operation. Include staggered and coincident fast/slow nonpreemptive task batches, delayed output publication and admission against SCHED-04. Start with `task_readiness_cases`, `tasks`, `scheduler_resource` and timer trace suites. | Nominal deadlines do not drift; misses counted and dropped without replay; cycle order and fault/output behavior match the spec. Logical-time evidence is separate from OS/hardware timing. |
+| [ ] A15 — Retain, restart and installation (H/C/Q) | Warm/cold restart, retained alias/instance graphs, schema mismatch, corrupt/truncated checkpoints, interrupted journal/install and repeated recovery. Start with `runtime_restart`, `vars_retain`, `retain_integrity`, `source_free_restart_graph` and transaction trace suites. | Explicit last-flushed/committed guarantees, no mixed generations and unchanged active state after rejected candidates. Host fault injection precedes physical power-cut qualification for implemented persistence. |
+| [ ] A16 — Concurrency and service boundaries (H/C/QH) | Debugger writes/forces, readers during replacement, cancellation, bounded queue saturation, shutdown and callback ordering, including externally supervised non-returning callback cases from A10. Exercise real host interleavings; use deterministic scheduling/model checking where a small actual synchronization unit permits it. | Single mutable execution owner, no lost/duplicated commands, stale-reader misuse, deadlock or unbounded control-thread wait. A mocked ordering test does not replace real host concurrency evidence. |
+| [ ] A17 — Miri and sanitizers (H/C/qualification) | Select compatible core ownership/container/lifecycle tests for Miri. Run supported sanitizer builds on affected unsafe/FFI/native boundaries; audit actual unsafe registrations and dependencies. | Toolchain/flags and selected paths recorded; no UB/memory violation in the exercised scope. Unsupported tests/targets are explicitly unrun, not clean. Keep instrumentation separate from release performance evidence. |
+| [ ] A18 — Memory/allocation and stack evidence (H/C/Q) | Counting allocator on construction, scan, first-use, rare errors, copying, restart/replacement and destruction; bound peak/live allocations and detect growth across repeated cycles. Native stack/recursion measurements and actual MCU stack paint/high-water. | Profile-specific bounds and headroom. Zero control-path allocator operations only where C's bounded profile requires and demonstrates it; hosted/admitted allocations attributed honestly. Heap/RSS, logical accounting and stack are separate measurements. |
+| [ ] A19 — Composition, features and target matrix (H/qualification) | Full/runtime-only/development builds; std/no_std and register feature combinations; native Linux/Windows/macOS, 32-bit execution and isolated F401/C6 target graphs. Verify compiler/HIR/service exclusions and admitted import descriptors. | Same supported PLC semantics and declared capabilities. A cross-target cargo check is compile evidence only; Linux is not native Windows/macOS proof, and a firmware link is not a board run. |
+| [ ] A20 — CLI, API, debugger, HMI and protocols (H) | Existing supported project/configuration/build/test-program/deployment workflows, checked engineering writes, authentication, debugger edits/forces/stepping, protocol image access, stale/invalid input age and quality, restart and published state. Assert that queued normal outputs cannot publish after STOP/FAULT/replacement and record fault-actuation completion separately (PORT-04/STATE-04). Include runtime vertical, relevant HMI/protocol/native integration suites, actual browser and minimum/current supported VS Code wiring journeys. | Rust assertions prove logic; live UI tests prove wiring/rendering. Use real supported protocol peers/device cases where required. Record unavailable services/platforms instead of substituting mocks for end-to-end claims. |
+| [ ] A21 — Real-time and performance qualification (H/Q) | Finish H21's original-U release comparison first. Later measure wakeup latency, computation, output submission and physical completion under documented CPU/I/O/service interference. Capture first-use and tail latency, not averages only. | Exact artifacts/inputs/features/toolchain; native timing distributions, unchanged thresholds or explicit owner-approved tradeoff. Current corrections do not grant a waiver. Instrumented profiling is diagnosis, not release timing proof. |
+| [ ] A22 — Hardware replay and disturbance (H22/B/E/Q) | Replay the same qualified artifacts on the connected F401 and the selected C6 when available; GPIO, timers, UART, watchdog, reset, actual I/O failures and declared interference. Re-measure flash, heap and stack for the changed build. | Reviewed physical topology and source/firmware/artifact identity, real trace agreement, safe outputs and measured resource margins. Keep historical bring-up distinct from current-build qualification. |
+| [ ] A23 — Soak, lifecycle cycling and recovery (H/C/QH/QF/QE) | Define realistic long-running workloads, durations, restart/replacement counts, release phases, service/memory pressure and permitted maintenance before launch. For H/QH, start from §14.1's proposed 100,000-cycle integration workload at 10 ms, freezing its suitability and limits before execution. Define extended hosted soak separately under TEST-03; extend by declared risk and platform envelope. | No unexplained faults, drift, leaks or missed configured deadlines inside the declared nominal envelope. Injected failures have their own expected outcomes. Duration alone is not a reliability probability or WCET proof. |
+| [ ] A24 — Coverage-guided review and final acceptance (H/Q) | Inspect line/branch coverage on changed failure/cleanup code and uncovered assertions; combine with mutation survivors and independent full-diff/spec review. After focused gates are green, execute the required deduplicated broad acceptance/release batch at its frozen identity. | Explain uncovered critical paths and remaining platform/qualification gaps. Coverage percentage, test count or a tool's exit code alone is not correctness. Commit/push/release still require the existing authorizations and exact-SHA guard. |
+| [ ] A25 — Public API and type-boundary rejection (H) | Compile ordinary external consumers and compile-fail cases for forbidden installed-state mutation, invalid validated-token construction, escaping borrows and unavailable internal execution traits. Include supported API migration examples and rustdoc cases. | Valid consumers build under the declared features; forbidden examples fail for the intended error, not an unrelated missing import/dependency. Public installed state cannot bypass checked mutation. |
+| [ ] A26 — Source/compiler-to-artifact integration (H) | Existing lexer/parser/HIR/IDE/WASM tests plus real ST projects through compile, saved artifact, load and execution. Include TEST_PROGRAM workflows, configurations, namespaces, OOP/interfaces, alias/default lowering and local/static/edge/retain declarations. Exercise source diagnostics and valid programs, not only hand-built bytecode. | Correct diagnostics and lowering; source-built and compiler-free execution agree where promised. A hand-built fixture does not alone prove the source-authoring route. |
+| [ ] A27 — Independent conformance/oracle checks (H/Q) | For critical numerics, timers/counters, scheduling and storage semantics, derive expected vectors directly from the owning IEC/product contract independently of the runtime implementation. Where an already available independent implementation/reference tool matches the contract, compare bounded common cases and document differences. | Independent expected values and documented precision/platform assumptions. Majority agreement is not authority over the spec; unavailable/licensed hardware or tools remain explicit limitations. |
+| [ ] A28 — Bounded formal/model checks, feasibility first (C/Q) | Assess small pure high-risk kernels: checked offset/count arithmetic, deadline advancement, identity reuse/lifetime rules and transactional state machines. Use a supported bounded checker or explicit finite-state exploration where its assumptions can be stated. | Record model, bounds, assumptions and correspondence to production code; a bounded proof applies only to those bounds and properties. Tool availability and feasibility are open, and this is not a claim to formally verify the entire runtime. |
+
+**Campaign preparation and evidence.** Before each mutation/fuzz/property/soak run,
+record exact commands, toolchain, target/features, source and artifact identities,
+seed/corpus identity, input/depth/memory/work limits, time/execution budget, CPU/disk
+allocation, required invariants and stop/pass criteria. Start with focused critical
+paths and expand after those pass. Do not launch an unbounded whole-workspace
+mutation run while the focused behavior or performance gate is failing. Preserve
+all failures and minimize reproductions into native tests before rerunning their
+owning checks. Keep generated corpora/raw captures outside tracked source under
+the existing evidence policy; retain reviewed reproducers and digest-bound reports.
+
+**Current gap/state (13 October):** A06's existing fuzz target is decode-only;
+no current coverage-guided fuzz result is claimed. A07 now has five native bounded
+admission tests, including 768 fixed-seed integrity-corrected wire mutations on
+both 64-bit and 32-bit hosts (`H-remaining-assurance-correction/`). They do not
+close a generated execution/state-machine campaign. A05 has four current-source
+function-removal mutants caught by native assertions after a 517-test baseline
+(`H-critical-mutations/`), with the per-guard limitations recorded above. Historical
+mutation report bindings remain advisory maintenance, not substitutes for these
+runs. Other categories remain planned or supported only by their named partial
+results; no blanket closure is implied. No finite set of passing tests establishes
+zero bugs, certification, a mathematical WCET bound or a cross-platform guarantee
+without the corresponding evidence.
 
 ## Requirement-to-evidence ledger
 
@@ -728,6 +3331,7 @@ proof and this bookkeeping cannot invent product work or block it by itself.
 | HOST-06 | A4/H/C; QH | pending — open |
 | HOST-07 | H; QH | pending — open |
 | HOST-08 | H; QH | pending — open |
+| HOST-09 | H; QH | Contract selected in spec 34 §4.3.1. Non-executable builder, shared owned state, scratch debug types and candidate-observer isolation are authored with native/compile-fail regressions; all unverified. Installed hosted API and checked live-write caller migration are authored; full-review lifecycle and operational-fault corrections remain unvalidated after Run16. |
 | SCHED-01 | A1/A4/H/C; QH/QF/QE | A4 cooperative readiness/order regressions retained; F401 run-8 oracle verifies nominal deadlines and 40 activations with zero misses. Complete host/C6 scheduling-profile qualification remains H/E/Q. |
 | SCHED-02 | A4/H/C; QH/QF/QE | pending — open |
 | SCHED-03 | A4/H/C; QH/QF/QE | pending — open |
@@ -1177,3 +3781,30 @@ completed through PR #132/v0.24.73 and remains the comparison baseline.
   trace/numeric/GPIO/watchdog rules; old physical results are not relabeled.
 - [x] RTP-U-07: Reconcile source, selected/retained versions and every failed/unrun
   gate honestly; separate scope verification from publication and production qualification.
+
+
+H focused run 7 finished at 15:43:59 UTC: 23 required steps, 11 passes and
+12 compile failures, all caused by one E0308 in initializer seed construction.
+The new selected-aggregate branch called an owned materialization API while the
+existing branches borrow values. Source review missed that API return ownership.
+The owning correction uses the existing borrowed reference read, preserving
+visibility, owned-graph discovery, charge-before-clone and one clone. No extra
+clone or reduced assertion is introduced. The exact failed 8,531-record snapshot
+is archived (8,516 present, 15 deleted, zero mismatches). Independent source review
+accepted the one-line correction; compilation and behavior remain unverified.
+Focused run 8 is prepared with the same 23 commands; full acceptance stays open.
+
+
+H focused run 8 completed at 17:03:18 UTC: 18 passes and five failures across
+23 required steps. Portable stack (401 tests), portable register (414), i686
+selection (305), DAP (95), both MCU core checks and no-dev graphs, cross warnings
+and architecture passed. Core all-features passed 473 and failed two new owned
+optimization fixtures. Hosted/default and no-driver unit runs exposed eight
+unique failing test names across configurations. The raw failed 8,531-record
+snapshot reconciles without mismatches. Remaining owning corrections: source-only
+external declaration policy and namespace-function receiver classification; new
+fixture corrections retain numeric EXPT fallback, clock optimized proof, exact
+post-initialization debug frames, valid nonreserved input names and lint style.
+Reviewed U database workflow/runner corrections are adopted into H with their
+contract; H must execute its own tests and real database gate before acceptance.
+No H commit/push, full acceptance or hardware result is claimed.

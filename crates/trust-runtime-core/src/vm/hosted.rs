@@ -5,7 +5,7 @@
 //! They do not admit source-free applications: use `PreparedModule` and
 //! `RuntimeState` at the parent module for that boundary. Legacy fixture APIs
 //! intentionally permit malformed instruction bodies for verifier tests, but
-//! reject STBC 2.0 and cannot create a prepared admission token.
+//! reject source-free STBC and cannot create a prepared admission token.
 
 /// Hosted execution fuel and cooperative deadline policy.
 pub mod budget {
@@ -72,6 +72,6 @@ pub use super::frames::{ensure_global_call_depth, FrameStack, VmFrame};
 pub use super::helpers::{materialize_borrowed_value, opcode_operand_len};
 pub use super::stack::OperandStack;
 pub use super::{
-    sizeof_type_from_table, sizeof_type_from_table_with, VmTrap, VM_MAX_CALL_DEPTH,
-    VM_MAX_EXECUTED_INSTRUCTIONS, VM_MAX_OPERAND_STACK,
+    sizeof_type_from_table, sizeof_type_from_table_with, sizeof_type_from_table_with_abi, VmTrap,
+    VM_MAX_CALL_DEPTH, VM_MAX_EXECUTED_INSTRUCTIONS, VM_MAX_OPERAND_STACK,
 };

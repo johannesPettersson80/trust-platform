@@ -247,8 +247,8 @@ END_PROGRAM
     };
     harness
         .runtime_mut()
-        .storage_mut()
-        .set_instance_var(g_fb_before, "count", Value::Int(7));
+        .write_instance(g_fb_before, "count", Value::Int(7))
+        .unwrap();
 
     let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
     harness

@@ -102,7 +102,19 @@ impl DebugAdapter {
                                 {
                                     entries.extend(collect_entries(&instance.variables, storage));
                                 }
-                                entries.extend(collect_entries(&frame.variables, storage));
+                                entries.extend(
+                                    frame
+                                        .variables
+                                        .iter()
+                                        .filter(|(name, _)| !name.starts_with("@scratch/"))
+                                        .map(|(name, value)| {
+                                            entry_for_value(
+                                                name.to_string(),
+                                                value.clone(),
+                                                storage,
+                                            )
+                                        }),
+                                );
                                 entries
                             })
                             .unwrap_or_default()
@@ -118,7 +130,16 @@ impl DebugAdapter {
             }
             VariableHandle::Retain => {
                 let entries = view
-                    .with_storage(|storage| collect_entries(storage.retain(), storage))
+                    .with_storage(|storage| {
+                        super::retained::references(self.session.metadata(), storage)
+                            .into_iter()
+                            .filter_map(|(name, reference)| {
+                                storage
+                                    .materialize_by_ref_ref(&reference)
+                                    .map(|value| entry_for_value(name.to_string(), value, storage))
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default();
                 self.variables_from_entries(entries)
             }
@@ -159,8 +180,7 @@ impl DebugAdapter {
                 let entry = view
                     .with_storage(|storage| {
                         storage
-                            .read_by_ref(value_ref)
-                            .cloned()
+                            .materialize_by_ref(value_ref)
                             .map(|value| entry_for_value("*".to_string(), value, storage))
                     })
                     .flatten();

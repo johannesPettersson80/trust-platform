@@ -40,11 +40,7 @@ impl TestHarness {
     /// Creates a new test harness from source code.
     pub fn from_source(source: &str) -> Result<Self, CompileError> {
         let session = CompileSession::from_source(source);
-        let mut runtime = session.build_runtime()?;
-        let bytecode = build_runtime_aligned_bytecode(&runtime, session.sources())?;
-        runtime
-            .apply_bytecode_bytes(&bytecode, None)
-            .map_err(|err| CompileError::new(err.to_string()))?;
+        let runtime = session.build_runtime()?;
         Ok(Self {
             runtime,
             cycle_count: 0,
@@ -55,11 +51,7 @@ impl TestHarness {
     pub fn from_sources(sources: &[&str]) -> Result<Self, CompileError> {
         let source_files = sources.iter().copied().map(SourceFile::new).collect();
         let session = CompileSession::from_sources(source_files);
-        let mut runtime = session.build_runtime()?;
-        let bytecode = build_runtime_aligned_bytecode(&runtime, session.sources())?;
-        runtime
-            .apply_bytecode_bytes(&bytecode, None)
-            .map_err(|err| CompileError::new(err.to_string()))?;
+        let runtime = session.build_runtime()?;
         Ok(Self {
             runtime,
             cycle_count: 0,
@@ -110,7 +102,7 @@ impl TestHarness {
         value: impl Into<Value>,
     ) -> Result<(), RuntimeError> {
         let addr = IoAddress::parse(address)?;
-        self.runtime.io_mut().write(&addr, value.into())
+        self.runtime.write_io(&addr, value.into())
     }
 
     /// Gets a direct output address.
@@ -182,7 +174,10 @@ impl TestHarness {
 
     /// Reload a single source file, preserving retained variables when possible.
     pub fn reload_source(&mut self, source: &str) -> Result<(), CompileError> {
-        let retained = self.runtime.retain_snapshot();
+        let retained = self
+            .runtime
+            .retain_snapshot()
+            .map_err(|error| CompileError::new(error.to_string()))?;
         let debug = self.runtime.debug_control();
         let current_time = self.runtime.current_time();
         let cycle_count = self.cycle_count;
@@ -199,12 +194,18 @@ impl TestHarness {
         rebuilt.cycle_count = cycle_count;
 
         *self = rebuilt;
+        if let Some(control) = self.runtime.debug_control() {
+            control.invalidate_schema_observations();
+        }
         Ok(())
     }
 
     /// Reload multiple source files, preserving retained variables when possible.
     pub fn reload_sources(&mut self, sources: &[&str]) -> Result<(), CompileError> {
-        let retained = self.runtime.retain_snapshot();
+        let retained = self
+            .runtime
+            .retain_snapshot()
+            .map_err(|error| CompileError::new(error.to_string()))?;
         let debug = self.runtime.debug_control();
         let current_time = self.runtime.current_time();
         let cycle_count = self.cycle_count;
@@ -221,6 +222,9 @@ impl TestHarness {
         rebuilt.cycle_count = cycle_count;
 
         *self = rebuilt;
+        if let Some(control) = self.runtime.debug_control() {
+            control.invalidate_schema_observations();
+        }
         Ok(())
     }
 
@@ -243,34 +247,6 @@ impl TestHarness {
             .unwrap_or_else(|| panic!("missing variable '{name}'"));
         assert_eq!(value, expected.into());
     }
-}
-
-fn build_runtime_aligned_bytecode(
-    runtime: &Runtime,
-    sources: &[SourceFile],
-) -> Result<Vec<u8>, CompileError> {
-    let source_refs = sources
-        .iter()
-        .map(|source| source.text.as_str())
-        .collect::<Vec<_>>();
-    let module = if sources.iter().all(|source| source.path.is_some()) {
-        let paths = sources
-            .iter()
-            .map(|source| source.path.as_deref().unwrap_or_default())
-            .collect::<Vec<_>>();
-        crate::bytecode::build_module_from_runtime_with_sources_and_paths(
-            runtime,
-            &source_refs,
-            &paths,
-        )
-        .map_err(|err| CompileError::new(err.to_string()))?
-    } else {
-        crate::bytecode::build_module_from_runtime_with_sources(runtime, &source_refs)
-            .map_err(|err| CompileError::new(err.to_string()))?
-    };
-    module
-        .encode()
-        .map_err(|err| CompileError::new(err.to_string()))
 }
 
 #[cfg(test)]

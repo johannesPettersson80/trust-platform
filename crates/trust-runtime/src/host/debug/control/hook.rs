@@ -6,7 +6,7 @@ impl Default for DebugControl {
 
 impl DebugHook for DebugControl {
     fn on_statement(&mut self, location: Option<&SourceLocation>, call_depth: u32) {
-        self.on_statement_inner(location, call_depth, None);
+        self.on_statement_inner(location, call_depth, None, StatementSnapshot::Borrowed);
     }
 
     fn on_statement_with_context(
@@ -15,16 +15,28 @@ impl DebugHook for DebugControl {
         location: Option<&SourceLocation>,
         call_depth: u32,
     ) {
-        self.on_statement_inner(location, call_depth, Some(ctx));
+        self.on_statement_inner(location, call_depth, Some(ctx), StatementSnapshot::Borrowed);
     }
 }
 
 impl DebugControl {
+    /// Publish an already detached execution projection without cloning its
+    /// storage again. The caller relinquishes the projection at this boundary.
+    pub(crate) fn on_statement_with_owned_context(
+        &mut self,
+        ctx: &mut DebugRuntimeContext<'_>,
+        location: Option<&SourceLocation>,
+        call_depth: u32,
+    ) {
+        self.on_statement_inner(location, call_depth, Some(ctx), StatementSnapshot::Detached);
+    }
+
     fn on_statement_inner(
         &mut self,
         location: Option<&SourceLocation>,
         call_depth: u32,
         mut ctx: Option<&mut DebugRuntimeContext<'_>>,
+        mut snapshot: StatementSnapshot,
     ) {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
@@ -53,6 +65,11 @@ impl DebugControl {
                 state.frame_locations.insert(frame.id, *location);
             }
         }
+        if matches!(snapshot, StatementSnapshot::Detached)
+            && let Some(eval_ctx) = ctx.as_mut()
+        {
+            update_watch_snapshot(&mut state, eval_ctx);
+        }
         let is_target_thread =
             state.target_thread.is_none() || state.target_thread == state.current_thread;
         if matches!(state.mode, DebugMode::Paused)
@@ -65,8 +82,7 @@ impl DebugControl {
                 state.current_thread
             ));
             if let Some(eval_ctx) = ctx.as_mut() {
-                update_watch_snapshot(&mut state, eval_ctx);
-                update_snapshot(&mut state, eval_ctx);
+                snapshot.publish(&mut state, eval_ctx);
             }
             emit_stop(&mut state, reason, location.copied(), None);
         }
@@ -158,12 +174,18 @@ impl DebugControl {
                         state.current_thread
                     ));
                     if let Some(eval_ctx) = ctx.as_mut() {
-                        update_watch_snapshot(&mut state, eval_ctx);
-                        update_snapshot(&mut state, eval_ctx);
+                        snapshot.publish(&mut state, eval_ctx);
                     }
                     emit_stop(&mut state, reason, Some(*location), stop_generation);
                 }
             }
+        }
+        // Normal running statements also refresh the detached watch projection.
+        // Conditions and frame locations above still read its original storage.
+        if matches!(snapshot, StatementSnapshot::Detached)
+            && let Some(eval_ctx) = ctx.as_mut()
+        {
+            snapshot.publish(&mut state, eval_ctx);
         }
         loop {
             let is_target_thread =
@@ -178,8 +200,7 @@ impl DebugControl {
                     state.current_thread
                 ));
                 if let Some(eval_ctx) = ctx.as_mut() {
-                    update_watch_snapshot(&mut state, eval_ctx);
-                    update_snapshot(&mut state, eval_ctx);
+                    snapshot.publish(&mut state, eval_ctx);
                 }
                 emit_stop(&mut state, reason, location.copied(), None);
             }
@@ -224,6 +245,32 @@ impl DebugControl {
     }
 }
 
+enum StatementSnapshot {
+    Borrowed,
+    Detached,
+    Published,
+}
+
+impl StatementSnapshot {
+    fn publish(&mut self, state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
+        match self {
+            Self::Borrowed => {
+                update_watch_snapshot(state, ctx);
+                update_snapshot(state, ctx);
+            }
+            Self::Detached => {
+                state.snapshot = Some(DebugSnapshot {
+                    storage_abi: ctx.storage_abi,
+                    storage: std::mem::take(ctx.storage),
+                    now: ctx.now,
+                });
+                *self = Self::Published;
+            }
+            Self::Published => {}
+        }
+    }
+}
+
 fn format_location_ref(location: Option<&SourceLocation>) -> String {
     location
         .map(|loc| format!("{}:{}..{}", loc.file_id, loc.start, loc.end))
@@ -258,9 +305,10 @@ fn emit_stop(
 fn update_watch_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
     let mut changed = false;
     for watch in &mut state.watches {
-        let next = crate::helper_eval::eval_storage_expr_with_stdlib(
+        let next = crate::helper_eval::eval_storage_expr_with_abi(
             ctx.storage,
-            ctx.registry,
+            watch.registry.as_deref().unwrap_or(ctx.registry),
+            ctx.storage_abi,
             &ctx.profile,
             ctx.current_instance,
             ctx.stdlib,
@@ -279,6 +327,7 @@ fn update_watch_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'
 
 fn update_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
     state.snapshot = Some(DebugSnapshot {
+        storage_abi: ctx.storage_abi,
         storage: ctx.storage.clone(),
         now: ctx.now,
     });

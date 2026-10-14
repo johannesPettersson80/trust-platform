@@ -162,11 +162,24 @@ The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.
 
-When a production `CONFIGURATION` exists, selected test programs are registered
-as additional program instances for the test session. Ordinary runtime
+When a production `CONFIGURATION` exists, discovered test programs are registered
+as additional program instances for the test session. A case filter selects
+invocation and reporting, not which declarations participate in whole-project
+compilation; unselected tests are not executed. Ordinary runtime
 construction without that explicit registration continues to reject an
 unconfigured test program; the test runner does not silently alter the
 production configuration.
+
+The hosted explicit entry APIs select admitted POU identities: a supplied
+program declaration contributes its name, never a replacement executable AST.
+Named test-function-block execution constructs a fresh instance from the admitted
+template and executable initializer recipes, within one temporary ownership scope.
+The common dispatcher runs the body with the same cumulative work/deadline budget;
+all scope-owned instances and frames retire on success or failure. This scope is
+not an extra PLC call frame, deployment root or persistent global binding. Live
+references to its instances cannot escape to longer-lived PLC storage. The test
+runner constructs the compiled installation once and cold-restarts it per case;
+it does not compile and install the identical application a second time.
 
 An `ASSERT_*` failure is a failed test. A non-assertion runtime failure is an
 error. A configured per-case deadline that is reached produces the distinct

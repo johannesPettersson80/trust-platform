@@ -185,6 +185,15 @@ profiles in specification 34, including fault/first-use paths. They are not a
 claim about every existing hosted execution path, and all PLC state is not
 required to reside inside the byte-oriented I/O image.
 
+Planned H optimized-tier migration (specification 34 HOST-04/MODEL-02) moves
+lowering and specialized compilation into candidate preparation. Their diagnostic
+attempt/result counts are preparation observations; installed plan hits, opcode
+counts and precomputed fallback reasons remain execution observations. Resetting
+telemetry does not invalidate installed executable plans. Existing hosted tuning
+controls select an explicit prepared policy, without permitting first-use or
+threshold-triggered compilation in bounded RUN. This planned diagnostic migration
+does not change IEC instruction results or assert that H is already verified.
+
 #### 6.2 Task Manager (Resource Scheduler)
 
 Implements IEC 61131-3 task scheduling and program organization unit (POU) associations (IEC 61131-3 Ed.3, §6.8.2; Tables 62–63).
@@ -718,6 +727,7 @@ following fail-closed product contract:
 | Runtime mesh subscription | Numeric conversion to the configured `REAL`/`LREAL` target is non-finite | Reject before queuing or applying the local update; retain the previous PLC value. |
 | `hmi.write` | Text or numeric input for a declared `REAL`/`LREAL` target is non-finite or overflows the declared width | Return a failed response with `error_code = "runtime_non_finite_value"` before queuing the write or changing PLC storage. |
 | Managed local debug write/force | Input for a declared `REAL`/`LREAL` address is non-finite or overflows the declared width | Return a failed DAP response and preserve both value and force state, as specified in 6.9.1. |
+| Checked embedding engineering writes (`write_global`, `write_instance`, `write_reference`, `write_access`) | A declared `REAL`/`LREAL` value, recursively through arrays/structures, is non-finite | Return `runtime_non_finite_value` before destination or process-image mutation; preserve the installed state. Internal IEC assignments remain governed by their arithmetic contract. |
 | File-backed retain save/load | A scalar, array element, or structure field is non-finite | Reject the complete save or load transaction, as specified in 6.7. |
 | `simulation.toml` coupling threshold | The configured threshold is non-finite | Reject the configuration before activation, as specified in 6.9.2. |
 
@@ -1537,15 +1547,42 @@ but is not a readable retain file, or a parent path that cannot contain the
 file, returns the underlying retain operation as an error instead of silently
 substituting an empty snapshot.
 
-The current checksum-protected format is version 2. Version-1 `STRN` snapshots
-remain readable for the value tags supported by that format; a decoded value
-materializes with the same logical name and runtime value. Successful
+The current checksum-protected format is version 3. Version-1 and version-2
+`STRN` snapshots remain readable for the value tags supported by those formats;
+a decoded value materializes with the same logical name and runtime value.
+Those formats store structures as logical type/field values only. When an old
+snapshot is migrated to a declaration with relative physical storage, the
+runtime rebuilds backing from the admitted declaration and logical fields,
+zeroing unnamed gaps; old files never promised to preserve hidden physical
+bits. Successful
 replacement publishes one complete snapshot and leaves no retain temporary
 file. Parent-directory synchronization occurs after rename. If that final sync
 fails, `store` returns an error and does not claim durability, but a read in the
 same filesystem session may observe the already-renamed new snapshot. The
 manager keeps the snapshot dirty and permits the next due save to retry without
 another mutation notification.
+
+Version 3 adds an opaque physical checkpoint to a structure value when that
+value owns admitted relative-layout backing. The checkpoint carries the storage
+ABI, complete extent, leaf and child paths, scalar encodings and constraints,
+and backing bytes, including unnamed gaps. Values without relative physical
+backing retain the existing logical structure representation. The runtime
+validates checkpoint framing, counts against remaining input before allocation,
+path depth, UTF-8 names, extents, encoding widths, and every logical scalar leaf
+against the backing before the snapshot can be returned. Checkpoint lengths,
+counts, string lengths, and extents use their checked `u32` wire fields; the
+decoder also uses fallible reservations and rejects values not representable by
+the host. Invalid checkpoint data rejects the complete load.
+Retain save suppression compares physical checkpoints recursively in addition
+to ordinary logical value equality, so hidden-byte-only mutations are durable
+without changing the language-level equality of structure values. It also
+compares serialized floating-point bit patterns, including signed zero, before
+skipping a save.
+Warm migration attaches the checked checkpoint only to an equivalent admitted
+layout; incompatible ABI, field paths, offsets, scalar codecs, enum constraints,
+extent, or removal of physical semantics rejects the entire application
+without mutation. The checkpoint is internal persistence data and does not
+authorize caller-supplied physical layouts or raw installed-state writes.
 
 Before applying a loaded snapshot, the runtime resolves every retained name
 and stages all compatible migrations:
@@ -1624,6 +1661,9 @@ debug mutations, logical time, cycle counter, and runtime fault/status state
 unchanged. The old program remains executable on the next scan.
 For the reviewed retained `INT(0..10)` value `100`, this rejection retains the
 cause-identifying diagnostic text `outside declared subrange 0..10`.
+The typed retain-subrange rejection carries the destination and value/bounds,
+with stable code `runtime_subrange_violation`; retain context must not erase the
+cause into a generic type mismatch or migration string.
 The reviewed malformed byte sequence `[00, 01, 02, 03]` fails preparation as
 the typed `RuntimeError::Bytecode`; no stable message text is implied.
 
@@ -2179,6 +2219,14 @@ time to the per-cycle average. A profiling snapshot retains the reviewed call
 identities and ranks the reviewed program call ahead of the smaller
 function-block call by average cycle contribution.
 
+Hosted program-call instrumentation records each invoked program under its
+canonical configured instance name, including multiple programs in one task and
+unscheduled background programs. A program invocation that returns an execution
+fault is still recorded; later programs in the failed cycle are not invoked or
+counted. Observation does not change the original execution error. The shared
+engine supplies paired, read-only program observations to the hosted adapter;
+ordinary MCU execution does not acquire a hosted metrics clock or sink.
+
 Disabling profiling clears accumulated call entries and top contributors and
 ignores calls recorded while disabled. Re-enabling profiling starts a clean
 collection, and a subsequently recorded call appears as the sole reviewed
@@ -2457,6 +2505,34 @@ an exact snapshot lookup: global storage first, then retained storage. It is a
 name read, not general expression execution. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
 Successful values use the stable runtime debug representation.
+
+Installed retained targets are declaration-qualified views of ordinary PLC
+storage, not a second retain bank. The label for a retained global is its global
+name; a retained program member uses `@program/<instance>/<member>`, matching
+checkpoint labels. `retain:<label>` writes and forces resolve the installed
+retained declaration against the current live program root at the cycle boundary
+and use the common checked-write policy and cumulative cycle allowance. Missing,
+non-retained, retired or type-incompatible destinations report write rejection
+without creating storage or a PLC execution fault. Queue/force acceptance remains
+distinct from application: existing syntactically valid request acknowledgements,
+original target labels, deduplication and release behavior are unchanged. Retain
+list presentation remains in declaration order. Isolated detached inspection
+fixtures may still expose an explicit legacy retain bank; installed execution
+never falls back to that bank. Exact `eval` name lookup is preserved; DAP retained
+name matching remains ASCII case-insensitive through the same immutable index.
+Shared checkpoint capture also rejects duplicate serialized labels with a retain
+migration error before returning or saving a snapshot. A global name that equals
+a generated `@program/<root>/<member>` key shall never silently replace either
+retained value. This applies to the shared core on every platform; it does not
+change explicit insert-or-replace operations on already collected snapshot records.
+Shared snapshot application shall reject colliding destination labels under its
+existing ASCII-insensitive name matching before mutating PLC values. Distinct
+declared destinations must not silently replace each other in the restoration index.
+
+Hosted installation rejects ambiguous retained labels, including a global label
+colliding with a synthetic program-member label under ASCII case folding. The
+failed candidate must not replace the installed controller or its published state.
+
 
 Variable mutation targets use exact lowercase prefixes. `set` admits
 `global:<name>` and `retain:<name>` only. Force and release additionally admit
@@ -5215,6 +5291,23 @@ The runtime emits structured events for debugging and testing:
 - Fault and overrun notifications
 
 These events are consumed by the debugger (`trust-debug`) and test harnesses to validate behavior deterministically.
+
+##### Hosted embedding mutation lifecycle (planned H migration)
+
+[Specification 34 §4.3.1](34-runtime-portability.md#431-construction-and-installed-state-mutation)
+defines H's construction and installed-state boundary. Raw mutable storage and
+authoring type-registry access belong to a non-executable construction object.
+Installed controllers, including paused or stopped ones, use checked live value
+writes; debug parsing uses separate scratch types. Code, layout and executable
+type changes use an isolated validated candidate and the existing hosted
+online-change/warm-restart boundary. Ordinary supported writes and forces retain
+their existing timing and do not require STOP or reinitialization.
+
+This is an explicit migration of Rust callers using live `storage_mut()` or
+`registry_mut()`, not a reduction in PLC functions or hosted debugging features.
+Until H implements and validates the migration, current hosted code still exposes
+those raw mutable references. This specification amendment does not claim that
+the new API or its regression tests already exist.
 
 ### 7. Build Configuration
 

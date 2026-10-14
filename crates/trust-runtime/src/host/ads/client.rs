@@ -7,6 +7,7 @@ use trust_ads_core::{
 };
 use trust_hir::{Type, TypeId};
 
+use crate::error::RuntimeError;
 use crate::harness::CompileError;
 use crate::memory::VariableStorage;
 use crate::value::{EnumValue, Value, ValueRef};
@@ -17,6 +18,9 @@ use super::descriptors::{point_reads, point_writes, validate_point_against_symbo
 use super::transport::{AdsTransport, AdsTransportError};
 
 mod cache;
+mod cycle_port;
+#[cfg(test)]
+mod management_tests;
 mod worker;
 
 use cache::AdsSharedCache;
@@ -34,10 +38,11 @@ pub enum AdsConnectionState {
     Faulted,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum AdsBridgeErrorKind {
     Validation,
     Transport,
+    Execution(RuntimeError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +52,20 @@ pub struct AdsBridgeError {
 }
 
 impl AdsBridgeError {
+    fn execution(error: RuntimeError) -> Self {
+        Self {
+            message: error.to_string(),
+            kind: AdsBridgeErrorKind::Execution(error),
+        }
+    }
+
+    pub(crate) fn execution_cause(&self) -> Option<&RuntimeError> {
+        match &self.kind {
+            AdsBridgeErrorKind::Execution(error) => Some(error),
+            _ => None,
+        }
+    }
+
     fn validation(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -76,7 +95,12 @@ impl fmt::Display for AdsBridgeError {
     }
 }
 
-impl std::error::Error for AdsBridgeError {}
+impl std::error::Error for AdsBridgeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.execution_cause()
+            .map(|error| error as &dyn std::error::Error)
+    }
+}
 
 impl From<AdsTransportError> for AdsBridgeError {
     fn from(value: AdsTransportError) -> Self {
@@ -163,6 +187,16 @@ pub struct AdsConnectionBridge {
 }
 
 impl AdsConnectionBridge {
+    pub(crate) fn points(&self) -> Vec<AdsPointConfig> {
+        self.bindings
+            .iter()
+            .map(|binding| binding.point.clone())
+            .collect()
+    }
+    pub(crate) fn replace_bindings(&mut self, bindings: Vec<AdsBinding>) {
+        self.bindings = bindings;
+    }
+
     pub fn new(bindings: Vec<AdsBinding>) -> Result<Self, AdsBridgeError> {
         validate_bindings(&bindings)?;
         Ok(Self {
@@ -192,6 +226,19 @@ impl AdsConnectionBridge {
         storage: &mut VariableStorage,
         now_ms: u64,
     ) -> Result<(), AdsBridgeError> {
+        self.apply_inputs_with(now_ms, |reference, value| {
+            storage
+                .write_by_ref_ref(reference, value)
+                .then_some(())
+                .ok_or(RuntimeError::TypeMismatch)
+        })
+    }
+
+    fn apply_inputs_with(
+        &mut self,
+        now_ms: u64,
+        mut write: impl FnMut(&ValueRef, Value) -> Result<(), RuntimeError>,
+    ) -> Result<(), AdsBridgeError> {
         let snapshot = self.shared.snapshot();
         for binding in self
             .bindings
@@ -211,7 +258,7 @@ impl AdsConnectionBridge {
                 );
                 continue;
             };
-            self.write_quality(storage, binding, quality, now_ms);
+            self.write_quality_with(binding, quality, now_ms, &mut write)?;
             if quality.state != QualityState::Good {
                 continue;
             }
@@ -237,14 +284,20 @@ impl AdsConnectionBridge {
             } else {
                 None
             };
-            if !storage.write_by_ref(binding.reference.clone(), value) {
+            if let Err(error) = write(&binding.reference, value) {
                 self.shared.set_quality(
                     binding.point.point_name.as_str(),
                     PointQuality::error(
                         now_ms,
-                        format!("failed to write ADS input '{}'", binding.point.point_name),
+                        format!(
+                            "failed to write ADS input '{}': {} ({})",
+                            binding.point.point_name,
+                            error,
+                            error.stable_code()
+                        ),
                     ),
                 );
+                cycle_port::propagate_execution_error(error)?;
                 continue;
             }
             if let Some(value) = baseline {
@@ -267,7 +320,7 @@ impl AdsConnectionBridge {
             .filter(|binding| point_writes(binding.point.access))
         {
             if let Some(quality) = snapshot.qualities.get(binding.point.point_name.as_str()) {
-                self.write_quality(storage, binding, quality, now_ms);
+                self.write_quality(storage, binding, quality, now_ms)?;
             }
             let Some(value) = storage.read_by_ref(binding.reference.clone()).cloned() else {
                 self.shared.set_quality(
@@ -279,30 +332,13 @@ impl AdsConnectionBridge {
                 );
                 continue;
             };
-            if contains_non_finite_float(&value) {
-                self.shared.reject_write(
-                    binding.point.point_name.as_str(),
-                    now_ms,
-                    format!(
-                        "ADS output '{}' contains a non-finite REAL/LREAL value",
-                        binding.point.point_name
-                    ),
-                );
-                self.last_queued_values
-                    .remove(binding.point.point_name.as_str());
-                continue;
-            }
-            if self
-                .last_queued_values
-                .get(binding.point.point_name.as_str())
-                .is_some_and(|previous| previous == &value)
-            {
-                continue;
-            }
-            self.shared
-                .queue_write(binding.point.point_name.clone(), value.clone());
-            self.last_queued_values
-                .insert(binding.point.point_name.clone(), value);
+            cycle_port::queue_output(
+                &self.shared,
+                &mut self.last_queued_values,
+                binding,
+                value,
+                now_ms,
+            );
         }
         Ok(())
     }
@@ -313,22 +349,41 @@ impl AdsConnectionBridge {
         binding: &AdsBinding,
         quality: &PointQuality,
         now_ms: u64,
-    ) {
-        let Some(reference) = binding.quality_reference.clone() else {
-            return;
+    ) -> Result<(), AdsBridgeError> {
+        self.write_quality_with(binding, quality, now_ms, &mut |reference, value| {
+            storage
+                .write_by_ref_ref(reference, value)
+                .then_some(())
+                .ok_or(RuntimeError::TypeMismatch)
+        })
+    }
+
+    fn write_quality_with(
+        &self,
+        binding: &AdsBinding,
+        quality: &PointQuality,
+        now_ms: u64,
+        write: &mut impl FnMut(&ValueRef, Value) -> Result<(), RuntimeError>,
+    ) -> Result<(), AdsBridgeError> {
+        let Some(reference) = binding.quality_reference.as_ref() else {
+            return Ok(());
         };
-        if !storage.write_by_ref(reference, quality_value(quality.state)) {
+        if let Err(error) = write(reference, quality_value(quality.state)) {
             self.shared.set_quality(
                 binding.point.point_name.as_str(),
                 PointQuality::error(
                     now_ms,
                     format!(
-                        "failed to write ADS quality '{}_quality'",
-                        binding.point.point_name
+                        "failed to write ADS quality '{}_quality': {} ({})",
+                        binding.point.point_name,
+                        error,
+                        error.stable_code()
                     ),
                 ),
             );
+            cycle_port::propagate_execution_error(error)?;
         }
+        Ok(())
     }
 
     pub fn mark_reconnecting(&self, now_ms: u64, detail: impl Into<String>) {
@@ -394,11 +449,17 @@ impl AdsConnectionBridge {
         }) {
             return false;
         }
+        self.commit_qualified_live_write(point_name, value);
+        true
+    }
+
+    /// Owner-only commit after selecting this bridge's writable binding. The
+    /// exclusive bridge borrow keeps that qualification valid across PLC writes.
+    pub(crate) fn commit_qualified_live_write(&mut self, point_name: &str, value: Value) {
         self.shared
             .queue_write(point_name.to_string(), value.clone());
         self.last_queued_values
             .insert(point_name.to_string(), value);
-        true
     }
 }
 

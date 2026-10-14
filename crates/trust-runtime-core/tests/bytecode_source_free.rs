@@ -48,17 +48,26 @@ fn source_free_empty() -> BytecodeModule {
     module
 }
 
+#[path = "common/default_constant_bounds.rs"]
+mod default_constant_bounds;
+
+#[path = "common/physical_constant_defaults.rs"]
+mod physical_constant_defaults;
+
+#[path = "common/aggregate_depth.rs"]
+mod aggregate_depth;
+
 #[test]
 fn source_free_empty_resource_round_trips_with_mandatory_tables() {
     let module = source_free_empty();
     module
         .validated_source_free(ValidationLimits::default())
-        .expect("admit 2.0 metadata");
-    let bytes = module.encode().expect("encode 2.0");
-    let decoded = BytecodeModule::decode(&bytes).expect("read 2.0");
+        .expect("admit current source-free metadata");
+    let bytes = module.encode().expect("encode current source-free format");
+    let decoded = BytecodeModule::decode(&bytes).expect("read current source-free format");
     decoded
         .validated_source_free(ValidationLimits::default())
-        .expect("validate saved 2.0");
+        .expect("validate saved current source-free format");
     assert_eq!(decoded.encode().unwrap(), bytes);
     assert_eq!(decoded.version, BytecodeVersion::SOURCE_FREE);
 }
@@ -80,13 +89,23 @@ fn portable_consumer_rejects_both_legacy_versions() {
 
 #[test]
 fn two_point_zero_requires_each_construction_section_even_when_empty() {
-    for id in [
-        SectionId::StorageLayout,
-        SectionId::ConstructionRoots,
-        SectionId::Initializers,
-        SectionId::AccessBindings,
-    ] {
+    for (version, id) in [
+        BytecodeVersion::SOURCE_FREE_V2,
+        BytecodeVersion::SOURCE_FREE,
+    ]
+    .into_iter()
+    .flat_map(|version| {
+        [
+            SectionId::StorageLayout,
+            SectionId::ConstructionRoots,
+            SectionId::Initializers,
+            SectionId::AccessBindings,
+        ]
+        .into_iter()
+        .map(move |id| (version, id))
+    }) {
         let mut module = source_free_empty();
+        module.version = version;
         module.sections.retain(|section| section.id != id.as_raw());
         assert!(matches!(
             module.validate(),
@@ -97,8 +116,14 @@ fn two_point_zero_requires_each_construction_section_even_when_empty() {
 
 #[test]
 fn source_free_reserved_flags_and_future_versions_reject() {
-    for flags in [0, HEADER_FLAG_CRC32 | 2] {
+    for (version, flags) in [
+        (BytecodeVersion::SOURCE_FREE_V2, 0),
+        (BytecodeVersion::SOURCE_FREE_V2, HEADER_FLAG_CRC32 | 2),
+        (BytecodeVersion::SOURCE_FREE, 0),
+        (BytecodeVersion::SOURCE_FREE, HEADER_FLAG_CRC32 | 4),
+    ] {
         let mut module = source_free_empty();
+        module.version = version;
         module.flags = flags;
         assert!(matches!(
             module.validate(),
@@ -106,7 +131,12 @@ fn source_free_reserved_flags_and_future_versions_reject() {
         ));
         assert!(BytecodeModule::decode(&module.encode().unwrap()).is_err());
     }
-    for version in [BytecodeVersion::new(2, 1), BytecodeVersion::new(3, 0)] {
+    for version in [
+        BytecodeVersion::new(1, 2),
+        BytecodeVersion::new(2, 1),
+        BytecodeVersion::new(3, 1),
+        BytecodeVersion::new(4, 0),
+    ] {
         let mut module = source_free_empty();
         module.version = version;
         assert!(matches!(

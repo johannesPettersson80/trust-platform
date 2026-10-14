@@ -94,7 +94,6 @@ struct InitBenchReport {
     histogram: Vec<HistogramBucket>,
 }
 
-
 #[derive(Debug, Clone, Serialize)]
 struct VmProfileFallbackReasonReport {
     reason: String,
@@ -171,6 +170,16 @@ struct VmTier1SpecializedExecutorReport {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct VmRegisterPreparationReport {
+    pou_count: usize,
+    lowered_pous: usize,
+    lowering_failures: usize,
+    specialized_blocks: usize,
+    specialization_failures: usize,
+    specialization_failure_reasons: Vec<VmTier1SpecializedExecutorCompileFailureReasonReport>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct VmRegisterLoweringCacheReport {
     enabled: bool,
     cache_capacity: usize,
@@ -185,6 +194,7 @@ struct VmRegisterLoweringCacheReport {
 
 #[derive(Debug, Clone, Serialize)]
 struct VmProfileReport {
+    register_preparation: VmRegisterPreparationReport,
     register_programs_executed: u64,
     register_program_fallbacks: u64,
     fallback_reasons: Vec<VmProfileFallbackReasonReport>,

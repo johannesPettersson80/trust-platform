@@ -1,4 +1,5 @@
 use alloc::{vec, vec::Vec};
+use core::cell::Cell;
 use smol_str::SmolStr;
 
 use super::bindings::{
@@ -17,9 +18,21 @@ struct TestContext {
     storage: VariableStorage,
     stdlib: StandardLibrary,
     profile: DateTimeProfile,
+    edge_owner: Option<SmolStr>,
+    edge_inputs: Vec<VmEdgeInput>,
     reject_writes: bool,
     reject_reads: bool,
     reject_copies: bool,
+    owned_entry_error: bool,
+    initialized_frames: usize,
+    initialized_presence: Vec<bool>,
+    reject_initialization: bool,
+    reject_local_transfer: bool,
+    retired_frames: usize,
+    owned_entry_calls: usize,
+    clone_admissions: Cell<usize>,
+    recycled_locals: Vec<Value>,
+    execution_budget: crate::vm::budget::ExecutionBudget,
 }
 
 impl TestContext {
@@ -28,9 +41,21 @@ impl TestContext {
             storage: VariableStorage::new(),
             stdlib: StandardLibrary::new(),
             profile: DateTimeProfile::default(),
+            edge_owner: None,
+            edge_inputs: Vec::new(),
             reject_writes: false,
             reject_reads: false,
             reject_copies: false,
+            owned_entry_error: false,
+            initialized_frames: 0,
+            initialized_presence: Vec::new(),
+            reject_initialization: false,
+            reject_local_transfer: false,
+            retired_frames: 0,
+            owned_entry_calls: 0,
+            clone_admissions: Cell::new(0),
+            recycled_locals: Vec::new(),
+            execution_budget: crate::vm::budget::ExecutionBudget::new(4096),
         }
     }
 
@@ -52,13 +77,32 @@ impl TestContext {
 }
 
 impl ReferenceContext for TestContext {
-    fn before_value_clone(&self, _: &Value) -> Result<(), RuntimeError> {
-        if self.reject_copies {
+    fn charge_text_work(&self, units: usize) -> Result<(), RuntimeError> {
+        self.execution_budget.charge(units).map(drop)
+    }
+    fn before_value_clone(&self, _value: &Value) -> Result<(), RuntimeError> {
+        self.clone_admissions
+            .set(self.clone_admissions.get().saturating_add(1));
+        let result = if self.reject_copies {
             Err(VmTrap::BudgetExceeded.into_runtime_error())
         } else {
             Ok(())
-        }
+        };
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        crate::vm::diagnostic_timing::record_copy_admission(
+            core::panic::Location::caller(),
+            _value,
+            0,
+            0,
+            result
+                .as_ref()
+                .map_or_else(crate::vm::diagnostic_timing::copy_outcome, |_| {
+                    crate::vm::diagnostic_timing::CopyAdmissionOutcome::Admitted
+                }),
+        );
+        result
     }
+
     fn check_reference_write(
         &self,
         reference: crate::value::ValueRefView<'_>,
@@ -102,7 +146,135 @@ impl ReferenceContext for TestContext {
     }
 }
 
+impl crate::vm::context::ExecutionContext for TestContext {
+    fn initialize_frame(
+        &mut self,
+        _: &crate::vm::module::VmModule,
+        frame: &mut VmFrame,
+        _: u32,
+    ) -> Result<(), RuntimeError> {
+        self.initialized_frames = self.initialized_frames.saturating_add(1);
+        self.initialized_presence = frame.parameter_values_present.clone();
+        if self.reject_initialization {
+            Err(RuntimeError::Overflow)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn charge_call_storage(&self, bytes: usize, work: usize) -> Result<(), RuntimeError> {
+        if self.reject_local_transfer && bytes == 0 && work == 1 {
+            Err(RuntimeError::Overflow)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn execution_budget(&self) -> &crate::vm::budget::ExecutionBudget {
+        &self.execution_budget
+    }
+
+    fn retire_frame(&mut self, _: &VmFrame) -> Result<(), RuntimeError> {
+        self.retired_frames += 1;
+        Ok(())
+    }
+
+    fn check_frame_return(&self, _: &VmFrame, _: &Value) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn execute_initialization_opcode(
+        &mut self,
+        _: &crate::vm::module::VmModule,
+        _: &mut VmFrame,
+        opcode: u8,
+        _: u32,
+        _: &mut crate::vm::OperandStack,
+        _: u32,
+    ) -> Result<(), RuntimeError> {
+        Err(crate::vm::VmTrap::InvalidOpcode(opcode).into_runtime_error())
+    }
+
+    fn deadline_exceeded(&self) -> bool {
+        false
+    }
+
+    fn on_statement(&mut self, _: &crate::vm::module::VmModule, _: u32, _: usize, _: u32) {}
+
+    fn sizeof_value(&self, _: &Value) -> Result<u64, RuntimeError> {
+        Ok(0)
+    }
+}
+
+#[test]
+fn native_reference_read_charges_wide_string_unicode_scan() {
+    let mut context = TestContext::new();
+    context
+        .storage
+        .set_global("text", Value::WString("\u{03b1}".repeat(64)));
+    let frame = context.frame(0);
+    let reference = ValueRef {
+        location: MemoryLocation::Global,
+        offset: 0,
+        path: vec![RefSegment::Index(vec![1])],
+    };
+    // TIME-08 TEXT: 64 two-byte characters = 128 bytes, charged at 2 per byte = 256.
+    context.execution_budget.reset(255);
+    let error = super::bindings::read_vm_reference(&mut context, &frame, &reference)
+        .unwrap_err()
+        .into_runtime_error();
+    assert!(matches!(
+        error,
+        RuntimeError::ExecutionLimit {
+            kind: crate::error::ExecutionLimitKind::Work,
+            requested: 256,
+            limit: 255,
+            ..
+        }
+    ));
+    context.execution_budget.reset(256);
+    assert_eq!(
+        super::bindings::read_vm_reference(&mut context, &frame, &reference).unwrap(),
+        Value::WChar(0x03b1)
+    );
+}
+
 impl CallContext for TestContext {
+    fn recycle_optimized_result_locals(
+        &mut self,
+        _: u32,
+        locals: Vec<Value>,
+    ) -> Result<(), RuntimeError> {
+        self.recycled_locals = locals;
+        Ok(())
+    }
+    fn try_execute_optimized_with_parameter_presence_owned(
+        &mut self,
+        module: &crate::vm::module::VmModule,
+        pou_id: u32,
+        instance: Option<InstanceId>,
+        initial_locals: &mut Option<Vec<Value>>,
+        present: Option<&[bool]>,
+        capture_return: bool,
+        depth: u32,
+        entry: crate::vm::budget::ExecutionEntry,
+    ) -> Result<Option<crate::vm::dispatch::VmPouStackResult>, RuntimeError> {
+        self.owned_entry_calls += 1;
+        if self.owned_entry_error {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        self.try_execute_optimized_with_parameter_presence(
+            module,
+            pou_id,
+            instance,
+            initial_locals.as_deref(),
+            present,
+            capture_return,
+            depth,
+            entry,
+        )
+    }
+
     fn profile(&self) -> &DateTimeProfile {
         &self.profile
     }
@@ -121,8 +293,12 @@ impl CallContext for TestContext {
             direction: BuiltinParamDirection::In,
         }])
     }
-    fn edge_inputs(&self, _: &str) -> Vec<VmEdgeInput> {
-        Vec::new()
+    fn edge_inputs(&self, owner: &str) -> Vec<VmEdgeInput> {
+        if self.edge_owner.as_deref() == Some(owner) {
+            self.edge_inputs.clone()
+        } else {
+            Vec::new()
+        }
     }
     fn suspend_frame(&mut self, frame: &mut VmFrame) -> Result<(), RuntimeError> {
         self.storage
@@ -151,12 +327,112 @@ impl CallContext for TestContext {
     }
 }
 
+#[cfg(test)]
+mod owned_binding_tests;
+
 fn reference(frame: &VmFrame) -> ValueRef {
     ValueRef {
         location: MemoryLocation::Local(frame.activation.unwrap()),
         offset: 0,
         path: Vec::new(),
     }
+}
+
+#[test]
+fn edge_transaction_preserves_rising_falling_and_phase_restore() {
+    let prepared = crate::vm::PreparedModule::from_bytes(
+        include_bytes!(
+            "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+        ),
+        crate::vm::PreparationLimits::default(),
+    )
+    .unwrap();
+    let pou_id = *prepared.vm.function_block_ids.get("COUNTER").unwrap();
+    let owner = SmolStr::new(prepared.vm.pou_name(pou_id).unwrap());
+
+    let mut context = TestContext::new();
+    context.edge_owner = Some(owner);
+    context.edge_inputs = vec![
+        VmEdgeInput {
+            name: "rise".into(),
+            phase_name: "rise_phase".into(),
+            rising: true,
+        },
+        VmEdgeInput {
+            name: "fall".into(),
+            phase_name: "fall_phase".into(),
+            rising: false,
+        },
+    ];
+    let instance = context.storage.create_instance("Counter");
+    for (name, value) in [
+        ("rise", Value::Bool(true)),
+        ("rise_phase", Value::Bool(false)),
+        ("fall", Value::Bool(false)),
+        ("fall_phase", Value::Bool(true)),
+    ] {
+        assert!(context.storage.set_instance_var(instance, name, value));
+    }
+
+    let transaction = crate::vm::edge::EdgeInputTransaction::begin(
+        &mut context,
+        &prepared.vm,
+        pou_id,
+        Some(instance),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        context.storage.get_instance_var(instance, "rise"),
+        Some(&Value::Bool(true))
+    );
+    assert_eq!(
+        context.storage.get_instance_var(instance, "fall"),
+        Some(&Value::Bool(true))
+    );
+    transaction.restore(&mut context);
+    assert_eq!(
+        context.storage.get_instance_var(instance, "rise"),
+        Some(&Value::Bool(true))
+    );
+    assert_eq!(
+        context.storage.get_instance_var(instance, "fall"),
+        Some(&Value::Bool(false))
+    );
+    assert_eq!(
+        context.storage.get_instance_var(instance, "rise_phase"),
+        Some(&Value::Bool(true))
+    );
+    assert_eq!(
+        context.storage.get_instance_var(instance, "fall_phase"),
+        Some(&Value::Bool(false))
+    );
+
+    let transaction = crate::vm::edge::EdgeInputTransaction::begin(
+        &mut context,
+        &prepared.vm,
+        pou_id,
+        Some(instance),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        context.storage.get_instance_var(instance, "rise"),
+        Some(&Value::Bool(false))
+    );
+    assert_eq!(
+        context.storage.get_instance_var(instance, "fall"),
+        Some(&Value::Bool(false))
+    );
+    transaction.restore(&mut context);
+    assert_eq!(
+        context.storage.get_instance_var(instance, "rise_phase"),
+        Some(&Value::Bool(true))
+    );
+    assert_eq!(
+        context.storage.get_instance_var(instance, "fall_phase"),
+        Some(&Value::Bool(false))
+    );
 }
 
 #[test]

@@ -24,8 +24,8 @@ pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Va
         Value::Word(v) => Some(v.to_string()),
         Value::DWord(v) => Some(v.to_string()),
         Value::LWord(v) => Some(v.to_string()),
-        Value::Real(v) => Some(format_real_string(f64::from(*v))),
-        Value::LReal(v) => Some(format_real_string(*v)),
+        Value::Real(v) => Some(crate::value::float_text::real(f64::from(*v))),
+        Value::LReal(v) => Some(crate::value::float_text::real(*v)),
         _ => None,
     };
 
@@ -78,9 +78,7 @@ pub(super) fn parse_real_text(text: &str) -> Result<f64, RuntimeError> {
         return Err(RuntimeError::TypeMismatch);
     }
     let cleaned: String = trimmed.chars().filter(|c| *c != '_').collect();
-    let value = cleaned
-        .parse::<f64>()
-        .map_err(|_| RuntimeError::TypeMismatch)?;
+    let value = crate::value::float_text::parse(&cleaned)?;
     if value.is_finite() {
         Ok(value)
     } else {
@@ -135,14 +133,6 @@ pub(super) fn convert_to_char(value: &Value, dst: ConversionType) -> Result<Valu
         },
         _ => Err(RuntimeError::TypeMismatch),
     }
-}
-
-fn format_real_string(value: f64) -> String {
-    let mut text = value.to_string();
-    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
-        text.push_str(".0");
-    }
-    text
 }
 
 fn string_to_char(text: &str, wide: bool) -> Result<Value, RuntimeError> {

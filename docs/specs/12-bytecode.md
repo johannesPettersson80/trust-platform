@@ -1,6 +1,6 @@
 # Bytecode Format
 
-**Status:** Implemented 1.x container/metadata handling and the specified 1.1 execution contract. A3 implements opt-in 2.0 authoring, codecs, validation and disassembly under §11; the current hosted executor still rejects 2.0. Source-free construction/execution and production activation of the P/Q compatibility window remain A4 and release work. Scope evidence is recorded in the runtime-portability checklist.
+**Status:** The shared reader and executor support the legacy 1.1 contextual contract and source-free 2.0. H adopts source-free 3.0 for new applications, with the uniform temporal storage ABI below. The H corrections and 3.0 contract are implementation work until their consolidated validation passes; scope evidence is recorded in the runtime-portability checklist.
 
 ### 1. Purpose
 
@@ -30,13 +30,13 @@ This document defines the bytecode format consumed by the ST runtime executor. I
 
 The bytecode is a single container with a fixed-size header and a section table.
 
-#### 4.1 Header (Version 1.x)
+#### 4.1 Header (Versions 1.x, 2.0 and 3.0)
 
 ```
 struct Header {
   u8  magic[4];          // "STBC"
-  u16 version_major;     // currently 1
-  u16 version_minor;     // currently 1
+  u16 version_major;     // current producer: 3
+  u16 version_minor;     // current producer: 0
   u32 flags;             // header flags (see below)
   u16 header_size;       // bytes, header only (currently 24)
   u16 section_count;     // number of section table entries
@@ -57,15 +57,64 @@ proof of execution support for every minor it can structurally decode. Existing
 1.0 metadata/container compatibility tests remain distinct from the 1.1
 execution contract.
 
-**Planned dual-major window (§11.1):** the hosted compatibility reader accepts
-major in `{1, 2}`, with explicit supported version/layout policy. Preserve
-existing 1.0 structural/metadata cases; hosted 1.1 execution/import requires the
-matching source-derived construction context. A source-free consumer accepts
-2.0 and rejects all 1.x input for execution, even if shared tooling can inspect
-it. Foreign majors and unsupported pairs fail before state publication. The
-encoder selects an explicit output version; increasing one shared constant is
-not sufficient. Header/CRC defaults and layout selection use the version pair,
-so a 2.0 minor value of zero does not accidentally select old 1.0 layouts.
+**Versioned compatibility window (§11.1):** the reader supports majors
+`{1, 2, 3}` with explicit supported pairs. Preserve 1.0 structural/metadata
+cases and 1.1 execution/import with matching source-derived construction context.
+Source-free consumers execute 2.0 and 3.0; they reject 1.x without that context.
+New source producers default to 3.0. Foreign majors and unsupported pairs reject
+before publication. A major-2 reader rejects 3.0 instead of assigning different
+storage widths to an old program.
+
+**3.0 temporal ABI:** every temporal type occupies eight bytes in the portable
+storage layout and `SIZEOF`, on every platform. TIME/LTIME encode signed
+little-endian nanoseconds. DATE/TOD/DT encode signed little-endian profile ticks;
+LDATE/LTOD/LDT encode signed little-endian nanoseconds at the specified epochs.
+This preserves the existing logical value domain (specification 10 §2.5;
+IEC 61131-3 Ed.3 §6.4.2, Table 10, footnotes b and m–q). Arrays, aliases,
+subranges, relative structures, construction demand and runtime size traversal
+use the artifact's ABI consistently. Constant-pool temporal payloads were already
+eight bytes and do not change.
+
+Legacy 1.1/2.0 retain four-byte short-temporal storage sizes, array strides and
+`SIZEOF`. Their historic aggregate SIZEOF sums member sizes, including the
+old treatment of relative-layout gaps. Compatibility analysis retains that
+result because it can define array bounds in supplied legacy instruction/type
+metadata. New 3.0 uniform-layout SIZEOF measures the complete relative extent,
+including gaps and shared fields, rounded to bytes. Legacy physical alias backing
+still follows declared offsets and checked complete extents; preserving a legacy
+SIZEOF result never permits an out-of-range backing access.
+ Their logical values retain the existing 64-bit domain. A physically
+located legacy write that cannot be represented exactly in its declared width
+rejects before changing any value or backing byte; it never truncates or wraps.
+No implicit artifact upgrade or retain-layout reinterpretation is permitted. A warm retained
+physical structure may transfer its backing only to an encoding-compatible
+admitted destination (same scalar units/types, domains, paths and complete
+extents), independently of table ordering or layout Arc identity. A destination
+that removes physical alias semantics is incompatible with that retained backing;
+reject the isolated candidate rather than discard hidden bytes. Ordinary logical
+temporal values can migrate under the existing checked retain policy. Explicit
+cold/new-controller installation is a separate owner operation.
+
+Compound constant materialization binds the admitted physical layout recursively,
+including array elements, before a prepared module can be published. Conflicting
+alias values in one constant are rejected; a zero-body default initializer cannot
+bypass this check. Rebuilding a compatible typed structure during coercion or
+recipe application preserves its existing backing, including unnamed gap bits.
+Field-only initializer maps use the destination layout and ordinary checked
+initialization rules; they are not evidence of a preexisting physical encoding.
+
+New OVERLAPPING_STRUCT/LOCATED_STRUCT records below belong to 3.0 only; the
+contextual 1.1 importer may enrich equivalent source metadata internally without
+changing the old serialized layout. An ordinary 2.0 artifact that previously
+lost relative layout metadata requires regeneration rather than guessing it.
+
+Explicit external I/O/protocol codecs remain separate from this internal ABI.
+In particular, typed TIME mapped to a DWORD process image remains unsigned
+32-bit milliseconds with its existing checked range; eight-byte internal TIME
+does not silently change that transport encoding. Aggregate I/O strides use
+complete codec extents with relative gaps (specification 10 §1.2), not legacy
+aggregate SIZEOF or new internal temporal width. All leaf ranges remain checked.
+
 
 #### 4.2 Section Table Entry
 
@@ -112,6 +161,24 @@ does not constitute execution evidence for the 32-bit overflow branch.
 | Bit | Name | Meaning |
 |-----|------|---------|
 | `0x0001` | `CRC32` | header `checksum` is CRC32 of the section table and section payloads |
+| `0x0002` | `LEGACY_TEMPORAL32` (3.0 only) | deliberate legacy-context migration retains four-byte short temporal storage/SIZEOF |
+
+3.0 requires CRC32, permits only the optional LEGACY_TEMPORAL32 compatibility
+flag, and rejects every other flag before publication. New source production
+uses CRC32 alone. An explicit 1.1 contextual import may produce a fully validated
+3.0 construction container with LEGACY_TEMPORAL32 while retaining the supplied
+1.1 artifact for export. This identifies its inherited ABI in the container;
+it is not an unchecked preparation override or a per-platform capability.
+The installed owner keeps this admitted construction archive for re-admission.
+It may additionally retain the unchanged original 1.1 artifact for export until
+code or resource metadata changes. Successful resource-only replacement exports
+the updated 3.0 compatibility container and retires the original export archive;
+a failed replacement retains both previous archives. Export must never return
+stale configuration. Successful full artifact replacement likewise retires the
+original archive.
+2.0 requires CRC32 and no other flags. This compatibility route preserves old
+SIZEOF and relative offsets without admitting new records under the old major.
+
 
 #### 4.5 Collection Count Bounds
 
@@ -151,8 +218,19 @@ decoding. Count and decoded-instruction limits are checked before count-sized
 or instruction-state allocation. A module above any validation limit is
 rejected as a complete candidate before it can replace the active module.
 
+The structural nesting bound is independent of active VM call frames. The root
+is depth zero: at most 64 structural edges (65 nodes) are accepted; edge 65
+is rejected before construction. A shallow
+call-depth profile must still admit a valid deeper aggregate within the structural
+bound. Validation includes the complete suffix height when reusing a cached type
+or instance-template demand. Real initializer/POU callbacks still consume the
+profile's invocation depth; this distinction does not increase that limit.
+
 The execution budget counts each executed bytecode instruction, not only loop
-back-edges. Nested POU and native calls share the caller's remaining budget.
+back-edges, plus the value-size work defined by specification 34 TIME-08;
+engine bookkeeping is not charged. Construction entries use the construction
+allowance of specification 34 TIME-09. Nested POU and native calls share the
+caller's remaining budget.
 The stack interpreter and optimized register/tier-1 paths charge the same
 original bytecode instructions even when lowering fuses or expands internal
 operations. Exhausting the instruction budget faults the invocation through
@@ -296,6 +374,16 @@ Type kinds (Version 1.x):
 - 9 CLASS
 - 10 INTERFACE
 
+Source-free 3.0 additionally defines 11 OVERLAPPING_STRUCT and 12 LOCATED_STRUCT.
+These distinct required type discriminants preserve physical layout without
+changing ordinary STRUCT payloads. An older reader rejects the unsupported major or an unknown kind;
+it must not reinterpret either record as an ordinary STRUCT. Existing ordinary
+2.0 artifacts retain their encoding. Explicit 1.1 production retains its old
+payload; its hosted construction-context importer enriches located layout from
+the matching source declarations before shared execution. A previously emitted
+source-free artifact that discarded OVERLAP metadata requires regeneration;
+the missing qualifier cannot be inferred from a plain STRUCT record.
+
 Primitive payload:
 ```
 struct PrimitiveType {
@@ -330,6 +418,22 @@ struct Field {
   u32 type_id;
 }
 ```
+
+OVERLAPPING_STRUCT and LOCATED_STRUCT use the same count followed by 12-byte
+fields `(name_idx:u32, type_id:u32, bit_offset:u32)`. Every component is
+located; `u32::MAX` is reserved and rejected. Offsets are relative to the enclosing structure in little-endian
+bit order. All addressed fields have checked complete extents derived from their
+admitted types; nested structures and fixed arrays retain their physical layout.
+LOCATED_STRUCT rejects intersecting extents; OVERLAPPING_STRUCT permits them.
+Strings and indeterminate-size arrays have no overlapping bit representation.
+Unknown kind, inconsistent kind/payload, overflow, unsupported addressed shape
+or invalid extent rejects admission before constructing state. Shared construction
+prepares immutable scalar-leaf layout once; writes synchronize intersecting bits
+through the common value owner, including nested paths and independently copied
+aggregates. Retain reconstruction reattaches the admitted layout; physical layout
+is not inferred from serialized field values. This implements specification 02
+§3.6 and IEC 61131-3 Ed.3 §6.4.4.7.1–2, including the existing prohibition on
+explicit OVERLAP initialization.
 
 Enum payload:
 ```
@@ -767,7 +871,8 @@ The validator rejects unimplemented values before dispatch.
 
 Control flow:
 - `0x00 NOP`
-- `0x01 HALT`
+- `0x01 HALT` — fault termination with `ForStepZero`, used by the encoded
+  zero-step FOR guard. This is not successful POU completion; use `RET` for that.
 - `0x02 JMP i32`
 - `0x03 JMP_TRUE i32` (pop bool)
 - `0x04 JMP_FALSE i32` (pop bool)
@@ -837,8 +942,18 @@ rather than those unimplemented bytecode values.
 
 `REFERENCE_ATTEMPT` is the executable form of source `?=`. Its operand must
 name a `Reference` or `Interface` type-table entry. For `REF_TO`, the VM reads
-the source reference's live storage type and accepts an exact target,
-derived-to-base relation, or implemented-interface relation; incompatibility
+the source reference's live storage type and accepts an exact resolved target,
+derived-to-base relation, or implemented-interface relation. Repeated anonymous
+primitive, bounded-string, array and reference declarations can have distinct
+TYPE_TABLE indexes while representing the same target: primitive category/string
+capacity, array bounds and element types, and reference targets shall agree.
+Optional lookup/display labels do not change these structural types. An older
+anonymous registry entry can lose its generated label when the same type is
+registered again; absence of that label does not change the target type. Direct aliases resolve to their base,
+as required by IEC 61131-3 Ed.3 §6.4.4.10.1 and §6.4.4.10.3; this does not permit
+storage reinterpretation. Separately declared structures, unions, enumerations
+and POU identities remain nominal. Type comparisons are iterative, bounded and
+charged to the existing invocation allowance; incompatibility
 pushes `Value::Reference(None)`. For an interface target, the VM checks the
 live instance POU against the class/function-block parent and implemented-
 interface metadata; incompatibility pushes `Value::Null`. A null source always
@@ -1226,13 +1341,16 @@ equivalence oracle above, but their own runtime contract is deterministic:
 - absent, explicit true/false, and invalid Boolean environment tokens resolve
   to their documented defaults; tier-1 is disabled by default, and valid
   threshold and capacity tokens select the requested positive bounds;
-- lowering and specialized-block caches reuse prior results, cache lowering
-  failures, respect configured capacity, evict when bounded capacity is
-  exceeded, stay cold until the hot threshold, and clear all entries and
-  counters on reset;
-- pooled register files and execution buffers preserve requested capacity,
-  return cleared frames and registers, and never retain more than the
-  configured pool limit;
+- under specification 34 HOST-04, immutable lowering and specialization plans,
+  including unsupported-plan results, are prepared before RUN and retained on
+  reset. Configured capacity and eviction apply to active tier-1 selections;
+  explicit tier-1 reset clears those selections, warmup counts and counters,
+  while profile-only reset preserves selection. Lowering reset retains prepared
+  plans and reports prepared entries separately from legacy lazy-cache occupancy;
+- register files and execution buffers are reserved and charged during controller
+  construction per eligible prepared POU, returned cleared after execution and
+  retained across instrumentation resets. The legacy pool-retention limit does
+  not cap immutable prepared plans or authorize allocation during RUN;
 - profile snapshots count the executed register, reference, call, fallback,
   cache, and value-movement operations actually taken. Direct scalar and
   borrowed-reference paths do not increment clone counters that those paths
@@ -1327,8 +1445,10 @@ Frame layout is deterministic:
   and
 - external locals are not overwritten by automatic initialization.
 
-A NULL return slot receives the declared default; a caller-supplied non-NULL
-return slot is preserved. Parameters already copied into the frame are
+A NULL return slot receives the intrinsic default of its resolved return type,
+without evaluating user type or member default expressions. This preserves the
+legacy return-slot contract; automatic local declared defaults remain distinct.
+A caller-supplied non-NULL return slot is preserved. Parameters already copied into the frame are
 preserved. Automatic locals receive their explicit initializer or declared
 default. Interface-typed slots default to NULL. Class and function-block locals
 create their declared instance; a class local rejects an explicit initializer,
@@ -1387,7 +1507,10 @@ values or frame identities.
 
 The top-level instruction budget is shared by nested VM calls. Charging exactly
 the remaining budget succeeds and leaves zero; the next charge rejects with
-`runtime_instruction_budget_exceeded`. A rejected charge does not underflow or
+the existing stable code `runtime_execution_timeout`, with structured
+`ExecutionLimit { kind: Work, used, requested, limit }` context. This identifies
+logical work exhaustion separately from physical deadline expiry without changing
+the published compatibility code. A rejected charge does not underflow or
 otherwise change the remaining budget. Original bytecode instruction cost is
 charged before the guarded operation commits its mutation, including fused and
 tier-1 forms.
@@ -1395,7 +1518,7 @@ tier-1 forms.
 Deadline polling occurs on the first guarded operation and at the documented
 stack/register stride boundaries. A missing or future deadline permits
 execution; an expired deadline rejects before the guarded mutation with
-`runtime_deadline_exceeded`.
+`runtime_execution_timeout`, preserving the existing runtime fault identity.
 
 Debug lookup is optional and fail-soft. Valid variable metadata creates
 case-preserving symbol-to-reference and first-symbol reference-to-symbol
@@ -1440,14 +1563,14 @@ image, retain state, task configuration, or executable module is replaced.
 The DEBUG_MAP section provides a deterministic mapping between bytecode offsets and source locations. Debug entries must refer to valid POU IDs and code offsets.
 For version >= 1.1, file paths are stored in DEBUG_STRING_TABLE and referenced by `file_idx`.
 
-### 11. Planned Source-Free Initialization Format (STBC 2.0)
+### 11. Source-Free Initialization Format (STBC 2.0 and 3.0)
 
-**Status:** implementation contract for
-[Runtime Portability](34-runtime-portability.md), not an implemented format.
-The current reader/writer supports 1.1. No 2.0 support or passing migration tests
-are claimed by this document update. The STBC container is a truST product
-format; IEC 61131-3:2013 variable/POU initialization rules (Tables 14, 19, 40,
-47, and 48) and the existing §7.11 runtime behavior remain the semantic baseline.
+**Status:** source-free construction and execution were implemented by A3/A4
+and adopted by H. This section defines their common construction contract for
+2.0 and 3.0. The H uniform temporal ABI and additional located type records use
+3.0 as specified in §4.1; legacy 2.0 retains its layout. New H corrections remain
+unverified until their consolidated batch passes. IEC 61131-3:2013 variable/POU
+initialization rules (Tables 14, 19, 40, 47 and 48) remain the semantic baseline.
 
 #### 11.1 Version and compatibility boundary
 
@@ -1458,7 +1581,9 @@ change gives existing readers a hard rejection boundary; the plan does not
 depend on optional unknown 1.x sections carrying mandatory execution behavior.
 Old 1.x readers reject 2.0 before live state changes. The new hosted authoring
 reader supports 1.1 plus 2.0 during the following bounded release window;
-source-free runtime/firmware consumers accept 2.0 only.
+source-free runtime/firmware consumers retain 2.0 and accept 3.0 under §4.1.
+H new-source production defaults to 3.0; the following P/Q migration rows record
+the earlier 2.0 introduction and do not override that temporal ABI contract.
 
 | Release stage | Hosted reader/import contract | Source-free runtime contract |
 |---|---|---|
@@ -1479,6 +1604,25 @@ A 1.1 artifact missing initialization data cannot always be losslessly converted
 from bytes alone. Rebuild from original source/configuration or supply the
 matching trusted authoring context. Report missing context as an error; do not
 invent zero defaults or claim that HIR availability by itself reconstructs it.
+
+The hosted `CompileSession::build_runtime_from_bytecode` boundary installs the
+supplied artifact once: 1.1 imports matching declaration/construction context;
+2.0 and 3.0 need no sources. Supplied ordinary instruction bodies are never replaced by
+recompiled source bodies. Source/debug association separately requires identical
+semantic tables, instruction bytes and indexed positions against the matching
+producer; path-only debug-file relabeling is recorded explicitly. Legacy
+construction context alone does not certify instruction source. The existing
+explicit 1.1 producer may be used for this comparison during authoring, outside
+RUN. If certification fails or the comparison producer cannot represent that
+context, execution keeps verified declarations/types/USING metadata but clears
+source text and statement associations; breakpoint mapping and source-aware
+export are unavailable. This conservative comparison is not a cryptographic
+source-hash claim. A 2.0 or 3.0 mismatch uses source-free tooling metadata, including a context
+that the comparison producer cannot represent. Bundle loading and
+deployment validation use this same boundary. Attaching bundle service policies
+does not reload code. An explicitly requested subsequent cold/warm startup restart
+retains the existing restart and durable-checkpoint semantics.
+
 
 Where the legacy hosted API supplies source-derived construction context, move
 its initializer lowering into authoring/preparation and pass the resulting
@@ -1566,6 +1710,12 @@ and parameter-default indices; minor zero in 2.0 does not select the 1.0 layout.
 CRC32 is mandatory in 2.0. Header flags other than CRC32 and nonzero section
 flags are rejected. Only 2.0 is supported in major 2; a future minor requires
 an explicit contract. The legacy default producer remains 1.1 during A3.
+Scope H/M2B uses the STBC 3.0 temporal contract in §4.1 for ordinary hosted
+compilation and test-harness installation; the 2.0 construction records below
+remain supported with their legacy storage ABI. The compatibility writer selects 1.1 explicitly; it must not delegate
+to the changed default. Ordinary hosted startup prepares and constructs through
+the source-free shared engine, without a second startup interpreter or a
+post-construction legacy re-encoding/reinstallation step.
 
 Four new sections are mandatory, including when empty: STORAGE_LAYOUT (0x000D),
 CONSTRUCTION_ROOTS (0x000E), INITIALIZERS (0x000F), ACCESS_BINDINGS (0x0010).
@@ -1846,7 +1996,10 @@ whole-value aliases. flags bit 0 means writable; other bits and reserved are zer
 Read-only aliases remain readable but reject writes through the alias. Aliases do
 not allocate value slots or override ordinary declaration ownership/permissions.
 The producer retains existing VAR_TEMP/VAR_EXTERNAL/VAR_IN_OUT exposure rejection
-and constant read-only rules. Source-free host access/debug surfaces restore this
+and constant read-only rules. Program external declaration names remain source-only
+metadata until configuration aliases and initializers are checked, including
+configured instance aliases and program-qualified paths. They allocate no runtime
+field or slot (IEC 61131-3 Ed.3 §6.5.2 and Figure 8; runtime semantics §7.9). Source-free host access/debug surfaces restore this
 map from the artifact; IO_MAP alone does not encode these names or permissions.
 
 #### 11.5.7 Disabled-call result defaults
@@ -1900,11 +2053,16 @@ original visibility frontier. A recipe preserves its root action's current
 instance and construction frontier, including which members already exist;
 reservation alone does not expose an uninitialized later member. An on-demand
 disabled-call action supplies global context. A recipe cannot select an unrelated
-root context. Callback nesting counts toward the same call-depth limit, and
-helper traversal, copying and allocation consume admitted work and memory limits
+root context. Actual recipe/POU callback nesting counts toward the invocation
+call-depth limit. Structural type/value traversal is independently bounded to
+64 structural edges from a depth-zero root, including alias, subrange, array
+and structure/template paths; it does not consume invocation depth. Memoized suffixes count toward
+the complete structural path, so cached construction demand cannot conceal an
+over-deep declaration. Helper traversal, copying and allocation also consume
+admitted work and memory limits
 in addition to dispatcher instruction fuel and deadlines.
 
-The following 2.0-only instructions are restricted to initializer bodies. Each
+The following instructions, introduced in 2.0 and retained in 3.0, are restricted to initializer bodies. Each
 has a four-byte operand. Ordinary POU bodies and all 1.x modules reject them.
 
 | Opcode | Operand | Stack effect | Operation |
@@ -2043,10 +2201,10 @@ and direct initialization identities belong to it. Each flat image size retains
 the existing 16 MiB container ceiling, with stricter limits imposed by admission
 profiles. This avoids ambiguous cross-resource construction or I/O ownership.
 
-The hosted opt-in entry point is
-`CompileSession::build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)`.
-The existing `build_bytecode_module` and byte-array helpers keep producing 1.1.
-The explicit selector accepts only the supported producer contracts 1.1 and 2.0;
+Hosted H composition defaults `CompileSession::build_bytecode_module` and its
+byte-array helpers to 3.0. `build_bytecode_module_for_version` retains explicit
+1.1 and 2.0 compatibility production during the §11.1 window.
+The explicit selector accepts only the supported producer contracts 1.1, 2.0 and 3.0;
 future minors and foreign majors fail without evaluating startup code. The
 tracked OSCAT 1.1 fixture remains unchanged. The separately named
 `tests/fixtures/portability/stbc-2.0/program-v2.stbc` is regenerated by the Rust
@@ -2071,11 +2229,13 @@ match their base VAR_META type. Static lexical names are unique within their
 semantic POU owner, independently of private storage names. Access aliases and
 resource-global storage names cannot collide case-insensitively in a 2.0 artifact.
 
-Frame layout roles agree with POU_INDEX: its optional return slot is first,
+Frame layout roles agree with POU_INDEX: a function or method optional return slot is first,
 followed by parameters in signature order, then automatic locals and any scratch
 tail. Parameter declaration types, names and direction flags match the signature;
 a normal-variable record cannot replace a parameter and overwrite a supplied
-argument during initialization.
+argument during initialization. Function-block parameters live in instance storage;
+function-block and program frames contain only their temporary and scratch slots,
+so instance parameter counts shall not classify these frame slots as parameters.
 
 In 2.0, an INSTANCE reference names its concrete construction-root identity;
 SELF/SUPER instructions express invocation-relative access. A POU may therefore

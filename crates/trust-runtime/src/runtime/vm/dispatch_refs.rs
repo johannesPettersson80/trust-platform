@@ -16,8 +16,8 @@ mod tests {
 
     use crate::memory::{FrameId, MemoryLocation};
     use crate::runtime::vm::frames::VmFrame;
+    use crate::runtime::LegacyRuntimeFixture as Runtime;
     use crate::value::{ArrayValue, StructValue};
-    use crate::Runtime;
     use smol_str::SmolStr;
     use trust_runtime_core::vm::hosted::context::VM_LOCAL_SENTINEL_FRAME_ID;
 

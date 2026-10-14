@@ -17,12 +17,14 @@ pub(super) fn provenance(source_id: u32) -> Provenance {
     }
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 pub(super) fn open_test_sqlite(
     path: &std::path::Path,
 ) -> Result<SqliteDocumentSink, PersistenceError> {
     SqliteDocumentSink::open_with_definitions(path, vec![open_ot_definition::sample_definition()])
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 pub(super) fn heartbeat_document() -> Document {
     Document::Event(EventDocument {
         kind: DocumentKind::Event,
@@ -44,6 +46,10 @@ pub(super) fn definition_hash_hex(definition: &open_ot_definition::DefinitionFil
         .collect()
 }
 
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-real-database-tests"
+))]
 pub(super) fn value_changed_document(
     definition: &open_ot_definition::DefinitionFile,
     seq: u64,
@@ -352,6 +358,10 @@ pub(super) fn canonical_documents() -> Vec<Document> {
     documents
 }
 
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-real-database-tests"
+))]
 fn expected_canonical_jsons() -> Vec<String> {
     let mut documents = canonical_documents()
         .iter()
@@ -361,6 +371,10 @@ fn expected_canonical_jsons() -> Vec<String> {
     documents
 }
 
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-real-database-tests"
+))]
 pub(super) fn assert_canonical_jsons(mut actual: Vec<String>) {
     actual.sort();
     assert_eq!(actual, expected_canonical_jsons());

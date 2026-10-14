@@ -38,6 +38,11 @@ impl AccessMap {
     pub fn get(&self, name: &str) -> Option<&AccessBinding> {
         self.bindings.get(name)
     }
+
+    /// Inspect declared aliases in insertion order without changing their bindings.
+    pub fn bindings(&self) -> impl Iterator<Item = &AccessBinding> {
+        self.bindings.values()
+    }
 }
 
 pub(super) fn ref_for_map(

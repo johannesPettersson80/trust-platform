@@ -26,6 +26,7 @@ mod io;
 mod metadata;
 mod recipes;
 mod roots;
+mod seed_overrides;
 mod templates;
 use super::util::normalize_name;
 

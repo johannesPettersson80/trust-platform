@@ -371,6 +371,16 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "missed": missed,
             "time_ns": time.as_nanos(),
         }),
+        RuntimeEvent::WriteRejected {
+            target,
+            error,
+            time,
+        } => json!({
+            "type": "write_rejected",
+            "target": target.as_str(),
+            "error": error,
+            "time_ns": time.as_nanos(),
+        }),
         RuntimeEvent::Fault { error, time } => json!({
             "type": "fault",
             "error": error,

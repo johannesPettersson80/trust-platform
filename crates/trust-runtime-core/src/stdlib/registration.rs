@@ -17,21 +17,21 @@ macro_rules! descriptor {
 }
 pub(super) use descriptor;
 
-static FAMILIES: &[&[(&str, StdFunctionRef<'static>)]] = &[
-    super::assertions::FUNCTIONS,
-    super::numeric::FUNCTIONS,
-    super::bit::FUNCTIONS,
-    super::selection::FUNCTIONS,
-    super::comparison::FUNCTIONS,
-    super::string::FUNCTIONS,
-    super::time::FUNCTIONS,
-    super::validate::FUNCTIONS,
+static FAMILIES: [&[(&str, StdFunctionRef<'static>)]; 8] = [
+    &super::assertions::FUNCTIONS,
+    &super::numeric::FUNCTIONS,
+    &super::bit::FUNCTIONS,
+    &super::selection::FUNCTIONS,
+    &super::comparison::FUNCTIONS,
+    &super::string::FUNCTIONS,
+    &super::time::FUNCTIONS,
+    &super::validate::FUNCTIONS,
 ];
 
 pub(super) fn get(name: &str) -> Option<&'static StdFunctionRef<'static>> {
     // Eight fixed families, each searched logarithmically, without allocating an
     // uppercase key. Conversion recognition remains algorithmic and separate.
-    for family in FAMILIES {
+    for family in &FAMILIES {
         if let Ok(index) = family.binary_search_by(|(key, _)| {
             key.bytes()
                 .cmp(name.bytes().map(|byte| byte.to_ascii_uppercase()))
@@ -112,7 +112,7 @@ mod tests {
             FAMILIES.iter().map(|family| family.len()).sum::<usize>(),
             baseline.lines().count()
         );
-        for family in FAMILIES {
+        for family in &FAMILIES {
             assert!(family.windows(2).all(|pair| pair[0].0 < pair[1].0));
             for (name, entry) in *family {
                 assert_eq!(
@@ -232,7 +232,7 @@ mod tests {
         super::super::time::register(&mut empty);
         assert!(empty.get("ADD_TIME").is_some());
         assert!(empty.get("ABS").is_none());
-        for (name, expected) in super::super::time::FUNCTIONS {
+        for (name, expected) in &super::super::time::FUNCTIONS {
             let found = empty.get(name).unwrap();
             assert_eq!(found.params, expected.params);
             assert_eq!((found.func)(&[]), (expected.func)(&[]));
@@ -255,7 +255,7 @@ mod tests {
             library.functions.len(),
             include_str!("registration-baseline.txt").lines().count()
         );
-        for family in FAMILIES {
+        for family in &FAMILIES {
             for (name, expected) in *family {
                 let found = library.get(name).unwrap();
                 assert_eq!(found.params, expected.params);

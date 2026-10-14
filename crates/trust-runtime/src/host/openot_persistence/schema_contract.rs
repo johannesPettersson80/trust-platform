@@ -15,6 +15,13 @@ pub(super) fn fingerprint(mut catalog_rows: Vec<String>) -> String {
         .collect()
 }
 
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-database-timescaledb",
+    feature = "openot-database-mysql",
+    feature = "openot-database-sqlserver",
+))]
 pub(super) fn incompatible(backend: &str) -> super::PersistenceError {
     super::PersistenceError::Commit(format!(
         "{backend} incompatible pre-release schema: the generation-1 catalog definition changed; back up and recreate the development database"

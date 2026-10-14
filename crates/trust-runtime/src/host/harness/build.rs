@@ -1,29 +1,29 @@
+mod legacy_construction;
+
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
-use crate::memory::IoArea;
 use crate::task::ProgramDef;
-use crate::Runtime;
-use std::path::Path;
-use trust_hir::db::SemanticDatabase;
-use trust_hir::{Project, SourceKey};
-use trust_syntax::parser;
+use crate::{Runtime, RuntimeBuilder};
+use std::{path::Path, sync::Arc};
+use trust_hir::db::{FileId, SemanticDatabase};
+use trust_hir::{semantic::DeclarationCatalog, Project, SourceKey};
+use trust_syntax::{parser, SyntaxNode};
 
 use super::compiler::{lower_root_global_var_blocks, LoweringInputs};
-use super::config::{
-    apply_config_inits, apply_globals, apply_program_retain_overrides,
-    attach_fb_instances_to_tasks, attach_programs_to_tasks, ensure_wildcards_resolved,
-    register_access_bindings, register_program_instances,
-};
+
+use super::config::{apply_program_retain_overrides, attach_programs_to_tasks};
 use super::types::{CompileError, SourceFile};
 
 /// Lowered declarations and original initialization expressions, before any runtime
 /// storage construction. Legacy execution and source-free artifact authoring consume
 /// the same frontend result, but only the legacy consumer evaluates startup values.
 pub(crate) struct LoweredApplication {
-    pub(crate) runtime: Runtime,
+    pub(crate) builder: RuntimeBuilder,
     pub(crate) program_defs: IndexMap<SmolStr, ProgramDef>,
+    /// Borrowed global aliases needed by source configuration checks, never runtime fields.
+    pub(crate) program_externals: IndexMap<SmolStr, Vec<SmolStr>>,
     pub(crate) globals: Vec<super::compiler::GlobalInit>,
     pub(crate) program_access: Vec<super::compiler::AccessDecl>,
     pub(crate) configuration: Option<super::compiler::ConfigModel>,
@@ -49,6 +49,22 @@ pub(crate) fn lower_application(
     sources: &[SourceFile],
     label_errors: bool,
 ) -> Result<LoweredApplication, CompileError> {
+    lower_application_with_abi(sources, label_errors, crate::value::StorageAbi::default())
+}
+
+struct AnalyzedSourceFiles {
+    project: Project,
+    file_ids: Vec<FileId>,
+    parses: Vec<parser::Parse>,
+    declaration_catalogs: Vec<Arc<DeclarationCatalog>>,
+    syntaxes: Vec<SyntaxNode>,
+}
+
+fn analyze_source_files(
+    sources: &[SourceFile],
+    label_errors: bool,
+    storage_abi: crate::value::StorageAbi,
+) -> Result<AnalyzedSourceFiles, CompileError> {
     let mut parses = Vec::with_capacity(sources.len());
     let mut parse_errors = Vec::new();
     for (idx, source) in sources.iter().enumerate() {
@@ -67,7 +83,6 @@ pub(crate) fn lower_application(
     if !parse_errors.is_empty() {
         return Err(CompileError::new(parse_errors.join("\n")));
     }
-
     for (idx, parse) in parses.iter().enumerate() {
         if super::contains_textual_action(&parse.syntax()) {
             let message = "textual ACTION/SFC execution is unsupported by the runtime compiler";
@@ -80,16 +95,20 @@ pub(crate) fn lower_application(
     }
 
     let mut project = Project::new();
+    project
+        .database_mut()
+        .set_temporal_storage(match storage_abi {
+            crate::value::StorageAbi::LegacyTemporal32 => trust_hir::TemporalStorage::Legacy32,
+            crate::value::StorageAbi::UniformTemporal64 => trust_hir::TemporalStorage::Uniform64,
+        });
     let mut file_ids = Vec::with_capacity(sources.len());
     for (idx, source) in sources.iter().enumerate() {
         let key = match source.path.as_deref() {
             Some(path) => SourceKey::from_path(Path::new(path)),
             None => SourceKey::from_virtual(format!("file_{idx}")),
         };
-        let file_id = project.set_source_text(key, source.text.clone());
-        file_ids.push(file_id);
+        file_ids.push(project.set_source_text(key, source.text.clone()));
     }
-
     let mut diagnostics_errors = Vec::new();
     for (idx, file_id) in file_ids.iter().enumerate() {
         let diagnostics = project.database().diagnostics(*file_id);
@@ -104,93 +123,170 @@ pub(crate) fn lower_application(
     if !diagnostics_errors.is_empty() {
         return Err(CompileError::new(diagnostics_errors.join("\n")));
     }
-    let analyses = file_ids
+    let declaration_catalogs = file_ids
         .iter()
-        .map(|file_id| project.database().analyze(*file_id))
-        .collect::<Vec<_>>();
+        .map(|file_id| Arc::clone(&project.database().analyze(*file_id).declaration_catalog))
+        .collect();
+    let syntaxes = parses.iter().map(|parse| parse.syntax()).collect();
+    Ok(AnalyzedSourceFiles {
+        project,
+        file_ids,
+        parses,
+        declaration_catalogs,
+        syntaxes,
+    })
+}
 
-    let mut runtime = Runtime::new();
-    let profile = runtime.profile();
+pub(crate) fn lower_application_with_abi(
+    sources: &[SourceFile],
+    label_errors: bool,
+    storage_abi: crate::value::StorageAbi,
+) -> Result<LoweredApplication, CompileError> {
+    let frontend = analyze_source_files(sources, label_errors, storage_abi)?;
+
+    let mut builder = RuntimeBuilder::new();
+    builder.storage_abi = storage_abi;
     let mut statement_locations: Vec<Vec<SourceLocation>> = vec![Vec::new(); sources.len()];
-    let syntaxes = parses
-        .iter()
-        .map(|parse| parse.syntax())
-        .collect::<Vec<_>>();
-    let type_ids = super::predeclare_project_types(&syntaxes, runtime.registry_mut())?;
+    let (compile_time_consts, root_globals_per_file) = lower_project_types(
+        &frontend,
+        &mut builder,
+        &mut statement_locations,
+        storage_abi,
+    )?;
+    lower_named_declarations(
+        &frontend,
+        &mut builder,
+        &mut statement_locations,
+        &compile_time_consts,
+    )?;
+    let lowered_programs = lower_programs_and_configuration(
+        &frontend,
+        &mut builder,
+        &mut statement_locations,
+        &compile_time_consts,
+        root_globals_per_file,
+    )?;
+    let source_metadata = statement_locations
+        .into_iter()
+        .enumerate()
+        .map(|(idx, locations)| LoweredSourceMetadata {
+            file_id: frontend.file_ids[idx].0,
+            locations,
+            text: sources[idx].text.clone(),
+            path: sources[idx].path.clone(),
+        })
+        .collect();
+    Ok(LoweredApplication {
+        builder,
+        program_defs: lowered_programs.program_defs,
+        program_externals: lowered_programs.program_externals,
+        globals: lowered_programs.globals,
+        program_access: lowered_programs.program_access,
+        configuration: lowered_programs.configuration,
+        source_metadata,
+    })
+}
 
-    for idx in 0..parses.len() {
-        let catalog = analyses[idx].declaration_catalog.as_ref();
-        super::predeclare_function_blocks(catalog, file_ids[idx], runtime.registry_mut())?;
-        super::predeclare_classes(catalog, file_ids[idx], runtime.registry_mut())?;
-        super::predeclare_interfaces(catalog, file_ids[idx], runtime.registry_mut())?;
+fn lower_project_types(
+    frontend: &AnalyzedSourceFiles,
+    builder: &mut RuntimeBuilder,
+    statement_locations: &mut [Vec<SourceLocation>],
+    storage_abi: crate::value::StorageAbi,
+) -> Result<
+    (
+        super::compiler::CompileTimeConsts,
+        Vec<Vec<super::compiler::GlobalInit>>,
+    ),
+    CompileError,
+> {
+    let profile = builder.profile();
+    let type_ids = super::predeclare_project_types(&frontend.syntaxes, builder.registry_mut())?;
+
+    for idx in 0..frontend.parses.len() {
+        let catalog = frontend.declaration_catalogs[idx].as_ref();
+        super::predeclare_function_blocks(catalog, frontend.file_ids[idx], builder.registry_mut())?;
+        super::predeclare_classes(catalog, frontend.file_ids[idx], builder.registry_mut())?;
+        super::predeclare_interfaces(catalog, frontend.file_ids[idx], builder.registry_mut())?;
     }
 
     let preliminary_consts = super::resolve_project_global_constants(
-        &syntaxes,
-        runtime.registry_mut(),
+        &frontend.syntaxes,
+        builder.registry_mut(),
         profile,
-        project.database(),
-        &file_ids,
-        &mut statement_locations,
+        frontend.project.database(),
+        &frontend.file_ids,
+        statement_locations,
         true,
+        storage_abi,
     )?;
 
-    for (idx, syntax) in syntaxes.iter().enumerate() {
-        let (registry, initializer_catalog) = runtime.registry_and_initializer_catalog_mut();
+    for (idx, syntax) in frontend.syntaxes.iter().enumerate() {
+        let (registry, initializer_catalog) = builder.registry_and_initializer_catalog_mut();
         super::lower_type_decls(
             syntax,
             registry,
             initializer_catalog,
             profile,
-            project.database(),
-            file_ids[idx],
-            file_ids[idx].0,
+            frontend.project.database(),
+            frontend.file_ids[idx],
+            frontend.file_ids[idx].0,
             &mut statement_locations[idx],
             preliminary_consts.clone(),
         )?;
     }
-    super::validate_project_aliases(&type_ids, runtime.registry())?;
+    super::validate_project_aliases(&type_ids, builder.registry())?;
 
     let mut compile_time_consts = super::resolve_project_global_constants(
-        &syntaxes,
-        runtime.registry_mut(),
+        &frontend.syntaxes,
+        builder.registry_mut(),
         profile,
-        project.database(),
-        &file_ids,
-        &mut statement_locations,
+        frontend.project.database(),
+        &frontend.file_ids,
+        statement_locations,
         false,
+        storage_abi,
     )?;
-    let mut root_globals_per_file = Vec::with_capacity(parses.len());
-    for (idx, syntax) in syntaxes.iter().enumerate() {
+    let mut root_globals_per_file = Vec::with_capacity(frontend.parses.len());
+    for (idx, syntax) in frontend.syntaxes.iter().enumerate() {
         let mut inputs = LoweringInputs::new(
             profile,
-            file_ids[idx].0,
-            Some(project.database()),
-            Some(file_ids[idx]),
+            frontend.file_ids[idx].0,
+            Some(frontend.project.database()),
+            Some(frontend.file_ids[idx]),
             &mut statement_locations[idx],
             std::mem::take(&mut compile_time_consts),
         );
-        let globals = lower_root_global_var_blocks(syntax, runtime.registry_mut(), &mut inputs)?;
+        let globals = lower_root_global_var_blocks(syntax, builder.registry_mut(), &mut inputs)?;
         compile_time_consts = inputs.compile_time_consts;
         root_globals_per_file.push(globals);
     }
 
+    Ok((compile_time_consts, root_globals_per_file))
+}
+
+fn lower_named_declarations(
+    frontend: &AnalyzedSourceFiles,
+    builder: &mut RuntimeBuilder,
+    statement_locations: &mut [Vec<SourceLocation>],
+    compile_time_consts: &super::compiler::CompileTimeConsts,
+) -> Result<(), CompileError> {
+    let profile = builder.profile();
     let mut interface_names = std::collections::HashSet::new();
-    for (idx, parse) in parses.iter().enumerate() {
+    for (idx, parse) in frontend.parses.iter().enumerate() {
         let syntax = parse.syntax();
         let mut inputs = LoweringInputs::new(
             profile,
-            file_ids[idx].0,
-            Some(project.database()),
-            Some(file_ids[idx]),
+            frontend.file_ids[idx].0,
+            Some(frontend.project.database()),
+            Some(frontend.file_ids[idx]),
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
         let interfaces = super::lower_interfaces(
             &syntax,
-            analyses[idx].declaration_catalog.as_ref(),
-            file_ids[idx],
-            runtime.registry_mut(),
+            frontend.declaration_catalogs[idx].as_ref(),
+            frontend.file_ids[idx],
+            builder.registry_mut(),
             &mut inputs,
         )?;
         for interface_def in interfaces {
@@ -201,26 +297,26 @@ pub(crate) fn lower_application(
                     interface_def.name
                 )));
             }
-            runtime.register_interface(interface_def);
+            builder.register_interface(interface_def);
         }
     }
 
     let mut class_names = std::collections::HashSet::new();
-    for (idx, parse) in parses.iter().enumerate() {
+    for (idx, parse) in frontend.parses.iter().enumerate() {
         let syntax = parse.syntax();
         let mut inputs = LoweringInputs::new(
             profile,
-            file_ids[idx].0,
-            Some(project.database()),
-            Some(file_ids[idx]),
+            frontend.file_ids[idx].0,
+            Some(frontend.project.database()),
+            Some(frontend.file_ids[idx]),
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
         let classes = super::lower_classes(
             &syntax,
-            analyses[idx].declaration_catalog.as_ref(),
-            file_ids[idx],
-            runtime.registry_mut(),
+            frontend.declaration_catalogs[idx].as_ref(),
+            frontend.file_ids[idx],
+            builder.registry_mut(),
             &mut inputs,
         )?;
         for class_def in classes {
@@ -231,26 +327,26 @@ pub(crate) fn lower_application(
                     class_def.name
                 )));
             }
-            runtime.register_class(class_def);
+            builder.register_class(class_def);
         }
     }
 
     let mut function_block_names = std::collections::HashSet::new();
-    for (idx, parse) in parses.iter().enumerate() {
+    for (idx, parse) in frontend.parses.iter().enumerate() {
         let syntax = parse.syntax();
         let mut inputs = LoweringInputs::new(
             profile,
-            file_ids[idx].0,
-            Some(project.database()),
-            Some(file_ids[idx]),
+            frontend.file_ids[idx].0,
+            Some(frontend.project.database()),
+            Some(frontend.file_ids[idx]),
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
         let function_blocks = super::lower_function_blocks(
             &syntax,
-            analyses[idx].declaration_catalog.as_ref(),
-            file_ids[idx],
-            runtime.registry_mut(),
+            frontend.declaration_catalogs[idx].as_ref(),
+            frontend.file_ids[idx],
+            builder.registry_mut(),
             &mut inputs,
         )?;
         for fb in function_blocks {
@@ -261,26 +357,26 @@ pub(crate) fn lower_application(
                     fb.name
                 )));
             }
-            runtime.register_function_block(fb);
+            builder.register_function_block(fb);
         }
     }
 
     let mut function_names = std::collections::HashSet::new();
-    for (idx, parse) in parses.iter().enumerate() {
+    for (idx, parse) in frontend.parses.iter().enumerate() {
         let syntax = parse.syntax();
         let mut inputs = LoweringInputs::new(
             profile,
-            file_ids[idx].0,
-            Some(project.database()),
-            Some(file_ids[idx]),
+            frontend.file_ids[idx].0,
+            Some(frontend.project.database()),
+            Some(frontend.file_ids[idx]),
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
         let functions = super::lower_functions(
             &syntax,
-            analyses[idx].declaration_catalog.as_ref(),
-            file_ids[idx],
-            runtime.registry_mut(),
+            frontend.declaration_catalogs[idx].as_ref(),
+            frontend.file_ids[idx],
+            builder.registry_mut(),
             &mut inputs,
         )?;
         for func in functions {
@@ -291,29 +387,49 @@ pub(crate) fn lower_application(
                     func.name
                 )));
             }
-            runtime.register_function(func);
+            builder.register_function(func);
         }
     }
 
+    Ok(())
+}
+
+struct LoweredPrograms {
+    program_defs: IndexMap<SmolStr, ProgramDef>,
+    program_externals: IndexMap<SmolStr, Vec<SmolStr>>,
+    globals: Vec<super::compiler::GlobalInit>,
+    program_access: Vec<super::compiler::AccessDecl>,
+    configuration: Option<super::compiler::ConfigModel>,
+}
+
+fn lower_programs_and_configuration(
+    frontend: &AnalyzedSourceFiles,
+    builder: &mut RuntimeBuilder,
+    statement_locations: &mut [Vec<SourceLocation>],
+    compile_time_consts: &super::compiler::CompileTimeConsts,
+    root_globals_per_file: Vec<Vec<super::compiler::GlobalInit>>,
+) -> Result<LoweredPrograms, CompileError> {
+    let profile = builder.profile();
     let mut program_defs = IndexMap::<SmolStr, ProgramDef>::new();
+    let mut program_externals = IndexMap::new();
     let mut globals = Vec::new();
     let mut program_access = Vec::new();
-    for (idx, parse) in parses.iter().enumerate() {
+    for (idx, parse) in frontend.parses.iter().enumerate() {
         let syntax = parse.syntax();
         globals.extend(root_globals_per_file[idx].clone());
         let mut inputs = LoweringInputs::new(
             profile,
-            file_ids[idx].0,
-            Some(project.database()),
-            Some(file_ids[idx]),
+            frontend.file_ids[idx].0,
+            Some(frontend.project.database()),
+            Some(frontend.file_ids[idx]),
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
         let lowered = super::lower_programs(
             &syntax,
-            analyses[idx].declaration_catalog.as_ref(),
-            file_ids[idx],
-            runtime.registry_mut(),
+            frontend.declaration_catalogs[idx].as_ref(),
+            frontend.file_ids[idx],
+            builder.registry_mut(),
             &mut inputs,
         )?;
         for program in lowered {
@@ -324,31 +440,32 @@ pub(crate) fn lower_application(
                     program.program.name
                 )));
             }
+            program_externals.insert(SmolStr::new(&key), program.external_names);
             program_defs.insert(key.into(), program.program);
             globals.extend(program.globals);
             program_access.extend(program.access);
         }
     }
 
-    for syntax in &syntaxes {
+    for syntax in &frontend.syntaxes {
         for (owner, inputs) in super::collect_edge_declarations(syntax)? {
-            runtime.register_edge_inputs(owner, inputs);
+            builder.register_edge_inputs(owner, inputs);
         }
     }
 
     let mut config_model = None;
-    for (idx, parse) in parses.iter().enumerate() {
+    for (idx, parse) in frontend.parses.iter().enumerate() {
         let syntax = parse.syntax();
         let mut inputs = LoweringInputs::new(
             profile,
-            file_ids[idx].0,
-            Some(project.database()),
-            Some(file_ids[idx]),
+            frontend.file_ids[idx].0,
+            Some(frontend.project.database()),
+            Some(frontend.file_ids[idx]),
             &mut statement_locations[idx],
             compile_time_consts.clone(),
         );
         if let Some(config) =
-            super::lower_configuration(&syntax, runtime.registry_mut(), &mut inputs)?
+            super::lower_configuration(&syntax, builder.registry_mut(), &mut inputs)?
         {
             if config_model.is_some() {
                 return Err(CompileError::new(
@@ -359,31 +476,102 @@ pub(crate) fn lower_application(
         }
     }
 
-    let source_metadata = statement_locations
-        .into_iter()
-        .enumerate()
-        .map(|(idx, locations)| LoweredSourceMetadata {
-            file_id: file_ids[idx].0,
-            locations,
-            text: sources[idx].text.clone(),
-            path: sources[idx].path.clone(),
-        })
-        .collect();
-    Ok(LoweredApplication {
-        runtime,
+    Ok(LoweredPrograms {
         program_defs,
+        program_externals,
         globals,
         program_access,
         configuration: config_model,
-        source_metadata,
     })
 }
 
 impl LoweredApplication {
+    pub(crate) fn has_repeated_program_types(&self) -> bool {
+        let Some(config) = &self.configuration else {
+            return false;
+        };
+        let mut types = std::collections::HashSet::new();
+        config
+            .programs
+            .iter()
+            .any(|program| !types.insert(program.type_name.to_ascii_uppercase()))
+    }
+
+    pub(crate) fn from_builder(
+        mut builder: RuntimeBuilder,
+        globals: Vec<super::GlobalInit>,
+        access: Vec<super::AccessDecl>,
+        config_inits: Vec<super::ConfigInit>,
+        tasks: Vec<crate::task::TaskConfig>,
+        task_bindings: Vec<(SmolStr, Vec<super::AccessPart>)>,
+    ) -> Result<Self, CompileError> {
+        let mut program_defs = IndexMap::new();
+        for program in builder.programs().values() {
+            if program_defs
+                .insert(
+                    SmolStr::new(program.name.to_ascii_uppercase()),
+                    program.clone(),
+                )
+                .is_some()
+            {
+                return Err(CompileError::new("duplicate builder program name"));
+            }
+        }
+        let programs = program_defs
+            .values()
+            .map(|program| super::ProgramInstanceConfig {
+                name: program.name.clone(),
+                type_name: program.name.clone(),
+                task: None,
+                retain: None,
+                fb_tasks: Vec::new(),
+            })
+            .collect::<Vec<_>>();
+        builder.manual_task_bindings = task_bindings;
+        let resource_name = Some(builder.resource_name().clone());
+        Ok(Self {
+            builder,
+            program_defs,
+            program_externals: IndexMap::new(),
+            globals,
+            program_access: Vec::new(),
+            source_metadata: Vec::new(),
+            configuration: Some(super::compiler::ConfigModel {
+                configuration_name: None,
+                resource_name,
+                globals: Vec::new(),
+                tasks,
+                programs,
+                using: Vec::new(),
+                access,
+                config_inits,
+            }),
+        })
+    }
+
     /// Resolve configuration identities without creating storage or evaluating startup code.
     pub(crate) fn prepare_authoring(
+        self,
+        extra_program_instances: &[SmolStr],
+    ) -> Result<Self, CompileError> {
+        self.prepare_with_program_type_policy(extra_program_instances, false)
+    }
+
+    /// Prepare source declarations as context for importing supplied legacy
+    /// bodies. The importer can bind several configured instance identities to
+    /// one compatible source PROGRAM template without authoring a new source
+    /// artifact; ordinary source authoring keeps its stricter duplicate-type rule.
+    pub(crate) fn prepare_legacy_import_context(
+        self,
+        extra_program_instances: &[SmolStr],
+    ) -> Result<Self, CompileError> {
+        self.prepare_with_program_type_policy(extra_program_instances, true)
+    }
+
+    fn prepare_with_program_type_policy(
         mut self,
         extra_program_instances: &[SmolStr],
+        allow_repeated_program_types: bool,
     ) -> Result<Self, CompileError> {
         let configured = self.configuration.is_some();
         let mut config = match self.configuration.take() {
@@ -452,7 +640,9 @@ impl LoweredApplication {
                     program.name
                 )));
             }
-            if !types.insert(program.type_name.to_ascii_uppercase()) {
+            if !types.insert(program.type_name.to_ascii_uppercase())
+                && !allow_repeated_program_types
+            {
                 return Err(CompileError::new(
                     "multiple instances of the same PROGRAM type are not supported yet",
                 ));
@@ -461,11 +651,11 @@ impl LoweredApplication {
         attach_programs_to_tasks(&mut config.tasks, &config.programs)?;
         self.configuration = Some(config);
         for source in &self.source_metadata {
-            self.runtime
+            self.builder
                 .register_statement_locations(source.file_id, source.locations.clone());
-            self.runtime
+            self.builder
                 .register_source_text(source.file_id, source.text.clone());
-            self.runtime.register_source_label(
+            self.builder.register_source_label(
                 source.file_id,
                 source
                     .path
@@ -476,104 +666,53 @@ impl LoweredApplication {
         Ok(self)
     }
 
-    fn materialize(self, extra_program_instances: &[SmolStr]) -> Result<Runtime, CompileError> {
-        let Self {
-            mut runtime,
-            mut program_defs,
-            mut globals,
-            mut program_access,
-            configuration: config_model,
-            source_metadata,
-        } = self;
-        if let Some(config) = config_model {
-            if let Some(resource_name) = config.resource_name.as_ref() {
-                runtime.set_resource_name(resource_name.clone());
-            }
-            globals.extend(config.globals);
-            apply_program_retain_overrides(&mut program_defs, &config.programs, &config.using)?;
-            let mut wildcards = apply_globals(&mut runtime, &globals)?;
-            register_program_instances(
-                &mut runtime,
-                &program_defs,
-                &config.programs,
-                &config.using,
-                &mut wildcards,
-            )?;
-            let extra_programs = build_extra_program_instances(
-                &program_defs,
-                &config.programs,
-                extra_program_instances,
-            )?;
-            remap_program_access_instances(
-                &mut program_access,
-                &program_defs,
-                &config.programs,
-                &config.using,
-            )?;
-            ensure_all_program_declarations_bound(
-                &program_defs,
-                &config.programs,
-                &extra_programs,
-                &config.using,
-            )?;
-            register_program_instances(
-                &mut runtime,
-                &program_defs,
-                &extra_programs,
-                &config.using,
-                &mut wildcards,
-            )?;
-            apply_config_inits(&mut runtime, &config.config_inits, &mut wildcards)?;
-            ensure_wildcards_resolved(&wildcards)?;
-            register_access_bindings(&mut runtime, &config.access)?;
-            let mut tasks = config.tasks;
-            validate_task_single_bindings(&runtime, &tasks)?;
-            attach_programs_to_tasks(&mut tasks, &config.programs)?;
-            attach_fb_instances_to_tasks(&runtime, &mut tasks, &config.programs)?;
-            for task in tasks {
-                runtime.register_task(task);
-            }
-        } else {
-            if program_defs.is_empty() {
-                return Err(CompileError::new("missing PROGRAM declaration"));
-            }
-            let mut wildcards = apply_globals(&mut runtime, &globals)?;
-            let default_programs = program_defs
+    pub(crate) fn materialize(
+        self,
+        extra_program_instances: &[SmolStr],
+    ) -> Result<Runtime, CompileError> {
+        let input = self.prepare_authoring(extra_program_instances)?;
+        let projected = crate::bytecode::build_module_with_type_projection(&input)
+            .map_err(|error| CompileError::new(error.to_string()))?;
+        let mut metadata = input.metadata_snapshot(&projected.module)?;
+        metadata.artifact_types = projected.artifact_types;
+        metadata.io_display_names = projected.io_display_names;
+        Runtime::from_module_with_metadata(projected.module, Some(std::sync::Arc::new(metadata)), 0)
+            .map_err(|error| CompileError::new(error.to_string()))
+    }
+
+    pub(crate) fn metadata_snapshot(
+        &self,
+        module: &crate::bytecode::BytecodeModule,
+    ) -> Result<crate::RuntimeMetadata, CompileError> {
+        let config = self
+            .configuration
+            .as_ref()
+            .ok_or_else(|| CompileError::new("authoring configuration not prepared"))?;
+        let mut instances = IndexMap::new();
+        for binding in &config.programs {
+            let mut template = self
+                .program_defs
                 .values()
-                .map(|program| super::ProgramInstanceConfig {
-                    name: program.name.clone(),
-                    type_name: program.name.clone(),
-                    task: None,
-                    retain: None,
-                    fb_tasks: Vec::new(),
-                })
-                .collect::<Vec<_>>();
-            register_program_instances(
-                &mut runtime,
-                &program_defs,
-                &default_programs,
-                &[],
-                &mut wildcards,
-            )?;
-            ensure_wildcards_resolved(&wildcards)?;
+                .find(|program| program.name.eq_ignore_ascii_case(&binding.type_name))
+                .cloned()
+                .ok_or_else(|| CompileError::new("program template missing"))?;
+            template.name = binding.name.clone();
+            instances.insert(binding.name.clone(), template);
         }
-
-        register_access_bindings(&mut runtime, &program_access)?;
-
-        resize_process_image_from_bindings(&mut runtime)?;
-        init_function_static_locals(&mut runtime)?;
-        let _ = runtime.ensure_background_thread_id();
-
-        for source in source_metadata {
-            runtime.register_statement_locations(source.file_id, source.locations);
-            runtime.register_source_text(source.file_id, source.text);
-            runtime.register_source_label(source.file_id, format!("file_{}", source.file_id));
-            if let Some(path) = source.path {
-                runtime.register_source_label(source.file_id, path);
-            }
-        }
-
-        Ok(runtime)
+        let metadata = module
+            .metadata()
+            .map_err(|error| CompileError::new(error.to_string()))?;
+        let resource = metadata
+            .resources
+            .first()
+            .ok_or_else(|| CompileError::new("resource missing"))?;
+        self.builder
+            .metadata_for_configuration(
+                self.program_defs.clone(),
+                instances,
+                resource.tasks.clone(),
+            )
+            .map_err(|error| CompileError::new(error.to_string()))
     }
 }
 
@@ -603,7 +742,7 @@ fn remap_program_access_instances(
 }
 
 fn validate_task_single_bindings(
-    runtime: &Runtime,
+    runtime: &RuntimeBuilder,
     tasks: &[crate::task::TaskConfig],
 ) -> Result<(), CompileError> {
     for task in tasks {
@@ -629,154 +768,18 @@ fn validate_task_single_bindings(
     Ok(())
 }
 
-fn resize_process_image_from_bindings(runtime: &mut Runtime) -> Result<(), CompileError> {
-    let mut inputs = runtime.io().inputs().len();
-    let mut outputs = runtime.io().outputs().len();
-    let mut memory = runtime.io().memory().len();
-
-    for binding in runtime.io().bindings() {
-        let address = &binding.address;
-        if address.wildcard || address.path.len() > 1 {
-            continue;
-        }
-        let span = match address.size {
-            crate::io::IoSize::Bit | crate::io::IoSize::Byte => 1usize,
-            crate::io::IoSize::Word => 2usize,
-            crate::io::IoSize::DWord => 4usize,
-            crate::io::IoSize::LWord => 8usize,
-            crate::io::IoSize::Bytes(len) => len as usize,
-        };
-        let required = address.byte as usize + span;
-        match address.area {
-            IoArea::Input => inputs = inputs.max(required),
-            IoArea::Output => outputs = outputs.max(required),
-            IoArea::Memory => memory = memory.max(required),
-        }
-    }
-
-    runtime
-        .io_mut()
-        .try_resize(inputs, outputs, memory)
-        .map_err(|err| CompileError::new(err.to_string()))
-}
-
-fn init_function_static_locals(runtime: &mut Runtime) -> Result<(), CompileError> {
-    let registry = runtime.registry().clone();
-    let profile = runtime.profile();
-    let functions = runtime.functions().clone();
-    let stdlib = runtime.stdlib().clone();
-    let function_blocks = runtime.function_blocks().clone();
-    let classes = runtime.classes().clone();
-    let initializer_catalog = runtime.initializer_catalog().clone();
-    let storage = runtime.storage_mut();
-
-    for function in functions.values() {
-        for local in &function.static_locals {
-            let key = crate::program_model::static_storage_name(&function.name, &local.name);
-            if let Some(fb_name) = super::function_block_type_name(local.type_id, &registry) {
-                if local.initializer.is_some() {
-                    return Err(CompileError::new(
-                        "function VAR_STAT function block instances cannot have initializers",
-                    ));
-                }
-                let fb_key = SmolStr::new(fb_name.to_ascii_uppercase());
-                let fb = function_blocks.get(&fb_key).ok_or_else(|| {
-                    CompileError::new(format!("unknown function block '{fb_name}'"))
-                })?;
-                let instance_id = crate::instance::create_fb_instance(
-                    storage,
-                    &registry,
-                    &profile,
-                    &classes,
-                    &function_blocks,
-                    &functions,
-                    &stdlib,
-                    &initializer_catalog,
-                    fb,
-                )
-                .map_err(|err| CompileError::new(err.to_string()))?;
-                storage.set_global(key, crate::value::Value::Instance(instance_id));
-                continue;
-            }
-            if let Some(class_name) = super::class_type_name(local.type_id, &registry) {
-                if local.initializer.is_some() {
-                    return Err(CompileError::new(
-                        "function VAR_STAT class instances cannot have initializers",
-                    ));
-                }
-                let class_key = SmolStr::new(class_name.to_ascii_uppercase());
-                let class_def = classes
-                    .get(&class_key)
-                    .ok_or_else(|| CompileError::new(format!("unknown class '{class_name}'")))?;
-                let instance_id = crate::instance::create_class_instance(
-                    storage,
-                    &registry,
-                    &profile,
-                    &classes,
-                    &function_blocks,
-                    &functions,
-                    &stdlib,
-                    &initializer_catalog,
-                    class_def,
-                )
-                .map_err(|err| CompileError::new(err.to_string()))?;
-                storage.set_global(key, crate::value::Value::Instance(instance_id));
-                continue;
-            }
-            if super::interface_type_name(local.type_id, &registry).is_some() {
-                storage.set_global(key, crate::value::Value::Null);
-                continue;
-            }
-            let value = crate::harness::initializer::default_value_for_type_id(
-                storage,
-                &registry,
-                &initializer_catalog,
-                &profile,
-                None,
-                &stdlib,
-                local.type_id,
-            )
-            .map_err(|err| CompileError::new(format!("default value error: {err}")))?;
-            storage.set_global(key, value);
-        }
-    }
-
-    for function in functions.values() {
-        for local in &function.static_locals {
-            if super::function_block_type_name(local.type_id, &registry).is_some()
-                || super::class_type_name(local.type_id, &registry).is_some()
-            {
-                continue;
-            }
-            let Some(expr) = &local.initializer else {
-                continue;
-            };
-            let value = crate::harness::initializer::evaluate_initializer(
-                storage,
-                &registry,
-                &initializer_catalog,
-                &profile,
-                None,
-                &stdlib,
-                expr,
-                local.type_id,
-            )
-            .map_err(|err| CompileError::new(format!("initializer error: {err}")))?;
-            let key = crate::program_model::static_storage_name(&function.name, &local.name);
-            storage.set_global(key, value);
-        }
-    }
-
-    Ok(())
-}
-
 pub(super) fn build_bytecode_module_from_source_files(
     sources: &[SourceFile],
     label_errors: bool,
     extra_program_instances: &[SmolStr],
 ) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    let runtime = build_runtime_from_source_files(sources, label_errors, extra_program_instances)?;
-    build_bytecode_module_from_runtime_and_sources(&runtime, sources)
+    let builder = lower_application_with_abi(
+        sources,
+        label_errors,
+        crate::value::StorageAbi::LegacyTemporal32,
+    )?
+    .materialize_legacy(extra_program_instances)?;
+    build_bytecode_module_from_builder_and_sources(&builder, sources)
 }
 
 fn build_extra_program_instances(
@@ -849,29 +852,29 @@ fn ensure_all_program_declarations_bound(
     )))
 }
 
-fn build_bytecode_module_from_runtime_and_sources(
-    runtime: &Runtime,
+fn build_bytecode_module_from_builder_and_sources(
+    builder: &RuntimeBuilder,
     sources: &[SourceFile],
 ) -> Result<crate::bytecode::BytecodeModule, CompileError> {
     let source_refs = sources
         .iter()
         .map(|source| source.text.as_str())
         .collect::<Vec<_>>();
-    if sources.iter().all(|source| source.path.is_some()) {
-        let paths = sources
-            .iter()
-            .map(|source| source.path.as_deref().unwrap_or_default())
-            .collect::<Vec<_>>();
-        crate::bytecode::build_module_from_runtime_with_sources_and_paths(
-            runtime,
-            &source_refs,
-            &paths,
-        )
-        .map_err(|err| CompileError::new(err.to_string()))
-    } else {
-        crate::bytecode::build_module_from_runtime_with_sources(runtime, &source_refs)
-            .map_err(|err| CompileError::new(err.to_string()))
-    }
+    let all_paths = sources.iter().all(|source| source.path.is_some());
+    let labels = sources
+        .iter()
+        .enumerate()
+        .map(|(index, source)| {
+            if all_paths {
+                source.path.clone().unwrap_or_default()
+            } else {
+                format!("file_{index}")
+            }
+        })
+        .collect::<Vec<_>>();
+    let paths = labels.iter().map(String::as_str).collect::<Vec<_>>();
+    crate::bytecode::build_legacy_module_from_builder(builder, &source_refs, &paths)
+        .map_err(|error| CompileError::new(error.to_string()))
 }
 
 fn source_label(source: &SourceFile, idx: usize) -> String {
@@ -893,3 +896,20 @@ mod access_contract_tests;
 #[cfg(test)]
 #[path = "authoring_boundary_tests.rs"]
 mod authoring_boundary_tests;
+
+/// Historical register/stack fixtures only; never reachable from a product API.
+#[cfg(test)]
+pub(super) fn build_legacy_fixture(
+    sources: &[SourceFile],
+    labels: bool,
+    extras: &[SmolStr],
+) -> Result<crate::runtime::LegacyRuntimeFixture, CompileError> {
+    let builder =
+        lower_application_with_abi(sources, labels, crate::value::StorageAbi::LegacyTemporal32)?
+            .materialize_legacy(extras)?;
+    let mut fixture = crate::runtime::LegacyRuntimeFixture::from_authoring_fixture(builder);
+    fixture
+        .ensure_vm_module_loaded()
+        .map_err(|error| CompileError::new(error.to_string()))?;
+    Ok(fixture)
+}

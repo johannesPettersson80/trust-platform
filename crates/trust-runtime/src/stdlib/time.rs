@@ -1,26 +1,16 @@
 //! Host wall-clock adapter; deterministic date/time semantics are shared.
 
-use crate::error::RuntimeError;
-use crate::value::{DateTimeValue, Duration, Value};
+pub use crate::host_clock::runtime_clock_value;
+#[cfg(test)]
+use crate::host_clock::{current_dt, runtime_clock_value_at};
+#[cfg(test)]
 use std::time::{SystemTime, UNIX_EPOCH};
 pub use trust_runtime_core::stdlib::time::*;
-
-/// Read logical elapsed time or the current host UTC date/time.
-pub fn runtime_clock_value(name: &str, elapsed: Duration) -> Result<Value, RuntimeError> {
-    runtime_clock_value_at(name, elapsed, SystemTime::now())
-}
-
-fn runtime_clock_value_at(
-    name: &str,
-    elapsed: Duration,
-    host_now: SystemTime,
-) -> Result<Value, RuntimeError> {
-    trust_runtime_core::stdlib::time::runtime_clock_value(name, elapsed, || current_dt(host_now))
-}
-
-fn current_dt(now: SystemTime) -> Result<DateTimeValue, RuntimeError> {
-    current_dt_from_epoch_elapsed(now.duration_since(UNIX_EPOCH).ok())
-}
+#[cfg(test)]
+use trust_runtime_core::{
+    error::RuntimeError,
+    value::{DateTimeValue, Duration, Value},
+};
 
 #[cfg(test)]
 mod tests {

@@ -4,329 +4,184 @@ allowmixing
 skinparam backgroundColor #FEFEFE
 skinparam componentStyle uml2
 skinparam linetype ortho
-skinparam nodesep 50
+skinparam nodesep 45
 skinparam ranksep 35
 
-title truST Runtime: Bytecode, Scheduler, and Simulation Engine
+title truST Runtime: Admitted Ownership and Hosted Cycle
 
-package "Opt-in STBC 2.0 authoring (A3)" as sourceFreeAuthoring {
-    component "CompileSession::build_bytecode_module_for_version" as sourceFreeApi
-    component "LoweredApplication\noriginal declarations and Exprs\nno startup evaluation" as loweredApplication
-    component "bytecode::encoder::construction\nroots, ordered actions, callable recipes\nI/O, task and access bindings" as constructionEncoder
-    artifact "STBC 2.0\nTYPE_TABLE + construction metadata\nordinary bytecode initializer bodies" as sourceFreeArtifact
-    sourceFreeApi --> loweredApplication
-    loweredApplication --> constructionEncoder
-    constructionEncoder --> sourceFreeArtifact
-    note bottom of sourceFreeArtifact
-        Portable format and staging-write validation; no HIR in the artifact.
-        Initial and after-restart static contexts remain distinct.
-        Legacy Runtime import stays 1.x; PreparedModule admits 2.0.
-        RuntimeState executes typed helpers and lifetime/visibility checks.
-        Prepared indexes and one immutable native registry are built at admission.
-        Mutable state separates lifetimes, construction, images and resource accounting.
-        Stores use indexed declarations; output groups journal destination slots only.
-        I/O stages bound values; publication work follows bindings, not image size.
-        One execution allowance covers instructions and helper work across nested calls.
-        Physical deadlines are polled at boundaries and a bounded work stride.
-        Borrowed reference checks do not allocate reference paths.
-    end note
+package "Non-executable authoring" as authoringPkg #LightYellow {
+    component "CompileSession / LoweredApplication\nsource lowering, declarations and recipes\n(host/harness/build.rs)" as lowered
+    component "RuntimeBuilder\nconstruction-only registry, storage and bindings\n(runtime/builder.rs + builder/seeds.rs)" as builder
+    component "BytecodeAuthoringView\nborrowed producer inputs" as authoringView
+    component "bytecode/encoder\nSTBC 3.0 producer / explicit compatibility output" as producer
+    artifact "STBC 3.0 / legacy 2.0\ncode, types, roots, initializers,\nresources and persistent references" as artifact
+    component "Explicit legacy import\nsupplied 1.1 bodies + LoweredApplication\n(encoder/legacy_import.rs)" as legacyImport
+    component "Legacy 1.1 producer startup\nnon-executable builder construction\n(host/harness/build/legacy_construction.rs)" as legacyAuthoring
+    lowered --> legacyAuthoring : explicit compatibility producer
+    legacyAuthoring --> authoringView
+    lowered *-- builder
+    builder --> authoringView
+    authoringView --> producer
+    lowered --> producer
+    producer --> artifact
+    lowered --> legacyImport : construction context
+    legacyImport --> artifact : retain supplied instruction bodies
 }
 
-
-' ============================================================
-' RUNTIME CORE
-' ============================================================
-package "Runtime Core" as runtimeCore #LightGreen {
-
-    class "Runtime" as runtime <<runtime/core.rs:22-44>> {
-        resource_name: SmolStr
-        execution_backend: ExecutionBackend
-        profile: DateTimeProfile
-        storage: VariableStorage
-        registry: TypeRegistry
-        initializer_catalog: program_model::InitializerCatalog
-        ads: AdsSubsystem
-        io: IoSubsystem
-        access: AccessMap
-        stdlib: StandardLibrary
-        debug: Option<DebugControl>
-        statement_index: IndexMap
-        source_text_index: IndexMap
-        source_label_index: HashMap
-        metrics: MetricsSubsystem
-        watchdog: WatchdogSubsystem
-        faults: FaultSubsystem
-        retain: RetainManager
+package "Admission and one execution owner" as ownerPkg #LightGreen {
+    component "trust-runtime-core::bytecode\ndecode + validated token\nframing, CRC, types and bounded analysis" as admission
+    component "PreparedModule\nprofile admission + construction indexes\nimmutable VM, registry and optional register plans" as prepared
+    class "Hosted Runtime\n(runtime/installed.rs)" as runtime {
+        private state: OwnedRuntimeState<HostedExecutionServices>
+        private metadata: Arc<RuntimeMetadata>
+        private artifact: immutable deployment archive
+        private io / ads / opcua / retain / metrics / watchdog
         --
-        functions: IndexMap<SmolStr, FunctionDef>
-        function_blocks: IndexMap<SmolStr, FunctionBlockDef>
-        classes: IndexMap<SmolStr, ClassDef>
-        interfaces: IndexMap<SmolStr, InterfaceDef>
-        programs: IndexMap<SmolStr, ProgramDef>
-        globals: IndexMap<SmolStr, GlobalVarMeta>
-        --
-        tasks: Vec<TaskConfig>
-        task_state: IndexMap<SmolStr, TaskState>
-        current_time: Duration
-        cycle_counter: u64
-        --
-        +new() → Runtime
-        +execute_cycle() → Result<()>
-        +apply_bytecode_metadata()
-        +apply_bytecode_module()
-        +apply_online_change_bytes()
+        execute_cycle()
+        checked value / reference / image writes
+        candidate replacement / resource reconfiguration
     }
-
-    component "online_change.rs\n(bytecode swap + warm-restart migration contract)" as runtimeOnlineChange
-    component "restart.rs\nPreparedRestart\n(fallible restart staging)" as runtimeRestart
-    component "retain_snapshot.rs\nqualified global/program capture\n+ atomic cloned-storage apply" as runtimeRetainSnapshot
-    component "retain_store.rs\nWarm load transaction\nCold store bypass" as runtimeRetainStore
-    component "harness::lower_configuration\nRESOURCE identity lowering" as resourceLowering
-    component "bytecode::encoder::RESOURCE_META\nexact active resource identity" as resourceEncoder
-    component "runtime::bytecode\nexact named selection + one-entry\nlegacy placeholder compatibility" as resourceSelection
-    component "harness/initializer.rs\n(default + aggregate materialization)" as initializerService
-    component "HIR SymbolTable.initializer_catalog\n(source ranges + InitializerId handles)" as hirInitCatalog
-    component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
-    component "trust-runtime-core::numeric::kind\nNumericKind + closed widening matrix" as coreNumericKind
-    component "trust-runtime-core::numeric\nexecution-domain conversions" as coreNumericConversions
-    component "trust-runtime-core::numeric::math\nlibm 0.2.16 primitives" as coreMath
-    component "trust-runtime-core::collections::OrderedMap\nstd API / no_std explicit FxBuildHasher" as coreOrderedMap
-    component "trust-runtime-core::task::config\nportable task metadata" as coreTaskConfig
-    component "trust-runtime-core::task::state\nnominal deadline + missed-interval count" as coreTaskState
-    component "trust-runtime-core::task::readiness\nevent/periodic readiness decision" as coreTaskReadiness
-    runtime ..> runtimeOnlineChange : hot-reload contract owner
-    runtimeOnlineChange --> runtimeRestart : prepare before bytecode replacement
-    runtimeOnlineChange --> runtimeRetainSnapshot : validate against prepared storage
-    runtimeRetainStore --> runtimeRestart : prepare restart before store commit
-    runtimeRetainStore --> runtimeRetainSnapshot : Warm only
-    runtimeRestart --> runtime : commit storage + lifecycle resets
-    runtimeRetainSnapshot --> runtime : commit one prepared storage image
-    resourceLowering --> runtime : set_resource_name()
-    runtime --> resourceEncoder : resource_name()
-    resourceSelection --> runtime : apply selected identity only after validation
-    runtime ..> initializerService : startup/default materialization
-    runtime --> runtimeInitCatalog : owns lowered catalog
-    hirInitCatalog ..> runtimeInitCatalog : compile-time lowering copies/ translates defaults
-    initializerService --> runtimeInitCatalog : reads TYPE/member defaults
-    coreNumericConversions --> coreNumericKind : target kind identity
-    runtime --> coreMath : shared value operators
-    runtime --> coreOrderedMap : core values and retain snapshots
-    runtime --> coreTaskConfig : owns configured tasks
-    runtime --> coreTaskState : stores scheduling state
-    runtime --> coreTaskReadiness : evaluates each cycle
-    coreTaskReadiness --> coreTaskState : updates exact state transition
-}
-
-package "Execution Engine" as backendPkg #LightYellow {
-    component "execute_program_by_name() / execute_function_block_ref()\n(runtime/cycle.rs)" as runtimeDispatch
-    component "ensure_vm_module_loaded() / build_vm_module()\n(runtime/cycle.rs)" as vmEnsure
-
-    runtime ..> runtimeDispatch : program/FB dispatch
-    runtimeDispatch --> vmEnsure
-
-    package "Bytecode VM Core\n(runtime/vm/*)" as vmCore #LightCyan {
-        component "dispatch.rs\n(PC loop + op dispatch + debug hook emit)" as vmDispatch
-        component "dispatch_ops.rs\n(opcode math/operand/jump helpers)" as vmDispatchOps
-        component "dispatch_refs.rs\n(ref/deref + storage bridge)" as vmDispatchRefs
-        component "dispatch_sizeof.rs\n(TYPE_TABLE sizeof helpers)" as vmDispatchSizeOf
-        component "stack.rs\n(operand stack invariants)" as vmStack
-        component "frames.rs + call.rs\n(frame stack + CALL_NATIVE dispatch bridge)" as vmFrames
-        component "errors.rs\n(trap -> RuntimeError)" as vmErrors
-        component "debug_map.rs\n(symbol/source mappings + pc->source)" as vmDebugMap
-    }
-
-    vmEnsure --> vmDispatch
-    vmDispatch ..> vmStack
-    vmDispatch ..> vmFrames
-    vmDispatch ..> vmErrors
-    vmDispatch ..> vmDebugMap
-    vmDispatch ..> vmDispatchOps
-    vmDispatch ..> vmDispatchRefs
-    vmDispatch ..> vmDispatchSizeOf
-    vmDispatch ..> runtime : resolve vm debug source labels/offsets
-
-    note right of vmDispatchSizeOf
-        ST lowering resolves `SIZEOF(...)`
-        operands to static types before
-        bytecode emit.
-
-        Production codegen emits
-        `SIZEOF_TYPE`; legacy
-        `SIZEOF_VALUE` remains only for
-        compatibility / negative-path tests.
+    component "OwnedRuntimeState<S> / RuntimeState\nshared EngineData owner\n(core/vm/engine/owned.rs + api.rs)" as state
+    component "EngineState\nprivate operation-scoped context\nchecked types, paths, lifetimes and work" as context
+    component "EngineData\nVariableStorage, images, task timing,\nconstruction, budgets, fault and IR selection" as data
+    component "RuntimeMetadata\nread-only tooling projection\nHIR types/source retained only in full host" as metadata
+    component "HostedExecutionServices\nclock, deadline, observer, captured register config" as hostServices
+    component "Source-free hosted Runtime\n(host/runtime_only.rs)" as runtimeOnly
+    component "Shared std UTC clock\n(host/host_clock.rs)" as hostClock
+    runtimeOnly *-- state
+    runtimeOnly --> hostClock
+    hostServices --> hostClock
+    artifact --> admission
+    admission --> prepared
+    prepared --> state : prepare before installation
+    runtime *-- state : sole mutable PLC authority
+    runtime *-- metadata
+    runtime --> hostServices
+    state --> context : temporary exclusive operation
+    context --> data : checked access
+    state *-- data
+    metadata ..> prepared : wire types / references / source labels
+    context --> hostServices : narrow service callbacks
+    note bottom of runtime
+        Installed storage and executable schema have no raw mutable getter.
+        Full/development keep hosted tools and services; runtime-only owns the
+        same core state with a thin std clock/deadline adapter and no compiler/HIR graph.
+        Every composition retains the full PLC function set.
+        Export copies admitted artifact data; it never serializes current PLC values.
     end note
 }
 
-' ============================================================
-' EXECUTION CYCLE
-' ============================================================
-package "Execution Cycle" as cyclePkg #LightBlue {
-
-    rectangle "execute_cycle() (cycle.rs:18-91)" as cycleFlow #Wheat {
-        card "1. Apply debug var writes" as step1
-        card "2. Emit CycleStart event" as step2
-        card "2a. simulation pre-cycle hooks\n(disturbances + delayed effects)" as step2a
-        card "3. read_cycle_inputs()" as step3
-        card "4. collect_ready_tasks()" as step4
-        card "5. Sort by (priority, due_at)" as step5
-        card "6. execute_task() for each" as step6
-        card "6a. watchdog check\n(wall-clock elapsed)" as step6a
-        card "7. execute_background_programs()" as step7
-        card "8. write_cycle_outputs()" as step8
-        card "8a. simulation post-cycle hooks\n(coupling scheduling)" as step8a
-        card "9. update_io_health()" as step9
-        card "10. Emit CycleEnd event" as step10
-    }
-
-    step1 --> step2
-    step2 --> step2a
-    step2a --> step3
-    step3 --> step4
-    step4 --> step5
-    step5 --> step6
-    step6 --> step6a
-    step6a --> step7
-    step7 --> step8
-    step8 --> step8a
-    step8a --> step9
-    step9 --> step10
-
-    note right of step4
-        TaskConfig:
-        • name: SmolStr
-        • interval: Duration
-        • priority: u8
-        • programs: Vec<SmolStr>
-    end note
-
-    note right of step3
-        read_cycle_inputs():
-        • drivers read inputs
-        • apply debug IO writes
-        • apply forced values (IO + vars)
-        • map inputs → storage
-        • ADS cache → generated globals
-          + _quality values
-    end note
-
-    note right of step8
-        write_cycle_outputs():
-        • map storage → outputs
-        • apply forced values (IO + vars)
-        • generated globals → ADS write queue
-        • drivers write outputs
-    end note
-
-    note right of step9
-        update_io_health():
-        • snapshot each driver health
-        • exposed via ctl status / UI
-    end note
-
-    note right of step2a
-        simulation pre-cycle:
-        • apply scheduled delayed effects
-        • apply scripted disturbances
-        • fault injection hooks
-    end note
-
-    note right of step8a
-        simulation post-cycle:
-        • read source outputs
-        • apply threshold/coupling logic
-        • enqueue delayed input effects
-    end note
-
-    note right of step6
-        execute_task():
-        • emits TaskStart event
-        • runs programs + FB refs
-        • dispatches directly to the VM path
-        • emits TaskEnd event
-        • task → DAP thread id
-    end note
-
-    note right of step6a
-        watchdog check:
-        • FaultDecision via WatchdogSubsystem
-        • apply safe state via IoSubsystem
+package "Shared execution representations" as executionPkg #LightCyan {
+    component "PreparedRegisterPlans\noptional register-ir feature\neager lowering and specialized blocks" as plans
+    component "Core register executor\npre-reserved per-POU scratch + bounded selection" as registers
+    component "Core stack dispatcher\nshared bytecode opcode loop; no-register calls stay in-loop" as stack
+    component "Register-enabled VM activation pump\niterative mixed stack/register calls\nleased parent scratch and common completion" as pump
+    component "Common ExecutionContext\ncall/return, references, output transactions,\nlibm numerics and full standard library" as semantics
+    prepared --> plans
+    context --> stack : no register-ir feature
+    context --> pump : register-ir feature
+    pump --> registers : eligible prepared plan / scratch available
+    pump --> stack : unsupported plan / occupied recursive scratch
+    plans --> registers
+    registers --> pump : deferred POU call
+    stack --> pump : register-ir stack activation yields cursor
+    pump --> semantics : return validation / common copyback
+    registers --> semantics : immediate native operation
+    stack --> semantics : immediate native operation
+    semantics --> context
+    note bottom of semantics
+        Both representations use one entry allowance and the same deadline,
+        frame cleanup, reference policy and bytecode instruction costs.
+        Yield and resume do not re-charge bytecode or repeat block-entry hooks.
+        The stack dispatcher and register-enabled pump keep native stack use
+        independent of admitted POU depth. In no-register builds, native stack
+        callees push frames and restore cursor continuations inside the same loop.
+        Both return through one call binding/completion owner and opcode interpreter.
+        No lowering, source evaluation or first-use compilation runs in RUN.
+        Optimization fallback never removes PLC functionality.
     end note
 }
 
-' ============================================================
-' LIFECYCLE (START/STOP)
-' ============================================================
-package "Lifecycle" as lifecyclePkg #LightGray {
-    rectangle "startup()" as startupFlow #Wheat {
-        card "1. load_retain()\n(decode + value validation)" as start1
-        card "2. init globals/IO" as start2
-        card "2a. provision T0 SHM channels\n(map shared + initialize headers + pin pages)" as start2a
-        card "2b. apply Linux RT posture\n(verify PREEMPT_RT + mlockall + affinity)" as start2b
-        card "3. start tasks" as start3
-    }
-
-    start1 --> start2
-    start2 --> start2a
-    start2a --> start2b
-    start2b --> start3
-
-    note right of start2a
-        fail-fast contract:
-        • required SHM create/open failure => startup abort
-        • required page pinning failure => startup abort
-        • publish readiness metadata for _meta/shm_channels
+package "Hosted cycle: borrowed adapters, common scheduler" as cyclePkg #LightBlue {
+    component "ResourceRunner\nlogical clock, supervision, STOP and simulation\n(scheduler + host/simulation.rs)" as runner
+    card "Simulation pre-cycle\ndisturbances + delayed input effects" as simulationPre
+    card "CycleStart\npending value/lvalue requests + debug event" as cycleStart
+    card "BeforeInputSample\nphysical inputs; debug I/O writes and forces" as inputAcquire
+    card "Common mapped-input sample\nthen ADS / OPC UA cached inputs" as inputSample
+    card "Common readiness and priority/due/index order\nready tasks + admitted background programs\npaired program metrics, including faults" as readyWork
+    card "BeforeOutputSample\nretain checkpoint/save before output conversion" as retainPhase
+    card "Normal %Q/%M sample\nthen variable/I/O forces, protocol capture, debug snapshot" as outputSample
+    card "Deadline check and driver submission\nflat Q commits after every driver succeeds" as outputCommit
+    card "Hosted telemetry + final deadline\nhealth, CycleEnd, metrics and cycle count" as step9
+    card "Simulation post-cycle\nobserve outputs; enqueue future effects" as simulationPost
+    runner --> simulationPre
+    simulationPre --> runtime
+    runtime --> cycleStart : execute_cycle / HostedCycle
+    cycleStart --> inputAcquire
+    inputAcquire --> inputSample
+    inputSample --> readyWork
+    readyWork --> retainPhase
+    retainPhase --> outputSample
+    outputSample --> outputCommit
+    outputCommit --> step9
+    step9 --> simulationPost
+    readyWork --> context : one core scheduler
+    hostServices ..> readyWork : deadline + debug observer
+    note bottom of outputCommit
+        Failure before successful submission restores touched flat Q windows only.
+        Marker/hierarchical effects keep the established hosted rollback domain.
+        A late deadline/telemetry fault cannot undo outputs accepted by drivers.
+        Invalid management requests produce WriteRejected, not a PLC fault;
+        actual execution/adapter/deadline failures follow the fault policy.
     end note
-
-    note right of start2b
-        Linux PREEMPT_RT profile:
-        • verify /sys/kernel/realtime when requested
-        • call mlockall(MCL_CURRENT|MCL_FUTURE)
-        • pin scheduler thread affinity
-        • verify deployed scheduler policy/priority
-    end note
-
-    note right of start1
-        Retain restore contract:
-        • decode persisted Value tree
-        • resolve global or qualified PROGRAM
-          variable identity and declared type
-        • clone candidate storage and canonicalize
-          every retained value before one swap
-        • stale serialized enum type casing
-          is repaired on load
-        • enum mismatches, struct field drift,
-          and array shape/type drift fail
-          startup instead of entering storage
-    end note
-
-    rectangle "shutdown()" as shutdownFlow #Wheat {
-        card "1. launcher signal bridge\n(run/runtime/signals.rs)\nSIGINT/SIGTERM -> ResourceControl::stop()" as stopSignal
-        card "2. stop tasks\n(scheduler stop flag)" as stop1
-        card "3. apply configured safe outputs" as stopSafe
-        card "4. save_retain()" as stop2
-    }
-
-    stopSignal --> stop1
-    stop1 --> stopSafe
-    stopSafe --> stop2
-
-    rectangle "online_change()" as onlineChangeFlow #Wheat {
-        card "1. queue ReloadBytecode command" as online1
-        card "2. scheduler applies swap at cycle boundary" as online2
-        card "3. prepare warm-restart storage\n+ validate retained snapshot" as online3
-        card "4. validate/materialize bytecode\n+ apply resource metadata" as online4
-        card "5. infallible commit\nrestart storage + retained values" as online5
-    }
-
-    online1 --> online2
-    online2 --> online3
-    online3 --> online4
-    online4 --> online5
 }
 
-' ============================================================
-' CONTROL + HMI CONTRACT
-' ============================================================
+package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
+    component "ResourceReconfiguration\nstage admitted images/tasks; exclusive commit\n(core/engine/reconfiguration.rs)" as resourceChange
+    component "Isolated code/schema candidate\nprepare_replacement + warm retain migration\n(runtime/installed_lifecycle.rs)" as codeChange
+    component "Safe-state delivery\nchecked owner images + every driver attempt\n(io_subsystem + installed_cycle.rs)" as safeState
+    component "Retain checkpoint and restart\ncanonical global/program destinations\nSTRN v3: logical values + physical layout/backing\nchecked capture + transactional restoration" as retainOwner
+    component "Startup composition\nselected transports / T0 SHM / Linux RT posture" as startup
+    component "Launcher signals / ResourceControl\nSTOP, safe outputs, durable save" as shutdown
+    runtime --> resourceChange : metadata / direct / MQTT bindings
+    resourceChange --> state : preserve values, live identities, debug/IR/fault state
+    runtime --> codeChange : source/bytecode schema replacement
+    codeChange --> state : publish only fully prepared candidate
+    runtime --> retainOwner
+    runner --> safeState : STOP / FAULT / watchdog
+    safeState --> state : separate checked safety entry
+    startup --> runner
+    shutdown --> runner
+    shutdown --> safeState
+    shutdown --> retainOwner
+    note bottom of resourceChange
+        Resource-only edits do not execute initializers or reconstruct PLC values.
+        Binding-only edits preserve task timing; explicit task replacement samples
+        SINGLE and resets registration timing while retaining thread identity history.
+        Failure or discarded candidate leaves the installed state unchanged.
+    end note
+}
+
+package "Detached debugger inspection" as debugPkg #MistyRose {
+    component "StatementFrame\nread-only current and suspended invocations" as frameView
+    component "DebugSnapshot::from_execution\nphysical local slots, ancestor identities\n(host/debug/execution_snapshot.rs)" as debugSnapshot
+    component "DAP / DebugControl\nconditions, watches, queued writes and forces" as dap
+    component "Scratch TypeRegistry / detached expression state\ncompiler slots hidden from presentation\n(trust-debug evaluation)" as scratch
+    context --> frameView
+    frameView --> hostServices
+    hostServices --> debugSnapshot
+    metadata --> debugSnapshot
+    debugSnapshot --> dap
+    dap --> scratch : expression parsing / detached edits
+    dap --> cycleStart : queued next-scan application; stale destinations reject
+    dap --> runtime : synchronous checked engineering operations
+    note bottom of debugSnapshot
+        Snapshot mutation never copies back into live invocation locals.
+        Candidate construction emits no active debugger observations.
+        Debug pause does not grant mutable schema or raw PLC storage access.
+    end note
+}
+
 package "Control + HMI Contract" as hmiPkg #Lavender {
     rectangle "Bounded Web Dispatch (web/request_dispatch.rs)" as webDispatch #Wheat {
         card "accept loop\n(request admission only)" as webAccept
@@ -441,7 +296,11 @@ package "Control + HMI Contract" as hmiPkg #Lavender {
         • route handlers split by concern in web/*_routes.rs
     end note
 
-    note right of start2
+    note right of prepared
+        Artifact-selected temporal ABI:
+        new 3.0 uses eight bytes; legacy
+        widths are explicit and validated.
+
         Initializers flow through the
         runtime initializer service:
         TYPE/member defaults, aggregate
@@ -564,482 +423,47 @@ adsFlow ..> connectorAdapters : project ADS client\nstatus only
 adsServerFlow ..> connectorAdapters : project ADS server\nstatus only
 step9 ..> connectorAdapters : project IoDriver\nhealth only
 
-' ============================================================
-' VARIABLE STORAGE
-' ============================================================
-package "Variable Storage" as storagePkg #LightCoral {
 
-    class "VariableStorage" as varStorage <<memory.rs:63-71>> {
-        globals: IndexMap<SmolStr, Value>
-        frames: Vec<LocalFrame>
-        instances: FxHashMap<InstanceId, InstanceData>
-        retain: IndexMap<SmolStr, Value>
-        next_frame_id: u32
-        next_instance_id: u32
-        --
-        +set_global(name, value)
-        +get_global(name) → Option<Value>
-        +push_frame(owner) → FrameId
-        +pop_frame()
-        +set_local(name, value)
-        +get_local(name) → Option<Value>
-        +create_instance(type_name) → InstanceId
-    }
-
-    class "LocalFrame" as localFrame <<memory.rs:45-52>> {
-        id: FrameId
-        owner: SmolStr
-        variables: IndexMap<SmolStr, Value>
-        return_value: Option<Value>
-        instance_id: Option<InstanceId>
-    }
-
-    class "InstanceData" as instanceData <<memory.rs:55-60>> {
-        type_name: SmolStr
-        variables: IndexMap<SmolStr, Value>
-        parent: Option<InstanceId>
-    }
-
-    enum "MemoryLocation" as memLoc <<memory.rs:11-22>> {
-        Global
-        Local(FrameId)
-        Instance(InstanceId)
-        Io(IoArea)
-        Retain
-    }
-
-    varStorage --> localFrame : frames
-    varStorage --> instanceData : instances
-    varStorage --> memLoc
+package "I/O and protocol composition" as ioPkg #LightGray {
+    component "IoSubsystem\nimmutable binding schema + physical drivers" as ioSubsystem
+    component "InstalledIoView\nborrows authoritative core images\nselected-value inspection only" as ioView
+    interface "IoDriver\nread_inputs / write_outputs / health" as driver
+    component "Modbus / MQTT session workers\nwire operations off the scan thread" as workers
+    component "Gpio / EtherCAT adapters\nplatform I/O and failure policy" as hardwareIo
+    component "MQTT tag mapping / direct bindings\nadmitted resource transaction before worker start" as bindings
+    runtime --> ioSubsystem
+    ioSubsystem --> ioView
+    ioView --> data : read-only image borrow
+    ioSubsystem --> driver
+    driver --> workers
+    driver --> hardwareIo
+    inputAcquire --> ioSubsystem : direct core input image
+    outputCommit --> ioSubsystem : authoritative output image
+    safeState --> ioSubsystem : all drivers; first failure reported
+    bindings --> resourceChange
+    ads7 --> inputSample : cached inputs at checked port
+    outputSample --> ads7 : capture intents after forces
+    opcuaFlow ..> inputSample : OPC UA client cache adapter
+    outputSample ..> opcuaFlow : checked output capture
+    hmiControl --> metadata : schema / declared types
+    hmiRuntimePort --> runtime : checked owner / queued write boundary
+    hmiControl --> hmiWeb
+    connectorAdapters ..> ioSubsystem : status projection only
 }
 
-runtime ..> opc4 : snapshot globals
-start3 ..> ads4 : [runtime.ads] startup
-start3 ..> adsServer2 : [runtime.ads_server] startup
-step3 ..> ads7 : apply ADS read cache\n+ _quality globals
-step8 ..> ads7 : queue ADS writes\n+ _quality globals
-ads7 --> varStorage : write_by_ref / read_by_ref
-adsServer5 --> varStorage : read snapshot values
-adsServer7 --> varStorage : queued runtime writes
-
-' ============================================================
-' VALUE CONTRACTS
-' ============================================================
-package "Runtime Value Contracts" as valuePkg #MistyRose {
-
-    class "Value" as valueEnum <<value/types.rs>> {
-        Bool, Integer, Float, String, Time
-        Enum(EnumValue)
-        Struct(StructValue)
-        Array(ArrayValue)
-        Reference, Null
-    }
-
-    class "EnumValue" as enumValue <<value/types.rs>> {
-        type_name: SmolStr
-        variant_name: SmolStr
-        numeric_value: i64
-        --
-        +new(registry, type_id, variant) -> Result
-        +from_serialized_parts(registry, type, variant, value) -> Result
-        +from_canonical_parts(type, variant, value)
-    }
-
-    note right of enumValue
-        Construction boundary owns enum identity:
-        • public constructors resolve Alias chains
-        • stored type_name is the underlying
-          enum's canonical Type name
-        • variant_name and numeric_value are
-          cross-validated against TypeRegistry
-        • equality compares canonical type_name
-          plus numeric_value
-    end note
-
-    class "StructValue" as structValue <<value/types.rs>> {
-        type_name: SmolStr
-        fields: IndexMap<SmolStr, Value>
-        --
-        +new(registry, type_id, fields) -> Result
-        +from_serialized_parts(registry, type, fields) -> Result
-        +fields() -> &IndexMap
-    }
-
-    note right of structValue
-        Struct construction validates declared identity:
-        • Alias chains resolve to the underlying
-          struct or union Type name
-        • field names are matched case-insensitively
-          and stored in declaration order
-        • missing, extra, or wrongly typed fields
-          return diagnostics at the entry point
-    end note
-
-    class "ArrayValue" as arrayValue <<value/types.rs>> {
-        elements: Vec<Value>
-        dimensions: Vec<(i64, i64)>
-        --
-        +new(registry, type_id, elements) -> Result
-        +from_serialized_parts(registry, type, dims, elements) -> Result
-        +elements() -> &[Value]
-        +dimensions() -> &[(i64, i64)]
-    }
-
-    note right of arrayValue
-        Array construction validates shape:
-        • Alias chains resolve before checking element type
-        • retained dimensions must match declared bounds
-        • element count and each element value type
-          are checked before storing the value
-    end note
-
-    valueEnum --> enumValue
-    valueEnum --> structValue
-    valueEnum --> arrayValue
-    structValue --> valueEnum : fields
-    arrayValue --> valueEnum : elements
+package "Private historical corpus" as historicalPkg #Gainsboro {
+    component "cfg(test) LegacyRuntimeFixture\nold core/cycle/VM and explicit 1.1 fixtures\nnot reachable from production Runtime" as historical
+    component "Non-executable helpers\nconst folding / source lowering / detached debug evaluation" as helpers
+    helpers --> builder
+    helpers --> scratch
+    historical ..> authoringView : private fixture authoring only
 }
-
-varStorage --> valueEnum
-secConst ..> enumValue : enum constants
-start1 ..> valueEnum : validate retained values
-
-' ============================================================
-' EVALUATION CONTEXT
-' ============================================================
-package "Helper Evaluation" as evalPkg #Wheat {
-
-    component "helper_eval::const_expr" as constEval
-    component "helper_eval::storage_expr" as storageEval
-    component "helper_eval::storage_lvalue" as storageWrite
-    component "DebugRuntimeContext" as debugRuntimeCtx
-
-    note right of storageEval
-        Residual helper surface:
-        - debug expression / watch evaluation
-        - selected build-time/runtime helpers
-        - pending debug writes
-
-        Production task/program execution
-        goes directly through the VM path.
-        Remaining evaluator internals are test-only.
-    end note
-}
-
-' ============================================================
-' STATEMENT AST
-' ============================================================
-package "Statement AST" as stmtPkg #PaleGreen {
-
-    enum "Stmt" as stmtEnum <<eval/stmt.rs:30-95>> {
-        Assign { target, value, location }
-        AssignAttempt { target, value, location }
-        Expr { expr, location }
-        If { condition, then_block, else_if, else_block, location }
-        Case { selector, branches, else_block, location }
-        For { control, start, end, step, body, location }
-        While { condition, body, location }
-        Repeat { body, until, location }
-        Label { name, stmt, location }
-        Jmp { target, location }
-        Return { expr, location }
-        Exit { location }
-        Continue { location }
-    }
-
-    enum "StmtResult" as stmtResult <<eval/stmt.rs:13-20>> {
-        Continue
-        Return(Option<Value>)
-        Exit
-        LoopContinue
-        Jump(SmolStr)
-    }
-}
-
-' ============================================================
-' EXPRESSION AST
-' ============================================================
-package "Expression AST" as exprPkg #Lavender {
-
-    enum "Expr" as exprEnum <<eval/expr/ast.rs:6-36>> {
-        Literal(Value)
-        This
-        Super
-        SizeOf(SizeOfTarget)
-        Name(SmolStr)
-        Call { target, args }
-        Unary { op, expr }
-        Binary { op, left, right }
-        Index { target, indices }
-        Field { target, field }
-        Ref(LValue)
-        Deref(Box<Expr>)
-    }
-
-    enum "LValue" as lvalueEnum <<eval/expr/ast.rs:46-52>> {
-        Name(SmolStr)
-        Index { name, indices }
-        Field { name, field }
-        Deref(Box<Expr>)
-    }
-
-    enum "BinaryOp" as binOp <<eval/ops.rs:23-40>> {
-        Add, Sub, Mul, Div, Mod, Pow
-        And, Or, Xor
-        Eq, Ne, Lt, Le, Gt, Ge
-    }
-
-    enum "UnaryOp" as unOp <<eval/ops.rs:15-20>> {
-        Neg, Pos, Not
-    }
-
-    exprEnum --> lvalueEnum
-    exprEnum --> binOp
-    exprEnum --> unOp
-}
-
-' ============================================================
-' BYTECODE FORMAT
-' ============================================================
-package "Portable Bytecode Format (trust-runtime-core)" as bytecodePkg #LightYellow {
-
-    class "BytecodeModule" as bcModule <<trust-runtime-core/bytecode/module.rs>> {
-        version: BytecodeVersion
-        flags: u32
-        sections: Vec<Section>
-    }
-
-    class "BytecodeVersion" as bcVersion <<bytecode/format.rs:10-14>> {
-        major: u16
-        minor: u16
-    }
-
-    class "BytecodeMetadata" as bcMeta <<bytecode/format.rs:49-53>> {
-        version: BytecodeVersion
-        resources: Vec<ResourceMetadata>
-    }
-
-    class "ResourceMetadata" as resMeta <<bytecode/format.rs:41-46>> {
-        name: SmolStr
-        process_image: ProcessImageConfig
-        tasks: Vec<TaskConfig>
-    }
-
-    rectangle "Sections" as sections {
-        card "StringTable" as secStr
-        card "TypeTable" as secType
-        card "ConstPool" as secConst
-        card "PouIndex" as secPou
-        card "PouBodies" as secBodies
-        card "GlobalInit" as secGlobal
-        card "TaskConfig" as secTask
-    }
-
-    bcModule --> bcVersion
-    bcModule --> sections
-    bcMeta --> resMeta
-}
-
-note right of bcModule
-    Core owns decode, validate, encode and metadata.
-    Hosted constructors delegate through a borrowed view.
-    **Bytecode Constants:**
-    MAGIC: [u8; 4] = "STBC"
-    VERSIONS: legacy 1.1 / source-free 2.0
-    HEADER_SIZE: 24 bytes
-    FLAG_CRC32: 0x0001
-end note
-
-note right of bytecodePkg
-    Core validation admits bytecode structure.
-    PreparedModule adds source-free profile admission;
-    RuntimeState executes through the shared VM.
-end note
-
-package "Bytecode Apply" as bcApply #Wheat {
-    component "apply_bytecode_metadata()" as applyMeta
-    component "apply_bytecode_module()" as applyModule
-    applyModule --> applyMeta
-}
-
-note right of applyMeta
-    • load ResourceMetadata
-    • size process image
-    • configure task list
-end note
-
-note right of applyModule
-    • load POU bodies + constants
-    • attach debug map entries
-end note
-
-' ============================================================
-' STANDARD LIBRARY
-' ============================================================
-package "Standard Library" as stdlibPkg #PaleTurquoise {
-
-    component "stdlib/" as stdlib <<stdlib/>> {
-        card "**Functions:**\nABS, SQRT, SIN, COS, TAN\nMIN, MAX, LIMIT, MUX, SEL\nLEN, LEFT, RIGHT, MID, CONCAT\nTO_INT, TO_REAL, TO_STRING\nSHL, SHR, ROL, ROR, TRUNC" as stdFuncs
-
-        card "**Function Blocks:**\nTON - Timer On Delay\nTOF - Timer Off Delay\nTP - Pulse Timer\nCTU - Count Up\nCTD - Count Down\nCTUD - Count Up/Down\nR_TRIG - Rising Edge\nF_TRIG - Falling Edge\nSR - Set/Reset\nRS - Reset/Set" as stdFBs
-
-        card "**Native robot FB bridge:**\nRobot_P3MinimalArm\n-> world::arm writer-free bridge\n(no transform writes)" as robotFBBridge
-        card "**World arm proof owners:**\nworld/arm.rs re-exports\np3_bridge + types + model + physics + urdf\nmulti_urdf/{domain,setup,step,trace}" as worldArmOwners
-    }
-    robotFBBridge ..> worldArmOwners : runtime proof ownership
-}
-
-' ============================================================
-' I/O INTERFACE
-' ============================================================
-package "I/O Interface" as ioPkg #LightGray {
-
-    class "IoSubsystem" as ioSubsystem {
-        interface: IoInterface
-        drivers: Vec<IoDriverEntry>
-        safe_state: IoSafeState
-        --
-        +apply_safe_state()
-        +update_health()
-    }
-
-    class "IoInterface" as ioIface {
-        inputs: Vec<u8>
-        outputs: Vec<u8>
-        memory: Vec<u8>
-        bindings: Vec<IoBinding>
-        binding_codecs: Vec<IoBindingCodec>
-        --
-        +read(address) → Value
-        +write(address, value)
-        +snapshot() → declared type metadata + value state
-    }
-
-    interface "IoDriver" as ioDriver {
-        +read_inputs(io)
-        +write_outputs(io)
-    }
-
-    component "io/modbus/worker.rs\n(latest input snapshot +\nlevel output handoff)" as modbusWorker
-    component "io/mqtt/worker.rs\n(session worker + freshness +\nlevel output handoff)" as mqttWorker
-    component "io/mqtt_tag_mapping.rs\n(resolve ProgramInstance.Variable\n+ lower to typed process-image points)" as mqttTagMapping
-    component "trust-debug DebugSession\n(project I/O assembly)" as debugSession
-    component "io/ethercat/driver.rs\n(hardware construction failure ->\nterminal until driver rebuild)" as ethercatDriver
-
-    ioSubsystem --> ioIface
-    ioSubsystem --> ioDriver : uses
-    ioDriver ..> modbusWorker : Modbus scan calls\nbounded handoff only
-    ioDriver ..> mqttWorker : MQTT scan calls\nbounded handoff only
-    runtime ..> mqttTagMapping : apply bytecode first, then\nresolve all mappings atomically
-    debugSession ..> mqttTagMapping : compile program first, then\nresolve all mappings atomically
-    mqttTagMapping --> ioIface : reuse or allocate typed\n%I/%Q bindings + enum codecs\nbefore worker start
-    mqttTagMapping ..> mqttWorker : validated input/output\npoint topics
-    ioDriver ..> ethercatDriver : EtherCAT scan calls\nfail closed on unavailable hardware
-    modbusWorker ..> ioDriver : owns sync\nModbus protocol path
-    mqttWorker ..> ioDriver : owns sync\nMQTT protocol path
-
-    note right of mqttWorker
-        Phase 3B worker/snapshot contract:
-        Modbus/MQTT connect, poll, and
-        wire round trips stay off the scan
-        thread. Driver health still projects
-        through IoDriverHealth.
-    end note
-
-    note right of mqttTagMapping
-        MQTT mapping direction is PLC-relative:
-        read = broker to PLC input,
-        write = PLC output to broker.
-        Output-only mappings neither subscribe
-        nor clear shared input bytes. Read-only
-        mappings publish no raw output fallback.
-        Present-but-empty mappings disable both
-        raw directions; only absent mappings use
-        the default raw topics.
-        Enum identity stays at the process-image
-        binding; MQTT carries the numeric member,
-        while snapshots carry the declared enum
-        name for value, error, and unresolved states.
-    end note
-
-    note right of ethercatDriver
-        EtherCAT hardware construction that
-        fails after ethercrab storage split is
-        bounded to the driver instance. The
-        driver reports unavailable hardware
-        until the runtime rebuilds the driver
-        instead of retrying allocation in
-        scan-cycle retry windows.
-    end note
-}
-
-package "Portable source-free core" as sourceFreeCore #LightGreen {
-    component "PreparedModule\nSTBC 2.0 admission + immutable metadata" as preparedCore
-    component "RuntimeState\nresource cycle + staged restart" as stateCore
-    component "Shared dispatcher / calls / references\nordinary POUs and initializer bodies" as dispatchCore
-    component "TYPE_TABLE construction\nframe identities + assignment/lifetime checks" as constructionCore
-    interface "ExecutionServices\ndeadline, UTC and retain adapter" as platformServices
-    sourceFreeArtifact --> preparedCore
-    preparedCore --> stateCore
-    stateCore --> dispatchCore
-    stateCore --> constructionCore
-    constructionCore --> dispatchCore
-    stateCore --> platformServices
-    stateCore --> varStorage
-    stateCore --> stdlibPkg
-    runtime --> dispatchCore : hosted context adapter / stack fallback
-    note bottom of stateCore
-        VariableStorage and storage-backed stdlib live in core.
-        Host wrappers retain debugger, optimized tier and legacy HIR init.
-        Physical board execution and memory/timing evidence remain Scope B.
-    end note
-}
-
-' ============================================================
-' CONNECTIONS
-' ============================================================
-
-runtime --> varStorage
-runtime --> evalCtx : creates
-runtime --> cyclePkg : execute_cycle()
-runtime --> stdlibPkg
-stdlibPkg --> coreMath : named numeric functions
-runtime --> ioPkg
-runtime --> bcApply
-runtime --> hmiControl
-hmiControl --> hmiWeb
-
-evalCtx --> stmtPkg : executes
-evalCtx --> exprPkg : evaluates
-evalCtx --> varStorage : reads/writes
-
-' ============================================================
-' LEGEND
-' ============================================================
 
 legend right
-    **Key Files:**
-    • runtime/core.rs:22 - Runtime struct
-    • runtime/cycle.rs:18 - execute_cycle()
-    • memory.rs:63 - VariableStorage
-    • eval/stmt.rs:30 - Stmt enum
-    • eval/expr/ast.rs:6 - Expr enum
-    • bytecode/format.rs:494 - BytecodeModule
-    • stdlib/ - Standard library
-
-    **Execution Model:**
-    1. Tasks scheduled by priority + interval
-    2. Programs execute within tasks
-    3. Production execution dispatches directly into the VM after module materialization
-    4. Bytecode VM is the only production execution backend
-    5. helper_eval handles debug/tooling/build-helper paths
-
-    **Memory Areas:**
-    • Globals - Program-wide variables
-    • Frames - Function call locals
-    • Instances - FB/Class state
-    • Retain - Persistent across restart
-    • I/O - Direct addresses (%I, %Q, %M)
+    Source ownership view; validation, rendering and hardware evidence are separate.
+    Production execution uses the canonical shared core and an admitted artifact.
+    Host services borrow checked ports; no second mutable PLC store or dispatcher.
+    Retained state remains ordinary global/instance storage with declared policy.
+    Platform capabilities and performance must be verified in their selected composition.
 end legend
-
 @enduml

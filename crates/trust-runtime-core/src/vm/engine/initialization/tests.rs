@@ -10,11 +10,19 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
     );
     let prepared = PreparedModule::from_bytes(bytes, PreparationLimits::default()).unwrap();
     let mut forged = PreparedModule::from_bytes(bytes, PreparationLimits::default()).unwrap();
-    let mut state = EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+    let mut state_data =
+        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+    let mut state = EngineState::borrow(
+        &mut state_data,
+        &prepared,
+        &super::super::services::LOGICAL_ONLY,
+    );
     state
+        .data
         .storage
         .set_global("staging_escape_probe", Value::DInt(7));
     let destination = state
+        .data
         .storage
         .ref_for_global("staging_escape_probe")
         .unwrap();
@@ -23,6 +31,7 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
         offset: destination.offset,
         path: Vec::new(),
     });
+    forged.vm.ref_types.push(None);
     let constant = forged.vm.consts.len() as u32;
     forged.vm.consts.push(Value::DInt(99));
     let start = forged.vm.code.len() as u32;
@@ -44,20 +53,26 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
         Err(RuntimeError::StagingViolation)
     );
     assert_eq!(
-        state.storage.get_global("staging_escape_probe"),
+        state.data.storage.get_global("staging_escape_probe"),
         Some(&Value::DInt(7))
     );
     assert!(
-        state.construction.initializers.is_empty(),
+        state.data.construction.initializers.is_empty(),
         "failed initializer cleans its staging frame"
     );
-    assert_eq!(state.storage.execution_frame_count(), 0);
-    assert!(state.lifetimes.live_activations.is_empty());
-    assert!(state.construction.frames.is_empty());
-    assert!(state.construction.types.is_empty());
+    assert_eq!(state.data.storage.execution_frame_count(), 0);
+    assert_eq!(state.data.storage.execution_activation_count(), 0);
+    assert!(state.data.construction.frames.is_empty());
+    assert!(state.data.construction.types.is_empty());
+    assert!(state
+        .data
+        .construction
+        .type_operations
+        .iter()
+        .all(|bits| *bits == 0));
     // A trap must leave no staged slot or context that affects the next action.
     state.prepared = &prepared;
-    let Some(Value::Instance(plant)) = state.storage.get_global("Plant") else {
+    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
         panic!("fixture root");
     };
     let plant = *plant;
@@ -65,9 +80,9 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
         state.evaluate_initializer(enabled_initializer(&prepared), None, Some(plant), 0),
         Ok(Value::Bool(true))
     );
-    assert_eq!(state.storage.execution_frame_count(), 0);
+    assert_eq!(state.data.storage.execution_frame_count(), 0);
     assert_eq!(
-        state.storage.get_global("staging_escape_probe"),
+        state.data.storage.get_global("staging_escape_probe"),
         Some(&Value::DInt(7))
     );
 }
@@ -101,34 +116,46 @@ fn deepest_admitted_initializer_reuses_staging_and_rejects_the_next_depth() {
         },
     )
     .unwrap();
-    let mut state = EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-    let Some(Value::Instance(plant)) = state.storage.get_global("Plant") else {
+    let mut state_data =
+        EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+    let mut state = EngineState::borrow(
+        &mut state_data,
+        &prepared,
+        &super::super::services::LOGICAL_ONLY,
+    );
+    let Some(Value::Instance(plant)) = state.data.storage.get_global("Plant") else {
         panic!("fixture root");
     };
     let plant = *plant;
     let initializer = enabled_initializer(&prepared);
-    let before = state.storage.instances().len();
+    let before = state.data.storage.instances().len();
     for _ in 0..3 {
         assert_eq!(
             state.evaluate_initializer(initializer, None, Some(plant), 3),
             Ok(Value::Bool(true))
         );
-        assert!(state.construction.initializers.is_empty());
-        assert!(state.construction.frames.is_empty());
-        assert!(state.construction.types.is_empty());
-        assert!(state.lifetimes.live_activations.is_empty());
-        assert_eq!(state.storage.execution_frame_count(), 0);
-        assert_eq!(state.storage.instances().len(), before);
+        assert!(state.data.construction.initializers.is_empty());
+        assert!(state.data.construction.frames.is_empty());
+        assert!(state.data.construction.types.is_empty());
+        assert!(state
+            .data
+            .construction
+            .type_operations
+            .iter()
+            .all(|bits| *bits == 0));
+        assert_eq!(state.data.storage.execution_activation_count(), 0);
+        assert_eq!(state.data.storage.execution_frame_count(), 0);
+        assert_eq!(state.data.storage.instances().len(), before);
     }
     assert_eq!(
         state.evaluate_initializer(initializer, None, Some(plant), 4),
         Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error())
     );
-    assert_eq!(state.storage.execution_frame_count(), 0);
-    assert!(state.construction.initializers.is_empty());
+    assert_eq!(state.data.storage.execution_frame_count(), 0);
+    assert!(state.data.construction.initializers.is_empty());
     assert_eq!(
         state.evaluate_initializer(initializer, None, Some(plant), 3),
         Ok(Value::Bool(true))
     );
-    assert_eq!(state.storage.execution_frame_count(), 0);
+    assert_eq!(state.data.storage.execution_frame_count(), 0);
 }

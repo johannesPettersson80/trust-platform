@@ -14,10 +14,10 @@ use crate::value::{
 
 /// Register date/time functions using supplied values rather than a host clock.
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 30] = [
     super::registration::descriptor!("ADD_DT_TIME", IN1_IN2, add_dt_time),
     super::registration::descriptor!("ADD_LDT_LTIME", IN1_IN2, add_ldt_ltime),
     super::registration::descriptor!("ADD_LTIME", IN1_IN2, add_ltime),

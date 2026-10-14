@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::harness::config::ensure_wildcards_resolved;
 use crate::harness::{CompileSession, TestHarness, WildcardRequirement};
 use crate::memory::{IoArea, MemoryLocation};
 use crate::value::{Value, ValueRef};
@@ -376,6 +377,11 @@ END_CONFIGURATION
         error.to_string().to_ascii_lowercase().contains("read-only"),
         "{error}"
     );
+    assert_eq!(
+        error.stable_code(),
+        crate::error::RuntimeError::InvalidAlias.stable_code()
+    );
+    assert!(!harness.runtime().faulted());
     assert_eq!(harness.get_access("Observed"), Some(Value::Int(5)));
 }
 
@@ -771,4 +777,34 @@ END_CONFIGURATION
     )
     .expect("structure component configuration initializer");
     assert_eq!(harness.get_access("Observed"), Some(Value::Int(21)));
+}
+
+#[test]
+fn source_artifact_configuration_cannot_expose_or_initialize_external_aliases() {
+    for (declaration, expected) in [
+        (
+            "VAR_ACCESS SharedAccess : P.Shared : INT READ_ONLY; END_VAR",
+            "VAR_ACCESS cannot expose VAR_EXTERNAL",
+        ),
+        (
+            "VAR_CONFIG P.Shared : INT := INT#7; END_VAR",
+            "error[E202]: VAR_CONFIG cannot initialize this variable section",
+        ),
+    ] {
+        let source = format!("VAR_GLOBAL Shared : INT; END_VAR PROGRAM Main VAR_EXTERNAL Shared : INT; END_VAR END_PROGRAM CONFIGURATION C PROGRAM P : Main; {declaration} END_CONFIGURATION");
+        let error = CompileSession::from_source(source)
+            .build_bytecode_bytes()
+            .unwrap_err();
+        assert!(error.to_string().contains(expected), "{error}");
+    }
+    let source = "VAR_GLOBAL Shared : INT; END_VAR PROGRAM Main VAR_EXTERNAL Shared : INT; END_VAR VAR_ACCESS SharedAccess : Shared : INT READ_ONLY; END_VAR END_PROGRAM";
+    let error = CompileSession::from_source(source)
+        .build_bytecode_bytes()
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("VAR_ACCESS cannot expose VAR_EXTERNAL"),
+        "{error}"
+    );
 }

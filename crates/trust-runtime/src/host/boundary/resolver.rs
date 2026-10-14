@@ -104,9 +104,10 @@ pub(crate) fn resolve_read(runtime: &Runtime, path: &str) -> Result<Value, Bound
         RootResolution::ProgramVar { instance_id } => Some(instance_id),
     };
 
-    crate::helper_eval::eval_storage_expr_with_stdlib(
+    crate::helper_eval::eval_storage_expr_with_abi(
         runtime.storage(),
         runtime.registry(),
+        runtime.prepared().storage_abi(),
         &runtime.profile(),
         current_instance,
         Some(runtime.stdlib()),
@@ -142,19 +143,20 @@ pub(crate) fn resolve_write(
 ) -> Result<(), BoundaryError> {
     if is_simple_name(path) {
         if runtime.storage().get_global(path).is_some() {
-            runtime.storage_mut().set_global(SmolStr::new(path), value);
-            return Ok(());
+            return runtime
+                .write_global(path, value)
+                .map_err(|error| BoundaryError::from_runtime(path, error));
         }
         if let Some((instance_id, _)) = find_program_var_instance(runtime, path)? {
-            if runtime
-                .storage_mut()
-                .set_instance_var(instance_id, SmolStr::new(path), value)
-            {
-                return Ok(());
-            }
-            return Err(BoundaryError::InternalFailure {
-                context: "program variable instance disappeared during write",
-            });
+            let reference = runtime
+                .storage()
+                .ref_for_instance_recursive(instance_id, path)
+                .ok_or(BoundaryError::InternalFailure {
+                    context: "program variable instance disappeared during write",
+                })?;
+            return runtime
+                .write_reference(&reference, value)
+                .map_err(|error| BoundaryError::from_runtime(path, error));
         }
         return Err(BoundaryError::UnresolvedName { path: path.into() });
     }
@@ -170,17 +172,9 @@ pub(crate) fn resolve_write(
         RootResolution::Global => None,
         RootResolution::ProgramVar { instance_id } => Some(instance_id),
     };
-    let registry = runtime.registry().clone();
-    let profile = runtime.profile();
-    crate::helper_eval::write_storage_lvalue(
-        runtime.storage_mut(),
-        &registry,
-        &profile,
-        current_instance,
-        &target,
-        value,
-    )
-    .map_err(|error| BoundaryError::from_runtime(path, error))
+    runtime
+        .write_lvalue_in_instance(&target, value, current_instance)
+        .map_err(|error| BoundaryError::from_runtime(path, error))
 }
 
 pub(crate) fn resolve_bind(
@@ -196,8 +190,13 @@ pub(crate) fn resolve_bind(
     }
 
     if runtime.storage().get_global(path).is_some() {
-        runtime.io_mut().bind(path, address);
-        return Ok(());
+        let reference = runtime
+            .storage()
+            .ref_for_global(path)
+            .ok_or_else(|| BoundaryError::UndeclaredBinding { path: path.into() })?;
+        return runtime
+            .bind_checked_io(reference, address, path.into())
+            .map_err(|error| BoundaryError::from_runtime(path, error));
     }
     if let Some((instance_id, _)) = find_program_var_instance(runtime, path)? {
         let Some(reference) = runtime
@@ -206,8 +205,9 @@ pub(crate) fn resolve_bind(
         else {
             return Err(BoundaryError::UndeclaredBinding { path: path.into() });
         };
-        runtime.io_mut().bind_ref(reference, address);
-        return Ok(());
+        return runtime
+            .bind_checked_io(reference, address, path.into())
+            .map_err(|error| BoundaryError::from_runtime(path, error));
     }
 
     Err(BoundaryError::UndeclaredBinding { path: path.into() })
@@ -215,22 +215,32 @@ pub(crate) fn resolve_bind(
 
 fn parse_read_path(runtime: &Runtime, path: &str) -> Result<Expr, BoundaryError> {
     let mut registry = runtime.registry().clone();
-    crate::harness::parse_debug_expression(path, &mut registry, runtime.profile(), &[]).map_err(
-        |error| BoundaryError::UnsupportedPathSyntax {
-            path: path.into(),
-            reason: error.to_string(),
-        },
+    crate::harness::parse_debug_expression_with_abi(
+        path,
+        &mut registry,
+        runtime.profile(),
+        &[],
+        runtime.prepared().storage_abi(),
     )
+    .map_err(|error| BoundaryError::UnsupportedPathSyntax {
+        path: path.into(),
+        reason: error.to_string(),
+    })
 }
 
 fn parse_write_path(runtime: &Runtime, path: &str) -> Result<LValue, BoundaryError> {
     let mut registry = runtime.registry().clone();
-    crate::harness::parse_debug_lvalue(path, &mut registry, runtime.profile(), &[]).map_err(
-        |error| BoundaryError::UnsupportedPathSyntax {
-            path: path.into(),
-            reason: error.to_string(),
-        },
+    crate::harness::parse_debug_lvalue_with_abi(
+        path,
+        &mut registry,
+        runtime.profile(),
+        &[],
+        runtime.prepared().storage_abi(),
     )
+    .map_err(|error| BoundaryError::UnsupportedPathSyntax {
+        path: path.into(),
+        reason: error.to_string(),
+    })
 }
 
 fn classify_root(

@@ -1,12 +1,20 @@
 use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_module_from_source, TestHarness};
+use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::{
     bytecode::{SectionData, SectionId},
     value::{ArrayValue, Value},
 };
+use trust_runtime_core::vm::register_test_support::opcode_operand_len;
 
-fn vm_harness(source: &str) -> TestHarness {
+fn legacy_vm_harness(source: &str) -> TestHarness {
     let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let session = CompileSession::from_source(source);
+    let legacy = session
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("produce explicit legacy bytecode");
+    *harness.runtime_mut() = session
+        .build_runtime_from_bytecode(&legacy, None)
+        .expect("admit legacy bytecode with matching construction context");
     harness
         .runtime_mut()
         .set_execution_backend(ExecutionBackend::BytecodeVm)
@@ -18,8 +26,59 @@ fn vm_harness(source: &str) -> TestHarness {
     harness
 }
 
+// Inspect instruction boundaries; operands can contain any opcode byte.
+fn assert_pointer_instructions(source: &str, required: &[u8]) {
+    use trust_runtime::bytecode::BytecodeVersion;
+    for version in [
+        BytecodeVersion::LEGACY,
+        BytecodeVersion::SOURCE_FREE_V2,
+        BytecodeVersion::SOURCE_FREE,
+    ] {
+        let module = CompileSession::from_source(source)
+            .build_bytecode_module_for_version(version)
+            .expect("compile bytecode module");
+        let Some(SectionData::StringTable(strings)) = module.section(SectionId::StringTable) else {
+            panic!("missing string table");
+        };
+        let Some(SectionData::PouIndex(index)) = module.section(SectionId::PouIndex) else {
+            panic!("missing POU index");
+        };
+        let main = index
+            .entries
+            .iter()
+            .find(|entry| strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("MAIN"))
+            .expect("Main POU");
+        let Some(SectionData::PouBodies(bodies)) = module.section(SectionId::PouBodies) else {
+            panic!("missing POU bodies");
+        };
+        let body =
+            &bodies[main.code_offset as usize..(main.code_offset + main.code_length) as usize];
+        let mut opcodes = Vec::new();
+        let mut pc = 0;
+        while pc < body.len() {
+            let opcode = body[pc];
+            let width = opcode_operand_len(opcode).expect("known producer opcode");
+            assert!(pc + 1 + width <= body.len());
+            opcodes.push(opcode);
+            pc += 1 + width;
+        }
+        if version == BytecodeVersion::LEGACY {
+            assert!(opcodes.contains(&0x22), "legacy LOAD_REF_ADDR missing");
+        } else {
+            assert!(opcodes.contains(&0x23), "source-free LOAD_SELF missing");
+            assert!(opcodes.contains(&0x30), "source-free FIELD_REF missing");
+        }
+        for opcode in required {
+            assert!(
+                opcodes.contains(opcode),
+                "missing {opcode:02X} in {version:?}"
+            );
+        }
+    }
+}
+
 #[test]
-fn pointer_types_support_adr_deref_index_and_null_in_runtime_and_vm() {
+fn pointer_types_support_adr_deref_index_and_null_in_source_free_and_contextual_legacy() {
     let source = r#"
         PROGRAM Main
         VAR
@@ -52,34 +111,7 @@ fn pointer_types_support_adr_deref_index_and_null_in_runtime_and_vm() {
         END_PROGRAM
     "#;
 
-    let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let strings = match module.section(SectionId::StringTable) {
-        Some(SectionData::StringTable(strings)) => strings,
-        other => panic!("expected STRING_TABLE, got {other:?}"),
-    };
-    let index = match module.section(SectionId::PouIndex) {
-        Some(SectionData::PouIndex(index)) => index,
-        other => panic!("expected POU_INDEX, got {other:?}"),
-    };
-    let main = index
-        .entries
-        .iter()
-        .find(|entry| strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("MAIN"))
-        .expect("main entry");
-    let bodies = match module.section(SectionId::PouBodies) {
-        Some(SectionData::PouBodies(bodies)) => bodies,
-        other => panic!("expected POU_BODIES, got {other:?}"),
-    };
-    let body = &bodies[main.code_offset as usize..(main.code_offset + main.code_length) as usize];
-    assert!(
-        body.contains(&0x22),
-        "expected LOAD_REF_ADDR opcode in main body"
-    );
-    assert!(
-        body.contains(&0x32),
-        "expected LOAD_DYNAMIC opcode in main body"
-    );
-    assert!(body.contains(&0x33), "expected STORE opcode in main body");
+    assert_pointer_instructions(source, &[0x32, 0x33]);
 
     let mut harness = TestHarness::from_source(source).expect("compile runtime");
     assert!(
@@ -119,7 +151,7 @@ fn pointer_types_support_adr_deref_index_and_null_in_runtime_and_vm() {
     harness.assert_eq("was_null_before", true);
     harness.assert_eq("was_null_after", true);
 
-    let mut vm = vm_harness(source);
+    let mut vm = legacy_vm_harness(source);
     assert!(
         matches!(vm.get_output("p_int"), Some(Value::Reference(None))),
         "expected vm p_int to start NULL_REF, got {:?}",
@@ -159,7 +191,7 @@ fn pointer_types_support_adr_deref_index_and_null_in_runtime_and_vm() {
 }
 
 #[test]
-fn pointer_to_string_supports_indexed_deref_read_and_write_in_runtime_and_vm() {
+fn pointer_to_string_supports_indexed_deref_read_and_write_in_source_free_and_contextual_legacy() {
     let source = r#"
         TYPE Text5 : STRING[5];
         END_TYPE
@@ -181,34 +213,7 @@ fn pointer_to_string_supports_indexed_deref_read_and_write_in_runtime_and_vm() {
         END_PROGRAM
     "#;
 
-    let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let strings = match module.section(SectionId::StringTable) {
-        Some(SectionData::StringTable(strings)) => strings,
-        other => panic!("expected STRING_TABLE, got {other:?}"),
-    };
-    let index = match module.section(SectionId::PouIndex) {
-        Some(SectionData::PouIndex(index)) => index,
-        other => panic!("expected POU_INDEX, got {other:?}"),
-    };
-    let main = index
-        .entries
-        .iter()
-        .find(|entry| strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("MAIN"))
-        .expect("main entry");
-    let bodies = match module.section(SectionId::PouBodies) {
-        Some(SectionData::PouBodies(bodies)) => bodies,
-        other => panic!("expected POU_BODIES, got {other:?}"),
-    };
-    let body = &bodies[main.code_offset as usize..(main.code_offset + main.code_length) as usize];
-    assert!(
-        body.contains(&0x22),
-        "expected LOAD_REF_ADDR opcode in main body"
-    );
-    assert!(
-        body.contains(&0x31),
-        "expected INDEX_REF opcode in main body"
-    );
-    assert!(body.contains(&0x33), "expected STORE opcode in main body");
+    assert_pointer_instructions(source, &[0x31, 0x33]);
 
     let mut harness = TestHarness::from_source(source).expect("compile runtime");
     let cycle = harness.cycle();
@@ -221,7 +226,7 @@ fn pointer_to_string_supports_indexed_deref_read_and_write_in_runtime_and_vm() {
     harness.assert_eq("second_char", Value::Char(b'Z'));
     harness.assert_eq("out_text", Value::String("AZCD".into()));
 
-    let mut vm = vm_harness(source);
+    let mut vm = legacy_vm_harness(source);
     let cycle = vm.cycle();
     assert!(
         cycle.errors.is_empty(),

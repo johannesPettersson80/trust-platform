@@ -327,7 +327,8 @@ fn nested_type_metadata_consumes_the_shared_work_budget() {
             fields: vec![
                 Field {
                     name_idx: 0,
-                    type_id: 0
+                    type_id: 0,
+                    bit_offset: None,
                 };
                 4096
             ],

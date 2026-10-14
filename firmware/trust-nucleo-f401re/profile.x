@@ -1,3 +1,4 @@
+ASSERT(__firmware_descriptor_tables_end - __firmware_descriptor_tables_start == 1488, "expected complete standard-library descriptor tables were not selected");
 ASSERT(__firmware_fixed_tables_end - __firmware_fixed_tables_start == 512, "expected immutable lookup tables were not selected");
 ASSERT(SIZEOF(.vector_table) <= 16K, "vectors overlap independent application sector");
 ASSERT(__firmware_rodata_start >= ADDR(.vector_table) + SIZEOF(.vector_table), "firmware constants overlap vectors");

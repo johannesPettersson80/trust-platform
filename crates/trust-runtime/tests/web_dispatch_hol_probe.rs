@@ -73,6 +73,7 @@ fn control_state(source: &str) -> Arc<ControlState> {
     harness.cycle();
 
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };

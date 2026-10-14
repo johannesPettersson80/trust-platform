@@ -11,10 +11,10 @@ use crate::value::Value;
 /// Register the shared selection functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 5] = [
     super::registration::descriptor!("LIMIT", MN_IN_MX, limit),
     super::registration::descriptor!("MAX", VAR_IN_1_2, max),
     super::registration::descriptor!("MIN", VAR_IN_1_2, min),

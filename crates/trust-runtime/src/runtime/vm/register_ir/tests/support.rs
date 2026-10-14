@@ -10,10 +10,13 @@ use crate::bytecode::TypeTable;
 use crate::config::RuntimeConfig;
 use crate::error::RuntimeError;
 use crate::execution_backend::ExecutionBackend;
-use crate::harness::{bytecode_module_from_source, CompileSession, TestHarness};
+use crate::harness::CompileSession;
 use crate::program_model::{apply_binary, apply_unary, BinaryOp, UnaryOp};
+use crate::runtime::legacy_harness::legacy_module_from_source as bytecode_module_from_source;
+use crate::runtime::LegacyRuntimeFixture as Runtime;
+use crate::runtime::LegacyTestHarness as TestHarness;
 use crate::value::{DateTimeProfile, RefPath, RefSegment, StructValue, Value};
-use crate::{RestartMode, Runtime};
+use crate::RestartMode;
 
 use super::super::{VmPouEntry, VmRef};
 use super::environment::{parse_bool, parse_number};
@@ -25,8 +28,9 @@ use super::{
     lower_pou_to_register_ir, next_linear_block_target, normalize_stack_for_block_exit,
     prepare_register_file, read_bool_register, read_reference_register,
     read_reference_register_with_counts, read_register_with_counts, register_statement_location,
-    try_execute_pou_with_register_ir, try_execute_pou_with_register_ir_with_locals,
-    verify_register_program, BlockTarget, RegisterBlock, RegisterBlockExecutionOutcome,
+    sparse_register_read_counts_by_block, try_execute_pou_with_register_ir,
+    try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
+    LegacyRegisterFixtureContext, RegisterBlock, RegisterBlockExecutionOutcome,
     RegisterExecutionBuffers, RegisterExecutionOutcome, RegisterId, RegisterInstr,
     RegisterProfileState, RegisterProgram, Tier1BlockExecutionOutcome, Tier1CompiledBlock,
     Tier1CompiledInstr, VmModule,
@@ -51,6 +55,7 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -99,6 +104,13 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
 
 fn emit_u32(code: &mut Vec<u8>, value: u32) {
     code.extend_from_slice(&value.to_le_bytes());
+}
+
+fn assert_invalid_bytecode_contains(err: RuntimeError, needle: &str) {
+    assert!(
+        matches!(&err, RuntimeError::Bytecode { detail, .. } if detail.contains(needle)),
+        "unexpected error: {err:?}"
+    );
 }
 
 fn emit_i32(code: &mut Vec<u8>, value: i32) {
@@ -624,6 +636,7 @@ fn test_register_block(
         entry_stack_depth: 0,
         bytecode_instruction_count,
         instruction_costs,
+        instruction_cost_steps: vec![vec![1]; instructions.len()],
         instructions,
     }
 }
@@ -637,88 +650,25 @@ fn test_register_program(blocks: Vec<RegisterBlock>) -> RegisterProgram {
     }
 }
 
-fn clear_register_execution_pools() {
-    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| pool.borrow_mut().clear());
-}
-
-fn register_execution_pool_lengths() -> (usize, usize, usize, usize) {
-    let frames = super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow().len());
-    let registers = super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow().len());
-    let reads = super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow().len());
-    let native = super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| pool.borrow().len());
-    (frames, registers, reads, native)
-}
-
-fn fill_register_execution_pools_to_limit() {
-    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Default::default);
-    });
-    super::VM_REGISTER_FILE_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Vec::new);
-    });
-    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Vec::new);
-    });
-    super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Default::default);
-    });
-}
-
-fn assert_invalid_bytecode_contains(err: RuntimeError, needle: &str) {
-    assert!(
-        matches!(&err, RuntimeError::Bytecode { detail, .. } if detail.contains(needle)),
-        "unexpected error: {err:?}"
-    );
-}
-
 #[test]
 fn register_execution_buffers_return_clean_buffers_and_respect_pool_limit() {
-    clear_register_execution_pools();
+    // The old implicit thread-local pool is replaced by one installed owner's
+    // reserved scratch. Exercise the same clearing invariant directly.
+    let mut buffers = RegisterExecutionBuffers::reserve(3, 2).expect("reserve scratch");
     {
-        let mut buffers = RegisterExecutionBuffers::acquire(3);
-        let (_frames, registers, remaining_reads, _native_stack) = buffers.buffers_mut();
+        let (_, registers, reads, _) = buffers.buffers_mut();
         registers[0] = Value::DInt(41);
-        remaining_reads[0] = 7;
+        reads[0] = 7;
     }
-    assert_eq!(register_execution_pool_lengths(), (1, 1, 1, 1));
-
+    let capacity = buffers.storage_bytes();
+    buffers.select(2).expect("select smaller body");
     {
-        let mut buffers = RegisterExecutionBuffers::acquire(2);
-        let (_frames, registers, remaining_reads, _native_stack) = buffers.buffers_mut();
+        let (_, registers, reads, _) = buffers.buffers_mut();
         assert_eq!(registers, [Value::Null, Value::Null]);
-        assert_eq!(remaining_reads, [0, 0]);
+        assert_eq!(reads, [0, 0]);
     }
-
-    fill_register_execution_pools_to_limit();
-    {
-        let _extra = RegisterExecutionBuffers {
-            frames: Some(Default::default()),
-            registers: Some(Vec::new()),
-            remaining_register_reads: Some(Vec::new()),
-            native_call_stack: Some(Default::default()),
-        };
-    }
-    assert_eq!(
-        register_execution_pool_lengths(),
-        (
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-        )
-    );
-    clear_register_execution_pools();
+    assert_eq!(buffers.storage_bytes(), capacity);
+    assert!(buffers.select(4).is_err(), "cannot grow scratch in RUN");
 }
 
 #[test]
@@ -765,6 +715,8 @@ fn register_execution_rejects_initial_locals_beyond_frame_capacity() {
     let (module, pou_id) = manual_vm_module(vec![0x06], Vec::new(), 0);
     let mut runtime = Runtime::new();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let err = try_execute_pou_with_register_ir_with_locals(
         &mut runtime,
         &module,
@@ -847,6 +799,8 @@ fn interpreted_ref_field_reports_null_reference_base() {
     let mut native_call_stack = Default::default();
     runtime.vm_execution_budget.reset(10);
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let err = execute_register_block_interpreted(
         &mut runtime,
         &module,

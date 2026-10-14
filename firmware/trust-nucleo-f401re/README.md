@@ -29,11 +29,13 @@ The linker selects the pinned float-parse table and small immutable tables for
 sector 0; merged diagnostic strings stay in upper flash. It bounds that data
 after vectors within sector 0 and retains
 separate application/checkpoint sectors. Firmware loads must never be flattened
-into an image that writes across those reserved gaps. The ELF inspector requires
-at least 16 KiB free in the upper region; this is a bring-up margin, not a promise
-that future installation/retain features fit. Map reports distinguish relocated
-bytes from total size reduction. Application-only installation must leave sector 0
-and upper firmware untouched. Explicitly erase only firmware sectors 0 and 4–7,
+into an image that writes across those reserved gaps. The ELF inspector reports free
+bytes in the upper region and whether the 16 KiB growth target is met. That target is
+informational during hardware bring-up: an image that stays within the upper region can
+proceed when it has less than 16 KiB free. The target is not a promise that future
+installation/retain features fit. Map reports distinguish relocated bytes from total
+size reduction. Application-only installation must leave sector 0 and upper firmware
+untouched. Explicitly erase only firmware sectors 0 and 4–7,
 then write the ELF without automatic erase. Erase application sector 1 separately.
 OpenOCD image-wide automatic erase can erase gaps between discontiguous sections;
 verify the checkpoint sectors and firmware regions remain byte-identical around
@@ -94,3 +96,9 @@ diagnostics. No UTC clock or persistent RETAIN store is claimed.
 
 Dependency API sources: [cortex-m-rt 0.7.5](https://docs.rs/cortex-m-rt/0.7.5/cortex_m_rt/)
 and [embedded-alloc 0.7.0](https://docs.rs/embedded-alloc/0.7.0/embedded_alloc/struct.LlffHeap.html).
+
+The reference build uses the compiler's default machine-outliner pass count.
+An extra rerun produced an invalid Thumb return sequence on the pinned compiler;
+`xtask portability build-firmware` rejects this override. Safe ICF, all runtime
+functions, overflow checks and fault recording remain enabled. Firmware size and
+physical execution are qualified separately.

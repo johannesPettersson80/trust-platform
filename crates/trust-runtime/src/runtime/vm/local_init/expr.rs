@@ -12,15 +12,15 @@ use crate::program_model::{
 use crate::stdlib::{conversions, StdParams};
 use crate::value::{
     checked_array_offset_i64, materialize_value_path, parse_partial_access, read_partial_access,
-    read_string_element, ref_indices_from_iter, size_of_type, ArrayValue, PartialAccessError,
-    RefSegment, SizeOfError, StructValue, Value, ValueRef,
+    read_string_element, ref_indices_from_iter, ArrayValue, PartialAccessError, RefSegment,
+    SizeOfError, StructValue, Value, ValueRef,
 };
 
 use super::super::frames::VmFrame;
 use super::VmPouInitPlan;
 
 pub(super) fn apply_fb_instance_initializer_from_vm_frame(
-    runtime: &mut crate::Runtime,
+    runtime: &mut crate::runtime::LegacyRuntimeFixture,
     plan: &VmPouInitPlan,
     frame: &VmFrame,
     visible_slots: usize,
@@ -65,7 +65,7 @@ pub(super) fn apply_fb_instance_initializer_from_vm_frame(
 }
 
 pub(super) fn evaluate_initializer_from_vm_frame(
-    runtime: &crate::Runtime,
+    runtime: &crate::runtime::LegacyRuntimeFixture,
     plan: &VmPouInitPlan,
     frame: &VmFrame,
     visible_slots: usize,
@@ -81,9 +81,10 @@ pub(super) fn evaluate_initializer_from_vm_frame(
         profile,
     };
     let value = eval_vm_local_expr(&ctx, expr)?;
-    crate::harness::initializer::apply_aggregate_overrides(
+    crate::harness::initializer::apply_aggregate_overrides_with_abi(
         runtime.storage(),
         runtime.registry(),
+        crate::value::StorageAbi::LegacyTemporal32,
         runtime.initializer_catalog(),
         &ctx.profile,
         frame.runtime_instance,
@@ -94,7 +95,7 @@ pub(super) fn evaluate_initializer_from_vm_frame(
 }
 
 struct VmLocalExprContext<'a> {
-    runtime: &'a crate::Runtime,
+    runtime: &'a crate::runtime::LegacyRuntimeFixture,
     plan: &'a VmPouInitPlan,
     frame: &'a VmFrame,
     visible_slots: usize,
@@ -262,9 +263,12 @@ fn eval_vm_local_size_of(
     target: &SizeOfTarget,
 ) -> Result<Value, RuntimeError> {
     let size = match target {
-        SizeOfTarget::Type(type_id) => {
-            size_of_type(*type_id, ctx.runtime.registry()).map_err(size_error_to_runtime)?
-        }
+        SizeOfTarget::Type(type_id) => crate::value::size_of_type_with_abi(
+            *type_id,
+            ctx.runtime.registry(),
+            crate::value::StorageAbi::LegacyTemporal32,
+        )
+        .map_err(size_error_to_runtime)?,
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
     Ok(Value::DInt(size))

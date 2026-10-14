@@ -167,15 +167,15 @@ impl DebugAdapter {
             }
         };
 
-        self.session
-            .debug_control()
-            .enqueue_io_write(address.clone(), value.clone());
-        if let Err(err) = runtime.io_mut().write(&address, value.clone()) {
+        if let Err(err) = runtime.write_io(&address, value.clone()) {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, &format!("{err}"))],
                 ..DispatchOutcome::default()
             };
         }
+        self.session
+            .debug_control()
+            .enqueue_io_write(address.clone(), value.clone());
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
             events: Vec::new(),
@@ -256,16 +256,16 @@ impl DebugAdapter {
             }
         };
 
-        self.session
-            .debug_control()
-            .force_io(address.clone(), value.clone());
-        self.set_io_forced(&address, true);
-        if let Err(err) = runtime.io_mut().write(&address, value.clone()) {
+        if let Err(err) = runtime.write_io(&address, value.clone()) {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, &err.to_string())],
                 ..DispatchOutcome::default()
             };
         }
+        self.session
+            .debug_control()
+            .force_io(address.clone(), value.clone());
+        self.set_io_forced(&address, true);
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
             ..DispatchOutcome::default()

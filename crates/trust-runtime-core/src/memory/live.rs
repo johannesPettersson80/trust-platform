@@ -46,11 +46,29 @@ impl<K: Ord, V> LiveEntries<K, V> {
             .ok()?;
         Some(&mut self.entries[index].1)
     }
+    #[cfg(not(feature = "std"))]
     pub fn contains_key(&self, key: &K) -> bool {
         self.get(key).is_some()
     }
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.entries.iter().map(|(_, value)| value)
+    }
+    pub(super) fn as_slice(&self) -> &[(K, V)] {
+        &self.entries
+    }
+    pub(super) fn last(&self) -> Option<(&K, &V)> {
+        self.entries.last().map(|(key, value)| (key, value))
+    }
+    pub(super) fn get_mut_last(&mut self, key: &K) -> Option<&mut V> {
+        let (last_key, value) = self.entries.last_mut()?;
+        (&*last_key == key).then_some(value)
+    }
+    pub(super) fn remove_last(&mut self, key: &K) -> Option<V> {
+        if self.entries.last().is_some_and(|(last, _)| last == key) {
+            self.entries.pop().map(|(_, value)| value)
+        } else {
+            None
+        }
     }
     #[cfg(any(test, not(feature = "std")))]
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
@@ -79,7 +97,10 @@ impl<K: Ord, V> LiveEntries<K, V> {
         {
             return Err(RuntimeError::InvalidExecutionState);
         }
-        self.reserve_capacity(self.growth_capacity().ok_or(RuntimeError::Overflow)?)?;
+        let Some(capacity) = self.growth_capacity() else {
+            return Err(RuntimeError::Overflow);
+        };
+        self.reserve_capacity(capacity)?;
         self.entries.push((key, value));
         Ok(())
     }

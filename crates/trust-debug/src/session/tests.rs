@@ -27,6 +27,13 @@ mod tests {
         dir
     }
 
+    fn wait_for_breakpoint(control: &trust_runtime::debug::DebugControl) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !control.is_paused() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
     #[test]
     fn expands_brace_globs() {
         let patterns = expand_braces("**/*.{st,ST,pou,POU}");
@@ -47,7 +54,7 @@ mod tests {
 
     #[test]
     fn session_resolves_breakpoints_to_statement_start() {
-        let mut runtime = Runtime::new();
+        let mut runtime = trust_runtime::RuntimeBuilder::new();
         let source = "x := 1;\n  y := 2;\n";
         let x_start = source.find("x := 1;").unwrap();
         let x_end = x_start + "x := 1;".len();
@@ -61,7 +68,7 @@ mod tests {
             ],
         );
 
-        let mut session = DebugSession::new(runtime);
+        let mut session = DebugSession::new(runtime.build().unwrap());
         session.register_source("main.st", 0, source);
 
         let args = SetBreakpointsArguments {
@@ -91,7 +98,7 @@ mod tests {
 
     #[test]
     fn session_snaps_breakpoints_inside_indent() {
-        let mut runtime = Runtime::new();
+        let mut runtime = trust_runtime::RuntimeBuilder::new();
         let source = "x := 1;\n  y := 2;\n";
         let x_start = source.find("x := 1;").unwrap();
         let x_end = x_start + "x := 1;".len();
@@ -105,7 +112,7 @@ mod tests {
             ],
         );
 
-        let mut session = DebugSession::new(runtime);
+        let mut session = DebugSession::new(runtime.build().unwrap());
         session.register_source("main.st", 0, source);
 
         let args = SetBreakpointsArguments {
@@ -135,7 +142,7 @@ mod tests {
 
     #[test]
     fn session_accepts_logpoint_templates() {
-        let mut runtime = Runtime::new();
+        let mut runtime = trust_runtime::RuntimeBuilder::new();
         let source = "x := 1;\n";
         let x_start = source.find("x := 1;").unwrap();
         let x_end = x_start + "x := 1;".len();
@@ -144,7 +151,7 @@ mod tests {
             vec![SourceLocation::new(0, x_start as u32, x_end as u32)],
         );
 
-        let mut session = DebugSession::new(runtime);
+        let mut session = DebugSession::new(runtime.build().unwrap());
         session.register_source("main.st", 0, source);
 
         let args = SetBreakpointsArguments {
@@ -170,8 +177,74 @@ mod tests {
     }
 
     #[test]
+    fn parsed_anonymous_string_types_live_through_running_breakpoints_and_logpoints() {
+        let source = "PROGRAM Main\nVAR x : INT := 0; END_VAR\nx := x + 1;\nEND_PROGRAM\n";
+        let mut session =
+            DebugSession::new(TestHarness::from_source(source).unwrap().into_runtime());
+        session.register_source("main.st", 0, source);
+        let line = 3;
+        let breakpoint_args = |condition, log_message| SetBreakpointsArguments {
+            source: Source {
+                name: Some("main".into()),
+                path: Some("main.st".into()),
+                source_reference: None,
+            },
+            breakpoints: Some(vec![SourceBreakpoint {
+                line,
+                column: Some(1),
+                condition,
+                hit_condition: None,
+                log_message,
+            }]),
+            lines: None,
+            source_modified: None,
+        };
+
+        let response = session.set_breakpoints(&breakpoint_args(
+            Some("SIZEOF(STRING[17]) = 17".into()),
+            None,
+        ));
+        assert!(response.breakpoints[0].verified);
+        let control = session.debug_control();
+        let handle = session.runtime_handle();
+        let worker = std::thread::spawn(move || handle.lock().unwrap().execute_cycle());
+        wait_for_breakpoint(&control);
+        assert!(
+            control.is_paused(),
+            "anonymous-type breakpoint condition must evaluate true"
+        );
+        control.continue_run();
+        worker.join().unwrap().unwrap();
+
+        let cleared = session.set_breakpoints(&SetBreakpointsArguments {
+            source: Source {
+                name: Some("main".into()),
+                path: Some("main.st".into()),
+                source_reference: None,
+            },
+            breakpoints: Some(Vec::new()),
+            lines: None,
+            source_modified: None,
+        });
+        assert!(cleared.breakpoints.is_empty());
+        let response = session.set_breakpoints(&breakpoint_args(
+            None,
+            Some("size={SIZEOF(STRING[17])}".into()),
+        ));
+        assert!(response.breakpoints[0].verified);
+        session
+            .runtime_handle()
+            .lock()
+            .unwrap()
+            .execute_cycle()
+            .unwrap();
+        let logs = control.drain_logs();
+        assert!(logs.iter().any(|log| log.message == "size=DInt(17)"), "logpoint must evaluate its anonymous type against the retained scratch registry: {logs:?}");
+    }
+
+    #[test]
     fn session_rejects_invalid_log_message() {
-        let mut runtime = Runtime::new();
+        let mut runtime = trust_runtime::RuntimeBuilder::new();
         let source = "x := 1;\n";
         let x_start = source.find("x := 1;").unwrap();
         let x_end = x_start + "x := 1;".len();
@@ -180,7 +253,7 @@ mod tests {
             vec![SourceLocation::new(0, x_start as u32, x_end as u32)],
         );
 
-        let mut session = DebugSession::new(runtime);
+        let mut session = DebugSession::new(runtime.build().unwrap());
         session.register_source("main.st", 0, source);
 
         let args = SetBreakpointsArguments {
@@ -229,7 +302,7 @@ END_PROGRAM
 "#;
         std::fs::write(&path, source_v1).unwrap();
 
-        let mut session = DebugSession::new(Runtime::new());
+        let mut session = DebugSession::new(trust_runtime::RuntimeBuilder::new().build().unwrap());
         session.set_program_path(path.to_string_lossy().to_string());
         session
             .reload_program(Some(path.to_string_lossy().as_ref()))
@@ -263,6 +336,65 @@ END_PROGRAM
     }
 
     #[test]
+    fn breakpoint_scratch_registry_survives_failed_reload_and_is_rebuilt_on_success() {
+        let path = temp_source_path("breakpoint_registry_reload");
+        let source_v1 = "PROGRAM Main\nVAR x : INT := 0; END_VAR\nx := x + 1;\nEND_PROGRAM\n";
+        std::fs::write(&path, source_v1).unwrap();
+        let path_text = path.to_string_lossy().to_string();
+        let mut session = DebugSession::new(trust_runtime::RuntimeBuilder::new().build().unwrap());
+        session.set_program_path(path_text.clone());
+        session.reload_program(Some(&path_text)).unwrap();
+        let args = SetBreakpointsArguments {
+            source: Source {
+                name: Some(path_text.clone()),
+                path: Some(path_text.clone()),
+                source_reference: None,
+            },
+            breakpoints: Some(vec![SourceBreakpoint {
+                line: 3,
+                column: Some(1),
+                condition: Some("SIZEOF(STRING[17]) = 17".into()),
+                hit_condition: None,
+                log_message: None,
+            }]),
+            lines: None,
+            source_modified: None,
+        };
+        assert!(session.set_breakpoints(&args).breakpoints[0].verified);
+
+        std::fs::write(&path, "PROGRAM Main VAR x : INT := ; END_VAR END_PROGRAM").unwrap();
+        assert!(
+            session.reload_program(None).is_err(),
+            "invalid source must leave the installed observer intact"
+        );
+        let control = session.debug_control();
+        let handle = session.runtime_handle();
+        let worker = std::thread::spawn(move || handle.lock().unwrap().execute_cycle());
+        wait_for_breakpoint(&control);
+        assert!(
+            control.is_paused(),
+            "failed reload must retain the compiled condition registry"
+        );
+        control.continue_run();
+        worker.join().unwrap().unwrap();
+
+        std::fs::write(&path, format!("\n{source_v1}")).unwrap();
+        let updated = session.reload_program(None).unwrap();
+        assert_eq!(updated.len(), 1);
+        assert_eq!(updated[0].line, Some(4));
+        assert!(updated[0].verified);
+        let handle = session.runtime_handle();
+        let worker = std::thread::spawn(move || handle.lock().unwrap().execute_cycle());
+        wait_for_breakpoint(&control);
+        assert!(
+            control.is_paused(),
+            "successful reload must compile the new observer registry"
+        );
+        control.continue_run();
+        worker.join().unwrap().unwrap();
+    }
+
+    #[test]
     fn session_reload_clears_breakpoints_without_requests() {
         let path = temp_source_path("reload_clear");
         let source = r#"PROGRAM Main
@@ -274,7 +406,7 @@ END_PROGRAM
 "#;
         std::fs::write(&path, source).unwrap();
 
-        let mut session = DebugSession::new(Runtime::new());
+        let mut session = DebugSession::new(trust_runtime::RuntimeBuilder::new().build().unwrap());
         session.set_program_path(path.to_string_lossy().to_string());
         session
             .reload_program(Some(path.to_string_lossy().as_ref()))
@@ -313,7 +445,7 @@ END_PROGRAM
         let absolute_path = canonicalize_lossy(&main_path);
         std::fs::write(&absolute_path, "PROGRAM Main\nEND_PROGRAM\n").unwrap();
 
-        let mut session = DebugSession::new(Runtime::new());
+        let mut session = DebugSession::new(trust_runtime::RuntimeBuilder::new().build().unwrap());
         session.update_source_options(SourceOptionsUpdate {
             root: Some(project_root.to_string_lossy().to_string()),
             include_globs: None,
@@ -380,7 +512,7 @@ params = { input_count = 1, output_count = 1, scan_period_ms = 10 }
         )
         .unwrap();
 
-        let mut session = DebugSession::new(Runtime::new());
+        let mut session = DebugSession::new(trust_runtime::RuntimeBuilder::new().build().unwrap());
         session.update_source_options(SourceOptionsUpdate {
             root: Some(project_root.to_string_lossy().to_string()),
             include_globs: None,
@@ -393,14 +525,19 @@ params = { input_count = 1, output_count = 1, scan_period_ms = 10 }
 
         let output = IoAddress::parse("%QX0.0").unwrap();
         let input = IoAddress::parse("%IX0.0").unwrap();
-        session.debug_control().force_io(output.clone(), RuntimeValue::Bool(true));
+        session
+            .debug_control()
+            .force_io(output.clone(), RuntimeValue::Bool(true));
 
         let handle = session.runtime_handle();
         let mut runtime = handle.lock().unwrap();
         runtime.execute_cycle().unwrap();
         runtime.execute_cycle().unwrap();
 
-        assert_eq!(runtime.io().read(&output).unwrap(), RuntimeValue::Bool(true));
+        assert_eq!(
+            runtime.io().read(&output).unwrap(),
+            RuntimeValue::Bool(true)
+        );
         assert_eq!(
             runtime.io().read(&input).unwrap(),
             RuntimeValue::Bool(true),
@@ -539,7 +676,7 @@ mode = "poll"
         )
         .unwrap();
 
-        let mut session = DebugSession::new(Runtime::new());
+        let mut session = DebugSession::new(trust_runtime::RuntimeBuilder::new().build().unwrap());
         session.update_source_options(SourceOptionsUpdate {
             root: Some(project_root.to_string_lossy().to_string()),
             include_globs: None,

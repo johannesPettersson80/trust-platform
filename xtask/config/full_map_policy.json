@@ -44,6 +44,14 @@
     },
     {
       "from": "trust-dev",
+      "to": "trust-runtime-core",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability diagnostic test-support",
+      "rationale": "The ignored native PLCopen CLI construction test captures the shared core's existing bounded callsite recorder with test-support; the developer CLI retains its normal runtime public API dependency."
+    },
+    {
+      "from": "trust-dev",
       "to": "trust-runtime",
       "kind": "normal",
       "status": "allowed",
@@ -193,6 +201,14 @@
       "status": "allowed",
       "owner": "runtime/core",
       "rationale": "Linux host consumes portable runtime core through compatibility bridge"
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-runtime-core",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime test-support",
+      "rationale": "Hosted runtime tests use the core's test-support feature for bounded VM seam fixtures; production consumers retain the normal dependency facade."
     },
     {
       "from": "trust-runtime",
@@ -1267,10 +1283,10 @@
       },
       {
         "path": "crates/trust-runtime/src/runtime/vm/local_init/expr.rs",
-        "owner": "runtime VM",
-        "rationale": "VM local initializer expression lowering is a single recursive semantic boundary",
-        "review_date": "2026-08-21",
-        "split_plan": "Extract expression families only with VM initialization parity coverage."
+        "owner": "runtime historical initializer tests",
+        "rationale": "The cfg(test)-only historical VM initializer corpus retains its recursive expression compatibility owner; production construction executes admitted core initializer bodies.",
+        "review_date": "2026-10-11",
+        "split_plan": "Keep private historical assertions distinct from admitted production proof; split fixture expression families only with their existing compatibility assertions."
       }
     ],
     "module_size_allowlist": [
@@ -1302,13 +1318,22 @@
         "split_plan": "Maintain decode, encode, format, metadata and validation child modules; keep analysis budget, shared instruction decoder and semantic passes separate. A3 versioned-format additions stay in those responsibilities; split any individual file approaching 1000 lines rather than creating a second validator or unrelated top-level namespace."
       },
       {
+        "crate_name": "trust-runtime-core",
+        "module_name": "value",
+        "path": "crates/trust-runtime-core/src/value",
+        "owner": "runtime-core/value",
+        "rationale": "The value namespace groups distinct shared contracts for representation, layout, references, partial access, string semantics, date/time, defaults and overlap operations. Its aggregate is the sum of focused implementation and test modules, not one construction path; platform adapters consume these same contracts.",
+        "review_date": "2026-10-12",
+        "split_plan": "Keep representation and scalar sizing, date/time, reference access, partial access, defaults, string semantics and overlap layout/writers in their current focused owners. Split any individual file approaching 1000 lines by its existing semantic responsibility; preserve one portable value implementation and keep tests beside the contract they exercise."
+      },
+      {
         "crate_name": "trust-runtime",
         "module_name": "runtime",
         "path": "crates/trust-runtime/src/runtime",
         "owner": "runtime/core",
-        "rationale": "runtime execution remains the largest host orchestration module after core extraction",
-        "review_date": "2026-05-02",
-        "split_plan": "Continue extracting VM execution internals into register_ir/vm child modules and avoid adding new top-level runtime execution files."
+        "rationale": "Hosted runtime composition owns admitted-state facades, immutable tooling metadata and borrowed I/O/protocol/retain/debug services. The historical core/cycle/VM namespace is cfg(test) only; production execution belongs to trust-runtime-core.",
+        "review_date": "2026-10-11",
+        "split_plan": "Keep installation, cycle, lifecycle, checked bindings and service adapters in their existing focused owners. Do not restore a production host dispatcher, raw mutable state access or first-use materialization; keep historical fixture ownership explicit."
       },
       {
         "crate_name": "trust-lsp",
@@ -1464,12 +1489,12 @@
         "split_plan": "Split GET/POST workspace actions into child handlers if this route changes again."
       },
       {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/interpreter.rs",
-        "name": "execute_register_block_interpreted",
-        "owner": "runtime/VM",
-        "rationale": "register-IR interpreted execution loop is mutation-locked and kept as one dispatch path",
-        "review_date": "2026-05-02",
-        "split_plan": "Extract instruction-family helpers only with runtime VM mutation shard coverage."
+        "path": "crates/trust-runtime-core/src/vm/register_ir/interpreter.rs",
+        "name": "execute_register_block_interpreted_slice",
+        "owner": "runtime-core/register execution",
+        "rationale": "The resumable interpreter retains the existing shared instruction-family dispatch body and its cursor across user-call yields; hosted and portable owners use the same checked context.",
+        "review_date": "2026-10-13",
+        "split_plan": "Keep operation families in shared child helpers; preserve full stack/register parity and fault, fuel, deadline, resume-cursor and reference assertions."
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime/run/runtime/entry.rs",
@@ -1496,12 +1521,12 @@
         "split_plan": "Split request cases into typed child handlers if the IDE HTTP API changes."
       },
       {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs",
-        "name": "execute_tier1_compiled_block",
-        "owner": "runtime/VM",
-        "rationale": "tier1 compiled execution is mutation-locked and kept as a single hot loop",
-        "review_date": "2026-05-02",
-        "split_plan": "Extract instruction-family helpers only under the tier1 mutation shards."
+        "path": "crates/trust-runtime-core/src/vm/register_ir/tier1/execute.rs",
+        "name": "execute_tier1_compiled_block_slice",
+        "owner": "runtime-core/register specialization",
+        "rationale": "The resumable tier-1 slice retains the existing checked specialized instruction body and original bytecode costs while preserving executor and cursor state across user-call yields; no host Runtime is a production interpreter owner.",
+        "review_date": "2026-10-13",
+        "split_plan": "Extract instruction-family helpers only with canonical specialized/generic/stack parity, resume-cursor and lifecycle assertions."
       },
       {
         "path": "crates/trust-runtime-core/src/vm/dispatch.rs",
@@ -1536,20 +1561,12 @@
         "split_plan": "Split read/write/list operations if IDE file API changes."
       },
       {
-        "path": "crates/trust-runtime/src/host/harness/build.rs",
-        "name": "lower_application",
-        "owner": "runtime/harness",
-        "rationale": "The shared frontend lowers parser and HIR declarations before either legacy materialization or explicit STBC 2.0 production; startup evaluation is owned by the selected consumer.",
-        "review_date": "2026-10-09",
-        "split_plan": "Keep materialization separate and extract additional frontend phases only with both producer and hosted constructor regressions."
-      },
-      {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/lower.rs",
+        "path": "crates/trust-runtime-core/src/vm/register_ir/lower.rs",
         "name": "lower_pou_to_register_ir",
-        "owner": "runtime/VM",
-        "rationale": "register-IR lowering root is mutation-locked after BOARD-10",
-        "review_date": "2026-05-02",
-        "split_plan": "Move more decode/fuse/verify phases to existing child modules when lowering changes."
+        "owner": "runtime-core/register preparation",
+        "rationale": "Fallible source-free register lowering runs during PreparedModule construction, not first use in a hosted scan.",
+        "review_date": "2026-10-11",
+        "split_plan": "Keep decode, block analysis, fusion and verification in existing shared children; retain bounded preparation and supplied-bytecode assertions."
       },
       {
         "path": "crates/trust-runtime/src/web/runtime_cloud_routes/actions.rs",
@@ -1608,12 +1625,12 @@
         "split_plan": "Split address parsing from binding projection if I/O harness logic grows."
       },
       {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/lower/fuse.rs",
+        "path": "crates/trust-runtime-core/src/vm/register_ir/lower/fuse.rs",
         "name": "try_fuse_instruction_window",
-        "owner": "runtime/VM",
-        "rationale": "fusion window logic is mutation-sensitive and kept in one helper",
-        "review_date": "2026-05-02",
-        "split_plan": "Split fusion cases only under the register-ir-lower-fuse mutation shard."
+        "owner": "runtime-core/register preparation",
+        "rationale": "Shared preparation-time fusion preserves original instruction costs and supported operation semantics.",
+        "review_date": "2026-10-11",
+        "split_plan": "Split fusion families only with canonical fusion parity, malformed-input and instruction-cost assertions."
       },
       {
         "path": "crates/trust-runtime/src/bytecode/encoder/codegen/expr.rs",
@@ -2047,7 +2064,23 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 26,
+        "line": 21,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
+        "review_date": "2026-10-10"
+      },
+      {
+        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+        "line": 22,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
+        "review_date": "2026-10-10"
+      },
+      {
+        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+        "line": 25,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2063,7 +2096,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 30,
+        "line": 29,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2071,7 +2104,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 32,
+        "line": 31,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2080,22 +2113,6 @@
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
         "line": 34,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 36,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 39,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",

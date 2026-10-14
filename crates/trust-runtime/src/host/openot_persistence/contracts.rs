@@ -1,6 +1,14 @@
 use open_ot_document::Document;
 
 /// Initial database contract generation shared by every persistence adapter.
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-database-timescaledb",
+    feature = "openot-database-mysql",
+    feature = "openot-database-sqlserver",
+    feature = "openot-database-influxdb3",
+))]
 pub(crate) const LOGGING_SCHEMA_GENERATION: u32 = 1;
 
 #[cfg(all(test, feature = "openot-real-database-tests"))]
@@ -16,7 +24,7 @@ pub(crate) type AuditedValueProjection = (
 );
 
 #[cfg(test)]
-use super::projection::document_identity;
+use super::identity::document_identity;
 
 /// Durable consumer position associated with a committed document batch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,6 +146,12 @@ impl std::fmt::Display for PersistenceError {
 
 impl std::error::Error for PersistenceError {}
 
+#[cfg(any(
+    feature = "openot-database-postgresql",
+    feature = "openot-database-timescaledb",
+    feature = "openot-database-mysql",
+    feature = "openot-database-sqlserver",
+))]
 pub(super) fn deterministic_unless_transport(
     error: PersistenceError,
     deterministic_message: &'static str,
@@ -148,6 +162,10 @@ pub(super) fn deterministic_unless_transport(
     }
 }
 
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-influxdb3",
+))]
 pub(super) fn ensure_private_parent(
     path: &std::path::Path,
     backend: &str,

@@ -43,6 +43,18 @@ pub struct VmEdgeInput {
 
 /// Composition services around the shared native and user-call implementation.
 pub trait CallContext: ReferenceContext {
+    /// Return result locals to a prepared optimized POU after its caller has
+    /// completed copyback. Until this call, that POU's prepared frame payload is
+    /// unavailable and recursive re-entry must use the shared stack path. Stack
+    /// results and legacy contexts may discard them.
+    fn recycle_optimized_result_locals(
+        &mut self,
+        _pou_id: u32,
+        _locals: Vec<Value>,
+    ) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
     /// Apply a native output group under the composition's copy-back policy.
     /// Legacy hosts preserve their existing writes; source-free state stages them.
     fn with_output_transaction<T>(
@@ -67,6 +79,16 @@ pub trait CallContext: ReferenceContext {
     fn builtin_params(&self, key: &str) -> Option<Vec<BuiltinParam>>;
     /// Obtain the edge-input plan for this physical POU owner.
     fn edge_inputs(&self, owner: &str) -> Vec<VmEdgeInput>;
+    /// Obtain a POU's edge-input plan when its admitted module and identity are
+    /// available. Older contexts retain their owner-name lookup behavior.
+    fn edge_inputs_for_pou(
+        &self,
+        _module: &VmModule,
+        _pou_id: u32,
+        owner: &str,
+    ) -> Vec<VmEdgeInput> {
+        self.edge_inputs(owner)
+    }
     /// Move caller locals into addressable suspended storage before a nested call.
     fn suspend_frame(&mut self, frame: &mut VmFrame) -> Result<(), RuntimeError>;
     /// Restore those same caller locals after the nested call.
@@ -98,6 +120,63 @@ pub trait CallContext: ReferenceContext {
     ) -> Result<Option<VmPouStackResult>, RuntimeError> {
         Ok(None)
     }
+
+    /// Preserve explicit argument presence, including a supplied NULL, in an
+    /// optional optimized callee. Older adapters safely retain stack fallback.
+    #[allow(clippy::too_many_arguments)]
+    fn try_execute_optimized_with_parameter_presence(
+        &mut self,
+        module: &VmModule,
+        pou_id: u32,
+        instance: Option<InstanceId>,
+        initial_locals: Option<&[Value]>,
+        parameter_values_present: Option<&[bool]>,
+        capture_return: bool,
+        depth: u32,
+        entry: crate::vm::budget::ExecutionEntry,
+    ) -> Result<Option<VmPouStackResult>, RuntimeError> {
+        if parameter_values_present.is_some() {
+            return Ok(None);
+        }
+        self.try_execute_optimized(
+            module,
+            pou_id,
+            instance,
+            initial_locals,
+            capture_return,
+            depth,
+            entry,
+        )
+    }
+
+    /// Try the optimized entry with invocation-owned locals available to transfer.
+    ///
+    /// The default preserves compatibility by using the borrowed entry hook and
+    /// leaves `initial_locals` untouched, including when the optimized path
+    /// declines the call.
+    #[allow(clippy::too_many_arguments)]
+    fn try_execute_optimized_with_parameter_presence_owned(
+        &mut self,
+        module: &VmModule,
+        pou_id: u32,
+        instance: Option<InstanceId>,
+        initial_locals: &mut Option<Vec<Value>>,
+        parameter_values_present: Option<&[bool]>,
+        capture_return: bool,
+        depth: u32,
+        entry: crate::vm::budget::ExecutionEntry,
+    ) -> Result<Option<VmPouStackResult>, RuntimeError> {
+        self.try_execute_optimized_with_parameter_presence(
+            module,
+            pou_id,
+            instance,
+            initial_locals.as_deref(),
+            parameter_values_present,
+            capture_return,
+            depth,
+            entry,
+        )
+    }
 }
 
 /// Call events reported to optional hosted profiling.
@@ -121,10 +200,10 @@ pub enum RegisterValueOpKind {
     /// A constant value was materialized.
     LoadConstant,
     /// A register value was cloned.
-    #[cfg(feature = "hir")]
+    #[cfg(feature = "register-ir")]
     RegisterReadClone,
     /// A register value was moved.
-    #[cfg(feature = "hir")]
+    #[cfg(feature = "register-ir")]
     RegisterReadMove,
     /// A referenced value was materialized.
     ReadReference,

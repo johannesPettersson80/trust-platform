@@ -1,17 +1,54 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-real-database-tests"
+))]
+use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-real-database-tests"
+))]
+use open_ot_carriage::registry::EVENT_HEARTBEAT;
+#[cfg(feature = "openot-database-sqlite")]
 use open_ot_carriage::registry::{
-    EVENT_HEARTBEAT, EVENT_VALUE_CHANGED, KEY_NEW_VALUE, KEY_VALUE_ID, TY_BOOL, TY_UDINT,
+    EVENT_VALUE_CHANGED, KEY_NEW_VALUE, KEY_VALUE_ID, TY_BOOL, TY_UDINT,
 };
-use open_ot_carriage::wire::{Record, Slot};
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-real-database-tests"
+))]
+use open_ot_carriage::wire::Record;
+#[cfg(feature = "openot-database-sqlite")]
+use open_ot_carriage::wire::Slot;
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-real-database-tests"
+))]
 use open_ot_definition::sample_definition;
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-real-database-tests"
+))]
 use open_ot_shm::SharedRecordPublisher;
 
 use super::*;
-use crate::config::{
-    OpenOtPersistenceBackend, OpenOtPersistenceConfig, OpenOtPersistenceTlsMode,
-    OpenOtPostgreSqlPersistenceConfig, OpenOtSqlitePersistenceConfig,
-};
+#[cfg(feature = "openot-database-sqlite")]
+use crate::config::OpenOtSqlitePersistenceConfig;
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-real-database-tests"
+))]
+use crate::config::{OpenOtPersistenceBackend, OpenOtPersistenceConfig};
+#[cfg(any(
+    feature = "openot-database-postgresql",
+    feature = "openot-real-database-tests"
+))]
+use crate::config::{OpenOtPersistenceTlsMode, OpenOtPostgreSqlPersistenceConfig};
 #[test]
 fn operator_status_redacts_backend_secrets_and_sensitive_paths() {
     let secret = "password=plant-secret token=operator-token /private/customer/history.db";
@@ -222,6 +259,7 @@ fn service_faults_incompatible_pre_release_schema_without_spending_reconnect_bud
     std::fs::remove_dir_all(root).ok();
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
     let stamp = SystemTime::now()
@@ -279,6 +317,7 @@ fn enabled_service_persists_shared_memory_record_off_thread_and_stops() {
     std::fs::remove_dir_all(root).ok();
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn service_supplies_compiled_definition_to_typed_database_projection() {
     let stamp = SystemTime::now()
@@ -373,6 +412,7 @@ fn deterministic_commit_error_is_not_a_retryable_worker_transport_loss() {
     )));
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn sqlite_service_restart_uses_durable_checkpoint_and_catches_up_once() {
     let stamp = SystemTime::now()
@@ -526,6 +566,7 @@ fn shutdown_does_not_wait_past_the_configured_deadline_for_a_stuck_backend_call(
     );
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn shutdown_drains_records_published_after_the_last_worker_poll() {
     let stamp = SystemTime::now()
@@ -595,6 +636,7 @@ fn shutdown_drains_records_published_after_the_last_worker_poll() {
     std::fs::remove_dir_all(root).ok();
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn shutdown_uses_a_fresh_head_when_an_older_poll_still_has_buffered_records() {
     let stamp = SystemTime::now()
@@ -810,6 +852,7 @@ fn wait_for_status(
     );
 }
 
+#[cfg(feature = "openot-database-sqlite")]
 #[test]
 fn unresolved_document_keeps_caught_up_service_degraded() {
     let stamp = SystemTime::now()

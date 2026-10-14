@@ -48,9 +48,9 @@ fn current_session_samples_require_exact_configured_identity() {
     ];
 
     for (case_name, observed) in cases {
-        let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+        let storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
         let connection = opcua_connection(vec![configured.clone()]);
-        let bindings = opcua_bindings(&runtime, std::slice::from_ref(&configured));
+        let bindings = opcua_bindings(&storage, std::slice::from_ref(&configured));
         let (bridge, mut worker) = OpcUaClientBridge::with_transport(
             connection,
             MockOpcUaClientTransport::default(),
@@ -98,7 +98,7 @@ fn current_session_samples_require_exact_configured_identity() {
 
 #[test]
 fn older_session_callbacks_cannot_regress_reconnected_worker() {
-    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -106,7 +106,7 @@ fn older_session_callbacks_cannot_regress_reconnected_worker() {
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, &[point]);
+    let bindings = opcua_bindings(&storage, &[point]);
     let (bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -135,7 +135,7 @@ fn older_session_callbacks_cannot_regress_reconnected_worker() {
 
 #[test]
 fn older_active_session_sample_cannot_replace_newer_value() {
-    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -143,7 +143,7 @@ fn older_active_session_sample_cannot_replace_newer_value() {
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
     let (bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -170,7 +170,7 @@ fn older_active_session_sample_cannot_replace_newer_value() {
 #[test]
 fn write_completion_preserves_newer_pending_generation() {
     for reject_transmitted in [false, true] {
-        let mut runtime = runtime_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
+        let mut storage = storage_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
         let point = opcua_point(
             "line1_setpoint",
             "ns=2;i=3",
@@ -178,7 +178,7 @@ fn write_completion_preserves_newer_pending_generation() {
             OpcUaClientPointAccess::ReadWrite,
         );
         let connection = opcua_connection(vec![point.clone()]);
-        let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+        let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
         let mut bridge = OpcUaClientBridge::new(bindings).expect("bridge");
         let transport = RequeueingTransport {
             shared: bridge.shared.clone(),
@@ -189,9 +189,9 @@ fn write_completion_preserves_newer_pending_generation() {
         let mut worker = OpcUaClientWorker::new(connection, transport, bridge.shared.clone());
         worker.tick(0).expect("connect");
 
-        write_global(&mut runtime, "line1_setpoint", Value::Real(31.0));
+        write_global(&mut storage, "line1_setpoint", Value::Real(31.0));
         bridge
-            .capture_outputs(runtime.storage_mut(), 10)
+            .capture_outputs(&mut storage, 10)
             .expect("queue transmitted generation");
         worker
             .tick(11)
@@ -232,24 +232,24 @@ fn non_finite_outputs_cancel_pending_and_allow_later_finite_value() {
     ];
 
     for (case_name, data_type, first, invalid, recovery) in cases {
-        let mut runtime = runtime_with_opcua_globals(vec![("line1_setpoint", first.clone())]);
+        let mut storage = storage_with_opcua_globals(vec![("line1_setpoint", first.clone())]);
         let point = opcua_point(
             "line1_setpoint",
             "ns=2;i=3",
             data_type,
             OpcUaClientPointAccess::ReadWrite,
         );
-        let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+        let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
         let mut bridge = OpcUaClientBridge::new(bindings).expect("bridge");
 
         bridge
-            .capture_outputs(runtime.storage_mut(), 1)
+            .capture_outputs(&mut storage, 1)
             .expect("queue finite baseline");
         assert_eq!(bridge.pending_write("line1_setpoint"), Some(first.clone()));
 
-        write_global(&mut runtime, "line1_setpoint", invalid);
+        write_global(&mut storage, "line1_setpoint", invalid);
         bridge
-            .capture_outputs(runtime.storage_mut(), 2)
+            .capture_outputs(&mut storage, 2)
             .expect("reject non-finite output");
         assert_eq!(
             bridge.pending_write("line1_setpoint"),
@@ -273,9 +273,9 @@ fn non_finite_outputs_cancel_pending_and_allow_later_finite_value() {
             status.detail
         );
 
-        write_global(&mut runtime, "line1_setpoint", recovery.clone());
+        write_global(&mut storage, "line1_setpoint", recovery.clone());
         bridge
-            .capture_outputs(runtime.storage_mut(), 3)
+            .capture_outputs(&mut storage, 3)
             .expect("queue finite recovery");
         assert_eq!(
             bridge.pending_write("line1_setpoint"),
@@ -287,7 +287,7 @@ fn non_finite_outputs_cancel_pending_and_allow_later_finite_value() {
 
 #[test]
 fn worker_shutdown_interrupts_idle_wait_and_revokes_good_authority() {
-    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -295,7 +295,7 @@ fn worker_shutdown_interrupts_idle_wait_and_revokes_good_authority() {
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, &[point]);
+    let bindings = opcua_bindings(&storage, &[point]);
     let (bridge, worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),

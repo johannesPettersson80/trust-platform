@@ -60,6 +60,26 @@ impl<K: Copy + Ord, V> Groups<K, V> {
         Some(&self.values[self.keys[at].1.clone()])
     }
 
+    pub(super) fn range(&self, key: &K) -> Option<Range<usize>> {
+        let at = self.keys.binary_search_by_key(key, |entry| entry.0).ok()?;
+        Some(self.keys[at].1.clone())
+    }
+
+    pub(super) fn groups(&self) -> impl Iterator<Item = (K, Range<usize>)> + '_
+    where
+        K: Copy,
+    {
+        self.keys.iter().map(|(key, range)| (*key, range.clone()))
+    }
+
+    pub(super) fn slice(&self, range: &Range<usize>) -> &[V] {
+        &self.values[range.clone()]
+    }
+
+    pub(super) fn group_count(&self) -> usize {
+        self.keys.len()
+    }
+
     #[cfg(test)]
     pub(super) fn values(&self) -> impl Iterator<Item = &[V]> {
         self.keys

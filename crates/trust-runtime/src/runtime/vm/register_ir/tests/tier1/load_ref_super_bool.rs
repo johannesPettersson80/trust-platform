@@ -25,7 +25,20 @@ fn tier1_executor_rejects_null_reference_ref_field() {
 #[test]
 fn tier1_executor_cmp_ref_const_jump_takes_matching_branch() {
     let (module, pou_id) = manual_vm_module(Vec::new(), vec![Value::DInt(5)], 1);
-    let (program, source_block) = tier1_two_block_program(pou_id, 0);
+    let (mut program, mut source_block) = tier1_two_block_program(pou_id, 0);
+    // This specialized instruction is fused from four original bytecode ops;
+    // keep the fixture's ordered cost steps for each source operation.
+    source_block.bytecode_instruction_count = 4;
+    source_block.instruction_costs = vec![4];
+    source_block.instruction_cost_steps = vec![vec![1, 1, 1, 1]];
+    source_block.instructions = vec![RegisterInstr::CmpRefConstJumpIf {
+        op: BinaryOp::Lt,
+        ref_idx: 0,
+        const_idx: 0,
+        jump_if_true: true,
+        target: BlockTarget::Block(1),
+    }];
+    program.blocks[0] = source_block.clone();
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global("g0", Value::DInt(3));
     let mut registers = Vec::new();
@@ -87,6 +100,7 @@ fn tier1_two_block_program(pou_id: u32, max_registers: u32) -> (RegisterProgram,
         entry_stack_depth: 0,
         bytecode_instruction_count: 1,
         instruction_costs: vec![1],
+        instruction_cost_steps: vec![vec![1]],
         instructions: Vec::new(),
     };
     let target_block = RegisterBlock {
@@ -96,6 +110,7 @@ fn tier1_two_block_program(pou_id: u32, max_registers: u32) -> (RegisterProgram,
         entry_stack_depth: 0,
         bytecode_instruction_count: 0,
         instruction_costs: Vec::new(),
+        instruction_cost_steps: Vec::new(),
         instructions: Vec::new(),
     };
     let program = RegisterProgram {
@@ -115,21 +130,33 @@ fn execute_single_compiled_tier1_instruction(
     runtime: &mut Runtime,
     registers: &mut [Value],
 ) -> Result<RegisterBlockExecutionOutcome, RuntimeError> {
-    let key = super::tier1_block_key(module, program.pou_id, source_block);
     let compiled = Tier1CompiledBlock {
-        key,
         instructions: vec![instruction],
     };
     let mut frames = super::FrameStack::default();
     let mut native_call_stack = super::OperandStack::default();
     runtime.vm_execution_budget.reset(16);
+    let mut runtime = LegacyRegisterFixtureContext::new(runtime, module)
+        .expect("prepare legacy register fixture");
+    let counts_by_block = sparse_register_read_counts_by_block(program);
+    let block_counts = counts_by_block
+        .get(source_block.id as usize)
+        .ok_or(RuntimeError::InvalidExecutionState)?;
+    let mut remaining_register_reads = vec![0; program.max_registers as usize];
+    for (register, count) in block_counts {
+        let slot = remaining_register_reads
+            .get_mut(*register as usize)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        *slot = *count;
+    }
     let Tier1BlockExecutionOutcome::Executed(outcome) = execute_tier1_compiled_block(
-        runtime,
+        &mut runtime,
         module,
         program,
         source_block,
         &mut frames,
         registers,
+        &mut remaining_register_reads,
         &mut native_call_stack,
         &compiled,
         0,
@@ -164,9 +191,8 @@ fn tier1_compiler_accepts_load_ref_addr_dynamic_block() {
                     .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
         })
         .expect("load-ref-addr block");
-    let key = super::tier1_block_key(&module, pou_id, block);
     assert!(
-        super::compile_tier1_block(&module, block, key).is_ok(),
+        super::compile_tier1_block(&module, block).is_ok(),
         "expected tier-1 compiler to accept LoadRefAddr block: {:?}",
         block.instructions
     );
@@ -190,6 +216,8 @@ fn register_executor_tier1_specialized_executor_executes_load_ref_addr_block() {
     runtime.reset_vm_tier1_specialized_executor();
     runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -217,6 +245,7 @@ fn tier1_compiler_accepts_load_super_dynamic_block() {
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -270,9 +299,8 @@ fn tier1_compiler_accepts_load_super_dynamic_block() {
                     .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
         })
         .expect("load-super block");
-    let key = super::tier1_block_key(&module, pou_id, block);
     assert!(
-        super::compile_tier1_block(&module, block, key).is_ok(),
+        super::compile_tier1_block(&module, block).is_ok(),
         "expected tier-1 compiler to accept LoadSuper block: {:?}",
         block.instructions
     );
@@ -294,6 +322,7 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -349,6 +378,8 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, Some(derived))
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -390,6 +421,8 @@ fn register_executor_tier1_specialized_executor_executes_bool_or_without_deopt()
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);

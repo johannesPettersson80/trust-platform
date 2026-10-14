@@ -44,7 +44,17 @@ END_PROGRAM
 fn named_resource_selection_rejects_unknown_name_without_primary_fallback() {
     let source = "PROGRAM Main\nEND_PROGRAM";
     let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
-    runtime.io_mut().resize(4, 2, 1);
+    runtime
+        .apply_resource_metadata(&ResourceMetadata {
+            name: "R".into(),
+            process_image: ProcessImageConfig {
+                inputs: 4,
+                outputs: 2,
+                memory: 1,
+            },
+            tasks: Vec::new(),
+        })
+        .unwrap();
     let metadata = BytecodeMetadata {
         version: BytecodeVersion::new(SUPPORTED_MAJOR_VERSION, 0),
         resources: vec![
@@ -153,7 +163,17 @@ END_PROGRAM
 "#;
 
     let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
-    runtime.io_mut().resize(4, 2, 1);
+    runtime
+        .apply_resource_metadata(&ResourceMetadata {
+            name: "R".into(),
+            process_image: ProcessImageConfig {
+                inputs: 4,
+                outputs: 2,
+                memory: 1,
+            },
+            tasks: Vec::new(),
+        })
+        .unwrap();
     let metadata = BytecodeMetadata {
         version: BytecodeVersion::new(SUPPORTED_MAJOR_VERSION, 0),
         resources: vec![ResourceMetadata {
@@ -203,5 +223,24 @@ END_PROGRAM
     assert!(
         err.to_string().contains("process image area limit"),
         "expected process-image cap error, got {err}"
+    );
+}
+
+#[test]
+fn unused_declared_globals_and_program_members_can_be_bound_after_admission() {
+    let mut harness = TestHarness::from_source(
+        "VAR_GLOBAL unused_global : BOOL := TRUE; END_VAR PROGRAM Main VAR unused_member : WORD := WORD#16#1234; END_VAR END_PROGRAM"
+    ).unwrap();
+    harness.bind_direct("unused_global", "%QX0.0").unwrap();
+    harness.bind_direct("unused_member", "%QW2").unwrap();
+    let result = harness.cycle();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert_eq!(
+        harness.get_direct_output("%QX0.0").unwrap(),
+        trust_runtime::value::Value::Bool(true)
+    );
+    assert_eq!(
+        harness.get_direct_output("%QW2").unwrap(),
+        trust_runtime::value::Value::Word(0x1234)
     );
 }

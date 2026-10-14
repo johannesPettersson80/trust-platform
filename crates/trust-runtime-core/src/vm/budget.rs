@@ -1,6 +1,4 @@
-use crate::error::RuntimeError;
-
-use super::errors::VmTrap;
+use crate::error::{ExecutionLimitKind, RuntimeError};
 
 /// Whether a hosted dispatch entry starts a fresh allowance or joins its caller.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14,6 +12,7 @@ pub enum ExecutionEntry {
 /// The single work allowance shared by an execution entry and every nested helper.
 #[derive(Debug)]
 pub struct ExecutionBudget {
+    limit: core::cell::Cell<usize>,
     remaining: core::cell::Cell<usize>,
     until_deadline: core::cell::Cell<usize>,
     deadline_expired: core::cell::Cell<bool>,
@@ -26,6 +25,7 @@ impl ExecutionBudget {
     /// Establish an allowance; entry boundaries check their deadline explicitly.
     pub const fn new(limit: usize) -> Self {
         Self {
+            limit: core::cell::Cell::new(limit),
             remaining: core::cell::Cell::new(limit),
             until_deadline: core::cell::Cell::new(Self::DEADLINE_STRIDE),
             deadline_expired: core::cell::Cell::new(false),
@@ -34,6 +34,7 @@ impl ExecutionBudget {
 
     /// Begin a new construction, engineering operation or scan.
     pub fn reset(&self, limit: usize) {
+        self.limit.set(limit);
         self.remaining.set(limit);
         self.until_deadline.set(Self::DEADLINE_STRIDE);
         self.deadline_expired.set(false);
@@ -61,11 +62,14 @@ impl ExecutionBudget {
     /// True requests one physical-deadline sample.
     /// Large aggregate charges do not cause repeated clock calls for one operation.
     pub fn charge(&self, units: usize) -> Result<bool, RuntimeError> {
-        let remaining = self
-            .remaining
-            .get()
-            .checked_sub(units)
-            .ok_or_else(|| VmTrap::BudgetExceeded.into_runtime_error())?;
+        let Some(remaining) = self.remaining.get().checked_sub(units) else {
+            return Err(RuntimeError::ExecutionLimit {
+                kind: ExecutionLimitKind::Work,
+                used: self.limit.get().saturating_sub(self.remaining.get()),
+                requested: units,
+                limit: self.limit.get(),
+            });
+        };
         self.remaining.set(remaining);
         let until = self.until_deadline.get();
         if units < until {
@@ -135,5 +139,36 @@ mod shared_tests {
             false
         }));
         assert_eq!(calls.get(), 4);
+    }
+
+    #[test]
+    fn first_refused_work_charge_preserves_used_requested_and_limit() {
+        let budget = ExecutionBudget::new(17);
+        budget.charge(12).unwrap();
+        let error = budget.charge(6).unwrap_err();
+        assert_eq!(
+            error,
+            RuntimeError::ExecutionLimit {
+                kind: ExecutionLimitKind::Work,
+                used: 12,
+                requested: 6,
+                limit: 17,
+            }
+        );
+        assert_eq!(
+            error.stable_code(),
+            crate::error::StableErrorCode::RuntimeExecutionTimeout
+        );
+        assert_eq!(budget.remaining(), 5);
+        budget.reset(3);
+        assert_eq!(
+            budget.charge(4),
+            Err(RuntimeError::ExecutionLimit {
+                kind: ExecutionLimitKind::Work,
+                used: 0,
+                requested: 4,
+                limit: 3,
+            })
+        );
     }
 }

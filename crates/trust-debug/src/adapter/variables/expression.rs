@@ -7,7 +7,9 @@ use serde_json::Value;
 
 use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::{coerce_value_to_type, parse_debug_expression, parse_debug_lvalue};
+use trust_runtime::harness::{
+    coerce_value_to_type, parse_debug_expression_with_abi, parse_debug_lvalue_with_abi,
+};
 use trust_runtime::io::IoAddress;
 use trust_runtime::memory::{FrameId, IoArea, VariableStorage};
 use trust_runtime::program_model::LValue;
@@ -372,7 +374,7 @@ impl DebugAdapter {
                     runtime.io().read(&address).unwrap_or(RuntimeValue::Null)
                 }
                 SetDirective::Write(raw) | SetDirective::Force(raw) => {
-                    let value = match parse_value_expression(&mut runtime, raw, frame_id) {
+                    let value = match parse_value_expression(&runtime, raw, frame_id) {
                         Ok(value) => value,
                         Err(message) => {
                             return DispatchOutcome {
@@ -390,6 +392,12 @@ impl DebugAdapter {
                             };
                         }
                     };
+                    if let Err(err) = runtime.write_io(&address, coerced.clone()) {
+                        return DispatchOutcome {
+                            responses: vec![self.error_response(&request, &err.to_string())],
+                            ..DispatchOutcome::default()
+                        };
+                    }
                     if matches!(&directive, SetDirective::Force(_)) {
                         self.session
                             .debug_control()
@@ -399,12 +407,6 @@ impl DebugAdapter {
                         self.session
                             .debug_control()
                             .enqueue_io_write(address.clone(), coerced.clone());
-                    }
-                    if let Err(err) = runtime.io_mut().write(&address, coerced.clone()) {
-                        return DispatchOutcome {
-                            responses: vec![self.error_response(&request, &err.to_string())],
-                            ..DispatchOutcome::default()
-                        };
                     }
                     let body = self.update_io_cache_for_write(address, coerced.clone());
                     events.push(self.event("stIoState", Some(body)));
@@ -424,7 +426,11 @@ impl DebugAdapter {
             if paused {
                 self.session
                     .debug_control()
-                    .refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
+                    .refresh_snapshot_from_storage_with_abi(
+                        runtime.storage(),
+                        runtime.current_time(),
+                        runtime.prepared().storage_abi(),
+                    );
                 events.push(self.event(
                     "invalidated",
                     Some(InvalidatedEventBody {
@@ -447,7 +453,20 @@ impl DebugAdapter {
             .and_then(|frame_id| runtime.using_for_frame(frame_id))
             .unwrap_or_default();
         let profile = runtime.profile();
-        let target = match parse_debug_lvalue(expr_text, runtime.registry_mut(), profile, &using) {
+        let mut registry = runtime.registry().clone();
+        let target = match parse_debug_lvalue_with_abi(
+            expr_text,
+            &mut registry,
+            profile,
+            &using,
+            self.session.metadata().storage_abi(),
+        )
+        .map_err(|err| err.to_string())
+        .and_then(|target| {
+            runtime
+                .resolve_debug_lvalue(target, &registry, frame_id)
+                .map_err(|err| err.to_string())
+        }) {
             Ok(target) => target,
             Err(message) => {
                 return DispatchOutcome {
@@ -493,7 +512,7 @@ impl DebugAdapter {
                 current
             }
             SetDirective::Write(ref raw) | SetDirective::Force(ref raw) => {
-                let value = match parse_value_expression(&mut runtime, raw, frame_id) {
+                let value = match parse_value_expression(&runtime, raw, frame_id) {
                     Ok(value) => value,
                     Err(message) => {
                         return DispatchOutcome {
@@ -530,21 +549,15 @@ impl DebugAdapter {
                 } else {
                     None
                 };
-                if let Err(err) = runtime.write_lvalue(&target, coerced.clone(), frame_id) {
+                let written = match ads_point {
+                    Some(name) => {
+                        runtime.write_global_and_queue_ads(name.as_ref(), coerced.clone())
+                    }
+                    None => runtime.write_lvalue(&target, coerced.clone(), frame_id),
+                };
+                if let Err(err) = written {
                     return DispatchOutcome {
                         responses: vec![self.error_response(&request, &map_runtime_error(err))],
-                        ..DispatchOutcome::default()
-                    };
-                }
-                if let Some(name) = ads_point
-                    && !runtime.queue_ads_live_write(name.as_ref(), coerced.clone())
-                {
-                    let _ = runtime.write_lvalue(&target, current.clone(), frame_id);
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(
-                            &request,
-                            &format!("ADS write for tag '{name}' could not be queued."),
-                        )],
                         ..DispatchOutcome::default()
                     };
                 }
@@ -568,7 +581,11 @@ impl DebugAdapter {
         if paused {
             self.session
                 .debug_control()
-                .refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
+                .refresh_snapshot_from_storage_with_abi(
+                    runtime.storage(),
+                    runtime.current_time(),
+                    runtime.prepared().storage_abi(),
+                );
             events.push(self.event(
                 "invalidated",
                 Some(InvalidatedEventBody {
@@ -707,7 +724,13 @@ impl DebugAdapter {
 
         let profile = self.session.metadata().profile();
         let mut registry = self.session.metadata().registry().clone();
-        let target = match parse_debug_lvalue(expr_text, &mut registry, profile, &using) {
+        let target = match parse_debug_lvalue_with_abi(
+            expr_text,
+            &mut registry,
+            profile,
+            &using,
+            self.session.metadata().storage_abi(),
+        ) {
             Ok(target) => target,
             Err(message) => {
                 return DispatchOutcome {
@@ -721,6 +744,29 @@ impl DebugAdapter {
             _ => err.to_string(),
         };
 
+        let target = match self.session.debug_control().with_snapshot(|snapshot| {
+            snapshot.resolve_lvalue_expressions(
+                target,
+                &registry,
+                Some(self.session.metadata().stdlib()),
+                &profile,
+                frame_id,
+            )
+        }) {
+            Some(Ok(target)) => target,
+            Some(Err(err)) => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, &map_runtime_error(err))],
+                    ..DispatchOutcome::default()
+                };
+            }
+            None => {
+                return DispatchOutcome {
+                    responses: vec![self.error_response(&request, "no snapshot available")],
+                    ..DispatchOutcome::default()
+                };
+            }
+        };
         let target_clone = target.clone();
         let current =
             match self.session.debug_control().with_snapshot(|snapshot| {
@@ -763,7 +809,13 @@ impl DebugAdapter {
                 current
             }
             SetDirective::Write(raw) => {
-                let expr = match parse_debug_expression(&raw, &mut registry, profile, &using) {
+                let expr = match parse_debug_expression_with_abi(
+                    &raw,
+                    &mut registry,
+                    profile,
+                    &using,
+                    snapshot.storage_abi,
+                ) {
                     Ok(expr) => expr,
                     Err(err) => {
                         return DispatchOutcome {
@@ -821,7 +873,13 @@ impl DebugAdapter {
                 coerced
             }
             SetDirective::Force(raw) => {
-                let expr = match parse_debug_expression(&raw, &mut registry, profile, &using) {
+                let expr = match parse_debug_expression_with_abi(
+                    &raw,
+                    &mut registry,
+                    profile,
+                    &using,
+                    snapshot.storage_abi,
+                ) {
                     Ok(expr) => expr,
                     Err(err) => {
                         return DispatchOutcome {

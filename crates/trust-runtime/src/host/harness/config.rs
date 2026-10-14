@@ -4,7 +4,7 @@ use smol_str::SmolStr;
 use crate::instance::{apply_fb_instance_initializer, create_class_instance, create_fb_instance};
 use crate::task::ProgramDef;
 use crate::value::Value;
-use crate::Runtime;
+use crate::RuntimeBuilder;
 
 use super::io::{
     bind_value_ref_to_address, collect_direct_field_bindings, collect_instance_bindings,

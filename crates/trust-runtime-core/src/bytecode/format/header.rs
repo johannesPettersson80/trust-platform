@@ -8,6 +8,8 @@ pub const HEADER_SIZE: u16 = 24;
 pub const SECTION_ENTRY_SIZE: usize = 12;
 /// Header flag requiring CRC32 of the table and payload region.
 pub const HEADER_FLAG_CRC32: u32 = 0x0001;
+/// STBC 3.0 contextual migration retains the legacy short-temporal storage ABI.
+pub const HEADER_FLAG_LEGACY_TEMPORAL32: u32 = 0x0002;
 
 /// Standard section identifiers defined by specification 12.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

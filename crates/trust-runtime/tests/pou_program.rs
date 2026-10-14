@@ -3,15 +3,29 @@ use trust_runtime::eval::ops::BinaryOp;
 use trust_runtime::eval::stmt::Stmt;
 use trust_runtime::task::{ProgramDef, TaskConfig};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 #[test]
 fn program_cycle() {
-    let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
-    runtime.storage_mut().set_global("count", Value::Int(0));
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("count", trust_hir::TypeId::INT, Value::Int(0)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
 
     let program = ProgramDef {
         name: "TestProg".into(),
@@ -29,7 +43,7 @@ fn program_cycle() {
         }],
     };
 
-    runtime.register_program(program).unwrap();
+    runtime.register_program(program);
     runtime.register_task(TaskConfig {
         name: "T".into(),
         interval: Duration::ZERO,
@@ -39,12 +53,8 @@ fn program_cycle() {
         fb_instances: Vec::new(),
     });
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    let mut runtime = runtime.build().unwrap();
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
 }

@@ -82,6 +82,14 @@ fn dispatch_native_split_date_positional_writes_outputs_and_checks_arity() {
     let err = dispatch_stdlib(&mut runtime, &mut frame, "SPLIT_DATE", &short_args)
         .expect_err("SPLIT_DATE requires all positional outputs");
     assert_invalid_argument_count(err, 4, 3);
+    assert_eq!(
+        runtime.storage.get_global("YEAR_SHORT"),
+        Some(&Value::DInt(-1))
+    );
+    assert_eq!(
+        runtime.storage.get_global("MONTH_SHORT"),
+        Some(&Value::DInt(-1))
+    );
 }
 
 #[test]

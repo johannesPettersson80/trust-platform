@@ -1,16 +1,16 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.13 — full-function F401 placement and footprint plan
-- **Date:** 10 October 2026
+- **Version:** 0.18 — in-place leaf calls and direct frame defaults
+- **Date:** 14 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
 - **Baseline commit date:** 3 September 2026
 - **Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.
 - **Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
 
-**Revision basis:** Retains the A3/A4 construction and shared-engine contracts and B-R1's uniform PLC function set. Defines B-R2 sector-0 immutable data, per-region footprint accounting and a 16 KiB upper-region margin. Implementation is authored; qualification and hardware results remain in the execution record. Current source, evidence and authorization remain in the portability checklist; the main-branch baselines above are historical. [D01–D07]
+**Revision basis:** Retains the A3/A4 construction and shared-engine contracts, B-R1's uniform PLC function set and B-R2's sector-0 placement with a reported 16 KiB upper-region growth target. Selects H's construction-only raw mutation, checked installed-state writes and isolated candidate schema changes in §4.3.1. Adds the uniform eight-byte temporal storage contract and STBC 3.0 compatibility boundary in §4.3.1. Adds the TIME-08 work-unit cost model and the TIME-09 construction allowance, replacing H's per-structure charge rules, and HOST-04's in-place call guarantee. Hosted review corrections and temporal implementation are authored but remain unverified until their consolidated acceptance batch; this specification is not validation evidence. Current source, evidence and authorization remain in the portability checklist; the main-branch baselines above are historical. [D01–D07]
 
-**Requirement status:** This is the canonical implementation plan. “Shall” defines required behavior for the stated future profile, not behavior already implemented. Existing identifiers are retained. Specifications 11/12 distinguish current hosted/STBC 1.1 behavior from planned migration. Scope authorization and validation follow AGENTS.md; a milestone description is not authorization or evidence that it passed.
+**Requirement status:** This is the canonical implementation plan. “Shall” defines required behavior for the stated future profile, not behavior already implemented. Existing identifiers are retained. Specifications 11/12 distinguish the legacy STBC 1.1/2.0 contracts from the STBC 3.0 migration. Scope authorization and validation follow AGENTS.md; a milestone description is not authorization or evidence that it passed.
 
 ## 1. Decision and scope
 
@@ -267,11 +267,87 @@ For the F401 Cortex-M4F bring-up, `thumbv7em-none-eabihf` is the selected target
 
 **HOST-02.** Hosted limits shall be selected for the application and deployment, not copied from STM32 defaults. Hosts may allocate backing storage during preparation and offer larger programs, strings, arrays, instance counts, and task configurations while retaining checked execution and admission.
 
-**HOST-03.** Existing supported debugger, HMI, protocol, persistence, configuration, CLI, and embedding APIs shall remain available on their supported platforms. Hosted online change shall follow the generation, restart, and retirement contract in Section 11.3. The M0 feature matrix shall distinguish implemented support, unavailable platform-specific features, and experimental support; it shall not infer identical service/driver support on every OS.
+**HOST-03.** Existing supported debugger, HMI, protocol, persistence, configuration, CLI, and embedding workflows shall remain available on their supported platforms. Preserve existing APIs except for the explicitly selected H raw-mutation migration in §4.3.1: unrestricted mutable storage and executable type-registry access shall be available only during non-executable construction; installed-state integrations shall use checked writes or candidate replacement. Document replacement APIs and migrate all repository callers; do not silently claim source compatibility for the old live mutable-reference signatures. Hosted online change shall follow the generation, restart, and retirement contract in Section 11.3. The M0 feature matrix shall distinguish implemented support, unavailable platform-specific features, and experimental support; it shall not infer identical service/driver support on every OS.
 
-**HOST-04.** Validated execution optimizations shall remain available where supported and shall use the same semantic and numeric conformance corpus. Their plans shall be prepared from admitted artifacts without requiring an ST compiler session. Bounded hosted profiles shall satisfy MODEL-02 for first use, rare branches, and cache replacement; MCU limits shall not force hosted builds onto a slower path without measured evidence and an approved tradeoff.
+**HOST-04.** Validated execution optimizations shall remain available where supported and shall use the same semantic and numeric conformance corpus. Their plans shall be prepared from admitted artifacts without requiring an ST compiler session. Bounded hosted profiles shall satisfy MODEL-02 for first use, rare branches, and cache replacement; MCU limits shall not force hosted builds onto a slower path without measured evidence and an approved tradeoff. Register execution scratch shall be reserved during controller construction for each eligible prepared POU and counted against the construction allocation limits. Scratch cleanup shall preserve success, fault and failed-selection semantics. Default values keep their type, depth and lifetime checks whichever constructor path produces them. Calls to a distinct eligible POU shall retain register execution; recursive re-entry into an occupied POU may use the shared stack fallback without resetting the instruction budget. Explicit tier-1 reset clears selected blocks and counters while retaining immutable plans and reserved storage; profile-only reset preserves the selected blocks. Immutable preparation diagnostics retain lowering and specialized-compilation counts and their specific failure reasons after RUN profiling resets. CLI and embedding reports distinguish those preparation results from RUN hits and zero RUN compilation counters.
+
+H implementation choices that are not product behavior stay out of this
+specification. The following guarantees bind them:
+
+- Calls. Compositions without register execution may run native stack-to-stack
+  calls inside the shared dispatcher's iterative frame loop. Register-enabled
+  compositions keep the mixed stack/register activation handler. Either way,
+  opcode semantics, call binding, initialization, copy-back, fault cleanup,
+  call-depth limits and the shared budget stay identical.
+- Work done in place. A register call to a POU whose prepared plan makes no user
+  call (a leaf) may complete inside the calling instruction instead of yielding to
+  the activation handler; calls that can nest further, calls while debugging and
+  callees whose scratch is in use keep the handler. A frame default without an
+  executable body that is either a literal holding no reference or nested storage,
+  or the zero value of a non-string scalar, may be written straight into the new
+  frame. Both keep the general path's results, faults and charges, in the same
+  order. A leaf call reserves no handler storage, so that storage is neither
+  charged nor a point of refusal; prepared plans and handler records are charged
+  at their actual sizes.
+- Value transfer. An invocation-owned argument, a completed function output or a
+  prepared local payload may move into its destination instead of being copied.
+  Moving never changes observable binding: named and positional binding,
+  explicit NULL presence, specification 10 §7.5's rejection of overlapping
+  writable connections, output aliases and first-fault order are unchanged.
+  Values read from storage, borrowed arguments and default constants are copied.
+- Output publication. All outputs of one call publish atomically; a later
+  failure restores every earlier destination of that call. A failed candidate
+  leaves the installed generation untouched.
+- Lifecycle markers. Initialized-declaration and once markers keep their
+  `(declaration, optional instance identity)` keys and ascending iteration
+  order. `None` differs from `Some(InstanceId(0))`, and every `u32` instance
+  identity, including `u32::MAX`, is representable. Storage is reserved before
+  publication, so a refused insertion leaves markers unchanged. Frame-slot
+  initialization publishes no persistent marker.
+- Prepared indexes and caches. Frame phase plans, declaration-owner ranges,
+  root-owner and sparse POU indexes may be prepared once and reused. Their size
+  follows admitted records, never the largest wire identity, and their
+  preparation counts against the preparation limits. A cache hit verifies the
+  complete identity. Reusing them never waives constant, visibility, staging,
+  type or lifetime checks or changes refusal order.
+- Typed construction keeps exact `(type, operation)` cycle detection and the
+  structural nesting bound, and borrows admitted TYPE_TABLE metadata rather than
+  copying it per visit.
+- Activations. The execution-frame registry is the single authority for
+  reserved identity, activation membership, optional POU/instance owner and
+  suspended local payload. Identities are monotonic and never reused. Retirement
+  removes liveness, owner and payload together and never abandons owned-instance
+  cleanup on a work or deadline failure. Debugger stack views list owned, active,
+  suspended ancestors in activation order, followed by the current frame.
+- Edge-qualified inputs bind by admitted POU identity; compatibility callers
+  that do not supply it keep name-based resolution.
+
+Their work is bookkeeping under TIME-08 and is not charged, so none of them
+changes a program's charged work.
 
 **Optimized-tier decision.** The existing register-IR/tier-1 execution remains an optional internal execution plan of the shared engine, moved during M2B. Its lowering and caches are prepared before bounded RUN; profiling and OS timing remain host adapters. The initial MCU profile omits the register representation and its storage, while hosted products retain the enabled optimized path and its semantic helpers. Scope A may leave the old hosted tier in place temporarily; that is not completed HOST-01 migration. No permanent independent hosted dispatcher is exempted. Compare against the actual enabled hosted tier, using the relevant ARCH-VM-19/20/27/28/31 benchmark workloads and fallback criteria as historical regression references, not newly passing evidence. [R32]
+
+H shall report lowering and specialized-compilation attempts/results as candidate
+preparation observations, separately from RUN plan hits, opcode counters and
+precomputed fallback reasons. Register profiling resets clear instrumentation only,
+without changing tier selection. The existing explicit tier-1 cache reset clears
+active selections, LRU state, hit counts and counters, so inactive blocks must meet
+the configured hot threshold again. Both resets retain immutable prepared code and
+reserved observation records; neither permits first-use rebuilding. Lowering-cache
+reset also retains prepared plans: published counters shall distinguish prepared
+entries from the old lazily populated cache rather than claiming that legacy cache
+occupancy semantics were preserved. Existing hosted cache-capacity/threshold controls may
+select an explicitly prepared optimization policy; they shall not authorize lazy
+lowering or threshold-triggered compilation in bounded RUN. Preserve the PLC
+behavior assertions and publish the changed timing/meaning of these diagnostics;
+a preparation count shall not be presented as a first-use execution measurement.
+Preserve original bytecode instruction costs across stack/register/specialized
+execution, including fixed-budget failure boundaries. Constant-time dispatch and
+optimization-selection bookkeeping is included in that instruction accounting;
+selection shall use prepared fixed indices rather than scan/shift work that grows
+with the program or configured cache. TIME-08 defines the charged work. Do not add
+a parallel instruction/work budget merely to hide an optimization's unbounded
+administrative cost.
 
 **HOST-05.** Production control execution shall use prepared state and bounded interfaces on hosted targets as well as MCUs. Network, HMI, logging, compilation, and storage services shall not impose unbounded waits on the control thread. Moving an existing blocking path shall preserve behavior or have a separately approved semantic change and regression tests.
 
@@ -282,6 +358,200 @@ For the F401 Cortex-M4F bring-up, `thumbv7em-none-eabihf` is the selected target
 These compositions require M2B feature/ownership changes: current `Runtime` embeds web/HMI/control/debug and other host state, and protocol feature switches alone do not produce a compiler-free runtime-only product. Scope A's headless core consumer is a narrower deliverable, not proof that HOST-07 is already implemented. [R06, R34]
 
 **HOST-08.** Hosted migration shall have regression and performance gates of its own and shall not be declared complete solely because an STM32 demonstration succeeds. A target whose tests have not run shall remain unqualified for the new profile.
+
+### 4.3.1 Construction and installed-state mutation
+
+**HOST-09.** H/M2B shall enforce the following lifecycle in the shared core and
+hosted embedding surface. This is a truST product API decision, not an IEC
+deviation. It preserves the full PLC function set on every platform.
+
+| Phase or operation | Required behavior |
+|---|---|
+| Non-executable authoring/construction | Raw storage and authoring-registry edits may be exposed here. The object cannot execute. Installation transfers ownership only after LOAD-07/09 admission and construction checks; no mutable authoring borrow may remain against the installed state. |
+| Installed controller, including RUN, debugger pause and STOP | Declared storage layout/schema, executable types and code remain admitted and immutable for that installation. Existing supported value and instance operations remain permitted under admitted capacities and lifetime rules. No public API or adapter-trait call may return unrestricted mutable storage or installed TYPE_TABLE access. STOP or a debugger pause alone does not turn installed state into an authoring object. Ordinary PLC value updates remain permitted through checked operations. |
+| Live value writes and forces | Use the single engine owner and existing cycle/debugger write boundaries. Preserve authorization, one-time write versus persistent-force behavior, and existing input/output image timing under CYCLE-05/06. Ordinary supported writes shall not require STOP, restart or re-admission. Synchronous owner-local calls may commit at an existing permitted boundary; remote requests use bounded staging/queues where the profile requires them. |
+| Code, declarations, types or storage layout changes | Build and validate an isolated candidate outside bounded RUN. Replace only through §11.3's hosted boundary and warm-restart/retain policy, or §11.2's stopped MCU installation. A failed candidate leaves the installed state executable and unchanged. No implicit first-use preparation or recompilation may repair a live mutation. |
+| Resource-only task, image extent or direct-I/O binding reconfiguration | Admit a candidate with unchanged executable code, constants, reference identities, types, declarations, construction/default recipes and access policy. Stage scheduler metadata, reset task readiness to the current logical time and sample each SINGLE input as its initial event baseline when replacing task/resource metadata (binding-only edits preserve readiness), and resize flat images with intersection preservation and zero-filled growth. Commit only after binding and safe-output validation. Keep the same PLC storage, instance IDs, non-retained and retained values, hierarchical images, fault, logical time, cycle counters, register observations, stable debugger thread identities and pending debugger requests. Do not rerun initializers, replace the PLC graph, or clone the full store. Failure preserves the installed resource and images. This is the existing hosted resource-update behavior, distinct from code/schema replacement. |
+| Debug expression parsing | Use separate authoring/scratch types and immutable installed metadata for lookup. Parsing an expression shall not extend or alter the installed executable type table. Any resulting write goes through the same checked live-write path. Compiler-dependent expression authoring remains in the selected development service, not the runtime-only graph. |
+
+Retained checkpoint capture is also a checked owner operation. The hosted
+`Runtime::retain_snapshot` and `RetainSnapshot::from_runtime` APIs therefore take
+an exclusive owner borrow and return a fallible result. Callers shall propagate
+allocation/work/deadline failures; an empty checkpoint is never an error fallback.
+This explicitly replaces their former infallible shared-reference signatures.
+
+Hosted read-only `VAR_ACCESS` rejection preserves the shared `RuntimeInvalidAlias`
+stable identity and adds the contextual message `VAR_ACCESS '<name>' is read-only`.
+The hosted adapter may add this context only after the shared checked write rejects
+an immutable admitted read-only alias. Unknown aliases and other faults retain their
+original identity; rejected writes do not mutate PLC state or latch a scan fault.
+This is product diagnostic compatibility, not an IEC deviation.
+
+Checked writes shall validate the destination's admitted type, range, mutability,
+applicable caller access policy, reference lifetime and current binding before
+committing. Preserve existing visibility/authorization rules, including supported
+privileged debugger access; ST lexical visibility shall not automatically replace
+the engineering caller's access policy. Preserve
+existing conversion and force rules; adding this boundary does not authorize new
+coercions or public writes to previously inaccessible members. A rejected request
+shall leave its destination, process images, installed identity and task readiness
+unchanged by that request. An independent scan may still advance normally.
+Validate before commit, including the existing engineering-write deadline rule;
+do not report a fallible post-commit check as a rejected write. Rejection of an
+invalid management request is not itself a PLC execution fault. Faults originating
+in PLC execution continue to follow the existing cycle/safe-state policy. Enabled watchdog policy may select its existing action without erasing the structured deterministic resource-limit cause; physical deadline expiry remains distinguishable.
+
+Checked engineering `write_global`, `write_instance`, `write_reference` and
+`write_access` operations use the finite floating-point admission policy in
+specification 11: reject REAL/LREAL NaN and infinity recursively through arrays
+and structures before commit, with `runtime_non_finite_value`. The policy belongs
+to these management boundaries; it does not alter internal IEC arithmetic,
+`IS_VALID`, signed zero or subnormal behavior. Construction and management
+coercion share the applicable declared-domain rules without removing deliberate
+differences in source conversion or initialization semantics. Management preflight also validates
+values reconstructed through physical aliases: an integer bit write that would
+introduce an aliased REAL/LREAL NaN or infinity rejects before mutation. Internal
+PLC bit operations retain their specified IEEE behavior. Strict physical copies
+compare floating encodings, preserving NaN payloads and signed zero, rather than
+using numerical equality to certify backing consistency.
+
+
+Required shared-global synchronization is part of the resource transaction.
+Admit existing source/destination names, checked assignment compatibility, initial
+values and write permissions before starting the resource. Compatible declared
+domains need not be identical; each later transfer remains checked against the
+destination range. A later operational synchronization failure must enter the same owning
+fault policy as a cycle failure, including configured safe outputs. The resource
+handle and runtime owner must agree on the resulting fault state.
+
+Cycle-service ports retain structured rejection causes. Destination/type/access/
+lifetime rejection of an engineering request remains point-local under the
+existing protocol policy; exhaustion of the enclosing cycle's work, copy,
+allocation or physical-deadline allowance propagates through cycle fault handling.
+Do not discard those operational errors as a Boolean result. Resource-limit
+diagnostics retain `runtime_execution_timeout` compatibility while identifying
+the bounded cause and used/requested/limit quantities; physical deadline expiry
+is distinguishable from deterministic resource exhaustion.
+
+Queue acceptance is distinct from application of a write. A staged request shall
+be checked against the active destination and binding again at its commit
+boundary; a request targeting a replaced or retired destination shall be rejected
+unless an existing supported checked rebinding operation applies. Queue exhaustion
+shall return an explicit failure without applying the request. Preserve existing
+protocol acknowledgements while distinguishing accepted from applied wherever the
+protocol exposes completion. References to debug scratch storage shall not escape
+into PLC state; installed references returned through scratch parsing retain their
+existing checked lifetime rules. Scratch-only type IDs shall not become installed
+identities; checked writes resolve their values against admitted destination types.
+
+Expose non-executable construction and admitted execution through distinct Rust
+types or facades with private installed state. Prefer ordinary ownership and
+checked methods over a new framework. Construction-only compatibility methods
+may retain familiar names; their old availability on a live `Runtime` is the
+explicit source-compatibility change. Document migration examples for globals,
+members, aliases and process-image writes, and for schema replacement. The hosted
+migration guide is `docs/guides/RUNTIME_EMBEDDING_MIGRATION.md`. Do not
+retain a mutable bypass through internal adapter traits, shadow storage, unsafe
+self-references, leaked allocations, or panic-based getter restrictions. Existing
+host adapter traits may serve implementation/construction needs but shall not
+expose raw mutation of the public installed controller. [E49, E68]
+
+H acceptance shall include compile-fail assertions denying raw mutable installed
+access in each hosted composition and native regressions for checked live writes
+without reinitialization; rejected constant/type/range/access/lifetime/stale
+binding writes without side effects; debugger scratch isolation; existing
+mesh/service/debug write and force timing; and unsuccessful candidate replacement
+preserving the old state. Exercise both supplied legacy 1.1 instruction bodies
+with explicit construction context and source-free 2.0 loading. No production
+caller may retain a second mutable storage authority. Preparation and bounded
+write paths shall satisfy their profile capacities and MODEL-02/MEM-04.
+
+Hosted instruction observers shall project the current invocation and live
+suspended callers from read-only shared-engine state, preserving their actual
+activation identities and local-slot ordering. Named debugger rows and expression
+evaluation belong to detached development snapshots; they shall not insert
+presentation frames into PLC storage. Compiler scratch slots remain resolvable
+by their physical offsets but are omitted from user-facing variable lists.
+Conditions and watches specified by spec 13 shall receive that detached evaluation
+context. This corrects the previous hosted VM observer's absent evaluation
+context; it is not permission to mutate installed state during a pause. An
+internal observer/projection failure shall propagate through normal dispatcher
+cleanup and cycle fault handling rather than disappear as a successful
+observation. Installation and isolated restart construction shall not publish
+candidate observations into the active debugger. Native acceptance shall cover
+the actual nested call stack, ancestor retirement, context-dependent watches and
+conditions, detached edits and fault cleanup, alongside old hook delegation.
+
+A successful source/schema reload invalidates compiled watch expressions and
+their scratch registries together. The adapter clears its compiled-expression
+cache at the same successful boundary; subsequent normal evaluation rebuilds
+against current metadata. Retired frame locations, observation snapshots, step/stop
+state and queued mutations are invalidated at this successful schema boundary;
+DAP variable handles cannot be rebound to a different installation. UI watch
+definitions remain available. Failed reload
+preserves the installed watch set and cache. Detached observation projects one
+owned snapshot and transfers or shares that completed immutable projection;
+statement refresh must not immediately clone the complete projection again.
+
+Hosted adapters shall borrow the shared engine's authoritative process images;
+construction-time image buffers shall not become a second live authority.
+Inspection snapshots may clone their selected values outside RUN, while cycle
+callbacks use the enclosing cycle work/deadline allowance. Normal driver failure
+stops in driver order; the established safe-state policy still attempts every
+driver and reports the first failure. An expired execution deadline shall not
+prevent that separate safe-output owner operation, and the owning PLC fault
+shall remain latched. Failed queued/forced management writes shall report a
+`write_rejected` runtime event with destination, error and cycle time rather than
+claim application or fault the PLC solely for an invalid request; physical
+deadline expiry still faults execution. Retain saving remains before output
+sampling. Telemetry and its final hosted output-deadline check remain after the
+old flat-Q publication rollback boundary; a late telemetry failure is not proof
+that physical outputs were undone.
+The common cycle shall distinguish provisional output preparation from physical
+driver submission. A preparation/deadline failure before submission, or a driver
+error during submission, restores the touched flat-Q windows as before. Once all
+drivers return success, those windows are committed; a subsequent deadline or
+observation failure still faults the resource but shall not restore that already
+submitted logical image. This preserves the hosted publication boundary without
+claiming rollback of physical effects, including effects of earlier drivers when
+a later driver fails.
+
+This contract is selected for H before changing ownership. It does not pull the
+additional M3/M4H reader-retirement, generation-wrap or capacity mechanisms in
+UPDATE-03 through UPDATE-08 into H. H must use valid current bindings and preserve
+existing stale-reference checks without inventing a speculative reader service.
+
+Hosted bytecode export shall copy the installation's immutable deployment
+artifact, not rebuild startup declarations from mutable PLC values or execute
+initializers again. Retained/current values remain separate checkpoint data.
+The existing plain export omits optional source-debug sections; source-aware
+export preserves the admitted instruction-to-source map and may relabel source
+paths. Supplied source text shall agree with an available, original installation
+source snapshot before attaching its debug map. A source-free installation shall
+not certify unrelated supplied text from a `file_N` label alone; unverifiable
+source association is rejected. A source-aware export also rejects an installation
+without existing nonempty instruction/source mappings rather than silently returning
+a plain artifact. Execution tables and construction
+records shall be unchanged by these presentation-only exports.
+Rust's construction/borrowing guidance supports the separation; vendor write and
+online-change documentation illustrates why mutation and rebinding need defined
+boundaries. Neither source defines truST's cycle order or changes its warm-restart
+contract. [E49, E68–E70]
+
+#### Uniform temporal storage ABI
+
+The owner authorized the H review correction to preserve the established
+64-bit temporal value domain and every platform's full function set. New
+applications use STBC 3.0: eight-byte temporal storage, consistent `SIZEOF`,
+array strides, relative extents and construction demand. This is an explicit
+incompatible artifact ABI change under specification 12 §4.1, not a reinterpretation
+of 2.0. Readers preserve legacy 1.1/2.0 widths and reject unknown majors before
+state publication. No temporal function or MCU capability is removed. Existing
+explicit I/O/protocol codecs remain checked conversions with their existing widths.
+Acceptance includes old-artifact identity/size preservation, rejection by old
+readers, negative and greater-than-32-bit temporal round trips, nested relative
+array extents, and atomic refusal at legacy physical boundaries. Retain/update
+must compare the selected ABI before carrying physical layout forward.
 
 ### 4.4 Scheduling/I/O profile and timing claims
 
@@ -352,6 +622,17 @@ second resource would incorrectly turn its unscheduled program roots into
 background work. Resource index zero is the only admitted instance selection.
 Hosted 1.x resource handling is unchanged.
 
+Ordinary byte-input preparation may transfer the decoded container's owned
+payloads into immutable execution metadata after complete validation. The
+private consuming source shall be constructible only through successful validation;
+it must not forge a borrowed validation token or publish a partially populated
+VM. Borrowed decoded inputs and hosted artifact-retaining entry points keep their
+original sections and serialized order. Both ownership routes use the same
+materializer and retain fault order, profile admission and conservative logical
+preparation charges; eliminated temporary copies do not constitute hardware
+memory or timing evidence. Typed transfer occurs only after the corresponding
+borrowed conversion/inspection work completes.
+
 Preparation has separate artifact, validation-scratch, logical preparation and
 runtime construction limits. The byte entry point enforces the artifact bound against the supplied byte length
 before decoding; it shall not serialize the decoded object again. The decoded-object
@@ -383,13 +664,15 @@ service before instance construction; a logical-only composition rejects it.
 
 **LOAD-08.** Timing admission shall follow Sections 4.4 and 8.4. The loader or installation manager shall verify that the selected timing evidence matches the application, configuration, engine/adapter build, and platform envelope. The device need not reproduce an entire off-device analysis, but it shall independently enforce its capability/resource limits, reject mismatched evidence, and refuse a stronger claim than the evidence supports. A memory-fit result shall not be reported as timing admission.
 
-**LOAD-09.** Candidate validation and preparation shall be transactional with respect to the installed generation: failure shall not corrupt or publish a partially prepared replacement. Work, allocations, reference expansion, and failure reporting shall remain bounded by the preparation profile. Excess demand shall fail before switching.
+**LOAD-09.** Candidate validation and preparation shall be transactional with respect to the installed generation: failure shall not corrupt or publish a partially prepared replacement. Work, allocations, reference expansion, and failure reporting shall remain bounded by the preparation profile, including construction under TIME-09. Excess demand shall fail before switching.
 
 The public source-free state surface does not implement the internal mutable
 storage/dispatcher adapter traits. Its private execution state is reached only
 through admitted construction, typed engineering access, cycle and restart methods;
 a trait-qualified call must not expose an untyped storage mutation bypass. The
-shared host adapter traits remain available for compatibility compositions.
+shared host adapter traits remain available for implementation and construction
+compatibility compositions, subject to HOST-09: they shall not expose unrestricted
+mutation of a public installed controller.
 
 A validated constructor is an implementation invariant, not a substitute for fuzzing or an assertion that the validator is correct. Artifact and deployment-metadata mutation tests are mandatory under Section 14.
 
@@ -452,9 +735,24 @@ Record target `size_of`/alignment for `Value`, references, frames, and relevant 
 
 **MEM-04.** The allocation audit shall include cloning/dropping strings and arrays, nested values, local initializers, Arc/Box ownership, destruction of the last owner, formatting errors, task sorting, imports/library calls, tracing, and checkpoints. Tests shall exercise first invocation, rare branches, maximum admitted sizes, fault/limit paths, and relevant generation retirement. A warmed-up success loop or reserved operand stack alone is insufficient.
 
+Float/text footprint reduction shall retain both conversion directions and the
+same function set on hosts, F401 and C6. The shared implementation may use
+lossless compact decimal algorithms (lexical-parse-float and Ryu), provided native
+differential evidence preserves specification 07 §2.7–2.8, stable errors and
+existing diagnostic spelling. No lossy mode, profile rejection or overflow-check
+change is permitted. The complete linked image, not table-size estimates,
+determines acceptance; conversion execution cost remains part of timing evidence.
+
 **MEM-05.** Core fault records shall be fixed-size codes with bounded context on hosted and MCU targets. Rich names and messages shall be rendered outside the core control path. Existing stable fault identities shall be preserved; compatibility wrappers may retain hosted messages without making fault capture allocate or block.
 
 **MEM-06.** Compound data shall have known capacity and execution-cost bounds. The first implementation may use preallocated typed storage before a full packed representation, but bounded execution shall not rely on recursive heap-allocating Value clones. Array/string operations, nested initialization, and reference traversal shall be bounded even when implemented by one opcode. Replacing value copies with aliases is prohibited unless the existing language contract permits that aliasing; reference lifetimes and copy semantics shall be preserved.
+
+H applies the artifact type-nesting bound to recursive value-copy accounting,
+independently of the profile's POU call-depth bound. A value at the admitted
+structural depth remains copyable when the profile admits fewer call frames;
+exceeding the structural bound reports `TypeMismatch`. Copy work follows
+TIME-08, and backing allocation is charged before copying. This corrects the former use of the call-frame limit
+for aggregate traversal; it does not increase admitted call depth.
 
 ### 6.2 Recommended storage approach
 
@@ -490,16 +788,16 @@ completion of M3's allocation-free compound-value contract.
   initializer at the deepest admitted call. This does not increase admitted call depth.
 - Instance retirement processes an owner batch with a single storage retain pass;
   promoted instances survive retirement of their former owner. Side metadata and
-  cached offsets must be invalidated consistently. Account for scanned/shifted entries
-  before fallible work; terminal cleanup must still finish when execution fuel is spent.
+  cached offsets must be invalidated consistently. Terminal cleanup must still finish
+  when execution fuel is spent.
 - Sorted collections retain key order, first/last-match and alias deduplication behavior.
   Journals keep the complete (MemoryLocation, usize slot) key and restore in the existing
   sorted order. Snapshot only affected destinations; never clone whole storage.
   Bulk input snapshots resolve references in their original order, then sort and
-  deduplicate destination identities with bounded charged work before copying values.
-  Input writes retain their original order. Charge actual vector relocation/shifts,
-  not the whole collection length for an append; arbitrary input order must not turn
-  the admitted input-binding transaction into quadratic snapshot construction.
+  deduplicate destination identities before copying values. Input writes retain
+  their original order. An append must not shift the whole collection, and arbitrary
+  input order must not turn the admitted input-binding transaction into quadratic
+  snapshot construction. This bookkeeping is not charged (TIME-08).
 - Once the physical deadline expires in an execution operation, retain that result
   through unwinding and terminal cleanup. Do not sample the clock again to rediscover
   an already observed expiry. Reset the latch only at the next operation's existing
@@ -524,9 +822,11 @@ rendering and stable codes. A validator inline attribute is an explicitly measur
 experiment, not credited savings. No blanket panic removal or reduced validation is allowed.
 
 All selected source changes may share one measurement wave. Keep the default stable
-1.95.0 configuration, safe ICF, overflow checks and the 16 KiB upper-region margin.
-Whole-section sector-0 repacking must preserve vector/data alignment and reserved erase
-regions. Symbol deltas guide interpretation but do not guarantee independently additive
+1.95.0 configuration, safe ICF and overflow checks. Report the 16 KiB upper-region
+growth target, but do not make it a hardware-bring-up fit gate. The hard flash check is
+that loadable content stays within the executable region and preserves sector-0 bounds
+and reserved erase regions. Whole-section sector-0 repacking must preserve vector/data
+alignment. Symbol deltas guide interpretation but do not guarantee independently additive
 savings. Candidate trace simplification must preserve the complete bounded UART record
 transaction and byte protocol. Only final maps/ELF and physical measurements establish fit.
 
@@ -535,7 +835,8 @@ transaction and byte protocol. Only final maps/ELF and physical measurements est
 The F401 physical run exceeded its reserved native stack although its logical call
 count was admitted. B-R4 corrects that shared execution path without changing IEC
 functionality, the admitted call depth, the 72 KiB heap / 16 KiB MSP partition, the
-16 KiB upper-flash margin, or the 2 KiB measured stack-headroom criterion. This is
+reported 16 KiB upper-flash growth target, or the 2 KiB measured stack-headroom
+criterion. This is
 an implementation/resource correction; IEC execution and binding semantics are unchanged.
 
 - Compiler-produced function, function-block, method and interface calls on the stack
@@ -567,7 +868,8 @@ an implementation/resource correction; IEC execution and binding semantics are u
   logical charges remain separately identified. State borrows the owner and is dropped
   before it. Standard allocation failure follows the existing terminal safe-output
   OOM boundary; this is not M3 recoverable/admission or allocation-free qualification.
-  The 72 KiB heap, 16 KiB MSP and all headroom criteria remain unchanged.
+  The 72 KiB heap, 16 KiB MSP and measured stack-headroom criterion remain unchanged.
+  The 16 KiB upper-flash growth target is reported but is not a hardware-bring-up fit gate.
 - Preserve independent firmware phase boundaries so unrelated fixture state is not
   inlined into a persistent outer runner frame. This is measured code generation,
   not credited savings or a new execution implementation.
@@ -817,6 +1119,61 @@ The reviewed stack dispatcher checks its elapsed deadline at entry and each 32 o
 
 **TIME-07.** Logical-time conformance tests shall use explicit injected logical instants rather than wall-clock sleep precision. Physical-time tests shall use the separate execution clock and the deployment's timing classification, including late wakeups, overruns, timer wrap/discontinuity, and service-event wake races. Correct faulting shall be distinguishable from semantic failure and from meeting the original deadline.
 
+**TIME-08. Work-unit cost model.** The work allowance measures what the PLC
+program does, not how the engine does it. It implements TIME-02 as follows:
+
+| Work | Charge |
+|---|---|
+| Executed original bytecode instruction | 1 unit, identical in the stack, register and tier-1 executors |
+| Copying an array | 1 unit for the array plus 1 per element, at every nesting level |
+| Copying a reference value | 1 unit plus 1 per path segment and index; creating a reference from a static address charges only its segments and indices (its instruction is the base unit) |
+| Copying a WSTRING or an enumeration value | 1 unit |
+| Binding a VAR_IN_OUT argument | nothing beyond the call's instructions: IEC passes it by reference, and the engine's private snapshot and copy-back are call-transaction bookkeeping |
+| Copying a structure | nothing for the shared structure; copy-on-write detach charges its fields as copies |
+| STRING/WSTRING normalization, element writes and standard-library text work | per character, as the owning function or assignment rule states |
+| Write through a `STRUCT OVERLAP` physical layout | the layout's stated cost per affected leaf and child |
+| Lifetime check of a value that can hold references or instances | 1 unit per node visited |
+| Constructing a value during construction or initialization | 1 unit per constructed node |
+| Native and standard-library calls | their stated variable cost |
+| Any other value operation on a scalar | nothing beyond its instruction |
+
+Engine bookkeeping is part of the instruction's unit and is never charged
+separately: index, name and member lookups; owner, root and reference-candidate
+resolution; path-segment resolution; writability, staging and visibility checks;
+lifecycle markers; call-transaction snapshots (VAR_IN_OUT copy-in and rollback
+journal values); assignment normalization passes; canonical field matching;
+activation-registry records; type-structure comparisons; process-image sampling
+and publication (a sampled STRING/WSTRING value still pays its TEXT
+normalization); and scheduler ordering. Each is bounded by admitted metadata, by
+the admitted type of the value it handles, or by a value already charged when it
+was produced, so its cost per instruction stays bounded. A call-transaction
+snapshot lives only until its call commits or rolls back, so its memory is
+bounded by call depth and the admitted parameter types; it is added neither to
+the work allowance nor to the cumulative allocation charge. Scope C
+(MEM-06/MEM-11) bounds compound snapshots further with typed storage. A lifetime
+check of a scalar, or of an array whose elements are primitive scalars, visits
+nothing that can hold a reference and is skipped.
+
+The charged total therefore depends only on the instructions executed and the
+sizes of the values they copy or traverse. Changing a cache, index, journal or
+other internal structure shall not change a program's charged work or the point
+at which it is refused, and the stack, register and tier-1 executors charge the
+same total for the same execution.
+
+**TIME-09. Construction allowance.** Program construction, cold and warm restart
+construction, and candidate construction are preparation steps under LOAD-09.
+Each runs as one execution entry under `PreparationLimits::max_construction_work`
+(hosted default 64 Mi units, equal to the default preparation work bound). Every
+top-level program or task function-block invocation in a scan, and every
+engineering write, is one entry under `max_work` (hosted default 1,000,000 units),
+as specification 10 states for a top-level VM invocation. Nested calls and
+call-time initializers share their invocation's allowance; process-image sampling
+and publication around the invocations share the scan's own allowance. An MCU
+profile states both values explicitly.
+Construction work is therefore bounded by the preparation profile rather than by
+the per-scan allowance; raising `max_work` remains no substitute for removing
+whole-state work during RUN.
+
 ### 8.4 Blocking-aware admission and output response
 
 A scheduling/resource admission record shall bind the following to the artifact/configuration identity: resource periods and release phases; priorities and tie rules; event-arrival/burst assumptions consistent with the sampled-edge contract; background work; input freshness/coherence requirements; per-task and per-batch costs; import/driver bounds; computation deadlines; output-group producer/writer rules; required completion evidence; and the engine/adapter/OS/board/load envelope. Shared output writers shall retain the existing ordered-write semantics; timing analysis shall not assume an earlier writer's value survives later ready work.
@@ -981,6 +1338,23 @@ Invalidate or explicitly rebind permitted external handles
                          |
 Retire previous generation after its last permitted reader; reclaim off path
 ```
+
+H distinguishes executable-body replacement from schema-changing source reload.
+An isolated candidate may preserve live retained object/reference graphs only
+when the admitted storage declarations, construction roots, executable types,
+POU identities and inheritance/interface mappings are congruent. Ordinary code
+bytes and initializer bodies may change without changing that identity graph.
+Otherwise, serializable retained scalars and aggregates migrate by symbolic
+name through the shared TYPE_TABLE/default-recipe policy. An incompatible
+retained live-object graph is rejected without replacing the installed owner;
+H does not silently discard it or invent general object-schema migration.
+Process-image intersections carry into candidate construction before its
+configuration initialization; new image capacity starts at zero. Host driver,
+protocol-worker and persistence objects survive replacement, while their PLC
+bindings are prepared against the candidate and committed with it. Source-free
+1.1 loading remains rejected; the legacy hosted path supplies explicit
+non-executable construction context to the importer and preserves supplied
+ordinary instruction bytes.
 
 The boundary is the existing semantic transition point, not a claim that warm initialization or snapshot migration takes zero time.
 
@@ -1182,6 +1556,7 @@ This table replaces the earlier unassigned P0/P1 labels. It assigns work to mile
 | Fixture loading, construction/initialization, timers, shared dispatch, checked depths and fixed capacities selected for bring-up | Scope A/B; preserve stable fault and value/reference behavior. |
 | SCHED-05 nominal-deadline correction and non-multiple task oracle | Implement first in A1, with updated native assertions in A1's one batch. A2 onward inherits the corrected baseline; A4 integrates the compiler-free fixture/oracle, then B/E and QH/QF/QE replay it. No additional scope or batch. |
 | Broad hosted adoption and true runtime-only compositions; preserved update boundary/warm restart (UPDATE-01/02) | M2B, then native hosted acceptance. |
+| Construction-only raw access, checked installed-state writes, separate debug scratch registry and explicit embedding API migration (HOST-09) | Contract selected before H ownership changes; implement and test in H/M2B. Deeper UPDATE-03 through UPDATE-08 machinery remains M3/M4H. |
 | Bounded storage/import work; actual generation/reader capacity and retirement (UPDATE-03 through UPDATE-08); selected bounded persistence | M3, qualified by M4H/M4/M5 as applicable. No speculative reader subsystem in Scope A. |
 | Full timing-admission record (§8.4/SCHED-02 through SCHED-04), release descriptor (COMPAT-02), production deployment authorization (DEPLOY-06), extended disturbances | Design the needed interfaces early; implement/qualify at M3/M4H/M4/M5 before a corresponding release claim. Scope A/B still validates all bytes, capacities, and outputs for its controlled fixture. |
 | Full modernization ledger, platform acceptance, update/deployment/retain recovery, and exact or tolerance-qualified published claims | Required before closing the combined plan; independent UI/protocol upgrades need not block first-board feasibility. |
@@ -1273,11 +1648,75 @@ Add exact linked-firmware commands for `trust-nucleo-f401re` and the selected ES
 
 **PERF-01.** M0 shall capture per-platform baselines and acceptance thresholds before optimization. Compare equivalent release builds and the same saved artifacts/traces, matching features, checks, scheduling/numeric/import contracts, preparation strategy, toolchain, hardware/OS, clock/cache settings, and I/O/load conditions. A feature-reduced new runtime-only build shall not be reported as an equivalent full-product improvement; report both comparisons separately.
 
+For H's Linux-builder hosted non-regression gate, freeze the following criteria
+before measurement; they are new H acceptance criteria, not historical results.
+Run `call_binding`, `string_stdlib` and `refs_sizeof` sequentially under the same
+Rust 1.99 release profile, full features and enabled register/tier-1 policy,
+with 128 warmup cycles and 1,024 measured samples each (1,152 total cycles).
+Compile each workload once to saved STBC 1.1 on committed U and load those exact
+bytes in both builds. U applies the artifact to its matching source-built context;
+H supplies that context only for construction metadata absent from 1.1. Pin the
+input artifact and workload/configuration identities. H's internal enrichment
+does not make the two internal containers identical. Record and compare every
+warmup and measured logical cycle's watched values, task misses and fault state;
+matching final values alone is insufficient. Retain all measured latency samples
+and compute both quantiles by the same nearest-rank rule. Each workload runs five
+paired rounds. A round is disturbed when, for either build, its median latency
+differs by more than 10% from that build's median latency across the five rounds;
+it is measured once more in the same order and the repeat replaces it. A repeat
+that is disturbed again still counts, all samples including the disturbed round
+are retained, and the thresholds below are unchanged (owner decision, 14 October
+2026). Measure cycle execution
+only; collect trace observations outside the timed interval.
+Both reports shall show enabled tier-1, positive specialized-block execution and
+matching hot thresholds/capacities; required watched values shall be resolved.
+Against committed U
+`19f3b6787`, every workload must have H/U median latency at most 1.10 and
+H/U p99 latency at most 1.25, identical watched PLC values and cycle counts,
+zero budget overruns, positive register execution and zero register-program
+fallbacks in both builds. These ratios bound acceptable observed regression;
+they do not claim a performance improvement or a real-time guarantee. Reject
+missing, non-finite or non-positive latency data. A failed comparison requires
+root-cause analysis and correction or an explicitly approved tradeoff; CLI exit
+success alone does not satisfy the gate. Retain both raw reports and executable,
+workload, compiler and configuration identities. Other native host measurements
+remain unqualified until executed on those hosts.
+
+H's private execution lookup caches may be derived directly from the already
+validated and prepared grouped indexes. They shall preserve the same owner,
+phase/trigger ranges, ordering and sparse identities. Preparation accounting
+charges the actual construction algorithm and reserves its complete storage
+before allocation; omitting redundant temporary owner lists shall not omit
+validation or fault checks. This does not change admitted
+language capabilities, hard flash partition bounds, or the reported flash-growth target.
+
+**H acceptance exception, 12 October 2026.** The project accepts the measured
+C21 Linux-builder `call_binding` median regression for the candidate and frozen
+comparison identified in `docs/notes/runtime-portability/h-execution.md`.
+The observed paired H/U median is 1.164359, exceeding the general 1.10 target;
+it remains a recorded failure of that target, accepted as a specific trade-off.
+The paired p99 is 1.096911 and satisfies 1.25. Reference and string workloads,
+exact PLC traces, execution counters and zero overruns satisfy their requirements.
+This exception permits H's remaining acceptance work to proceed; it does not
+close that work or change the general targets. It grants no waiver for a different
+runtime candidate, changed workload/configuration, another platform, physical
+I/O completion, deadlines, memory/stack limits or correctness. Non-executable
+changes and test-only configuration corrections may inherit this result when
+production-source equivalence is recorded. A subsequent runtime change requires
+a fresh assessment. Preserve the raw failed comparison and its identities.
+
 Default attribution is extraction first: compare original and extracted code under Rust 1.95.0 with matching features/contracts, separately identifying the explicit portable-math and nominal-deadline scheduling changes. Historical executions of the scheduling defect are not correctness oracles for the corrected contract. Then compare extracted-before-M0U and extracted-after-M0U under their recorded compiler/dependency tuples. If modernization is explicitly scheduled first instead, preserve the modernized-before-extraction baseline. In either order, mixed end-to-end measurements do not identify a single cause, and `rust-version` does not identify a historical build compiler.
 
 **PERF-02.** Report shipped and loadable-code sizes separately; runtime, application, adapter/helper, and service costs; preparation duration/peak memory; per-region steady RUN and compound storage; candidate/update/retirement/checkpoint peaks; CPU/interrupt and VM stacks; control-path allocator events; and core-only/full-workspace build/test cost. Do not confuse bytes stored in flash with extra prepared RAM or temporary loading duplication.
 
 **PERF-03.** Measure release/wakeup lateness, task and batch execution, computation response, logical output submission, driver acceptance, and any observed bus-transfer/device-feedback completion separately. Preserve raw distributions and maxima under declared HMI, network, logging, storage, interrupts, and platform interference. Label unavailable physical observations honestly. Inject blocking, queue overflow, service failure, and delayed output work to verify the defined failure policy.
+
+H diagnostic builds may collect native elapsed time for invocation preparation,
+frame initialization, initializer evaluation, execution and cleanup. Collect
+fixed-capacity counters during execution and export them afterwards, without
+per-operation text formatting or log I/O. Report inclusive and exclusive time,
+call counts, collector overflow/unbalanced spans and measured probe overhead.
+Instrumented timings locate costs; PERF-01 acceptance uses uninstrumented builds.
 
 **PERF-04.** Smaller artifacts, faster scans, lower jitter, and shorter builds are hypotheses, not consequences guaranteed by extraction. A gate passes only when declared requirements are met and regressions are explained/approved. Record missing evidence as missing. Longer tests, margins on observed maxima, and correct overrun faulting do not establish a mathematical WCET bound, a failure rate, or successful execution within a violated deadline.
 
@@ -1466,17 +1905,28 @@ must not rescan the entire initializer table. Lookup work is bounded by the sele
 index, inheritance/path depth and the values actually processed. One prepared
 standard-library registry is reused for admission, instantiation and restart.
 
+Dynamic-reference type discovery shall use a prepared storage-kind/slot index
+when executing the prepared module. Keep every candidate alias in original
+reference-table order, then check its path and physical invocation owner;
+conflicting selected type metadata remains an error. Legacy or temporary modules
+without that index retain the same full discovery semantics. Reject impossible
+storage kinds, slots and paths before resolving an instance owner. Index lookup
+and candidate/path visits are bookkeeping under TIME-08 and are not charged.
+
 A native output transaction preserves atomic copy-back by staging or journaling
 only its actual destination values, including aliases and suspended-frame targets.
-Sampling stages only input-bound values. Output publication is charged per binding
-and data actually encoded, never per unused byte of the admitted image. A 3,000-
+Sampling stages only input-bound values. Sampling and output publication do work
+proportional to the bindings and data actually encoded, never to unused bytes of
+the admitted image; this is bookkeeping under TIME-08 and is not charged, except
+the TEXT normalization of a sampled STRING/WSTRING value. A 3,000-
 declaration program executing 2,000 scalar stores in a scan, a resource sampling
 2,000 distinct scalar input bindings, and a resource with a 1 MiB marker image
 and sparse bindings must run under the default work limit;
 raising that limit is not a substitute for removing whole-state work.
 
 There is one authoritative work budget per execution entry, shared across nested
-calls, initializers and helpers. Allocation charges remain a separate quantity.
+calls, initializers and helpers. TIME-08 defines what it charges and TIME-09 which
+allowance a construction entry uses. Allocation charges remain a separate quantity.
 Physical deadline checks use a bounded work stride and explicit entry/completion
 checks; charging each individual work unit does not itself call the physical clock.
 For a cycle or typed engineering write, the completion deadline is checked after
@@ -1712,11 +2162,17 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | E65 | LLVM address-significance metadata and LLVM 22.1.2 ELF ICF implementation; section folding is broader than Rust function-pointer comparisons alone. | [Address-significance tables](https://llvm.org/docs/Extensions.html#sht-llvm-addrsig-section-address-significance-table), [LLD ICF source](https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-22.1.2/lld/ELF/ICF.cpp) |
 | E66 | Rust documents that function-pointer address equality is not a unique function identity; this does not prove unrestricted whole-image folding safe. | [fn_addr_eq](https://doc.rust-lang.org/std/ptr/fn.fn_addr_eq.html) |
 | E67 | Rust 1.95 supports source path-prefix remapping. It is a normalization measure, not by itself proof of reproducible firmware. | [Pinned compiler options](https://raw.githubusercontent.com/rust-lang/rust/1.95.0/src/doc/rustc/src/command-line-arguments.md), [Path remapping](https://doc.rust-lang.org/rustc/remap-source-paths.html) |
+| E68 | Rust ownership and builder guidance: separate construction from use and transfer ownership without a surviving mutable borrow. Consulted 11 October 2026; design guidance, not PLC qualification. | [Rust Book: references and borrowing](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html), [Rust API Guidelines: builders](https://rust-lang.github.io/api-guidelines/type-safety.html#builders-enable-construction-of-complex-values-c-builder) |
+| E69 | CODESYS distinguishes one-time writes and persistent forces with defined execution timing. Its exact task-boundary policy is not adopted by truST. Consulted 11 October 2026. | [Forcing and writing variables](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_forcing_values.html) |
+| E70 | Beckhoff documents address changes during online change and pointer update conditions. This motivates explicit binding validity; truST retains its own warm-restart contract. Consulted 11 October 2026. | [POINTER](https://infosys.beckhoff.com/content/1033/tc3_plc_intro/2529453451.html), [Online change](https://infosys.beckhoff.com/content/1033/tc3_plc_intro/2528041355.html) |
 
 ## Appendix B — Revision history
 
 | Version | Date | Change |
 |---|---|---|
+| 0.16 | 13 October 2026 | Owner-approved decision makes the 16 KiB F401 upper-flash growth target informational for hardware bring-up; the executable-region bound, sector reservations, and all other memory gates remain enforced. |
+| 0.15 | 12 October 2026 | Selects uniform eight-byte temporal storage and SIZEOF in STBC 3.0, explicit legacy-layout imports, checked retained-layout compatibility, and management-write alias validation. Preserves every platform function and the external four-byte TIME codec. H corrections are authored, with review and validation tracked separately. |
+| 0.14 | 11 October 2026 | Selects HOST-09's construction-only raw mutation, checked live writes, isolated debug parsing and transactional schema replacement. Explicitly narrows live Rust mutable-reference API compatibility without reducing PLC functions or hosted workflows. H implementation and native acceptance remain pending. |
 | 0.13 | 10 October 2026 | Plans B-R2 sector-0 immutable firmware placement, explicit discontiguous load accounting and a 16 KiB upper-region bring-up margin. Preserves all functions, full admission, stable toolchain and overflow/fault handling. Measurements and implementation remain separately authorized. |
 | 0.12 | 9 October 2026 | A3 admission proves staging-only writes across control flow; producer prunes unreachable standard blocks and shares recipes only between equivalent contexts. Adds edge/retain/partial/class authoring coverage and preserves the source/wire distinction. Execution remains A4. |
 | 0.11 | 9 October 2026 | Clarifies the shared changing-input fixture as a reference initializer selecting persistent array storage under IEC §6.4.4.10.2–3; preserves existing scalar constant-expression source checks. A4 must prove per-call initialization; A3 authoring is not execution evidence. |
@@ -1732,6 +2188,16 @@ bytecode relocation, bounds legacy-version compatibility, retains libm's default
 feature with explicit numeric premises, and separates product requirements from
 dated research. The [complete revision history](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/notes/runtime-portability/research-notes.md#revision-history-through-v06)
 preserves earlier snapshots and decisions.
+
+Version 0.17 (14 October 2026) replaces H's per-structure charge rules with the
+TIME-08 cost model: instructions plus value-size work, with engine bookkeeping
+never charged. TIME-09 moves construction to its own preparation-profile
+allowance. Specifications 10 §runtime cycle and 12 §4.6 follow.
+
+Version 0.18 (14 October 2026) adds HOST-04's guarantee for in-place leaf calls
+and direct frame defaults: the general path's results, faults and charges, with no
+handler storage reserved for a leaf call. PERF-01 gains the owner-approved rule for
+disturbed rounds; its thresholds are unchanged.
 
 ## Appendix C — Amendment traceability
 
@@ -1795,15 +2261,37 @@ silently program the intervening application/checkpoint sectors. Actual linked E
 segments establish placement; equal section flags alone do not establish installability.
 Use explicitly selected read-only sections with an overflow assertion, not an assumed
 linker policy that automatically fills remaining space. [E61, E64]
+The canonical size build may additionally normalize the core source root and
+individual Cargo registry roots to distinct short namespaces, preserving relative
+file names and recording every original-to-normalized mapping in its build report.
+Private standard-library descriptor arrays may have named static storage so the
+linker can select those complete read-only inputs, decimal-formatting tables and
+compiler lookup tables explicitly. All descriptors/functions remain present; these
+are representation and placement changes, not capability restrictions. Do not select
+anonymous sections by unstable compiler hashes. Retain all sector bounds and prove
+the final allocation in the map and ELF; shortened paths alone are not upper-region
+code savings.
 
-B-R2's bring-up acceptance floor is 16 KiB free in the upper 448 KiB firmware
-region after all loadable content/alignment, plus a valid sector-0 bound. Report total
-occupied flash and per-region free space independently. This margin is not a promise
-that future persistence/installation functionality fits, nor a release qualification.
-Retain stable Rust 1.95.0, all functions, full admission, overflow checks and panic/fault
+B-R2's hardware-bring-up flash gate is that loadable firmware stays within the upper
+448 KiB executable region after alignment and preserves a valid sector-0 bound and all
+reserved application/checkpoint regions. Report total occupied flash and free bytes per
+region. Report whether the 16 KiB upper-region growth target is met, but do not reject a
+physically in-range bring-up image solely for missing that target. The target does not
+promise that future persistence/installation functionality fits and is not release
+qualification. Retain stable Rust 1.95.0, all functions, full admission, overflow checks and panic/fault
 recording. Safe ICF and normalized build paths may be the single default firmware
 configuration after review and measurement; unrestricted ICF, nightly/build-std,
 RUSTC_BOOTSTRAP, immediate-abort panics and capability cuts are outside B-R2. [E65–E67]
+
+The reference firmware shall use the pinned compiler's default machine-outliner
+pass count. Additional `machine-outliner-reruns` settings are not admitted: the
+extra pass produced a Thumb helper that overwrote its incoming return address,
+confirmed by the linked instructions and a hardware breakpoint. Build tooling
+shall reject that override. Keep safe ICF, all IEC functions, admission checks,
+overflow checks and panic/fault records. The 16 KiB growth target remains
+informational for bring-up; actual flash bounds stay mandatory. Retain exact
+compiler/flag identities and require hardware execution when qualifying future
+code-generation changes; a smaller linked image is not execution proof.
 
 The application bundle has magic `TRSTB002`, three little-endian u32 lengths at
 offsets 8/12/16 and their CRC32 values at offsets 20/24/28. Its payload starts at
@@ -1864,8 +2352,8 @@ regressions shall assert both stable code and rendered detail across composition
 `StandardLibrary::get` may return a borrowed function/signature view rather than an
 owned-entry reference; registration, replacement, case matching and all signatures
 stay identical. These are Rust representation adaptations, not PLC feature differences.
-Scheduler sorting consumes the existing shared work budget for actual comparisons and
-swaps; preserve priority/due/index ordering and the same fail-closed exhaustion policy.
+Scheduler sorting is bookkeeping bounded by the admitted task count and is not
+charged (TIME-08); preserve priority/due/index ordering.
 
 
 **Uniform PLC function contract.** Every supported platform composition shall retain
@@ -1952,6 +2440,8 @@ upgrade/replace/retain decisions, then freeze and qualify the selected graph.
 
 | Review item | Disposition and pending evidence |
 |---|---|
+| H full review and temporal contract decision, 12 October 2026 | All source-review findings are accepted. The temporal width contradiction is resolved through uniform eight-byte storage and STBC 3.0, preserving explicit 1.1/2.0 ABI interpretation. Engineering writes validate reconstructed aliases before commit; retained physical layouts require compatible encoding and geometry. Native regressions and independent corrective reviews are authored; the checklist retains failed Full15 evidence and marks current corrections unverified. No platform functions are removed. |
+| H mutation-lifecycle architecture review, 11 October 2026 | Independent source review identified unrestricted live storage/type-registry access as conflicting with admitted-state ownership and HOST-03. The owner delegated selection of the best behavior. HOST-03/09 now select construction-only raw access, checked live writes, scratch debug types and isolated schema candidates. Preserve live write timing and warm restart; document the Rust API migration. This revision records the contract only, not H implementation or validation. |
 | A3 external review, 9 October 2026 | All findings and quality recommendations accepted. Spec 12 §11.5.8/11 define staging-write admission, shared contexts, compact templates, stable text and source/wire coverage. Checklist A3-R5/R6 owns implementation evidence; A4 runtime lifetime checks and actual execution remain mandatory. |
 | Periodic-task phase defect, 9 October 2026 | Accepted as SCHED-05 with coordinated spec 10/11 amendments. The initial A4 placement is superseded by the sequencing review below. Reuse the draft readiness/regression changes, add missing non-multiple cases and discard the unsupported 75-runs-in-10-seconds hosted-runner claim. The reviewed pre-A1 code used sampled-time baselines; current implementation and validation status are recorded in the checklist. |
 | Scheduling-fix sequencing review, 9 October 2026 | Accepted the review's four-batch alternative: implement and separately review the dependency-free fix first in A1, with its native regressions sharing A1's existing batch. A1 establishes the corrected scheduling contract for subsequent scopes. A4 keeps only fixture/oracle integration for this fix; metadata remains non-blocking maintenance. No new implementation authorization or fifth batch is inferred from the review. |

@@ -195,6 +195,32 @@ impl SharedGlobals {
         self.with_lock(|globals| globals.get(name).cloned())
     }
 
+    fn validate_destination(&self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
+        self.with_lock(|globals| {
+            for name in &self.names {
+                let value = globals
+                    .get(name)
+                    .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
+                runtime.validate_global_write(name, value.clone())?;
+            }
+            Ok(())
+        })
+    }
+
+    fn execute_cycle(&self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
+        if runtime.faulted() {
+            return Err(RuntimeError::ResourceFaulted);
+        }
+        let result = self.with_lock(|globals| {
+            self.sync_into_locked(globals, runtime)?;
+            let cycle_result = runtime.execute_cycle();
+            let publication_result = self.sync_from_locked(globals, runtime);
+            // Keep the owning PLC error when publication fails as well.
+            cycle_result.and(publication_result)
+        });
+        result.map_err(|error| runtime.scheduler_fault(error))
+    }
+
     fn sync_into_locked(
         &self,
         globals: &IndexMap<SmolStr, Value>,
@@ -204,9 +230,7 @@ impl SharedGlobals {
             let value = globals
                 .get(name)
                 .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
-            runtime
-                .storage_mut()
-                .set_global(name.clone(), value.clone());
+            runtime.write_global(name, value.clone())?;
         }
         Ok(())
     }

@@ -4,7 +4,7 @@ use crate::error::RuntimeError;
 use crate::eval::ops::{apply_binary, apply_unary, BinaryOp};
 use crate::eval::EvalContext;
 use crate::stdlib::{conversions, time, StdParams};
-use crate::value::{size_of_type, ArrayValue, SizeOfError, StructValue, Value};
+use crate::value::{ArrayValue, SizeOfError, StructValue, Value};
 use indexmap::IndexMap;
 
 use super::access::{eval_indices, read_field, read_indices, read_name};
@@ -265,9 +265,12 @@ fn qualified_field_expr_name(expr: &Expr) -> Option<SmolStr> {
 
 fn eval_size_of(ctx: &mut EvalContext<'_>, target: &SizeOfTarget) -> Result<Value, RuntimeError> {
     let size = match target {
-        SizeOfTarget::Type(type_id) => {
-            size_of_type(*type_id, ctx.registry).map_err(size_error_to_runtime)?
-        }
+        SizeOfTarget::Type(type_id) => crate::value::size_of_type_with_abi(
+            *type_id,
+            ctx.registry,
+            crate::value::StorageAbi::LegacyTemporal32,
+        )
+        .map_err(size_error_to_runtime)?,
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
     Ok(Value::DInt(size))

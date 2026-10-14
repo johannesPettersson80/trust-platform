@@ -86,15 +86,33 @@ fn boundary_resolver_contract_unique_simple_program_write_updates_instance() {
 }
 
 #[test]
-fn boundary_resolver_contract_simple_write_preserves_runtime_value_identity() {
-    let mut harness = harness();
-    harness
-        .try_set_input("unique", Value::WString("not coerced".into()))
-        .expect("boundary write is untyped");
-    assert_eq!(
-        harness.try_get_output("unique"),
-        Ok(Value::WString("not coerced".into()))
+fn construction_storage_preserves_raw_value_identity_before_admission() {
+    let mut builder = crate::RuntimeBuilder::new();
+    let instance = builder.storage_mut().create_instance("Alpha");
+    builder
+        .storage_mut()
+        .set_instance_var(instance, "unique", Value::Int(7));
+    builder.storage_mut().set_instance_var(
+        instance,
+        "unique",
+        Value::WString("not coerced".into()),
     );
+    assert_eq!(
+        builder.storage().get_instance_var(instance, "unique"),
+        Some(&Value::WString("not coerced".into()))
+    );
+}
+
+#[test]
+fn boundary_resolver_contract_simple_write_rejects_incompatible_value_atomically() {
+    let mut harness = harness();
+    let before = harness.try_get_output("unique").unwrap();
+    let error = harness
+        .try_set_input("unique", Value::WString("not coerced".into()))
+        .expect_err("installed destination keeps its admitted INT type");
+    assert!(matches!(error, BoundaryError::WrongKind { .. }));
+    assert_eq!(harness.try_get_output("unique"), Ok(before));
+    assert!(!harness.runtime().faulted());
 }
 
 #[test]

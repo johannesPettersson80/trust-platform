@@ -22,8 +22,8 @@ END_PROGRAM
         .find(|item| item.name == "initial")
         .expect("original global declaration");
     assert!(initial.initializer.is_some());
-    assert!(lowered.runtime.storage().get_global("initial").is_none());
-    assert!(lowered.runtime.programs().is_empty());
+    assert!(lowered.builder.storage().get_global("initial").is_none());
+    assert!(lowered.builder.programs().is_empty());
     let error = match lowered.materialize(&[]) {
         Ok(_) => panic!("legacy startup must still reject division by zero"),
         Err(error) => error.to_string().to_ascii_lowercase(),
@@ -65,7 +65,7 @@ END_CONFIGURATION
         };
         assert_eq!(value, &crate::value::Value::Int(expected));
     }
-    assert!(lowered.runtime.programs().is_empty());
+    assert!(lowered.builder.programs().is_empty());
 }
 
 #[test]
@@ -84,6 +84,7 @@ fn direct_startup_action_extents_are_declared_and_enforced() {
         .unwrap()
         .config_inits
         .push(crate::harness::ConfigInit {
+            display_name: None,
             path: crate::harness::AccessPath::Direct {
                 address: crate::io::IoAddress::parse("%MW4096").unwrap(),
                 text: "%MW4096".into(),
@@ -123,6 +124,7 @@ fn lowered_partial_configuration_preserves_selection_and_rejects_overflow() {
         .unwrap()
         .config_inits
         .push(ConfigInit {
+            display_name: None,
             path: AccessPath::Parts(vec![
                 AccessPart::Name("P1".into()),
                 AccessPart::Name("bits".into()),
@@ -159,5 +161,50 @@ fn lowered_partial_configuration_preserves_selection_and_rejects_overflow() {
     assert!(
         crate::bytecode::build_module_from_declarations(&input).is_err(),
         "producer must reject the same out-of-range selection"
+    );
+}
+
+#[test]
+fn encoder_rejects_forced_access_map_binding_that_shadows_global_name() {
+    use crate::value::Value;
+    let source = r#"
+VAR_GLOBAL
+    A1 : INT := INT#111;
+END_VAR
+
+PROGRAM Main
+VAR
+    source : INT := INT#7;
+    observed : INT := INT#0;
+END_VAR
+A1 := INT#55;
+observed := A1;
+END_PROGRAM
+
+CONFIGURATION Conf
+PROGRAM P1 : Main;
+END_CONFIGURATION
+"#;
+
+    let mut runtime = lower_application(&[SourceFile::new(source)], false)
+        .expect("source-level global without VAR_ACCESS collision should compile")
+        .materialize_legacy(&[])
+        .expect("materialize construction-only declarations");
+    let p1_instance = match runtime.storage().get_global("P1") {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("expected P1 global to hold program instance id, got {other:?}"),
+    };
+    let source_ref = runtime
+        .storage()
+        .ref_for_instance_recursive(p1_instance, "source")
+        .expect("P1.source ref");
+    runtime.access_map_mut().bind("A1".into(), source_ref, None);
+
+    let err = crate::bytecode::build_legacy_module_from_builder(&runtime, &[source], &["file_0"])
+        .expect_err("forced VAR_ACCESS/global name shadowing must fail during bytecode encoding");
+    let message = err.to_string();
+    assert!(
+        message.contains("VAR_ACCESS") && message.contains("A1") && message.contains("global"),
+        "expected VAR_ACCESS/global collision diagnostic, got {message}"
     );
 }

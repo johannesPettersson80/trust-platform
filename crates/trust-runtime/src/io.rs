@@ -35,6 +35,9 @@ include!("io/coercion.rs");
 include!("io/provenance.rs");
 include!("io/interface.rs");
 
+mod installed;
+pub use installed::InstalledIoView;
+
 #[cfg(test)]
 #[path = "io/provenance_contract_tests.rs"]
 mod provenance_contract_tests;

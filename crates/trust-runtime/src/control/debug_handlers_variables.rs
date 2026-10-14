@@ -185,19 +185,15 @@ pub(super) fn handle_debug_variables(
                         format!("unknown instance id {}", instance_id.0),
                     );
                 };
-                entries.extend(
-                    instance
-                        .variables
-                        .iter()
-                        .map(|(name, value)| {
-                            debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
-                        }),
-                );
+                entries.extend(instance.variables.iter().map(|(name, value)| {
+                    debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
+                }));
             }
             entries.extend(
                 frame
                     .variables
                     .iter()
+                    .filter(|(name, _)| !name.starts_with("@scratch/"))
                     .map(|(name, value)| {
                         debug_variable_entry(name.to_string(), value.clone(), &snapshot.storage)
                     }),
@@ -237,7 +233,10 @@ pub(super) fn handle_debug_variables(
         }
         VariableHandle::Instance(instance_id) => {
             let Some(instance) = snapshot.storage.get_instance(instance_id) else {
-                return ControlResponse::error(id, format!("unknown instance id {}", instance_id.0));
+                return ControlResponse::error(
+                    id,
+                    format!("unknown instance id {}", instance_id.0),
+                );
             };
             let mut entries = instance
                 .variables

@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn return_and_ref_builtin_lowering_preserve_exact_fail_closed_boundaries() {
-        let runtime = crate::Runtime::new();
+        let runtime = crate::RuntimeBuilder::new();
         let mut encoder = BytecodeEncoder::new(&runtime);
         let mut context = CodegenContext::default();
         let mut code = Vec::new();
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn partial_access_lowering_emits_exact_opcode_and_typed_operand() {
-        let runtime = crate::Runtime::new();
+        let runtime = crate::RuntimeBuilder::new();
         let mut encoder = BytecodeEncoder::new(&runtime);
         let local = ValueRef {
             location: MemoryLocation::Global,

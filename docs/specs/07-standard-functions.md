@@ -205,6 +205,16 @@ numeric or bit-string value. `STRING_TO_REAL('NaN')` and
 value. This specification intentionally does not freeze the runtime-error
 variant used for those two text-rejection cases.
 
+The compact text implementation shall preserve the existing conversion contract
+on every platform. Decimal parsing uses correctly rounded binary64 conversion
+before the existing destination conversion, including subnormal values and signed
+zero; lossy parsing is forbidden. Formatting preserves the prior shortest
+round-tripping binary64 digits expanded into decimal notation, with the existing
+`.0` suffix for integral real conversion output. `REAL` continues to widen to
+binary64 before formatting. Normalization, malformed-input errors and non-finite
+rejection remain unchanged. Compact lookup tables are an implementation choice,
+not a per-device capability restriction (IEC §6.6.2.5.2, Table 23).
+
 ### 2.8 Runtime Conversion Dispatch and Boundary Contract
 
 The following requirements bind runtime execution of IEC 61131-3 Tables

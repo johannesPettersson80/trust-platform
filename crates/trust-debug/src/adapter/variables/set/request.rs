@@ -103,138 +103,16 @@ impl DebugAdapter {
         };
 
         let result = match handle {
-            VariableHandle::Locals(frame_id) => {
-                if !paused {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(
-                            &request,
-                            "local variables can only be edited when paused",
-                        )],
-                        ..DispatchOutcome::default()
-                    };
-                }
-                let frame = runtime
-                    .storage()
-                    .frames()
-                    .iter()
-                    .find(|frame| frame.id == frame_id)
-                    .cloned();
-                let Some(frame) = frame else {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, "unknown frame id")],
-                        ..DispatchOutcome::default()
-                    };
+            VariableHandle::Locals(_) => {
+                // Paused locals are handled against the detached snapshot above.
+                // An installed controller never exposes a mutable frame here.
+                return DispatchOutcome {
+                    responses: vec![self.error_response(
+                        &request,
+                        "local variables can only be edited when paused",
+                    )],
+                    ..DispatchOutcome::default()
                 };
-                let instance_id = frame.instance_id;
-                let local_value = frame.variables.get(args.name.as_str()).cloned();
-                let instance_value = instance_id
-                    .and_then(|id| runtime.storage().get_instance_var(id, args.name.as_str()))
-                    .cloned();
-                if local_value.is_none() && instance_value.is_none() {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, "unknown local variable")],
-                        ..DispatchOutcome::default()
-                    };
-                }
-                match &directive {
-                    SetDirective::Release => {
-                        if local_value.is_some() {
-                            return DispatchOutcome {
-                                responses: vec![self
-                                    .error_response(&request, "local variables cannot be forced")],
-                                ..DispatchOutcome::default()
-                            };
-                        }
-                        if let Some(instance_id) = instance_id {
-                            self.session
-                                .debug_control()
-                                .release_instance(instance_id, &args.name);
-                        }
-                        let Some(value) = instance_value else {
-                            return DispatchOutcome {
-                                responses: vec![
-                                    self.error_response(&request, "unknown local variable")
-                                ],
-                                ..DispatchOutcome::default()
-                            };
-                        };
-                        value
-                    }
-                    SetDirective::Write(raw) | SetDirective::Force(raw) => {
-                        let value = match parse_value_expression(&mut runtime, raw, Some(frame_id))
-                        {
-                            Ok(value) => value,
-                            Err(message) => {
-                                return DispatchOutcome {
-                                    responses: vec![self.error_response(&request, &message)],
-                                    ..DispatchOutcome::default()
-                                };
-                            }
-                        };
-                        if let Some(current) = local_value.clone() {
-                            if force_requested {
-                                return DispatchOutcome {
-                                    responses: vec![self.error_response(
-                                        &request,
-                                        "local variables cannot be forced",
-                                    )],
-                                    ..DispatchOutcome::default()
-                                };
-                            }
-                            let coerced = match apply_value(value, &current) {
-                                Ok(value) => value,
-                                Err(message) => {
-                                    return DispatchOutcome {
-                                        responses: vec![self.error_response(&request, &message)],
-                                        ..DispatchOutcome::default()
-                                    };
-                                }
-                            };
-                            let updated = runtime.storage_mut().with_frame(frame_id, |storage| {
-                                storage.set_local(args.name.clone(), coerced.clone());
-                            });
-                            if updated.is_none() {
-                                return DispatchOutcome {
-                                    responses: vec![
-                                        self.error_response(&request, "unknown frame id")
-                                    ],
-                                    ..DispatchOutcome::default()
-                                };
-                            }
-                            coerced
-                        } else if let Some(current) = instance_value.clone() {
-                            let coerced = match apply_value(value, &current) {
-                                Ok(value) => value,
-                                Err(message) => {
-                                    return DispatchOutcome {
-                                        responses: vec![self.error_response(&request, &message)],
-                                        ..DispatchOutcome::default()
-                                    };
-                                }
-                            };
-                            runtime.storage_mut().set_instance_var(
-                                instance_id.unwrap(),
-                                args.name.clone(),
-                                coerced.clone(),
-                            );
-                            if force_requested {
-                                self.session.debug_control().force_instance(
-                                    instance_id.unwrap(),
-                                    args.name.clone(),
-                                    coerced.clone(),
-                                );
-                            }
-                            coerced
-                        } else {
-                            return DispatchOutcome {
-                                responses: vec![
-                                    self.error_response(&request, "unknown local variable")
-                                ],
-                                ..DispatchOutcome::default()
-                            };
-                        }
-                    }
-                }
             }
             VariableHandle::Globals => {
                 let current = match runtime.storage().get_global(args.name.as_str()) {
@@ -254,7 +132,7 @@ impl DebugAdapter {
                         current
                     }
                     SetDirective::Write(raw) | SetDirective::Force(raw) => {
-                        let value = match parse_value_expression(&mut runtime, raw, None) {
+                        let value = match parse_value_expression(&runtime, raw, None) {
                             Ok(value) => value,
                             Err(message) => {
                                 return DispatchOutcome {
@@ -272,39 +150,20 @@ impl DebugAdapter {
                                 };
                             }
                         };
-                        let ads_point = match runtime.ads_live_value_writable(args.name.as_str()) {
-                            Some(false) => {
-                                return DispatchOutcome {
-                                    responses: vec![self.error_response(
-                                        &request,
-                                        &format!(
-                                            "ADS tag '{}' is read-only. Enable writes for this tag and restart the runtime.",
-                                            args.name
-                                        ),
-                                    )],
-                                    ..DispatchOutcome::default()
-                                };
-                            }
-                            Some(true) => true,
-                            None => false,
-                        };
-                        runtime
-                            .storage_mut()
-                            .set_global(args.name.clone(), coerced.clone());
-                        if ads_point
-                            && !runtime.queue_ads_live_write(args.name.as_str(), coerced.clone())
-                        {
-                            runtime
-                                .storage_mut()
-                                .set_global(args.name.clone(), current.clone());
+                        if runtime.ads_live_value_writable(args.name.as_str()) == Some(false) {
                             return DispatchOutcome {
                                 responses: vec![self.error_response(
                                     &request,
-                                    &format!(
-                                        "ADS write for tag '{}' could not be queued.",
-                                        args.name
-                                    ),
+                                    &format!("ADS tag '{}' is read-only. Enable writes for this tag and restart the runtime.", args.name),
                                 )],
+                                ..DispatchOutcome::default()
+                            };
+                        }
+                        if let Err(error) =
+                            runtime.write_global_and_queue_ads(args.name.as_str(), coerced.clone())
+                        {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
                                 ..DispatchOutcome::default()
                             };
                         }
@@ -318,8 +177,19 @@ impl DebugAdapter {
                 }
             }
             VariableHandle::Retain => {
-                let current = match runtime.storage().get_retain(args.name.as_str()) {
-                    Some(value) => value.clone(),
+                let reference = super::super::retained::reference(
+                    self.session.metadata(),
+                    runtime.storage(),
+                    args.name.as_str(),
+                );
+                let Some(reference) = reference else {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, "unknown retain variable")],
+                        ..DispatchOutcome::default()
+                    };
+                };
+                let current = match runtime.storage().materialize_by_ref_ref(&reference) {
+                    Some(value) => value,
                     None => {
                         return DispatchOutcome {
                             responses: vec![
@@ -331,11 +201,21 @@ impl DebugAdapter {
                 };
                 match &directive {
                     SetDirective::Release => {
-                        self.session.debug_control().release_retain(&args.name);
+                        if let Err(error) = super::super::retained::force(
+                            &self.session.debug_control(),
+                            runtime.storage(),
+                            &reference,
+                            None,
+                        ) {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
+                        }
                         current
                     }
                     SetDirective::Write(raw) | SetDirective::Force(raw) => {
-                        let value = match parse_value_expression(&mut runtime, raw, None) {
+                        let value = match parse_value_expression(&runtime, raw, None) {
                             Ok(value) => value,
                             Err(message) => {
                                 return DispatchOutcome {
@@ -353,13 +233,28 @@ impl DebugAdapter {
                                 };
                             }
                         };
-                        runtime
-                            .storage_mut()
-                            .set_retain(args.name.clone(), coerced.clone());
-                        if force_requested {
-                            self.session
-                                .debug_control()
-                                .force_retain(args.name.clone(), coerced.clone());
+                        let result = runtime.write_reference(&reference, coerced.clone());
+                        if let Err(error) = result {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
+                        }
+                        let result = if force_requested {
+                            super::super::retained::force(
+                                &self.session.debug_control(),
+                                runtime.storage(),
+                                &reference,
+                                Some(coerced.clone()),
+                            )
+                        } else {
+                            Ok(())
+                        };
+                        if let Err(error) = result {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
                         }
                         coerced
                     }
@@ -396,7 +291,7 @@ impl DebugAdapter {
                         current
                     }
                     SetDirective::Write(raw) | SetDirective::Force(raw) => {
-                        let value = match parse_value_expression(&mut runtime, raw, None) {
+                        let value = match parse_value_expression(&runtime, raw, None) {
                             Ok(value) => value,
                             Err(message) => {
                                 return DispatchOutcome {
@@ -414,11 +309,20 @@ impl DebugAdapter {
                                 };
                             }
                         };
-                        runtime.storage_mut().set_instance_var(
-                            instance_id,
-                            args.name.clone(),
-                            coerced.clone(),
-                        );
+                        let reference = runtime
+                            .storage()
+                            .ref_for_instance_recursive(instance_id, args.name.as_str());
+                        let result = reference
+                            .ok_or(trust_runtime::error::RuntimeError::ReferenceLifetime)
+                            .and_then(|reference| {
+                                runtime.write_reference(&reference, coerced.clone())
+                            });
+                        if let Err(error) = result {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
+                        }
                         if force_requested {
                             self.session.debug_control().force_instance(
                                 instance_id,
@@ -460,7 +364,7 @@ impl DebugAdapter {
                         runtime.io().read(&address).unwrap_or(RuntimeValue::Null)
                     }
                     SetDirective::Write(raw) | SetDirective::Force(raw) => {
-                        let value = match parse_value_expression(&mut runtime, raw, None) {
+                        let value = match parse_value_expression(&runtime, raw, None) {
                             Ok(value) => value,
                             Err(message) => {
                                 return DispatchOutcome {
@@ -478,6 +382,12 @@ impl DebugAdapter {
                                 };
                             }
                         };
+                        if let Err(err) = runtime.write_io(&address, coerced.clone()) {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &err.to_string())],
+                                ..DispatchOutcome::default()
+                            };
+                        }
                         if force_requested {
                             self.session
                                 .debug_control()
@@ -487,12 +397,6 @@ impl DebugAdapter {
                             self.session
                                 .debug_control()
                                 .enqueue_io_write(address.clone(), coerced.clone());
-                        }
-                        if let Err(err) = runtime.io_mut().write(&address, coerced.clone()) {
-                            return DispatchOutcome {
-                                responses: vec![self.error_response(&request, &err.to_string())],
-                                ..DispatchOutcome::default()
-                            };
                         }
                         let body = self.update_io_cache_for_write(address, coerced.clone());
                         events.push(self.event("stIoState", Some(body)));
@@ -514,7 +418,11 @@ impl DebugAdapter {
         if paused {
             self.session
                 .debug_control()
-                .refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
+                .refresh_snapshot_from_storage_with_abi(
+                    runtime.storage(),
+                    runtime.current_time(),
+                    runtime.prepared().storage_abi(),
+                );
             events.push(self.event(
                 "invalidated",
                 Some(InvalidatedEventBody {

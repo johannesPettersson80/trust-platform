@@ -8,13 +8,11 @@ use crate::bytecode::{
 use crate::error::RuntimeError;
 #[cfg(test)]
 use crate::memory::IoArea;
-use crate::task::ProgramDef;
 use crate::value::ValueRef;
 #[cfg(test)]
 use crate::value::{RefPath, RefSegment as ValueRefSegment};
 use smol_str::SmolStr;
 
-mod budget;
 mod call;
 mod call_context;
 mod context;
@@ -50,20 +48,13 @@ use super::core::Runtime;
 
 pub(super) use local_init::VmLocalInitPlanCacheState;
 pub(super) use register_ir::{
-    RegisterLoweringCacheState, RegisterProfileState, RegisterTier1SpecializedExecutorState,
+    HostedRegisterEnvironment, RegisterLoweringCacheState, RegisterProfileState,
+    RegisterTier1SpecializedExecutorState,
 };
-pub(super) use trust_runtime_core::vm::hosted::{materialize_borrowed_value, opcode_operand_len};
 
 #[cfg(test)]
 pub(super) const DEFAULT_INSTRUCTION_BUDGET: usize =
     trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS;
-
-pub(super) fn execute_program(
-    runtime: &mut Runtime,
-    program: &ProgramDef,
-) -> Result<(), RuntimeError> {
-    dispatch::execute_program(runtime, program)
-}
 
 pub(super) fn execute_program_by_name(
     runtime: &mut Runtime,

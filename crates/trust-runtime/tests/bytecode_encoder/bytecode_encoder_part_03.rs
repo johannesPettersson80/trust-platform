@@ -34,7 +34,11 @@ END_PROGRAM
 "#;
 
     let path = "/tmp/main.st";
-    let module = bytecode_module_from_source_with_path(source, path).unwrap();
+    let module = trust_runtime::harness::CompileSession::from_sources(vec![
+        trust_runtime::harness::SourceFile::with_path(path, source),
+    ])
+    .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+    .unwrap();
     let strings = match module.section(SectionId::StringTable) {
         Some(SectionData::StringTable(table)) => table,
         other => panic!("expected STRING_TABLE, got {other:?}"),
@@ -90,7 +94,10 @@ PROGRAM Main
 END_PROGRAM
 "#;
 
-    let module = bytecode_module_from_source(source).unwrap();
+    // This oracle pins the retained explicit1.1 wire contract.
+    let module = trust_runtime::harness::CompileSession::from_source(source)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .unwrap();
     let strings = match module.section(SectionId::StringTable) {
         Some(SectionData::StringTable(table)) => table,
         other => panic!("expected STRING_TABLE, got {other:?}"),
@@ -133,7 +140,10 @@ END_RESOURCE
 END_CONFIGURATION
 "#;
 
-    let module = bytecode_module_from_source(source).unwrap();
+    // This oracle pins the retained explicit1.1 wire contract.
+    let module = trust_runtime::harness::CompileSession::from_source(source)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .unwrap();
     let strings = match module.section(SectionId::StringTable) {
         Some(SectionData::StringTable(table)) => table,
         other => panic!("expected STRING_TABLE, got {other:?}"),
@@ -173,7 +183,10 @@ flag := TRUE;
 END_PROGRAM
 "#;
 
-    let module = bytecode_module_from_source(source).unwrap();
+    // This oracle pins the retained explicit1.1 wire contract.
+    let module = trust_runtime::harness::CompileSession::from_source(source)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .unwrap();
     let strings = match module.section(SectionId::StringTable) {
         Some(SectionData::StringTable(table)) => table,
         other => panic!("expected STRING_TABLE, got {other:?}"),

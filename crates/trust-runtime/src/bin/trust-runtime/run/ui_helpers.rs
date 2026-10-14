@@ -81,6 +81,7 @@ fn auto_scaffold_hmi_update(
     }
     let metadata = runtime.metadata_snapshot();
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: runtime.prepared().storage_abi(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
     };

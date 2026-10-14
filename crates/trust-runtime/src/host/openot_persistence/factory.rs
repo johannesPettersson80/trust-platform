@@ -169,19 +169,19 @@ impl OpenOtDocumentSink {
 
     #[cfg(unix)]
     pub(crate) fn schema_version(&mut self) -> Result<u32, PersistenceError> {
-        match self {
+        match *self {
             #[cfg(feature = "openot-database-sqlite")]
-            Self::Sqlite(sink) => sink.schema_version(),
+            Self::Sqlite(ref mut sink) => sink.schema_version(),
             #[cfg(feature = "openot-database-postgresql")]
-            Self::PostgreSql(sink) => sink.schema_version(),
+            Self::PostgreSql(ref mut sink) => sink.schema_version(),
             #[cfg(feature = "openot-database-timescaledb")]
-            Self::TimescaleDb(sink) => sink.schema_version(),
+            Self::TimescaleDb(ref mut sink) => sink.schema_version(),
             #[cfg(feature = "openot-database-mysql")]
-            Self::MySql(sink) => sink.schema_version(),
+            Self::MySql(ref mut sink) => sink.schema_version(),
             #[cfg(feature = "openot-database-sqlserver")]
-            Self::SqlServer(sink) => sink.schema_version(),
+            Self::SqlServer(ref mut sink) => sink.schema_version(),
             #[cfg(feature = "openot-database-influxdb3")]
-            Self::InfluxDb3(sink) => sink.schema_version(),
+            Self::InfluxDb3(ref mut sink) => sink.schema_version(),
         }
     }
 
@@ -205,8 +205,8 @@ impl OpenOtDocumentSink {
 
     pub(super) fn open_with_environment(
         config: &OpenOtPersistenceConfig,
-        bundle_root: &Path,
-        definitions: &[open_ot_definition::DefinitionFile],
+        _bundle_root: &Path,
+        _definitions: &[open_ot_definition::DefinitionFile],
         environment: &dyn Fn(&str) -> Result<String, std::env::VarError>,
     ) -> Result<Self, PersistenceError> {
         // SQLite-only compositions do not resolve secret-bearing variables.
@@ -232,9 +232,9 @@ impl OpenOtDocumentSink {
                 let path = if sqlite.path.is_absolute() {
                     sqlite.path.clone()
                 } else {
-                    bundle_root.join(&sqlite.path)
+                    _bundle_root.join(&sqlite.path)
                 };
-                SqliteDocumentSink::open_with_definitions(&path, definitions.to_vec())
+                SqliteDocumentSink::open_with_definitions(&path, _definitions.to_vec())
                     .map(Self::Sqlite)
             }
             #[cfg(not(feature = "openot-database-sqlite"))]
@@ -262,13 +262,13 @@ impl OpenOtDocumentSink {
                 let ca_cert_path = if ca_cert_path.is_absolute() {
                     ca_cert_path.clone()
                 } else {
-                    bundle_root.join(ca_cert_path)
+                    _bundle_root.join(ca_cert_path)
                 };
                 PostgreSqlDocumentSink::open_with_definitions(
                     &connection_url,
                     postgresql.schema.as_str(),
                     &ca_cert_path,
-                    definitions.to_vec(),
+                    _definitions.to_vec(),
                 )
                 .map(Self::PostgreSql)
             }
@@ -297,13 +297,13 @@ impl OpenOtDocumentSink {
                 let ca_cert_path = if ca_cert_path.is_absolute() {
                     ca_cert_path.clone()
                 } else {
-                    bundle_root.join(ca_cert_path)
+                    _bundle_root.join(ca_cert_path)
                 };
                 TimescaleDbDocumentSink::open_with_definitions(
                     &connection_url,
                     timescaledb.schema.as_str(),
                     &ca_cert_path,
-                    definitions.to_vec(),
+                    _definitions.to_vec(),
                 )
                 .map(Self::TimescaleDb)
             }
@@ -331,13 +331,13 @@ impl OpenOtDocumentSink {
                 let ca_cert_path = if ca_cert_path.is_absolute() {
                     ca_cert_path.clone()
                 } else {
-                    bundle_root.join(ca_cert_path)
+                    _bundle_root.join(ca_cert_path)
                 };
                 MySqlDocumentSink::open_with_definitions(
                     &connection_url,
                     mysql.database.as_str(),
                     &ca_cert_path,
-                    definitions.to_vec(),
+                    _definitions.to_vec(),
                 )
                 .map(Self::MySql)
             }
@@ -365,13 +365,13 @@ impl OpenOtDocumentSink {
                 let ca_cert_path = if ca_cert_path.is_absolute() {
                     ca_cert_path.clone()
                 } else {
-                    bundle_root.join(ca_cert_path)
+                    _bundle_root.join(ca_cert_path)
                 };
                 SqlServerDocumentSink::open_with_definitions(
                     &connection_url,
                     sqlserver.schema.as_str(),
                     &ca_cert_path,
-                    definitions.to_vec(),
+                    _definitions.to_vec(),
                 )
                 .map(Self::SqlServer)
             }
@@ -379,7 +379,7 @@ impl OpenOtDocumentSink {
             OpenOtPersistenceBackend::SqlServer => Err(backend_unavailable("sqlserver")),
             #[cfg(feature = "openot-database-influxdb3")]
             OpenOtPersistenceBackend::InfluxDb3 => {
-                open_influxdb3(config, bundle_root, definitions, environment).map(Self::InfluxDb3)
+                open_influxdb3(config, _bundle_root, _definitions, environment).map(Self::InfluxDb3)
             }
             #[cfg(not(feature = "openot-database-influxdb3"))]
             OpenOtPersistenceBackend::InfluxDb3 => Err(backend_unavailable("influxdb3")),
@@ -388,19 +388,19 @@ impl OpenOtDocumentSink {
 
     #[cfg(all(test, feature = "openot-real-database-tests"))]
     pub(crate) fn storage_bytes(&mut self) -> Result<u64, PersistenceError> {
-        match self {
+        match *self {
             #[cfg(feature = "openot-database-sqlite")]
-            Self::Sqlite(sink) => sink.storage_bytes(),
+            Self::Sqlite(ref mut sink) => sink.storage_bytes(),
             #[cfg(feature = "openot-database-postgresql")]
-            Self::PostgreSql(sink) => sink.storage_bytes(),
+            Self::PostgreSql(ref mut sink) => sink.storage_bytes(),
             #[cfg(feature = "openot-database-timescaledb")]
-            Self::TimescaleDb(sink) => sink.storage_bytes(),
+            Self::TimescaleDb(ref mut sink) => sink.storage_bytes(),
             #[cfg(feature = "openot-database-mysql")]
-            Self::MySql(sink) => sink.storage_bytes(),
+            Self::MySql(ref mut sink) => sink.storage_bytes(),
             #[cfg(feature = "openot-database-sqlserver")]
-            Self::SqlServer(sink) => sink.storage_bytes(),
+            Self::SqlServer(ref mut sink) => sink.storage_bytes(),
             #[cfg(feature = "openot-database-influxdb3")]
-            Self::InfluxDb3(sink) => sink.spool_logical_bytes(),
+            Self::InfluxDb3(ref mut sink) => sink.spool_logical_bytes(),
         }
     }
 }
@@ -450,74 +450,74 @@ fn open_influxdb3(
 
 impl DocumentSink for OpenOtDocumentSink {
     fn maintenance_status(&mut self) -> Result<MaintenanceOutcome, PersistenceError> {
-        match self {
+        match *self {
             #[cfg(feature = "openot-database-sqlite")]
-            Self::Sqlite(sink) => sink.maintenance_status(),
+            Self::Sqlite(ref mut sink) => sink.maintenance_status(),
             #[cfg(feature = "openot-database-postgresql")]
-            Self::PostgreSql(sink) => sink.maintenance_status(),
+            Self::PostgreSql(ref mut sink) => sink.maintenance_status(),
             #[cfg(feature = "openot-database-timescaledb")]
-            Self::TimescaleDb(sink) => sink.maintenance_status(),
+            Self::TimescaleDb(ref mut sink) => sink.maintenance_status(),
             #[cfg(feature = "openot-database-mysql")]
-            Self::MySql(sink) => sink.maintenance_status(),
+            Self::MySql(ref mut sink) => sink.maintenance_status(),
             #[cfg(feature = "openot-database-sqlserver")]
-            Self::SqlServer(sink) => sink.maintenance_status(),
+            Self::SqlServer(ref mut sink) => sink.maintenance_status(),
             #[cfg(feature = "openot-database-influxdb3")]
-            Self::InfluxDb3(sink) => sink.maintenance_status(),
+            Self::InfluxDb3(ref mut sink) => sink.maintenance_status(),
         }
     }
 
     fn maintenance(&mut self) -> Result<usize, PersistenceError> {
-        match self {
+        match *self {
             #[cfg(feature = "openot-database-sqlite")]
-            Self::Sqlite(sink) => sink.maintenance(),
+            Self::Sqlite(ref mut sink) => sink.maintenance(),
             #[cfg(feature = "openot-database-postgresql")]
-            Self::PostgreSql(sink) => sink.maintenance(),
+            Self::PostgreSql(ref mut sink) => sink.maintenance(),
             #[cfg(feature = "openot-database-timescaledb")]
-            Self::TimescaleDb(sink) => sink.maintenance(),
+            Self::TimescaleDb(ref mut sink) => sink.maintenance(),
             #[cfg(feature = "openot-database-mysql")]
-            Self::MySql(sink) => sink.maintenance(),
+            Self::MySql(ref mut sink) => sink.maintenance(),
             #[cfg(feature = "openot-database-sqlserver")]
-            Self::SqlServer(sink) => sink.maintenance(),
+            Self::SqlServer(ref mut sink) => sink.maintenance(),
             #[cfg(feature = "openot-database-influxdb3")]
-            Self::InfluxDb3(sink) => sink.maintenance(),
+            Self::InfluxDb3(ref mut sink) => sink.maintenance(),
         }
     }
 
     fn load_checkpoint(
         &mut self,
-        buffer_id: u32,
-        run_id: u64,
+        _buffer_id: u32,
+        _run_id: u64,
     ) -> Result<Option<super::PersistenceCheckpoint>, PersistenceError> {
-        match self {
+        match *self {
             #[cfg(feature = "openot-database-sqlite")]
-            Self::Sqlite(sink) => sink.load_checkpoint(buffer_id, run_id),
+            Self::Sqlite(ref mut sink) => sink.load_checkpoint(_buffer_id, _run_id),
             #[cfg(feature = "openot-database-postgresql")]
-            Self::PostgreSql(sink) => sink.load_checkpoint(buffer_id, run_id),
+            Self::PostgreSql(ref mut sink) => sink.load_checkpoint(_buffer_id, _run_id),
             #[cfg(feature = "openot-database-timescaledb")]
-            Self::TimescaleDb(sink) => sink.load_checkpoint(buffer_id, run_id),
+            Self::TimescaleDb(ref mut sink) => sink.load_checkpoint(_buffer_id, _run_id),
             #[cfg(feature = "openot-database-mysql")]
-            Self::MySql(sink) => sink.load_checkpoint(buffer_id, run_id),
+            Self::MySql(ref mut sink) => sink.load_checkpoint(_buffer_id, _run_id),
             #[cfg(feature = "openot-database-sqlserver")]
-            Self::SqlServer(sink) => sink.load_checkpoint(buffer_id, run_id),
+            Self::SqlServer(ref mut sink) => sink.load_checkpoint(_buffer_id, _run_id),
             #[cfg(feature = "openot-database-influxdb3")]
-            Self::InfluxDb3(sink) => sink.load_checkpoint(buffer_id, run_id),
+            Self::InfluxDb3(ref mut sink) => sink.load_checkpoint(_buffer_id, _run_id),
         }
     }
 
-    fn commit(&mut self, batch: &PersistenceBatch) -> Result<CommitOutcome, PersistenceError> {
-        match self {
+    fn commit(&mut self, _batch: &PersistenceBatch) -> Result<CommitOutcome, PersistenceError> {
+        match *self {
             #[cfg(feature = "openot-database-sqlite")]
-            Self::Sqlite(sink) => sink.commit(batch),
+            Self::Sqlite(ref mut sink) => sink.commit(_batch),
             #[cfg(feature = "openot-database-postgresql")]
-            Self::PostgreSql(sink) => sink.commit(batch),
+            Self::PostgreSql(ref mut sink) => sink.commit(_batch),
             #[cfg(feature = "openot-database-timescaledb")]
-            Self::TimescaleDb(sink) => sink.commit(batch),
+            Self::TimescaleDb(ref mut sink) => sink.commit(_batch),
             #[cfg(feature = "openot-database-mysql")]
-            Self::MySql(sink) => sink.commit(batch),
+            Self::MySql(ref mut sink) => sink.commit(_batch),
             #[cfg(feature = "openot-database-sqlserver")]
-            Self::SqlServer(sink) => sink.commit(batch),
+            Self::SqlServer(ref mut sink) => sink.commit(_batch),
             #[cfg(feature = "openot-database-influxdb3")]
-            Self::InfluxDb3(sink) => sink.commit(batch),
+            Self::InfluxDb3(ref mut sink) => sink.commit(_batch),
         }
     }
 }

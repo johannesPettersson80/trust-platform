@@ -36,6 +36,7 @@ fn scaffold_from_sources(root: &Path, style: &str, sources: &[(&str, &str)]) -> 
         .expect("build runtime");
     let metadata = runtime.metadata_snapshot();
     let snapshot = crate::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
     };
@@ -70,6 +71,7 @@ fn scaffold_from_sources_with_mode(
         .expect("build runtime");
     let metadata = runtime.metadata_snapshot();
     let snapshot = crate::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
     };

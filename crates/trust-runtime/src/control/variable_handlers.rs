@@ -24,11 +24,18 @@ pub(super) fn handle_eval(
         None => return ControlResponse::error(id, "no snapshot available".into()),
     };
     let name = params.expr.trim();
-    let value = snapshot
-        .storage
-        .get_global(name)
-        .cloned()
-        .or_else(|| snapshot.storage.get_retain(name).cloned());
+    let value = if let Some(value) = snapshot.storage.get_global(name) {
+        Some(value.clone())
+    } else {
+        let metadata = match state.metadata.lock() {
+            Ok(metadata) => metadata,
+            Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+        };
+        metadata
+            .retained_reference_exact(&snapshot.storage, name)
+            .and_then(|reference| snapshot.storage.materialize_by_ref_ref(&reference))
+            .or_else(|| snapshot.storage.get_retain(name).cloned())
+    };
     match value {
         Some(value) => ControlResponse::ok(id, json!({ "value": format!("{value:?}") })),
         None => ControlResponse::error(id, "unknown identifier".into()),

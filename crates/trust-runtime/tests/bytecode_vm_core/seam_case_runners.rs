@@ -39,10 +39,7 @@ fn vm_encoder_fail_closed_trace_cases() {
     );
 }
 
-fn run_encoder_case(
-    case: &CaseRecord,
-    probe: &mut EncoderProbe,
-) -> Result<CaseExecution, String> {
+fn run_encoder_case(case: &CaseRecord, probe: &mut EncoderProbe) -> Result<CaseExecution, String> {
     let scenario = case
         .input
         .get("scenario")
@@ -101,16 +98,25 @@ END_PROGRAM
     let mut harness = vm_harness(source);
     let cycle = harness.cycle();
     if !cycle.errors.is_empty() {
-        return Err(format!("supported loop execution failed: {:?}", cycle.errors));
+        return Err(format!(
+            "supported loop execution failed: {:?}",
+            cycle.errors
+        ));
     }
     let observed = [
         harness.get_output("sum_for"),
         harness.get_output("sum_while"),
         harness.get_output("sum_repeat"),
     ];
-    let expected = [Some(Value::Int(2)), Some(Value::Int(4)), Some(Value::Int(4))];
+    let expected = [
+        Some(Value::Int(2)),
+        Some(Value::Int(4)),
+        Some(Value::Int(4)),
+    ];
     if observed != expected {
-        return Err(format!("expected loop sums {expected:?}, observed {observed:?}"));
+        return Err(format!(
+            "expected loop sums {expected:?}, observed {observed:?}"
+        ));
     }
     Ok("accepted_and_executed")
 }
@@ -136,9 +142,18 @@ target := [DINT#1, DINT#2];
 END_PROGRAM
 "#;
     let session = trust_runtime::harness::CompileSession::from_source(source);
-    session
-        .build_runtime()
-        .map_err(|error| format!("fixture must pass source analysis: {error}"))?;
+    use trust_hir::db::{Database, FileId, SemanticDatabase, SourceDatabase};
+    let mut database = Database::new();
+    let file = FileId(0);
+    database.set_source_text(file, source.into());
+    let diagnostics = database.diagnostics(file);
+    let errors: Vec<_> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.is_error())
+        .collect();
+    if !errors.is_empty() {
+        return Err(format!("fixture must pass HIR analysis: {errors:?}"));
+    }
     match session.build_bytecode_module() {
         Err(_) => Ok("rejected_before_partial_bytecode"),
         Ok(_) => Err("unsupported array initializer produced bytecode after a valid prefix".into()),
@@ -168,12 +183,11 @@ END_PROGRAM
     expect_lowering_rejection(source, "unsupported generic type")
 }
 
-fn expect_lowering_rejection(
-    source: &str,
-    expected_message: &str,
-) -> Result<&'static str, String> {
+fn expect_lowering_rejection(source: &str, expected_message: &str) -> Result<&'static str, String> {
     match bytecode_module_from_source(source) {
-        Err(error) if error.to_string().contains(expected_message) => Ok("rejected_before_bytecode"),
+        Err(error) if error.to_string().contains(expected_message) => {
+            Ok("rejected_before_bytecode")
+        }
         Err(error) => Err(format!(
             "expected lowering rejection containing {expected_message:?}, got {error}"
         )),

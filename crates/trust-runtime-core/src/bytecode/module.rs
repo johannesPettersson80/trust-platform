@@ -2,7 +2,7 @@
 
 use super::{
     BytecodeError, BytecodeMetadata, BytecodeVersion, Section, SectionData, SectionId,
-    ValidationLimits, ValidationStats, HEADER_FLAG_CRC32,
+    ValidationLimits, ValidationStats, HEADER_FLAG_CRC32, HEADER_FLAG_LEGACY_TEMPORAL32,
 };
 use alloc::vec::Vec;
 
@@ -18,6 +18,10 @@ pub struct BytecodeModule {
 }
 
 impl BytecodeModule {
+    /// Storage interpretation selected by the supported version and header flags.
+    pub fn storage_abi(&self) -> Result<crate::value::StorageAbi, BytecodeError> {
+        self.view().storage_abi()
+    }
     /// Create an empty raw container with version-appropriate default flags.
     #[must_use]
     pub fn new(version: BytecodeVersion) -> Self {
@@ -89,6 +93,10 @@ pub struct BytecodeModuleView<'a> {
 }
 
 impl<'a> BytecodeModuleView<'a> {
+    /// Derive storage interpretation without an unchecked caller-provided override.
+    pub fn storage_abi(self) -> Result<crate::value::StorageAbi, BytecodeError> {
+        storage_abi_for_header(self.version, self.flags)
+    }
     /// Borrow the first matching section; this does not validate the container.
     #[must_use]
     pub fn section(&self, id: SectionId) -> Option<&'a SectionData> {
@@ -133,13 +141,13 @@ impl<'a> ValidatedBytecode<'a> {
 }
 
 impl<'a> BytecodeModuleView<'a> {
-    /// Validate the complete 2.0 construction format for a source-free consumer.
+    /// Validate a complete supported source-free construction format.
     /// This does not construct executable state or admit a hardware profile.
     pub fn validated_source_free(
         self,
         limits: ValidationLimits,
     ) -> Result<ValidatedBytecode<'a>, BytecodeError> {
-        if self.version != BytecodeVersion::SOURCE_FREE {
+        if !self.version.is_source_free() {
             return Err(BytecodeError::UnsupportedVersion {
                 major: self.version.major,
                 minor: self.version.minor,
@@ -164,7 +172,7 @@ impl<'a> BytecodeModuleView<'a> {
 }
 
 impl BytecodeModule {
-    /// Validate a complete 2.0 artifact without requiring HIR or prebuilt instances.
+    /// Validate a complete 2.0/3.0 artifact without HIR or prebuilt instances.
     pub fn validated_source_free(
         &self,
         limits: ValidationLimits,
@@ -183,4 +191,29 @@ impl BytecodeModule {
     ) -> Result<ValidatedBytecode<'_>, BytecodeError> {
         self.view().validated_with_limits(limits)
     }
+}
+
+pub(crate) fn storage_abi_for_header(
+    version: BytecodeVersion,
+    flags: u32,
+) -> Result<crate::value::StorageAbi, BytecodeError> {
+    let default = version.storage_abi()?;
+    if version == BytecodeVersion::SOURCE_FREE_V2 && flags != HEADER_FLAG_CRC32 {
+        return Err(BytecodeError::InvalidHeader(
+            "STBC 2.0 requires CRC32 and no reserved flags".into(),
+        ));
+    }
+    if version == BytecodeVersion::SOURCE_FREE {
+        if flags & HEADER_FLAG_CRC32 == 0
+            || flags & !(HEADER_FLAG_CRC32 | HEADER_FLAG_LEGACY_TEMPORAL32) != 0
+        {
+            return Err(BytecodeError::InvalidHeader(
+                "STBC 3.0 requires CRC32 and supports only the legacy temporal ABI flag".into(),
+            ));
+        }
+        if flags & HEADER_FLAG_LEGACY_TEMPORAL32 != 0 {
+            return Ok(crate::value::StorageAbi::LegacyTemporal32);
+        }
+    }
+    Ok(default)
 }

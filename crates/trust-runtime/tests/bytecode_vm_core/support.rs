@@ -10,7 +10,7 @@ use trust_runtime::harness::{
     bytecode_bytes_from_source, bytecode_module_from_source, TestHarness,
 };
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime_core::vm::register_test_support::opcode_operand_len;
 
 fn vm_harness(source: &str) -> TestHarness {
     let mut harness = TestHarness::from_source(source).expect("compile harness");
@@ -93,12 +93,10 @@ fn replace_main_body(module: &mut BytecodeModule, new_body: &[u8]) {
 }
 
 fn vm_harness_from_module(source: &str, module: &BytecodeModule) -> TestHarness {
-    let bytes = module.encode().expect("encode module");
     let mut harness = TestHarness::from_source(source).expect("compile runtime");
-    harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("apply bytecode");
+    *harness.runtime_mut() = trust_runtime::harness::CompileSession::from_source(source)
+        .build_runtime_from_bytecode(module, None)
+        .expect("admit supplied artifact with matching construction context");
     harness
         .runtime_mut()
         .set_execution_backend(ExecutionBackend::BytecodeVm)
@@ -122,19 +120,24 @@ fn assert_invalid_bytecode_contains(errors: &[RuntimeError], needle: &str) {
 
 fn assert_apply_invalid_bytecode_contains(module: &BytecodeModule, needle: &str) {
     let bytes = module.encode().expect("encode module");
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new()
+        .build()
+        .expect("admit empty application");
     let err = runtime
         .apply_bytecode_bytes(&bytes, None)
         .expect_err("mutated module should fail during apply");
-    match err {
-        RuntimeError::Bytecode { code, detail } => {
-            assert!(
-                detail.contains(needle),
-                "expected coded bytecode error containing '{needle}', got '{detail}' ({code})"
-            );
-        }
-        other => panic!("expected coded bytecode error, got {other:?}"),
-    }
+    let validation = module
+        .validate()
+        .expect_err("mutation must fail full validation");
+    assert_eq!(
+        err.stable_code(),
+        validation.stable_code(),
+        "product preserves validation identity"
+    );
+    assert!(
+        err.to_string().contains(needle),
+        "expected bytecode cause containing '{needle}', got {err:?}"
+    );
 }
 
 fn mutate_first_const_payload_for_primitive(
@@ -170,33 +173,6 @@ fn mutate_first_const_payload_for_primitive(
 }
 
 fn patch_first_call_native_arg_count(module: &mut BytecodeModule, arg_count: u32) {
-    fn opcode_operand_len(opcode: u8) -> Option<usize> {
-        match opcode {
-            0x00
-            | 0x01
-            | 0x06
-            | 0x11
-            | 0x12
-            | 0x13
-            | 0x14
-            | 0x15
-            | 0x25
-            | 0x23
-            | 0x24
-            | 0x31
-            | 0x32
-            | 0x33
-            | 0x61
-            | 0x40..=0x4E
-            | 0x50..=0x55 => Some(0),
-            0x02..=0x05 | 0x07 | 0x10 | 0x20..=0x22 | 0x30 | 0x60 | 0x62 | 0x63 | 0x70 => Some(4),
-            0x08 => Some(8),
-            0x09 => Some(12),
-            0x16 => Some(1),
-            _ => None,
-        }
-    }
-
     let (_, start, end) = main_pou_entry(module);
     let code = match module.section_mut(SectionId::PouBodies) {
         Some(SectionData::PouBodies(code)) => code,
@@ -234,30 +210,8 @@ fn patch_first_opcode_u32_operand(module: &mut BytecodeModule, opcode: u8, opera
     let mut pc = start;
     while pc < end {
         let current = code[pc];
-        let operand_len = match current {
-            0x00
-            | 0x01
-            | 0x06
-            | 0x11
-            | 0x12
-            | 0x13
-            | 0x14
-            | 0x15
-            | 0x25
-            | 0x23
-            | 0x24
-            | 0x31
-            | 0x32
-            | 0x33
-            | 0x61
-            | 0x40..=0x4E
-            | 0x50..=0x55 => 0,
-            0x02..=0x05 | 0x07 | 0x10 | 0x20..=0x22 | 0x30 | 0x60 | 0x62 | 0x63 | 0x70 => 4,
-            0x08 => 8,
-            0x09 => 12,
-            0x16 => 1,
-            _ => panic!("invalid opcode in main body: 0x{current:02X}"),
-        };
+        let operand_len = opcode_operand_len(current)
+            .unwrap_or_else(|| panic!("invalid opcode in main body: 0x{current:02X}"));
         if current == opcode {
             if operand_len < 4 || pc + 5 > end {
                 panic!("opcode 0x{opcode:02X} has no u32 operand");
@@ -285,30 +239,8 @@ fn first_opcode_u32_operand(module: &BytecodeModule, opcode: u8) -> u32 {
     let mut pc = start;
     while pc < end {
         let current = code[pc];
-        let operand_len = match current {
-            0x00
-            | 0x01
-            | 0x06
-            | 0x11
-            | 0x12
-            | 0x13
-            | 0x14
-            | 0x15
-            | 0x25
-            | 0x23
-            | 0x24
-            | 0x31
-            | 0x32
-            | 0x33
-            | 0x61
-            | 0x40..=0x4E
-            | 0x50..=0x55 => 0,
-            0x02..=0x05 | 0x07 | 0x10 | 0x20..=0x22 | 0x30 | 0x60 | 0x62 | 0x63 | 0x70 => 4,
-            0x08 => 8,
-            0x09 => 12,
-            0x16 => 1,
-            _ => panic!("invalid opcode in main body: 0x{current:02X}"),
-        };
+        let operand_len = opcode_operand_len(current)
+            .unwrap_or_else(|| panic!("invalid opcode in main body: 0x{current:02X}"));
         if current == opcode {
             if operand_len < 4 || pc + 5 > end {
                 panic!("opcode 0x{opcode:02X} has no u32 operand");
@@ -318,4 +250,21 @@ fn first_opcode_u32_operand(module: &BytecodeModule, opcode: u8) -> u32 {
         pc += 1 + operand_len;
     }
     panic!("expected opcode 0x{opcode:02X} in main body");
+}
+
+fn main_body_opcodes(module: &BytecodeModule) -> Vec<u8> {
+    let body = main_body_bytes(module);
+    let mut opcodes = Vec::new();
+    let mut pc = 0;
+    while pc < body.len() {
+        let opcode = body[pc];
+        let width = opcode_operand_len(opcode).expect("producer emitted a known opcode");
+        assert!(
+            pc + 1 + width <= body.len(),
+            "producer truncated an instruction"
+        );
+        opcodes.push(opcode);
+        pc += 1 + width;
+    }
+    opcodes
 }

@@ -44,11 +44,12 @@ pub(super) fn handle_debug_evaluate(
         };
         (using, metadata.registry().clone(), metadata.profile())
     };
-    let expr = match crate::harness::parse_debug_expression(
+    let expr = match crate::harness::parse_debug_expression_with_abi(
         &params.expression,
         &mut registry,
         profile,
         &using,
+        snapshot.storage_abi,
     ) {
         Ok(expr) => expr,
         Err(err) => return ControlResponse::error(id, err.to_string()),

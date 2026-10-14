@@ -516,6 +516,7 @@ fn harness_initializer_contract_depth_boundary_is_inclusive_and_then_closed() {
     let profile = DateTimeProfile::default();
     let stdlib = StandardLibrary::new();
     let ctx = InitContext {
+        storage_abi: Default::default(),
         storage: &storage,
         registry: &registry,
         catalog: &catalog,

@@ -76,12 +76,15 @@ impl DebugAdapter {
                     value: format_var_state_value(value, storage),
                 })
                 .collect();
-            let retain = storage
-                .retain()
-                .iter()
-                .map(|(name, value)| VarStateEntry {
-                    name: name.to_string(),
-                    value: format_var_state_value(value, storage),
+            let retain = super::retained::references(self.session.metadata(), storage)
+                .into_iter()
+                .filter_map(|(name, reference)| {
+                    storage
+                        .materialize_by_ref_ref(&reference)
+                        .map(|value| VarStateEntry {
+                            name: name.to_string(),
+                            value: format_var_state_value(&value, storage),
+                        })
                 })
                 .collect();
             let instances = storage

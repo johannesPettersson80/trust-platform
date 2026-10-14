@@ -140,6 +140,7 @@ fn sink_rejects_checkpoint_regression_without_changing_durable_state() {
     assert_eq!(sink.checkpoint, Some(committed.checkpoint));
 }
 
+#[cfg(feature = "openot-database-influxdb3")]
 #[test]
 fn influx_logged_values_preserve_previous_and_audit_fields() {
     let projector = super::super::projection::LoggingProjector::new(vec![
@@ -204,6 +205,7 @@ fn mysql_schema_marker_ddl_constrains_singleton_to_one() {
     );
 }
 
+#[cfg(feature = "openot-database-influxdb3")]
 #[test]
 fn influx_domain_measurements_preserve_the_complete_backend_neutral_rows() {
     use super::super::projection_domains::DomainRow;

@@ -23,7 +23,21 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
     let sysroot = String::from_utf8(output.stdout)?;
     let library = Path::new(sysroot.trim()).join("lib/rustlib/src/rust");
     let artifacts = super::build_artifacts::Artifacts::prepare(Path::new(report))?;
-    let mut flags = flags(&config, &root, &cargo_home, &library)?;
+    let mut registry_sources = Vec::new();
+    match fs::read_dir(cargo_home.join("registry/src")) {
+        Ok(entries) => {
+            for entry in entries {
+                let entry = entry.context("read Cargo registry source root")?;
+                if entry.file_type()?.is_dir() {
+                    registry_sources.push(entry.path());
+                }
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error).context("enumerate Cargo registry source roots"),
+    }
+    registry_sources.sort();
+    let mut flags = flags(&config, &root, &cargo_home, &library, &registry_sources)?;
     let binary_flags = artifacts.map_flags(&mut flags)?;
     let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
     let mut configuration = serde_json::json!({
@@ -74,7 +88,13 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
     super::write_report(report, configuration)
 }
 
-fn flags(config: &str, root: &Path, cargo_home: &Path, library: &Path) -> Result<Vec<String>> {
+fn flags(
+    config: &str,
+    root: &Path,
+    cargo_home: &Path,
+    library: &Path,
+    registry_sources: &[std::path::PathBuf],
+) -> Result<Vec<String>> {
     let config: toml::Value = toml::from_str(config)?;
     let mut flags = config
         .get("target")
@@ -89,6 +109,12 @@ fn flags(config: &str, root: &Path, cargo_home: &Path, library: &Path) -> Result
                 .context("non-string rustflag")
         })
         .collect::<Result<Vec<_>>>()?;
+    ensure!(
+        !flags
+            .iter()
+            .any(|flag| flag.contains("machine-outliner-reruns")),
+        "reference firmware requires the compiler's default outliner pass count"
+    );
     for (source, normalized) in [
         (root.to_path_buf(), "/src"),
         (cargo_home.join("registry").join("src"), "/registry"),
@@ -98,6 +124,26 @@ fn flags(config: &str, root: &Path, cargo_home: &Path, library: &Path) -> Result
         ensure!(
             !source.contains('\x1f'),
             "build path contains flag separator"
+        );
+        flags.push(format!("--remap-path-prefix={source}={normalized}"));
+    }
+    // rustc uses the last matching prefix, so specific roots follow general ones.
+    // Preserve the relative filename and distinguish every registry namespace.
+    let mut specific = vec![(
+        root.join("crates/trust-runtime-core/src"),
+        "/core".to_owned(),
+    )];
+    specific.extend(
+        registry_sources
+            .iter()
+            .enumerate()
+            .map(|(index, source)| (source.clone(), format!("/registry{index}"))),
+    );
+    for (source, normalized) in specific {
+        let source = source.to_str().context("non-UTF-8 specific source root")?;
+        ensure!(
+            !source.contains('\x1f'),
+            "source root contains flag separator"
         );
         flags.push(format!("--remap-path-prefix={source}={normalized}"));
     }
@@ -138,6 +184,7 @@ mod tests {
             Path::new(root),
             Path::new(cargo_home),
             Path::new(library),
+            &[],
         )
         .unwrap();
         assert!(flags.windows(2).any(|p| p == ["-C", "link-arg=--icf=safe"]));
@@ -151,5 +198,57 @@ mod tests {
             );
         }
         assert!(!flags.iter().any(|flag| flag.contains("icf=all")));
+    }
+
+    #[test]
+    fn extra_outliner_pass_is_rejected_before_building_firmware() {
+        let config = include_str!("../../../firmware/trust-nucleo-f401re/.cargo/config.toml");
+        let mut config: toml::Value = toml::from_str(config).unwrap();
+        let target_flags = config["target"][TARGET]["rustflags"]
+            .as_array_mut()
+            .unwrap();
+        target_flags.push("-C".into());
+        target_flags.push("llvm-args=-machine-outliner-reruns=1".into());
+        let error = flags(
+            &toml::to_string(&config).unwrap(),
+            Path::new("task"),
+            Path::new("cargo"),
+            Path::new("library"),
+            &[],
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("default outliner pass count"));
+    }
+
+    #[test]
+    fn specific_path_namespaces_follow_general_roots_and_remain_distinct() {
+        let config = include_str!("../../../firmware/trust-nucleo-f401re/.cargo/config.toml");
+        let root = Path::new("task");
+        let cargo_home = Path::new("cargo");
+        let registries = [
+            cargo_home.join("registry/src/first"),
+            cargo_home.join("registry/src/second"),
+        ];
+        let flags = flags(config, root, cargo_home, Path::new("library"), &registries).unwrap();
+        let mappings: Vec<_> = flags
+            .iter()
+            .filter(|flag| flag.starts_with("--remap-path-prefix="))
+            .collect();
+        assert_eq!(mappings.len(), 6);
+        assert_eq!(
+            mappings[3],
+            &format!(
+                "--remap-path-prefix={}=/core",
+                root.join("crates/trust-runtime-core/src").display()
+            )
+        );
+        assert_eq!(
+            mappings[4],
+            &format!("--remap-path-prefix={}=/registry0", registries[0].display())
+        );
+        assert_eq!(
+            mappings[5],
+            &format!("--remap-path-prefix={}=/registry1", registries[1].display())
+        );
     }
 }

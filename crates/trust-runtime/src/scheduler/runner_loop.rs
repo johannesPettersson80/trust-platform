@@ -77,12 +77,7 @@ fn run_resource_loop_with_shared<C: Clock + Clone>(
     shared: SharedGlobals,
 ) {
     run_resource_loop_core(runner, stop, state, last_error, move |runtime| {
-        shared.with_lock(|globals| {
-            shared.sync_into_locked(globals, runtime)?;
-            let result = runtime.execute_cycle();
-            shared.sync_from_locked(globals, runtime)?;
-            result
-        })
+        shared.execute_cycle(runtime)
     });
 }
 
@@ -190,10 +185,15 @@ fn run_resource_loop_core<C, F>(
             if watchdog.enabled
                 && matches!(
                     err,
-                    RuntimeError::WatchdogTimeout | RuntimeError::ExecutionTimeout
+                    RuntimeError::WatchdogTimeout
+                        | RuntimeError::ExecutionTimeout
+                        | RuntimeError::ExecutionLimit { .. }
                 )
             {
-                let watchdog_err = RuntimeError::WatchdogTimeout;
+                let watchdog_err = match err {
+                    RuntimeError::ExecutionLimit { .. } => err,
+                    _ => RuntimeError::WatchdogTimeout,
+                };
                 if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
                     if !try_automatic_restart(
                         &mut runner,
@@ -206,7 +206,7 @@ fn run_resource_loop_core<C, F>(
                     }
                     continue;
                 }
-                let err = runner.runtime.watchdog_timeout();
+                let err = runner.runtime.watchdog_fault(watchdog_err);
                 set_last_error(&last_error, err);
                 set_resource_state(&state, ResourceState::Faulted);
                 break;
@@ -482,7 +482,9 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn scheduler_arms_execution_deadline_during_cycle() {
-        let mut runtime = Runtime::new();
+        let mut runtime = crate::RuntimeBuilder::new()
+            .build()
+            .expect("admit runner fixture");
         runtime.set_watchdog_policy(crate::watchdog::WatchdogPolicy {
             enabled: true,
             timeout: Duration::from_millis(10),
@@ -526,7 +528,9 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn cycle_deadline_guard_restores_previous_deadlines_after_success() {
-        let mut runtime = Runtime::new();
+        let mut runtime = crate::RuntimeBuilder::new()
+            .build()
+            .expect("admit runner fixture");
         let previous = std::time::Instant::now() + std::time::Duration::from_secs(30);
         runtime.set_execution_deadline(Some(previous));
         runtime.set_output_commit_deadline(Some(previous));
@@ -555,7 +559,9 @@ mod runner_loop_poison_tests {
     #[test]
     fn cycle_deadline_guard_restores_after_runtime_error_and_contained_panic() {
         for outcome in ["runtime-error", "panic"] {
-            let mut runtime = Runtime::new();
+            let mut runtime = crate::RuntimeBuilder::new()
+                .build()
+                .expect("admit runner fixture");
             let snapshot = arm_cycle_deadlines(
                 &mut runtime,
                 crate::watchdog::WatchdogPolicy {
@@ -596,7 +602,9 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn disabled_watchdog_does_not_arm_cycle_deadlines() {
-        let mut runtime = Runtime::new();
+        let mut runtime = crate::RuntimeBuilder::new()
+            .build()
+            .expect("admit runner fixture");
         let snapshot = arm_cycle_deadlines(
             &mut runtime,
             crate::watchdog::WatchdogPolicy {
@@ -616,7 +624,9 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn cycle_execution_panic_faults_resource_visibly() {
-        let runtime = Runtime::new();
+        let runtime = crate::RuntimeBuilder::new()
+            .build()
+            .expect("admit runner fixture");
         let runner = ResourceRunner::new(runtime, TestClock, Duration::from_millis(1));
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
@@ -698,7 +708,9 @@ END_PROGRAM
 
     #[test]
     fn update_watchdog_zero_timeout_is_normalized_before_use() {
-        let mut runtime = Runtime::new();
+        let mut runtime = crate::RuntimeBuilder::new()
+            .build()
+            .expect("admit runner fixture");
 
         apply_resource_command(
             &mut runtime,
@@ -771,6 +783,7 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
         } => runtime.apply_mesh_updates(&updates),
         ResourceCommand::Snapshot { respond_to } => {
             let snapshot = crate::debug::DebugSnapshot {
+                storage_abi: runtime.prepared().storage_abi(),
                 storage: runtime.storage().clone(),
                 now: runtime.current_time(),
             };

@@ -71,3 +71,6 @@ mod section_validate;
 use section_validate::*;
 
 mod construction;
+
+mod record;
+use record::Record;

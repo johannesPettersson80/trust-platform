@@ -46,7 +46,7 @@ fn vm_lowering_supports_exit_and_continue_in_loop_stmt_paths() {
     "#;
 
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x02),
         "expected JMP opcode in main loop body"
@@ -140,13 +140,20 @@ fn vm_enforces_instruction_budget() {
     let mut harness = vm_harness_from_module(source, &module);
     harness.runtime_mut().set_execution_deadline(None);
     let cycle = harness.cycle();
-    assert!(
-        cycle
-            .errors
-            .iter()
-            .any(|err| matches!(err, RuntimeError::ExecutionTimeout)),
-        "expected ExecutionTimeout from instruction budget, got {:?}",
-        cycle.errors
+    assert_eq!(cycle.errors.len(), 1, "{:?}", cycle.errors);
+    // TIME-08: the JMP loop charges one INSTR unit per iteration, so the scan
+    // allowance is exhausted exactly at VM_MAX_EXECUTED_INSTRUCTIONS.
+    assert_eq!(
+        cycle.errors[0],
+        RuntimeError::ExecutionLimit {
+            kind: trust_runtime_core::error::ExecutionLimitKind::Work,
+            used: trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+            requested: 1,
+            limit: trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+        }
+    );
+    assert_eq!(
+        cycle.errors[0].stable_code(),
+        RuntimeError::ExecutionTimeout.stable_code()
     );
 }
-

@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "portability/f401/gpio.st",
         source,
     )])
-    .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)?;
+    .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE_V2)?;
     let bytes = module.encode()?;
     let decoded = trust_runtime_core::bytecode::BytecodeModule::decode(&bytes)?;
     decoded.validated_source_free(Default::default())?;

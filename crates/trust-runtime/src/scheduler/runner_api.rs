@@ -106,12 +106,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     pub fn tick_with_shared(&mut self, shared: &SharedGlobals) -> Result<(), RuntimeError> {
         let now = self.clock.now();
         self.runtime.set_current_time(now);
-        shared.with_lock(|globals| {
-            shared.sync_into_locked(globals, &mut self.runtime)?;
-            let result = self.runtime.execute_cycle();
-            shared.sync_from_locked(globals, &self.runtime)?;
-            result
-        })
+        shared.execute_cycle(&mut self.runtime)
     }
 
     /// Spawn the runner in a dedicated OS thread.
@@ -167,10 +162,11 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
     /// Spawn the runner with shared global synchronization.
     pub fn spawn_with_shared(
-        self,
+        mut self,
         name: impl Into<String>,
         shared: SharedGlobals,
     ) -> Result<ResourceHandle<C>, RuntimeError> {
+        shared.validate_destination(&mut self.runtime)?;
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));

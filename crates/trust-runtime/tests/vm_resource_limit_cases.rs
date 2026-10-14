@@ -21,7 +21,6 @@ use trust_runtime::runtime_core::vm::hosted::ensure_global_call_depth;
 use trust_runtime::runtime_core::vm::{
     VM_MAX_CALL_DEPTH as MAX_CALL_DEPTH, VM_MAX_OPERAND_STACK as MAX_OPERAND_STACK,
 };
-use trust_runtime::Runtime;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
     TraceStep,
@@ -153,7 +152,10 @@ fn apply_oversized_container() -> Result<(), RuntimeError> {
     module.flags = 0;
     let mut bytes = module.encode().expect("encode base module");
     bytes.resize(MAX_CONTAINER_BYTES.saturating_add(1), 0);
-    Runtime::new().apply_bytecode_bytes(&bytes, None)
+    trust_runtime::RuntimeBuilder::new()
+        .build()
+        .expect("admit empty application")
+        .apply_bytecode_bytes(&bytes, None)
 }
 
 fn module_above_instruction_limit() -> BytecodeModule {
@@ -236,11 +238,17 @@ fn execution_budget_outcome() -> Result<&'static str, String> {
         .map_err(|error| format!("select VM backend: {error}"))?;
     harness.runtime_mut().set_execution_deadline(None);
     let cycle = harness.cycle();
-    if cycle
-        .errors
-        .iter()
-        .any(|error| matches!(error, RuntimeError::ExecutionTimeout))
-    {
+    if cycle.errors.iter().any(|error| {
+        matches!(
+            error,
+            RuntimeError::ExecutionLimit {
+                kind: trust_runtime_core::error::ExecutionLimitKind::Work,
+                used,
+                requested,
+                limit,
+            } if used <= limit && *requested > limit - used
+        ) && error.stable_code() == RuntimeError::ExecutionTimeout.stable_code()
+    }) {
         Ok("execution_timeout")
     } else if cycle.errors.is_empty() {
         Ok("accepted")

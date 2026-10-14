@@ -36,6 +36,13 @@ pub struct FrameId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InstanceId(pub u32);
 
+/// VM owner metadata for a live execution activation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ExecutionFrameOwner {
+    pub(crate) pou_id: u32,
+    pub(crate) runtime_instance: Option<InstanceId>,
+}
+
 #[cfg(test)]
 mod identity_tests {
     use super::{FrameId, InstanceId, IoArea, MemoryLocation};
@@ -79,8 +86,8 @@ mod identity_tests {
 use crate::collections::LookupMap as FxHashMap;
 use crate::collections::OrderedMap as IndexMap;
 use crate::value::{
-    materialize_value_path, read_value_path_borrowed, write_value_path, PartialAccess, RefPath,
-    RefSegment, Value, ValueRef,
+    materialize_value_path, read_value_path_borrowed, PartialAccess, RefPath, RefSegment, Value,
+    ValueRef,
 };
 use alloc::vec::Vec;
 #[cfg(feature = "std")]
@@ -118,7 +125,7 @@ struct RecursiveInstanceFieldResolution {
 pub struct VariableStorage {
     globals: IndexMap<SmolStr, Value>,
     frames: Vec<LocalFrame>,
-    execution_frames: live::LiveEntries<FrameId, Option<Vec<Value>>>,
+    execution_frames: live::LiveEntries<FrameId, ExecutionActivation>,
     execution_frame_limit: Option<usize>,
     instances: InstanceMap,
     retain: IndexMap<SmolStr, Value>,
@@ -131,6 +138,15 @@ pub struct VariableStorage {
     declared_instance_field_offsets: RwLock<FxHashMap<(SmolStr, SmolStr), usize>>,
     next_frame_id: u32,
     next_instance_id: u32,
+}
+
+/// One reserved activation identity, with locals and engine metadata sharing
+/// the same monotonically ordered registry entry.
+#[derive(Debug, Clone, Default)]
+struct ExecutionActivation {
+    locals: Option<Vec<Value>>,
+    active: bool,
+    owner: Option<ExecutionFrameOwner>,
 }
 
 impl Clone for VariableStorage {
@@ -182,6 +198,7 @@ mod execution_frames;
 mod frames;
 mod instances;
 mod references;
+pub(crate) use references::PreparedStorageWrite;
 mod storage;
 
 #[cfg(all(test, feature = "std"))]

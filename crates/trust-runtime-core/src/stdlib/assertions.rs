@@ -12,10 +12,10 @@ use alloc::format;
 /// Register the shared assertions functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 9] = [
     super::registration::descriptor!("ASSERT_EQUAL", EXPECTED_ACTUAL, assert_equal),
     super::registration::descriptor!("ASSERT_FALSE", IN, assert_false),
     super::registration::descriptor!("ASSERT_GREATER", VALUE_BOUND, assert_greater),
@@ -98,6 +98,10 @@ fn assert_near(args: &[Value]) -> Result<Value, RuntimeError> {
     if diff <= delta || diff - delta <= rounding_tolerance {
         Ok(Value::Null)
     } else {
+        let expected = crate::value::float_text::display(expected);
+        let actual = crate::value::float_text::display(actual);
+        let delta = crate::value::float_text::display(delta);
+        let diff = crate::value::float_text::display(diff);
         Err(RuntimeError::AssertionFailed(
             format!(
                 "ASSERT_NEAR failed: expected {expected}, actual {actual}, delta {delta}, diff {diff}"

@@ -50,7 +50,8 @@ impl StructuralBindings {
                 }
                 found
             };
-            let reference = reference.ok_or_else(|| invalid("unknown configured path prefix"))?;
+            let reference = reference
+                .ok_or_else(|| invalid("unresolved access path: unknown configured path prefix"))?;
             let mut resolved = ResolvedBinding {
                 type_id: self.types.get(&reference).copied(),
                 reference,
@@ -76,7 +77,9 @@ impl StructuralBindings {
                                 .zip(dimensions)
                                 .any(|(index, (low, high))| index < low || index > high)
                         {
-                            return Err(invalid("configured array index out of bounds"));
+                            return Err(invalid(
+                                "invalid access path index: configured array index out of bounds",
+                            ));
                         }
                         resolved.reference.path.push(RefSegment::Index(
                             crate::value::ref_indices_from_iter(indices.iter().copied()),

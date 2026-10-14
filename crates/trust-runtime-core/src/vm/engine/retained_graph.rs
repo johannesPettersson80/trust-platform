@@ -3,6 +3,7 @@ use super::*;
 use crate::bytecode::{StorageOwner, StorageRole, TypeData};
 use crate::memory::MemoryLocation;
 use alloc::sync::Arc;
+use smol_str::SmolStr;
 
 struct RetainedGraph<'s, 'p> {
     source: &'s EngineState<'p>,
@@ -13,22 +14,15 @@ struct RetainedGraph<'s, 'p> {
     root_indices: BTreeMap<u32, Vec<u32>>,
 }
 
-// A B-tree node scans a bounded number of keys at each logarithmic level.
-fn tree_work(len: usize) -> usize {
-    12 * (len.max(1).ilog2() as usize + 1)
-}
-
 fn index_marks(
     target: &EngineState<'_>,
     marks: &LifecycleMarks,
 ) -> Result<BTreeMap<u32, Vec<u32>>, RuntimeError> {
     let mut index: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
     for (declaration, owner) in marks.iter() {
-        target.charge_work_units(1)?;
         let Some(owner) = owner else {
             continue;
         };
-        target.charge_work_units(tree_work(index.len()))?;
         target.charge_allocation_bytes(
             core::mem::size_of::<(InstanceId, Vec<u32>)>() * 4 + 2 * core::mem::size_of::<u32>(),
         )?;
@@ -50,23 +44,21 @@ impl EngineState<'_> {
             source,
             identities: BTreeMap::new(),
             copied: BTreeSet::new(),
-            initialized: index_marks(self, &source.construction.initialized_declarations)?,
-            once: index_marks(self, &source.construction.once)?,
+            initialized: index_marks(self, &source.data.construction.initialized_declarations)?,
+            once: index_marks(self, &source.data.construction.once)?,
             root_indices: BTreeMap::new(),
         };
         for (index, (old, new)) in source
+            .data
             .construction
             .roots
             .iter()
-            .zip(&self.construction.roots)
+            .zip(&self.data.construction.roots)
             .enumerate()
         {
-            self.charge_work_units(1)?;
             if let (Some(old), Some(new)) = (old, new) {
                 self.charge_allocation_bytes(core::mem::size_of::<(InstanceId, InstanceId)>() * 4)?;
-                self.charge_work_units(tree_work(graph.identities.len()))?;
                 graph.identities.insert(old.0, new.0);
-                self.charge_work_units(tree_work(graph.root_indices.len()))?;
                 self.charge_allocation_bytes(
                     core::mem::size_of::<(InstanceId, Vec<usize>)>() * 4
                         + 2 * core::mem::size_of::<usize>(),
@@ -77,7 +69,6 @@ impl EngineState<'_> {
             }
         }
         for (index, declaration) in source.prepared.layout.entries.iter().enumerate() {
-            self.charge_work_units(1)?;
             if declaration.owner != StorageOwner::Global
                 || declaration.role != StorageRole::Variable
                 || !declaration.is_retained()
@@ -86,43 +77,49 @@ impl EngineState<'_> {
             }
             let name = &source.prepared.vm.strings[declaration.name_idx as usize];
             let value = source
+                .data
                 .storage
                 .get_global(name)
                 .ok_or(RuntimeError::NullReference)?;
             let value = graph.value(self, declaration.type_id, value, 0)?;
             self.charge_allocation_bytes(self.value_clone_charge(&value, 0)?)?;
-            self.storage.set_global(name.clone(), value.clone());
-            let (growth_bytes, growth_work) = self
+            let declaration_index = root_index(index)?;
+            let (growth_bytes, _) = self
+                .data
                 .construction
                 .retained_globals
-                .growth_charge(root_index(index)?)?;
-            self.charge_work_units(
-                tree_work(self.construction.retained_globals.len())
-                    + growth_work
-                    + tree_work(self.construction.initialized_declarations.len()),
-            )?;
+                .growth_charge(declaration_index)?;
             self.charge_allocation_bytes(RetainedGlobals::insertion_charge().max(growth_bytes))?;
-            self.construction
-                .retained_globals
-                .insert(root_index(index)?, value)?;
-            self.charge_sorted_growth(
-                self.construction
-                    .initialized_declarations
-                    .insertion_demand((root_index(index)?, None)),
-            )?;
-            self.construction
+            let marker = (declaration_index, None);
+            let marker_plan = self
+                .data
+                .construction
                 .initialized_declarations
-                .insert((root_index(index)?, None))?;
+                .insertion_plan(marker)?;
+            let (marker_bytes, _) = marker_plan.demand();
+            self.charge_allocation_bytes(marker_bytes)?;
+            let prepared_marker = self
+                .data
+                .construction
+                .initialized_declarations
+                .prepare_insert(marker_plan)?;
+            // All work/allocation admission and marker reservation precede the
+            // candidate's persistent value/retained-state publication.
+            self.data.storage.set_global(name.clone(), value.clone());
+            self.data
+                .construction
+                .retained_globals
+                .insert(declaration_index, value)?;
+            prepared_marker.publish();
         }
         Ok(())
     }
 }
 
 impl RetainedGraph<'_, '_> {
-    fn step(target: &EngineState<'_>, depth: usize) -> Result<(), RuntimeError> {
-        target.charge_work_units(1)?;
-        if depth >= target.prepared.limits.max_call_depth.min(128) {
-            return Err(super::super::VmTrap::CallStackOverflow.into_runtime_error());
+    fn step(depth: usize) -> Result<(), RuntimeError> {
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
         }
         Ok(())
     }
@@ -134,14 +131,23 @@ impl RetainedGraph<'_, '_> {
         value: &Value,
         depth: usize,
     ) -> Result<Value, RuntimeError> {
-        Self::step(target, depth)?;
         target.charge_allocation_bytes(target.value_clone_charge(value, depth)?)?;
+        self.owned_value(target, type_id, value.clone(), depth)
+    }
+
+    fn owned_value(
+        &mut self,
+        target: &mut EngineState<'_>,
+        type_id: Option<u32>,
+        mut value: Value,
+        depth: usize,
+    ) -> Result<Value, RuntimeError> {
+        Self::step(depth)?;
         let source = self.source;
         let resolved_type = type_id.and_then(|id| {
             super::super::type_policy::resolved_alias_type(&source.prepared.vm.types, id, 0)
         });
         let ty = resolved_type.and_then(|id| source.prepared.vm.types.entries.get(id as usize));
-        let mut value = value.clone();
         match &mut value {
             Value::Instance(id)
                 if ty.is_some_and(|entry| matches!(entry.data, TypeData::Interface { .. })) =>
@@ -156,32 +162,47 @@ impl RetainedGraph<'_, '_> {
                     _ => return Err(RuntimeError::TypeMismatch),
                 };
                 for element in array.elements_mut() {
-                    *element = self.value(target, element_type, element, depth + 1)?;
+                    let original = core::mem::replace(element, Value::Null);
+                    *element = self.owned_value(target, element_type, original, depth + 1)?;
                 }
             }
             Value::Struct(structure) => {
                 // Arc clone alone is cheap, but remapping must never mutate source state.
-                target.charge_allocation_bytes(
-                    structure
-                        .fields()
-                        .len()
-                        .checked_mul(core::mem::size_of::<Value>() * 4)
-                        .ok_or(RuntimeError::Overflow)?,
-                )?;
-                for field in structure.fields().values() {
-                    target.charge_allocation_bytes(target.value_clone_charge(field, depth + 1)?)?;
+                if Arc::strong_count(structure) > 1 || Arc::weak_count(structure) > 0 {
+                    target.charge_allocation_bytes(
+                        core::mem::size_of::<crate::value::StructValue>()
+                            .checked_add(2 * core::mem::size_of::<usize>())
+                            .and_then(|bytes| bytes.checked_add(structure.physical_byte_len()))
+                            .and_then(|bytes| {
+                                structure
+                                    .fields()
+                                    .len()
+                                    .checked_mul(core::mem::size_of::<(SmolStr, Value)>() * 4)
+                                    .and_then(|fields| bytes.checked_add(fields))
+                            })
+                            .ok_or(RuntimeError::Overflow)?,
+                    )?;
+                    for field in structure.fields().values() {
+                        target.charge_allocation_bytes(
+                            target.value_clone_charge(field, depth + 1)?,
+                        )?;
+                    }
                 }
-                let names = structure.fields().keys().cloned().collect::<Vec<_>>();
-                for name in names {
-                    let old = structure.field(&name).ok_or(RuntimeError::NullReference)?;
-                    let type_id = resolved_type.ok_or(RuntimeError::TypeMismatch)?;
-                    target.charge_work_units(source.prepared.name_lookup_work(&name))?;
+                let type_id = resolved_type.ok_or(RuntimeError::TypeMismatch)?;
+                let structure = Arc::make_mut(structure);
+                structure.remap_retained_identities(|name, old| {
                     let field_type = source
                         .prepared
-                        .type_member(type_id, &name)
+                        .type_member(type_id, name)
                         .ok_or(RuntimeError::TypeMismatch)?;
-                    let mapped = self.value(target, Some(field_type), old, depth + 1)?;
-                    Arc::make_mut(structure).set_existing_field(name, mapped);
+                    self.owned_value(target, Some(field_type), old, depth + 1)
+                })?;
+                let layout = target.prepared.vm.physical_layout(type_id);
+                if !structure.has_physical_layout(layout.as_ref()) {
+                    if let Some(layout) = &layout {
+                        target.charge_work_units(layout.construction_work()?)?;
+                    }
+                    structure.rebind_physical_layout(layout)?;
                 }
             }
             _ => {}
@@ -195,13 +216,10 @@ impl RetainedGraph<'_, '_> {
         old: InstanceId,
         depth: usize,
     ) -> Result<InstanceId, RuntimeError> {
-        Self::step(target, depth)?;
-        target.charge_work_units(
-            tree_work(self.source.lifetimes.instance_lifetimes.len())
-                + tree_work(self.source.construction.instance_templates.len()),
-        )?;
+        Self::step(depth)?;
         if self
             .source
+            .data
             .lifetimes
             .instance_lifetimes
             .get(&old)
@@ -211,23 +229,22 @@ impl RetainedGraph<'_, '_> {
         }
         let source = self.source;
         let data = source
+            .data
             .storage
             .get_instance(old)
             .ok_or(RuntimeError::NullReference)?;
-        target
-            .charge_work_units(tree_work(self.identities.len()) + tree_work(self.copied.len()))?;
         let new = if let Some(new) = self.identities.get(&old.0) {
             InstanceId(*new)
         } else {
             let pou = *self
                 .source
+                .data
                 .construction
                 .instance_templates
                 .get(&old)
                 .ok_or(RuntimeError::NullReference)?;
             let new = target.reserve_instance(pou, None)?;
             target.charge_allocation_bytes(core::mem::size_of::<(InstanceId, InstanceId)>() * 4)?;
-            target.charge_work_units(tree_work(self.identities.len()))?;
             self.identities.insert(old.0, new.0);
             new
         };
@@ -235,7 +252,6 @@ impl RetainedGraph<'_, '_> {
             return Ok(new);
         }
         target.charge_allocation_bytes(core::mem::size_of::<InstanceId>() * 4)?;
-        target.charge_work_units(tree_work(self.copied.len()))?;
         self.copied.insert(old.0);
         target.charge_allocation_bytes(
             data.variables
@@ -245,8 +261,9 @@ impl RetainedGraph<'_, '_> {
         )?;
         // Reserve every field before recursion so cycles can bind native/private slots too.
         for name in data.variables.keys() {
-            if target.storage.get_instance_var(new, name).is_none() {
+            if target.data.storage.get_instance_var(new, name).is_none() {
                 target
+                    .data
                     .storage
                     .set_instance_var(new, name.clone(), Value::Null);
             }
@@ -255,17 +272,18 @@ impl RetainedGraph<'_, '_> {
         let names = data.variables.keys().cloned().collect::<Vec<_>>();
         for name in names {
             let old_value = source
+                .data
                 .storage
                 .get_instance_var(old, &name)
                 .ok_or(RuntimeError::NullReference)?;
             // Type metadata is identical in the mapped candidate. Charge its
             // fresh restart budget, never the source state's previous scan fuel.
-            let ty = match target.storage.ref_for_instance(new, &name) {
+            let ty = match target.data.storage.ref_for_instance(new, &name) {
                 Some(reference) => target.reference_type(reference.as_view())?,
                 None => None,
             };
             let value = self.value(target, ty, old_value, depth + 1)?;
-            if !target.storage.set_instance_var(new, name, value) {
+            if !target.data.storage.set_instance_var(new, name, value) {
                 return Err(RuntimeError::NullReference);
             }
         }
@@ -273,62 +291,50 @@ impl RetainedGraph<'_, '_> {
             .map(|parent| self.instance(target, parent, depth + 1))
             .transpose()?;
         target
+            .data
             .storage
             .get_instance_mut(new)
             .ok_or(RuntimeError::NullReference)?
             .parent = parent;
-        target.charge_work_units(tree_work(target.construction.initialized_instances.len()))?;
         target.charge_allocation_bytes(core::mem::size_of::<InstanceId>() * 4)?;
         target.charge_sorted_growth(
             target
+                .data
                 .construction
                 .initialized_instances
                 .insertion_demand(new),
         )?;
-        target.construction.initialized_instances.insert(new)?;
-        target.charge_work_units(tree_work(self.initialized.len()))?;
+        target.data.construction.initialized_instances.insert(new)?;
         if let Some(declarations) = self.initialized.get(&old.0) {
             for &declaration in declarations {
-                target.charge_work_units(
-                    1 + tree_work(target.construction.initialized_declarations.len()),
-                )?;
-                target.charge_allocation_bytes(
-                    core::mem::size_of::<(u32, Option<InstanceId>)>() * 4,
-                )?;
-                target.charge_sorted_growth(
-                    target
-                        .construction
-                        .initialized_declarations
-                        .insertion_demand((declaration, Some(new))),
-                )?;
-                target
+                let marker = (declaration, Some(new));
+                let plan = target
+                    .data
                     .construction
                     .initialized_declarations
-                    .insert((declaration, Some(new)))?;
+                    .insertion_plan(marker)?;
+                target.charge_sorted_growth(Ok(plan.demand()))?;
+                let prepared_marker = target
+                    .data
+                    .construction
+                    .initialized_declarations
+                    .prepare_insert(plan)?;
+                prepared_marker.publish();
             }
         }
-        target.charge_work_units(tree_work(self.once.len()))?;
         if let Some(declarations) = self.once.get(&old.0) {
             for &declaration in declarations {
-                target.charge_work_units(1 + tree_work(target.construction.once.len()))?;
-                target.charge_allocation_bytes(
-                    core::mem::size_of::<(u32, Option<InstanceId>)>() * 4,
-                )?;
-                target.charge_sorted_growth(
-                    target
-                        .construction
-                        .once
-                        .insertion_demand((declaration, Some(new))),
-                )?;
-                target.construction.once.insert((declaration, Some(new)))?;
+                let marker = (declaration, Some(new));
+                let plan = target.data.construction.once.insertion_plan(marker)?;
+                target.charge_sorted_growth(Ok(plan.demand()))?;
+                let prepared_marker = target.data.construction.once.prepare_insert(plan)?;
+                prepared_marker.publish();
             }
         }
-        target.charge_work_units(tree_work(self.root_indices.len()))?;
         if let Some(indices) = self.root_indices.get(&new.0) {
             for &index in indices {
-                target.charge_work_units(1 + tree_work(target.construction.claimed_roots.len()))?;
                 target.charge_allocation_bytes(core::mem::size_of::<usize>() * 4)?;
-                target.construction.claimed_roots.insert(index);
+                target.data.construction.claimed_roots.insert(index);
             }
         }
         Ok(new)
@@ -340,8 +346,7 @@ impl RetainedGraph<'_, '_> {
         old: InstanceId,
         depth: usize,
     ) -> Result<InstanceId, RuntimeError> {
-        Self::step(target, depth)?;
-        target.charge_work_units(tree_work(self.identities.len()))?;
+        Self::step(depth)?;
         match self.identities.get(&old.0) {
             Some(new) => Ok(InstanceId(*new)),
             // A persistent dynamic object has no artifact root to reconstruct.
@@ -356,16 +361,18 @@ impl RetainedGraph<'_, '_> {
         reference: &mut ValueRef,
         depth: usize,
     ) -> Result<(), RuntimeError> {
-        Self::step(target, depth)?;
+        Self::step(depth)?;
         match reference.location {
             MemoryLocation::Global => {
                 let (name, _) = self
                     .source
+                    .data
                     .storage
                     .globals()
                     .get_index(reference.offset)
                     .ok_or(RuntimeError::NullReference)?;
                 reference.offset = target
+                    .data
                     .storage
                     .ref_for_global(name)
                     .ok_or(RuntimeError::NullReference)?
@@ -374,6 +381,7 @@ impl RetainedGraph<'_, '_> {
             MemoryLocation::Instance(old) => {
                 let data = self
                     .source
+                    .data
                     .storage
                     .get_instance(old)
                     .ok_or(RuntimeError::NullReference)?;
@@ -386,6 +394,7 @@ impl RetainedGraph<'_, '_> {
                 // A reference to an artifact root preserves binding, not ownership.
                 let new = self.binding(target, old, depth + 1)?;
                 let mapped = target
+                    .data
                     .storage
                     .ref_for_instance(new, &name)
                     .ok_or(RuntimeError::NullReference)?;
@@ -405,7 +414,289 @@ mod tests {
     use super::*;
 
     #[test]
-    fn retained_object_type_queries_consume_candidate_fuel_not_old_scan_fuel() {
+    fn retained_import_marker_refusal_precedes_global_and_retained_publication() {
+        let mut prepared = PreparedModule::from_bytes(
+            include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
+            crate::vm::PreparationLimits::default(),
+        )
+        .unwrap();
+        let (declaration, name) = prepared
+            .layout
+            .entries
+            .iter()
+            .enumerate()
+            .find(|(_, entry)| {
+                entry.owner == StorageOwner::Global && entry.role == StorageRole::Variable
+            })
+            .map(|(index, entry)| {
+                (
+                    u32::try_from(index).expect("fixture declaration fits u32"),
+                    prepared.vm.strings[entry.name_idx as usize].clone(),
+                )
+            })
+            .expect("GPIO fixture has a global variable");
+        prepared.layout.entries[declaration as usize].retain = 1;
+        let mut source_data =
+            EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        source_data.storage.set_global(name.clone(), Value::Int(17));
+        let source = EngineState::borrow(&mut source_data, &prepared, &services::LOGICAL_ONLY);
+        let mut target_data =
+            EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        target_data.storage.set_global(name.clone(), Value::Int(99));
+        let previous = target_data
+            .storage
+            .get_global(&name)
+            .expect("constructed retained global")
+            .clone();
+        assert_ne!(
+            previous,
+            Value::Int(17),
+            "source and target differ before import"
+        );
+        target_data.construction.initialized_declarations = Default::default();
+        // Measure the import's complete allocation on an identical target, then
+        // allow one byte less so its last admission, the marker, is refused.
+        let mut probe_data =
+            EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        probe_data.storage.set_global(name.clone(), Value::Int(99));
+        probe_data.construction.initialized_declarations = Default::default();
+        probe_data.resources.construction_bytes.set(0);
+        let mut probe = EngineState::borrow(&mut probe_data, &prepared, &services::LOGICAL_ONLY);
+        probe.import_retained_globals(&source).unwrap();
+        let required = probe.data.resources.construction_bytes.get();
+        target_data
+            .resources
+            .construction_bytes
+            .set(prepared.limits.max_construction_bytes - (required - 1));
+        let marker_capacity_before = target_data
+            .construction
+            .initialized_declarations
+            .capacity_state_for_test();
+        let mut target = EngineState::borrow(&mut target_data, &prepared, &services::LOGICAL_ONLY);
+
+        assert!(matches!(
+            target.import_retained_globals(&source),
+            Err(RuntimeError::ExecutionLimit {
+                kind: crate::error::ExecutionLimitKind::AllocationBytes,
+                ..
+            })
+        ));
+        assert_eq!(target.data.storage.get_global(&name), Some(&previous));
+        assert!(!target
+            .data
+            .construction
+            .retained_globals
+            .contains_key(&declaration));
+        assert_eq!(
+            target
+                .data
+                .construction
+                .initialized_declarations
+                .capacity_state_for_test(),
+            marker_capacity_before
+        );
+    }
+
+    #[test]
+    fn retained_structure_remap_keeps_gap_bits_and_rebinds_the_candidate_layout() {
+        use crate::bytecode::{BytecodeModule, Field, SectionData, SectionId, TypeEntry, TypeKind};
+        use crate::collections::OrderedMap;
+        use crate::value::{read_value_path_borrowed, write_value_path, RefSegment, StructValue};
+
+        let mut artifact = BytecodeModule::decode(include_bytes!(
+            "../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"
+        ))
+        .unwrap();
+        artifact.version = crate::bytecode::BytecodeVersion::SOURCE_FREE;
+        let SectionData::StringTable(strings) =
+            artifact.section_mut(SectionId::StringTable).unwrap()
+        else {
+            panic!("strings")
+        };
+        let first_name = strings.entries.len() as u32;
+        strings.entries.extend(
+            [
+                "RetainedInner",
+                "RetainedOuter",
+                "low",
+                "high",
+                "whole",
+                "inner",
+            ]
+            .map(SmolStr::from),
+        );
+        let SectionData::TypeTable(types) = artifact.section_mut(SectionId::TypeTable).unwrap()
+        else {
+            panic!("types")
+        };
+        let byte = types.entries.len() as u32;
+        types.entries.push(TypeEntry {
+            kind: TypeKind::Primitive,
+            name_idx: None,
+            data: TypeData::Primitive {
+                prim_id: 2,
+                max_length: 0,
+            },
+        });
+        let dword = types.entries.len() as u32;
+        types.entries.push(TypeEntry {
+            kind: TypeKind::Primitive,
+            name_idx: None,
+            data: TypeData::Primitive {
+                prim_id: 4,
+                max_length: 0,
+            },
+        });
+        let inner = types.entries.len() as u32;
+        types.entries.push(TypeEntry {
+            kind: TypeKind::OverlappingStruct,
+            name_idx: Some(first_name),
+            data: TypeData::Struct {
+                fields: vec![
+                    Field {
+                        name_idx: first_name + 2,
+                        type_id: byte,
+                        bit_offset: Some(0),
+                    },
+                    Field {
+                        name_idx: first_name + 3,
+                        type_id: byte,
+                        bit_offset: Some(16),
+                    },
+                ],
+            },
+        });
+        let outer = types.entries.len() as u32;
+        types.entries.push(TypeEntry {
+            kind: TypeKind::OverlappingStruct,
+            name_idx: Some(first_name + 1),
+            data: TypeData::Struct {
+                fields: vec![
+                    Field {
+                        name_idx: first_name + 4,
+                        type_id: dword,
+                        bit_offset: Some(0),
+                    },
+                    Field {
+                        name_idx: first_name + 5,
+                        type_id: inner,
+                        bit_offset: Some(0),
+                    },
+                ],
+            },
+        });
+        let bytes = artifact.encode().unwrap();
+        let source_prepared =
+            PreparedModule::from_bytes(&bytes, crate::vm::PreparationLimits::default()).unwrap();
+        let target_prepared =
+            PreparedModule::from_bytes(&bytes, crate::vm::PreparationLimits::default()).unwrap();
+        let blank = |prepared: &PreparedModule| {
+            let value = StructValue::from_canonical_parts(
+                "RetainedInner".into(),
+                OrderedMap::from_iter([
+                    ("low".into(), Value::Byte(0)),
+                    ("high".into(), Value::Byte(0)),
+                ]),
+            )
+            .with_physical_layout(prepared.vm.physical_layout(inner))
+            .unwrap();
+            let value = StructValue::from_canonical_parts(
+                "RetainedOuter".into(),
+                OrderedMap::from_iter([
+                    ("whole".into(), Value::DWord(0)),
+                    ("inner".into(), Value::Struct(Arc::new(value))),
+                ]),
+            )
+            .with_physical_layout(prepared.vm.physical_layout(outer))
+            .unwrap();
+            Value::Struct(Arc::new(value))
+        };
+        let mut original = blank(&source_prepared);
+        assert!(write_value_path(
+            &mut original,
+            &[RefSegment::Field("whole".into())],
+            Value::DWord(0xDDCC_BBAA)
+        ));
+        let retained =
+            read_value_path_borrowed(&original, &[RefSegment::Field("inner".into())]).unwrap();
+        let mut source_data =
+            EngineState::construct_data(&source_prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        let source =
+            EngineState::borrow(&mut source_data, &source_prepared, &services::LOGICAL_ONLY);
+        let mut target_data =
+            EngineState::construct_data(&target_prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        let mut target =
+            EngineState::borrow(&mut target_data, &target_prepared, &services::LOGICAL_ONLY);
+        let mut graph = RetainedGraph {
+            source: &source,
+            identities: BTreeMap::new(),
+            copied: BTreeSet::new(),
+            initialized: BTreeMap::new(),
+            once: BTreeMap::new(),
+            root_indices: BTreeMap::new(),
+        };
+        let copied = graph.value(&mut target, Some(inner), retained, 0).unwrap();
+        let Value::Struct(copied_structure) = &copied else {
+            panic!("retained structure")
+        };
+        assert!(copied_structure
+            .has_physical_layout(target_prepared.vm.physical_layout(inner).as_ref()));
+        let mut restored = blank(&target_prepared);
+        assert!(write_value_path(
+            &mut restored,
+            &[RefSegment::Field("whole".into())],
+            Value::DWord(0x9900_0000)
+        ));
+        assert!(write_value_path(
+            &mut restored,
+            &[RefSegment::Field("inner".into())],
+            copied
+        ));
+        assert_eq!(
+            read_value_path_borrowed(&restored, &[RefSegment::Field("whole".into())]),
+            Some(&Value::DWord(0x99CC_BBAA))
+        );
+        assert_eq!(
+            read_value_path_borrowed(&original, &[RefSegment::Field("whole".into())]),
+            Some(&Value::DWord(0xDDCC_BBAA))
+        );
+        // The shared writer remains live after restore; aliases still update.
+        assert!(write_value_path(
+            &mut restored,
+            &[
+                RefSegment::Field("inner".into()),
+                RefSegment::Field("low".into())
+            ],
+            Value::Byte(0x11)
+        ));
+        assert_eq!(
+            read_value_path_borrowed(&restored, &[RefSegment::Field("whole".into())]),
+            Some(&Value::DWord(0x99CC_BB11))
+        );
+        // Engineering assignment can receive a coherent value from a different
+        // prepared module. Normalizing its fields must retain the same gap bits.
+        let assigned = target
+            .normalize_assignment_value(inner, retained.clone())
+            .unwrap();
+        let mut destination = blank(&target_prepared);
+        assert!(write_value_path(
+            &mut destination,
+            &[RefSegment::Field("whole".into())],
+            Value::DWord(0x9900_0000)
+        ));
+        assert!(write_value_path(
+            &mut destination,
+            &[RefSegment::Field("inner".into())],
+            assigned
+        ));
+        assert_eq!(
+            read_value_path_borrowed(&destination, &[RefSegment::Field("whole".into())]),
+            Some(&Value::DWord(0x99CC_BBAA))
+        );
+    }
+
+    #[test]
+    fn retained_object_copy_consumes_candidate_fuel_not_old_scan_fuel() {
         let prepared = PreparedModule::from_bytes(
             include_bytes!(
                 "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
@@ -413,18 +704,32 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let source = EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-        let mut target =
-            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-        let Some(Value::Instance(program)) = source.storage.get_global("Plant") else {
+        let mut source_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let source = EngineState::borrow(
+            &mut source_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
+        let mut target_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let mut target = EngineState::borrow(
+            &mut target_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
+        let Some(Value::Instance(program)) = source.data.storage.get_global("Plant") else {
             panic!("program")
         };
-        let Some(Value::Instance(counter)) = source.storage.get_instance_var(*program, "counter")
+        let Some(Value::Instance(counter)) =
+            source.data.storage.get_instance_var(*program, "counter")
         else {
             panic!("counter")
         };
-        source.resources.work_budget.reset(0);
-        let before = target.resources.work_budget.remaining();
+        source.data.resources.work_budget.reset(0);
+        let before = target.data.resources.work_budget.remaining();
         let mut graph = RetainedGraph {
             source: &source,
             identities: BTreeMap::new(),
@@ -435,11 +740,13 @@ mod tests {
         };
         let copied = graph.instance(&mut target, *counter, 0).unwrap();
         assert_eq!(
-            target.storage.get_instance_var(copied, "value"),
+            target.data.storage.get_instance_var(copied, "value"),
             Some(&Value::Int(3))
         );
-        assert!(target.resources.work_budget.remaining() < before);
-        assert_eq!(source.resources.work_budget.remaining(), 0);
+        // TIME-08 VERIFY: the copied `history` array costs 1 + 3 elements (COPY); the
+        // scalar fields and the reference type queries (bookkeeping) cost nothing.
+        assert!(target.data.resources.work_budget.remaining() < before);
+        assert_eq!(source.data.resources.work_budget.remaining(), 0);
     }
     #[test]
     fn compact_retained_indexes_preserve_global_separation_full_ids_and_declaration_order() {
@@ -450,7 +757,14 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let target = EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        let mut target_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let target = EngineState::borrow(
+            &mut target_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
         let mut marks = LifecycleMarks::default();
         marks
             .insert((u16::MAX as u32, Some(InstanceId(u32::MAX))))

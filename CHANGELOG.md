@@ -6,15 +6,61 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.74`
+- Share compact, lossless floating-point text codecs across runtime platforms,
+  preserving both conversion directions and existing diagnostic spelling.
+
+- Count the work limit the way a PLC program sees it: one unit per executed
+  instruction, plus per-element work when arrays, references or text are copied.
+  Lookups, safety checks and other engine bookkeeping no longer count, and
+  passing an array as VAR_IN_OUT copies nothing, as IEC passes it by reference.
+  Each program or task function-block invocation in a scan has its own
+  1,000,000-unit allowance again, so the OpenOT telemetry and database examples,
+  OSCAT OOP and PLCopen Motion libraries run under the default limits. The stack
+  and register executors charge the same total. Program construction and restart
+  get their own allowance from the preparation profile (64 Mi units by default on
+  hosted runtimes).
+- Hosted execution prepares lookup indexes and frame plans once and moves owned
+  call values instead of copying them; lifetime checks, transactional outputs and
+  failure cleanup are unchanged.
+- Calls do less work. Literal and plain scalar defaults are written straight into
+  the new frame, and on hosted runtimes a function, function block or method that
+  calls no other user POU runs directly inside the calling instruction (not while
+  debugging). Results, faults and work-limit charges are unchanged; such calls no
+  longer reserve call-handler memory.
+
+
+Target release: `v0.24.75`
 
 ### Added
+
+- Use the STBC 3.0 storage ABI for new applications: all temporal types occupy
+  eight bytes consistently on every platform, preserving signed temporal ranges.
+  Existing 1.1/2.0 artifacts keep their original sizes and offsets; explicit legacy
+  imports identify their ABI, and unrepresentable physical writes reject atomically.
+  The checked DWORD TIME millisecond transport encoding remains unchanged.
+
+- Add an owned shared-core controller facade for hosted compositions alongside
+  the borrowed MCU facade. Both use operation-scoped metadata/service borrows,
+  checked named value writes and transactional restart with one mutable state.
+- Prepare dynamic-reference candidate indexes without losing alias-conflict,
+  invocation-lifetime or budget checks. Shared static-reference reads and writes
+  reuse their checked target instead of resolving instance ownership twice.
+- Separate declaration lowering into a non-executable hosted builder. Debug
+  expression parsing keeps anonymous types in scratch registries, including
+  retained watch expressions, without extending installed executable types.
+- Project live VM callers and locals into detached debugger snapshots. Hosted
+  watch and breakpoint conditions receive the snapshot evaluation context;
+  observer failures follow shared frame cleanup and cycle fault handling.
+- Route ordinary hosted construction and test-harness execution through STBC 3.0
+  and the shared engine; keep legacy 1.1 production explicitly selected. Installed
+  hosted values and image writes use checked owner APIs. Rejected queued writes
+  report their application failure without turning an invalid request into a PLC fault.
 
 - Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
 
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.
-  Legacy 1.1 remains the default producer. The source-free core now prepares and
+  Legacy 1.1 remains available as an explicit compatibility producer. The source-free core now prepares and
   executes 2.0 through the shared bytecode dispatcher, including compiled initializers,
   typed storage, timers, process images and nominal-deadline task scheduling.
   Warm restart remaps retained objects transactionally; failed initialization or
@@ -51,6 +97,10 @@ Target release: `v0.24.74`
   directions.
 
 ### Changed
+
+- Record the shared hosted runtime's accepted Linux call-workload performance
+  trade-off: a measured 16.4% median overhead against the modernization baseline,
+  with unchanged functions, safety checks and separate hardware timing requirements.
 
 - Modernize the supported build baseline to Rust 1.99 (edition 2024, resolver 3)
   and Node 24.21.0; refresh dependency families while retaining compatible LSP
@@ -137,6 +187,22 @@ Target release: `v0.24.74`
 - Reject source-freeze manifests inside the source checkout, including symlink aliases, and preserve existing manifests rather than overwriting them. Source identity also checks working-tree file kinds, link targets and Unix executable bits; older byte-only snapshots remain historical evidence.
 
 - Bound rendered-test browser startup and lifetime with Rust-owned subprocess cleanup and visible browser/version diagnostics; install selected CI tools and locked frontend prerequisites before their gates.
+
+- Preserve contextual legacy imports whose POU index omits unused standard
+  function blocks, and keep absolute structure-field I/O addresses distinct from
+  relative storage offsets during source-free encoding.
+
+- Use the default compiler outlining pass count for F401 firmware; reject the extra
+  rerun that produced an invalid Thumb return sequence and a startup HardFault.
+
+- Preserve physical structure backing through constant defaults, initializer
+  coercion and STRN v3 durable RETAIN storage, retaining v1/v2 readers; reject
+  contradictory alias constants before installation. Keep optimized remainder
+  and partial-budget fault behavior aligned
+  with the shared bytecode executor, and reserve reusable register frame payloads.
+- Propagate shared-engine cycle limits through hosted management and I/O snapshots;
+  preserve legacy supplied program instances, installed I/O rebinding and anonymous
+  debugger expression types across the hosted compatibility adapters.
 
 - Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the
   service UID under restrictive host umasks, while keeping server keys private.

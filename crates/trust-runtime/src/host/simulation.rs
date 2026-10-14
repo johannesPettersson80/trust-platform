@@ -189,7 +189,7 @@ impl SimulationController {
             self.disturbance_cursor += 1;
             match &disturbance.kind {
                 SimulationDisturbanceKind::SetInput { target, value } => {
-                    if let Err(err) = runtime.io_mut().write(target, value.clone()) {
+                    if let Err(err) = runtime.write_io(target, value.clone()) {
                         let msg = format!(
                             "simulation disturbance failed for {}: {err}",
                             format_io(target)
@@ -211,7 +211,7 @@ impl SimulationController {
                 .pending_effects
                 .pop_front()
                 .expect("front element must exist");
-            if let Err(err) = runtime.io_mut().write(&effect.target, effect.value.clone()) {
+            if let Err(err) = runtime.write_io(&effect.target, effect.value.clone()) {
                 let msg = format!(
                     "simulation delayed effect failed for {}: {err}",
                     format_io(&effect.target)

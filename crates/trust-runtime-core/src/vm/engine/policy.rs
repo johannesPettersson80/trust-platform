@@ -5,25 +5,125 @@ use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
 use crate::vm::context::ExecutionContext;
 
+/// Arrays are homogeneous: an empty array, or one whose first element is a primitive
+/// scalar, cannot hold a reference or instance, so its lifetime check visits nothing.
+fn array_holds_only_primitives(array: &crate::value::ArrayValue) -> bool {
+    array.elements().first().is_none_or(|first| {
+        !matches!(
+            first,
+            Value::Reference(_)
+                | Value::Instance(_)
+                | Value::Array(_)
+                | Value::Struct(_)
+                | Value::Null
+        )
+    })
+}
+
 impl EngineState<'_> {
     pub(super) fn check_entry_deadline(&self) -> Result<(), RuntimeError> {
         self.check_execution_deadline()
     }
+    #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
     pub(in crate::vm::engine) fn charge_work_units(
         &self,
         units: usize,
     ) -> Result<(), RuntimeError> {
+        // Empty paths do not consume fuel or advance the deadline stride.
+        if units == 0 {
+            return Ok(());
+        }
         self.charge_execution_work(units)
     }
 
+    /// Whether `check_value_lifetime` admits `value` without visiting anything or
+    /// charging. Exhaustive, so a new value kind must be classified here too.
+    /// Arrays are excluded even when they hold only primitives.
+    pub(in crate::vm::engine) fn lifetime_check_is_trivial(value: &Value) -> bool {
+        match value {
+            Value::Array(_) | Value::Struct(_) | Value::Reference(Some(_)) | Value::Instance(_) => {
+                false
+            }
+            Value::Bool(_)
+            | Value::SInt(_)
+            | Value::Int(_)
+            | Value::DInt(_)
+            | Value::LInt(_)
+            | Value::USInt(_)
+            | Value::UInt(_)
+            | Value::UDInt(_)
+            | Value::ULInt(_)
+            | Value::Real(_)
+            | Value::LReal(_)
+            | Value::Byte(_)
+            | Value::Word(_)
+            | Value::DWord(_)
+            | Value::LWord(_)
+            | Value::Time(_)
+            | Value::LTime(_)
+            | Value::Date(_)
+            | Value::LDate(_)
+            | Value::Tod(_)
+            | Value::LTod(_)
+            | Value::Dt(_)
+            | Value::Ldt(_)
+            | Value::String(_)
+            | Value::WString(_)
+            | Value::Char(_)
+            | Value::WChar(_)
+            | Value::Enum(_)
+            | Value::Reference(None)
+            | Value::Null => true,
+        }
+    }
+
+    #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
     pub(in crate::vm::engine) fn check_value_lifetime(
         &self,
         value: &Value,
         destination: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
-        self.check_value_lifetime_inner(value, destination, 0, &mut InstanceSet::default())
+        // TIME-08 LIFETIME: scalars, and arrays of primitive scalars, visit nothing
+        // that can hold a reference, so they are admitted without a charge.
+        match value {
+            Value::Array(array) if array_holds_only_primitives(array) => Ok(()),
+            Value::Reference(Some(_)) | Value::Instance(_) | Value::Array(_) | Value::Struct(_) => {
+                self.check_value_lifetime_inner(value, destination, 0, &mut InstanceSet::default())
+            }
+            Value::Bool(_)
+            | Value::SInt(_)
+            | Value::Int(_)
+            | Value::DInt(_)
+            | Value::LInt(_)
+            | Value::USInt(_)
+            | Value::UInt(_)
+            | Value::UDInt(_)
+            | Value::ULInt(_)
+            | Value::Real(_)
+            | Value::LReal(_)
+            | Value::Byte(_)
+            | Value::Word(_)
+            | Value::DWord(_)
+            | Value::LWord(_)
+            | Value::Time(_)
+            | Value::LTime(_)
+            | Value::Date(_)
+            | Value::LDate(_)
+            | Value::Tod(_)
+            | Value::LTod(_)
+            | Value::Dt(_)
+            | Value::Ldt(_)
+            | Value::String(_)
+            | Value::WString(_)
+            | Value::Char(_)
+            | Value::WChar(_)
+            | Value::Enum(_)
+            | Value::Reference(None)
+            | Value::Null => Ok(()),
+        }
     }
 
+    #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
     pub(in crate::vm::engine) fn check_value_lifetime_inner(
         &self,
         value: &Value,
@@ -32,8 +132,8 @@ impl EngineState<'_> {
         visited: &mut InstanceSet,
     ) -> Result<(), RuntimeError> {
         self.charge_work_units(1)?;
-        if depth >= self.prepared.limits.max_call_depth {
-            return Err(super::super::VmTrap::CallStackOverflow.into_runtime_error());
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
         }
         match value {
             Value::Reference(Some(reference)) => {
@@ -46,13 +146,13 @@ impl EngineState<'_> {
             }
             Value::Instance(instance) => {
                 self.check_instance_lifetime(*instance, destination)?;
-                self.charge_work_units(visited.len().max(1).ilog2() as usize + 1)?;
                 self.charge_sorted_growth(visited.insertion_demand(*instance))?;
                 if visited.insert(*instance)? {
                     let data = self
+                        .data
                         .storage
                         .get_instance(*instance)
-                        .ok_or(RuntimeError::NullReference)?;
+                        .ok_or_else(|| RuntimeError::NullReference)?;
                     if let Some(parent) = data.parent {
                         self.check_value_lifetime_inner(
                             &Value::Instance(parent),
@@ -66,7 +166,7 @@ impl EngineState<'_> {
                     }
                 }
             }
-            Value::Array(array) => {
+            Value::Array(array) if !array_holds_only_primitives(array) => {
                 for value in array.elements() {
                     self.check_value_lifetime_inner(value, destination, depth + 1, visited)?;
                 }
@@ -86,21 +186,16 @@ impl EngineState<'_> {
         source: FrameId,
         destination: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
-        let source_index = self
-            .lifetimes
-            .live_activations
-            .iter()
-            .position(|id| *id == source)
-            .ok_or(RuntimeError::ReferenceLifetime)?;
-        let destination_index = destination
-            .and_then(|id| {
-                self.lifetimes
-                    .live_activations
-                    .iter()
-                    .position(|candidate| *candidate == id)
-            })
-            .ok_or(RuntimeError::ReferenceLifetime)?;
-        if source_index > destination_index {
+        if !self.data.storage.execution_activation_is_live(source) {
+            return Err(RuntimeError::ReferenceLifetime);
+        }
+        let Some(destination) =
+            destination.filter(|id| self.data.storage.execution_activation_is_live(*id))
+        else {
+            return Err(RuntimeError::ReferenceLifetime);
+        };
+        // Activated IDs are monotonic, so identity order is ancestry order.
+        if source.0 > destination.0 {
             return Err(RuntimeError::ReferenceLifetime);
         }
         Ok(())
@@ -111,10 +206,10 @@ impl EngineState<'_> {
         instance: InstanceId,
         destination: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
-        if self.storage.get_instance(instance).is_none() {
+        if self.data.storage.get_instance(instance).is_none() {
             return Err(RuntimeError::ReferenceLifetime);
         }
-        if let Some(Some(owner)) = self.lifetimes.instance_lifetimes.get(&instance) {
+        if let Some(Some(owner)) = self.data.lifetimes.instance_lifetimes.get(&instance) {
             self.check_local_lifetime(owner, destination)?;
         }
         Ok(())
@@ -128,12 +223,14 @@ impl EngineState<'_> {
         self.check_writable_declaration(reference)?;
         let destination = match reference.location {
             MemoryLocation::Local(id) => Some(id),
-            MemoryLocation::Instance(id) => self.lifetimes.instance_lifetimes.get(&id).flatten(),
+            MemoryLocation::Instance(id) => {
+                self.data.lifetimes.instance_lifetimes.get(&id).flatten()
+            }
             _ => None,
         };
-        if let Some(initializer) = self.construction.initializers.last() {
+        if let Some(initializer) = self.data.construction.initializers.last() {
             let staging = reference.location == MemoryLocation::Local(initializer.result)
-                || matches!(reference.location, MemoryLocation::Instance(id) if self.lifetimes.instance_lifetimes.get(&id) == Some(Some(initializer.result)) || initializer.writable_instances.contains(&id));
+                || matches!(reference.location, MemoryLocation::Instance(id) if self.data.lifetimes.instance_lifetimes.get(&id) == Some(Some(initializer.result)) || initializer.writable_instances.contains(&id));
             if !staging {
                 return Err(RuntimeError::StagingViolation);
             }
@@ -146,11 +243,11 @@ impl EngineState<'_> {
         reference: ValueRefView<'_>,
     ) -> Result<(), RuntimeError> {
         if let MemoryLocation::Local(id) = reference.location
-            && !self.storage.execution_frame_is_live(id)
+            && !self.data.storage.execution_frame_is_live(id)
         {
             return Err(RuntimeError::ReferenceLifetime);
         }
-        let Some(active) = self.construction.initializers.last() else {
+        let Some(active) = self.data.construction.initializers.last() else {
             return Ok(());
         };
         if reference.location == MemoryLocation::Local(active.result) {
@@ -166,7 +263,6 @@ impl EngineState<'_> {
                 }
             }
             MemoryLocation::Global => {
-                self.charge_work_units(self.prepared.lookup_work())?;
                 if let Some((index, declaration)) =
                     self.prepared
                         .declaration(StorageOwner::Global, None, reference.offset)
@@ -180,7 +276,7 @@ impl EngineState<'_> {
                     let ordinal = self
                         .prepared
                         .static_ordinal(index)
-                        .ok_or(RuntimeError::InvalidExecutionState)?;
+                        .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
                     if ordinal >= active.entry.visible_static_count as usize {
                         return Err(RuntimeError::VisibilityViolation);
                     }
@@ -188,12 +284,12 @@ impl EngineState<'_> {
             }
             MemoryLocation::Instance(instance) => {
                 let template = self
+                    .data
                     .construction
                     .instance_templates
                     .get(&instance)
                     .copied()
-                    .ok_or(RuntimeError::VisibilityViolation)?;
-                self.charge_work_units(self.prepared.lookup_work())?;
+                    .ok_or_else(|| RuntimeError::VisibilityViolation)?;
                 if let Some((index, declaration)) = self.prepared.declaration(
                     StorageOwner::Instance,
                     Some(template),
@@ -208,15 +304,17 @@ impl EngineState<'_> {
                         let ordinal = self
                             .prepared
                             .static_ordinal(index)
-                            .ok_or(RuntimeError::InvalidExecutionState)?;
+                            .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
                         if ordinal >= active.entry.visible_static_count as usize {
                             return Err(RuntimeError::VisibilityViolation);
                         }
                     }
+                    let marker = (index, Some(instance));
                     if !self
+                        .data
                         .construction
                         .initialized_declarations
-                        .contains(&(index, Some(instance)))?
+                        .contains(&marker)?
                     {
                         return Err(RuntimeError::VisibilityViolation);
                     }
@@ -229,6 +327,10 @@ impl EngineState<'_> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "policy/lifetime_tests.rs"]
+mod lifetime_tests;
 
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn normalize_reference_value(
@@ -247,6 +349,9 @@ impl EngineState<'_> {
         type_id: u32,
         value: &Value,
     ) -> Result<(), RuntimeError> {
+        if self.assignment_is_canonical(type_id, value, 0)? {
+            return Ok(());
+        }
         self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
         self.normalize_assignment_value(type_id, value.clone())
             .map(|_| ())
@@ -260,21 +365,22 @@ impl EngineState<'_> {
         use crate::bytecode::TypeData;
         let type_id =
             super::super::type_policy::resolved_alias_type(&self.prepared.vm.types, type_id, 0)
-                .ok_or(RuntimeError::TypeMismatch)?;
+                .ok_or_else(|| RuntimeError::TypeMismatch)?;
         let entry = self
             .prepared
             .vm
             .types
             .entries
             .get(type_id as usize)
-            .ok_or(RuntimeError::TypeMismatch)?;
+            .ok_or_else(|| RuntimeError::TypeMismatch)?;
         match (&entry.data, value) {
             (TypeData::Pou { pou_id }, Value::Instance(instance)) => {
                 let mut actual = *self
+                    .data
                     .construction
                     .instance_templates
                     .get(instance)
-                    .ok_or(RuntimeError::NullReference)?;
+                    .ok_or_else(|| RuntimeError::NullReference)?;
                 for _ in 0..=self.prepared.vm.pou_by_id.len() {
                     if actual == *pou_id {
                         return Ok(());
@@ -288,10 +394,11 @@ impl EngineState<'_> {
             }
             (TypeData::Interface { .. }, Value::Instance(instance)) => {
                 let mut actual = *self
+                    .data
                     .construction
                     .instance_templates
                     .get(instance)
-                    .ok_or(RuntimeError::NullReference)?;
+                    .ok_or_else(|| RuntimeError::NullReference)?;
                 for _ in 0..=self.prepared.vm.pou_by_id.len() {
                     if self
                         .prepared
@@ -321,18 +428,18 @@ impl EngineState<'_> {
                             0,
                         )
                     })
-                    .ok_or(RuntimeError::TypeMismatch)?;
+                    .ok_or_else(|| RuntimeError::TypeMismatch)?;
                 let target = super::super::type_policy::resolved_alias_type(
                     &self.prepared.vm.types,
                     *target_type_id,
                     0,
                 )
-                .ok_or(RuntimeError::TypeMismatch)?;
+                .ok_or_else(|| RuntimeError::TypeMismatch)?;
                 if super::super::reference_attempt::runtime_type_is_compatible(
                     &self.prepared.vm,
                     actual,
                     target,
-                ) {
+                )? {
                     Ok(())
                 } else {
                     Err(RuntimeError::TypeMismatch)

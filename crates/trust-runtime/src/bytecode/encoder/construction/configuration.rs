@@ -41,7 +41,7 @@ impl BytecodeEncoder<'_> {
         for program in &config.programs {
             for binding in &program.fb_tasks {
                 let AccessPath::Parts(parts) = &binding.path else {
-                    return Err(invalid("direct FB task binding"));
+                    return Err(invalid("direct addresses are not valid FB task bindings"));
                 };
                 let mut full = vec![AccessPart::Name(program.name.clone())];
                 full.extend(parts.iter().cloned());
@@ -58,7 +58,9 @@ impl BytecodeEncoder<'_> {
                         })
                         .is_none()
                 {
-                    return Err(invalid("task binding must select a function block"));
+                    return Err(invalid(
+                        "FB task binding must reference a function block instance",
+                    ));
                 }
                 let task = self
                     .construction
@@ -68,6 +70,31 @@ impl BytecodeEncoder<'_> {
                     .ok_or_else(|| invalid("unknown task in FB binding"))?;
                 task.fb_instances.push(target.reference);
             }
+        }
+        for (task_name, parts) in &input.builder.manual_task_bindings {
+            let target =
+                self.construction
+                    .bindings
+                    .resolve_parts(parts, roots, self.runtime.registry())?;
+            if target.partial.is_some()
+                || target
+                    .type_id
+                    .and_then(|ty| {
+                        crate::harness::function_block_type_name(ty, self.runtime.registry())
+                    })
+                    .is_none()
+            {
+                return Err(invalid(
+                    "FB task binding must reference a function block instance",
+                ));
+            }
+            let task = self
+                .construction
+                .tasks
+                .iter_mut()
+                .find(|task| task.name.eq_ignore_ascii_case(task_name))
+                .ok_or_else(|| invalid("unknown task in builder binding"))?;
+            task.fb_instances.push(target.reference);
         }
         Ok(())
     }
@@ -82,6 +109,11 @@ impl BytecodeEncoder<'_> {
             .as_ref()
             .ok_or_else(|| invalid("configuration missing"))?;
         for alias in config.access.iter().chain(&input.program_access) {
+            if let crate::harness::AccessTargetPolicy::Forbidden(section) =
+                source_access_target_policy(input, &alias.path)
+            {
+                return Err(invalid(&format!("VAR_ACCESS cannot expose {section}")));
+            }
             if self.construction.bindings.global(&alias.name).is_some() {
                 return Err(invalid("access alias conflicts with global"));
             }
@@ -138,6 +170,15 @@ impl BytecodeEncoder<'_> {
             .as_ref()
             .ok_or_else(|| invalid("configuration missing"))?;
         for init in &config.config_inits {
+            match source_access_target_policy(input, &init.path) {
+                crate::harness::AccessTargetPolicy::Writable => {}
+                crate::harness::AccessTargetPolicy::ReadOnly(reason)
+                | crate::harness::AccessTargetPolicy::Forbidden(reason) => {
+                    return Err(invalid(&format!(
+                        "VAR_CONFIG cannot initialize this variable section ({reason})"
+                    )));
+                }
+            }
             let (declaration_idx, target_idx, target_kind, partial) = match &init.path {
                 AccessPath::Direct { address, text } => {
                     if address.wildcard || init.address.is_some() {
@@ -184,7 +225,7 @@ impl BytecodeEncoder<'_> {
                             .position(|requirement| requirement.reference == target.reference)
                         {
                             if self.construction.wildcards[at].area != address.area {
-                                return Err(invalid("configuration I/O area mismatch"));
+                                return Err(invalid("VAR_CONFIG address area mismatch"));
                             }
                             self.construction.wildcards.remove(at);
                         }
@@ -192,7 +233,7 @@ impl BytecodeEncoder<'_> {
                             target.reference.clone(),
                             init.type_id,
                             Some(address),
-                            &"@config".into(),
+                            init.display_name.as_ref().unwrap_or(&"@config".into()),
                         )?;
                     }
                     let ty = target
@@ -270,4 +311,52 @@ fn partial_type(partial: Option<PartialAccess>) -> Option<TypeId> {
         4 => Some(TypeId::DWORD),
         _ => None,
     }
+}
+
+fn source_access_target_policy(
+    input: &crate::harness::LoweredApplication,
+    path: &AccessPath,
+) -> crate::harness::AccessTargetPolicy {
+    let AccessPath::Parts(parts) = path else {
+        return crate::harness::AccessTargetPolicy::Writable;
+    };
+    let mut names = parts.iter().filter_map(|part| match part {
+        AccessPart::Name(name) => Some(name),
+        _ => None,
+    });
+    let (Some(root), Some(member)) = (names.next(), names.next()) else {
+        return crate::harness::AccessTargetPolicy::Writable;
+    };
+    let program = input
+        .configuration
+        .as_ref()
+        .and_then(|config| {
+            config
+                .programs
+                .iter()
+                .find(|entry| entry.name.eq_ignore_ascii_case(root))
+        })
+        .and_then(|entry| {
+            input
+                .program_defs
+                .values()
+                .find(|program| program.name.eq_ignore_ascii_case(&entry.type_name))
+        })
+        .or_else(|| {
+            input
+                .program_defs
+                .values()
+                .find(|program| program.name.eq_ignore_ascii_case(root))
+        });
+    program.map_or(crate::harness::AccessTargetPolicy::Writable, |program| {
+        if input
+            .program_externals
+            .get(program.name.to_ascii_uppercase().as_str())
+            .is_some_and(|names| names.iter().any(|name| name.eq_ignore_ascii_case(member)))
+        {
+            crate::harness::AccessTargetPolicy::Forbidden("VAR_EXTERNAL")
+        } else {
+            crate::harness::program_access_target_policy(program, member)
+        }
+    })
 }

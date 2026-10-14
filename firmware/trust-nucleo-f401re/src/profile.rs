@@ -23,6 +23,7 @@ pub fn limits() -> PreparationLimits {
         max_construction_bytes: 128 * 1024,
         max_process_image_bytes: 64,
         max_work: 50_000,
+        max_construction_work: 50_000,
         max_call_depth: 4,
     }
 }

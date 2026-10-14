@@ -401,6 +401,7 @@ fn first_watch_refresh_sets_edge_and_same_value_does_not_repeat_it() {
     let mut storage = VariableStorage::new();
     let registry = TypeRegistry::new();
     let mut ctx = DebugRuntimeContext {
+        storage_abi: Default::default(),
         storage: &mut storage,
         registry: &registry,
         stdlib: None,
@@ -418,6 +419,52 @@ fn first_watch_refresh_sets_edge_and_same_value_does_not_repeat_it() {
 }
 
 #[test]
+fn watch_keeps_anonymous_types_in_its_own_registry() {
+    let control = DebugControl::new();
+    let registry = TypeRegistry::new();
+    let mut scratch = registry.clone();
+    let expr = crate::harness::parse_debug_expression(
+        "SIZEOF(STRING[17])",
+        &mut scratch,
+        DateTimeProfile::default(),
+        &[],
+    )
+    .unwrap();
+    let Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)) = &expr else {
+        panic!("parser-owned SIZEOF type");
+    };
+    let type_id = *type_id;
+    assert!(registry.get(type_id).is_none());
+    control.register_watch_expression_with_registry(expr, scratch);
+    let mut storage = VariableStorage::new();
+    let mut ctx = DebugRuntimeContext {
+        storage_abi: Default::default(),
+        storage: &mut storage,
+        registry: &registry,
+        stdlib: None,
+        profile: DateTimeProfile::default(),
+        current_instance: None,
+        now: Duration::from_millis(1),
+    };
+    control.refresh_snapshot(&mut ctx);
+    assert!(control.take_watch_changed());
+    {
+        let (lock, _) = &*control.state;
+        let state = lock.lock().unwrap();
+        assert_eq!(state.watches[0].last, Some(Value::DInt(17)));
+        assert!(state.watches[0]
+            .registry
+            .as_ref()
+            .unwrap()
+            .get(type_id)
+            .is_some());
+    }
+    control.refresh_snapshot(&mut ctx);
+    assert!(!control.take_watch_changed());
+    assert!(registry.get(type_id).is_none());
+}
+
+#[test]
 fn watch_change_flag_accumulates_until_read() {
     let control = DebugControl::new();
     control.register_watch_expression(Expr::Name("watched".into()));
@@ -427,6 +474,7 @@ fn watch_change_flag_accumulates_until_read() {
 
     {
         let mut ctx = DebugRuntimeContext {
+            storage_abi: Default::default(),
             storage: &mut storage,
             registry: &registry,
             stdlib: None,
@@ -439,6 +487,7 @@ fn watch_change_flag_accumulates_until_read() {
     storage.set_global("watched", Value::DInt(2));
     {
         let mut ctx = DebugRuntimeContext {
+            storage_abi: Default::default(),
             storage: &mut storage,
             registry: &registry,
             stdlib: None,
@@ -463,6 +512,7 @@ fn watch_evaluation_failure_is_an_observable_value_transition() {
 
     {
         let mut ctx = DebugRuntimeContext {
+            storage_abi: Default::default(),
             storage: &mut storage,
             registry: &registry,
             stdlib: None,
@@ -476,6 +526,7 @@ fn watch_evaluation_failure_is_an_observable_value_transition() {
 
     storage = VariableStorage::new();
     let mut ctx = DebugRuntimeContext {
+        storage_abi: Default::default(),
         storage: &mut storage,
         registry: &registry,
         stdlib: None,

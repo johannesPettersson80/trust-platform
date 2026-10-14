@@ -5,6 +5,7 @@
 mod breakpoints;
 mod control;
 pub mod dap;
+mod execution_snapshot;
 mod hook;
 mod resolve;
 mod trace;

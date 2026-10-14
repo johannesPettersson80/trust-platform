@@ -10,12 +10,17 @@ rust-version.workspace = true
 [features]
 default = ["std"]
 std = ["dep:crc32fast", "crc32fast/std", "indexmap/std", "rustc-hash/std", "smol_str/std", "thiserror/std"]
+register-ir = []
+# Raw optimization fixtures are not part of the production execution API.
+test-support = ["register-ir"]
 hir = ["std", "dep:trust-hir"]
 
 [dependencies]
 crc32fast = { workspace = true, optional = true }
 indexmap.workspace = true
 libm.workspace = true
+lexical-parse-float.workspace = true
+ryu.workspace = true
 rustc-hash.workspace = true
 smol_str.workspace = true
 thiserror.workspace = true

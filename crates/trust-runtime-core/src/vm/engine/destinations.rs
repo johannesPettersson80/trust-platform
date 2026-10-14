@@ -20,8 +20,9 @@ impl SavedDestinations {
     pub(super) fn allocation_bytes(capacity: usize) -> Result<usize, RuntimeError> {
         capacity
             .checked_mul(core::mem::size_of::<(Key, Value)>())
-            .ok_or(RuntimeError::Overflow)
+            .ok_or_else(|| RuntimeError::Overflow)
     }
+    #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.0.len()
     }
@@ -54,7 +55,7 @@ impl SavedDestinations {
             .0
             .len()
             .checked_add(shifts)
-            .ok_or(RuntimeError::Overflow)?;
+            .ok_or_else(|| RuntimeError::Overflow)?;
         Ok((bytes, work))
     }
     fn next_capacity(&self) -> Result<usize, RuntimeError> {
@@ -62,7 +63,7 @@ impl SavedDestinations {
             .capacity()
             .checked_mul(2)
             .map(|n| n.max(4))
-            .ok_or(RuntimeError::Overflow)
+            .ok_or_else(|| RuntimeError::Overflow)
     }
     pub(super) fn insert(&mut self, key: Key, value: Value) -> Result<Option<Value>, RuntimeError> {
         match self.0.binary_search_by_key(&key, |(key, _)| *key) {

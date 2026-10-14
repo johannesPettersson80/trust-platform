@@ -1,16 +1,16 @@
 //! Hosted metadata, clock and profiling adapters for the shared call implementation.
+use crate::runtime::LegacyRuntimeFixture as Runtime;
 use crate::{
     error::RuntimeError,
     memory::InstanceId,
     stdlib::StandardLibrary,
     value::{DateTimeProfile, DateTimeValue, Duration, Value, ValueRef},
-    Runtime,
 };
 use trust_runtime_core::vm::hosted::call::context::{
     BuiltinParam, BuiltinParamDirection, CallContext, RegisterCallOpKind, RegisterValueOpKind,
     VmEdgeInput,
 };
-use trust_runtime_core::vm::hosted::{dispatch::VmPouStackResult, module::VmModule, VmFrame};
+use trust_runtime_core::vm::hosted::VmFrame;
 
 impl CallContext for Runtime {
     fn profile(&self) -> &DateTimeProfile {
@@ -77,32 +77,5 @@ impl CallContext for Runtime {
     }
     fn check_builtin_call(&self, _instance: InstanceId) -> Result<(), RuntimeError> {
         Ok(())
-    }
-    fn try_execute_optimized(
-        &mut self,
-        module: &VmModule,
-        pou_id: u32,
-        instance: Option<InstanceId>,
-        initial_locals: Option<&[Value]>,
-        capture_return: bool,
-        depth: u32,
-        entry: super::budget::ExecutionEntry,
-    ) -> Result<Option<VmPouStackResult>, RuntimeError> {
-        super::register_ir::try_execute_pou_with_register_ir_with_locals(
-            self,
-            module,
-            pou_id,
-            instance,
-            initial_locals,
-            capture_return,
-            depth,
-            entry,
-        )
-        .map(|result| {
-            result.map(|r| VmPouStackResult {
-                return_value: r.return_value,
-                locals: r.locals,
-            })
-        })
     }
 }

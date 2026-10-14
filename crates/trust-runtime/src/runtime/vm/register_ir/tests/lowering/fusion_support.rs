@@ -69,7 +69,10 @@ fn register_ir_fuse_preserves_unmatched_windows_and_fused_tail() {
         },
         RegisterInstr::Return,
     ];
-    assert_eq!(fuse_register_block_instructions(&unmatched), unmatched);
+    assert_eq!(
+        fuse_register_block_instructions(&unmatched).unwrap(),
+        unmatched
+    );
 
     let fused_with_tail = vec![
         RegisterInstr::LoadRef {
@@ -96,7 +99,7 @@ fn register_ir_fuse_preserves_unmatched_windows_and_fused_tail() {
         },
     ];
     assert_eq!(
-        fuse_register_block_instructions(&fused_with_tail),
+        fuse_register_block_instructions(&fused_with_tail).unwrap(),
         vec![
             RegisterInstr::BinaryRefToRef {
                 op: BinaryOp::Add,
@@ -113,7 +116,7 @@ fn register_ir_fuse_preserves_unmatched_windows_and_fused_tail() {
 
     let fused_exact = &fused_with_tail[..4];
     assert_eq!(
-        fuse_register_block_instructions(fused_exact),
+        fuse_register_block_instructions(fused_exact).unwrap(),
         vec![RegisterInstr::BinaryRefToRef {
             op: BinaryOp::Add,
             left_ref_idx: 10,
@@ -127,7 +130,7 @@ fn register_ir_fuse_preserves_unmatched_windows_and_fused_tail() {
 fn register_ir_fusion_preserves_original_bytecode_instruction_costs() {
     let instructions = binary_ref_to_ref_window();
     let (fused, costs) =
-        fuse_register_block_instructions_with_costs(&instructions, &[1, 1, 1, 1]);
+        fuse_register_block_instructions_with_costs(&instructions, &[1, 1, 1, 1]).unwrap();
 
     assert_eq!(
         fused,
@@ -142,11 +145,17 @@ fn register_ir_fusion_preserves_original_bytecode_instruction_costs() {
 }
 
 fn assert_fuses(instructions: Vec<RegisterInstr>, expected: Vec<RegisterInstr>) {
-    assert_eq!(fuse_register_block_instructions(&instructions), expected);
+    assert_eq!(
+        fuse_register_block_instructions(&instructions).unwrap(),
+        expected
+    );
 }
 
 fn assert_no_fusion(instructions: Vec<RegisterInstr>) {
-    assert_eq!(fuse_register_block_instructions(&instructions), instructions);
+    assert_eq!(
+        fuse_register_block_instructions(&instructions).unwrap(),
+        instructions
+    );
 }
 
 fn binary_ref_to_ref_window() -> Vec<RegisterInstr> {

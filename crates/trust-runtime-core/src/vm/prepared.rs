@@ -1,19 +1,23 @@
 //! Immutable source-free preparation, distinct from decoded or validated bytecode.
 use super::module::{invalid_bytecode, VmModule};
+use super::validated_source::{OwnedValidatedSource, ValidatedSource};
 use crate::bytecode::{
-    AccessBindings, BytecodeModule, ConstructionRoots, InitializerIndex, IoMap, ResourceMeta,
-    SectionData, SectionId, StorageLayout, ValidationLimits,
+    AccessBindings, BytecodeModule, ConstructionRoots, InitializerIndex, ResourceMeta, SectionData,
+    SectionId, StorageLayout, ValidationLimits,
 };
 use crate::error::RuntimeError;
 use alloc::{collections::BTreeMap, vec::Vec};
 mod admission;
 mod budget;
 mod indexes;
+mod metadata;
+#[cfg(feature = "std")]
+mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;
 
 /// Explicit preparation limits for an allocator-backed execution profile.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PreparationLimits {
     /// Maximum encoded artifact length accepted by the consumer.
     pub max_artifact_bytes: usize,
@@ -29,8 +33,12 @@ pub struct PreparationLimits {
     pub max_construction_bytes: usize,
     /// Maximum combined input, output and marker image bytes.
     pub max_process_image_bytes: usize,
-    /// Maximum shared instructions and construction operations per entry.
+    /// Maximum work for one scan, engineering write or call-time initializer entry
+    /// (spec 34 TIME-08).
     pub max_work: usize,
+    /// Maximum work for one construction entry: instantiate, restart or candidate
+    /// construction (spec 34 TIME-09).
+    pub max_construction_work: usize,
     /// Maximum nested POU and default-recipe activations.
     pub max_call_depth: usize,
 }
@@ -46,16 +54,20 @@ impl Default for PreparationLimits {
             max_construction_bytes: 64 * 1024 * 1024,
             max_process_image_bytes: 16 * 1024 * 1024,
             max_work: super::VM_MAX_EXECUTED_INSTRUCTIONS,
+            max_construction_work: 64 * 1024 * 1024,
             max_call_depth: super::VM_MAX_CALL_DEPTH,
         }
     }
 }
 
-/// A prepared STBC 2.0 application. Mutable execution state is created separately.
+/// A prepared source-free STBC application with immutable version-selected storage ABI.
+/// Mutable execution state is created separately.
 /// Fields are private so raw metadata cannot forge executable admission.
 #[derive(Debug)]
 pub struct PreparedModule {
     pub(crate) vm: VmModule,
+    #[cfg(feature = "register-ir")]
+    pub(crate) register_plans: super::register_ir::PreparedRegisterPlans,
     pub(crate) layout: StorageLayout,
     pub(crate) roots: ConstructionRoots,
     pub(crate) initializers: InitializerIndex,
@@ -73,8 +85,39 @@ pub struct PreparedModule {
 }
 
 impl PreparedModule {
+    /// Preserve the admitted profile's limits when preparing a replacement.
+    pub fn limits(&self) -> PreparationLimits {
+        self.limits
+    }
+
     /// Decode, fully validate and prepare an artifact without source or a compiler.
     pub fn from_bytes(bytes: &[u8], limits: PreparationLimits) -> Result<Self, RuntimeError> {
+        let (raw, transport) = Self::decode_input(bytes, limits)?;
+        Self::check_limits(limits)?;
+        let mut preparation = PreparationBudget::new(limits);
+        preparation.charge(transport.bytes, transport.work)?;
+        let source =
+            OwnedValidatedSource::new(raw, limits.validation).map_err(RuntimeError::from)?;
+        Self::prepare_source(source, preparation, limits, bytes.len())
+    }
+
+    /// Hosted tooling may retain the immutable decoded artifact alongside its
+    /// prepared engine. Decoding/validation happen once; the byte route still
+    /// has no serializer dependency and the ordinary consumer drops the artifact.
+    #[cfg(feature = "std")]
+    pub fn from_bytes_with_artifact(
+        bytes: &[u8],
+        limits: PreparationLimits,
+    ) -> Result<(Self, BytecodeModule), RuntimeError> {
+        let (raw, transport) = Self::decode_input(bytes, limits)?;
+        let prepared = Self::prepare_validated_metadata(&raw, limits, transport, bytes.len())?;
+        Ok((prepared, raw))
+    }
+
+    fn decode_input(
+        bytes: &[u8],
+        limits: PreparationLimits,
+    ) -> Result<(BytecodeModule, PreparationUsage), RuntimeError> {
         if bytes.len() > limits.max_artifact_bytes {
             return Err(RuntimeError::PreparationLimit);
         }
@@ -84,15 +127,13 @@ impl PreparedModule {
             limits.max_preparation_work,
         )
         .map_err(RuntimeError::from)?;
-        Self::prepare_validated_metadata(
-            &raw,
-            limits,
+        Ok((
+            raw,
             PreparationUsage {
                 bytes: decoded.allocation_bytes,
                 work: decoded.work,
             },
-            bytes.len(),
-        )
+        ))
     }
 
     /// Validate a decoded artifact before retaining immutable execution metadata.
@@ -124,6 +165,7 @@ impl PreparedModule {
         if limits.max_call_depth == 0
             || limits.max_call_depth > super::VM_MAX_CALL_DEPTH
             || limits.max_work == 0
+            || limits.max_construction_work == 0
             || limits.max_construction_values == 0
         {
             return Err(RuntimeError::ProfileUnsupported(
@@ -145,10 +187,22 @@ impl PreparedModule {
         // synthetic re-encoding allocation which the byte route does not make.
         let mut preparation = PreparationBudget::new(limits);
         preparation.charge(transport.bytes, transport.work)?;
-        preparation.metadata(raw, encoded_len)?;
+        // The bounded full validator owns malformed-artifact diagnostics.
+        // Metadata accounting inspects admitted instructions; running that scan
+        // first would replace precise wire errors with generic VM errors.
         let token = raw
             .validated_with_limits(limits.validation)
             .map_err(RuntimeError::from)?;
+        Self::prepare_source(token, preparation, limits, encoded_len)
+    }
+
+    fn prepare_source(
+        mut token: impl ValidatedSource,
+        mut preparation: PreparationBudget,
+        limits: PreparationLimits,
+        encoded_len: usize,
+    ) -> Result<Self, RuntimeError> {
+        preparation.metadata(token.view(), encoded_len)?;
         match (
             token.section(SectionId::StorageLayout),
             token.section(SectionId::ConstructionRoots),
@@ -163,7 +217,7 @@ impl PreparedModule {
                 )))
             }
         }
-        let mut vm = VmModule::from_source_free(&token, &mut preparation)?;
+        let mut vm = VmModule::from_source_free(&mut token, &mut preparation)?;
         for reference in &vm.refs {
             match reference {
                 super::module::VmRef::Retain { .. } => {
@@ -176,41 +230,35 @@ impl PreparedModule {
             }
         }
         vm.instruction_budget = limits.max_work;
-        let layout = match token.section(SectionId::StorageLayout) {
-            Some(SectionData::StorageLayout(value)) => value.clone(),
+        let layout = match token.take_layout() {
+            Some(value) => value,
             _ => {
                 return Err(invalid_bytecode(smol_str::SmolStr::new_static(
                     "missing STORAGE_LAYOUT",
                 )))
             }
         };
-        let roots = match token.section(SectionId::ConstructionRoots) {
-            Some(SectionData::ConstructionRoots(value)) => value.clone(),
+        let roots = match token.take_roots() {
+            Some(value) => value,
             _ => {
                 return Err(invalid_bytecode(smol_str::SmolStr::new_static(
                     "missing CONSTRUCTION_ROOTS",
                 )))
             }
         };
-        let initializers = match token.section(SectionId::Initializers) {
-            Some(SectionData::Initializers(value)) => value.clone(),
+        let initializers = match token.take_initializers() {
+            Some(value) => value,
             _ => {
                 return Err(invalid_bytecode(smol_str::SmolStr::new_static(
                     "missing INITIALIZERS",
                 )))
             }
         };
-        let access = match token.section(SectionId::AccessBindings) {
-            Some(SectionData::AccessBindings(value)) => value.clone(),
-            _ => AccessBindings::default(),
-        };
-        let resources = match token.section(SectionId::ResourceMeta) {
-            Some(SectionData::ResourceMeta(value)) => value.clone(),
-            _ => ResourceMeta::default(),
-        };
+        let access = token.take_access().unwrap_or_default();
+        let resources = token.take_resources().unwrap_or_default();
         let io = match token.section(SectionId::IoMap) {
-            Some(SectionData::IoMap(value)) => value.clone(),
-            _ => IoMap::default(),
+            Some(SectionData::IoMap(value)) => value.bindings.as_slice(),
+            _ => &[],
         };
         if resources.resources.len() != 1 {
             return Err(RuntimeError::ProfileUnsupported(
@@ -229,7 +277,6 @@ impl PreparedModule {
             }
         }
         let io_bindings = io
-            .bindings
             .iter()
             .map(|binding| {
                 crate::io_image::PreparedIoBinding::from_tables(binding, &vm.types, &vm.strings)
@@ -276,14 +323,22 @@ impl PreparedModule {
             &roots,
             &initializers,
             &method_owners,
+            &resources,
             &mut preparation,
         )?;
+        #[cfg(feature = "register-ir")]
+        let register_plans =
+            super::register_ir::PreparedRegisterPlans::prepare(&vm, |bytes, work| {
+                preparation.charge(bytes, work)
+            })?;
         let preparation_usage = preparation.usage();
         Ok(Self {
             preparation_usage,
             indexes,
             stdlib,
             vm,
+            #[cfg(feature = "register-ir")]
+            register_plans,
             layout,
             roots,
             initializers,

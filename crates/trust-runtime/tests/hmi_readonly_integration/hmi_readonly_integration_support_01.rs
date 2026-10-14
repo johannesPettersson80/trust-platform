@@ -52,6 +52,7 @@ pub(super) fn hmi_control_state_with_root(
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };

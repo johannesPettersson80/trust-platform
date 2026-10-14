@@ -8,7 +8,7 @@ use serde_json::Value;
 use trust_hir::types::TypeRegistry;
 use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::parse_debug_expression;
+use trust_runtime::harness::parse_debug_expression_with_abi;
 use trust_runtime::memory::FrameId;
 use trust_runtime::program_model::Expr;
 use trust_runtime::value::Value as RuntimeValue;
@@ -53,7 +53,7 @@ impl DebugAdapter {
         let expr_source = args.expression.clone();
         let mut frame_id = args.frame_id.map(FrameId);
         let snapshot = self.session.debug_control().snapshot();
-        let (expr, value) = if let Some(snapshot) = snapshot.as_ref() {
+        let (expr, value, registry) = if let Some(snapshot) = snapshot.as_ref() {
             if frame_id == Some(FrameId(0)) && snapshot.storage.frames().is_empty() {
                 frame_id = None;
             }
@@ -78,11 +78,12 @@ impl DebugAdapter {
                 })
                 .unwrap_or_default();
             let mut registry = self.session.metadata().registry().clone();
-            let expr = match parse_debug_expression(
+            let expr = match parse_debug_expression_with_abi(
                 &args.expression,
                 &mut registry,
                 self.session.metadata().profile(),
                 &using,
+                snapshot.storage_abi,
             ) {
                 Ok(expr) => expr,
                 Err(err) => {
@@ -106,8 +107,8 @@ impl DebugAdapter {
                         };
                     }
                 };
-            (expr, value)
-        } else if let Ok(mut runtime) = self.session.runtime_handle().try_lock() {
+            (expr, value, registry)
+        } else if let Ok(runtime) = self.session.runtime_handle().try_lock() {
             if frame_id == Some(FrameId(0)) && runtime.storage().frames().is_empty() {
                 frame_id = None;
             }
@@ -115,11 +116,13 @@ impl DebugAdapter {
                 .and_then(|frame_id| runtime.using_for_frame(frame_id))
                 .unwrap_or_default();
             let profile = runtime.profile();
-            let expr = match parse_debug_expression(
+            let mut registry = runtime.registry().clone();
+            let expr = match parse_debug_expression_with_abi(
                 &args.expression,
-                runtime.registry_mut(),
+                &mut registry,
                 profile,
                 &using,
+                runtime.prepared().storage_abi(),
             ) {
                 Ok(expr) => expr,
                 Err(err) => {
@@ -129,7 +132,7 @@ impl DebugAdapter {
                     };
                 }
             };
-            let value = match runtime.evaluate_expression(&expr, frame_id) {
+            let value = match runtime.evaluate_debug_expression(&expr, &registry, frame_id) {
                 Ok(value) => value,
                 Err(err) => {
                     let message = match err {
@@ -142,7 +145,7 @@ impl DebugAdapter {
                     };
                 }
             };
-            (expr, value)
+            (expr, value, registry)
         } else {
             return DispatchOutcome {
                 responses: vec![self.error_response(&request, "runtime busy")],
@@ -170,7 +173,9 @@ impl DebugAdapter {
             && !self.watch_cache.contains_key(&expr_source)
         {
             self.watch_cache.insert(expr_source, expr.clone());
-            self.session.debug_control().register_watch_expression(expr);
+            self.session
+                .debug_control()
+                .register_watch_expression_with_registry(expr, registry);
         }
 
         DispatchOutcome {
@@ -225,11 +230,12 @@ impl DebugAdapter {
             })
             .unwrap_or_default();
         let mut registry = self.session.metadata().registry().clone();
-        let expr = parse_debug_expression(
+        let expr = parse_debug_expression_with_abi(
             raw,
             &mut registry,
             self.session.metadata().profile(),
             &using,
+            snapshot.storage_abi,
         )
         .map_err(|err| err.to_string())?;
         self.evaluate_with_snapshot(&expr, &registry, frame_id, snapshot, &using)
@@ -241,7 +247,7 @@ impl DebugAdapter {
 }
 
 pub(super) fn parse_value_expression(
-    runtime: &mut trust_runtime::Runtime,
+    runtime: &trust_runtime::Runtime,
     raw: &str,
     frame_id: Option<FrameId>,
 ) -> Result<RuntimeValue, String> {
@@ -253,10 +259,17 @@ pub(super) fn parse_value_expression(
         .and_then(|frame_id| runtime.using_for_frame(frame_id))
         .unwrap_or_default();
     let profile = runtime.profile();
-    let expr = parse_debug_expression(raw, runtime.registry_mut(), profile, &using)
-        .map_err(|err| err.to_string())?;
+    let mut registry = runtime.registry().clone();
+    let expr = parse_debug_expression_with_abi(
+        raw,
+        &mut registry,
+        profile,
+        &using,
+        runtime.prepared().storage_abi(),
+    )
+    .map_err(|err| err.to_string())?;
     runtime
-        .evaluate_expression(&expr, frame_id)
+        .evaluate_debug_expression(&expr, &registry, frame_id)
         .map_err(|err| match err {
             RuntimeError::InvalidFrame(_) => "unknown frame id".to_string(),
             _ => err.to_string(),

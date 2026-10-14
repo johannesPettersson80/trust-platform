@@ -7,11 +7,88 @@ use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
 };
 
+#[path = "tests/work_charges.rs"]
+mod work_charges;
+
 const DISCOVERY_TRACE_TEST_ID: &str = "TEST_DEV_TEST_DISCOVERY_TRACE_001";
 const DISCOVERY_TRACE_CASE_FILE: &str =
     "verification/cases/plcopen_devtools/DEV_TEST_DISCOVERY_001.toml";
 const DISCOVERY_TRACE_CASE_DIGEST: &str =
     "sha256:d217e40fa2ade0354fd1ad5bda019650d382c05eda109b8dbc74d76b3bfb0cff";
+
+#[test]
+#[ignore = "opt-in work charge capture for the existing PLCopen CLI fixture"]
+fn plcopen_motion_single_axis_construction_work_charges() {
+    use trust_runtime_core::vm::diagnostic_timing::{
+        finish_callsite_accounting_log, start_callsite_accounting_log,
+    };
+
+    let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../trust-runtime/tests/fixtures/plcopen_motion/oop_single_axis")
+        .canonicalize()
+        .expect("resolve the original PLCopen CLI fixture path");
+    let sources_root = resolve_sources_root(&project, None).expect("resolve PLCopen fixture");
+    let sources = load_sources(&sources_root).expect("load the CLI discovery sources");
+    let discovered = discover_tests(&sources);
+    assert!(
+        !discovered.is_empty(),
+        "the original fixture must discover ST tests"
+    );
+
+    // The CLI calls this same constructor with every discovered test before
+    // executing cases. Keep its project dependency and instance setup.
+    start_callsite_accounting_log();
+    let result = compile_test_runtime(&project, &discovered);
+    let snapshot = finish_callsite_accounting_log();
+    let thread = std::thread::current();
+    let test = thread.name().unwrap_or("unnamed");
+    let consumed_work: u128 = snapshot.work[..snapshot.work_len]
+        .iter()
+        .map(|row| u128::from(row.consumed_units))
+        .sum();
+    eprintln!(
+        "plcopen-work-charge test={test:?} operation=construct result={:?} discovered={} work_len={} copy_len={} lifecycle_len={} index_lookup_len={} consumed_work={consumed_work} overflow_count={} recorder_busy={} valid={}",
+        result.as_ref().map(|_| ()),
+        discovered.len(),
+        snapshot.work_len,
+        snapshot.copy_len,
+        snapshot.lifecycle_len,
+        snapshot.index_lookup_len,
+        snapshot.overflow_count,
+        snapshot.recorder_busy,
+        snapshot.is_valid(),
+    );
+    eprintln!("plcopen-attribution-header test={test:?} operation=construct owner_query_len={} array_consumer_len={}", snapshot.owner_queries.len(), snapshot.array_consumers.len());
+    for row in &snapshot.owner_queries {
+        eprintln!("plcopen-owner-query-row test={test:?} operation=construct {row:?}");
+    }
+    for row in &snapshot.array_consumers {
+        eprintln!("plcopen-array-consumer-row test={test:?} operation=construct {row:?}");
+    }
+    for row in &snapshot.work[..snapshot.work_len] {
+        eprintln!("plcopen-work-charge-row test={test:?} operation=construct {row:?}");
+    }
+    for row in &snapshot.index_lookups[..snapshot.index_lookup_len] {
+        eprintln!("plcopen-index-lookup-row test={test:?} operation=construct {row:?}");
+    }
+    for row in &snapshot.lifecycle[..snapshot.lifecycle_len] {
+        eprintln!("plcopen-lifecycle-demand-row test={test:?} operation=construct {row:?}");
+    }
+    for row in &snapshot.copies[..snapshot.copy_len] {
+        eprintln!(
+            "plcopen-copy-admission-row test={test:?} operation=construct variant={} {row:?}",
+            row.value_variant.name(),
+        );
+    }
+    assert!(
+        snapshot.is_valid(),
+        "PLCopen diagnostic capture is incomplete: overflow_count={}, recorder_busy={}; original outcome: {:?}",
+        snapshot.overflow_count,
+        snapshot.recorder_busy,
+        result.as_ref().map(|_| ()),
+    );
+    result.expect("the original PLCopen CLI fixture construction must succeed");
+}
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     let nanos = SystemTime::now()
@@ -779,4 +856,41 @@ fn ci_mode_defaults_human_output_to_junit() {
 fn timeout_message_pluralization() {
     assert_eq!(timeout_message(1), "test timed out after 1 second");
     assert_eq!(timeout_message(5), "test timed out after 5 seconds");
+}
+
+#[test]
+fn filtered_configured_test_registers_all_test_declarations_but_executes_only_selected() {
+    let project = unique_temp_dir("configured-filtered-declarations");
+    std::fs::create_dir_all(project.join("src")).unwrap();
+    std::fs::write(
+        project.join("src/tests.st"),
+        r#"
+CONFIGURATION Cfg
+RESOURCE Res ON PLC
+TASK Scan(INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Production WITH Scan : Main;
+END_RESOURCE
+END_CONFIGURATION
+PROGRAM Main
+ASSERT_TRUE(FALSE);
+END_PROGRAM
+TEST_PROGRAM ChosenCase
+ASSERT_TRUE(TRUE);
+END_TEST_PROGRAM
+TEST_PROGRAM OtherCase
+ASSERT_TRUE(FALSE);
+END_TEST_PROGRAM
+"#,
+    )
+    .unwrap();
+    run_test(
+        Some(project.clone()),
+        Some("ChosenCase".into()),
+        false,
+        0,
+        TestOutput::Human,
+        false,
+    )
+    .unwrap();
+    let _ = std::fs::remove_dir_all(project);
 }

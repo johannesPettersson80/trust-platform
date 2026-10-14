@@ -388,7 +388,10 @@ pub fn round_ties_to_even(value: f64) -> f64 {
     let truncated = crate::numeric::math::trunc(value);
     let frac = value - truncated;
     if frac.abs() == 0.5 {
-        let is_even = truncated % 2.0 == 0.0;
+        // A binary64 half-integer has magnitude below 2^52, so its truncated
+        // part is exactly representable in i64. Test parity without pulling a
+        // general floating-point remainder implementation into the runtime.
+        let is_even = (truncated as i64) & 1 == 0;
         if is_even {
             truncated
         } else {
@@ -402,6 +405,65 @@ pub fn round_ties_to_even(value: f64) -> f64 {
 #[cfg(test)]
 mod width_tests {
     use super::*;
+
+    #[test]
+    fn ties_to_even_matches_remainder_reference_at_boundaries() {
+        fn reference(value: f64) -> f64 {
+            let truncated = crate::numeric::math::trunc(value);
+            let frac = value - truncated;
+            if frac.abs() == 0.5 {
+                if truncated % 2.0 == 0.0 {
+                    truncated
+                } else {
+                    truncated + frac.signum()
+                }
+            } else {
+                crate::numeric::math::round(value)
+            }
+        }
+        let check = |value: f64| {
+            assert_eq!(
+                round_ties_to_even(value).to_bits(),
+                reference(value).to_bits(),
+                "input bits {:016x}",
+                value.to_bits()
+            );
+        };
+        for value in [
+            0.0,
+            -0.0,
+            f64::MIN_POSITIVE,
+            f64::MAX,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(1),
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            check(value);
+            check(-value);
+        }
+        for exponent in 0..=53 {
+            let boundary = (1u64 << exponent) as f64;
+            for offset in [-2.5, -1.5, -0.5, 0.0, 0.5, 1.5, 2.5] {
+                let value = boundary + offset;
+                check(value);
+                check(-value);
+                check(f64::from_bits(value.to_bits() - 1));
+                check(f64::from_bits(value.to_bits() + 1));
+            }
+        }
+        let mut bits = 0x517c_c1b7_2722_0a95u64;
+        for _ in 0..10_000 {
+            bits = bits.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            check(f64::from_bits(bits));
+            // Sample exact ties throughout the range where binary64 can carry .5.
+            let integer = bits & ((1u64 << 51) - 1);
+            let tie = integer as f64 + 0.5;
+            check(tie);
+            check(-tie);
+        }
+    }
+
     use crate::value::{
         DateTimeValue, DateValue, LDateTimeValue, LDateValue, LTimeOfDayValue, TimeOfDayValue,
     };
