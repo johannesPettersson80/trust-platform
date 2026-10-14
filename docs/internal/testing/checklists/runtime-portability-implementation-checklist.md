@@ -99,7 +99,12 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   `call_binding` medians 1.042 to 1.060 in all five rounds and pooled p99 ratios 1.115
   (`call_binding`), 0.556 (`refs_sizeof`) and 0.894 (`string_stdlib`). Round 3's per-round
   `call_binding` p99 of 1.336 is recorded only, under the pooled rule.
-- [ ] Release guard on the commit that records this evidence, the push to PR #137 and native CI.
+- [ ] Release guard, the push to PR #137 and native CI. Attempt 8 (`36a46fa33`) stopped at
+  `remote_exact_head` because the lead had not staged the candidate on the builder. Attempt 9
+  passed every step through `remote_test_all` (format, Clippy, cross-target warnings, supply
+  chain, architecture safety, VS Code, test-all in 13.5 minutes) and failed
+  `remote_mp001_parity`: A01's six `call_transfer_overlap_messages` tests were missing from the
+  MP-001 HIR test-discovery baseline, which the next commit adds.
 
 **14 October, later: owner chose to fix the call path; Claude now leads the remaining scopes.**
 The owner retired Codex and rejected accepting the `call_binding` trade-off ("we need a
