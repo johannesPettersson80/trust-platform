@@ -483,6 +483,21 @@ END_STRUCT END_TYPE
 }
 
 #[test]
+fn test_dut_extends_reports_unknown_base() {
+    // An EXTENDS base that names no declared type must be diagnosed, not
+    // silently ignored: the derived struct would otherwise inherit from
+    // nothing while looking valid to the author.
+    check_has_error(
+        r#"
+TYPE EntityBinSen EXTENDS MissingBase : STRUCT
+    bSen : BOOL;
+END_STRUCT END_TYPE
+"#,
+        DiagnosticCode::UndefinedType,
+    );
+}
+
+#[test]
 fn test_dut_extends_rejects_field_shadowing() {
     check_has_error(
         r#"

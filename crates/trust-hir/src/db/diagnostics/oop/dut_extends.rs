@@ -53,9 +53,14 @@ pub(in crate::db) fn check_dut_extends_semantics(
         let names: Vec<SmolStr> = parts.iter().map(|(name, _)| name.clone()).collect();
         let base_name = qualified_name_string(&names);
 
-        // An unresolvable base is reported by the pending-type machinery;
-        // everything below needs the base symbol.
+        // An unresolvable base is not reported anywhere else: the EXTENDS
+        // clause is the only place the name appears, so diagnose it here.
         let Some(base_id) = symbols.resolve_global_or_qualified_name(&base_name) else {
+            diagnostics.error(
+                DiagnosticCode::UndefinedType,
+                clause_range,
+                format!("cannot resolve type '{base_name}'"),
+            );
             continue;
         };
         let Some(base_symbol) = symbols.get(base_id) else {
