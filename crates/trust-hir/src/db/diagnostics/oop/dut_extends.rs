@@ -154,13 +154,12 @@ fn find_inherited_field_owner(
         let parent_id = symbols.resolve_global_or_qualified_name(parent_name.as_str())?;
         let parent_symbol = symbols.get(parent_id)?;
         let parent_type = symbols.resolve_alias_type(parent_symbol.type_id);
-        if let Some(Type::Struct { fields, .. }) = symbols.type_by_id(parent_type) {
-            if fields
+        if let Some(Type::Struct { fields, .. }) = symbols.type_by_id(parent_type)
+            && fields
                 .iter()
                 .any(|field| field.name.eq_ignore_ascii_case(field_name))
-            {
-                return Some(parent_symbol.name.clone());
-            }
+        {
+            return Some(parent_symbol.name.clone());
         }
         current = parent_id;
     }

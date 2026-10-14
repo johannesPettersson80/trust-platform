@@ -237,10 +237,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 }
 
                 let resolved_source = self.checker.assignment_target_symbol(value);
-                if let Some(resolved) = &resolved_source {
-                    if !resolved.accessible {
-                        return;
-                    }
+                if let Some(resolved) = &resolved_source
+                    && !resolved.accessible
+                {
+                    return;
                 }
                 if self
                     .checker

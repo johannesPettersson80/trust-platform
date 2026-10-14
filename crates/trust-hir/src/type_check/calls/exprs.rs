@@ -144,10 +144,9 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             .checker
             .resolve_ref()
             .resolve_program_qualified_member(node)
+            && let Some(symbol) = self.checker.symbols.get(symbol_id)
         {
-            if let Some(symbol) = self.checker.symbols.get(symbol_id) {
-                return SemanticOutcome::Resolved(symbol.type_id);
-            }
+            return SemanticOutcome::Resolved(symbol.type_id);
         }
 
         if let Some(symbol_id) = self

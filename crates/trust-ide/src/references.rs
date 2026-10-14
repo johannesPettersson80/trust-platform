@@ -445,19 +445,18 @@ fn find_references_to_symbol_in_context(
                 range,
                 is_write,
             });
-        } else if let Some(action_id) = resolve_program_qualified_action_target(symbols, &node) {
+        } else if let Some(action_id) = resolve_program_qualified_action_target(symbols, &node)
+            && action_id == symbol_id
+            && let Some(member_name) = field_name_from_field_expr(&node)
+        {
             // CODESYS program-qualified textual action calls
             // (`ProgramName.action_name()`).
-            if action_id == symbol_id {
-                if let Some(member_name) = field_name_from_field_expr(&node) {
-                    let is_write = is_write_context(&node);
-                    references.push(Reference {
-                        file_id,
-                        range: member_name.text_range(),
-                        is_write,
-                    });
-                }
-            }
+            let is_write = is_write_context(&node);
+            references.push(Reference {
+                file_id,
+                range: member_name.text_range(),
+                is_write,
+            });
         }
     }
 

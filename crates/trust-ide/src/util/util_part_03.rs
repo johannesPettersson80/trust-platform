@@ -370,13 +370,13 @@ pub(crate) fn resolve_action_callee_target(
     let scope_id = scope_at_position(symbols, root, name_node.text_range().start());
     let mut owner = symbols.get_scope(scope_id).and_then(|scope| scope.owner);
     while let Some(owner_id) = owner {
-        if let Some(action_id) = symbols.resolve_child_symbol(owner_id, name) {
-            if matches!(
+        if let Some(action_id) = symbols.resolve_child_symbol(owner_id, name)
+            && matches!(
                 symbols.get(action_id).map(|symbol| &symbol.kind),
                 Some(SymbolKind::Action)
-            ) {
-                return Some(action_id);
-            }
+            )
+        {
+            return Some(action_id);
         }
         owner = symbols.get(owner_id).and_then(|symbol| symbol.parent);
     }

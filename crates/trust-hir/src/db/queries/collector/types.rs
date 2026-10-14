@@ -86,10 +86,10 @@ impl SymbolCollector<'_> {
         // CODESYS DUT inheritance (vendor extension): record the base on the
         // TYPE symbol so field resolution and subtype checks can walk the
         // chain, including across files via the project symbol import.
-        if let Some(base) = extends_base {
-            if type_def.kind() == SyntaxKind::StructDef {
-                self.table.set_extends(type_symbol_id, base);
-            }
+        if let Some(base) = extends_base
+            && type_def.kind() == SyntaxKind::StructDef
+        {
+            self.table.set_extends(type_symbol_id, base);
         }
 
         // Push TYPE symbol onto parent stack so enum values get it as parent
