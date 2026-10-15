@@ -14,13 +14,16 @@ use gated_modbus::start_gated_modbus_server;
 use modbus_support::ModbusTestState;
 use trust_runtime::io::{IoDriver, ModbusTcpDriver};
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_IO_BOUND_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_IO_001.toml";
 const CASE_FILE_DIGEST: &str =
     "sha256:3f7be52d2cee2f095a11f999ff036eb9fa64e20eb34aa1a8b332028352da86df";
+/// Trace fields that this runner compares.
+const IO_READ_FIELDS: &[&str] = &["returned_before_response"];
 
 #[test]
 fn runtime_io_bound_trace_cases() {
@@ -123,15 +126,61 @@ fn run_io_case(case: &CaseRecord, probe: &mut IoBoundProbe) -> Result<CaseExecut
     if scan_completed {
         let _ = scan.join();
     }
+    let mut mismatches = Vec::new();
+    if let Err(error) = check_trace_fields(&step.expected, IO_READ_FIELDS) {
+        mismatches.push(format!("{} step {}: {error}", case.id, step.sequence));
+    }
+    let returned = observed.is_ok();
+    let declared_return = step
+        .expected
+        .get("returned_before_response")
+        .and_then(toml::Value::as_bool);
+    if declared_return != Some(returned) {
+        mismatches.push(format!(
+            "step {} returned_before_response expected {declared_return:?}, observed {returned}",
+            step.sequence
+        ));
+    }
+    // Evaluated only for a run that returned: a scan that did not return has no outcome.
+    if returned {
+        let before = unobserved_state();
+        let after = unobserved_state();
+        let evaluated = ObservedOperation {
+            outcome: "accept_value",
+            fault_surface: None,
+            status_before: None,
+            status_after: None,
+            before: &before,
+            after: &after,
+        };
+        match check_case_expectation(case, &evaluated) {
+            Ok(declared) => mismatches.extend(declared),
+            Err(error) => mismatches.push(error),
+        }
+    }
+    let error = observed
+        .err()
+        .or_else(|| (!mismatches.is_empty()).then(|| mismatches.join("; ")));
     Ok(CaseExecution {
-        result: if observed.is_ok() {
+        result: if error.is_none() {
             CaseResult::Passed
         } else {
             CaseResult::Failed
         },
-        observed_error: observed.err(),
+        observed_error: error,
         observed_status: Some("scan_handoff_before_protocol_response".into()),
     })
+}
+
+/// The IO bound runner observes no process image, target or diagnostic around the scan.
+fn unobserved_state() -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: None,
+        siblings: BTreeMap::new(),
+        diagnostics: Vec::new(),
+    }
 }
 
 fn required_string<'a>(

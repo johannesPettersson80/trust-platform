@@ -5,17 +5,20 @@
 //! `#[path = "support/runtime_process.rs"] mod runtime_process;`.
 #![allow(dead_code)]
 
+use std::collections::BTreeSet;
 use std::fs::{self, File};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
-/// Token written into each copied runtime.toml. `ctl` reads it from the project.
-const TOKEN: &str = "runtime-ctl-journey-token";
+/// Prefix of the token written into each copied runtime.toml; `ctl` reads it from the project.
+/// Every copy gets its own token, so a client can never be served by another test's runtime.
+const TOKEN_PREFIX: &str = "runtime-ctl-journey-token";
 /// Upper bound for one observable change. A scan is 50 ms, so this is generous.
 pub const WAIT: Duration = Duration::from_secs(10);
 /// Upper bound for the counter to climb past a value. At 50 ms per scan, 44 scans take about
@@ -38,6 +41,10 @@ const LISTEN_KEYS: [(&str, &str); 3] = [
 ];
 
 static COPY_COUNTER: AtomicU64 = AtomicU64::new(1);
+static TOKEN_COUNTER: AtomicU64 = AtomicU64::new(1);
+/// Ports this test process has handed out. A port is never given to two runtimes, so runtimes
+/// started in parallel cannot race for a port that an earlier reservation released.
+static HANDED_OUT_PORTS: Mutex<BTreeSet<u16>> = Mutex::new(BTreeSet::new());
 
 /// The repository root, located from this crate's manifest directory.
 pub fn repo_root() -> PathBuf {
@@ -142,9 +149,15 @@ impl ExampleRuntime {
         }
         // One reserved port for the control endpoint, then one for each fixed listen key.
         let ports = reserve_local_ports(1 + LISTEN_KEYS.len());
+        let token = format!(
+            "{TOKEN_PREFIX}-{}-{}",
+            std::process::id(),
+            TOKEN_COUNTER.fetch_add(1, Ordering::Relaxed)
+        );
         configure_runtime_toml(
             &project.join("runtime.toml"),
             &ports,
+            &token,
             self.mode,
             self.debug_enabled,
         );
@@ -541,16 +554,24 @@ fn join_relative(base: &Path, relative: &str) -> PathBuf {
         .fold(base.to_path_buf(), |path, part| path.join(part))
 }
 
-/// Distinct free loopback ports. Every listener is held until all ports are read, so no two
-/// reservations can repeat one another; the listeners are released together afterwards.
+/// Distinct free loopback ports that no earlier reservation in this process handed out. Every
+/// listener, including one whose port was already handed out, is held until the reservation is
+/// complete, so the kernel cannot offer the same port twice; they are released together afterwards.
 fn reserve_local_ports(count: usize) -> Vec<u16> {
-    let listeners: Vec<TcpListener> = (0..count)
-        .map(|_| TcpListener::bind("127.0.0.1:0").expect("bind local port"))
-        .collect();
-    listeners
-        .iter()
-        .map(|listener| listener.local_addr().expect("local address").port())
-        .collect()
+    let mut handed_out = HANDED_OUT_PORTS
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let mut held = Vec::new();
+    let mut ports = Vec::with_capacity(count);
+    while ports.len() < count {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
+        let port = listener.local_addr().expect("local address").port();
+        if handed_out.insert(port) {
+            ports.push(port);
+        }
+        held.push(listener);
+    }
+    ports
 }
 
 /// Copies a directory tree, leaving out build outputs.
@@ -586,12 +607,13 @@ fn replace_in_file(path: &Path, from: &str, to: &str) {
 }
 
 /// Rewrites the copied runtime.toml with the toml crate. `ports[0]` becomes the TCP control
-/// endpoint, and each `LISTEN_KEYS` entry that exists takes the next reserved port. The test token
-/// is set, the mode and debug flag are set when requested, and web and discovery are disabled.
+/// endpoint, and each `LISTEN_KEYS` entry that exists takes the next reserved port. The copy's own
+/// token is set, the mode and debug flag are set when requested, and web and discovery are disabled.
 /// Every other setting is kept.
 fn configure_runtime_toml(
     path: &Path,
     ports: &[u16],
+    token: &str,
     mode: Option<&str>,
     debug_enabled: Option<bool>,
 ) {
@@ -603,7 +625,7 @@ fn configure_runtime_toml(
         "endpoint".into(),
         toml::Value::String(format!("tcp://127.0.0.1:{}", ports[0])),
     );
-    control.insert("auth_token".into(), toml::Value::String(TOKEN.into()));
+    control.insert("auth_token".into(), toml::Value::String(token.into()));
     if let Some(mode) = mode {
         control.insert("mode".into(), toml::Value::String(mode.into()));
     }

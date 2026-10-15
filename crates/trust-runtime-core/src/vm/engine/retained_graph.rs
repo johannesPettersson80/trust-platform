@@ -464,6 +464,61 @@ mod tests {
         let mut probe = EngineState::borrow(&mut probe_data, &prepared, &services::LOGICAL_ONLY);
         probe.import_retained_globals(&source).unwrap();
         let required = probe.data.resources.construction_bytes.get();
+        // The single boundary above is one sample; every smaller allowance must also
+        // refuse at some admission and publish neither the global nor its marker. The
+        // import writes into the replacement candidate, which commits only after a full
+        // replacement succeeds and is discarded on refusal, so a partial import inside
+        // a refused candidate is not observable by the live owner (spec 34 RETAIN-02).
+        for allowance in 0..required {
+            let mut candidate_data =
+                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            candidate_data
+                .storage
+                .set_global(name.clone(), Value::Int(99));
+            candidate_data.construction.initialized_declarations = Default::default();
+            candidate_data
+                .resources
+                .construction_bytes
+                .set(prepared.limits.max_construction_bytes - allowance);
+            let capacity = candidate_data
+                .construction
+                .initialized_declarations
+                .capacity_state_for_test();
+            let mut candidate =
+                EngineState::borrow(&mut candidate_data, &prepared, &services::LOGICAL_ONLY);
+            assert!(
+                matches!(
+                    candidate.import_retained_globals(&source),
+                    Err(RuntimeError::ExecutionLimit {
+                        kind: crate::error::ExecutionLimitKind::AllocationBytes,
+                        ..
+                    })
+                ),
+                "allowance {allowance} must refuse the import with AllocationBytes"
+            );
+            assert_eq!(
+                candidate.data.storage.get_global(&name),
+                Some(&Value::Int(99)),
+                "allowance {allowance} published the global"
+            );
+            assert!(
+                !candidate
+                    .data
+                    .construction
+                    .retained_globals
+                    .contains_key(&declaration),
+                "allowance {allowance} published the retained value"
+            );
+            assert_eq!(
+                candidate
+                    .data
+                    .construction
+                    .initialized_declarations
+                    .capacity_state_for_test(),
+                capacity,
+                "allowance {allowance} grew the marker table"
+            );
+        }
         target_data
             .resources
             .construction_bytes
@@ -495,6 +550,112 @@ mod tests {
                 .capacity_state_for_test(),
             marker_capacity_before
         );
+    }
+
+    #[test]
+    fn warm_restart_transfer_refusal_above_construction_preserves_the_owner() {
+        use crate::retain::RestartMode;
+
+        type Observed = (
+            Option<Value>,
+            Option<Value>,
+            Vec<u8>,
+            Vec<u8>,
+            Duration,
+            bool,
+        );
+        fn observe(data: &EngineData) -> Observed {
+            let plant = match data.storage.get_global("Plant") {
+                Some(Value::Instance(instance)) => *instance,
+                other => panic!("program root Plant: {other:?}"),
+            };
+            (
+                data.storage.get_global("probe_depth").cloned(),
+                data.storage
+                    .get_instance_var(plant, "depth_result")
+                    .cloned(),
+                data.images.outputs.clone(),
+                data.images.memory.clone(),
+                data.now,
+                data.fault.is_some(),
+            )
+        }
+        let retained_fixture = || {
+            let mut prepared = PreparedModule::from_bytes(
+                include_bytes!(
+                    "../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"
+                ),
+                crate::vm::PreparationLimits::default(),
+            )
+            .unwrap();
+            let declaration = prepared
+                .layout
+                .entries
+                .iter()
+                .position(|entry| {
+                    entry.owner == StorageOwner::Global && entry.role == StorageRole::Variable
+                })
+                .expect("GPIO fixture has a global variable");
+            prepared.layout.entries[declaration].retain = 1;
+            prepared
+        };
+        // Construction under a limit below these bytes fails before any restart runs. The
+        // sweep therefore covers only the limits from this charge upward: a restart
+        // allocation point that is charged below it is outside this test.
+        let live_bytes = {
+            let prepared = retained_fixture();
+            let data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            data.resources.construction_bytes.get()
+        };
+        // Raise the admitted construction limit one byte at a time until the warm
+        // candidate, including its retained-graph import, is admitted. Every smaller
+        // limit must refuse with the exact error and leave the live owner unchanged.
+        let mut refusals = 0;
+        let mut limit = live_bytes;
+        loop {
+            let mut prepared = retained_fixture();
+            prepared.limits.max_construction_bytes = limit;
+            let mut data =
+                EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+            data.storage.set_global("probe_depth", Value::Int(99));
+            let before = observe(&data);
+            let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+            match state.restart(RestartMode::Warm) {
+                Ok(()) => {
+                    assert_eq!(
+                        state.data.storage.get_global("probe_depth"),
+                        Some(&Value::Int(99)),
+                        "limit {limit} admitted a restart that did not transfer the global"
+                    );
+                    break;
+                }
+                Err(error) => {
+                    assert!(
+                        matches!(
+                            error,
+                            RuntimeError::ExecutionLimit {
+                                kind: crate::error::ExecutionLimitKind::AllocationBytes,
+                                limit: observed,
+                                ..
+                            } if observed == limit
+                        ),
+                        "limit {limit} must refuse with the exact AllocationBytes limit: {error:?}"
+                    );
+                    assert_eq!(
+                        observe(&*state.data),
+                        before,
+                        "limit {limit} changed the live owner"
+                    );
+                    refusals += 1;
+                }
+            }
+            limit += 1;
+            assert!(
+                limit < live_bytes + 65_536,
+                "the warm restart transfer was never admitted"
+            );
+        }
+        assert!(refusals > 0, "the sweep must observe refused transfers");
     }
 
     #[test]

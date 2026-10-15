@@ -13,8 +13,8 @@ use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::FaultPolicy;
 use trust_runtime::RuntimeBuilder;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
-    TraceStep,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_PANIC_TRACE_001";
@@ -77,6 +77,55 @@ fn run_panic_case(case: &CaseRecord, probe: &mut PanicProbe) -> Result<CaseExecu
 
     let mut mismatches = Vec::new();
     compare_expected(step, &observed, &mut mismatches)?;
+    let compared: Vec<&str> = observed
+        .keys()
+        .map(String::as_str)
+        .filter(|key| *key != "error")
+        .collect();
+    if let Err(error) = check_trace_fields(&step.expected, &compared) {
+        mismatches.push(format!("{} step {}: {error}", case.id, step.sequence));
+    }
+    // A contained panic is fault_visible when the resource is faulted and reports its error.
+    let faulted = observed.get("state") == Some(&json!("faulted"));
+    let last_error = observed
+        .get("error")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let fault_visible = faulted && last_error.is_some();
+    let outcome = if fault_visible {
+        "fault_visible"
+    } else {
+        "accept_value"
+    };
+    let status = if fault_visible {
+        "fault_visible".to_string()
+    } else {
+        observed
+            .get("state")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_string()
+    };
+    let before = unobserved_state();
+    let after = StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: None,
+        siblings: BTreeMap::new(),
+        diagnostics: last_error.iter().cloned().collect(),
+    };
+    let evaluated = ObservedOperation {
+        outcome,
+        fault_surface: None,
+        status_before: None,
+        status_after: Some(status.as_str()),
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &evaluated) {
+        Ok(declared) => mismatches.extend(declared),
+        Err(error) => mismatches.push(error),
+    }
     probe.observed = Some(json!({ "trace": [observed] }));
     Ok(CaseExecution {
         result: if mismatches.is_empty() {
@@ -110,11 +159,13 @@ fn input_driver_panic_observation(
     wait_for_fault(&handle)?;
     let state = handle.state();
     let resource_panic = matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_)));
+    let last_error = handle.last_error().map(|error| error.to_string());
     let join_ok = handle.join().is_ok();
     Ok(BTreeMap::from([
         ("state".to_string(), json!(resource_state_name(state))),
         ("resource_panic".to_string(), json!(resource_panic)),
         ("join_ok".to_string(), json!(join_ok)),
+        ("error".to_string(), json!(last_error)),
     ]))
 }
 
@@ -155,6 +206,7 @@ fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>
     wait_for_fault(&handle)?;
     let state = handle.state();
     let resource_panic = matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_)));
+    let last_error = handle.last_error().map(|error| error.to_string());
     handle
         .join()
         .map_err(|_| "panic safe-output resource thread escaped containment".to_string())?;
@@ -169,6 +221,7 @@ fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>
         ("state".to_string(), json!(resource_state_name(state))),
         ("resource_panic".to_string(), json!(resource_panic)),
         ("safe_output".to_string(), json!(safe_output)),
+        ("error".to_string(), json!(last_error)),
     ]))
 }
 
@@ -186,11 +239,13 @@ fn outer_thread_panic_observation() -> Result<BTreeMap<String, serde_json::Value
     wait_for_fault(&handle)?;
     let state = handle.state();
     let resource_panic = matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_)));
+    let last_error = handle.last_error().map(|error| error.to_string());
     let join_ok = handle.join().is_ok();
     Ok(BTreeMap::from([
         ("state".to_string(), json!(resource_state_name(state))),
         ("resource_panic".to_string(), json!(resource_panic)),
         ("join_ok".to_string(), json!(join_ok)),
+        ("error".to_string(), json!(last_error)),
     ]))
 }
 
@@ -326,6 +381,17 @@ fn compare_expected(
         }
     }
     Ok(())
+}
+
+/// The runner observes no process image, target or retained value around the operation.
+fn unobserved_state() -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: None,
+        siblings: BTreeMap::new(),
+        diagnostics: Vec::new(),
+    }
 }
 
 fn toml_to_json(value: &toml::Value) -> Result<serde_json::Value, String> {

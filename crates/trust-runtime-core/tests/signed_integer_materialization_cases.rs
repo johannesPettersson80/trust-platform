@@ -5,7 +5,8 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::numeric::{signed_from_i128, NumericKind};
 use trust_runtime_core::value::Value;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001";
@@ -60,13 +61,40 @@ fn run_materialization_case(
         "NON_SIGNED_DESTINATION_CATEGORY" => non_signed_target_checks(),
         other => return Err(format!("unreviewed materialization scenario {other}")),
     };
-    let failures = checks
-        .into_iter()
-        .filter_map(|(label, actual, expected)| {
-            (actual != expected)
-                .then(|| format!("{label}: expected {expected:?}, observed {actual:?}"))
-        })
-        .collect::<Vec<_>>();
+    let mut failures = Vec::new();
+    for (label, actual, expected) in &checks {
+        if actual != expected {
+            failures.push(format!(
+                "{label}: expected {expected:?}, observed {actual:?}"
+            ));
+        }
+        let (before, after) = materialization_states(actual);
+        let operation = ObservedOperation {
+            outcome: if actual.is_ok() {
+                "accept_value"
+            } else {
+                "reject"
+            },
+            fault_surface: None,
+            status_before: None,
+            status_after: None,
+            before: &before,
+            after: &after,
+        };
+        match check_case_expectation(case, &operation) {
+            Ok(mismatches) => failures.extend(
+                mismatches
+                    .into_iter()
+                    .map(|mismatch| format!("{label}: {mismatch}")),
+            ),
+            Err(error) => failures.push(format!("{label}: {error}")),
+        }
+    }
+    for trace_step in case.trace.as_deref().unwrap_or(&[]) {
+        if let Err(error) = check_trace_fields(&trace_step.expected, &[]) {
+            failures.push(error);
+        }
+    }
     Ok(CaseExecution {
         result: if failures.is_empty() {
             CaseResult::Passed
@@ -80,6 +108,34 @@ fn run_materialization_case(
             format!("{scenario}:contract_mismatch")
         }),
     })
+}
+
+/// The destination of one materialization. Nothing is written before the conversion, and the
+/// result is written only when it succeeds; a rejection reports its error as the diagnostic.
+fn materialization_states(actual: &Result<Value, RuntimeError>) -> (StateSnapshot, StateSnapshot) {
+    let before = StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: None,
+        siblings: BTreeMap::new(),
+        diagnostics: Vec::new(),
+    };
+    let after = StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: actual
+            .as_ref()
+            .ok()
+            .map(|value| format!("{value:?}").into()),
+        siblings: BTreeMap::new(),
+        diagnostics: actual
+            .as_ref()
+            .err()
+            .map(|error| error.to_string())
+            .into_iter()
+            .collect(),
+    };
+    (before, after)
 }
 
 type MaterializationCheck = (

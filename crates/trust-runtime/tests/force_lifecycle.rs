@@ -8,14 +8,18 @@ use trust_runtime::io::{IoAddress, IoSafeState};
 use trust_runtime::value::Value;
 use trust_runtime::RestartMode;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
-    TraceStep,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_FORCE_LIFECYCLE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_FORCE_001.toml";
 const CASE_FILE_DIGEST: &str =
     "sha256:a09b4d3924e7bbc8b9928569de8b7c6ad761568bf6ce588d0835a2e9d4402105";
+/// Trace fields that the warm-restart action reads.
+const RESTART_READ_FIELDS: &[&str] = &["forced_value", "queued_value"];
+/// Trace fields that the safe-state action reads.
+const SAFE_STATE_READ_FIELDS: &[&str] = &["output_bit"];
 
 const FORCE_LIFECYCLE_SOURCE: &str = r#"
 VAR_GLOBAL
@@ -81,19 +85,38 @@ fn run_force_lifecycle_case(
 
     let mut harness = TestHarness::from_source(FORCE_LIFECYCLE_SOURCE)
         .map_err(|error| format!("{} failed to compile: {error}", case.id))?;
-    let observation = match case.id.as_str() {
-        "RT_SAFE_FORCE_001_RESTART_CLEARS_DEBUG_MUTATIONS" => {
-            run_restart_case(&mut harness, &trace[0])?
-        }
-        "RT_SAFE_FORCE_001_SAFE_STATE_CLEARS_IO_FORCE" => {
-            run_safe_state_case(&mut harness, &trace[0])?
-        }
+    let (read_fields, transition) = match case.id.as_str() {
+        "RT_SAFE_FORCE_001_RESTART_CLEARS_DEBUG_MUTATIONS" => (
+            RESTART_READ_FIELDS,
+            run_restart_case(&mut harness, &trace[0])?,
+        ),
+        "RT_SAFE_FORCE_001_SAFE_STATE_CLEARS_IO_FORCE" => (
+            SAFE_STATE_READ_FIELDS,
+            run_safe_state_case(&mut harness, &trace[0])?,
+        ),
         other => return Err(format!("unreviewed force lifecycle trace case {other}")),
     };
 
     let mut mismatches = Vec::new();
-    compare_expected(&trace[0], &observation, &mut mismatches)?;
-    probe.observed = Some(json!({ "trace": [observation] }));
+    if let Err(error) = check_trace_fields(&trace[0].expected, read_fields) {
+        mismatches.push(format!("{} step {}: {error}", case.id, trace[0].sequence));
+    }
+    compare_expected(&trace[0], &transition.after, &mut mismatches)?;
+    probe.observed = Some(json!({ "trace": [&transition.after] }));
+    let before = values_snapshot(&transition.before);
+    let after = values_snapshot(&transition.after);
+    let observed = ObservedOperation {
+        outcome: "accept_value",
+        fault_surface: None,
+        status_before: None,
+        status_after: None,
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &observed) {
+        Ok(declared) => mismatches.extend(declared),
+        Err(error) => mismatches.push(error),
+    }
     if mismatches.is_empty() {
         Ok(CaseExecution {
             result: CaseResult::Passed,
@@ -109,10 +132,7 @@ fn run_force_lifecycle_case(
     }
 }
 
-fn run_restart_case(
-    harness: &mut TestHarness,
-    step: &TraceStep,
-) -> Result<BTreeMap<String, serde_json::Value>, String> {
+fn run_restart_case(harness: &mut TestHarness, step: &TraceStep) -> Result<Transition, String> {
     let action = trace_string(&step.stimulus, "action")?;
     if action != "warm_restart_then_cycle" {
         return Err(format!("unreviewed restart action {action}"));
@@ -122,15 +142,7 @@ fn run_restart_case(
     let debug = harness.runtime_mut().enable_debug();
     debug.force_global("forced_value", Value::DInt(force_value));
     debug.enqueue_global_write("queued_value", Value::DInt(queued_write_value));
-    harness
-        .restart(RestartMode::Warm)
-        .map_err(|error| format!("warm restart failed: {error}"))?;
-    let cycle = harness.cycle();
-    if !cycle.errors.is_empty() {
-        return Err(format!("post-restart cycle failed: {cycle:?}"));
-    }
-
-    Ok(BTreeMap::from([
+    let before = BTreeMap::from([
         (
             "forced_value".to_string(),
             json!(output_dint(harness, "forced_value")?),
@@ -139,13 +151,29 @@ fn run_restart_case(
             "queued_value".to_string(),
             json!(output_dint(harness, "queued_value")?),
         ),
-    ]))
+    ]);
+    harness
+        .restart(RestartMode::Warm)
+        .map_err(|error| format!("warm restart failed: {error}"))?;
+    let cycle = harness.cycle();
+    if !cycle.errors.is_empty() {
+        return Err(format!("post-restart cycle failed: {cycle:?}"));
+    }
+
+    let after = BTreeMap::from([
+        (
+            "forced_value".to_string(),
+            json!(output_dint(harness, "forced_value")?),
+        ),
+        (
+            "queued_value".to_string(),
+            json!(output_dint(harness, "queued_value")?),
+        ),
+    ]);
+    Ok(Transition { before, after })
 }
 
-fn run_safe_state_case(
-    harness: &mut TestHarness,
-    step: &TraceStep,
-) -> Result<BTreeMap<String, serde_json::Value>, String> {
+fn run_safe_state_case(harness: &mut TestHarness, step: &TraceStep) -> Result<Transition, String> {
     let action = trace_string(&step.stimulus, "action")?;
     if action != "apply_safe_state_then_cycle" {
         return Err(format!("unreviewed safe-state action {action}"));
@@ -159,6 +187,10 @@ fn run_safe_state_case(
     if !forced_cycle.errors.is_empty() {
         return Err(format!("forced cycle failed: {forced_cycle:?}"));
     }
+    let before = BTreeMap::from([(
+        "output_bit".to_string(),
+        json!(read_output_bit(harness, &address)?),
+    )]);
 
     let mut safe_state = IoSafeState::default();
     safe_state
@@ -173,15 +205,36 @@ fn run_safe_state_case(
     if !post_stop_cycle.errors.is_empty() {
         return Err(format!("post-stop cycle failed: {post_stop_cycle:?}"));
     }
-    let output_bit = match harness.runtime().io().read(&address) {
-        Ok(Value::Bool(value)) => value,
-        Ok(value) => return Err(format!("output_bit has wrong type: {value:?}")),
-        Err(error) => return Err(format!("output_bit read failed: {error}")),
-    };
-    Ok(BTreeMap::from([(
+    let after = BTreeMap::from([(
         "output_bit".to_string(),
-        json!(output_bit),
-    )]))
+        json!(read_output_bit(harness, &address)?),
+    )]);
+    Ok(Transition { before, after })
+}
+
+/// Values that one lifecycle action read before it ran and after it ran.
+struct Transition {
+    before: BTreeMap<String, serde_json::Value>,
+    after: BTreeMap<String, serde_json::Value>,
+}
+
+/// Snapshot that carries every observed value of the action as its target.
+fn values_snapshot(values: &BTreeMap<String, serde_json::Value>) -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: Some(json!(values)),
+        siblings: BTreeMap::new(),
+        diagnostics: Vec::new(),
+    }
+}
+
+fn read_output_bit(harness: &TestHarness, address: &IoAddress) -> Result<bool, String> {
+    match harness.runtime().io().read(address) {
+        Ok(Value::Bool(value)) => Ok(value),
+        Ok(value) => Err(format!("output_bit has wrong type: {value:?}")),
+        Err(error) => Err(format!("output_bit read failed: {error}")),
+    }
 }
 
 fn compare_expected(

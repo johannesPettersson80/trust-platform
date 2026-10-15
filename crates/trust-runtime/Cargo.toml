@@ -82,6 +82,7 @@ ethercrab = { version = "0.7.1", optional = true }
 # sources and conformance fixtures that are not Cargo crates.
 open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
 [dev-dependencies]
+proptest.workspace = true
 verification-cases.workspace = true
 trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
 

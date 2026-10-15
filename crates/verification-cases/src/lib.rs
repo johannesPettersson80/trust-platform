@@ -16,11 +16,13 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 mod case_trace;
+mod expectation;
 mod model;
 mod stamp;
 
 use case_trace::validate_case_file_provenance;
 pub use case_trace::{TraceStep, GENERATED_DECISION_TABLE_V1, HAND_AUTHORED_STATE_MACHINE_V1};
+pub use expectation::{check_case_expectation, check_trace_fields, ObservedOperation, OUTCOMES};
 pub use model::{
     CaseArtifactEntry, CaseExecution, CaseFile, CaseRecord, CaseResult, CaseRunArtifact,
 };

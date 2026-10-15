@@ -12,8 +12,8 @@ use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
 use trust_runtime::RuntimeBuilder;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
-    TraceStep,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001";
@@ -21,6 +21,12 @@ const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_DEADLINE_001.
 const CASE_FILE_DIGEST: &str =
     "sha256:5a3415518942f973be3e62415a0fbee7937dbd00ab06d487096cc183d0c549ca";
 const CASE_ID: &str = "RT_SAFE_DEADLINE_001_WATCHDOG_BEFORE_OUTPUT_COMMIT";
+/// Trace fields that this runner compares.
+const WATCHDOG_READ_FIELDS: &[&str] = &[
+    "resource_state",
+    "last_error",
+    "physical_output_write_count",
+];
 
 #[derive(Clone, Debug)]
 struct StepClock {
@@ -158,6 +164,7 @@ fn run_watchdog_case(
         action: WatchdogAction::Halt,
     });
 
+    let writes_before_spawn = writes.lock().expect("driver writes lock").len();
     let mut handle = runner
         .spawn("watchdog-output-commit-case")
         .map_err(|error| format!("resource spawn failed: {error}"))?;
@@ -174,7 +181,8 @@ fn run_watchdog_case(
     let recorded_writes = writes.lock().expect("driver writes lock").clone();
 
     let observed_state = format!("{state:?}").to_ascii_lowercase();
-    let observed_error = if matches!(error, Some(RuntimeError::WatchdogTimeout)) {
+    let watchdog_fired = matches!(error, Some(RuntimeError::WatchdogTimeout));
+    let observed_error = if watchdog_fired {
         "WatchdogTimeout".to_string()
     } else {
         error.map_or_else(|| "none".to_string(), |value| value.to_string())
@@ -210,6 +218,50 @@ fn run_watchdog_case(
     }
     if join_panicked {
         mismatches.push("resource thread panicked".to_string());
+    }
+    if let Err(message) = check_trace_fields(&step.expected, WATCHDOG_READ_FIELDS) {
+        mismatches.push(format!("{} step {}: {message}", case.id, step.sequence));
+    }
+    // The physical output target is the number of writes it received: no write may
+    // commit before the watchdog fault, so the target stays unchanged.
+    let before = StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: Some(json!(writes_before_spawn)),
+        siblings: BTreeMap::new(),
+        diagnostics: Vec::new(),
+    };
+    let after = StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: Some(json!(recorded_writes.len())),
+        siblings: BTreeMap::new(),
+        diagnostics: if observed_error == "none" {
+            Vec::new()
+        } else {
+            vec![observed_error.clone()]
+        },
+    };
+    let fault_visible = observed_state == "faulted" && observed_error != "none";
+    let operation = ObservedOperation {
+        outcome: if fault_visible {
+            "fault_visible"
+        } else {
+            "accept_value"
+        },
+        fault_surface: watchdog_fired.then_some("WatchdogTimeout"),
+        status_before: None,
+        status_after: Some(if fault_visible {
+            "fault_visible"
+        } else {
+            observed_state.as_str()
+        }),
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &operation) {
+        Ok(declared) => mismatches.extend(declared),
+        Err(message) => mismatches.push(message),
     }
 
     if mismatches.is_empty() {

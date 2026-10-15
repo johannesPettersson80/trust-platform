@@ -236,7 +236,9 @@ fn service_faults_incompatible_pre_release_schema_without_spending_reconnect_bud
     let mut service = OpenOtPersistenceService::start(&config, &root)
         .expect("local schema validation belongs to supervised worker")
         .expect("enabled service");
-    let deadline = std::time::Instant::now() + Duration::from_millis(250);
+    // A wait bound, not a timing requirement: the worker opens SQLite and validates the schema
+    // on its own thread, which a loaded machine can delay well past a few hundred milliseconds.
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while service.status().state == OpenOtPersistenceState::Starting
         && std::time::Instant::now() < deadline
     {

@@ -698,3 +698,204 @@ fn retain_manager_retries_failed_save_without_a_new_dirty_mark() {
     assert!(!manager.should_save(Duration::ZERO));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
+
+const RECOVERY_SOURCE: &str = r#"
+VAR_GLOBAL RETAIN
+    count : DINT := DINT#5;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#;
+
+/// Delegates every retain file operation to one injected fault and counts the
+/// store opens that reach it.
+struct CountingFaultOps {
+    inner: FaultingFileOps,
+    opens: Arc<AtomicUsize>,
+}
+
+impl RetainFileOps for CountingFaultOps {
+    fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+        self.inner.create_dir_all(path)
+    }
+
+    fn create_temp(&self, path: &Path) -> io::Result<Box<dyn RetainTempFile>> {
+        self.inner.create_temp(path)
+    }
+
+    fn open_read(&self, path: &Path) -> io::Result<Box<dyn Read + Send>> {
+        self.opens.fetch_add(1, Ordering::SeqCst);
+        self.inner.open_read(path)
+    }
+
+    fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
+        self.inner.rename(from, to)
+    }
+
+    fn remove_file(&self, path: &Path) -> io::Result<()> {
+        self.inner.remove_file(path)
+    }
+
+    fn sync_parent(&self, path: &Path) -> io::Result<()> {
+        self.inner.sync_parent(path)
+    }
+}
+
+/// A running runtime with `count` = 77 after two completed cycles.
+fn recovery_harness() -> crate::harness::TestHarness {
+    let mut harness = crate::harness::TestHarness::from_source(RECOVERY_SOURCE)
+        .expect("compile recovery runtime");
+    harness.set_input("count", Value::DInt(77));
+    for _ in 0..2 {
+        let cycle = harness.cycle();
+        assert!(
+            cycle.errors.is_empty(),
+            "live cycle failed: {:?}",
+            cycle.errors
+        );
+    }
+    harness
+}
+
+#[test]
+fn warm_restart_store_faults_name_the_stage_and_keep_running_state() {
+    use crate::RestartMode;
+
+    for stage in [FaultStage::Open, FaultStage::Read] {
+        // The folder must not carry the stage label: the error text includes the
+        // path, so a label in the path would satisfy the assertion below by itself.
+        let path = test_path(&format!("warm-{stage:?}"));
+        FileRetainStore::new(&path)
+            .store(&snapshot(123))
+            .expect("seed a readable checkpoint");
+        let opens = Arc::new(AtomicUsize::new(0));
+        let faulting = FileRetainStore::with_file_ops(
+            &path,
+            Arc::new(CountingFaultOps {
+                inner: FaultingFileOps { stage },
+                opens: Arc::clone(&opens),
+            }),
+        );
+        let mut harness = recovery_harness();
+        harness
+            .runtime_mut()
+            .set_retain_store(Some(Box::new(faulting)), None);
+        assert_eq!(harness.get_output("count"), Some(Value::DInt(77)));
+        assert_eq!(harness.runtime().cycle_counter(), 2);
+
+        let error = harness
+            .restart_with_retain(RestartMode::Warm)
+            .expect_err("warm restart must fail on a store fault");
+        match &error {
+            RuntimeError::RetainStore(message) => assert!(
+                message.contains(stage.label()),
+                "{stage:?}: expected {} in {message}",
+                stage.label()
+            ),
+            other => panic!("{stage:?}: expected RetainStore, got {other:?}"),
+        }
+        assert_eq!(
+            opens.load(Ordering::SeqCst),
+            1,
+            "{stage:?}: one load attempt"
+        );
+        assert_eq!(
+            harness.get_output("count"),
+            Some(Value::DInt(77)),
+            "{stage:?}: retained value changed"
+        );
+        assert_eq!(
+            harness.runtime().cycle_counter(),
+            2,
+            "{stage:?}: cycle counter changed"
+        );
+        assert!(
+            !harness.runtime().faulted(),
+            "{stage:?}: a refused restart must not latch a fault"
+        );
+        remove_test_directory(&path);
+    }
+}
+
+#[test]
+fn cold_restart_with_a_failing_store_opens_nothing_and_reinitializes_retained_values() {
+    use crate::RestartMode;
+
+    let path = test_path("cold-open-fault");
+    FileRetainStore::new(&path)
+        .store(&snapshot(123))
+        .expect("seed a readable checkpoint");
+    let opens = Arc::new(AtomicUsize::new(0));
+    let faulting = FileRetainStore::with_file_ops(
+        &path,
+        Arc::new(CountingFaultOps {
+            inner: FaultingFileOps {
+                stage: FaultStage::Open,
+            },
+            opens: Arc::clone(&opens),
+        }),
+    );
+    let mut harness = recovery_harness();
+    harness
+        .runtime_mut()
+        .set_retain_store(Some(Box::new(faulting)), None);
+    assert_eq!(harness.get_output("count"), Some(Value::DInt(77)));
+
+    harness
+        .restart_with_retain(RestartMode::Cold)
+        .expect("cold restart must not read the retain store");
+    assert_eq!(
+        opens.load(Ordering::SeqCst),
+        0,
+        "cold restart must open the retain store zero times"
+    );
+    assert_eq!(
+        harness.get_output("count"),
+        Some(Value::DInt(5)),
+        "cold restart initializes RETAIN variables from their declarations"
+    );
+    assert!(!harness.runtime().faulted());
+    remove_test_directory(&path);
+}
+
+#[test]
+fn rename_fault_before_warm_restart_leaves_the_last_good_checkpoint_to_restore() {
+    use crate::RestartMode;
+
+    // The warm restart only reads the store; rename is reached by the save that
+    // precedes it, so the restart must restore the checkpoint that save preserved.
+    let path = test_path("rename-then-warm");
+    let standard = FileRetainStore::new(&path);
+    standard
+        .store(&snapshot(1))
+        .expect("seed last good checkpoint");
+    let last_good = fs::read(&path).expect("read last good checkpoint");
+    let faulting = FileRetainStore::with_file_ops(
+        &path,
+        Arc::new(FaultingFileOps {
+            stage: FaultStage::Rename,
+        }),
+    );
+    let error = faulting
+        .store(&snapshot(2))
+        .expect_err("rename fault must fail the save");
+    assert!(error.to_string().contains(FaultStage::Rename.label()));
+    assert_eq!(
+        fs::read(&path).expect("read preserved checkpoint"),
+        last_good,
+        "a rename fault must preserve the last good checkpoint"
+    );
+
+    let mut harness = recovery_harness();
+    harness
+        .runtime_mut()
+        .set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
+    assert_eq!(harness.get_output("count"), Some(Value::DInt(77)));
+    harness
+        .restart_with_retain(RestartMode::Warm)
+        .expect("warm restart loads the last good checkpoint");
+    assert_eq!(harness.get_output("count"), Some(Value::DInt(1)));
+    assert!(!harness.runtime().faulted());
+    remove_test_directory(&path);
+}

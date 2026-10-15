@@ -7,8 +7,8 @@ use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 use trust_runtime::RetainSnapshot;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
-    TraceStep,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001";
@@ -16,6 +16,13 @@ const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_RETAIN_001.to
 const CASE_FILE_DIGEST: &str =
     "sha256:24c738107963ad44a8bbe9c39e4cb42154cad336f99b41406e06b50e37f5936f";
 const CASE_ID: &str = "RT_SAFE_RETAIN_001_SNAPSHOT_REJECTS_ATOMICALLY_ON_LATE_INCOMPATIBLE_VALUE";
+/// Trace `expected` fields this runner compares. Any other field fails the case.
+const RETAIN_EXPECTED_FIELDS: &[&str] = &[
+    "accepted_first",
+    "rejected_later",
+    "apply_result",
+    "error_contains",
+];
 
 const RETAIN_SOURCE: &str = r#"
 VAR_GLOBAL RETAIN
@@ -78,12 +85,45 @@ fn run_retain_case(case: &CaseRecord, probe: &mut RetainProbe) -> Result<CaseExe
         .map_err(|error| format!("{} failed to compile: {error}", case.id))?;
     let mut mismatches = Vec::new();
     let mut observations = Vec::new();
+    let mut observed_steps = Vec::new();
     for step in trace {
+        check_trace_fields(&step.expected, RETAIN_EXPECTED_FIELDS)?;
         let observation = execute_step(&mut harness, step)?;
         compare_step(step, &observation, &mut mismatches)?;
         observations.push(observation.as_json(step.sequence));
+        observed_steps.push(observation);
     }
     probe.observed = Some(json!({ "trace": observations }));
+
+    // The operation under test is the snapshot apply. Its before state is the
+    // state the previous step left, and its after state is the state it left.
+    let operation = trace
+        .iter()
+        .position(|step| {
+            step.stimulus.get("action").and_then(toml::Value::as_str) == Some("apply_snapshot")
+        })
+        .ok_or_else(|| format!("{} has no apply_snapshot step", case.id))?;
+    if operation == 0 {
+        return Err(format!("{} apply step has no preceding state", case.id));
+    }
+    let before = retain_snapshot(&observed_steps[operation - 1]);
+    let after = retain_snapshot(&observed_steps[operation]);
+    let observed = ObservedOperation {
+        outcome: match observed_steps[operation].apply_result {
+            "rejected" => "reject",
+            "accepted" => "accept_value",
+            other => return Err(format!("{} unexpected apply result {other}", case.id)),
+        },
+        fault_surface: None,
+        status_before: None,
+        status_after: None,
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &observed) {
+        Ok(found) => mismatches.extend(found),
+        Err(error) => mismatches.push(error),
+    }
 
     if mismatches.is_empty() {
         Ok(CaseExecution {
@@ -226,6 +266,28 @@ fn output_int(harness: &TestHarness, name: &str, sequence: u32) -> Result<i16, S
         Ok(Value::Int(value)) => Ok(value),
         Ok(value) => Err(format!("step {sequence} {name} has wrong type: {value:?}")),
         Err(error) => Err(format!("step {sequence} {name} read failed: {error}")),
+    }
+}
+
+/// The retained state as one step observed it. Both globals are RETAIN, so
+/// `retain_hash` covers both; the program has no I/O, so `process_image_hash`
+/// is not observed and stays unset on both sides.
+fn retain_snapshot(observation: &Observation) -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: Some(
+            json!({
+                "accepted_first": observation.accepted_first,
+                "rejected_later": observation.rejected_later,
+            })
+            .to_string(),
+        ),
+        target: Some(json!(observation.rejected_later)),
+        siblings: BTreeMap::from([(
+            "accepted_first".to_string(),
+            json!(observation.accepted_first),
+        )]),
+        diagnostics: observation.error.iter().cloned().collect(),
     }
 }
 

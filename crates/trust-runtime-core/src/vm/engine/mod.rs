@@ -397,6 +397,8 @@ mod continuation_tests;
 #[cfg(test)]
 mod restart_tests;
 #[cfg(test)]
+mod retain_apply_tests;
+#[cfg(test)]
 mod stdlib_text_work_tests;
 #[cfg(test)]
 mod storage_tests;
