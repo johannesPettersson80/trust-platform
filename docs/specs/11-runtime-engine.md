@@ -1376,6 +1376,13 @@ recover production execution. Those actions remain owned by the host recovery
 and control boundaries. This is a truST runtime API contract, not an IEC
 deviation.
 
+The installed hosted runtime's `clear_fault` exposes this bookkeeping clear for
+tests and engineering tooling. A scan executed after it continues the existing
+program without any initialization, so it is not a recovery path. Product
+recovery, through control commands or the `Restart` fault policy, always runs
+the configured warm or cold restart before control resumes (specification 34
+STATE-06).
+
 ##### Fault-policy decision projection
 
 The portable fault holder projects its configured `FaultPolicy` to a
@@ -4338,6 +4345,11 @@ when enabled:
   either mode, `resume` also releases any debugger hold, so the scan returns to
   cyclic execution. While a debugger holds the scan, `status` reports the hold
   rather than `running`.
+- `pause` and `resume` report the state they actually reached. On a resource that
+  is faulted or stopped, or whose scheduler no longer accepts commands, both are
+  rejected with a stable error that names the resource state, and they change
+  nothing: a faulted resource resumes only through `restart`, which runs the
+  configured warm or cold initialization first (specification 34 STATE-06).
 
 ##### 6.9.1 Managed debug floating-point ingress
 
@@ -4365,12 +4377,15 @@ execution, and a later authorized client must observe the existing force state.
 An authorization change governs subsequent write, force, and release requests;
 it does not silently mutate an already accepted force.
 
-Deliberate resource stop, fault handling, and every warm or cold restart are
-clearing boundaries. Before safe-state handling or restarted execution can
-proceed, the runtime clears queued debug writes and active variable and I/O
-forces. Safe-state output therefore has precedence over debug forcing, and a
-request accepted before a clearing boundary cannot be replayed into the next
-runtime lifecycle.
+Deliberate resource stop, fault handling, and the commit of every warm or cold
+restart or online change are clearing boundaries. Before safe-state handling or
+restarted execution can proceed, the runtime clears queued debug writes and
+active variable and I/O forces. Safe-state output therefore has precedence over
+debug forcing, and a request accepted before a clearing boundary cannot be
+replayed into the next runtime lifecycle. A restart or online change whose
+preparation fails never reaches its commit, so it is not a clearing boundary:
+queued writes and forces stay as they were (specification 10 §4.8 and the
+online-change preparation rule in section 6.7.1).
 
 ##### 6.9.3 Simulation coupling thresholds
 

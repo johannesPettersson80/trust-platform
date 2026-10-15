@@ -1,5 +1,5 @@
 use crate::config::ControlMode;
-use crate::scheduler::ResourceCommand;
+use crate::scheduler::{ResourceCommand, ResourceState};
 use crate::security::AccessRole;
 use crate::RestartMode;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
@@ -16,35 +16,65 @@ pub(super) enum StepKind {
     Out,
 }
 
-pub(super) fn handle_pause(id: u64, state: &ControlState) -> ControlResponse {
-    let mode = state
+/// Stable code for a pause or resume that the resource cannot take (spec 11 section 6.9).
+const RESOURCE_NOT_RUNNING: &str = "resource_not_running";
+
+fn control_mode(state: &ControlState) -> ControlMode {
+    state
         .control_mode
         .lock()
         .map(|value| *value)
-        .unwrap_or(ControlMode::Production);
-    if matches!(mode, ControlMode::Debug) {
+        .unwrap_or(ControlMode::Production)
+}
+
+/// A faulted or stopped resource has no scheduler that takes pause or resume commands.
+fn accepts_pause_resume(resource: ResourceState) -> bool {
+    !matches!(resource, ResourceState::Faulted | ResourceState::Stopped)
+}
+
+/// Refuse a pause or resume with the stable code, naming the resource state. The refusal
+/// changes nothing: no scheduler command and no debugger action is applied.
+fn resource_not_running(id: u64, resource: ResourceState) -> ControlResponse {
+    let message = match resource {
+        ResourceState::Faulted => "resource is faulted; restart required".to_string(),
+        ResourceState::Stopped => "resource is stopped".to_string(),
+        other => {
+            let label = format!("{other:?}").to_ascii_lowercase();
+            format!("resource is {label} and its scheduler does not accept commands")
+        }
+    };
+    ControlResponse::error_with_code(id, message, RESOURCE_NOT_RUNNING)
+}
+
+pub(super) fn handle_pause(id: u64, state: &ControlState) -> ControlResponse {
+    let resource = state.resource.state();
+    if !accepts_pause_resume(resource) {
+        return resource_not_running(id, resource);
+    }
+    if matches!(control_mode(state), ControlMode::Debug) {
         let _ = state
             .debug
             .apply_action(crate::debug::ControlAction::Pause(None));
-    } else {
-        let _ = state.resource.pause();
+    } else if state.resource.pause().is_err() {
+        return resource_not_running(id, state.resource.state());
     }
     ControlResponse::ok(id, json!({"status": "paused"}))
 }
 
 pub(super) fn handle_resume(id: u64, state: &ControlState) -> ControlResponse {
-    let mode = state
-        .control_mode
-        .lock()
-        .map(|value| *value)
-        .unwrap_or(ControlMode::Production);
+    let resource = state.resource.state();
+    if !accepts_pause_resume(resource) {
+        return resource_not_running(id, resource);
+    }
+    // The scheduler command is sent before the debugger hold is released, so a refused
+    // resume leaves the debugger state as it was.
+    if !matches!(control_mode(state), ControlMode::Debug) && state.resource.resume().is_err() {
+        return resource_not_running(id, state.resource.state());
+    }
     // Either mode releases a debugger hold, so the scan returns to cyclic execution.
     let _ = state
         .debug
         .apply_action(crate::debug::ControlAction::Continue);
-    if !matches!(mode, ControlMode::Debug) {
-        let _ = state.resource.resume();
-    }
     ControlResponse::ok(id, json!({"status": "running"}))
 }
 

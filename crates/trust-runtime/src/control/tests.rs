@@ -19,3 +19,4 @@ include!("tests/request_queue_bounds.rs");
 include!("tests/rejected_force_removal.rs");
 include!("tests/refused_request_reporting.rs");
 include!("tests/production_step_and_debug_hold.rs");
+include!("tests/pause_resume_resource_state.rs");

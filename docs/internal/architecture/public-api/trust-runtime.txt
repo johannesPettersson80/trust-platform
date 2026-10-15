@@ -3394,7 +3394,6 @@ pub fn trust_runtime::Runtime::apply_retain_snapshot(&mut self, snapshot: &trust
 pub fn trust_runtime::Runtime::restart(&mut self, mode: trust_runtime_core::retain::RestartMode) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::Runtime::retain_snapshot(&self) -> trust_runtime::RetainSnapshot
 impl trust_runtime::Runtime
-pub fn trust_runtime::Runtime::clear_debug_control(&mut self)
 pub fn trust_runtime::Runtime::enable_debug(&mut self) -> trust_runtime::debug::DebugControl
 pub fn trust_runtime::Runtime::execution_deadline(&self) -> core::option::Option<std::time::Instant>
 pub fn trust_runtime::Runtime::fault_policy(&self) -> trust_runtime_core::watchdog::FaultPolicy

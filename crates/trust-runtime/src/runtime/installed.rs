@@ -490,10 +490,6 @@ impl Runtime {
     pub fn debug_control(&self) -> Option<DebugControl> {
         self.state.services().debug_control().cloned()
     }
-    /// Detach instruction observations without modifying installed state.
-    pub fn clear_debug_control(&mut self) {
-        self.state.services_mut().set_debug_control(None);
-    }
     /// Arm a physical execution deadline, including the existing pause accounting.
     pub fn set_execution_deadline(&mut self, deadline: Option<Instant>) {
         self.state.services().set_execution_deadline(deadline);
