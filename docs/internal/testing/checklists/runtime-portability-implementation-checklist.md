@@ -7,6 +7,101 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**15 October, morning: the open owner decisions, implemented ("fix all"; Claude lead).** The
+owner approved all 20 recommendations listed overnight. Commits `87055c389..34badc0f1` on the H
+branch, specifications first. Evidence: external `runtime-portability-h/fix-all/`, builder
+`runtime-portability-h/fixall-targeted-1/`, `fixall-focused-2/`, `H-cost-model-8/`.
+
+- [x] Specifications (`87055c389`). Spec 11: `validate` selects the configured resource as
+  launch does; `ctl events` and `ctl faults`; `set` and `var.force` give an untyped integer the
+  target's declared type; pending writes, debugger expression writes and forces are bounded at
+  1,024 with `request queue full`; safe-state confirmation uses output-path health. Spec 34:
+  instance identities never wrap or panic (HOST-02); a debugger attached mid-run takes effect at
+  the next activation start, Tier-1 hotness survives eviction, interpreted block entries are
+  counted and Tier-1 has no deoptimization counters (HOST-04); §4.3.1 queue bound, the core
+  owners as the embedding API, private debugger storage; §11.1 MQTT overflow. Spec 12: the
+  container bound precedes every decode charge; `SIZEOF` evaluation depth 128.
+- [x] Examples and `validate` (`d958b7cbd`). 83 examples now declare the resource their
+  `runtime.toml` names: 75 OSCAT test projects, seven communication examples and
+  `network_canvas_demo`; the ADS server example is `truST_ADS`, EtherCAT `EtherCAT_demo`. Five
+  PLCopen motion examples got a simulated `io.toml`. `validate` calls launch's own rule
+  (`harness::configured_resource`, shared with `select_resource`).
+  - The first version of the all-examples test ran 95 minutes and failed 76 of 111 projects
+    (`fixall-targeted-1`): every OSCAT project declares `TEST_PROGRAM`s that no configuration
+    binds, which ordinary runtime construction rejects (spec 22), so they are ST test projects
+    run with `trust-runtime test`, not `play`; `openot_multi_program` depends on an OpenOT
+    checkout outside the repository (its `Main.st` is built by `openot_telemetry.rs` with the
+    vendored library). The final test builds and validates the 35 runnable examples on four
+    workers, parses every example for a declared resource, and checks that only OSCAT examples
+    declare test programs.
+- [x] Control surface (`3b5a9ab1e`): the literal rule for `set`/`var.force`
+  (`vm/engine/literal_admission.rs`, shared with I/O admission); rejected forces leave the force
+  set after one `write_rejected`; the five request queues bounded at 1,024 with refusals from
+  the control handlers, the HMI and ADS write ports (ADS `NoMemory`) and the debugger (queue
+  first, then write; a failed write restores the previous force; `setExpression` writes check
+  the bound and update the paused snapshot under one lock); `ctl events`/`ctl faults`.
+- [x] MQTT overflow count and degraded detail, `IoDriver::output_health` for safe-state
+  confirmation, hosted instance creation returning `Overflow` (`71f9ea8e8`).
+- [x] Container bound before the decode charge and "REF_TABLE entries" (`4e4f45bfe`); Tier-1
+  deopt counters removed, interpreted block entries counted, HOST-04 tests (`6c408df8f`).
+- [x] API boundaries (`887b84fd2`): compile-fail doc tests with exact error codes, each with a
+  compiling control; CI runs doc tests with `RUSTC_BOOTSTRAP=1`, which makes stable rustdoc
+  check the codes, and builds the runtime-only test set; `DebugRuntimeContext` storage private.
+  Two recommendations changed during implementation:
+  - `ReferenceContext` stays unsealed: `trust-runtime` implements it for the legacy `Runtime`,
+    in another crate. The compile-fail cases import the trait and show that no owner
+    implements it.
+  - The core owners' input image, time and fault setters and `reset_task_timing` stay public as
+    the documented embedding API (spec 34 §4.3.1) instead of a cycle-phase gate: they take
+    `&mut self` between cycles, so no cycle is running, and the installed controller calls
+    `reset_task_timing` from another crate.
+- [x] CI collector waits for registered checks (`80f02cdc3`); changelog (`34badc0f1`); bisect
+  worktrees and the `trust-portability-h-bisect-v0/v1` targets removed (binaries and logs kept in
+  `H-perf-diag-6/bisect`).
+- [x] Targeted run on the pre-review source (`fixall-targeted-1`): runtime library (MQTT, I/O
+  subsystem, instances, control), decode bounds, call-path, register parity, debug control,
+  ctl journeys, tutorial commands, runtime-only doc tests (checked codes) and trust-debug pass.
+  Failures: one compile-fail control with a lifetime error (fixed) and the examples test above.
+  Review then found the unbounded `setExpression` queue (fixed, with a test) and two debugger
+  files past 1,000 lines (tests and the symbolic-force helpers moved to their own modules).
+- [x] Run 1 of the focused check stopped at the workspace compile: two `String`/`SmolStr`
+  mismatches in the debugger's setVariable code, which the targeted run had not compiled. Fixed;
+  Clippy on all targets and features and the format check then passed, and the architecture
+  full map (FULLMAP-CHECK-10 included) passes on `34badc0f1`.
+- [x] Focused check 2 (`fixall-focused-2`, the committed source): 19 of 19 steps pass. Workspace
+  9,693 passed, 0 failed, 30 ignored (the runnable-examples test takes 24 s); core all-features
+  903, portable 734, register 794; i686 793; runtime doc tests 27 and runtime-only 12; doc tests
+  with checked error codes 53 and runtime-only 12; runtime-only tests 15; full-composition tests
+  10; the A20 journeys 20 of 20 in three repetitions; Clippy, format, F401 and C6 core checks.
+- [x] Batch 8 firmware on `34badc0f1` (`H-cost-model-8`): canonical rule files, link,
+  inspection and package pass. The link leaves 4,736 B upper flash (batch 7: 4,960; fix-all
+  costs 224 B) and 704 B sector-0 free.
+- [x] F401 replay of batch 8's firmware (`H-cost-model-board-8`; ELF `38583bd3…`, application
+  `71cb8c62…`): `xtask portability verify` passes 101 samples, GPIO, call depths 1 to 4 and the
+  numeric bits; MSP peak 11,616 B, longest main scan 3,760 µs. Button, LED and board markings
+  stay bench-only.
+- [x] Batch 8 PERF-01 (`H-cost-model-8`, 10 of 10 steps pass, source identical at start and
+  end): `call_binding` medians 1.039 to 1.069 in all five rounds, pooled p99 0.960 (round 3's
+  per-round p99 of 1.253 is recorded only, under the pooled rule); `refs_sizeof` medians 0.824 to
+  0.857, pooled p99 0.481; `string_stdlib` medians 0.988 to 1.026 (round 1 disturbed, repeated
+  steady), pooled p99 0.972.
+  - H's `call_binding` median moved from batch 7's 5,528 ns to 5,618 ns (U 5,369 and 5,339 ns).
+    Diagnostic, not evidence (`H-perf-diag-8`): callgrind counts 238.01 M instructions for batch
+    8's benchmark binary against 238.19 M for batch 7's, with identical Tier-1 block counts, so
+    the shift is code placement, not added work.
+- [ ] Guard 14, the push to PR #137 and native CI.
+- [ ] Not done: the public-API baselines (`docs/internal/architecture/public-api/*.txt`) are not
+  regenerated. `cargo public-api` 0.52 needs a nightly toolchain, which the builder lacks;
+  installing one is the owner's decision. No gate compares them.
+- [ ] New open questions:
+  - MQTT input-freshness states still count as degraded connection health, so they start
+    reconnect backoff and unconfirm a safe-state handoff (spec 34 §11.1 keeps that behaviour);
+    whether stale input should affect the output path is undecided.
+  - The runtime event buffer is unbounded while no event sender is attached, and a refused
+    request from a caller without an error channel adds a `write_rejected` event to it.
+  - `VariableStorage::create_instance` (panicking) remains public for tests; production
+    construction uses `try_create_instance`.
+
 **15 October, night: publication of A01, the call-path regression fix and A20 slice 1 (Claude
 lead; the owner authorized fixing all errors in one go and testing again overnight).**
 Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.log`,
@@ -72,7 +167,8 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
   - Builder run: all 44 tests in the seven changed files pass. Two new tests first failed
     because they assumed one block per cycle; the program has three, now derived from the
     block profile. Clippy and format pass.
-- [ ] Owner decisions from the A02 audit: G7, when a debugger attached mid-run takes effect
+- [x] Owner decisions from the A02 audit (decided 15 October, implemented in the fix-all
+  commits above): G7, when a debugger attached mid-run takes effect
   (activation start only, `activation.rs:109`; spec 34 HOST-04 does not say); G11, a counter
   that proves the interpreter ran (product change); G13, Tier-1 `deopt_count` and
   `deopt_reasons` are never written, so five assertions on them pass vacuously
@@ -101,13 +197,13 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
     HMI string capacity, reference-path depth 64/65 (`TypeMismatch`), and a malformed retain
     checkpoint path refused (`Overflow`; RETAIN-02 fixes no error kind, MEM-06's
     `TypeMismatch` governs value copies).
-- [ ] A09 owner decisions from the audit: MQTT incoming queue drops the oldest of 256 silently
+- [x] A09 owner decisions from the audit (decided 15 October, implemented above): MQTT incoming queue drops the oldest of 256 silently
   (`io/mqtt/session.rs:63-64`; spec 34 §11.1 requires explicit overflow); `SIZEOF` nesting 128
   exists only in code (`vm/dispatch_sizeof.rs:8`; spec 12 §4.6 has 64 elsewhere); with
   `max_artifact_bytes` above 64 MiB the decode work charge refuses before the container bound
   (`decode/module_decode.rs:17-21`); no declared debugger/control queue capacity; no declared
   instance-count capacity (legacy `create_instance` panics on exhaustion). Also: spec 12 §4.6.2
-  names "REF_TABLE entries" while the decoder reports "REF_TABLE count".
+  names "REF_TABLE entries" while the decoder reported "REF_TABLE count" (now "REF_TABLE entries").
 - [x] A25 audit (read-only) and positive examples. The installed `Runtime` has no public
   mutable access to storage, registry, I/O or access map in either composition. Spec 34
   HOST-03's missing migration examples are now compiled and run from the embedding guide: an
@@ -116,7 +212,7 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
   (retained `count` kept by name, `transient` restarted, `added` initialized, logical time
   kept). A runtime-only example runs the F401 fixture, and an unclosed doc fence is fixed. Doc
   tests: full 16 and runtime-only 4 pass.
-- [ ] A25 owner decisions:
+- [x] A25 owner decisions (decided 15 October, implemented above; see the two changes):
   - stable rustdoc does not check the error code of a `compile_fail,E0xxx` doc test (verified
     with rustc 1.99.0: a test declaring E0308 passes on E0425), so the 18 compile-fail doc
     tests prove only that a snippet does not compile. A nightly doc-test lane, `trybuild` (a
@@ -136,7 +232,7 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
   past the 1,000-line module threshold. That file is restored, and its zero-allowance
   assertions live in core `preparation_profile.rs` (exact `ProfileUnsupported` for zero work
   allowances, and the zero construction-byte refusal at instantiation).
-- [ ] Owner decisions found by A20 (not changed overnight):
+- [x] Owner decisions found by A20 (decided 15 October, implemented above):
   - 89 other example projects name a `[resource]` in `runtime.toml` that their ST does not
     declare (every other communication example, `network_canvas_demo`, all 80 OSCAT
     projects), so `play` refuses them, as specifications 10 and 11 require. This is
@@ -209,8 +305,8 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   generation in U or H; spec 34 assigns generation tokens to UPDATE-03 to UPDATE-08.
 - [ ] Open, not blocking A01: debugger scratch slots read Null at a `FOR` body stop (needs a
   probe); HOST-02 deployment-level limit record (spec: proposed); the M0 feature matrix (A19);
-  RETAIN-01 checkpoint sequence and completion fields (C); the debugger write queue is unbounded
-  without an explicit exhaustion failure (C); test seams for projection and capture failures;
+  RETAIN-01 checkpoint sequence and completion fields (C); test seams for projection and capture
+  failures (the debugger write queues are bounded since 15 October);
   the F401 profile limits are not host-testable.
 - [x] A01 batch 6 on `482503bfe` (builder, `H-cost-model-6`, the trimmed run-5 harness
   `batch-a01.sh`): 50 of 54 steps pass, including core lanes, i686, firmware link and
