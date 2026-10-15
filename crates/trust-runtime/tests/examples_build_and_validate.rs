@@ -444,11 +444,40 @@ fn build_and_validate_copy(repo: &Path, project: &Path) -> Result<(), String> {
     if !build.status.success() {
         return Err(failure("build", &build));
     }
+    #[cfg(windows)]
+    use_tcp_control_endpoint(&copy.join("runtime.toml"))?;
     let validate = cli(&["validate"], &copy);
     if !validate.status.success() {
         return Err(failure("validate", &validate));
     }
     Ok(())
+}
+
+/// The shipped examples name Unix-socket control endpoints, which Windows lacks, so `validate`
+/// rejects them there. On Windows the copy gets a loopback TCP endpoint with a token, as
+/// `portable_runtime_toml` gives the generated projects; everything else is validated unchanged.
+/// It is compiled everywhere, so every platform type-checks it, and called only on Windows.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn use_tcp_control_endpoint(runtime_toml: &Path) -> Result<(), String> {
+    let text = fs::read_to_string(runtime_toml)
+        .map_err(|error| format!("read {}: {error}", runtime_toml.display()))?;
+    let mut document = text
+        .parse::<toml_edit::DocumentMut>()
+        .map_err(|error| format!("parse {}: {error}", runtime_toml.display()))?;
+    let control = &mut document["runtime"]["control"];
+    let unix_endpoint = control
+        .get("endpoint")
+        .and_then(|endpoint| endpoint.as_str())
+        .is_some_and(|endpoint| endpoint.starts_with("unix://"));
+    if !unix_endpoint {
+        return Ok(());
+    }
+    control["endpoint"] = toml_edit::value("tcp://127.0.0.1:0");
+    if control.get("auth_token").is_none() {
+        control["auth_token"] = toml_edit::value("trust-examples-token");
+    }
+    fs::write(runtime_toml, document.to_string())
+        .map_err(|error| format!("write {}: {error}", runtime_toml.display()))
 }
 
 fn strip_repo<'a>(repo: &Path, path: &'a Path) -> Result<&'a Path, String> {
