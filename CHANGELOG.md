@@ -33,6 +33,16 @@ Target release: `v0.24.75`
 
 ### Added
 
+- `trust-runtime ctl events` and `ctl faults` (optional `--limit N`) print recent
+  runtime events and faults, so a rejected write's `write_rejected` event is
+  visible from the command line.
+- Integration tests build and validate every runnable example project and check
+  that every example, including the OSCAT test projects, configures a resource its
+  sources declare. Compile-fail documentation tests now prove the exact compiler
+  error that rejects each forbidden API use (CI runs them with error-code checking).
+- `DebugRuntimeContext::new` builds a debugger evaluation context over storage the
+  caller owns.
+
 - Use the STBC 3.0 storage ABI for new applications: all temporal types occupy
   eight bytes consistently on every platform, preserving signed temporal ranges.
   Existing 1.1/2.0 artifacts keep their original sizes and offsets; explicit legacy
@@ -97,6 +107,28 @@ Target release: `v0.24.75`
   directions.
 
 ### Changed
+
+- `trust-runtime validate` resolves the configured resource exactly as `play`
+  does, so a resource name the program does not declare now fails validation
+  instead of passing and then failing at start-up.
+- `ctl set` and `ctl var.force` take an integer in the target variable's declared
+  type, as `io-write` does: `set global:Counter 41` stores `INT` 41 into an `INT`
+  global; a value the type cannot take is rejected without a fault.
+- Pending I/O writes, variable writes, debugger expression writes and forces are
+  bounded at 1,024 each per runtime, for control, ADS and debugger requests alike;
+  a request beyond the bound is refused with `request queue full`. A force whose
+  value is rejected at the scan boundary is removed from the force set instead of
+  being retried each scan.
+- The MQTT driver reports dropped incoming messages: after its 256-message queue
+  overflows it stays `degraded` with `incoming queue overflow: <n> messages
+  dropped`. Safe-state confirmation uses the driver's output path, so an input
+  overflow does not unconfirm a safe stop.
+- Tier-1 telemetry drops the deoptimization counters (Tier-1 never deoptimizes),
+  and the register profile counts interpreted block entries.
+- An oversized bytecode container is always reported as an invalid header, even
+  when the host raises the preparation work budget, and the decoder names
+  "REF_TABLE entries" in its resource-limit error.
+- `DebugRuntimeContext` keeps its PLC storage private.
 
 - Record the shared hosted runtime's accepted Linux call-workload performance
   trade-off: a measured 16.4% median overhead against the modernization baseline,
@@ -177,6 +209,18 @@ Target release: `v0.24.75`
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
 ### Fixed
+
+- 83 example projects named a resource in `runtime.toml` that their ST did not
+  declare; their RESOURCE declarations now match. For the seven communication
+  examples and `network_canvas_demo` this means `trust-runtime play` starts them
+  again; the other 75 are OSCAT test projects, run with `trust-runtime test`. The
+  ADS server example's resource is `truST_ADS` (a hyphen is not valid in an IEC
+  name) and the EtherCAT example's `EtherCAT_demo`. Five PLCopen motion examples
+  without an `io.toml` got a simulated driver so they validate and run.
+- Hosted instance creation reports `Overflow` instead of panicking when instance
+  identities are exhausted.
+- The release-candidate CI watcher no longer reports a run as complete before
+  GitHub has registered any check for the new head.
 
 - `ctl io-write` and `io-force` of an integer no longer fault and halt the PLC
   (issue #135). An integer value takes the declared type of its `INT`, `DINT`,
