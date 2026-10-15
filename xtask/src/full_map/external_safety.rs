@@ -10,7 +10,7 @@ use std::{
     process::Command,
 };
 
-const PATTERNS: [(&str, &str); 6] = [
+const PATTERNS: [(&str, &str); 8] = [
     ("unsafe_block", "unsafe { $$$BODY }"),
     ("unsafe_impl", "unsafe impl $TRAIT for $TYPE { $$$BODY }"),
     (
@@ -20,6 +20,16 @@ const PATTERNS: [(&str, &str); 6] = [
     (
         "unsafe_fn_return",
         "unsafe fn $NAME($$$ARGS) -> $RET { $$$BODY }",
+    ),
+    // A visibility modifier is a separate syntax node, so `pub unsafe fn` needs its own
+    // patterns; a public unsafe function hands its safety contract to every caller.
+    (
+        "pub_unsafe_fn_no_return",
+        "pub unsafe fn $NAME($$$ARGS) { $$$BODY }",
+    ),
+    (
+        "pub_unsafe_fn_return",
+        "pub unsafe fn $NAME($$$ARGS) -> $RET { $$$BODY }",
     ),
     (
         "unsafe_fn_generic_return",

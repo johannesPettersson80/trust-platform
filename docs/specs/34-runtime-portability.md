@@ -2509,7 +2509,8 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   stays unverified, as on F401.
 - **Memory.** The fixture keeps F401's 72 KiB allocator arena. The esp-hal stack region spans the
   HP SRAM left after static data and RAM-resident code (about 51 KiB); the fixture measures and
-  budgets a 16 KiB window at its top with F401's 2 KiB minimum headroom, so the boards' heap and
+  budgets a 16 KiB window at its top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant
+  that inspection pins), with F401's 2 KiB minimum headroom, so the boards' heap and
   stack evidence is directly comparable. Exceeding the window fails the run although the region
   has room. Interrupts use the same stack on RISC-V, so the window includes them.
 - **Code placement.** Executed from flash through the 32 KB cache, one task activation retired

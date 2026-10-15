@@ -55,7 +55,7 @@ with espflash 4.6.0 (ESP-IDF v6.1-beta1). M5 qualification requires a released b
 | Region | Size | Purpose |
 |---|---|---|
 | Allocator arena (`HEAP_MEMORY`) | 72 KiB static | the fixture's bounded bring-up allocator |
-| Main-stack window | top 16 KiB of the esp-hal stack region | measured by the fixture, 2 KiB minimum headroom |
+| Main-stack window | 16 KiB below the fixed stack top `0x4086E610` | measured by the fixture, 2 KiB minimum headroom |
 | Scan-time code (`.rwtext`) | about 303 KB | the interpreter's scan path, executed from RAM |
 
 Scan-time code runs from HP SRAM. From flash, through the 32 KB cache, one task activation took
@@ -66,7 +66,9 @@ decoding, preparation) stays in flash. `xtask portability inspect` fails if the 
 not in HP SRAM.
 
 The esp-hal stack region spans the HP SRAM left after static data and RAM code (about 51 KiB). The fixture
-measures and budgets only the top 16 KiB. Exceeding that window fails the run, although the region
+measures and budgets only the top 16 KiB, below `0x4086E610`, the `_stack_start` of esp-hal 1.2.2's
+C6 memory map; the window is a constant, as on F401, and `xtask portability inspect` fails if the
+linked `_stack_start` differs. Exceeding that window fails the run, although the region
 has room. Interrupts use the same stack on RISC-V, so the window includes them.
 
 esp-riscv-rt does not paint RAM the way cortex-m-rt's `paint-stack` does. `memory::initialize`

@@ -57,5 +57,5 @@ impl fixture::Watchdog for Watchdog<'_> {
 
 /// The fixture's measurement of this board's allocator arena and main-stack window.
 pub fn target_memory() -> TargetMemory {
-    TargetMemory::new(&memory::HEAP, memory::stack_window())
+    TargetMemory::new(&memory::HEAP, memory::STACK_WINDOW)
 }

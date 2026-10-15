@@ -255,6 +255,8 @@ fn inspect_stm32f401(bytes: &[u8]) -> Result<Value> {
 // data, HP SRAM, and RTC fast memory. Every allocated section and load segment must lie in one.
 const C6_FLASH: std::ops::Range<u64> = 0x4200_0000..0x4280_0000;
 const C6_HP_SRAM: std::ops::Range<u64> = 0x4080_0000..0x4088_0000;
+/// `_stack_start` in esp-hal 1.2.2's C6 memory map; the composition's fixed stack window ends here.
+const C6_STACK_TOP: u64 = 0x4086_E610;
 const C6_RTC_FAST: std::ops::Range<u64> = 0x5000_0000..0x5000_4000;
 // e_machine and e_flags values of the RISC-V ELF psABI.
 const EM_RISCV: u16 = 243;
@@ -433,6 +435,10 @@ fn check_esp32c6(board: &BoardProfile, image: &Esp32c6Image) -> Result<Value> {
         .stack_end
         .context("missing linker symbol _stack_end")?;
     ensure!(end < start, "stack symbols are not ordered");
+    ensure!(
+        start == C6_STACK_TOP,
+        "_stack_start {start:#x} is not the composition's fixed stack top {C6_STACK_TOP:#x}"
+    );
     let stack_region_bytes = start - end;
     ensure!(
         stack_region_bytes >= board.stack_window_bytes + board.stack_headroom_bytes,
@@ -600,6 +606,15 @@ mod tests {
             heap_arena_bytes: None,
             dispatch_addresses: vec![0x4080_0100],
         }
+    }
+
+    #[test]
+    fn c6_requires_the_fixed_stack_top_the_composition_measures() {
+        let board = BoardProfile::esp32c6_devkitc_1();
+        let mut image = c6_image();
+        image.stack_start = Some(C6_STACK_TOP + 0x100);
+        let error = check_esp32c6(&board, &image).unwrap_err().to_string();
+        assert!(error.contains("fixed stack top"), "{error}");
     }
 
     #[test]
