@@ -141,6 +141,42 @@ mod tests {
     }
 
     #[test]
+    fn c6_partition_table_matches_the_profile_and_uses_custom_types() {
+        // Spec 34 D.2 flash layout. Custom types keep espflash's table conversion and the
+        // bootloader away from truST's data partitions.
+        let csv = include_str!("../../../firmware/trust-esp32c6-reference/partitions.csv");
+        let rows: Vec<Vec<&str>> = csv
+            .lines()
+            .filter(|line| !line.trim().is_empty() && !line.trim_start().starts_with('#'))
+            .map(|line| line.split(',').map(str::trim).collect())
+            .collect();
+        let number = |text: &str| u64::from_str_radix(text.trim_start_matches("0x"), 16).unwrap();
+        let c6 = Board::Esp32c6Devkitc1.profile();
+        let expected = [
+            (
+                "factory",
+                "app",
+                "factory",
+                0x1_0000,
+                c6.image_capacity_bytes,
+            ),
+            ("stbc", "0x40", "0x00", 0x20_0000, c6.application_bytes),
+            ("ckpt_a", "0x41", "0x00", 0x20_4000, 0x4000),
+            ("ckpt_b", "0x41", "0x01", 0x20_8000, 0x4000),
+        ];
+        assert_eq!(rows.len(), expected.len());
+        for (row, (name, kind, subtype, offset, size)) in rows.iter().zip(expected) {
+            assert_eq!(
+                (row[0], row[1], row[2], number(row[3]), number(row[4])),
+                (name, kind, subtype, offset, size)
+            );
+        }
+        for pair in rows.windows(2) {
+            assert!(number(pair[0][3]) + number(pair[0][4]) <= number(pair[1][3]));
+        }
+    }
+
+    #[test]
     fn f401_profile_keeps_the_values_the_commands_used() {
         let f401 = Board::NucleoF401re.profile();
         assert_eq!(f401.firmware_dir, "firmware/trust-nucleo-f401re");

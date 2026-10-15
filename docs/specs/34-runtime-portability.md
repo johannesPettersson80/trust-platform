@@ -2516,8 +2516,9 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   image format. Partitions: `factory` application at 0x10000 (1,984 KiB); `stbc` at 0x200000
   (16 KiB), the separately installable application bundle, sized like F401 sector 1; and `ckpt_a`
   at 0x204000 and `ckpt_b` at 0x208000 (16 KiB each), reserved like F401 sectors 2 and 3 with no
-  persistence implemented. The firmware reads `stbc` once at boot into RAM through `esp-storage`.
-  No flash write or erase happens during RUN.
+  persistence implemented. `stbc` uses the custom partition type 0x40 and the checkpoint slots
+  type 0x41 (subtypes 0 and 1), so the bootloader ignores them. The firmware reads `stbc` once at
+  boot into RAM through `esp-storage`. No flash write or erase happens during RUN.
 - **Identity.** IDENTITY carries eight values: the chip ID from the running image header (13); the
   chip revision as major·100 + minor (2); the base MAC as its high 16 and low 32 bits; the flash
   size in KiB from the running image header (8192); the CPU clock in Hz; `misa`; and the reset
