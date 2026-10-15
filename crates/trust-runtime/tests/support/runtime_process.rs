@@ -598,6 +598,9 @@ fn copy_tree(from: &Path, to: &Path) {
 fn replace_in_file(path: &Path, from: &str, to: &str) {
     let text =
         fs::read_to_string(path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
+    // A Windows checkout can convert the example sources to CRLF line endings, while the edits are
+    // written with LF; Structured Text accepts either, so the copy is normalized to LF first.
+    let text = text.replace("\r\n", "\n");
     assert!(
         text.contains(from),
         "{} has no `{from}` to edit",

@@ -206,3 +206,6 @@ mod tests;
 
 #[cfg(test)]
 mod live_tests;
+
+#[cfg(test)]
+mod bounded_identity_tests;

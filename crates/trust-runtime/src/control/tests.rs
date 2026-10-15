@@ -20,3 +20,7 @@ include!("tests/rejected_force_removal.rs");
 include!("tests/refused_request_reporting.rs");
 include!("tests/production_step_and_debug_hold.rs");
 include!("tests/pause_resume_resource_state.rs");
+include!("tests/concurrency_requests.rs");
+include!("tests/reload_withdrawal.rs");
+include!("tests/resource_queue_bounds.rs");
+include!("tests/config_set_lock_order.rs");

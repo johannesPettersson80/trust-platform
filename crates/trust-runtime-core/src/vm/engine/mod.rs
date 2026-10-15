@@ -406,6 +406,8 @@ mod storage_tests;
 #[cfg(test)]
 mod activation_registry_tests;
 #[cfg(test)]
+mod bounded_identity_sets_tests;
+#[cfg(test)]
 mod call_path_activation_tests;
 #[cfg(test)]
 mod work_allowance_continuation_tests;

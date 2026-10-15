@@ -2119,6 +2119,142 @@
         "review_date": "2026-10-10"
       },
       {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 57,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 58,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 60,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 66,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 69,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 27,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 28,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 31,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 33,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 35,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 37,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 40,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 62,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 63,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 65,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 72,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 77,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
         "path": "crates/trust-lsp/src/perf.rs",
         "line": 49,
         "owner": "LSP performance",
