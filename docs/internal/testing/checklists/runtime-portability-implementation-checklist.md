@@ -42,12 +42,19 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   platforms. The examples test now gives its Windows copy a loopback TCP endpoint with a token
   (as the generated-project tests already did); the product fix (a Windows default of loopback
   TCP with a generated token, and the examples' Windows instructions) belongs to A19.
-  Open, needs a short design before code (15 October): spec 11 defines the default endpoint only
-  for Unix-like platforms (`unix://`, 0600 socket) and is silent on Windows. Recommendation:
-  on Windows, `trust-runtime` project generation writes a loopback TCP endpoint and a random
-  per-project token (as managed-fleet scaffolding already does for its endpoints), and the
-  shipped examples stop hard-coding a control endpoint so each platform uses its generated
-  default; a token is never committed to the repository. Spec 11 is updated first.
+  Open, design agreed by the lead (15 October), implementation after round 7: spec 11 defines the
+  default endpoint only for Unix-like platforms and is silent on Windows. Findings: the project
+  template writes the same `unix:///tmp/trust-runtime.sock` for every generated project (two
+  projects on one machine collide), ten shipped examples share that path, and eight OpenOT examples
+  bind `tcp://127.0.0.1:0` with a committed placeholder token but nothing tells a client which port
+  was chosen. Design: (1) when the runtime binds its control endpoint it writes the actual endpoint
+  to `<project>/.trust-runtime/control.json` (owner-only permissions), and `ctl --project` uses it
+  when present; (2) an omitted `[runtime.control] endpoint` defaults to a project-local socket on
+  Unix (`<project>/.trust-runtime/control.sock`, falling back to a hashed path under the runtime
+  directory when the path is too long) and to `tcp://127.0.0.1:0` on Windows, with a random
+  per-start token written only to the owner-only discovery file; (3) the template and the examples
+  omit `endpoint` and `auth_token`, so every platform uses its default and no token is committed.
+  Spec 11 is updated first.
 - [x] Guard 17 on `59b2f90ea` failed `remote_test_all` in
   `opcua_interop_reads_exposed_scalars_with_reference_client`: two OPC UA fixture servers in
   parallel were handed the same released port, one server thread panicked on bind, and
@@ -141,6 +148,52 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   status 1 when it ends faulted. A per-resource supervisor (`scheduler/supervisor.rs`) reads the
   published cycle deadline and faults a scan that does not return (TIME-03);
   `runtime.watchdog.hang_action = "abort"` exits with status 70. The hung-driver test is un-ignored.
+- [x] Rounds 4–6 validated at `cf5ce62e5` (15 October). Focused check 4: 19 of 19 steps pass;
+  workspace 10,008 passed, 0 failed, 30 ignored; core all-features, portable and register lanes,
+  doc tests (with checked error codes), runtime-only lanes, the real-binary journeys in three
+  repetitions, i686, full composition, Clippy and the fuzz build pass. Diagram render and drift
+  check pass (`runtime-execution.svg` regenerated). Batch 9 (`H-cost-model-9`): canonical rule files,
+  F401 firmware link, inspection and package pass; PERF-01 passes (call_binding median ratio
+  1.040–1.049, pooled p99 1.119; refs_sizeof 0.847–0.866; string_stdlib 0.967–0.984). F401 replay
+  (`H-cost-model-board-9`): verifier passed, 101 trace samples, MSP peak 11,616 B (unchanged),
+  maximum main scan 3,761 µs, 4,480 B firmware code free (256 B less than batch 8: stdlib growth).
+- [ ] Round 7 (A16 concurrency, A18 allocation and stack, A17 audit) and round 8 (A27 function-block
+  oracles, A28 bounded exhaustive checks, security fixes), to be validated together with one final
+  batch, guard and push (owner, 15 October: "fix everything and then push"). Findings fixed:
+  - A16: queued restarts coalesced and a later warm request replaced a pending cold one (cold now
+    takes precedence); a reload that timed out was still applied later (now withdrawn unless the
+    resource already took it); the resource command queue was unbounded (now 1,024, `resource_busy`);
+    `config.set` sent three separate scheduler commands and could leave a partial update (now one
+    command, and every fallible lock precedes the first commit). One A16 test used overlapping
+    memory words (`%MWn` is a byte offset, spec 10) and was corrected.
+  - A18: construction, steady scans (no growth over 1,000 cycles), 100 restarts and online changes,
+    drop, faults and refusals do not leak; maximum call and recursion depth run on a 512 KiB stack.
+  - A17: no first-party unsafe in core or runtime sources; three test allocators were missing from the
+    unsafe register (added). Miri over core (strict provenance, symbolic alignment) is running; tests
+    that reach libm's x86 `sqrtsd` inline assembly cannot run under Miri and are recorded as unrun.
+  - A27: TP reset ET on the expiry call when IN was low, against spec 08 §5 (fixed: ET = PT on that call,
+    zero on the next low call); SR/RS long input names (IEC Table 43 rows 1b/2b) compiled but faulted at
+    run time (now normalized to S1/R and S/R1 at compile time; spec 08 updated).
+  - A28: 27 exhaustive tests over task readiness, process-image windows, SIZEOF arithmetic, identity
+    allocation, engine identity containers and the reload claim; HOST-02 now states the allocator hands
+    out identities 0 through u32::MAX - 1.
+  - Security (A19 audit): the Unix control socket was bound with default permissions and narrowed
+    afterwards (a local user could connect in that window and get the token-less Unix Admin role; now
+    owner-only from creation, and a non-socket file at the path is refused); `trust-dev ctl` and
+    `trust-runtime ui` dropped the project token with `--endpoint`; trust-lsp sent the editor's token to
+    an endpoint chosen by repository configuration. The rest of A19 (defaults, discovery, examples
+    without committed tokens, extension) is designed (`A19/DECISIONS.md`) for its own slice.
+  - CI: the Linux test runner ran out of disk building the larger test set; CI now builds with
+    `CARGO_INCREMENTAL=0` and line-table debug info (backtraces keep file:line). The Windows run showed
+    the two new fault-and-restart journeys failing in the test harness only: it matched an LF pattern
+    in a CRLF checkout of the example source (the harness now normalizes line endings).
+  - A06/A07 fuzz campaign 1: 34 seeds (24 current-format artifacts built from the examples), 30 minutes
+    per target, debug assertions on: container 97.0 M executions, admission 7.39 M (coverage 16,525
+    through validation, preparation and both executors), re-preparation 4.79 M; no crash, timeout or
+    out-of-memory input. The fuzz-program registry's campaign record (all 19 targets through
+    `scripts/run_fuzz_campaign.py` at the committed source) remains to be recorded.
+  - A17 Miri campaign 1 over trust-runtime-core: no undefined behaviour; groups reaching libm's x86_64
+    inline assembly are rerun on s390x.
 - [ ] Round 4 focused checks: check 1 stopped on its free-space guard (the assurance cargo target
   had grown to 230 GB; removed). Check 2: 10 workspace tests failed from two causes (the new
   initializer range check passed a subrange type to a base-type test; an A08 atomicity check

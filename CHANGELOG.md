@@ -265,6 +265,27 @@ Target release: `v0.24.75`
 
 ### Fixed
 
+- `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
+  `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.
+- `TP`: on the call where a pulse ends with `IN` FALSE, `ET` is `PT`; the next
+  call with `IN` FALSE resets it to zero. It used to reset on the same call,
+  unlike the timing diagram and `TOF`.
+- `SR` and `RS` accept the IEC 61131-3 long input names (`SET1`/`RESET` and
+  `SET`/`RESET1`, Table 43 rows 1b and 2b). Such calls compiled but faulted at
+  run time.
+
+- Restart requests that arrive before the resource has taken the previous one
+  coalesce into one restart, and a cold request takes precedence: a later warm
+  request no longer silently replaces a pending cold restart.
+- A bytecode reload that times out before the resource takes it is withdrawn
+  and never applied. Before, it could still commit after its caller had been
+  told it timed out.
+- The resource command queue holds at most 1,024 commands. Further requests,
+  including `pause`, `resume`, `bytecode.reload`, `ads.status` and scheduler
+  changes through `config.set`, are refused with `resource_busy` instead of
+  growing memory without bound, and `config.set` applies its scheduler policy
+  changes as one step, so a refused update changes nothing.
+
 - A fault that halts the resource no longer ends the runtime process. The
   resource stays faulted with its safe state applied, `status`, the web UI, HMI
   and protocol servers keep working, and `restart` (warm or cold) or an online
@@ -1134,6 +1155,17 @@ Target release: `v0.24.75`
   normalization contract: enabled non-positive timeouts floor to one
   millisecond, valid and disabled timeouts retain their values, and installing
   policy does not itself execute a watchdog action.
+
+### Security
+
+- The Unix control socket is created owner-only (0600) from the start. It used
+  to be bound with the default permissions and narrowed afterwards, so another
+  local user connecting in that moment got the token-less Unix Admin role. An
+  existing file at the socket path that is not a socket is refused instead of
+  deleted.
+- trust-lsp inline runtime values send the editor's control token only to the
+  editor's own endpoint; an endpoint configured in the repository's
+  `trust-lsp.toml` receives only the token configured next to it.
 
 ### Added
 
