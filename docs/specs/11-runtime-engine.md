@@ -705,7 +705,10 @@ non-`None` mode. Configured authentication and certificate-trust rules are
 enforced by the wire server before a client may read a node.
 
 Server construction and listener startup do not depend on the first runtime
-snapshot. Before a snapshot exists, nodes have no fabricated ready value.
+snapshot. Startup fails with a stable error, and reports no running server, when
+the configured listen address is already in use or the server stops before it
+serves requests; another process answering on the same port never counts as
+this server being ready. Before a snapshot exists, nodes have no fabricated ready value.
 After a snapshot becomes available, a reference client may read every exported
 supported scalar with CurrentRead access. Loopback/reference-client proof
 establishes interoperability for the exercised profile only; it does not

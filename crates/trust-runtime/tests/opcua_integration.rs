@@ -11,11 +11,20 @@ use trust_runtime::opcua::{
     start_wire_server, OpcUaClientIdentity, OpcUaClientOptions, OpcUaDataType, OpcUaVariant,
 };
 
+/// A free loopback port this process has not handed out before. The fixture servers bind their
+/// port only after the reservation is released, so two tests running in parallel must never get
+/// the same released port.
 fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("local addr").port();
-    drop(listener);
-    port
+    static RESERVED: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+    let mut reserved = RESERVED.lock().expect("reserved ports");
+    loop {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
+        let port = listener.local_addr().expect("local addr").port();
+        if !reserved.contains(&port) {
+            reserved.push(port);
+            return port;
+        }
+    }
 }
 
 fn temp_runtime_root(name: &str) -> PathBuf {
@@ -119,6 +128,34 @@ fn opcua_interop_reads_exposed_scalars_with_reference_client() {
             | OpcUaVariant::String(_)
     ));
     server.stop();
+}
+
+#[test]
+fn opcua_server_start_refuses_a_listen_address_in_use() {
+    let port = reserve_loopback_port();
+    let occupant = TcpListener::bind(("127.0.0.1", port)).expect("occupy the fixture port");
+    let runtime = load_runtime_fixture("interop", port);
+    let runtime_root = temp_runtime_root("in-use");
+
+    let error = match start_wire_server(
+        runtime.resource_name.as_str(),
+        &runtime.opcua,
+        snapshot_provider(),
+        Some(runtime_root.as_path()),
+    ) {
+        Ok(_) => panic!("a listen address in use must not start a server"),
+        Err(error) => error.to_string(),
+    };
+
+    assert!(
+        error.contains("OPC UA listen address") && error.contains("is unavailable"),
+        "unexpected error: {error}"
+    );
+    assert_eq!(
+        occupant.local_addr().expect("occupant address").port(),
+        port,
+        "the occupying listener keeps its port"
+    );
 }
 
 #[test]

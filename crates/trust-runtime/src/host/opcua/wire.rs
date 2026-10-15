@@ -10,6 +10,9 @@ pub fn start_wire_server(
     }
     validate_security_profile(&config.security)?;
     let (bind_host, bind_port) = parse_listen(config.listen.as_str())?;
+    // Another process on this port would answer the readiness check below, so an address in use
+    // is refused before the server starts (spec 11, OPC UA server startup).
+    ensure_listen_address_free(bind_host.as_str(), bind_port)?;
     let endpoint_path = normalize_endpoint_path(config.endpoint_path.as_str())?;
     let connect_host = if bind_host == "0.0.0.0" || bind_host == "::" {
         "127.0.0.1".to_string()
@@ -149,6 +152,15 @@ pub fn start_wire_server(
         .map_err(|err| RuntimeError::ThreadSpawn(format!("OPC UA server thread: {err}").into()))?;
 
     wait_for_endpoint(connect_host.as_str(), bind_port, StdDuration::from_secs(4))?;
+    if server_thread.is_finished() {
+        let detail = match server_thread.join() {
+            Ok(()) => "the server exited".to_string(),
+            Err(panic) => panic_detail(panic.as_ref()),
+        };
+        return Err(RuntimeError::ControlError(
+            format!("OPC UA server stopped during startup: {detail}").into(),
+        ));
+    }
     let wire_server = OpcUaWireServer {
         endpoint_url,
         security: config.security,
@@ -417,6 +429,27 @@ fn parse_listen(listen: &str) -> Result<(String, u16), RuntimeError> {
         RuntimeError::InvalidConfig(format!("invalid OPC UA listen port: {err}").into())
     })?;
     Ok((host.to_string(), port))
+}
+
+#[cfg(feature = "opcua-wire")]
+fn ensure_listen_address_free(host: &str, port: u16) -> Result<(), RuntimeError> {
+    std::net::TcpListener::bind((host, port))
+        .map(drop)
+        .map_err(|err| {
+            RuntimeError::ControlError(
+                format!("OPC UA listen address {host}:{port} is unavailable: {err}").into(),
+            )
+        })
+}
+
+/// The message of a panic payload, for an error that reports a stopped server thread.
+#[cfg(feature = "opcua-wire")]
+fn panic_detail(panic: &(dyn std::any::Any + Send)) -> String {
+    panic
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| panic.downcast_ref::<&str>().map(|text| (*text).to_string()))
+        .unwrap_or_else(|| "the server thread panicked".to_string())
 }
 
 #[cfg(feature = "opcua-wire")]
