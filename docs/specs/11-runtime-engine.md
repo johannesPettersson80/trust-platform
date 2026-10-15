@@ -648,10 +648,14 @@ state has a stronger success boundary:
   image and then attempts the resulting output image on every configured I/O
   driver.
 - A driver's safe-state attempt is confirmed only when `write_outputs` returns
-  successfully and the driver's immediately observed health is `Ok`.
-  `Degraded` or `Faulted` health means the physical handoff is unconfirmed,
-  even when `on_error = "warn"` or `"ignore"` made the ordinary driver call
-  return successfully.
+  successfully and the driver's immediately observed output-path health is `Ok`.
+  `Degraded` or `Faulted` output-path health means the physical handoff is
+  unconfirmed, even when `on_error = "warn"` or `"ignore"` made the ordinary
+  driver call return successfully. Output-path health is the driver's health,
+  except that an MQTT incoming-queue overflow (specification 34 §11.1) degrades
+  the reported driver health but not the output path, so it never unconfirms a
+  safe-state handoff. The MQTT input-freshness states keep their existing effect
+  on both.
 - A worker-backed driver whose handoff is queued, reconnecting, timed out, or
   otherwise pending must therefore return a safe-state error at the runtime
   boundary. A later asynchronous delivery does not retroactively turn that
@@ -1947,7 +1951,10 @@ no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
 authentication, enabled I/O-driver configurations, bytecode container, module,
-and selected-resource requirements used by startup. Its versioned JSON success
+and selected-resource requirements used by startup. The configured resource name
+resolves exactly as at launch (§6.7.1 named selection): a name the bytecode does
+not declare fails validation with the launch error, and validation never falls
+back to the primary resource. Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
 runtime drivers.
@@ -2019,6 +2026,11 @@ decimal places, and overrun count.
 For status, health, and task summaries, a missing or wrong-typed required result
 field is a command failure; it is not rendered as raw JSON or replaced with an
 invented value.
+
+`ctl events` and `ctl faults` send `events.tail` and `faults`. An optional
+`--limit <n>` is sent as `limit`; without it the request carries no parameters,
+so the operation's default of 50 applies. Both print the raw response line, so a
+rejected write's `write_rejected` event is visible from the command line.
 
 ###### Runtime control request, job, and state-surface contract
 
@@ -2504,8 +2516,9 @@ destination type rejects that request alone: it reports a `write_rejected`
 event, changes neither the destination nor the force set, and does not fault
 the PLC (specification 34 §4.3.1). For example, `io-write %MW0 41` stores
 `INT` 41 into an `INT` binding, and `io-write %MW0 40000` is rejected. Variable
-mutations (`set`, `var.force`) do not apply this conversion; they keep the
-destination's declared-type check.
+mutations (`set`, `var.force`) apply the same rule to the declared type of their
+target variable: `set global:Counter 41` stores `INT` 41 into an `INT` global,
+and a value the declared type cannot take rejects that request alone, as above.
 
 An accepted `io.write` appends one one-shot request in arrival order. Multiple
 writes to the same address remain distinct ordered requests. An accepted
@@ -2513,6 +2526,13 @@ writes to the same address remain distinct ordered requests. An accepted
 replaces its value in place without duplicating or reordering the force.
 `io.unforce` removes only the exact matching force and is idempotent when no
 such force exists.
+
+Pending one-shot `io.write` requests, pending variable writes, pending debugger
+expression writes (`setExpression`), active I/O forces and active variable forces
+are each bounded at 1,024 entries per runtime (specification 34 §4.3.1). A request that would add an entry beyond its bound is
+refused with the stable error `request queue full` and changes nothing.
+Re-forcing an already forced target replaces its value in place and is never
+refused by the bound.
 
 The bounded `eval` operation trims `expr`, rejects an empty name, and performs
 an exact snapshot lookup: global storage first, then retained storage. It is a

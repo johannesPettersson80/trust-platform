@@ -265,11 +265,11 @@ For the F401 Cortex-M4F bring-up, `thumbv7em-none-eabihf` is the selected target
 
 **HOST-01.** Linux, Windows, and macOS shall use the shared loader, execution state, opcode semantics, cycle policy, and fault identities. Host `Runtime` compatibility APIs shall compose or wrap that engine, rather than retain an independent legacy dispatcher as the permanent desktop implementation.
 
-**HOST-02.** Hosted limits shall be selected for the application and deployment, not copied from STM32 defaults. Hosts may allocate backing storage during preparation and offer larger programs, strings, arrays, instance counts, and task configurations while retaining checked execution and admission.
+**HOST-02.** Hosted limits shall be selected for the application and deployment, not copied from STM32 defaults. Hosts may allocate backing storage during preparation and offer larger programs, strings, arrays, instance counts, and task configurations while retaining checked execution and admission. Instance identities are 32-bit: creating an instance beyond that space fails with `Overflow` and never wraps an identity or panics, in hosted and portable construction alike.
 
 **HOST-03.** Existing supported debugger, HMI, protocol, persistence, configuration, CLI, and embedding workflows shall remain available on their supported platforms. Preserve existing APIs except for the explicitly selected H raw-mutation migration in §4.3.1: unrestricted mutable storage and executable type-registry access shall be available only during non-executable construction; installed-state integrations shall use checked writes or candidate replacement. Document replacement APIs and migrate all repository callers; do not silently claim source compatibility for the old live mutable-reference signatures. Hosted online change shall follow the generation, restart, and retirement contract in Section 11.3. The M0 feature matrix shall distinguish implemented support, unavailable platform-specific features, and experimental support; it shall not infer identical service/driver support on every OS.
 
-**HOST-04.** Validated execution optimizations shall remain available where supported and shall use the same semantic and numeric conformance corpus. Their plans shall be prepared from admitted artifacts without requiring an ST compiler session. Bounded hosted profiles shall satisfy MODEL-02 for first use, rare branches, and cache replacement; MCU limits shall not force hosted builds onto a slower path without measured evidence and an approved tradeoff. Register execution scratch shall be reserved during controller construction for each eligible prepared POU and counted against the construction allocation limits. Scratch cleanup shall preserve success, fault and failed-selection semantics. Default values keep their type, depth and lifetime checks whichever constructor path produces them. Calls to a distinct eligible POU shall retain register execution; recursive re-entry into an occupied POU may use the shared stack fallback without resetting the instruction budget. Explicit tier-1 reset clears selected blocks and counters while retaining immutable plans and reserved storage; profile-only reset preserves the selected blocks. Immutable preparation diagnostics retain lowering and specialized-compilation counts and their specific failure reasons after RUN profiling resets. CLI and embedding reports distinguish those preparation results from RUN hits and zero RUN compilation counters.
+**HOST-04.** Validated execution optimizations shall remain available where supported and shall use the same semantic and numeric conformance corpus. Their plans shall be prepared from admitted artifacts without requiring an ST compiler session. Bounded hosted profiles shall satisfy MODEL-02 for first use, rare branches, and cache replacement; MCU limits shall not force hosted builds onto a slower path without measured evidence and an approved tradeoff. Register execution scratch shall be reserved during controller construction for each eligible prepared POU and counted against the construction allocation limits. Scratch cleanup shall preserve success, fault and failed-selection semantics. Default values keep their type, depth and lifetime checks whichever constructor path produces them. Calls to a distinct eligible POU shall retain register execution; recursive re-entry into an occupied POU may use the shared stack fallback without resetting the instruction budget. Explicit tier-1 reset clears selected blocks and counters while retaining immutable plans and reserved storage; profile-only reset preserves the selected blocks. Immutable preparation diagnostics retain lowering and specialized-compilation counts and their specific failure reasons after RUN profiling resets. CLI and embedding reports distinguish those preparation results from RUN hits and zero RUN compilation counters. A debugger attached or detached while the resource runs takes effect at the next activation start: an activation already running finishes on the executor it started on. A Tier-1 block's hotness counts every entry over the block's lifetime; evicting a selected block from the bounded cache does not reset that count, so the evicted block is selected again at its next entry. The register profile counts interpreted block entries separately from Tier-1 block executions. Tier-1 has no deoptimization path (a guard miss continues inside the block with generic arithmetic), so it reports no deoptimization counters.
 
 H implementation choices that are not product behavior stay out of this
 specification. The following guarantees bind them:
@@ -437,12 +437,28 @@ Queue acceptance is distinct from application of a write. A staged request shall
 be checked against the active destination and binding again at its commit
 boundary; a request targeting a replaced or retired destination shall be rejected
 unless an existing supported checked rebinding operation applies. Queue exhaustion
-shall return an explicit failure without applying the request. Preserve existing
+shall return an explicit failure without applying the request; the hosted control
+surface bounds its pending writes and forces at 1,024 entries each and refuses
+further requests with `request queue full` (specification 11, runtime control I/O
+and variable mutation contract). Preserve existing
 protocol acknowledgements while distinguishing accepted from applied wherever the
 protocol exposes completion. References to debug scratch storage shall not escape
 into PLC state; installed references returned through scratch parsing retain their
 existing checked lifetime rules. Scratch-only type IDs shall not become installed
 identities; checked writes resolve their values against admitted destination types.
+
+The portable core owners (`OwnedRuntimeState`, `RuntimeState`) are the embedding
+API for drivers, firmware and hosts, and they change state only between cycles,
+through an exclusive borrow. Their raw input image is the I/O driver boundary: a
+driver writes sampled input bytes there before the next cycle, as the scan's own
+input sampling does, and no other storage is reachable as raw bytes. Variables
+change only through checked writes. Setting the logical time (HOST-06 simulation),
+latching a host-detected fault, clearing a fault and resetting task timing after a
+restart are host responsibilities exposed for that use. The installed hosted
+controller keeps task-timing resets inside restart and replacement. Debugger
+evaluation contexts hold PLC storage privately, and the installed controller does
+not implement the execution-adapter traits, so neither offers a path around
+checked mutation.
 
 Expose non-executable construction and admitted execution through distinct Rust
 types or facades with private installed state. Prefer ordinary ownership and
@@ -1318,7 +1334,7 @@ The reviewed hosted cycle can call `maybe_save_retain_store()` before normal out
 
 Hosted and MCU networking and management are adapters/services, not runtime-core dependencies. They may run on the same device without belonging in the VM. The full hosted product shall retain its supported services; a future MCU Modbus, CAN, or MQTT implementation shall use the same ownership boundary.
 
-Workers shall exchange bounded messages or process-image snapshots with the control path. Polling budgets, queue overflow, stale-data limits, and critical versus noncritical failures shall be explicit. A network outage shall not make PLC execution wait indefinitely.
+Workers shall exchange bounded messages or process-image snapshots with the control path. Polling budgets, queue overflow, stale-data limits, and critical versus noncritical failures shall be explicit. A network outage shall not make PLC execution wait indefinitely. The MQTT driver keeps at most 256 received messages for the control path; when a new message arrives at that bound it drops the oldest, counts every dropped message, and reports the driver as `degraded` with the stable detail `incoming queue overflow: <n> messages dropped` (the count since the driver started) from the first drop until the driver restarts. A degraded driver does not by itself fault the PLC or make aggregate health false, and because the overflow concerns received messages only, it does not unconfirm a safe-state handoff, which depends on the driver's output path (specification 11, safe-state handoff confirmation).
 
 Rich symbol lookup, source rendering, HMI, DAP presentation, compilation, and deployment orchestration remain on the development computer or hosted product. The MCU needs only the bounded device-side hooks required by the selected features.
 

@@ -212,9 +212,14 @@ configuration knobs:
 | Active VM call frames | 1,024 |
 | Executed instructions in one top-level VM invocation | 1,000,000 |
 | Nested constant-payload type references | 64 |
+| `SIZEOF` type-evaluation depth | 128 |
 
-The encoded-container limit is checked before checksum calculation or section
-decoding. Count and decoded-instruction limits are checked before count-sized
+The encoded-container limit is checked before checksum calculation, section
+decoding, or any decode work is charged, so an oversized container is always
+reported as `InvalidHeader`, whatever preparation budget the host selected. The
+`SIZEOF` evaluation depth bounds the recursion of one `SIZEOF` type evaluation;
+validated types are already bounded at 64 structural edges, so it cannot refuse a
+validated artifact. Count and decoded-instruction limits are checked before count-sized
 or instruction-state allocation. A module above any validation limit is
 rejected as a complete candidate before it can replace the active module.
 
