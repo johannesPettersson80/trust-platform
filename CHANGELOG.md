@@ -90,7 +90,10 @@ Target release: `v0.24.75`
 - Import CODESYS `pouType="action"` PLCopen POUs: `Parent.Action` names
   merge into the parent POU as textual `ACTION` blocks (`PLCO219` info);
   body-less actions skip with `PLCO204`, and actions without parent linkage
-  keep the `PLCO203` fail-closed skip.
+  keep the `PLCO203` fail-closed skip. Real e!COCKPIT exports are covered
+  too: textual actions nested structurally under the parent POU
+  (`<pou><actions><action name="Plain">`) merge the same way, where they
+  were previously dropped silently.
 - Make function-block and program `VAR_INPUT` members writable (CODESYS
   parity): the owning body and external POUs may assign them between calls.
   Function/method parameters stay call-local, and pointer/reference input

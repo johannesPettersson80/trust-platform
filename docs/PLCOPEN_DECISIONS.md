@@ -156,6 +156,30 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     actions skipped preserves the fail-closed boundary where no parent can be
     derived.
 
+## 2026-10-14 - Structural action containers (e!COCKPIT export shape)
+
+- Area: PLCopen XML import of textual actions
+- Decision:
+  - Real e!COCKPIT exports do **not** emit standalone `pouType="action"` POUs:
+    they nest `<action name="Plain">` elements under an `<actions>` container
+    inside the parent POU itself (`<pou><actions><action>`), with structural
+    containment as the parent linkage and no dotted names. The importer now
+    collects that container and merges each action into its enclosing POU's
+    generated source with the same `ACTION`-block mechanics, reporting,
+    `PLCO219`, and migration entries as the dotted-name path.
+  - The 2026-10-11 dotted-name mapping remains supported as the secondary
+    form (other tools do emit standalone action POUs); its "parent linkage is
+    taken from the dotted name only" statement above is superseded — the XML
+    does carry a normative action-parent reference, as element containment.
+  - Body-less structural actions keep the fail-closed `PLCO204` skip; actions
+    whose parent POU is missing or not importable keep the `PLCO203` skip.
+- Reason:
+  - Measured against a real export (`PFC200_2ETH_RS/Application.
+    fbMqttPayloadCreate.xml`): the dotted-name path never fires on live
+    e!COCKPIT files and their action bodies were dropped silently, with no
+    diagnostic at all. Structural containment is the format's parent
+    reference, so reading it is faithful import rather than invention.
+
 ## 2026-10-11 - Global-variable duplicate identity tolerance
 
 - Area: PLCopen XML import of `globalVars` lists

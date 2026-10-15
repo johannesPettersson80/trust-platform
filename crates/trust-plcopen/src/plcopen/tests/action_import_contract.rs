@@ -158,3 +158,117 @@ fn action_pou_without_body_is_skipped() {
     let entry = migration_entry(&report, "PLC_PRG.Empty").expect("action entry present");
     assert_eq!(entry.0, "skipped");
 }
+
+// Real e!COCKPIT exports nest textual actions structurally under the parent
+// POU (`<pou><actions><action name="Plain">`) and emit no pouType="action"
+// POUs at all — see plcopensrc/PFC200_2ETH_RS/Application.fbMqttPayloadCreate.xml.
+
+#[test]
+fn structurally_nested_actions_merge_into_parent_function_block() {
+    let fixture = action_fixture(
+        "action-structural-fb",
+        r#"<pou name="fbMqttPayloadCreate" pouType="functionBlock">
+  <interface>
+    <localVars>
+      <variable name="count">
+        <type><INT /></type>
+      </variable>
+    </localVars>
+  </interface>
+  <actions>
+    <action name="StatePayload">
+      <body><ST><![CDATA[count := count + 1;]]></ST></body>
+    </action>
+    <action name="EventPayload">
+      <body><ST><![CDATA[count := count + 2;]]></ST></body>
+    </action>
+  </actions>
+  <body><ST><![CDATA[StatePayload();
+EventPayload();]]></ST></body>
+</pou>"#,
+    );
+
+    let report = fixture.import().expect("import succeeds");
+    let fb_source = fixture.source("fbMqttPayloadCreate.st");
+    assert!(
+        fb_source.contains("ACTION StatePayload:") && fb_source.contains("ACTION EventPayload:"),
+        "both structurally nested actions must merge into the FB:\n{fb_source}"
+    );
+    assert!(fb_source.contains("count := count + 1;"));
+    assert!(fb_source.contains("count := count + 2;"));
+    assert!(fb_source.contains("END_ACTION"));
+    let entry = migration_entry(&report, "fbMqttPayloadCreate.StatePayload")
+        .expect("structural action migration entry present");
+    assert_eq!(entry.0, "imported");
+    assert_eq!(entry.1.as_deref(), Some("action"));
+    assert!(
+        !report
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("skipping action pou")),
+        "structural actions must not be reported as lost: {:?}",
+        report.warnings
+    );
+}
+
+#[test]
+fn structurally_nested_action_without_body_skips_fail_closed() {
+    let fixture = action_fixture(
+        "action-structural-nobody",
+        r#"<pou name="fbDevice" pouType="functionBlock">
+  <actions>
+    <action name="Empty" />
+  </actions>
+  <body><ST><![CDATA[Empty();]]></ST></body>
+</pou>"#,
+    );
+
+    let report = fixture.import().expect("import succeeds");
+    let fb_source = fixture.source("fbDevice.st");
+    assert!(!fb_source.contains("ACTION Empty:"));
+    assert!(
+        report
+            .unsupported_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "PLCO204"),
+        "body-less structural action keeps the PLCO204 skip: {:?}",
+        report.unsupported_diagnostics
+    );
+    let entry = migration_entry(&report, "fbDevice.Empty").expect("action entry present");
+    assert_eq!(entry.0, "skipped");
+}
+
+#[test]
+fn structurally_nested_actions_route_to_their_own_parents() {
+    let fixture = action_fixture(
+        "action-structural-routing",
+        r#"<pou name="PouOne" pouType="functionBlock">
+  <actions>
+    <action name="WorkOne">
+      <body><ST><![CDATA[a := a + 1;]]></ST></body>
+    </action>
+  </actions>
+  <body><ST><![CDATA[WorkOne();]]></ST></body>
+</pou>
+<pou name="PouTwo" pouType="functionBlock">
+  <actions>
+    <action name="WorkTwo">
+      <body><ST><![CDATA[b := b + 1;]]></ST></body>
+    </action>
+  </actions>
+  <body><ST><![CDATA[WorkTwo();]]></ST></body>
+</pou>"#,
+    );
+
+    fixture.import().expect("import succeeds");
+    let one = fixture.source("PouOne.st");
+    let two = fixture.source("PouTwo.st");
+    assert!(
+        one.contains("ACTION WorkOne:") && !one.contains("ACTION WorkTwo:"),
+        "PouOne must carry only its own action:\n{one}"
+    );
+    assert!(
+        two.contains("ACTION WorkTwo:") && !two.contains("ACTION WorkOne:"),
+        "PouTwo must carry only its own action:\n{two}"
+    );
+}

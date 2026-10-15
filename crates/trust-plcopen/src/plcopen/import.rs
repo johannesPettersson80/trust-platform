@@ -600,13 +600,16 @@ struct DeferredActionPou {
 }
 
 /// Collects `pouType="action"` POUs, splitting `Parent.Action` names into
-/// parent linkage and action name.
+/// parent linkage and action name, plus the e!COCKPIT structural form where
+/// textual actions nest under the parent POU itself (`<pou><actions><action
+/// name="Plain">`) with no standalone action POUs at all.
 fn collect_deferred_action_pous(root: roxmltree::Node<'_, '_>) -> HashMap<String, Vec<DeferredActionPou>> {
     let mut deferred: HashMap<String, Vec<DeferredActionPou>> = HashMap::new();
     for pou in collect_import_pou_nodes(root) {
         let Some(name) = extract_pou_name(pou) else {
             continue;
         };
+        collect_structural_actions(pou, &name, &mut deferred);
         let Some(pou_type_raw) = attribute_ci(pou, "pouType").or_else(|| attribute_ci(pou, "type"))
         else {
             continue;
@@ -632,6 +635,41 @@ fn collect_deferred_action_pous(root: roxmltree::Node<'_, '_>) -> HashMap<String
         });
     }
     deferred
+}
+
+/// e!COCKPIT serializes a POU's textual actions as `<action name="Plain">`
+/// children of an `<actions>` container inside the POU itself; parent
+/// linkage is the containment, and the action names carry no dot. Collect
+/// them with the enclosing POU as the merge parent.
+fn collect_structural_actions(
+    pou: roxmltree::Node<'_, '_>,
+    parent_name: &str,
+    deferred: &mut HashMap<String, Vec<DeferredActionPou>>,
+) {
+    for actions in pou
+        .children()
+        .filter(|child| is_element_named_ci(*child, "actions"))
+    {
+        for action in actions
+            .children()
+            .filter(|child| is_element_named_ci(*child, "action"))
+        {
+            let Some(action_name) = attribute_ci(action, "name")
+                .map(|name| name.trim().to_string())
+                .filter(|name| !name.is_empty())
+            else {
+                continue;
+            };
+            deferred
+                .entry(parent_name.to_ascii_lowercase())
+                .or_default()
+                .push(DeferredActionPou {
+                    parent: Some(parent_name.to_string()),
+                    name: action_name,
+                    body: extract_st_body(action),
+                });
+        }
+    }
 }
 
 /// Renders merged textual actions and splices them before the parent POU's
