@@ -2,6 +2,7 @@
 
 use std::net::TcpListener;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -27,12 +28,20 @@ fn reserve_loopback_port() -> u16 {
     }
 }
 
+/// A fresh directory for each call. Clock resolution alone is not enough: macOS reports
+/// microseconds, so two tests writing the same fixture in parallel could share a directory and one
+/// could read the other's half-written `runtime.toml`.
 fn temp_runtime_root(name: &str) -> PathBuf {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("trust-runtime-opcua-{name}-{stamp}"));
+    let root = std::env::temp_dir().join(format!(
+        "trust-runtime-opcua-{name}-{}-{sequence}-{stamp}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&root).expect("create temp runtime root");
     root
 }

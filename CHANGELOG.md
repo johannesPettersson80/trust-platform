@@ -267,6 +267,7 @@ Target release: `v0.24.75`
 
 ### Fixed
 
+- OPC UA startup now waits until this process's own server has bound its listen address, so another process holding the port can no longer pass for a started server on platforms where the check before startup does not see it (seen on macOS). A bind that fails during startup reports the same "listen address … is unavailable" error as that check.
 - `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
   `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.
 - `TP`: on the call where a pulse ends with `IN` FALSE, `ET` is `PT`; the next
