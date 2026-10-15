@@ -296,6 +296,31 @@ fn zero_time_allowances_are_unsupported_on_both_routes() {
 }
 
 #[test]
+fn zero_construction_bytes_are_admitted_and_refuse_the_first_construction_charge() {
+    // TIME-09 refuses only zero time allowances at preparation. A zero byte allowance is
+    // admitted, and instantiation refuses its first construction charge at used 0
+    // (engine/allocation.rs:32), before any value is constructed.
+    let limits = PreparationLimits {
+        max_construction_bytes: 0,
+        ..Default::default()
+    };
+    let prepared = PreparedModule::from_bytes(BYTES, limits).unwrap();
+    let error = prepared.instantiate(0).err();
+    assert!(
+        matches!(
+            error,
+            Some(RuntimeError::ExecutionLimit {
+                kind: trust_runtime_core::error::ExecutionLimitKind::AllocationBytes,
+                used: 0,
+                requested,
+                limit: 0,
+            }) if requested > 0
+        ),
+        "unexpected construction refusal: {error:?}"
+    );
+}
+
+#[test]
 fn process_image_limit_is_exact_for_inputs_outputs_and_memory() {
     // gpio.st declares %IX0.0 and %QX0.0, so the admitted process image is non-empty.
     let raw = BytecodeModule::decode(GPIO).unwrap();

@@ -298,8 +298,6 @@ fn initializer_limits_and_failed_restart_leave_original_state_intact() {
         "PROGRAM Main VAR count : INT := INT#3; END_VAR count := count + INT#1; END_PROGRAM",
     );
     let bytes = artifact(&source);
-    // TIME-09 and the call-depth profile refuse these zero allowances at preparation
-    // (prepared.rs:165-171), before any construction work runs.
     for limits in [
         PreparationLimits {
             max_construction_work: 0,
@@ -309,36 +307,17 @@ fn initializer_limits_and_failed_restart_leave_original_state_intact() {
             max_call_depth: 0,
             ..Default::default()
         },
+        PreparationLimits {
+            max_construction_bytes: 0,
+            ..Default::default()
+        },
     ] {
-        assert_eq!(
-            PreparedModule::from_bytes(&bytes, limits).unwrap_err(),
-            RuntimeError::ProfileUnsupported("invalid preparation profile limits".into())
-        );
+        let result = PreparedModule::from_bytes(&bytes, limits);
+        assert!(match result {
+            Ok(module) => module.instantiate(0).is_err(),
+            Err(_) => true,
+        });
     }
-    // A zero construction byte allowance is admitted. The first construction charge is the
-    // task-ready reservation (engine/mod.rs:268), or register telemetry first when that feature
-    // is built. It is refused at used 0 with a positive request (engine/allocation.rs:32).
-    let zero_bytes = PreparationLimits {
-        max_construction_bytes: 0,
-        ..Default::default()
-    };
-    let module = PreparedModule::from_bytes(&bytes, zero_bytes).unwrap();
-    let error = match module.instantiate(0) {
-        Ok(_) => panic!("zero construction bytes must refuse instantiation"),
-        Err(error) => error,
-    };
-    assert!(
-        matches!(
-            error,
-            RuntimeError::ExecutionLimit {
-                kind: ExecutionLimitKind::AllocationBytes,
-                used: 0,
-                requested,
-                limit: 0,
-            } if requested > 0
-        ),
-        "unexpected construction refusal: {error:?}"
-    );
     let prepared = PreparedModule::from_bytes(&bytes, PreparationLimits::default()).unwrap();
     let services = Deadline {
         expired: Cell::new(false),

@@ -108,7 +108,11 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
   (`decode/module_decode.rs:17-21`); no declared debugger/control queue capacity; no declared
   instance-count capacity (legacy `create_instance` panics on exhaustion). Also: spec 12 §4.6.2
   names "REF_TABLE entries" while the decoder reports "REF_TABLE count".
-- [ ] Release guard on the A09 commit, the push to PR #137 and native CI.
+- [ ] Release guard on the A09 commit, the push to PR #137 and native CI. Guard 13
+  (`aedf192b8`) failed FULLMAP-CHECK-10: A09 had grown `runtime_core_compiler_free_load.rs`
+  past the 1,000-line module threshold. That file is restored, and its zero-allowance
+  assertions live in core `preparation_profile.rs` (exact `ProfileUnsupported` for zero work
+  allowances, and the zero construction-byte refusal at instantiation).
 - [ ] Owner decisions found by A20 (not changed overnight):
   - 89 other example projects name a `[resource]` in `runtime.toml` that their ST does not
     declare (every other communication example, `network_canvas_demo`, all 80 OSCAT
