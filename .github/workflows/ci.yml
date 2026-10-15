@@ -11,6 +11,12 @@ env:
   RUST_BACKTRACE: 1
   # GitHub runners do not guarantee sccache availability; disable wrapper in CI.
   RUSTC_WRAPPER: ""
+  # Every integration test is its own binary linking the runtime. Line tables keep file:line
+  # backtraces at a fraction of the size of full debug info, and CI never reuses incremental
+  # caches, so both settings keep `cargo build --all-targets` inside the runners' free disk.
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_PROFILE_TEST_DEBUG: line-tables-only
 
 jobs:
   portable-core:
