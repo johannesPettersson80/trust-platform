@@ -144,6 +144,7 @@ pub fn verify_register_program(program: &RegisterProgram) -> Result<(), RuntimeE
                 | RegisterInstr::BinaryConstRefToRef { .. }
                 | RegisterInstr::Nop
                 | RegisterInstr::Return
+                | RegisterInstr::ForStepZero
                 | RegisterInstr::VmFallback { .. } => {}
             }
         }

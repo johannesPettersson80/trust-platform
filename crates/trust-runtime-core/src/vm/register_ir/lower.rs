@@ -174,6 +174,7 @@ pub fn lower_pou_to_register_ir(
             }
             match instr.opcode {
                 0x00 => instructions.push(RegisterInstr::Nop),
+                0x01 => instructions.push(RegisterInstr::ForStepZero),
                 0x02 => {
                     let offset = operand_i32(instr)?;
                     let target_pc =
@@ -459,7 +460,10 @@ pub fn lower_pou_to_register_ir(
         let terminates_control_flow = instructions.last().is_some_and(|instruction| {
             matches!(
                 instruction,
-                RegisterInstr::Jump { .. } | RegisterInstr::JumpIf { .. } | RegisterInstr::Return
+                RegisterInstr::Jump { .. }
+                    | RegisterInstr::JumpIf { .. }
+                    | RegisterInstr::Return
+                    | RegisterInstr::ForStepZero
             )
         });
         if !terminates_control_flow {

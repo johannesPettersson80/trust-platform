@@ -762,3 +762,164 @@ fn call_free_profile_hits_split_into_interpreted_and_tier1_entries() {
         );
     }
 }
+
+/// A FOR loop whose zero-step guard is a HALT; the literal step is 1, so the loop runs.
+const FOR_LOOP_SOURCE: &str = r#"
+PROGRAM Main
+VAR
+    i : DINT := 0;
+    s : DINT := 0;
+    cycles : DINT := 0;
+END_VAR
+FOR i := 1 TO 3 DO s := s + i; END_FOR;
+cycles := cycles + 1;
+END_PROGRAM
+"#;
+
+/// A FOR loop whose step is a global that the host writes between cycles.
+const FOR_STEP_SOURCE: &str = r#"
+VAR_GLOBAL
+    step_size : DINT := 1;
+END_VAR
+PROGRAM Main
+VAR
+    i : DINT := 0;
+    total : DINT := 0;
+    cycles : DINT := 0;
+END_VAR
+FOR i := 1 TO 3 BY step_size DO
+    total := total + i;
+END_FOR;
+cycles := cycles + 1;
+END_PROGRAM
+"#;
+
+/// The control variable, body accumulator and cycle counter of `FOR_STEP_SOURCE`.
+fn for_step_vars(state: &RuntimeState<'_>) -> [Value; 3] {
+    ["i", "total", "cycles"].map(|name| program_var(state, "Main", name))
+}
+
+#[test]
+fn for_loop_runs_on_the_register_path_without_a_fallback_and_matches_the_stack_arm() {
+    let prepared = prepare(FOR_LOOP_SOURCE);
+    let register_services = ConfiguredServices {
+        stack: false,
+        configuration: profiled(),
+    };
+    let stack_services = ConfiguredServices {
+        stack: true,
+        configuration: profiled(),
+    };
+    let mut register = prepared
+        .instantiate_with_services(0, &register_services)
+        .unwrap();
+    let mut stack = prepared
+        .instantiate_with_services(0, &stack_services)
+        .unwrap();
+    for cycle in 1..=20_i64 {
+        let time = Duration::from_millis(cycle * 10);
+        register.execute_cycle(time).unwrap();
+        stack.execute_cycle(time).unwrap();
+        for name in ["i", "s", "cycles"] {
+            assert_eq!(
+                program_var(&register, "Main", name),
+                program_var(&stack, "Main", name),
+                "cycle {cycle}: {name}"
+            );
+        }
+        // Each cycle adds 1 + 2 + 3 to the running sum.
+        assert_eq!(
+            program_var(&register, "Main", "s"),
+            Value::DInt(6 * cycle as i32),
+            "cycle {cycle}"
+        );
+        assert_eq!(register.outputs(), stack.outputs(), "cycle {cycle}");
+    }
+    let profile = register.register_profile_snapshot();
+    assert!(profile.register_programs_executed > 0, "{profile:?}");
+    assert!(profile.fallback_reasons.is_empty(), "{profile:?}");
+}
+
+#[test]
+fn for_step_zero_faults_identically_on_stack_interpreter_and_tier1_threshold_one() {
+    let prepared = prepare(FOR_STEP_SOURCE);
+    let stack_services = ConfiguredServices {
+        stack: true,
+        configuration: profiled(),
+    };
+    let interpreter_services = ConfiguredServices {
+        stack: false,
+        configuration: profiled(),
+    };
+    let tier1_services = ConfiguredServices {
+        stack: false,
+        configuration: tier1_arm(1),
+    };
+    let mut stack = prepared
+        .instantiate_with_services(0, &stack_services)
+        .unwrap();
+    let mut interpreter = prepared
+        .instantiate_with_services(0, &interpreter_services)
+        .unwrap();
+    let mut tier1 = prepared
+        .instantiate_with_services(0, &tier1_services)
+        .unwrap();
+    for cycle in 1..=6_i64 {
+        let time = Duration::from_millis(cycle * 10);
+        // The step is zero on cycle 3 only, so the guard faults once.
+        let step: i32 = if cycle == 3 { 0 } else { 1 };
+        let before = for_step_vars(&stack);
+        stack.clear_fault();
+        interpreter.clear_fault();
+        tier1.clear_fault();
+        stack.write_global("step_size", Value::DInt(step)).unwrap();
+        interpreter
+            .write_global("step_size", Value::DInt(step))
+            .unwrap();
+        tier1.write_global("step_size", Value::DInt(step)).unwrap();
+        let stack_result = stack.execute_cycle(time);
+        let interpreter_result = interpreter.execute_cycle(time);
+        let tier1_result = tier1.execute_cycle(time);
+        let expected: Result<(), RuntimeError> = if step == 0 {
+            Err(RuntimeError::ForStepZero)
+        } else {
+            Ok(())
+        };
+        assert_eq!(stack_result, expected, "cycle {cycle}: stack");
+        assert_eq!(
+            interpreter_result, stack_result,
+            "cycle {cycle}: interpreter"
+        );
+        assert_eq!(tier1_result, stack_result, "cycle {cycle}: Tier-1");
+        assert_eq!(interpreter.fault(), stack.fault(), "cycle {cycle}: fault");
+        assert_eq!(tier1.fault(), stack.fault(), "cycle {cycle}: Tier-1 fault");
+        assert_eq!(
+            for_step_vars(&interpreter),
+            for_step_vars(&stack),
+            "cycle {cycle}: interpreter values"
+        );
+        assert_eq!(
+            for_step_vars(&tier1),
+            for_step_vars(&stack),
+            "cycle {cycle}: Tier-1 values"
+        );
+        if step == 0 {
+            // The guard runs before the control variable is stored or the body is entered.
+            assert_eq!(
+                for_step_vars(&stack),
+                before,
+                "cycle {cycle}: destination unchanged"
+            );
+        }
+        assert_eq!(tier1.outputs(), stack.outputs(), "cycle {cycle}");
+    }
+    // The faulting trap came from the register interpreter, not from a POU fallback.
+    let profile = interpreter.register_profile_snapshot();
+    assert!(profile.register_programs_executed > 0, "{profile:?}");
+    assert!(profile.fallback_reasons.is_empty(), "{profile:?}");
+    assert!(
+        tier1.tier1_snapshot().block_executions > 0,
+        "{:?}",
+        tier1.tier1_snapshot()
+    );
+}

@@ -635,6 +635,9 @@ pub(super) fn execute_register_block_interpreted_slice(
                 }
             }
             RegisterInstr::Return => return Ok(RegisterBlockStep::ReturnFromPou),
+            RegisterInstr::ForStepZero => {
+                return Err(VmTrap::ForStepZero.into_runtime_error());
+            }
             RegisterInstr::VmFallback { opcode, .. } => {
                 return Err(invalid_bytecode(format!(
                     "register-ir executor encountered fallback opcode 0x{opcode:02X}",

@@ -159,3 +159,34 @@ fn repeated_operands_charge_the_same_work_on_stack_register_and_tier1_at_each_pr
         }
     }
 }
+
+#[test]
+fn for_zero_step_trap_charges_the_same_work_on_every_executor_at_each_prefix() {
+    // LOAD_CONST TRUE; JMP_FALSE past the trap; HALT; RETURN, as the encoder lays out a zero-step
+    // guard. The register trap is charged one unit before it faults, as the stack HALT is.
+    let mut code = vec![0x10, 0, 0, 0, 0, 0x04];
+    code.extend_from_slice(&1_i32.to_le_bytes());
+    code.extend_from_slice(&[0x01, 0x06]);
+    let module = module(code, Value::Bool(true));
+    let lowered = lower_pou_to_register_ir(&module, 1).unwrap();
+    assert!(matches!(
+        lowered.blocks[1].instructions.as_slice(),
+        [RegisterInstr::ForStepZero]
+    ));
+
+    for budget in 0..=6 {
+        let stack = stack_outcome(&module, budget, i32::MIN);
+        for tier1_enabled in [false, true] {
+            assert_eq!(
+                register_outcome(&module, budget, tier1_enabled, i32::MIN),
+                stack,
+                "budget={budget}, tier1={tier1_enabled}"
+            );
+        }
+        if budget == 6 {
+            // LOAD_CONST, JMP_FALSE and HALT are charged before the trap, leaving three units.
+            assert_eq!(stack.boundary, Boundary::Other(RuntimeError::ForStepZero));
+            assert_eq!(stack.remaining, 3);
+        }
+    }
+}

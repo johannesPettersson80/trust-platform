@@ -117,6 +117,7 @@ pub(super) fn for_each_instruction_register_read(
         | RegisterInstr::CmpRefConstJumpIf { .. }
         | RegisterInstr::Jump { .. }
         | RegisterInstr::Return
+        | RegisterInstr::ForStepZero
         | RegisterInstr::VmFallback { .. } => {}
     }
 }

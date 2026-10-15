@@ -905,3 +905,30 @@ fn failed_scratch_selection_preserves_values_and_cleanup_is_repeatable() {
     assert!(reads.iter().all(|count| *count == 0));
     assert!(operands.peek().is_err());
 }
+
+#[test]
+fn for_zero_step_halt_lowers_to_the_register_trap_without_a_pou_fallback() {
+    // LOAD_CONST TRUE; JMP_FALSE past the trap; HALT; RETURN. The encoder lays out a zero-step
+    // guard this way: the HALT is the fall-through of its JMP_FALSE and begins its own block.
+    let mut code = vec![0x10, 0, 0, 0, 0, 0x04];
+    code.extend_from_slice(&1_i32.to_le_bytes());
+    code.extend_from_slice(&[0x01, 0x06]);
+    let module = module(code, Value::Bool(true));
+    let program = lower_pou_to_register_ir(&module, 1).unwrap();
+    assert_eq!(program.blocks.len(), 3);
+    assert_eq!(
+        program.blocks[1].instructions,
+        vec![RegisterInstr::ForStepZero]
+    );
+    assert_eq!(program.blocks[1].instruction_costs, vec![1]);
+    let plans = PreparedRegisterPlans::prepare(&module, |_, _| Ok(())).unwrap();
+    assert_eq!(plans.get(1).unwrap().fallback_reason(), None);
+    // Tier-1 leaves only the trap block to the interpreter.
+    assert_eq!(
+        plans.preparation_snapshot().specialization_failure_reasons,
+        vec![VmTier1SpecializedExecutorCompileFailureReason {
+            reason: "unsupported_instr:for_step_zero".into(),
+            count: 1,
+        }]
+    );
+}

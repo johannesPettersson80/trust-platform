@@ -172,6 +172,8 @@ pub fn compile_tier1_block(
                 target: *target,
             },
             RegisterInstr::Return => Tier1CompiledInstr::Return,
+            // The trap block stays with the register interpreter, which raises the fault.
+            RegisterInstr::ForStepZero => return Err("unsupported_instr:for_step_zero".to_string()),
             RegisterInstr::SizeOfType { .. } => {
                 return Err("unsupported_instr:size_of_type".to_string())
             }

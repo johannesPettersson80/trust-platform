@@ -589,6 +589,7 @@ fn execute_register_subset(
                     }
                 }
                 RegisterInstr::Return => return Ok(()),
+                RegisterInstr::ForStepZero => return Err(RuntimeError::ForStepZero),
                 RegisterInstr::VmFallback { opcode, .. } => {
                     return Err(invalid_bytecode(format!(
                         "parity register executor encountered fallback opcode 0x{opcode:02X}",

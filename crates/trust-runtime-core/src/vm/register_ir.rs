@@ -161,6 +161,9 @@ pub enum RegisterInstr {
         target: BlockTarget,
     },
     Return,
+    /// The `HALT` (opcode 0x01) of the FOR zero-step guard. It faults with
+    /// `ForStepZero` exactly as the stack path does and ends the block.
+    ForStepZero,
     VmFallback {
         opcode: u8,
         operands: Vec<u8>,
