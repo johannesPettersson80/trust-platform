@@ -5,11 +5,12 @@ from __future__ import annotations
 import re
 import subprocess
 import tomllib
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
 from .test_catalog_models import InferredTestFact, ScanDiagnostic
-from .test_catalog_rust import scan_rust_tests
+from .test_catalog_rust import sanitize_rust, scan_rust_tests
 
 
 FUZZ_LIKE_NAME_RE = re.compile(r"(?:^|_)fuzz(?:_|$)|(?:^|_)property_smoke(?:_|$)")
@@ -18,6 +19,9 @@ UNMODELED_PROPERTY_FRAMEWORK_RE = re.compile(
     r"\b(?:proptest!\s*\{|quickcheck!\s*\{|quickcheck::|quickcheck_macros::quickcheck|bolero::)"
     r"|#\s*\[\s*(?:proptest|quickcheck)\b"
 )
+PROPTEST_BLOCK_RE = re.compile(r"\bproptest!\s*\{")
+PROPTEST_TEST_FN_RE = re.compile(r"#\[test\]\s*(?:#\[[^\]]*\]\s*)*fn\s+([A-Za-z_][A-Za-z0-9_]*)")
+PROPERTY_DRIFT_KIND = "property_framework_drift"
 
 
 @dataclass(frozen=True)
@@ -72,16 +76,175 @@ def has_unmodeled_property_framework(text: str) -> bool:
     return bool(UNMODELED_PROPERTY_FRAMEWORK_RE.search(text))
 
 
+@dataclass(frozen=True)
+class ReviewedPropertyTestFile:
+    """Pinned classification of a file whose tests use a property-test framework.
+
+    The framework tests are property tests over valid generated inputs, checked against an
+    oracle. They are not malformed-input fuzz targets, so they are not registered as smokes and
+    the inventory counts do not include them. Every field is a source fact the classification
+    depends on; a file whose source differs from these facts is refused again.
+    """
+
+    classification: str
+    cfg_gate: str | None
+    seed_literal: str
+    cases_literal: str
+    proptest_blocks: int
+    test_names: tuple[str, ...]
+
+
+REVIEWED_PROPERTY_TEST_FILES: dict[str, ReviewedPropertyTestFile] = {
+    "crates/trust-runtime/tests/property_executor_differential.rs": ReviewedPropertyTestFile(
+        classification=(
+            "Property test over valid generated programs; the oracle is agreement between the "
+            "stack, register and Tier-1 executors, not malformed-input fuzzing."
+        ),
+        cfg_gate=None,
+        seed_literal="0x7472_7573_7445_5841",
+        cases_literal="48",
+        proptest_blocks=1,
+        test_names=("executors_agree_on_generated_programs", "generated_programs_compile"),
+    ),
+    "crates/trust-runtime/tests/property_metamorphic.rs": ReviewedPropertyTestFile(
+        classification=(
+            "Property test over valid generated programs; the oracle is equal behaviour under "
+            "semantics-preserving transformations, not malformed-input fuzzing."
+        ),
+        cfg_gate=None,
+        seed_literal="0x7472_7573_744D_4554",
+        cases_literal="48",
+        proptest_blocks=1,
+        test_names=(
+            "artifact_round_trip_preserves_behaviour",
+            "pou_order_preserves_behaviour",
+            "positional_arguments_preserve_behaviour",
+            "repeated_preparation_preserves_behaviour",
+        ),
+    ),
+    "crates/trust-runtime/tests/stateful_lifecycle_sequences.rs": ReviewedPropertyTestFile(
+        classification=(
+            "Property test over generated operation sequences; the oracle is agreement with a "
+            "spec state model, not malformed-input fuzzing."
+        ),
+        cfg_gate='feature = "full"',
+        seed_literal="0x7472_7573_7453_4551",
+        cases_literal="64",
+        proptest_blocks=1,
+        test_names=("sequences_follow_the_lifecycle_model",),
+    ),
+}
+
+
+def reviewed_property_file_drift(
+    text: str,
+    reviewed: ReviewedPropertyTestFile,
+    live_names: Sequence[str],
+) -> list[str]:
+    """Return every way a reviewed property-test file differs from its pinned classification.
+
+    Comments and literals are blanked before counting, so only code can match. `live_names` are
+    the scanner's test names for this file; each pinned test must be exactly one of them.
+    """
+
+    raw_lines = text.split("\n")
+    code_lines = sanitize_rust(text).split("\n")
+    code = "\n".join(code_lines)
+    reasons: list[str] = []
+    expected_gate = [] if reviewed.cfg_gate is None else [f"#![cfg({reviewed.cfg_gate})]"]
+    gates = [
+        raw.strip()
+        for raw, code_line in zip(raw_lines, code_lines, strict=False)
+        if code_line.strip().startswith("#![cfg(")
+    ]
+    if gates != expected_gate:
+        reasons.append(f"cfg gate is {gates!r}, reviewed {expected_gate!r}")
+    seeds = re.findall(r"^\s*const\s+SEED\s*:\s*u64\s*=\s*([^;]+?)\s*;", code, re.MULTILINE)
+    if seeds != [reviewed.seed_literal]:
+        reasons.append(f"SEED literal is {seeds!r}, reviewed {reviewed.seed_literal!r}")
+    cases = re.findall(
+        r"^\s*const\s+DEFAULT_CASES\s*:\s*u32\s*=\s*([^;]+?)\s*;", code, re.MULTILINE
+    )
+    if cases != [reviewed.cases_literal]:
+        reasons.append(f"DEFAULT_CASES literal is {cases!r}, reviewed {reviewed.cases_literal!r}")
+    if code.count("RngSeed::Fixed(SEED)") != 1:
+        reasons.append("proptest RNG is not pinned to SEED exactly once")
+    if code.count("unwrap_or(DEFAULT_CASES)") != 1:
+        reasons.append("PROPTEST_CASES fallback is not DEFAULT_CASES exactly once")
+    blocks, unclosed = _proptest_blocks(code)
+    markers = UNMODELED_PROPERTY_FRAMEWORK_RE.findall(code)
+    if unclosed:
+        reasons.append("a proptest! block is not closed")
+    if len(blocks) != reviewed.proptest_blocks or len(markers) != reviewed.proptest_blocks:
+        reasons.append(
+            f"found {len(blocks)} proptest! block(s) and {len(markers)} framework marker(s), "
+            f"reviewed {reviewed.proptest_blocks}"
+        )
+    names = sorted(name for block in blocks for name in PROPTEST_TEST_FN_RE.findall(block))
+    if names != sorted(reviewed.test_names):
+        reasons.append(f"proptest tests are {names!r}, reviewed {sorted(reviewed.test_names)!r}")
+    for name in sorted(set(names) | set(reviewed.test_names)):
+        live_count = sum(1 for live in live_names if live == name)
+        if live_count != 1:
+            reasons.append(f"test {name} has {live_count} live scanner facts, expected 1")
+    return reasons
+
+
+def _proptest_blocks(code: str) -> tuple[list[str], bool]:
+    """Return the text of each proptest! block in sanitized code, and whether any is unclosed."""
+
+    blocks: list[str] = []
+    unclosed = False
+    for match in PROPTEST_BLOCK_RE.finditer(code):
+        opening = match.end() - 1
+        depth = 0
+        closing = len(code)
+        for index in range(opening, len(code)):
+            if code[index] == "{":
+                depth += 1
+            elif code[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    closing = index + 1
+                    break
+        else:
+            unclosed = True
+        blocks.append(code[opening:closing])
+    return blocks, unclosed
+
+
+def _property_drift(relative: str, reasons: list[str]) -> ScanDiagnostic:
+    return ScanDiagnostic(
+        severity="error",
+        kind=PROPERTY_DRIFT_KIND,
+        path=relative,
+        line=1,
+        message="reviewed property test classification drifted: " + "; ".join(reasons),
+    )
+
+
 def scan_fuzz_like_tests(root: Path) -> FuzzLikeScan:
-    """Reuse the production Rust scanner, then select the closed candidate vocabulary."""
+    """Reuse the production Rust scanner, then select the closed candidate vocabulary.
+
+    A file with a property-framework marker is refused unless it is listed in
+    REVIEWED_PROPERTY_TEST_FILES and its source matches that classification exactly.
+    """
 
     result = scan_rust_tests(root.resolve())
     diagnostics = list(result.diagnostics)
-    for relative in sorted(result.input_paths):
-        path = root / relative
+    for relative in sorted(set(result.input_paths) | set(REVIEWED_PROPERTY_TEST_FILES)):
+        reviewed = REVIEWED_PROPERTY_TEST_FILES.get(relative)
         try:
-            text = path.read_text()
-        except (OSError, UnicodeError):
+            text = (root / relative).read_text()
+        except (OSError, UnicodeError) as exc:
+            if reviewed is not None:
+                diagnostics.append(_property_drift(relative, [f"file cannot be read: {exc}"]))
+            continue
+        if reviewed is not None:
+            live_names = [fact.name for fact in result.facts if fact.path == relative]
+            reasons = reviewed_property_file_drift(text, reviewed, live_names)
+            if reasons:
+                diagnostics.append(_property_drift(relative, reasons))
             continue
         match = UNMODELED_PROPERTY_FRAMEWORK_RE.search(text)
         if match:
