@@ -68,7 +68,8 @@ struct DebugState {
     io_tx: Option<Sender<IoSnapshot>>,
     stop_tx: Option<Sender<DebugStop>>,
     runtime_tx: Option<Sender<RuntimeEvent>>,
-    runtime_events: Vec<RuntimeEvent>,
+    runtime_events: VecDeque<RuntimeEvent>,
+    runtime_events_dropped: u64,
     pending_stop: Option<DebugStopReason>,
     stops: Vec<DebugStop>,
     last_stop: Option<DebugStop>,
@@ -110,6 +111,11 @@ pub(crate) struct ForcedSnapshot {
 /// I/O writes, pending variable writes, active I/O forces and active variable forces
 /// (specification 34 section 4.3.1, specification 11 "request queue full").
 pub(crate) const REQUEST_QUEUE_CAPACITY: usize = 1_024;
+
+/// Runtime events a debug control with no event sender attached holds for callers that drain
+/// them directly. At the bound the oldest event is dropped and counted (specification 11, event
+/// store).
+pub(crate) const RUNTIME_EVENT_BUFFER_CAPACITY: usize = 1_024;
 
 /// A control request refused because its bounded queue is full. Its text is the stable control
 /// error `request queue full`, and the refused request changes nothing.

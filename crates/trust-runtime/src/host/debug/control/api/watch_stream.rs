@@ -133,17 +133,19 @@ impl DebugControl {
         }
     }
 
-    /// Emit a runtime event to listeners, if configured.
+    /// Emit a runtime event to listeners, if configured. Without a live sender the event is
+    /// buffered for `drain_runtime_events`; that buffer is bounded, and `runtime_events_dropped`
+    /// counts the events it has dropped.
     pub fn push_runtime_event(&self, event: RuntimeEvent) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         if let Some(sender) = &state.runtime_tx {
             if sender.send(event.clone()).is_err() {
                 state.runtime_tx = None;
-                state.runtime_events.push(event);
+                buffer_runtime_event(&mut state, event);
             }
         } else {
-            state.runtime_events.push(event);
+            buffer_runtime_event(&mut state, event);
         }
     }
 
@@ -182,4 +184,14 @@ impl DebugControl {
             now,
         });
     }
+}
+
+/// Buffer a runtime event for direct draining. At the bound the oldest buffered event is dropped
+/// and counted, so the caller can tell that it missed events.
+fn buffer_runtime_event(state: &mut DebugState, event: RuntimeEvent) {
+    while state.runtime_events.len() >= RUNTIME_EVENT_BUFFER_CAPACITY {
+        state.runtime_events.pop_front();
+        state.runtime_events_dropped = state.runtime_events_dropped.saturating_add(1);
+    }
+    state.runtime_events.push_back(event);
 }

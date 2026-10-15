@@ -78,12 +78,22 @@ impl DebugControl {
         std::mem::take(&mut state.logs)
     }
 
-    /// Drain buffered runtime events.
+    /// Drain buffered runtime events, oldest first.
     #[must_use]
     pub fn drain_runtime_events(&self) -> Vec<RuntimeEvent> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        std::mem::take(&mut state.runtime_events)
+        state.runtime_events.drain(..).collect()
+    }
+
+    /// Count the buffered runtime events dropped at the buffer bound since this control was
+    /// created. Draining does not reset the count, so a caller that drains the buffer can tell
+    /// that it missed events (specification 11, event store).
+    #[must_use]
+    pub fn runtime_events_dropped(&self) -> u64 {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().expect("debug state poisoned");
+        state.runtime_events_dropped
     }
 
     /// Get the last captured debug snapshot, if any.

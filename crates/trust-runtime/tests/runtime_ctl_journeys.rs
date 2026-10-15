@@ -283,7 +283,7 @@ fn boolean_io_write_is_visible_in_io_read() {
 fn rejected_io_write_is_listed_by_ctl_events() {
     // Spec 11 section 6.8.1: `ctl events` prints the raw events.tail response, so the
     // write_rejected event of an out-of-range write is visible from the command line. The runtime
-    // keeps its newest 200 events and each 50 ms scan adds several, so the poll asks for the
+    // keeps its newest 1,000 events and each 50 ms scan adds several, so the poll asks for the
     // largest page.
     let mut runtime = ExampleRuntime::new("memory_marker_counter").start();
     runtime.wait_for_snapshot(WAIT, "the first scan", |_| true);
