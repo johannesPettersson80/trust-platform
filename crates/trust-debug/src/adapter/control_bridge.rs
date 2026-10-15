@@ -214,9 +214,7 @@ fn spawn_command_drain(
                 }
                 ResourceCommand::Pause
                 | ResourceCommand::Resume
-                | ResourceCommand::UpdateWatchdog(_)
-                | ResourceCommand::UpdateFaultPolicy(_)
-                | ResourceCommand::UpdateRetainSaveInterval(_)
+                | ResourceCommand::UpdateSchedulerPolicies(_)
                 | ResourceCommand::UpdateIoSafeState(_) => {}
             }
         }

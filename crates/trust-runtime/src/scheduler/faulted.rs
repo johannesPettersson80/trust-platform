@@ -136,7 +136,7 @@ fn next_command<C: Clock + Clone>(runner: &ResourceRunner<C>) -> Option<Resource
 }
 
 /// Serves one command while faulted. Returns true when an online change was applied.
-fn serve_command<C: Clock + Clone>(
+pub(super) fn serve_command<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     command: ResourceCommand,
 ) -> bool {
@@ -145,7 +145,15 @@ fn serve_command<C: Clock + Clone>(
         ResourceCommand::Pause | ResourceCommand::Resume => false,
         // Variable writes are dropped: fault handling is a clearing boundary (spec 11 section 6.9.2).
         ResourceCommand::MeshApply { .. } => false,
-        ResourceCommand::ReloadBytecode { bytes, respond_to } => {
+        ResourceCommand::ReloadBytecode {
+            bytes,
+            claim,
+            respond_to,
+        } => {
+            // A withdrawn reload is skipped: it neither commits nor ends the faulted wait.
+            if !claim.take() {
+                return false;
+            }
             let result = runner.runtime.apply_online_change_bytes(&bytes, None);
             let applied = result.is_ok();
             let _ = respond_to.send(result);

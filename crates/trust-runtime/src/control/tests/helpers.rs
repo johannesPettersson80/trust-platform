@@ -155,9 +155,7 @@ fn hmi_test_state_with_status_reports(
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::Pause
                 | ResourceCommand::Resume
-                | ResourceCommand::UpdateWatchdog(_)
-                | ResourceCommand::UpdateFaultPolicy(_)
-                | ResourceCommand::UpdateRetainSaveInterval(_)
+                | ResourceCommand::UpdateSchedulerPolicies(_)
                 | ResourceCommand::UpdateIoSafeState(_) => {}
             }
         }

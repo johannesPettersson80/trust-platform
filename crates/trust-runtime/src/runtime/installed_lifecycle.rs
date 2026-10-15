@@ -89,6 +89,11 @@ impl Runtime {
     pub fn set_retain_save_interval(&mut self, interval: Option<Duration>) {
         self.retain.set_save_interval(interval);
     }
+    /// Inspect the configured synchronous save interval.
+    #[must_use]
+    pub fn retain_save_interval(&self) -> Option<Duration> {
+        self.retain.save_interval()
+    }
     /// Request persistence at the next configured cycle checkpoint.
     pub fn mark_retain_dirty(&mut self) {
         self.retain.mark_dirty();

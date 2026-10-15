@@ -1720,6 +1720,12 @@ runtime's active resource identity so subsequent bytecode encoding cannot
 propagate the placeholder. The exception does not apply to multi-resource
 modules.
 
+A reload request waits up to five seconds for the resource to take it. If the
+resource has not started applying the request by then, the request is withdrawn
+and never applied, and the reply reports the timeout; once the resource has
+started applying it, the reply reports the commit or preparation result. A
+reload therefore never commits after its caller was told it timed out.
+
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state
@@ -4396,11 +4402,21 @@ when enabled:
   either mode, `resume` also releases any debugger hold, so the scan returns to
   cyclic execution. While a debugger holds the scan, `status` reports the hold
   rather than `running`.
-- `pause` and `resume` report the state they actually reached. On a resource that
-  is faulted or stopped, or whose scheduler no longer accepts commands, both are
-  rejected with a stable error that names the resource state, and they change
-  nothing: a faulted resource resumes only through `restart`, which runs the
-  configured warm or cold initialization first (specification 34 STATE-06).
+- A `paused` or `running` reply means the resource accepted the request; the
+  scheduler acts on it at its next command boundary, and `status` reports the
+  state actually reached. On a resource that is faulted or stopped, or whose
+  scheduler no longer accepts commands, both requests are rejected with a stable
+  error that names the resource state, and they change nothing: a faulted
+  resource resumes only through `restart`, which runs the configured warm or
+  cold initialization first (specification 34 STATE-06).
+- Restart requests that arrive before the resource has taken the previous one
+  coalesce into a single restart, and a cold request takes precedence over a
+  warm one: a pending cold restart is never downgraded by a later warm request,
+  and a later cold request upgrades a pending warm one. Each accepted request is
+  answered once.
+- The resource command queue holds at most 1,024 commands. A request that finds
+  it full is rejected with the stable code `resource_busy` and is not queued, so
+  a burst of requests cannot grow the runtime's memory without bound.
 
 ##### 6.9.1 Managed debug floating-point ingress
 

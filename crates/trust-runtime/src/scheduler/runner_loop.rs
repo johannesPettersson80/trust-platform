@@ -885,12 +885,17 @@ END_PROGRAM
             .build()
             .expect("admit runner fixture");
 
+        let fault_policy = runtime.fault_policy();
         apply_resource_command(
             &mut runtime,
-            ResourceCommand::UpdateWatchdog(crate::watchdog::WatchdogPolicy {
-                enabled: true,
-                timeout: Duration::ZERO,
-                action: crate::watchdog::WatchdogAction::Halt,
+            ResourceCommand::UpdateSchedulerPolicies(SchedulerPolicies {
+                watchdog: crate::watchdog::WatchdogPolicy {
+                    enabled: true,
+                    timeout: Duration::ZERO,
+                    action: crate::watchdog::WatchdogAction::Halt,
+                },
+                fault_policy,
+                retain_save_interval: None,
             }),
         );
 
@@ -935,15 +940,23 @@ END_PROGRAM
 fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
     match command {
         ResourceCommand::Pause | ResourceCommand::Resume => {}
-        ResourceCommand::UpdateWatchdog(policy) => runtime.set_watchdog_policy(policy),
-        ResourceCommand::UpdateFaultPolicy(policy) => runtime.set_fault_policy(policy),
-        ResourceCommand::UpdateRetainSaveInterval(interval) => {
-            runtime.set_retain_save_interval(interval)
+        // One command boundary applies the whole set: no cycle runs between the three updates.
+        ResourceCommand::UpdateSchedulerPolicies(policies) => {
+            runtime.set_watchdog_policy(policies.watchdog);
+            runtime.set_fault_policy(policies.fault_policy);
+            runtime.set_retain_save_interval(policies.retain_save_interval);
         }
         ResourceCommand::UpdateIoSafeState(state) => runtime.set_io_safe_state(state),
-        ResourceCommand::ReloadBytecode { bytes, respond_to } => {
-            let result = runtime.apply_online_change_bytes(&bytes, None);
-            let _ = respond_to.send(result);
+        ResourceCommand::ReloadBytecode {
+            bytes,
+            claim,
+            respond_to,
+        } => {
+            // A withdrawn reload is skipped: its caller has stopped waiting for it.
+            if claim.take() {
+                let result = runtime.apply_online_change_bytes(&bytes, None);
+                let _ = respond_to.send(result);
+            }
         }
         ResourceCommand::MeshSnapshot { names, respond_to } => {
             let snapshot = runtime.snapshot_globals(&names);

@@ -8,7 +8,7 @@ pub struct ResourceHandle<C: Clock + Clone> {
     thread_id: thread::ThreadId,
     clock: C,
     join: Option<thread::JoinHandle<()>>,
-    cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    cmd_tx: std::sync::mpsc::SyncSender<ResourceCommand>,
 }
 
 impl<C: Clock + Clone> ResourceHandle<C> {
@@ -74,7 +74,7 @@ pub struct ResourceControl<C: Clock + Clone> {
     last_error: Arc<Mutex<Option<RuntimeError>>>,
     supervision: Arc<supervisor::ScanSupervision>,
     clock: C,
-    cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    cmd_tx: std::sync::mpsc::SyncSender<ResourceCommand>,
 }
 
 impl<C: Clock + Clone> ResourceControl<C> {
@@ -89,7 +89,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
             state.clone(),
             last_error.clone(),
         ));
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         (
             Self {
                 stop,
@@ -118,7 +118,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
             state.clone(),
             last_error.clone(),
         ));
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         (
             Self {
                 stop,
@@ -139,14 +139,14 @@ impl<C: Clock + Clone> ResourceControl<C> {
     }
 
     /// Pause the runtime cycles.
-    pub fn pause(&self) -> Result<(), RuntimeError> {
+    pub fn pause(&self) -> Result<(), CommandSendError> {
         self.send_command(ResourceCommand::Pause)?;
         self.clock.wake();
         Ok(())
     }
 
     /// Resume the runtime cycles.
-    pub fn resume(&self) -> Result<(), RuntimeError> {
+    pub fn resume(&self) -> Result<(), CommandSendError> {
         self.send_command(ResourceCommand::Resume)?;
         self.clock.wake();
         Ok(())
@@ -184,11 +184,10 @@ impl<C: Clock + Clone> ResourceControl<C> {
             .clone()
     }
 
-    /// Send a command to the running resource.
-    pub fn send_command(&self, command: ResourceCommand) -> Result<(), RuntimeError> {
-        self.cmd_tx
-            .send(command)
-            .map_err(|_| RuntimeError::ControlError("command channel closed".into()))
+    /// Queue a command for the running resource without blocking. A full queue refuses the
+    /// command with [`CommandSendError::Full`] and queues nothing (specification 11 section 6.9).
+    pub fn send_command(&self, command: ResourceCommand) -> Result<(), CommandSendError> {
+        try_queue(&self.cmd_tx, command)
     }
 }
 

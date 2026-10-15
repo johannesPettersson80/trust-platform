@@ -438,9 +438,7 @@ END_PROGRAM
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::Pause
                 | ResourceCommand::Resume
-                | ResourceCommand::UpdateWatchdog(_)
-                | ResourceCommand::UpdateFaultPolicy(_)
-                | ResourceCommand::UpdateRetainSaveInterval(_)
+                | ResourceCommand::UpdateSchedulerPolicies(_)
                 | ResourceCommand::UpdateIoSafeState(_) => {}
             }
         }

@@ -54,6 +54,12 @@ impl RetainManager {
         self.save_interval = interval;
     }
 
+    /// The configured checkpoint interval, read back for inspection.
+    #[must_use]
+    pub fn save_interval(&self) -> Option<Duration> {
+        self.save_interval
+    }
+
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
     }

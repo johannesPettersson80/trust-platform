@@ -32,10 +32,14 @@ pub(super) fn handle_config_set(
     let mut settings = settings_guard.clone();
     let mut updated = Vec::new();
     let mut restart_required = Vec::new();
-    let mut auth_token = match state.auth_token.lock() {
-        Ok(guard) => guard.clone(),
+    // Every lock is taken before the first commit, and each commit writes through a guard that is
+    // already held. A failed lock or a refused scheduler update therefore changes no setting
+    // (specification 11 section 6.8.1).
+    let mut auth_token_guard = match state.auth_token.lock() {
+        Ok(guard) => guard,
         Err(_) => return ControlResponse::error(id, "auth token unavailable".into()),
     };
+    let mut auth_token = auth_token_guard.clone();
     let mut auth_changed = false;
     if let Some(value) = params.get("control.auth_token") {
         if value.is_null() {
@@ -64,10 +68,11 @@ pub(super) fn handle_config_set(
         }
     }
 
-    let mut control_mode = match state.control_mode.lock() {
-        Ok(guard) => *guard,
+    let mut control_mode_guard = match state.control_mode.lock() {
+        Ok(guard) => guard,
         Err(_) => return ControlResponse::error(id, "control mode unavailable".into()),
     };
+    let mut control_mode = *control_mode_guard;
     let mut control_mode_changed = false;
     let mut debug_enabled = state.debug_enabled.load(Ordering::Relaxed);
     let mut debug_enabled_changed = false;
@@ -333,45 +338,53 @@ pub(super) fn handle_config_set(
         );
     }
 
-    *settings_guard = settings.clone();
-
-    if auth_changed {
-        if let Ok(mut guard) = state.auth_token.lock() {
-            *guard = auth_token;
-        } else {
-            return ControlResponse::error(id, "auth token unavailable".into());
+    // The scheduler takes its policy set as one command, so a full queue refuses all of it or none.
+    // A request that changes no scheduler policy sends nothing, so a full queue cannot refuse it.
+    let scheduler_changed = updated
+        .iter()
+        .any(|key| SCHEDULER_POLICY_KEYS.contains(key));
+    if scheduler_changed {
+        let policies = crate::scheduler::SchedulerPolicies {
+            watchdog: settings.watchdog,
+            fault_policy: settings.fault_policy,
+            retain_save_interval: settings.retain_save_interval,
+        };
+        if let Err(error) =
+            state
+                .resource
+                .send_command(crate::scheduler::ResourceCommand::UpdateSchedulerPolicies(
+                    policies,
+                ))
+        {
+            return super::resource_queue::queue_refusal(id, error, state);
         }
     }
+
+    // Every fallible step has run. The commits below write only through guards already held, so
+    // they cannot fail and no setting changes unless the whole request succeeds.
+    *settings_guard = settings;
+    if auth_changed {
+        *auth_token_guard = auth_token;
+    }
     if control_mode_changed {
-        if let Ok(mut guard) = state.control_mode.lock() {
-            *guard = control_mode;
-        } else {
-            return ControlResponse::error(id, "control mode unavailable".into());
-        }
+        *control_mode_guard = control_mode;
     }
     if debug_enabled_changed {
         state.debug_enabled.store(debug_enabled, Ordering::Relaxed);
     }
-
-    let _ = state
-        .resource
-        .send_command(crate::scheduler::ResourceCommand::UpdateWatchdog(
-            settings_guard.watchdog,
-        ));
-    let _ = state
-        .resource
-        .send_command(crate::scheduler::ResourceCommand::UpdateFaultPolicy(
-            settings_guard.fault_policy,
-        ));
-    let _ =
-        state
-            .resource
-            .send_command(crate::scheduler::ResourceCommand::UpdateRetainSaveInterval(
-                settings_guard.retain_save_interval,
-            ));
 
     ControlResponse::ok(
         id,
         json!({ "updated": updated, "restart_required": restart_required }),
     )
 }
+
+/// The `config.set` keys whose values the scheduler holds as copies: the watchdog, the fault
+/// policy and the retain save interval.
+const SCHEDULER_POLICY_KEYS: [&str; 5] = [
+    "watchdog.enabled",
+    "watchdog.timeout_ms",
+    "watchdog.action",
+    "fault.policy",
+    "retain.save_interval_ms",
+];

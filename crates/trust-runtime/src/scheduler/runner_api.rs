@@ -129,7 +129,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             last_error.clone(),
         ));
         let clock = self.clock.clone();
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
 
@@ -197,7 +197,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             last_error.clone(),
         ));
         let clock = self.clock.clone();
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
 

@@ -17,6 +17,7 @@ mod io_handlers;
 mod operation_registry;
 mod policy;
 mod program_handlers;
+mod resource_queue;
 mod status_handlers;
 mod transport;
 mod types;

@@ -246,6 +246,7 @@ fn online_change_recovers_a_faulted_resource() {
     control
         .send_command(ResourceCommand::ReloadBytecode {
             bytes,
+            claim: trust_runtime::scheduler::ReloadClaim::default(),
             respond_to: reply_tx,
         })
         .expect("command channel open");
