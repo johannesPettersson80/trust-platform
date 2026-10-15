@@ -123,6 +123,19 @@ Target release: `v0.24.75`
   overflows it stays `degraded` with `incoming queue overflow: <n> messages
   dropped`. Safe-state confirmation uses the driver's output path, so an input
   overflow does not unconfirm a safe stop.
+- MQTT input freshness no longer affects the output path. An input read checks
+  for new messages without waiting, stale input reports its condition under the
+  `on_error` policy without starting reconnect backoff, and outputs keep
+  publishing. The driver's reported health combines its input and output paths;
+  safe-state confirmation uses the output path only, so a stop caused by stale
+  input can still be confirmed.
+- The control server's event store keeps the newest 1,000 events, the largest
+  `events.tail`/`faults` limit (it kept 200). A debug control without an event
+  sender buffers at most 1,024 events and counts the ones it drops
+  (`runtime_events_dropped`).
+- `VariableStorage::create_instance`, which panics when instance identities run
+  out, is test support only; production construction uses
+  `try_create_instance`.
 - Tier-1 telemetry drops the deoptimization counters (Tier-1 never deoptimizes),
   and the register profile counts interpreted block entries.
 - An oversized bytecode container is always reported as an invalid header, even
