@@ -88,7 +88,7 @@ struct WatchEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ForcedVarTarget {
+pub enum ForcedVarTarget {
     Global(SmolStr),
     Retain(SmolStr),
     Instance(InstanceId, SmolStr),
@@ -104,6 +104,22 @@ pub(crate) struct ForcedVar {
 pub(crate) struct ForcedSnapshot {
     pub vars: Vec<ForcedVar>,
     pub io: Vec<(IoAddress, Value)>,
+}
+
+/// Entries each bounded control queue holds before it refuses a new request: pending one-shot
+/// I/O writes, pending variable writes, active I/O forces and active variable forces
+/// (specification 34 section 4.3.1, specification 11 "request queue full").
+pub(crate) const REQUEST_QUEUE_CAPACITY: usize = 1_024;
+
+/// A control request refused because its bounded queue is full. Its text is the stable control
+/// error `request queue full`, and the refused request changes nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RequestQueueFull;
+
+impl std::fmt::Display for RequestQueueFull {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("request queue full")
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -11,11 +11,11 @@ use trust_runtime::harness::{
     coerce_value_to_type, parse_debug_expression_with_abi, parse_debug_lvalue_with_abi,
 };
 use trust_runtime::io::IoAddress;
-use trust_runtime::memory::{FrameId, IoArea, VariableStorage};
+use trust_runtime::memory::{FrameId, IoArea};
 use trust_runtime::program_model::LValue;
 use trust_runtime::value::Value as RuntimeValue;
-use trust_runtime::Runtime;
 
+use crate::adapter::io::{queue_io_request, IoRequest};
 use crate::protocol::{
     InvalidatedEventBody, Request, SetExpressionArguments, SetExpressionResponseBody,
 };
@@ -27,12 +27,7 @@ use super::super::{DebugAdapter, DispatchOutcome};
 use super::eval::parse_value_expression;
 use super::format::type_id_for_value;
 use super::set::{parse_set_directive, SetDirective};
-
-#[derive(Clone, Copy)]
-enum SymbolicForceDirective {
-    Force,
-    Release,
-}
+use super::symbolic_force::SymbolicForceDirective;
 
 impl DebugAdapter {
     fn handle_remote_set_expression(
@@ -147,150 +142,6 @@ impl DebugAdapter {
         }
     }
 
-    fn apply_symbolic_force_directive(
-        &self,
-        runtime: &Runtime,
-        target: &LValue,
-        directive: SymbolicForceDirective,
-        value: Option<RuntimeValue>,
-    ) -> Result<(), String> {
-        match target {
-            LValue::Name(name) => {
-                if runtime.storage().get_global(name.as_ref()).is_some() {
-                    match directive {
-                        SymbolicForceDirective::Force => self
-                            .session
-                            .debug_control()
-                            .force_global(name.clone(), value.ok_or("missing force value")?),
-                        SymbolicForceDirective::Release => {
-                            self.session.debug_control().release_global(name.as_ref())
-                        }
-                    }
-                    return Ok(());
-                }
-                if runtime.storage().get_retain(name.as_ref()).is_some() {
-                    match directive {
-                        SymbolicForceDirective::Force => self
-                            .session
-                            .debug_control()
-                            .force_retain(name.clone(), value.ok_or("missing force value")?),
-                        SymbolicForceDirective::Release => {
-                            self.session.debug_control().release_retain(name.as_ref())
-                        }
-                    }
-                    return Ok(());
-                }
-                Err(
-                    "force/release is only supported for globals, retains, or instance fields"
-                        .to_string(),
-                )
-            }
-            LValue::Field { target, field } => {
-                let LValue::Name(name) = target.as_ref() else {
-                    return Err(
-                        "force/release is only supported for globals, retains, or instance fields"
-                            .to_string(),
-                    );
-                };
-                let instance_id = match runtime.storage().get_global(name.as_ref()) {
-                    Some(RuntimeValue::Instance(id)) => *id,
-                    _ => return Err(
-                        "force/release is only supported for globals, retains, or instance fields"
-                            .to_string(),
-                    ),
-                };
-                match directive {
-                    SymbolicForceDirective::Force => self.session.debug_control().force_instance(
-                        instance_id,
-                        field.clone(),
-                        value.ok_or("missing force value")?,
-                    ),
-                    SymbolicForceDirective::Release => self
-                        .session
-                        .debug_control()
-                        .release_instance(instance_id, field.as_ref()),
-                }
-                Ok(())
-            }
-            _ => Err(
-                "force/release is only supported for globals, retains, or instance fields"
-                    .to_string(),
-            ),
-        }
-    }
-
-    fn apply_symbolic_force_directive_for_storage(
-        &self,
-        storage: &VariableStorage,
-        target: &LValue,
-        directive: SymbolicForceDirective,
-        value: Option<RuntimeValue>,
-    ) -> Result<(), String> {
-        match target {
-            LValue::Name(name) => {
-                if storage.get_global(name.as_ref()).is_some() {
-                    match directive {
-                        SymbolicForceDirective::Force => self
-                            .session
-                            .debug_control()
-                            .force_global(name.clone(), value.ok_or("missing force value")?),
-                        SymbolicForceDirective::Release => {
-                            self.session.debug_control().release_global(name.as_ref())
-                        }
-                    }
-                    return Ok(());
-                }
-                if storage.get_retain(name.as_ref()).is_some() {
-                    match directive {
-                        SymbolicForceDirective::Force => self
-                            .session
-                            .debug_control()
-                            .force_retain(name.clone(), value.ok_or("missing force value")?),
-                        SymbolicForceDirective::Release => {
-                            self.session.debug_control().release_retain(name.as_ref())
-                        }
-                    }
-                    return Ok(());
-                }
-                Err(
-                    "force/release is only supported for globals, retains, or instance fields"
-                        .to_string(),
-                )
-            }
-            LValue::Field { target, field } => {
-                let LValue::Name(name) = target.as_ref() else {
-                    return Err(
-                        "force/release is only supported for globals, retains, or instance fields"
-                            .to_string(),
-                    );
-                };
-                let instance_id = match storage.get_global(name.as_ref()) {
-                    Some(RuntimeValue::Instance(id)) => *id,
-                    _ => return Err(
-                        "force/release is only supported for globals, retains, or instance fields"
-                            .to_string(),
-                    ),
-                };
-                match directive {
-                    SymbolicForceDirective::Force => self.session.debug_control().force_instance(
-                        instance_id,
-                        field.clone(),
-                        value.ok_or("missing force value")?,
-                    ),
-                    SymbolicForceDirective::Release => self
-                        .session
-                        .debug_control()
-                        .release_instance(instance_id, field.as_ref()),
-                }
-                Ok(())
-            }
-            _ => Err(
-                "force/release is only supported for globals, retains, or instance fields"
-                    .to_string(),
-            ),
-        }
-    }
-
     pub(in crate::adapter) fn handle_set_expression(
         &mut self,
         request: Request<Value>,
@@ -392,21 +243,25 @@ impl DebugAdapter {
                             };
                         }
                     };
-                    if let Err(err) = runtime.write_io(&address, coerced.clone()) {
+                    let io_request = if matches!(&directive, SetDirective::Force(_)) {
+                        IoRequest::Force
+                    } else {
+                        IoRequest::Write
+                    };
+                    if let Err(message) = queue_io_request(
+                        &self.session.debug_control(),
+                        &mut runtime,
+                        &address,
+                        &coerced,
+                        io_request,
+                    ) {
                         return DispatchOutcome {
-                            responses: vec![self.error_response(&request, &err.to_string())],
+                            responses: vec![self.error_response(&request, &message)],
                             ..DispatchOutcome::default()
                         };
                     }
-                    if matches!(&directive, SetDirective::Force(_)) {
-                        self.session
-                            .debug_control()
-                            .force_io(address.clone(), coerced.clone());
+                    if io_request == IoRequest::Force {
                         self.set_io_forced(&address, true);
-                    } else {
-                        self.session
-                            .debug_control()
-                            .enqueue_io_write(address.clone(), coerced.clone());
                     }
                     let body = self.update_io_cache_for_write(address, coerced.clone());
                     events.push(self.event("stIoState", Some(body)));
@@ -499,7 +354,7 @@ impl DebugAdapter {
         let final_value = match directive {
             SetDirective::Release => {
                 if let Err(message) = self.apply_symbolic_force_directive(
-                    &runtime,
+                    runtime.storage(),
                     &target,
                     SymbolicForceDirective::Release,
                     None,
@@ -549,21 +404,17 @@ impl DebugAdapter {
                 } else {
                     None
                 };
-                let written = match ads_point {
-                    Some(name) => {
-                        runtime.write_global_and_queue_ads(name.as_ref(), coerced.clone())
-                    }
-                    None => runtime.write_lvalue(&target, coerced.clone(), frame_id),
+                // A force is queued before the direct write, so a full request queue refuses the
+                // request before the destination changes.
+                let forcing = matches!(directive, SetDirective::Force(_));
+                let previous = if forcing {
+                    self.symbolic_force_previous(runtime.storage(), &target)
+                } else {
+                    None
                 };
-                if let Err(err) = written {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, &map_runtime_error(err))],
-                        ..DispatchOutcome::default()
-                    };
-                }
-                if matches!(directive, SetDirective::Force(_))
+                if forcing
                     && let Err(message) = self.apply_symbolic_force_directive(
-                        &runtime,
+                        runtime.storage(),
                         &target,
                         SymbolicForceDirective::Force,
                         Some(coerced.clone()),
@@ -571,6 +422,22 @@ impl DebugAdapter {
                 {
                     return DispatchOutcome {
                         responses: vec![self.error_response(&request, &message)],
+                        ..DispatchOutcome::default()
+                    };
+                }
+                let written = match ads_point {
+                    Some(name) => {
+                        runtime.write_global_and_queue_ads(name.as_ref(), coerced.clone())
+                    }
+                    None => runtime.write_lvalue(&target, coerced.clone(), frame_id),
+                };
+                if let Err(err) = written {
+                    if forcing {
+                        // The write did not land, so the target gets back the force it had before.
+                        self.restore_symbolic_force(runtime.storage(), &target, previous);
+                    }
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &map_runtime_error(err))],
                         ..DispatchOutcome::default()
                     };
                 }
@@ -689,15 +556,23 @@ impl DebugAdapter {
                             };
                         }
                     };
-                    if matches!(&directive, SetDirective::Force(_)) {
+                    let queued = if matches!(&directive, SetDirective::Force(_)) {
                         self.session
                             .debug_control()
-                            .force_io(address.clone(), coerced.clone());
-                        self.set_io_forced(&address, true);
+                            .try_force_io(address.clone(), coerced.clone())
                     } else {
                         self.session
                             .debug_control()
-                            .enqueue_io_write(address.clone(), coerced.clone());
+                            .try_enqueue_io_write(address.clone(), coerced.clone())
+                    };
+                    if let Err(error) = queued {
+                        return DispatchOutcome {
+                            responses: vec![self.error_response(&request, &error.to_string())],
+                            ..DispatchOutcome::default()
+                        };
+                    }
+                    if matches!(&directive, SetDirective::Force(_)) {
+                        self.set_io_forced(&address, true);
                     }
                     let body = self.update_io_cache_for_write(address, coerced.clone());
                     events.push(self.event("stIoState", Some(body)));
@@ -795,7 +670,7 @@ impl DebugAdapter {
         };
         let final_value = match directive {
             SetDirective::Release => {
-                if let Err(message) = self.apply_symbolic_force_directive_for_storage(
+                if let Err(message) = self.apply_symbolic_force_directive(
                     &snapshot.storage,
                     &target_clone,
                     SymbolicForceDirective::Release,
@@ -849,27 +724,32 @@ impl DebugAdapter {
                     }
                 };
 
-                let write_result = self.session.debug_control().with_snapshot(|snapshot| {
-                    snapshot.write_lvalue(
-                        &target_clone,
-                        coerced.clone(),
-                        &registry,
-                        &profile,
-                        frame_id,
-                    )
-                });
-                if let Some(Err(err)) = write_result {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, &map_runtime_error(err))],
-                        ..DispatchOutcome::default()
-                    };
-                }
-
-                self.session.debug_control().enqueue_lvalue_write(
+                // A full request queue refuses the write before the paused snapshot changes.
+                let queued = self.session.debug_control().try_write_lvalue(
                     frame_id,
                     target_clone.clone(),
                     coerced.clone(),
+                    |snapshot| {
+                        snapshot.write_lvalue(
+                            &target_clone,
+                            coerced.clone(),
+                            &registry,
+                            &profile,
+                            frame_id,
+                        )
+                    },
                 );
+                let refusal = match queued {
+                    Ok(Ok(())) => None,
+                    Ok(Err(err)) => Some(map_runtime_error(err)),
+                    Err(full) => Some(full.to_string()),
+                };
+                if let Some(message) = refusal {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &message)],
+                        ..DispatchOutcome::default()
+                    };
+                }
                 coerced
             }
             SetDirective::Force(raw) => {
@@ -913,6 +793,20 @@ impl DebugAdapter {
                     }
                 };
 
+                // The force is queued before the detached snapshot changes, so a full request queue
+                // refuses the request without changing what the debugger shows.
+                let previous = self.symbolic_force_previous(&snapshot.storage, &target_clone);
+                if let Err(message) = self.apply_symbolic_force_directive(
+                    &snapshot.storage,
+                    &target_clone,
+                    SymbolicForceDirective::Force,
+                    Some(coerced.clone()),
+                ) {
+                    return DispatchOutcome {
+                        responses: vec![self.error_response(&request, &message)],
+                        ..DispatchOutcome::default()
+                    };
+                }
                 let write_result = self.session.debug_control().with_snapshot(|snapshot| {
                     snapshot.write_lvalue(
                         &target_clone,
@@ -923,20 +817,9 @@ impl DebugAdapter {
                     )
                 });
                 if let Some(Err(err)) = write_result {
+                    self.restore_symbolic_force(&snapshot.storage, &target_clone, previous);
                     return DispatchOutcome {
                         responses: vec![self.error_response(&request, &map_runtime_error(err))],
-                        ..DispatchOutcome::default()
-                    };
-                }
-
-                if let Err(message) = self.apply_symbolic_force_directive_for_storage(
-                    &snapshot.storage,
-                    &target_clone,
-                    SymbolicForceDirective::Force,
-                    Some(coerced.clone()),
-                ) {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, &message)],
                         ..DispatchOutcome::default()
                     };
                 }
@@ -969,3 +852,7 @@ impl DebugAdapter {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "expression_queue_refusal_tests.rs"]
+mod queue_refusal_tests;

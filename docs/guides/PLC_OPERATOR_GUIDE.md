@@ -219,5 +219,9 @@ If debug mode is enabled in `runtime.toml`, you can:
   ```
   trust-runtime ctl --project <project-folder> status
   ```
-- Check recent faults in the Web UI under **Logs → Faults**.
+- Check recent faults:
+  ```
+  trust-runtime ctl --project <project-folder> faults
+  ```
+  Or open **Logs → Faults** in the Web UI.
 - Restart cold if needed.

@@ -67,9 +67,9 @@ fn io_write_of_an_integer_to_an_int_binding_keeps_the_plc_running() {
 #[test]
 fn out_of_range_io_write_is_rejected_without_a_fault() {
     // Spec 11 (I/O contract) and spec 34 section 4.3.1: 40000 does not fit INT, so only that
-    // request is rejected, as a write_rejected event, and the PLC keeps running. No ctl command
-    // shows write_rejected: events.tail and faults are registered control operations without a
-    // subcommand (operation_registry.rs). This test therefore asserts the observable effects.
+    // request is rejected, as a write_rejected event, and the PLC keeps running. This test asserts
+    // the observable effects on the process image; rejected_io_write_is_listed_by_ctl_events
+    // checks the event itself through `ctl events`.
     let mut runtime = ExampleRuntime::new("memory_marker_counter").start();
     let before = runtime
         .wait_for_snapshot(WAIT, "the first scan", |_| true)
@@ -276,5 +276,52 @@ fn boolean_io_write_is_visible_in_io_read() {
     runtime.wait_for_snapshot(WAIT, "%IX0.0 to read TRUE", |s| {
         s.text("%IX0.0") == "Bool(true)"
     });
+    runtime.assert_running_without_fault();
+}
+
+#[test]
+fn rejected_io_write_is_listed_by_ctl_events() {
+    // Spec 11 section 6.8.1: `ctl events` prints the raw events.tail response, so the
+    // write_rejected event of an out-of-range write is visible from the command line. The runtime
+    // keeps its newest 200 events and each 50 ms scan adds several, so the poll asks for the
+    // largest page.
+    let mut runtime = ExampleRuntime::new("memory_marker_counter").start();
+    runtime.wait_for_snapshot(WAIT, "the first scan", |_| true);
+
+    let queued = runtime.ctl_ok(&["io-write", "%MW0", "40000"]);
+    assert!(
+        queued.contains("queued"),
+        "io-write must accept the request: {queued}"
+    );
+    runtime.wait_until(WAIT, "ctl events to list write_rejected", || {
+        runtime
+            .ctl_ok(&["events", "--limit", "1000"])
+            .contains("write_rejected")
+    });
+
+    // Without --limit the request carries no parameters, so the runtime's default page comes back.
+    let events = runtime.ctl_result(&["events"]);
+    assert!(
+        events["events"].is_array(),
+        "ctl events must return an events array: {events}"
+    );
+    runtime.assert_running_without_fault();
+}
+
+#[test]
+fn ctl_faults_accepts_a_limit_and_lists_no_fault_on_a_healthy_runtime() {
+    // Spec 11 section 6.8.1: `faults --limit 1` sends the limit with the request. A runtime
+    // that has not faulted lists no fault.
+    let mut runtime = ExampleRuntime::new("memory_marker_counter").start();
+    runtime.wait_for_snapshot(WAIT, "a running scan", |_| true);
+
+    let faults = runtime.ctl_result(&["faults", "--limit", "1"]);
+    let listed = faults["faults"]
+        .as_array()
+        .expect("ctl faults must return a faults array");
+    assert!(
+        listed.is_empty(),
+        "a healthy runtime lists no faults: {faults}"
+    );
     runtime.assert_running_without_fault();
 }

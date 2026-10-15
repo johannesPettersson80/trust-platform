@@ -3,9 +3,9 @@
 //! The attach-mode text grammar produces `LInt` for every integer. The
 //! destination supplies the literal's type here (spec 11, "An admitted integer
 //! is an untyped literal"), so the grammar itself stays unchanged.
+use super::super::literal_admission::{declared_value, narrow};
 use super::*;
 use crate::io_address::IoSize;
-use crate::stdlib::conversions::ConversionType;
 use crate::vm::type_policy::normalize_vm_value_for_type;
 
 impl EngineState<'_> {
@@ -44,27 +44,6 @@ impl EngineState<'_> {
     }
 }
 
-/// The value of a literal in a declared integer or bit-string type. A literal
-/// outside that type's range is an overflow; a type that takes no integer
-/// literal (BOOL, REAL, TIME, STRING, CHAR and the rest) is a type mismatch.
-fn declared_value(wire_type: ConversionType, literal: i64) -> Result<Value, RuntimeError> {
-    Ok(match wire_type {
-        ConversionType::SInt => Value::SInt(narrow(literal)?),
-        ConversionType::Int => Value::Int(narrow(literal)?),
-        ConversionType::DInt => Value::DInt(narrow(literal)?),
-        ConversionType::LInt => Value::LInt(literal),
-        ConversionType::USInt => Value::USInt(narrow(literal)?),
-        ConversionType::UInt => Value::UInt(narrow(literal)?),
-        ConversionType::UDInt => Value::UDInt(narrow(literal)?),
-        ConversionType::ULInt => Value::ULInt(narrow(literal)?),
-        ConversionType::Byte => Value::Byte(narrow(literal)?),
-        ConversionType::Word => Value::Word(narrow(literal)?),
-        ConversionType::DWord => Value::DWord(narrow(literal)?),
-        ConversionType::LWord => Value::LWord(narrow(literal)?),
-        _ => return Err(RuntimeError::TypeMismatch),
-    })
-}
-
 /// The wire value of a literal written to an address with no declared type.
 /// Bit and string windows take no integer literal.
 fn width_value(size: IoSize, literal: i64) -> Result<Value, RuntimeError> {
@@ -75,9 +54,4 @@ fn width_value(size: IoSize, literal: i64) -> Result<Value, RuntimeError> {
         IoSize::LWord => Value::LWord(narrow(literal)?),
         IoSize::Bit | IoSize::Bytes(_) => return Err(RuntimeError::TypeMismatch),
     })
-}
-
-/// Narrow a literal to its destination's range; a literal outside it overflows.
-fn narrow<T: TryFrom<i64>>(literal: i64) -> Result<T, RuntimeError> {
-    T::try_from(literal).map_err(|_| RuntimeError::Overflow)
 }

@@ -401,7 +401,7 @@ impl HostedCycle<'_> {
         for write in debug.drain_var_writes() {
             let (target, result) = match write.target {
                 PendingVarTarget::Global(name) => {
-                    let result = access.write_named_path(&name, &[], write.value);
+                    let result = access.write_admitted_global(&name, write.value);
                     (name.to_string(), result)
                 }
                 PendingVarTarget::Retain(name) => {
@@ -413,14 +413,14 @@ impl HostedCycle<'_> {
                                 .ok_or(RuntimeError::ReferenceLifetime)
                         })
                         .and_then(|reference| {
-                            access.write_reference(reference.as_view(), write.value)
+                            access.write_admitted_reference(reference.as_view(), write.value)
                         });
                     (name.to_string(), result)
                 }
                 PendingVarTarget::Instance(id, name) => {
                     let result =
                         instance_reference(access.storage(), id, &name).and_then(|reference| {
-                            access.write_reference(reference.as_view(), write.value)
+                            access.write_admitted_reference(reference.as_view(), write.value)
                         });
                     (format!("{}.{name}", id.0), result)
                 }
@@ -448,16 +448,16 @@ impl HostedCycle<'_> {
     ) -> Result<(), RuntimeError> {
         let forces = debug.forced_snapshot();
         for (address, value) in forces.io {
-            self.management_result(
-                access.write_admitted_image(&address, value),
-                format!("{address:?}"),
-                access.logical_time(),
-            )?;
+            let result = access.write_admitted_image(&address, value.clone());
+            if is_refused_request(&result) {
+                debug.discard_rejected_io_force(&address, &value);
+            }
+            self.management_result(result, format!("{address:?}"), access.logical_time())?;
         }
         for forced in forces.vars {
-            let (target, result) = match forced.target {
+            let (target, result) = match forced.target.clone() {
                 ForcedVarTarget::Global(name) => {
-                    let result = access.write_named_path(&name, &[], forced.value);
+                    let result = access.write_admitted_global(&name, forced.value.clone());
                     (name.to_string(), result)
                 }
                 ForcedVarTarget::Retain(name) => {
@@ -469,22 +469,33 @@ impl HostedCycle<'_> {
                                 .ok_or(RuntimeError::ReferenceLifetime)
                         })
                         .and_then(|reference| {
-                            access.write_reference(reference.as_view(), forced.value)
+                            access
+                                .write_admitted_reference(reference.as_view(), forced.value.clone())
                         });
                     (name.to_string(), result)
                 }
                 ForcedVarTarget::Instance(id, name) => {
                     let result =
                         instance_reference(access.storage(), id, &name).and_then(|reference| {
-                            access.write_reference(reference.as_view(), forced.value)
+                            access
+                                .write_admitted_reference(reference.as_view(), forced.value.clone())
                         });
                     (format!("{}.{name}", id.0), result)
                 }
             };
+            if is_refused_request(&result) {
+                debug.discard_rejected_var_force(&forced.target, &forced.value);
+            }
             self.management_result(result, target, access.logical_time())?;
         }
         Ok(())
     }
+}
+
+/// Whether the scan boundary refused a queued or forced write as an invalid request. Operational
+/// errors fault the cycle instead, so their requests are not withdrawn here.
+fn is_refused_request(result: &Result<(), RuntimeError>) -> bool {
+    matches!(result, Err(error) if !is_cycle_operational_error(error))
 }
 
 fn instance_reference(

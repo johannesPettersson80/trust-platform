@@ -329,7 +329,23 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
                 "params": params
             })
         }
+        ControlAction::Events { limit } => limited_request("events.tail", auth, *limit),
+        ControlAction::Faults { limit } => limited_request("faults", auth, *limit),
     }
+}
+
+/// A request with an optional `limit` parameter. Without `--limit` it carries no parameters, so
+/// the runtime's default applies (spec 11, section 6.8.1).
+fn limited_request(
+    request_type: &str,
+    auth: Option<String>,
+    limit: Option<u64>,
+) -> serde_json::Value {
+    let mut request = json!({"id": 1, "type": request_type, "auth": auth});
+    if let Some(limit) = limit {
+        request["params"] = json!({ "limit": limit });
+    }
+    request
 }
 
 fn parse_config_value(value: &str) -> serde_json::Value {
@@ -506,6 +522,32 @@ mod tests {
                     "type": "config.set",
                     "auth": "token",
                     "params": { "discovery.enabled": true }
+                }),
+            ),
+            (
+                ControlAction::Events { limit: None },
+                json!({"id": 1, "type": "events.tail", "auth": "token"}),
+            ),
+            (
+                ControlAction::Events { limit: Some(5) },
+                json!({
+                    "id": 1,
+                    "type": "events.tail",
+                    "auth": "token",
+                    "params": { "limit": 5 }
+                }),
+            ),
+            (
+                ControlAction::Faults { limit: None },
+                json!({"id": 1, "type": "faults", "auth": "token"}),
+            ),
+            (
+                ControlAction::Faults { limit: Some(1) },
+                json!({
+                    "id": 1,
+                    "type": "faults",
+                    "auth": "token",
+                    "params": { "limit": 1 }
                 }),
             ),
         ];

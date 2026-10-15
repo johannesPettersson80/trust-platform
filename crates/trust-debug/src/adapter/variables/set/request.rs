@@ -3,6 +3,7 @@
 
 use serde_json::Value;
 
+use trust_runtime::debug::ForcedVarTarget;
 use trust_runtime::harness::coerce_value_to_type;
 use trust_runtime::memory::IoArea;
 use trust_runtime::value::Value as RuntimeValue;
@@ -11,7 +12,7 @@ use crate::protocol::{
     InvalidatedEventBody, Request, SetVariableArguments, SetVariableResponseBody,
 };
 
-use super::super::super::io::{io_type_id, resolve_io_address};
+use super::super::super::io::{io_type_id, queue_io_request, resolve_io_address, IoRequest};
 use super::super::super::{DebugAdapter, DispatchOutcome, VariableHandle};
 use super::super::eval::parse_value_expression;
 use super::super::format::type_id_for_value;
@@ -159,18 +160,34 @@ impl DebugAdapter {
                                 ..DispatchOutcome::default()
                             };
                         }
-                        if let Err(error) =
-                            runtime.write_global_and_queue_ads(args.name.as_str(), coerced.clone())
+                        // A force is queued before the write, so a full request queue refuses the
+                        // request before the destination changes.
+                        let debug = self.session.debug_control();
+                        let target = ForcedVarTarget::Global(args.name.as_str().into());
+                        let previous = if force_requested {
+                            debug.forced_var_value(&target)
+                        } else {
+                            None
+                        };
+                        if force_requested
+                            && let Err(error) =
+                                debug.try_force_global(args.name.clone(), coerced.clone())
                         {
                             return DispatchOutcome {
                                 responses: vec![self.error_response(&request, &error.to_string())],
                                 ..DispatchOutcome::default()
                             };
                         }
-                        if force_requested {
-                            self.session
-                                .debug_control()
-                                .force_global(args.name.clone(), coerced.clone());
+                        if let Err(error) =
+                            runtime.write_global_and_queue_ads(args.name.as_str(), coerced.clone())
+                        {
+                            if force_requested {
+                                debug.restore_var_force(&target, previous);
+                            }
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
                         }
                         coerced
                     }
@@ -233,24 +250,36 @@ impl DebugAdapter {
                                 };
                             }
                         };
-                        let result = runtime.write_reference(&reference, coerced.clone());
-                        if let Err(error) = result {
-                            return DispatchOutcome {
-                                responses: vec![self.error_response(&request, &error.to_string())],
-                                ..DispatchOutcome::default()
-                            };
-                        }
-                        let result = if force_requested {
-                            super::super::retained::force(
-                                &self.session.debug_control(),
+                        // A force is queued before the write, so a full request queue refuses the
+                        // request before the destination changes.
+                        let debug = self.session.debug_control();
+                        let previous = if force_requested {
+                            match super::super::retained::force(
+                                &debug,
                                 runtime.storage(),
                                 &reference,
                                 Some(coerced.clone()),
-                            )
+                            ) {
+                                Ok(previous) => previous,
+                                Err(error) => {
+                                    return DispatchOutcome {
+                                        responses: vec![self.error_response(&request, &error)],
+                                        ..DispatchOutcome::default()
+                                    };
+                                }
+                            }
                         } else {
-                            Ok(())
+                            None
                         };
-                        if let Err(error) = result {
+                        if let Err(error) = runtime.write_reference(&reference, coerced.clone()) {
+                            if force_requested {
+                                let _ = super::super::retained::restore_force(
+                                    &debug,
+                                    runtime.storage(),
+                                    &reference,
+                                    previous,
+                                );
+                            }
                             return DispatchOutcome {
                                 responses: vec![self.error_response(&request, &error.to_string())],
                                 ..DispatchOutcome::default()
@@ -312,23 +341,41 @@ impl DebugAdapter {
                         let reference = runtime
                             .storage()
                             .ref_for_instance_recursive(instance_id, args.name.as_str());
+                        // A force is queued before the write, so a full request queue refuses the
+                        // request before the destination changes.
+                        let debug = self.session.debug_control();
+                        let target =
+                            ForcedVarTarget::Instance(instance_id, args.name.as_str().into());
+                        let previous = if force_requested {
+                            debug.forced_var_value(&target)
+                        } else {
+                            None
+                        };
+                        if force_requested
+                            && let Err(error) = debug.try_force_instance(
+                                instance_id,
+                                args.name.clone(),
+                                coerced.clone(),
+                            )
+                        {
+                            return DispatchOutcome {
+                                responses: vec![self.error_response(&request, &error.to_string())],
+                                ..DispatchOutcome::default()
+                            };
+                        }
                         let result = reference
                             .ok_or(trust_runtime::error::RuntimeError::ReferenceLifetime)
                             .and_then(|reference| {
                                 runtime.write_reference(&reference, coerced.clone())
                             });
                         if let Err(error) = result {
+                            if force_requested {
+                                debug.restore_var_force(&target, previous);
+                            }
                             return DispatchOutcome {
                                 responses: vec![self.error_response(&request, &error.to_string())],
                                 ..DispatchOutcome::default()
                             };
-                        }
-                        if force_requested {
-                            self.session.debug_control().force_instance(
-                                instance_id,
-                                args.name.clone(),
-                                coerced.clone(),
-                            );
                         }
                         coerced
                     }
@@ -382,21 +429,25 @@ impl DebugAdapter {
                                 };
                             }
                         };
-                        if let Err(err) = runtime.write_io(&address, coerced.clone()) {
+                        let io_request = if force_requested {
+                            IoRequest::Force
+                        } else {
+                            IoRequest::Write
+                        };
+                        if let Err(message) = queue_io_request(
+                            &self.session.debug_control(),
+                            &mut runtime,
+                            &address,
+                            &coerced,
+                            io_request,
+                        ) {
                             return DispatchOutcome {
-                                responses: vec![self.error_response(&request, &err.to_string())],
+                                responses: vec![self.error_response(&request, &message)],
                                 ..DispatchOutcome::default()
                             };
                         }
                         if force_requested {
-                            self.session
-                                .debug_control()
-                                .force_io(address.clone(), coerced.clone());
                             self.set_io_forced(&address, true);
-                        } else {
-                            self.session
-                                .debug_control()
-                                .enqueue_io_write(address.clone(), coerced.clone());
                         }
                         let body = self.update_io_cache_for_write(address, coerced.clone());
                         events.push(self.event("stIoState", Some(body)));
@@ -450,3 +501,7 @@ impl DebugAdapter {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "request_queue_refusal_tests.rs"]
+mod queue_refusal_tests;

@@ -40,6 +40,7 @@ mod keys;
 use keys::{root_index, LifecycleMarks};
 mod destinations;
 mod io;
+mod literal_admission;
 mod output_transaction;
 mod path_write;
 mod policy;
