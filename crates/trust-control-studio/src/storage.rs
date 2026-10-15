@@ -17,7 +17,8 @@ use trust_control::recording::RecordingFile;
 use trust_control::study::current_model::CurrentModelSource;
 use trust_control::study::general_model_persistence::SuppliedModelSection;
 use trust_control::study::identify::IdentifySection;
-use trust_control::study::{check_size, has_current_format, is_recording_id, Study};
+use trust_control::study::manual_identification::ManualIdentificationSection;
+use trust_control::study::{check_size, has_current_format, is_recording_id, Study, StudySection};
 
 const STUDY_FILE: &str = "study.json";
 /// Numbers the temporary files of this process, so two writes never share one.
@@ -91,6 +92,28 @@ pub fn open_study(
     }
     archive_working_study(&directory, &study.loop_revision)?;
     Ok(Study::new(loop_id, loop_revision))
+}
+
+/// Reads the loop's study without moving anything. The study of the loop revision `loop_revision` in the current format is returned, and so
+/// is a new study when none is stored. A stored study of an earlier format, or of another revision, is `None`: `open_study` would move it to
+/// `history/`, so a caller that must not move it (a sibling point's study, C10 Tune) refuses it instead.
+///
+/// # Errors
+/// The study file cannot be read or is not a study of this loop.
+pub fn current_study(
+    project_root: &Path,
+    loop_id: &str,
+    loop_revision: &str,
+) -> Result<Option<Study>, Failure> {
+    let directory = study_directory(project_root, loop_id);
+    let Some(text) = read_optional(&directory.join(STUDY_FILE))? else {
+        return Ok(Some(Study::new(loop_id, loop_revision)));
+    };
+    if !has_current_format(&text) {
+        return Ok(None);
+    }
+    let study = Study::decode(&text, loop_id)?;
+    Ok((study.loop_revision == loop_revision).then_some(study))
 }
 
 /// Writes the study and the new recording files it refers to. A recording already on disk is
@@ -187,8 +210,37 @@ pub struct StoredIdentify {
 ///
 /// # Errors
 /// The section breaks a rule, a recording does not match the section or is missing, the limit would be exceeded, or a write
-/// fails.
+/// fails. The result replaces the study's current model, so the manual identification's section (`identifyManual`) is cleared in
+/// the same write (B3.7): reopening never shows a manual model that Tune does not read.
 pub fn save_identify(
+    project_root: &Path,
+    study: &Study,
+    section: &IdentifySection,
+    recordings: &[RecordingFile],
+) -> Result<Study, Failure> {
+    let mut cleared = study.clone();
+    cleared
+        .sections
+        .remove(<ManualIdentificationSection as StudySection>::KEY);
+    write_identify(project_root, &cleared, section, recordings)
+}
+
+/// Writes an Identify result that does not replace the study's current model: the accepted manual identification, whose model is
+/// the manual section's own (B3.7), or the current model checked again with the evidence it has now (B5.1). The manual section stays.
+///
+/// # Errors
+/// As [`save_identify`].
+pub fn save_identify_keeping_manual(
+    project_root: &Path,
+    study: &Study,
+    section: &IdentifySection,
+    recordings: &[RecordingFile],
+) -> Result<Study, Failure> {
+    write_identify(project_root, study, section, recordings)
+}
+
+/// The write both Identify saves share: the study with the section, and the recordings it refers to.
+fn write_identify(
     project_root: &Path,
     study: &Study,
     section: &IdentifySection,
@@ -254,8 +306,35 @@ pub fn read_identify(
 /// recording, so no file but `study.json` is involved.
 ///
 /// # Errors
-/// The section breaks a rule, the limit would be exceeded, or a write fails.
+/// The section breaks a rule, the limit would be exceeded, or a write fails. The supplied model replaces the study's current model,
+/// so the manual identification's section (`identifyManual`) is cleared in the same write (B3.7).
 pub fn save_supplied_model(
+    project_root: &Path,
+    study: &Study,
+    section: &SuppliedModelSection,
+) -> Result<Study, Failure> {
+    let mut cleared = study.clone();
+    cleared
+        .sections
+        .remove(<ManualIdentificationSection as StudySection>::KEY);
+    write_supplied_model(project_root, &cleared, section)
+}
+
+/// Writes a supplied model as the study's current model without replacing the manual identification's section: the current supplied
+/// model checked again with the evidence it has now (B5.1).
+///
+/// # Errors
+/// As [`save_supplied_model`].
+pub fn save_supplied_model_keeping_manual(
+    project_root: &Path,
+    study: &Study,
+    section: &SuppliedModelSection,
+) -> Result<Study, Failure> {
+    write_supplied_model(project_root, study, section)
+}
+
+/// The write both supplied-model saves share: the study with the supplied model's section as its current model.
+fn write_supplied_model(
     project_root: &Path,
     study: &Study,
     section: &SuppliedModelSection,

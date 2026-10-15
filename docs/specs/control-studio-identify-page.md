@@ -108,7 +108,10 @@ is for the identification method, not a list of SISO/MIMO configurations.
 
 **Identify plant** starts live identification using the selected signals and
 method. Acquisition, fitting and model checking belong to that operation; do
-not expose separate Record, Check recording, Fit or Accept model buttons.
+not expose separate Record, Check recording, Fit or Accept model buttons. Those buttons belong to the automatic method only:
+Recorded-data fit is the manual method, with steps of its own (spec 35, B3.3), and the engine names the one button the page shows
+at each step. On a loop the engine serves, the page sends its form as the text the user entered, after a short pause in typing, and
+shows the engine's stage, labels, gates and status; a refusal shows under the form field the engine names (B3.3).
 Once the model qualifies, remain on Identify with its model and response plot
 visible. The **Tune** tab navigates to Tune without starting tuning or opening
 an editor. Press **Identify plant** again to run another identification with the

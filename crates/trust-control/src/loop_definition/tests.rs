@@ -615,20 +615,13 @@ fn a_control_pid_initialization_binds_its_seven_states_to_their_operating_point_
 
 #[test]
 fn the_rust_engine_refuses_a_parked_feature_and_a_pid_loop_that_lost_its_law() {
-    let grouped = with(
-        complete_loop(),
-        &["controller", "group"],
-        json!({ "members": [] }),
-    );
-    let failure = decode(&grouped)
+    // A top-level cascade is the two-loop form, which the Rust engine does not run yet (checklist V7). A PID group is served now.
+    let cascaded = with(complete_loop(), &["cascade"], json!({}));
+    let failure = decode(&cascaded)
         .expect("decoded")
         .rust_engine_support()
         .expect_err("refused");
-    assert!(
-        failure.message.contains("a PID group"),
-        "{}",
-        failure.message
-    );
+    assert!(failure.message.contains("a cascade"), "{}", failure.message);
     // A loop the project does not design and that has no law is a loop setup to repair, not a C12 loop (specification 35, C12).
     let mut lawless = complete_loop();
     lawless["controller"]
@@ -877,4 +870,23 @@ fn every_shipped_loop_runs_on_the_rust_engine_or_is_parked_never_refused_otherwi
         }
     }
     assert!(problems.is_empty(), "{problems:#?}");
+}
+
+/// A loop declares one controller structure: a controller law beside state feedback is refused by its sentence.
+#[test]
+fn a_loop_with_two_controller_structures_is_refused() {
+    // The complete loop has a controller law; state feedback beside it is a second structure.
+    let mut mixed = decode(&complete_loop()).expect("decoded");
+    mixed.controller.state_feedback = Some(json!({}));
+    let refusal = mixed
+        .rust_engine_support()
+        .expect_err("a law beside state feedback is refused");
+    assert!(
+        refusal
+            .detail
+            .as_deref()
+            .unwrap_or(refusal.message.as_str())
+            .contains("more than one controller structure"),
+        "{refusal:?}"
+    );
 }

@@ -1,17 +1,20 @@
 //! The initialization formulas of the declared states (specification 35, C0 "Controller state initialization"; annex E6.4
 //! `initialization_formulas`): where a state's value comes from at the task boundary, so that the transfer reads it fresh
 //! when it starts rather than from an older snapshot. Ported from `controllerInitializationFormulas.ts`. The kinds
-//! `scaled-measurement` (the measured-disturbance feedforward, C8) is served: the transfer reads the measured disturbance fresh and
-//! multiplies it by the gain. The kinds `notch-history` (the notch of a program's own law, C5) and `decoupled-output` (the static
-//! decoupler, C7) stay parked: `ControllerInitialization::new` refuses the declarations that use them.
+//! `scaled-measurement` (the measured-disturbance feedforward, C8) and `decoupled-output` (the static decoupler, C7) are served: the
+//! transfer reads the measured disturbance or the decoupled plant inputs fresh. The kind `notch-history` (the notch of a program's
+//! own law, C5) stays parked: `ControllerInitialization::new` refuses the declarations that use it.
 
 use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::cascade_adapter::cascade_measurement_symbol;
 use super::channel_mapping::{connected_model_channels, ConnectedChannels};
-use super::initial_state::{parked_source_word, ControllerInitialization};
+use super::initial_state::{
+    decoupled_share, decoupler_not_square, parked_source_word, ControllerInitialization,
+};
 use super::texts;
 use super::transfer::{TransferBinding, TransferValue};
 use crate::failure::{Cause, Failure, NextAction};
@@ -75,23 +78,37 @@ pub enum InitializationFormula {
         /// The feedforward gain, a guard that the snapshot holds.
         gain_symbol: String,
     },
+    /// `decoupled-output`: row `row` of D⁻¹·u, with u the plant inputs read fresh and D the decoupler's gains (C7).
+    DecoupledOutput {
+        /// The plant inputs that the group's channels drive, read fresh, in the channels' order.
+        output_symbols: Vec<String>,
+        /// The decoupler's gains, guards that the snapshot holds: `matrix_symbols[i][j]` is D[i][j].
+        matrix_symbols: Vec<Vec<String>>,
+        /// The row of D⁻¹·u that the state takes.
+        row: usize,
+    },
 }
 
 /// The fresh source of each declared state that has one, keyed by state symbol (`initializationFormulas`). A state with a
 /// constant initial value has none, and so has a state that the model does not give a source to.
 ///
 /// # Errors
-/// The loop's plant connection does not fit the model (see [`connected_model_channels`]), a source's coordinate has no bound
-/// input or output, or a Boolean predicate is not a level of the actuator.
+/// The loop's plant connection does not fit the model (see [`connected_model_channels`]) for a loop without a PID group, a source's
+/// coordinate has no bound input or output, a Boolean predicate is not a level of the actuator, or a decoupler's channels do not
+/// fit its matrix.
 pub fn initialization_formulas(
     loop_definition: &LoopDefinition,
     model: &GeneralModel,
     definition: &ControllerInitialization,
 ) -> Result<BTreeMap<String, InitializationFormula>, Failure> {
-    let channels = connected_model_channels(loop_definition, model)?;
+    // A group has a plant connection per channel, which the scalar connection does not describe, so only a loop without a group
+    // reads that connection (as the TypeScript does, eagerly), and a group's sources read its channels.
+    if loop_definition.controller.group.is_none() {
+        connected_model_channels(loop_definition, model)?;
+    }
     let mut formulas = BTreeMap::new();
     for state in definition.states() {
-        if let Some(formula) = formula_of(loop_definition, model, &channels, state)? {
+        if let Some(formula) = formula_of(loop_definition, model, state)? {
             formulas.insert(state.symbol.clone(), formula);
         }
     }
@@ -152,14 +169,19 @@ pub fn evaluate_initialization_formula(
             let process = snapshot_value(snapshot, process_variable)?;
             Ok((weight - 1.0) * process)
         }
+        InitializationFormula::DecoupledOutput {
+            output_symbols,
+            matrix_symbols,
+            row,
+        } => decoupled_output_share(binding, snapshot, output_symbols, matrix_symbols, *row),
     }
 }
 
-/// The formula of one declared state, or `None` for a constant (`initializationFormulas`, per state).
+/// The formula of one declared state, or `None` for a constant (`initializationFormulas`, per state). A decoupled state reads its
+/// group's channels; every other source reads the loop's plant connection.
 fn formula_of(
     loop_definition: &LoopDefinition,
     model: &GeneralModel,
-    channels: &ConnectedChannels<'_>,
     state: &InitializedState,
 ) -> Result<Option<InitializationFormula>, Failure> {
     let InitialValue::From(source) = &state.initial else {
@@ -172,6 +194,25 @@ fn formula_of(
             NextAction::None,
         ));
     }
+    if let InitialSource::DecoupledOutput {
+        index,
+        matrix_symbols,
+    } = source
+    {
+        return decoupled_output_formula(loop_definition, state, *index, matrix_symbols).map(Some);
+    }
+    let channels = connected_model_channels(loop_definition, model)?;
+    scalar_formula(loop_definition, model, &channels, state, source).map(Some)
+}
+
+/// The formula of a state whose source reads the loop's plant connection (`initializationFormulas`, per kind).
+fn scalar_formula(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    channels: &ConnectedChannels<'_>,
+    state: &InitializedState,
+    source: &InitialSource,
+) -> Result<InitializationFormula, Failure> {
     let formula = match source {
         InitialSource::ModelInputIs { index, value } => {
             let output_symbol = input_symbol(channels, state, *index)?;
@@ -189,7 +230,7 @@ fn formula_of(
             }
         }
         InitialSource::ModelOutput { index } => InitializationFormula::ModelOutput {
-            process_variable: process_symbol(channels, state, *index)?,
+            process_variable: process_symbol(loop_definition, model, channels, state, *index)?,
         },
         InitialSource::PidIntegral {
             index,
@@ -198,7 +239,7 @@ fn formula_of(
             weight_symbol,
             weight,
         } => {
-            let process_variable = process_symbol(channels, state, *index)?;
+            let process_variable = process_symbol(loop_definition, model, channels, state, *index)?;
             let output_symbol = input_symbol(channels, state, *input_index)?;
             InitializationFormula::PidIntegral {
                 output_symbol,
@@ -213,7 +254,7 @@ fn formula_of(
             weight_symbol,
             weight,
         } => InitializationFormula::WeightedError {
-            process_variable: process_symbol(channels, state, *index)?,
+            process_variable: process_symbol(loop_definition, model, channels, state, *index)?,
             weight_symbol: weight_symbol.clone(),
             weight: *weight,
         },
@@ -232,8 +273,9 @@ fn formula_of(
                 },
             }
         }
+        // A decoupled source is routed by `formula_of`, before this match.
         InitialSource::ModelState { .. }
-        | InitialSource::DecoupledModelInput { .. }
+        | InitialSource::DecoupledOutput { .. }
         | InitialSource::NotchHistory { .. } => {
             return Err(Failure::new(
                 &texts::init_parked_source(&state.symbol, "a parked kind"),
@@ -242,7 +284,54 @@ fn formula_of(
             ))
         }
     };
-    Ok(Some(formula))
+    Ok(formula)
+}
+
+/// The fresh source of a decoupled state: the plant inputs that the group's channels drive, in channel order, and the decoupler's
+/// gains (`decoupled-output`, C7). The decoupler must be square over the channels, and the state's row must be one of them.
+///
+/// # Errors
+/// The loop has no channels, a channel has no plant input, or the decoupler is not square over the channels.
+fn decoupled_output_formula(
+    loop_definition: &LoopDefinition,
+    state: &InitializedState,
+    row: usize,
+    matrix_symbols: &[Vec<String>],
+) -> Result<InitializationFormula, Failure> {
+    let Some(loop_channels) = &loop_definition.channels else {
+        return Err(no_bound_actuator(state));
+    };
+    let size = matrix_symbols.len();
+    if size == 0
+        || loop_channels.inputs.len() != size
+        || row >= size
+        || matrix_symbols.iter().any(|entries| entries.len() != size)
+    {
+        return Err(decoupler_not_square());
+    }
+    let output_symbols = loop_channels
+        .inputs
+        .iter()
+        .map(|input| {
+            channel_signal(loop_definition, &input.signal_id)
+                .map(|signal| signal.symbol.to_owned())
+                .ok_or_else(|| no_bound_actuator(state))
+        })
+        .collect::<Result<Vec<String>, Failure>>()?;
+    Ok(InitializationFormula::DecoupledOutput {
+        output_symbols,
+        matrix_symbols: matrix_symbols.to_vec(),
+        row,
+    })
+}
+
+/// The refusal of a state whose group has no bound plant input for it (`formula_no_bound_actuator`).
+fn no_bound_actuator(state: &InitializedState) -> Failure {
+    Failure::new(
+        &texts::formula_no_bound_actuator(&state.symbol),
+        Cause::Settings,
+        NextAction::OpenLoopSetup,
+    )
 }
 
 /// The signal of the measured disturbance at a model input, when the loop binds that input to a measured disturbance (C8): the loop's
@@ -296,6 +385,31 @@ fn fresh_output(
     snapshot_value(snapshot, guard)
 }
 
+/// The fresh value of a decoupled state: row `row` of D⁻¹·u, with u the fresh plant inputs and D the decoupler's gains from the
+/// snapshot (`evaluateInitializationFormula`, `decoupled-output`, C7).
+fn decoupled_output_share(
+    binding: &TransferBinding,
+    snapshot: &BTreeMap<String, TransferValue>,
+    output_symbols: &[String],
+    matrix_symbols: &[Vec<String>],
+    row: usize,
+) -> Result<f64, Failure> {
+    let matrix = matrix_symbols
+        .iter()
+        .map(|entries| {
+            entries
+                .iter()
+                .map(|symbol| snapshot_value(snapshot, symbol))
+                .collect::<Result<Vec<f64>, Failure>>()
+        })
+        .collect::<Result<Vec<Vec<f64>>, Failure>>()?;
+    let inputs = output_symbols
+        .iter()
+        .map(|symbol| fresh_output(binding, snapshot, symbol))
+        .collect::<Result<Vec<f64>, Failure>>()?;
+    decoupled_share(&matrix, &inputs, row)
+}
+
 /// The actuator's symbol for a plant input index: the loop's single input, index 0 (`inputs[index]?.signal.symbol`).
 fn input_symbol(
     channels: &ConnectedChannels<'_>,
@@ -314,10 +428,16 @@ fn input_symbol(
 
 /// The process value's symbol for a measured output index: the loop's single output, index 0 (`outputs[index]?.signal.symbol`).
 fn process_symbol(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
     channels: &ConnectedChannels<'_>,
     state: &InitializedState,
     index: usize,
 ) -> Result<String, Failure> {
+    // A cascade measures two outputs, so the measurement of each index is the loop's own (C6).
+    if let Some(symbol) = cascade_measurement_symbol(loop_definition, model, index) {
+        return Ok(symbol);
+    }
     if index != 0 || channels.output.symbol.is_empty() {
         return Err(Failure::new(
             &texts::formula_no_bound_process(&state.symbol),
@@ -370,3 +490,7 @@ fn boolean_level(fresh: f64, level: f64) -> f64 {
 #[cfg(test)]
 #[path = "initialization_formulas_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "initialization_formulas_decoupled_tests.rs"]
+mod decoupled_tests;

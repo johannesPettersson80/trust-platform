@@ -21,12 +21,21 @@ const METHOD_OF_PAGE = new Map<string, TuneMethod | undefined>([
   ["AMIGO", "AMIGO"],
   ["relay", "relay"],
   ["manual", "manual"],
+  ["state-space", "state-space"],
 ]);
 
 /** A controller family as the engine names it (B4.4), or undefined for Automatic or any other value. */
 function familyOf(value: unknown): Structure | undefined {
   return value === "P" || value === "PI" || value === "PD" || value === "PID" ? value : undefined;
 }
+
+/** A state-feedback law's family as the engine names it (C4), or undefined for any other value. */
+type StateFamily = "state-feedback" | "LQR" | "LQG";
+function stateFamilyOf(value: unknown): StateFamily | undefined {
+  return value === "state-feedback" || value === "LQR" || value === "LQG" ? value : undefined;
+}
+/** The state design the study records (C4, D-B11), as the generated inputs type declares it. */
+type StateDesignInput = NonNullable<InputsSection["stateDesign"]>;
 
 /** Whether the engine holds a page change (see the module's header). */
 export function engineHoldsChange(payload: Record<string, unknown>): boolean {
@@ -44,14 +53,22 @@ export function inputsAfterChange(recorded: InputsSection, payload: Record<strin
   const next: InputsSection = { ...recorded };
   if (payload.acquisitionSettings !== undefined) next.acquisition = record(payload.acquisitionSettings) as AcquisitionSettings | undefined;
   if (payload.family !== undefined) next.structure = familyOf(payload.family);
+  const stateFamily = stateFamilyOf(payload.family);
+  if (stateFamily !== undefined) next.stateDesign = { ...next.stateDesign, family: stateFamily };
   if (payload.tuningPreferences !== undefined) {
     const preferences = record(payload.tuningPreferences);
     const method = String(preferences?.method);
     next.method = METHOD_OF_PAGE.get(method);
     // The manual settings belong to the manual method alone (B4.2).
     next.settings = method === "manual" ? (record(preferences?.values) as Record<string, number> | undefined) : undefined;
+    // The state design's text is the engineer's draft as typed (C4); Tune reads it from the study when it designs the law (D-B11).
+    const draft = record(preferences?.stateDesignDraft);
+    if (method === "state-space" && draft) next.stateDesign = { ...next.stateDesign, draft: draft as StateDesignInput["draft"] };
   }
-  if (payload.pinnedValues === null) {
+  if (payload.pinnedValues !== undefined && next.method === "state-space") {
+    // A state law's pins belong to its design (C4): they are kept with the state design, not as the settings pins of a structure.
+    next.stateDesign = { ...next.stateDesign, pins: record(payload.pinnedValues) as StateDesignInput["pins"] };
+  } else if (payload.pinnedValues === null) {
     next.pins = undefined;
   } else if (payload.pinnedValues !== undefined) {
     const values = record(payload.pinnedValues);

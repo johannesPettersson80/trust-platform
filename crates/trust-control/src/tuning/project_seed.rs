@@ -4,8 +4,8 @@
 //! follows a planned trajectory (C11). The designed gains are written to the variables the seed names; nothing here replaces the
 //! program's equations.
 //!
-//! The other seed kinds (decentralized, cascade, feedforward, Smith predictor and decoupled groups) are not part of this
-//! module; the decoder refuses them.
+//! The seeds of a measured-disturbance feedforward (C8) and of a cascade (C6) are here too. The other seed kinds (decentralized,
+//! Smith predictor and decoupled groups) are not part of this module; the decoder refuses them.
 
 use std::collections::BTreeMap;
 
@@ -97,6 +97,110 @@ impl FeedforwardPidSeed {
             symbols.push(lead_lag.lag_symbol.as_str());
         }
         symbols
+    }
+}
+
+/// The variables of a program that uses the library block `Control.SmithPredictorFOPDT` (C9): the variable of its `Update` result, the
+/// variable of its `MaximumCorrection`, and the variables of its `OperatingInput` and `OperatingOutput`. The result and the maximum are
+/// read by Validate and never written; the operating point is written from the model (D-18). The four are named together or not at all.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SmithLibraryBlock {
+    /// The variable that holds the block's `SmithPredictorOutput`, which Validate reads for the predictor's flags (C9).
+    pub output_symbol: String,
+    /// The variable that holds the program's `MaximumCorrection`: the application's protection, read by Validate and not tuned (C9).
+    pub maximum_correction_symbol: String,
+    /// The variable that holds the block's `OperatingInput`: the model's operating input.
+    pub operating_input_symbol: String,
+    /// The variable that holds the block's `OperatingOutput`: the model's operating output.
+    pub operating_output_symbol: String,
+}
+
+/// The seed of a Smith predictor (C9): the PI's three gain variables, the variables of the model gain `K`, the time constant `T` and the
+/// delay `θ`, and, when the program uses `Control.SmithPredictorFOPDT`, the block's variables (`SmithLibraryBlock`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SmithPidSeed {
+    /// The PI part: the family PI, with its proportional, integral and derivative variables.
+    pub pid: ParallelPidSeed,
+    /// The variable that holds the model gain `K`.
+    pub gain_symbol: String,
+    /// The variable that holds the model time constant `T` in seconds.
+    pub time_constant_symbol: String,
+    /// The variable that holds the model delay `θ` in seconds.
+    pub delay_symbol: String,
+    /// The library block's variables, when the program uses `Control.SmithPredictorFOPDT`.
+    pub library_block: Option<SmithLibraryBlock>,
+}
+
+impl SmithPidSeed {
+    /// The variables that Apply writes: the PI's three gains, the model's three values, and the block's operating point when the
+    /// program uses the block. The block's result and its maximum are read, not written, so they are not listed.
+    #[must_use]
+    pub fn variables(&self) -> Vec<&str> {
+        let mut symbols = vec![self.pid.proportional_symbol.as_str()];
+        symbols.extend(self.pid.integral_symbol.as_deref());
+        symbols.extend(self.pid.derivative_symbol.as_deref());
+        symbols.push(self.gain_symbol.as_str());
+        symbols.push(self.time_constant_symbol.as_str());
+        symbols.push(self.delay_symbol.as_str());
+        if let Some(block) = &self.library_block {
+            symbols.push(block.operating_input_symbol.as_str());
+            symbols.push(block.operating_output_symbol.as_str());
+        }
+        symbols
+    }
+}
+
+/// The values of a Smith predictor at its design (C9): the model's gain, time constant and delay, and the operating point the model was
+/// identified at, which the library block takes as its `OperatingInput` and `OperatingOutput` (D-18).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SmithTerms {
+    /// The model gain `K`.
+    pub gain: f64,
+    /// The model time constant `T` in seconds.
+    pub time_constant_seconds: f64,
+    /// The model delay `θ` in seconds.
+    pub delay_seconds: f64,
+    /// The model's operating input and operating output (zero where the model declares none).
+    pub operating: (f64, f64),
+}
+
+/// One `Control.PID` of a cascade (C6): its instance path, and the variables of its proportional, integral and derivative gains.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CascadeGains {
+    /// The controller's instance path, which names it in the loop (`validCascadeSeed`).
+    pub instance: String,
+    /// The variable that holds the proportional gain.
+    pub proportional_symbol: String,
+    /// The variable that holds the integral gain.
+    pub integral_symbol: String,
+    /// The variable that holds the derivative gain, which the cascade's PI writes as zero (C0).
+    pub derivative_symbol: String,
+}
+
+/// The seed of a cascade (C6): the inner controller, which drives the plant input, and the outer one, whose output is the inner setpoint.
+/// Both are PI, so the seed names the three variables of each; the six variables are distinct (`validCascadeSeed`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CascadePidSeed {
+    /// The inner controller.
+    pub inner: CascadeGains,
+    /// The outer controller.
+    pub outer: CascadeGains,
+}
+
+impl CascadePidSeed {
+    /// The six variables the seed names: the inner controller's proportional, integral and derivative variables, then the outer's.
+    #[must_use]
+    pub fn variables(&self) -> Vec<&str> {
+        [&self.inner, &self.outer]
+            .into_iter()
+            .flat_map(|gains| {
+                [
+                    gains.proportional_symbol.as_str(),
+                    gains.integral_symbol.as_str(),
+                    gains.derivative_symbol.as_str(),
+                ]
+            })
+            .collect()
     }
 }
 

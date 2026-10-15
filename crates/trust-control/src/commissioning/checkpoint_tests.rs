@@ -68,6 +68,7 @@ fn checkpoint(loop_definition: &LoopDefinition) -> CommissioningCheckpoint {
         process_noise: Some(0.05),
         validation_identity: "validation:1".to_owned(),
         transfers: Vec::new(),
+        schedule_origin: None,
     }
 }
 

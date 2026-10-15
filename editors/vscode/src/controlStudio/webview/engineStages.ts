@@ -40,8 +40,21 @@ const identifyReceiver: EngineStageReceiver = {
     if (evidence) ports.receive("engineer", { stageEvidence: evidence });
   },
   result(root, result, ports) {
+    // The Recorded-data fit's answer is the Identify page's manual state (B3.3): its stage, checks and primary action, not a model or a reset.
+    if (typeof result.primaryAction === "string") {
+      ports.receive("identify", result);
+      // The study's stage evidence the engine answers with it sets the gates: an accepted model is what Tune designs on (B3.7).
+      const evidence = record(result.stageEvidence);
+      if (evidence) ports.receive("engineer", { stageEvidence: evidence });
+      return;
+    }
     // The engine's evidence for the answer sets the gates: an identification has a model and no candidate, a reset has neither (A8.4).
     const stageEvidence = result.stageEvidence;
+    // A project test whose fit the recording cannot support keeps the study's model: it clears nothing and is not a reset (C12).
+    if (typeof result.fitRefusal === "string") {
+      ports.receive("flow", { status: "completed", stageEvidence });
+      return;
+    }
     // An identification shows its model; a reset (which has no model type) clears the model the page shows.
     if (typeof result.modelType === "string") {
       showEngineIdentification(root, result);

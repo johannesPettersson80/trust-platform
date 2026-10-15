@@ -61,11 +61,21 @@ export type OpenResult =
        * The operations this engine runs for the loop now, which the page follows: their updates reach it (A8.6).
        */
       running: string[];
+      /**
+       * The study's current finite-search candidate (C5, A8.6), rebuilt from the study's Tune section: its values, its trials and the
+       * unit of J. Given under the rule of `tune` (a current candidate, A8.4), and for a search law only; absent otherwise.
+       */
+      searchCandidate?: SearchCandidate | null;
       stageEvidence: StageEvidence1;
       /**
        * The status of every stage.
        */
       stages: StageAvailability[];
+      /**
+       * The design-form fields of a state law, with their labels, under the solver policy the stored draft chooses (D-B12): the
+       * page shows them before the first Tune. Absent for a loop without a state law.
+       */
+      stateFields?: FormField[] | null;
       /**
        * The study's current candidate, as Tune answers it (B4.5, A8.6), rebuilt from the study's Tune section: its settings,
        * method, reason, attempts and requirements. The study keeps no prediction, so `response` is absent, the outcome is
@@ -107,6 +117,11 @@ export type TuningMethod = "SIMC" | "AMIGO";
  */
 export type TuningObjective = "fast" | "balanced" | "robust";
 /**
+ * The restoration a campaign's experiments confirmed (C12, E5.6): `restored` once the runtime confirmed the outputs written
+ * back to their original values, or `notRequired` when the experiment wrote none.
+ */
+export type CampaignRestoration = "restored" | "notRequired";
+/**
  * A relay's first direction.
  */
 export type RelayDirection = "positive" | "negative";
@@ -114,7 +129,7 @@ export type RelayDirection = "positive" | "negative";
  * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
  * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
  */
-export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual";
+export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
 /**
  * One requirement of a run: its identifier, the channel it measures, its window and its calculation (`RunRequirement`).
  */
@@ -296,6 +311,10 @@ export type RunRequirement1 =
  */
 export type Movement = "up" | "down";
 /**
+ * The family of a state-controller law (C4).
+ */
+export type StateControllerFamily = "state-feedback" | "LQR" | "LQG";
+/**
  * Which terms a controller keeps (C0, "Families and zero terms"). A term the family does not use is written as an
  * explicit zero, so the structure follows from the gains that are not zero.
  */
@@ -424,6 +443,10 @@ export type LeadLagMode = "lead" | "lag";
  */
 export type PoleZeroView = "unreduced" | "minimal";
 /**
+ * The bounds outcome of an attempted trial (C5): every mandatory requirement met, one not met, or evidence missing.
+ */
+export type SearchBounds = "met" | "notMet" | "missingEvidence";
+/**
  * A margin: finite, unbounded, or not observed in the evaluated range (N7.7, N7.8).
  */
 export type MarginValue =
@@ -467,6 +490,10 @@ export interface AnalysisRecords {
    * The measured frequency response, with its sentences.
    */
   measuredFrequency?: MeasuredFrequencyResult | null;
+  /**
+   * The measured MIMO paths, with their matrices and pairing.
+   */
+  measuredPaths?: MeasuredPathsResult | null;
   /**
    * The declared analysis's pole paths, with their sentences.
    */
@@ -793,6 +820,163 @@ export interface MeasuredPoint {
    * The unwrapped phase in degrees.
    */
   phaseDegrees: number;
+}
+/**
+ * The answer of `measuredPaths` (C7). `gainMatrix` and `relativeGainArray` have one row per output and one column per input.
+ * `decoupler` (`D = K⁻¹·diag(K)`) has one row per input and one column per output. The trials are in input order.
+ */
+export interface MeasuredPathsResult {
+  /**
+   * The static decoupler `D = K⁻¹·diag(K)`: one row per input, one column per output.
+   */
+  decoupler: number[][];
+  /**
+   * The sentences of the details disclosure.
+   */
+  details: string[];
+  /**
+   * The condition number `σ_max / σ_min` of `K`.
+   */
+  gainConditionNumber: number;
+  /**
+   * The steady-state gain `K`: one row per output, one column per input.
+   */
+  gainMatrix: number[][];
+  /**
+   * The condition number of the input steps.
+   */
+  inputConditionNumber: number;
+  /**
+   * The numerical rank of the input steps.
+   */
+  inputRank: number;
+  /**
+   * The inputs, in the model's order.
+   */
+  inputs: PathChannel[];
+  /**
+   * The outputs, in the model's order.
+   */
+  outputs: PathChannel[];
+  pairing: PathPairing;
+  /**
+   * The recording's identifier in the study.
+   */
+  recordingId: string;
+  /**
+   * The revision of the recording.
+   */
+  recordingRevision: string;
+  /**
+   * The relative gain array `Λ = K ∘ (K⁻¹)ᵀ`.
+   */
+  relativeGainArray: number[][];
+  /**
+   * The norm of the fit's residuals over every output.
+   */
+  residualNorm: number;
+  /**
+   * The samples between each trial's baseline start and its settled end, each counted once.
+   */
+  sampleCount: number;
+  /**
+   * The sentences of the result area.
+   */
+  summary: string[];
+  /**
+   * The trials that the fit used, one for each input.
+   */
+  trials: SettledTrial[];
+}
+/**
+ * One channel of the analysis: its identifier in the model, and the symbol and unit of the loop signal it reads. Every matrix keeps
+ * the names and the units of its channels (N4.5).
+ */
+export interface PathChannel {
+  /**
+   * The channel's identifier in the model.
+   */
+  id: string;
+  /**
+   * The symbol of the loop signal the channel reads.
+   */
+  symbol: string;
+  /**
+   * The unit of that signal.
+   */
+  unit: string;
+}
+/**
+ * The pairing of the relative gain array.
+ */
+export interface PathPairing {
+  /**
+   * The named pairs, one for each output; empty when the pairing is refused.
+   */
+  pairs: PathPair[];
+  /**
+   * The sentence of a refused pairing.
+   */
+  reason?: string | null;
+  /**
+   * Whether the pairing is named.
+   */
+  status: "named" | "refused";
+}
+/**
+ * One pair of a pairing: an output, the input it is paired with, and the relative gain of the pair.
+ */
+export interface PathPair {
+  /**
+   * The input of the pair.
+   */
+  inputId: string;
+  /**
+   * The output of the pair.
+   */
+  outputId: string;
+  /**
+   * The pair's diagonal element of the relative gain array.
+   */
+  relativeGain: number;
+}
+/**
+ * One settled trial (C7): the input stepped, its baseline window (before the step) and its settled window (after the output has
+ * settled).
+ */
+export interface SettledTrial {
+  baseline: TimeWindow;
+  /**
+   * The identifier of the stepped input in the model.
+   */
+  inputId: string;
+  settled: TimeWindow1;
+}
+/**
+ * The window before the step.
+ */
+export interface TimeWindow {
+  /**
+   * The end of the window, in seconds.
+   */
+  endSeconds: number;
+  /**
+   * The start of the window, in seconds.
+   */
+  startSeconds: number;
+}
+/**
+ * The window after the step.
+ */
+export interface TimeWindow1 {
+  /**
+   * The end of the window, in seconds.
+   */
+  endSeconds: number;
+  /**
+   * The start of the window, in seconds.
+   */
+  startSeconds: number;
 }
 /**
  * The pole paths of a declared analysis (N7.5): the poles at each gain of the sweep, and at evenly
@@ -1171,6 +1355,11 @@ export interface IdentifyResult {
    */
   provisional: boolean;
   /**
+   * The samples of the kept recording, which the page draws its recorded signals from, one per recorded sample and bounded
+   * by the recording limit (A7). Absent where the run kept none, as for `restoration`.
+   */
+  recordedSamples?: RecordedChartSample[] | null;
+  /**
    * The recording the model was fitted from, by its identifier (A8.3); absent for a supplied model, which no recording made.
    */
   recordingId?: string | null;
@@ -1180,6 +1369,11 @@ export interface IdentifyResult {
    * missing prerequisite when it runs.
    */
   requirements?: TuningRequirements | null;
+  /**
+   * The restoration the campaign's experiments confirmed (C12). Absent where the run kept none: a supplied model, a refit
+   * and a resumed campaign.
+   */
+  restoration?: CampaignRestoration | null;
   stageEvidence: StageEvidence;
   /**
    * The status of every stage after this result.
@@ -1225,6 +1419,77 @@ export interface PlotTrace {
    * One value per time; null where the recording holds no value (B10.3: missing values are not interpolated).
    */
   values: (number | null)[];
+  [k: string]: unknown;
+}
+/**
+ * One sample of a kept recording as the Identify chart draws it (`control-studio.recording.evidence`): its process time from the
+ * recording's first scan (A3.2), its scan, its quality, the setpoint, the measurement, the requested and the applied output, and
+ * the additional recorded signals by identifier (A4.2, A8.3). The page draws the signals it selects and decides nothing.
+ */
+export interface RecordedChartSample {
+  /**
+   * The additional recorded signals, each with its identifier, value and quality.
+   */
+  additional: RecordedChannel[];
+  /**
+   * The output the process received: the actuator's position when declared, else the manipulated variable.
+   */
+  appliedMv?: number | null;
+  /**
+   * The sample's process time in s from the recording's first scan.
+   */
+  elapsedSeconds: number;
+  /**
+   * The measurement; null where the recording holds none.
+   */
+  pv?: number | null;
+  /**
+   * The worst quality of the sample's signals.
+   */
+  quality: "good" | "forced" | "bad";
+  /**
+   * The output the controller requested, when the loop declares an actuator; null otherwise.
+   */
+  requestedMv?: number | null;
+  /**
+   * The sample's last scan.
+   */
+  scan: number;
+  /**
+   * The setpoint; null where the recording holds none.
+   */
+  sp?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * One channel of a recording: an additional signal of the loop or its actuator, with its value at the
+ * sample (`recordingChannels.ts`, `RecordedChannel`).
+ */
+export interface RecordedChannel {
+  /**
+   * The channel the signal belongs to; a quality flag is read within its channel.
+   */
+  channel: string;
+  /**
+   * The channel's identifier in the loop (`actuator` for the actuator).
+   */
+  id: string;
+  /**
+   * The channel's quality at the sample.
+   */
+  quality: "good" | "forced" | "bad";
+  /**
+   * The signal's role in the channel.
+   */
+  role: "SP" | "PV" | "MV" | "actuator" | "disturbance" | "state" | "quality" | "schedule";
+  /**
+   * The signal's unit.
+   */
+  unit: string;
+  /**
+   * The value; absent when missing.
+   */
+  value?: number | null;
   [k: string]: unknown;
 }
 /**
@@ -1388,6 +1653,13 @@ export interface InputsSection {
    */
   method?: TuneMethod | null;
   /**
+   * The pinned settings of a switching controller (B4.2, C3): each of its three settings by symbol, as the engineer left them. Tune
+   * designs the other settings, applies these after the design, and refuses a pin outside its binding.
+   */
+  onOffPins?: {
+    [k: string]: number;
+  } | null;
+  /**
    * The settings the engineer pinned for the design (B4.2).
    */
   pins?: ControllerSettingsPins | null;
@@ -1415,6 +1687,11 @@ export interface InputsSection {
   settings?: {
     [k: string]: number;
   } | null;
+  /**
+   * The state-design choices of a state-feedback law (D-B11, C4): the family, the draft of the design form and the pinned
+   * coefficients, as the engineer left them. Tune reads them ([`StateDesignInput`]); absent until a state law is chosen.
+   */
+  stateDesign?: StateDesignInput | null;
   /**
    * The structure the engineer fixed (B4.4); absent leaves the structure to Automatic.
    */
@@ -1634,6 +1911,64 @@ export interface Window {
    * The start of the window, in seconds.
    */
   start: number;
+}
+/**
+ * The state-design choices a study keeps for a state-feedback law (D-B11, A8.1): the family the engineer chose, the draft of the
+ * design form as the engineer left it, and the coefficients the engineer pinned. Tune reads them. Only the parsed draft reaches a
+ * solver (`parse_state_design_draft`); the draft is editing state.
+ */
+export interface StateDesignInput {
+  /**
+   * The text of each field of the design form: the desired poles, the weights, the covariances and the horizon (C4).
+   */
+  draft?: StateDesignDraft | null;
+  /**
+   * The family of the law that the engineer chose; absent takes the family the loop declares.
+   */
+  family?: StateControllerFamily | null;
+  /**
+   * The coefficients the engineer pinned, by symbol (B4.2, C4): each replaces its designed value.
+   */
+  pins?: {
+    [k: string]: number;
+  } | null;
+}
+/**
+ * The text of the form's fields: the saved editing state, which only [`parse_state_design_draft`] reads.
+ */
+export interface StateDesignDraft {
+  /**
+   * The desired poles, as JSON.
+   */
+  desiredPoles?: string | null;
+  /**
+   * The horizon steps, as a number.
+   */
+  horizonSteps?: string | null;
+  /**
+   * The input weight, as JSON.
+   */
+  inputWeights?: string | null;
+  /**
+   * The measurement noise covariance, as JSON.
+   */
+  measurementNoise?: string | null;
+  /**
+   * The process noise covariance, as JSON.
+   */
+  processNoise?: string | null;
+  /**
+   * The solver choice: `finite` or `infinite`.
+   */
+  solverMode?: string | null;
+  /**
+   * The state weight, as JSON.
+   */
+  stateWeights?: string | null;
+  /**
+   * The terminal weights, as JSON.
+   */
+  terminalWeights?: string | null;
 }
 /**
  * The checked loop definition.
@@ -1869,11 +2204,10 @@ export interface Controller {
    */
   design?: Design | null;
   /**
-   * Parked (stage V7): a PID group.
+   * A PID group (C7): its `Control.PID` members and their channels. [`PidControllerGroup`] checks the declaration against the loop's
+   * channels; the group's design, Validate and Apply are the engine's (stage V7, wave 4).
    */
-  group?: {
-    [k: string]: unknown;
-  };
+  group?: PidControllerGroup | null;
   /**
    * The controller's instance path, for example `Main.TIC101`.
    */
@@ -1907,7 +2241,8 @@ export interface Controller {
    */
   modeWhenTrue?: ModeWhenTrue | null;
   /**
-   * Parked (stage V7): an ON/OFF controller.
+   * The switching controller (C3): its three settings, its band, its output levels and its retained states. [`OnOffController`]
+   * decodes and checks it; the gate serves it with its ON/OFF channel shape.
    */
   onOff?: {
     [k: string]: unknown;
@@ -1943,6 +2278,48 @@ export interface Controller {
   trackingSignal?: string | null;
   /**
    * The controller's type, for example `Control.PID`.
+   */
+  type: string;
+}
+/**
+ * A PID group (C7): its members, each a `Control.PID` on one input and one output channel of the loop.
+ */
+export interface PidControllerGroup {
+  /**
+   * The members, in the order that the loop's channels follow.
+   */
+  members: PidGroupMember[];
+}
+/**
+ * One member of a PID group (C7): its instance, its input and output channel, the group's shared mode and its gain variables.
+ */
+export interface PidGroupMember {
+  /**
+   * The member's retained states that its program owns, when the declaration names them.
+   */
+  applicationStateSymbols?: string[] | null;
+  /**
+   * The identifier of the model input that the member drives.
+   */
+  inputChannelId: string;
+  /**
+   * The member's instance path, for example `P1.Zone1`.
+   */
+  instance: string;
+  /**
+   * The group's shared Auto/Manual signal, which every member names (C7 Setup).
+   */
+  modeSymbol: string;
+  /**
+   * The identifier of the model output that the member measures.
+   */
+  outputChannelId: string;
+  /**
+   * The member's gain variables: the proportional, integral and derivative gains of its parameter record, by their paths.
+   */
+  parameterSymbols: string[];
+  /**
+   * Always `Control.PID`.
    */
   type: string;
 }
@@ -2120,7 +2497,7 @@ export interface InitializedState {
              * The decoupler's matrix, as parameter paths.
              */
             matrixSymbols: string[][];
-            source: "decoupled-model-input";
+            source: "decoupled-output";
             [k: string]: unknown;
           }
         | {
@@ -2505,6 +2882,7 @@ export interface AnalysisPage {
     | "poleZero"
     | "frequency"
     | "measuredFrequency"
+    | "measuredPaths"
     | "feedback"
     | "leadLag"
     | "initialState"
@@ -2548,6 +2926,11 @@ export interface AnalysisInputs {
    */
   input?: number[] | null;
   /**
+   * `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
+   * nonnegative. Absent, the check is not made.
+   */
+  maximumUnexcitedInputDrift?: number | null;
+  /**
    * `measuredFrequency`: the minimum coherence, 0 to 1.
    */
   minimumCoherence?: number | null;
@@ -2560,11 +2943,11 @@ export interface AnalysisInputs {
    */
   plantChannel?: ChannelPair2 | null;
   /**
-   * `measuredFrequency`: the recording, by its identifier.
+   * `measuredFrequency` and `measuredPaths`: the recording, by its identifier.
    */
   recordingId?: string | null;
   /**
-   * `measuredFrequency`: the revision of the recording the request was made for.
+   * `measuredFrequency` and `measuredPaths`: the revision of the recording the request was made for.
    */
   recordingRevision?: string | null;
   /**
@@ -2575,6 +2958,10 @@ export interface AnalysisInputs {
    * `rootLocus` and `routh`: the selected value of the declared parameter.
    */
   selectedValue?: number | null;
+  /**
+   * `measuredPaths`: one settled trial for each input of the loop, in any order (C7).
+   */
+  settledTrials?: SettledTrial[] | null;
   /**
    * `measuredFrequency`: the startup samples left out of the estimate, at least 1.
    */
@@ -2634,6 +3021,57 @@ export interface PageView {
   identifyMethod?: string | null;
 }
 /**
+ * The finite search of a program's law, kept unapplied in the study's Tune section (C5): the values of the selected trial by the variable
+ * each axis tunes, the index of the selected trial, and every trial of the grid in its listed order.
+ */
+export interface SearchCandidate {
+  /**
+   * The values of the selected trial, by the variable of each axis.
+   */
+  parameters: {
+    [k: string]: number;
+  };
+  /**
+   * The unit of J (C5): the measurement's unit squared times seconds, as the page shows it (`score_unit_of`).
+   */
+  scoreUnit: string;
+  /**
+   * The index of the selected trial in `trials`.
+   */
+  selected: number;
+  /**
+   * Every trial of the grid, in the listed order: the attempted trials with their evidence, and the others marked not attempted.
+   */
+  trials: SearchTrial[];
+}
+/**
+ * One combination of the grid (C5).
+ */
+export interface SearchTrial {
+  /**
+   * Whether the trial's first isolated run was dispatched.
+   */
+  attempted: boolean;
+  /**
+   * The bounds outcome of an attempted trial.
+   */
+  bounds?: SearchBounds | null;
+  /**
+   * The combination: the value of each axis variable, a `REAL` value rounded to single precision.
+   */
+  parameters: {
+    [k: string]: number;
+  };
+  /**
+   * Why the trial was never run: its plan was refused before the search started.
+   */
+  reason?: string | null;
+  /**
+   * J (C5): the error after the settling time, in error unit squared times seconds, when the trial's record gives one.
+   */
+  score?: number | null;
+}
+/**
  * The stage evidence of the opened study, which the page gates its actions on (B9.4, A8.6): whether a model, a candidate
  * and a passed validation exist now. It is the evidence `stages` is computed from, as `controlStudio/run` answers it.
  */
@@ -2686,6 +3124,28 @@ export interface StageEvidence1 {
   [k: string]: unknown;
 }
 /**
+ * One field of the design form that a family shows, with the label the page shows for it (the page's words, see `draft_label`).
+ */
+export interface FormField {
+  /**
+   * The field.
+   */
+  field:
+    | "desiredPoles"
+    | "stateWeights"
+    | "inputWeights"
+    | "processNoise"
+    | "measurementNoise"
+    | "solverMode"
+    | "horizonSteps"
+    | "terminalWeights";
+  /**
+   * The label the form shows.
+   */
+  label: string;
+  [k: string]: unknown;
+}
+/**
  * The final result of `controlStudio/tune` (specification 35, B4.3 to B4.6; the Tune page specification, "Result and
  * plot"): the operation's result, and the `result` of the command line's `--json` object. Nothing in it is applied
  * (B4.1).
@@ -2722,6 +3182,11 @@ export interface TuneResult {
    */
   feedforward?: FeedforwardAnswer | null;
   gainUnits: TuneGainUnits;
+  /**
+   * The candidate of a PID group, unapplied (C7): each member's design, the static decoupler when the group has one, and the value
+   * of each variable that Apply writes. Absent for every other law.
+   */
+  group?: GroupCandidate | null;
   /**
    * The margins of the candidate on the model (B4.6, N7.7); absent when they cannot be given.
    */
@@ -2795,6 +3260,11 @@ export interface TuneResult {
    */
   response?: TuneResponse | null;
   /**
+   * The gain schedule of a schedule loop's answer (C10): the choice, the reason and one row per operating point, with the gains that the
+   * table gives each point. Absent for a loop that is not a schedule.
+   */
+  schedule?: ScheduleAnswer | null;
+  /**
    * The value the candidate's record gives each bound setting of the loop's controller, under the setting's symbol (B4.2,
    * C0): the settings the page shows under the loop's own names. A setting the record does not hold is absent.
    */
@@ -2811,6 +3281,11 @@ export interface TuneResult {
    * The status of every stage after this result.
    */
   stages: StageAvailability[];
+  /**
+   * The answer of a state-feedback law's Tune (C4): its family, closed-loop poles, finite-horizon stages and design-form fields
+   * (D-B12). Absent for every other law.
+   */
+  state?: StateAnswer | null;
   [k: string]: unknown;
 }
 /**
@@ -3055,6 +3530,149 @@ export interface TuneGainUnits {
   [k: string]: unknown;
 }
 /**
+ * A PID group's candidate (C7), unapplied: the members' designs, the decoupler when the group has one, and the value of each variable
+ * that Apply writes.
+ */
+export interface GroupCandidate {
+  /**
+   * Always false: a candidate is never applied by Tune (N8.9).
+   */
+  applied: boolean;
+  /**
+   * The static decoupler `D = K⁻¹·diag(K)` and its channels, when the group's program applies one (C7).
+   */
+  decoupler?: GroupDecoupler | null;
+  /**
+   * Each member's design, in the group's member order.
+   */
+  members: GroupMemberDesign[];
+  /**
+   * Where the members' gains came from: the SIMC formula for every member (N5.2, N5.3).
+   */
+  source: "Manual" | "Imported" | "SIMC" | "AMIGO" | "Constrained comparison" | "Relay rule";
+  /**
+   * The value of each variable that Apply writes, by symbol: every member's proportional, integral and derivative gain, and each
+   * entry of the decoupler when the program has one (C7). Apply writes all of them in one transaction.
+   */
+  values: {
+    [k: string]: number;
+  };
+}
+/**
+ * The static decoupler of a group (C7): `D` by plant input (row) and member (column), the channels its rows and columns name, and
+ * the two-member block's configuration when the group has two members.
+ */
+export interface GroupDecoupler {
+  /**
+   * The configuration of `Control.StaticDecoupler2x2` for two members (C7; spec 37 §4.2), absent for a larger group.
+   */
+  block?: StaticDecoupler2X2Design | null;
+  /**
+   * The members' input channel identifiers, in member order: the rows of `D`.
+   */
+  inputChannelIds: string[];
+  /**
+   * `D = K⁻¹·diag(K)`, by plant input (row) and member (column).
+   */
+  matrix: number[][];
+  /**
+   * The members' instance paths, in member order: the columns of `D`.
+   */
+  memberInstances: string[];
+}
+/**
+ * The two-member decoupler as `Control.StaticDecoupler2x2` is configured (C7; spec 37 §4.2): the gain matrix `G = diag(K)⁻¹·K`, its
+ * determinant and relative determinant, and its inverse, which equals `D = K⁻¹·diag(K)`.
+ */
+export interface StaticDecoupler2X2Design {
+  /**
+   * The determinant of `G`.
+   */
+  determinant: number;
+  /**
+   * `G`, by output (row) and member input (column): `G[i][j] = Kᵢⱼ / Kᵢᵢ`, so its diagonal is one.
+   *
+   * @minItems 2
+   * @maxItems 2
+   */
+  gain: [[number, number], [number, number]];
+  /**
+   * `G⁻¹` by the block's rule (`Inverse11` … `Inverse22`); its rows give `u = G⁻¹·v`.
+   *
+   * @minItems 2
+   * @maxItems 2
+   */
+  inverse: [[number, number], [number, number]];
+  /**
+   * `|det G|` over the block's matrix scale: the block's `RelativeDeterminant`.
+   */
+  relativeDeterminant: number;
+}
+/**
+ * One member's design (C7): its own path, its relative gain, the gain it sees with the other loops closed, and its PI.
+ */
+export interface GroupMemberDesign {
+  /**
+   * The delay of the member's own path, in seconds (N5.15).
+   */
+  delaySeconds: number;
+  /**
+   * `Kᵢᵢ/λᵢᵢ`: the gain the member sees when the other loops are closed.
+   */
+  effectiveGain: number;
+  gains: ParallelGains1;
+  /**
+   * The identifier of the model input the member drives.
+   */
+  inputChannelId: string;
+  /**
+   * The member's instance path.
+   */
+  instance: string;
+  /**
+   * The symbol of the member's integral gain in its parameter record; the page shows it with the record's unit.
+   */
+  integralSymbol: string;
+  /**
+   * The identifier of the model output the member measures.
+   */
+  outputChannelId: string;
+  /**
+   * The steady-state gain of the member's own path, `Kᵢᵢ` (N4.5).
+   */
+  pathGain: number;
+  /**
+   * The symbol of the member's proportional gain in its parameter record; the page shows it with the record's unit.
+   */
+  proportionalSymbol: string;
+  /**
+   * The relative gain of the pairing, `λᵢᵢ`; one through a decoupler (C7).
+   */
+  relativeGain: number;
+  /**
+   * The time constant of the member's own path, in seconds (N5.15).
+   */
+  timeConstantSeconds: number;
+}
+/**
+ * The member's PI: its proportional and integral gains, and a derivative gain of zero.
+ */
+export interface ParallelGains1 {
+  /**
+   * The derivative gain `Kd`.
+   */
+  derivativeGain: number;
+  /**
+   * The integral gain `Ki = Kp / Ti`.
+   */
+  integralGain: number;
+  /**
+   * The proportional gain `Kp`.
+   */
+  proportionalGain: number;
+  [k: string]: unknown;
+}
+/**
  * The margins of a loop on its grid (B4.6, N7.7): the gain and phase margins with their crossovers, and the
  * peak sensitivity `Ms`. A margin the loop does not have is `Unbounded`; a margin that the grid does not show is
  * `NotObservedInRange` and never infinite (N7.8). When the crossover margins cannot be computed at all, their
@@ -3110,7 +3728,7 @@ export interface ProjectCandidate {
    * Always false: a candidate is never applied by Tune (N8.9).
    */
   applied: boolean;
-  gains: ParallelGains1;
+  gains: ParallelGains2;
   /**
    * Where the candidate came from.
    */
@@ -3133,7 +3751,7 @@ export interface ProjectCandidate {
 /**
  * The gains, signed. A term that the structure does not use is zero.
  */
-export interface ParallelGains1 {
+export interface ParallelGains2 {
   /**
    * The derivative gain `Kd`.
    */
@@ -3244,6 +3862,67 @@ export interface TuneTrace {
   [k: string]: unknown;
 }
 /**
+ * The gain schedule of a Tune answer (C10): the choice, the reason, the scheduling variable and one row per operating point.
+ */
+export interface ScheduleAnswer {
+  /**
+   * Whether the points share one PI (`fixed`) or each has its own (`scheduled`).
+   */
+  choice: "fixed" | "scheduled";
+  /**
+   * One row per operating point, in the order of the schedule's table.
+   */
+  points: ScheduleAnswerPoint[];
+  /**
+   * The reason of the candidate, as the study's section stores it.
+   */
+  reason: string;
+  scheduling: ScheduleAnswerVariable;
+}
+/**
+ * One operating point of a gain schedule's answer (C10): its name and value of the scheduling variable, its two gain variables, and the
+ * gains that the table gives it.
+ */
+export interface ScheduleAnswerPoint {
+  /**
+   * The integral gain that the table gives the point.
+   */
+  integralGain: number;
+  /**
+   * The program's integral gain variable for the point.
+   */
+  integralSymbol: string;
+  /**
+   * The point's name.
+   */
+  name: string;
+  /**
+   * The proportional gain that the table gives the point.
+   */
+  proportionalGain: number;
+  /**
+   * The program's proportional gain variable for the point.
+   */
+  proportionalSymbol: string;
+  /**
+   * The point's value of the scheduling variable.
+   */
+  value: number;
+}
+/**
+ * The scheduling variable: its path and its unit.
+ */
+export interface ScheduleAnswerVariable {
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The variable's unit.
+   */
+  unit: string;
+}
+/**
  * The stage evidence after this result, from which `stages` is computed: whether the model and the candidate this result
  * is the answer of exist (B9.4). A preview keeps nothing, so it carries the study's own evidence (B4.5).
  */
@@ -3293,6 +3972,51 @@ export interface StageEvidence2 {
    * That result passed.
    */
   validationPassed: boolean;
+  [k: string]: unknown;
+}
+/**
+ * What a state-law Tune answers: the family, the closed-loop poles of the candidate, the horizon stages when the design has a
+ * finite horizon, and the design-form fields of the family.
+ */
+export interface StateAnswer {
+  /**
+   * The closed-loop poles of the candidate's mapped coefficients, on the sampled model (N7.11).
+   */
+  closedLoopPoles: ComplexValue[];
+  /**
+   * The family of a state-controller law (C4).
+   */
+  family: "state-feedback" | "LQR" | "LQG";
+  /**
+   * The fields the design form shows for the family, with their labels (D-B12).
+   */
+  fields: FormField[];
+  /**
+   * The finite-horizon stages (the gains and the Riccati matrices), when the design has a finite horizon.
+   */
+  horizon?: StateHorizon | null;
+  [k: string]: unknown;
+}
+/**
+ * The stages of a finite-horizon design.
+ */
+export interface StateHorizon {
+  /**
+   * The gains `K_0 … K_{N−1}`.
+   */
+  gainSequence: number[][][];
+  /**
+   * The policy that runs the design.
+   */
+  policy: "repeat-first-finite-gain" | "pinned-fixed-gain";
+  /**
+   * The Riccati matrices `P_0 … P_N`.
+   */
+  riccatiSequence: number[][][];
+  /**
+   * The number of control steps.
+   */
+  steps: number;
   [k: string]: unknown;
 }
 /**
@@ -3488,6 +4212,11 @@ export interface Failure {
    * The whole text, when it says more than the message.
    */
   detail?: string | null;
+  /**
+   * The key of the form field that the failure refuses, such as `desiredPoles` or `stateWeights` (D-B12), when the refusal
+   * concerns one field of a form; absent otherwise. The page shows the sentence under that field.
+   */
+  field?: string | null;
   /**
    * The first sentence: what went wrong.
    */

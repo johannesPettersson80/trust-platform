@@ -488,6 +488,8 @@ async function showControlStudio(
         await bindingRoute?.publish(payload => postEngineeringResult(ownerPanel, loop, expected.editorSessionId, "bindings", payload));
         // The engine's open answer names the page of an engine-served loop; the TypeScript view restore is then not sent.
         const engineServes = route ? await route.open(loop, expected) : false;
+        // The session posts the Controller list of a loop the engine does not serve only (V7.17); a served loop's list is the engine's.
+        sessions.engineer?.setEngineServed(engineServes);
         // A loop the engine does not serve keeps the controller family its binding chose in the TypeScript session (B1.3).
         const boundFamily = bindingFamilyToAdopt;
         bindingFamilyToAdopt = undefined;

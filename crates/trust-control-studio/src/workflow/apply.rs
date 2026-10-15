@@ -45,7 +45,7 @@ pub(crate) use ending::{
 };
 pub(crate) use journaling::{checkpoint_stage, CheckpointWriter};
 pub(crate) use law::law_target;
-pub(crate) use review::{candidate_gains, measured_noise};
+pub(crate) use review::{candidate_gains, materialize_values, measured_noise};
 
 use law::{LawSetup, LawStart};
 use review::{preconditions, prepare, reviewed_parameters, ApplyInputs, Clients, Prepared};

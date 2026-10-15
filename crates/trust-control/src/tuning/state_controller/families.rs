@@ -117,11 +117,25 @@ fn lqr(
         HORIZON_LIMITS,
     )
     .map_err(lqr_failure)?;
+    repeated_gain_stable(solution.finite.as_ref())?;
     Ok(DesignedGains {
         gain: solution.gain,
         observer: None,
         stages: solution.finite,
     })
+}
+
+/// The refusal of a finite-horizon design whose repeated first gain does not stabilise the loop (N5.14, D-B8): the runtime
+/// repeats `K_0`, so a law that the repetition destabilises cannot be run. A steady-state design has no stages to check.
+fn repeated_gain_stable(stages: Option<&FiniteStages>) -> Result<(), Failure> {
+    match stages {
+        Some(stages) if !stages.repeated_first_gain_stable => Err(Failure::new(
+            texts::REPEATED_GAIN_UNSTABLE,
+            Cause::ControllerCapability,
+            NextAction::ChooseMethod,
+        )),
+        _ => Ok(()),
+    }
 }
 
 /// The LQG (N5.14): the LQR of the declared weights, with the Kalman estimator of the declared covariances on the model
@@ -181,6 +195,7 @@ fn lqg(
         limits: HORIZON_LIMITS,
     };
     let design = design_discrete_lqg(&problem, &DESIGN_TOLERANCE).map_err(lqg_failure)?;
+    repeated_gain_stable(design.lqr.finite.as_ref())?;
     Ok(DesignedGains {
         gain: design.lqr.gain,
         observer: Some(design.kalman.gain),
@@ -195,30 +210,37 @@ fn lqr_weights(
 ) -> Result<(DenseMatrix, DenseMatrix), Failure> {
     let states = state_channels(model);
     let inputs = &model.identity().inputs;
-    let state_weight = binding
-        .state_weights
-        .clone()
-        .unwrap_or_else(|| automatic_weights(states.iter().map(|channel| channel.operating_range)));
-    let input_weight = binding
-        .input_weights
-        .clone()
-        .unwrap_or_else(|| automatic_weights(inputs.iter().map(|channel| channel.operating_range)));
+    let state_weight = match &binding.state_weights {
+        Some(weight) => weight.clone(),
+        None => automatic_weights(states.iter().map(|channel| channel.operating_range))?,
+    };
+    let input_weight = match &binding.input_weights {
+        Some(weight) => weight.clone(),
+        None => automatic_weights(inputs.iter().map(|channel| channel.operating_range))?,
+    };
     check_weight(&state_weight, states.len(), false)?;
     check_weight(&input_weight, inputs.len(), true)?;
     Ok((state_weight, input_weight))
 }
 
-/// The diagonal weight whose entry `i` is `1/span²` of the coordinate `i` (N5.14, automatic weights).
-fn automatic_weights(
+/// The diagonal weight whose entry `i` is `1/span²` of the coordinate `i` (N5.14, automatic weights). A coordinate with no
+/// span has no such weight, so the design is refused before it runs (D-B13).
+pub(super) fn automatic_weights(
     ranges: impl Iterator<Item = crate::model::general::OperatingRange>,
-) -> DenseMatrix {
-    let diagonal: Vec<f64> = ranges
+) -> Result<DenseMatrix, Failure> {
+    let diagonal = ranges
         .map(|range| {
             let span = range.maximum - range.minimum;
-            1.0 / (span * span)
+            (span > 0.0).then_some(1.0 / (span * span)).ok_or_else(|| {
+                Failure::new(
+                    texts::ZERO_OPERATING_SPAN,
+                    Cause::ModelOrData,
+                    NextAction::Identify,
+                )
+            })
         })
-        .collect();
-    diagonal
+        .collect::<Result<Vec<f64>, Failure>>()?;
+    Ok(diagonal
         .iter()
         .enumerate()
         .map(|(row, value)| {
@@ -228,7 +250,7 @@ fn automatic_weights(
                 .map(|(column, _)| if row == column { *value } else { 0.0 })
                 .collect()
         })
-        .collect()
+        .collect())
 }
 
 /// A weight or covariance of `size` rows: finite and symmetric, with eigenvalues that are real and positive (`strict`) or
@@ -283,7 +305,9 @@ fn estimator_matches(estimator: &super::binding::EstimatorModel, sampled: &Sampl
 fn lqr_failure(refusal: LqrRefusal) -> Failure {
     let text = texts::lqr_refused(texts::lqr_reason(refusal));
     match refusal {
-        LqrRefusal::InvalidFiniteHorizon => Failure::new(&text, Cause::Settings, NextAction::None),
+        LqrRefusal::InvalidFiniteHorizon | LqrRefusal::MalformedWeight => {
+            Failure::new(&text, Cause::Settings, NextAction::None)
+        }
         LqrRefusal::Numerical(_) => Failure::new(&text, Cause::Unclassified, NextAction::None),
         _ => Failure::new(&text, Cause::ControllerCapability, NextAction::ChooseMethod),
     }

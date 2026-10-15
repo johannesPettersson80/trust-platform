@@ -2,9 +2,7 @@
 //! channels (units and ranges), and the sample time of a discrete model. A loop without channel bindings has one plant input and one
 //! measured output, and its model must have one of each. A loop with channel bindings is qualified channel by channel: every model
 //! input and output must be bound to a loop channel, and each is checked against its own signal (`assertQualifiedModelResult`; C7, C8).
-//! The engineer's compatibility check stays with one input and one output (Validate's plant connection has one).
-
-use serde_json::Value;
+//! The engineer's compatibility check follows the same rule: Validate binds every model input and output through the loop's channels.
 
 use crate::loop_definition::{channel_signal, LoopChannels, LoopDefinition};
 use crate::model::{GeneralModel, ModelIdentity, ModelSource, ModelValidation};
@@ -95,7 +93,10 @@ pub fn assert_engineer_model_compatibility(
 ) -> Result<(), CompatibilityRefusal> {
     assert_model_evidence(model)?;
     let identity = model.identity();
-    if identity.inputs.len() != 1 || identity.outputs.len() != 1 {
+    // Without channel bindings a loop has one plant input and one measured output; with them, every model channel must be bound.
+    if loop_definition.channels.is_none()
+        && (identity.inputs.len() != 1 || identity.outputs.len() != 1)
+    {
         return Err(CompatibilityRefusal::UnmappedChannels);
     }
     let connections = match &loop_definition.channels {
@@ -191,16 +192,7 @@ fn unbound_connections(loop_definition: &LoopDefinition) -> Connections {
     let signals = &loop_definition.signals;
     let limits = &loop_definition.limits;
     let (minimum, maximum) = match loop_definition.controller.on_off.as_ref() {
-        Some(on_off) => (
-            on_off
-                .get("lowOutput")
-                .and_then(Value::as_f64)
-                .or(limits.output_minimum),
-            on_off
-                .get("highOutput")
-                .and_then(Value::as_f64)
-                .or(limits.output_maximum),
-        ),
+        Some(on_off) => (Some(on_off.low_output), Some(on_off.high_output)),
         None => (limits.output_minimum, limits.output_maximum),
     };
     let actuator = minimum.zip(maximum);

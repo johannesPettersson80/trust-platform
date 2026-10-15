@@ -235,8 +235,41 @@ fn applicable_fields(family: StateControllerFamily) -> &'static [DraftField] {
     }
 }
 
+/// One field of the design form that a family shows, with the label the page shows for it (the page's words, see `draft_label`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FormField {
+    /// The field.
+    pub field: DraftField,
+    /// The label the form shows.
+    pub label: String,
+}
+
+/// The fields the design form shows for `family` under its solver policy (D-B12), in the order the page lists them: for LQR and
+/// LQG the solver policy first, then the weights and, for LQG, the covariances; the horizon steps and the terminal weights only
+/// when the policy is the finite horizon. State feedback shows its desired poles alone.
+#[must_use]
+pub fn form_fields(family: StateControllerFamily, finite_horizon: bool) -> Vec<FormField> {
+    let mut fields = Vec::new();
+    if family != StateControllerFamily::StateFeedback {
+        fields.push(DraftField::SolverMode);
+    }
+    fields.extend_from_slice(applicable_fields(family));
+    if family != StateControllerFamily::StateFeedback && finite_horizon {
+        fields.extend([DraftField::HorizonSteps, DraftField::TerminalWeights]);
+    }
+    fields
+        .into_iter()
+        .map(|field| FormField {
+            field,
+            label: texts::draft_label(field).to_string(),
+        })
+        .collect()
+}
+
 /// The key that a stored preference uses for a matrix or pole field.
-fn field_key(field: DraftField) -> &'static str {
+#[must_use]
+pub fn field_key(field: DraftField) -> &'static str {
     match field {
         DraftField::DesiredPoles => "desiredPoles",
         DraftField::StateWeights => "stateWeights",

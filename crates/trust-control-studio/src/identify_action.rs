@@ -38,7 +38,7 @@ use trust_control::identification::connected_run::{
     stored_fit_window, unfinished_operation_refusal, FitWindow, IDENTIFY_OPERATION,
 };
 use trust_control::identification::identify_result::{
-    identify_answer, identify_signals, study_evidence,
+    identify_answer, identify_signals, project_test_result, study_evidence,
 };
 use trust_control::identification::recorded_limits::{
     evaluate_recorded_limits, RecordedLimitsEvaluation,
@@ -67,14 +67,15 @@ use crate::busy_loops::{LoopClaim, LoopClaims};
 use crate::commands::to_value;
 use crate::identify_adapters::{RuntimeSampler, StudyRetention};
 use crate::identify_import;
+use crate::identify_schedule;
 use crate::journal::{Journal, JournalEntry};
 use crate::operation::{OperationContext, Operations};
 use crate::runtime_client::runtime_recording::PendingReleases;
 use crate::runtime_client::RuntimeClient;
 use crate::workflow::identify::run::{connected_record, fit_records};
 use crate::workflow::identify::{
-    identify_plant, IdentifyPorts, IdentifyRequest as RunRequest, IdentifyResult as RunResult,
-    LoopSampler, RunEvaluator,
+    identify_plant, record_for_manual_check, IdentifyOutcome, IdentifyPorts,
+    IdentifyRequest as RunRequest, IdentifyResult as RunResult, LoopSampler, RunEvaluator,
 };
 use crate::workflow::identify_recovery::{cancel_operation, resume_identification};
 use crate::{loops, storage};
@@ -83,6 +84,10 @@ use crate::{loops, storage};
 const IDENTIFY_COMMAND: &str = "identify";
 /// The command of the operation that cancels a loop's journaled identification (§0.1b, `cancel`).
 const CANCEL_COMMAND: &str = "cancel";
+
+/// The manual identification (the Recorded-data fit of B3.3, B3.6 and B3.7): its checks, fit, structure, acceptance and reopening.
+#[path = "identify_manual.rs"]
+pub(crate) mod identify_manual;
 
 /// What an operation of the loop works with: owned, so that it moves to the operation's thread. The runtime connection is not
 /// part of it: an action that reaches the runtime passes its own connection (E11.1).
@@ -103,6 +108,9 @@ struct Fitted {
     recording_file_id: String,
     /// The fit.
     result: AutomaticIdentificationResult<RecordedLimitsEvaluation>,
+    /// The value of the scheduling variable that the run read when it started (C10 Identify, D-21); `None` when the loop has no
+    /// schedule, and when no run started with the fit (a resumed campaign, an opened recording).
+    scheduling_value: Option<f64>,
 }
 
 /// Answers `controlStudio/identify`. `identify`, `openRecording` and `resume` start an operation on `operations` and answer
@@ -164,14 +172,14 @@ pub fn answer(
             // The review and the approval read the runtime's sample, so they are checked inside the operation (§0.1a): the
             // answer comes at once, and a refused start ends the operation with its refusal before anything is written.
             started(operations, claim, move |context| {
-                confirm_start(
+                let scheduling_value = confirm_start(
                     &work.loop_definition,
                     &connection,
                     &settings,
                     review.as_deref(),
                     physical_approved,
                 )?;
-                run_identify(context, &work, &connection, &settings)
+                run_identify(context, &work, &connection, &settings, scheduling_value)
             })
         }
         IdentifyAction::OpenRecording {
@@ -205,6 +213,17 @@ pub fn answer(
         IdentifyAction::ImportModel { json } => {
             refuse_while_journaled(&journal)?;
             identify_import::import_model(&work.project_root, &work.loop_definition, &json)
+        }
+        // The manual identification (B3.3, B3.6, B3.7) has its own dispatch: its checks answer at once, and its fit and restoration
+        // are operations.
+        manual @ (IdentifyAction::ManualEdit { .. }
+        | IdentifyAction::ManualQualify { .. }
+        | IdentifyAction::ManualFit
+        | IdentifyAction::ManualChooseStructure { .. }
+        | IdentifyAction::ManualAccept
+        | IdentifyAction::ManualRestore
+        | IdentifyAction::ManualImport { .. }) => {
+            identify_manual::answer(operations, claim, &journal, work, manual)
         }
     }
 }
@@ -278,8 +297,16 @@ fn operation_name(action: &IdentifyAction) -> &'static str {
         IdentifyAction::Resume => "Resume",
         IdentifyAction::Reset => "Reset",
         IdentifyAction::Review { .. } => "Review",
-        IdentifyAction::ImportRecording { .. } => "Import recording",
+        IdentifyAction::ImportRecording { .. } | IdentifyAction::ManualImport { .. } => {
+            "Import recording"
+        }
         IdentifyAction::ImportModel { .. } => "Import model",
+        IdentifyAction::ManualEdit { .. } => "Edit identification",
+        IdentifyAction::ManualQualify { .. } => "Check recording",
+        IdentifyAction::ManualFit => "Fit identification",
+        IdentifyAction::ManualChooseStructure { .. } => "Choose model structure",
+        IdentifyAction::ManualAccept => "Accept identification",
+        IdentifyAction::ManualRestore => "Restore identification",
     }
 }
 
@@ -311,24 +338,30 @@ fn review(
 
 /// The engine's check of a start that `controlStudio/identify` runs inside its operation (§0.1a, A2.5, E11.8): the campaign the
 /// start would run now, on the live target, must be the one the engineer reviewed, and on a physical target the engineer must
-/// have approved it. A refused start writes nothing, and its operation ends with the refusal.
+/// have approved it. A refused start writes nothing, and its operation ends with the refusal. The scheduling variable of a
+/// gain-scheduled loop is checked against its operating point in the same scan as the sample (C10 Identify, D-21); the value that
+/// it gives is returned for the identification to keep.
 ///
 /// # Errors
-/// The runtime cannot be read for its sample; the campaign's own checks refuse the settings; or [`start_refusal`] refuses the start.
+/// The runtime cannot be read for its sample; the campaign's own checks refuse the settings; [`start_refusal`] refuses the start; or
+/// the scheduling variable cannot be read or is outside the tolerance of its point ([`identify_schedule::scheduling_start`]).
 fn confirm_start(
     loop_definition: &LoopDefinition,
     connection: &RuntimeConnection,
     settings: &AcquisitionSettings,
     review: Option<&str>,
     physical_approved: bool,
-) -> Result<(), Failure> {
+) -> Result<Option<f64>, Failure> {
     let source = runtime_source(connection)?;
-    let sample = RuntimeSampler::new(connection, loop_definition, source).sample()?;
+    let sampler = RuntimeSampler::new(connection, loop_definition, source);
+    let scan = sampler.scan()?;
+    let sample = scan.as_ref().and_then(|scan| sampler.sample_of(scan));
     let reviewed = campaign_review(loop_definition, settings, sample.as_ref())?;
-    match start_refusal(&reviewed, review, physical_approved) {
-        Some(refusal) => Err(refusal),
-        None => Ok(()),
+    if let Some(refusal) = start_refusal(&reviewed, review, physical_approved) {
+        return Err(refusal);
     }
+    let recorded = identify_schedule::value_in_scan(loop_definition, scan.as_ref());
+    identify_schedule::scheduling_start(loop_definition, recorded)
 }
 
 /// The refusal of a start, from the review the engineer saw and the approval the start carries (§0.1a, A2.5, E11.8). A review
@@ -361,7 +394,7 @@ fn start_refusal(
 ///
 /// # Errors
 /// The journal cannot be read or holds an unfinished operation (A8.5); the limits refuse the settings (B3.4 step 1); or the campaign
-/// fails (see `run_identify`).
+/// fails, or the scheduling variable is refused (see `run_identify` and `identify_schedule::check_start`).
 pub(crate) fn run_stage(
     context: &OperationContext,
     project_root: &Path,
@@ -388,7 +421,10 @@ pub(crate) fn run_stage(
         pending: Arc::clone(pending),
         loop_definition: loop_definition.clone(),
     };
-    run_identify(context, &work, connection, settings)
+    // The run's identify stage starts a campaign too, so the scheduling variable is checked before it (C10 Identify, D-21).
+    let source = runtime_source(connection)?;
+    let scheduling_value = identify_schedule::check_start(connection, loop_definition, source)?;
+    run_identify(context, &work, connection, settings, scheduling_value)
 }
 
 /// What `cancel_loop` cancels (§0.1b `cancel`): the runtime it reattaches through (E11.5), the project and the folder of the
@@ -493,6 +529,7 @@ fn run_identify(
     work: &LoopWork,
     connection: &RuntimeConnection,
     settings: &AcquisitionSettings,
+    scheduling_value: Option<f64>,
 ) -> Result<Value, Failure> {
     let loop_definition = &work.loop_definition;
     let source = runtime_source(connection)?;
@@ -503,6 +540,24 @@ fn run_identify(
         source,
         working_study(work)?,
     );
+    if identify_manual::takes_the_manual_recording(work, settings.method)? {
+        // A project test that the manual identification awaits records its recording and fits nothing: the recording becomes the
+        // independent recording of the manual identification, and the test's own model is not kept (B3.3, C12).
+        let outcome = record_for_manual_check(
+            context,
+            connection,
+            &work.pending,
+            &work.storage_folder,
+            &run_request(loop_definition),
+            Some(settings),
+            IdentifyPorts {
+                sampler: &mut sampler,
+                retention: &mut retention,
+            },
+        )?;
+        let file_id = kept_file(&retention, &outcome.recording_id)?;
+        return identify_manual::keep_project_test_recording(work, retention.study(), &file_id);
+    }
     let outcome = identify_plant(
         context,
         connection,
@@ -515,20 +570,64 @@ fn run_identify(
             retention: &mut retention,
         },
     )?;
-    let RunResult::Identified { result, .. } = outcome.result else {
-        return Err(model_check_instead_of_model());
-    };
-    let recording_file_id = kept_file(&retention, &outcome.recording_id)?;
-    keep_result(
-        work,
-        retention.study(),
-        Fitted {
-            method: IdentifyMethod::Live(outcome.method.kind),
-            source,
-            recording_file_id,
-            result,
-        },
-    )
+    keep_campaign(work, &retention, source, scheduling_value, outcome)
+}
+
+/// Keeps what a live campaign gave (B3.4, C12): a fit is kept as the study's Identify section, with the campaign's restoration and the
+/// samples of its kept recording beside it. A project test whose fit its recording cannot support keeps the recording and no model,
+/// and finishes with the fit's refusal as its note.
+fn keep_campaign(
+    work: &LoopWork,
+    retention: &StudyRetention<'_>,
+    source: EvidenceSource,
+    scheduling_value: Option<f64>,
+    outcome: IdentifyOutcome<RecordedLimitsEvaluation>,
+) -> Result<Value, Failure> {
+    let IdentifyOutcome {
+        result,
+        recording_id,
+        method,
+        restoration,
+        recorded_samples,
+        fit_refusal,
+        ..
+    } = outcome;
+    let recording_file_id = kept_file(retention, &recording_id)?;
+    match result {
+        RunResult::Identified { result, .. } => {
+            let mut answer = keep_result(
+                work,
+                retention.study(),
+                Fitted {
+                    method: IdentifyMethod::Live(method.kind),
+                    source,
+                    recording_file_id,
+                    result,
+                    scheduling_value,
+                },
+            )?;
+            // The facts of the campaign that the stored section does not keep: its restoration (C12) and the samples of the kept
+            // recording, which the page draws its recorded signals from (`control-studio.recording.evidence`).
+            if let Some(fields) = answer.as_object_mut() {
+                fields.insert("restoration".into(), to_value(&restoration)?);
+                fields.insert("recordedSamples".into(), to_value(&recorded_samples)?);
+            }
+            Ok(answer)
+        }
+        RunResult::Recorded(_) => {
+            // A project test whose fit the recording cannot support keeps its recording and no model; its answer is the completed test,
+            // with the refusal as its note (C12, B3.5).
+            let refusal = fit_refusal.ok_or_else(model_check_instead_of_model)?;
+            to_value(&project_test_result(
+                &work.loop_definition,
+                retention.study(),
+                &recording_file_id,
+                restoration,
+                recorded_samples,
+                refusal,
+            )?)
+        }
+    }
 }
 
 /// The journaled campaign followed to its end (A8.5, A8.6), its model qualified for the loop as an identified model is, then
@@ -566,6 +665,8 @@ fn run_resume(
             source,
             recording_file_id,
             result: resumed.result,
+            // The resumed campaign's start was checked when it began, and its value is not journaled, so none is kept.
+            scheduling_value: None,
         },
     )
 }
@@ -604,6 +705,8 @@ fn run_refit(
             source: stored.section.source,
             recording_file_id: stored.section.estimation_recording_id.clone(),
             result,
+            // The refit fits the recording of the stored section, so the value its start read is the one it keeps.
+            scheduling_value: stored.section.scheduling_value,
         },
     )
 }
@@ -703,6 +806,8 @@ fn run_opened_fit(
             source: file.source,
             recording_file_id: file.id()?,
             result,
+            // An opened recording starts no run, so no scheduling value was read for it.
+            scheduling_value: None,
         },
         Some(read),
     )
@@ -773,6 +878,7 @@ fn keep_fitted(
         source,
         recording_file_id,
         result,
+        scheduling_value,
     } = fitted;
     let loop_definition = &work.loop_definition;
     let (model, runs, presentation) = match result {
@@ -808,7 +914,8 @@ fn keep_fitted(
     .with_record_request(StoredRecordRequest {
         project_revision: record.project_revision.clone(),
         request: record.request.clone(),
-    });
+    })
+    .with_scheduling_value(scheduling_value);
     let section = match read {
         Some(read) => section.with_recorded_channels(read),
         None => section,

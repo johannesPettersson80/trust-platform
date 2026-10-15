@@ -96,6 +96,11 @@ pub struct IdentifySection {
     /// again needs (B3.6).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub record_request: Option<StoredRecordRequest>,
+    /// The value of the scheduling variable that the run read when it started, in the variable's unit (specification 35, C10
+    /// Identify, D-21): the value the operating point's tolerance was checked against. Absent when the loop has no schedule, and in
+    /// the files written before this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scheduling_value: Option<f64>,
 }
 
 /// The request a live identification took its estimation recording with (B3.4 and B3.6): the program revision it ran on and
@@ -133,6 +138,7 @@ impl IdentifySection {
             selected_model,
             presentation: Some(presentation),
             record_request: None,
+            scheduling_value: None,
         }
     }
 
@@ -157,6 +163,7 @@ impl IdentifySection {
             selected_model,
             presentation: None,
             record_request: None,
+            scheduling_value: None,
         }
     }
 
@@ -165,6 +172,15 @@ impl IdentifySection {
     pub fn with_record_request(self, record_request: StoredRecordRequest) -> Self {
         Self {
             record_request: Some(record_request),
+            ..self
+        }
+    }
+
+    /// The section with the value of the scheduling variable that its run read when it started (C10 Identify, D-21).
+    #[must_use]
+    pub fn with_scheduling_value(self, value: Option<f64>) -> Self {
+        Self {
+            scheduling_value: value,
             ..self
         }
     }

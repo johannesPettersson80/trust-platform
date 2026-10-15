@@ -22,7 +22,8 @@ const onOffDraft = { structure: "onoff", name: "Cold room", action: "reverse", i
   processVariable: { symbol: "P1.RoomC", unit: "degC", minimum: -10, maximum: 20 }, setpoint: { symbol: "P1.SetpointC" },
   manipulatedVariable: { symbol: "P1.CompressorPct", unit: "%", minimum: 0, maximum: 100 },
   mode: { symbol: "P1.AutoMode", whenTrue: "Auto" }, manualOutput: "P1.ManualPct", hysteresis: "P1.HysteresisC", bandConvention: "half-band",
-  minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", dwellTimer: "P1.DwellS" };
+  minimumOn: "P1.MinimumOnS", minimumOff: "P1.MinimumOffS", latch: "P1.CoolingOn", dwellTimer: "P1.DwellS",
+  thresholdEquality: "at-or-beyond", equipmentMinimumOnSeconds: null, equipmentMinimumOffSeconds: null, lowOutput: null, highOutput: null };
 
 /** Two tanks in series whose program feeds both levels back to the pump. */
 const feedbackModel = { ...onOffModel, addressedReal: ["P1.ManualM3PerS", "P1.PumpM3PerS", "P1.Tank1M", "P1.Tank2M", "P1.Tank2SetpointM"],
@@ -147,10 +148,10 @@ suite("Control Studio loop setup form", () => {
     const view = open({ ...singleModel, structure: "cascade", cascade: { outer: "P1.Outer", inner: "P1.Inner" }, prefill: undefined,
       pids: [{ instance: "P1.Inner" }, { instance: "P1.Outer" }], records: ["P1.InnerParameters", "P1.OuterParameters"],
       addressedReal: ["P1.HeaterPct", "P1.InnerManual", "P1.JacketC", "P1.OuterManual", "P1.VesselC", "P1.VesselSetpointC"],
-      booleans: ["P1.Initialized", "P1.InnerAuto", "P1.OuterAuto"], writes: ["P1.HeaterPct", "P1.Initialized", "P1.OuterManual"], initializes: [] });
+      booleans: ["P1.Initialized", "P1.InnerAuto", "P1.OuterAuto"], writes: ["P1.HeaterPct", "P1.Initialized", "P1.InnerManual"], initializes: [] });
     try {
       const fill: [string, string][] = [["name", "Vessel"], ["outer.parameterRecord", "P1.OuterParameters"], ["outer.mode", "P1.OuterAuto"],
-        ["outer.manualOutput", "P1.OuterManual"], ["outer.processVariable", "P1.VesselC"], ["outer.processVariable.unit", "degC"],
+        ["outer.processVariable", "P1.VesselC"], ["outer.processVariable.unit", "degC"],
         ["outer.processVariable.minimum", "20"], ["outer.processVariable.maximum", "60"], ["outer.setpoint", "P1.VesselSetpointC"],
         ["inner.parameterRecord", "P1.InnerParameters"], ["inner.mode", "P1.InnerAuto"], ["inner.manualOutput", "P1.InnerManual"],
         ["inner.processVariable", "P1.JacketC"], ["inner.processVariable.unit", "degC"], ["inner.processVariable.minimum", "20"],
@@ -158,14 +159,18 @@ suite("Control Studio loop setup form", () => {
         ["inner.manipulatedVariable.minimum", "0"], ["inner.manipulatedVariable.maximum", "100"], ];
       for (const [field, value] of fill) view.set(field, value);
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
-      assert.strictEqual(save.disabled, true);
-      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false);
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /writes P1\.OuterManual.*startup/i,
-        "the outer manual output is the inner setpoint validation starts from");
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false, "the program writes a value validation starts from");
       view.set("startupFlag", "P1.Initialized");
-      assert.strictEqual(save.disabled, false, view.root.querySelector("[data-setup-message]")!.textContent ?? "");
       save.click();
-      assert.strictEqual(view.posts[0].draft.startupFlag, "P1.Initialized");
+      // The whole cascade draft as the engine reads it (C6): both controllers as typed, and no manual output for the outer one.
+      assert.deepStrictEqual(view.posts[0].draft, {
+        structure: "cascade", name: "Vessel", action: "direct", startupFlag: "P1.Initialized",
+        outer: { instance: "P1.Outer", parameterRecord: "P1.OuterParameters", mode: { symbol: "P1.OuterAuto", whenTrue: "Auto" },
+          processVariable: { symbol: "P1.VesselC", unit: "degC", minimum: 20, maximum: 60 }, setpoint: { symbol: "P1.VesselSetpointC" } },
+        inner: { instance: "P1.Inner", parameterRecord: "P1.InnerParameters", mode: { symbol: "P1.InnerAuto", whenTrue: "Auto" }, manualOutput: "P1.InnerManual",
+          processVariable: { symbol: "P1.JacketC", unit: "degC", minimum: 20, maximum: 80 },
+          manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 } },
+      });
       // Identify chooses the identification step and duration within the limits, so the cascade draft carries neither (Specification 35 B1.3).
       assert.ok(!("experimentStep" in view.posts[0].draft) && !("experimentDurationSeconds" in view.posts[0].draft));
     } finally { view.close(); }
@@ -202,9 +207,11 @@ suite("Control Studio loop setup form", () => {
         { instance: "P1.Outer", parameterRecord: "P1.OuterParameters", manipulatedVariable: "P1.JacketSetpointC", setpoint: "P1.VesselSetpointC", processValue: "P1.VesselC", manualOutput: "P1.OuterManual" }] });
     try {
       const field = (name: string) => view.root.querySelector<HTMLSelectElement>(`[data-setup-field="${name}"]`)!.value;
-      assert.deepStrictEqual(["outer.parameterRecord", "outer.manualOutput", "outer.processVariable", "outer.setpoint",
+      // The outer controller has no manual output (C6), so the form has no field for it.
+      assert.deepStrictEqual(["outer.parameterRecord", "outer.processVariable", "outer.setpoint",
         "inner.parameterRecord", "inner.manualOutput", "inner.processVariable", "inner.manipulatedVariable"].map(field),
-      ["P1.OuterParameters", "P1.OuterManual", "P1.VesselC", "P1.VesselSetpointC", "P1.InnerParameters", "P1.InnerManual", "P1.JacketC", "P1.HeaterPct"]);
+      ["P1.OuterParameters", "P1.VesselC", "P1.VesselSetpointC", "P1.InnerParameters", "P1.InnerManual", "P1.JacketC", "P1.HeaterPct"]);
+      assert.strictEqual(view.root.querySelector('[data-setup-field="outer.manualOutput"]'), null);
     } finally { view.close(); }
   });
 
@@ -255,7 +262,6 @@ suite("Control Studio loop setup form", () => {
       assert.strictEqual(view.root.querySelector('[data-setup-field="group.experimentStep"]'), null, "no member asks for an identification step");
       assert.strictEqual(view.root.querySelector('[data-setup-field="group.experimentDuration"]'), null, "the group asks for no identification duration");
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /Auto\/Manual signal.*share/i);
       view.set("group.mode", "P1.ZonesAuto");
       assert.strictEqual(save.disabled, false, view.root.querySelector("[data-setup-message]")!.textContent ?? "");
       save.click();
@@ -284,16 +290,24 @@ suite("Control Studio loop setup form", () => {
     } finally { view.close(); }
   });
 
-  test("takes the switched equipment's own minimum ON and OFF times, and none when they are blank", () => {
+  test("posts the switched equipment's minimum ON and OFF times as typed: zero when it has no limit, and a blank time is never zero", () => {
     const view = open(onOffModel);
     try {
-      for (const [field, value] of [...onOffFill, ["onoff.equipmentMinimumOn", "-1"]]) view.set(field, value);
-      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
-      assert.strictEqual(save.disabled, true);
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /equipment minimum ON time/i);
+      for (const [field, value] of [...onOffFill, ["onoff.equipmentMinimumOn", "0"]]) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, { ...onOffDraft, equipmentMinimumOnSeconds: 0 });
       view.set("onoff.equipmentMinimumOn", "20"); view.set("onoff.equipmentMinimumOff", "30");
-      save.click();
-      assert.deepStrictEqual(view.posts[0].draft, { ...onOffDraft, equipmentMinimumOnSeconds: 20, equipmentMinimumOffSeconds: 30 });
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[1].draft, { ...onOffDraft, equipmentMinimumOnSeconds: 20, equipmentMinimumOffSeconds: 30 });
+    } finally { view.close(); }
+  });
+
+  test("posts the output levels and the threshold-equality policy as typed; a blank level is the output's limit", () => {
+    const view = open(onOffModel);
+    try {
+      for (const [field, value] of [...onOffFill, ["onoff.lowOutput", "5"], ["onoff.thresholdEquality", "beyond"]]) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[0].draft, { ...onOffDraft, lowOutput: 5, thresholdEquality: "beyond" });
     } finally { view.close(); }
   });
 
@@ -301,8 +315,8 @@ suite("Control Studio loop setup form", () => {
     const view = open({ ...onOffModel, booleans: [...onOffModel.booleans, "P1.Initialized"], writes: ["P1.CompressorPct", "P1.CoolingOn", "P1.MinimumOnS"] });
     try {
       for (const [field, value] of onOffFill) view.set(field, value);
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /writes P1\.MinimumOnS.*startup/i,
-        "a program that sets its own minimum ON time would replace the candidate being validated");
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false,
+        "a program that sets its own minimum ON time asks for the flag that marks its startup as done");
       view.set("startupFlag", "P1.Initialized");
       view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
       assert.deepStrictEqual(view.posts[0].draft, { ...onOffDraft, startupFlag: "P1.Initialized" });
@@ -314,26 +328,45 @@ suite("Control Studio loop setup form", () => {
     try {
       const structures = Array.from(view.root.querySelectorAll<HTMLOptionElement>('[data-setup-field="structure"] option')).map(option => option.value);
       assert.ok(structures.includes("state-feedback"), `state feedback has its own structure: ${structures}`);
-      for (const [field, value] of feedbackFill.slice(0, 15)) view.set(field, value);
-      const message = () => view.root.querySelector("[data-setup-message]")!.textContent ?? "";
-      assert.match(message(), /further measured output/i, "state feedback needs the other states it feeds back");
-      for (const [field, value] of feedbackFill.slice(15, 19)) view.set(field, value);
-      assert.match(message(), /gain on P1\.Tank1M/i);
-      for (const [field, value] of feedbackFill.slice(19)) view.set(field, value);
+      for (const [field, value] of feedbackFill) view.set(field, value);
       assert.strictEqual(view.root.querySelector('[data-setup-field="feedback.experimentStep"]'), null, "setup asks for no identification step");
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
-      assert.strictEqual(save.disabled, false, message());
+      assert.strictEqual(save.disabled, false, "a complete law can be saved");
       save.click();
       assert.deepStrictEqual(view.posts[0].draft, feedbackDraft);
     } finally { view.close(); }
   });
 
-  test("requires the startup flag when the program writes a state-feedback gain itself", () => {
+  test("incomplete state-feedback laws are posted as typed, so the engine says what they lack", () => {
+    const view = open(feedbackModel);
+    try {
+      for (const [field, value] of feedbackFill.slice(0, 15)) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      // No further output, mode or manual output is chosen yet: the form does not refuse the law; the engine does (C4, B1.3).
+      assert.deepStrictEqual(view.posts[0].draft, { ...feedbackDraft, states: [], mode: { symbol: "", whenTrue: "Auto" }, manualOutput: "" });
+    } finally { view.close(); }
+  });
+
+  test("shows the engine's refusal under the field it names, and in the message when it names none", () => {
+    const view = open(feedbackModel);
+    try {
+      for (const [field, value] of feedbackFill) view.set(field, value);
+      view.showError("The gain must be a variable of the program.", "feedback.gain");
+      const label = view.root.querySelector<HTMLElement>('[data-setup-field="feedback.gain"]')!.closest("label")!;
+      assert.strictEqual(label.nextElementSibling?.textContent, "The gain must be a variable of the program.", "the sentence sits under its field");
+      assert.strictEqual(view.root.querySelector("[data-setup-message]")!.textContent, "");
+      view.showError("The loop name is already taken.");
+      assert.strictEqual(view.root.querySelector("[data-setup-message]")!.textContent, "The loop name is already taken.");
+      assert.strictEqual(view.root.querySelector('[role="alert"]'), null, "a refusal that names no field replaces the one under a field");
+    } finally { view.close(); }
+  });
+
+  test("posts the startup flag the program's own writes ask for, once the user chooses one", () => {
     const view = open({ ...feedbackModel, booleans: [...feedbackModel.booleans, "P1.Initialized"], writes: ["P1.N", "P1.PumpM3PerS"] });
     try {
       for (const [field, value] of feedbackFill) view.set(field, value);
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /writes P1\.N.*startup/i,
-        "a program that sets its own reference gain would replace the candidate being validated");
+      assert.strictEqual(view.root.querySelector<HTMLElement>("[data-setup-startup]")!.hidden, false,
+        "a program that sets its own reference gain asks for the flag that marks its startup as done");
       view.set("startupFlag", "P1.Initialized");
       view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
       assert.deepStrictEqual(view.posts[0].draft, { ...feedbackDraft, startupFlag: "P1.Initialized" });

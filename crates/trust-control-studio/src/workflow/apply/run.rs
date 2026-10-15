@@ -7,6 +7,7 @@
 //! change. A passed response or a failed requirement keeps the settings applied: the checkpoint completes, and Restore and Keep are
 //! offered. A departure from the permitted range, a cancel or any other failure after the first write runs the one Restore at once.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use trust_control::commissioning::application::ApplySource;
@@ -14,6 +15,7 @@ use trust_control::commissioning::application_records::ApplyOutcome;
 use trust_control::commissioning::application_texts::{physical_approval_needed, review_changed};
 use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
 use trust_control::commissioning::commissioning_result::TransferStatus;
+use trust_control::commissioning::gain_schedule_adapter::{schedule_origin, schedule_points};
 use trust_control::commissioning::parameter_application::ParameterOwner;
 use trust_control::commissioning::parameter_status::ParameterStatus;
 use trust_control::commissioning::pid_ending::RunOutcome;
@@ -82,6 +84,9 @@ pub(crate) fn run_confirmed(
         retired,
         ..
     } = prepared;
+    let origin = schedule_points(loop_definition)
+        .map(|points| schedule_origin(points, &first.values))
+        .transpose()?;
     let program_revision = review.observed.program_revision.clone();
     let setup = LawSetup {
         loop_definition,
@@ -111,7 +116,10 @@ pub(crate) fn run_confirmed(
     report.progress(engine_texts::COMMISSIONING);
     let journal = SharedJournal::new(&mut *context.journal);
     replace_earlier(&journal, retired.as_ref())?;
-    let writer = CheckpointWriter::new(journal, checkpoint_of(&law, inputs, loop_definition)?);
+    let writer = CheckpointWriter::new(
+        journal,
+        checkpoint_of(&law, inputs, loop_definition, origin)?,
+    );
     writer.save(CheckpointStage::Prepared)?;
     let mut run = Run {
         loop_definition,
@@ -161,6 +169,7 @@ fn checkpoint_of(
     law: &Law<'_>,
     inputs: &ApplyInputs,
     loop_definition: &LoopDefinition,
+    origin: Option<BTreeMap<String, f64>>,
 ) -> Result<CommissioningCheckpoint, Failure> {
     let review = law.review();
     Ok(CommissioningCheckpoint {
@@ -188,6 +197,7 @@ fn checkpoint_of(
         process_noise: Some(inputs.process_noise),
         validation_identity: inputs.validation_identity.clone(),
         transfers: Vec::new(),
+        schedule_origin: origin,
     })
 }
 

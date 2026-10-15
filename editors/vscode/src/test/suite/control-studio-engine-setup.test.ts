@@ -201,6 +201,9 @@ suite("Control Studio engine setup", () => {
   test("shows a refusal with the words of its next action, or with its message alone", () => {
     assert.strictEqual(refusalText(SETTINGS_REFUSAL), "The loop has no such controller. Next: Loop setup…");
     assert.strictEqual(refusalText({ message: "The file is missing.", cause: "unclassified", nextAction: "none" }), "The file is missing.");
+    // A refusal of two sentences shows both, as the form showed its missing items: the detail is the whole text (Failure::new).
+    assert.strictEqual(refusalText({ ...SETTINGS_REFUSAL, message: "The gain is missing.", detail: "The gain is missing. Choose the gain variable." }),
+      "The gain is missing. Choose the gain variable. Next: Loop setup…");
   });
 
   test("saves the feedforward draft the setup form posts unchanged, and a refusal of it is a refusal, never a parked structure (C8)", async () => {

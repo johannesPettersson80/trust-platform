@@ -37,6 +37,8 @@ fn numerics_settings() -> StepResponseSettings {
         baseline_step: 0.01,
         gain_step: 0.001,
         timestamp_shift_seconds: 0.0,
+        sensor_time_constant: None,
+        model_adequacy: None,
     }
 }
 
@@ -528,29 +530,33 @@ fn a_positive_delay_grid_end_is_a_search_boundary_but_a_zero_delay_is_not() {
 }
 
 #[test]
-fn refuses_stored_settings_that_carry_a_field_of_the_parked_comparison() {
-    // D8: the sensor-lag and model-adequacy fields belong to the parked comparison (stage V7). Stored settings that carry
-    // one are refused; they are not read with the field dropped in silence.
+fn stored_settings_carry_the_sensor_lag_fields_of_the_comparison() {
+    // N2.10 (I1): the sensor-lag and model-adequacy fields are the sopdt comparison's. Stored settings that carry them decode with
+    // them, and the rules check them when they are given; a search grid still refuses an unknown field.
     let stored = serde_json::to_value(numerics_settings()).expect("the settings encode");
     let decoded: StepResponseSettings =
         serde_json::from_value(stored.clone()).expect("the stored settings decode");
     assert_eq!(decoded, numerics_settings());
-    for (field, value) in [
-        (
-            "sensorTimeConstant",
-            serde_json::json!({ "minimum": 0.1, "maximum": 1.0, "step": 0.1 }),
-        ),
-        (
-            "modelAdequacy",
-            serde_json::json!({ "maximumAbsoluteResidual": 0.05, "maximumFinalError": 0.1 }),
-        ),
-    ] {
-        let mut carrying = stored.clone();
-        carrying[field] = value;
-        let refusal = serde_json::from_value::<StepResponseSettings>(carrying)
-            .expect_err("a settings field of the parked comparison is refused");
-        assert!(refusal.to_string().contains(field), "{refusal}");
-    }
+    let mut carrying = stored.clone();
+    carrying["sensorTimeConstant"] =
+        serde_json::json!({ "minimum": 0.1, "maximum": 1.0, "step": 0.1 });
+    carrying["modelAdequacy"] =
+        serde_json::json!({ "maximumAbsoluteResidual": 0.05, "maximumFinalError": 0.1 });
+    let comparing: StepResponseSettings =
+        serde_json::from_value(carrying).expect("the comparison's fields decode");
+    assert_eq!(
+        comparing.sensor_time_constant,
+        Some(SearchGrid {
+            minimum: 0.1,
+            maximum: 1.0,
+            step: 0.1,
+        })
+    );
+    assert!(
+        comparing.model_adequacy.is_some(),
+        "the residual requirements are kept"
+    );
+    assert_eq!(step_response_settings_problem(&comparing), None);
     let grid_carrying =
         serde_json::json!({ "minimum": 0.0, "maximum": 1.0, "step": 0.1, "modelAdequacy": {} });
     assert!(
@@ -779,6 +785,8 @@ fn long_settings() -> StepResponseSettings {
         baseline_step: 0.01,
         gain_step: 0.001,
         timestamp_shift_seconds: 0.0,
+        sensor_time_constant: None,
+        model_adequacy: None,
     }
 }
 

@@ -142,7 +142,7 @@ fn a_pid_loop_found_in_manual_is_applied_and_keeps_its_settings() {
     let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
     let folder = scratch("pid-manual");
     let outcome =
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     let result = &outcome.result;
     assert_eq!(
         result.status,
@@ -230,7 +230,7 @@ fn a_pid_loop_found_in_auto_is_staged_in_manual_before_its_record_is_applied() {
     plant.world().numbers.insert("Main.MV".into(), 0.36);
     let folder = scratch("pid-auto");
     let outcome =
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     assert_eq!(
         outcome.result.status,
         CommissioningStatus::Passed,
@@ -267,7 +267,7 @@ fn the_checkpoint_is_journaled_before_the_first_write() {
         let loop_definition = pid_loop();
         let plant = Plant::start(&loop_definition, found_in_auto, Response::FollowsTarget);
         let folder = scratch(&format!("first-write-{stage}"));
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
         let (journal, first_id) = plant.world().first_write.clone().expect("a write was made");
         let journal: Value = serde_json::from_str(
             &journal.expect("the journal existed when the first write arrived"),
@@ -295,7 +295,7 @@ fn a_failed_requirement_keeps_the_settings_applied_and_offers_restore() {
     let plant = Plant::start(&loop_definition, true, Response::Stays);
     let folder = scratch("requirement");
     let outcome =
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     let result = &outcome.result;
     assert_eq!(result.status, CommissioningStatus::Failed);
     assert!(
@@ -345,7 +345,7 @@ fn a_departure_from_the_permitted_range_restores_the_previous_settings_at_once()
     let plant = Plant::start(&loop_definition, true, Response::Departs(25.0));
     let folder = scratch("departure");
     let outcome =
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     let result = &outcome.result;
     assert_eq!(result.status, CommissioningStatus::Failed);
     assert_eq!(
@@ -416,7 +416,7 @@ fn a_proportional_loop_found_in_auto_is_aligned_staged_and_applied() {
     let plant = Plant::start(&loop_definition, true, Response::FollowsTarget);
     let folder = scratch("proportional");
     let outcome =
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.0), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.0), 0.0)).expect("applied");
     let result = &outcome.result;
     assert_eq!(
         result.status,
@@ -474,7 +474,7 @@ fn a_confirmation_of_another_review_is_refused_and_writes_nothing() {
     let clock = || 0_u64;
     let refused = run_confirmed(
         &mut context,
-        &inputs(gains(0.5), 0.0),
+        &inputs(&gains(0.5), 0.0),
         "sha256:another-review",
         &Report::default(),
         &instant(&clock),
@@ -505,7 +505,7 @@ fn a_runtime_reloaded_since_the_review_is_not_treated_as_the_reviewed_one() {
         physical_approved: false,
         project_root: &folder,
     };
-    let inputs = inputs(gains(0.5), 0.0);
+    let inputs = inputs(&gains(0.5), 0.0);
     let review = review_with(&mut context, &inputs).expect("reviewed");
     plant.world().program = "program-2".into();
     let clock = || 0_u64;
@@ -533,7 +533,7 @@ fn a_completed_checkpoint_is_replaced_an_unresolved_one_blocks_and_a_retired_one
     let loop_definition = pid_loop();
     let folder = scratch("replaced");
     let first = Plant::start(&loop_definition, false, Response::FollowsTarget);
-    apply(&loop_definition, &first, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+    apply(&loop_definition, &first, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     let completed = journaled(&loop_definition, &folder).expect("completed");
     let decided = |stage: CheckpointStage| {
         rejournal(&loop_definition, &folder, &completed, stage);
@@ -555,7 +555,13 @@ fn a_completed_checkpoint_is_replaced_an_unresolved_one_blocks_and_a_retired_one
         "a retired leftover blocks nothing"
     );
     let second = Plant::start(&loop_definition, false, Response::FollowsTarget);
-    apply(&loop_definition, &second, &folder, &inputs(gains(0.5), 0.0)).expect("applied again");
+    apply(
+        &loop_definition,
+        &second,
+        &folder,
+        &inputs(&gains(0.5), 0.0),
+    )
+    .expect("applied again");
     let replacing = checkpoint_ids(&loop_definition, &folder);
     assert_eq!(
         replacing.len(),
@@ -564,7 +570,7 @@ fn a_completed_checkpoint_is_replaced_an_unresolved_one_blocks_and_a_retired_one
     );
     assert_ne!(replacing[0], completed.id);
     let third = Plant::start(&loop_definition, false, Response::FollowsTarget);
-    apply(&loop_definition, &third, &folder, &inputs(gains(0.5), 0.0)).expect("applied over it");
+    apply(&loop_definition, &third, &folder, &inputs(&gains(0.5), 0.0)).expect("applied over it");
     let replaced = checkpoint_ids(&loop_definition, &folder);
     assert_eq!(
         replaced.len(),
@@ -585,7 +591,7 @@ fn an_unresolved_checkpoint_of_a_reloaded_program_is_let_pass_by_the_review_and_
     let loop_definition = pid_loop();
     let folder = scratch("reloaded");
     let first = Plant::start(&loop_definition, false, Response::FollowsTarget);
-    apply(&loop_definition, &first, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+    apply(&loop_definition, &first, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     let earlier = journaled(&loop_definition, &folder).expect("completed");
     assert_eq!(earlier.origin.program_revision, "program-1");
     rejournal(
@@ -596,7 +602,7 @@ fn an_unresolved_checkpoint_of_a_reloaded_program_is_let_pass_by_the_review_and_
     );
     let reloaded = Plant::start(&loop_definition, false, Response::FollowsTarget);
     reloaded.world().program = "program-2".into();
-    let inputs = inputs(gains(0.5), 0.0);
+    let inputs = inputs(&gains(0.5), 0.0);
     let outcome = in_context(&loop_definition, &reloaded, &folder, |context| {
         let review = review_with(context, &inputs).expect("the review lets it pass");
         assert_eq!(
@@ -642,7 +648,7 @@ fn an_unresolved_checkpoint_of_the_running_program_blocks_the_review_and_the_run
     let loop_definition = pid_loop();
     let folder = scratch("unresolved");
     let first = Plant::start(&loop_definition, false, Response::FollowsTarget);
-    apply(&loop_definition, &first, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+    apply(&loop_definition, &first, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     let earlier = journaled(&loop_definition, &folder).expect("completed");
     rejournal(
         &loop_definition,
@@ -651,7 +657,7 @@ fn an_unresolved_checkpoint_of_the_running_program_blocks_the_review_and_the_run
         CheckpointStage::Transfer,
     );
     let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
-    let inputs = inputs(gains(0.5), 0.0);
+    let inputs = inputs(&gains(0.5), 0.0);
     let (reviewed, confirmed) = in_context(&loop_definition, &plant, &folder, |context| {
         let reviewed = review_with(context, &inputs);
         let clock = || 0_u64;
@@ -685,7 +691,7 @@ fn a_physical_target_is_reviewed_and_its_confirmation_needs_the_approval() {
     let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
     plant.world().physical = true;
     let folder = scratch("physical");
-    let inputs = inputs(gains(0.5), 0.0);
+    let inputs = inputs(&gains(0.5), 0.0);
     let refused = in_context(&loop_definition, &plant, &folder, |context| {
         let review = review_with(context, &inputs).expect("a physical target is reviewed");
         assert!(review.physical);
@@ -725,7 +731,7 @@ fn a_cancel_while_waiting_writes_nothing_and_journals_nothing() {
         physical_approved: false,
         project_root: &folder,
     };
-    let inputs = inputs(gains(0.5), 0.0);
+    let inputs = inputs(&gains(0.5), 0.0);
     let review = review_with(&mut context, &inputs).expect("reviewed");
     let report = Report::default();
     report.cancel();
@@ -851,7 +857,7 @@ fn a_served_pid_law_writes_its_seed_gains_then_enters_auto_with_its_declared_sta
     let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
     let folder = scratch("own-pid");
     let outcome =
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.5), 0.0)).expect("applied");
     let result = &outcome.result;
     assert_eq!(
         result.status,
@@ -898,7 +904,7 @@ fn a_program_p_law_applies_the_connected_p_entry_with_its_startup_flag() {
     let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
     let folder = scratch("own-p-startup");
     let outcome =
-        apply(&loop_definition, &plant, &folder, &inputs(gains(0.0), 0.0)).expect("applied");
+        apply(&loop_definition, &plant, &folder, &inputs(&gains(0.0), 0.0)).expect("applied");
     let result = &outcome.result;
     assert_eq!(
         result.status,

@@ -30,7 +30,25 @@ use crate::identification::step_response::{
 };
 
 /// The tolerance of the review's comparisons of responses, residuals and step amplitudes.
-const TOLERANCE: f64 = 1e-9;
+pub(crate) const TOLERANCE: f64 = 1e-9;
+
+/// The refusal of a validation whose two recording identities are missing, empty or equal (N3.4).
+pub(crate) const DISTINCT_IDENTITIES_REFUSAL: &str =
+    "Bounded step validation requires two distinct immutable recording identities.";
+
+/// The refusal of an estimation fit whose consistent set is empty, whose search reaches a boundary, or whose timestamps
+/// are shifted: it cannot be accepted, and its record is retained.
+pub(crate) const RESOLVE_ESTIMATION_REFUSAL: &str = "Resolve the estimation grid, search boundary and nominal timestamp assumptions before accepting a model. The estimation record is retained.";
+
+/// The refusal of an estimation fit with a residual beyond the measurement bound (N2.4).
+pub(crate) const BEST_FIT_BOUND_REFUSAL: &str = "The best estimation fit exceeds the measurement bound; retain the consistent set and refine the analysis before acceptance.";
+
+/// The refusal of a validation step whose applied amplitude equals the estimation step's (N3.4).
+pub(crate) const DISTINCT_VALIDATION_STEP_REFUSAL: &str =
+    "Use a distinct validation step with a different applied amplitude.";
+
+/// The reason a validation recording gives when its frozen model fails the measurement bound (N3.5).
+pub(crate) const FROZEN_MODEL_BOUND_REFUSAL: &str = "The frozen estimation model fails the independent measurement bound. Retain both recordings and revise the model or stated assumptions.";
 
 /// The estimation stage of a bounded step review: the estimation recording and its qualification, its step
 /// analysis, the model the analysis selects, and the source of the evidence.
@@ -153,29 +171,21 @@ fn validate(
         source,
     } = estimated;
     if !distinct_recordings(input) {
-        return Err(Refusal::new(
-            "Bounded step validation requires two distinct immutable recording identities.",
-        ));
+        return Err(Refusal::new(DISTINCT_IDENTITIES_REFUSAL));
     }
     if analysis.consistency.count == 0
         || analysis.boundary_limited
         || settings.timestamp_shift_seconds != 0.0
     {
-        return Err(Refusal::new(
-            "Resolve the estimation grid, search boundary and nominal timestamp assumptions before accepting a model. The estimation record is retained.",
-        ));
+        return Err(Refusal::new(RESOLVE_ESTIMATION_REFUSAL));
     }
     let bound = settings.measurement_bound;
     if exceeds_bound(analysis.points.iter().map(|point| point.residual), bound) {
-        return Err(Refusal::new(
-            "The best estimation fit exceeds the measurement bound; retain the consistent set and refine the analysis before acceptance.",
-        ));
+        return Err(Refusal::new(BEST_FIT_BOUND_REFUSAL));
     }
     let validation_step = measure_step_response(&validation, settings)?;
     if (validation_step.input_change - analysis.input_change).abs() <= TOLERANCE {
-        return Err(Refusal::new(
-            "Use a distinct validation step with a different applied amplitude.",
-        ));
+        return Err(Refusal::new(DISTINCT_VALIDATION_STEP_REFUSAL));
     }
     let mut fit = score_frozen_step(&selected, &validation, &validation_step)?;
     let mut validation_qualification = qualify_identification_data(&validation, &[], true);
@@ -183,10 +193,7 @@ fn validate(
     if exceeds_bound(fit.points.iter().map(|point| point.residual), bound) {
         validation_qualification.suitable = false;
         validation_qualification.suitable_for_design = false;
-        validation_qualification.reason = Some(
-            "The frozen estimation model fails the independent measurement bound. Retain both recordings and revise the model or stated assumptions."
-                .to_string(),
-        );
+        validation_qualification.reason = Some(FROZEN_MODEL_BOUND_REFUSAL.to_string());
     }
     // The validation's normalized error divides by the span of its own fit record, as the estimation's does (N3.2).
     let validation_span = fit_record_span(&validation, settings)?;
@@ -306,7 +313,7 @@ fn fit_point(point: &StepResponsePoint) -> ModelFitPoint {
 /// start of the baseline window to the restoration. The frozen model is simulated from the validation's steady baseline
 /// under the recorded plant input on the recorded sample times (N1.2), and the residuals and their root mean square are
 /// taken over the response, from the step on.
-fn score_frozen_step(
+pub(crate) fn score_frozen_step(
     model: &IdentifiedModel,
     samples: &[IdentificationSample],
     measured: &StepResponseMeasurement,
@@ -331,7 +338,7 @@ fn score_frozen_step(
 }
 
 /// Whether the review input names two distinct, non-empty recording identities (N3.4).
-fn distinct_recordings(input: &IdentificationReviewInput) -> bool {
+pub(crate) fn distinct_recordings(input: &IdentificationReviewInput) -> bool {
     let (Some(estimation), Some(validation)) = (
         input.estimation_recording_id.as_deref(),
         input.validation_recording_id.as_deref(),
@@ -342,7 +349,7 @@ fn distinct_recordings(input: &IdentificationReviewInput) -> bool {
 }
 
 /// Whether a residual lies beyond the measurement bound by more than the tolerance (N2.4).
-fn exceeds_bound(residuals: impl IntoIterator<Item = f64>, bound: f64) -> bool {
+pub(crate) fn exceeds_bound(residuals: impl IntoIterator<Item = f64>, bound: f64) -> bool {
     residuals
         .into_iter()
         .any(|residual| residual.abs() > bound + TOLERANCE)

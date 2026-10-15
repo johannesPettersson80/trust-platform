@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::discovery::{
-    BindingSelection, ControllerCompatibility, DiscoveredController, Rejection, SelectableSignal,
+    BindingSelection, ControllerCompatibility, DiscoveredController, EstimatorModelFile, Rejection,
+    SelectableSignal,
 };
 use super::form::SetupFormModel;
 
@@ -41,6 +42,9 @@ pub struct SetupDiscoverResult {
     /// The file of the loop the request's selection names, when the engine accepts the selection (B1.3); absent otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub selected_file: Option<String>,
+    /// The model files an LQG estimator can implement (C4 Setup): the project folder's and `models/`, each with its state count.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub estimator_models: Vec<EstimatorModelFile>,
 }
 
 /// One discovered loop, as the setup page lists it (B1.2).

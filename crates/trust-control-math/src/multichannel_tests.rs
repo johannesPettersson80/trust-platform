@@ -154,3 +154,105 @@ fn a_state_equation_without_a_solution_has_no_steady_state_gain() {
     };
     assert!(steady_state_gain(&system, false).is_none());
 }
+
+#[test]
+fn the_least_squares_gain_of_two_independent_trials_is_the_closed_form_gain() {
+    // Each trial steps one input by 5, so the outputs move by 5 times a column of K = [9 4; 4 9] / 65 (lesson 69).
+    let inputs: DenseMatrix = vec![vec![5.0, 0.0], vec![0.0, 5.0]];
+    let outputs: DenseMatrix = vec![
+        vec![45.0 / 65.0, 20.0 / 65.0],
+        vec![20.0 / 65.0, 45.0 / 65.0],
+    ];
+    let fit = identify_static_gain(&inputs, &outputs, &TOLERANCE).expect("two independent trials");
+    assert_matrix_close(
+        &fit.gain,
+        &[&[9.0 / 65.0, 4.0 / 65.0], &[4.0 / 65.0, 9.0 / 65.0]],
+        1e-12,
+    );
+    assert_eq!(fit.input_rank, 2);
+    assert!(fit.residual_norm < 1e-12);
+}
+
+#[test]
+fn trials_that_do_not_pair_have_no_static_gain() {
+    // One trial cannot fit two inputs, and a row of the outputs with another length does not pair with the inputs.
+    let one_trial: DenseMatrix = vec![vec![5.0, 0.0]];
+    let outputs: DenseMatrix = vec![vec![1.0, 2.0]];
+    let rejection = identify_static_gain(&one_trial, &outputs, &TOLERANCE)
+        .expect_err("one trial is not enough");
+    assert_eq!(
+        rejection.reason,
+        NumericalRejectionReason::InconsistentDimensions
+    );
+    let inputs: DenseMatrix = vec![vec![5.0, 0.0], vec![0.0, 5.0]];
+    let ragged: DenseMatrix = vec![vec![1.0, 2.0], vec![3.0]];
+    let rejection =
+        identify_static_gain(&inputs, &ragged, &TOLERANCE).expect_err("a ragged row does not pair");
+    assert_eq!(
+        rejection.reason,
+        NumericalRejectionReason::InconsistentDimensions
+    );
+}
+
+#[test]
+fn input_steps_that_are_not_independent_have_no_static_gain() {
+    // Both trials step the first input alone, so the second input is never excited: the input matrix has rank one.
+    let inputs: DenseMatrix = vec![vec![5.0, 0.0], vec![5.0, 0.0]];
+    let outputs: DenseMatrix = vec![vec![1.0, 0.0], vec![2.0, 0.0]];
+    let rejection = identify_static_gain(&inputs, &outputs, &TOLERANCE)
+        .expect_err("the steps are not independent");
+    assert_eq!(rejection.reason, NumericalRejectionReason::Singular);
+}
+
+#[test]
+fn the_named_pairing_takes_the_positive_diagonal_closest_to_one() {
+    // The identity pairing has relative gains 1.2 and 1.2; the crossed pairing has −0.2 on its diagonal, so it is refused.
+    let relative: DenseMatrix = vec![vec![1.2, -0.2], vec![-0.2, 1.2]];
+    assert_eq!(named_pairing(&relative), Some(vec![0, 1]));
+}
+
+#[test]
+fn between_two_positive_pairings_the_one_closer_to_one_is_named() {
+    let identity_closer: DenseMatrix = vec![vec![0.9, 0.1], vec![0.1, 0.9]];
+    assert_eq!(named_pairing(&identity_closer), Some(vec![0, 1]));
+    let crossed_closer: DenseMatrix = vec![vec![0.1, 0.9], vec![0.9, 0.1]];
+    assert_eq!(named_pairing(&crossed_closer), Some(vec![1, 0]));
+}
+
+#[test]
+fn equally_close_pairings_name_the_earlier_one() {
+    let relative: DenseMatrix = vec![vec![0.5, 0.5], vec![0.5, 0.5]];
+    assert_eq!(named_pairing(&relative), Some(vec![0, 1]));
+}
+
+#[test]
+fn no_pairing_is_named_when_no_pairing_has_every_diagonal_element_positive() {
+    // The first two rows are positive only in the first column, so no pairing takes a positive element from each row (N4.5).
+    let relative: DenseMatrix = vec![
+        vec![1.2, -0.1, -0.1],
+        vec![1.2, -0.1, -0.1],
+        vec![-1.4, 1.2, 1.2],
+    ];
+    assert_eq!(named_pairing(&relative), None);
+}
+
+#[test]
+fn the_condition_number_is_the_ratio_of_the_largest_to_the_smallest_singular_value() {
+    let gain: DenseMatrix = vec![vec![4.0, 0.0], vec![0.0, 1.0]];
+    let number = condition_number(&gain).expect("a diagonal gain has a ratio");
+    assert!((number - 4.0).abs() < 1e-12);
+    let rectangular: DenseMatrix = vec![vec![1.0, 2.0]];
+    assert_eq!(condition_number(&rectangular), None);
+}
+
+#[test]
+fn the_relative_gain_array_of_lesson_69s_gain_is_81_over_65_on_the_diagonal() {
+    // K = [9 4; 4 9] / 65 °C per point (lesson 69): λ11 = (9/65)·9 and λ12 = (4/65)·(−4).
+    let gain: DenseMatrix = vec![vec![9.0 / 65.0, 4.0 / 65.0], vec![4.0 / 65.0, 9.0 / 65.0]];
+    let relative = relative_gain_array(&gain, &TOLERANCE).expect("a nonsingular gain");
+    assert_matrix_close(
+        &relative,
+        &[&[81.0 / 65.0, -16.0 / 65.0], &[-16.0 / 65.0, 81.0 / 65.0]],
+        1e-12,
+    );
+}

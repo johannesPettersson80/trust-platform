@@ -112,13 +112,6 @@ pub fn entry_tolerance_outside_span() -> String {
     "Auto-entry tolerance must be between zero and the declared output span.".to_owned()
 }
 
-/// Auto-entry tolerance (Rust port, A6.4): the loop declares state feedback, whose allowance the Rust engine does not run yet
-/// (checklist V7).
-#[must_use]
-pub fn entry_state_feedback_parked() -> String {
-    "This loop uses state feedback, which Control Studio's Rust engine does not run yet.".to_owned()
-}
-
 /// Reference hold (`assertReferenceHeld`, commissioningStartingPoint.ts; the cascade rule). `mode_symbol` names the outer
 /// controller's mode.
 #[must_use]

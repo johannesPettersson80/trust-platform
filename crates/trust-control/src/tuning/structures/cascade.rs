@@ -18,11 +18,17 @@ use super::path::{
 use super::texts;
 use crate::identification::refusal::Refusal;
 use crate::model::GeneralModel;
-use crate::tuning::candidate::DEFAULT_RATE_LIMIT_PER_S;
 use crate::tuning::prediction::RecordShaping;
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::shortfall::{GainLimits, OutputLimits};
 use crate::tuning::structure::ParallelGains;
+
+/// The divisor of the outer settling time that gives the inner settling time, when the inner measurement declares no requirements of
+/// its own: one fifth (numerical annex N10, C6).
+const INNER_SETTLING_DIVISOR: f64 = 5.0;
+/// The number of fifths of the outer settling time that give the inner duration, when the inner measurement declares no requirements of
+/// its own: two fifths (numerical annex N10, C6).
+const INNER_DURATION_FIFTHS: f64 = 2.0;
 
 /// One measurement of a cascade: its output in the model, its unit, and its range. The inner range scales the outer band (C6).
 #[derive(Debug, Clone, PartialEq)]
@@ -35,16 +41,20 @@ pub struct CascadeMeasurement {
     pub range: OutputLimits,
 }
 
-/// The loop facts that a cascade's design reads: the controller action, the task period, the parameter bounds, and the plant
-/// input's unit and range, which the inner controller drives.
+/// The loop facts that a cascade's design reads: the controller action, the task period, the bounds of each controller's gains, the
+/// output rate limits, and the plant input's unit and range, which the inner controller drives.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CascadeLoop {
     /// The controller action (N6).
     pub action: ControllerAction,
     /// The task period of the controllers in milliseconds.
     pub task_period_ms: f64,
-    /// The bounds of the parameters (N6.4).
-    pub gain_limits: GainLimits,
+    /// The bounds of the inner controller's gains (N6.4).
+    pub inner_gain_limits: GainLimits,
+    /// The bounds of the outer controller's gains (N6.4).
+    pub outer_gain_limits: GainLimits,
+    /// The output rate limits per second of the loop: its declared rates, or `±10⁶` where it declares none.
+    pub rate_limits: ParameterInterval,
     /// The plant input's unit: the inner controller's manipulated unit.
     pub plant_input_unit: String,
     /// The plant input's range: the inner controller's output range.
@@ -123,24 +133,9 @@ pub fn design_cascade(
         Some(own) => own.apply(&requirements.task),
         None => scaled_inner(&outer_task, ratio),
     };
-    // The cascade's facts carry no declared rate limits and no record shaping yet: the loop's own rates are served with C6 (stage V7.5).
-    let undeclared_rates = ParameterInterval {
-        minimum: -DEFAULT_RATE_LIMIT_PER_S,
-        maximum: DEFAULT_RATE_LIMIT_PER_S,
-    };
-    let inner_facts = LoopFacts {
-        action: cascade.action,
-        task_period_ms: cascade.task_period_ms,
-        gain_limits: cascade.gain_limits.clone(),
-        output_limits: cascade.plant_input_limits,
-        rate_limits: undeclared_rates,
-        shaping: RecordShaping::default(),
-        process_unit: inner.unit.clone(),
-        manipulated_unit: cascade.plant_input_unit.clone(),
-    };
     let inner_pi = design_pi_on_path(
         &reduced_plant(&inner_path, inner_path.delay_seconds),
-        &inner_facts,
+        &inner_facts(cascade, inner),
         (
             operating_value(&operating_inputs, 0),
             operating_value(&operating_outputs, inner.model_output),
@@ -163,19 +158,9 @@ pub fn design_cascade(
         Some((inner.model_output, law)),
     );
     let outer_path = two_point_path(&closed.times, &closed.values, "cascade outer")?;
-    let outer_facts = LoopFacts {
-        action: cascade.action,
-        task_period_ms: cascade.task_period_ms,
-        gain_limits: cascade.gain_limits.clone(),
-        output_limits: inner.range,
-        rate_limits: undeclared_rates,
-        shaping: RecordShaping::default(),
-        process_unit: outer.unit.clone(),
-        manipulated_unit: inner.unit.clone(),
-    };
     let outer_pi = design_pi_on_path(
         &reduced_plant(&outer_path, outer_path.delay_seconds),
-        &outer_facts,
+        &outer_facts(cascade, inner, outer),
         (
             operating_value(&operating_outputs, inner.model_output),
             operating_value(&operating_outputs, outer.model_output),
@@ -189,6 +174,38 @@ pub fn design_cascade(
     })
 }
 
+/// The facts of the inner loop's design (C6): the plant input is its manipulated variable and the inner measurement its process variable.
+fn inner_facts(cascade: &CascadeLoop, inner: &CascadeMeasurement) -> LoopFacts {
+    LoopFacts {
+        action: cascade.action,
+        task_period_ms: cascade.task_period_ms,
+        gain_limits: cascade.inner_gain_limits.clone(),
+        output_limits: cascade.plant_input_limits,
+        rate_limits: cascade.rate_limits,
+        shaping: RecordShaping::default(),
+        process_unit: inner.unit.clone(),
+        manipulated_unit: cascade.plant_input_unit.clone(),
+    }
+}
+
+/// The facts of the outer loop's design (C6): the inner setpoint is its manipulated variable, in the inner measurement's unit and range.
+fn outer_facts(
+    cascade: &CascadeLoop,
+    inner: &CascadeMeasurement,
+    outer: &CascadeMeasurement,
+) -> LoopFacts {
+    LoopFacts {
+        action: cascade.action,
+        task_period_ms: cascade.task_period_ms,
+        gain_limits: cascade.outer_gain_limits.clone(),
+        output_limits: inner.range,
+        rate_limits: cascade.rate_limits,
+        shaping: RecordShaping::default(),
+        process_unit: outer.unit.clone(),
+        manipulated_unit: inner.unit.clone(),
+    }
+}
+
 /// The inner requirements of a cascade whose inner measurement declares none (C6): the outer band, error and step scaled to the
 /// inner range by `ratio`, and a fifth of the outer settling time as the inner settling time, with two fifths of it as its duration.
 fn scaled_inner(outer: &TuningRequirements, ratio: f64) -> TuningRequirements {
@@ -196,8 +213,9 @@ fn scaled_inner(outer: &TuningRequirements, ratio: f64) -> TuningRequirements {
         reference_change: outer.reference_change * ratio,
         maximum_error: outer.maximum_error * ratio,
         settling_band: outer.settling_band * ratio,
-        settling_time_seconds: outer.settling_time_seconds / 5.0,
-        duration_seconds: 2.0 * outer.settling_time_seconds / 5.0,
+        settling_time_seconds: outer.settling_time_seconds / INNER_SETTLING_DIVISOR,
+        duration_seconds: INNER_DURATION_FIFTHS * outer.settling_time_seconds
+            / INNER_SETTLING_DIVISOR,
         ..outer.clone()
     }
 }

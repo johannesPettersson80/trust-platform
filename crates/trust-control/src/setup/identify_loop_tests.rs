@@ -12,7 +12,7 @@ use crate::loop_definition::{
     Execution, Experiment, ExperimentKind, LoopDefinition, LoopScope, Topology,
 };
 use crate::setup::catalog::{decode_catalog_answer, CompiledCatalog};
-use crate::setup::loop_bindings::MeasuredSignal;
+use crate::setup::loop_bindings::FormSignal;
 
 fn scope() -> LoopScope {
     LoopScope {
@@ -29,12 +29,12 @@ fn text_of(failure: &Failure) -> String {
         .unwrap_or_else(|| failure.message.clone())
 }
 
-fn signal(symbol: &str, unit: &str, minimum: f64, maximum: f64) -> MeasuredSignal {
-    MeasuredSignal {
+fn signal(symbol: &str, unit: &str, minimum: f64, maximum: f64) -> FormSignal {
+    FormSignal {
         symbol: symbol.to_string(),
         unit: unit.to_string(),
-        minimum,
-        maximum,
+        minimum: Some(minimum),
+        maximum: Some(maximum),
     }
 }
 

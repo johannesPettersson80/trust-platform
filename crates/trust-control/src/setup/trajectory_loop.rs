@@ -10,7 +10,8 @@ use serde::Deserialize;
 
 use super::catalog::CompiledCatalog;
 use super::loop_bindings::{
-    binding, compiled, real_type, state_type, stated_unit, with_revision, MeasuredSignal,
+    binding, compiled, measured_signal, real_type, state_type, stated_unit, with_revision,
+    FormSignal,
 };
 use super::own_law_loop::{own_law_loop_definition, OwnLawFamily, OwnLawGain, OwnLawLoopDraft};
 use super::texts::save as texts;
@@ -38,7 +39,7 @@ pub struct TrajectoryLoopDraft {
     pub acceleration_gain: OwnLawGain,
     /// The planned trajectory the feedforward follows: a program variable that the program computes and the loop reads. The setpoint's
     /// change starts it, and Validate observes it (C11).
-    pub planned_trajectory: MeasuredSignal,
+    pub planned_trajectory: FormSignal,
     /// The variable that holds the feedforward term that the program adds to its output: zero at rest, so the switch to Auto does not bump.
     pub feedforward_term: String,
 }
@@ -96,7 +97,11 @@ fn add_feedforward_state(
     loop_definition: &mut LoopDefinition,
     draft: &TrajectoryLoopDraft,
 ) -> Result<(), Failure> {
-    let output = &draft.own_law.manipulated_variable;
+    let output = measured_signal(
+        &draft.own_law.manipulated_variable,
+        "output",
+        Some("own.manipulatedVariable"),
+    )?;
     let state = InitializedState {
         symbol: draft.feedforward_term.clone(),
         iec_type: state_type(real_type(compiled(catalog, &draft.feedforward_term)?)?),
@@ -123,7 +128,12 @@ fn add_planned_trajectory(
     loop_definition: &mut LoopDefinition,
     draft: &TrajectoryLoopDraft,
 ) -> Result<(), Failure> {
-    let signal = binding(catalog, &draft.planned_trajectory, Direction::Read)?;
+    let planned = measured_signal(
+        &draft.planned_trajectory,
+        "planned trajectory",
+        Some("traj.plannedTrajectory"),
+    )?;
+    let signal = binding(catalog, &planned, Direction::Read)?;
     loop_definition.signals.additional = Some(vec![AuxiliarySignal {
         id: PLANNED_TRAJECTORY.to_owned(),
         channel: PLANNED_TRAJECTORY.to_owned(),

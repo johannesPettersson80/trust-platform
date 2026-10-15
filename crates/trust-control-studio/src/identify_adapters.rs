@@ -12,7 +12,9 @@ use trust_control::loop_definition::LoopDefinition;
 use trust_control::recording::evidence::RecordingEvidence;
 use trust_control::recording::{EvidenceSource, RecordedRun, RecordingFile};
 use trust_control::runtime::RuntimeConnection;
-use trust_control::signals::{loop_inspection_bindings, Inspection, InspectionRequest};
+use trust_control::signals::{
+    loop_inspection_bindings, Inspection, InspectionRequest, InspectionSample,
+};
 use trust_control::study::Study;
 
 use crate::runtime_client::RuntimeClient;
@@ -44,8 +46,13 @@ impl<'a> RuntimeSampler<'a> {
     }
 }
 
-impl LoopSampler for RuntimeSampler<'_> {
-    fn sample(&mut self) -> Result<Option<ExperimentSample>, Failure> {
+impl RuntimeSampler<'_> {
+    /// One coherent scan of the loop's signals as the runtime answers it (E3), or `None` while no scan is available. A gain-scheduled
+    /// loop's signals include its scheduling variable (`loop_inspection_bindings`).
+    ///
+    /// # Errors
+    /// The runtime cannot be reached, refuses, or answers out of protocol.
+    pub fn scan(&self) -> Result<Option<InspectionSample>, Failure> {
         let request = InspectionRequest::new(
             &self.loop_definition.revision,
             None,
@@ -54,10 +61,20 @@ impl LoopSampler for RuntimeSampler<'_> {
         let inspection = RuntimeClient::connect(self.connection)?.inspect(&request)?;
         Ok(match inspection {
             Inspection::Pending { .. } => None,
-            Inspection::Available(sample) => {
-                experiment_sample(self.loop_definition, self.source, &sample)
-            }
+            Inspection::Available(sample) => Some(sample),
         })
+    }
+
+    /// The sample that Identify reviews and records, converted from one scan (`experiment_sample`).
+    #[must_use]
+    pub fn sample_of(&self, scan: &InspectionSample) -> Option<ExperimentSample> {
+        experiment_sample(self.loop_definition, self.source, scan)
+    }
+}
+
+impl LoopSampler for RuntimeSampler<'_> {
+    fn sample(&mut self) -> Result<Option<ExperimentSample>, Failure> {
+        Ok(self.scan()?.and_then(|scan| self.sample_of(&scan)))
     }
 }
 

@@ -7,18 +7,29 @@
 //! root file and `control-loops/<name>.json` for each file of the folder. A root file named like a loop therefore never collides
 //! with a planned file by accident.
 
+use std::path::{Component, Path, PathBuf};
+
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
+use super::cascade_loop::{cascade_loop_definition, CascadeLoopDraft};
 use super::catalog::CompiledCatalog;
 use super::feedforward_loop::{feedforward_loop_definition, FeedforwardLoopDraft};
+use super::group_loop::{group_loop_definition, GroupLoopDraft};
 use super::identify_loop::{identify_loop_definition, IdentifyLoopDraft};
+use super::on_off_loop::{on_off_loop_definition, OnOffLoopDraft};
 use super::own_law_loop::{own_law_loop_definition, OwnLawLoopDraft};
 use super::pid_loop::{pid_loop_definition, PidLoopDraft};
+use super::schedule_loop::{schedule_loop_definitions, ScheduleLoopDraft};
+use super::search_loop::{search_loop_definition, SearchLawLoopDraft};
+use super::smith_loop::{smith_loop_definition, SmithLoopDraft};
+use super::state_feedback_loop::{state_feedback_loop_definition, StateFeedbackLoopDraft};
 use super::texts::save as texts;
 use super::trajectory_loop::{trajectory_loop_definition, TrajectoryLoopDraft};
 use crate::failure::{Cause, Failure, NextAction};
+use crate::json::parse_text;
 use crate::loop_definition::{LoopDefinition, LoopRejection, LoopScope};
+use crate::model::{decode_general_model, GeneralModel};
 
 /// The confirmed draft of one setup, by its structure (§0.1b).
 #[derive(Debug)]
@@ -29,10 +40,24 @@ pub enum SetupDraft {
     Identify(IdentifyLoopDraft),
     /// A loop on the program's own law (C2, structure `own-law`).
     OwnLaw(OwnLawLoopDraft),
+    /// A PID group: several library PIDs tuned and applied together (C7, structure `group`).
+    Group(GroupLoopDraft),
     /// A loop on a trajectory-following law (C11, structure `trajectory-feedforward`).
     TrajectoryFeedforward(TrajectoryLoopDraft),
     /// A loop on a measured-disturbance feedforward (C8, structure `feedforward`).
     Feedforward(FeedforwardLoopDraft),
+    /// A loop on a cascade: two PI controllers, the inner on the plant input and the outer on its setpoint (C6, structure `cascade`).
+    Cascade(CascadeLoopDraft),
+    /// A loop on a Smith predictor: a PI fed the measurement plus the predictor's correction (C9, structure `smith`).
+    Smith(SmithLoopDraft),
+    /// A loop on a state-feedback law: pole placement, LQR or LQG (C4, structure `state-feedback`).
+    StateFeedback(StateFeedbackLoopDraft),
+    /// A loop on a switching (ON/OFF) controller of the program (C3, structure `onoff`).
+    OnOff(OnOffLoopDraft),
+    /// A law whose coefficients a finite search tunes (C5, structure `search`).
+    Search(SearchLawLoopDraft),
+    /// A gain schedule: one loop per operating point of a `Control.PID` (C10, structure `schedule`).
+    Schedule(ScheduleLoopDraft),
     /// A structure the Rust engine does not run yet (stage V7). The save refuses it by name.
     Parked {
         /// The structure as the draft names it.
@@ -90,8 +115,15 @@ pub fn parse_setup_draft(value: &Value) -> Result<SetupDraft, Failure> {
         "pid" => decode(&structure, body).map(SetupDraft::Pid),
         "identify" => decode(&structure, body).map(SetupDraft::Identify),
         "own-law" => decode(&structure, body).map(SetupDraft::OwnLaw),
+        "group" => decode(&structure, body).map(SetupDraft::Group),
         "trajectory-feedforward" => decode(&structure, body).map(SetupDraft::TrajectoryFeedforward),
         "feedforward" => decode(&structure, body).map(SetupDraft::Feedforward),
+        "cascade" => decode(&structure, body).map(SetupDraft::Cascade),
+        "smith" => decode(&structure, body).map(SetupDraft::Smith),
+        "state-feedback" => decode(&structure, body).map(SetupDraft::StateFeedback),
+        "onoff" => decode(&structure, body).map(SetupDraft::OnOff),
+        "search" => decode(&structure, body).map(SetupDraft::Search),
+        "schedule" => decode(&structure, body).map(SetupDraft::Schedule),
         other if texts::parked_label(other).is_some() => Ok(SetupDraft::Parked {
             structure: other.to_string(),
         }),
@@ -110,14 +142,37 @@ pub fn plan_setup_save(
     scope: &LoopScope,
     draft: &SetupDraft,
 ) -> Result<Vec<PlannedLoop>, Failure> {
+    plan_setup_save_with_estimator(catalog, scope, draft, None)
+}
+
+/// The same as [`plan_setup_save`], for a draft whose LQG estimator implements a model the engine has read: `estimator` is that model
+/// (`SetupDraft::estimator_model_file` names its file). Every other structure takes `None`.
+///
+/// # Errors
+/// The same as [`plan_setup_save`].
+pub fn plan_setup_save_with_estimator(
+    catalog: &CompiledCatalog,
+    scope: &LoopScope,
+    draft: &SetupDraft,
+    estimator: Option<&GeneralModel>,
+) -> Result<Vec<PlannedLoop>, Failure> {
     let loops = match draft {
         SetupDraft::Pid(draft) => vec![pid_loop_definition(catalog, scope, draft)?],
         SetupDraft::Identify(draft) => vec![identify_loop_definition(catalog, scope, draft)?],
         SetupDraft::OwnLaw(draft) => vec![own_law_loop_definition(catalog, scope, draft)?],
+        SetupDraft::Group(draft) => vec![group_loop_definition(catalog, scope, draft)?],
         SetupDraft::TrajectoryFeedforward(draft) => {
             vec![trajectory_loop_definition(catalog, scope, draft)?]
         }
         SetupDraft::Feedforward(draft) => vec![feedforward_loop_definition(catalog, scope, draft)?],
+        SetupDraft::Cascade(draft) => vec![cascade_loop_definition(catalog, scope, draft)?],
+        SetupDraft::Smith(draft) => vec![smith_loop_definition(catalog, scope, draft)?],
+        SetupDraft::StateFeedback(draft) => vec![state_feedback_loop_definition(
+            catalog, scope, draft, estimator,
+        )?],
+        SetupDraft::Search(draft) => vec![search_loop_definition(catalog, scope, draft)?],
+        SetupDraft::OnOff(draft) => vec![on_off_loop_definition(catalog, scope, draft)?],
+        SetupDraft::Schedule(draft) => schedule_loop_definitions(catalog, scope, draft)?,
         SetupDraft::Parked { structure } => {
             let label = texts::parked_label(structure).unwrap_or(structure.as_str());
             return Err(Failure::new(
@@ -223,6 +278,55 @@ fn plan(loop_definition: LoopDefinition, scope: &LoopScope) -> Result<PlannedLoo
         file_name,
         loop_definition,
     })
+}
+
+impl SetupDraft {
+    /// The model file an LQG estimator implements, when the draft names one. The engine reads that file, decodes it with
+    /// [`decode_estimator_model`] and passes it to [`plan_setup_save_with_estimator`] (C4 Setup).
+    #[must_use]
+    pub fn estimator_model_file(&self) -> Option<&str> {
+        match self {
+            Self::StateFeedback(draft) => draft.estimator_model_file(),
+            _ => None,
+        }
+    }
+}
+
+/// The project-relative path of a model file an LQG estimator implements (`loopSetupSave.ts`, `estimatorModel`): the file is inside the
+/// project, so it is neither absolute nor leaves the folder through a `..` step.
+///
+/// # Errors
+/// The name is blank, is absolute, or leaves the project.
+pub fn estimator_model_path(model_file: &str) -> Result<PathBuf, Failure> {
+    let path = Path::new(model_file);
+    let inside = path
+        .components()
+        .all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
+    if model_file.trim().is_empty() || !inside {
+        return Err(Failure::new(
+            texts::model_outside_project(),
+            Cause::Settings,
+            NextAction::OpenLoopSetup,
+        ));
+    }
+    Ok(path.to_path_buf())
+}
+
+/// The model an LQG estimator implements, decoded from the text of its file (`loopSetupSave.ts`, `estimatorModel`).
+///
+/// # Errors
+/// The text is not JSON, or it is not a model the project accepts (`decode_general_model`).
+pub fn decode_estimator_model(text: &str, model_file: &str) -> Result<GeneralModel, Failure> {
+    parse_text(text)
+        .ok()
+        .and_then(|value| decode_general_model(&value))
+        .ok_or_else(|| {
+            Failure::new(
+                &texts::model_not_valid(model_file),
+                Cause::Settings,
+                NextAction::OpenLoopSetup,
+            )
+        })
 }
 
 /// Decodes the fields of one draft structure.

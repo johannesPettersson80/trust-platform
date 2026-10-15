@@ -124,6 +124,7 @@ pub fn lqr_reason(refusal: LqrRefusal) -> &'static str {
         LqrRefusal::RiccatiNotConverged => "riccati-not-converged",
         LqrRefusal::NonstabilisingSolution => "nonstabilising-solution",
         LqrRefusal::NonfiniteRiccatiStage => "nonfinite-riccati-stage",
+        LqrRefusal::MalformedWeight => "malformed-weight",
     }
 }
 
@@ -144,10 +145,11 @@ pub fn lqg_reason(refusal: LqgRefusal) -> &'static str {
         LqgRefusal::Lqr(refusal) => lqr_reason(refusal),
         LqgRefusal::Kalman(refusal) => kalman_reason(refusal),
         LqgRefusal::SolverFailed => "solver-failed",
+        LqgRefusal::NonstabilisingEstimator => "nonstabilising-estimator",
     }
 }
 
-/// The label of a draft field, as the form names it (`STATE_DESIGN_LABELS`).
+/// The label of a draft field, in the words the design form shows (HEAD `threePageStateDesign.ts`, which the course lessons follow).
 #[must_use]
 pub fn draft_label(field: DraftField) -> &'static str {
     match field {
@@ -156,8 +158,8 @@ pub fn draft_label(field: DraftField) -> &'static str {
         DraftField::InputWeights => "Input weights (R)",
         DraftField::ProcessNoise => "Process noise covariance",
         DraftField::MeasurementNoise => "Measurement noise covariance",
-        DraftField::SolverMode => "Solver",
-        DraftField::HorizonSteps => "Horizon steps",
+        DraftField::SolverMode => "Solver policy",
+        DraftField::HorizonSteps => "Finite horizon steps",
         DraftField::TerminalWeights => "Terminal weights",
     }
 }
@@ -177,3 +179,31 @@ pub const SOLVER_MODE_CHOICE: &str = "Choose finite or infinite horizon.";
 /// A draft whose decoded preferences are refused by the structural rules.
 pub const PREFERENCES_INVALID: &str =
     "Use finite symmetric weight matrices and valid desired poles.";
+/// A coordinate whose operating range has no span, so that its automatic weight `1/span²` does not exist (C4, D-B13).
+pub const ZERO_OPERATING_SPAN: &str = "A coordinate's operating range has no span, so its automatic weight 1/span² does not exist. Declare the range in the model, or enter the weights.";
+/// The first gain of a finite horizon, which the runtime repeats, does not stabilise the loop (N5.14, D-B8).
+pub const REPEATED_GAIN_UNSTABLE: &str = "The first gain of the finite horizon, which the runtime repeats, does not stabilise the loop. Choose the steady-state solver or change the horizon's weights.";
+/// The loop declares no state-feedback law, so there is no law to design (C4).
+pub const NO_STATE_LAW: &str =
+    "The loop declares no state-feedback law, so there is nothing to design.";
+/// A state-law Tune with no requirements held by the study: Tune takes the response time from them (B4.3, N5.14).
+pub const NEEDS_REQUIREMENTS: &str =
+    "Enter the requirements before tuning a state law: Tune takes the settling time from them.";
+/// The method's sentence for a state-feedback law's candidate (C4).
+pub const METHOD_DESCRIPTION: &str = "State-space design: the gains come from the study's model, sampled at the task period with the exact zero-order hold. Validate them on the actual Structured Text before applying.";
+/// The reason of a state candidate: it is provisional until its Validate passes (C4).
+pub const STATE_READY: &str =
+    "Candidate ready. Validate it on the actual Structured Text before applying.";
+/// The reason a state law has no predicted response: the model's prediction of a state law is not given, so Validate decides (C4).
+pub const STATE_UNPREDICTED: &str =
+    "A state law is not predicted on the model. Validate runs it on the actual Structured Text.";
+/// A pinned coefficient that the law does not map (B4.2, C4).
+#[must_use]
+pub fn pin_not_mapped(symbol: &str) -> String {
+    format!("Pinned coefficient {symbol} is not declared by the state-controller adapter.")
+}
+/// A pinned coefficient outside the bounds of its parameter (B4.2, C4).
+#[must_use]
+pub fn pin_outside_bounds(symbol: &str) -> String {
+    format!("Pinned coefficient {symbol} is outside its declared bounds.")
+}

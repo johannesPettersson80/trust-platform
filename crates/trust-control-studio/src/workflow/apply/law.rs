@@ -65,7 +65,14 @@ impl LawKind {
             // A program's own PI, PD or PID runs its declared states, as a Control.PID does (C2): its profile is the declared one.
             AdapterKind::ControlPid(_)
             | AdapterKind::ParallelPid
-            | AdapterKind::ProjectPid { .. } => Ok(Self::Pid(PidRunProfile::from_adapter(
+            | AdapterKind::ProjectPid { .. }
+            | AdapterKind::Cascade { .. }
+            // A PID group runs the declared states of its members, as a program's own law does (C7).
+            | AdapterKind::Group { .. }
+            | AdapterKind::State(_)
+            // A switching controller runs the Control.PID commissioning with its declared states and its switching limits (C3).
+            | AdapterKind::Search { .. }
+            | AdapterKind::OnOff(_) => Ok(Self::Pid(PidRunProfile::from_adapter(
                 adapter.declared_profile(model, values)?,
             ))),
             AdapterKind::ConnectedP => Ok(Self::Proportional),
@@ -737,10 +744,15 @@ pub(crate) fn law_target(
     binding: &TransferBinding,
 ) -> Result<f64, Failure> {
     match adapter.kind() {
-        AdapterKind::ControlPid(_) | AdapterKind::ParallelPid | AdapterKind::ProjectPid { .. } => {
-            commissioning_target(loop_definition, model, task, binding)?
-                .ok_or_else(binding_unconfigured)
-        }
+        AdapterKind::ControlPid(_)
+        | AdapterKind::ParallelPid
+        | AdapterKind::ProjectPid { .. }
+        | AdapterKind::Cascade { .. }
+        | AdapterKind::Group { .. }
+        | AdapterKind::State(_)
+        | AdapterKind::Search { .. }
+        | AdapterKind::OnOff(_) => commissioning_target(loop_definition, model, task, binding)?
+            .ok_or_else(binding_unconfigured),
         AdapterKind::ConnectedP => reviewed_target(binding, model, task),
     }
 }

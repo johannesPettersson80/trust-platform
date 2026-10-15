@@ -17,7 +17,7 @@ if (root) {
         experimentSignalIds: Array.from(root.querySelector<HTMLSelectElement>("[data-three-page-experiment-signals]")?.selectedOptions ?? [], option => option.value),
       },
       // The analysis the Tune page shows is kept with that page, so a parked loop's reopened page calculates it again (B9.9); null says none is shown.
-      ...(stage === "tune" ? { analysis: analysis.shown() ?? null } : {}),
+      ...(stage === "tune" ? { analysis: mimoAnalysis.shown() ?? analysis.shown() ?? null } : {}),
     });
   };
   root.querySelector("[data-three-page-experiment-signals]")?.addEventListener("change", persistView);
@@ -125,6 +125,8 @@ if (root) {
   if (resetButton) operation.bindReset(resetButton, () => Boolean(experiments?.busy || startingExperiment || application.active || recovery?.active));
   const tuning = loop ? new ThreePageTuning(root, loop, post, () => controller?.selectedFamily ?? "automatic", () => controller?.choice ?? "automatic",
     family => controller?.symbolsOf(family)) : undefined;
+  // The tuning methods the engine gives this loop reach the Tune page's method list (`setupDiscover`'s `methods`, C4).
+  if (controller) controller.methodsChanged = methods => tuning?.offerMethods(methods);
   const application = new ThreePageApplication(root, post, () => operation.busy, message => operation.notice("verify", message),
     failure => operation.failure("verify", failure),
     () => operation.stageBlock() !== undefined || experiments?.busy === true || recovery?.active === true);
@@ -136,10 +138,12 @@ if (root) {
   const identification = new ThreePageIdentification(root, post, () => root.querySelector<HTMLButtonElement>("[data-identify-import]")!.click(), () => operation.stageBlock());
   // The analysis tools, their labels and defaults, and every result come from the engine (B9.9); the page draws them.
   const analysis = initializeThreePageAnalysis(root, post, () => synchronizeTools(), () => persistView());
-  bindEngineAnalysis(root, analysis);
-  const mimoAnalysis = initializeThreePageMimoAnalysis(root);
+  // The measured MIMO paths: a served loop's are the engine's `measuredPaths` (C7), which the router sends to their section by the tool.
+  const mimoAnalysis = initializeThreePageMimoAnalysis(root, undefined, post, selected => { if (selected) analysisChoice = "measured-mimo"; synchronizeTools(); });
+  bindEngineAnalysis(root, routeMeasuredPaths(analysis, mimoAnalysis));
   const configureMimoRecording = (recording: Record<string, unknown> | undefined): void => {
-    if (!loop?.channels || !recording) return;
+    // A served loop's measured paths take the study's last kept recording in the engine (C7): no TypeScript recording is configured.
+    if (engineServesLoop || !loop?.channels || !recording) return;
     const evidence = recording.evidence && typeof recording.evidence === "object" ? recording.evidence
       : recording.acquisition && typeof recording.acquisition === "object" ? recording.acquisition : undefined;
     if (!evidence || typeof (evidence as Record<string, unknown>).recordingId !== "string") return;
@@ -150,12 +154,15 @@ if (root) {
   };
   const tuningMethod = root.querySelector<HTMLSelectElement>("[data-engineer-tuning-method]")!;
   // The Tuning method select holds tuning methods only; the analysis tools open from Analyze… on the Tune row. The engine's tools
-  // bring their own labels (`synchronizeTools`); the measured MIMO path is the page's own until stage V7.9.
+  // bring their own labels (`synchronizeTools`); the measured MIMO path is the section's own, drawn from the engine's answer (C7).
   const analysisLabels: Record<string, string> = { "measured-mimo": "Measured MIMO paths" };
   /** The analysis tool shown in place of the tuning result, or undefined while tuning. */
   let analysisChoice: string | undefined;
-  const measuredMimoAvailable = (): boolean => Boolean(mimoRecordingId && loop?.channels && loop.channels.inputs.length >= 2);
-  const availableAnalysis = (): string[] => [...analysis.availableTools(), ...(measuredMimoAvailable() ? ["measured-mimo"] : [])];
+  // A served loop offers the measured paths when the engine does (C7); a parked loop keeps its TypeScript condition (V7.17 debt).
+  const measuredMimoAvailable = (): boolean => engineServesLoop ? mimoAnalysis.offered()
+    : Boolean(mimoRecordingId && loop?.channels && loop.channels.inputs.length >= 2);
+  // The engine's `measuredPaths` is listed once, as the measured-MIMO entry.
+  const availableAnalysis = (): string[] => [...analysis.availableTools().filter(tool => tool !== "measuredPaths"), ...(measuredMimoAvailable() ? ["measured-mimo"] : [])];
   const chooseAnalysis = (tool: string): void => {
     analysisChoice = tool;
     analysis.setTool(tool === "measured-mimo" ? undefined : tool);
@@ -173,6 +180,7 @@ if (root) {
     choose: tool => chooseAnalysis(tool), close: () => closeAnalysis() });
   const synchronizeTools = () => {
     for (const offer of analysis.offers()) analysisLabels[offer.tool] = offer.label;
+    analysisLabels["measured-mimo"] = mimoAnalysis.label() ?? "Measured MIMO paths";
     const tools = availableAnalysis();
     if (analysisChoice !== undefined && !tools.includes(analysisChoice)) analysisChoice = undefined;
     const selected = analysisChoice !== undefined;
@@ -193,6 +201,8 @@ if (root) {
     root.dataset.analysisSelected = String(selected);
     experiments?.setSelectedMethod(acquisitionMethod.value === "project");
     identification.setSelectedMethod(acquisitionMethod.value === "recorded-fit");
+    // A served loop's Recorded-data fit shows the engine's answers; a parked loop keeps the TypeScript rules until V7.17.
+    identification.setEngineServed(engineServesLoop);
     if (experiments?.busy || startingExperiment) {
       for (const control of [...runLockedControls(root), ...Array.from(root.querySelectorAll<HTMLButtonElement>("[data-engineer-tune],[data-engineer-verify]"))]) control.disabled = true;
     }
@@ -257,7 +267,7 @@ if (root) {
   const start = (from: StudioStart) => {
     if (recovery?.active) return;
     if (application.active) { application.abort(); return; }
-    if (from === "tune" && !operation.busy && analysisChoice === "measured-mimo") { mimoAnalysis.run(); return; }
+    if (from === "tune" && !operation.busy && analysisChoice === "measured-mimo") { mimoAnalysis.run(); synchronizeTools(); return; }
     if (from === "tune" && !operation.busy && analysisChoice !== undefined) { analysis.run(); synchronizeTools(); return; }
     if (from === "find" && !operation.busy && suppliedModel.selected) { suppliedModel.open(); return; }
     if (from === "find" && !operation.busy && identification.isSelected) { identification.primaryAction(); return; }
@@ -326,6 +336,8 @@ if (root) {
     // The engine opened a served loop: it has no method for the manual parameter tool (B6.1), so the parameter controls hide at once.
     if (stage === "engineer" && payload.status === "opened") {
       engineServesLoop = true;
+      // The served loop's measured paths window each declared input (C7); the engine answers the rest.
+      if (loop?.channels) mimoAnalysis.setContext({ inputIds: loop.channels.inputs.map(input => input.modelChannelId) });
       experiments?.receive("parameters", { status: "unavailable" });
     }
     analysis.receive(stage, payload);
@@ -334,7 +346,8 @@ if (root) {
       // The engine's Identify answers (a refit's operation, a recording's failure) belong to the engine path, not the manual identification (B3.3).
       if (stage === "identify" && identification.isSelected) identification.receive(stage, payload);
       if (stage === "parameters") experiments?.receive("parameters", payload);
-      if (stage === "mimo") {
+      // A stored TypeScript result is a parked loop's only: a served loop's analysis is the engine's (C7), so an old snapshot is not shown.
+      if (stage === "mimo" && !engineServesLoop) {
         const result = decodeMimoAnalysisResult(payload);
         if (result) mimoAnalysis.receive(result);
       }
@@ -363,7 +376,8 @@ if (root) {
   }, select, message => {
     const rawPayload = message.payload as { recording?: Record<string, unknown>; result?: Record<string, unknown> } | undefined;
     // The view the engine restores for a parked loop (panel.ts): the engine serves no loop until its `opened` answer says so.
-    if (message.kind === "control-studio.navigation.restore") engineServesLoop = false;
+    // A parked loop's measured paths take the TypeScript route: the served loop's engine context is dropped with the served state.
+    if (message.kind === "control-studio.navigation.restore") { engineServesLoop = false; mimoAnalysis.setContext(undefined); }
     if (message.kind === "control-studio.identification-recording" && isRecord(message.payload)) {
       // The engine answers a file or a selection the page asked it about with `checked`, `recording-needed` or `failed`; the TypeScript
       // route answers the manual identification's file with `imported` (B3.3). Only the engine's answers go to the engine path.
@@ -427,11 +441,19 @@ if (root) {
     openedMethod = undefined;
     // The recording selection the study keeps shows the selectors again (B3.6): the answer on open names it, and nothing else does.
     if (isRecord(recorded.recordingSelection)) bindings?.restoreRecording(recorded.recordingSelection as unknown as RecordingSignalSelection);
-    controller?.restoreChoice(typeof recorded.structure === "string" ? recorded.structure : undefined);
+    // A state law's family, draft and pins are the study's state design (C4); a structure's pins are its settings pins.
+    const stateDesign = isRecord(recorded.stateDesign) ? recorded.stateDesign : undefined;
+    const method = typeof recorded.method === "string" ? recorded.method : "automatic";
+    const stateFamily = stateDesign && typeof stateDesign.family === "string" ? stateDesign.family : undefined;
+    controller?.restoreChoice(stateFamily ?? (typeof recorded.structure === "string" ? recorded.structure : undefined));
+    const statePins = stateDesign && isRecord(stateDesign.pins) ? stateDesign.pins : undefined;
+    const structurePins = isRecord(recorded.pins) && isRecord(recorded.pins.values) ? recorded.pins.values : undefined;
+    const pins = method === "state-space" ? statePins : structurePins;
     tuning?.restoreInputs({
-      method: (typeof recorded.method === "string" ? recorded.method : "automatic") as ControllerTuningPreferences["method"],
+      method: method as ControllerTuningPreferences["method"],
       ...(isRecord(recorded.settings) ? { settings: recorded.settings as Record<string, number> } : {}),
-      ...(isRecord(recorded.pins) && isRecord(recorded.pins.values) ? { pins: recorded.pins.values as Record<string, number> } : {}),
+      ...(pins ? { pins: pins as Record<string, number> } : {}),
+      ...(stateDesign && isRecord(stateDesign.draft) ? { stateDraft: stateDesign.draft as Record<string, string> } : {}),
     });
     operation.synchronize();
     synchronizeTools();
@@ -489,7 +511,7 @@ import { ThreePageExperiments } from "./threePageExperiments";
 import { ThreePageIdentification } from "./threePageIdentification";
 import { initializeThreePageAnalysis } from "./threePageAnalysis";
 import { bindEngineAnalysis } from "./engineAnalysis";
-import { decodeMimoAnalysisResult, initializeThreePageMimoAnalysis } from "./threePageMimoAnalysis";
+import { decodeMimoAnalysisResult, initializeThreePageMimoAnalysis, routeMeasuredPaths } from "./threePageMimoAnalysis";
 import { renderModelPresentation } from "./threePageModel";
 import { studioFailureOf } from "./studioFailure";
 import { ThreePageAnalysisChooser } from "./threePageAnalysisChooser";

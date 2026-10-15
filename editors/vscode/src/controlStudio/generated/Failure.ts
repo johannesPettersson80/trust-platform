@@ -25,6 +25,11 @@ export interface Failure {
    */
   detail?: string | null;
   /**
+   * The key of the form field that the failure refuses, such as `desiredPoles` or `stateWeights` (D-B12), when the refusal
+   * concerns one field of a form; absent otherwise. The page shows the sentence under that field.
+   */
+  field?: string | null;
+  /**
    * The first sentence: what went wrong.
    */
   message: string;

@@ -394,7 +394,8 @@ change IEC 61131-3 program semantics.
 
 - `trust-lsp.hmiBindings` rejects malformed argument shapes. A valid request
   returns the deterministic external binding catalogue of process-image and
-  control symbols.
+  control symbols. Its `processImage` lists the numeric plant candidates as `commands`, `feedbacks` and `memory`, and every addressed
+  BOOL variable as `booleans`, so that a declared state can name a bit.
 - HMI page validation is specified in `docs/specs/39-hmi-builder.md`.
 
 ##### 6.6.3 URI and virtual-document handling

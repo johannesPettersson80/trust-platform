@@ -29,7 +29,7 @@ use crate::identification::identify_result::study_evidence;
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::recorded_model::check_gain_sign;
 use crate::identification::refusal::Refusal;
-use crate::loop_definition::{Action, LoopDefinition};
+use crate::loop_definition::{Action, ControllerProject, LoopDefinition};
 use crate::messages::{TuneMethod, TuneRequest, TuneResult};
 use crate::model::general::js_text;
 use crate::model::GeneralModel;
@@ -41,24 +41,31 @@ use crate::study::StudySection;
 use crate::tuning::automatic_criteria::validate_criteria;
 use crate::tuning::candidate::{validate_parameters, ControlPidCandidate, LawCandidate};
 use crate::tuning::design_to_requirements::structure_word;
+use crate::tuning::group_candidate::GroupCandidate;
 use crate::tuning::objective::TuningMethod;
+use crate::tuning::on_off_candidate::OnOffCandidate;
 use crate::tuning::plant::{check_normalized_error, check_plant, from_identified};
 use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::recommendation::Attempt;
 use crate::tuning::relay_rule::{self, RelayCycleEvidence};
 use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::search::SearchCandidate;
 use crate::tuning::settings_pins::{family_setting_symbols, ControllerSettingsPins};
+use crate::tuning::state_controller::StateControllerDesign;
 use crate::tuning::texts;
 
 pub mod comparison;
 pub mod design;
 pub mod manual;
 pub mod model;
+pub mod on_off;
 pub mod prediction;
 pub mod record;
 pub mod relay;
 pub mod requirements;
 pub mod result;
+pub mod search_record;
+pub mod state;
 
 /// The result of one Tune, kept in the study under the key `tune`: the candidate, how it was designed, the requirements it was
 /// designed to, and the model it was designed on. The candidate is unapplied.
@@ -80,6 +87,19 @@ pub struct TuneSection {
     /// The candidate of a program's own law, unapplied (B4.1, C2). Absent for a `Control.PID`: exactly one of the two is present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project_candidate: Option<ProjectCandidate>,
+    /// The design of a state-feedback law, unapplied (B4.1, C4). Absent for every other law: exactly one candidate field is present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_candidate: Option<StateControllerDesign>,
+    /// The best trial of a finite search over a program's law, unapplied (B4.1, C5). Absent for every other law.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_candidate: Option<SearchCandidate>,
+    /// The settings of a switching controller, unapplied (B4.1, C3). Absent for every other law.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_off_candidate: Option<OnOffCandidate>,
+    /// The design of a PID group, unapplied (B4.1, C7): each member's PI, the decoupler and the values Apply writes. Absent for every
+    /// other law.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_candidate: Option<GroupCandidate>,
     /// Why the candidate was chosen (B4.4).
     pub reason: String,
     /// The closed-loop time constant `λ` in seconds that the formula used (N5.4: shown and saved with the candidate);
@@ -107,10 +127,81 @@ impl TuneSection {
     /// only for a section that the study never keeps.
     #[must_use]
     pub fn law_candidate(&self) -> Option<LawCandidate> {
-        match (&self.candidate, &self.project_candidate) {
-            (Some(candidate), None) => Some(LawCandidate::Pid(*candidate)),
-            (None, Some(candidate)) => Some(LawCandidate::Project(candidate.clone())),
+        match (
+            &self.candidate,
+            &self.project_candidate,
+            &self.state_candidate,
+            &self.search_candidate,
+            &self.on_off_candidate,
+            &self.group_candidate,
+        ) {
+            (Some(candidate), None, None, None, None, None) => Some(LawCandidate::Pid(*candidate)),
+            (None, Some(candidate), None, None, None, None) => {
+                Some(LawCandidate::Project(candidate.clone()))
+            }
+            (None, None, Some(design), None, None, None) => {
+                Some(LawCandidate::State(Box::new(design.clone())))
+            }
+            (None, None, None, Some(search), None, None) => {
+                Some(LawCandidate::Search(Box::new(search.clone())))
+            }
+            (None, None, None, None, Some(settings), None) => {
+                Some(LawCandidate::OnOff(Box::new(settings.clone())))
+            }
+            (None, None, None, None, None, Some(group)) => {
+                Some(LawCandidate::Group(Box::new(group.clone())))
+            }
             _ => None,
+        }
+    }
+}
+
+/// The candidate fields of a Tune section: the one that the candidate's law fills, and the others absent (C1, C2, C4, C5).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct CandidateFields {
+    /// The `Control.PID` record.
+    pub(crate) candidate: Option<ControlPidCandidate>,
+    /// The candidate of a program's own law.
+    pub(crate) project_candidate: Option<ProjectCandidate>,
+    /// The design of a state-feedback law.
+    pub(crate) state_candidate: Option<StateControllerDesign>,
+    /// The best trial of a finite search.
+    pub(crate) search_candidate: Option<SearchCandidate>,
+    /// The settings of a switching controller.
+    pub(crate) on_off_candidate: Option<OnOffCandidate>,
+    /// The design of a PID group.
+    pub(crate) group_candidate: Option<GroupCandidate>,
+}
+
+impl CandidateFields {
+    /// The fields that hold `candidate`, with the other fields absent.
+    #[must_use]
+    pub(crate) fn of(candidate: LawCandidate) -> Self {
+        match candidate {
+            LawCandidate::Pid(candidate) => Self {
+                candidate: Some(candidate),
+                ..Self::default()
+            },
+            LawCandidate::Project(candidate) => Self {
+                project_candidate: Some(candidate),
+                ..Self::default()
+            },
+            LawCandidate::State(design) => Self {
+                state_candidate: Some(*design),
+                ..Self::default()
+            },
+            LawCandidate::Search(search) => Self {
+                search_candidate: Some(*search),
+                ..Self::default()
+            },
+            LawCandidate::OnOff(settings) => Self {
+                on_off_candidate: Some(*settings),
+                ..Self::default()
+            },
+            LawCandidate::Group(group) => Self {
+                group_candidate: Some(*group),
+                ..Self::default()
+            },
         }
     }
 }
@@ -129,36 +220,74 @@ impl StudySection for TuneSection {
             validate_criteria(criteria)
                 .map_err(refused_as(Cause::Settings, NextAction::OpenRequirements))?;
         }
-        match (&self.candidate, &self.project_candidate) {
-            (Some(candidate), None) => {
-                validate_parameters(&candidate.parameters)
-                    .map_err(refused_as(Cause::Settings, NextAction::None))?;
-                if candidate.applied {
-                    return Err(invalid(
-                        "its candidate is marked applied, but Tune never writes to the controller (B4.1)",
-                        Cause::Settings,
-                    ));
-                }
-            }
-            (None, Some(candidate)) => {
-                if candidate.applied {
-                    return Err(invalid(
-                        "its program candidate is marked applied, but Tune never writes to the controller (B4.1)",
-                        Cause::Settings,
-                    ));
-                }
-                if !candidate.is_finite() {
-                    return Err(invalid(
-                        "its program candidate holds a value that is not finite",
-                        Cause::Settings,
-                    ));
-                }
-            }
-            _ => {
+        let held = [
+            self.candidate.is_some(),
+            self.project_candidate.is_some(),
+            self.state_candidate.is_some(),
+            self.search_candidate.is_some(),
+            self.on_off_candidate.is_some(),
+            self.group_candidate.is_some(),
+        ];
+        if held.iter().filter(|present| **present).count() != 1 {
+            return Err(invalid(
+                "it holds neither a candidate nor a program candidate, or both (C1, C2)",
+                Cause::Settings,
+            ));
+        }
+        if let Some(candidate) = &self.candidate {
+            validate_parameters(&candidate.parameters)
+                .map_err(refused_as(Cause::Settings, NextAction::None))?;
+            if candidate.applied {
                 return Err(invalid(
-                    "it holds neither a candidate nor a program candidate, or both (C1, C2)",
+                    "its candidate is marked applied, but Tune never writes to the controller (B4.1)",
                     Cause::Settings,
-                ))
+                ));
+            }
+        }
+        if let Some(candidate) = &self.project_candidate {
+            if candidate.applied {
+                return Err(invalid(
+                    "its program candidate is marked applied, but Tune never writes to the controller (B4.1)",
+                    Cause::Settings,
+                ));
+            }
+            if !candidate.is_finite() {
+                return Err(invalid(
+                    "its program candidate holds a value that is not finite",
+                    Cause::Settings,
+                ));
+            }
+        }
+        if let Some(design) = &self.state_candidate {
+            if design.candidate.applied {
+                return Err(invalid(
+                    "its state candidate is marked applied, but Tune never writes to the controller (B4.1)",
+                    Cause::Settings,
+                ));
+            }
+        }
+        if let Some(search) = &self.search_candidate {
+            search
+                .check()
+                .map_err(|reason| invalid(&reason, Cause::Settings))?;
+        }
+        if let Some(group) = &self.group_candidate {
+            group
+                .check_stored()
+                .map_err(|reason| invalid(reason, Cause::Settings))?;
+        }
+        if let Some(settings) = &self.on_off_candidate {
+            if settings.applied {
+                return Err(invalid(
+                    "its switching candidate is marked applied, but Tune never writes to the controller (B4.1)",
+                    Cause::Settings,
+                ));
+            }
+            if !settings.is_finite() {
+                return Err(invalid(
+                    "its switching candidate holds a value that is not finite",
+                    Cause::Settings,
+                ));
             }
         }
         if !js_text(&self.model_revision) {
@@ -232,6 +361,10 @@ pub fn stage_evidence(
     }
 }
 
+/// The refusal of a named method on a search law, which only Automatic tunes through its finite search (C5, B4.7).
+const SEARCH_LAW_NAMED_METHOD: &str =
+    "A search law is tuned by its finite search: choose Automatic.";
+
 /// The refusals that come before any operation starts, in the order of B4.7's table. Each failure carries the next action
 /// that fixes it:
 /// - a loop without a controller law (C12): the failure of `require_controller_law`, which needs no action, as its stage is
@@ -251,6 +384,34 @@ pub fn stage_evidence(
 /// The first of the refusals above that holds.
 pub fn check_before_start(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
     let loop_definition = inputs.loop_definition;
+    // A search law is tuned by its own finite search, which Automatic starts (C5); no named method designs it.
+    if inputs.request.method.is_some()
+        && loop_definition
+            .controller
+            .project
+            .as_ref()
+            .is_some_and(ControllerProject::is_search_law)
+    {
+        return Err(Failure::new(
+            SEARCH_LAW_NAMED_METHOD,
+            Cause::Settings,
+            NextAction::Tune,
+        ));
+    }
+    // A switching controller has its own settings and its own checks (C3): no named method designs it, and its checks run in `on_off`.
+    if loop_definition.controller.on_off.is_some() {
+        return on_off::check_on_off(inputs);
+    }
+    // A PID group has no named method and its own checks (C7); its design runs in `design::pid_group`.
+    if loop_definition.controller.group.is_some() {
+        return design::pid_group::check(inputs);
+    }
+    // A state law is designed on the model's state-space form, which a low-order fit does not give, and its controller is the
+    // state-feedback law itself, so the test for a loop without a controller law does not apply: its own checks run instead.
+    if inputs.request.method == Some(TuneMethod::StateSpace) {
+        current_for(inputs.model, loop_definition)?;
+        return state::check_state(inputs);
+    }
     loop_definition.require_controller_law()?;
     let current = current_for(inputs.model, loop_definition)?;
     let fitted = model::tuning_model(current)
@@ -262,7 +423,6 @@ pub fn check_before_start(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
     check_settings(inputs.request)?;
     check_pins(loop_definition, inputs.request)?;
     match inputs.request.method {
-        None => Ok(()),
         Some(TuneMethod::Simc) => check_method(loop_definition, &fitted, TuningMethod::Simc),
         Some(TuneMethod::Amigo) => check_method(loop_definition, &fitted, TuningMethod::Amigo),
         Some(TuneMethod::Relay) => match relay::refusal_of(inputs.relay) {
@@ -270,6 +430,8 @@ pub fn check_before_start(inputs: &TuneInputs<'_>) -> Result<(), Failure> {
             None => Ok(()),
         },
         Some(TuneMethod::Manual) => check_manual(loop_definition, inputs.request),
+        // A state law's own checks ran above. With no method named, nothing is left to check.
+        None | Some(TuneMethod::StateSpace) => Ok(()),
     }
 }
 

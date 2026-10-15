@@ -215,6 +215,7 @@ pub fn decode_catalog_answer(answer: &Value) -> Result<CatalogAnswer, Failure> {
         items(image, "commands"),
         items(image, "feedbacks"),
         items(image, "memory"),
+        items(image, "booleans"),
     ];
     if image_lists
         .iter()
@@ -355,9 +356,9 @@ fn all_texts(value: &Value) -> Option<Vec<String>> {
         .collect()
 }
 
-/// The process-image signals of the three lists, one per symbol. A signal listed twice must have one address and one type
-/// (`normalizeCatalog`).
-fn image_signals(lists: &[Option<&[Value]>; 3]) -> Result<Vec<CompiledSignal>, Failure> {
+/// The process-image signals of the lists (the plant lists and `booleans`), one per symbol. A signal listed twice must have one address
+/// and one type (`normalizeCatalog`).
+fn image_signals(lists: &[Option<&[Value]>]) -> Result<Vec<CompiledSignal>, Failure> {
     let mut by_symbol: BTreeMap<String, CompiledSignal> = BTreeMap::new();
     for entry in lists.iter().flatten().flat_map(|list| list.iter()) {
         let Some(signal) = image_signal(entry) else {

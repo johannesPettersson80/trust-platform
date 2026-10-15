@@ -50,7 +50,12 @@ pub struct ConnectedChannels<'a> {
 /// value or output is not REAL or LREAL (a BOOL output is accepted when it is a dimensionless level from 0 to 1); or an
 /// output limit is not set.
 pub fn declared_channels(loop_definition: &LoopDefinition) -> Result<DeclaredChannels, Failure> {
-    if loop_definition.channels.is_some() && !loop_definition.is_feedforward_channels() {
+    // A PID group's scalar view is its primary member's signals; each member's own channels are in the group's binding (C7).
+    if loop_definition.channels.is_some()
+        && !loop_definition.is_feedforward_channels()
+        && !loop_definition.is_cascade_channels()
+        && loop_definition.controller.group.is_none()
+    {
         return Err(channels_parked());
     }
     let setpoint = loop_definition.signals.setpoint.as_ref().ok_or_else(|| {
@@ -99,16 +104,29 @@ pub fn connected_model_channels<'a>(
     model: &GeneralModel,
 ) -> Result<ConnectedChannels<'a>, Failure> {
     let feedforward = loop_definition.is_feedforward_channels();
-    if loop_definition.channels.is_some() && !feedforward {
+    let cascade = loop_definition.is_cascade_channels();
+    // A PID group's model has one input and one output per member (C7); its scalar view is the primary member's pair.
+    let members = loop_definition
+        .controller
+        .group
+        .as_ref()
+        .map(|group| group.members.len());
+    if loop_definition.channels.is_some() && !feedforward && !cascade && members.is_none() {
         return Err(channels_parked());
     }
     let identity = model.identity();
-    let inputs_fit = if feedforward {
-        (1..=2).contains(&identity.inputs.len())
-    } else {
-        identity.inputs.len() == 1
+    let inputs_fit = match (feedforward, members) {
+        (true, _) => (1..=2).contains(&identity.inputs.len()),
+        (false, Some(count)) => identity.inputs.len() == count,
+        (false, None) => identity.inputs.len() == 1,
     };
-    if !inputs_fit || identity.outputs.len() != 1 {
+    // A cascade's model has the plant input and its two measurements (C6); the scalar view names the outer one as the process variable.
+    let outputs_fit = match (cascade, members) {
+        (true, _) => identity.outputs.len() == 2,
+        (false, Some(count)) => identity.outputs.len() == count,
+        (false, None) => identity.outputs.len() == 1,
+    };
+    if !inputs_fit || !outputs_fit {
         return Err(Failure::new(
             &texts::init_model_channels_unmapped(),
             Cause::ModelOrData,

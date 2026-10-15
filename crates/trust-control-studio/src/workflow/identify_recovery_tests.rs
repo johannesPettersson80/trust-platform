@@ -14,13 +14,14 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use serde_json::json;
 use trust_control::experiment::{
-    ControlExperimentPlan, ControllerMode, ExperimentSample, PlanAuxiliarySignal, PlanSignal,
+    ControlExperimentKind, ControlExperimentPlan, ControllerMode, ExperimentSample,
+    PlanAuxiliarySignal, PlanSignal,
 };
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::journal::NO_RUNNING_EXPERIMENT_TEXT;
 use trust_control::identification::connected_run::{identification_cancelled, FITTING_TEXT};
 use trust_control::identification::texts::MISSING_NONZERO_STEP;
-use trust_control::loop_definition::LoopDefinition;
+use trust_control::loop_definition::{ExperimentKind, LoopDefinition};
 use trust_control::signals::Quality;
 
 use super::{cancel_recovery, resume, RecoveryPorts, ResumedIdentification, RUNNING_TEXT};
@@ -140,14 +141,23 @@ fn resume_two_inputs(
     journal: &Mutex<Journal>,
     sample: ExperimentSample,
 ) -> Result<ResumedIdentification<Verdict>, Failure> {
-    let loop_definition = two_input_tank("rev-1");
+    resume_loop(state, journal, &two_input_tank("rev-1"), sample)
+}
+
+/// Resumes the campaign journaled in `journal` for the two-input `loop_definition` on `state`, with the live sample `sample`.
+fn resume_loop(
+    state: &Arc<FakeState>,
+    journal: &Mutex<Journal>,
+    loop_definition: &LoopDefinition,
+    sample: ExperimentSample,
+) -> Result<ResumedIdentification<Verdict>, Failure> {
     let runtime = FakeRuntime::new(state);
     let clock = FakeClock::new(state);
     let report = FakeReport::new(state, false);
     let mut sampler = Sampler(Some(sample));
     let mut study = Study::new(state);
     let request = IdentifyRequest {
-        loop_definition: &loop_definition,
+        loop_definition,
         expected_settling_seconds: None,
         evaluate: &passes,
     };
@@ -573,6 +583,68 @@ fn a_resumed_campaign_continues_with_the_second_plant_input_in_the_same_recordin
     assert!(
         whole_text(&failure).contains("P1.LoadKw"),
         "the fit names the load it could not read: {failure:?}"
+    );
+    fs::remove_dir_all(&folder).expect("clean up");
+}
+
+// C7, C8: a resumed campaign plans its remaining input by the method Identify chose for the loop, not by the kind of the journaled step. The
+// valve's own step is journaled as a manual-output step; the load has no step, so it takes Identify's choice in Manual, a PRBS under this
+// policy.
+#[test]
+fn a_resumed_campaign_plans_its_remaining_input_by_the_method_identify_chose() {
+    let state = FakeState::new(StartBehaviour::Acknowledged, 30_000);
+    state.restart("experiment-1", 30_000, 540_000, 2.0);
+    let folder = folder("resume-identify-choice");
+    let step: ControlExperimentPlan = serde_json::from_value(json!({
+        "id": "experiment-1", "source": "simulation", "kind": "mv_step",
+        "affectedSignal": "Main.TIC101_Output", "valueType": "LREAL", "from": 30, "to": 34, "unit": "%",
+        "minimum": 0, "maximum": 100, "durationMs": 540_000, "expectedScan": 300, "task": "$background",
+        "stopConditions": ["Abort"], "restorationValue": 30, "requiresPhysicalApproval": false,
+        "trajectory": [{ "atMs": 0, "value": 34 }]
+    }))
+    .expect("the valve's own step");
+    let journal = journaled_step(&folder, &step, 30.0, 1);
+    let mut loop_definition = two_input_tank("rev-1");
+    loop_definition.identification_policy = Some(json!({
+        "openLoopPermitted": true, "sustainedHoldPermitted": true, "information": "frequency"
+    }));
+    if let Some(experiment) = loop_definition.experiment.as_mut() {
+        experiment.kind = ExperimentKind::Observation;
+        experiment.amplitude = 0.0;
+    }
+    if let Some(channels) = loop_definition.channels.as_mut() {
+        channels.inputs[0].experiment_step = Some(4.0);
+        channels.inputs[1].experiment_step = None;
+    }
+    // The live sample is in Manual, where the policy's frequency content asks for a PRBS, and it measures the load.
+    let mut sample = live_sample();
+    sample.controller_mode = ControllerMode::Manual;
+    sample.additional.push(PlanAuxiliarySignal {
+        id: "load".to_owned(),
+        signal: PlanSignal {
+            symbol: "P1.LoadKw".to_owned(),
+            address: None,
+            value: 20.0,
+            unit: "kW".to_owned(),
+            quality: Quality::Good,
+        },
+    });
+    // The fake recording holds no load values, so the fit refuses it after the load's step; only the started steps are read here.
+    let _ = resume_loop(&state, &journal, &loop_definition, sample);
+    let started = state.started_plans();
+    assert_eq!(
+        started.len(),
+        1,
+        "the load is started once, after the journaled step"
+    );
+    assert_eq!(
+        started[0].affected_signal, "P1.LoadKw",
+        "through its own Manual command"
+    );
+    assert_eq!(
+        started[0].kind,
+        ControlExperimentKind::Prbs,
+        "Identify's choice in Manual for the load, not the journaled step's kind"
     );
     fs::remove_dir_all(&folder).expect("clean up");
 }

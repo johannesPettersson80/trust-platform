@@ -18,9 +18,9 @@ export async function engineAnswer<T>(call: () => Promise<EngineAnswer<T>>): Pro
   }
 }
 
-/** A refusal as the page shows it: the engine's message, then the words of its next action (A11.2) when it names one. */
+/** A refusal as the page shows it: the engine's whole text (its detail when it says more than its message), then the words of its next action (A11.2) when it names one. */
 export function refusalText(failure: Failure): string {
-  return [failure.message, failure.nextActionLabel ? `Next: ${failure.nextActionLabel}` : ""].filter(Boolean).join(" ");
+  return [failure.detail || failure.message, failure.nextActionLabel ? `Next: ${failure.nextActionLabel}` : ""].filter(Boolean).join(" ");
 }
 
 /** What the engine's answer to a save means for the setup (B1.3). */
@@ -30,8 +30,8 @@ export type SetupSaveOutcome =
   | { readonly kind: "refused"; readonly failure: Failure };
 
 /**
- * The save's outcome. A structure the engine does not run yet is refused as controller-capability until stage V7; the TypeScript
- * generator keeps those loops, so that refusal is `parked` and not shown as a failure.
+ * The save's outcome. A structure the engine parks is refused as controller-capability; the TypeScript generator keeps those loops, so that
+ * refusal is `parked` and not shown as a failure. No structure is parked now.
  */
 export function setupSaveOutcome(answer: EngineAnswer<SetupSaveResult>): SetupSaveOutcome {
   if ("failure" in answer) {

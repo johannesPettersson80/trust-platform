@@ -63,6 +63,7 @@ fn checkpoint_of(
         process_noise: None,
         validation_identity: "sha256:validation".to_owned(),
         transfers: Vec::new(),
+        schedule_origin: None,
     }
 }
 

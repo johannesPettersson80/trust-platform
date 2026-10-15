@@ -16,6 +16,7 @@ use crate::analysis::general_feedback::{
     check_saved_general_feedback, FeedbackResult, SavedGeneralFeedback,
 };
 use crate::analysis::measured_frequency::{MeasuredFrequencyResult, MeasuredStatus};
+use crate::analysis::measured_paths::{MeasuredPathsResult, PairingStatus};
 use crate::analysis::routh::DeclaredRouthResult;
 use crate::analysis::routh_session::{check_saved_routh, SavedRouthAnalysis};
 use crate::failure::{Cause, Failure, NextAction};
@@ -170,6 +171,62 @@ impl StudySection for PeriodicFrequencySection {
     }
 }
 
+/// The measured MIMO paths of a recording (`measuredPaths`, C7; N4.5): the answer with its recording and trials, and the loop revision
+/// it was calculated on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MeasuredPathsSection {
+    /// The loop revision the paths were calculated on.
+    pub loop_revision: String,
+    /// The recording, its trials, the matrices and the pairing.
+    pub result: MeasuredPathsResult,
+}
+
+impl StudySection for MeasuredPathsSection {
+    const KEY: &'static str = "measuredPaths";
+
+    fn check(&self) -> Result<(), Failure> {
+        let result = &self.result;
+        if self.loop_revision.trim().is_empty()
+            || result.recording_revision.trim().is_empty()
+            || !is_recording_id(&result.recording_id)
+        {
+            return Err(refused("does not name its recording and revision"));
+        }
+        let inputs = result.inputs.len();
+        let outputs = result.outputs.len();
+        let shaped = inputs >= 2
+            && inputs == outputs
+            && result.trials.len() == inputs
+            && is_matrix(&result.gain_matrix, outputs, inputs)
+            && is_matrix(&result.relative_gain_array, outputs, inputs)
+            && is_matrix(&result.decoupler, inputs, outputs);
+        let paired = match result.pairing.status {
+            PairingStatus::Named => {
+                result.pairing.pairs.len() == outputs && result.pairing.reason.is_none()
+            }
+            PairingStatus::Refused => {
+                result.pairing.pairs.is_empty() && result.pairing.reason.is_some()
+            }
+        };
+        if !shaped || !paired {
+            return Err(refused(
+                "holds channels, trials, matrices or a pairing that do not match one another (C7)",
+            ));
+        }
+        Ok(())
+    }
+
+    fn recording_ids(&self) -> Vec<&str> {
+        vec![self.result.recording_id.as_str()]
+    }
+}
+
+/// Whether `matrix` has `rows` rows of `columns` entries each.
+fn is_matrix(matrix: &[Vec<f64>], rows: usize, columns: usize) -> bool {
+    matrix.len() == rows && matrix.iter().all(|row| row.len() == columns)
+}
+
 /// A result that the study keeps (B10.2), as the analysis tool calculated it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum KeptAnalysis {
@@ -181,6 +238,8 @@ pub enum KeptAnalysis {
     Feedback(Box<SavedGeneralFeedback>),
     /// A measured frequency response (`measuredFrequency`).
     MeasuredFrequency(Box<MeasuredFrequencyResult>),
+    /// The measured MIMO paths of a recording (`measuredPaths`, C7).
+    MeasuredPaths(Box<MeasuredPathsResult>),
 }
 
 /// The kept results of a loop that the study answers as current (`controlStudio/open`, `analysis`). A result is absent when the
@@ -201,6 +260,9 @@ pub struct AnalysisRecords {
     /// The measured frequency response, with its sentences.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub measured_frequency: Option<MeasuredFrequencyResult>,
+    /// The measured MIMO paths, with their matrices and pairing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measured_paths: Option<MeasuredPathsResult>,
 }
 
 /// Keeps `analysis` in the study under its section (B10.2), with the loop revision `loop_revision` and the model revision the
@@ -251,6 +313,13 @@ pub fn keep(study: &mut Study, loop_revision: &str, analysis: KeptAnalysis) -> R
                 result: *result,
             },
         ),
+        KeptAnalysis::MeasuredPaths(result) => keep_section(
+            study,
+            &MeasuredPathsSection {
+                loop_revision,
+                result: *result,
+            },
+        ),
     }
 }
 
@@ -272,11 +341,14 @@ pub fn current_records(
     });
     let periodic = read::<PeriodicFrequencySection>(study)
         .filter(|section| section.loop_revision == loop_revision);
+    let paths = read::<MeasuredPathsSection>(study)
+        .filter(|section| section.loop_revision == loop_revision);
     AnalysisRecords {
         root_locus: declared.map(|section| section.analysis.result),
         routh: routh.map(|section| section.analysis.result),
         feedback: feedback.map(|section| section.analysis.result),
         measured_frequency: periodic.map(|section| section.result),
+        measured_paths: paths.map(|section| section.result),
     }
 }
 

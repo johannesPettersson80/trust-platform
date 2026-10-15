@@ -63,6 +63,7 @@ export interface AnalysisPage {
     | "poleZero"
     | "frequency"
     | "measuredFrequency"
+    | "measuredPaths"
     | "feedback"
     | "leadLag"
     | "initialState"
@@ -106,6 +107,11 @@ export interface AnalysisInputs {
    */
   input?: number[] | null;
   /**
+   * `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
+   * nonnegative. Absent, the check is not made.
+   */
+  maximumUnexcitedInputDrift?: number | null;
+  /**
    * `measuredFrequency`: the minimum coherence, 0 to 1.
    */
   minimumCoherence?: number | null;
@@ -118,11 +124,11 @@ export interface AnalysisInputs {
    */
   plantChannel?: ChannelPair | null;
   /**
-   * `measuredFrequency`: the recording, by its identifier.
+   * `measuredFrequency` and `measuredPaths`: the recording, by its identifier.
    */
   recordingId?: string | null;
   /**
-   * `measuredFrequency`: the revision of the recording the request was made for.
+   * `measuredFrequency` and `measuredPaths`: the revision of the recording the request was made for.
    */
   recordingRevision?: string | null;
   /**
@@ -133,6 +139,10 @@ export interface AnalysisInputs {
    * `rootLocus` and `routh`: the selected value of the declared parameter.
    */
   selectedValue?: number | null;
+  /**
+   * `measuredPaths`: one settled trial for each input of the loop, in any order (C7).
+   */
+  settledTrials?: SettledTrial[] | null;
   /**
    * `measuredFrequency`: the startup samples left out of the estimate, at least 1.
    */
@@ -179,6 +189,44 @@ export interface FrequencyGrid {
    * The number of frequencies: 2 to 512.
    */
   points: number;
+}
+/**
+ * One settled trial (C7): the input stepped, its baseline window (before the step) and its settled window (after the output has
+ * settled).
+ */
+export interface SettledTrial {
+  baseline: TimeWindow;
+  /**
+   * The identifier of the stepped input in the model.
+   */
+  inputId: string;
+  settled: TimeWindow1;
+}
+/**
+ * The window before the step.
+ */
+export interface TimeWindow {
+  /**
+   * The end of the window, in seconds.
+   */
+  endSeconds: number;
+  /**
+   * The start of the window, in seconds.
+   */
+  startSeconds: number;
+}
+/**
+ * The window after the step.
+ */
+export interface TimeWindow1 {
+  /**
+   * The end of the window, in seconds.
+   */
+  endSeconds: number;
+  /**
+   * The start of the window, in seconds.
+   */
+  startSeconds: number;
 }
 /**
  * The page's own view choices, which the engine keeps with the page and answers on `open`, and never reads (§0.1a,

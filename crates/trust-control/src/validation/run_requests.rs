@@ -10,6 +10,11 @@
 
 use std::collections::BTreeMap;
 
+use crate::commissioning::gain_schedule_adapter::gains_of_table;
+use crate::commissioning::search_adapter::search_law;
+use crate::commissioning::state_adapter::{
+    coefficient_symbols as state_coefficient_symbols, decode_state_law,
+};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::connected_record::{
     RunConditions, ValidationRun, ValidationSample, ValidationValue,
@@ -25,10 +30,15 @@ use crate::tuning::settings_pins::{mapped_parameters, GainKey, MappedParameter};
 use crate::validation::engineer_scenario_effects::{requirements_failure, scenario_effect_tables};
 use crate::validation::engineer_verification_campaign::CampaignCase;
 use crate::validation::engineer_verification_plan::VerificationPlan;
+use crate::validation::gain_schedule_case;
+use crate::validation::group_case;
 use crate::validation::isolated_run_protocol::{
     IsolatedExecution, IsolatedParameterOverride, IsolatedParameterType, IsolatedRunEvent,
     IsolatedRunObservation, IsolatedRunRecord, IsolatedRunRequest, IsolatedRunSample,
 };
+use crate::validation::on_off_case;
+use crate::validation::search_case::candidate_coefficients;
+use crate::validation::smith_case;
 use crate::validation::texts;
 
 /// The largest integer that JSON carries exactly, 2⁵³ − 1 (E0.3). It is exact as a float, because it is below 2⁵³.
@@ -60,7 +70,8 @@ pub enum RunSettings<'a> {
 pub struct RunRequestInput<'a> {
     /// The loop the run tests: its signals, its bound parameters and its experiment seed.
     pub loop_definition: &'a LoopDefinition,
-    /// The selected model; the channels of a scenario effect are counted on it (`scenario_effect_tables`).
+    /// The model the case runs on: the selected model, or a declared scenario's own model (C8). The channels of a scenario effect are
+    /// counted on it (`scenario_effect_tables`).
     pub model: &'a GeneralModel,
     /// The verification plan of the campaign: the sample grid, the initial values and the observed symbols.
     pub plan: &'a VerificationPlan,
@@ -98,7 +109,7 @@ pub fn isolated_run_request(input: &RunRequestInput<'_>) -> Result<IsolatedRunRe
         max_total_cycles: plan.max_total_cycles,
         wall_budget_ms: ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS,
         record_every: plan.record_every,
-        initial_values: initial_values(plan, case),
+        initial_values: initial_values(input.loop_definition, plan, case),
         events: events(case)?,
         observations: observations(input.loop_definition, plan)?,
         parameter_overrides: parameter_overrides(input.loop_definition, input.settings)?,
@@ -118,8 +129,8 @@ pub fn run_seed(loop_definition: &LoopDefinition) -> u64 {
         .map_or(1, |experiment| experiment.seed)
 }
 
-/// The unit that the loop declares for a symbol: one of its signals, its auxiliary signals or its bound parameters. `None`
-/// when the loop declares no such symbol.
+/// The unit that the loop declares for a symbol: one of its signals, its auxiliary signals, its bound parameters or a schedule's active
+/// gains (C10). `None` when the loop declares no such symbol.
 #[must_use]
 pub fn observation_unit(loop_definition: &LoopDefinition, symbol: &str) -> Option<String> {
     let signals = &loop_definition.signals;
@@ -153,7 +164,26 @@ pub fn observation_unit(loop_definition: &LoopDefinition, symbol: &str) -> Optio
             })
             .map(|parameter| parameter.unit.clone())
     };
-    signal_unit.or_else(auxiliary_unit).or_else(parameter_unit)
+    // A switching controller's declared states, its output latch among them, are observed in their own units (C3).
+    let state_unit = || {
+        loop_definition
+            .controller
+            .on_off
+            .as_ref()
+            .and_then(|block| {
+                block
+                    .initialization
+                    .states()
+                    .iter()
+                    .find(|state| state.symbol == symbol)
+            })
+            .map(|state| state.unit.clone())
+    };
+    signal_unit
+        .or_else(auxiliary_unit)
+        .or_else(parameter_unit)
+        .or_else(state_unit)
+        .or_else(|| gain_schedule_case::active_gain_unit(loop_definition, symbol))
 }
 
 /// The inline plant of a run (B5.3, A9): the selected model's, with the tables of the case's effects appended to its TOML, as
@@ -174,11 +204,20 @@ fn simulation_override(input: &RunRequestInput<'_>) -> Result<Option<SimulationO
     }
 }
 
-/// The values the run starts from: the plan's, with the case's own initial overrides written over them (N8.1).
-fn initial_values(plan: &VerificationPlan, case: &CampaignCase) -> BTreeMap<String, f64> {
+/// The values the run starts from: the plan's, with the case's own initial overrides written over them (N8.1), and a schedule's
+/// scheduling variable at the loop's own operating point (C10).
+fn initial_values(
+    loop_definition: &LoopDefinition,
+    plan: &VerificationPlan,
+    case: &CampaignCase,
+) -> BTreeMap<String, f64> {
     let mut values = plan.initial_values.clone();
     for (symbol, value) in &case.initial_overrides {
         values.insert(symbol.clone(), *value);
+    }
+    // A schedule's run starts at its own operating point, written last so that no other value starts it elsewhere (C10 Validate).
+    if let Some((symbol, value)) = gain_schedule_case::scheduled_start(loop_definition) {
+        values.insert(symbol, value);
     }
     values
 }
@@ -202,7 +241,8 @@ fn observations(
     loop_definition: &LoopDefinition,
     plan: &VerificationPlan,
 ) -> Result<Vec<IsolatedRunObservation>, Failure> {
-    plan.observed_symbols
+    let planned = plan
+        .observed_symbols
         .iter()
         .map(|symbol| -> Result<IsolatedRunObservation, Failure> {
             let unit = observation_unit(loop_definition, symbol).ok_or_else(|| {
@@ -217,7 +257,12 @@ fn observations(
                 unit,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    // A Smith predictor's flags and correction are observed beside the plan's channels (C9).
+    Ok(planned
+        .into_iter()
+        .chain(smith_case::observations(loop_definition))
+        .collect())
 }
 
 /// The parameter overrides of a run (B5.3): the current values of the record for the current settings, and the candidate's
@@ -227,22 +272,135 @@ fn parameter_overrides(
     settings: RunSettings<'_>,
 ) -> Result<Vec<IsolatedParameterOverride>, Failure> {
     match settings {
-        RunSettings::Current(observed) => record_overrides(loop_definition, |mapped| {
-            observed.get(&mapped.symbol).copied().ok_or_else(|| {
-                Failure::new(
-                    &texts::current_setting_unread(&mapped.symbol),
-                    Cause::Runtime,
-                    NextAction::ConnectRuntime,
-                )
-            })
-        }),
+        // A switching controller's three settings are written by symbol, for the running values and the candidate's (C3).
+        RunSettings::Current(observed) if loop_definition.controller.on_off.is_some() => {
+            on_off_case::overrides(loop_definition, observed)
+        }
+        RunSettings::Candidate(LawCandidate::OnOff(settings)) => {
+            on_off_case::overrides(loop_definition, &settings.values)
+        }
+        // A PID group writes each member's gains and the decoupler's entries by symbol (C7); it has no single record to map.
+        RunSettings::Candidate(LawCandidate::Group(group)) => {
+            group_case::overrides(loop_definition, group)
+        }
+        // A state or search law's current settings are its coefficients as the controller holds them (C4, C5).
+        RunSettings::Current(observed) => match law_symbols(loop_definition)? {
+            Some(symbols) => {
+                let coefficients = symbols
+                    .iter()
+                    .map(|symbol| {
+                        observed
+                            .get(symbol)
+                            .map(|value| (symbol.clone(), *value))
+                            .ok_or_else(|| {
+                                Failure::new(
+                                    &texts::current_setting_unread(symbol),
+                                    Cause::Runtime,
+                                    NextAction::ConnectRuntime,
+                                )
+                            })
+                    })
+                    .collect::<Result<BTreeMap<String, f64>, Failure>>()?;
+                coefficient_overrides(loop_definition, &coefficients)
+            }
+            None => record_overrides(loop_definition, |mapped| {
+                observed.get(&mapped.symbol).copied().ok_or_else(|| {
+                    Failure::new(
+                        &texts::current_setting_unread(&mapped.symbol),
+                        Cause::Runtime,
+                        NextAction::ConnectRuntime,
+                    )
+                })
+            }),
+        },
         RunSettings::Candidate(candidate) => {
-            let mut overrides =
-                record_overrides(loop_definition, |mapped| candidate_value(candidate, mapped))?;
+            let mut overrides = match law_coefficients(loop_definition, candidate)? {
+                Some(coefficients) => coefficient_overrides(loop_definition, &coefficients)?,
+                None => candidate_record_overrides(loop_definition, candidate)?,
+            };
             overrides.extend(feedforward_overrides(loop_definition, candidate)?);
+            overrides.extend(smith_case::overrides(loop_definition, candidate)?);
             Ok(overrides)
         }
     }
+}
+
+/// The parameter symbols that a state or search law writes in its current settings (C4, C5): the coefficients of the state law, and every
+/// bound parameter of a search law, since its trials write them all. `None` for any other law, whose settings are its record fields.
+fn law_symbols(loop_definition: &LoopDefinition) -> Result<Option<Vec<String>>, Failure> {
+    if loop_definition.controller.state_feedback.is_some() {
+        let law = decode_state_law(loop_definition)?;
+        return Ok(Some(state_coefficient_symbols(&law)));
+    }
+    if search_law(loop_definition).is_none() {
+        return Ok(None);
+    }
+    let binding = loop_definition.parameter_binding.as_ref().ok_or_else(|| {
+        Failure::new(
+            &texts::parameter_or_reference_binding_missing(),
+            Cause::Settings,
+            NextAction::OpenLoopSetup,
+        )
+    })?;
+    Ok(Some(
+        binding
+            .parameters
+            .iter()
+            .map(|parameter| parameter.symbol.clone())
+            .collect(),
+    ))
+}
+
+/// The coefficients that a candidate writes by symbol (C4, C5): a state law's design, and a search law's chosen trial, which must hold
+/// every bound parameter. `None` for a candidate whose record fields are its own (C0). Apply writes the same values through this rule.
+///
+/// # Errors
+/// A search law's chosen trial holds no value for a bound parameter, or the loop declares no parameter binding.
+pub fn law_coefficients(
+    loop_definition: &LoopDefinition,
+    candidate: &LawCandidate,
+) -> Result<Option<BTreeMap<String, f64>>, Failure> {
+    match candidate {
+        LawCandidate::State(design) => {
+            let law = decode_state_law(loop_definition)?;
+            if let Some(symbol) = state_coefficient_symbols(&law)
+                .into_iter()
+                .find(|symbol| !design.candidate.parameters.contains_key(symbol))
+            {
+                return Err(Failure::new(
+                    &format!("The state design holds no value for {symbol}, a coefficient of the law (C4); Tune again."),
+                    Cause::Implementation,
+                    NextAction::Tune,
+                ));
+            }
+            Ok(Some(design.candidate.parameters.clone()))
+        }
+        LawCandidate::Search(search) => Ok(Some(
+            candidate_coefficients(loop_definition, search)?.clone(),
+        )),
+        // A PID group's write set is its values by symbol: every member's gains and each decoupler entry (C7). Apply and Validate write
+        // them through the coefficient path, which checks each symbol against the loop's binding.
+        LawCandidate::Group(group) => Ok(Some(group.values.clone())),
+        LawCandidate::Pid(_) | LawCandidate::Project(_) | LawCandidate::OnOff(_) => Ok(None),
+    }
+}
+
+/// The overrides of a set of coefficients, each typed, bounded and unit-checked as the binding declares it (E8.4, C4, C5).
+fn coefficient_overrides(
+    loop_definition: &LoopDefinition,
+    coefficients: &BTreeMap<String, f64>,
+) -> Result<Vec<IsolatedParameterOverride>, Failure> {
+    let binding = loop_definition.parameter_binding.as_ref().ok_or_else(|| {
+        Failure::new(
+            &texts::parameter_or_reference_binding_missing(),
+            Cause::Settings,
+            NextAction::OpenLoopSetup,
+        )
+    })?;
+    coefficients
+        .iter()
+        .map(|(symbol, value)| override_of(binding, symbol, *value))
+        .collect()
 }
 
 /// The refusal of a trajectory candidate that lacks one of its feedforward gains (C11).
@@ -310,6 +468,24 @@ fn feedforward_symbols(loop_definition: &LoopDefinition) -> Vec<&str> {
     symbols
 }
 
+/// The parameter overrides of a candidate that is not a set of coefficients (C0, C10). A schedule's candidate writes the gains of every point
+/// of its table (C10 Validate), and any other candidate writes each record field that the controller maps.
+fn candidate_record_overrides(
+    loop_definition: &LoopDefinition,
+    candidate: &LawCandidate,
+) -> Result<Vec<IsolatedParameterOverride>, Failure> {
+    match (
+        candidate,
+        gain_schedule_case::schedule_of_loop(loop_definition),
+    ) {
+        (LawCandidate::Project(project), Some(schedule)) => {
+            let gains = gains_of_table(&schedule.points, &project.values)?;
+            gain_schedule_case::run_overrides(loop_definition, schedule, &gains)
+        }
+        _ => record_overrides(loop_definition, |mapped| candidate_value(candidate, mapped)),
+    }
+}
+
 /// A record as parameter overrides: each record field that the controller maps, with the type, unit, convention and bounds that
 /// its binding declares, and the value `value_of` gives it (E8.4).
 fn record_overrides(
@@ -336,7 +512,7 @@ fn record_overrides(
 ///
 /// # Errors
 /// The binding holds no parameter of that symbol.
-fn override_of(
+pub(super) fn override_of(
     binding: &ParameterBinding,
     symbol: &str,
     value: f64,
@@ -371,17 +547,39 @@ fn override_of(
 fn candidate_value(candidate: &LawCandidate, mapped: &MappedParameter) -> Result<f64, Failure> {
     match candidate {
         LawCandidate::Pid(candidate) => pid_value(candidate, mapped.key),
-        // A program's own law writes each of its variables from its gains, with zero for a term the structure does not use (C2).
-        LawCandidate::Project(candidate) => match mapped.key {
-            GainKey::ProportionalGain => Ok(candidate.gains.proportional_gain),
-            GainKey::IntegralGain => Ok(candidate.gains.integral_gain),
-            GainKey::DerivativeGain => Ok(candidate.gains.derivative_gain),
-            _ => Err(Failure::new(
-                "A program's own law holds no gain of this kind.",
-                Cause::Implementation,
-                NextAction::None,
-            )),
-        },
+        // A switching controller writes its settings by symbol, never through a gain key (C3): its overrides are not built here.
+        LawCandidate::OnOff(_) => Err(Failure::new(
+            "A switching controller holds no gain of this kind.",
+            Cause::Implementation,
+            NextAction::None,
+        )),
+        // A PID group's values are written by symbol, never through one gain key (C7): its overrides are built by `group_case`.
+        LawCandidate::Group(_) => Err(Failure::new(
+            "A PID group holds no single gain of this kind.",
+            Cause::Implementation,
+            NextAction::None,
+        )),
+        // A program's own law writes each of its variables from its gains, with zero for a term the structure does not use (C2). A
+        // variable that the candidate holds by its own symbol is written as it is: a cascade's outer PI is one of those (C6).
+        LawCandidate::Project(candidate) => {
+            match (candidate.values.get(&mapped.symbol), mapped.key) {
+                (Some(value), _) => Ok(*value),
+                (None, GainKey::ProportionalGain) => Ok(candidate.gains.proportional_gain),
+                (None, GainKey::IntegralGain) => Ok(candidate.gains.integral_gain),
+                (None, GainKey::DerivativeGain) => Ok(candidate.gains.derivative_gain),
+                (None, _) => Err(Failure::new(
+                    "A program's own law holds no gain of this kind.",
+                    Cause::Implementation,
+                    NextAction::None,
+                )),
+            }
+        }
+        // A state or search law writes its coefficients by symbol (`law_coefficients`), never through a gain key (C4, C5).
+        _ => Err(Failure::new(
+            "A state or search law holds no record field of this kind.",
+            Cause::Implementation,
+            NextAction::None,
+        )),
     }
 }
 
@@ -490,3 +688,11 @@ mod feedforward_tests;
 #[cfg(test)]
 #[path = "run_requests_feedforward_c8_tests.rs"]
 mod feedforward_c8_tests;
+
+#[cfg(test)]
+#[path = "run_requests_law_tests.rs"]
+mod law_tests;
+
+#[cfg(test)]
+#[path = "run_requests_schedule_tests.rs"]
+mod schedule_tests;

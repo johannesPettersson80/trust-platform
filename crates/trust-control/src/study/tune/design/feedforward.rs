@@ -108,6 +108,10 @@ pub(super) fn run(
         requirements: requirements.clone(),
         candidate: stored,
         project_candidate: stored_project,
+        state_candidate: None,
+        search_candidate: None,
+        on_off_candidate: None,
+        group_candidate: None,
         reason: designed.reason.clone(),
         closed_loop_time_seconds: None,
         attempts: Vec::new(),
@@ -285,46 +289,6 @@ pub(crate) fn output_view(
         general,
         model: plant_model,
     })
-}
-
-/// The single loop of a measured-disturbance feedforward's output path (C8), with the output path's view of its model: the loop without
-/// its two-input channels, which the Validate campaign and its isolated runs read as a loop of one plant input and one output (C8,
-/// Validate), and the view that is their plant. A loop without a feedforward has none.
-pub(crate) struct SingleLoop {
-    /// The loop with its channels removed; its controller input and measured output are the view's only channels.
-    pub(crate) loop_definition: LoopDefinition,
-    /// The output path's view of the model: the controller output and the measurement, with the output path's first-order form and delay.
-    pub(crate) model: GeneralModel,
-}
-
-/// The single loop and its view of a feedforward's model (C8), or `None` for a loop without a feedforward. The view is the output path's
-/// model of Tune (B4.4), so the single-loop cases of C1 run on it.
-///
-/// # Errors
-/// The model does not have the feedforward's channels, a channel names no input or output of it, or the output path has no first-order
-/// model (`shape_of`, `reduce_paths`, `output_view`).
-pub(crate) fn single_loop(
-    loop_definition: &LoopDefinition,
-    model: &GeneralModel,
-) -> Result<Option<SingleLoop>, Failure> {
-    if served_feedforward(loop_definition).is_none() {
-        return Ok(None);
-    }
-    let shape = shape_of(loop_definition, model)?;
-    let paths = reduce_paths(model, &shape.channels)
-        .map_err(refused(Cause::ModelOrData, NextAction::Identify))?;
-    let (operating_inputs, operating_outputs) = operating_point(model);
-    let operating = (
-        operating_value(&operating_inputs, shape.channels.controller_input),
-        operating_value(&operating_outputs, shape.channels.measurement),
-    );
-    let view = output_view(model, &shape.channels, &paths.output, operating)?;
-    let mut single = loop_definition.clone();
-    single.channels = None;
-    Ok(Some(SingleLoop {
-        loop_definition: single,
-        model: view.general,
-    }))
 }
 
 /// The loop's facts for the design, read from the setup of the output path's view (B4.4, C7).

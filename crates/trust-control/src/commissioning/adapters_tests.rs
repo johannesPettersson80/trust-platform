@@ -150,6 +150,8 @@ fn pd_seed() -> ParallelPidSeed {
 
 #[test]
 fn every_parked_family_is_refused_by_its_name_and_no_adapter_is_offered() {
+    // The parked features that remain (checklist V7): a program's law without a served seed, the channels of a PID, and the two-loop
+    // cascade. State feedback, ON/OFF, groups and the served seeds have their own adapters (C3, C4, C7), so they are not listed here.
     let project = controller_adapter(&parked_project_loop())
         .expect_err("a program's law with a parked seed has no adapter here");
     assert!(
@@ -157,15 +159,6 @@ fn every_parked_family_is_refused_by_its_name_and_no_adapter_is_offered() {
         "{}",
         full_text(&project)
     );
-    let switching =
-        refusal_after(|loop_definition| loop_definition.controller.on_off = Some(json!({})));
-    assert!(full_text(&switching).contains("an ON/OFF controller"));
-    let state = refusal_after(|loop_definition| {
-        loop_definition.controller.state_feedback = Some(json!({}));
-    });
-    assert!(full_text(&state).contains("state feedback"));
-    let group = refusal_after(|loop_definition| loop_definition.controller.group = Some(json!({})));
-    assert!(full_text(&group).contains("a PID group"));
     let channels = refusal_after(|loop_definition| {
         loop_definition.channels = Some(crate::loop_definition::LoopChannels {
             inputs: Vec::new(),
@@ -174,6 +167,14 @@ fn every_parked_family_is_refused_by_its_name_and_no_adapter_is_offered() {
         });
     });
     assert!(full_text(&channels).contains("channels"));
+    let cascade = refusal_after(|loop_definition| {
+        loop_definition.cascade = Some(json!({}));
+    });
+    assert!(
+        full_text(&cascade).contains("a cascade"),
+        "{}",
+        full_text(&cascade)
+    );
     assert_eq!(project.next_action, NextAction::None);
     assert_eq!(project.cause, Cause::ControllerCapability);
 }

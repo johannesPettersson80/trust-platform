@@ -29,7 +29,7 @@ suite("Control Studio PID group setup rendered", () => {
         .map(name=>d.querySelector('[data-setup-field="'+name+'"]').value));`)),
       ["P1.Zone2Parameters", "P1.Zone2.StateValue.ProcessValue", "P1.Heater2Pct", "P1.Zone2SetpointC", "P1.Zone2ManualPct"],
       "each member is filled in from its own compiled calls; its measurement is the PID's own");
-      assert.match(await inner("return d.querySelector('[data-setup-message]').textContent;"), /initializes P1\.Zone1.*startup/,
+      assert.strictEqual(await inner("return String(d.querySelector('[data-setup-startup]').hidden);"), "false",
         "the program initializes its PIDs at startup, so the group needs the startup flag");
       await inner(`const e=d.querySelector('[data-setup-field="startupFlag"]');e.value='P1.Initialized';e.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'flag';`);
       assert.strictEqual(await inner("return String(d.querySelector('[data-setup-save]').disabled);"), "false", await inner("return d.querySelector('[data-setup-message]').textContent;"));

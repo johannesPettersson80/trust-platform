@@ -6,6 +6,9 @@
 
 use std::collections::BTreeMap;
 
+use trust_control_math::inverse::invert;
+use trust_control_math::linalg::NumericalTolerance;
+
 use super::channel_mapping::connected_model_channels;
 use super::texts;
 use super::transfer::{rounded_transfer_value, TransferMember, TransferValueType};
@@ -15,7 +18,8 @@ use crate::loop_definition::{
 };
 use crate::model::{GeneralModel, ModelChannel};
 
-/// The most states one declared initialization holds (`decodeControllerInitialization`).
+/// The most states one controller instance declares (`decodeControllerInitialization`). A loop with `n` controller instances, such as
+/// a PID group's members, declares at most `MAXIMUM_STATES * n` states: `LoopDefinition::check_state_budget` checks the total.
 pub const MAXIMUM_STATES: usize = 32;
 
 /// The declared states of one initialization, checked when they are built (`ControllerInitialization`).
@@ -25,18 +29,12 @@ pub struct ControllerInitialization {
 }
 
 impl ControllerInitialization {
-    /// Checks the declared states (`decodeControllerInitialization`): at most 32 states with distinct symbols, each with a
-    /// unit and finite ordered bounds, a BOOL state dimensionless in `0..=1`, and an initial value whose fields agree.
+    /// Checks the declared states (`decodeControllerInitialization`): distinct symbols, each with a unit and finite ordered bounds,
+    /// a BOOL state dimensionless in `0..=1`, and an initial value whose fields agree. The number of states is checked per loop.
     ///
     /// # Errors
     /// A state breaks one of these rules, or uses a formula kind that the Rust engine does not run yet.
     pub fn new(states: Vec<InitializedState>) -> Result<Self, Failure> {
-        if states.len() > MAXIMUM_STATES {
-            return Err(refusal(&texts::init_states_too_many(
-                states.len(),
-                MAXIMUM_STATES,
-            )));
-        }
         for (index, state) in states.iter().enumerate() {
             if states[..index]
                 .iter()
@@ -57,15 +55,12 @@ impl ControllerInitialization {
 }
 
 /// The kind word of a formula that the Rust engine does not run yet (the parked features of checklist V7: the notch of a
-/// program's own law, the decoupler and the state models), or `None` for a formula it runs. The measured-disturbance feedforward's
-/// `scaled-model-input` is served (C8).
+/// program's own law and the state models), or `None` for a formula it runs. The measured-disturbance feedforward's
+/// `scaled-model-input` (C8) and the static decoupler's `decoupled-output` (C7) are served.
 #[must_use]
 pub(super) fn parked_source_word(initial: &InitialValue) -> Option<&'static str> {
     match initial {
         InitialValue::From(InitialSource::ModelState { .. }) => Some("model-state"),
-        InitialValue::From(InitialSource::DecoupledModelInput { .. }) => {
-            Some("decoupled-model-input")
-        }
         InitialValue::From(InitialSource::NotchHistory { .. }) => Some("notch-history"),
         InitialValue::Constant(_)
         | InitialValue::From(
@@ -74,7 +69,8 @@ pub(super) fn parked_source_word(initial: &InitialValue) -> Option<&'static str>
             | InitialSource::ModelInputIs { .. }
             | InitialSource::PidIntegral { .. }
             | InitialSource::WeightedError { .. }
-            | InitialSource::ScaledModelInput { .. },
+            | InitialSource::ScaledModelInput { .. }
+            | InitialSource::DecoupledOutput { .. },
         ) => None,
     }
 }
@@ -153,6 +149,11 @@ impl From<StateType> for TransferValueType {
 /// Refuses a declaration with the settings cause and the action of opening the loop's setup.
 fn refusal(text: &str) -> Failure {
     Failure::new(text, Cause::Settings, NextAction::OpenLoopSetup)
+}
+
+/// Refuses a decoupler that is not square over the plant inputs it drives (`decoupledInput`, C7).
+pub(crate) fn decoupler_not_square() -> Failure {
+    refusal("The decoupler matrix must be square over the bound plant inputs.")
 }
 
 /// Checks one state's type, unit, bounds and initial value (`decodeControllerInitialization`, per state).
@@ -292,6 +293,17 @@ fn initial_value(
             )?;
             Ok((weight - 1.0) * operating_output(model, *index))
         }
+        InitialValue::From(InitialSource::DecoupledOutput {
+            index,
+            matrix_symbols,
+        }) => decoupled_start(
+            loop_definition,
+            model,
+            state,
+            *index,
+            matrix_symbols,
+            parameters,
+        ),
         InitialValue::From(_) => {
             let word = parked_source_word(&state.initial).unwrap_or("a parked kind");
             Err(Failure::new(
@@ -302,6 +314,96 @@ fn initial_value(
         }
     }
 }
+
+/// The value of a decoupled state at the operating point: row `index` of D⁻¹·u, where D holds the decoupler's gains and u the operating
+/// inputs of the plant inputs that the group's channels drive, in channel order (`decoupledInput`, C7).
+///
+/// # Errors
+/// A gain is not a bound finite parameter, a channel has no plant input in the model, the row's input has another unit than the
+/// state, or the decoupler is not square or cannot be inverted.
+fn decoupled_start(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    state: &InitializedState,
+    index: usize,
+    matrix_symbols: &[Vec<String>],
+    parameters: &BTreeMap<String, f64>,
+) -> Result<f64, Failure> {
+    let matrix = matrix_symbols
+        .iter()
+        .map(|entries| {
+            entries
+                .iter()
+                .map(|symbol| parameter_value(loop_definition, parameters, symbol))
+                .collect::<Result<Vec<f64>, Failure>>()
+        })
+        .collect::<Result<Vec<Vec<f64>>, Failure>>()?;
+    let inputs = (0..matrix.len())
+        .map(|channel| plant_input_index(loop_definition, model, channel))
+        .collect::<Option<Vec<usize>>>()
+        .ok_or_else(|| refusal(&texts::init_coordinates_units(&state.symbol)))?;
+    coordinate_fits(
+        inputs
+            .get(index)
+            .and_then(|&input| model.identity().inputs.get(input)),
+        state,
+    )?;
+    let operating: Vec<f64> = inputs
+        .iter()
+        .map(|&input| operating_input(model, input))
+        .collect();
+    decoupled_share(&matrix, &operating, index)
+}
+
+/// The model input that the group's channel at `channel` drives: the model input whose identifier is the channel's `modelChannelId`
+/// (`controllerModelIndex` of a group, C7). `None` when the loop has no such channel or the model has no such input.
+fn plant_input_index(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    channel: usize,
+) -> Option<usize> {
+    let input_channel = loop_definition.channels.as_ref()?.inputs.get(channel)?;
+    model
+        .identity()
+        .inputs
+        .iter()
+        .position(|input| input.id == input_channel.model_channel_id)
+}
+
+/// The share of the operating inputs that a decoupled member starts from: row `row` of D⁻¹·`inputs`, where `matrix` is the decoupler D
+/// (`decoupledInput`, C7). The matrix must be square over the inputs, and a singular one is refused.
+///
+/// # Errors
+/// The matrix is not square over `inputs`, `row` lies outside it, or the matrix cannot be inverted within the numerical tolerance.
+pub(crate) fn decoupled_share(
+    matrix: &[Vec<f64>],
+    inputs: &[f64],
+    row: usize,
+) -> Result<f64, Failure> {
+    let size = matrix.len();
+    if size == 0
+        || inputs.len() != size
+        || row >= size
+        || matrix.iter().any(|entries| entries.len() != size)
+    {
+        return Err(decoupler_not_square());
+    }
+    let inverse = invert(&matrix.to_vec(), &DECOUPLER_TOLERANCE)
+        .map_err(|_| refusal("The decoupler matrix is singular."))?;
+    Ok(inverse[row]
+        .iter()
+        .zip(inputs)
+        .map(|(weight, input)| weight * input)
+        .sum())
+}
+
+/// The tolerance of a decoupler's inversion: the rank and conditioning rules of the numerical annex (N4.5), as the group design inverts
+/// its gains (`TOLERANCE` of `tuning/structures/pid_group.rs`).
+const DECOUPLER_TOLERANCE: NumericalTolerance = NumericalTolerance {
+    absolute: 1e-12,
+    relative: 1e-10,
+    condition_limit: 1e12,
+};
 
 /// The value of a feedforward state at the operating point: its gain times the measured disturbance at its operating value, `K_ff·d`
 /// (C8, `scaled-model-input`). The gain must be bound in the state's unit per the disturbance's unit, as the TypeScript checks it.

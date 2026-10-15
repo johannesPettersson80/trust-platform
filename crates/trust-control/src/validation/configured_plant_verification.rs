@@ -108,10 +108,11 @@ pub fn verification_plant(
     plant: Option<&ConfiguredPlantBinding>,
 ) -> VerificationPlant {
     match plant {
-        // A measured-disturbance feedforward always validates on the model (C8 Validate).
+        // A measured-disturbance feedforward always validates on the model (C8 Validate), and so does a PID group (C7 Validate).
         Some(plant)
             if simulated_target
                 && served_feedforward(loop_definition).is_none()
+                && loop_definition.controller.group.is_none()
                 && configured_plant_drives_loop(loop_definition, Some(plant)) =>
         {
             VerificationPlant::Configured {
@@ -180,7 +181,7 @@ fn has_plant_id(entry: &Value, plant_id: &str) -> bool {
 /// one of the generated model-variation cases, which keep their model.
 ///
 /// The cascade branch of the `TypeScript` (an outer cascade loop keeps its model, stage V7) is left out, so the loop is not
-/// read here. The parameter keeps the signature the contract names.
+/// read here.
 #[must_use]
 pub fn uses_configured_plant(
     _loop_definition: &LoopDefinition,

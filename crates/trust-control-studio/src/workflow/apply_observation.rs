@@ -543,12 +543,16 @@ fn settle_reattached(
     keep_recording(writer, Some(&run))?;
     release_kept(Some(session), Some(&run));
     let checkpoint = writer.checkpoint();
-    let criteria = run_criteria(
+    let criteria = trust_control::commissioning::on_off_adapter::with_switching(
+        &run_criteria(
+            loop_definition,
+            &checkpoint.binding,
+            &checkpoint.task,
+            reattachment.target,
+        ),
         loop_definition,
-        &checkpoint.binding,
-        &checkpoint.task,
-        reattachment.target,
-    );
+        &checkpoint.candidate,
+    )?;
     let observation = commissioning_observation(
         loop_definition,
         &checkpoint.model,
@@ -666,12 +670,16 @@ fn restore_reattached(
         parameters: restoration.parameters,
         model_revision: checkpoint.model.identity().revision.clone(),
         channels: reattached_channels(loop_definition)?,
-        criteria: run_criteria(
+        criteria: trust_control::commissioning::on_off_adapter::with_switching(
+            &run_criteria(
+                loop_definition,
+                &checkpoint.binding,
+                &checkpoint.task,
+                reattachment.target,
+            ),
             loop_definition,
-            &checkpoint.binding,
-            &checkpoint.task,
-            reattachment.target,
-        ),
+            &checkpoint.candidate,
+        )?,
         gain_recovery: None,
         failure: ending.failure,
         found_mode: checkpoint.found_mode,

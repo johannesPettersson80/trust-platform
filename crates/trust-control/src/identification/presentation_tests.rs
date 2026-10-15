@@ -17,6 +17,7 @@ use crate::identification::step_response::{
 /// The fit of the persisted model-bound comparison of the engineer-study tests.
 fn comparison_fit() -> ModelFitEvidence {
     ModelFitEvidence {
+        model_structure: None,
         points: vec![
             ModelFitPoint {
                 time_seconds: 0.0,
@@ -71,6 +72,8 @@ fn step_settings() -> StepResponseSettings {
         baseline_step: 0.01,
         gain_step: 0.001,
         timestamp_shift_seconds: 0.0,
+        sensor_time_constant: None,
+        model_adequacy: None,
     }
 }
 

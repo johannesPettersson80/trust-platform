@@ -95,6 +95,7 @@ pub(crate) fn identify_section(validation_error: Option<f64>) -> IdentifySection
     // The predicted response is what the presentation shows: two points at least, with increasing times (B3.8, A8.1), as the
     // Identify tests give it.
     let fit = ModelFitEvidence {
+        model_structure: None,
         points: vec![
             ModelFitPoint {
                 time_seconds: 0.0,

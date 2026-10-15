@@ -3,7 +3,7 @@ import { identificationStatus, textOf } from "./engineIdentify";
 import { applyStageStatuses, record, studioFailure } from "./engineShared";
 import { ENGINE_VIEW_EVENT } from "./engineInputs";
 import { ENGINE_STAGE_RECEIVERS } from "./engineStages";
-import { predictedPlots, previewPayload, showTunePlots, tuneCandidatePayload } from "./engineTune";
+import { isSearchAnswer, predictedPlots, previewPayload, searchPayload, showTunePlots, tuneCandidatePayload } from "./engineTune";
 
 /**
  * Presents the engine's answers on the three-page panel (specification 35, §0.1a and A11). The engine decides; this
@@ -23,6 +23,15 @@ const FLOW_STAGE_OF_COMMAND = new Map<string, string>([
   ["tune", "Tune"],
   ["validate", "Validate"],
 ]);
+
+/**
+ * The Identify page's refusal of a failure: the whole text the engine gives (its detail when it has one), and the form field the engine
+ * names for it (B3.3), when it names one, so that the page shows the refusal under that field.
+ */
+function identifyRefusal(failure: Record<string, unknown>): { reason: string; field?: string } {
+  const field = textOf(failure.field);
+  return { reason: textOf(failure.detail) || textOf(failure.message), ...(field ? { field } : {}) };
+}
 
 export interface EngineHostPorts {
   /** Shows a page of the three-page panel. */
@@ -58,7 +67,8 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
         return;
       }
       ports.receive("flow", { status: "failed", failure: studioFailure(failure) });
-      if (message.method === "identify") ports.receive("identify", { status: "failed", reason: textOf(failure.message) });
+      // A start the engine cannot take ends the Identify page's wait too, so that its command is not left running (B3.3).
+      if (message.method === "identify" || message.method === "start") ports.receive("identify", { status: "failed", ...identifyRefusal(failure) });
       // A refused Tune drops the candidate the page holds, as the TypeScript Tune does (threePageTuning.ts).
       if (message.method === "tune") ports.receive("engineer", { status: "failed", flowStage: "Tune", failure: studioFailure(failure), reason: textOf(failure.message) });
       ENGINE_STAGE_RECEIVERS.get(String(message.method))?.failure?.(root, failure, ports);
@@ -89,7 +99,7 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
         const failure = record(update.failure) ?? {};
         ports.receive("flow", { status: "completed", flowStage });
         ports.receive("flow", { status: "failed", failure: studioFailure(failure) });
-        if (identify) ports.receive("identify", { status: "failed", reason: textOf(failure.message) });
+        if (identify) ports.receive("identify", { status: "failed", ...identifyRefusal(failure) });
         if (update.command === "tune") ports.receive("engineer", { status: "failed", flowStage, failure: studioFailure(failure), reason: textOf(failure.message) });
         ENGINE_STAGE_RECEIVERS.get(String(update.command))?.failure?.(root, failure, ports);
       }
@@ -100,10 +110,16 @@ export function receiveEngineMessage(root: HTMLElement, message: Record<string, 
       const result = record(message.result);
       if (!result) return;
       if (message.method === "tune") {
+        applyStageStatuses(root, result.stages);
+        // A finite search answers its trials and the sentence it ends with, not a candidate (C5): the Tune area shows them, with the
+        // stage evidence the answer carries.
+        if (isSearchAnswer(result)) {
+          ports.receive("engineer", searchPayload(result, record(result.stageEvidence)));
+          return;
+        }
         // The candidate's settings, margins and outcome, its stages on the tabs, and its predicted response on the chart (B4.3 to B4.6).
         // The candidate goes to the `engineer` stage, the stage the page's router takes for a candidate (threePageWorkflow.ts), with
         // the stage evidence the Tune answer carries.
-        applyStageStatuses(root, result.stages);
         ports.receive("engineer", tuneCandidatePayload(result, record(result.stageEvidence)));
         showTunePlots(predictedPlots(result));
         return;

@@ -24,6 +24,7 @@ pub mod current_model;
 pub mod general_model_persistence;
 pub mod identify;
 pub mod inputs;
+pub mod manual_identification;
 pub mod run_plan;
 pub mod tune;
 pub mod validate;

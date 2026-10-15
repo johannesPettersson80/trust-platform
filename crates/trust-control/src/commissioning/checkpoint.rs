@@ -145,6 +145,10 @@ pub struct CommissioningCheckpoint {
     /// carries them, with the target change as the runtime still reports it under its journaled identity.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub transfers: Vec<TransferStatus>,
+    /// The table of a schedule before Apply (C10 Restore): the value each of its variables held, which Restore returns it to. `None` for a
+    /// loop without a schedule.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schedule_origin: Option<BTreeMap<String, f64>>,
 }
 
 impl CommissioningCheckpoint {

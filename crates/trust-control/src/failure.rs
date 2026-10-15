@@ -98,6 +98,10 @@ pub struct Failure {
     /// (one source of the words); absent for `wait` and `none`.
     #[serde(skip_serializing_if = "Option::is_none")]
     next_action_label: Option<&'static str>,
+    /// The key of the form field that the failure refuses, such as `desiredPoles` or `stateWeights` (D-B12), when the refusal
+    /// concerns one field of a form; absent otherwise. The page shows the sentence under that field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
 }
 
 impl Failure {
@@ -113,6 +117,7 @@ impl Failure {
             cause,
             next_action,
             next_action_label: label_of(next_action),
+            field: None,
         }
     }
 
@@ -131,7 +136,15 @@ impl Failure {
             cause,
             next_action,
             next_action_label: label_of(next_action),
+            field: None,
         }
+    }
+
+    /// The same failure, naming the key of the form field it refuses (D-B12). The page shows its sentence under that field.
+    #[must_use]
+    pub fn with_field(mut self, field: &str) -> Self {
+        self.field = Some(field.to_owned());
+        self
     }
 
     /// The failure for a runtime error `code` (runtime protocol annex, E0.4) with the runtime's own
@@ -160,6 +173,7 @@ impl Failure {
                 cause,
                 next_action,
                 next_action_label: label_of(next_action),
+                field: None,
             };
         }
         Self::new(text, cause, next_action)
@@ -174,6 +188,7 @@ impl Failure {
             cause: Cause::Runtime,
             next_action: NextAction::ConnectRuntime,
             next_action_label: label_of(NextAction::ConnectRuntime),
+            field: None,
         }
     }
 

@@ -12,9 +12,10 @@ use serde_json::{json, Value};
 use super::catalog::{CompiledCatalog, CompiledController, CompiledSymbol, CompiledTask};
 use super::loop_bindings::{
     binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
-    measurement_binding, real_type, state_type, stated_signal, with_revision, MeasuredSignal,
+    measured_signal, measurement_binding, real_type, state_type, stated_signal, with_revision,
+    FormSignal, MeasuredSignal,
 };
-use super::pid_bindings::{startup_reason, startup_state};
+use super::pid_bindings::{startup_flag_is_bool, startup_reason, startup_state};
 use super::pid_loop::{setpoint_signal, ModeChoice, SignalChoice};
 use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
@@ -73,9 +74,9 @@ pub struct OwnLawLoopDraft {
     /// The compiled program or function block instance that computes the law.
     pub instance: String,
     /// The measurement.
-    pub process_variable: MeasuredSignal,
+    pub process_variable: FormSignal,
     /// The controller output.
-    pub manipulated_variable: MeasuredSignal,
+    pub manipulated_variable: FormSignal,
     /// The setpoint.
     pub setpoint: SignalChoice,
     /// The Auto/Manual signal.
@@ -118,8 +119,16 @@ pub fn own_law_loop_definition(
     let (program, task) = own_law_program(catalog, draft)?;
     let parts = law_parts(draft)?;
     check_variables(draft, parts)?;
-    let process_variable = stated_signal(&draft.process_variable);
-    let manipulated_variable = stated_signal(&draft.manipulated_variable);
+    let process_variable = stated_signal(&measured_signal(
+        &draft.process_variable,
+        "measurement",
+        Some("own.processVariable"),
+    )?);
+    let manipulated_variable = stated_signal(&measured_signal(
+        &draft.manipulated_variable,
+        "output",
+        Some("own.manipulatedVariable"),
+    )?);
     let setpoint = setpoint_signal(&draft.setpoint, &process_variable);
     let manual = compiled(catalog, &draft.manual_output)?;
     let mut states = integral_state(
@@ -540,7 +549,7 @@ fn gain_parameter(
 }
 
 /// A law whose program writes a seeded value needs the startup-done flag (C1 Setup). The integral term and the previous value are the
-/// program's own running state, so their writes do not. A draft that names a flag passes.
+/// program's own running state, so their writes do not. A draft that names a flag must name a compiled `BOOL`.
 ///
 /// # Errors
 /// The program needs the flag, and the draft names none.
@@ -549,12 +558,12 @@ fn check_own_law_startup(
     draft: &OwnLawLoopDraft,
     parts: Parts<'_>,
 ) -> Result<(), Failure> {
-    if draft
+    if let Some(flag) = draft
         .startup_flag
         .as_deref()
-        .is_some_and(|flag| !flag.is_empty())
+        .filter(|flag| !flag.is_empty())
     {
-        return Ok(());
+        return startup_flag_is_bool(catalog, flag);
     }
     let seeded = seeded_symbols(draft, parts);
     let no_records: Vec<String> = Vec::new();
@@ -562,7 +571,8 @@ fn check_own_law_startup(
         Some(reason) => Err(refuse_settings_with(
             &texts::startup_flag_needed(&reason),
             NextAction::OpenLoopSetup,
-        )),
+        )
+        .with_field("startupFlag")),
         None => Ok(()),
     }
 }

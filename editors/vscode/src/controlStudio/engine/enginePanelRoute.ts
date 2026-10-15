@@ -1,9 +1,10 @@
 import type * as vscode from "vscode";
 import { createEngineClient, type EngineAnswer, type IdentifyAnswer } from "./engineClient";
 import { engineExecutable, startEngine, type EngineProcess } from "./engineProcess";
-import { engineIdentifyAction } from "./engineIdentify";
+import { engineIdentifyAction, MANUAL_IDENTIFY_COMMANDS } from "./engineIdentify";
 import type { Failure } from "../generated/Failure";
 import type { IdentifyRequest, RuntimeConnection } from "../generated/IdentifyRequest";
+import type { ManualIdentificationAnswer } from "../generated/ManualIdentificationAnswer";
 import type { OpenRequest } from "../generated/OpenRequest";
 import type { OpenResult } from "../generated/OpenResult";
 import type { OperationUpdate } from "../generated/OperationUpdate";
@@ -79,13 +80,14 @@ export interface EnginePanelRoute {
   /**
    * Routes the study reset and the engine's refit of a kept recording (`control-studio.recording.refit`) to the engine, and the
    * cancel of an identification the engine runs (B3, A8.4, B3.6). True when the engine serves the loop and takes the command;
-   * false when the TypeScript route keeps it, which the Recorded-data fit's own steps always are.
+   * false when the TypeScript route keeps it. The Recorded-data fit's steps (`control-studio.identify.edit`, `run`, `fit`,
+   * `choose-structure`, `accept`) are the engine's on a served loop (B3.3); a parked loop keeps them on the TypeScript route (V7.17).
    */
   identify(message: unknown, scope: LoopMessageScope): Promise<boolean>;
   /**
-   * Opens a recording file (`control-studio.recording.import`) or a supplied plant model (`control-studio.general-model.import`) on
-   * a served loop (B3.6, B3.7): the engine checks it and keeps it, and answers the page. True when the engine serves the loop and
-   * takes the file; false when the TypeScript route keeps it.
+   * Opens a recording file (`control-studio.recording.import`), a supplied plant model (`control-studio.general-model.import`) or the
+   * Recorded-data fit's file (`control-studio.identify.import`, B3.3) on a served loop (B3.6, B3.7): the engine checks it and keeps it,
+   * and answers the page. True when the engine serves the loop and takes the file; false when the TypeScript route keeps it.
    */
   importFile(message: unknown, scope: LoopMessageScope): Promise<boolean>;
   /**
@@ -123,6 +125,7 @@ const ENGINE_METHOD_OF_PAGE = new Map<string, TuneMethod | undefined>([
   ["AMIGO", "AMIGO"],
   ["relay", "relay"],
   ["manual", "manual"],
+  ["state-space", "state-space"],
 ]);
 
 /**
@@ -137,6 +140,19 @@ interface Subscription {
 
 /** An engine answer to a recording that is not a recording's check, so the page has nothing it can show. */
 const UNEXPECTED_RECORDING_ANSWER = "The engine answered the recording with a result the page does not show.";
+/** A check of the Recorded-data fit before the study keeps a recording to read (B3.6). */
+const NO_RECORDING_TO_CHECK = "Open a recording before checking it.";
+/** A command of the Recorded-data fit the page sent in a form the engine has no action for. */
+const UNSUPPORTED_COMMAND = "The engine does not take this command of the page.";
+
+/**
+ * A Recorded-data fit's answer (`ManualIdentificationAnswer`, B3.3): the primary action and its label the engine decided. The other
+ * identify answers carry neither.
+ */
+function isManualAnswer(value: unknown): value is ManualIdentificationAnswer {
+  const answer = record(value);
+  return typeof answer?.primaryAction === "string" && typeof answer.primaryActionLabel === "string";
+}
 
 export function createEnginePanelRoute(options: EnginePanelRouteOptions): EnginePanelRoute {
   const client = createEngineClient(options.engine);
@@ -150,6 +166,10 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
   let runningOperation: string | undefined;
   /** The recording of the study's last identification, which Fit refits (B3.6). */
   let recordingId: string | undefined;
+  /** The recording the engine named for the Recorded-data fit's next check (B3.3); the study's last recording otherwise. */
+  let manualRecordingId: string | undefined;
+  /** True once the open loop's Recorded-data fit has been restored, so that the page shows the study's state once (A8.6). */
+  let manualRestored = false;
   /** The Tune the engine runs for the page; Abort stops it. */
   let runningTune: string | undefined;
   /** The family of the candidate the engine last answered: the pins of a candidate the page keeps belong to that family (B4.2). */
@@ -210,6 +230,10 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       subscriptions.push(relay(answer.operationId, scope));
       return;
     }
+    if (isManualAnswer(answer)) {
+      await showManual(scope, answer);
+      return;
+    }
     const value = record(answer);
     if (value && (value.status === "checked" || value.status === "recording-needed")) {
       await showRecording(scope, messageId, value);
@@ -221,6 +245,48 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       return;
     }
     await postFailure(scope, "identify", unclassifiedFailure("The engine answered the identification with a result the page does not show."));
+  }
+
+  /**
+   * Shows the page the Recorded-data fit's answer (B3.3): its stage, status, primary action and label, its checks and model, as the engine
+   * answers them. The engine names the recording its next check reads, which the route keeps for that check (B3.6).
+   */
+  async function showManual(scope: LoopMessageScope, answer: ManualIdentificationAnswer): Promise<void> {
+    manualRecordingId = typeof answer.recordingId === "string" ? answer.recordingId : undefined;
+    await send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result: answer });
+  }
+
+  /**
+   * The Recorded-data fit's command of the page on a served loop (B3.3, B3.6): `identify.edit`, `run`, `fit`, `choose-structure`,
+   * `accept`, and the file the page opened (`identify.import`). A check reads the recording the engine named last, or the study's last
+   * recording. The route claims every such command of a served loop, so the TypeScript route never sees one.
+   */
+  async function manualIdentify(loop: EngineLoop, value: Record<string, unknown>, scope: LoopMessageScope): Promise<boolean> {
+    const target = manualRecordingId ?? recordingId;
+    if (value.kind === "control-studio.identify.run" && !target) {
+      await postFailure(scope, "identify", unclassifiedFailure(NO_RECORDING_TO_CHECK));
+      return true;
+    }
+    const action = engineIdentifyAction(String(value.kind), record(value.payload) ?? {}, target);
+    if (!action) {
+      await postFailure(scope, "identify", unclassifiedFailure(UNSUPPORTED_COMMAND));
+      return true;
+    }
+    const reply = await ask(scope, "identify", () => client.identify(identifyRequest(loop, action)));
+    // The engine serves the loop even when it cannot be reached: its start failure is shown, and the command is not repeated.
+    if (reply) await answerIdentify(scope, value.messageId, reply);
+    return true;
+  }
+
+  /**
+   * Restores the Recorded-data fit the study keeps (A8.6): the engine replays its kept fits, and the operation's final update is the
+   * page's answer. It runs once for an open loop, or again when `again` (after a reset of the study).
+   */
+  async function restoreManual(loop: EngineLoop, scope: LoopMessageScope, again = false): Promise<void> {
+    if (manualRestored && !again) return;
+    manualRestored = true;
+    const reply = await ask(scope, "identify", () => client.identify(identifyRequest(loop, { action: "manualRestore" })));
+    if (reply) await answerIdentify(scope, undefined, reply);
   }
 
   /**
@@ -325,8 +391,20 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       void send({ ...scopeFields(scope), kind: "control-studio.engine.update", operationId, update });
       const result = update.result;
       if (update.state === "finished" && update.command === "identify" && result) {
-        if (typeof result.recordingId === "string") recordingId = result.recordingId;
-        void send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result });
+        // The Recorded-data fit's final answer is the page's manual state (B3.3), where a fit's operation ends.
+        if (isManualAnswer(result)) {
+          void showManual(scope, result);
+        } else {
+          // A campaign keeps a recording of its own, which the next manual check reads when the engine names none (B3.6).
+          manualRecordingId = undefined;
+          if (typeof result.recordingId === "string") recordingId = result.recordingId;
+          void send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result });
+          // The kept recording's samples: the page draws the recorded signals it selects from them (`control-studio.recording.evidence`).
+          if (Array.isArray(result.recordedSamples)) {
+            void send({ ...scopeFields(scope), kind: "control-studio.recording.evidence", payload: { recording: {
+              rawSamples: result.recordedSamples, evidence: { recordingId: result.recordingId } } } });
+          }
+        }
       }
       if (update.state === "finished" && update.command === "tune" && result) {
         lastFamily = candidateFamilyOf(result);
@@ -383,7 +461,8 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
     if (!ENGINE_METHOD_OF_PAGE.has(page)) return { refusal: "The engine does not run the tuning method the page chose." };
     const method = ENGINE_METHOD_OF_PAGE.get(page);
     const structure = familyOf(payload.family);
-    const pinned = record(payload.pinnedValues);
+    // A state law's pins are its design's (C4): the study keeps them with its state design, so the request carries none.
+    const pinned = method === "state-space" ? undefined : record(payload.pinnedValues);
     let pins: ControllerSettingsPins | undefined;
     if (pinned && Object.keys(pinned).length > 0) {
       const family = structure ?? lastFamily ?? inputsRoute.recorded().pins?.family ?? familyOf(options.tuningInputs?.()?.settingsPins?.family);
@@ -489,6 +568,8 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       served = undefined;
       runningOperation = undefined;
       recordingId = undefined;
+      manualRecordingId = undefined;
+      manualRestored = false;
       runningTune = undefined;
       lastFamily = undefined;
       for (const stage of stages) stage.reset?.();
@@ -529,6 +610,8 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       await send({ ...scopeFields(scope), kind: "control-studio.engine.opened", result });
       await inputsRoute.opened(result.inputs, scope);
       await showRunning(result.running, scope, loop.experiment?.execution === "project-scripted");
+      // The Recorded-data fit the study keeps is restored when the page's method is Recorded-data fit, once no operation runs (A8.6).
+      if (storedMethod === "recorded-fit" && result.running.length === 0) await restoreManual(loop, scope);
       await analysis.opened(loop, scope, openedAnalysis(result));
       return true;
     },
@@ -560,6 +643,8 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
           await postFailure(scope, "page", reply.failure);
         }
       }
+      // The page's Recorded-data fit shows the study's kept fit, restored once for the open loop (A8.6).
+      if (method === "recorded-fit") await restoreManual(loop, scope);
       return true;
     },
 
@@ -569,6 +654,8 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       if (!loop || !value || typeof value.kind !== "string" || !sameScope(value, scope)) return false;
       if (value.kind === "control-studio.recording.import") return importRecording(loop, value, scope);
       if (value.kind === "control-studio.general-model.import") return importModel(loop, value, scope);
+      // The Recorded-data fit's file (B3.6) is checked and kept by the engine as the manual import; this runs before the TypeScript import.
+      if (value.kind === "control-studio.identify.import") return manualIdentify(loop, value, scope);
       return false;
     },
 
@@ -577,12 +664,15 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       const value = record(message);
       if (!loop || !value || typeof value.kind !== "string" || !sameScope(value, scope)) return false;
       if (value.kind === "control-studio.identify.cancel") return cancelIdentification(scope);
+      if (MANUAL_IDENTIFY_COMMANDS.has(value.kind)) return manualIdentify(loop, value, scope);
       // A refit names the recording the route holds, if any; the engine fits the study's last kept recording otherwise, or refuses (B3.6).
       const action = engineIdentifyAction(value.kind, record(value.payload) ?? {}, recordingId);
       if (!action) return false;
       const reply = await ask(scope, "identify", () => client.identify(identifyRequest(loop, action)));
       // The engine serves the loop even when it cannot be reached: its start failure is shown, and the command is not repeated.
       if (reply) await answerIdentify(scope, value.messageId, reply);
+      // A reset clears the Recorded-data fit the study kept, so the page shows the new study's fit (B3.3, A8.4).
+      if (action.action === "reset" && storedMethod === "recorded-fit") await restoreManual(loop, scope, true);
       return true;
     },
 

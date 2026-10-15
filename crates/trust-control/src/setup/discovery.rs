@@ -2,8 +2,8 @@
 //!
 //! The engine lists and reads the loop files and the compiled catalog, then calls [`discover_bindings`]. Every rule is decided
 //! here: the file bounds, why a file is refused, the duplicate ids, the join to the compiled program, the selectable channels and
-//! the selection itself. Nothing here writes a file. A loop that uses channels is refused by name, because the Rust engine does
-//! not run channels yet (stage V7).
+//! the selection itself. Nothing here writes a file. A loop whose channels the engine does not serve is refused by name; the
+//! structures that define channels (state feedback, a C12 loop, a feedforward, a cascade, ON/OFF and a PID group) are served.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::catalog::{CatalogAnswer, CompiledCatalog, CompiledController, CompiledTask};
+use super::lqg_loop::MAXIMUM_ESTIMATOR_STATES;
 use super::save::validation_reason_code;
 use super::texts::discovery as texts;
 use crate::commissioning::adapters::controller_adapter;
@@ -21,7 +22,9 @@ use crate::json::parse_text;
 use crate::loop_definition::{
     AuxiliaryRole, LoopDefinition, LoopScope, ManualOutputType, Range, RealType,
 };
+use crate::model::{decode_general_model, GeneralModel};
 use crate::tuning::settings_pins::family_setting_symbols;
+use crate::tuning::state_controller::sampling::state_channels;
 use crate::tuning::structure::Structure;
 
 /// The most loop files one discovery reads (B1.2; a product limit).
@@ -98,6 +101,17 @@ pub enum ControllerCompatibility {
         /// for these settings only, and Tune refuses any other.
         #[serde(rename = "familySettings")]
         family_settings: BTreeMap<String, Vec<String>>,
+        /// The family the page marks recommended (C4): the family a state law declares, when it offers it. Absent for a PID law.
+        #[serde(
+            default,
+            rename = "recommendedFamily",
+            skip_serializing_if = "Option::is_none"
+        )]
+        recommended_family: Option<String>,
+        /// The tuning methods that the controller takes (C4): a state law takes the state-space design alone. Absent for a PID law,
+        /// whose methods the page lists itself.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        methods: Option<Vec<crate::messages::TuneMethod>>,
     },
     /// No adapter realizes the loop, and this is why.
     Rejected {
@@ -375,7 +389,8 @@ fn target_for_loop(
     check_group_members(&loop_definition, &catalog.control)?;
     check_signals(&loop_definition, catalog)?;
     check_controller_symbols(&loop_definition, &catalog.control)?;
-    if loop_definition.channels.is_some() {
+    // Channels the engine serves (state feedback, C12 measured paths, feedforward, cascade, ON/OFF and PID groups) are the loop's own.
+    if loop_definition.channels.is_some() && !loop_definition.serves_channels() {
         return Err(texts::channels_not_supported().to_string());
     }
     let inputs = selectable_signals(&loop_definition, Side::Input);
@@ -398,7 +413,8 @@ fn target_for_loop(
     })
 }
 
-/// The loop's controller is in the compiled program with its type, and runs in the loop's task when it has tasks at all.
+/// The loop's controller is in the compiled program, with its type when the loop is PID-designed, and runs in the loop's task when
+/// it has tasks at all.
 fn check_controller<'a>(
     loop_definition: &LoopDefinition,
     compiled: &'a CompiledCatalog,
@@ -411,7 +427,10 @@ fn check_controller<'a>(
     else {
         return Err(texts::controller_unavailable(&controller.instance));
     };
-    if compiled_controller.type_name != controller.type_name {
+    // A PID-designed loop names the compiled block's type (`Control.PID`); a project-designed loop's type describes the controller its
+    // program owns (for example "LQR state feedback" on the program `Main`), so only its instance and task are checked (B1.2).
+    let project_designed = controller.design == Some(crate::loop_definition::Design::Project);
+    if !project_designed && compiled_controller.type_name != controller.type_name {
         return Err(texts::controller_type(
             &controller.instance,
             &compiled_controller.type_name,
@@ -438,20 +457,14 @@ fn check_group_members(
     let Some(group) = &loop_definition.controller.group else {
         return Ok(());
     };
-    let Some(members) = group.get("members").and_then(Value::as_array) else {
-        return Ok(());
-    };
     let period = loop_definition.controller.task_period_ms;
     let task_name = loop_definition
         .parameter_binding
         .as_ref()
         .map(|binding| binding.task_name.as_str());
-    for member in members {
-        let instance = member
-            .get("instance")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        let member_type = member.get("type").and_then(Value::as_str);
+    for member in &group.members {
+        let instance = member.instance.as_str();
+        let member_type = Some(member.type_name.as_str());
         let available = compiled
             .controllers
             .iter()
@@ -602,7 +615,7 @@ fn selectable_signals(loop_definition: &LoopDefinition, side: Side) -> Vec<Selec
 
 /// Whether the loop's adapter can realize it (C0, `adapterCompatibility`). A loop that declares nothing to adapt is unconfigured; an
 /// adapter's refusal is the loop's reason, kept whole.
-fn adapter_compatibility(loop_definition: &LoopDefinition) -> ControllerCompatibility {
+pub(crate) fn adapter_compatibility(loop_definition: &LoopDefinition) -> ControllerCompatibility {
     let controller = &loop_definition.controller;
     if loop_definition.parameter_binding.is_none()
         && controller.law.is_none()
@@ -618,6 +631,21 @@ fn adapter_compatibility(loop_definition: &LoopDefinition) -> ControllerCompatib
         .as_ref()
         .filter(|project| project.parked_feature().is_none())
     {
+        // A finite search (C5) is tuned by its search alone: its declared family, its coefficient variables, and Automatic as its
+        // one method (an empty list of named methods).
+        if project.is_search_law() {
+            let symbols = project
+                .axes
+                .iter()
+                .map(|axis| axis.symbol.clone())
+                .collect();
+            return ControllerCompatibility::Accepted {
+                families: vec![project.family.clone()],
+                family_settings: BTreeMap::from([(project.family.clone(), symbols)]),
+                recommended_family: Some(project.family.clone()),
+                methods: Some(Vec::new()),
+            };
+        }
         let families = project.offered_families();
         return ControllerCompatibility::Accepted {
             families: families
@@ -625,6 +653,25 @@ fn adapter_compatibility(loop_definition: &LoopDefinition) -> ControllerCompatib
                 .map(|structure| family_name(*structure).to_string())
                 .collect(),
             family_settings: family_settings_of(loop_definition, &families),
+            recommended_family: None,
+            methods: None,
+        };
+    }
+    // A state-feedback law is offered as the families its inputs and estimator take, with the family it declares recommended and
+    // the state-space design as its one method (C4).
+    if controller.state_feedback.is_some() {
+        return match crate::tuning::state_controller::offer::offer(loop_definition) {
+            Ok(offer) => ControllerCompatibility::Accepted {
+                families: offer.families,
+                family_settings: offer.family_settings,
+                recommended_family: Some(offer.recommended),
+                methods: Some(vec![crate::messages::TuneMethod::StateSpace]),
+            },
+            Err(Failure {
+                message, detail, ..
+            }) => ControllerCompatibility::Rejected {
+                reason: detail.unwrap_or(message),
+            },
         };
     }
     match controller_adapter(loop_definition) {
@@ -636,6 +683,8 @@ fn adapter_compatibility(loop_definition: &LoopDefinition) -> ControllerCompatib
                     .map(|structure| family_name(*structure).to_string())
                     .collect(),
                 family_settings: family_settings_of(loop_definition, &families),
+                recommended_family: None,
+                methods: None,
             }
         }
         Err(Failure {
@@ -731,7 +780,7 @@ fn declared_controller_symbol_types(loop_definition: &LoopDefinition) -> Vec<(St
         walk_types(state_feedback, &mut types);
     }
     if let Some(on_off) = &controller.on_off {
-        walk_types(on_off, &mut types);
+        walk_types(&on_off.to_value(), &mut types);
     }
     types
 }
@@ -846,6 +895,52 @@ fn family_name(structure: Structure) -> &'static str {
         Structure::PD => "PD",
         Structure::PID => "PID",
     }
+}
+
+/// A model file of the project as the engine read it: its project-relative name and what was read, under the bounds of a loop file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelFileText {
+    /// The file's path relative to the project, with forward slashes: `lqg-model.json`, or `models/tanks.json`.
+    pub file_name: String,
+    /// What was read.
+    pub read: LoopFileRead,
+}
+
+/// A model file an LQG estimator can implement, with its number of states (C4 Setup; the form's `estimatorModels`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EstimatorModelFile {
+    /// The file's path relative to the project, with forward slashes.
+    pub file: String,
+    /// The model's number of states: at most three.
+    pub states: usize,
+}
+
+/// The model files an LQG estimator can implement, in the order they are given (C4 Setup; `estimatorModelFiles.ts`): a state-space
+/// model with one input, one output and at most three states. A file that is not read, or is not such a model, is left out.
+#[must_use]
+pub fn estimator_model_files(files: &[ModelFileText]) -> Vec<EstimatorModelFile> {
+    files.iter().filter_map(estimator_model_file).collect()
+}
+
+/// The entry of one model file, or `None` when the file cannot be an estimator's model (`estimatorModelFiles.ts`).
+fn estimator_model_file(file: &ModelFileText) -> Option<EstimatorModelFile> {
+    let LoopFileRead::Text(text) = &file.read else {
+        return None;
+    };
+    let value = parse_text(text).ok()?;
+    let model = decode_general_model(&value)?;
+    let identity = model.identity();
+    let state_space = !matches!(model, GeneralModel::TransferFunction { .. });
+    let states = state_channels(&model).len();
+    let fits = state_space
+        && identity.inputs.len() == 1
+        && identity.outputs.len() == 1
+        && states <= MAXIMUM_ESTIMATOR_STATES;
+    fits.then(|| EstimatorModelFile {
+        file: file.file_name.clone(),
+        states,
+    })
 }
 
 /// The side of a loop a selector offers.

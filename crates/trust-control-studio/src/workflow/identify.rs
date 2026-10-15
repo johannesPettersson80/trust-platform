@@ -37,11 +37,13 @@ use trust_control::identification::policy::IdentificationMethod;
 use trust_control::identification::reconcile::StatusRead;
 use trust_control::identification::texts::MODE_TRANSFER_UNAVAILABLE;
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::messages::{CampaignRestoration, RecordedChartSample};
 use trust_control::recording::evidence::RecordingEvidence;
 use trust_control::recording::RecordedRun;
 use trust_control::runtime::RuntimeConnection;
 
 use super::identify_campaign::{ExperimentClient, RecordingFollower, SystemClock};
+use crate::identify_action::identify_manual::is_project_test;
 use crate::journal::Journal;
 use crate::operation::OperationContext;
 use crate::runtime_client::recording_coordinator::RecordingSession;
@@ -56,6 +58,8 @@ mod connected;
 mod final_wiring_tests;
 #[cfg(test)]
 mod long_campaign_tests;
+#[cfg(test)]
+mod project_test_tests;
 pub(crate) mod run;
 #[cfg(test)]
 mod run_tests;
@@ -173,13 +177,16 @@ pub struct IdentifyRequest<'a, E> {
     pub evaluate: RunEvaluator<'a, E>,
 }
 
-/// Whether a run identifies the plant or records the independent model check.
+/// Whether a run identifies the plant, records the independent model check, or runs a project test (C12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunPurpose {
     /// Records the plant and fits the recording (`run`).
     Identify,
     /// Records the opposite excitation for the independent model check and does not fit it (`recordValidation`, B5.2).
     RecordValidation,
+    /// Records the project's own scenario and fits it (C12). A fit that the recording cannot support does not fail the test: the run
+    /// completes with the fit's refusal as its note, and keeps no model.
+    ProjectTest,
 }
 
 /// The ports a run reads and writes beside the runtime: the live sample and the study.
@@ -201,7 +208,7 @@ pub enum IdentifyResult<E> {
         /// "Single experiment and provisional model"), so it can be tuned but cannot authorize Apply.
         provisional: bool,
     },
-    /// The recorded run of the independent model check, not fitted (`recordValidation`).
+    /// The recorded run that is not fitted: the independent model check (`recordValidation`), or a project test whose fit refused (C12).
     Recorded(Box<RuntimeVerificationResult<E>>),
 }
 
@@ -218,6 +225,13 @@ pub struct IdentifyOutcome<E> {
     pub plant_input: String,
     /// The measured output the run recorded, by symbol.
     pub measured_output: String,
+    /// The restoration the run's experiments confirmed (C12); none when the run completed no step.
+    pub restoration: Option<CampaignRestoration>,
+    /// The samples of the kept recording, which the answer hands the page to draw its recorded signals from.
+    pub recorded_samples: Vec<RecordedChartSample>,
+    /// The fit's refusal of a project test whose recording the fit cannot support, in full (C12): the test completed with its recording
+    /// and keeps no model. None for every other run.
+    pub fit_refusal: Option<String>,
 }
 
 /// Runs one connected identification (`run`) or records the independent model check (`recordValidation`) on the runtime of
@@ -289,6 +303,79 @@ where
     K: RecordingRetention,
     E: RunEvaluation + Clone,
 {
+    // A project test (C12) runs the project's scenario as a test: a refused fit is its note, not its failure.
+    let project_test =
+        settings.is_some_and(|settings| is_project_test(request.loop_definition, settings.method));
+    let purpose = if project_test {
+        RunPurpose::ProjectTest
+    } else {
+        RunPurpose::Identify
+    };
+    let outcome = run_for_purpose(
+        context,
+        connection,
+        pending,
+        storage_folder,
+        request,
+        settings,
+        ports,
+        purpose,
+    )?;
+    if let IdentifyResult::Identified { result, .. } = &outcome.result {
+        qualification(request.loop_definition, result)?;
+    }
+    Ok(outcome)
+}
+
+/// The record of a project test that the manual identification awaits as its independent recording (B3.3, C12, B5.2): the run takes
+/// the campaign that `identify_plant` runs and keeps its recording, but it fits nothing (`RunPurpose::RecordValidation`), so the test's
+/// own model is not kept and a refusal of a fit cannot end the record.
+///
+/// # Errors
+/// As [`identify_plant`], without the qualification of a fitted model.
+pub fn record_for_manual_check<S, K, E>(
+    context: &OperationContext,
+    connection: &RuntimeConnection,
+    pending: &Arc<PendingReleases>,
+    storage_folder: &Path,
+    request: &IdentifyRequest<'_, E>,
+    settings: Option<&AcquisitionSettings>,
+    ports: IdentifyPorts<'_, S, K>,
+) -> Result<IdentifyOutcome<E>, Failure>
+where
+    S: LoopSampler,
+    K: RecordingRetention,
+    E: RunEvaluation + Clone,
+{
+    run_for_purpose(
+        context,
+        connection,
+        pending,
+        storage_folder,
+        request,
+        settings,
+        ports,
+        RunPurpose::RecordValidation,
+    )
+}
+
+/// The run of `purpose` on the acquisition that `settings` configure: the checks that come before any run, then the run itself.
+#[allow(clippy::too_many_arguments)] // The run's inputs, as `identify_plant` takes them, and the purpose.
+fn run_for_purpose<S, K, E>(
+    context: &OperationContext,
+    connection: &RuntimeConnection,
+    pending: &Arc<PendingReleases>,
+    storage_folder: &Path,
+    request: &IdentifyRequest<'_, E>,
+    settings: Option<&AcquisitionSettings>,
+    ports: IdentifyPorts<'_, S, K>,
+    purpose: RunPurpose,
+) -> Result<IdentifyOutcome<E>, Failure>
+where
+    S: LoopSampler,
+    K: RecordingRetention,
+    E: RunEvaluation + Clone,
+{
     let acquisition = configured_acquisition(request.loop_definition, settings)
         .map_err(|error| error.failure())?;
     let source = RuntimeClient::connect(connection)?.status()?.source();
@@ -299,19 +386,15 @@ where
         loop_definition: &acquisition,
         ..*request
     };
-    let outcome = run_identification(
+    run_identification(
         context,
         connection,
         pending,
         storage_folder,
         &configured,
-        RunPurpose::Identify,
+        purpose,
         ports,
-    )?;
-    if let IdentifyResult::Identified { result, .. } = &outcome.result {
-        qualification(request.loop_definition, result)?;
-    }
-    Ok(outcome)
+    )
 }
 
 /// The engineer's Cancel of an identification whose run has ended but left work owned (`cancel` of `ConnectedIdentification`):

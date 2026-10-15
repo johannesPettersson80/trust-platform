@@ -9,13 +9,18 @@ use std::collections::BTreeMap;
 use super::adapters::ControllerGains;
 use super::initial_state::transfer_member;
 use super::texts;
-use super::transfer::{rounded_transfer_value, TransferBinding, TransferMember, TransferValue};
+use super::transfer::{
+    rounded_transfer_value, TransferBinding, TransferMember, TransferModeBinding, TransferValue,
+};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     ControllerLaw, ControllerProject, InitialValue, InitializedState, LoopDefinition,
 };
-use crate::tuning::project_candidate::{served_feedforward, served_trajectory, ProjectCandidate};
-use crate::tuning::project_seed::ParallelPidSeed;
+use crate::tuning::cascade_candidate::{cascade_outer_gains, served_cascade};
+use crate::tuning::project_candidate::{
+    served_feedforward, served_smith, served_trajectory, ProjectCandidate,
+};
+use crate::tuning::project_seed::{ParallelPidSeed, SmithTerms};
 
 /// A program's own law that this engine serves (C2): its controller block and the seed that names its gain variables.
 #[derive(Debug, Clone, Copy)]
@@ -61,8 +66,65 @@ pub fn project_gains(
             .and_then(|seed| candidate.values.get(&seed.gain_symbol).copied()),
         lead_seconds: lead_lag.and_then(|names| candidate.values.get(&names.lead_symbol).copied()),
         lag_seconds: lead_lag.and_then(|names| candidate.values.get(&names.lag_symbol).copied()),
+        smith: smith_values(loop_definition, candidate),
+        outer_pid: served_cascade(loop_definition)
+            .and_then(|seed| cascade_outer_gains(seed, candidate)),
         ..ControllerGains::default()
     }
+}
+
+/// The further controllers' modes of a program's law as transfer members, in the order the block declares them (C0, C6): a cascade's
+/// outer controller's mode is one of them. A law without additional modes has none.
+#[must_use]
+pub fn additional_mode_members(loop_definition: &LoopDefinition) -> Vec<TransferModeBinding> {
+    loop_definition
+        .controller
+        .project
+        .as_ref()
+        .map_or_else(Vec::new, |project| {
+            project
+                .additional_modes
+                .iter()
+                .map(|mode| TransferModeBinding {
+                    symbol: mode.symbol.clone(),
+                    manual_value: mode.manual_value,
+                })
+                .collect()
+        })
+}
+
+/// The values that the further modes of a program's law start at in a run (C6, B5.3): Auto, the value that is not each mode's Manual
+/// value, as the loop's own mode starts.
+#[must_use]
+pub fn additional_mode_values(loop_definition: &LoopDefinition) -> Vec<(String, f64)> {
+    additional_mode_members(loop_definition)
+        .into_iter()
+        .map(|mode| (mode.symbol, f64::from(u8::from(!mode.manual_value))))
+        .collect()
+}
+
+/// The Smith predictor's model values of a candidate, read by the variables its seed names (C9): the model's gain, time constant and
+/// delay, and the operating point when the seed names the library block. `None` when the law is not a Smith predictor, or the candidate
+/// lacks one of the values.
+fn smith_values(
+    loop_definition: &LoopDefinition,
+    candidate: &ProjectCandidate,
+) -> Option<SmithTerms> {
+    let seed = served_smith(loop_definition)?;
+    let value = |symbol: &str| candidate.values.get(symbol).copied();
+    let operating = match &seed.library_block {
+        Some(block) => (
+            value(&block.operating_input_symbol)?,
+            value(&block.operating_output_symbol)?,
+        ),
+        None => (0.0, 0.0),
+    };
+    Some(SmithTerms {
+        gain: value(&seed.gain_symbol)?,
+        time_constant_seconds: value(&seed.time_constant_symbol)?,
+        delay_seconds: value(&seed.delay_symbol)?,
+        operating,
+    })
 }
 
 /// Whether a seed names an integral or a derivative variable. Such a law starts declared states (C2); one with neither does not.

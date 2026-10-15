@@ -58,6 +58,9 @@ export type AnalysisResult =
       measuredFrequency: MeasuredFrequencyResult;
     }
   | {
+      measuredPaths: MeasuredPathsResult;
+    }
+  | {
       feedback: FeedbackResult;
     }
   | {
@@ -120,6 +123,7 @@ export interface ToolOffer {
     | "poleZero"
     | "frequency"
     | "measuredFrequency"
+    | "measuredPaths"
     | "feedback"
     | "leadLag"
     | "initialState"
@@ -164,6 +168,11 @@ export interface AnalysisInputs {
    */
   input?: number[] | null;
   /**
+   * `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
+   * nonnegative. Absent, the check is not made.
+   */
+  maximumUnexcitedInputDrift?: number | null;
+  /**
    * `measuredFrequency`: the minimum coherence, 0 to 1.
    */
   minimumCoherence?: number | null;
@@ -176,11 +185,11 @@ export interface AnalysisInputs {
    */
   plantChannel?: ChannelPair | null;
   /**
-   * `measuredFrequency`: the recording, by its identifier.
+   * `measuredFrequency` and `measuredPaths`: the recording, by its identifier.
    */
   recordingId?: string | null;
   /**
-   * `measuredFrequency`: the revision of the recording the request was made for.
+   * `measuredFrequency` and `measuredPaths`: the revision of the recording the request was made for.
    */
   recordingRevision?: string | null;
   /**
@@ -191,6 +200,10 @@ export interface AnalysisInputs {
    * `rootLocus` and `routh`: the selected value of the declared parameter.
    */
   selectedValue?: number | null;
+  /**
+   * `measuredPaths`: one settled trial for each input of the loop, in any order (C7).
+   */
+  settledTrials?: SettledTrial[] | null;
   /**
    * `measuredFrequency`: the startup samples left out of the estimate, at least 1.
    */
@@ -239,6 +252,44 @@ export interface FrequencyGrid {
   points: number;
 }
 /**
+ * One settled trial (C7): the input stepped, its baseline window (before the step) and its settled window (after the output has
+ * settled).
+ */
+export interface SettledTrial {
+  baseline: TimeWindow;
+  /**
+   * The identifier of the stepped input in the model.
+   */
+  inputId: string;
+  settled: TimeWindow1;
+}
+/**
+ * The window before the step.
+ */
+export interface TimeWindow {
+  /**
+   * The end of the window, in seconds.
+   */
+  endSeconds: number;
+  /**
+   * The start of the window, in seconds.
+   */
+  startSeconds: number;
+}
+/**
+ * The window after the step.
+ */
+export interface TimeWindow1 {
+  /**
+   * The end of the window, in seconds.
+   */
+  endSeconds: number;
+  /**
+   * The start of the window, in seconds.
+   */
+  startSeconds: number;
+}
+/**
  * A calculation that was answered at once, qualified or refused.
  */
 export interface AnalysisEnvelope {
@@ -269,6 +320,7 @@ export interface AnalysisEnvelope {
     | "poleZero"
     | "frequency"
     | "measuredFrequency"
+    | "measuredPaths"
     | "feedback"
     | "leadLag"
     | "initialState"
@@ -323,6 +375,11 @@ export interface AnalysisInputs1 {
    */
   input?: number[] | null;
   /**
+   * `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
+   * nonnegative. Absent, the check is not made.
+   */
+  maximumUnexcitedInputDrift?: number | null;
+  /**
    * `measuredFrequency`: the minimum coherence, 0 to 1.
    */
   minimumCoherence?: number | null;
@@ -335,11 +392,11 @@ export interface AnalysisInputs1 {
    */
   plantChannel?: ChannelPair | null;
   /**
-   * `measuredFrequency`: the recording, by its identifier.
+   * `measuredFrequency` and `measuredPaths`: the recording, by its identifier.
    */
   recordingId?: string | null;
   /**
-   * `measuredFrequency`: the revision of the recording the request was made for.
+   * `measuredFrequency` and `measuredPaths`: the revision of the recording the request was made for.
    */
   recordingRevision?: string | null;
   /**
@@ -350,6 +407,10 @@ export interface AnalysisInputs1 {
    * `rootLocus` and `routh`: the selected value of the declared parameter.
    */
   selectedValue?: number | null;
+  /**
+   * `measuredPaths`: one settled trial for each input of the loop, in any order (C7).
+   */
+  settledTrials?: SettledTrial[] | null;
   /**
    * `measuredFrequency`: the startup samples left out of the estimate, at least 1.
    */
@@ -388,6 +449,11 @@ export interface Failure {
    * The whole text, when it says more than the message.
    */
   detail?: string | null;
+  /**
+   * The key of the form field that the failure refuses, such as `desiredPoles` or `stateWeights` (D-B12), when the refusal
+   * concerns one field of a form; absent otherwise. The page shows the sentence under that field.
+   */
+  field?: string | null;
   /**
    * The first sentence: what went wrong.
    */
@@ -453,6 +519,11 @@ export interface AnalysisInputs2 {
    */
   input?: number[] | null;
   /**
+   * `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
+   * nonnegative. Absent, the check is not made.
+   */
+  maximumUnexcitedInputDrift?: number | null;
+  /**
    * `measuredFrequency`: the minimum coherence, 0 to 1.
    */
   minimumCoherence?: number | null;
@@ -465,11 +536,11 @@ export interface AnalysisInputs2 {
    */
   plantChannel?: ChannelPair | null;
   /**
-   * `measuredFrequency`: the recording, by its identifier.
+   * `measuredFrequency` and `measuredPaths`: the recording, by its identifier.
    */
   recordingId?: string | null;
   /**
-   * `measuredFrequency`: the revision of the recording the request was made for.
+   * `measuredFrequency` and `measuredPaths`: the revision of the recording the request was made for.
    */
   recordingRevision?: string | null;
   /**
@@ -480,6 +551,10 @@ export interface AnalysisInputs2 {
    * `rootLocus` and `routh`: the selected value of the declared parameter.
    */
   selectedValue?: number | null;
+  /**
+   * `measuredPaths`: one settled trial for each input of the loop, in any order (C7).
+   */
+  settledTrials?: SettledTrial[] | null;
   /**
    * `measuredFrequency`: the startup samples left out of the estimate, at least 1.
    */
@@ -1131,6 +1206,125 @@ export interface MeasuredPoint {
    * The unwrapped phase in degrees.
    */
   phaseDegrees: number;
+}
+/**
+ * The answer of `measuredPaths` (C7). `gainMatrix` and `relativeGainArray` have one row per output and one column per input.
+ * `decoupler` (`D = K⁻¹·diag(K)`) has one row per input and one column per output. The trials are in input order.
+ */
+export interface MeasuredPathsResult {
+  /**
+   * The static decoupler `D = K⁻¹·diag(K)`: one row per input, one column per output.
+   */
+  decoupler: number[][];
+  /**
+   * The sentences of the details disclosure.
+   */
+  details: string[];
+  /**
+   * The condition number `σ_max / σ_min` of `K`.
+   */
+  gainConditionNumber: number;
+  /**
+   * The steady-state gain `K`: one row per output, one column per input.
+   */
+  gainMatrix: number[][];
+  /**
+   * The condition number of the input steps.
+   */
+  inputConditionNumber: number;
+  /**
+   * The numerical rank of the input steps.
+   */
+  inputRank: number;
+  /**
+   * The inputs, in the model's order.
+   */
+  inputs: PathChannel[];
+  /**
+   * The outputs, in the model's order.
+   */
+  outputs: PathChannel[];
+  pairing: PathPairing;
+  /**
+   * The recording's identifier in the study.
+   */
+  recordingId: string;
+  /**
+   * The revision of the recording.
+   */
+  recordingRevision: string;
+  /**
+   * The relative gain array `Λ = K ∘ (K⁻¹)ᵀ`.
+   */
+  relativeGainArray: number[][];
+  /**
+   * The norm of the fit's residuals over every output.
+   */
+  residualNorm: number;
+  /**
+   * The samples between each trial's baseline start and its settled end, each counted once.
+   */
+  sampleCount: number;
+  /**
+   * The sentences of the result area.
+   */
+  summary: string[];
+  /**
+   * The trials that the fit used, one for each input.
+   */
+  trials: SettledTrial[];
+}
+/**
+ * One channel of the analysis: its identifier in the model, and the symbol and unit of the loop signal it reads. Every matrix keeps
+ * the names and the units of its channels (N4.5).
+ */
+export interface PathChannel {
+  /**
+   * The channel's identifier in the model.
+   */
+  id: string;
+  /**
+   * The symbol of the loop signal the channel reads.
+   */
+  symbol: string;
+  /**
+   * The unit of that signal.
+   */
+  unit: string;
+}
+/**
+ * The pairing of the relative gain array.
+ */
+export interface PathPairing {
+  /**
+   * The named pairs, one for each output; empty when the pairing is refused.
+   */
+  pairs: PathPair[];
+  /**
+   * The sentence of a refused pairing.
+   */
+  reason?: string | null;
+  /**
+   * Whether the pairing is named.
+   */
+  status: "named" | "refused";
+}
+/**
+ * One pair of a pairing: an output, the input it is paired with, and the relative gain of the pair.
+ */
+export interface PathPair {
+  /**
+   * The input of the pair.
+   */
+  inputId: string;
+  /**
+   * The output of the pair.
+   */
+  outputId: string;
+  /**
+   * The pair's diagonal element of the relative gain array.
+   */
+  relativeGain: number;
 }
 /**
  * The result of a general feedback analysis (N4.4, N7.7 to N7.11).

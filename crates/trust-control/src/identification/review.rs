@@ -21,13 +21,11 @@ use crate::identification::plant::{
     ResultSource, DEFAULT_MAXIMUM_NORMALIZED_ERROR,
 };
 use crate::identification::refusal::Refusal;
+use crate::identification::sensor_lag_comparison::StructureChoice;
+use crate::identification::sensor_lag_review::prepare_sensor_lag_comparison;
+use crate::identification::sensor_lag_texts::CALCULATE_FIRST;
 use crate::identification::state::IdentificationRecording;
 use crate::identification::step_response::{StepResponseAnalysis, StepResponseSettings};
-
-/// The refusal of a second-order-with-delay request with step-response settings: the sensor-lag comparison it asks
-/// for is parked with stage V7.
-const SENSOR_LAG_REFUSAL: &str =
-    "The sensor-lag comparison (second-order with dead time and a sensor lag) is not available yet.";
 
 /// The refusal of a validation recording that holds the estimation samples under no distinct recording identity.
 const SAME_RECORDING_REFUSAL: &str =
@@ -178,27 +176,43 @@ pub struct AcceptedIdentificationModel {
 
 /// Prepares the review of an identification (B3.5, N3.4; `prepareIdentificationReview`).
 ///
-/// With step-response settings, the review is a bounded step review; a second-order-with-delay request is then
-/// refused, because the sensor-lag comparison it asks for is not available. Otherwise the estimation recording must
-/// qualify (N1.1). Without validation samples, the single-run preview is identified, the requested model is selected
+/// With step-response settings, the review is a bounded step review, or for a second-order-with-delay request a sensor-lag
+/// comparison (`prepare_sensor_lag_comparison`, N2.10). Otherwise the estimation recording must qualify (N1.1). Without
+/// validation samples, the single-run preview is identified, the requested model is selected
 /// and refused when a physical rule refuses the preview, and its fit evidence is taken on the estimation record
 /// (`validation_required`). With validation samples, the validation recording must be distinct, with different
 /// samples or distinct immutable recording identities (N3.4), and qualify on its own; the validated fit is identified,
 /// the requested model is selected, and its fit evidence is taken on the validation record (`acceptance_required`).
 ///
 /// # Errors
-/// Returns the [`Refusal`] of the sensor-lag request, of the bounded step review, of an estimation or validation
+/// Returns the [`Refusal`] of the sensor-lag comparison, of the bounded step review, of an estimation or validation
 /// recording that does not qualify, of a validation recording that is not distinct, of the identification, of a
 /// requested model that is missing or failed independent validation, of a refused preview, and of the fit evidence.
 pub fn prepare_identification_review(
     input: &IdentificationReviewInput,
 ) -> Result<IdentificationReview, Refusal> {
+    prepare_identification_review_with_structure(input, None)
+}
+
+/// Prepares the review of an identification with the structure the engineer chose at a sensor-lag comparison (N2.10).
+///
+/// The choice is applied to the comparison's preview, or checked by the independent check of the chosen structure. It is
+/// refused when no comparison exists, and when it is not the recommended structure.
+///
+/// # Errors
+/// As [`prepare_identification_review`], and the refusals of the choice (`choose_structure`).
+pub fn prepare_identification_review_with_structure(
+    input: &IdentificationReviewInput,
+    structure: Option<StructureChoice>,
+) -> Result<IdentificationReview, Refusal> {
     if input.step_response_settings.is_some() {
         if input.requested_kind == IdentificationModelSelection::Sopdt {
-            return Err(Refusal::new(SENSOR_LAG_REFUSAL));
+            return prepare_sensor_lag_comparison(input, structure);
         }
+        refuse_structure_without_comparison(structure)?;
         return prepare_bounded_step_review(input);
     }
+    refuse_structure_without_comparison(structure)?;
     let estimation = input.estimation.clone();
     let estimation_qualification = qualify_identification_data(&estimation, &input.excluded, false);
     if !estimation_qualification.suitable {
@@ -214,6 +228,14 @@ pub fn prepare_identification_review(
             estimation_qualification,
             validation.clone(),
         ),
+    }
+}
+
+/// A structure can be chosen only from a sensor-lag comparison (`chooseSensorLagModel`): without one, the choice is refused.
+fn refuse_structure_without_comparison(structure: Option<StructureChoice>) -> Result<(), Refusal> {
+    match structure {
+        Some(_) => Err(Refusal::new(CALCULATE_FIRST)),
+        None => Ok(()),
     }
 }
 

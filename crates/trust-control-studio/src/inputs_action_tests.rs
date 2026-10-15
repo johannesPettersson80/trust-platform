@@ -10,8 +10,10 @@ use trust_control::failure::NextAction;
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::messages::{InputsRequest, OperationUpdate, TuneMethod};
 use trust_control::study::inputs::InputsSection;
+use trust_control::study::tune::state::StateDesignInput;
 use trust_control::tuning::objective::TuningMethod;
 use trust_control::tuning::requirements::TuningRequirements;
+use trust_control::tuning::state_controller::preferences::StateDesignDraft;
 use trust_control::validation::scenario_contract::EngineerScenario;
 
 use super::answer;
@@ -21,6 +23,10 @@ use crate::operation::UpdateSink;
 use crate::storage;
 
 const EXAMPLE: &str = include_str!("../../../examples/control-pid-commissioning/control-loop.json");
+/// Lesson 69's state-feedback loop, the LQR law of the course.
+const LESSON_69_LOOP: &str = include_str!(
+    "../../../editors/vscode/media/examples/control/11-state-space-estimation-and-predictive-control/69-lqr/control-loop.json"
+);
 
 struct Ignore;
 
@@ -36,14 +42,19 @@ struct Project {
 
 impl Project {
     fn new(name: &str) -> Self {
+        Self::with_loop(name, EXAMPLE)
+    }
+
+    /// A project folder holding the loop file `text`.
+    fn with_loop(name: &str, text: &str) -> Self {
         let root = std::env::temp_dir().join(format!(
             "trust-control-studio-{name}-{}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("project");
-        fs::write(root.join("control-loop.json"), EXAMPLE).expect("loop");
-        let loop_definition = LoopDefinition::decode(EXAMPLE).expect("example");
+        fs::write(root.join("control-loop.json"), text).expect("loop");
+        let loop_definition = LoopDefinition::decode(text).expect("loop");
         Self {
             root,
             loop_definition,
@@ -99,6 +110,54 @@ fn with_requirements(change: f64) -> InputsSection {
         requirements: Some(requirements(change)),
         ..InputsSection::default()
     }
+}
+
+#[test]
+fn a_state_law_answers_its_form_fields_before_its_first_tune_on_inputs_and_open() {
+    let project = Project::with_loop("state-fields", LESSON_69_LOOP);
+    // The finite horizon is the stored solver policy: the horizon steps and the terminal weights join the fields.
+    let inputs = InputsSection {
+        state_design: Some(StateDesignInput {
+            draft: Some(StateDesignDraft {
+                solver_mode: Some("finite".to_owned()),
+                ..StateDesignDraft::default()
+            }),
+            ..StateDesignInput::default()
+        }),
+        ..InputsSection::default()
+    };
+    let answered =
+        answer(&LoopClaims::default(), project.inputs_request(inputs)).expect("recorded");
+    let expected = json!([
+        {"field": "solverMode", "label": "Solver policy"},
+        {"field": "stateWeights", "label": "State weights (Q)"},
+        {"field": "inputWeights", "label": "Input weights (R)"},
+        {"field": "horizonSteps", "label": "Finite horizon steps"},
+        {"field": "terminalWeights", "label": "Terminal weights"}
+    ]);
+    assert_eq!(answered["stateFields"], expected, "{answered}");
+    // Open answers the same fields for the inputs the study holds.
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let opened = studio
+        .execute(OPEN, &[project.open_request()])
+        .expect("answered");
+    assert_eq!(opened["result"]["stateFields"], expected, "{opened}");
+}
+
+#[test]
+fn a_loop_without_a_state_law_answers_no_form_fields() {
+    let project = Project::new("no-state-fields");
+    let answered = answer(
+        &LoopClaims::default(),
+        project.inputs_request(InputsSection::default()),
+    )
+    .expect("recorded");
+    assert!(answered.get("stateFields").is_none(), "{answered}");
+    let studio = ControlStudio::new(Arc::new(Ignore));
+    let opened = studio
+        .execute(OPEN, &[project.open_request()])
+        .expect("answered");
+    assert!(opened["result"].get("stateFields").is_none(), "{opened}");
 }
 
 #[test]

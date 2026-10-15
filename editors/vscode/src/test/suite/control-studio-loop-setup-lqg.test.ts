@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import { validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
+import { formModelOf } from "../../controlStudio/loopSetup/loopSetupPanel";
 import { open } from "./control-studio-loop-setup-form-harness";
 
 /** Loaded dynamically so that a missing owner fails at the behaviour assertion. */
@@ -68,8 +69,8 @@ suite("Control Studio LQG setup", () => {
         ["feedback.processVariable", "P1.Tank2M"], ["feedback.processVariable.unit", "m"], ["feedback.processVariable.minimum", "0"],
         ["feedback.processVariable.maximum", "0.5"], ["feedback.setpoint", "P1.Tank2SetpointM"], ["feedback.referenceGain", "P1.N"],
         ["feedback.mode", "P1.Enabled"], ["feedback.manualOutput", "P1.ManualM3PerS"]]) view.set(field, value);
-      const next = view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "";
-      assert.match(next, /estimator.*model|model.*estimator/i, `the estimator's model file is next: ${next}`);
+      assert.deepStrictEqual(Array.from(view.root.querySelectorAll<HTMLOptionElement>('[data-setup-field="feedback.estimatorModel"] option')).map(option => option.value),
+        ["", "lqg-model.json"], "the form offers the model files the engine answers");
       view.set("feedback.estimatorModel", "lqg-model.json");
       assert.deepStrictEqual(Array.from(view.root.querySelectorAll<HTMLElement>("[data-estimate-state]")).map(row => row.hidden), [false, false, true],
         "one row per state of the chosen model");
@@ -79,8 +80,9 @@ suite("Control Studio LQG setup", () => {
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.strictEqual(save.disabled, false, view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "");
       save.click();
-      assert.deepStrictEqual(view.posts[0]?.draft?.estimator, estimator);
-      assert.strictEqual(view.posts[0]?.draft?.family, "LQG");
+      // The whole draft as the engine reads it: the fixture's fields, unscoped, under the state-feedback structure (C4).
+      const { projectId: _project, runtimeId: _runtime, ...unscoped } = draft;
+      assert.deepStrictEqual(view.posts[0]?.draft, { structure: "state-feedback", ...unscoped });
     } finally { view.close(); }
   });
 
@@ -101,15 +103,8 @@ suite("Control Studio LQG setup", () => {
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 
-  test("saves the LQG loop with the model file's estimator model", async () => {
-    const fs = require("fs"), os = require("os"), path = require("path");
-    const { saveLoopSetup } = require("../../controlStudio/loopSetup/loopSetupSave");
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-lqg-setup-"));
-    try {
-      fs.writeFileSync(path.join(root, "lqg-model.json"), JSON.stringify(estimatorModel));
-      const { projectId: _project, runtimeId: _runtime, ...unscoped } = draft;
-      const requests = await saveLoopSetup(root, scope, tanks, { structure: "state-feedback", ...unscoped });
-      assert.deepStrictEqual(requests[0].loopDefinition.controller.stateFeedback.estimatorModel?.a, estimatorModel.a);
-    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  test("offers the model files the engine answers, beside the form's model", () => {
+    const model = formModelOf({ formModel: { structure: "identify" }, loops: [], rejected: [], estimatorModels: [{ file: "lqg-model.json", states: 2 }] } as any);
+    assert.deepStrictEqual(model.estimatorModels, [{ file: "lqg-model.json", states: 2 }]);
   });
 });

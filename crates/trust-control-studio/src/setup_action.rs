@@ -16,10 +16,12 @@ use sha2::{Digest, Sha256};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::json::parse_text;
 use trust_control::loop_definition::LoopScope;
+use trust_control::model::GeneralModel;
 use trust_control::setup::binding_route::answer_selection;
 use trust_control::setup::catalog::{decode_catalog_answer, CatalogAnswer};
 use trust_control::setup::discovery::{
-    discover_bindings, refused, BindingTarget, LoopFileRead, LoopFileText, MAXIMUM_LOOP_BYTES,
+    discover_bindings, estimator_model_files, refused, BindingTarget, LoopFileRead, LoopFileText,
+    ModelFileText, MAXIMUM_LOOP_BYTES,
 };
 use trust_control::setup::form::setup_form_model;
 use trust_control::setup::messages::{
@@ -27,9 +29,10 @@ use trust_control::setup::messages::{
     SetupSaveResult,
 };
 use trust_control::setup::save::{
-    check_setup_targets, parse_setup_draft, plan_setup_save, ExistingLoopFile, LoopFileId,
-    PlannedLoop,
+    check_setup_targets, decode_estimator_model, estimator_model_path, parse_setup_draft,
+    plan_setup_save_with_estimator, ExistingLoopFile, LoopFileId, PlannedLoop, SetupDraft,
 };
+use trust_control::setup::texts::save as texts;
 
 use crate::commands::to_value;
 use crate::language_tool::{LanguageTool, ProjectTool};
@@ -66,11 +69,14 @@ pub fn answer_discover(request: &SetupDiscoverRequest) -> Result<Value, Failure>
                 .map(|target| target.configuration_path.clone())
         })
         .transpose()?;
+    // The model files an LQG estimator can implement (C4 Setup), listed by the rules of the discovery.
+    let estimator_models = estimator_model_files(&model_file_texts(project));
     to_value(&SetupDiscoverResult {
         form_model: setup_form_model(&catalog.control),
         loops: discovery.targets.iter().map(loop_summary).collect(),
         rejected: discovery.rejected,
         selected_file,
+        estimator_models,
     })
 }
 
@@ -89,7 +95,9 @@ pub fn answer_save(request: &SetupSaveRequest) -> Result<Value, Failure> {
         project_id: project_id(project),
         runtime_id: request.runtime_id.clone(),
     };
-    let planned = plan_setup_save(&catalog.control, &scope, &draft)?;
+    let estimator = estimator_model_for(project, &draft)?;
+    let planned =
+        plan_setup_save_with_estimator(&catalog.control, &scope, &draft, estimator.as_ref())?;
     check_setup_targets(&existing_loop_files(project)?, &planned)?;
     write_all_or_none(project, &planned)?;
     to_value(&SetupSaveResult {
@@ -144,6 +152,64 @@ fn read_loop_file(path: &Path) -> Option<LoopFileRead> {
         Err(error) if error.kind() == ErrorKind::NotFound => None,
         Err(_) => Some(LoopFileRead::Unreadable),
     }
+}
+
+/// The project's model files as the estimator list reads them (C4 Setup): the project folder, then `models/`, each with its `.json` files
+/// in name order. A missing folder or file is skipped; an over-large or unreadable file is passed on, and the discovery leaves it out.
+fn model_file_texts(project: &Path) -> Vec<ModelFileText> {
+    let mut files = Vec::new();
+    for folder in ["", "models"] {
+        let directory = if folder.is_empty() {
+            project.to_path_buf()
+        } else {
+            project.join(folder)
+        };
+        let Ok(entries) = fs::read_dir(&directory) else {
+            continue;
+        };
+        let mut names: Vec<String> = entries
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.to_lowercase().ends_with(".json"))
+            .collect();
+        names.sort();
+        for name in names {
+            let Some(read) = read_loop_file(&directory.join(&name)) else {
+                continue;
+            };
+            let file_name = if folder.is_empty() {
+                name
+            } else {
+                format!("{folder}/{name}")
+            };
+            files.push(ModelFileText { file_name, read });
+        }
+    }
+    files
+}
+
+/// The model an LQG estimator implements, read from the project and decoded (C4 Setup; `estimatorModel` of `loopSetupSave.ts`). `None`
+/// for a draft that names no model file: the generator refuses such a draft.
+///
+/// # Errors
+/// The file lies outside the project, cannot be read, or is not a model the project accepts.
+fn estimator_model_for(
+    project: &Path,
+    draft: &SetupDraft,
+) -> Result<Option<GeneralModel>, Failure> {
+    let Some(file) = draft.estimator_model_file() else {
+        return Ok(None);
+    };
+    let relative = estimator_model_path(file)?;
+    let text = fs::read_to_string(project.join(relative)).map_err(|_| {
+        Failure::new(
+            &texts::model_unreadable(file),
+            Cause::Settings,
+            NextAction::OpenLoopSetup,
+        )
+    })?;
+    decode_estimator_model(&text, file).map(Some)
 }
 
 /// The summary of one discovered loop, as the setup page lists it.

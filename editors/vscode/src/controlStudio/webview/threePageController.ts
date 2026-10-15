@@ -13,6 +13,8 @@ export class ThreePageController {
   private families: string[] = [];
   /** The manual-settings symbols the engine names per family (`familySettings`, C2); undefined for a loop that names none. */
   private familySettings: Record<string, readonly string[]> | undefined;
+  /** Receives the tuning methods the engine gives the loop (`setupDiscover`'s `methods`, C4), so that the Tune page offers exactly those. */
+  methodsChanged: ((methods: readonly string[]) => void) | undefined;
   private readonly select: HTMLSelectElement;
   get selectedFamily(): string { return this.explicit ? this.choice : this.candidate ?? this.recommended ?? "automatic"; }
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition, private readonly post: StudioPost) {
@@ -31,6 +33,7 @@ export class ThreePageController {
   receive(payload: Record<string, unknown>): void {
     if (Array.isArray(payload.availableFamilies)) this.families = payload.availableFamilies.filter((family): family is string => typeof family === "string");
     if ("familySettings" in payload) this.familySettings = payload.familySettings as Record<string, readonly string[]> | undefined;
+    if (Array.isArray(payload.methods)) this.methodsChanged?.(payload.methods.filter((method): method is string => typeof method === "string"));
     if (payload.status === "candidate" && typeof payload.family === "string") {
       if (!this.explicit) this.recommended = this.candidate = payload.family;
     } else if (typeof payload.controllerChoice === "string" && (payload.status === "restored" || !this.explicit || payload.controllerChoice === this.choice)) {

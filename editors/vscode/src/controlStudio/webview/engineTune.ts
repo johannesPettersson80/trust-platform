@@ -14,17 +14,22 @@ type Fields = Record<string, unknown>;
  * passes its own stage evidence, which the engine computed for it (B9.4); an opened candidate passes none, because the open answer's
  * evidence sets the gates before it (`engineStages.ts`). A program's own law answers with `projectCandidate` and no `candidate` (C2): its
  * structure is the family, and its values by variable are the values the page shows. A measured-disturbance feedforward's answer (C8) goes
- * under `design.feedforward`, the field the page's feedforward view reads, as the engine gives it.
+ * under `design.feedforward`, the field the page's feedforward view reads, as the engine gives it. A state law's answer (C4) goes under
+ * `state`, which a live Tune and a reopened study both carry, so both show it the same way. A PID group's answer (C7) goes under
+ * `design.group`, and a gain schedule's (C10) under `design.schedule`, which structureResults.ts reads as the engine gives them.
  */
 export function tuneCandidatePayload(result: Fields, stageEvidence?: Fields): Fields {
   const project = record(result.projectCandidate);
   const candidate = record(result.candidate) ?? project;
+  const state = record(result.state);
   const margins = record(result.margins);
   const marginsUnavailable = textOf(result.marginsUnavailable);
   const feedforward = record(result.feedforward);
+  const group = record(result.group);
+  const schedule = record(result.schedule);
   return {
     status: "candidate",
-    family: textOf(candidate?.structure),
+    family: textOf(candidate?.structure) || textOf(state?.family),
     // A Control.PID candidate's values are its settings; a program's law gives them by variable in `projectCandidate.values`.
     values: record(project?.values ?? result.settings) ?? {},
     ...(margins ? { robustness: robustnessOf(margins, result.delayMarginSeconds) } : {}),
@@ -33,7 +38,10 @@ export function tuneCandidatePayload(result: Fields, stageEvidence?: Fields): Fi
     comparison: arrayOf(result.comparison),
     unavailable: marginsUnavailable ? [marginsUnavailable] : [],
     task: record(result.requirements),
-    ...(feedforward ? { design: { feedforward } } : {}),
+    ...(feedforward || group || schedule ? { design: {
+      ...(feedforward ? { feedforward } : {}), ...(group ? { group } : {}), ...(schedule ? { schedule } : {}),
+    } } : {}),
+    ...(state ? { state } : {}),
     ...(stageEvidence ? { stageEvidence } : {}),
   };
 }
@@ -45,6 +53,12 @@ export function tuneCandidatePayload(result: Fields, stageEvidence?: Fields): Fi
  */
 export const tuneReceiver: EngineStageReceiver = {
   opened(_root, opened, ports) {
+    // A kept finite search reopens as its trials (C5, A8.6). Its open answer's candidate holds no law, so the trials are what the page shows.
+    const search = record(opened.searchCandidate);
+    if (search) {
+      ports.receive("engineer", searchPayload(search));
+      return;
+    }
     const tune = record(opened.tune);
     if (!tune) return;
     ports.receive("engineer", tuneCandidatePayload(tune));
@@ -52,6 +66,29 @@ export const tuneReceiver: EngineStageReceiver = {
     if (plots) showTunePlots(plots);
   },
 };
+
+/** Whether a Tune answer is a finite search's (C5): its answer holds its trials, where a candidate holds its settings. */
+export function isSearchAnswer(result: Fields): boolean {
+  return Array.isArray(result.trials);
+}
+
+/**
+ * A finite search's answer, or the kept candidate a reopened study holds (C5), as the Tune area reads it: its status and sentence when it
+ * did not complete (a kept candidate has neither), its selected trial, the unit of J and its trials in the engine's order. It computes none of them.
+ */
+export function searchPayload(result: Fields, stageEvidence?: Fields): Fields {
+  return {
+    status: "search",
+    search: {
+      ...(typeof result.status === "string" ? { status: result.status } : {}),
+      ...(typeof result.message === "string" ? { message: result.message } : {}),
+      ...(typeof result.selected === "number" ? { selected: result.selected } : {}),
+      scoreUnit: textOf(result.scoreUnit),
+      trials: arrayOf(result.trials),
+    },
+    ...(stageEvidence ? { stageEvidence } : {}),
+  };
+}
 
 /** The page's answer to a manual preview (B4.5): the engine's reason, or why it has no predicted response. */
 export function previewPayload(result: Fields, plots: Fields | undefined): Fields {

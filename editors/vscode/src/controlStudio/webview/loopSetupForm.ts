@@ -2,7 +2,7 @@ import { MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS } from "
 import { parseDurationSeconds } from "./durationField";
 
 /** The one-page loop setup form: shows the chosen structure's fields, names the first missing item and posts one draft. */
-export function initializeLoopSetupForm(root: HTMLElement, post: (message: unknown) => void): { showError(reason: string): void } {
+export function initializeLoopSetupForm(root: HTMLElement, post: (message: unknown) => void): { showError(reason: string, field?: string): void } {
   const form = root.querySelector<HTMLFormElement>("[data-loop-setup]");
   const save = root.querySelector<HTMLButtonElement>("[data-setup-save]");
   const message = root.querySelector<HTMLElement>("[data-setup-message]");
@@ -23,16 +23,16 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (Number(maximum) <= Number(minimum)) return { missing: `The ${label} maximum must be above its minimum.` };
     return { value: { symbol, unit, minimum: Number(minimum), maximum: Number(maximum) } };
   };
-  const controller = (prefix: string, label: string) => {
-    const entries = [["instance", `${label} controller`], ["parameterRecord", `${label} parameter record`], ["mode", `${label} Auto/Manual signal`], ["manualOutput", `${label} manual output`]];
-    const missing = entries.find(([field]) => !value(`${prefix}${field}`));
-    return missing ? { missing: `Choose the ${missing[1].trim()}.` } : { value: {
-      instance: value(`${prefix}instance`), parameterRecord: value(`${prefix}parameterRecord`),
-      mode: { symbol: value(`${prefix}mode`), whenTrue: value(`${prefix}modeWhenTrue`) || "Auto" }, manualOutput: value(`${prefix}manualOutput`) } };
-  };
-
   /** The draft for the chosen structure, or the first missing item in reading order. */
   const draft = (): { draft?: Record<string, unknown>; missing?: string } => {
+    // The engine checks these drafts (C3 to C7, C9, C10, C4, C5): the form posts them as typed, and the engine's refusal is shown.
+    if (structure() === "state-feedback") return { draft: stateFeedbackDraft() };
+    if (structure() === "search") return { draft: searchDraft() };
+    if (structure() === "cascade") return { draft: cascadeDraft() };
+    if (structure() === "smith") return { draft: smithDraft() };
+    if (structure() === "schedule") return { draft: scheduleDraft() };
+    if (structure() === "onoff") return { draft: onOffDraft() };
+    if (structure() === "group") return groupDraft();
     const name = value("name"), action = value("action") || "direct";
     if (!name) return { missing: "Enter a loop name." };
     if (structure() === "identify") {
@@ -44,30 +44,6 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
         return { missing: "Enter how long to record the project's experiment, from 1 s to 24 h (for example 15 min)." };
       }
       return { draft: { structure: "identify", name, manipulatedVariable: input.value, processVariable: output.value, experimentDurationSeconds: seconds } };
-    }
-    if (structure() === "state-feedback") {
-      if (!value("feedback.instance")) return { missing: "Choose the instance that runs the state-feedback law." };
-      const mv = signal("feedback.manipulatedVariable", "plant input"); if (mv.missing) return mv;
-      const pv = signal("feedback.processVariable", "controlled output"); if (pv.missing) return pv;
-      if (!value("feedback.setpoint")) return { missing: "Choose the setpoint." };
-      if (value("feedback.family") === "LQG") return lqgDraft(name, action, mv.value!, pv.value!);
-      if (!value("feedback.gain")) return { missing: `Choose the variable holding the gain on ${pv.value!.symbol}.` };
-      if (!value("feedback.referenceGain")) return { missing: "Choose the variable holding the reference gain." };
-      const states: Record<string, unknown>[] = [];
-      for (const prefix of ["feedback.state.0", "feedback.state.1", "feedback.state.2"].filter(prefix => value(prefix))) {
-        const state = signal(prefix, `measured output ${value(prefix)}`); if (state.missing) return state;
-        if (!value(`${prefix}.gain`)) return { missing: `Choose the variable holding the gain on ${value(prefix)}.` };
-        states.push({ signal: state.value, gain: value(`${prefix}.gain`) });
-      }
-      if (!states.length) return { missing: "Choose at least one further measured output: state feedback needs every state it feeds back." };
-      if (!value("feedback.mode")) return { missing: "Choose the Auto/Manual signal." };
-      if (!value("feedback.manualOutput")) return { missing: "Choose the manual output." };
-      const startup = startupFlag(); if (startup.missing) return startup;
-      return { draft: { structure: "state-feedback", name, action, ...(startup.value ? { startupFlag: startup.value } : {}),
-        family: value("feedback.family") || "LQR", instance: value("feedback.instance"),
-        manipulatedVariable: mv.value, processVariable: pv.value, setpoint: { symbol: value("feedback.setpoint") }, gain: value("feedback.gain"),
-        referenceGain: value("feedback.referenceGain"), states, mode: { symbol: value("feedback.mode"), whenTrue: value("feedback.modeWhenTrue") || "Auto" },
-        manualOutput: value("feedback.manualOutput") } };
     }
     if (structure() === "own-law") {
       const law = ownLawDraft(name, action, ownLaw()); if (!law.draft) return law;
@@ -83,128 +59,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       return { draft: { structure: "trajectory-feedforward", ownLaw: law.draft, rateGain: rateGain.value, accelerationGain: accelerationGain.value,
         plannedTrajectory: planned.value, feedforwardTerm: value("traj.feedforwardTerm") } };
     }
-    if (structure() === "search") {
-      if (!value("search.instance")) return { missing: "Choose the instance that computes the law." };
-      const pv = signal("search.processVariable", "measurement"); if (pv.missing) return pv;
-      if (!value("search.setpoint")) return { missing: "Choose the setpoint." };
-      const mv = signal("search.manipulatedVariable", "output"); if (mv.missing) return mv;
-      if (!value("search.mode")) return { missing: "Choose the Auto/Manual signal." };
-      if (!value("search.manualOutput")) return { missing: "Choose the manual output." };
-      const coefficients: { symbol: string; unit: string; values: number[] }[] = [];
-      for (const index of [0, 1, 2, 3].filter(index => value(`search.coefficient.${index}`))) {
-        const symbol = value(`search.coefficient.${index}`), unit = value(`search.coefficient.${index}.unit`);
-        if (!unit) return { missing: `Enter the unit of ${symbol}.` };
-        const values = value(`search.coefficient.${index}.values`).split(/[,;\s]+/).filter(Boolean).map(Number);
-        if (!values.length || values.some(entry => !Number.isFinite(entry))) return { missing: `Enter the values of ${symbol} Tune may try, separated by commas.` };
-        coefficients.push({ symbol, unit, values });
-      }
-      if (!coefficients.length) return { missing: "Choose at least one coefficient Tune may search." };
-      const combinations = coefficients.reduce((count, coefficient) => count * coefficient.values.length, 1);
-      if (combinations > 64) return { missing: `Tune tries at most 64 combinations; these values make ${combinations}.` };
-      const states: { symbol: string; unit: string; start: string }[] = [];
-      for (const index of [0, 1, 2].filter(index => value(`search.state.${index}`))) {
-        const symbol = value(`search.state.${index}`), unit = value(`search.state.${index}.unit`);
-        if (!unit) return { missing: `Enter the unit of ${symbol}.` };
-        states.push({ symbol, unit, start: value(`search.state.${index}.start`) || "zero" });
-      }
-      const startup = startupFlag(); if (startup.missing) return startup;
-      return { draft: { structure: "search", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), family: value("search.family") || "MPC",
-        instance: value("search.instance"), processVariable: pv.value, setpoint: { symbol: value("search.setpoint") }, manipulatedVariable: mv.value,
-        mode: { symbol: value("search.mode"), whenTrue: value("search.modeWhenTrue") || "Auto" }, manualOutput: value("search.manualOutput"),
-        coefficients, states } };
-    }
-    if (structure() === "onoff") {
-      if (!value("onoff.instance")) return { missing: "Choose the instance that switches the output." };
-      const pv = signal("onoff.processVariable", "measurement"); if (pv.missing) return pv;
-      if (!value("onoff.setpoint")) return { missing: "Choose the setpoint." };
-      const mv = signal("onoff.manipulatedVariable", "output"); if (mv.missing) return mv;
-      const choices = [["mode", "the Auto/Manual signal"], ["manualOutput", "the manual output"], ["hysteresis", "the hysteresis"],
-        ["minimumOn", "the minimum ON time"], ["minimumOff", "the minimum OFF time"], ["latch", "the BOOL that holds whether the output is on"]];
-      const unset = choices.find(([field]) => !value(`onoff.${field}`)); if (unset) return { missing: `Choose ${unset[1]}.` };
-      const minimumOn = equipmentSeconds("onoff.equipmentMinimumOn", "equipment minimum ON time"); if (minimumOn.missing) return minimumOn;
-      const minimumOff = equipmentSeconds("onoff.equipmentMinimumOff", "equipment minimum OFF time"); if (minimumOff.missing) return minimumOff;
-      const startup = startupFlag(); if (startup.missing) return startup;
-      return { draft: { structure: "onoff", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), instance: value("onoff.instance"), processVariable: pv.value,
-        setpoint: { symbol: value("onoff.setpoint") }, manipulatedVariable: mv.value, mode: { symbol: value("onoff.mode"), whenTrue: value("onoff.modeWhenTrue") || "Auto" },
-        manualOutput: value("onoff.manualOutput"), hysteresis: value("onoff.hysteresis"), bandConvention: value("onoff.bandConvention") || "half-band",
-        minimumOn: value("onoff.minimumOn"), minimumOff: value("onoff.minimumOff"), latch: value("onoff.latch"),
-        ...(value("onoff.dwellTimer") ? { dwellTimer: value("onoff.dwellTimer") } : {}),
-        ...(minimumOn.value !== undefined ? { equipmentMinimumOnSeconds: minimumOn.value } : {}),
-        ...(minimumOff.value !== undefined ? { equipmentMinimumOffSeconds: minimumOff.value } : {}) } };
-    }
-    if (structure() === "group") {
-      const prefixes = included();
-      if (prefixes.length < 2) return { missing: "Include at least two controllers in the group." };
-      const members: Record<string, unknown>[] = [];
-      for (const prefix of prefixes) {
-        const instance = value(`${prefix}instance`);
-        if (!value(`${prefix}parameterRecord`)) return { missing: `Choose the parameter record of ${instance}.` };
-        const pv = signal(`${prefix}processVariable`, `${instance} measurement`); if (pv.missing) return hinted(pv, prefix, "processVariable");
-        const mv = signal(`${prefix}manipulatedVariable`, `${instance} output`); if (mv.missing) return hinted(mv, prefix, "manipulatedVariable");
-        if (!value(`${prefix}setpoint`)) return hinted({ missing: `Choose the setpoint of ${instance}.` }, prefix, "setpoint");
-        if (!value(`${prefix}manualOutput`)) return hinted({ missing: `Choose the manual output of ${instance}.` }, prefix, "manualOutput");
-        members.push({ instance, parameterRecord: value(`${prefix}parameterRecord`), processVariable: pv.value, manipulatedVariable: mv.value,
-          setpoint: { symbol: value(`${prefix}setpoint`) }, manualOutput: value(`${prefix}manualOutput`) });
-      }
-      if (!value("group.mode")) return { missing: "Choose the Auto/Manual signal the members share." };
-      // The program's static decoupler, one variable per plant input and member (Specification 35 §17.15).
-      const decoupler: string[][] = [];
-      if (checked("group.decoupled")) for (const member of members) {
-        // Behind a decoupler the controller's own output is v; the plant input u = D·v is what the member drives.
-        const own = prefills.get(String(member.instance))?.manipulatedVariable, output = (member.manipulatedVariable as { symbol?: string } | undefined)?.symbol;
-        if (own && output === own) return { missing: `Behind a decoupler, ${member.instance}'s output is the plant input the program writes from D·v, `
-          + `not the controller's own output ${own}. Choose the plant input.` };
-      }
-      if (checked("group.decoupled")) for (let row = 0; row < members.length; row++) {
-        decoupler.push([]);
-        for (let column = 0; column < members.length; column++) {
-          const symbol = value(`group.decoupler.${row}.${column}`);
-          if (!symbol) return { missing: `Choose the decoupler variable D${row + 1}${column + 1}: plant input ${row + 1} per member ${column + 1}'s output.` };
-          decoupler[row].push(symbol);
-        }
-      }
-      const startup = startupFlag(); if (startup.missing) return startup;
-      return { draft: { structure: "group", name, action, ...(startup.value ? { startupFlag: startup.value } : {}),
-        mode: { symbol: value("group.mode"), whenTrue: value("group.modeWhenTrue") || "Auto" },
-        members, ...(decoupler.length ? { decoupler } : {}) } };
-    }
-    if (structure() === "cascade") {
-      const outer = controller("outer.", "outer"); if (outer.missing) return hinted(outer, "outer.", "manualOutput");
-      const outerPv = signal("outer.processVariable", "outer measurement"); if (outerPv.missing) return hinted(outerPv, "outer.", "processVariable");
-      if (!value("outer.setpoint")) return hinted({ missing: "Choose the outer setpoint." }, "outer.", "setpoint");
-      const inner = controller("inner.", "inner"); if (inner.missing) return hinted(inner, "inner.", "manualOutput");
-      if (value("inner.instance") === value("outer.instance")) return { missing: "Choose two different controllers." };
-      const innerPv = signal("inner.processVariable", "inner measurement"); if (innerPv.missing) return hinted(innerPv, "inner.", "processVariable");
-      const output = signal("inner.manipulatedVariable", "output"); if (output.missing) return hinted(output, "inner.", "manipulatedVariable");
-      // One identification of the plant input for both loops (Specification 35 §17.11).
-      const startup = startupFlag(); if (startup.missing) return startup;
-      return { draft: { structure: "cascade", name, action, ...(startup.value ? { startupFlag: startup.value } : {}),
-        outer: { ...outer.value, processVariable: outerPv.value, setpoint: { symbol: value("outer.setpoint") } },
-        inner: { ...inner.value, processVariable: innerPv.value, manipulatedVariable: output.value } } };
-    }
     const loop = singleLoop(name, action); if (loop.missing) return loop;
-    if (structure() === "schedule") {
-      // Two to four operating points, each with the program's gain variables for it (Specification 35 §17.14).
-      const points: Record<string, string>[] = [];
-      for (let index = 0; index < 4; index++) {
-        const entry = { name: value(`schedule.${index}.name`), proportionalGain: value(`schedule.${index}.proportionalGain`), integralGain: value(`schedule.${index}.integralGain`) };
-        if (!entry.name && !entry.proportionalGain && !entry.integralGain) continue;
-        const absent = ([["name", "name"], ["proportionalGain", "proportional gain variable"], ["integralGain", "integral gain variable"]] as const).find(([key]) => !entry[key]);
-        if (absent) return { missing: `Enter operating point ${index + 1}'s ${absent[1]}.` };
-        points.push(entry);
-      }
-      if (points.length < 2) return { missing: "Enter at least two operating points, each with its name and gain variables." };
-      return { draft: { ...loop.draft, structure: "schedule", points } };
-    }
-    if (structure() === "smith") {
-      // The program's predictor model and the correction it keeps (Specification 35 §17.13).
-      const fields = [["smith.gain", "model gain"], ["smith.timeConstant", "model time constant"], ["smith.delay", "model delay"],
-        ["smith.correction", "correction the program keeps"]] as const;
-      const absent = fields.find(([field]) => !value(field));
-      if (absent) return { missing: `Choose the variable holding the ${absent[1]}.` };
-      return { draft: { ...loop.draft, structure: "smith", model: { gain: value("smith.gain"), timeConstant: value("smith.timeConstant"),
-        delay: value("smith.delay"), correction: value("smith.correction") } } };
-    }
     if (structure() !== "feedforward") return loop;
     // The measured disturbance and the program's feedforward variables (Specification 35 §17.12). The draft is the engine's
     // FeedforwardLoopDraft (`parse_setup_draft` in setup/save.rs): the step is in the disturbance's unit, and the engine checks its range.
@@ -236,30 +91,93 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       mode: { symbol: value("mode"), whenTrue: value("modeWhenTrue") || "Auto" }, manualOutput: value("manualOutput") } };
   };
 
-  /** LQG: the program's estimates, their gains and observer gains for each state of the estimator's model (§17.1). */
+  /** The number of states the chosen estimator model has: one estimate row each (C4). */
   const estimatorStates = (): number => Number(root.querySelector<HTMLSelectElement>('[data-setup-field="feedback.estimatorModel"]')?.selectedOptions[0]?.dataset.states ?? 0);
-  const lqgDraft = (name: string, action: string, mv: Record<string, unknown>, pv: Record<string, unknown>): { draft?: Record<string, unknown>; missing?: string } => {
-    if (!value("feedback.referenceGain")) return { missing: "Choose the variable holding the reference gain." };
-    if (!value("feedback.estimatorModel")) return { missing: "Choose the model file the program's estimator implements." };
-    const states: Record<string, unknown>[] = [];
-    for (let index = 0; index < estimatorStates(); index++) {
-      const prefix = `feedback.estimate.${index}`;
-      const absent = [["", "estimate"], [".gain", "gain"], [".observerGain", "observer gain"]].find(([suffix]) => !value(`${prefix}${suffix}`));
-      if (absent) return { missing: `Choose the variable holding the ${absent[1]} of model state ${index + 1}.` };
-      const noise = Number(value(`${prefix}.processNoise`));
-      if (!value(`${prefix}.processNoise`) || !(noise > 0)) return { missing: `Enter the positive process-noise variance of model state ${index + 1}.` };
-      states.push({ estimate: value(prefix), gain: value(`${prefix}.gain`), observerGain: value(`${prefix}.observerGain`), processNoise: noise });
-    }
-    const measurementNoise = Number(value("feedback.measurementNoise"));
-    if (!value("feedback.measurementNoise") || !(measurementNoise > 0)) return { missing: "Enter the positive measurement-noise variance." };
-    if (!value("feedback.mode")) return { missing: "Choose the Auto/Manual signal." };
-    if (!value("feedback.manualOutput")) return { missing: "Choose the manual output." };
-    const startup = startupFlag(); if (startup.missing) return startup;
-    return { draft: { structure: "state-feedback", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), family: "LQG",
-      instance: value("feedback.instance"), manipulatedVariable: mv, processVariable: pv, setpoint: { symbol: value("feedback.setpoint") },
-      referenceGain: value("feedback.referenceGain"), mode: { symbol: value("feedback.mode"), whenTrue: value("feedback.modeWhenTrue") || "Auto" },
-      manualOutput: value("feedback.manualOutput"),
-      estimator: { modelFile: value("feedback.estimatorModel"), measurementNoise, states } } };
+  /** A typed number as the engine reads it: blank or not a number is null, which the engine refuses (B1.3). */
+  const typedNumber = (field: string): number | null => {
+    const text = value(field), parsed = Number(text);
+    return text && Number.isFinite(parsed) ? parsed : null;
+  };
+  /** A signal as the engine reads it (`FormSignal`): its text as typed and its range as numbers. */
+  const rawSignal = (field: string) => ({ symbol: value(field), unit: value(`${field}.unit`),
+    minimum: typedNumber(`${field}.minimum`), maximum: typedNumber(`${field}.maximum`) });
+  /** The startup-done flag, when the form asks for one (the program writes a value validation starts from) and the user chose one. */
+  const startupFor = (): Record<string, string> => seededWrite() !== undefined && value("startupFlag") ? { startupFlag: value("startupFlag") } : {};
+  /** The state-feedback draft as the engine reads it (`StateFeedbackLoopDraft`, C4): the form's values as typed, and no check of its own. */
+  const stateFeedbackDraft = (): Record<string, unknown> => {
+    const family = value("feedback.family") || "LQR";
+    const common = { structure: "state-feedback", name: value("name"), action: value("action") || "direct", family, instance: value("feedback.instance"),
+      manipulatedVariable: rawSignal("feedback.manipulatedVariable"), processVariable: rawSignal("feedback.processVariable"),
+      setpoint: { symbol: value("feedback.setpoint") }, referenceGain: value("feedback.referenceGain"),
+      mode: { symbol: value("feedback.mode"), whenTrue: value("feedback.modeWhenTrue") || "Auto" }, manualOutput: value("feedback.manualOutput"), ...startupFor() };
+    // LQG takes the estimator's model file, its measurement noise and one estimate per model state; the other designs take a measured gain (C4).
+    if (family === "LQG") return { ...common, estimator: { modelFile: value("feedback.estimatorModel"), measurementNoise: typedNumber("feedback.measurementNoise"), states: estimateRows() } };
+    return { ...common, gain: value("feedback.gain"), states: furtherOutputs() };
+  };
+  /** The further measured outputs, each with its range and the variable that holds its gain; a row without an output is not sent. */
+  const furtherOutputs = () => ["feedback.state.0", "feedback.state.1", "feedback.state.2"].filter(prefix => value(prefix))
+    .map(prefix => ({ signal: rawSignal(prefix), gain: value(`${prefix}.gain`) }));
+  /** One estimate per state of the model: the estimate's variable, its gain, its observer gain and its process-noise variance. */
+  const estimateRows = () => Array.from({ length: estimatorStates() }, (_, index) => {
+    const prefix = `feedback.estimate.${index}`;
+    return { estimate: value(prefix), gain: value(`${prefix}.gain`), observerGain: value(`${prefix}.observerGain`), processNoise: typedNumber(`${prefix}.processNoise`) };
+  });
+  /** The search draft as the engine reads it (`SearchLawLoopDraft`, C5): the coefficients' values as typed, for the engine to read. */
+  const searchDraft = (): Record<string, unknown> => ({ structure: "search", name: value("name"), action: value("action") || "direct",
+    family: value("search.family") || "MPC", instance: value("search.instance"), processVariable: rawSignal("search.processVariable"),
+    setpoint: { symbol: value("search.setpoint") }, manipulatedVariable: rawSignal("search.manipulatedVariable"),
+    mode: { symbol: value("search.mode"), whenTrue: value("search.modeWhenTrue") || "Auto" }, manualOutput: value("search.manualOutput"), ...startupFor(),
+    coefficients: [0, 1, 2, 3].filter(index => value(`search.coefficient.${index}`)).map(index => ({ symbol: value(`search.coefficient.${index}`),
+      unit: value(`search.coefficient.${index}.unit`), values: value(`search.coefficient.${index}.values`) })),
+    states: [0, 1, 2].filter(index => value(`search.state.${index}`)).map(index => ({ symbol: value(`search.state.${index}`),
+      unit: value(`search.state.${index}.unit`), start: value(`search.state.${index}.start`) || "zero" })) });
+  /** A controller's Auto/Manual signal as the engine reads it (`ModeChoice`): its path, and the mode its TRUE value means. */
+  const modeOf = (prefix: string) => ({ symbol: value(`${prefix}mode`), whenTrue: value(`${prefix}modeWhenTrue`) || "Auto" });
+  /** The single loop's fields as the engine reads them (`PidLoopDraft`, and the structures that extend it: C9, C10), as typed. */
+  const singleLoopFields = (): Record<string, unknown> => ({ instance: value("instance"), parameterRecord: value("parameterRecord"),
+    processVariable: rawSignal("processVariable"), manipulatedVariable: rawSignal("manipulatedVariable"), setpoint: { symbol: value("setpoint") },
+    mode: modeOf(""), manualOutput: value("manualOutput") });
+  /** The cascade draft as the engine reads it (`CascadeLoopDraft`, C6): both controllers and their signals as typed. The outer has no manual output. */
+  const cascadeDraft = (): Record<string, unknown> => ({ structure: "cascade", name: value("name"), action: value("action") || "direct", ...startupFor(),
+    outer: { instance: value("outer.instance"), parameterRecord: value("outer.parameterRecord"), mode: modeOf("outer."),
+      processVariable: rawSignal("outer.processVariable"), setpoint: { symbol: value("outer.setpoint") } },
+    inner: { instance: value("inner.instance"), parameterRecord: value("inner.parameterRecord"), mode: modeOf("inner."),
+      manualOutput: value("inner.manualOutput"), processVariable: rawSignal("inner.processVariable"),
+      manipulatedVariable: rawSignal("inner.manipulatedVariable") } });
+  /** The Smith predictor's draft as the engine reads it (`SmithLoopDraft`, C9): the single loop, the model's variables and, when the
+   * program uses the library block, its four variables together. */
+  const smithDraft = (): Record<string, unknown> => ({ structure: "smith", name: value("name"), action: value("action") || "direct", ...singleLoopFields(),
+    ...startupFor(), model: { gain: value("smith.gain"), timeConstant: value("smith.timeConstant"), delay: value("smith.delay"), correction: value("smith.correction") },
+    ...(checked("smith.libraryBlock") ? { libraryBlock: { output: value("smith.block.output"), maximumCorrection: value("smith.block.maximumCorrection"),
+      operatingInput: value("smith.block.operatingInput"), operatingOutput: value("smith.block.operatingOutput") } } : {}) });
+  /** The gain schedule's draft as the engine reads it (`ScheduleLoopDraft`, C10): the single loop, the scheduling variable and each point
+   * that has any entry. */
+  const scheduleDraft = (): Record<string, unknown> => ({ structure: "schedule", name: value("name"), action: value("action") || "direct", ...singleLoopFields(),
+    ...startupFor(), scheduling: { symbol: value("schedule.variable"), unit: value("schedule.variable.unit") },
+    points: [0, 1, 2, 3].filter(index => ["name", "value", "tolerance", "proportionalGain", "integralGain"].some(part => value(`schedule.${index}.${part}`)))
+      .map(index => ({ name: value(`schedule.${index}.name`), value: typedNumber(`schedule.${index}.value`), tolerance: typedNumber(`schedule.${index}.tolerance`),
+        proportionalGain: value(`schedule.${index}.proportionalGain`), integralGain: value(`schedule.${index}.integralGain`) })) });
+  /** The ON/OFF controller's draft as the engine reads it (`OnOffLoopDraft`, C3): the switched output, its levels and its equipment limits as
+   * typed. A blank number is null, and a blank equipment time is never zero. */
+  const onOffDraft = (): Record<string, unknown> => ({ structure: "onoff", name: value("name"), action: value("action") || "direct", ...startupFor(),
+    instance: value("onoff.instance"), processVariable: rawSignal("onoff.processVariable"), setpoint: { symbol: value("onoff.setpoint") },
+    manipulatedVariable: rawSignal("onoff.manipulatedVariable"), mode: modeOf("onoff."), manualOutput: value("onoff.manualOutput"),
+    hysteresis: value("onoff.hysteresis"), bandConvention: value("onoff.bandConvention") || "half-band",
+    minimumOn: value("onoff.minimumOn"), minimumOff: value("onoff.minimumOff"), latch: value("onoff.latch"),
+    ...(value("onoff.dwellTimer") ? { dwellTimer: value("onoff.dwellTimer") } : {}),
+    equipmentMinimumOnSeconds: typedNumber("onoff.equipmentMinimumOn"), equipmentMinimumOffSeconds: typedNumber("onoff.equipmentMinimumOff"),
+    lowOutput: typedNumber("onoff.lowOutput"), highOutput: typedNumber("onoff.highOutput"),
+    ...(value("onoff.thresholdEquality") ? { thresholdEquality: value("onoff.thresholdEquality") } : {}) });
+  /** The PID group's draft as the engine reads it (`GroupLoopDraft`, C7): the included members and the decoupler's variables, as typed.
+   * The engine checks it, including the decoupler's rule that a member drives a plant input, not its controller's own output. */
+  const groupDraft = (): { draft?: Record<string, unknown>; missing?: string } => {
+    const prefixes = included(), decoupled = checked("group.decoupled");
+    const members = prefixes.map(prefix => ({ instance: value(`${prefix}instance`), parameterRecord: value(`${prefix}parameterRecord`),
+      processVariable: rawSignal(`${prefix}processVariable`), manipulatedVariable: rawSignal(`${prefix}manipulatedVariable`),
+      setpoint: { symbol: value(`${prefix}setpoint`) }, manualOutput: value(`${prefix}manualOutput`) }));
+    const decoupler = decoupled ? members.map((_, row) => members.map((_, column) => value(`group.decoupler.${row}.${column}`))) : undefined;
+    return { draft: { structure: "group", name: value("name"), action: value("action") || "direct", ...startupFor(),
+      mode: { symbol: value("group.mode"), whenTrue: value("group.modeWhenTrue") || "Auto" }, members, ...(decoupler ? { decoupler } : {}) } };
   };
   // A trajectory feedforward's program law is PID (C11); the other own-law setups take the chosen law.
   const ownLaw = (): string => structure() === "trajectory-feedforward" ? "PID" : value("own.law") || "PI";
@@ -326,13 +244,6 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     const flag = value("startupFlag");
     return flag ? { value: flag } : { missing: `${reason} Choose the flag that marks its startup as done, so validation keeps the values it starts from.` };
   };
-  /** An equipment limit such as a compressor's restart protection; blank when the equipment has none. */
-  const equipmentSeconds = (field: string, label: string): { value?: number; missing?: string } => {
-    const raw = value(field), seconds = Number(raw);
-    if (!raw) return {};
-    return Number.isFinite(seconds) && seconds >= 0 ? { value: seconds }
-      : { missing: `The ${label} must be zero or more seconds; leave it blank when the equipment has none.` };
-  };
   /** When a field is still empty because the controller's own variable cannot serve, say why and what to choose. */
   const hinted = <T extends { missing?: string }>(state: T, prefix: string, field: string): T => {
     if (value(`${prefix}${field}`)) return state;
@@ -348,7 +259,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   const prefilled: Record<string, readonly [string, string][]> = {
     "": [["parameterRecord", "parameterRecord"], ["manipulatedVariable", "manipulatedVariable"], ["setpoint", "setpoint"], ["processVariable", "processValue"], ["manualOutput", "manualOutput"],
       ["mode", "mode"], ["modeWhenTrue", "modeWhenTrue"], ["startupFlag", "startupFlag"]],
-    "outer.": [["outer.parameterRecord", "parameterRecord"], ["outer.manualOutput", "manualOutput"], ["outer.processVariable", "processValue"], ["outer.setpoint", "setpoint"],
+    "outer.": [["outer.parameterRecord", "parameterRecord"], ["outer.processVariable", "processValue"], ["outer.setpoint", "setpoint"],
       ["outer.mode", "mode"], ["outer.modeWhenTrue", "modeWhenTrue"]],
     "inner.": [["inner.parameterRecord", "parameterRecord"], ["inner.manualOutput", "manualOutput"], ["inner.processVariable", "processValue"], ["inner.manipulatedVariable", "manipulatedVariable"],
       ["inner.mode", "mode"], ["inner.modeWhenTrue", "modeWhenTrue"]],
@@ -409,7 +320,22 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     });
   }
 
+  /** The engine's refusal sits under the field it names (`Failure.field`); a refusal that names none replaces the completeness hint (B1.3). */
+  let refusal: HTMLElement | undefined;
+  const clearRefusal = (): void => { refusal?.remove(); refusal = undefined; };
+  const showRefusal = (reason: string, field = ""): void => {
+    clearRefusal();
+    const element = fields.get(field);
+    message.textContent = element ? "" : reason;
+    if (!element) return;
+    refusal = root.ownerDocument.createElement("p");
+    refusal.className = "studio-action-message";
+    refusal.setAttribute("role", "alert");
+    refusal.textContent = reason;
+    (element.closest("label") ?? element).insertAdjacentElement("afterend", refusal);
+  };
   const render = (): void => {
+    clearRefusal();
     prefillName();
     refreshFound();
     for (const group of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-range-group]"))) {
@@ -462,6 +388,14 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const index = Number(row.dataset.schedulePoint);
       row.hidden = index > 1 && !value(`schedule.${index - 1}.name`) && !value(`schedule.${index}.name`);
     });
+    // The Smith predictor's library block is asked together, and only when the program uses it (C9).
+    const smithBlock = root.querySelector<HTMLElement>("[data-smith-block]");
+    if (smithBlock) smithBlock.hidden = !checked("smith.libraryBlock");
+    // A blank output level is the output's limit (C3): the limit shows in the level's place until a level is typed.
+    for (const [field, limit] of [["onoff.lowOutput", "onoff.manipulatedVariable.minimum"], ["onoff.highOutput", "onoff.manipulatedVariable.maximum"]]) {
+      const level = fields.get(field) as HTMLInputElement | undefined;
+      if (level) level.placeholder = value(limit) || "output limit";
+    }
     const startup = root.querySelector<HTMLElement>("[data-setup-startup]");
     if (startup) startup.hidden = seededWrite() === undefined;
     const state = draft();
@@ -481,6 +415,6 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
   });
   render();
   form.dataset.ready = "true";
-  // A refused save keeps the form and its values; the reason replaces the completeness hint.
-  return { showError: reason => { message.textContent = reason; } };
+  // A refused save keeps the form and its values; the reason replaces the completeness hint, or sits under the field it names.
+  return { showError: (reason, field) => showRefusal(reason, field) };
 }

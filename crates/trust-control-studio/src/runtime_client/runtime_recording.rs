@@ -248,8 +248,13 @@ impl RuntimeRecordingSession {
             plan.expected_settling_ms,
         );
         let symbolic = bindings.iter().any(|binding| binding.symbol.is_some());
-        // The first coherent inspection fixes the program revision; every later inspection and start names that one (E11.4).
-        let mut program_revision: Option<String> = None;
+        // A recording names the program it runs on, and a connected record needs that name (A4.4). A symbolic recording takes it
+        // from its first coherent inspection, which every later inspection and start names (E11.4). Any other recording takes the
+        // runtime's revision from the status read above: the runtime refuses its start when the program has changed since
+        // (`start_io_recording_for_program`, E4.2), so the name stays true.
+        let mut program_revision: Option<String> = (!symbolic)
+            .then(|| status.program_revision.clone())
+            .filter(|revision| !revision.is_empty());
         for attempt in 0..START_ATTEMPT_LIMIT {
             if symbolic {
                 let revision = inspect_coherently(
@@ -302,7 +307,7 @@ impl RuntimeRecordingSession {
                 Err(ControlError::Refused { error, code })
                     if may_retry_start(
                         attempt,
-                        program_revision.is_some(),
+                        symbolic && program_revision.is_some(),
                         code.as_deref(),
                         &error,
                     ) => {}

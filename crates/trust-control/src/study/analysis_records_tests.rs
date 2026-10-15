@@ -6,6 +6,10 @@ use serde_json::json;
 use super::*;
 use crate::analysis::declared::DeclaredControlAnalysis;
 use crate::analysis::measured_frequency::MeasuredPoint;
+use crate::analysis::measured_paths::{
+    MeasuredPathsResult, PairingStatus, PathChannel, PathPair, PathPairing, SettledTrial,
+    TimeWindow,
+};
 use crate::analysis::routh_interval::calculate_declared_routh;
 
 const RECORDING: &str = "rec-00000000000000000000000000000001";
@@ -90,6 +94,99 @@ fn a_record_of_another_loop_revision_is_not_answered() {
     )
     .expect("the reading is kept");
     assert!(current_records(&study, "rev-2", None).routh.is_none());
+}
+
+/// The measured MIMO paths of a study with two inputs and two outputs, on the recording `recording_id` (N4.5).
+fn paths_result(recording_id: &str) -> MeasuredPathsResult {
+    let channel = |id: &str, symbol: &str| PathChannel {
+        id: id.to_string(),
+        symbol: symbol.to_string(),
+        unit: "degC".to_string(),
+    };
+    let window = |start_seconds: f64, end_seconds: f64| TimeWindow {
+        start_seconds,
+        end_seconds,
+    };
+    MeasuredPathsResult {
+        recording_id: recording_id.to_string(),
+        recording_revision: "rev-1".to_string(),
+        inputs: vec![
+            channel("heater-1", "P1.Heater1Pct"),
+            channel("heater-2", "P1.Heater2Pct"),
+        ],
+        outputs: vec![
+            channel("vessel-1", "P1.Vessel1C"),
+            channel("vessel-2", "P1.Vessel2C"),
+        ],
+        trials: vec![
+            SettledTrial {
+                input_id: "heater-1".to_string(),
+                baseline: window(0.0, 1.9),
+                settled: window(27.1, 31.9),
+            },
+            SettledTrial {
+                input_id: "heater-2".to_string(),
+                baseline: window(57.1, 61.9),
+                settled: window(87.1, 92.0),
+            },
+        ],
+        sample_count: 670,
+        gain_matrix: vec![vec![0.1380, 0.0607], vec![0.0611, 0.1376]],
+        relative_gain_array: vec![vec![1.2426, -0.2426], vec![-0.2426, 1.2426]],
+        decoupler: vec![vec![1.2426, -0.5464], vec![-0.5518, 1.2426]],
+        gain_condition_number: 1.0,
+        input_rank: 2,
+        input_condition_number: 1.0,
+        residual_norm: 0.0,
+        pairing: PathPairing {
+            status: PairingStatus::Named,
+            pairs: vec![
+                PathPair {
+                    output_id: "vessel-1".to_string(),
+                    input_id: "heater-1".to_string(),
+                    relative_gain: 1.2426,
+                },
+                PathPair {
+                    output_id: "vessel-2".to_string(),
+                    input_id: "heater-2".to_string(),
+                    relative_gain: 1.2426,
+                },
+            ],
+            reason: None,
+        },
+        summary: vec!["670 samples from 2 independent input steps.".to_string()],
+        details: Vec::new(),
+    }
+}
+
+#[test]
+fn measured_paths_are_kept_once_the_study_lists_their_recording() {
+    let mut study = Study::new("loop-a", "rev-1");
+    let result = paths_result(RECORDING);
+    assert!(keep(
+        &mut study,
+        "rev-1",
+        KeptAnalysis::MeasuredPaths(Box::new(result.clone()))
+    )
+    .is_err());
+    assert!(study.sections.is_empty(), "a refused record keeps nothing");
+    study.recordings.push(RECORDING.to_string());
+    keep(
+        &mut study,
+        "rev-1",
+        KeptAnalysis::MeasuredPaths(Box::new(result.clone())),
+    )
+    .expect("the record is kept once the study lists its recording");
+    assert_eq!(
+        current_records(&study, "rev-1", None).measured_paths,
+        Some(result)
+    );
+    assert!(
+        current_records(&study, "rev-2", None)
+            .measured_paths
+            .is_none(),
+        "a record of another loop revision is not answered"
+    );
 }
 
 #[test]

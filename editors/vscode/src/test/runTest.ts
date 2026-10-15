@@ -170,6 +170,14 @@ async function main(): Promise<void> {
     "Control Studio three-page workflow executes the project-owned sequence and retains its restored native recording":
       { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "01-cold-storage-loop-anatomy"),
         env: { TRUST_CONTROL_STUDIO_PROJECT_NATIVE: "1" } },
+    // Lesson 69's LQR project: its loop, program and supplied model are the fixture, and the journey follows the lesson's README steps 2 to 4.
+    "Control Studio three-page workflow renders state-design policy and preserves finite design drafts across reopen":
+      { fixture: path.join(extensionDevelopmentPath, "media", "examples", "control", "11-state-space-estimation-and-predictive-control", "69-lqr"),
+        env: {} },
+    // Lesson 1's project declares the door indication and its own project experiment; README step 2 selects the indication in Signals.
+    "Control Studio three-page workflow offers the declared project experiment and plots selected recorded signals in their own units":
+      { fixture: path.join(repoRoot, "examples", "control", "01-feedback-foundations-and-temperature-control", "01-cold-storage-loop-anatomy"),
+        env: {} },
     // The room heating acceptance takes hours, so it is listed only when the runner itself is asked for it.
     ...(process.env.TRUST_CONTROL_STUDIO_ROOM_HEATING === "1"
       ? {
@@ -229,10 +237,8 @@ async function main(): Promise<void> {
     "Control Studio three-page workflow fits a manually selected model and checks it against an independent recording in Identify",
     "Control Studio three-page workflow keeps the validation response and Apply visible with many required checks and exposes failures first",
     "Control Studio three-page workflow offers actual archived output channels to the opened-recording selector without starting a runtime",
-    "Control Studio three-page workflow offers the declared project experiment and plots selected recorded signals in their own units",
     "Control Studio three-page workflow opens a supplied plant model through the selected method and retains it for tuning after reopening",
     "Control Studio three-page workflow plots measured and predicted identification responses with their units",
-    "Control Studio three-page workflow renders state-design policy and preserves finite design drafts across reopen",
     "Control Studio three-page workflow renders the identified plant equation from scoped host state",
     "Control Studio three-page workflow runs the declared root locus from Tune without a candidate or runtime write",
     "Control Studio three-page workflow shows Identify Tune Validate with page-specific controls and no runtime chrome",

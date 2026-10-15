@@ -14,16 +14,23 @@ use schemars::{JsonSchema, SchemaGenerator};
 use trust_control::commissioning::application_records::{ApplyOutcome, RestoreOutcome};
 use trust_control::failure::Failure;
 use trust_control::identification::campaign_review::IdentifyReview;
+use trust_control::loop_definition::PidControllerGroup;
 use trust_control::messages::{
     AnalyzeAnswer, AnalyzeRequest, ApplicationAnswer, ApplicationRequest, CancelResult,
     IdentifyRequest, IdentifyResult, InputsRequest, InputsResult, KeepRequest, KeepResult,
-    KeepReviewAnswer, OpenRequest, OpenResult, OperationRequest, OperationStarted, OperationUpdate,
-    PageRequest, ParameterWorkAnswer, ParameterWorkRequest, PreviewRequest, ResetResult,
-    RunRequest, RunResult, TuneRequest, TuneResult, ValidateRequest, ValidateResult,
+    KeepReviewAnswer, ManualIdentificationAnswer, OpenRequest, OpenResult, OperationRequest,
+    OperationStarted, OperationUpdate, PageRequest, ParameterWorkAnswer, ParameterWorkRequest,
+    PreviewRequest, ResetResult, RunRequest, RunResult, TuneRequest, TuneResult, ValidateRequest,
+    ValidateResult,
 };
 use trust_control::setup::messages::{
     SetupDiscoverRequest, SetupDiscoverResult, SetupSaveRequest, SetupSaveResult,
 };
+use trust_control::tuning::group_candidate::{GroupCandidate, GroupDecoupler, GroupMemberDesign};
+use trust_control::tuning::search::{SearchAnswer, SearchCandidate, SearchTrial};
+use trust_control::tuning::state_controller::answer::StateAnswer;
+use trust_control::tuning::state_controller::preferences::FormField;
+use trust_control::tuning::structures::pid_group::StaticDecoupler2x2Design;
 
 fn main() -> ExitCode {
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
@@ -63,6 +70,7 @@ fn export(folder: &Path) -> io::Result<()> {
         IdentifyRequest,
         IdentifyReview,
         IdentifyResult,
+        ManualIdentificationAnswer,
         ResetResult,
         CancelResult,
         PageRequest,
@@ -90,6 +98,16 @@ fn export(folder: &Path) -> io::Result<()> {
         AnalyzeAnswer,
         ParameterWorkRequest,
         ParameterWorkAnswer,
+        SearchAnswer,
+        SearchCandidate,
+        SearchTrial,
+        StateAnswer,
+        GroupCandidate,
+        GroupMemberDesign,
+        GroupDecoupler,
+        StaticDecoupler2x2Design,
+        PidControllerGroup,
+        FormField,
         Failure,
     );
     Ok(())

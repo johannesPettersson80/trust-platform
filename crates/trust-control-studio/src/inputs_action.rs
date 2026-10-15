@@ -14,6 +14,7 @@ use trust_control::stages::stage_availability;
 use trust_control::study::inputs::{
     held_requirements, held_scenarios, invalidation, stage_evidence_of, HeldTest, InputsSection,
 };
+use trust_control::study::tune::state;
 use trust_control::study::tune::TuneSection;
 
 use crate::busy_loops::LoopClaims;
@@ -71,9 +72,12 @@ pub fn answer(claims: &LoopClaims, request: InputsRequest) -> Result<Value, Fail
     next.set_section(&inputs)?;
     storage::save_study(&project_root, &next, &[])?;
     let stages = stage_availability(&stage_evidence_of(&loop_definition, &next)?);
+    // The fields follow the family and the solver policy of the inputs this answer records (D-B12, C4).
+    let state_fields = state::state_fields(&loop_definition, inputs.state_design.as_ref());
     to_value(&InputsResult {
         stages,
         invalidated,
+        state_fields,
     })
 }
 

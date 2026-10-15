@@ -83,6 +83,8 @@ export class EngineerWorkflowSession {
   /** Closing the panel detaches a reattached Apply observation: the runtime keeps recording it, and nothing is aborted (A10.4). */
   private observationDetached = false;
   private readonly host: EngineerActionHost;
+  /** Whether the engine serves the loop (set from the panel's open answer): a served loop's Controller list is the engine's, so this session posts none. */
+  private engineServed = false;
   private get loop(): ControlLoopDefinition { return controllerRequirementLoop(this.configuredLoop, this.state.channelMapping, this.state.task); }
   constructor(private readonly configuredLoop: ControlLoopDefinition, private readonly model: () => GeneralModel | undefined,
     private readonly acceptIdentification: (accepted: AcceptedIdentificationModel) => void,
@@ -167,7 +169,7 @@ export class EngineerWorkflowSession {
       this.state.task = previewAutomaticRequirements(this.requirementLoop(), model, this.state.task, this.state.campaigns);
       const evidence = this.currentStageEvidence(), families = this.availableFamilies(), relayCycle = this.relayCycle();
       return { status: "model-ready", task: this.state.task, compatibleControllerRequired: evidence?.hasModel !== true, model, ...(this.state.modelComparison ? { identificationPresentation: this.state.modelComparison.presentation } : {}), ...(modelAnalysis ? { modelAnalysis } : {}), ...(relayCycle ? { relayCycle } : {}), stageEvidence: this.currentStageEvidence(), gainChoice: this.state.gainChoice,
-        availableFamilies: families, controllerChoice: this.state.controllerChoice, recommendedFamily: this.recommendedFamily(),
+        controllerChoice: this.state.controllerChoice, ...(this.engineServed ? {} : { availableFamilies: families, recommendedFamily: this.recommendedFamily() }),
         reason: evidence?.hasModel ? modelReadyReason(model, families) : "Choose a compatible controller on Tune." };
     } catch (error) {
       const failure = failureOf(error);
@@ -286,7 +288,7 @@ export class EngineerWorkflowSession {
         const margins = candidateMargins(this.model(), this.loop, this.state.design, this.state.task, plots);
         if (margins) payload.robustness = margins;
       }
-      if (generation === this.state.generation) await post({ ...payload, ...(this.state.task ? { task: this.state.task } : {}), ...(this.state.modelValidation && payload.status !== "running" ? { modelValidation: this.state.modelValidation } : {}), requiredScenarios: this.state.requiredScenarios, channelMapping: this.state.channelMapping, ...(this.state.commissioned?.recoveryConfirmed === false ? { commissioningCheckpoint: true } : {}), tuningPreferences: this.state.tuningPreferences, acquisitionSettings: this.state.acquisitionPreferences, scenarioDefinitions: this.state.scenarioDefinitions ?? [], stageEvidence: this.currentStageEvidence(), gainChoice: this.state.gainChoice, settingsPins: this.state.settingsPins ?? null, verificationAttempts: this.state.verificationAttempts, controllerChoice: this.state.controllerChoice, availableFamilies: this.availableFamilies(), recommendedFamily: this.recommendedFamily(), studyAvailable: Boolean(this.model() || this.state.task || this.state.campaigns.length) }); };
+      if (generation === this.state.generation) await post({ ...payload, ...(this.state.task ? { task: this.state.task } : {}), ...(this.state.modelValidation && payload.status !== "running" ? { modelValidation: this.state.modelValidation } : {}), requiredScenarios: this.state.requiredScenarios, channelMapping: this.state.channelMapping, ...(this.state.commissioned?.recoveryConfirmed === false ? { commissioningCheckpoint: true } : {}), tuningPreferences: this.state.tuningPreferences, acquisitionSettings: this.state.acquisitionPreferences, scenarioDefinitions: this.state.scenarioDefinitions ?? [], stageEvidence: this.currentStageEvidence(), gainChoice: this.state.gainChoice, settingsPins: this.state.settingsPins ?? null, verificationAttempts: this.state.verificationAttempts, controllerChoice: this.state.controllerChoice, ...(this.engineServed ? {} : { availableFamilies: this.availableFamilies(), recommendedFamily: this.recommendedFamily() }), studyAvailable: Boolean(this.model() || this.state.task || this.state.campaigns.length) }); };
     const context: EngineerActionContext = { payload: message.payload, respond, post, generation, applicationMode: applicationMode as "auto" | "manual" };
     try {
       if (action === "retry-recovery") {
@@ -358,6 +360,8 @@ export class EngineerWorkflowSession {
   }
 
   snapshotStudy(): EngineerStudy | undefined { return this.captureStudy(false); }
+  /** The panel's answer to the loop's open: a loop the engine serves gets its Controller list from its setupDiscover answer, so this session posts none. */
+  setEngineServed(served: boolean): void { this.engineServed = served; }
 
   snapshotDraft(): EngineerStudy | undefined { return this.captureStudy(true); }
 
@@ -608,8 +612,9 @@ export class EngineerWorkflowSession {
     const loop = controllerRequirementLoop(this.configuredLoop, this.state.channelMapping, undefined);
     return this.state.acquisitionPreferences ? configuredAcquisition(loop, this.state.acquisitionPreferences) : loop;
   }
+  /** The Controller list of a parked loop (V7.17 debt: a loop the engine serves never reads it; see setEngineServed). */
   private availableFamilies(): readonly string[] { try { return controllerAdapter(this.loop).families; } catch { return []; } }
-  /** The configuration automatic tuning would choose for the selected model and requirements, shown when Tune opens. */
+  /** The configuration automatic tuning would choose for the selected model and requirements, shown when Tune opens. A parked loop only (V7.17 debt). */
   private recommendedFamily(): string | null {
     const model = this.model();
     if (!model || !this.state.task || this.loop.controller.project) return null;

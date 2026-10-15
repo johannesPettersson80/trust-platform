@@ -436,10 +436,19 @@ additional first-order lag, such as a sensor balance `Cs·dTs/dt = Gs·(T − Ts
   bounds or widen the grid spacing, when the shapes (`L`, `τ`, `τs` combinations)
   exceed 1,000,000, the shapes times the hold's samples exceed 500,000,000, the
   baselines exceed 100,000, or the shapes times the baselines exceed 20,000,000.
+  Two further budgets refuse it in the same way: the shapes times the gain grid
+  exceed 500,000,000, and the work of the search exceeds 500,000,000 in total. The
+  work counts the samples the search evaluates: the hold's samples once per shape,
+  and each sample a measurement-consistent gain test reads. The refusal comes at the
+  point the total is passed.
 - *Adequacy.* Each structure is adequate when its largest absolute residual is at
   most the declared limit (default 0.2 in the output's unit) and the magnitude of
   its mean residual over the final window is at most the declared limit (default
-  0.1).
+  0.1). The declared limits are the held-step settings `modelAdequacy.maximumAbsoluteResidual`
+  and `modelAdequacy.maximumFinalError`; the sensor-time grid is the held-step setting
+  `sensorTimeConstant` (`minimum`, `maximum`, `step`). Each is absent until the engineer
+  sets it, and then the default above applies. The sensor-time grid and the residual limits
+  are read and checked only for the `sopdt` form; the other held-step forms carry neither.
 - *Recommendation.* The first-order model when it is adequate; otherwise the
   additional lag when it is adequate and lowers the RMS residual by more than `b`;
   otherwise neither. Only the recommended structure can be chosen. The physical
@@ -448,7 +457,20 @@ additional first-order lag, such as a sensor balance `Cs·dTs/dt = Gs·(T − Ts
   independent check of N3 passes.
 - The comparison runs on the estimation recording, before the independent check,
   and only with the windows and measurement assumptions of the first-order
-  reference.
+  reference: the baseline and final durations, the measurement bound, the window
+  range and slope, and the sample time offset. A reference that differs in any of
+  them is refused.
+- *Independent check.* The structure the engineer chose, and no other, is checked
+  on the independent recording of N3.4 and N3.5. A chosen first-order model is
+  checked as a bounded step review. A chosen additional lag is checked as a frozen
+  model: its estimation fit must have a non-empty measurement-consistent set, no
+  search-boundary finding and no timestamp shift, and no residual beyond the
+  measurement bound; its free-running prediction on the validation record must lie
+  within the measurement bound at every sample of the response; the validation step
+  must have a different applied amplitude; and its normalized validation error is
+  taken over the validation record's span (N3.2). The check cannot start before a
+  structure is chosen, and a choice is accepted only when it is the recommended
+  structure.
 
 ## N3. Model acceptance and the independent model check
 
@@ -487,6 +509,15 @@ The limit is the identification policy's `maximumNormalizedError`. Its default i
 Among acceptable forms, the simplest is selected (N2.1). A more complex form is not
 ranked ahead of a simpler acceptable form only because its error is lower. A fit
 percentage alone never selects a model.
+
+**Adequacy margin of a requested form.** When a form is requested by name (not
+Automatic) and scored on a validation record, it is refused, with its failed-
+validation sentence, when its normalized validation error is not finite or is above
+`min(0.35, max(0.03, 1.25·e))`, where `e` is the normalized validation error of the
+recommended form. The rule applies when both errors are defined. The limit allows a
+requested form 25 % more error than the recommended one, never less than 0.03 and
+never more than 0.35. The sensor-lag comparison of N2.10 needs no such margin: its
+chosen structure is the recommended one, and it is checked by the rules above.
 
 Identify fits no integrating form with a lag. A supplied model of that form (B3.7) is
 tuned without a fit error, and Automatic places its poles (N5.12(c)).
@@ -608,6 +639,14 @@ where `∘` is the element-wise product. `Λ` has the size of `K`.
 - A pairing is refused when its diagonal element `λii` is not positive.
 - Among pairings with positive diagonal elements, the pairing whose diagonal
   elements are closest to 1 is named. Closeness is the sum of `|λii − 1|` over the pairing's diagonal elements; the smallest sum wins.
+
+- The pairing is searched over the pairings of at most eight input/output pairs. A square case with more pairs is refused before any
+  calculation. Two pairings with the same sum name the earlier one in lexicographic order of the input positions. When no pairing has
+  every diagonal element positive, no pairing is named; the relative gain array and the decoupler are still answered.
+- The steady-state gain of settled trials is the least-squares fit of each output on the trials' input changes, one output at a time
+  (C7, "Measured paths"). The rank and the condition number of the input changes, and the residual norm, are kept with the gain.
+- The static decoupler is `D = K⁻¹·diag(K)` (C7), with one row per input and one column per output. The relative gain array and the
+  decoupler keep the condition number of `K`.
 
 **N4.6 State-space structure.** For a state-space model with `n` states, the
 controllability and observability matrices are
@@ -1400,8 +1439,17 @@ write to the running controller.
 | Required scenarios of a project block | at most 64 | count | C2 |
 | Additional modes of a transfer | at most 8 | count | C2, C6 |
 | Cascade identification order | 1 (maximum order) | count | C6 |
+| Switching controller's hysteresis | 0 to the measurement span | pv | C3 |
+| Switching controller's noise half-band | zero or more | pv | C3 |
+| Switching controller's minimum ON and OFF times | 0 to 3,600 | s | C3 |
+| Switching controller's dwell timer state | 0 to 1,000,000 | s | C3 |
+| Switching controller's threshold policy | `at-or-beyond` (default) or `beyond` | 1 | C3 |
+| Switching controller's minimum time rounding | a whole number of task periods, not below the equipment's minimum | s | C3 |
+
+The switching rows take their values from the switching generator of the TypeScript route (`loopSetup/onOffLoopGenerator.ts`: the minimum times and the timer bounded to 3,600 s and 1,000,000 s, the hysteresis to the measurement span) and from its design (`onOffController.ts`: the rounding of a dwell to the task period). Rust keeps them as `MINIMUM_TIME_MAXIMUM_SECONDS` and `DWELL_TIMER_MAXIMUM_SECONDS` in the loop contract. The threshold policy is the default of D-10.
 | Cascade design simulation | at most 200,000 | samples | C6 |
-| Feedforward identification order | 2 (maximum order) | count | C8 |
+| Inner settling time of a cascade without inner requirements (`INNER_SETTLING_DIVISOR`) | one fifth of the outer settling time | s | C6 |
+| Inner duration of a cascade without inner requirements (`INNER_DURATION_FIFTHS`) | two fifths of the outer settling time | s | C6 || Feedforward identification order | 2 (maximum order) | count | C8 |
 | Feedforward identification error limit | 0.05 | fraction of the measured output span | C8 |
 | Feedforward design simulation | at most 200,000 | samples | C8 |
 | Feedforward gain `K_ff` | ±1,000,000 | mv/d | C8 |
@@ -1412,14 +1460,23 @@ write to the running controller.
 | Smith model time constant `T` | 0.001 to 100,000 | s | C9 |
 | Smith model delay `θ` | 0 to 10,000 | s | C9 |
 | Smith correction state `c` | ±1 × pv span, starting at 0 | pv | C9 |
+| Smith library block operating input and output (`OperatingInput`, `OperatingOutput`) | the declared range of the mv, and of the pv | mv, pv | C9 |
 | Scheduled gain | ±1,000,000 | the gain's unit | C10 |
 | Operating points of a schedule | 2 to 4 | count | C10 |
+| Scheduling tolerance of an operating point | above 0 and finite; declared per point, no default | the scheduling variable's unit | C10 |
+| Continuity fraction of an active scheduled gain | 0.10 of the gain's span over the schedule's points (the largest minus the smallest value in the table), between two consecutive recorded samples; a gain with span zero must not change | fraction | C10 |
 | ON/OFF hysteresis | 0 to the pv span | pv | C3 |
 | ON/OFF minimum ON time and minimum OFF time | 0 to 3,600 | s | C3 |
 | ON/OFF dwell timer state | 0 to 1,000,000 | s | C3 |
 | Controller states in an ON/OFF setup | at most 32 | count | C3 |
 | Members of a PID group | at least 2 at setup; at most 16 in validation | count | C7 |
+| Controller states of a declared initialization, per controller instance (`MAXIMUM_STATES`): a loop with n instances declares at most 32 × n states; a PID group's members, or a cascade's two, are its instances | at most 32 per instance | count | C0, C2, C6, C7 |
+| Outputs held by one transfer (`MAX_ADDITIONAL_OUTPUTS`, the loop's output and at most 15 more): a PID group's members | at most 16 | count | C7 |
 | Static decoupler entry `D` | ±1,000 | ratio of the two mv units, or 1 for one unit | C7 |
+| Decoupler size (`MAXIMUM_DECOUPLER_SIZE`) | at most 8 by 8 | count | C7 |
+| Symbols of a PID group's member, or of its declaration (`MAXIMUM_SYMBOLS`) | at most 128 | count | C7 |
+| Pairing search of a PID group (`MAXIMUM_SEARCHED_PAIRS`) | at most 8 pairs | count | C7 |
+| Relative determinant of a two-member `Control.StaticDecoupler2x2` (`BLOCK_SINGULARITY_TOLERANCE`) | above 1e-10 | 1 | C7 |
 | Decoupler matrix of a seed | at most 8 rows | count | C7 |
 | Symbols listed by a PID group | at most 128 | count | C7 |
 | Measured signals besides the controlled output (state feedback) | 1 to 3 | count | C4 |

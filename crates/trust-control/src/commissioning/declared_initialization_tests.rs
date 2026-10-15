@@ -4,14 +4,16 @@
 use super::super::found_mode::{reenter_found_mode, AutoReentry, FoundMode};
 use super::*;
 use crate::commissioning::entry_allowance::{noise_aware_transfer_tolerance, AllowanceTerms};
-use crate::commissioning::fixture_loops::{control_pid_loop, first_order_model, requirements};
+use crate::commissioning::fixture_loops::{
+    control_pid_loop, first_order_model, project_pi_loop_on_p1, requirements,
+};
 use crate::commissioning::library_pid::library_pid_initialization;
 use crate::commissioning::profile::RequiredTracking;
 use crate::commissioning::transfer::{TransferMember, TransferValueType};
 use crate::commissioning::transfer_tracking::TransferTracking;
 use crate::loop_definition::{
-    Direction, InitialSource, InitialValue, InitializedState, LoopSignal, PidInitialization,
-    PostScan, Range, StateType,
+    Direction, GainSchedule, InitialSource, InitialValue, InitializedState, LoopSignal,
+    PidInitialization, PostScan, Range, SchedulePoint, SchedulingVariable, StateType,
 };
 use crate::validation::run_validation::RunCheck;
 
@@ -468,4 +470,57 @@ fn the_reported_states_are_read_back_and_a_missing_one_is_refused() {
         1.0,
         1e-12
     ));
+}
+
+/// The schedule of the fixture's loop: it tunes `Low`, whose gains the fixture names, beside a second point `High` with its own gains.
+fn schedule_of_the_fixture() -> GainSchedule {
+    let point = |name: &str, value: f64, proportional: &str, integral: &str| SchedulePoint {
+        name: name.to_owned(),
+        loop_id: format!("loop:{}", name.to_lowercase()),
+        value,
+        tolerance: 0.01,
+        proportional_symbol: proportional.to_owned(),
+        integral_symbol: integral.to_owned(),
+    };
+    GainSchedule {
+        parameter_record: "Main.Record".to_owned(),
+        scheduling: SchedulingVariable {
+            symbol: "P1.Level".to_owned(),
+            unit: "m".to_owned(),
+            iec_type: crate::loop_definition::RealType::Lreal,
+        },
+        point: "Low".to_owned(),
+        points: vec![
+            point("Low", 0.09, "P1.Kp", "P1.Ki"),
+            point("High", 0.49, "P1.KpHigh", "P1.KiHigh"),
+        ],
+    }
+}
+
+#[test]
+fn a_schedule_states_its_table_and_takes_its_own_gains_out_of_the_guards() {
+    let mut loop_definition = project_pi_loop_on_p1();
+    loop_definition
+        .controller
+        .project
+        .as_mut()
+        .expect("a project law")
+        .schedule = Some(schedule_of_the_fixture());
+    let project = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("a project law");
+    let binding = declared_transfer_binding(&loop_definition, &project.initialization)
+        .expect("the schedule's binding");
+    let states: Vec<&str> = binding
+        .states
+        .iter()
+        .map(|member| member.symbol.as_str())
+        .collect();
+    assert!(states.ends_with(&["P1.Kp", "P1.Ki", "P1.KpHigh", "P1.KiHigh"]));
+    assert!(binding
+        .guards
+        .iter()
+        .all(|guard| guard.symbol != "P1.Kp" && guard.symbol != "P1.Ki"));
 }

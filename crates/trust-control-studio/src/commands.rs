@@ -25,6 +25,8 @@ use trust_control::study::analysis_records::current_records;
 use trust_control::study::apply::ApplySection;
 use trust_control::study::current_model::current_model;
 use trust_control::study::inputs::{stage_evidence_of, InputsSection};
+use trust_control::study::tune::search_record::study_search_candidate;
+use trust_control::study::tune::state;
 use trust_control::study::validate::ValidateSection;
 
 use super::analysis_parameters_action;
@@ -309,9 +311,12 @@ fn open_with_running(request: &OpenRequest, running: Vec<String>) -> Result<Open
     };
     let identification = study_identification(&study, &loop_definition, evidence)?;
     let tune = study_candidate(&study, &loop_definition, evidence)?;
+    let search_candidate = study_search_candidate(&study, evidence)?;
     // The kept analysis records that are current for the loop and the study's current model, fitted or supplied (B10.2, B3.7, A8.4).
     let selected_model = current_model(&study)?.map(|current| current.model);
     let analysis = current_records(&study, &loop_definition.revision, selected_model.as_ref());
+    let inputs = study.section::<InputsSection>()?.unwrap_or_default();
+    let state_fields = state::state_fields(&loop_definition, inputs.state_design.as_ref());
     Ok(OpenResult::Opened {
         stages,
         reattached: journaled_operations(journal.entries()),
@@ -320,15 +325,17 @@ fn open_with_running(request: &OpenRequest, running: Vec<String>) -> Result<Open
         stage_evidence: evidence,
         identification,
         tune,
+        search_candidate,
         loop_definition: Box::new(loop_definition),
         page: study.page,
         page_analysis: study.analysis.clone(),
         page_view: study.view.clone(),
         analysis,
-        inputs: study.section::<InputsSection>()?.unwrap_or_default(),
+        inputs,
         restore_available: offers.restore,
         keep_available: offers.keep,
         apply_observation_resumable: offers.observation_resumable,
+        state_fields,
     })
 }
 
@@ -503,13 +510,13 @@ mod tests {
     #[test]
     fn open_refuses_a_parked_loop_before_it_reads_or_moves_the_typescript_study() {
         // V6 decision D9: a loop with a parked feature stays on the TypeScript engine, whose study document is its own; opening it
-        // through the engine must leave that document where it is.
+        // through the engine must leave that document where it is. A top-level cascade (C6, the two-loop form) is still parked (V7).
         let root =
             std::env::temp_dir().join(format!("trust-control-open-parked-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("project");
         let mut file: Value = serde_json::from_str(EXAMPLE).expect("example");
-        file["controller"]["stateFeedback"] = json!({ "family": "state-feedback" });
+        file["cascade"] = json!({ "role": "inner", "outer": "control-pid-outer" });
         fs::write(root.join("control-loop.json"), file.to_string()).expect("loop");
         let example = LoopDefinition::decode(EXAMPLE).expect("example");
         let directory = storage::study_directory(&root, &example.id);

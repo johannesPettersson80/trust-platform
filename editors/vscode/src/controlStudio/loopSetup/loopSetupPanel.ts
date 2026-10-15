@@ -13,7 +13,6 @@ import type { CompiledCatalog } from "./compiledCatalog";
 import { saveLoopSetup, type LoopSetupDraft } from "./loopSetupSave";
 import { renderLoopSetupBody } from "./loopSetupTemplate";
 import type { SetupFormModel } from "./setupFormModel";
-import { estimatorModelFiles } from "./estimatorModelFiles";
 import { engineAnswer, refusalText, saveSetupDraft } from "./setupEngine";
 
 export const LOOP_SETUP_VIEW_TYPE = "trust-loop-setup";
@@ -26,7 +25,7 @@ export function setupProjectId(folder: vscode.Uri): string {
 /**
  * The one-page setup form (B1.3). The engine answers the form's model from the compiled program and saves the confirmed draft.
  * Saving writes the loops, closes the form and opens Control Studio on the first loop. A refusal shows its message and next action;
- * a structure the engine does not run yet is saved by the TypeScript generator until stage V7.
+ * the engine saves every structure, so the TypeScript generator is no longer reached from this form.
  */
 export async function openLoopSetupPanel(context: vscode.ExtensionContext, folder: vscode.Uri, runtimeId: string, catalog: CompiledCatalog,
   open: (request: unknown) => void | Promise<void>, stepByStep?: () => void | Promise<void>): Promise<vscode.WebviewPanel | undefined> {
@@ -38,7 +37,6 @@ export async function openLoopSetupPanel(context: vscode.ExtensionContext, folde
     void vscode.window.showErrorMessage(refusalText(discovered.failure));
     return undefined;
   }
-  const estimatorModels = await estimatorModelFiles(folder.fsPath);
   const panel = vscode.window.createWebviewPanel(LOOP_SETUP_VIEW_TYPE, "Set up control loop", vscode.ViewColumn.Active, {
     enableScripts: true,
     localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, "media")), vscode.Uri.file(path.join(context.extensionPath, "src", "webview"))],
@@ -51,7 +49,7 @@ export async function openLoopSetupPanel(context: vscode.ExtensionContext, folde
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}';">
 <link rel="stylesheet" href="${theme}"><style>${THREE_PAGE_STYLES}</style></head><body>
 <main class="control-studio"><h1 class="studio-response-title">Set up a control loop</h1>
-${renderLoopSetupBody(formModelOf(discovered.result, estimatorModels), escapeHtml)}</main>
+${renderLoopSetupBody(formModelOf(discovered.result), escapeHtml)}</main>
 <script nonce="${nonce}" src="${script}"></script></body></html>`;
   const scope = { projectId: setupProjectId(folder), runtimeId };
   webview.onDidReceiveMessage(async (message: { kind?: string; draft?: Record<string, unknown> }) => {
@@ -60,7 +58,8 @@ ${renderLoopSetupBody(formModelOf(discovered.result, estimatorModels), escapeHtm
     if (message?.kind !== "control-studio.setup.save" || !draft) return;
     const outcome = await saveSetupDraft(engine, { projectRoot: folder.fsPath, runtimeId, languageTool, draft });
     if (outcome.kind === "refused") {
-      void webview.postMessage({ kind: "control-studio.setup.error", reason: refusalText(outcome.failure) });
+      const field = outcome.failure.field;
+      void webview.postMessage({ kind: "control-studio.setup.error", reason: refusalText(outcome.failure), field: typeof field === "string" ? field : undefined });
       return;
     }
     try {
@@ -75,8 +74,9 @@ ${renderLoopSetupBody(formModelOf(discovered.result, estimatorModels), escapeHtm
   return panel;
 }
 
-/** The setup form's model as the engine answers it, with the model files of the parked LQG structure (B1.3, C4). */
-function formModelOf(answer: SetupDiscoverResult, estimatorModels: { file: string; states: number }[]): SetupFormModel {
+/** The setup form's model as the engine answers it, with the model files an LQG estimator can implement (B1.3, C4). */
+export function formModelOf(answer: SetupDiscoverResult): SetupFormModel {
+  const estimatorModels = answer.estimatorModels ?? [];
   return { ...(answer.formModel as unknown as SetupFormModel), ...(estimatorModels.length ? { estimatorModels } : {}) };
 }
 

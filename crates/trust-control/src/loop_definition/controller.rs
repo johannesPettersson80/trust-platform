@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::bindings::RealType;
+use super::on_off::OnOffController;
+use super::pid_group::PidControllerGroup;
 use super::project::ControllerProject;
 
 /// The controller that runs the loop.
@@ -56,17 +58,20 @@ pub struct Controller {
     /// Parked (stage V7): a state-feedback law.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_feedback: Option<Value>,
-    /// Parked (stage V7): an ON/OFF controller.
+    /// The switching controller (C3): its three settings, its band, its output levels and its retained states. [`OnOffController`]
+    /// decodes and checks it; the gate serves it with its ON/OFF channel shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub on_off: Option<Value>,
+    #[schemars(with = "Option<Value>")]
+    pub on_off: Option<OnOffController>,
     /// The program's own law (C2): its family, its states, its seed and its search settings. [`ControllerProject`] decodes and
     /// checks it; the engine serves the `parallel-pid` shape and refuses the rest by name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "Option<Value>")]
     pub project: Option<ControllerProject>,
-    /// Parked (stage V7): a PID group.
+    /// A PID group (C7): its `Control.PID` members and their channels. [`PidControllerGroup`] checks the declaration against the loop's
+    /// channels; the group's design, Validate and Apply are the engine's (stage V7, wave 4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group: Option<Value>,
+    pub group: Option<PidControllerGroup>,
 }
 
 /// The controller's direction of action.
@@ -333,9 +338,9 @@ pub enum InitialSource {
         /// The parameter holding the gain.
         gain_symbol: String,
     },
-    /// Row `index` of D⁻¹·u for a decoupled group member.
+    /// Row `index` of D⁻¹·u for a decoupled group member (serde kind `decoupled-output`).
     #[serde(rename_all = "camelCase")]
-    DecoupledModelInput {
+    DecoupledOutput {
         /// The row.
         index: usize,
         /// The decoupler's matrix, as parameter paths.

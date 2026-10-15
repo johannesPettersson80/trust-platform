@@ -4,10 +4,12 @@
 //! preferences and the sentences the engineer reads. Nothing here reads a clock or does I/O. A design is a provisional,
 //! unapplied candidate, and nothing writes it to a runtime.
 
+pub mod answer;
 pub mod binding;
 pub mod coefficients;
 pub mod design;
 pub mod families;
+pub mod offer;
 pub mod poles;
 pub mod preferences;
 pub mod reference;

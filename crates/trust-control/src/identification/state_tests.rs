@@ -7,6 +7,7 @@ use serde_json::json;
 
 use super::*;
 use crate::identification::form_draft::IDENTIFICATION_FORM_KEYS;
+use crate::identification::sensor_lag_comparison::StructureChoice;
 use crate::recording::fixtures::{binding, loop_definition, run, sample};
 use crate::signals::Quality;
 
@@ -158,14 +159,18 @@ fn every_saved_input_has_the_states_error_limit() {
 }
 
 #[test]
-fn a_sensor_lag_structure_choice_is_refused_with_its_comparison_parked() {
+fn a_sensor_lag_structure_choice_is_kept_with_the_preview_and_names_one_of_the_two_structures() {
     let mut preview = state_json("preview");
     preview["estimation"] = input_json();
     assert!(decodes(&preview));
     preview["structureChoice"] = json!("first_order");
+    let state = decode_identification_state(&preview, &loop_definition())
+        .expect("the choice decodes with the preview");
+    assert_eq!(state.structure_choice, Some(StructureChoice::FirstOrder));
+    preview["structureChoice"] = json!("sopdt");
     assert!(
         !decodes(&preview),
-        "the sensor-lag comparison is parked with stage V7"
+        "a choice names one of the two structures (N2.10)"
     );
 }
 

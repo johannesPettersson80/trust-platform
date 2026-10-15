@@ -31,7 +31,7 @@ use crate::recording::RecordedRun;
 use crate::validation::engineer_verification_plan::EngineerRequirements;
 
 use super::commissioning_result::{CommissioningResult, TransferState, TransferStatus};
-use super::entry_allowance::{auto_entry_error, auto_entry_tolerance, transfer_tolerance};
+use super::entry_allowance::{auto_entry_allowance, auto_entry_error, transfer_tolerance};
 use super::found_mode::{reenter_found_mode, reviewed_mode_of, AutoReentry, FoundMode};
 use super::parameter_application::ParameterReview;
 use super::parameter_status::{same_parameter_values, ParameterStatus, RecordState};
@@ -374,8 +374,9 @@ impl PidCampaign<'_> {
         let loop_definition = self.start.loop_definition;
         Ok(AutoReentry {
             values: self.start.profile.states(&self.start.binding, observed)?,
-            tolerance: auto_entry_tolerance(
+            tolerance: auto_entry_allowance(
                 loop_definition,
+                &self.start.model,
                 self.start.task,
                 self.restore_values(),
                 self.start.process_noise,

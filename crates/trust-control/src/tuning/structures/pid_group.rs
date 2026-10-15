@@ -6,6 +6,8 @@
 //! The values that these designs write into the program's variables are mapped by the loop's seed, not here: the designs return the gains
 //! and the matrix by member and channel.
 
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use trust_control_math::identify::gain::ControllerAction;
 use trust_control_math::linalg::{DenseMatrix, NumericalTolerance};
 use trust_control_math::model::{StateSpace, Timing};
@@ -20,9 +22,12 @@ use super::texts;
 use crate::identification::refusal::Refusal;
 use crate::model::{GeneralModel, ModelChannel};
 use crate::tuning::formula::tune_pi;
-use crate::tuning::objective::{TuningMethod, TuningObjective};
+use crate::tuning::objective::{TuningMethod, TuningObjective, AUTOMATIC_OBJECTIVE};
 use crate::tuning::plant::TuningPlant;
 use crate::tuning::structure::ParallelGains;
+
+/// The most pairs whose pairing the search covers (N4.5): a larger group names no pairing, so it never enumerates the permutations.
+pub const MAXIMUM_SEARCHED_PAIRS: usize = 8;
 
 /// The tolerance of the group's gain matrices: the rank and conditioning rules of the numerical annex (N4.5).
 const TOLERANCE: NumericalTolerance = NumericalTolerance {
@@ -82,6 +87,25 @@ pub struct DecouplerMember {
     pub output_channel_id: String,
 }
 
+/// The relative determinant that a two-member decoupler's `Control.StaticDecoupler2x2` must exceed to be configured (spec 37 §4.2):
+/// the block's `SingularityTolerance`, which Tune checks with this value. The numerics annex names it (N10).
+pub const BLOCK_SINGULARITY_TOLERANCE: f64 = 1e-10;
+
+/// The two-member decoupler as `Control.StaticDecoupler2x2` is configured (C7; spec 37 §4.2): the gain matrix `G = diag(K)⁻¹·K`, its
+/// determinant and relative determinant, and its inverse, which equals `D = K⁻¹·diag(K)`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StaticDecoupler2x2Design {
+    /// `G`, by output (row) and member input (column): `G[i][j] = Kᵢⱼ / Kᵢᵢ`, so its diagonal is one.
+    pub gain: [[f64; 2]; 2],
+    /// The determinant of `G`.
+    pub determinant: f64,
+    /// `|det G|` over the block's matrix scale: the block's `RelativeDeterminant`.
+    pub relative_determinant: f64,
+    /// `G⁻¹` by the block's rule (`Inverse11` … `Inverse22`); its rows give `u = G⁻¹·v`.
+    pub inverse: [[f64; 2]; 2],
+}
+
 /// A decoupled group (C7): the decoupler by plant input (row) and member (column), and each member's design through it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecouplerDesign {
@@ -93,6 +117,56 @@ pub struct DecouplerDesign {
     pub member_ids: Vec<String>,
     /// Each member's design through the decoupler, in order.
     pub members: Vec<DecentralizedMember>,
+    /// The two-member group's `Control.StaticDecoupler2x2` configuration (C7), accepted by the block's singularity check; `None` for a
+    /// larger group, which uses the program's own variables only.
+    pub block: Option<StaticDecoupler2x2Design>,
+}
+
+/// Configures a two-member decoupler as `Control.StaticDecoupler2x2` does (C7; spec 37 §4.2): `G = diag(K)⁻¹·K`, with the block's
+/// determinant, relative determinant and inverse. A `G` whose relative determinant is not above [`BLOCK_SINGULARITY_TOLERANCE`] is
+/// refused with the block's reason, as the block would refuse its configuration.
+///
+/// # Errors
+/// Returns a refusal when a steady-state gain on the diagonal is zero, or when the block's singularity check refuses `G`.
+pub fn static_decoupler_2x2(gains: &DenseMatrix) -> Result<StaticDecoupler2x2Design, Refusal> {
+    let (k11, k12, k21, k22) = (gains[0][0], gains[0][1], gains[1][0], gains[1][1]);
+    if k11 == 0.0 || k22 == 0.0 {
+        return Err(Refusal::new(texts::DECOUPLER_GAINS_SINGULAR));
+    }
+    let gain = [[1.0, k12 / k11], [k21 / k22, 1.0]];
+    let determinant = gain[0][0] * gain[1][1] - gain[0][1] * gain[1][0];
+    let row_norm = (gain[0][0].abs() + gain[0][1].abs()).max(gain[1][0].abs() + gain[1][1].abs());
+    let column_norm =
+        (gain[0][0].abs() + gain[1][0].abs()).max(gain[0][1].abs() + gain[1][1].abs());
+    let scale = row_norm * column_norm;
+    let relative_determinant = determinant.abs() / scale;
+    if !(scale > 0.0 && relative_determinant > BLOCK_SINGULARITY_TOLERANCE) {
+        return Err(Refusal::new(block_refusal(relative_determinant)));
+    }
+    let inverse = [
+        [gain[1][1] / determinant, -gain[0][1] / determinant],
+        [-gain[1][0] / determinant, gain[0][0] / determinant],
+    ];
+    Ok(StaticDecoupler2x2Design {
+        gain,
+        determinant,
+        relative_determinant,
+        inverse,
+    })
+}
+
+/// The block's reason for refusing a configuration whose relative determinant is not above its singularity tolerance.
+fn block_refusal(relative_determinant: f64) -> String {
+    format!(
+        "Control.StaticDecoupler2x2 refuses the members' gain matrix G = diag(K)⁻¹·K: its relative determinant {} is not above its singularity tolerance {}.",
+        significant(relative_determinant),
+        significant(BLOCK_SINGULARITY_TOLERANCE)
+    )
+}
+
+/// A number in two significant digits, for a sentence.
+fn significant(value: f64) -> String {
+    format!("{value:.2e}")
 }
 
 /// Designs each member's PI by SIMC on its own path, for the gain it sees when the other loops are closed (C7, steps 1 to 3).
@@ -164,6 +238,10 @@ pub fn design_decoupled_group(
         .collect();
     let matrix = static_decoupler(&gains, &TOLERANCE)
         .map_err(|_| Refusal::new(texts::DECOUPLER_GAINS_SINGULAR))?;
+    let block = match gains.as_slice() {
+        [_, _] => Some(static_decoupler_2x2(&gains)?),
+        _ => None,
+    };
 
     // The model seen through the decoupler: the members' inputs are the PIs' outputs, and the plant sees u = D·v.
     let decoupled = DelayedSystem {
@@ -189,7 +267,7 @@ pub fn design_decoupled_group(
         &pairs,
         &inputs,
         &outputs,
-        objective.unwrap_or(TuningObjective::Balanced),
+        objective.unwrap_or(AUTOMATIC_OBJECTIVE),
         action,
     )?;
     Ok(DecouplerDesign {
@@ -203,6 +281,7 @@ pub fn design_decoupled_group(
             .map(|member| member.instance.clone())
             .collect(),
         members: design.members,
+        block,
     })
 }
 
@@ -289,6 +368,15 @@ fn conflict_sentence(
     relative_gains: &DenseMatrix,
     conflicting: usize,
 ) -> String {
+    // The pairing search covers at most eight pairs (N4.5); a larger group names no pairing, and the declared one stands refused.
+    if pairs.len() > MAXIMUM_SEARCHED_PAIRS {
+        return texts::relative_gain_conflict(
+            &pairs[conflicting].input_id,
+            &pairs[conflicting].output_id,
+            relative_gains[conflicting][conflicting],
+            texts::PAIRING_LIMIT,
+        );
+    }
     let pairing = pairing_by_relative_gain(relative_gains);
     let every_positive = pairing
         .iter()

@@ -7,6 +7,7 @@ use sha2::{Digest, Sha256};
 
 use super::catalog::{CompiledCatalog, CompiledController, CompiledSymbol, CompiledTask};
 use super::texts::generators as texts;
+use super::texts::save;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
 use crate::loop_definition::{
@@ -27,6 +28,75 @@ pub struct MeasuredSignal {
     pub minimum: f64,
     /// The largest value the signal takes.
     pub maximum: f64,
+}
+
+/// A measured signal as the setup form sends it. Each field may be missing or blank, and the checks name what is missing
+/// (`signal` of `loopSetupForm.ts`). A draft's signal is a `FormSignal`; `measured_signal` checks it into a `MeasuredSignal`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FormSignal {
+    /// The variable's path; blank when none is chosen.
+    #[serde(default)]
+    pub symbol: String,
+    /// The signal's unit; blank when none is given.
+    #[serde(default)]
+    pub unit: String,
+    /// The smallest value; absent when it is not a number.
+    #[serde(default)]
+    pub minimum: Option<f64>,
+    /// The largest value; absent when it is not a number.
+    #[serde(default)]
+    pub maximum: Option<f64>,
+}
+
+/// A signal of a setup form as a `MeasuredSignal`, checked in the order of `signal` in `loopSetupForm.ts`: its symbol is chosen, its unit
+/// is given, both bounds are numbers, and the maximum is above the minimum. `label` names the signal's role in the sentences. `field` is
+/// the form field of the signal: its symbol is `field`, its unit `{field}.unit` and its bounds `{field}.minimum` and `{field}.maximum`,
+/// under which a refusal shows; `None` when the page has no such field. The unit is kept as sent.
+///
+/// # Errors
+/// The symbol is blank, the unit is blank, the minimum or the maximum is missing or not finite, or the maximum is not above the minimum.
+pub fn measured_signal(
+    signal: &FormSignal,
+    label: &str,
+    field: Option<&str>,
+) -> Result<MeasuredSignal, Failure> {
+    let refuse = |text: &str, part: &str| {
+        let failure = Failure::new(text, Cause::Settings, NextAction::OpenLoopSetup);
+        match field {
+            Some(field) if part.is_empty() => failure.with_field(field),
+            Some(field) => failure.with_field(&format!("{field}.{part}")),
+            None => failure,
+        }
+    };
+    if signal.symbol.trim().is_empty() {
+        return Err(refuse(&save::signal_symbol_needed(label), ""));
+    }
+    if signal.unit.trim().is_empty() {
+        return Err(refuse(&save::signal_unit_needed(label), "unit"));
+    }
+    let (minimum, maximum) = match (signal.minimum, signal.maximum) {
+        (Some(minimum), Some(maximum)) if minimum.is_finite() && maximum.is_finite() => {
+            (minimum, maximum)
+        }
+        (minimum, _) => {
+            let bound = if minimum.is_some_and(f64::is_finite) {
+                "maximum"
+            } else {
+                "minimum"
+            };
+            return Err(refuse(&save::signal_range_needed(label), bound));
+        }
+    };
+    if maximum <= minimum {
+        return Err(refuse(&save::signal_range_order(label), "maximum"));
+    }
+    Ok(MeasuredSignal {
+        symbol: signal.symbol.clone(),
+        unit: signal.unit.clone(),
+        minimum,
+        maximum,
+    })
 }
 
 /// The compiled symbol with this exact path (`compiled`).

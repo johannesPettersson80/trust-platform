@@ -257,13 +257,15 @@ pub(crate) fn gains(integral_gain: f64) -> ControllerGains {
 
 /// What the study gives the run in the tests: the model, the requirements, the gains, a validation identity and the measured noise.
 #[must_use]
-pub(crate) fn inputs(gains: ControllerGains, process_noise: f64) -> ApplyInputs {
+pub(crate) fn inputs(gains: &ControllerGains, process_noise: f64) -> ApplyInputs {
     ApplyInputs {
         model: model(),
         task: task(),
-        gains,
+        gains: *gains,
+        coefficients: None,
         validation_identity: "validation:1".into(),
         process_noise,
+        schedule: None,
     }
 }
 

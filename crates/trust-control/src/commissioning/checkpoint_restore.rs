@@ -27,7 +27,7 @@ use super::application_records::ReviewedParameter;
 use super::application_texts::physical_approval_needed;
 use super::checkpoint::{CheckpointStage, CommissioningCheckpoint};
 use super::commissioning_result::{TransferState, TransferStatus};
-use super::entry_allowance::{auto_entry_error, auto_entry_tolerance};
+use super::entry_allowance::{auto_entry_allowance, auto_entry_error};
 use super::found_mode::{found_mode_of, reenter_found_mode, AutoReentry, FoundMode};
 use super::parameter_application::ParameterReview;
 use super::parameter_status::{same_parameter_values, ParameterStatus, RecordState};
@@ -504,8 +504,14 @@ fn declared_profile(
     loop_definition: &LoopDefinition,
     checkpoint: &CommissioningCheckpoint,
 ) -> Result<Option<CommissioningProfile>, Failure> {
-    controller_adapter(loop_definition)?
-        .declared_profile(&checkpoint.model, &checkpoint.origin.values)
+    // The table of a schedule is restored beside the record: its Auto entry starts each point's gains at the values Apply found (C10).
+    let mut values = checkpoint.origin.values.clone();
+    if let Some(origin) = &checkpoint.schedule_origin {
+        for (symbol, value) in origin {
+            values.entry(symbol.clone()).or_insert(*value);
+        }
+    }
+    controller_adapter(loop_definition)?.declared_profile(&checkpoint.model, &values)
 }
 
 /// The allowed output change of the Auto entry (`entryTolerance`, A6.3, A6.4): the allowance of Apply's entry, for the restored record,
@@ -515,8 +521,9 @@ fn entry_tolerance(
     checkpoint: &CommissioningCheckpoint,
     observed: &BTreeMap<String, TransferValue>,
 ) -> Result<f64, Failure> {
-    auto_entry_tolerance(
+    auto_entry_allowance(
         loop_definition,
+        &checkpoint.model,
         &checkpoint.task,
         &checkpoint.origin.values,
         checkpoint.process_noise,

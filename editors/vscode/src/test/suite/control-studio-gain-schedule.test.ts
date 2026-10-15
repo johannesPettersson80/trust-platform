@@ -26,6 +26,9 @@ const tank = {
   writes: ["P1.ValvePct", "P1.Parameters.ProportionalGain", "P1.Parameters.IntegralGain"],
 };
 const points = [{ name: "Low", proportionalGain: "P1.KpLow", integralGain: "P1.KiLow" }, { name: "High", proportionalGain: "P1.KpHigh", integralGain: "P1.KiHigh" }];
+/** The points as the form posts them: each with its value of the scheduling variable and its tolerance (C10). */
+const formPoints = [{ name: "Low", value: 0.5, tolerance: 0.1, proportionalGain: "P1.KpLow", integralGain: "P1.KiLow" },
+  { name: "High", value: 1.5, tolerance: 0.1, proportionalGain: "P1.KpHigh", integralGain: "P1.KiHigh" }];
 const draft = () => ({ ...scope, name: "Tank level", instance: "P1.Loop", action: "direct", parameterRecord: "P1.Parameters",
   processVariable: { symbol: "P1.LevelM", unit: "m", minimum: 0, maximum: 2 }, manipulatedVariable: { symbol: "P1.ValvePct", unit: "%", minimum: 0, maximum: 100 },
   setpoint: { symbol: "P1.SetpointM" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
@@ -68,28 +71,17 @@ suite("Control Studio gain schedule", () => {
       assert.ok(structures.includes("schedule"), `a gain schedule has its own structure: ${structures}`);
       for (const [field, value] of [["structure", "schedule"], ["name", "Tank level"], ["processVariable", "P1.LevelM"], ["processVariable.unit", "m"],
         ["processVariable.minimum", "0"], ["processVariable.maximum", "2"], ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"],
-        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"]]) view.set(field, value);
-      const message = () => view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "";
-      assert.match(message(), /operating point/i, `the schedule's points are next: ${message()}`);
-      for (const [field, value] of [["schedule.0.name", "Low"], ["schedule.0.proportionalGain", "P1.KpLow"], ["schedule.0.integralGain", "P1.KiLow"],
-        ["schedule.1.name", "High"], ["schedule.1.proportionalGain", "P1.KpHigh"], ["schedule.1.integralGain", "P1.KiHigh"]]) view.set(field, value);
+        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"], ["schedule.variable", "P1.LevelM"], ["schedule.variable.unit", "m"]]) view.set(field, value);
+      for (const [field, value] of [["schedule.0.name", "Low"], ["schedule.0.value", "0.5"], ["schedule.0.tolerance", "0.1"],
+        ["schedule.0.proportionalGain", "P1.KpLow"], ["schedule.0.integralGain", "P1.KiLow"],
+        ["schedule.1.name", "High"], ["schedule.1.value", "1.5"], ["schedule.1.tolerance", "0.1"],
+        ["schedule.1.proportionalGain", "P1.KpHigh"], ["schedule.1.integralGain", "P1.KiHigh"]]) view.set(field, value);
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
-      assert.strictEqual(save.disabled, false, message());
+      assert.strictEqual(save.disabled, false, "the engine, not the form, checks the points");
       save.click();
-      assert.deepStrictEqual(view.posts[0]?.draft?.points, points);
+      assert.deepStrictEqual(view.posts[0]?.draft?.points, formPoints);
+      assert.deepStrictEqual(view.posts[0]?.draft?.scheduling, { symbol: "P1.LevelM", unit: "m" });
       assert.strictEqual(view.posts[0]?.draft?.structure, "schedule");
     } finally { view.close(); }
-  });
-
-  test("saves one loop file per operating point", async () => {
-    const fs = require("fs"), os = require("os"), path = require("path");
-    const { saveLoopSetup } = require("../../controlStudio/loopSetup/loopSetupSave");
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-schedule-setup-"));
-    try {
-      const { projectId: _project, runtimeId: _runtime, ...unscoped } = draft();
-      const requests = await saveLoopSetup(root, scope, tank, { structure: "schedule", ...unscoped });
-      assert.deepStrictEqual(requests.map((request: any) => request.loopDefinition.name), ["Tank level · Low", "Tank level · High"]);
-      assert.deepStrictEqual(fs.readdirSync(path.join(root, "control-loops")).sort(), ["tank-level-high.json", "tank-level-low.json"]);
-    } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 });

@@ -541,7 +541,7 @@ pub fn identification_samples<E>(
 
 /// The model channels of a single-recording fit: the loop's plant input and measured output, with the identifiers the loop
 /// gives them (`modelChannelId`), or their symbols (`role_model_id`).
-fn channels_of(loop_definition: &LoopDefinition) -> ChannelSet {
+pub(crate) fn channels_of(loop_definition: &LoopDefinition) -> ChannelSet {
     let input = &loop_definition.signals.manipulated_variable;
     let output = &loop_definition.signals.process_variable;
     ChannelSet {

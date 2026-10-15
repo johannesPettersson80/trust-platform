@@ -7,6 +7,8 @@
 
 use trust_control_math::identify::step_response::grid_point_count;
 
+use crate::identification::sensor_lag_comparison::sensor_lag_settings_problem;
+
 use super::{SearchGrid, SettingsProblem, StepResponseSettings, EPSILON};
 
 /// The most delay and time-constant combinations the settings admit, counted as the product of the two grids'
@@ -18,7 +20,8 @@ const MAXIMUM_COMBINATIONS: f64 = 100_000.0;
 /// steps are finite and above zero, the onset threshold finite and at least zero, the timestamp shift finite, and the
 /// onset count from 1 to 100. Each grid, the delay grid first, has finite bounds of at least zero (the time constant's
 /// minimum above zero), a step above zero that divides the span exactly, and a maximum not below its minimum. The
-/// product of the two grids' interval counts is at most 100 000.
+/// product of the two grids' interval counts is at most 100 000. The sensor-time grid and the residual requirements, when given,
+/// follow [`sensor_lag_settings_problem`] (N2.10).
 #[must_use]
 pub fn step_response_settings_problem(settings: &StepResponseSettings) -> Option<SettingsProblem> {
     let scalars = [
@@ -72,7 +75,7 @@ pub fn step_response_settings_problem(settings: &StepResponseSettings) -> Option
             "Use a coarser grid or narrower delay and time-constant bounds.",
         ));
     }
-    None
+    sensor_lag_settings_problem(settings)
 }
 
 /// Whether the analysis settings are admissible (`validStepResponseSettings`): they have no

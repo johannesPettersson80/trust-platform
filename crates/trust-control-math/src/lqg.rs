@@ -144,6 +144,9 @@ pub enum LqgRefusal {
     Kalman(KalmanRefusal),
     /// The eigenvalues of the controller or the estimator cannot be computed.
     SolverFailed,
+    /// The estimator `(I − L·C)·A` has a pole that is not strictly inside the unit circle, so the estimate does not settle
+    /// (C4, D-B7).
+    NonstabilisingEstimator,
 }
 
 /// The LQG design of `problem` (N5.14): the LQR gain `K` and the Kalman gain `L`, with their poles.
@@ -192,6 +195,9 @@ pub fn design_discrete_lqg(
     let estimator_poles = eigenvalues(&rows_from_matrix(&estimator_matrix), tolerance)
         .map_err(|_| LqgRefusal::SolverFailed)?
         .values;
+    if !strictly_inside(&estimator_poles) {
+        return Err(LqgRefusal::NonstabilisingEstimator);
+    }
     let separation_poles = controller_poles
         .iter()
         .chain(&estimator_poles)
@@ -204,6 +210,13 @@ pub fn design_discrete_lqg(
         estimator_poles,
         separation_poles,
     })
+}
+
+/// Whether every pole lies strictly inside the unit circle: the estimator settles only then (C4).
+fn strictly_inside(poles: &[ComplexValue]) -> bool {
+    poles
+        .iter()
+        .all(|pole| pole.real.hypot(pole.imaginary) < 1.0)
 }
 
 #[cfg(test)]

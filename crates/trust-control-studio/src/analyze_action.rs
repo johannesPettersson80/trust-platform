@@ -2,7 +2,7 @@
 //!
 //! `analyze` answers the analysis tools of the Tune page. Without a `tool` it answers the tools that apply to the model and the loop.
 //! A quick tool (`poleZero`, `leadLag`, `stateStructure`, `relativeGain`) is calculated at once and answered with its envelope. An
-//! operation (`rootLocus`, `routh`, `frequency`, `feedback`, `measuredFrequency`, `initialState`) claims its loop, runs under the budget of
+//! operation (`rootLocus`, `routh`, `frequency`, `feedback`, `measuredFrequency`, `measuredPaths`, `initialState`) claims its loop, runs under the budget of
 //! A7, and its final update carries the envelope. A qualifying result of a loop the engine serves is kept in its study (B10.2).
 //!
 //! Every rule and every sentence is trust-control's (`analysis::*`); this module reads the loop, its study, its declared analysis and its
@@ -22,6 +22,7 @@ use trust_control::analysis::general_feedback::{FeedbackDefinition, SavedGeneral
 use trust_control::analysis::initial_state;
 use trust_control::analysis::lead_lag_tool;
 use trust_control::analysis::measured_frequency;
+use trust_control::analysis::measured_paths;
 use trust_control::analysis::model_views;
 use trust_control::analysis::pole_view;
 use trust_control::analysis::routh_session::SavedRouthAnalysis;
@@ -159,6 +160,7 @@ fn resolve_without_loop(request: &AnalyzeRequest) -> Result<Resolved, Failure> {
             .transpose()?,
         declared: None,
         recordings: Vec::new(),
+        multichannel: false,
     })
 }
 
@@ -174,6 +176,8 @@ struct Resolved {
     declared: Option<DeclaredControlAnalysis>,
     /// The recordings the study lists, by identifier; empty for a loop the engine does not serve.
     recordings: Vec<String>,
+    /// Whether the loop declares as many bound inputs as outputs, two or more (C7): what `measuredPaths` needs.
+    multichannel: bool,
 }
 
 impl Resolved {
@@ -183,6 +187,7 @@ impl Resolved {
             controller: self.controller.as_ref(),
             declared: self.declared.as_ref(),
             recordings: &self.recordings,
+            multichannel: self.multichannel,
         }
     }
 }
@@ -233,12 +238,16 @@ fn resolve(
         .as_ref()
         .map(|study| study.recordings.clone())
         .unwrap_or_default();
+    let multichannel = loop_definition.channels.as_ref().is_some_and(|channels| {
+        channels.inputs.len() >= 2 && channels.inputs.len() == channels.outputs.len()
+    });
     Ok(Resolved {
         served,
         model,
         controller,
         declared,
         recordings,
+        multichannel,
     })
 }
 
@@ -275,7 +284,10 @@ fn model_of(value: &Value, what: &str) -> Result<GeneralModel, Failure> {
 fn refused(tool: AnalysisTool, facts: &Facts<'_>) -> Failure {
     let needs_model = !matches!(
         tool,
-        AnalysisTool::RootLocus | AnalysisTool::Routh | AnalysisTool::MeasuredFrequency
+        AnalysisTool::RootLocus
+            | AnalysisTool::Routh
+            | AnalysisTool::MeasuredFrequency
+            | AnalysisTool::MeasuredPaths
     );
     if facts.model.is_none() && needs_model {
         tool::no_model()
@@ -310,6 +322,7 @@ fn check_inputs(
         (AnalysisTool::InitialState, Some(model)) => {
             initial_state::checked_settings(model, inputs, controller_given).map(|_| ())
         }
+        (AnalysisTool::MeasuredPaths, _) => measured_paths::checked_request(inputs),
         _ => Ok(()),
     }
 }
@@ -442,6 +455,18 @@ fn calculate(work: &Work, budget: &Budget<'_>) -> Result<AnalysisResult, Failure
             )
             .map(AnalysisResult::MeasuredFrequency)
         }
+        AnalysisTool::MeasuredPaths => {
+            let loop_definition = required_loop(work)?;
+            let (recording_id, recording) = paths_recording(work, loop_definition, inputs)?;
+            measured_paths::measured_paths_answer(
+                &recording_id,
+                &recording,
+                loop_definition,
+                inputs,
+                budget,
+            )
+            .map(AnalysisResult::MeasuredPaths)
+        }
         other => Err(tool::not_applicable(other)),
     }
 }
@@ -468,7 +493,28 @@ fn measured_recording(
     })
 }
 
-/// Keeps a qualifying result of a served loop in its study (B10.2, A8.4): `rootLocus`, `routh`, `feedback` and `measuredFrequency`.
+/// The recording that the measured MIMO paths read (§0.1a, C7): the one the request names, else the study's last recording, which the
+/// answer names. The paths read every signal of the recording that the loop declares, so no periodic rule applies.
+fn paths_recording(
+    work: &Work,
+    loop_definition: &LoopDefinition,
+    inputs: &AnalysisInputs,
+) -> Result<(String, RecordedRun), Failure> {
+    if let Some(id) = inputs.recording_id.as_deref() {
+        let file = storage::read_recording(&work.project_root, &loop_definition.id, id)?;
+        return Ok((id.to_string(), file.run));
+    }
+    let study = storage::open_study(
+        &work.project_root,
+        &loop_definition.id,
+        &loop_definition.revision,
+    )?;
+    measured_paths::last_recording(&study.recordings, |id| {
+        storage::read_recording(&work.project_root, &loop_definition.id, id).map(|file| file.run)
+    })
+}
+
+/// Keeps a qualifying result of a served loop in its study (B10.2, A8.4): `rootLocus`, `routh`, `feedback`, `measuredFrequency` and `measuredPaths`.
 /// The other results, and a loop the engine does not serve, keep nothing. trust-control's `keep` refuses a result whose recording the
 /// study does not list, and then nothing is saved.
 fn keep(work: &Work, result: &AnalysisResult) -> Result<(), Failure> {
@@ -517,6 +563,9 @@ fn kept_analysis(work: &Work, result: &AnalysisResult) -> Result<Option<KeptAnal
         }
         AnalysisResult::MeasuredFrequency(answer) => {
             Some(KeptAnalysis::MeasuredFrequency(Box::new(answer.clone())))
+        }
+        AnalysisResult::MeasuredPaths(answer) => {
+            Some(KeptAnalysis::MeasuredPaths(Box::new(answer.clone())))
         }
         _ => None,
     })

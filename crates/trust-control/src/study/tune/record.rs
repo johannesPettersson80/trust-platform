@@ -188,8 +188,13 @@ pub(crate) fn shaping_of_candidate(candidate: &LawCandidate) -> RecordShaping {
             derivative_setpoint_weight: candidate.parameters.derivative_setpoint_weight,
             measurement_filter_seconds: candidate.measurement_filter_seconds,
         },
-        // A program's own law has no setpoint weight and no filter of its own (C2), so its shaping is the default.
-        LawCandidate::Project(_) => RecordShaping::default(),
+        // A program's own law has no setpoint weight and no filter of its own (C2), so its shaping is the default; so has a
+        // state, search or switching law, which has none either (C3, C4, C5).
+        LawCandidate::Project(_)
+        | LawCandidate::State(_)
+        | LawCandidate::Search(_)
+        | LawCandidate::OnOff(_)
+        | LawCandidate::Group(_) => RecordShaping::default(),
     }
 }
 
@@ -274,6 +279,10 @@ pub(crate) fn candidate_settings(
     match candidate {
         LawCandidate::Pid(candidate) => record_settings(candidate, parameters),
         LawCandidate::Project(candidate) => candidate.values.clone(),
+        LawCandidate::State(design) => design.candidate.parameters.clone(),
+        LawCandidate::Search(search) => search.parameters.clone(),
+        LawCandidate::OnOff(settings) => settings.values.clone(),
+        LawCandidate::Group(group) => group.values.clone(),
     }
 }
 

@@ -44,6 +44,7 @@ pub mod selected_recording;
 pub mod selection;
 pub mod sensor_lag;
 pub mod sensor_lag_comparison;
+pub mod sensor_lag_review;
 pub mod sensor_lag_texts;
 pub mod settle;
 pub mod state;

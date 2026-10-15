@@ -78,6 +78,7 @@ fn facts(model: Option<&GeneralModel>) -> Facts<'_> {
         controller: None,
         declared: None,
         recordings: &[],
+        multichannel: false,
     }
 }
 
@@ -107,6 +108,32 @@ fn the_tools_that_apply_to_a_siso_state_space_model_are_offered_in_the_page_orde
     };
     assert!(applies(AnalysisTool::MeasuredFrequency, &with_recording));
     assert!(!applies(AnalysisTool::RelativeGain, &with_recording));
+}
+
+#[test]
+fn measured_paths_apply_to_a_square_multichannel_loop_with_a_recording() {
+    let model = siso_state_space();
+    let recordings = ["rec-1".to_owned()];
+    let multichannel = Facts {
+        recordings: &recordings,
+        multichannel: true,
+        ..facts(Some(&model))
+    };
+    assert!(applies(AnalysisTool::MeasuredPaths, &multichannel));
+    let single_loop = Facts {
+        multichannel: false,
+        ..multichannel
+    };
+    assert!(!applies(AnalysisTool::MeasuredPaths, &single_loop));
+    assert!(!applies(AnalysisTool::MeasuredPaths, &facts(Some(&model))));
+    assert_eq!(
+        presentation(AnalysisTool::MeasuredPaths).action,
+        "Calculate measured paths"
+    );
+    assert_eq!(
+        defaults_for(AnalysisTool::MeasuredPaths, &multichannel),
+        AnalysisInputs::default()
+    );
 }
 
 #[test]

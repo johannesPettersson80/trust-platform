@@ -26,12 +26,12 @@ fn text_of(failure: &Failure) -> String {
         .unwrap_or_else(|| failure.message.clone())
 }
 
-fn signal(symbol: &str, unit: &str, minimum: f64, maximum: f64) -> MeasuredSignal {
-    MeasuredSignal {
+fn signal(symbol: &str, unit: &str, minimum: f64, maximum: f64) -> FormSignal {
+    FormSignal {
         symbol: symbol.to_string(),
         unit: unit.to_string(),
-        minimum,
-        maximum,
+        minimum: Some(minimum),
+        maximum: Some(maximum),
     }
 }
 

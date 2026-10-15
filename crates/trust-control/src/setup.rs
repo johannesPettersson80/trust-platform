@@ -5,6 +5,7 @@
 //! result; no function here touches the file system, a clock or a process.
 
 pub mod binding_route;
+pub mod cascade_loop;
 pub mod catalog;
 pub mod configure;
 pub mod configure_adapter;
@@ -12,14 +13,21 @@ pub mod configure_channels;
 pub mod discovery;
 pub mod feedforward_loop;
 pub mod form;
+pub mod group_loop;
 pub mod identify_loop;
 pub mod loop_bindings;
+pub mod lqg_loop;
 pub mod messages;
+pub mod on_off_loop;
 pub mod own_law_loop;
 pub mod pid_bindings;
 pub mod pid_loop;
 pub mod project_loop;
 pub mod prompts;
 pub mod save;
+pub mod schedule_loop;
+pub mod search_loop;
+pub mod smith_loop;
+pub mod state_feedback_loop;
 pub mod texts;
 pub mod trajectory_loop;

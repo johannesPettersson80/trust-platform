@@ -2,7 +2,8 @@
 //! checked the way `decodeProjectController` checks it in `TypeScript`, and the one gate that says which shapes the Rust engine
 //! serves. The engine serves a `parallel-pid` seed, a `trajectory-feedforward-pid` seed (C11), and a `feedforward-pid` seed of the
 //! feedforward family (C8), of family P, PI, PD or PID with no tuning axis, component or model parameter. Every other shape stays
-//! parked by its name (checklist V7).
+//! parked by its name (checklist V7). The search-law form (C5), a block with tuning axes and no seed, is served too: its finite search is
+//! `tuning::search`.
 
 #![allow(clippy::module_name_repetitions)] // `ProjectAxis` and its siblings name the module's subject.
 
@@ -20,13 +21,22 @@ use crate::tuning::project_components::{
 };
 use crate::tuning::project_model::{ModelParameter, ModelSource};
 use crate::tuning::project_seed::{
-    check_family_terms, FeedforwardPidSeed, ParallelPidSeed, TrajectoryFeedforwardSeed,
+    check_family_terms, CascadeGains, CascadePidSeed, FeedforwardPidSeed, ParallelPidSeed,
+    SmithPidSeed, TrajectoryFeedforwardSeed,
 };
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::settings_pins::single_precision;
 use crate::tuning::structure::Structure;
 
+mod cascade_channels;
+mod cascade_seed;
 mod feedforward_seed;
+mod gain_schedule;
+mod group_seed;
+mod smith_seed;
+
+pub use gain_schedule::{GainSchedule, SchedulePoint, SchedulingVariable};
+pub use group_seed::DecoupledPidSeed;
 
 /// The convention a program's own law declares (`decodeProjectController`).
 const PROJECT_CONVENTION: &str = "project-owned-native-controller";
@@ -62,13 +72,21 @@ const TRAJECTORY_PID: &str = "trajectory-feedforward-pid";
 pub(super) const FEEDFORWARD_PID: &str = "feedforward-pid";
 /// The family a feedforward's project block names (C8).
 pub(super) const FEEDFORWARD_FAMILY: &str = "feedforward";
-/// The seed kinds that stay parked (checklist V7), refused by name.
-const PARKED_SEED_KINDS: [&str; 4] = [
-    "decentralized-pid",
-    "cascade-pid",
-    "smith-pid",
-    "decoupled-pid",
-];
+/// The seed kind of a Smith predictor: its PI variables, the model's gain, time constant and delay, and the library block's variables
+/// when the program uses it (C9).
+const SMITH_PID: &str = "smith-pid";
+/// The family a Smith predictor's project block names (C9).
+const SMITH_FAMILY: &str = "Smith";
+/// The seed of a PID group whose members' PIs are designed on the group model (C7).
+pub(super) const DECENTRALIZED_PID: &str = "decentralized-pid";
+/// The seed of a PID group whose program applies the static decoupler `D` (C7).
+pub(super) const DECOUPLED_PID: &str = "decoupled-pid";
+/// The seed of a cascade: the inner and the outer PI, each with its three variables (C6). Its family is `cascade`.
+pub(super) const CASCADE_PID: &str = "cascade-pid";
+/// The family a cascade's project block names (C6).
+pub(super) const CASCADE_FAMILY: &str = "cascade";
+/// The seed kinds that stay parked (checklist V7), refused by name. None is left after the cascade (C6) was served.
+const PARKED_SEED_KINDS: [&str; 0] = [];
 /// The most tuning axes a block declares.
 const MAXIMUM_AXES: usize = 8;
 /// The most values one axis may try.
@@ -98,7 +116,7 @@ pub struct ControllerProject {
     pub objective: ProjectObjective,
     /// The most candidates a search tries, from 1 to 64.
     pub maximum_candidates: u32,
-    /// The most scans one isolated run takes, from 1 to the isolated-run scan limit.
+    /// The most scans the trials of a search may run together (A7, scans per job), from 1 to the isolated-run scan limit.
     pub maximum_cycles: u64,
     /// The wall-clock budget of a search, in milliseconds.
     pub wall_budget_ms: u64,
@@ -110,6 +128,9 @@ pub struct ControllerProject {
     pub required_scenario_ids: Vec<String>,
     /// The further BOOL modes of the program, at most eight, each distinct from the loop's mode.
     pub additional_modes: Vec<AdditionalMode>,
+    /// The schedule of a `gain-scheduled` law (C10): the table of operating points that this loop's point belongs to. `None` for
+    /// every other law.
+    pub schedule: Option<GainSchedule>,
 }
 
 /// The seed of a program's own law: a parallel law or a trajectory-following law whose variables the engine serves, or a seed of a parked
@@ -122,6 +143,14 @@ pub enum ProjectSeedBlock {
     TrajectoryFeedforward(TrajectoryFeedforwardSeed),
     /// A `feedforward-pid` seed (C8): the PI variables, the variable of the feedforward gain, and the lead and lag variables when named.
     Feedforward(FeedforwardPidSeed),
+    /// A `smith-pid` seed (C9): the PI variables, the model's gain, time constant and delay, and the library block's variables when named.
+    Smith(SmithPidSeed),
+    /// A `decentralized-pid` seed (C7): each member's PI is designed on the group model, and the group names the members' variables.
+    Decentralized,
+    /// A `decoupled-pid` seed (C7): the static decoupler's variables `D[i][j]`.
+    Decoupled(DecoupledPidSeed),
+    /// A `cascade-pid` seed (C6): the inner and the outer PI, each with its three variables.
+    Cascade(CascadePidSeed),
     /// A seed of a parked kind, refused by its name before its other fields are read.
     Parked {
         /// The seed's kind, for example `feedforward-pid`.
@@ -175,27 +204,57 @@ pub(super) fn parked_feature_of_parts(
 ) -> Option<String> {
     match seed_kind {
         None => Some("the program's own law without a seed".to_owned()),
+        // A gain schedule's point is a parallel PI seed of the gain-scheduled family (C10).
+        Some(PARALLEL_PID) if family == gain_schedule::FAMILY && !searches => None,
         Some(PARALLEL_PID | TRAJECTORY_PID) if !SERVED_FAMILIES.contains(&family) => {
             Some(format!("the program's own law of family {family}"))
         }
         Some(FEEDFORWARD_PID) if family != FEEDFORWARD_FAMILY => {
             Some(format!("the program's own law of family {family}"))
         }
-        Some(PARALLEL_PID | TRAJECTORY_PID | FEEDFORWARD_PID) if searches => Some(
+        Some(SMITH_PID) if family != SMITH_FAMILY => {
+            Some(format!("the program's own law of family {family}"))
+        }
+        Some(CASCADE_PID) if family != CASCADE_FAMILY => {
+            Some(format!("the program's own law of family {family}"))
+        }
+        Some(
+            PARALLEL_PID | TRAJECTORY_PID | FEEDFORWARD_PID | SMITH_PID | DECENTRALIZED_PID
+            | DECOUPLED_PID | CASCADE_PID,
+        ) if searches => Some(
             "the program's own law with tuning axes, components or model parameters".to_owned(),
         ),
-        Some(PARALLEL_PID | TRAJECTORY_PID | FEEDFORWARD_PID) => None,
+        Some(
+            PARALLEL_PID | TRAJECTORY_PID | FEEDFORWARD_PID | SMITH_PID | DECENTRALIZED_PID
+            | DECOUPLED_PID | CASCADE_PID,
+        ) => None,
         Some(kind) => Some(format!("the program's own law with a {kind} seed")),
     }
 }
 
+/// The search-law form (C5) read from its parts: no seed, at least one tuning axis, and no component or model parameter. Its variables are
+/// the axes' grid, which the finite search tunes (`tuning::search`).
+fn is_search_law_parts(has_seed: bool, has_axes: bool, has_other_searches: bool) -> bool {
+    !has_seed && has_axes && !has_other_searches
+}
+
 /// The parked feature of a `controller.project` value read as raw JSON, for a file that does not decode (V6 decision D12). A seed of
-/// a kind the loop contract does not know makes the block malformed, not parked, so `None` is returned for it.
+/// a kind the loop contract does not know makes the block malformed, not parked, so `None` is returned for it. The search-law form (C5)
+/// is served, so it is not parked.
 pub(super) fn raw_parked_feature(project: &Value) -> Option<String> {
     let seed_kind = match project.get("seed").filter(|seed| !seed.is_null()) {
         None => None,
         Some(seed) => Some(seed.get("kind").and_then(Value::as_str).filter(|kind| {
-            [PARALLEL_PID, TRAJECTORY_PID, FEEDFORWARD_PID].contains(kind)
+            [
+                PARALLEL_PID,
+                TRAJECTORY_PID,
+                FEEDFORWARD_PID,
+                SMITH_PID,
+                DECENTRALIZED_PID,
+                DECOUPLED_PID,
+                CASCADE_PID,
+            ]
+            .contains(kind)
                 || PARKED_SEED_KINDS.contains(kind)
         })?),
     };
@@ -203,9 +262,18 @@ pub(super) fn raw_parked_feature(project: &Value) -> Option<String> {
         .get("family")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    let searches = ["axes", "components", "modelParameters"]
+    let has_other_searches = ["components", "modelParameters"]
         .iter()
         .any(|key| project.get(key).is_some_and(has_members));
+    let search_law = is_search_law_parts(
+        seed_kind.is_some(),
+        project.get("axes").is_some_and(has_members),
+        has_other_searches,
+    );
+    if search_law {
+        return None;
+    }
+    let searches = has_other_searches || project.get("axes").is_some_and(has_members);
     parked_feature_of_parts(seed_kind, family, searches)
 }
 
@@ -240,14 +308,18 @@ impl ControllerProject {
         let candidates = bounded_integer(object, "maximumCandidates", 1, 64)?;
         let (initialization, application_states) =
             initialization(field(object, "initialization")?)?;
+        let seed = match object.get("seed") {
+            None | Some(Value::Null) => None,
+            Some(seed) => Some(seed_block(seed)?),
+        };
+        let schedule = gain_schedule::schedule_of(object)?;
+        gain_schedule::check_block(family, schedule.as_ref(), seed.as_ref())?;
         Ok(Self {
             family: family.to_owned(),
             initialization,
             application_states,
-            seed: match object.get("seed") {
-                None | Some(Value::Null) => None,
-                Some(seed) => Some(seed_block(seed)?),
-            },
+            seed,
+            schedule,
             axes: axes(object)?,
             objective: objective(field(object, "objective")?)?,
             maximum_candidates: u32::try_from(candidates).map_err(|_| {
@@ -268,15 +340,32 @@ impl ControllerProject {
         })
     }
 
+    /// Whether the block is the search-law form (C5): no seed, at least one tuning axis, and no component or model parameter.
+    #[must_use]
+    pub fn is_search_law(&self) -> bool {
+        is_search_law_parts(
+            self.seed.is_some(),
+            !self.axes.is_empty(),
+            !self.components.is_empty() || !self.model_parameters.is_empty(),
+        )
+    }
+
     /// The parked feature that the block uses, or `None` when the engine serves it (C2). This is the gate of
-    /// `parked_feature_of_parts`, read from the typed block.
+    /// `parked_feature_of_parts`, read from the typed block. The search-law form (C5) is served.
     #[must_use]
     pub fn parked_feature(&self) -> Option<String> {
+        if self.is_search_law() {
+            return None;
+        }
         let seed_kind = match &self.seed {
             None => None,
             Some(ProjectSeedBlock::ParallelPid(_)) => Some(PARALLEL_PID),
             Some(ProjectSeedBlock::TrajectoryFeedforward(_)) => Some(TRAJECTORY_PID),
             Some(ProjectSeedBlock::Feedforward(_)) => Some(FEEDFORWARD_PID),
+            Some(ProjectSeedBlock::Smith(_)) => Some(SMITH_PID),
+            Some(ProjectSeedBlock::Decentralized) => Some(DECENTRALIZED_PID),
+            Some(ProjectSeedBlock::Decoupled(_)) => Some(DECOUPLED_PID),
+            Some(ProjectSeedBlock::Cascade(_)) => Some(CASCADE_PID),
             Some(ProjectSeedBlock::Parked { kind }) => Some(kind.as_str()),
         };
         let searches = !self.axes.is_empty()
@@ -300,6 +389,10 @@ impl ControllerProject {
             ProjectSeedBlock::TrajectoryFeedforward(seed) => Some(seed),
             ProjectSeedBlock::ParallelPid(_)
             | ProjectSeedBlock::Feedforward(_)
+            | ProjectSeedBlock::Smith(_)
+            | ProjectSeedBlock::Decentralized
+            | ProjectSeedBlock::Decoupled(_)
+            | ProjectSeedBlock::Cascade(_)
             | ProjectSeedBlock::Parked { .. } => None,
         }
     }
@@ -311,6 +404,40 @@ impl ControllerProject {
             ProjectSeedBlock::Feedforward(seed) => Some(seed),
             ProjectSeedBlock::ParallelPid(_)
             | ProjectSeedBlock::TrajectoryFeedforward(_)
+            | ProjectSeedBlock::Smith(_)
+            | ProjectSeedBlock::Decentralized
+            | ProjectSeedBlock::Decoupled(_)
+            | ProjectSeedBlock::Cascade(_)
+            | ProjectSeedBlock::Parked { .. } => None,
+        }
+    }
+
+    /// The cascade seed of the block (C6), when the block declares one.
+    #[must_use]
+    pub fn cascade(&self) -> Option<&CascadePidSeed> {
+        match self.seed.as_ref()? {
+            ProjectSeedBlock::Cascade(seed) => Some(seed),
+            ProjectSeedBlock::ParallelPid(_)
+            | ProjectSeedBlock::TrajectoryFeedforward(_)
+            | ProjectSeedBlock::Feedforward(_)
+            | ProjectSeedBlock::Smith(_)
+            | ProjectSeedBlock::Decentralized
+            | ProjectSeedBlock::Decoupled(_)
+            | ProjectSeedBlock::Parked { .. } => None,
+        }
+    }
+
+    /// The Smith predictor's seed of the block (C9), when the block declares one.
+    #[must_use]
+    pub fn smith(&self) -> Option<&SmithPidSeed> {
+        match self.seed.as_ref()? {
+            ProjectSeedBlock::Smith(seed) => Some(seed),
+            ProjectSeedBlock::ParallelPid(_)
+            | ProjectSeedBlock::TrajectoryFeedforward(_)
+            | ProjectSeedBlock::Feedforward(_)
+            | ProjectSeedBlock::Decentralized
+            | ProjectSeedBlock::Decoupled(_)
+            | ProjectSeedBlock::Cascade(_)
             | ProjectSeedBlock::Parked { .. } => None,
         }
     }
@@ -320,7 +447,7 @@ impl ControllerProject {
     /// family (C0, C8).
     #[must_use]
     pub fn offered_families(&self) -> Vec<Structure> {
-        if self.feedforward().is_some() {
+        if self.feedforward().is_some() || self.smith().is_some() || self.cascade().is_some() {
             return vec![Structure::PI];
         }
         let Some(seed) = self.seed.as_ref().and_then(ProjectSeedBlock::pid_seed) else {
@@ -400,6 +527,9 @@ impl ControllerProject {
                 .map(|mode| json!({ "symbol": mode.symbol, "manualValue": mode.manual_value }))
                 .collect();
             block.insert("additionalModes".to_owned(), Value::Array(modes));
+        }
+        if let Some(schedule) = &self.schedule {
+            block.insert("schedule".to_owned(), schedule.to_value());
         }
         Value::Object(block)
     }
@@ -494,7 +624,10 @@ impl ProjectSeedBlock {
             Self::ParallelPid(seed) => Some(seed),
             Self::TrajectoryFeedforward(seed) => Some(&seed.pid),
             Self::Feedforward(seed) => Some(&seed.pid),
-            Self::Parked { .. } => None,
+            Self::Smith(seed) => Some(&seed.pid),
+            Self::Decentralized | Self::Decoupled(_) | Self::Cascade(_) | Self::Parked { .. } => {
+                None
+            }
         }
     }
 
@@ -505,7 +638,10 @@ impl ProjectSeedBlock {
             Self::ParallelPid(seed) => seed_symbols(seed),
             Self::TrajectoryFeedforward(seed) => seed.variables(),
             Self::Feedforward(seed) => seed.variables(),
-            Self::Parked { .. } => Vec::new(),
+            Self::Smith(seed) => seed.variables(),
+            Self::Decoupled(seed) => seed.variables(),
+            Self::Cascade(seed) => seed.variables(),
+            Self::Decentralized | Self::Parked { .. } => Vec::new(),
         }
     }
 
@@ -555,6 +691,55 @@ impl ProjectSeedBlock {
                 }
                 value
             }
+            Self::Smith(seed) => {
+                let mut value = serde_json::to_value(&seed.pid).unwrap_or_default();
+                if let Value::Object(fields) = &mut value {
+                    fields.insert("kind".to_owned(), Value::from(SMITH_PID));
+                    fields.insert(
+                        "gainSymbol".to_owned(),
+                        Value::from(seed.gain_symbol.as_str()),
+                    );
+                    fields.insert(
+                        "timeConstantSymbol".to_owned(),
+                        Value::from(seed.time_constant_symbol.as_str()),
+                    );
+                    fields.insert(
+                        "delaySymbol".to_owned(),
+                        Value::from(seed.delay_symbol.as_str()),
+                    );
+                    if let Some(block) = &seed.library_block {
+                        fields.insert(
+                            "predictorOutputSymbol".to_owned(),
+                            Value::from(block.output_symbol.as_str()),
+                        );
+                        fields.insert(
+                            "maximumCorrectionSymbol".to_owned(),
+                            Value::from(block.maximum_correction_symbol.as_str()),
+                        );
+                        fields.insert(
+                            "operatingInputSymbol".to_owned(),
+                            Value::from(block.operating_input_symbol.as_str()),
+                        );
+                        fields.insert(
+                            "operatingOutputSymbol".to_owned(),
+                            Value::from(block.operating_output_symbol.as_str()),
+                        );
+                    }
+                }
+                value
+            }
+            Self::Decentralized => json!({ "kind": DECENTRALIZED_PID, "family": "PI" }),
+            Self::Decoupled(seed) => json!({
+                "kind": DECOUPLED_PID,
+                "family": "PI",
+                "matrixSymbols": seed.matrix_symbols,
+            }),
+            Self::Cascade(seed) => json!({
+                "kind": CASCADE_PID,
+                "family": "PI",
+                "inner": cascade_gains_value(&seed.inner),
+                "outer": cascade_gains_value(&seed.outer),
+            }),
             Self::Parked { kind } => json!({ "kind": kind }),
         }
     }
@@ -621,6 +806,16 @@ fn seed_symbols(seed: &ParallelPidSeed) -> Vec<&str> {
     symbols.extend(seed.integral_symbol.as_deref());
     symbols.extend(seed.derivative_symbol.as_deref());
     symbols
+}
+
+/// One controller of a cascade seed as the loop file writes it (C6): its instance and its three variables.
+fn cascade_gains_value(gains: &CascadeGains) -> Value {
+    json!({
+        "instance": gains.instance,
+        "proportionalSymbol": gains.proportional_symbol,
+        "integralSymbol": gains.integral_symbol,
+        "derivativeSymbol": gains.derivative_symbol,
+    })
 }
 
 /// Whether two of the symbols are the same variable.
@@ -740,6 +935,18 @@ fn seed_block(value: &Value) -> Result<ProjectSeedBlock, String> {
     }
     if kind == FEEDFORWARD_PID {
         return feedforward_seed::feedforward_seed(object).map(ProjectSeedBlock::Feedforward);
+    }
+    if kind == CASCADE_PID {
+        return cascade_seed::cascade_seed(object).map(ProjectSeedBlock::Cascade);
+    }
+    if kind == SMITH_PID {
+        return smith_seed::smith_seed(object).map(ProjectSeedBlock::Smith);
+    }
+    if kind == DECENTRALIZED_PID {
+        return group_seed::decentralized(object).map(|()| ProjectSeedBlock::Decentralized);
+    }
+    if kind == DECOUPLED_PID {
+        return group_seed::decoupled(object).map(ProjectSeedBlock::Decoupled);
     }
     if kind != PARALLEL_PID {
         return Err(format!(
@@ -964,3 +1171,11 @@ fn model_source_word(source: ModelSource) -> &'static str {
 #[cfg(test)]
 #[path = "project_trajectory_tests.rs"]
 mod trajectory_tests;
+
+#[cfg(test)]
+#[path = "project_cascade_tests.rs"]
+mod cascade_tests;
+
+#[cfg(test)]
+#[path = "project_smith_tests.rs"]
+mod smith_tests;

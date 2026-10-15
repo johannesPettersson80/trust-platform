@@ -51,8 +51,8 @@ use crate::recording::EvidenceSource;
 mod channel_steps;
 
 pub use channel_steps::{
-    input_steps, loop_signal_of, manual_address, method_of_step, several_channels, step_sample,
-    InputStep,
+    campaign_method, input_steps, loop_signal_of, manual_address, own_steps_check,
+    several_channels, step_sample, InputStep,
 };
 
 /// The progress of a run that identifies the plant.

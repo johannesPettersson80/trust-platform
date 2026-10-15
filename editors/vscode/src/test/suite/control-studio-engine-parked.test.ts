@@ -5,6 +5,7 @@ import * as path from "path";
 import type { LoopMessageScope } from "../../controlStudio/messages";
 import { createEnginePanelRoute, type EnginePanelRoute } from "../../controlStudio/engine/enginePanelRoute";
 import { startEngine, type EngineProcess } from "../../controlStudio/engine/engineProcess";
+import { cascadeLoop, gainScheduleLoop, onOffLoop, pidGroupLoop, smithLibraryLoop, smithLoop } from "./control-studio-structure-loop-fixtures";
 
 /**
  * Specification 35 §0.1a and checklist V6 decision D9: a loop the engine parks (a feature the Rust engine does not run yet, until
@@ -64,40 +65,14 @@ function coreLoop(): LoopFile {
 }
 
 /**
- * A loop whose controller is the program's own law of `family` (`controller.project`), as the generators of the feedforward, Smith
- * predictor, gain-schedule, cascade and PID-group loops write it. The PID law is replaced: a loop has one law.
+ * The loops the engine parks until V7.17: the feature each one uses. A cascade written as two loop files (the top-level `cascade` key) stays
+ * parked (specification 35 C6, D-2); the one-loop cascade, the Smith predictor, the gain schedule, the ON/OFF controller and the PID group
+ * are served (see SERVED_LOOPS).
  */
-function ownLawLoop(family: string, change?: (loop: LoopFile, controller: LoopFile) => void): LoopFile {
-  const loop = coreLoop();
-  const controller = loop.controller as LoopFile;
-  delete controller.law;
-  controller.project = {
-    family,
-    convention: "project-owned-native-controller",
-    initialization: { kind: "declared-state-v1", states: [] },
-    axes: [],
-  };
-  change?.(loop, controller);
-  return loop;
-}
-
-/** The loops the engine parks, with the feature each one uses: course lessons where one carries the feature, else the generated shape. */
 const PARKED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
-  ["state feedback", () => readLoop(course("11-state-space-estimation-and-predictive-control", "68-state-feedback"))],
-  ["channels", () => readLoop(course("10-multivariable-control", "61-mimo-paths"))],
-  ["channels in a relative-gain array", () => readLoop(course("10-multivariable-control", "62-relative-gain-array"))],
-  ["state feedback with channels (LQR)", () => readLoop(course("11-state-space-estimation-and-predictive-control", "69-lqr"))],
-  ["state feedback with channels (LQG)", () => readLoop(course("11-state-space-estimation-and-predictive-control", "72-lqg"))],
-  ["the program's own law", () => readLoop(course("07-classical-stability-and-frequency-design", "89-mechanical-resonance"))],
-  ["a Smith predictor", () => ownLawLoop("Smith")],
-  ["a gain schedule", () => ownLawLoop("gain-scheduled")],
-  ["a cascade", () => ownLawLoop("cascade", loop => { loop.channels = { inputs: [], outputs: [] }; })],
-  ["PID groups", () => ownLawLoop("PID", (_loop, controller) => { controller.group = { members: [] }; })],
-  ["an ON/OFF controller", () => {
+  ["a cascade written as two loop files", () => {
     const loop = coreLoop();
-    const controller = loop.controller as LoopFile;
-    delete controller.law;
-    controller.onOff = { mode: "on-off" };
+    loop.cascade = { role: "inner", partnerLoopId: "outer-loop" };
     return loop;
   }],
 ];
@@ -105,9 +80,15 @@ const PARKED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
 /**
  * The loops the engine serves now (specification 35 §0.1a, B1, C11 and C12): the schema-1 observation loops, read by the version-2 rules;
  * the declared analyses, with the parameter tool for lessons 44 and 45 that map their parameters; the measured-disturbance feedforward (C8,
- * lesson 84); and the trajectory feedforward (lesson 90).
+ * lesson 84); the trajectory feedforward (lesson 90); the finite search of a program's own law (C5, lesson 89); and the measured MIMO paths
+ * and the relative gain array of a two-input loop (C7, lessons 61 and 62); and the state-feedback laws (C4, lessons 68, 69 and 72). No lesson
+ * uses the last five: the one-loop cascade (C6), the Smith predictor (C9), the gain schedule (C10), the ON/OFF controller (C3) and the PID
+ * group with its decoupler (C7). Their loops are the fixtures of control-studio-structure-loop-fixtures.ts.
  */
 const SERVED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
+  ["state feedback (C4, lesson 68)", () => readLoop(course("11-state-space-estimation-and-predictive-control", "68-state-feedback"))],
+  ["state feedback with a finite horizon (LQR, lesson 69)", () => readLoop(course("11-state-space-estimation-and-predictive-control", "69-lqr"))],
+  ["state feedback with an estimator (LQG, lesson 72)", () => readLoop(course("11-state-space-estimation-and-predictive-control", "72-lqg"))],
   ["a schema-1 observation loop", () => readLoop(course("01-feedback-foundations-and-temperature-control", "01-cold-storage-loop-anatomy"))],
   ["a schema-1 ON/OFF lesson", () => readLoop(course("01-feedback-foundations-and-temperature-control", "02-cold-storage-on-off"))],
   ["a schema-1 hysteresis lesson", () => readLoop(course("01-feedback-foundations-and-temperature-control", "03-cold-storage-hysteresis-dwell"))],
@@ -118,6 +99,15 @@ const SERVED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
   ["a declared sensitivity analysis without a parameter tool", () => readLoop(course("07-classical-stability-and-frequency-design", "48-sensitivity-functions"))],
   ["a measured-disturbance feedforward", () => readLoop(course("14-integrated-capstones", "84-independent"))],
   ["a trajectory feedforward", () => readLoop(course("09-industrial-control-structures", "90-trajectory-feedforward"))],
+  ["the finite search of a program's own law", () => readLoop(course("07-classical-stability-and-frequency-design", "89-mechanical-resonance"))],
+  ["channels for measured MIMO paths", () => readLoop(course("10-multivariable-control", "61-mimo-paths"))],
+  ["channels in a relative-gain array", () => readLoop(course("10-multivariable-control", "62-relative-gain-array"))],
+  ["a one-loop cascade (C6)", cascadeLoop],
+  ["a Smith predictor (C9)", smithLoop],
+  ["a Smith predictor with its library block (C9)", smithLibraryLoop],
+  ["a gain schedule (C10)", gainScheduleLoop],
+  ["an ON/OFF controller (C3)", onOffLoop],
+  ["a PID group with its decoupler (C7)", pidGroupLoop],
 ];
 
 suite("Control Studio engine parked loops", () => {

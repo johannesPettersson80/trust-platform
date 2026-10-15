@@ -12,7 +12,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::Mutex;
 use serde_json::Value;
-use trust_control::experiment::{ControlExperimentPlan, ExperimentSample, RecordingRecoveryOwner};
+use trust_control::experiment::{
+    ControlExperimentPlan, ExperimentSample, RecordingRecoveryOwner, RestorationState,
+};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::automatic::AutomaticIdentificationResult;
 use trust_control::identification::campaign::baseline::BaselineSummary;
@@ -24,19 +26,21 @@ use trust_control::identification::connected_record::{
     connected_identification_record, RuntimeVerificationResult,
 };
 use trust_control::identification::connected_run::{
-    campaign_refusal, ended_and_restored, evaluation_refusal, experiment_recovery, fit_failure,
-    fit_window, hold_end, hold_refusal, identification_cancelled, input_steps, is_provisional,
-    offers_setpoint_step, recording_settling_ms, restoration_allowance_ms, several_channels,
-    start_outcome, start_reconciliation, step_hold_ms, step_plan, step_sample,
-    stopped_hold_outcome, FitWindow, HoldEnd, InputStep, StartOutcome, StartReconciliation,
-    CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT, RESTORATION_POLLS,
+    campaign_method, campaign_refusal, ended_and_restored, evaluation_refusal, experiment_recovery,
+    fit_failure, fit_window, hold_end, hold_refusal, identification_cancelled, input_steps,
+    is_provisional, offers_setpoint_step, own_steps_check, recording_settling_ms,
+    restoration_allowance_ms, several_channels, start_outcome, start_reconciliation, step_hold_ms,
+    step_plan, step_sample, stopped_hold_outcome, FitWindow, HoldEnd, InputStep, StartOutcome,
+    StartReconciliation, CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT, RESTORATION_POLLS,
 };
+use trust_control::identification::identify_result::recorded_chart_samples;
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::mode::{needs_mode_change, unreadable_mode_refusal};
 use trust_control::identification::multichannel_fit::fit_multichannel_model;
 use trust_control::identification::policy::{identification_method, IdentificationMethod};
 use trust_control::identification::recorded_model::{fit_recorded_model, RecordedFitError};
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::messages::{CampaignRestoration, RecordedChartSample};
 use trust_control::recording::RecordedRun;
 
 use super::{
@@ -80,7 +84,7 @@ struct Step {
 pub(crate) struct Schedule<'b> {
     /// The steps of the plant inputs, in input order.
     pub(crate) steps: &'b [InputStep],
-    /// The method every step runs.
+    /// The method of the steps without an own step, which the campaign runs under (`campaign_method`).
     pub(crate) method: IdentificationMethod,
     /// Whether the steps are the independent model check's.
     pub(crate) validation: bool,
@@ -116,6 +120,12 @@ struct Run<'a, T: IdentifyRuntime, S, K, C, P, E> {
     journaled: Vec<String>,
     /// The mode change of a method that needs the other mode, which returns the loop once nothing of the run is left running (`mode`).
     mode: Option<IdentificationMode<'a>>,
+    /// The restoration the last completed step's hold confirmed (C12); none for a campaign that completed no step.
+    restoration: Option<CampaignRestoration>,
+    /// The samples of the kept recording, which the answer hands the page (`recorded_chart_samples`).
+    recorded_samples: Vec<RecordedChartSample>,
+    /// The fit's refusal of a project test (C12), in full: the note the test keeps. None when the fit gave a model.
+    fit_refusal: Option<String>,
 }
 
 /// Runs one connected identification, or records the independent model check, and then settles (`run`, `recordValidation`).
@@ -143,6 +153,9 @@ where
         recording: None,
         journaled: Vec::new(),
         mode: None,
+        restoration: None,
+        recorded_samples: Vec::new(),
+        fit_refusal: None,
     }
     .execute(purpose)
 }
@@ -166,8 +179,11 @@ where
         if let Some(refusal) = unreadable_mode_refusal(loop_definition, mode) {
             return Err(refusal);
         }
-        let method = identification_method(loop_definition, sample.as_ref())
+        let loop_method = identification_method(loop_definition, sample.as_ref())
             .map_err(|error| error.failure())?;
+        // The inputs' own steps are checked before any mode changes or anything is recorded (C7, C8); the campaign then runs its method.
+        own_steps_check(loop_definition, loop_method)?;
+        let method = campaign_method(loop_definition, loop_method);
         // A method that needs the other mode enters it through a transfer in the work, and a mode change that an earlier run left
         // journaled is returned first (`needsMode`, B3.4 step 1, A8.6). An open-loop loop has no mode to change, and no sample has
         // no mode to compare.
@@ -194,6 +210,9 @@ where
             method,
             plant_input: loop_definition.signals.manipulated_variable.symbol.clone(),
             measured_output: loop_definition.signals.process_variable.symbol.clone(),
+            restoration: self.restoration,
+            recorded_samples: std::mem::take(&mut self.recorded_samples),
+            fit_refusal: self.fit_refusal.take(),
         })
     }
 
@@ -220,11 +239,22 @@ where
         if validation {
             return Ok((recording_id, IdentifyResult::Recorded(Box::new(record))));
         }
-        let result = fit_records(
+        let result = match fit_outcome(
             self.request.loop_definition,
             self.ports.report,
             std::slice::from_ref(&record),
-        )?;
+        )? {
+            FitOutcome::Model(result) => *result,
+            FitOutcome::Refused(refusal) if purpose != RunPurpose::ProjectTest => {
+                return Err(refusal);
+            }
+            FitOutcome::Refused(refusal) => {
+                // The test completes with its recording and the refusal as its note: the record is not fitted, so no model is kept
+                // (C12, B3.5).
+                self.fit_refusal = Some(refusal.detail.unwrap_or(refusal.message));
+                return Ok((recording_id, IdentifyResult::Recorded(Box::new(record))));
+            }
+        };
         let provisional = is_provisional(&result);
         Ok((
             recording_id,
@@ -258,6 +288,7 @@ where
         let (step, mut recording) = self.held(recording, held)?;
         let kept = retain_recording(&mut recording, self.ports.retention);
         let (run, _released) = self.held(recording, kept)?;
+        self.recorded_samples = recorded_chart_samples(loop_definition, &run);
         campaign_record(
             loop_definition,
             &run,
@@ -419,6 +450,9 @@ where
                 }
                 HoldEnd::Completed => {
                     self.active = None;
+                    if let Some(restoration) = hold_restoration(&state) {
+                        self.restoration = Some(restoration);
+                    }
                     plans.push(plan);
                 }
             }
@@ -426,8 +460,8 @@ where
         Ok(plans)
     }
 
-    /// The plan of one input's step (`preparePlan`), with a fresh identifier: planned on the input's loop, and on the sample the input
-    /// reads.
+    /// The plan of one input's step (`preparePlan`), with a fresh identifier: planned on the input's loop, under the input's own method
+    /// or else the campaign's, and on the sample the input reads.
     fn prepare_plan(
         &mut self,
         step: &InputStep,
@@ -438,10 +472,11 @@ where
             return Err(refusal);
         }
         let sample = step_sample(step, self.ports.sampler.sample()?)?;
+        let method = step.own_method.unwrap_or(schedule.method);
         let mut plan = step_plan(
             &step.loop_definition,
             sample.as_ref(),
-            schedule.method,
+            method,
             schedule.baseline,
             hold_ms,
             schedule.validation,
@@ -610,6 +645,9 @@ where
         recording: None,
         journaled: Vec::new(),
         mode: None,
+        restoration: None,
+        recorded_samples: Vec::new(),
+        fit_refusal: None,
     };
     let plans = run.step_inputs(campaign, owner, schedule, first, stepped);
     let still_active = run.active.is_some();
@@ -694,6 +732,30 @@ pub(crate) fn fit_records<E: Clone>(
     report: &impl CampaignReport,
     runs: &[RuntimeVerificationResult<E>],
 ) -> Result<AutomaticIdentificationResult<E>, Failure> {
+    match fit_outcome(loop_definition, report, runs)? {
+        FitOutcome::Model(result) => Ok(*result),
+        FitOutcome::Refused(refusal) => Err(refusal),
+    }
+}
+
+/// What the fit of a campaign's records gave: the model, or the refusal that says the records cannot support one (C12).
+enum FitOutcome<E> {
+    /// The fit gave a model from the records.
+    Model(Box<AutomaticIdentificationResult<E>>),
+    /// The fit refused the records; the failure says why, in full.
+    Refused(Failure),
+}
+
+/// The fit of a campaign's records, as [`fit_records`] runs it, with a refusal of the fit kept apart from the operation's cancellation:
+/// a cancelled operation fails with `Err`, and a fit that refuses answers [`FitOutcome::Refused`].
+///
+/// # Errors
+/// The operation is cancelled before or after the fit.
+fn fit_outcome<E: Clone>(
+    loop_definition: &LoopDefinition,
+    report: &impl CampaignReport,
+    runs: &[RuntimeVerificationResult<E>],
+) -> Result<FitOutcome<E>, Failure> {
     check_cancelled(report)?;
     report.progress(FITTING_TEXT);
     let fitted = if several_channels(loop_definition) {
@@ -709,7 +771,22 @@ pub(crate) fn fit_records<E: Clone>(
             .map_err(|error| fit_failure(loop_definition, &error))
     };
     check_cancelled(report)?;
-    fitted
+    Ok(match fitted {
+        Ok(result) => FitOutcome::Model(Box::new(result)),
+        Err(refusal) => FitOutcome::Refused(refusal),
+    })
+}
+
+/// The restoration a held step's status confirmed (C12): restored once the runtime confirmed the restoring write, or not
+/// required when the experiment wrote none. A pending or failed restoration is no outcome to report.
+pub(crate) fn hold_restoration(state: &Value) -> Option<CampaignRestoration> {
+    let restoration: RestorationState =
+        serde_json::from_value(state.get("restoration")?.clone()).ok()?;
+    match restoration {
+        RestorationState::Restored => Some(CampaignRestoration::Restored),
+        RestorationState::NotRequired => Some(CampaignRestoration::NotRequired),
+        RestorationState::Pending | RestorationState::Failed => None,
+    }
 }
 
 /// Polls until the experiment has ended and its original command is restored, within [`RESTORATION_POLLS`] reads one poll

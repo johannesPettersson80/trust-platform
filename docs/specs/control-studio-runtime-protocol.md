@@ -281,7 +281,8 @@ The start is refused unless all of these hold:
 - `task` names a configured task;
 - the recording identifier is not held;
 - the runtime holds fewer than two recordings. A recording counts until it is released, whether it runs or has ended;
-- for symbolic bindings, `program_revision` equals the current program revision, and the inspection watch (E3) holds the same loop revision, program revision and bindings, with a sample of the latest scan.
+- for symbolic bindings, `program_revision` equals the current program revision, and the inspection watch (E3) holds the same loop revision, program revision and bindings, with a sample of the latest scan;
+- for any other binding, a `program_revision` that is given equals the current program revision, which Control Studio sends with every start so that a connected record names the program it ran on (A4.4).
 
 The response has `recording_id` and `status` set to `recording`.
 

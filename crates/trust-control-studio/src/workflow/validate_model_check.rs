@@ -150,10 +150,20 @@ pub(crate) fn run_model_check(
     let fingerprint = recording_fingerprint(&check.record.run);
     if let Some(stored) = request.stored {
         let qualified = qualified_section(&stored.section, &file_id, fingerprint, normalized_error);
-        storage::save_identify(request.project_root, retention.study(), &qualified, &[])?;
+        // The current model checked again with its evidence is not a new model, so the manual identification stays (B3.7).
+        storage::save_identify_keeping_manual(
+            request.project_root,
+            retention.study(),
+            &qualified,
+            &[],
+        )?;
     } else {
         let qualified = qualified_supplied(model, fingerprint);
-        storage::save_supplied_model(request.project_root, retention.study(), &qualified)?;
+        storage::save_supplied_model_keeping_manual(
+            request.project_root,
+            retention.study(),
+            &qualified,
+        )?;
     }
     Ok(ModelCheck::Passed {
         recording_id: file_id,

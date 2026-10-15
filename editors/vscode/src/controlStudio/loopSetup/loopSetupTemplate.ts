@@ -44,12 +44,13 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   const manualOutputs = model.signals ?? model.addressedReal;
   // Apply switches the Auto/Manual signal directly, so only a BOOL without an I/O address can be one.
   const modes = model.modes ?? model.booleans;
-  const controller = (prefix: string, label: string, selected?: string) => `
+  // A cascade's outer controller has no manual output: nothing in its structure uses one (C6).
+  const controller = (prefix: string, label: string, selected?: string, manual = true) => `
   ${select(`${prefix}instance`, label, pidNames, selected)}
   ${select(`${prefix}parameterRecord`, "Parameter record", model.records)}
   ${select(`${prefix}mode`, "Auto/Manual signal", modes)}
   ${choice(`${prefix}modeWhenTrue`, "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
-  ${select(`${prefix}manualOutput`, "Manual output", manualOutputs)}`;
+  ${manual ? select(`${prefix}manualOutput`, "Manual output", manualOutputs) : ""}`;
   const prefill = model.prefill;
   const structures: [string, string][] = [["pid", "One PID loop"], ["cascade", "Cascade: one PID sets the other's setpoint"],
     ["feedforward", "Feedforward: the PID adds the program's feedforward from a measured disturbance"],
@@ -103,20 +104,31 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   <label class="studio-field">Filtered disturbance the lag keeps<select data-setup-field="ff.filtered">${options(model.reals, undefined, "None")}</select></label>
  </section>
  <section class="studio-fields" data-setup-section="schedule">
+  ${select("schedule.variable", "Scheduling variable", model.reals)}
+  <label class="studio-field">Unit of the scheduling variable<input type="text" data-setup-field="schedule.variable.unit"></label>
   ${[0, 1, 2, 3].map(index => `<div class="studio-fields" data-schedule-point="${index}">
    <label class="studio-field">Operating point ${index + 1}<input type="text" data-setup-field="schedule.${index}.name"></label>
+   <label class="studio-field">Value of the scheduling variable<input type="number" step="any" data-setup-field="schedule.${index}.value"></label>
+   <label class="studio-field">Tolerance on that value, in the scheduling variable's unit<input type="number" step="any" min="0" data-setup-field="schedule.${index}.tolerance"></label>
    ${select(`schedule.${index}.proportionalGain`, "Its proportional gain variable", model.reals)}
    ${select(`schedule.${index}.integralGain`, "Its integral gain variable", model.reals)}
   </div>`).join("")}
  </section>
  <section class="studio-fields" data-setup-section="smith">
-  ${select("smith.gain", "Model gain", model.reals)}
-  ${select("smith.timeConstant", "Model time constant (s)", model.reals)}
-  ${select("smith.delay", "Model delay (s)", model.reals)}
-  ${select("smith.correction", "Correction the program keeps", model.reals)}
+  ${select("smith.gain", "Model gain K", model.reals)}
+  ${select("smith.timeConstant", "Time constant T (s)", model.reals)}
+  ${select("smith.delay", "Delay θ (s)", model.reals)}
+  ${select("smith.correction", "Correction c the program keeps", model.reals)}
+  <label class="studio-field"><input type="checkbox" data-setup-field="smith.libraryBlock"> The program uses the library block Control.SmithPredictorFOPDT</label>
+  <div class="studio-fields" data-smith-block hidden>
+   ${select("smith.block.output", "Block output (SmithPredictorOutput)", model.reals)}
+   ${select("smith.block.maximumCorrection", "Variable of MaximumCorrection", model.reals)}
+   ${select("smith.block.operatingInput", "Variable of OperatingInput", model.reals)}
+   ${select("smith.block.operatingOutput", "Variable of OperatingOutput", model.reals)}
+  </div>
  </section>
  <section class="studio-fields" data-setup-section="cascade">
-  ${controller("outer.", "Outer controller", model.cascade?.outer)}
+  ${controller("outer.", "Outer controller", model.cascade?.outer, false)}
   ${signal("outer.processVariable", "Outer measurement")}
   ${select("outer.setpoint", "Outer setpoint", model.signals ?? model.addressedReal)}
   ${controller("inner.", "Inner controller", model.cascade?.inner)}
@@ -138,15 +150,21 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
   ${signal("onoff.processVariable", "Measurement")}
   ${select("onoff.setpoint", "Setpoint", model.signals ?? model.addressedReal)}
   ${signal("onoff.manipulatedVariable", "Output, switched between its minimum and maximum", undefined, model.signals ?? model.addressedReal)}
+  <div class="studio-field-group">
+   <label class="studio-field">Low output level<input type="number" step="any" placeholder="Output minimum" data-setup-field="onoff.lowOutput"></label>
+   <label class="studio-field">High output level<input type="number" step="any" placeholder="Output maximum" data-setup-field="onoff.highOutput"></label>
+  </div>
   ${select("onoff.mode", "Auto/Manual signal", modes)}
   ${choice("onoff.modeWhenTrue", "TRUE means", [["Auto", "Auto"], ["Manual", "Manual"]], "Auto")}
   ${select("onoff.manualOutput", "Manual output", manualOutputs)}
   ${select("onoff.hysteresis", "Hysteresis", model.reals)}
   ${choice("onoff.bandConvention", "Hysteresis holds", band, "half-band")}
+  ${choice("onoff.thresholdEquality", "Threshold-equality policy", [["at-or-beyond", "At or beyond the threshold (the default)"], ["beyond", "Only strictly beyond the threshold"]], "at-or-beyond")}
   ${select("onoff.minimumOn", "Minimum ON time (s)", model.reals)}
   ${select("onoff.minimumOff", "Minimum OFF time (s)", model.reals)}
-  <label class="studio-field">Equipment minimum ON time (s)<input type="number" step="any" min="0" placeholder="None" data-setup-field="onoff.equipmentMinimumOn"></label>
-  <label class="studio-field">Equipment minimum OFF time (s)<input type="number" step="any" min="0" placeholder="None" data-setup-field="onoff.equipmentMinimumOff"></label>
+  <label class="studio-field">Equipment minimum ON time (s)<input type="number" step="any" min="0" placeholder="Not declared" data-setup-field="onoff.equipmentMinimumOn"></label>
+  <label class="studio-field">Equipment minimum OFF time (s)<input type="number" step="any" min="0" placeholder="Not declared" data-setup-field="onoff.equipmentMinimumOff"></label>
+  <p class="studio-setup-ask">Zero when the equipment has no such limit. A blank answer is not zero: Tune refuses until both times are declared.</p>
   ${select("onoff.latch", "Output-on state", model.booleans)}
   <label class="studio-field">Time in current state (s)<select data-setup-field="onoff.dwellTimer">${options(model.reals, undefined, "None")}</select></label>
  </section>

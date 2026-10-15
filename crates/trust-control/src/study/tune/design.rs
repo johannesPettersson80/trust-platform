@@ -40,11 +40,13 @@ use crate::study::tune::record::{
 use crate::study::tune::relay;
 use crate::study::tune::requirements::requirements_for;
 use crate::study::tune::result::{tune_result, ResultInputs};
+use crate::study::tune::state;
 use crate::study::tune::{
-    check_before_start, controller_action, gain_unit, settings_refused, stage_evidence, TuneInputs,
-    TuneOutcome, TuneSection,
+    check_before_start, controller_action, gain_unit, settings_refused, stage_evidence,
+    CandidateFields, TuneInputs, TuneOutcome, TuneSection,
 };
 use crate::tuning::candidate::{CandidateSource, LawCandidate};
+use crate::tuning::cascade_candidate::served_cascade;
 use crate::tuning::design_to_requirements::{
     design_to_requirements, nearest_responses, structure_word,
 };
@@ -54,7 +56,8 @@ use crate::tuning::placement::{ModelPlacement, PolePlacement};
 use crate::tuning::plant::{check_normalized_error, check_plant, from_identified, TuningPlant};
 use crate::tuning::prediction::{PredictedGains, RecordShaping, SelectedModelPredictor};
 use crate::tuning::project_candidate::{
-    project_candidate, served_feedforward, served_seed, served_trajectory, trajectory_candidate,
+    project_candidate, served_feedforward, served_seed, served_smith, served_trajectory,
+    trajectory_candidate,
 };
 use crate::tuning::project_seed::trajectory_feedforward_of_model;
 use crate::tuning::proportional::GainBounds;
@@ -84,6 +87,8 @@ const NO_ATTEMPT: &str = "Automatic made no attempt of the structure that was as
 const P_NOT_CHOSEN: &str = "Automatic found P feasible but recommended another structure.";
 /// The defect of a constrained comparison without its P, which N5.10 always holds.
 const NO_PROPORTIONAL: &str = "The constrained comparison holds no P candidate.";
+/// The defect of a manual entry that is neither a `Control.PID` record nor a program's own law, which the entry never is.
+const MANUAL_LAW: &str = "A manual entry is a Control.PID record or a program's own law.";
 
 /// Designs the candidate of a request and gives the section to store, unapplied, and the result to answer (B4.1 to B4.7).
 /// The checks before the start run first, so a run refuses what the start refuses.
@@ -101,10 +106,51 @@ pub(crate) fn run(
     held: Option<&TuningRequirements>,
     running: Option<&BTreeMap<String, f64>>,
 ) -> Result<TuneOutcome, Failure> {
+    // A gain schedule's points are designed together by `gain_schedule::run_schedule` (C10): one point's single-loop design would give
+    // that point's PI alone, so the single loop refuses a scheduled loop.
+    if gain_schedule::schedule_of(inputs.loop_definition).is_some() {
+        return Err(Failure::new(
+            gain_schedule::SINGLE_LOOP_REFUSAL,
+            Cause::Implementation,
+            NextAction::None,
+        ));
+    }
     // A measured-disturbance feedforward has two inputs, so its model is not a low-order form: it has its own Tune (C8).
     if served_feedforward(inputs.loop_definition).is_some() {
         return feedforward::run(inputs, held, running);
     }
+    // A cascade has two controllers and two measurements, so its design is its own (C6): the inner PI, then the outer.
+    if served_cascade(inputs.loop_definition).is_some() {
+        return cascade::run(inputs, held);
+    }
+    // A Smith predictor's PI is designed on the delay-free model, with the model's values that the predictor keeps (C9).
+    if served_smith(inputs.loop_definition).is_some() {
+        return smith::run(inputs, held, running);
+    }
+    // A switching controller has its own settings (C3): its design is the switching rule of `tune::on_off`, not a PID's.
+    if inputs.loop_definition.controller.on_off.is_some() {
+        return crate::study::tune::on_off::run(inputs, held, None);
+    }
+    // A state-feedback law is designed on the model's state-space form, with the study's state-design inputs (C4); a run
+    // without them takes the defaults.
+    if inputs.request.method == Some(TuneMethod::StateSpace) {
+        return state::run(inputs, held, None);
+    }
+    // A PID group is designed for each member on the study's model, through the program's decoupler when it has one (C7).
+    if inputs.loop_definition.controller.group.is_some() {
+        return pid_group::run(inputs, held);
+    }
+    run_single(inputs, held, running)
+}
+
+/// The single-loop design of a request (B4.1 to B4.7, C1): the checks before the start, then the design of the candidate and its answer.
+/// `run` gives every loop that is not a gain schedule's to this design. `gain_schedule::run_schedule` calls it for each point of a schedule,
+/// so that each point's PI is the one its single loop gives.
+pub(crate) fn run_single(
+    inputs: &TuneInputs<'_>,
+    held: Option<&TuningRequirements>,
+    running: Option<&BTreeMap<String, f64>>,
+) -> Result<TuneOutcome, Failure> {
     check_before_start(inputs)?;
     let Some(current) = inputs.model else {
         return Err(defect(NO_MODEL));
@@ -139,20 +185,24 @@ pub(crate) fn run(
     let predictor = setup.predictor(&model, shaping);
     let context = setup.context(&predictor);
     let (designed, candidate, comparison) = match entry {
-        Some(candidate) => (
-            manual::design_of(&candidate, declared_response(&requirements)),
-            candidate,
-            Vec::new(),
-        ),
+        Some(candidate) => {
+            let designed = manual::design_of(&candidate, declared_response(&requirements))
+                .ok_or_else(|| defect(MANUAL_LAW))?;
+            (designed, candidate, Vec::new())
+        }
         None => designed_candidate(inputs, &model, &requirements, &setup, &predictor, &context)?,
     };
-    let (stored, stored_project) = candidate.clone().into_parts();
+    let stored = CandidateFields::of(candidate.clone());
     let section = TuneSection {
         method: request.method,
         model_revision: current.model.identity().revision.clone(),
         requirements: requirements.clone(),
-        candidate: stored,
-        project_candidate: stored_project,
+        candidate: stored.candidate,
+        project_candidate: stored.project_candidate,
+        state_candidate: stored.state_candidate,
+        search_candidate: stored.search_candidate,
+        on_off_candidate: stored.on_off_candidate,
+        group_candidate: stored.group_candidate,
         reason: designed.reason.clone(),
         closed_loop_time_seconds: designed.closed_loop_time_seconds,
         attempts: designed.attempts.clone(),
@@ -962,7 +1012,17 @@ fn defect(what: &str) -> Failure {
 
 /// The Tune of a measured-disturbance feedforward (C8), which reuses this module's answer and evaluation. Its output-path view and
 /// single loop are read by Validate (C8), so the module is visible to the crate.
+pub(crate) mod cascade;
 pub(crate) mod feedforward;
+pub(crate) mod on_off;
+pub(crate) mod pid_group;
+
+/// The Tune of a gain schedule (C10): each point's single-loop design, and the table of gains that the points share. The studio
+/// reaches `run_schedule` through this module, so it is public.
+pub mod gain_schedule;
+
+/// The Tune of a Smith predictor (C9), which reuses this module's answer and evaluation on the delay-free model.
+pub(crate) mod smith;
 
 #[cfg(test)]
 #[path = "design_tests.rs"]

@@ -1,13 +1,12 @@
 //! The overrides of a measured-disturbance candidate's isolated run (specification 35, C8): the candidate's `K_ff` with its lead and lag is
 //! written to the variables that lesson 84's seed names, and its PI gains are written with them, each with the binding's type, unit and
-//! bounds. The run is the single loop of the output path, so its request is built on that loop and its view.
+//! bounds. The run is built on the loop and its model as the study holds them, with the loop's channels (C8 Validate).
 
 #![allow(clippy::float_cmp)] // The values are the literals the candidate carries, compared exactly on purpose.
 
 use std::collections::BTreeMap;
 
 use super::*;
-use crate::study::tune::design::feedforward::single_loop;
 use crate::tuning::candidate::CandidateSource;
 use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::structure::{ParallelGains, Structure};
@@ -75,12 +74,10 @@ fn a_feedforward_candidate_without_its_lag_is_refused_before_the_run() {
 }
 
 #[test]
-fn the_candidate_run_of_the_single_loop_writes_the_pi_gains_and_the_feedforward_values() {
+fn the_candidate_run_of_lesson_84_writes_the_pi_gains_and_the_feedforward_values_on_the_full_loop()
+{
     let loop_definition = lesson_84();
     let model = heater_model();
-    let single = single_loop(&loop_definition, &model)
-        .expect("the output path has a view")
-        .expect("lesson 84 has a feedforward");
     let observed = BTreeMap::from([
         ("P1.Parameters.ProportionalGain".to_owned(), 1.0),
         ("P1.Parameters.IntegralGain".to_owned(), 0.1),
@@ -90,7 +87,7 @@ fn the_candidate_run_of_the_single_loop_writes_the_pi_gains_and_the_feedforward_
         ("P1.LagS".to_owned(), 2.0),
     ]);
     let task = requirements(1.0, 0.3, 0.1, 40.0, 80.0);
-    // The campaign takes the loop and its model as the study holds them: it reduces a feedforward to its output path (C8, Validate).
+    // The campaign plans the target-response case on the loop's two-input model, through its channels (C8, Validate).
     let cases = engineer_verification_campaign(
         &loop_definition,
         &model,
@@ -98,12 +95,12 @@ fn the_candidate_run_of_the_single_loop_writes_the_pi_gains_and_the_feedforward_
         &observed,
         &BTreeMap::new(),
     )
-    .expect("the single-loop campaign is built");
+    .expect("the campaign is built");
     let case = cases.first().expect("the target-response case");
     let law = candidate();
     let request = isolated_run_request(&RunRequestInput {
-        loop_definition: &single.loop_definition,
-        model: &single.model,
+        loop_definition: &loop_definition,
+        model: &model,
         plan: &case.plan,
         case,
         settings: RunSettings::Candidate(&law),

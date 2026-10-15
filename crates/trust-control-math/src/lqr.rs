@@ -84,6 +84,10 @@ pub enum LqrRefusal {
     NonstabilisingSolution,
     /// A stage of the finite-horizon recursion is not finite.
     NonfiniteRiccatiStage,
+    /// A weight is not symmetric, or its eigenvalues are not of the definiteness its role requires (`Q` and the terminal
+    /// weight not negative, `R` positive), on the steady-state path (C4). The finite horizon refuses the same weights as
+    /// [`LqrRefusal::InvalidFiniteHorizon`].
+    MalformedWeight,
 }
 
 /// The LQR gain for `x(k+1) = Ax(k) + Bu(k)` with the cost `Σ xᵀQx + uᵀRu`, where `Q` is n×n and `R` is m×m. Without a
@@ -93,8 +97,8 @@ pub enum LqrRefusal {
 /// # Errors
 /// Returns [`LqrRefusal`]: `Numerical` for a shape or a value that does not fit (a steady-state problem), and
 /// `InvalidFiniteHorizon` for a finite horizon whose steps, size or weights are refused. The steady-state solution is
-/// refused as `SingularControlWeight`, `RiccatiNotConverged` or `NonstabilisingSolution`; a finite horizon as
-/// `SingularControlWeight` or `NonfiniteRiccatiStage`.
+/// refused as `MalformedWeight` for a weight that is not admissible, and as `SingularControlWeight`, `RiccatiNotConverged`
+/// or `NonstabilisingSolution`; a finite horizon as `SingularControlWeight` or `NonfiniteRiccatiStage`.
 pub fn solve_discrete_lqr(
     a: &DenseMatrix,
     b: &DenseMatrix,
@@ -107,6 +111,9 @@ pub fn solve_discrete_lqr(
     match horizon {
         None => {
             let (order, inputs) = steady_shape(a, b, q, r).map_err(LqrRefusal::Numerical)?;
+            if !is_weight(q, order, false, tolerance) || !is_weight(r, inputs, true, tolerance) {
+                return Err(LqrRefusal::MalformedWeight);
+            }
             let problem = Problem::new(a, b, q, r, order, inputs).map_err(LqrRefusal::Numerical)?;
             solve_steady_state(&problem, tolerance)
         }

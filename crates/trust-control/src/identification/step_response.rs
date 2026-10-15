@@ -4,8 +4,9 @@
 //! preparation of the recording in `step_response/preparation.rs`, the measurement of a held step in
 //! `step_response/measurement.rs`, and the fit with its acceptance rules and consistent set in
 //! `step_response/analysis.rs`. The arithmetic is the library's (`trust_control_math::identify::step_response`); those
-//! modules apply the rules in order and word their refusals. The sensor-time grid and model-adequacy limits of the
-//! parked sensor-lag comparison are not part of the settings.
+//! modules apply the rules in order and word their refusals. The sensor-time grid and the model-adequacy limits of a
+//! sensor-lag comparison (N2.10) are optional settings: the form sends them with the held-step settings, and only that
+//! comparison reads them.
 
 // The step-response records keep the names of the `TypeScript` records.
 #![allow(clippy::module_name_repetitions)]
@@ -13,6 +14,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use trust_control_math::identify::step_response::{ConsistentSet, StepResponseWindow};
+
+use crate::identification::sensor_lag_comparison::ModelAdequacy;
 
 mod analysis;
 mod measurement;
@@ -76,6 +79,12 @@ pub struct StepResponseSettings {
     pub gain_step: f64,
     /// The timestamp shift of the sensitivity study, at most one sample time (N2.4), in s.
     pub timestamp_shift_seconds: f64,
+    /// The sensor-time grid of a sensor-lag comparison (`sensorTimeConstant`; N2.10); the annex's default grid when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensor_time_constant: Option<SearchGrid>,
+    /// The residual requirements of a sensor-lag comparison (`modelAdequacy`; N2.10); the annex's defaults when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_adequacy: Option<ModelAdequacy>,
 }
 
 /// A problem in the analysis settings: the field it belongs to and what to enter instead.
@@ -122,7 +131,7 @@ pub struct StepBestFit {
 /// The analysis of a held step (N2.2 to N2.6): the measured windows, the step and its hold, the onset and the 63 %
 /// level, the best first-order-with-delay fit, the measurement-consistent set, the warnings, the fitted held samples,
 /// the fraction of the fitted final change reached (A10.3) and the final-window check (N2.4).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StepResponseAnalysis {
     /// The settings the analysis used.
@@ -167,7 +176,7 @@ pub struct StepResponseAnalysis {
 
 /// The measurement of a held step without a fit (`measureStepResponse`; N2.5, N2.6): the windows, the step and its
 /// hold, the onset and the 63 % level of the measured change.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StepResponseMeasurement {
     /// The settings the measurement used.

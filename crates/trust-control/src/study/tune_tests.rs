@@ -60,6 +60,7 @@ fn identify_section(revision: &str, gain: f64, delay: f64) -> IdentifySection {
         ..fitted_model(LowOrderModelKind::FirstOrderDeadTime, gain)
     };
     let fit = ModelFitEvidence {
+        model_structure: None,
         points: vec![
             ModelFitPoint {
                 time_seconds: 0.0,
@@ -191,6 +192,10 @@ pub(crate) fn valid_section(revision: &str) -> TuneSection {
                 .expect("a valid record"),
         ),
         project_candidate: None,
+        state_candidate: None,
+        search_candidate: None,
+        on_off_candidate: None,
+        group_candidate: None,
         reason: "The SIMC formula result for the declared response.".to_owned(),
         closed_loop_time_seconds: Some(8.0),
         attempts: Vec::new(),

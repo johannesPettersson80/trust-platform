@@ -33,6 +33,8 @@ fn settings() -> StepResponseSettings {
         baseline_step: 0.01,
         gain_step: 0.001,
         timestamp_shift_seconds: 0.0,
+        sensor_time_constant: None,
+        model_adequacy: None,
     }
 }
 

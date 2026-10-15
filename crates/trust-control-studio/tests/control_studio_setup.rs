@@ -180,3 +180,45 @@ fn saving_the_same_draft_again_is_refused_and_changes_nothing() {
     assert_eq!(before, after, "the refused save leaves the file as it was");
     let _ = fs::remove_dir_all(&project);
 }
+
+/// Lesson 69's project, shipped in the repository: a project-designed LQR state-feedback loop on the program `Main`, whose declared
+/// states are Boolean bits (`%MX40.0`) and whose controller type is a description (B1.4).
+const STATE_LESSON: &str =
+    "examples/control/11-state-space-estimation-and-predictive-control/69-lqr";
+
+#[test]
+fn opening_a_state_feedback_lesson_offers_its_families_and_the_state_space_method() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(STATE_LESSON);
+    let project =
+        std::env::temp_dir().join(format!("trust-control-setup-state-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&project);
+    common::copy_dir(&source, &project);
+
+    // Opening the loop runs this discovery, and the Tune page takes its controller entries from the loop's answer.
+    let discovered = result_of(&studio(), SETUP_DISCOVER, request(&project));
+    assert_eq!(
+        discovered["rejected"],
+        json!([]),
+        "the lesson's loop is not refused"
+    );
+    let lesson = discovered["loops"]
+        .as_array()
+        .and_then(|loops| loops.iter().find(|entry| entry["loopId"] == "control-lqr"))
+        .expect("the lesson's loop is discovered");
+    assert_eq!(
+        lesson["controllerCompatibility"],
+        json!({
+            "kind": "accepted",
+            "families": ["state-feedback", "LQR"],
+            "familySettings": {
+                "state-feedback": ["P1.K1", "P1.K2", "P1.N"],
+                "LQR": ["P1.K1", "P1.K2", "P1.N"]
+            },
+            "recommendedFamily": "LQR",
+            "methods": ["state-space"]
+        })
+    );
+    let _ = fs::remove_dir_all(&project);
+}

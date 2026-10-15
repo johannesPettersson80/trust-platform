@@ -52,10 +52,11 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   `controlStudio/identify`, `controlStudio/tune`, `controlStudio/preview`, `controlStudio/validate`,
   `controlStudio/apply`, `controlStudio/restore`, `controlStudio/keep`; `controlStudio/setupDiscover`,
   `controlStudio/setupSave`; `controlStudio/analyze`; `controlStudio/parameters` (the parameter writes of a declared analysis, C12).
+- `controlStudio/tune` with the automatic method on a loop whose `controller.project` declares `axes` and no seed runs the finite search of C5 as an operation: it claims the loop, journals each trial's isolated run before its start, updates the page after each trial, and is cancelled by `controlStudio/cancel`. Its final update carries the search's answer: how it ended, the selected trial, and every trial with its J and bounds outcome, or marked not attempted; J's unit (`scoreUnit`) is the engine's, and once the candidate is kept the answer also carries the stages and the stage evidence the study has then (`stages`, `stageEvidence`). A named method (formula, relay, manual or state-space) on such a loop is refused with the sentence "A search law is tuned by its finite search: choose Automatic.", and the Tune stage of a run refuses such a loop too. A state-feedback law is tuned by `controlStudio/tune` with the method `state-space`, which designs it on the study's current model (C4); the answer carries the state answer of C4.
 - `controlStudio/inputs` records the engineer's study inputs (A8.1), as the page's editors change
   them: the identification method and the experiment limits (B3.2, the Limits editor), the
   requirements with the verification scenario list declared beside them (B4.3, the Requirements
-  editor), the tuning method, a fixed structure, and the pinned settings (B4.2). The response of a
+  editor), the tuning method, a fixed structure, and the pinned settings (B4.2). For a state-feedback law the inputs also record `stateDesign`: the family the engineer chose, the text of each field of the design form (the desired poles, the state and input weights, the process and measurement covariances, the solver, the horizon steps and the terminal weights) and the pinned coefficients by symbol (C4). Tune reads them. The answers of `controlStudio/inputs` and `controlStudio/open` carry `stateFields`: the design-form fields that the family shows, with their labels, and the horizon fields only under the finite-horizon solver policy (C4); a loop without a state law carries none. The response of a
   formula method is a field of the requirements (B4.3), so it is recorded once, and the requirements
   keep no tuning method of their own: the method is the one the inputs name. Tune reads that response
   from the requirements when its request names none (`controlStudio/tune` and the automatic run alike,
@@ -73,7 +74,7 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   them. The answer also holds `stageEvidence`, the evidence its stages are computed from, which the page
   gates its actions on (B9.4, A8.6), and `identification`, the study's current Identify result as Identify
   answers it, absent without a current model and after Reset (A8.6), and `tune`, the study's current candidate as
-  Tune answers it (B4.5), rebuilt from its Tune section and absent without a current candidate (A8.4), which is `candidate` for a `Control.PID` and `projectCandidate` for a program's own law (C2), exactly one of them; its `response`
+  Tune answers it (B4.5), rebuilt from its Tune section and absent without a current candidate (A8.4), which is `candidate` for a `Control.PID`, `projectCandidate` for a program's own law (C2) and `searchCandidate` for a finite search (C5), exactly one of them; its `response`
   is absent, because the study keeps no prediction and none is run on open. Tune and Validate use the requirements the
   study holds: the recorded ones over the loop's declared ones. Validate runs the scenario list the
   study holds in the same order of precedence: the recorded list over the loop's declared list.
@@ -95,7 +96,13 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   any. Open recording… with a method other than Recorded-data fit (B3.3) identifies from a file,
   which is not a run: the engine keeps the file as a recording of the study (`identify` with
   `importRecording`, below) and fits it as it fits any recording the study keeps (`identify` with
-  `openRecording`, B3.6). A supplied model enters through `identify` with `importModel` (B3.7). For
+  `openRecording`, B3.6). On a served loop, Open recording… with Recorded-data fit keeps the file the same way, and the
+  manual identification of that file runs in the engine: `identify` with `manualEdit` stores the page's form; `manualQualify`
+  checks a kept recording with the form; `manualFit` fits it (an operation that a Cancel stops); `manualChooseStructure` keeps
+  the sensor-lag structure that the comparison recommends; `manualAccept` makes the accepted model the study's current model
+  (B3.7); and `manualRestore` replays the saved stage when the page reopens (A8.6). The study keeps the stage in its section
+  `identifyManual`: the identifiers of the recordings and their settings, not their samples, which are read from the kept files. Another model that becomes the study's current model clears that section in the same save
+  (B3.7). A supplied model enters through `identify` with `importModel` (B3.7). For
   a parked loop, what the TypeScript session keeps (a model fitted from an opened file, a supplied
   model) is stored beside the engine's study, in `control-studio/<loop id>/typescript-session/`, and
   neither writes the other's files (A8.3); that folder goes with the TypeScript session (stage V7).
@@ -107,8 +114,9 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   engineer starts the campaign. The project test of a project-scripted loop on the Identify page
   (C12) is this review and the campaign it starts: its review asks `identify` with `action:
   "review"`, the Automatic method, the declared duration and zero amplitude; its start asks
-  `identify` with the same settings; its Abort is `controlStudio/cancel` of that operation. The
-  review answers an `identity`, the digest of what the campaign runs: the loop and its revision, the settings, the
+  `identify` with the same settings; its Abort is `controlStudio/cancel` of that operation. A project test finishes when its
+  recording is complete and its outputs are restored, even when its fit refuses the recording: its answer then carries the
+  refusal as its note and keeps no model (C12). The review answers an `identity`, the digest of what the campaign runs: the loop and its revision, the settings, the
   experiment and limits the review chose, the duration, the project's scenario of a project-scripted experiment, and
   whether the target is physical. A start names that identity in `review`. The engine answers the identity of the same
   settings on the live target and refuses a start that names an identity it no longer matches, with no next action:
@@ -132,7 +140,7 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
 - `controlStudio/analyze` answers the analysis tools of the Tune page (B9.9). Its request has
   `projectRoot`, `runtimeId` and `loopId`, as `controlStudio/preview` has them, and `tool` and
   `inputs`. `tool` is one of `rootLocus`, `routh`, `poleZero`, `frequency`, `measuredFrequency`,
-  `feedback`, `leadLag`, `initialState`, `stateStructure` and `relativeGain`. `inputs` holds the
+  `measuredPaths`, `feedback`, `leadLag`, `initialState`, `stateStructure` and `relativeGain`. `inputs` holds the
   tool's own fields; each is optional, and an absent field takes the engine's default. The model
   analysed is the study's selected model, or the general model that the request carries as `model`
   (N4.1; at most 256,000 bytes of JSON). `feedback`, and `initialState` on its feedback connection,
@@ -151,7 +159,7 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
     disclosure. A result the mathematics reports as unavailable (a state structure that does not
     exist, a margin not observed in the range) is a `result` with its status, not a failure.
   - `poleZero`, `leadLag`, `stateStructure` and `relativeGain` answer at once. `rootLocus`,
-    `routh`, `frequency`, `feedback`, `measuredFrequency` and `initialState` are operations: their
+    `routh`, `frequency`, `feedback`, `measuredFrequency`, `measuredPaths` and `initialState` are operations: their
     answer is `{"result": {"operationId": …}}`, and the final `controlStudio/update` of that
     operation carries the calculation's answer as its result. Each operation runs under the budget
     of A7; `controlStudio/cancel` stops it at its next step, and a cancelled operation keeps
@@ -161,7 +169,7 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
     controller parameter and no candidate, and no result qualifies a candidate for Apply (N7.6). It
     stores no model: a supplied model is kept by `identify` with `importModel` (B3.7).
   - Records: for a loop with an engine study, a qualifying `rootLocus`, `routh`, `feedback` or
-    `measuredFrequency` result is kept in its study section (B10.2). `controlStudio/open` answers
+    `measuredFrequency` or `measuredPaths` result is kept in its study section (B10.2). `controlStudio/open` answers
     the kept records, as `analysis`, while their loop and model revisions are current (A8.4). The
     other results are not kept; reopening shows the tool and its inputs (`controlStudio/page`) and
     calculates the result again.
@@ -169,8 +177,17 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
     be the recording's. `recordingId` is the recording's identifier in the study (the `rec-` identifier that `importRecording` answers,
     which the study lists), not the identifier the runtime gave its run, and the answer names that identifier. A request that names
     neither measures the study's last kept recording that is a periodic record (B9.9), and the answer names the recording it used.
-    A study that keeps no such recording refuses with the next action Identify. A file opened with Recorded-data fit stays with
-    that manual identification on the TypeScript route until stage V7, so it is not one of the study's recordings.
+    A study that keeps no such recording refuses with the next action Identify. A file opened with Recorded-data fit on a served loop is one of the
+    study's recordings (B3.6, and the paragraph above); a parked loop's such file stays with its manual identification on the
+    TypeScript route until stage V7, so it is not one of the study's recordings.
+  - `measuredPaths` (C7, "Measured paths") takes its recording as `measuredFrequency` does (`recordingId` and `recordingRevision`, or the
+    study's last kept recording, which the answer names). Its `inputs` hold `settledTrials` and `maximumUnexcitedInputDrift`.
+    `settledTrials` has one object for each input of the loop's channels, `{"inputId", "baseline": {"startSeconds", "endSeconds"},
+    "settled": {"startSeconds", "endSeconds"}}`, with the windows in seconds from the recording's first sample. The drift tolerance,
+    when given, is finite and nonnegative; each window is finite and ordered. The answer is the `measuredPaths` result of C7: the
+    steady-state gain matrix, the relative gain array, the static decoupler, the pairing, the rank and conditioning of the fit, and its
+    two sentence lists. A refused calculation is the envelope's failure with the sentence of its rule. The tool applies only to a loop
+    whose channels give as many inputs as outputs, two or more.
   - A loop whose structure the engine does not run yet (stage V7) has no engine study. For such a
     loop the analysis takes the model from the request, keeps nothing, and answers no
     `measuredFrequency`, because the recording it needs is held by the study. Its declared analysis
@@ -254,7 +271,8 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   identification leaves no candidate and no validation current (A8.4), and a reset answers the evidence of the new
   study, which holds no model, candidate or passed validation. A Tune answer names the evidence of the model and the candidate it
   designed, and a Validate answer the evidence of its validation's result, passed or not (B9.4); a preview keeps nothing, so it names
-  the study's own evidence (B4.5).
+  the study's own evidence (B4.5). Each answer of the manual identification (B3.3) names `stageEvidence` and `stages` as the study
+  stands once the action is saved, so an accepted model, which is the study's current model (B3.7), makes Tune available.
 - A long method answers at once with an operation identifier. Its progress and result follow as
   the notification `controlStudio/update`. A run's updates name the stage it is in (`stage`:
   Identify, Tune or Validate, B8), so the page shows where the flow is; the updates of the other
@@ -881,13 +899,15 @@ explained, with **Configure control loop** and **Choose an example** offered.
 compiler's metadata: symbols with their IEC types and optional addresses,
 controller instances with their compiled types and owning tasks, task intervals,
 the code links from each `<output> := <instance>.<method>(…)` call, and every
-symbol each program body writes. It prefills what the code states (a
+symbol each program body writes. The compiled process image lists every addressed numeric and BOOL variable (`booleans`, apart
+from the plant candidates), so a declared state may be a bit such as `%MX40.0`. It prefills what the code states (a
 `Control.PID`'s parameter record, setpoint, measurement, manual output and
 output; a cascade where one PID's output is the only source of another's
 setpoint; a startup flag guarding `Initialize`; the mode condition; manual
 outputs that copy the output) and the engineer confirms every prefilled binding.
 A link is evidence, never a silent choice. Setup saves only after a complete
-review, never overwrites an existing definition, and cancelling writes nothing.
+review, never overwrites an existing definition, and cancelling writes nothing. The engine checks the drafts of the state-feedback, search, cascade, Smith predictor, gain schedule, ON/OFF and PID group structures:
+the form posts them as typed, and a refusal shows under the field it names (`field`), or in the form's message when it names none. A measured signal is checked in the order of the form: its symbol is chosen, its unit is given, its minimum and maximum are numbers, and the maximum is above the minimum; each refusal names that signal's field.
 Setup shows what it found in the code as a short summary (controller, parameter
 record, measurement, output, setpoint, the mode signal and what its TRUE value
 means, manual output, startup flag and task), each with **Change**, and asks only
@@ -903,7 +923,9 @@ recognise. Part C lists what each structure's setup asks for.
 
 - project, loop id, name and binding revision (a hash of the declaration);
 - the controller structure (Part C), its instance or instances and their
-  compiled types;
+  compiled types; a PID-designed loop names the compiled block's type (`Control.PID`), which discovery compares with the
+  compiled program, while a project-designed loop's type describes the controller its program owns (for example "LQR state
+  feedback" on the program `Main`), so discovery checks only that its instance is compiled and runs in the loop's task;
 - the setpoint (closed loop), the measured outputs, the plant inputs, the manual
   output, and the mode signal with its Manual value; the unit and expected range
   of each; optional auxiliary channels, each with a stable id and one role (SP,
@@ -977,7 +999,14 @@ and the identification policy.
 
 The engineer may choose a method instead: Step, Pulse, Setpoint step, Feedback
 relay, PRBS, Multisine, Recorded-data fit (through **Open recording…**) or
-Supplied plant model. Every live method follows B3.4.
+Supplied plant model. Every live method follows B3.4. Recorded-data fit is the manual method, with steps of its own: the
+engineer's form, the check of a kept recording, the fit (which a Cancel stops), the sensor-lag structure where the comparison
+recommends one, and the acceptance (§0.1a). The engine decides each step and its label, and the fit reads a kept recording
+without live excitation (B3.6). While the manual identification awaits its independent recording (its stage is the preview),
+a project test (a run of a project-scripted loop, which the page asks for with the Automatic method; C12) keeps its recording and selects it for
+the validation role. It records and fits nothing, keeps no model of its own, and its answer says that the recording is the manual
+identification's independent recording and that the model is not refitted. An automatic plant run keeps its model as before and
+clears the manual section (B3.7).
 
 **B3.4 The live campaign.**
 
@@ -1064,7 +1093,8 @@ equation and fit evidence.
 the same signal selection, method and presentation, without live excitation.
 Ambiguous channels are selected first. Cancelling the file picker does nothing.
 The study keeps the opened file as one of its recordings (`importRecording`), so
-reopening shows the fit, and Fit refits it (§0.1a). The file names no experiment that Control Studio ran, so its fit
+reopening shows the fit, and Fit refits it (§0.1a); a Recorded-data fit (B3.3) keeps its file in the same way, and its stage is
+the study's `identifyManual` section (§0.1a). The file names no experiment that Control Studio ran, so its fit
 reads its own samples as an observation (C12): nothing is written to the plant.
 
 **B3.7 Supplied model.** A transfer function or state-space model with its
@@ -1073,7 +1103,12 @@ model unless it carries evidence of independent validation (`importModel`,
 §0.1a). It starts no campaign, so B3.4 does not apply to it. The study's current
 model is the later of its Identify result and its supplied model (A8.4): `importModel`
 makes the supplied model current, and a later Identify makes its fit current; the
-earlier model stays in the study as history. Reset clears both (A8.4). Every stage
+earlier model stays in the study as history. A Recorded-data fit accepted by its manual identification (B3.3, §0.1a) is an
+Identify result and becomes the current model in the same way. Reset clears both models and the manual identification's
+section (A8.4). Any other model that becomes the current model clears that section in the same save: an Identify result from a
+live run, a re-fit or a pair fit, or a supplied model. So reopening never shows a manual model that Tune does not read, and an
+accepted manual model keeps its section, because it is the manual section's own model. A project test recorded for a manual identification's independent recording (B3.3)
+keeps its recording and no model, so it changes no current model. Every stage
 reads the current model, so Tune designs on a supplied model. A supplied model was
 not fitted and has no normalized error, so Tune's error check (N5.7) does not apply
 to it.
@@ -1219,7 +1254,10 @@ target-response run starts with its measured output outside the settling band
 around that operating point, as after an Apply whose target change stays in
 force, the configured plant cannot show the response there: Validate runs every
 case on the qualified model instead, and the result names the plant each case
-ran on and why.
+ran on and why. Otherwise each case runs where it belongs: a case that keeps its own model or its effects, such as
+a declared scenario with its own model or effects, or a generated model variation, runs on the selected
+model from that model's operating point, and the other cases stay on the configured plant; the result
+names the plant of each case.
 
 Part C names structures that always validate on the model. The scenarios cover
 the applicable setpoint step, load step, noise and model variations, and, for
@@ -1669,8 +1707,8 @@ page of settings. These rules follow the user's direction of 8 October 2026.
   its initial state under a held input, on an open loop or through the loop's
   feedback (N4.0); its defaults are a step of 0.1 s, a duration of 10 s, a zero
   initial state, a zero held input and an open loop. Reopening shows the tool last
-  shown with its inputs (`controlStudio/page`). The measured MIMO path is not one of
-  these tools until stage V7.9 serves it. Every Bode view, the feedback result's
+  shown with its inputs (`controlStudio/page`). The measured MIMO path is one of these
+  tools on a loop the engine serves (C7, **Measured paths** on the Tune page); a parked loop keeps its TypeScript path until stage V7.17. Every Bode view, the feedback result's
   included, draws magnitude and phase, the phase on a second axis that spans whole
   45° steps around its data with a tick every 45°; a phase in a table or a tooltip is
   shown to 0.01°, so a value that rounds to zero reads 0.
@@ -2177,7 +2215,7 @@ The program computes the law itself, in parallel form, with its gains in program
   - the startup flag (C1); identification sizes and durations are chosen by Identify (B3.3, B3.4).
 - The law is `u = Kp·e + I + D`, with `I = u₀ + Ki·∫e dt`, and `D = Kd·de/dt`. When the derivative acts on the measurement `y`, `D = −Kd·dy/dt`. `e` is the control error in the measurement's unit. `I` is in the output's unit. Time is in seconds. Each scan updates the integral as `I_new = I_old + Ki·e·Δt`.
 - The loop is a project-owned controller (`design: project`). Its `parallel-pid` seed names the gain variables of the law.
-- The engine serves a `controller.project` block whose seed is `parallel-pid` (or `trajectory-feedforward-pid`, C11), whose family is P, PI, PD or PID, and which declares no `axes`, `components` or `modelParameters` (those are C5). Its families are P always, and PI, PD and PID where the seed names the integral and derivative variables. The page lists these families from the engine's `setupDiscover` answer, and takes its list from the TypeScript adapter only for a loop the engine does not serve. The page asks for the settings that `setupDiscover` names for each family (`familySettings`): for P its proportional variable, for PI also its integral variable, for PD its derivative variable, and for PID both, and Tune refuses a pin or an entered setting of any other variable. Any other program's own law is parked by its name and refused with the cause `controller-capability`: a seed of another kind (`feedforward-pid`, `cascade-pid`, `smith-pid`, `decoupled-pid`, `decentralized-pid`; C11 serves `trajectory-feedforward-pid`), a block without a seed, a family outside P to PID, or a block with tuning axes, components or model parameters. A loop with a program's own law is never a C12 loop, and a loop that declares both a controller law and a program's own law is refused, because the engine cannot tell which one tunes it.
+- The engine serves a `controller.project` block whose seed is `parallel-pid` (or `trajectory-feedforward-pid`, C11; `feedforward-pid`, C8; `cascade-pid`, C6), whose family is P, PI, PD or PID, and which declares no `axes`, `components` or `modelParameters` (those are C5). Its families are P always, and PI, PD and PID where the seed names the integral and derivative variables. The page lists these families from the engine's `setupDiscover` answer, and takes its list from the TypeScript adapter only for a loop the engine does not serve. The page asks for the settings that `setupDiscover` names for each family (`familySettings`): for P its proportional variable, for PI also its integral variable, for PD its derivative variable, and for PID both, and Tune refuses a pin or an entered setting of any other variable. The other served forms are their structures' own: `cascade-pid` (C6), `smith-pid` (C9), `decentralized-pid` and `decoupled-pid` with their `controller.group` (C7), `feedforward-pid` (C8), `trajectory-feedforward-pid` (C11), a `parallel-pid` point of the `gain-scheduled` family (C10), and a block without a seed that declares tuning axes, the finite search (C5). Any other program's own law is parked by its name and refused with the cause `controller-capability`: a block without a seed or axes, a seed whose family its structure does not take, or a block with components or model parameters. A loop with a program's own law is never a C12 loop. A loop declares one controller structure: a controller law, the program's own law (with its PID group, C7), state feedback, or an ON/OFF controller; a loop that declares two is refused, because the engine cannot tell which one tunes it.
 - A law with reset or derivative times, a derivative filter or further retained states uses the step-by-step setup.
 
 #### Identify
@@ -2220,7 +2258,7 @@ The output is binary and switches between two levels, with hysteresis. The contr
 - **Hysteresis.** The hysteresis is in the measurement's unit. The convention is declared: half-band, where the value is the half-width of the band around the setpoint, or full-band, where it is the full width.
 - **Minimum times.** The minimum ON time and the minimum OFF time are in seconds.
 - **Output levels.** Setup asks for the low and high levels. They default to the output's limits, and the levels in use are shown.
-- **Equipment limits.** Setup asks for the switched equipment's own minimum ON and OFF times, for example a restart protection. Each is a time in seconds, or zero when the engineer confirms that the equipment has no such limit; a blank answer is never taken as zero, and Tune refuses until both are declared. The values are declared as the output channel's actuator dwell limits, and Tune never designs shorter minimum times.
+- **Equipment limits.** Setup asks for the switched equipment's own minimum ON and OFF times, for example a restart protection. Each is a time in seconds, or zero when the engineer confirms that the equipment has no such limit; a negative time is refused under its field. A blank answer is never taken as zero, and Tune refuses until both are declared. The values are declared as the output channel's actuator dwell limits, and Tune never designs shorter minimum times.
 - **Retained states.** The output latch starts ON when the output starts at its high level. A dwell timer, in seconds, is optional. It starts at zero.
 - A switching controller whose output is `BOOL`, or that has other retained states, uses the step-by-step setup.
 
@@ -2233,15 +2271,19 @@ The output is binary and switches between two levels, with hysteresis. The contr
 
 - Tune selects the threshold and the hysteresis from the measurement's noise and the settling band of the process requirement. It selects the minimum ON and OFF times from the process requirements. It never designs them shorter than the equipment's dwell limits.
 - Tune proposes these values only from the declared actuator ratings, the process bounds and the measurement uncertainty. Setup asks for the equipment limits. Tune refuses while one of them is undeclared, and it never guesses one.
-- The requested state changes when the measurement crosses a threshold on the side that the declared action requires. Inside the hysteresis band the requested state keeps its previous value. The threshold-equality policy is a declared field. Its default is that the requested state changes at or beyond the threshold.
+- The requested state changes when the measurement crosses a threshold on the side that the declared action requires. Inside the hysteresis band the requested state keeps its previous value. The threshold-equality policy is the declared field `thresholdEquality` of the `onOff` block, with two values: `at-or-beyond`, the default, in which the requested state changes at or beyond the threshold, and `beyond`, in which it changes only strictly beyond it (D-10; N10).
 - The applied state changes only when the dwell condition holds: the time since the last change is at least the dwell.
+- A minimum time that Tune designs is rounded up to a whole number of task periods, and the rounded value is never below the equipment's limit (N10). The hysteresis is the declared width of the band, which for `full-band` is twice the half-width. A pinned switching setting is one of its three settings, given by symbol in the study's `onOffPins` (B4.2). Tune designs the other settings, applies each pin after the design, and refuses a pin that is not one of the three settings or that its binding does not hold, naming the symbol. A pinned minimum ON or OFF time below the switched equipment's declared minimum of the same kind is refused, with its symbol as its field, since a dwell is never shorter than the equipment's limit. An accepted pinned minimum time is rounded up to a whole number of task periods, as a designed one is. Undeclared equipment minimums refuse Tune with or without pins (D-9).
 - The candidate is generated in the controller's own conventions, and it is then run on the actual ST (Validate).
 - No margins are shown for this law (C0).
 
 #### Validate
 
 - Validate runs the actual ST on the selected model. Each run starts the plant at a declared level, even when the equilibrium input lies between the two output levels.
-- The scenarios are the events of B5.3 and a state-recovery scenario that perturbs the initial plant state once.
+- The scenarios are the events of B5.3 and a state-recovery scenario that perturbs the initial plant state once. A switching cycle is also run: the reference starts at its high level and steps to its low and high levels in three events, each a quarter of the run, so that the output crosses both thresholds. The run is four quarters long, each at least twice the longer minimum time. Its settling and error checks are not judged, and it refuses a reference range too narrow for both thresholds.
+- The target case of a switching controller judges its levels but not its dwell times; the switching cycle judges the dwell times.
+- Each run records every execution, so that the levels and dwell times are checked at every scan (A4.2). Where the sample limits make a run average its scans, the transition rule, the retained band and the aborts of that run are inconclusive, since they need each execution.
+- The five criteria are judged as follows. Every recorded change of the requested state happens at its threshold, on the side the action requires, under the threshold policy: the transition rule. The requested state keeps inside its band at every scan after the first: a request that is ON does not sit at or beyond the OFF threshold, and an OFF request does not sit at or beyond the ON threshold: the retained band. Each change of the applied output follows the requested state; a change that the request does not hold is an abort, recorded separately, which fails the run and never counts as a normal dwell completion, so the dwell checks of an interval that an abort ends are inconclusive. The levels and the completed dwells are the requirements of the plan, and the requested state, the setpoint, the measurement and the applied output are read at every scan; a scan without one of them is inconclusive (B5.4).
 - The criteria are these:
   - every recorded transition obeys the switching rule;
   - every completed normal interval is at least the dwell;
@@ -2252,8 +2294,9 @@ The output is binary and switches between two levels, with hysteresis. The contr
 
 #### Apply and Restore
 
+- The commissioning response of an Apply is judged with the switching limits: the two output levels and the reviewed minimum times, which the response's switching check uses (`criteria.switching`). Its expected settling time is none, since the output switches.
 - Apply writes the hysteresis and the minimum times, and switches to Auto, in one task-boundary transaction (B6.1). The latch and the dwell timer are initialized as declared (C0).
-- The Auto-entry allowance differs from A6.4. A binary output has no band. At the entry, the latch starts at the output's applied level and the dwell timer starts at zero. The output therefore keeps its level until the dwell has elapsed.
+- The Auto-entry allowance differs from A6.4. A binary output has no band. At the entry, the latch starts at the output's applied level and the dwell timer starts at zero. The output therefore keeps its level until the dwell has elapsed. The allowance is zero: a binary output has no band, so the first output is the applied level exactly.
 - Restore previous settings returns the settings and the mode from before Apply. It initializes the latch and the dwell timer from current observations (B6.4).
 
 ### C4. State feedback (pole placement, LQR) and LQG
@@ -2268,9 +2311,12 @@ The law is `u = u₀ + N·(r − y₀) − K·(x − x₀)` in identified measur
   - the controlled output, with its unit, range and setpoint;
   - one to three further measured outputs, each with its unit and range.
 - Each measured output is a state of the model.
+- The setup holds at most three further measured outputs and, for LQG, at most three estimator states (D-B4). The design limit of 32 states is not reached through the setup.
 - For each measured output, the setup asks for the variable that holds its gain, in the plant input's unit per that output's unit. For the controlled output it also asks for the variable that holds the reference gain `N`.
 - The program applies `u = u₀ + N·(r − y₀) − Σᵢ Kᵢ·(yᵢ − yᵢ₀)` around the operating point at which the plant is identified.
 - The Auto/Manual signal, the manual output and the startup flag are set as for a PID (C1); Identify chooses the step and its hold (B3.3, B3.4).
+  The state-feedback record has no application states, so its startup flag is one of the record's declared states, as the shipped
+  lessons 68, 69 and 72 declare it (settled in wave 4).
 - The loop declares `controller.stateFeedback` with `family` set to `state-feedback`, `LQR` or `LQG`. Its convention is `sampled-deviation-negative-feedback`, meaning `du = −K·dx + N·dr`.
 - The ordered `gainSymbols` and `referenceGainSymbols` matrices name the compiled `REAL` or `LREAL` parameter fields. These fields belong to one parameter binding and one task.
 - Coefficient units follow the declared input/state and input/controlled-output coordinates. Auxiliary model outputs remain measurements, not extra controlled objectives.
@@ -2280,11 +2326,13 @@ The law is `u = u₀ + N·(r − y₀) − K·(x − x₀)` in identified measur
 - The program estimates the states from the controlled output with a fixed model, in deviations from the model's operating point:
 
   ```text
-  x̂[k+1] = A·x̂[k] + B·u[k] + L·(y[k] − C·x̂[k])
+  x̂⁻[k] = A·x̂[k−1] + B·u[k−1]
+  x̂[k] = x̂⁻[k] + L·(y[k] − C·x̂⁻[k])
   ```
 
-  The estimates feed back through `K` and `N`.
+  The estimates feed back through `K` and `N`. The stored estimator coefficient `L` is the current-estimate Kalman gain, not `A·L`: the estimator poles are those of `(I − L·C)·A`. The steady-state gain iterates the covariance from `P = Q` with `P⁻ = A·P·Aᵀ + Q`, `L = P⁻·Cᵀ·(C·P⁻·Cᵀ + R)⁻¹` and `P = (I − L·C)·P⁻`, and stops when the largest change of `P` is at most `1e-10 + 1e-9·max|P|`; the published gains are those of this stopping rule.
 - The setup asks for the model file in the project that the estimator implements. It is a state-space model with one input, the controlled output as its one output, sampled at the task period.
+- The setup lists the project's model files that meet this and have at most three states, in the project folder and in `models/`. The saved loop holds the sampled model of the file it names.
 - For each model state, the setup asks for the estimate variable, its gain and its observer gain (`observerGainSymbols`). It also asks for the process-noise variance of each state and the measurement-noise variance. These variances set the observer's trade-off between trusting the model and trusting the measurement.
 - The estimates start at zero, the operating point.
 - The binding declares the estimator's fixed `estimatorModel` matrices A, B and C, and its sample period. These MUST equal the selected sampled model. A newly selected plant MUST NOT silently tune an estimator that still runs different model coefficients.
@@ -2298,23 +2346,25 @@ The law is `u = u₀ + N·(r − y₀) − K·(x − x₀)` in identified measur
 #### Tune
 
 - **Pole placement.** Explicit pole targets are discrete poles. A continuous model is converted by the exact zero-order-hold conversion at the actual task period. The gains place the sampled poles. Without explicit targets, the desired sampled poles are `zᵢ = exp(−(4 + i/n)·Δt/Tr)` for `i = 0 … n−1`, with `n` model states, the task period `Δt` and the response time `Tr` the requirements ask for. Explicit targets are one real pole inside the unit circle per model state.
-- **Design limits.** At most 32 model states and 16 plant inputs, each plant input controls one output objective, and a finite-horizon LQR covers at most 512 steps. A design outside them, an uncontrollable or singular model, or a malformed weight is refused with the reason and the next action Choose method (a malformed weight: None).
-- **LQR.** LQR weights may be supplied. Automatic weights normalize each coordinate by its declared operating span. The gain is the steady-state gain of the discrete linear-quadratic regulator for the sampled model, from the algebraic Riccati equation.
+- **Design limits.** At most 32 model states and 16 plant inputs, each plant input controls one output objective, and a finite-horizon LQR covers at most 512 steps. A design outside them, or an uncontrollable or singular model, is refused with the reason and the next action Choose method. A malformed weight is refused with its reason and no next action. A coordinate whose operating range has no span has no automatic weight, and is refused with the next action Identify. A finite-horizon design whose repeated first gain does not stabilise the loop, and an estimator with a pole that is not strictly inside the unit circle, are refused with the next action Choose method.
+- **LQR.** LQR weights may be supplied. Automatic weights normalize each coordinate by its declared operating span. The steady-state and the finite-horizon designs check the weights alike: the state weight and the terminal weight are symmetric and not negative, and the input weight is symmetric and positive. The gain is the steady-state gain of the discrete linear-quadratic regulator for the sampled model, from the algebraic Riccati equation.
 - **LQG.** Tune designs `K`, `L` and `N` by LQG on the selected model. The design needs supplied process and measurement covariances. The estimator follows the prediction and correction convention above.
 - If a required mode is not controllable, Tune reports the infeasibility instead of a candidate.
-- A pin keeps explicit coefficients. The mapped sampled poles are recomputed, and any optimality claim is discarded.
+- The controlled objectives are the model outputs whose loop channel names a setpoint signal, in channel order; their number must equal the number of plant inputs. The response time `Tr` of the pole targets is the requirements' maximum settling time.
+- Tune of a state-feedback law designs on the study's current model and keeps the candidate unapplied (B4.1). Its answer carries the closed-loop poles (N7.11), the stages of a finite horizon (the gains and the Riccati matrices, by step, under the horizon policy), and the fields of the design form for the family with their labels (the state-design choices of §0.1a). A reopened study answers a kept state law with the same answer as its run: the margins come from the kept gains and the study's model, and nothing is predicted.
+- A pin keeps explicit coefficients: a pin of any mapped coefficient (`K`, `N` or `L`) replaces its designed value within the parameter's bounds, after the REAL rounding. The mapped sampled poles are recomputed, and any optimality claim is discarded: a finite-horizon design then has the horizon policy `pinned-fixed-gain`.
 - **Margins at the plant input.** For one plant input, the loop is broken at that input:
 
   ```text
   L = K·(zI − A)⁻¹·B
   ```
 
-  This is evaluated on the model sampled at the task period, with the gains `K` on the fed-back outputs, up to half the sampling frequency. The delay margin is then the extra dead time at the plant input that the loop tolerates. The margin definitions are in C0.
+  This is evaluated on the model sampled at the task period, with the gains `K` on the fed-back outputs, up to half the sampling frequency. The delay margin is then the extra dead time at the plant input that the loop tolerates. The margin definitions are in C0. Until the margins of a sampled model are given, the engine answers the margins of such a model as unavailable, with that reason.
 
 #### Validate
 
 - Validate runs the actual ST (B5.3). The operating range is the intersection of the selected model's operating ranges and the bound signal and actuator limits.
-- The state-recovery scenario perturbs the initial plant state once.
+- The state-recovery scenario perturbs the initial plant state once: each model state moves by one per cent of its operating range, toward the side of the range the move stays inside, and the case runs on the selected model from that state, judged on the nominal requirements.
 - The record enters the same actual-ST validation and Manual staging operations as any other record.
 
 #### Apply and Restore
@@ -2327,7 +2377,7 @@ The law is `u = u₀ + N·(r − y₀) − K·(x − x₀)` in identified measur
   Σⱼ |Kᵢⱼ|·bⱼ + Σₖ |Nᵢₖ|·bₖ
   ```
 
-  Here `j` runs over the model states and `k` over the controlled outputs. A state is a measured output when its column of `C` selects exactly that output, and `bⱼ` is that output's settling band. A reviewed tolerance replaces this allowance. A model with any other state keeps the exact check.
+  Here `j` runs over the model states and `k` over the controlled outputs. A state is a measured output when its column of `C` selects exactly that output and that output's row selects no other state, and `bⱼ` is that output's settling band (its channel's, when the channel declares one). A reviewed tolerance replaces this allowance. A model with any other state keeps the exact check. With several plant inputs, the allowance is the largest input's sum, and it is never below the exact check.
 - Without a typed Auto state-transfer adapter, the mapping alone never grants Auto authority. In that case Manual staging is offered explicitly.
 - Restore previous settings returns the gains, the reference gains and the mode from before Apply (B6.4). It restores the original reference vector and the parameter record (C0).
 
@@ -2346,9 +2396,11 @@ A notch component of such a law is the discrete second-order section with its ze
   - the kind of law;
   - one to four coefficient variables. For each one, the setup asks for its unit and the explicit list of values that Tune may try.
   - up to three values that the program keeps from scan to scan, for example an integral term or a filter state. Each has its unit and the start that validation uses: zero, the output or the measurement;
-  - the objective, which names the reference symbol, the feedback symbol and the error unit;
+  - the objective, which names the requirement the search minimises (`target-error`, minimised); its reference and feedback are
+    the loop's setpoint and measurement, and its error unit is the measurement's unit (as lesson 89 declares it);
   - the startup flag, as for a PID (C1); Identify chooses the step and its hold (B3.3, B3.4).
 - A pinned setting keeps its value. It is not part of the grid.
+- The setup refuses a value list it cannot read, and a grid of more than 64 combinations (the product of the list lengths, Tune and A7).
 - The coefficient and gain variables MUST be `REAL` or `LREAL` and unaddressed (C0). Initial values and events MUST NOT target a swept variable. A duplicate or ambiguous write is rejected. A `BOOL` value of 0 or 1 may start a project-owned sequence.
 
 #### Identify
@@ -2359,6 +2411,7 @@ As C1. The search runs on the selected model.
 
 - The grid is the Cartesian product of the value lists. The trial count MUST equal that product. It MUST NOT exceed 64 (A7).
 - Each trial is one combination. It runs the project's actual ST against the selected model, in an isolated simulation with complete resets. Every trial uses the same initial values, the same plant initial state, the same events, time points and seed. A search never runs against the selected physical runtime.
+- **Mechanism.** Each trial is one isolated simulation run, started through the runtime's simulation runs (`control.simulation.run.start`, `status` and `cancel`): the trial's values are the run's parameter overrides, and the selected model is its `simulation_override`. That is how Validate runs a candidate (B5.3). The runtime's search job (E8.5, `control.search.*`) runs against the project's own simulation, not the selected model, so C5 does not use it. Each run is journaled before its start (E11.2, A8.5), and the search runs as an operation that claims the loop, reports after each trial and stops at a cancel.
 - Bounds are checked before ranking. A trial that fails a constraint does not qualify. Missing or bad evidence never qualifies. Only qualifying trials are ranked.
 - **Selection.** Keep the combinations that meet every mandatory requirement. Choose the one with the smallest error after the settling time. The error is the trapezoidal sampled integral of squared error, in error-unit squared times seconds, with the actual step duration as the sample interval:
 
@@ -2368,7 +2421,8 @@ As C1. The search runs on the selected model.
 
 - Of equal errors, the first combination in the listed order is used.
 - A `REAL` variable's values are rounded to the nearest `REAL` before the trial runs.
-- The search stops on any change of the program revision. Every attempted trial is retained. A trial that is not attempted, after a cancellation or an exhausted budget, stays marked as not attempted. Nothing is truncated silently.
+- The search stops on any change of the program revision. Every attempted trial is retained. A trial that is not attempted, after a cancellation or an exhausted budget, stays marked as not attempted. Nothing is truncated silently. A cancelled, changed or failed search keeps no candidate in the study; its answer carries every trial. A search that completed, or ran out of budget with a qualifying trial, keeps its candidate in the Tune section, with its trials that were not attempted marked.
+- J's samples are the target-response run's samples from the settling deadline (the response deadline of the requirements, B4.3) to the end of the run. The reference is the loop's setpoint and the feedback its process variable.
 - The trial and job budgets follow A7.
 
 #### Validate
@@ -2388,8 +2442,9 @@ A cascade has two controllers in series: the outer controller's output is the in
 
 #### Setup
 
-- The Cascade structure of the setup writes one loop for two `Control.PID` instances. The inner controller drives the plant input and measures the inner measurement. The outer controller measures the outer measurement against the outer setpoint, and its output is the inner setpoint. Setup recognizes a cascade when the outer controller's output is the only source of the inner controller's setpoint (B1.3).
+- The Cascade structure of the setup writes one loop for two `Control.PID` instances. The inner controller drives the plant input and measures the inner measurement. The outer controller measures the outer measurement against the outer setpoint, and its output is the inner setpoint. Setup recognizes a cascade when the outer controller's output is the only source of the inner controller's setpoint (B1.3). Recognition counts sources, not names (D-3): a setpoint with a second source is no cascade, and the outer controller, by its instance, is the only source when the setpoint is fed by that instance alone.
 - The setup draft has no manual output for the outer controller, because nothing in the structure uses one.
+- A program that writes a seeded value of either controller, or initializes one, needs the startup-done flag, as a single loop does (C1). The seeded values of both controllers are checked, and the setup refuses the draft that names no flag.
 - **Modes.** The structure binds the outer controller's mode as an `additional_modes` member of the transfer (see Apply and Restore).
 
 #### Identify
@@ -2400,11 +2455,13 @@ A cascade has two controllers in series: the outer controller's output is the in
 
 - **Inner loop first.** Tune designs the inner PI on the path from the plant input to the inner measurement, for the inner requirements, with the family fixed to PI (C0).
 - **Outer loop second.** Tune predicts, on the model, the closed inner loop's response of the outer measurement to a step in the inner setpoint. It reduces that response to first order with delay by the two-point method (C7). It then designs the outer PI, with the family fixed to PI (C0), for the outer requirements.
-- Without declared inner requirements, the inner loop is designed to settle in one fifth of the outer settling time. The outer settling band is scaled to the inner measurement's range. The outer design's assumption that the inner measurement follows its setpoint then holds.
+- Without declared inner requirements, the inner loop is designed to settle in one fifth of the outer settling time. The outer settling band is scaled to the inner measurement's range. The outer design's assumption that the inner measurement follows its setpoint then holds. Without them the inner duration is two fifths of the outer settling time; both fractions are bounds of numerical annex N10 (D-7).
+- The requirements are those of the outer measurement, the loop's controlled output. Automatic is the only method: a named method, a structure other than PI, or a pinned setting is refused.
+- The candidate is one unapplied record of both PIs: the proportional and integral gain variables of the inner and the outer controller, by symbol. The derivative variables are written as zero (C0). The answer predicts no outcome and shows no margins: C0 gives margins to a single linear law only.
 
 #### Validate
 
-- Validate runs the actual ST of both controllers in Auto, from the model's operating point, with the outer requirements. The run includes a load at the plant input that both loops reject. This validation always runs on the model.
+- Validate runs the actual ST of both controllers in Auto, from the model's operating point, with the outer requirements. The run includes a load at the plant input that both loops reject. This validation always runs on the model. Each run starts both Auto signals in Auto: the inner controller's mode is the loop's mode, and the outer controller's is the `additionalModes` member of the program's block.
 
 #### Apply and Restore
 
@@ -2419,18 +2476,20 @@ A PID group is two or more `Control.PID` instances whose processes interact. Eac
 #### Setup
 
 - The setup offers **PID group** when the program has two or more library PIDs. The engineer selects the members. For each member the engineer confirms the compiled measurement, output, setpoint, manual output and parameter record, as for a single loop.
-- The group has one shared Auto/Manual signal. Each member's input channel may declare its own identification step (`experimentStep`); otherwise Identify chooses it (B3.3). The maximum duration comes from the limits.
+- The group has one shared Auto/Manual signal. Each member's input channel may declare its own identification step (`experimentStep`); otherwise Identify chooses it (B3.3). The maximum duration comes from the limits. A member's own step is the identification step of its input. A step given for the whole group is the step of each member that declares none, and it alone sets the group's experiment amplitude: the first member's step never does. Without a group step, the group's experiment is the automatic request, an observation of amplitude 0 for the group's duration, and a duration may be given without a step. With no step, no duration and no member step, the group has no experiment (D-15, as revised).
 - Setup writes one group loop. Its model channels follow the member order.
-- **Decoupler (when the program has one).** The setup asks for the decoupler's variables `D_ij`, for plant input `i` and member `j`. The unit of `D_ij` is plant input `i`'s unit per member `j`'s unit. In Auto the program writes `u = D·v`, where `v` are the members' `Control.PID` outputs. In Manual it writes `u = v`, so that identification and Manual operation act on the plant itself.
+- The group's startup-done flag, when the draft names one, is a compiled BOOL that is none of the group's signals: the Auto/Manual signal, and each member's setpoint, measurement, manipulated variable and manual output. Setup refuses another with "X is not a compiled BOOL symbol." or "The startup-done flag is one of the loop's signals, so it cannot mark the startup as done." A loop declares at most 32 controller states per controller instance (numerics annex N10), and a group's members are its instances: a group of sixteen members declares at most 512 states.
+- **Decoupler (when the program has one).** The setup asks for the decoupler's variables `D_ij`, for plant input `i` and member `j`. The unit of `D_ij` is plant input `i`'s unit per member `j`'s unit. In Auto the program writes `u = D·v`, where `v` are the members' `Control.PID` outputs. In Manual it writes `u = v`, so that identification and Manual operation act on the plant itself. Behind a decoupler, a member's plant input is the signal that the program writes from `D·v`, never the controller's own output: Setup refuses a member whose plant input is its own output, with the sentence "Behind a decoupler, <instance>'s output is the plant input the program writes from D·v, not the controller's own output <own>. Choose the plant input.", and names the member's plant-input field. Behind a decoupler a member's output is
+  the plant input that the program writes from `D·v`, not its controller's own output: the setup refuses a member whose output is its own controller's output, and asks for the plant input.
 
 #### Identify
 
-- The group is identified in one campaign: one recording holds one experiment per plant input, and each input is stepped by its own identification step. The result is one multivariable model: the multichannel ARX fit of the recording, with orders up to the policy's maximum order and the policy's error limit on the independent record.
+- The group is identified in one campaign: one recording holds one experiment per plant input. An input that declares its own identification step (`experimentStep`) is stepped by a manual-output step of that size, checked against the identification policy as a declared `mv_step` is; an input without one takes the method Identify chooses for the loop (its declared method, or Automatic's choice in the loop's mode), so a group without a group step still steps each member at its own step, and when such an input would take a setpoint step in Auto beside a manual-output step, the campaign is refused before it records, since one recording holds one controller mode. The result is one multivariable model: the multichannel ARX fit of the recording, with orders up to the policy's maximum order and the policy's error limit on the independent record.
 - With a decoupler, the identification is the same, in Manual.
 
 #### Tune
 
-1. **Steady-state gains and the relative gain array.** Calculate the steady-state gain matrix `K` (outputs × inputs) and the relative gain array `Λ = K ∘ (K⁻¹)ᵀ` for the members' pairing. `Λ` needs a square, non-singular `K`. A pairing whose diagonal relative gain is not positive, or whose `K` is singular, is refused. Tune names the pairing with positive diagonal relative gains closest to 1.
+1. **Steady-state gains and the relative gain array.** Calculate the steady-state gain matrix `K` (outputs × inputs) and the relative gain array `Λ = K ∘ (K⁻¹)ᵀ` for the members' pairing. `Λ` needs a square, non-singular `K`. A pairing whose diagonal relative gain is not positive, or whose `K` is singular, is refused. When every diagonal relative gain is positive, Tune names the members' pairing (D-12). When one is not, Tune refuses and names the pairing with positive diagonal relative gains closest to 1 (N4.5) as the pairing to declare, or says that no pairing has positive relative gains. A group of more than eight pairs names no pairing (N4.5). The members' wiring is the program's, so Tune never changes it.
 2. **Two-point reduction.** For each member's own path `yᵢ/uᵢ`, let `t₂₈` and `t₆₃` be the times at which the step response reaches 28.3 % and 63.2 % of its final change. Then:
 
    ```text
@@ -2441,12 +2500,12 @@ A PID group is two or more `Control.PID` instances whose processes interact. Eac
    The two-point reduction is also used by C6, C8 and C9.
 3. **Effective gain and SIMC.** With the other loops closed, member `i` sees the effective steady-state gain `Kᵢᵢ / λᵢᵢ`. SIMC (C1) designs the member's PI for that gain, for the path's time constant and delay, and for the member's own requirements.
 
-The result names, for each member, its path model, its `λᵢᵢ` and the resulting gains.
+The result names, for each member, its path model, its `λᵢᵢ` and the resulting gains. Each member's response is the declared one, or More robust when the requirements declare none, which is Automatic's response (C1; D-13).
 
 **Static decoupler.**
 
 - Tune calculates `D = K⁻¹·diag(K)`, from the steady-state gains `K` of the group model. Through the decoupler, each member's output moves only its own measurement in steady state, with the gain of its own path. A singular `K` is refused.
-- A two-member group whose program realizes the decoupler with the library's `StaticDecoupler2x2` (Specification 37 §4) is configured with the gain matrix `G = diag(K)⁻¹·K` and `ActuatorBias` zero. Its `ToActuators` then computes `u = G⁻¹·v = D·v`, and its `ToVirtual` computes `v = G·u = D⁻¹·u`, the members' start at Apply. A `G` that the block's singularity check refuses is refused by Tune with the block's reason. Larger groups use the program's own `D_ij` variables.
+- A two-member group whose program realizes the decoupler with the library's `StaticDecoupler2x2` (Specification 37 §4) is configured with the gain matrix `G = diag(K)⁻¹·K` and `ActuatorBias` zero. Its `ToActuators` then computes `u = G⁻¹·v = D·v`, and its `ToVirtual` computes `v = G·u = D⁻¹·u`, the members' start at Apply. A `G` that the block's singularity check refuses is refused by Tune with the block's reason. The check uses the relative-determinant tolerance of N10 (`BLOCK_SINGULARITY_TOLERANCE`), and the answer gives `G`, its determinant and its inverse, which equals `D` (D-14). Larger groups use the program's own `D_ij` variables.
 - Each member's PI is designed as in step 3, on the model seen through the decoupler. Its relative gains are then one.
 - The decoupler corrects steady-state interaction only. It does not cancel dynamic interaction.
 - Tune shows `D` and the per-member design.
@@ -2455,13 +2514,33 @@ The result names, for each member, its path model, its `λᵢᵢ` and the result
 #### Validate
 
 - Validate runs the actual ST of all members against the full multivariable model. It uses every member's requirements, and each setpoint alone. This validation always runs on the model.
-- With a decoupler, the decoupler is part of the run.
+- With a decoupler, the decoupler is part of the run. Each member's retained output starts at its share of the operating inputs, `v = D⁻¹·u`, as Apply starts it (C0).
+- Validate also runs one case for each controlled output, identified `independent-reference:<output channel>`. In that case the output's setpoint steps by its own reference change (its own requirements, or the loop's task for the process variable), and every other controlled setpoint holds at its operating value. Each held output keeps its settling and error checks against that held value, and every output keeps its bounds. Each case runs on the model with the candidate's ten values and starts the controller's states from the candidate's declared profile (C0). A group with one controlled output has no such case.
 
 #### Apply and Restore
 
-- **Group.** Apply writes all members in one transaction with one rollback. Only the group changes. Other PIDs' parameters and retained states do not change. A group update is never presented as independent PID writes.
-- **Decoupler.** Apply writes the PI gains and `D` in one transaction, and switches the group to Auto. Each member's PID starts at its share of the present plant inputs, `v = D⁻¹·u`, using the decoupled-output initialization of C0. The product `u = D·v` therefore does not change at the switch.
+- **Group.** A PID group's transfer holds the loop's manipulated variable as its output and each other member's manipulated variable as an additional output in member order, each within its own input's actuator limits; the runtime holds at most sixteen outputs. Each other member's setpoint and Manual command are states of the transfer, and each member's process value is a guard. A PID group writes its values by symbol through its parameter record and takes no gains. Its declaration, its program, its shared mode and its parameter and state owners are checked when the adapter is built, and a group that fails them is refused before tuning or Apply; a group never falls through to a scalar PID adapter. Apply writes all members in one transaction with one rollback. Only the group changes. Other PIDs' parameters and retained states do not change. A group update is never presented as independent PID writes.
+- **Decoupler.** Apply writes the PI gains and `D` in one transaction, and switches the group to Auto. Each member's PID starts at its share of the present plant inputs, `v = D⁻¹·u`, using the `decoupled-output` initialization of C0. The state's source is named `decoupled-output`; its value at the operating point is row `index` of `D⁻¹·u`, and each transfer reads its fresh value from the plant inputs of the group's channels in channel order, with the same matrix and row. The runtime's `decoupled-output` formula takes at most eight rows, and a decoupler's size is the group's member count, so a decoupled group has at most eight members. The product `u = D·v` therefore does not change at the switch.
 - Restore previous settings returns all of them, and the group to Manual (B6.4).
+
+**Measured paths.** A loop whose channels give as many inputs as outputs, two or more and at most eight, has its paths measured on one recording
+of its study (`controlStudio/analyze`, `measuredPaths`, §0.1a). The request gives one settled trial for each input: the input's baseline
+window, before its step, and its settled window, after it, both in seconds from the recording's first sample. Each window is finite,
+ordered and inside the recording, and every sample in it is good for every channel (A4.2). For each trial:
+
+- the mean of each input and each output over the baseline window and over the settled window gives its change: the settled mean minus
+  the baseline mean;
+- the excited input must hold its level. A window that spans more than 1 % of the excited input's step contains the step, and the trial is
+  refused;
+- when the request gives a drift tolerance, no input that was not stepped may change by more than it during the trial.
+
+With one trial for each input, the input changes form a square matrix `U` and the output changes a matrix `Y`, one row per trial. Each output
+is fitted by least squares on its own, `U·kᵢ = Yᵢ`, and the steady-state gain `K` (outputs by inputs) has row `kᵢ`. The fit is refused when `U`
+has fewer independent steps than inputs, or a condition number above 10¹². The answer gives the gain matrix, the relative gain array
+`Λ = K ∘ (K⁻¹)ᵀ`, the static decoupler `D = K⁻¹·diag(K)` (inputs by outputs), the pairing that `Λ` names (N4.5), the rank and the
+conditioning of `U`, the conditioning of `K` and the residual norm. It names each channel with its symbol and unit, gives the trials, and
+gives the number of samples between each baseline's start and settled window's end, each counted once. A singular `K` refuses the answer,
+and no pairing is then named.
 
 ### C8. Measured-disturbance feedforward
 
@@ -2488,7 +2567,7 @@ The program adds a feedforward from a measured disturbance `d` to the `FeedForwa
 
 #### Identify
 
-- The PID is put in Manual. The manual output and then the disturbance variable are stepped. Identify runs one campaign with one experiment per input: each has its own interval in one recording, as the inputs of a PID group do (C7).
+- The PID is put in Manual. The manual output and then the disturbance variable are stepped. Identify runs one campaign with one experiment per input: each has its own interval in one recording, as the inputs of a PID group do (C7). The rule of C7 Identify applies: the disturbance is stepped at its own step, and the manual output at its own step when Setup gives one, otherwise at the loop's declared `mv_step`, which Setup writes.
 - The disturbance is stepped through its declared write binding. Such a binding exists only for an explicitly actuated simulation or test input.
 - One model is fitted from both inputs to the measurement. It is of at most second order (`identificationPolicy.maximumOrder` 2), so that each path keeps its own time constant.
 - The fit MUST agree with an independent recording within 5 % (`identificationPolicy.maximumNormalizedError` 0.05). A first-order fit that shares one time constant between the two paths is not accepted.
@@ -2513,7 +2592,7 @@ The program adds a feedforward from a measured disturbance `d` to the `FeedForwa
 
 #### Validate
 
-This validation always runs on the model. It covers the single-loop cases of C1, and a measured-disturbance case. In that case, from the operating point with the setpoint unchanged, the disturbance steps by its identification step at the start. The measurement MUST stay within the error allowance by the settling time: every sample from the settling time to the end of the test is within the requirements' maximum error of the operating value (settled in wave 2b; C1 states the same allowance for the target). The single-loop cases run on the output path's view (the loop without its two-input channels, with the view of the model), with the candidate's PI and feedforward values written as parameter overrides, and a failed measured-disturbance case ends Apply (B5.4; settled in wave 2b).
+This validation always runs on the model, and every case runs on the full two-input model. The model's inputs and outputs are bound through the loop's channels (B5.3): the controller output drives the heater input, the measured disturbance is written to the variable that its channel's Manual command names (the variable that the run's initial values and events write), and each model output is read from its measured signal. The disturbance input starts at its operating value unless a case writes it. The cases are the single-loop cases of C1 and the declared scenarios, with the candidate's PI and feedforward values written as parameter overrides, and a measured-disturbance case. In that case, from the operating point with the setpoint unchanged, the disturbance steps by its identification step at the start. The measurement MUST stay within the error allowance by the settling time: every sample from the settling time to the end of the test is within the requirements' maximum error of the operating value (settled in wave 2b; C1 states the same allowance for the target). A failed measured-disturbance case ends Apply (B5.4; settled in wave 2b). A declared scenario that supplies its own two-input model runs on that model's plant, from that model's own operating point, with the controller's initial values at that point (B6.2), so its case is planned on that model (lesson 84's campaign builds on it).
 
 #### Apply and Restore
 
@@ -2525,12 +2604,14 @@ This validation always runs on the model. It covers the single-loop cases of C1,
 
 ### C9. Smith predictor
 
-The program feeds the controller `y + c` instead of the measurement `y`. The correction `c` is a value that the program keeps. The PI around the predictor is of family PI (C0).
+The program feeds the controller `y + c` instead of the measurement `y`. The correction `c` is a value that the program keeps. The PI around the predictor is of family PI (C0), and Automatic chooses no other family (D-1). A program keeps its own predictor, or uses the library block `Control.SmithPredictorFOPDT` (Specification 37 §2); the setup asks for the block's variables only in the second case.
 
 #### Setup
 
 - The setup asks for the single-loop fields, with the measurement being the process measurement `y`.
-- It also asks for the program's variables for the model gain `K`, the time constant `T`, the delay `θ` in seconds, and the correction `c`. It also asks for the variable that holds the `Update` result of the predictor block `Control.SmithPredictorFOPDT` (`SmithPredictorOutput`); the seed names that variable for Validate.
+- A program that writes a seeded value of the predictor's PI, or initializes its PID, needs the startup-done flag, as a single loop does (C1); the setup refuses the draft that names no flag.
+- It also asks for the program's variables for the model gain `K`, the time constant `T`, the delay `θ` in seconds, and the correction `c`. Each is a `REAL` or `LREAL` variable. The setup refuses two of these variables that are the same, or that are one of the loop's signals.
+- When the program uses `Control.SmithPredictorFOPDT`, the setup asks also for the variable that holds the block's `Update` result (`SmithPredictorOutput`), for the variable of its `MaximumCorrection`, and for the variables of its `OperatingInput` and `OperatingOutput`. The four are asked together, and the seed names them (D-16, D-18). The `MaximumCorrection` is the program's own declaration: Apply never writes it.
 - The correction obeys:
 
   ```text
@@ -2547,17 +2628,20 @@ As one loop (C1). The step response from the controller output to the measuremen
 #### Tune
 
 - Reduce the model's step response from the controller output to the measurement to first order with delay, by the two-point method (C7). Write its gain, its time constant and its delay into the program's model variables `K`, `T` and `θ`.
-- Design the PI, with the family fixed to PI (C0), on the model without its delay. The settling time used is the requirement's settling time less the delay. A settling time that is no longer than the delay is refused, with that reason.
-- A program that uses the library block `Control.SmithPredictorFOPDT` (Specification 37 §2) takes the reduced model as its `ProcessGain`, `TimeConstant` and `DeadTime`, and the controller output and the measurement at the operating point the model was identified at, as its `OperatingInput` and `OperatingOutput`. Its `MaximumCorrection` stays as the program declares it: it is the application's protection, not a tuning value.
-- Show the model values and the gains.
+- Design the PI, with the family fixed to PI (C0), on the model without its delay. The settling time used is the requirement's settling time less the delay. A settling time that is no longer than the delay is refused, with that reason. Tune refuses a named method, a structure other than PI and pinned settings for this structure: Automatic designs the PI.
+- The prediction and the margins that Tune shows are those of the PI on the delay-free model. With a correct model the predictor makes the loop respond as that loop, so this is the loop the predictor gives.
+- A program that uses the library block `Control.SmithPredictorFOPDT` (Specification 37 §2) takes the reduced model as its `ProcessGain`, `TimeConstant` and `DeadTime`, and the controller output and the measurement at the operating point the model was identified at, as its `OperatingInput` and `OperatingOutput`. Apply writes that operating point to the block's variables (D-18). Its `MaximumCorrection` stays as the program declares it: it is the application's protection, not a tuning value.
+- Show the model values, the operating point and the gains.
 
 #### Validate
 
-This validation always runs on the selected model. It covers the single-loop cases of C1, run as actual ST. With `Control.SmithPredictorFOPDT`, each isolated run reads the program variable that the seed names for the block's `Update` result (`SmithPredictorOutput`). The run fails when `Active` is FALSE at any sample, with the reason that the history is incomplete when `HistoryComplete` is FALSE, and that the predictor is not enabled when `HistoryComplete` is TRUE. It also fails when `|Correction|` reaches `MaximumCorrection`, which bounds the correction only when it is positive (Specification 37 §2.2). A bypassed or clipped prediction is not a valid one (Specification 37 §2.5). The check reads a program variable, so the runtime protocol does not change.
+This validation always runs on the selected model. It covers the single-loop cases of C1, run as actual ST. Each candidate run writes the candidate's model values and, with the library block, its operating point, as parameter overrides (B5.3).
+
+With `Control.SmithPredictorFOPDT`, each isolated run observes the block's `Active` and `HistoryComplete` flags, its `Correction` and the program's `MaximumCorrection`, as channels of the run; a flag is read as 0 or 1 (D-16). The run fails when `Active` is FALSE at any sample, with the reason that the history is incomplete when `HistoryComplete` is FALSE, and that the predictor is not enabled when `HistoryComplete` is TRUE. It also fails when `|Correction|` reaches `MaximumCorrection`, which bounds the correction only when it is positive (Specification 37 §2.2). A bypassed or clipped prediction is not a valid one (Specification 37 §2.5). The predictor's requirement is one row of every run, with its own sentence. Its flags cannot be judged from averaged samples, so a run whose samples are averages is Inconclusive for that row. A program that keeps its own predictor has none of these channels, and its runs are judged by their requirements alone. The channels are ordinary observed symbols, so the runtime protocol does not change.
 
 #### Apply and Restore
 
-- Apply writes the PID gains and the model values in one transaction, and switches to Auto with `c` at zero.
+- Apply writes the PID gains, the model values and, with the library block, the block's operating input and output, in one transaction, and switches to Auto with `c` at zero. It writes no other variable of the block.
 - The Auto-entry allowance is that of A6.4, applied to the PI on the measurement.
 - Restore previous settings returns all of them (B6.4).
 
@@ -2567,25 +2651,26 @@ The program sets the proportional and integral gains of a `Control.PID` each sca
 
 #### Setup
 
-- The setup asks for the single-loop fields, the scheduling variable (its compiled variable and unit), and two to four operating points. Each point has a name, its value of the scheduling variable, a tolerance on that value in the scheduling variable's unit, and the program's proportional and integral gain variables for that point. The values MUST be strictly increasing in the order the points are given, as the library's `PIDGainScheduler` requires (Specification 37 §3.1); setup refuses another order and names the first point out of order.
-- Setup writes one loop per operating point, named after the loop and the point. Its parameters are that point's two gain variables. This is the `parallel-pid` seed of C2.
+- The setup asks for the single-loop fields, the scheduling variable (its compiled variable and unit), and two to four operating points. Each point has a name, its value of the scheduling variable, a tolerance on that value in the scheduling variable's unit, and the program's proportional and integral gain variables for that point. The values MUST be strictly increasing in the order the points are given, as the library's `PIDGainScheduler` requires (Specification 37 §3.1); setup refuses another order and names the first point out of order. The setup also asks for the record the PID is configured from (`parameterRecord`), whose `ProportionalGain` and `IntegralGain` hold the active gains that the program interpolates. The scheduling variable MUST be `REAL` or `LREAL`, and the loop keeps the type that setup read from the compiled program, because the runtime reads a variable only as its exact type. Each tolerance MUST be above zero; setup gives it no default (N10). The startup-done flag follows C1 Setup. Required: the per-point gain variables that Apply writes, and the active gains that the program reads back in its parameter record. The library block `Control.PIDGainScheduler` (Specification 37 §3.1) is the recommended way for the program to interpolate them, with each point's tracking time taken from the PID record (`<parameterRecord>.TrackingTime`); the program may interpolate by its own code instead.
+- A point with no value or no tolerance is refused under its name, and nothing is written; the form sends no row number, so the refusal does not name a field.
+- Setup writes one loop per operating point, named after the loop and the point. Its parameters are that point's two gain variables. Its project family is `gain-scheduled`, and its seed is the `parallel-pid` seed of C2 with family PI and that point's two gain variables. Its `schedule` block holds the whole table: the parameter record, the scheduling variable, the points in the order given (name, loop, value, tolerance and gain variables), and the name of this loop's point. Every loop of one schedule carries the same table, and setup writes all of them or none (B1.3).
 
 #### Identify
 
-At each point, bring the process to that point's value of the scheduling variable in Manual first, then identify. The model then describes the process at that point. When Identify starts, the engine records the scheduling variable's value, and Identify refuses when that value differs from the point's value by more than the point's tolerance.
+At each point, bring the process to that point's value of the scheduling variable in Manual first, then identify. The model then describes the process at that point. When Identify starts, the engine reads the scheduling variable from the connected runtime and records its value with the identification. Identify refuses when that value differs from the point's value by more than the point's tolerance; a difference equal to the tolerance is accepted, with an allowance of one part in 10⁹ of the tolerance for the rounding of decimal values (D-21). A value that cannot be read is refused.
 
 #### Tune
 
-Automatic designs each point's PI on that point's model (C1). The fixed design is the PI that Automatic designs on the first declared point's model, kept with the same gains at every point; it fails when its predicted response on any point's model breaks a requirement. Tune recommends a scheduled design only when the fixed design fails a requirement at one of the declared operating points. Otherwise it recommends the fixed design.
+Automatic designs each point's PI on that point's model (C1). The fixed design is the PI that Automatic designs on the first declared point's model, kept with the same gains at every point; it fails when its predicted response on any point's model breaks a requirement. Tune recommends a scheduled design only when the fixed design fails a requirement at one of the declared operating points. Otherwise it recommends the fixed design (D-19). The fixed design's prediction is made on each point's model against that point's requirements, and the scheduled design is each point's own PI. Tune needs an identified model for every point; a point without one is refused by its name. Tune records one table for the schedule: each point's candidate holds the gains of every point (the values Apply writes), so Apply and Validate of any point write the whole table. The answer to the page names the choice (`fixed` when every point has the same gains, otherwise `scheduled`), the reason, the scheduling variable and each point's gains. The choice is read from the table, so a reopened study gives the same answer as the live run.
 
 #### Validate
 
-This validation always runs on that point's model. It runs the actual ST with the program's schedule active, from the operating point. The gains that the program interpolates as the process moves are therefore the ones validated. The active gains MUST change continuously across the schedule. The continuity check is this: between two adjacent samples of the schedule, the change of an active gain is at most 10 % of that gain's declared range, its maximum minus its minimum (C0). A hidden or discontinuous schedule fails.
+This validation always runs on that point's model. It runs the actual ST with the program's schedule active, from the operating point. The gains that the program interpolates as the process moves are therefore the ones validated. Each run starts the scheduling variable at that point's value and writes the proportional and integral gain of every point of the table, as Apply writes them, so the run tests the schedule as a whole. The run records the active gains, the record's `ProportionalGain` and `IntegralGain`. The active gains MUST change continuously across the schedule. The continuity check is this: between two consecutive recorded samples of an active gain, the change is at most the continuity fraction, 10 % (N10), of that gain's span over the schedule's own points. The span of a gain is the largest minus the smallest value of that gain in the table that the candidate writes at the points. A gain that has the same value at every point has a span of zero, and it MUST NOT change between recorded samples. A run whose recording averages its samples (`record_every` greater than 1) cannot be judged from that recording, so the row is Inconclusive, as ON/OFF's scan-level rows are. A schedule's candidate runs record every scan when the run fits the sample and cell limits of A7, so their rows are judged on every scan; only a run too long for that is averaged. A hidden or discontinuous schedule fails.
 
 #### Apply and Restore
 
-- Apply writes the point's gain variables and switches to Auto. The start of the integral term follows C2.
-- Restore previous settings returns them (B6.4).
+- Apply is one transaction at one task boundary (B6.1). It writes the proportional and integral gain of every point of the table, each from the gains designed for that point (the fixed design's gains at every point, or each point's own design), and switches the loop to Auto. The start of the integral term follows C2.
+- Restore previous settings returns every point's gains to the values they held before the Apply (B6.4). Restore into Manual is refused for a schedule: the runtime's transfer check (`transfer.rs:1052-1090`) requires every binding state to equal its applied value at the next scan, so a Manual restore over the whole binding fails whenever the program moves an owned state, such as the PI integral. The refusal stands until a table-only transfer exists.
 
 ### C11. Trajectory feedforward
 
@@ -2686,6 +2771,13 @@ A C12 observation or open-loop loop whose declared analysis maps its parameters 
   - Without an abort binding, a failed termination restores the activation only.
   - The ST program owns the resulting actuator policy. For example, a normal completion may hold an output at 75 %, while an abort latches it at 0 %. The runtime invents no controller-specific policy.
 - **Restoration status.** The status of the abort binding is `not_requested`, `pending`, `observed` or `failed`. Restoration stays pending until an unforced scan observes both the asserted abort, when one was asserted, and the restored activation. The restoration is confirmed by the third execution of the loop's task after the restoring write (A7). Missing, mistyped, forced or unobserved data never confirms success.
+- **Fit refusal.** A project test is Identify with the Automatic or the declared method on a project-scripted loop (§0.1a). Its
+  recording is fitted as B3.5 says. When the recording cannot yet support a model, the fit refuses, and the refusal does not fail
+  the test: the test finishes when its recording is complete and its outputs are restored, and its answer carries the kept
+  recording, its recorded samples, the restoration the experiment confirmed, and the refusal in full as the note that the page
+  shows under the completed test. The study keeps the recording and no model, so its current model stays as it was (B3.7). A fit
+  that the recording supports is kept as an Identify result, as before. A cancellation, an incomplete recording or an unconfirmed
+  restoration still fails the test.
 
 ### C13. Connected P commissioning (proportional-only adapter)
 

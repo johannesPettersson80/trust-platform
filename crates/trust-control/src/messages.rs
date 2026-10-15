@@ -15,8 +15,16 @@ use crate::commissioning::application_records::ApplicationReview;
 use crate::commissioning::parameter_status::ParameterStatus;
 use crate::failure::Failure;
 use crate::identification::acquisition_settings::AcquisitionSettings;
+use crate::identification::data::QualifiedIdentificationData;
+use crate::identification::evidence::ModelFitEvidence;
+use crate::identification::form_draft::IdentificationFormDraft;
+use crate::identification::plant::{IdentifiedModel, ResultSource};
+use crate::identification::presentation::IdentifiedModelPresentation;
 use crate::identification::recording_import::ImportCheck;
+use crate::identification::sensor_lag_comparison::StructureChoice;
+use crate::identification::workflow::FitRole;
 use crate::loop_definition::LoopDefinition;
+use crate::recording::channels::{ChannelQuality, RecordedChannel};
 use crate::recording::opened_channels::RecordingSignalCatalog;
 use crate::runtime::RuntimeConnection;
 use crate::stages::{StageAvailability, StageEvidence};
@@ -24,11 +32,15 @@ use crate::study::inputs::{InputsSection, Invalidation};
 use crate::study::Page;
 use crate::tuning::candidate::ControlPidCandidate;
 use crate::tuning::candidate_margins::CandidateMargins;
+use crate::tuning::group_candidate::GroupCandidate;
 use crate::tuning::objective::{TuningMethod, TuningObjective};
 use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::recommendation::Attempt;
 use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::search::SearchCandidate;
 use crate::tuning::settings_pins::ControllerSettingsPins;
+use crate::tuning::state_controller::answer::StateAnswer;
+use crate::tuning::state_controller::preferences::FormField;
 use crate::tuning::structure::{ParallelGains, Structure};
 
 mod analyze;
@@ -107,6 +119,10 @@ pub enum OpenResult {
         /// candidate (A8.4).
         #[serde(skip_serializing_if = "Option::is_none")]
         tune: Option<TuneResult>,
+        /// The study's current finite-search candidate (C5, A8.6), rebuilt from the study's Tune section: its values, its trials and the
+        /// unit of J. Given under the rule of `tune` (a current candidate, A8.4), and for a search law only; absent otherwise.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        search_candidate: Option<SearchCandidate>,
         /// The page last viewed, which reopening shows (A8.1, A8.6); Identify for a new study.
         page: Page,
         /// The analysis tool the Tune page showed last, with its inputs, which reopening shows again (B9.9, A8.6); absent when none
@@ -128,6 +144,10 @@ pub enum OpenResult {
         /// Whether a journaled Apply observation is left to follow to its end, with `controlStudio/apply` and `resume` (A8.5, A8.6): the
         /// journal holds the observation while the runtime may still record it.
         apply_observation_resumable: bool,
+        /// The design-form fields of a state law, with their labels, under the solver policy the stored draft chooses (D-B12): the
+        /// page shows them before the first Tune. Absent for a loop without a state law.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state_fields: Option<Vec<FormField>>,
     },
 }
 
@@ -318,6 +338,170 @@ pub enum IdentifyAction {
         /// The method and the experiment limits the campaign would run with (B3.2).
         settings: AcquisitionSettings,
     },
+    /// Stores the page's form of the manual identification, the Recorded-data fit (`identify.edit`; B3.3, A8.4). The check, the
+    /// fit and any accepted model are cleared, and the answer is the page's state at once, as [`ManualIdentificationAnswer`].
+    ManualEdit {
+        /// The form the page holds: the requested model, whether the held-step analysis is on, and the text of each field.
+        form: IdentificationFormDraft,
+    },
+    /// Checks a recording the study keeps with the page's form (`identify.run`; B3.3, B3.6): the form's settings and excluded
+    /// interval are read, and the recording is the estimation, or after a preview the validation recording. The answer is at once,
+    /// as [`ManualIdentificationAnswer`].
+    ManualQualify {
+        /// The identifier of the recording to check, `rec-…` (annex E4).
+        recording_id: String,
+        /// The form the page holds when it checks the recording.
+        form: IdentificationFormDraft,
+    },
+    /// Fits the checked recording (`identify.fit`; B3.3): the first fit gives the provisional model, and the second scores it on the
+    /// validation recording. An operation that can be cancelled: a cancelled fit leaves the stored state as it was. Its final result
+    /// is a [`ManualIdentificationAnswer`].
+    ManualFit,
+    /// Keeps the sensor-lag structure the comparison recommends (`identify.choose-structure`; N3.3). The answer is at once, as
+    /// [`ManualIdentificationAnswer`].
+    ManualChooseStructure {
+        /// The structure to keep: the recommended one.
+        choice: StructureChoice,
+    },
+    /// Accepts the validated model as the study's current model (`identify.accept`; B3.7), so that Tune designs on it. The answer is
+    /// at once, as [`ManualIdentificationAnswer`].
+    ManualAccept,
+    /// Restores the saved manual identification by replaying its checks and fits (`identify` on reopen; A8.6). An operation whose
+    /// final result is a [`ManualIdentificationAnswer`].
+    ManualRestore,
+    /// Keeps a recording file the engineer opens for the manual identification as a recording of the study, and selects it for the
+    /// role the stage expects next: the estimation, or the validation recording after a preview (`identify.import`; B3.3, B3.6). The
+    /// answer is at once, as [`ManualIdentificationAnswer`] at the recording-selected stage. A file the check refuses keeps nothing and
+    /// answers the check's sentence as its failure.
+    ManualImport {
+        /// The text of the recording file (at most 32 MiB of text).
+        json: String,
+    },
+}
+
+/// What `controlStudio/identify` answers for the manual identification (the Recorded-data fit, B3.3): the stage the page shows, its
+/// status, the checks and the model, and the primary action the page offers with its label. The engine decides all of it; the page
+/// renders it and sends the request of `primary_action`, and keeps no copy of the rules (AGENTS.md).
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ManualIdentificationAnswer {
+    /// `complete`, or `failed` with `reason`.
+    pub status: ManualStatus,
+    /// The sentence of a failure: a refusal, a qualification that does not hold, or a failed validation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// The sentence the page shows under the stage, as the engine words it (the stage's status line).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    /// The stage the page shows; absent while nothing is checked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phase: Option<ManualStage>,
+    /// Whether the next fit estimates the model or validates it.
+    pub next_fit_role: FitRole,
+    /// Whether the study keeps a recording to check.
+    pub has_recording: bool,
+    /// The recording the next check reads, `rec-…`: the recording the stage selected or checked. Absent while a preview awaits the
+    /// independent recording, and while no recording is kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recording_id: Option<String>,
+    /// The form the study keeps, which the page shows and sends back with its next request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub form: Option<IdentificationFormDraft>,
+    /// The check of the recording, in the stages after a check.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qualification: Option<QualifiedIdentificationData>,
+    /// The check of the estimation recording, once a model is fitted from it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub estimation_qualification: Option<QualifiedIdentificationData>,
+    /// The check of the validation recording, at the validated review.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation_qualification: Option<QualifiedIdentificationData>,
+    /// Where the model's values come from (A9).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ResultSource>,
+    /// The model the stage shows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<IdentifiedModel>,
+    /// The fit evidence of that model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fit: Option<ModelFitEvidence>,
+    /// What the page shows of the model, with the sensor-lag comparison when one was made.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<IdentifiedModelPresentation>,
+    /// The action the page offers, decided by the engine.
+    pub primary_action: ManualAction,
+    /// The label the page shows on that action.
+    pub primary_action_label: String,
+    /// Whether the page may accept the review: the validation qualifies, and a compared structure is kept.
+    pub acceptance_ready: bool,
+    /// The sensor-lag structure the primary action keeps, when it keeps one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structure_choice: Option<StructureChoice>,
+    /// The evidence the study's stages are computed from, as the study is saved after the action (A8.4). An accepted model is the
+    /// study's current model (B3.7), so Tune is available once it is kept. The engine fills it from the saved study.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage_evidence: Option<StageEvidence>,
+    /// The status of every stage, computed from `stage_evidence` as the open answer computes its stages.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stages: Option<Vec<StageAvailability>>,
+}
+
+/// The status of a manual identification answer (`status` of the page's state).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ManualStatus {
+    /// The stage stands.
+    Complete,
+    /// The fit, the check or the validation failed; the answer names the reason.
+    Failed,
+}
+
+/// The stage a manual identification answer shows, named as the page names its stages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+pub enum ManualStage {
+    /// The form is being edited.
+    #[serde(rename = "editing")]
+    Editing,
+    /// A recording is selected and waits for its check.
+    #[serde(rename = "recording-selected")]
+    RecordingSelected,
+    /// A recording qualifies.
+    #[serde(rename = "qualified")]
+    Qualified,
+    /// The preview of the estimation, waiting for a validation recording or a kept structure.
+    #[serde(rename = "validation_required")]
+    ValidationRequired,
+    /// The validated model waits for acceptance.
+    #[serde(rename = "acceptance_required")]
+    AcceptanceRequired,
+    /// The model is accepted.
+    #[serde(rename = "accepted")]
+    Accepted,
+}
+
+/// The primary action the page offers for the manual identification. Its request is the action's: a check, a fit, a comparison,
+/// a structure, an acceptance, or an opened recording.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ManualAction {
+    /// Opens a recording file to import it (`importRecording`).
+    OpenRecording,
+    /// Checks the study's recording with the form (`manualQualify`).
+    CheckRecording,
+    /// Fits the plant model (`manualFit`).
+    FitPlant,
+    /// Scores the model on the validation recording (`manualFit`).
+    CompareWithModel,
+    /// Keeps the structure the comparison recommends (`manualChooseStructure`).
+    ChooseStructure,
+    /// Shows the settings to review; no request.
+    ReviewSettings,
+    /// Opens the validation recording file to import it (`importRecording`).
+    OpenValidationRecording,
+    /// Accepts the validated model (`manualAccept`).
+    Accept,
+    /// The model is accepted; nothing is requested.
+    ModelReady,
 }
 
 /// What `controlStudio/identify` answers at once for `reset`: the stages of the new working study.
@@ -377,6 +561,10 @@ pub struct InputsResult {
     pub stages: Vec<StageAvailability>,
     /// What the change invalidated (A8.4); the results stay in the study as history.
     pub invalidated: Invalidation,
+    /// The design-form fields of a state law, with their labels, under the solver policy of the inputs it now records (D-B12): the
+    /// page shows them before the first Tune. Absent for a loop without a state law.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_fields: Option<Vec<FormField>>,
 }
 
 /// The stage a run goes through to, at most (specification 35, B8): Identify, Tune or Validate. A run never applies.
@@ -488,6 +676,69 @@ pub struct IdentifyResult {
     pub stage_evidence: StageEvidence,
     /// The status of every stage after this result.
     pub stages: Vec<StageAvailability>,
+    /// The restoration the campaign's experiments confirmed (C12). Absent where the run kept none: a supplied model, a refit
+    /// and a resumed campaign.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restoration: Option<CampaignRestoration>,
+    /// The samples of the kept recording, which the page draws its recorded signals from, one per recorded sample and bounded
+    /// by the recording limit (A7). Absent where the run kept none, as for `restoration`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recorded_samples: Option<Vec<RecordedChartSample>>,
+}
+
+/// The answer of a project test whose recording its fit cannot support (C12, B3.5): the test completed, so its recording, its samples
+/// and its restoration are answered, with the fit's whole refusal as the note. The study keeps no model, so the answer names none.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectTestResult {
+    /// The recording the test kept, by its file identifier, as `IdentifyResult::recording_id` names it.
+    pub recording_id: String,
+    /// The restoration the test's experiment confirmed (C12); absent where the test kept none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restoration: Option<CampaignRestoration>,
+    /// The samples of the kept recording, one per recorded sample and bounded by the recording limit (A7).
+    pub recorded_samples: Vec<RecordedChartSample>,
+    /// The fit's refusal in full: why the recording cannot yet support a model (B3.5). The test is finished and the study keeps no model.
+    pub fit_refusal: String,
+    /// The stage evidence after the test, from which `stages` is computed: the study's current model, if it has one, is unchanged.
+    pub stage_evidence: StageEvidence,
+    /// The status of every stage after the test.
+    pub stages: Vec<StageAvailability>,
+}
+
+/// The restoration a campaign's experiments confirmed (C12, E5.6): `restored` once the runtime confirmed the outputs written
+/// back to their original values, or `notRequired` when the experiment wrote none.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum CampaignRestoration {
+    /// The runtime confirmed the restoring writes.
+    Restored,
+    /// The experiment wrote no output, so there was nothing to restore.
+    NotRequired,
+}
+
+/// One sample of a kept recording as the Identify chart draws it (`control-studio.recording.evidence`): its process time from the
+/// recording's first scan (A3.2), its scan, its quality, the setpoint, the measurement, the requested and the applied output, and
+/// the additional recorded signals by identifier (A4.2, A8.3). The page draws the signals it selects and decides nothing.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordedChartSample {
+    /// The sample's process time in s from the recording's first scan.
+    pub elapsed_seconds: f64,
+    /// The sample's last scan.
+    pub scan: u64,
+    /// The worst quality of the sample's signals.
+    pub quality: ChannelQuality,
+    /// The setpoint; null where the recording holds none.
+    pub sp: Option<f64>,
+    /// The measurement; null where the recording holds none.
+    pub pv: Option<f64>,
+    /// The output the controller requested, when the loop declares an actuator; null otherwise.
+    pub requested_mv: Option<f64>,
+    /// The output the process received: the actuator's position when declared, else the manipulated variable.
+    pub applied_mv: Option<f64>,
+    /// The additional recorded signals, each with its identifier, value and quality.
+    pub additional: Vec<RecordedChannel>,
 }
 
 /// The data of the response plot: one time base and the traces that share it.
@@ -578,6 +829,9 @@ pub enum TuneMethod {
     /// The settings the engineer enters (B4.2, B4.5).
     #[serde(rename = "manual")]
     Manual,
+    /// The state-space design of a state-feedback law (C4): its gains, poles and finite-horizon stages on the study's model.
+    #[serde(rename = "state-space")]
+    StateSpace,
 }
 
 impl TuneMethod {
@@ -587,7 +841,7 @@ impl TuneMethod {
         match self {
             Self::Simc => Some(TuningMethod::Simc),
             Self::Amigo => Some(TuningMethod::Amigo),
-            Self::Relay | Self::Manual => None,
+            Self::Relay | Self::Manual | Self::StateSpace => None,
         }
     }
 
@@ -599,6 +853,7 @@ impl TuneMethod {
             Self::Amigo => TuningMethod::Amigo.title(),
             Self::Relay => "Relay rule",
             Self::Manual => "Manual settings",
+            Self::StateSpace => "State-space design",
         }
     }
 }
@@ -813,6 +1068,60 @@ pub struct FeedforwardAnswer {
     pub feedforward_deviation: f64,
 }
 
+/// The choice of a gain schedule's answer (C10): `fixed` when every point has the same proportional and integral gain, `scheduled` when the
+/// points' gains differ. The word comes from the table the answer shows, not from the decision that gave the reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ScheduleChoiceWord {
+    /// One PI for every operating point.
+    Fixed,
+    /// Each operating point has its own PI.
+    Scheduled,
+}
+
+/// The gain schedule of a Tune answer (C10): the choice, the reason, the scheduling variable and one row per operating point.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScheduleAnswer {
+    /// Whether the points share one PI (`fixed`) or each has its own (`scheduled`).
+    pub choice: ScheduleChoiceWord,
+    /// The reason of the candidate, as the study's section stores it.
+    pub reason: String,
+    /// The scheduling variable: its path and its unit.
+    pub scheduling: ScheduleAnswerVariable,
+    /// One row per operating point, in the order of the schedule's table.
+    pub points: Vec<ScheduleAnswerPoint>,
+}
+
+/// The scheduling variable of a gain schedule's answer (C10 Setup).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScheduleAnswerVariable {
+    /// The variable's path.
+    pub symbol: String,
+    /// The variable's unit.
+    pub unit: String,
+}
+
+/// One operating point of a gain schedule's answer (C10): its name and value of the scheduling variable, its two gain variables, and the
+/// gains that the table gives it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScheduleAnswerPoint {
+    /// The point's name.
+    pub name: String,
+    /// The point's value of the scheduling variable.
+    pub value: f64,
+    /// The program's proportional gain variable for the point.
+    pub proportional_symbol: String,
+    /// The program's integral gain variable for the point.
+    pub integral_symbol: String,
+    /// The proportional gain that the table gives the point.
+    pub proportional_gain: f64,
+    /// The integral gain that the table gives the point.
+    pub integral_gain: f64,
+}
+
 /// The final result of `controlStudio/tune` (specification 35, B4.3 to B4.6; the Tune page specification, "Result and
 /// plot"): the operation's result, and the `result` of the command line's `--json` object. Nothing in it is applied
 /// (B4.1).
@@ -823,6 +1132,10 @@ pub struct TuneResult {
     /// structure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedforward: Option<FeedforwardAnswer>,
+    /// The answer of a state-feedback law's Tune (C4): its family, closed-loop poles, finite-horizon stages and design-form fields
+    /// (D-B12). Absent for every other law.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<StateAnswer>,
     /// The candidate of a `Control.PID`, unapplied: its structure, its source and the complete record it would write. Absent for a
     /// program's own law, which answers `projectCandidate` (C2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -831,6 +1144,10 @@ pub struct TuneResult {
     /// variable that Apply writes. Absent for a `Control.PID`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project_candidate: Option<ProjectCandidate>,
+    /// The candidate of a PID group, unapplied (C7): each member's design, the static decoupler when the group has one, and the value
+    /// of each variable that Apply writes. Absent for every other law.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<GroupCandidate>,
     /// The value the candidate's record gives each bound setting of the loop's controller, under the setting's symbol (B4.2,
     /// C0): the settings the page shows under the loop's own names. A setting the record does not hold is absent.
     pub settings: BTreeMap<String, f64>,
@@ -891,6 +1208,10 @@ pub struct TuneResult {
     pub stage_evidence: StageEvidence,
     /// The status of every stage after this result.
     pub stages: Vec<StageAvailability>,
+    /// The gain schedule of a schedule loop's answer (C10): the choice, the reason and one row per operating point, with the gains that the
+    /// table gives each point. Absent for a loop that is not a schedule.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<ScheduleAnswer>,
 }
 
 /// The arguments of `controlStudio/validate` (specification 35, §0.1a; B5): the loop, the runtime and its connection. Validate

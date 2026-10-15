@@ -9,18 +9,22 @@ import { formatMatrixRows, formatNumberList } from "./numberListText";
 import type { CandidateRobustness, Margin } from "../candidateRobustness";
 import { familyLabel } from "../controllerFamilies";
 import { signalRoleLabel } from "./signalRoles";
+import { structureResultView } from "./structureResults";
 
 export function renderTunedController(root: HTMLElement, loop: ControlLoopDefinition, payload: Record<string, unknown>): void {
   if (payload.status !== "candidate" || !payload.values || typeof payload.values !== "object") return;
   const values = payload.values as Record<string, number>;
   const area = root.querySelector<HTMLElement>("[data-studio-tuning-result]")!;
   const family = String(payload.family ?? loop.controller.type);
-  const title = document.createElement("p"); title.textContent = `${familyLabel(family)} controller · ${loop.controller.type}`;
+  // The five structures the engine serves answer their own section (structureResults.ts, C3, C6, C7, C9, C10); the rows below serve the PID path.
+  const served = structureResultView(loop, payload);
+  const title = document.createElement("p"); title.textContent = served ? served.title : `${familyLabel(family)} controller · ${loop.controller.type}`;
   // The engine's description of the method is read on hover, so the page carries no permanent text for it (B9.1).
   if (typeof payload.methodDescription === "string") title.title = payload.methodDescription;
   const list = document.createElement("dl"); list.className = "studio-setting-values";
   const law = loop.controller.law;
   const groupSymbols = groupSettingSymbols(loop);
+  // V7.17 debt: the family-term rule below is the PID path's; the served structures' sections do not pass through it.
   const primary = law?.kind === "pid" ? new Map([
     [law.proportionalGainSymbol, PID_GAIN_LABELS.ProportionalGain],
     ...(["PI", "PID"].includes(family) ? [[law.integralGainSymbol, PID_GAIN_LABELS.IntegralGain]] : []),
@@ -28,7 +32,8 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
   ] as [string, string][]) : law?.kind === "proportional" ? new Map([[law.gainSymbol, PID_GAIN_LABELS.ProportionalGain]]) : seededGainLabels(loop);
   // A Keep toggle keeps the calculated value fixed for the next tuning run; it uses the pins that Tune already sends.
   const pinned = (payload.settingsPins as { values?: Record<string, number> } | undefined)?.values ?? {};
-  for (const parameter of loop.parameterBinding?.parameters ?? []) {
+  // V7.17 debt: the rows of the PID path. A served structure's section replaces them, so none of its values passes through this loop.
+  for (const parameter of served ? [] : loop.parameterBinding?.parameters ?? []) {
     if (!Number.isFinite(values[parameter.symbol]) || primary && !primary.has(parameter.symbol) || groupSymbols && !groupSymbols.has(parameter.symbol)) continue;
     const label = document.createElement("dt"); label.textContent = ownedParameterLabel(loop, parameter.symbol, primary?.get(parameter.symbol) ?? readable(parameter.convention || parameter.symbol));
     const value = document.createElement("dd"); value.textContent = `${formatEngineeringNumber(values[parameter.symbol])}${unitSuffix(parameter.unit)}`;
@@ -39,7 +44,7 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
     const row = document.createElement("div"); row.append(label, value, keepLabel);
     list.append(row);
   }
-  area.replaceChildren(title, list);
+  area.replaceChildren(title, ...(served ? served.elements : [list]));
   const margins = payload.robustness as CandidateRobustness | undefined;
   if (margins) {
     // A margin the engine names in words (unbounded, or not observed in the range) is shown as those words (B9.5).
@@ -55,18 +60,25 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
     const line = document.createElement("p"); line.dataset.studioOutcome = String(outcome.status); line.textContent = outcomeText(outcome);
     area.append(line);
   }
+  // The closed-loop poles of a state law (C4), on the sampled model (N7.11), as the engine gives them.
+  const state = payload.state as StateAnswerView | undefined;
+  if (state && Array.isArray(state.closedLoopPoles) && state.closedLoopPoles.length > 0) {
+    const poles = document.createElement("p"); poles.dataset.studioClosedLoopPoles = "";
+    poles.textContent = `Closed-loop poles: ${state.closedLoopPoles.map(poleText).join(" · ")}`;
+    area.append(poles);
+  }
   if (Array.isArray(payload.unavailable)) for (const note of payload.unavailable) {
     const line = document.createElement("p"); line.dataset.studioTuneNote = ""; line.textContent = String(note); area.append(line);
   }
   if (Array.isArray(payload.comparison) && payload.comparison.length > 0) area.append(comparisonTable(payload.comparison));
-  const design = payload.design as { horizon?: { steps: number; policy: string; gainSequence: number[][][]; riccatiSequence: number[][][] };
+  const design = payload.design as {
     decentralized?: { members: { inputId: string; outputId: string; pathGain: number; relativeGain: number; effectiveGain: number; timeConstantSeconds: number; delaySeconds: number }[] };
     feedforward?: FeedforwardAnswerView; decoupler?: { matrix: number[][]; inputIds: string[]; memberIds: string[] } } | undefined;
   if (design?.decentralized?.members.length) area.append(decentralizedTable(loop, design.decentralized.members));
   if (design?.feedforward) area.append(...feedforwardDesignView(loop, design.feedforward));
   if (design?.decoupler) area.append(decouplerTable(design.decoupler));
-  if (design?.horizon) {
-    const horizon = design.horizon;
+  const horizon = state?.horizon;
+  if (horizon) {
     const policy = document.createElement("p"); policy.dataset.studioDesignPolicy = "finite";
     const pinned = horizon.policy === "pinned-fixed-gain";
     policy.textContent = `Finite horizon: ${horizon.steps} ${horizon.steps === 1 ? "step" : "steps"} · ${pinned ? "Pinned fixed gain" : "Repeated first gain"}`;
@@ -85,6 +97,19 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
   area.hidden = false;
 }
 
+/** The engine's state answer as the page reads it (C4): the closed-loop poles and the finite-horizon stages. */
+interface StateAnswerView {
+  closedLoopPoles?: { real: number; imaginary: number }[];
+  horizon?: { steps: number; policy: string; gainSequence: number[][][]; riccatiSequence: number[][][] };
+}
+
+/** A closed-loop pole in words: its real part, and its imaginary part with its sign and `i` when the pole is not real. */
+function poleText(pole: { real: number; imaginary: number }): string {
+  if (pole.imaginary === 0) return formatEngineeringNumber(pole.real);
+  return `${formatEngineeringNumber(pole.real)} ${pole.imaginary < 0 ? "−" : "+"} ${formatEngineeringNumber(Math.abs(pole.imaginary))}i`;
+}
+
+/** V7.17 debt: the labels of the PID path's rows. The served structures name their values in structureResults.ts. */
 /** A program's own P/PI/PD/PID law names its gains as Control.PID does (Specification 35 §17.1); a cascade names each
  * controller's proportional and integral gain after its instance (§17.11). */
 export function seededGainLabels(loop: ControlLoopDefinition): Map<string, string> | undefined {
@@ -329,7 +354,10 @@ function errorFromReference(kind: string, requirement: RunRequirement | undefine
 }
 const names: Record<string, string> = { error: "Maximum steady-state error", settling: "Maximum settling time", overshoot: "Maximum overshoot",
   bounds: "Operating range", "state-bounds": "State range", rate: "Maximum rate", levels: "Allowed output levels", dwell: "Minimum dwell time",
-  saturation: "Maximum saturation time", switching: "Maximum switching count", activity: "Command activity" };
+  saturation: "Maximum saturation time", switching: "Maximum switching count", activity: "Command activity",
+  // The rows of a switching controller (C3) and of a Smith predictor (C9), named by the sentence the engine gives each row.
+  "switching-transitions": "Switching at threshold", "switching-band": "Retained band", "switching-abort": "Output aborts",
+  "predictor-active": "Predictor active" };
 function measurement(result: RunRequirementResult, requirement: RunRequirement | undefined, evaluation: RunEvaluation): string {
   if (requirement?.kind === "overshoot" && result.value !== undefined) return percentOfSetpointChange(result.value, requirement);
   if (requirement && (requirement.kind === "bounds" || requirement.kind === "state-bounds")) {
@@ -343,6 +371,10 @@ function measurement(result: RunRequirementResult, requirement: RunRequirement |
   return result.value === undefined ? "—" : `${formatEngineeringNumber(result.value)}${unitSuffix(result.unit)}`;
 }
 function limit(result: RunRequirementResult, requirement?: RunRequirement): string {
+  // A switching row's limit is the threshold the process must reach, not a bound the value stays under (C3).
+  if (result.id === "switching-transitions" || result.id === "switching-band") {
+    return result.limit === undefined ? "—" : `threshold ${formatEngineeringNumber(result.limit)}${unitSuffix(result.unit)}`;
+  }
   if (requirement?.kind === "overshoot" && result.limit !== undefined) return `≤ ${percentOfSetpointChange(result.limit, requirement)}`;
   if (requirement?.kind === "bounds" || requirement?.kind === "state-bounds") return `${requirement.minimum === requirement.maximum ? "= " : ""}${formatEngineeringNumber(requirement.minimum)}${requirement.minimum === requirement.maximum ? "" : `–${formatEngineeringNumber(requirement.maximum)}`}${unitSuffix(result.unit)}`;
   if (requirement?.kind === "levels") return formatNumberList(requirement.allowed);

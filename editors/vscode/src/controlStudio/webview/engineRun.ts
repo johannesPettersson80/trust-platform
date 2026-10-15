@@ -28,7 +28,8 @@ export const runReceiver: EngineStageReceiver = {
   },
   result(root, result, ports: EngineHostPorts) {
     const identification = record(result.identification);
-    if (identification) showEngineIdentification(root, identification);
+    // A project test whose fit the recording cannot support answers no model (C12): the model the page shows stays.
+    if (identification && typeof identification.modelType === "string") showEngineIdentification(root, identification);
     const needs = typeof result.needs === "string" ? result.needs : undefined;
     if (needs) {
       // The page opens the editor that owns the input, and Done runs the flow again (B8).

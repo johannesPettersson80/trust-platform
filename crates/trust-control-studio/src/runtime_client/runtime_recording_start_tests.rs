@@ -7,10 +7,12 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 use serde_json::{json, Value};
-use trust_control::experiment::RecordingRecoveryOwner;
+use trust_control::experiment::{ControlExperimentPlan, RecordingRecoveryOwner};
 use trust_control::failure::Failure;
+use trust_control::identification::connected_record::connected_identification_record;
 use trust_control::limits::{record_period_executions, RECORDING_SAMPLE_LIMIT};
 use trust_control::loop_definition::LoopDefinition;
+use trust_control::recording::Completeness;
 
 use crate::runtime_client::fake_runtime::{answer, refusal, FakeRuntime};
 
@@ -41,6 +43,21 @@ fn symbolic_scope_loop() -> LoopDefinition {
             .expect("a signal object")
             .remove("address");
     }
+    serde_json::from_value(value).expect("the loop decodes")
+}
+
+/// The scope loop as a project-scripted experiment of 2 s, as lesson 1 declares its project test (C12): the project owns the
+/// sequence, and the Boolean authority it is enabled by is the activation.
+fn project_scripted_scope_loop() -> LoopDefinition {
+    let mut value = json!(scope_loop());
+    value["experiment"] = json!({
+        "execution": "project-scripted", "kind": "observation", "amplitude": 0.0,
+        "durationSeconds": 2.0, "seed": 1,
+        "activation": {
+            "symbol": "P1.ExperimentEnabled", "address": "%MX24.0",
+            "iecType": "BOOL", "direction": "write"
+        }
+    });
     serde_json::from_value(value).expect("the loop decodes")
 }
 
@@ -173,9 +190,115 @@ fn a_start_journals_its_owner_before_dispatch_and_sends_the_record_period_of_a_s
         params.get("task").is_none(),
         "a background recording samples every resource cycle"
     );
-    assert!(
-        params.get("program_revision").is_none(),
-        "no symbol needs the program revision"
+    assert_eq!(
+        params["program_revision"],
+        json!("program"),
+        "a recording names the program it runs on, which a connected record needs (A4.4)"
+    );
+}
+
+/// The stop answer of the 2 s project-scripted campaign: one sample per 100 ms scan over 21 scans, every scan captured in order,
+/// as the runtime answers a complete recording (E4.5, E4.7). It names the identity, the bindings and the program revision the
+/// start sent.
+fn two_second_stop(start: &Value) -> Value {
+    let samples: Vec<Value> = (1..=21_u64)
+        .map(|scan| {
+            let time = i64::try_from(scan - 1).expect("a scan index") * 100_000_000;
+            sample(scan, time, vec![json!(50.0), json!(40.0), json!(0.0)])
+        })
+        .collect();
+    json!({
+        "recording_id": start["recording_id"], "loop_revision": start["loop_revision"],
+        "program_revision": start["program_revision"], "bindings": start["bindings"],
+        "stop_reason": "stopped",
+        "acquisition": {
+            "method": "runtime_scan_buffer", "completeness": "complete", "observedSampleCount": 21,
+            "scanRange": { "first": 1, "last": 21 }, "missingScanRanges": [],
+            "droppedObservedSamples": 0, "actualCycleTimingAvailable": true,
+            "freshnessAvailable": false,
+            "reason": "Every runtime scan in the recording interval was captured."
+        },
+        "samples": samples
+    })
+}
+
+/// The plan of a project's own sequence, which the campaign of a project-scripted loop records (C12).
+fn project_sequence_plan() -> ControlExperimentPlan {
+    serde_json::from_value(json!({
+        "id": "experiment:loop:11:project_sequence", "source": "simulation",
+        "kind": "project_sequence", "affectedSignal": "loop", "valueType": "LREAL",
+        "from": 0.0, "to": 0.0, "unit": "%", "minimum": 0.0, "maximum": 100.0,
+        "durationMs": 2000.0, "expectedScan": 11, "stopConditions": [],
+        "restorationValue": 0.0, "requiresPhysicalApproval": false, "trajectory": []
+    }))
+    .expect("the fixture plan decodes")
+}
+
+#[test]
+fn a_two_second_project_scripted_recording_of_addressed_signals_is_a_complete_connected_record() {
+    // Lesson 1's signals are all addressed, so no symbol asks for a program revision. The record still needs one (A4.4), and
+    // the runtime checks the revision a start names against its own, so the start names the status's revision.
+    let captured = Arc::new(Mutex::new(Value::Null));
+    let fake =
+        FakeRuntime::start(
+            move |request| match request["type"].as_str().unwrap_or_default() {
+                "status" => Some(answer(request, status(100))),
+                "control.recording.start"
+                    if request["params"]["program_revision"] == json!("program") =>
+                {
+                    *captured.lock() = request["params"].clone();
+                    Some(answer(
+                        request,
+                        json!({ "recording_id": "recording-1", "status": "recording" }),
+                    ))
+                }
+                "control.recording.start" => Some(refusal(
+                    request,
+                    "recording_unavailable",
+                    "recording program revision changed or is missing",
+                )),
+                "control.recording.stop" => {
+                    Some(answer(request, two_second_stop(&captured.lock())))
+                }
+                _ => None,
+            },
+        );
+    let mut session = started(RuntimeRecordingSession::start(
+        &fake.connection(None),
+        &project_scripted_scope_loop(),
+        &plan(2_000, None),
+        None,
+        &Arc::new(PendingReleases::new()),
+    ));
+    let run = session
+        .stop()
+        .expect("the recording stops and answers its samples");
+    assert_eq!(
+        run.program_revision.as_deref(),
+        Some("program"),
+        "the recording names the program it ran on"
+    );
+    assert_eq!(
+        session.evidence(&run).completeness,
+        Completeness::Complete,
+        "the runtime captured every scan of the 2 s run"
+    );
+    let experiment = project_sequence_plan();
+    let record = connected_identification_record(
+        &project_scripted_scope_loop(),
+        &run,
+        None,
+        &experiment,
+        0.0,
+        None,
+        |_, _| Ok::<(), Failure>(()),
+    )
+    .expect("the complete recording is a connected record");
+    assert_eq!(record.request.acquisition.program_revision, "program");
+    assert_eq!(
+        record.run.samples.len(),
+        21,
+        "one sample per scan of the 2 s run"
     );
 }
 
@@ -339,10 +462,11 @@ fn a_refused_start_clears_the_owner_it_journaled() {
 
 #[test]
 fn a_lost_start_acknowledgement_keeps_the_owner_and_stops_the_recording_it_may_have_begun() {
-    // The stop answers for the recording this start began: the plan's identifier (E4.7).
+    // The stop answers for the recording this start began: the plan's identifier and the program revision the status read names,
+    // which the start sends for a non-symbolic recording (E4.2) and the stop answers with (E4.7).
     let owner = RecordingRecoveryOwner {
         recording_id: "recording-1".into(),
-        ..owner_with(None, loop_bindings())
+        ..owner_with(Some("program"), loop_bindings())
     };
     let stop_result = stopped(
         &owner,

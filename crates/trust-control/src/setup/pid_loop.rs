@@ -8,10 +8,12 @@ use serde::Deserialize;
 use super::catalog::{own_measurement, CompiledCatalog, CompiledSymbol, CompiledTask, PID_TYPE};
 use super::loop_bindings::{
     binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
-    measurement_binding, real_type, stated_signal, with_revision, MeasuredSignal,
+    measured_signal, measurement_binding, real_type, stated_signal, with_revision, FormSignal,
+    MeasuredSignal,
 };
 use super::pid_bindings::{
-    manual_output_tracking, pid_parameters, pid_states, startup_reason, startup_state,
+    manual_output_tracking, pid_parameters, pid_states, startup_flag_is_bool, startup_reason,
+    startup_state,
 };
 use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
@@ -70,9 +72,9 @@ pub struct PidLoopDraft {
     /// The record the PID is configured from.
     pub parameter_record: String,
     /// The measurement.
-    pub process_variable: MeasuredSignal,
+    pub process_variable: FormSignal,
     /// The controller output.
-    pub manipulated_variable: MeasuredSignal,
+    pub manipulated_variable: FormSignal,
     /// The setpoint.
     pub setpoint: SignalChoice,
     /// The Auto/Manual signal.
@@ -100,8 +102,16 @@ pub fn pid_loop_definition(
     draft: &PidLoopDraft,
 ) -> Result<LoopDefinition, Failure> {
     let task = pid_task(catalog, draft)?;
-    let process_variable = stated_signal(&draft.process_variable);
-    let manipulated_variable = stated_signal(&draft.manipulated_variable);
+    let process_variable = stated_signal(&measured_signal(
+        &draft.process_variable,
+        "measurement",
+        Some("processVariable"),
+    )?);
+    let manipulated_variable = stated_signal(&measured_signal(
+        &draft.manipulated_variable,
+        "output",
+        Some("manipulatedVariable"),
+    )?);
     let setpoint = setpoint_signal(&draft.setpoint, &process_variable);
     let manual = compiled(catalog, &draft.manual_output)?;
     let startup = draft
@@ -309,7 +319,7 @@ fn pid_controller(
 }
 
 /// A PID loop whose program writes a seeded value, or initializes the PID, needs the startup-done flag (C1 Setup). A draft that
-/// names a flag passes.
+/// names a flag must name a compiled `BOOL`.
 ///
 /// # Errors
 /// The program needs the flag, and the draft names none.
@@ -318,12 +328,12 @@ fn check_startup(
     draft: &PidLoopDraft,
     measurement_is_own: bool,
 ) -> Result<(), Failure> {
-    if draft
+    if let Some(flag) = draft
         .startup_flag
         .as_deref()
-        .is_some_and(|flag| !flag.is_empty())
+        .filter(|flag| !flag.is_empty())
     {
-        return Ok(());
+        return startup_flag_is_bool(catalog, flag);
     }
     let seeded = seeded_symbols(draft, measurement_is_own);
     let records = std::slice::from_ref(&draft.parameter_record);
@@ -332,7 +342,8 @@ fn check_startup(
             &texts::startup_flag_needed(&reason),
             Cause::Settings,
             NextAction::OpenLoopSetup,
-        )),
+        )
+        .with_field("startupFlag")),
         None => Ok(()),
     }
 }
@@ -340,16 +351,35 @@ fn check_startup(
 /// The symbols validation seeds for a PID loop (C1 Setup): the setpoint, the manual output, the mode and the PID's states. When the
 /// measurement is the PID's own `ProcessValue`, that state is the measurement, which the transfer reads and never seeds.
 fn seeded_symbols(draft: &PidLoopDraft, measurement_is_own: bool) -> Vec<String> {
-    let mut seeded = vec![
-        draft.setpoint.symbol.clone(),
-        draft.manual_output.clone(),
-        draft.mode.symbol.clone(),
-    ];
+    pid_seeded_symbols(
+        &draft.instance,
+        [
+            draft.setpoint.symbol.as_str(),
+            draft.manual_output.as_str(),
+            draft.mode.symbol.as_str(),
+        ],
+        measurement_is_own,
+    )
+}
+
+/// The symbols validation seeds for one `Control.PID` (C1 Setup): the setpoint, the manual output and the mode that are given (a blank
+/// one is none), and the PID's retained states. When the measurement is the PID's own `ProcessValue`, that state is the measurement,
+/// which the transfer reads and never seeds. A cascade and a Smith predictor seed each of their PIDs this way.
+pub(super) fn pid_seeded_symbols(
+    instance: &str,
+    values: [&str; 3],
+    measurement_is_own: bool,
+) -> Vec<String> {
+    let mut seeded: Vec<String> = values
+        .into_iter()
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .collect();
     seeded.extend(
         RETAINED_STATES
             .iter()
             .filter(|state| !measurement_is_own || **state != "ProcessValue")
-            .map(|state| format!("{}.StateValue.{state}", draft.instance)),
+            .map(|state| format!("{instance}.StateValue.{state}")),
     );
     seeded
 }

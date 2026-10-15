@@ -7,9 +7,9 @@
 //! ([`identified_model_type_text`]) and one line of key numbers ([`identified_model_key_numbers`]). The `TypeScript` page
 //! composed both from the general model (`threePageModel.ts`); that copy goes when the page shows these.
 //!
-//! The `TypeScript` presentation also carries a model-structure comparison (parked with the sensor-lag comparison) and
-//! the experiment, channel, output-fit and pole-zero fields that the presentation files of the extension add; none of
-//! them is decided here.
+//! The model-structure comparison (`modelStructure`) is not computed here: the review that chose the structure attaches
+//! it (N2.10). The experiment, channel, output-fit and pole-zero fields that the presentation files of the extension add
+//! are not decided here either.
 
 #![allow(clippy::module_name_repetitions)] // The presentation's records are named as the `TypeScript` names them.
 
@@ -21,6 +21,7 @@ use trust_control_math::sampling::statistics::lag_one_correlation;
 use crate::experiment::number_text::{js_number, js_to_precision};
 use crate::identification::evidence::{ModelFitEvidence, ModelFitPoint, OperatingRange};
 use crate::identification::plant::{IdentifiedModel, IdentifiedUncertainty, UncertaintyMethod};
+use crate::identification::sensor_lag_comparison::SensorLagComparison;
 use crate::identification::step_response::{StepResponseAnalysis, StepResponseMeasurement};
 
 /// The unit of every time parameter.
@@ -72,7 +73,7 @@ pub struct PresentationParameter {
 
 /// The uncertainty of a presented model (`uncertainty`): the label that says what its intervals are, and the intervals
 /// when the fit has them.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PresentationUncertainty {
     /// What the intervals are; never a statistical confidence the fit has not established.
@@ -99,7 +100,7 @@ pub struct PresentationError {
 /// one, otherwise the step-response analysis of the estimation record. Both are written as their own record. When one
 /// is read, the analysis is tried first: a measurement lacks the analysis's fit, while an analysis holds every field
 /// of a measurement and would otherwise be read as one.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum StepResponseView {
     /// The step-response analysis of the estimation record.
@@ -109,7 +110,7 @@ pub enum StepResponseView {
 }
 
 /// An identified model as the engineer reviews it (B3.8; `IdentifiedModelPresentation`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IdentifiedModelPresentation {
     /// The plant-model equation with the identified coefficients.
@@ -135,6 +136,9 @@ pub struct IdentifiedModelPresentation {
     /// The step response to plot, when the fit came from a bounded step review.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step_response: Option<StepResponseView>,
+    /// The model-structure comparison the model was chosen by, when a held step was compared (`modelStructure`; N2.10).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_structure: Option<SensorLagComparison>,
     /// The range the model is evidence for.
     pub validity_range: OperatingRange,
     /// The warnings of the fit evidence.
@@ -238,6 +242,7 @@ pub fn identified_model_presentation(
         },
         predicted_response: fit.points.clone(),
         step_response: step_response_view(fit),
+        model_structure: fit.model_structure.as_deref().cloned(),
         validity_range: fit.operating_range.clone(),
         warnings: fit.warnings.clone(),
     }

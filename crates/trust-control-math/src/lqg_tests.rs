@@ -75,6 +75,27 @@ fn the_scalar_lqg_design_separates_into_the_lqr_pole_and_the_estimator_pole() {
 }
 
 #[test]
+fn an_estimator_that_does_not_settle_inside_the_unit_circle_is_refused() {
+    // With no process noise the estimator gain is zero, so the estimator is the model itself: a model with a = 1.5 has
+    // an estimator pole of 1.5, outside the unit circle, while its LQR is stabilising.
+    let problem = LqgProblem {
+        a: &scalar(1.5),
+        b: &scalar(1.0),
+        c: &scalar(1.0),
+        q: &scalar(1.0),
+        r: &scalar(1.0),
+        process_noise: &scalar(0.0),
+        measurement_noise: &scalar(1.0),
+        horizon: None,
+        limits: LIMITS,
+    };
+    assert_eq!(
+        design_discrete_lqg(&problem, &tolerance()),
+        Err(LqgRefusal::NonstabilisingEstimator)
+    );
+}
+
+#[test]
 fn an_invalid_horizon_of_the_lqr_refuses_the_whole_lqg_design() {
     let horizon = FiniteHorizon {
         steps: 0,

@@ -21,6 +21,7 @@ use crate::tuning::objective::{TuningMethod, TuningObjective};
 use crate::tuning::recommendation::Attempt;
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::robustness::delay_margin;
+use crate::tuning::state_controller::answer::StateAnswer;
 use crate::tuning::structure::Structure;
 use crate::tuning::texts::{engineering, unit_suffix};
 
@@ -91,21 +92,29 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
     );
     let automatic = inputs.method.is_none();
     let from_formula = !automatic || inputs.closed_loop_time_seconds.is_some();
-    let method_description = match inputs.description {
-        Some(text) => text,
-        None => method_description(
-            &described,
-            inputs.model,
-            automatic,
-            from_formula,
-            inputs.candidate.structure(),
-        ),
+    let method_description = match (inputs.description, inputs.candidate.structure()) {
+        (Some(text), _) => text,
+        (None, Some(structure)) => {
+            method_description(&described, inputs.model, automatic, from_formula, structure)
+        }
+        // A state law has no PID structure to describe, so its own sentence stands (C4).
+        (None, None) => crate::tuning::state_controller::texts::METHOD_DESCRIPTION.to_owned(),
+    };
+    let state = match &inputs.candidate {
+        LawCandidate::State(design) => Some(StateAnswer::of(design)),
+        LawCandidate::Pid(_)
+        | LawCandidate::Project(_)
+        | LawCandidate::Search(_)
+        | LawCandidate::OnOff(_)
+        | LawCandidate::Group(_) => None,
     };
     let (margins, margins_unavailable) = inputs.margins;
     let (candidate, project_candidate) = inputs.candidate.into_parts();
     TuneResult {
+        group: None,
         // The feedforward answer (C8) is added by its own Tune run, which holds both paths; other structures have none.
         feedforward: None,
+        state,
         method_title: inputs
             .method
             .map_or(AUTOMATIC_TITLE, TuneMethod::title)
@@ -136,6 +145,7 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
         comparison: inputs.comparison,
         stages: stage_availability(&inputs.stage_evidence),
         stage_evidence: inputs.stage_evidence,
+        schedule: None,
     }
 }
 

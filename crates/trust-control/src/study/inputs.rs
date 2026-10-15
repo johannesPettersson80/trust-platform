@@ -29,6 +29,7 @@ use crate::messages::{TuneChoice, TuneMethod};
 use crate::recording::opened_channels::{check_selection, RecordingSignalSelection};
 use crate::stages::StageEvidence;
 use crate::study::current_model::current_model;
+use crate::study::tune::state::StateDesignInput;
 use crate::study::tune::{refused_as, TuneSection};
 use crate::study::validate::{stage_evidence as validate_stage_evidence, ValidateSection};
 use crate::study::{Study, StudySection};
@@ -76,6 +77,14 @@ pub struct InputsSection {
     /// reopening shows the selection; absent until a recording is opened.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_selection: Option<RecordingSignalSelection>,
+    /// The state-design choices of a state-feedback law (D-B11, C4): the family, the draft of the design form and the pinned
+    /// coefficients, as the engineer left them. Tune reads them ([`StateDesignInput`]); absent until a state law is chosen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_design: Option<StateDesignInput>,
+    /// The pinned settings of a switching controller (B4.2, C3): each of its three settings by symbol, as the engineer left them. Tune
+    /// designs the other settings, applies these after the design, and refuses a pin outside its binding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_off_pins: Option<BTreeMap<String, f64>>,
 }
 
 impl InputsSection {
@@ -160,6 +169,29 @@ impl StudySection for InputsSection {
         }
         if let Some(selection) = &self.recording_selection {
             check_selection(selection)?;
+        }
+        if self
+            .on_off_pins
+            .as_ref()
+            .is_some_and(|pins| pins.values().any(|value| !value.is_finite()))
+        {
+            return Err(Failure::new(
+                "A pinned switching setting is not a finite number.",
+                Cause::Settings,
+                NextAction::None,
+            ));
+        }
+        if self
+            .state_design
+            .as_ref()
+            .and_then(|design| design.pins.as_ref())
+            .is_some_and(|pins| pins.values().any(|value| !value.is_finite()))
+        {
+            return Err(Failure::new(
+                "A pinned state coefficient is not a finite number.",
+                Cause::Settings,
+                NextAction::None,
+            ));
         }
         Ok(())
     }

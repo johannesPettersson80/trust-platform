@@ -1171,18 +1171,36 @@ fn a_manual_address_is_the_first_entry_of_its_name_and_none_without_an_address()
     assert_eq!(manual_address(&Value::Null, "P1.LoadKw"), None, "no list");
 }
 
+// C7, C8: a campaign runs the method Identify chose for the loop, unless every input declares its own step; then it runs manual-output
+// steps. A resumed campaign plans its remaining inputs by the same method.
 #[test]
-fn a_resumed_input_takes_its_method_from_the_declared_kind_or_the_automatic_choice() {
+fn a_campaign_runs_the_loops_method_unless_every_input_has_its_own_step() {
+    let setpoint = IdentificationMethod {
+        kind: ControlExperimentKind::SetpointStep,
+        manual: false,
+        automatic: true,
+    };
     let declared = two_input_loop();
     assert_eq!(
-        method_of_step(&declared, ControlExperimentKind::MvStep),
-        output_step()
+        campaign_method(&declared, setpoint),
+        output_step(),
+        "both inputs declare their own step, so the campaign steps each in Manual"
     );
     let mut undeclared = two_input_loop();
     undeclared.experiment = None;
-    assert!(method_of_step(&undeclared, ControlExperimentKind::MvStep).automatic);
+    assert_eq!(
+        campaign_method(&undeclared, setpoint),
+        setpoint,
+        "without an experiment no input has its own step, so the loop's method runs"
+    );
+    let chosen = IdentificationMethod {
+        kind: ControlExperimentKind::MvStep,
+        manual: true,
+        automatic: true,
+    };
+    assert!(campaign_method(&undeclared, chosen).automatic);
     assert!(
-        !method_of_step(&undeclared, ControlExperimentKind::SetpointStep).manual,
+        !campaign_method(&undeclared, setpoint).manual,
         "a setpoint step runs in Auto"
     );
 }

@@ -67,6 +67,8 @@ const PHYSICAL_REVIEW = {
   },
 };
 const SETTINGS = { method: "automatic", durationSeconds: 30, amplitude: 0, reuseRecordings: false };
+/** The whole refusal of a fit that the recording cannot yet support, as the engine words it (plant.rs); a finished test carries it as its note. */
+const FIT_REFUSAL = "The response is still rising like a ramp after 0.03 min; it cannot yet be told whether it levels off. Hold the step for about 0.9 min (Limits… → maximum duration), or identify with a setpoint step in Auto.";
 
 /** A page message of the loop's scope, with its payload. */
 function pageMessage(kind: string, payload: Record<string, unknown>): Record<string, unknown> {
@@ -266,6 +268,30 @@ suite("Control Studio engine project test", () => {
     assert.deepStrictEqual(lastPhase(h.posted, "engine-ended")?.payload, { status: "failed", reason: "Restoration not confirmed." });
   });
 
+  test("a finished campaign names the restoration the engine confirmed, which the page's end carries", async () => {
+    const { h, route, emit } = harness();
+    await route.handle(testRequest(), SCOPE);
+    await route.handle(pageMessage("control-studio.experiment.approve", { planId: REVIEW_ID, physicalApproved: false }), SCOPE);
+    emit("operation-1", { operationId: "operation-1", command: "identify", state: "finished", result: { restoration: "restored" } } as unknown as OperationUpdate);
+    assert.deepStrictEqual(lastPhase(h.posted, "engine-ended")?.payload, { status: "finished", restoration: "restored" });
+  });
+
+  test("a finished campaign whose fit refused carries the whole refusal to the page's end as its note", async () => {
+    const { h, route, emit } = harness();
+    await route.handle(testRequest(), SCOPE);
+    await route.handle(pageMessage("control-studio.experiment.approve", { planId: REVIEW_ID, physicalApproved: false }), SCOPE);
+    emit("operation-1", { operationId: "operation-1", command: "identify", state: "finished", result: { restoration: "restored", fitRefusal: FIT_REFUSAL } } as unknown as OperationUpdate);
+    assert.deepStrictEqual(lastPhase(h.posted, "engine-ended")?.payload, { status: "finished", restoration: "restored", note: FIT_REFUSAL });
+  });
+
+  test("a refused start shows the whole refusal, its detail, and not only its first sentence", async () => {
+    const { h, route } = harness();
+    await route.handle(testRequest(), SCOPE);
+    h.start = { failure: { message: "The test cannot start.", detail: "The test cannot start. Its review is spent, so review it again.", cause: "settings", nextAction: "none" } as unknown as Failure } as unknown as EngineAnswer<IdentifyAnswer>;
+    await route.handle(pageMessage("control-studio.experiment.approve", { planId: REVIEW_ID, physicalApproved: false }), SCOPE);
+    assert.deepStrictEqual(lastPhase(h.posted, "failed")?.payload, { reason: "The test cannot start. Its review is spent, so review it again." });
+  });
+
   test("Abort with no campaign running ends the page's busy state without asking the engine", async () => {
     const { h, route } = harness();
     assert.strictEqual(await route.handle(pageMessage("control-studio.experiment.abort", { experimentId: "stale" }), SCOPE), true);
@@ -371,6 +397,44 @@ suite("Control Studio three-page project test on the engine", () => {
       } finally {
         restore();
       }
+    }
+  });
+
+  test("a finished test says its outputs are restored when the engine confirmed the restoration, and says nothing more", () => {
+    const { root, experiments, restore } = pageFixture();
+    try {
+      experiments.setSelectedMethod(true);
+      experiments.receive("review", { kind: "reviewed", planId: REVIEW_ID, review: REVIEW });
+      experiments.primaryAction();
+      experiments.receive("running", { experiment_id: "operation-1" });
+      experiments.receive("engine-ended", { status: "finished", restoration: "restored" });
+      assert.strictEqual(root.querySelector("[data-three-page-experiment-status]").textContent, "Project test completed. Outputs restored.");
+      experiments.receive("running", { experiment_id: "operation-2" });
+      experiments.receive("engine-ended", { status: "finished" });
+      assert.strictEqual(root.querySelector("[data-three-page-experiment-status]").textContent, "Project test completed.",
+        "a test whose campaign confirmed no restoration says only that it completed");
+    } finally {
+      restore();
+    }
+  });
+
+  test("a finished test whose fit refused shows the refusal as a note under its completed status, until the next test", () => {
+    const { root, experiments, restore } = pageFixture();
+    try {
+      experiments.setSelectedMethod(true);
+      experiments.receive("review", { kind: "reviewed", planId: REVIEW_ID, review: REVIEW });
+      experiments.primaryAction();
+      experiments.receive("running", { experiment_id: "operation-1" });
+      const note = root.querySelector("[data-three-page-experiment-note]");
+      assert.strictEqual(note.hidden, true, "no note while the test runs");
+      experiments.receive("engine-ended", { status: "finished", restoration: "restored", note: FIT_REFUSAL });
+      assert.strictEqual(root.querySelector("[data-three-page-experiment-status]").textContent, "Project test completed. Outputs restored.");
+      assert.strictEqual(note.textContent, FIT_REFUSAL, "the status stays the engine's sentence; the refusal is its note");
+      assert.strictEqual(note.hidden, false, "the note is shown under the completed test");
+      experiments.receive("running", { experiment_id: "operation-2" });
+      assert.strictEqual(note.hidden, true, "a new test hides the previous test's note");
+    } finally {
+      restore();
     }
   });
 

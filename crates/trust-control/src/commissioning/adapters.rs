@@ -3,27 +3,37 @@
 //! of its declared states, and the parameter values that a set of gains writes. Tune and the commissioning flows call these
 //! decisions and run the runtime themselves.
 //!
-//! Four adapters are ported: the shipped `Control.PID` (C1, with the library's `control-pid-v1` states), a program's parallel PID
-//! record (C2, `parallel-pid-v1`), the connected P (C13) and a program's own PI, PD or PID law (C2) whose seed names its gain
-//! variables and whose declared states start its integral and derivative terms. A program's own P law is the connected P on its
-//! seed's variable. A loop that uses another family is refused, never guessed at: ON/OFF (C3), state feedback (C4), notch (C5),
-//! cascade (C6), PID groups (C7), feedforward (C8), Smith (C9), gain scheduling (C10), trajectory (C11) and experiment loops
-//! (C12) have no adapter here, and channels (multivariable loops) are parked with stage V7. `projectController.ts` is a parked
-//! feature for every seed but `parallel-pid`, and is not ported.
+//! Six adapters are ported: the shipped `Control.PID` (C1, with the library's `control-pid-v1` states), a program's parallel PID
+//! record (C2, `parallel-pid-v1`), the connected P (C13), a program's own PI, PD or PID law (C2) whose seed names its gain
+//! variables and whose declared states start its integral and derivative terms, a state-feedback law (C4, its coefficients `K`, `N`
+//! and `L`), and a finite search over a program's law (C5, its axes as coefficients). A program's own P law is the connected P on its
+//! seed's variable. A loop that uses another family is refused, never guessed at: ON/OFF (C3), cascade (C6), feedforward
+//! (C8), Smith (C9), gain scheduling (C10), trajectory (C11) and experiment loops (C12) have no adapter here, and channels
+//! (multivariable loops) are parked with stage V7. `projectController.ts` is a parked feature for every seed but `parallel-pid`, and
+//! is not ported.
 
 use std::collections::BTreeMap;
 
+use super::cascade_adapter::cascade_values;
+use super::coefficient_record::coefficient_values;
 use super::declared_initialization::{
     declared_commissioning_profile, declared_initialization_plan, declared_transfer_binding,
+};
+use super::group_adapter::{
+    check_group, group_gains_refused, group_needs_project, group_transfer_binding,
 };
 use super::initial_state::ControllerInitialization;
 use super::initialization_plan::{
     pid_initialization_plan, proportional_initialization_plan, ParallelPidStartPlan, StartPlan,
 };
 use super::library_pid::library_pid_initialization;
+use super::on_off_adapter;
 use super::pid_initialization::pid_initialization_adapter;
 use super::profile::CommissioningProfile;
 use super::project_law::{has_pid_terms, served_law};
+use super::search_adapter::{self, search_law};
+use super::smith_adapter;
+use super::state_adapter::{self, family_label, state_law, StateLaw};
 use super::texts;
 use super::transfer::{
     pid_transfer_binding, proportional_parameter, proportional_transfer_binding, TransferBinding,
@@ -32,11 +42,13 @@ use super::transfer_tracking::{parallel_pid_tracking, proportional_tracking, Tra
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     ControllerLaw, ControllerProject, InitialValue, LoopDefinition, Parameter, ParameterBinding,
-    PidInitialization, PidLaw, RealType,
+    PidControllerGroup, PidInitialization, PidLaw, RealType,
 };
 use crate::model::GeneralModel;
+use crate::tuning::cascade_candidate::served_cascade;
 use crate::tuning::project_seed::{
-    seed_values, FeedforwardPidSeed, ParallelPidSeed, TrajectoryFeedforwardSeed,
+    seed_values, CascadePidSeed, FeedforwardPidSeed, ParallelPidSeed, SmithPidSeed, SmithTerms,
+    TrajectoryFeedforwardSeed,
 };
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::settings_pins::single_precision;
@@ -51,6 +63,16 @@ const PROPORTIONAL_FAMILIES: [Structure; 1] = [Structure::P];
 
 /// The label of the shipped `Control.PID`'s commissioning profile.
 const CONTROL_PID_LABEL: &str = "Control.PID";
+
+/// The label of a switching controller's commissioning profile (C3).
+const ON_OFF_LABEL: &str = "ON/OFF";
+
+/// The refusal of a state or search law's values asked for as gains: such a law writes its coefficients (C4, C5).
+const COEFFICIENTS_NOT_GAINS: &str =
+    "A state or search law writes its coefficients, not gains (C4, C5).";
+/// The refusal of a coefficient write asked of a `Control.PID` or a program's own law, which writes its gains (C0).
+const COEFFICIENTS_NOT_LAW: &str =
+    "Only a state or search law writes coefficients; this law writes its gains (C0).";
 
 /// The gains that an adapter maps (`ControllerGains`, C0). A term that the family does not use is written as an explicit zero,
 /// so an absent integral or derivative gain is zero. The optional terms are written only where the law declares them.
@@ -80,6 +102,18 @@ pub struct ControllerGains {
     pub lead_seconds: Option<f64>,
     /// The lag time `T_lag` in seconds of a measured-disturbance feedforward (C8), written with the lead time where the seed names both.
     pub lag_seconds: Option<f64>,
+    /// The hysteresis of a switching controller (C3), written under its symbol.
+    pub on_off_hysteresis: Option<f64>,
+    /// The minimum ON time of a switching controller, in seconds (C3), written under its symbol.
+    pub on_off_minimum_on_seconds: Option<f64>,
+    /// The minimum OFF time of a switching controller, in seconds (C3), written under its symbol.
+    pub on_off_minimum_off_seconds: Option<f64>,
+    /// The Smith predictor's model values (C9): the gain, the time constant and the delay, and the operating point when the seed names the
+    /// library block. Written only where the law's seed names them.
+    pub smith: Option<SmithTerms>,
+    /// The outer controller's PI of a cascade (C6): written to its own record beside the inner controller's gains, which
+    /// `proportional_gain`, `integral_gain` and `derivative_gain` hold. Written only for a cascade.
+    pub outer_pid: Option<ParallelGains>,
 }
 
 /// Which adapter a loop's controller has (`controllerAdapter`): the shipped `Control.PID` with its states, a parallel PID with its
@@ -101,6 +135,34 @@ pub enum AdapterKind {
         project: Box<ControllerProject>,
         /// The seed that names the law's gain variables.
         seed: ParallelPidSeed,
+    },
+    /// A cascade (C6): the inner and the outer PI, each written to its own record, with the outer controller's mode switched with the
+    /// inner's. Its block is the cascade's controller project, and `seed` names both controllers' variables.
+    Cascade {
+        /// The controller's `project` block, as the loop declares it.
+        project: Box<ControllerProject>,
+        /// The seed that names both controllers' gain variables.
+        seed: CascadePidSeed,
+    },
+    /// A state-feedback law (C4): its coefficients are the gains `K`, the reference gains `N` and, for LQG, the observer gains `L`, and its
+    /// declared states start at an Auto entry. Boxed: the decoded law is large.
+    State(Box<StateLaw>),
+    /// A switching (ON/OFF) controller (C3): its three settings are written through the bound parameters, and its declared states
+    /// (the latch and the dwell timer) are the controller's initialization.
+    OnOff(ControllerInitialization),
+    /// A finite search over a program's law (C5): its tuning axes are the coefficient variables, and its declared states start at an
+    /// Auto entry as a program's own PID's do. It has no seed, and its Auto entry needs a reviewed tolerance.
+    Search {
+        /// The controller's `project` block, in the search-law form.
+        project: Box<ControllerProject>,
+    },
+    /// A PID group (C7): its members are `Control.PID` loops, each on one input and one output of the loop, and one transaction writes
+    /// them together. `project` owns every member's states, and `group` names the members and their channels.
+    Group {
+        /// The controller's `project` block, which declares every member's states.
+        project: Box<ControllerProject>,
+        /// The group's members, in the order that the transfer holds them.
+        group: Box<PidControllerGroup>,
     },
 }
 
@@ -146,7 +208,19 @@ pub fn controller_adapter(
             NextAction::None,
         ));
     }
-    let kind = if let (Some(ControllerLaw::Pid(_)), Some(_)) = (
+    let kind = if let Some(group) = loop_definition.controller.group.as_ref() {
+        // A group is checked before any other kind, as `controllerAdapter` checks it first: a group never falls through to a scalar PID.
+        let project = loop_definition
+            .controller
+            .project
+            .as_ref()
+            .ok_or_else(group_needs_project)?;
+        check_group(loop_definition, project, group)?;
+        AdapterKind::Group {
+            project: Box::new(project.clone()),
+            group: Box::new(group.clone()),
+        }
+    } else if let (Some(ControllerLaw::Pid(_)), Some(_)) = (
         &loop_definition.controller.law,
         &loop_definition.parameter_binding,
     ) {
@@ -156,11 +230,27 @@ pub fn controller_adapter(
             }
             _ => AdapterKind::ParallelPid,
         }
+    } else if let (Some(project), Some(seed)) = (
+        loop_definition.controller.project.as_ref(),
+        served_cascade(loop_definition),
+    ) {
+        AdapterKind::Cascade {
+            project: Box::new(project.clone()),
+            seed: seed.clone(),
+        }
     } else if let Some(law) = served_law(loop_definition).filter(|law| has_pid_terms(law.seed)) {
         AdapterKind::ProjectPid {
             project: Box::new(law.project.clone()),
             seed: law.seed.clone(),
         }
+    } else if let Some(law) = state_law(loop_definition)? {
+        AdapterKind::State(Box::new(law))
+    } else if let Some(project) = search_law(loop_definition) {
+        AdapterKind::Search {
+            project: Box::new(project.clone()),
+        }
+    } else if let Some(block) = loop_definition.controller.on_off.as_ref() {
+        AdapterKind::OnOff(block.initialization.clone())
     } else {
         proportional_parameter(loop_definition)
             .map_err(|failure| unrecognised_type(loop_definition, &failure))?;
@@ -187,7 +277,11 @@ impl ControllerAdapter<'_> {
         match &self.kind {
             AdapterKind::ConnectedP => PROPORTIONAL_FAMILIES.to_vec(),
             AdapterKind::ControlPid(_) | AdapterKind::ParallelPid => PID_FAMILIES.to_vec(),
-            AdapterKind::ProjectPid { project, .. } => project.offered_families(),
+            AdapterKind::ProjectPid { project, .. }
+            | AdapterKind::Search { project }
+            | AdapterKind::Cascade { project, .. } => project.offered_families(),
+            AdapterKind::Group { .. } => vec![Structure::PI],
+            AdapterKind::State(_) | AdapterKind::OnOff(_) => Vec::new(),
         }
     }
 
@@ -198,11 +292,17 @@ impl ControllerAdapter<'_> {
     /// The adapter's declared states or bindings do not fit the loop.
     pub fn transfer_binding(&self) -> Result<TransferBinding, Failure> {
         match &self.kind {
-            AdapterKind::ControlPid(initialization) => {
+            AdapterKind::ControlPid(initialization) | AdapterKind::OnOff(initialization) => {
                 declared_binding(self.loop_definition, initialization)
             }
-            AdapterKind::ProjectPid { project, .. } => {
+            AdapterKind::ProjectPid { project, .. }
+            | AdapterKind::Search { project }
+            | AdapterKind::Cascade { project, .. } => {
                 declared_binding(self.loop_definition, &project.initialization)
+            }
+            AdapterKind::State(law) => declared_binding(self.loop_definition, &law.initialization),
+            AdapterKind::Group { project, group } => {
+                group_transfer_binding(self.loop_definition, project, group)
             }
             AdapterKind::ParallelPid => pid_transfer_binding(self.loop_definition),
             AdapterKind::ConnectedP => proportional_transfer_binding(self.loop_definition),
@@ -227,7 +327,18 @@ impl ControllerAdapter<'_> {
                 let binding = declared_binding(self.loop_definition, initialization)?;
                 profile.tracking(&binding, false)
             }
-            AdapterKind::ProjectPid { project, .. } => {
+            AdapterKind::OnOff(initialization) => {
+                let profile = declared_profile_of(
+                    self.loop_definition,
+                    model,
+                    ON_OFF_LABEL,
+                    initialization,
+                    &BTreeMap::new(),
+                )?;
+                let binding = declared_binding(self.loop_definition, initialization)?;
+                profile.tracking(&binding, false)
+            }
+            AdapterKind::ProjectPid { project, .. } | AdapterKind::Cascade { project, .. } => {
                 let profile = declared_profile_of(
                     self.loop_definition,
                     model,
@@ -238,6 +349,30 @@ impl ControllerAdapter<'_> {
                 let binding = declared_binding(self.loop_definition, &project.initialization)?;
                 profile.tracking(&binding, false)
             }
+            AdapterKind::Group { project, group } => {
+                // The declared profile refuses a loop with channel bindings until the channel port (V7) makes it group-aware.
+                let profile = declared_profile_of(
+                    self.loop_definition,
+                    model,
+                    &project.family,
+                    &project.initialization,
+                    &BTreeMap::new(),
+                )?;
+                let binding = group_transfer_binding(self.loop_definition, project, group)?;
+                profile.tracking(&binding, false)
+            }
+            AdapterKind::State(law) => declared_tracking(
+                self.loop_definition,
+                model,
+                family_label(law.binding.family),
+                &law.initialization,
+            ),
+            AdapterKind::Search { project } => declared_tracking(
+                self.loop_definition,
+                model,
+                &project.family,
+                &project.initialization,
+            ),
             AdapterKind::ParallelPid => {
                 let binding = pid_transfer_binding(self.loop_definition)?;
                 parallel_pid_tracking(self.loop_definition, &binding, false)
@@ -270,11 +405,30 @@ impl ControllerAdapter<'_> {
                 values,
             )
             .map(Some),
-            AdapterKind::ProjectPid { project, .. } => declared_profile_of(
+            AdapterKind::ProjectPid { project, .. }
+            | AdapterKind::Search { project }
+            | AdapterKind::Cascade { project, .. }
+            | AdapterKind::Group { project, .. } => declared_profile_of(
                 self.loop_definition,
                 model,
                 &project.family,
                 &project.initialization,
+                values,
+            )
+            .map(Some),
+            AdapterKind::State(law) => declared_profile_of(
+                self.loop_definition,
+                model,
+                family_label(law.binding.family),
+                &law.initialization,
+                values,
+            )
+            .map(Some),
+            AdapterKind::OnOff(initialization) => declared_profile_of(
+                self.loop_definition,
+                model,
+                ON_OFF_LABEL,
+                initialization,
                 values,
             )
             .map(Some),
@@ -296,8 +450,20 @@ impl ControllerAdapter<'_> {
                 pid_initialization_adapter(self.loop_definition).map(|_| ())
             }
             AdapterKind::ConnectedP => proportional_parameter(self.loop_definition).map(|_| ()),
-            AdapterKind::ProjectPid { project, .. } => {
+            AdapterKind::Group { project, group } => {
+                check_group(self.loop_definition, project, group)?;
                 declared_binding(self.loop_definition, &project.initialization).map(|_| ())
+            }
+            AdapterKind::ProjectPid { project, .. }
+            | AdapterKind::Search { project }
+            | AdapterKind::Cascade { project, .. } => {
+                declared_binding(self.loop_definition, &project.initialization).map(|_| ())
+            }
+            AdapterKind::OnOff(initialization) => {
+                declared_binding(self.loop_definition, initialization).map(|_| ())
+            }
+            AdapterKind::State(law) => {
+                declared_binding(self.loop_definition, &law.initialization).map(|_| ())
             }
         }
     }
@@ -327,14 +493,57 @@ impl ControllerAdapter<'_> {
                 &texts::adapter_pid_record_gain_required(),
             ),
             AdapterKind::ConnectedP => connected_p_values(self.loop_definition, gains, observed),
+            AdapterKind::Group { .. } => Err(group_gains_refused()),
+            AdapterKind::State(_) | AdapterKind::Search { .. } => Err(Failure::new(
+                COEFFICIENTS_NOT_GAINS,
+                Cause::Implementation,
+                NextAction::None,
+            )),
+            AdapterKind::Cascade { seed, .. } => cascade_values(
+                self.loop_definition.parameter_binding.as_ref(),
+                seed,
+                gains,
+                observed,
+            ),
+            AdapterKind::OnOff(_) => {
+                on_off_adapter::materialize(self.loop_definition, gains, observed)
+            }
             AdapterKind::ProjectPid { project, seed } => project_pid_values(
                 self.loop_definition,
                 seed,
                 project.trajectory(),
                 project.feedforward(),
+                project.smith(),
                 gains,
                 observed,
             ),
+        }
+    }
+
+    /// The parameter values that a state or search law's coefficients write (C4, C5): each coefficient checked against its binding, with
+    /// the observed values kept. A `Control.PID` or a program's own law writes its gains with [`ControllerAdapter::materialize`].
+    ///
+    /// # Errors
+    /// The law is not a state or search law; or a coefficient is not a parameter of the record, or is outside its bounds once rounded.
+    pub fn materialize_coefficients(
+        &self,
+        coefficients: &BTreeMap<String, f64>,
+        observed: &BTreeMap<String, f64>,
+    ) -> Result<BTreeMap<String, f64>, Failure> {
+        match &self.kind {
+            AdapterKind::State(_) | AdapterKind::Search { .. } | AdapterKind::Group { .. } => {
+                coefficient_values(self.loop_definition, coefficients, observed)
+            }
+            AdapterKind::ControlPid(_)
+            | AdapterKind::ParallelPid
+            | AdapterKind::ConnectedP
+            | AdapterKind::ProjectPid { .. }
+            | AdapterKind::Cascade { .. }
+            | AdapterKind::OnOff(_) => Err(Failure::new(
+                COEFFICIENTS_NOT_LAW,
+                Cause::Implementation,
+                NextAction::None,
+            )),
         }
     }
 
@@ -351,7 +560,7 @@ impl ControllerAdapter<'_> {
         process_noise: Option<f64>,
     ) -> Result<AdapterStartPlan, Failure> {
         match &self.kind {
-            AdapterKind::ControlPid(initialization) => {
+            AdapterKind::ControlPid(initialization) | AdapterKind::OnOff(initialization) => {
                 declared_binding(self.loop_definition, initialization)?;
                 declared_initialization_plan(
                     self.loop_definition,
@@ -363,7 +572,9 @@ impl ControllerAdapter<'_> {
                 )
                 .map(AdapterStartPlan::Start)
             }
-            AdapterKind::ProjectPid { project, .. } => {
+            AdapterKind::ProjectPid { project, .. }
+            | AdapterKind::Cascade { project, .. }
+            | AdapterKind::Group { project, .. } => {
                 declared_binding(self.loop_definition, &project.initialization)?;
                 declared_initialization_plan(
                     self.loop_definition,
@@ -375,6 +586,24 @@ impl ControllerAdapter<'_> {
                 )
                 .map(AdapterStartPlan::Start)
             }
+            AdapterKind::State(law) => state_adapter::initialization_plan(
+                self.loop_definition,
+                model,
+                task,
+                values,
+                process_noise,
+                law,
+            )
+            .map(AdapterStartPlan::Start),
+            AdapterKind::Search { project } => search_adapter::initialization_plan(
+                self.loop_definition,
+                model,
+                task,
+                values,
+                process_noise,
+                project,
+            )
+            .map(AdapterStartPlan::Start),
             AdapterKind::ParallelPid => {
                 pid_initialization_plan(self.loop_definition, model, task, values, process_noise)
                     .map(AdapterStartPlan::ParallelPid)
@@ -395,13 +624,14 @@ impl ControllerAdapter<'_> {
 /// program's own law is read first by `ControllerProject::parked_feature`, the one gate of C2, in `controller_adapter`.
 fn parked_feature(loop_definition: &LoopDefinition) -> Option<&'static str> {
     let controller = &loop_definition.controller;
-    if controller.on_off.is_some() {
-        Some("an ON/OFF controller")
-    } else if controller.state_feedback.is_some() {
-        Some("state feedback")
-    } else if controller.group.is_some() {
-        Some("a PID group")
-    } else if loop_definition.channels.is_some() && !loop_definition.is_feedforward_channels() {
+    // A PID group's channels are its members (C7), so they are not parked channels.
+    if loop_definition.channels.is_some()
+        && controller.group.is_none()
+        && !loop_definition.is_feedforward_channels()
+        && !loop_definition.is_on_off_channels()
+        && !loop_definition.is_cascade_channels()
+        && controller.state_feedback.is_none()
+    {
         Some("channels")
     } else if loop_definition.declares_parked_analysis() {
         Some("a declared analysis")
@@ -444,6 +674,25 @@ fn declared_binding(
     })
 }
 
+/// The tracking that a recovery to Manual holds for a declared law (`recoveryTracking`, C4, C5): the profile of its declared states and
+/// their transfer binding, without the states being initialized.
+fn declared_tracking(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    label: &str,
+    initialization: &ControllerInitialization,
+) -> Result<TransferTracking, Failure> {
+    let profile = declared_profile_of(
+        loop_definition,
+        model,
+        label,
+        initialization,
+        &BTreeMap::new(),
+    )?;
+    let binding = declared_binding(loop_definition, initialization)?;
+    profile.tracking(&binding, false)
+}
+
 /// The commissioning profile of a declared initialization (`profile`, C1, C2), labelled with the controller's name, at the given
 /// values.
 fn declared_profile_of(
@@ -484,10 +733,10 @@ fn connected_p_states(loop_definition: &LoopDefinition) -> Result<(), Failure> {
 }
 
 /// One term of a PID record: the parameter it writes, whether the parameter is a gain (bounded by its magnitude, N6.4), and the value.
-struct Term<'a> {
-    symbol: &'a str,
-    gain: bool,
-    value: f64,
+pub(super) struct Term<'a> {
+    pub(super) symbol: &'a str,
+    pub(super) gain: bool,
+    pub(super) value: f64,
 }
 
 /// The terms of a PID law's record (`materializePidGainRecord`, C0, C1, C2): the three gains, then each term that the law declares.
@@ -621,7 +870,7 @@ fn pid_record_values(
 ///
 /// # Errors
 /// A term is not a declared parameter, or its value or its rounded value is outside the binding.
-fn bound_values(
+pub(super) fn bound_values(
     binding: &ParameterBinding,
     terms: &[Term<'_>],
     observed: &BTreeMap<String, f64>,
@@ -748,6 +997,7 @@ fn project_pid_values(
     seed: &ParallelPidSeed,
     trajectory: Option<&TrajectoryFeedforwardSeed>,
     feedforward: Option<&FeedforwardPidSeed>,
+    smith: Option<&SmithPidSeed>,
     gains: &ControllerGains,
     observed: &BTreeMap<String, f64>,
 ) -> Result<BTreeMap<String, f64>, Failure> {
@@ -790,6 +1040,14 @@ fn project_pid_values(
         .collect();
     terms.extend(feedforward_terms(trajectory, gains)?);
     terms.extend(gain_feedforward_terms(feedforward, gains)?);
+    if let Some(smith) = smith {
+        let model = smith_adapter::smith_terms(smith, gains.smith.as_ref())?;
+        terms.extend(model.into_iter().map(|(symbol, value)| Term {
+            symbol,
+            gain: false,
+            value,
+        }));
+    }
     bound_values(binding, &terms, observed)
 }
 
@@ -899,7 +1157,7 @@ fn named_term(gain: Option<f64>, named: bool, term: &str) -> Result<f64, Failure
 ///
 /// # Errors
 /// The gain record holds one of those terms without a variable to write it to.
-fn unrepresented_terms(gains: &ControllerGains) -> Result<(), Failure> {
+pub(super) fn unrepresented_terms(gains: &ControllerGains) -> Result<(), Failure> {
     let sentence = if gains.back_calculation_gain.is_some() {
         texts::parameter_anti_windup_required()
     } else if gains

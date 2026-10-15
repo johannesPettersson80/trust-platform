@@ -78,7 +78,15 @@ fn relay_reports_the_missing_declared_process_direction() {
 #[test]
 fn frequency_excitation_is_refused_for_an_on_off_actuator() {
     let mut loop_definition = pid_loop();
-    loop_definition.controller.on_off = Some(json!({ "lowOutput": -20.0, "highOutput": 20.0 }));
+    loop_definition.controller.on_off = Some(crate::loop_definition::OnOffController::from_value(&json!({
+        "hysteresisSymbol": "P1.HysteresisC", "minimumOnTimeSymbol": "P1.MinimumOnS", "minimumOffTimeSymbol": "P1.MinimumOffS",
+        "bandConvention": "half-band", "lowOutput": -20.0, "highOutput": 20.0,
+        "initialization": { "kind": "declared-state-v1", "states": [{
+            "symbol": "P1.CoolingOn", "iec_type": "BOOL", "unit": "1", "minimum": 0.0, "maximum": 1.0,
+            "initial": { "source": "model-input-is", "index": 0, "value": 20.0 }, "postScan": "bounded"
+        }] }
+    }))
+    .expect("the ON/OFF block decodes"));
     assert_eq!(
         refusal(&loop_definition, AcquisitionMethod::Prbs),
         Some(MethodRefusal::FrequencyOnOff)

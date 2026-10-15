@@ -116,7 +116,7 @@ suite("Control Studio static decoupler", () => {
     } finally { (globalThis as any).document = saved; }
   });
 
-  test("behind a decoupler, a member's output is the plant input, not the controller's own output", function () {
+  test("behind a decoupler, the form posts the members' outputs as typed and shows the engine's refusal under the member's output", function () {
     this.timeout(10000);
     const view = open({ structure: "group", addressedReal: ["P1.Heater1Pct", "P1.Heater2Pct", "P1.Zone1C", "P1.Zone1ManualPct", "P1.Zone1SetpointC",
       "P1.Zone2C", "P1.Zone2ManualPct", "P1.Zone2SetpointC"], signals: ["P1.Heater1Pct", "P1.Heater2Pct", "P1.Request1Pct", "P1.Request2Pct",
@@ -140,11 +140,17 @@ suite("Control Studio static decoupler", () => {
       const decoupled = view.root.querySelector<HTMLInputElement>('[data-setup-field="group.decoupled"]')!;
       decoupled.checked = true; decoupled.dispatchEvent(new view.dom.window.Event("change", { bubbles: true }));
       decoupler.forEach((row, i) => row.forEach((symbol, j) => view.set(`group.decoupler.${i}.${j}`, symbol)));
-      const message = () => view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "";
-      assert.match(message(), /P1\.Zone1.*plant input.*P1\.Request1Pct/, `the prefilled controller output is named: ${message()}`);
-      assert.strictEqual(view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.disabled, true);
-      view.set("group.0.manipulatedVariable", "P1.Heater1Pct"); view.set("group.1.manipulatedVariable", "P1.Heater2Pct");
-      assert.strictEqual(view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.disabled, false, message());
+      // The engine checks the decoupler's rule (setup/group_loop.rs): the form posts the prefilled controller outputs as typed.
+      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
+      assert.strictEqual(save.disabled, false, "the form does not decide the decoupler's rule");
+      save.click();
+      const posted = view.posts[view.posts.length - 1]?.draft as { members?: Array<{ manipulatedVariable?: { symbol?: string } }> } | undefined;
+      assert.deepStrictEqual(posted?.members?.map(member => member.manipulatedVariable?.symbol), ["P1.Request1Pct", "P1.Request2Pct"]);
+      // The engine's refusal names the member's output field, and the page shows its sentence.
+      const sentence = "Behind a decoupler, P1.Zone1's output is the plant input the program writes from D·v, not the controller's own output "
+        + "P1.Request1Pct. Choose the plant input.";
+      view.showError(sentence, "group.0.manipulatedVariable");
+      assert.ok((view.root.textContent ?? "").includes(sentence), "the engine's sentence is shown");
     } finally { view.close(); }
   });
 
@@ -173,7 +179,6 @@ suite("Control Studio static decoupler", () => {
       assert.ok(box, "the group offers a decoupler");
       box!.checked = true; box!.dispatchEvent(new view.dom.window.Event("change", { bubbles: true }));
       const message = () => view.root.querySelector<HTMLElement>("[data-setup-message]")!.textContent ?? "";
-      assert.match(message(), /decoupler/i, `the decoupler's variables are next: ${message()}`);
       decoupler.forEach((row, i) => row.forEach((symbol, j) => view.set(`group.decoupler.${i}.${j}`, symbol)));
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.strictEqual(save.disabled, false, message());

@@ -63,6 +63,8 @@ fn a_section_round_trips_through_its_document_with_every_input() {
         settings: None,
         scenarios: None,
         recording_selection: None,
+        state_design: None,
+        on_off_pins: None,
     };
     let text = section.encode().expect("encoded");
     assert_eq!(

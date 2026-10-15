@@ -1,12 +1,12 @@
 //! The setup save, ported from `control-studio-loop-setup-save.test.ts` (the save rules) and the save refusals of
-//! `loopSetupSave.ts`/`projectLoop.ts` (specification 35, B1.3 and §0.1b). The cascade, ON/OFF and state-feedback saves are parked
-//! until stage V7: they are ported as refusals by name. The write assertions (files, `wx`) belong to the engine.
+//! `loopSetupSave.ts`/`projectLoop.ts` (specification 35, B1.3 and §0.1b). The cascade, ON/OFF, state-feedback and search saves are
+//! served (C3 to C6); a structure that is still parked is refused by name. The write assertions (files, `wx`) belong to the engine.
 
 use serde_json::{json, Value};
 
 use super::{
-    check_setup_targets, parse_setup_draft, plan_setup_save, validation_reason_code,
-    ExistingLoopFile, LoopFileId, PlannedLoop, SetupDraft,
+    check_setup_targets, decode_estimator_model, estimator_model_path, parse_setup_draft,
+    plan_setup_save, validation_reason_code, ExistingLoopFile, LoopFileId, PlannedLoop, SetupDraft,
 };
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{LoopRejection, LoopScope};
@@ -206,35 +206,123 @@ fn an_identify_only_draft_plans_one_open_loop_on_the_chosen_input_and_output() {
 }
 
 #[test]
-fn a_cascade_draft_is_refused_by_name_until_the_rust_engine_runs_cascades() {
-    // control-studio-loop-setup-save.test.ts: "writes a cascade as one loop file..." is parked (stage V7, C6): the save refuses it.
-    let draft = parse_setup_draft(&json!({ "structure": "cascade", "name": "Vessel temperature" }))
-        .expect("the structure is known");
-    assert!(matches!(&draft, SetupDraft::Parked { structure } if structure == "cascade"));
-    let refusal = plan_setup_save(&save_catalog(), &scope(), &draft)
-        .expect_err("a parked structure is refused");
-    assert_eq!(
-        full_text(&refusal),
-        "A cascade is not yet supported by the Rust engine."
+fn a_cascade_draft_is_saved_as_one_loop_on_the_cascade_block() {
+    // control-studio-loop-setup-save.test.ts: "writes a cascade as one loop file..." (C6): the draft becomes one loop whose block holds
+    // both PIs, with the outer controller's mode as its additional mode.
+    let draft = parse_setup_draft(&json!({
+        "structure": "cascade",
+        "name": "Vessel temperature",
+        "action": "direct",
+        "outer": {
+            "instance": "P1.Outer",
+            "parameterRecord": "P1.OuterParameters",
+            "mode": { "symbol": "P1.OuterAuto", "whenTrue": "Auto" },
+            "processVariable": { "symbol": "P1.VesselC", "unit": "degC", "minimum": 0.0, "maximum": 90.0 },
+            "setpoint": { "symbol": "P1.VesselSetpointC" }
+        },
+        "inner": {
+            "instance": "P1.Inner",
+            "parameterRecord": "P1.InnerParameters",
+            "mode": { "symbol": "P1.InnerAuto", "whenTrue": "Auto" },
+            "manualOutput": "P1.InnerManual",
+            "processVariable": { "symbol": "P1.JacketC", "unit": "degC", "minimum": 0.0, "maximum": 90.0 },
+            "manipulatedVariable": { "symbol": "P1.HeaterPct", "unit": "%", "minimum": 0.0, "maximum": 100.0 }
+        }
+    }))
+    .expect("the cascade draft decodes");
+    assert!(matches!(&draft, SetupDraft::Cascade(_)));
+    let planned =
+        plan_setup_save(&save_catalog(), &scope(), &draft).expect("the cascade is generated");
+    let [only] = planned.as_slice() else {
+        panic!("a cascade is one loop file");
+    };
+    let project = only
+        .loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("a cascade declares its block");
+    assert_eq!(project.family, "cascade");
+    assert!(
+        project.cascade().is_some(),
+        "the block holds the cascade seed"
     );
-    assert_eq!(refusal.cause, Cause::ControllerCapability);
-    assert_eq!(refusal.next_action, NextAction::None);
+    assert_eq!(
+        project
+            .additional_modes
+            .iter()
+            .map(|mode| (mode.symbol.as_str(), mode.manual_value))
+            .collect::<Vec<_>>(),
+        vec![("P1.OuterAuto", false)]
+    );
+}
+
+/// The cold room's switching draft as the setup form sends it, with every required field (C3, `control-studio-loop-setup-onoff.test.ts`).
+fn cold_room_draft() -> Value {
+    json!({
+        "structure": "onoff", "name": "Cold room", "action": "reverse", "instance": "P1",
+        "processVariable": { "symbol": "P1.RoomC", "unit": "degC", "minimum": -10, "maximum": 20 },
+        "setpoint": { "symbol": "P1.SetpointC" },
+        "manipulatedVariable": { "symbol": "P1.CompressorPct", "unit": "%", "minimum": 0, "maximum": 100 },
+        "mode": { "symbol": "P1.AutoMode", "whenTrue": "Auto" }, "manualOutput": "P1.ManualPct",
+        "hysteresis": "P1.HysteresisC", "bandConvention": "half-band", "minimumOn": "P1.MinimumOnS",
+        "minimumOff": "P1.MinimumOffS", "latch": "P1.CoolingOn", "dwellTimer": "P1.DwellS",
+        "equipmentMinimumOnSeconds": 20.0, "equipmentMinimumOffSeconds": 30.0
+    })
+}
+
+/// The cold room's program: its switching controller `P1` in one cyclic task, and the variables the draft names, with the addresses of
+/// the measurement, the setpoint, the switched output and the manual output.
+fn cold_room_catalog() -> CompiledCatalog {
+    CompiledCatalog {
+        symbols: vec![
+            symbol("P1.RoomC", "LREAL", Some("%IL0")),
+            symbol("P1.SetpointC", "LREAL", Some("%ML0")),
+            symbol("P1.CompressorPct", "LREAL", Some("%QL0")),
+            symbol("P1.ManualPct", "LREAL", Some("%ML8")),
+            symbol("P1.AutoMode", "BOOL", None),
+            symbol("P1.CoolingOn", "BOOL", None),
+            symbol("P1.HysteresisC", "LREAL", None),
+            symbol("P1.MinimumOnS", "LREAL", None),
+            symbol("P1.MinimumOffS", "LREAL", None),
+            symbol("P1.DwellS", "LREAL", None),
+        ],
+        controllers: vec![controller("P1", "Main")],
+        links: Vec::new(),
+        writes: Vec::new(),
+    }
 }
 
 #[test]
-fn the_on_off_and_state_feedback_drafts_are_refused_by_name() {
-    // control-studio-loop-setup-save.test.ts: "writes an ON/OFF loop ..." and "writes a state-feedback loop ..." are parked (V7, C3, C4).
-    for (structure, label) in [
-        ("onoff", "An ON/OFF controller"),
-        ("state-feedback", "State feedback"),
-    ] {
-        let draft = parse_setup_draft(&json!({ "structure": structure, "name": "Cold room" }))
-            .expect("the structure is known");
-        let refusal = plan_setup_save(&save_catalog(), &scope(), &draft)
-            .expect_err("a parked structure is refused");
-        assert_eq!(
-            full_text(&refusal),
-            format!("{label} is not yet supported by the Rust engine.")
+fn an_on_off_draft_is_saved_as_one_switching_loop_on_the_program_instance() {
+    // control-studio-loop-setup-save.test.ts: "writes an ON/OFF loop ...": the switching controller is served (C3), so the complete draft is
+    // generated and checked as one loop file on the program's own instance.
+    let draft = parse_setup_draft(&cold_room_draft()).expect("the switching draft decodes");
+    let planned = plan_setup_save(&cold_room_catalog(), &scope(), &draft)
+        .expect("the switching loop is planned");
+    let [only] = planned.as_slice() else {
+        panic!("a switching loop is one loop file");
+    };
+    assert_eq!(only.file_name, "control-loops/cold-room.json");
+    assert_eq!(only.loop_definition.controller.instance, "P1");
+    assert!(
+        only.loop_definition.controller.on_off.is_some(),
+        "the loop holds its switching block"
+    );
+}
+
+#[test]
+fn the_state_feedback_and_search_structures_are_served_and_their_drafts_are_checked() {
+    // C4 and C5 are served (V7 wave 4): a draft of either structure is decoded and checked, never refused by name. An empty draft
+    // names what it lacks, through the structure's own decode.
+    for structure in ["state-feedback", "search"] {
+        let refusal = parse_setup_draft(&json!({ "structure": structure, "name": "Cold room" }))
+            .expect_err("the draft is incomplete");
+        assert!(
+            full_text(&refusal)
+                .starts_with(&format!("The {structure} setup draft is not complete")),
+            "{}",
+            full_text(&refusal)
         );
     }
 }
@@ -432,4 +520,31 @@ fn the_rejection_names_map_to_the_rules_of_the_typescript_discovery() {
         validation_reason_code(&LoopRejection::UnsupportedVersion(1)),
         "unsupported_version"
     );
+}
+
+#[test]
+fn an_estimator_model_file_stays_inside_the_project_and_must_decode_as_a_model() {
+    // loopSetupSave.ts's `estimatorModel`: the model file lies inside the project and decodes as a model.
+    for file in ["lqg-model.json", "models/tanks.json", "./lqg-model.json"] {
+        assert!(
+            estimator_model_path(file).is_ok(),
+            "{file} is inside the project"
+        );
+    }
+    for file in [
+        "",
+        "../lqg-model.json",
+        "models/../../x.json",
+        "/etc/model.json",
+    ] {
+        let refusal = estimator_model_path(file).expect_err("the file leaves the project");
+        assert_eq!(
+            full_text(&refusal),
+            "Choose a model file inside the project."
+        );
+    }
+    let text = json!({ "title": "not a model" }).to_string();
+    let refusal = decode_estimator_model(&text, "notes.json").expect_err("not a model");
+    assert_eq!(full_text(&refusal), "notes.json is not a valid model.");
+    assert!(decode_estimator_model("{", "broken.json").is_err());
 }

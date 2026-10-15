@@ -12,6 +12,11 @@ export type TuningMethod = "SIMC" | "AMIGO";
  * acceptance requirements. The words are the stored ones of the requirement record.
  */
 export type TuningObjective = "fast" | "balanced" | "robust";
+/**
+ * The restoration a campaign's experiments confirmed (C12, E5.6): `restored` once the runtime confirmed the outputs written
+ * back to their original values, or `notRequired` when the experiment wrote none.
+ */
+export type CampaignRestoration = "restored" | "notRequired";
 
 /**
  * The result of an identification: the operation's final update of `controlStudio/identify` (B3.8; Identify page
@@ -40,6 +45,11 @@ export interface IdentifyResult {
    */
   provisional: boolean;
   /**
+   * The samples of the kept recording, which the page draws its recorded signals from, one per recorded sample and bounded
+   * by the recording limit (A7). Absent where the run kept none, as for `restoration`.
+   */
+  recordedSamples?: RecordedChartSample[] | null;
+  /**
    * The recording the model was fitted from, by its identifier (A8.3); absent for a supplied model, which no recording made.
    */
   recordingId?: string | null;
@@ -49,6 +59,11 @@ export interface IdentifyResult {
    * missing prerequisite when it runs.
    */
   requirements?: TuningRequirements | null;
+  /**
+   * The restoration the campaign's experiments confirmed (C12). Absent where the run kept none: a supplied model, a refit
+   * and a resumed campaign.
+   */
+  restoration?: CampaignRestoration | null;
   stageEvidence: StageEvidence;
   /**
    * The status of every stage after this result.
@@ -94,6 +109,77 @@ export interface PlotTrace {
    * One value per time; null where the recording holds no value (B10.3: missing values are not interpolated).
    */
   values: (number | null)[];
+  [k: string]: unknown;
+}
+/**
+ * One sample of a kept recording as the Identify chart draws it (`control-studio.recording.evidence`): its process time from the
+ * recording's first scan (A3.2), its scan, its quality, the setpoint, the measurement, the requested and the applied output, and
+ * the additional recorded signals by identifier (A4.2, A8.3). The page draws the signals it selects and decides nothing.
+ */
+export interface RecordedChartSample {
+  /**
+   * The additional recorded signals, each with its identifier, value and quality.
+   */
+  additional: RecordedChannel[];
+  /**
+   * The output the process received: the actuator's position when declared, else the manipulated variable.
+   */
+  appliedMv?: number | null;
+  /**
+   * The sample's process time in s from the recording's first scan.
+   */
+  elapsedSeconds: number;
+  /**
+   * The measurement; null where the recording holds none.
+   */
+  pv?: number | null;
+  /**
+   * The worst quality of the sample's signals.
+   */
+  quality: "good" | "forced" | "bad";
+  /**
+   * The output the controller requested, when the loop declares an actuator; null otherwise.
+   */
+  requestedMv?: number | null;
+  /**
+   * The sample's last scan.
+   */
+  scan: number;
+  /**
+   * The setpoint; null where the recording holds none.
+   */
+  sp?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * One channel of a recording: an additional signal of the loop or its actuator, with its value at the
+ * sample (`recordingChannels.ts`, `RecordedChannel`).
+ */
+export interface RecordedChannel {
+  /**
+   * The channel the signal belongs to; a quality flag is read within its channel.
+   */
+  channel: string;
+  /**
+   * The channel's identifier in the loop (`actuator` for the actuator).
+   */
+  id: string;
+  /**
+   * The channel's quality at the sample.
+   */
+  quality: "good" | "forced" | "bad";
+  /**
+   * The signal's role in the channel.
+   */
+  role: "SP" | "PV" | "MV" | "actuator" | "disturbance" | "state" | "quality" | "schedule";
+  /**
+   * The signal's unit.
+   */
+  unit: string;
+  /**
+   * The value; absent when missing.
+   */
+  value?: number | null;
   [k: string]: unknown;
 }
 /**

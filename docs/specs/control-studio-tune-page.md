@@ -238,6 +238,29 @@ While tuning runs, the action becomes **Abort**, with one short progress
 message. If tuning fails or a prerequisite is missing, show one short, specific
 message in that area. Do not turn this into a permanent status panel.
 
+### State-space design
+
+For a state-feedback law (Part C, C4), **Tuning method** offers **State-space design** next to Automatic. The engine answers every rule the page shows for it, and the page keeps no copy of those rules.
+
+- **Controller** lists the families the engine offers for the law (C4): for one plant input, state feedback and LQR, which share the law without an estimator; for several inputs, LQR alone; for an LQG law, LQG alone, because its estimator fixes the structure. The declared family is the recommended one, and the page marks it as the engine says. The engine answers the list, the recommended family, the parameter symbols of each family and the one method, **State-space design** (`state-space`), in the setup answer that the controller choice reads.
+- The **design form** shows the fields that the chosen family uses, with the labels the engine gives, in the page's own words: for LQR and LQG, **Solver policy** first, then **State weights (Q)** and **Input weights (R)**, and for LQG **Process noise covariance** and **Measurement noise covariance**. **Finite horizon steps** and **Terminal weights** appear only when the solver policy is **Finite-horizon (fixed policy)**; under **Infinite-horizon / steady-state** they are not shown. State feedback shows **Desired poles** alone. A field the family does not use is not shown.
+- The engine answers these fields before the first Tune, as `stateFields` (each a field key and its label) on the answers of `controlStudio/inputs` and `controlStudio/open`, from the family and the stored draft's solver policy. The same fields come with the Tune answer.
+- A draft field that the form refuses shows the engine's sentence under that field. The refusal names the field's key (`field`: `desiredPoles`, `stateWeights`, `inputWeights`, `processNoise`, `measurementNoise`, `solverMode`, `horizonSteps` or `terminalWeights`), and a refusal of the whole form names none, so the page shows it at the form's head.
+- **Tune controller** shows the candidate's gains and reference gain under the loop's own symbols, the estimator gains for LQG, the closed-loop poles, and the margins where the engine gives them. For a finite horizon it shows the **Riccati stages**: the gain and the Riccati matrix of each step, with the horizon policy (`repeat-first-finite-gain`, or `pinned-fixed-gain` when a pin is set).
+- A pinned coefficient keeps its value, and the design then shows the poles of the pinned gains.
+
+### Measured paths
+
+**Measured paths** is one of the **Analyze…** tools for a loop with as many inputs as outputs, two or more, once the study keeps a recording that the engine can measure (C7). The engine answers that the tool applies, and its label and button. The engine takes the study's last kept recording, and the answer names it; the page shows no recording choice.
+
+- **Settled windows · seconds** has one row for each declared input, named by its identifier, with four fields: **Base start (s)**, **Base end (s)**, **Settled start (s)** and **Settled end (s)**. The base window lies before the input's step, and the settled window after its output has settled. A row whose four fields are not all entered is not sent, and the engine then names the windows it still needs.
+- **Drift tolerance (optional)** is one number. Left blank, no drift check is made.
+- **Calculate measured paths** calculates. While the calculation runs, the same button reads **Abort analysis** and stops it.
+- The answer shows, in order: the engine's summary sentences; **Measured gain matrix**, with one row for each output and one column for each input, every channel named by its symbol and unit, and every entry at one precision; **Relative Gain Array**, a closed disclosure below the gain matrix in the same layout; **Static decoupler**, a closed disclosure with one row for each input and one column for each output; the **pairing**, which names each output with its input and the relative gain of the pair, or shows the engine's sentence of its refusal; and **Calculation details**, a closed disclosure with the engine's detail sentences. The page computes none of these numbers and checks no entry.
+- A refused calculation shows the engine's sentence, whole when the engine says more than its first sentence, under the window table and the drift tolerance, which the sentence concerns. It shows no matrix as evidence.
+- Reopening the page shows the windows and the tolerance that the analysis used, and calculates it again (A8.6).
+- A parked loop keeps its TypeScript calculation, in the same section, until stage V7.17 (debt).
+
 ## Result and plot
 
 Show the proposed controller type and its actual calculated settings. For
@@ -260,6 +283,27 @@ controller under the same conditions, using a small **Tuned / Current** legend
 and axes with signal units and time. Do not label predictions as measured
 validation. For multiple outputs, keep each response associated with its
 corresponding channel.
+
+A finite search (C5) shows its trials as one table in the Result area: one row
+per trial in the engine's listed order, with its coefficient values, whether it
+was attempted (and its reason when the plan was refused before the search),
+its bounds outcome (met, not met or missing evidence), J in the measurement's
+unit squared times seconds, and the selected trial marked. When the search did
+not complete, the engine's sentence stands above the table. A reopened study
+shows its kept candidate's trials the same way.
+
+The five structures the engine serves without a lesson show their own section,
+and every value in it is the engine's answer, with the symbols and units the
+loop declares (C3, C6, C7, C9, C10). A cascade (C6) shows its inner and then its
+outer PI, each with its instance and its proportional and integral gain. A Smith
+predictor (C9) shows its PI and the model's gain, time constant and delay, and
+the operating point when the library block is used. A gain schedule (C10) shows
+the engine's choice and its sentence; a scheduled design then shows a table with
+each operating point, its scheduling value and its gains, and a fixed design
+shows its one PI. An ON/OFF controller (C3) shows its hysteresis, its minimum ON
+and OFF times and the declared output levels. A PID group (C7) shows each
+member's PI with its paired channels and its relative gain, and the decoupler D
+when the group has one.
 
 ## Layout
 

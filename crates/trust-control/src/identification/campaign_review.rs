@@ -23,6 +23,7 @@ use crate::identification::acquisition_settings::{configured_acquisition, Acquis
 use crate::identification::campaign::{
     campaign_maximum_ms, ms_as_f64, plant_input_range, require_campaign_limits,
 };
+use crate::identification::connected_run::{campaign_method, own_steps_check};
 use crate::identification::policy::{identification_method, project_scripted};
 use crate::limits::RESTORATION_CONFIRMATION_EXECUTIONS;
 use crate::loop_definition::{
@@ -179,7 +180,10 @@ pub fn campaign_review(
     let configured =
         configured_acquisition(loop_definition, Some(settings)).map_err(|error| error.failure())?;
     require_campaign_limits(&configured)?;
-    let method = identification_method(&configured, sample).map_err(|error| error.failure())?;
+    let loop_method =
+        identification_method(&configured, sample).map_err(|error| error.failure())?;
+    own_steps_check(&configured, loop_method)?;
+    let method = campaign_method(&configured, loop_method);
     let maximum_ms = campaign_maximum_ms(&configured)?;
     let input_range = plant_input_range(&configured)?;
     let experiment = configured.experiment.as_ref();

@@ -7,7 +7,7 @@
 //!
 //! The `TypeScript` could also fit in a worker (`fitUsing`, `restoreUsing`) and counted generations to drop late
 //! results; here a fit is a plain call that takes its calculation (`fit_with`), so neither is needed. The choice of a
-//! sensor-lag structure (`chooseStructure`, `structureChoice`) is parked with stage V7.
+//! sensor-lag structure (`chooseStructure`, `structureChoice`) is `choose_structure`: the preview is prepared again with it.
 
 #![allow(clippy::module_name_repetitions)] // `IdentificationWorkflow` and `WorkflowState` are the `TypeScript` names.
 
@@ -23,9 +23,10 @@ use crate::identification::form_draft::IdentificationFormDraft;
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::refusal::Refusal;
 use crate::identification::review::{
-    prepare_identification_review, AcceptanceReview, AcceptedIdentificationModel,
+    prepare_identification_review_with_structure, AcceptanceReview, AcceptedIdentificationModel,
     IdentificationModelSelection, IdentificationReview, IdentificationReviewInput,
 };
+use crate::identification::sensor_lag_comparison::StructureChoice;
 use crate::identification::state::{
     decode_identification_state, restore_identification_input, same_samples,
     save_identification_input, IdentificationPhase, IdentificationRecording,
@@ -51,6 +52,9 @@ const QUALIFICATION_MISMATCH: &str =
     "Saved identification qualification does not match its inputs.";
 const STAGE_MISMATCH: &str = "Saved identification review stage does not match its inputs.";
 const BOUNDED_STEP_REQUIREMENT: &str = "Bounded step analysis requires a first-order or two-lag model and the complete unexcluded recording.";
+const CHOOSE_FIRST: &str = "Calculate the comparison before choosing a provisional model.";
+
+mod manual_answer;
 
 /// The role of the next fit (`nextFitRole`; B3.5): the first fit estimates the model, every later one validates it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -129,6 +133,8 @@ pub struct IdentificationWorkflow {
     failure: Option<String>,
     /// The raw form, while it is edited or pending.
     form: Option<IdentificationFormDraft>,
+    /// The sensor-lag structure the engineer kept at the preview (`structureChoice`).
+    structure_choice: Option<StructureChoice>,
 }
 
 impl IdentificationWorkflow {
@@ -148,6 +154,7 @@ impl IdentificationWorkflow {
             review: None,
             failure: None,
             form: None,
+            structure_choice: None,
         }
     }
 
@@ -193,6 +200,7 @@ impl IdentificationWorkflow {
             current: self.current.as_ref().map(save_identification_input),
             estimation: self.estimation.as_ref().map(save_identification_input),
             form: self.form.clone(),
+            structure_choice: self.structure_choice,
         })
     }
 
@@ -213,8 +221,33 @@ impl IdentificationWorkflow {
     ) -> Result<(), Refusal> {
         let saved = decode_identification_state(value, loop_definition)
             .ok_or_else(|| Refusal::new(MALFORMED_STATE))?;
-        *self = Self::replay(&saved)?;
+        self.restore_saved(&saved)
+    }
+
+    /// Restores a state that is already decoded, or read from the study, by the replay of [`IdentificationWorkflow::restore`].
+    /// This workflow is replaced only when the replay reaches the saved stage.
+    ///
+    /// # Errors
+    /// As [`IdentificationWorkflow::restore`], without the decoder's refusal: a saved estimation no longer qualifies, a check
+    /// or a fit fails, or the replay ends at another stage.
+    pub fn restore_saved(&mut self, saved: &SavedIdentificationState) -> Result<(), Refusal> {
+        *self = Self::replay(saved)?;
         Ok(())
+    }
+
+    /// The workflow of a saved state's inputs and stage, without replaying its checks and fits. It serves an edit of the form and a
+    /// check, which clear every review and need only the inputs; an accepted model is not restored this way, because its acceptance
+    /// is replayed by [`IdentificationWorkflow::restore_saved`].
+    #[must_use]
+    pub fn from_inputs(saved: &SavedIdentificationState) -> Self {
+        Self {
+            current: saved.current.as_ref().map(restore_identification_input),
+            estimation: saved.estimation.as_ref().map(restore_identification_input),
+            form: saved.form.clone(),
+            phase: saved.phase,
+            structure_choice: saved.structure_choice,
+            ..Self::new(saved.maximum_normalized_error)
+        }
     }
 
     /// Checks a recording (`qualify`; B3.5) and makes it the current input. Any form and any accepted model are
@@ -247,6 +280,11 @@ impl IdentificationWorkflow {
         );
         if self.accepted.is_some() || kind_changed || settings_changed {
             self.estimation = None;
+        }
+        // A check of a validation recording keeps the structure chosen for the estimation it is checked against, because the
+        // chosen structure is what the validation fit tests. Any other check clears the choice, as the `TypeScript` did.
+        if self.estimation.is_none() {
+            self.structure_choice = None;
         }
         let qualification = qualification_of(&request);
         let current = IdentificationReviewInput {
@@ -312,6 +350,7 @@ impl IdentificationWorkflow {
         self.qualification = None;
         self.review = None;
         self.failure = None;
+        self.structure_choice = None;
         if was_accepted {
             self.estimation = None;
         }
@@ -326,7 +365,28 @@ impl IdentificationWorkflow {
     /// # Errors
     /// As [`IdentificationWorkflow::fit_with`].
     pub fn fit(&mut self) -> Result<&IdentificationReview, Refusal> {
-        self.fit_with(prepare_identification_review)
+        let choice = self.structure_choice;
+        self.fit_with(|input| prepare_identification_review_with_structure(input, choice))
+    }
+
+    /// Keeps the sensor-lag structure the engineer chose at the preview (`chooseStructure`): the preview is prepared again from
+    /// the estimation with the choice, and the review accepts it only when it is the structure the comparison recommends. The
+    /// stage stays the preview. A choice is cleared by an edit, by a failed fit, or by a check that does not keep the estimation.
+    ///
+    /// # Errors
+    /// The stage is not the preview of an estimation, or the review refuses the choice (the state is then unchanged).
+    pub fn choose_structure(
+        &mut self,
+        choice: StructureChoice,
+    ) -> Result<&IdentificationReview, Refusal> {
+        let review = match (&self.estimation, self.phase) {
+            (Some(estimation), IdentificationPhase::Preview) => {
+                prepare_identification_review_with_structure(estimation, Some(choice))?
+            }
+            _ => return Err(Refusal::new(CHOOSE_FIRST)),
+        };
+        self.structure_choice = Some(choice);
+        Ok(&*self.review.insert(review))
     }
 
     /// Fits the qualified recording with `calculate` (`fit`, `fitUsing`; B3.5). Without an estimation the qualified
@@ -420,6 +480,10 @@ impl IdentificationWorkflow {
                 return Err(Refusal::new(ESTIMATION_NO_LONGER_QUALIFIES));
             }
             self.refit()?;
+            // The choice comes before any validation, which tests the chosen structure.
+            if let Some(choice) = saved.structure_choice {
+                self.choose_structure(choice)?;
+            }
         }
         if let (Some(form), None) = (&saved.form, &saved.current) {
             self.edit_form(form.clone());
@@ -535,6 +599,7 @@ impl IdentificationWorkflow {
 
     /// Records a refused fit (`failFit`): the failed stage, no review, and the refusal's sentence.
     fn fail_fit(&mut self, refusal: &Refusal) {
+        self.structure_choice = None;
         self.phase = IdentificationPhase::Failed;
         self.review = None;
         self.failure = Some(refusal.0.clone());

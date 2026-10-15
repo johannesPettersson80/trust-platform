@@ -19,6 +19,7 @@ use crate::identification::data::{
 };
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::refusal::Refusal;
+use crate::identification::sensor_lag_comparison::SensorLagComparison;
 use crate::identification::step_response::{StepResponseAnalysis, StepResponseMeasurement};
 
 /// The normalized prediction error above which a model is flagged as too inaccurate for controller design.
@@ -63,7 +64,7 @@ pub struct OperatingRange {
 /// The fit evidence of an identified model (B3.5, B3.8; `ModelFitEvidence`): the measured response with the
 /// prediction, the residual root mean square, the delay, the operating range and the warnings. A bounded step review
 /// adds its step-response analysis and the measurement of the plotted record.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelFitEvidence {
     /// The measured and predicted output at every sample.
@@ -89,6 +90,10 @@ pub struct ModelFitEvidence {
     /// The step-response measurement of the plotted record, when it is another record than the estimation's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step_response_measurement: Option<StepResponseMeasurement>,
+    /// The model-structure comparison the model was chosen by, when a held step was compared (`modelStructure`; N2.10).
+    /// Boxed, because the comparison holds the fit evidence of its two candidates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_structure: Option<Box<SensorLagComparison>>,
 }
 
 /// The fitted response of a held step (A10.3, N2.3, N2.6; `heldStepEvidence`): its size, how long it was held, and
@@ -160,6 +165,7 @@ fn fit_evidence(
         warnings: fit_warnings(model, samples, final_change_fraction),
         step_response: None,
         step_response_measurement: None,
+        model_structure: None,
     })
 }
 

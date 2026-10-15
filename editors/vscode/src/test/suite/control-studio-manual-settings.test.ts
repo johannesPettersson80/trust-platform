@@ -31,7 +31,7 @@ suite("Control Studio manual Tune settings", () => {
     const f = setup({ status: "candidate", family: "LQR", values: {} });
     try {
       renderTunedController(f.root, loop, { status: "candidate", family: "LQR", values: {},
-        design: { horizon: { steps: 1, policy: "pinned-fixed-gain", gainSequence: [[[.5]]], riccatiSequence: [[[1.5]], [[1]]] } } });
+        state: { family: "LQR", horizon: { steps: 1, policy: "pinned-fixed-gain", gainSequence: [[[.5]]], riccatiSequence: [[[1.5]], [[1]]] } } });
       assert.match(f.root.querySelector("[data-studio-design-policy]")!.textContent!, /Pinned fixed gain/);
       assert.match(f.root.querySelector("details summary")!.textContent!, /Nominal/);
       assert.strictEqual(f.root.querySelector<HTMLDetailsElement>("details")!.open, false);
@@ -53,7 +53,7 @@ suite("Control Studio manual Tune settings", () => {
     const f = setup({ status: "candidate", family: "LQR", values: {} });
     try {
       renderTunedController(f.root, loop, { status: "candidate", family: "LQR", values: {},
-        design: { horizon: { steps: 2, policy: "repeat-first-finite-gain", gainSequence: [[[0.07841259, 0.02451445]], [[0.01815348, 0.00036036]]],
+        state: { family: "LQR", horizon: { steps: 2, policy: "repeat-first-finite-gain", gainSequence: [[[0.07841259, 0.02451445]], [[0.01815348, 0.00036036]]],
           riccatiSequence: [[[1948.2568, 554.3539], [554.3539, 4065.8254]], [[756.1485, 14.4981], [14.4981, 769.2411]], [[400, 0], [0, 400]]] } } });
       const rows = [...f.root.querySelectorAll("[data-studio-riccati-stage]")].map(row => [...(row as HTMLTableRowElement).cells].map(cell => cell.textContent));
       assert.deepStrictEqual(rows, [

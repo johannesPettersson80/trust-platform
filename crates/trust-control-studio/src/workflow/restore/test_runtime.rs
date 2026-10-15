@@ -116,6 +116,7 @@ pub(super) fn setup(kind: Kind, found: Option<FoundMode>, stage: CheckpointStage
         process_noise: Some(NOISE),
         validation_identity: "sha256:validation".to_owned(),
         transfers: Vec::new(),
+        schedule_origin: None,
     };
     Setup {
         kind,

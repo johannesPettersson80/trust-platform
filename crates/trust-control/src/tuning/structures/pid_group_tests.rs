@@ -183,3 +183,86 @@ fn a_decoupler_needs_members() {
     .expect_err("a decoupler has one row and one column per member");
     assert_eq!(refusal.0, texts::DECOUPLER_MEMBERS);
 }
+
+#[test]
+fn a_two_member_decoupler_is_configured_as_static_decoupler_2x2_and_its_inverse_is_d() {
+    // G = diag(K)⁻¹·K = [[1, K₁₂/K₁₁], [K₂₁/K₂₂, 1]] = [[1, 0.04/0.13], [0.04/0.13, 1]]; G⁻¹ = D (spec 37 §4.2; C7).
+    let members = decoupler_members();
+    let design = design_decoupled_group(
+        &decoupler_zones_model(),
+        &members,
+        None,
+        ControllerAction::Direct,
+    )
+    .expect("the zones' gains are nonsingular");
+    let block = design
+        .block
+        .expect("a two-member group has the block's configuration");
+    let ratio = 0.04 / 0.13;
+    assert!((block.gain[0][1] - ratio).abs() < 1e-12 && (block.gain[1][0] - ratio).abs() < 1e-12);
+    assert!((block.gain[0][0] - 1.0).abs() < 1e-12 && (block.gain[1][1] - 1.0).abs() < 1e-12);
+    for (row, values) in block.inverse.iter().enumerate() {
+        for (column, value) in values.iter().enumerate() {
+            assert!(
+                (value - design.matrix[row][column]).abs() < 1e-9,
+                "G⁻¹[{row}][{column}] = {value}"
+            );
+        }
+    }
+    // The relative determinant is (1 − ratio²) over (1 + ratio)², which the block compares with its tolerance.
+    let expected = (1.0 - ratio * ratio) / ((1.0 + ratio) * (1.0 + ratio));
+    assert!(
+        (block.relative_determinant - expected).abs() < 1e-12,
+        "{}",
+        block.relative_determinant
+    );
+}
+
+#[test]
+fn the_block_refuses_a_gain_matrix_it_cannot_configure_with_its_reason() {
+    // K = [[1, 1], [1, 1]] is singular: G = [[1, 1], [1, 1]] has no determinant (the block's rule, spec 37 §4.2).
+    let refusal =
+        static_decoupler_2x2(&vec![vec![1.0, 1.0], vec![1.0, 1.0]]).expect_err("G is singular");
+    assert!(
+        refusal.0.contains("Control.StaticDecoupler2x2 refuses"),
+        "{}",
+        refusal.0
+    );
+}
+
+#[test]
+fn an_unspecified_objective_designs_for_more_robust_as_automatic_does() {
+    // C7 and D-13: a group with no declared response takes Automatic's objective, More robust.
+    let members = decoupler_members();
+    let unspecified = design_decoupled_group(
+        &decoupler_zones_model(),
+        &members,
+        None,
+        ControllerAction::Direct,
+    )
+    .expect("the zones' gains are nonsingular");
+    let robust = design_decoupled_group(
+        &decoupler_zones_model(),
+        &members,
+        Some(TuningObjective::Robust),
+        ControllerAction::Direct,
+    )
+    .expect("the zones' gains are nonsingular");
+    assert_eq!(unspecified.members, robust.members);
+}
+
+/// The two members of the zones' decoupler: each heater drives its own zone.
+fn decoupler_members() -> Vec<DecouplerMember> {
+    vec![
+        DecouplerMember {
+            instance: "P1.Zone1".to_owned(),
+            input_channel_id: "P1.Heater1Pct".to_owned(),
+            output_channel_id: "P1.Zone1C".to_owned(),
+        },
+        DecouplerMember {
+            instance: "P1.Zone2".to_owned(),
+            input_channel_id: "P1.Heater2Pct".to_owned(),
+            output_channel_id: "P1.Zone2C".to_owned(),
+        },
+    ]
+}

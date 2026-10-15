@@ -20,6 +20,8 @@ export class ThreePageExperiments {
   private readonly section: HTMLElement;
   private readonly signals: HTMLSelectElement;
   private readonly status: HTMLElement;
+  /** The note a finished test carries under its status: the fit's refusal the engine answers with the test's end (C12). */
+  private readonly note: HTMLElement;
   private readonly planView: HTMLElement;
   private readonly parameterSection?: HTMLElement;
   private readonly parameterStatus?: HTMLElement;
@@ -51,6 +53,12 @@ export class ThreePageExperiments {
     this.section = section;
     this.signals = section.querySelector<HTMLSelectElement>("[data-three-page-experiment-signals]")!;
     this.status = section.querySelector<HTMLElement>("[data-three-page-experiment-status]")!;
+    // The note is a line of its own under the status, which stays the sentence the engine ends the test with (C12).
+    this.note = document.createElement("p");
+    this.note.className = "studio-action-message";
+    this.note.dataset.threePageExperimentNote = "";
+    this.note.hidden = true;
+    this.status.after(this.note);
     this.planView = section.querySelector<HTMLElement>("[data-three-page-experiment-plan]")!;
     // The parameter tool sits with this test for experiment settings, and on the Tune page for a declared analysis (B6.1, C12).
     // The whole page is searched, so either place is found.
@@ -174,6 +182,8 @@ export class ThreePageExperiments {
     if (phase === "parameters") { this.receiveParameters(payload); return; }
     this.pending = undefined;
     this.publishRecording(phase, payload);
+    // A review, a start or a refused start begins again, so the note of a finished test is no longer its note.
+    if (phase === "review" || phase === "running" || phase === "failed") this.showNote(undefined);
     if (phase === "review") {
       if (payload.kind === "accepted" && isControlExperimentPlan(payload.plan)) {
         this.reviewId = undefined;
@@ -243,9 +253,12 @@ export class ThreePageExperiments {
       this.reviewId = undefined;
       this.planView.hidden = true;
       const reason = text(payload.reason);
-      this.status.textContent = payload.status === "finished" ? "Project test completed."
+      // The engine names the restoration its finished campaign confirmed; the page shows that word and decides nothing more.
+      this.status.textContent = payload.status === "finished" ? `Project test completed.${payload.restoration === "restored" ? " Outputs restored." : ""}`
         : payload.status === "cancelled" ? "Project test aborted."
           : reason ?? (payload.status === "failed" ? "Project test failed." : "Project test ended.");
+      // A finished test whose fit refused names the refusal under its status; the page shows the engine's words only.
+      this.showNote(text(payload.note));
       this.render();
       return;
     }
@@ -459,6 +472,12 @@ export class ThreePageExperiments {
       this.parameterAction.disabled = this.pending !== undefined || this.blocked() !== undefined;
     }
     if (this.parameterStatus) this.parameterStatus.hidden = false;
+  }
+
+  /** Shows the note a finished test carries under its status, or hides it when the test carries none (C12). */
+  private showNote(note: string | undefined): void {
+    this.note.textContent = note ?? "";
+    this.note.hidden = note === undefined;
   }
 
   private parameterStatusText(value: string): void {

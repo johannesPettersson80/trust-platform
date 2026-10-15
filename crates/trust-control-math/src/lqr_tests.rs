@@ -140,6 +140,43 @@ fn a_horizon_outside_its_limits_or_with_a_refused_weight_is_invalid() {
 }
 
 #[test]
+fn a_steady_state_weight_that_is_not_admissible_is_malformed() {
+    let run = |q: DenseMatrix, r: DenseMatrix| {
+        solve_discrete_lqr(
+            &scalar(1.0),
+            &scalar(1.0),
+            &q,
+            &r,
+            &tolerance(),
+            None,
+            LIMITS,
+        )
+    };
+    // A negative state weight and a zero input weight are refused, as the finite horizon refuses them.
+    assert_eq!(
+        run(scalar(-1.0), scalar(1.0)),
+        Err(LqrRefusal::MalformedWeight)
+    );
+    assert_eq!(
+        run(scalar(1.0), scalar(0.0)),
+        Err(LqrRefusal::MalformedWeight)
+    );
+    // A state weight that is not symmetric is refused, here in a two-state problem.
+    let asymmetric = solve_discrete_lqr(
+        &vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        &vec![vec![1.0], vec![0.0]],
+        &vec![vec![1.0, 0.5], vec![0.0, 1.0]],
+        &scalar(1.0),
+        &tolerance(),
+        None,
+        LIMITS,
+    );
+    assert_eq!(asymmetric, Err(LqrRefusal::MalformedWeight));
+    // Admissible weights still solve.
+    assert!(run(scalar(1.0), scalar(1.0)).is_ok());
+}
+
+#[test]
 fn a_shape_that_does_not_fit_the_steady_state_problem_is_refused() {
     // The input matrix has two columns, but R is 1×1 and must be 2×2 for two inputs.
     let result = solve_discrete_lqr(

@@ -279,7 +279,8 @@ fn plant_input_method(policy: Option<&IdentificationPolicy>) -> IdentificationMe
 
 /// The checks of an explicit method against the loop's policy: a load step needs a declared disturbance channel, and
 /// the policy may forbid open-loop methods or sustained steps. A project-scripted loop takes no explicit excitation (C12).
-fn validate_explicit_method(
+/// An input's own identification step is checked the same way (`channel_steps`, C7 and C8).
+pub(crate) fn validate_explicit_method(
     loop_definition: &LoopDefinition,
     requested: ExperimentKind,
 ) -> Result<(), PolicyError> {

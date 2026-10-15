@@ -522,6 +522,7 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
             "commands": commands,
             "feedbacks": feedbacks,
             "memory": memory,
+            "booleans": boolean_process_image(&io_snapshot),
         },
     });
     if let Some(key) = cache_key {
@@ -545,6 +546,41 @@ fn source_revision(sources: &[LoadedSource]) -> String {
 }
 
 fn plant_signal_entries(entries: &[trust_runtime::io::IoSnapshotEntry]) -> Vec<Value> {
+    process_image_entries(entries, |value_type| {
+        matches!(
+            value_type,
+            "SINT"
+                | "INT"
+                | "DINT"
+                | "LINT"
+                | "USINT"
+                | "UINT"
+                | "UDINT"
+                | "ULINT"
+                | "REAL"
+                | "LREAL"
+        )
+    })
+}
+
+/// The BOOL bits of the process image, listed as `booleans`: a declared state may name one, such as `%MX40.0` (specification 35,
+/// B1.3). They are not plant candidates, so the plant lists keep the numeric signals only.
+fn boolean_process_image(snapshot: &trust_runtime::io::IoSnapshot) -> Vec<Value> {
+    let mut booleans = Vec::new();
+    for area in [&snapshot.inputs, &snapshot.outputs, &snapshot.memory] {
+        booleans.extend(process_image_entries(area, |value_type| {
+            value_type == "BOOL"
+        }));
+    }
+    booleans.sort_by(plant_signal_order);
+    booleans
+}
+
+/// The addressed, named signals of one area whose IEC type `accepts`, each as its symbol, address and type.
+fn process_image_entries(
+    entries: &[trust_runtime::io::IoSnapshotEntry],
+    accepts: impl Fn(&str) -> bool,
+) -> Vec<Value> {
     entries
         .iter()
         .filter(|entry| !entry.address.wildcard)
@@ -552,19 +588,7 @@ fn plant_signal_entries(entries: &[trust_runtime::io::IoSnapshotEntry]) -> Vec<V
             let value_type = entry
                 .value_type
                 .and_then(trust_runtime::io::io_value_type_name)?;
-            if !matches!(
-                value_type,
-                "SINT"
-                    | "INT"
-                    | "DINT"
-                    | "LINT"
-                    | "USINT"
-                    | "UINT"
-                    | "UDINT"
-                    | "ULINT"
-                    | "REAL"
-                    | "LREAL"
-            ) {
+            if !accepts(value_type) {
                 return None;
             }
             Some(json!({

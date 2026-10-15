@@ -6,6 +6,26 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Control Studio's loop discovery no longer refuses a loop that declares an addressed BOOL signal, such as the course's
+  experiment activation, fault and state indications: the compiled process image now lists BOOL bits beside the numeric
+  variables, so the setup page and the Tune page's controller list find these loops.
+- Every Control Studio structure now runs on its Rust engine, so the course's last lessons on the old route move over: state
+  feedback, LQR and LQG design on a supplied state-space model (lessons 68, 69 and 72), with the closed-loop poles and the
+  Riccati stages; the measured MIMO paths with the gain matrix, the relative gain array, the static decoupler and the pairing
+  (lessons 61 and 62); and the finite search over a program's coefficients (lesson 89), whose trials run the program against
+  the selected model and are ranked by the integral of squared error. The cascade, the Smith predictor, the gain schedule, the
+  ON/OFF controller and the PID group with its static decoupler also tune, validate, apply and restore through the engine.
+- Recorded-data fit, the manual identification of the Identify page, runs on the engine with its held-step settings and the
+  sensor-lag comparison: the accepted model becomes the study's model that Tune designs on, and the chosen structure is now
+  checked on the independent recording. A project test made while the identification waits for its independent recording keeps
+  that recording for the check and leaves the model in place (lesson 26).
+- A project test on the engine now shows "Project test completed. Outputs restored." and its recorded signals in the chart, and a
+  refusal shows its whole text. A project test of a loop whose signals are all addressed no longer ends with "Identification
+  requires the complete recording from the connected runtime.".
+- Validate binds every input and output of the model through the loop's channels, so lesson 84's measured-disturbance
+  feedforward validates its draw-off cases on the full two-input model.
+- Loop setup is checked by the engine for every structure: the state-feedback, LQG and search-law setups and the five
+  structures' setups are written by the engine, and each refusal is shown under the field it names.
 - Loops whose program runs its own law now run on Control Studio's engine: a PID that the program computes itself
   (`controller.project` with a parallel PID seed) and the program's P controller. Tune designs the gains on the model,
   Validate runs the actual program, and Apply and Restore write and return the program's gain variables.

@@ -14,7 +14,11 @@ use crate::tuning::settings_pins::{family_setting_symbols, ControllerSettingsPin
 fn pid(candidate: &LawCandidate) -> ControlPidCandidate {
     match candidate {
         LawCandidate::Pid(candidate) => *candidate,
-        LawCandidate::Project(_) => panic!("a Control.PID loop gives a record"),
+        LawCandidate::Project(_)
+        | LawCandidate::State(_)
+        | LawCandidate::Search(_)
+        | LawCandidate::OnOff(_)
+        | LawCandidate::Group(_) => panic!("a Control.PID loop gives a record"),
     }
 }
 
@@ -203,7 +207,7 @@ fn without_a_fixed_structure_the_entered_gains_give_it_and_the_method_must_be_ma
     )
     .expect("a proportional entry is a candidate")
     .expect("the manual method gives a candidate");
-    assert_eq!(proportional_only.structure(), Structure::P);
+    assert_eq!(proportional_only.structure(), Some(Structure::P));
     let with_integral = candidate_of(
         &loop_definition,
         &request(
@@ -213,7 +217,7 @@ fn without_a_fixed_structure_the_entered_gains_give_it_and_the_method_must_be_ma
     )
     .expect("a PI entry is a candidate")
     .expect("the manual method gives a candidate");
-    assert_eq!(with_integral.structure(), Structure::PI);
+    assert_eq!(with_integral.structure(), Some(Structure::PI));
     let formula = request(entry(&[("Main.Kp", 1.2)]), Some(TuneMethod::Simc));
     assert_eq!(
         candidate_of(&loop_definition, &formula).expect("a formula is not a candidate"),

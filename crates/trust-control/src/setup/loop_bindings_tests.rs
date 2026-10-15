@@ -8,8 +8,8 @@ use sha2::{Digest, Sha256};
 
 use super::{
     binding, cyclic_task, explicit_experiment, identification_duration, loop_id,
-    manual_output_type, measurement_binding, state_type, stated_signal, stated_unit, with_revision,
-    MeasuredSignal,
+    manual_output_type, measured_signal, measurement_binding, state_type, stated_signal,
+    stated_unit, with_revision, FormSignal, MeasuredSignal,
 };
 use crate::failure::{Cause, Failure};
 use crate::loop_definition::{
@@ -86,17 +86,17 @@ fn plant_loop(name: &str) -> LoopDefinition {
         },
         &IdentifyLoopDraft {
             name: name.to_string(),
-            manipulated_variable: MeasuredSignal {
+            manipulated_variable: FormSignal {
                 symbol: "P1.HeaterPct".to_string(),
                 unit: "%".to_string(),
-                minimum: 0.0,
-                maximum: 100.0,
+                minimum: Some(0.0),
+                maximum: Some(100.0),
             },
-            process_variable: MeasuredSignal {
+            process_variable: FormSignal {
                 symbol: "P1.JacketC".to_string(),
                 unit: "degC".to_string(),
-                minimum: 0.0,
-                maximum: 90.0,
+                minimum: Some(0.0),
+                maximum: Some(90.0),
             },
             experiment_duration_seconds: Some(120.0),
         },
@@ -287,6 +287,73 @@ fn the_revision_is_the_sha256_of_the_canonical_loop_without_its_revision() {
         with_revision(renamed).revision,
         loop_definition.revision,
         "the content is part of the digest"
+    );
+}
+
+#[test]
+fn a_form_signal_without_a_bound_is_refused_under_the_field_that_holds_it() {
+    let form = |minimum: Option<f64>, maximum: Option<f64>| FormSignal {
+        symbol: "P1.Level".to_string(),
+        unit: "m".to_string(),
+        minimum,
+        maximum,
+    };
+    let checked = measured_signal(
+        &form(Some(0.0), Some(2.0)),
+        "measurement",
+        Some("processVariable"),
+    )
+    .expect("both bounds are numbers and the maximum is above the minimum");
+    assert_eq!((checked.minimum, checked.maximum), (0.0, 2.0));
+    assert_eq!(checked.unit, "m", "the unit is kept as the form sent it");
+    for (minimum, maximum, bound) in [(None, Some(2.0), "minimum"), (Some(0.0), None, "maximum")] {
+        let failure = measured_signal(
+            &form(minimum, maximum),
+            "measurement",
+            Some("processVariable"),
+        )
+        .expect_err("a missing bound is refused");
+        assert_eq!(
+            failure.message,
+            "Enter the measurement minimum and maximum."
+        );
+        let field = format!("processVariable.{bound}");
+        assert_eq!(failure.field.as_deref(), Some(field.as_str()));
+    }
+    let order = measured_signal(&form(Some(3.0), Some(3.0)), "measurement", None)
+        .expect_err("a maximum that is not above the minimum is refused");
+    assert_eq!(
+        order.message,
+        "The measurement maximum must be above its minimum."
+    );
+    assert_eq!(
+        order.field, None,
+        "without a page field the sentence stands in the message area"
+    );
+}
+
+#[test]
+fn a_signal_with_no_symbol_or_unit_is_refused_under_its_field_before_its_range() {
+    let form = |symbol: &str, unit: &str| FormSignal {
+        symbol: symbol.to_string(),
+        unit: unit.to_string(),
+        minimum: Some(0.0),
+        maximum: Some(1.0),
+    };
+    let field = Some("feedback.manipulatedVariable");
+    let no_symbol = measured_signal(&form("", ""), "plant input", field)
+        .expect_err("a signal with no symbol is refused first");
+    assert_eq!(no_symbol.message, "Choose the plant input.");
+    assert_eq!(
+        no_symbol.field.as_deref(),
+        Some("feedback.manipulatedVariable")
+    );
+    let no_unit = measured_signal(&form("P1.HeaterPct", "  "), "plant input", field)
+        .expect_err("a signal with no unit is refused");
+    assert_eq!(no_unit.message, "Enter the plant input unit.");
+    assert_eq!(
+        no_unit.field.as_deref(),
+        Some("feedback.manipulatedVariable.unit")
     );
 }
 

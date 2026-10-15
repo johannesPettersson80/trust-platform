@@ -11,14 +11,17 @@ use std::collections::BTreeSet;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::catalog::{CompiledCatalog, CompiledSymbol, CompiledTask, PID_TYPE};
+use super::catalog::{own_measurement, CompiledCatalog, CompiledSymbol, CompiledTask, PID_TYPE};
 use super::loop_bindings::{
     binding, compiled, cyclic_task, explicit_experiment, loop_id, manual_output_type,
-    measurement_binding, real_type, state_type, stated_signal, stated_unit, with_revision,
-    MeasuredSignal,
+    measured_signal, measurement_binding, real_type, state_type, stated_signal, stated_unit,
+    with_revision, FormSignal, MeasuredSignal,
 };
-use super::pid_bindings::{manual_output_tracking, pid_parameters, pid_states, startup_state};
-use super::pid_loop::{setpoint_signal, ModeChoice, SignalChoice};
+use super::pid_bindings::{
+    manual_output_tracking, pid_parameters, pid_states, startup_flag_is_bool, startup_reason,
+    startup_state,
+};
+use super::pid_loop::{pid_seeded_symbols, setpoint_signal, ModeChoice, SignalChoice};
 use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
@@ -64,9 +67,9 @@ pub struct FeedforwardLoopDraft {
     /// The record the PI is configured from.
     pub parameter_record: String,
     /// The measurement.
-    pub process_variable: MeasuredSignal,
+    pub process_variable: FormSignal,
     /// The controller output.
-    pub manipulated_variable: MeasuredSignal,
+    pub manipulated_variable: FormSignal,
     /// The setpoint.
     pub setpoint: SignalChoice,
     /// The Auto/Manual signal.
@@ -74,7 +77,7 @@ pub struct FeedforwardLoopDraft {
     /// The manual output.
     pub manual_output: String,
     /// The measured disturbance the program's feedforward reads.
-    pub disturbance: MeasuredSignal,
+    pub disturbance: FormSignal,
     /// The variable that Identify steps to move the disturbance: a simulation or test input the program only reads (C8, D-5).
     pub disturbance_command: String,
     /// The disturbance's identification step, in its unit: positive and at most its span.
@@ -117,13 +120,27 @@ pub fn feedforward_loop_definition(
 ) -> Result<LoopDefinition, Failure> {
     let task = feedforward_task(catalog, draft)?;
     check_variables(draft)?;
-    check_step(draft)?;
-    let process = stated_signal(&draft.process_variable);
-    let manipulated = stated_signal(&draft.manipulated_variable);
+    let disturbance = measured_signal(
+        &draft.disturbance,
+        "measured disturbance",
+        Some("ff.disturbance"),
+    )?;
+    check_step(draft, &disturbance)?;
+    let process = stated_signal(&measured_signal(
+        &draft.process_variable,
+        "measurement",
+        Some("processVariable"),
+    )?);
+    let manipulated = stated_signal(&measured_signal(
+        &draft.manipulated_variable,
+        "output",
+        Some("manipulatedVariable"),
+    )?);
     let setpoint = setpoint_signal(&draft.setpoint, &process);
     let manual = compiled(catalog, &draft.manual_output)?;
     let command = disturbance_command(catalog, &draft.disturbance_command)?;
-    let states = feedforward_states(catalog, draft, &process, &manipulated)?;
+    let states = feedforward_states(catalog, draft, &disturbance, &process, &manipulated)?;
+    check_startup(catalog, draft, &process)?;
     let application: Vec<InitializedState> = draft
         .startup_flag
         .as_deref()
@@ -146,7 +163,7 @@ pub fn feedforward_loop_definition(
         project_id: scope.project_id.clone(),
         runtime_id: scope.runtime_id.clone(),
         controller: feedforward_controller(catalog, draft, manual, task.interval_ms, project)?,
-        signals: feedforward_signals(catalog, draft, &setpoint, &process, &manipulated)?,
+        signals: feedforward_signals(catalog, &setpoint, &process, &manipulated, &disturbance)?,
         limits: Limits {
             output_minimum: Some(manipulated.minimum),
             output_maximum: Some(manipulated.maximum),
@@ -161,7 +178,13 @@ pub fn feedforward_loop_definition(
         parameter_binding: Some(ParameterBinding {
             loop_id: id,
             task_name: task.name.clone(),
-            parameters: feedforward_parameters(catalog, draft, &process, &manipulated)?,
+            parameters: feedforward_parameters(
+                catalog,
+                draft,
+                &disturbance,
+                &process,
+                &manipulated,
+            )?,
             mode: ModeBinding {
                 symbol: draft.mode.symbol.clone(),
                 manual_value: draft.mode.when_true == ModeWhenTrue::Manual,
@@ -185,6 +208,7 @@ pub fn feedforward_loop_definition(
             command,
             &manipulated,
             &process,
+            &disturbance,
         )?),
         analysis: None,
         analysis_parameter_symbols: None,
@@ -249,14 +273,14 @@ fn check_variables(draft: &FeedforwardLoopDraft) -> Result<(), Failure> {
 ///
 /// # Errors
 /// The step is not positive, or it is larger than the disturbance's span.
-fn check_step(draft: &FeedforwardLoopDraft) -> Result<(), Failure> {
-    let span = draft.disturbance.maximum - draft.disturbance.minimum;
+fn check_step(draft: &FeedforwardLoopDraft, disturbance: &MeasuredSignal) -> Result<(), Failure> {
+    let span = disturbance.maximum - disturbance.minimum;
     if draft.disturbance_step > 0.0 && draft.disturbance_step <= span {
         return Ok(());
     }
     Err(settings(&texts::feedforward_step_span(
         span,
-        &draft.disturbance.unit,
+        &disturbance.unit,
     )))
 }
 
@@ -298,6 +322,7 @@ fn disturbance_command<'a>(
 fn feedforward_states(
     catalog: &CompiledCatalog,
     draft: &FeedforwardLoopDraft,
+    disturbance: &MeasuredSignal,
     process: &MeasuredSignal,
     manipulated: &MeasuredSignal,
 ) -> Result<Vec<InitializedState>, Failure> {
@@ -309,9 +334,9 @@ fn feedforward_states(
         states.push(InitializedState {
             symbol: filtered.clone(),
             iec_type: state_type(real_type(compiled(catalog, filtered)?)?),
-            unit: stated_unit(&draft.disturbance.unit),
-            minimum: draft.disturbance.minimum,
-            maximum: draft.disturbance.maximum,
+            unit: stated_unit(&disturbance.unit),
+            minimum: disturbance.minimum,
+            maximum: disturbance.maximum,
             initial: InitialValue::From(InitialSource::ModelInput { index: 1 }),
             post_scan: PostScan::Bounded,
         });
@@ -436,12 +461,12 @@ fn feedforward_controller(
 /// A signal is not compiled, is not `REAL` or `LREAL`, or is a measurement the program computes.
 fn feedforward_signals(
     catalog: &CompiledCatalog,
-    draft: &FeedforwardLoopDraft,
     setpoint: &MeasuredSignal,
     process: &MeasuredSignal,
     manipulated: &MeasuredSignal,
+    disturbance: &MeasuredSignal,
 ) -> Result<Signals, Failure> {
-    let disturbance = measurement_binding(catalog, &draft.disturbance)?;
+    let disturbance = measurement_binding(catalog, disturbance)?;
     Ok(Signals {
         setpoint: Some(binding(catalog, setpoint, Direction::Read)?),
         process_variable: measurement_binding(catalog, process)?,
@@ -471,6 +496,7 @@ fn feedforward_channels(
     command: &CompiledSymbol,
     manipulated: &MeasuredSignal,
     process: &MeasuredSignal,
+    disturbance: &MeasuredSignal,
 ) -> Result<LoopChannels, Failure> {
     let actuator = |minimum: f64, maximum: f64| ActuatorCapabilities {
         kind: ActuatorKind::Continuous,
@@ -493,12 +519,12 @@ fn feedforward_channels(
                 experiment_step: draft.experiment_step,
             },
             ChannelInput {
-                model_channel_id: draft.disturbance.symbol.clone(),
+                model_channel_id: disturbance.symbol.clone(),
                 signal_id: MEASURED_DISTURBANCE.to_owned(),
                 manual_output_signal: Some(command.symbol.clone()),
                 manual_output_type: Some(manual_output_type(real_type(command)?)),
                 applied_signal_id: None,
-                actuator: actuator(draft.disturbance.minimum, draft.disturbance.maximum),
+                actuator: actuator(disturbance.minimum, disturbance.maximum),
                 experiment_step: Some(draft.disturbance_step),
             },
         ],
@@ -520,6 +546,7 @@ fn feedforward_channels(
 fn feedforward_parameters(
     catalog: &CompiledCatalog,
     draft: &FeedforwardLoopDraft,
+    disturbance: &MeasuredSignal,
     process: &MeasuredSignal,
     manipulated: &MeasuredSignal,
 ) -> Result<Vec<Parameter>, Failure> {
@@ -528,7 +555,7 @@ fn feedforward_parameters(
             .into_iter()
             .filter(|parameter| PID_GAIN_CONVENTIONS.contains(&parameter.convention.as_str()))
             .collect();
-    let gain_unit = format!("{}/{}", manipulated.unit, draft.disturbance.unit);
+    let gain_unit = format!("{}/{}", manipulated.unit, disturbance.unit);
     parameters.push(feedforward_parameter(
         catalog,
         &draft.feedforward.gain,
@@ -578,6 +605,44 @@ fn feedforward_parameter(
         minimum,
         maximum,
     })
+}
+
+/// A feedforward whose program writes a seeded value, or initializes its PID, needs the startup-done flag (C1 Setup). The seeded values
+/// are the setpoint, the manual output, the mode, the parameter record and the PID's states, as for a PID loop. A draft that names a flag
+/// must name a compiled `BOOL`.
+///
+/// # Errors
+/// The program needs the flag and the draft names none, or the flag is not a compiled `BOOL`.
+fn check_startup(
+    catalog: &CompiledCatalog,
+    draft: &FeedforwardLoopDraft,
+    process: &MeasuredSignal,
+) -> Result<(), Failure> {
+    if let Some(flag) = draft
+        .startup_flag
+        .as_deref()
+        .filter(|flag| !flag.is_empty())
+    {
+        return startup_flag_is_bool(catalog, flag);
+    }
+    let measurement_is_own =
+        process.symbol.to_uppercase() == own_measurement(&draft.instance).to_uppercase();
+    let seeded = pid_seeded_symbols(
+        &draft.instance,
+        [
+            draft.setpoint.symbol.as_str(),
+            draft.manual_output.as_str(),
+            draft.mode.symbol.as_str(),
+        ],
+        measurement_is_own,
+    );
+    let records = std::slice::from_ref(&draft.parameter_record);
+    match startup_reason(catalog, Some(draft.instance.as_str()), &seeded, records) {
+        Some(reason) => {
+            Err(settings(&texts::startup_flag_needed(&reason)).with_field("startupFlag"))
+        }
+        None => Ok(()),
+    }
 }
 
 /// A settings refusal that the setup form's next action answers (A11.2).

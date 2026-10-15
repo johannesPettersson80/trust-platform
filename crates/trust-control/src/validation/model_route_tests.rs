@@ -8,13 +8,15 @@ use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
 
-use super::{model_route, selected_model_binding};
+use super::{bound_channels, model_route, selected_model_binding};
 use crate::commissioning::fixture_loops::{
     first_order_model, library_pid_loop, project_pi_loop_with_startup, project_pid_loop,
 };
 use crate::failure::NextAction;
+use crate::loop_definition::LoopDefinition;
 use crate::model::general::decode_general_model;
 use crate::model::{ActuatorCapabilities, ActuatorKind, GeneralModel};
+use crate::validation::texts;
 
 /// A transfer function with one input and one output that operates at `operating_input` and `operating_output`, with the given delay in
 /// seconds.
@@ -180,4 +182,81 @@ fn a_loop_without_an_output_limit_has_no_model_binding() {
     let refusal = selected_model_binding(&loop_definition, &first_order_model())
         .expect_err("no actuator range");
     assert_eq!(refusal.next_action, NextAction::OpenLimits);
+}
+
+/// Lesson 84's loop as its file declares it: a controller output and a measured draw-off, bound to the heater model's two inputs.
+fn lesson_84_loop() -> LoopDefinition {
+    LoopDefinition::decode(include_str!(
+        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+    ))
+    .expect("lesson 84 decodes")
+}
+
+/// Lesson 84's supplied heater model (`provided-model.json`): two inputs, the heater command and the draw-off, and one output.
+fn lesson_84_model() -> GeneralModel {
+    let value: Value = serde_json::from_str(include_str!(
+        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/provided-model.json"
+    ))
+    .expect("the supplied model is JSON");
+    decode_general_model(&value).expect("the supplied model decodes")
+}
+
+#[test]
+fn the_two_input_binding_names_both_command_sources_and_the_one_feedback_target() {
+    // C8, B5.3: the controller output drives the heater input; the measured draw-off is written to the variable its Manual command names,
+    // P1.LoadKw at %ML8; and the water temperature is the one output's feedback target. Each input starts at its operating point.
+    let binding = selected_model_binding(&lesson_84_loop(), &lesson_84_model())
+        .expect("the binding of lesson 84");
+    assert_eq!(
+        binding.command_sources,
+        vec!["%QL0".to_owned(), "%ML8".to_owned()]
+    );
+    assert_eq!(binding.feedback_targets, vec!["%IL0".to_owned()]);
+    assert_eq!(binding.actuator_feedback_targets, Some(vec![None, None]));
+    assert_eq!(binding.initial_input, vec![0.0, 0.0]);
+    assert_eq!(binding.initial_delayed_input, Some(0.0));
+    assert_eq!(binding.initial_state, vec![0.0; 11]);
+    assert_eq!(binding.step_ms, 100.0);
+    let continuous = |maximum: f64| ActuatorCapabilities {
+        kind: ActuatorKind::Continuous,
+        minimum: 0.0,
+        maximum,
+        rate_up_per_s: None,
+        rate_down_per_s: None,
+        minimum_on_seconds: None,
+        minimum_off_seconds: None,
+    };
+    assert_eq!(
+        binding.actuators,
+        Some(vec![continuous(100.0), continuous(50.0)]),
+        "the heater's range and the draw-off's range, one actuator per input"
+    );
+}
+
+#[test]
+fn a_measured_disturbance_is_written_through_the_manual_command_its_channel_names() {
+    // C8 (D-5): the disturbance input is commanded through the variable its channel's Manual command names, not through the measured
+    // signal. A name the loop does not declare is the program variable itself.
+    let mut loop_definition = lesson_84_loop();
+    if let Some(channels) = loop_definition.channels.as_mut() {
+        channels.inputs[1].manual_output_signal = Some("P1.LoadKwCommand".to_owned());
+    }
+    let binding = selected_model_binding(&loop_definition, &lesson_84_model())
+        .expect("the binding with a separate Manual command");
+    assert_eq!(
+        binding.command_sources,
+        vec!["%QL0".to_owned(), "P1.LoadKwCommand".to_owned()]
+    );
+}
+
+#[test]
+fn a_model_channel_without_a_loop_binding_is_refused_with_the_channel_sentence() {
+    let mut loop_definition = lesson_84_loop();
+    if let Some(channels) = loop_definition.channels.as_mut() {
+        channels.inputs[1].model_channel_id = "P1.Unbound".to_owned();
+    }
+    let refusal = bound_channels(&loop_definition, &lesson_84_model())
+        .expect_err("the draw-off input has no binding");
+    assert_eq!(refusal.message, texts::channel_bindings_unmapped());
+    assert_eq!(refusal.next_action, NextAction::OpenChannels);
 }

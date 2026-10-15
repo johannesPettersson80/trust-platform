@@ -465,3 +465,21 @@ fn a_qualified_study_with_its_retained_recording_decodes_and_restores() {
     assert_eq!(recording.run.recording_id, "recording-1");
     assert_eq!(snapshot(&restored(&saved)), saved);
 }
+
+#[test]
+fn choosing_a_structure_is_refused_before_a_preview_and_leaves_the_workflow_unchanged() {
+    use crate::identification::sensor_lag_comparison::StructureChoice;
+    use crate::identification::state::IdentificationPhase;
+    let mut workflow = IdentificationWorkflow::new(DEFAULT_WORKFLOW_MAXIMUM_NORMALIZED_ERROR);
+    let refusal = workflow
+        .choose_structure(StructureChoice::FirstOrder)
+        .expect_err("no preview has been calculated");
+    assert_eq!(
+        refusal.0,
+        "Calculate the comparison before choosing a provisional model."
+    );
+    assert_eq!(
+        workflow.current_state().phase,
+        IdentificationPhase::Qualified
+    );
+}

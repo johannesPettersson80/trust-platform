@@ -135,19 +135,6 @@ fn the_families_offered_are_p_always_and_the_terms_the_seed_names() {
 #[test]
 fn every_other_shape_of_a_program_law_is_parked_by_its_name_and_the_raw_file_names_it_too() {
     let mut cases: Vec<(Value, String)> = Vec::new();
-    for kind in [
-        "cascade-pid",
-        "smith-pid",
-        "decoupled-pid",
-        "decentralized-pid",
-    ] {
-        let mut project = served_project("PI", true, false);
-        project["seed"] = json!({ "kind": kind });
-        cases.push((
-            project_loop(project),
-            format!("the program's own law with a {kind} seed"),
-        ));
-    }
     let mut without_seed = served_project("PI", true, false);
     without_seed
         .as_object_mut()

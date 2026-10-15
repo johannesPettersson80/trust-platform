@@ -19,12 +19,13 @@ use crate::messages::{
 use crate::model::{linear_transfer_model, GeneralModel, ResponseConnection};
 
 /// The tools in the order the page lists them (draft §2.2).
-pub const ALL_TOOLS: [AnalysisTool; 10] = [
+pub const ALL_TOOLS: [AnalysisTool; 11] = [
     AnalysisTool::RootLocus,
     AnalysisTool::Routh,
     AnalysisTool::PoleZero,
     AnalysisTool::Frequency,
     AnalysisTool::MeasuredFrequency,
+    AnalysisTool::MeasuredPaths,
     AnalysisTool::Feedback,
     AnalysisTool::LeadLag,
     AnalysisTool::InitialState,
@@ -78,6 +79,7 @@ pub fn presentation(tool: AnalysisTool) -> Presentation {
             "Calculate measured frequency response",
             true,
         ),
+        AnalysisTool::MeasuredPaths => ("Measured MIMO paths", "Calculate measured paths", true),
         AnalysisTool::Feedback => (
             "Nyquist and loop response",
             "Calculate feedback analysis",
@@ -120,6 +122,8 @@ pub struct Facts<'a> {
     pub declared: Option<&'a DeclaredControlAnalysis>,
     /// The recordings the loop's study lists, by identifier.
     pub recordings: &'a [String],
+    /// Whether the loop declares as many bound inputs as outputs, two or more (C7): what `measuredPaths` needs.
+    pub multichannel: bool,
 }
 
 /// Whether `tool` applies to the facts (B9.9, draft §2.2).
@@ -131,6 +135,7 @@ pub fn applies(tool: AnalysisTool, facts: &Facts<'_>) -> bool {
             facts.model.is_some()
         }
         AnalysisTool::MeasuredFrequency => !facts.recordings.is_empty(),
+        AnalysisTool::MeasuredPaths => facts.multichannel && !facts.recordings.is_empty(),
         AnalysisTool::Feedback => {
             facts.model.is_some() && (facts.controller.is_some() || facts.declared.is_some())
         }
@@ -208,7 +213,8 @@ pub fn defaults_for(tool: AnalysisTool, facts: &Facts<'_>) -> AnalysisInputs {
                 .map(|model| vec![0.0; model.identity().inputs.len()]);
             defaults.connection = Some(ResponseConnection::OpenLoop);
         }
-        AnalysisTool::StateStructure | AnalysisTool::RelativeGain => {}
+        AnalysisTool::StateStructure | AnalysisTool::RelativeGain | AnalysisTool::MeasuredPaths => {
+        }
     }
     defaults
 }
@@ -265,6 +271,14 @@ pub fn read_inputs(
             inputs.initial_state = given.initial_state.clone().or(defaults.initial_state);
             inputs.input = given.input.clone().or(defaults.input);
             inputs.connection = given.connection.or(defaults.connection);
+        }
+        AnalysisTool::MeasuredPaths => {
+            inputs.recording_id.clone_from(&given.recording_id);
+            inputs
+                .recording_revision
+                .clone_from(&given.recording_revision);
+            inputs.settled_trials.clone_from(&given.settled_trials);
+            inputs.maximum_unexcited_input_drift = given.maximum_unexcited_input_drift;
         }
         AnalysisTool::StateStructure | AnalysisTool::RelativeGain => {}
     }

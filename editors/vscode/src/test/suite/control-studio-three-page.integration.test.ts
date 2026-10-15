@@ -81,17 +81,27 @@ suite("Control Studio three-page workflow", () => {
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Confirm and start");
       await inner("d.querySelector('[data-engineer-find]').click();return 'start';");
       const completed = JSON.parse(await pollValue("native project terminal", () => inner("return JSON.stringify(d.defaultView.__projectEvents);"), value => JSON.parse(value).some((message: any) => message.phase === "engine-ended" || message.phase === "failed"), 20000));
-      // The engine ends the test with `engine-ended` (experimentRoute.ts:106) and sends its status alone. The campaign is `finished` only
-      // after its restoration is confirmed (run.rs hold_end, release_active), so the status is the restoration evidence this path has:
-      // the engine path names no restoration field on the page (a reported gap).
+      // The engine ends the test with `engine-ended` (experimentRoute.ts watch), its status and the restoration its finished campaign
+      // confirmed (run.rs hold_restoration). The campaign is `finished` only after that restoration is confirmed (run.rs hold_end).
       const ended = completed.find((message: any) => message.phase === "engine-ended")?.payload;
       assert.strictEqual(ended?.status, "finished", JSON.stringify(completed));
+      assert.strictEqual(ended?.restoration, "restored", "The engine names the restoration its campaign confirmed");
+      await pollValue("the page says the outputs are restored", () => inner("return d.querySelector('[data-three-page-experiment-status]')?.textContent ?? '';"), value => value === "Project test completed. Outputs restored.", 10000);
       // The kept recording reaches the page in the identification the engine answers (`control-studio.engine.result`, method identify):
       // its identifier, and one time per sample on the plot the chart draws (identify_result.rs, IdentifyPlot.timeSeconds).
       const identified = JSON.parse(await pollValue("native project identification", () => inner("return JSON.stringify((d.defaultView.__engineAnswers||[]).filter(e=>e.kind==='control-studio.engine.result'&&e.method==='identify').map(e=>e.result));"), value => JSON.parse(value).length > 0, 10000))[0];
       assert.ok(typeof identified.recordingId === "string" && identified.recordingId.length > 0, `The identification names the kept recording: ${JSON.stringify(identified).slice(0, 800)}`);
-      assert.ok((identified.plot?.timeSeconds?.length ?? 0) >= 10, "Retain runtime-scan data from the project sequence");
+      // The recording's runtime scans reach the page (`recordedSamples`), whether or not its fit gave a model (C12).
+      assert.ok((identified.recordedSamples?.length ?? 0) >= 10, "Retain runtime-scan data from the project sequence");
+      // A fit that the recording supports draws its response plot; a refused fit answers its refusal instead (B3.5).
+      if (identified.fitRefusal === undefined) assert.ok((identified.plot?.timeSeconds?.length ?? 0) >= 10, "A fit the recording supports draws its response plot");
+      assert.strictEqual(identified.restoration, "restored", "The identification names the restoration of the project test");
+      // The page shows a refused fit as the note under the completed test, and keeps no model (C12, B3.5).
+      assert.strictEqual(await inner("return d.querySelector('[data-three-page-experiment-note]')?.textContent ?? '';"), identified.fitRefusal ?? "", "The page shows the fit's refusal as the note of the completed test");
+      // The chart draws the recorded signals the engine kept (`control-studio.recording.evidence`), the default Signals selection
+      // among them: the measurement and the setpoint in degC, and the applied output in %.
       await pollValue("native measured project response", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), value => Number(value) >= 2, 10000);
+      assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /°C/, "The recorded measurement is drawn in its unit");
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-acquisition-method]').disabled);"), "false", "Finishing restoration must unlock method selection");
       assert.strictEqual(await inner("return String(d.querySelector('[data-identify-import]').disabled);"), "false", "The recording action must unlock after the project test");
     }, { capture: "native-project", loop: loop => { loop.experiment.durationSeconds = 2; } });
@@ -117,27 +127,37 @@ suite("Control Studio three-page workflow", () => {
       await inner("d.querySelector('[data-engineer-find]').click();return 'accept';");
       await pollValue("accepted manual model", () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => value === "Model ready", 10000);
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-tune]').disabled);"), "false");
+      // Tune designs on the accepted model: the engine's Tune answers a candidate for the study's current model (B3.7).
+      await inner("d.querySelector('[data-engineer-tune]').click();return 'tune the accepted model';");
+      await pollValue("candidate designed on the accepted manual model", () => inner("return d.querySelector('[data-studio-tuning-result]')?.textContent??'';"), value => /gain/i.test(value), 20000);
       assert.strictEqual(vscode.debug.activeDebugSession, undefined);
     }, { capture: "manual-identification" });
   });
   test("offers the declared project experiment and plots selected recorded signals in their own units", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
-    this.timeout(60000);
+    this.timeout(120000);
+    // The fixture is lesson 1's project (gatedJourneys in runTest.ts): its declared experiment keeps its activation, and the journey shortens only its duration.
     await withStudio(async inner => {
       assert.strictEqual(await inner("return String(!!d.querySelector('[data-engineer-acquisition-method] option[value=project]'));"), "true", "Project-owned lessons have a reachable experiment method");
       await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='project';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'project';");
       assert.strictEqual(await inner("return String(d.querySelector('[data-three-page-experiment]').checkVisibility());"), "true");
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Review project test");
-      const loop = JSON.parse(await inner("return d.querySelector('[data-studio-three-page]').dataset.studioLoop;"));
-      const recording = JSON.parse(recordingArchive(loop, "project-recorded-signals", 2)).recording;
-      // The engine route does not send this message: it answers the project test as an identification (the plant input, the
-      // measurement and the prediction, IdentifyResult in crates/trust-control/src/messages.rs), and no engine answer carries the
-      // recorded experiment signals the engineer selects. The page-side state stays a TypeScript-route fixture (reported gap).
-      await inner(`const root=d.querySelector('[data-studio-three-page]');d.defaultView.postMessage({schemaVersion:1,kind:'control-studio.recording.evidence',projectId:root.dataset.projectId,editorSessionId:root.dataset.editorSessionId,loopId:root.dataset.loopId,expectedLoopRevision:root.dataset.loopRevision,payload:{recording:${JSON.stringify(recording)}}},'*');return 'recorded';`);
-      await pollValue("project experiment signals", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), value => Number(value) >= 2, 10000);
+      // The engine runs the declared test and keeps its recording; the page draws the recorded signals from the engine's evidence
+      // (`control-studio.recording.evidence`, enginePanelRoute.ts), not from a message the journey injects.
+      await inner("d.defaultView.__projectEvents=[];d.defaultView.addEventListener('message',event=>{if(event.data.kind==='control-studio.experiment.result'||event.data.kind==='control-studio.recording.evidence')d.defaultView.__projectEvents.push(event.data);});d.querySelector('[data-engineer-find]').click();return 'review';");
+      await pollValue("the engine reviews the project test", () => inner("return d.querySelector('[data-engineer-find]').textContent;"), value => value === "Confirm and start", 45000);
+      await inner("d.querySelector('[data-engineer-find]').click();return 'start';");
+      await pollValue("the engine ends the project test", () => inner("return String(d.defaultView.__projectEvents.some(message=>message.phase==='engine-ended'));"), value => value === "true", 40000);
+      await pollValue("the recorded signals of the engine", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), value => Number(value) >= 2, 10000);
       assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /°C/);
       assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /%/);
-    }, { capture: "project-signals", loop: loop => { loop.experiment = { execution: "project-scripted", kind: "observation", amplitude: 0, durationSeconds: 20, seed: 1 }; loop.signals.manipulatedVariable.direction = "read"; } });
+      // The Signals selector adds a recorded signal the test did not select by default (lesson 1 step 2); the chart
+      // draws it in its own unit.
+      assert.strictEqual(await inner("return String(!!d.querySelector('[data-three-page-experiment-signals] option[value=\"door-open-indication\"]'));"), "true", "The declared door indication is a selectable recorded signal");
+      const before = Number(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"));
+      await inner("const option=d.querySelector('[data-three-page-experiment-signals] option[value=\"door-open-indication\"]');option.selected=true;d.querySelector('[data-three-page-experiment-signals]').dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'door';");
+      await pollValue("the added recorded signal is drawn", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), value => Number(value) > before, 10000);
+    }, { capture: "project-signals", loop: loop => { loop.experiment.durationSeconds = 20; } });
   });
   test("runs the declared root locus from Tune without a candidate or runtime write", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
@@ -260,54 +280,63 @@ suite("Control Studio three-page workflow", () => {
   });
   test("renders state-design policy and preserves finite design drafts across reopen", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();
-    this.timeout(60000);
+    // The fixture is lesson 69's project (gatedJourneys in runTest.ts), so its supplied model is the lesson's own provided-model.json.
+    this.timeout(120000);
+    const modelText = fs.readFileSync(path.join(vscode.workspace.workspaceFolders![0].uri.fsPath, "provided-model.json"), "utf8");
     await withStudio(async (inner, reopen) => {
       const loopSnapshot = JSON.parse(await inner("return d.querySelector('[data-studio-three-page]').dataset.studioLoop;"));
-      const supplied = { kind: "continuous-state-space", revision: "state-design-rendered-model", source: "provided", validation: "validated", evidence: ["independent"], delaySeconds: 0,
-        inputs: [{ id: "u", unit: loopSnapshot.signals.manipulatedVariable.unit, operatingRange: loopSnapshot.signals.manipulatedVariable.range }], outputs: [{ id: "y", unit: loopSnapshot.signals.processVariable.unit, operatingRange: loopSnapshot.signals.processVariable.range }], states: [{ id: "x", unit: loopSnapshot.signals.processVariable.unit, operatingRange: loopSnapshot.signals.processVariable.range }],
-        a: [[-1]], b: [[1]], c: [[1]], d: [[0]], operatingPoint: { inputs: [0], outputs: [0] } };
+      assert.strictEqual(loopSnapshot.controller.stateFeedback?.family, "LQR", "The lesson's loop is an LQR state-feedback law");
+      // control-loop.json declares no weights in controller.stateFeedback; README step 4 enters them on the Tune page.
+      assert.strictEqual(loopSnapshot.controller.stateFeedback?.stateWeights, undefined, "The lesson's loop declares no state weights");
+      assert.strictEqual(loopSnapshot.controller.stateFeedback?.inputWeights, undefined, "The lesson's loop declares no input weights");
+      // README step 2: Identify, Supplied plant model, then open provided-model.json.
       await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='supplied-model';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'supplied';");
       await inner("d.querySelector('[data-engineer-find]').click();return 'open model';");
-      await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(JSON.stringify(supplied))}],'state-model.json',{type:'application/json'}));const file=d.querySelector('[data-studio-model-file]');file.files=transfer.files;file.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'model imported';`);
+      await inner(`const transfer=new d.defaultView.DataTransfer();transfer.items.add(new d.defaultView.File([${JSON.stringify(modelText)}],'provided-model.json',{type:'application/json'}));const file=d.querySelector('[data-studio-model-file]');file.files=transfer.files;file.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'model imported';`);
       await pollValue("supplied state model", () => inner("return d.querySelector('[data-studio-model-equation]')?.textContent??'';"), value => value.length > 0, 10000);
+      // README step 3: Requirements, then Done.
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'tune';");
       await inner("d.querySelector('[data-studio-requirements]').click();return 'requirements';");
       await pollValue("state design requirements", () => inner("return String(!!d.querySelector('dialog[open]'));"), value => value === "true", 5000);
-      await inner("const set=(key,value)=>{const field=d.querySelector(`[data-studio-requirement=\"${key}\"]`);field.value=String(value);field.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));};set('referenceChange',1);set('maximumError',.1);set('settlingBand',.02);set('settlingTimeSeconds',2);set('durationSeconds',4);d.querySelector('[data-studio-editor-done]').click();return 'requirements set';");
-      assert.strictEqual(await inner("return String(!!d.querySelector('[data-engineer-tuning-method] option[value=state-design]'));"), "true", "State-space design must be an actual Tune method");
-      await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='state-design';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'state design';");
-      assert.strictEqual(await inner("return String(!!d.querySelector('[data-state-design-mode]'));"), "true");
-      assert.strictEqual(await inner("return d.querySelector('[data-state-design-field=inputWeights]').value;"), "[[1]]", "State design must show the declared input weights used by the solver");
-      await inner("d.defaultView.__stateDesignTrace=[];d.defaultView.addEventListener('message',e=>{if(e.data.kind==='control-studio.engineering.result'&&e.data.stage==='engineer'){const p=e.data.payload;d.defaultView.__stateDesignTrace.push({status:p.status,family:p.family,preferences:p.tuningPreferences,horizon:p.design?.horizon});}});return 'trace';");
-      await inner("const mode=d.querySelector('[data-state-design-mode]');mode.value='finite';mode.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));d.querySelector('[data-state-design-field=\"horizonSteps\"]').value='3';d.querySelector('[data-state-design-field=\"horizonSteps\"]').dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-state-design-field=\"terminalWeights\"]').value='[[1]]';d.querySelector('[data-state-design-field=\"terminalWeights\"]').dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'finite';");
-      assert.strictEqual(await inner("return d.querySelector('[data-state-design-field=\"horizonSteps\"]').value;"), "3");
-      await inner("const q=d.querySelector('[data-state-design-field=\"stateWeights\"]');q.value='[[';q.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-engineer-tune]').click();return 'invalid';");
-      assert.strictEqual(await inner("return String(d.querySelector('[data-state-design-field=\"stateWeights\"]').getAttribute('aria-invalid'));"), "true", "Invalid state design must block Tune instead of reusing stale weights");
-      await inner("const q=d.querySelector('[data-state-design-field=\"stateWeights\"]');q.value='[[1]]';q.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));return 'repaired';");
-      await inner("d.querySelector('[data-engineer-tune]').click();return 'tune state model';");
+      await inner("const set=(key,value)=>{const field=d.querySelector(`[data-studio-requirement=\"${key}\"]`);field.value=String(value);field.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));};set('referenceChange',0.01);set('maximumError',0.002);set('settlingBand',0.001);set('settlingTimeSeconds',90);set('durationSeconds',120);d.querySelector('[data-studio-editor-done]').click();return 'requirements set';");
+      // README step 4: State-space design, which the engine offers for this loop.
+      assert.strictEqual(await inner("return String(!!d.querySelector('[data-engineer-tuning-method] option[value=state-space]'));"), "true", "State-space design must be an actual Tune method");
+      assert.strictEqual(await inner("return d.querySelector('[data-engineer-tuning-method] option[value=state-space]').textContent;"), "State-space design");
+      await inner("const method=d.querySelector('[data-engineer-tuning-method]');method.value='state-space';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'state design';");
+      // The engine lists the design form's fields in its answer, so the form appears once that answer arrives.
+      await pollValue("state design form", () => inner("return String(!!d.querySelector('[data-state-design-mode]'));"), value => value === "true", 15000);
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-mode]').value;"), "infinite", "The solver policy starts at the infinite horizon");
+      // The form shows the declared values only, and the lesson declares no weights, so both weight fields start empty.
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-field=stateWeights]').value;"), "", "The lesson's loop declares no state weights, so the form shows none");
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-field=inputWeights]').value;"), "", "The lesson's loop declares no input weights, so the form shows none");
+      await inner("d.defaultView.__stateDesignTrace=[];d.defaultView.addEventListener('message',e=>{if(e.data.kind==='control-studio.engineering.result'&&e.data.stage==='engineer'){const p=e.data.payload;d.defaultView.__stateDesignTrace.push({status:p.status,family:p.family,preferences:p.tuningPreferences,horizon:p.state?.horizon});}});return 'trace';");
+      // README step 4 continued: Solver policy Finite-horizon (fixed policy), 20 steps, the weights and the terminal weights.
+      await inner("const mode=d.querySelector('[data-state-design-mode]');mode.value='finite';mode.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'finite';");
+      // The finite policy lists the horizon fields in the engine's next answer, so they appear after it.
+      await pollValue("finite horizon fields", () => inner("return String(!!d.querySelector('[data-state-design-field=horizonSteps]'));"), value => value === "true", 15000);
+      await inner("const set=(field,value)=>{const control=d.querySelector(`[data-state-design-field=\"${field}\"]`);control.value=value;control.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));};set('horizonSteps','20');set('terminalWeights','[[400, 0], [0, 400]]');set('inputWeights','[[40000]]');return 'finite values';");
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-field=horizonSteps]').value;"), "20");
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-mode]').value;"), "finite", "The solver policy is the finite horizon");
+      // An unreadable weight matrix is refused under its own field, and Tune does not reuse the earlier weights.
+      await inner("const q=d.querySelector('[data-state-design-field=stateWeights]');q.value='[[';q.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-engineer-tune]').click();return 'invalid';");
+      await pollValue("refused state weights", () => inner("return d.querySelector('[data-state-design-error=stateWeights]')?.textContent??'';"), value => value.length > 0, 15000);
+      assert.strictEqual(await inner("return String(d.querySelector('[data-state-design-field=stateWeights]').getAttribute('aria-invalid'));"), "true", "Invalid state design must block Tune instead of reusing stale weights");
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-error=stateWeights]').textContent;"), "State weights (Q) must be valid JSON.", "The refusal is shown under the field it names");
+      // README step 4: the state weights Q, then Tune controller.
+      await inner("const q=d.querySelector('[data-state-design-field=stateWeights]');q.value='[[400, 0], [0, 400]]';q.dispatchEvent(new d.defaultView.Event('input',{bubbles:true}));d.querySelector('[data-engineer-tune]').click();return 'tune state model';");
       await pollValue("state-design candidate", () => inner("return d.querySelector('[data-studio-tuning-result]')?.textContent??'';"), value => /gain|Riccati|finite/i.test(value), 15000);
       // Automatic Tune continues to Validate. Review the candidate on its own tab.
       await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();return 'review candidate';");
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-tuning-result]')?.textContent?.length>0);"), "true");
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-design-policy]')?.checkVisibility()===true);"), "true", await inner("return 'Finite state design must expose its repeated-first-gain policy: '+JSON.stringify(d.defaultView.__stateDesignTrace);"));
-      assert.match(await inner("return d.querySelector('[data-studio-design-policy]').textContent;"), /Repeated first gain/i);
-      assert.ok(Number(await inner("return String(d.querySelectorAll('[data-studio-riccati-stage]').length);")) >= 2, "The finite design must expose N+1 Riccati stages");
+      assert.match(await inner("return d.querySelector('[data-studio-design-policy]').textContent;"), /Finite horizon: 20 steps.*Repeated first gain/);
+      assert.strictEqual(await inner("return String(d.querySelectorAll('[data-studio-riccati-stage]').length);"), "21", "The 20-step finite design must expose N+1 = 21 Riccati stages, from stage 0 to the terminal stage 20");
       await reopen();
-      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();const method=d.querySelector('[data-engineer-tuning-method]');method.value='state-design';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'reopened';");
-      assert.strictEqual(await inner("return d.querySelector('[data-state-design-field=\"horizonSteps\"]').value;"), "3", "Finite draft survives reopening");
-    }, { capture: "state-design", loop: loop => {
-      loop.schemaVersion = 2;
-      loop.controller.design = "project";
-      loop.controller.type = "State feedback";
-      loop.controller.law = undefined;
-      delete loop.controller.pidInitialization;
-      loop.controller.stateFeedback = { family: "LQR", convention: "sampled-deviation-negative-feedback", gainSymbols: [["P1.Kp"]], referenceGainSymbols: [["P1.N"]], stateWeights: [[1]], inputWeights: [[1]] };
-      const gainUnit = `${loop.signals.manipulatedVariable.unit}/${loop.signals.processVariable.unit}`;
-      loop.parameterBinding = { loop_id: loop.id, task_name: "Main", mode: { symbol: "P1.Mode", manual_value: false }, parameters: [
-        { symbol: "P1.Kp", iec_type: "LREAL", unit: gainUnit, convention: "state feedback gain", minimum: -100, maximum: 100 },
-        { symbol: "P1.N", iec_type: "LREAL", unit: gainUnit, convention: "reference gain", minimum: -100, maximum: 100 },
-      ] };
-    } });
+      await inner("d.querySelector('[data-engineer-stage-tab=tune]').click();const method=d.querySelector('[data-engineer-tuning-method]');method.value='state-space';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));return 'reopened';");
+      await pollValue("reopened finite draft", () => inner("return String(!!d.querySelector('[data-state-design-field=horizonSteps]'));"), value => value === "true", 15000);
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-field=horizonSteps]').value;"), "20", "Finite draft survives reopening");
+      assert.strictEqual(await inner("return d.querySelector('[data-state-design-mode]').value;"), "finite", "The finite solver policy survives reopening");
+    }, { capture: "state-design" });
   });
   test("asks for the missing experiment duration before live identification and leaves the field blank", async function () {
     if (process.env.TRUST_CONTROL_STUDIO_THREE_PAGE !== "1") this.skip();

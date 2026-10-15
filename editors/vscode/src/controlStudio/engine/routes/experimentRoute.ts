@@ -13,6 +13,14 @@ import {
   type EngineStageRoute,
 } from "../engineRouteContext";
 
+/**
+ * The whole refusal the page shows: the failure's detail when it says more than its first sentence, else its message (A11.1).
+ * The engine decides the words; the page only chooses which of its two texts to show.
+ */
+function wholeRefusal(failure: Pick<Failure, "message" | "detail">): string {
+  return failure.detail || failure.message;
+}
+
 /** The project test's stage route: `handle` and `reset`, and `adopt`, which takes the test's campaign the engine kept running (A8.6). */
 export interface ExperimentStageRoute extends EngineStageRoute {
   /**
@@ -81,7 +89,7 @@ export function createExperimentRoute(context: EngineRouteContext): ExperimentSt
     }
     if ("failure" in reply) {
       await context.postFailure(scope, "identify", reply.failure);
-      await phase(scope, "review", { kind: "rejected", reason: reply.failure.message });
+      await phase(scope, "review", { kind: "rejected", reason: wholeRefusal(reply.failure) });
       return true;
     }
     const answer = reply.result;
@@ -103,9 +111,17 @@ export function createExperimentRoute(context: EngineRouteContext): ExperimentSt
       subscription.dispose();
       watchers.delete(subscription);
       const failure = record(update.failure);
+      const reason = typeof failure?.detail === "string" && failure.detail ? failure.detail : failure?.message;
+      // The restoration the finished campaign confirmed (C12): the page says the outputs are restored when the engine says so.
+      const result = record(update.result);
+      const restoration = update.state === "finished" && typeof result?.restoration === "string" ? result.restoration : undefined;
+      // The fit's refusal a finished test carries (C12): its recording is kept and no model is. The engine words it; the page shows it.
+      const note = update.state === "finished" && typeof result?.fitRefusal === "string" ? result.fitRefusal : undefined;
       void phase(scope, "engine-ended", {
         status: update.state,
-        ...(typeof failure?.message === "string" ? { reason: failure.message } : {}),
+        ...(typeof reason === "string" ? { reason } : {}),
+        ...(restoration !== undefined ? { restoration } : {}),
+        ...(note !== undefined ? { note } : {}),
       });
     });
     watchers.add(subscription);
@@ -148,7 +164,7 @@ export function createExperimentRoute(context: EngineRouteContext): ExperimentSt
     }
     if ("failure" in reply) {
       await context.postFailure(scope, "identify", reply.failure);
-      await phase(scope, "failed", { reason: reply.failure.message });
+      await phase(scope, "failed", { reason: wholeRefusal(reply.failure) });
       return true;
     }
     const answer = reply.result;

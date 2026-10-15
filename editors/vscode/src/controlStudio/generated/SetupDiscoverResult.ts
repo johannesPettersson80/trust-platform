@@ -7,11 +7,20 @@
  * The mode a mode signal's TRUE value means.
  */
 export type ModeWhenTrue = "Auto" | "Manual";
+/**
+ * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
+ * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
+ */
+export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
 
 /**
  * The answer to a discovery: the form's model, the discovered loops and the refusals (B1.2, B1.3).
  */
 export interface SetupDiscoverResult {
+  /**
+   * The model files an LQG estimator can implement (C4 Setup): the project folder's and `models/`, each with its state count.
+   */
+  estimatorModels?: EstimatorModelFile[];
   formModel: SetupFormModel;
   /**
    * The loops a selector can offer.
@@ -25,6 +34,20 @@ export interface SetupDiscoverResult {
    * The file of the loop the request's selection names, when the engine accepts the selection (B1.3); absent otherwise.
    */
   selectedFile?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * A model file an LQG estimator can implement, with its number of states (C4 Setup; the form's `estimatorModels`).
+ */
+export interface EstimatorModelFile {
+  /**
+   * The file's path relative to the project, with forward slashes.
+   */
+  file: string;
+  /**
+   * The model's number of states: at most three.
+   */
+  states: number;
   [k: string]: unknown;
 }
 /**
@@ -274,6 +297,15 @@ export interface LoopSummary {
           [k: string]: string[];
         };
         kind: "accepted";
+        /**
+         * The tuning methods that the controller takes (C4): a state law takes the state-space design alone. Absent for a PID law,
+         * whose methods the page lists itself.
+         */
+        methods?: TuneMethod[] | null;
+        /**
+         * The family the page marks recommended (C4): the family a state law declares, when it offers it. Absent for a PID law.
+         */
+        recommendedFamily?: string | null;
         [k: string]: unknown;
       }
     | {

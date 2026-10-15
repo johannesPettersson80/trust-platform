@@ -1,6 +1,7 @@
 import * as assert from "assert";
 import { decodeControlLoopDefinition, validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import { pidSymbols, scope, TASK } from "./control-studio-cascade-fixtures";
+import { open as openFormHarness } from "./control-studio-loop-setup-form-harness";
 
 /** Loaded dynamically so that a missing owner fails at the behaviour assertion. */
 function setup(): any {
@@ -133,8 +134,6 @@ suite("Control Studio Smith predictor setup", () => {
         ["processVariable.minimum", "0"], ["processVariable.maximum", "80"], ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"],
         ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"]]) view.set(field, value);
       const save = view.root.querySelector("[data-setup-save]"), message = view.root.querySelector("[data-setup-message]");
-      assert.strictEqual(save.disabled, true);
-      assert.match(message.textContent ?? "", /model gain/i, "the predictor's variables are next");
       for (const [field, value] of [["smith.gain", "P1.ModelGain"], ["smith.timeConstant", "P1.ModelTimeConstantS"], ["smith.delay", "P1.ModelDelayS"],
         ["smith.correction", "P1.CorrectionC"]]) view.set(field, value);
       assert.strictEqual(save.disabled, false, message.textContent ?? "");
@@ -149,14 +148,27 @@ suite("Control Studio Smith predictor setup", () => {
     } finally { view.close(); }
   });
 
-  test("saves the Smith predictor loop from the confirmed draft", async () => {
-    const fs = require("fs"), os = require("os"), path = require("path");
-    const { saveLoopSetup } = require("../../controlStudio/loopSetup/loopSetupSave");
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-smith-setup-"));
+  test("posts the library block's four variables together, and only when the program uses the block (C9)", () => {
+    const view = openFormHarness({ ...formModel, reals: [...formModel.reals, "P1.BlockOutput", "P1.MaxCorrection", "P1.OpIn", "P1.OpOut"] });
     try {
-      const { projectId: _project, runtimeId: _runtime, ...unscoped } = draft();
-      const requests = await saveLoopSetup(root, scope, heater, { structure: "smith", ...unscoped });
-      assert.deepStrictEqual(requests.map((request: any) => request.loopDefinition.controller.project?.family), ["Smith"]);
-    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+      view.set("structure", "smith");
+      for (const [field, value] of [["name", "Water temperature"], ["processVariable", "P1.WaterC"], ["processVariable.unit", "degC"],
+        ["processVariable.minimum", "0"], ["processVariable.maximum", "80"], ["manipulatedVariable.unit", "%"], ["manipulatedVariable.minimum", "0"],
+        ["manipulatedVariable.maximum", "100"], ["mode", "P1.Auto"], ["smith.gain", "P1.ModelGain"], ["smith.timeConstant", "P1.ModelTimeConstantS"],
+        ["smith.delay", "P1.ModelDelayS"], ["smith.correction", "P1.CorrectionC"]]) view.set(field, value);
+      const block = view.root.querySelector<HTMLElement>("[data-smith-block]")!;
+      assert.strictEqual(block.hidden, true, "the library block's variables are asked only when the program uses the block");
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.strictEqual("libraryBlock" in view.posts[0].draft, false, "a program that keeps its own predictor names no block");
+      const box = view.root.querySelector<HTMLInputElement>('[data-setup-field="smith.libraryBlock"]')!;
+      box.checked = true;
+      box.dispatchEvent(new view.dom.window.Event("change", { bubbles: true }));
+      assert.strictEqual(block.hidden, false);
+      for (const [field, value] of [["smith.block.output", "P1.BlockOutput"], ["smith.block.maximumCorrection", "P1.MaxCorrection"],
+        ["smith.block.operatingInput", "P1.OpIn"], ["smith.block.operatingOutput", "P1.OpOut"]]) view.set(field, value);
+      view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!.click();
+      assert.deepStrictEqual(view.posts[1].draft.libraryBlock, { output: "P1.BlockOutput", maximumCorrection: "P1.MaxCorrection",
+        operatingInput: "P1.OpIn", operatingOutput: "P1.OpOut" });
+    } finally { view.close(); }
   });
 });

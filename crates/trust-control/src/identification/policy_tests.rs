@@ -417,7 +417,15 @@ fn an_identification_policy_must_name_a_usable_error_limit_and_order() {
 fn an_on_off_actuator_is_read_from_the_controller() {
     let mut tank = tank_loop();
     assert!(!on_off_actuator(&tank));
-    tank.controller.on_off = Some(json!({ "lowOutput": 0.0, "highOutput": 100.0 }));
+    tank.controller.on_off = Some(crate::loop_definition::OnOffController::from_value(&json!({
+        "hysteresisSymbol": "P1.HysteresisC", "minimumOnTimeSymbol": "P1.MinimumOnS", "minimumOffTimeSymbol": "P1.MinimumOffS",
+        "bandConvention": "half-band", "lowOutput": 0.0, "highOutput": 100.0,
+        "initialization": { "kind": "declared-state-v1", "states": [{
+            "symbol": "P1.CoolingOn", "iec_type": "BOOL", "unit": "1", "minimum": 0.0, "maximum": 1.0,
+            "initial": { "source": "model-input-is", "index": 0, "value": 100.0 }, "postScan": "bounded"
+        }] }
+    }))
+    .expect("the ON/OFF block decodes"));
     assert!(on_off_actuator(&tank));
 }
 

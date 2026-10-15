@@ -3,9 +3,12 @@
 //! confirmed Apply makes the same reading again and runs only while it gives the same identity. Every rule is trust-control's: the
 //! Apply rule of the stages, the adapter's record, the parameter review, the identity parts; this module reads and composes.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
-use trust_control::commissioning::adapters::{controller_adapter, ControllerGains};
+use trust_control::commissioning::adapters::{
+    controller_adapter, ControllerAdapter, ControllerGains,
+};
 use trust_control::commissioning::application::ApplySource;
 use trust_control::commissioning::application_records::{
     apply_identity_parts, review_identity, ReviewedParameter,
@@ -15,6 +18,7 @@ use trust_control::commissioning::checkpoint::CommissioningCheckpoint;
 use trust_control::commissioning::checkpoint_restore::check_runtime_identity;
 use trust_control::commissioning::commissioning_result::TransferStatus;
 use trust_control::commissioning::found_mode::{found_mode_of, FoundMode};
+use trust_control::commissioning::gain_schedule_adapter::{schedule_points, schedule_write_of};
 use trust_control::commissioning::parameter_application::{
     review_input, review_of, ParameterReview, RuntimeBinding,
 };
@@ -40,6 +44,7 @@ use trust_control::study::validate::{stage_evidence, ValidateSection};
 use trust_control::study::Study;
 use trust_control::tuning::candidate::LawCandidate;
 use trust_control::validation::engineer_verification_plan::EngineerRequirements;
+use trust_control::validation::run_requests::law_coefficients;
 
 use super::journaling::{stage_word, unresolved};
 use super::law::LawKind;
@@ -61,10 +66,15 @@ pub(crate) struct ApplyInputs {
     pub(crate) task: EngineerRequirements,
     /// The gains of the validated candidate, which the adapter writes as its record (C0).
     pub(crate) gains: ControllerGains,
+    /// The coefficients of a state or search candidate, which the adapter writes by symbol (C4, C5); absent for every other law, whose
+    /// gains are `gains`.
+    pub(crate) coefficients: Option<BTreeMap<String, f64>>,
     /// The identity of the validation that authorizes the Apply (B5.4): the review identity of the study's Validate section.
     pub(crate) validation_identity: String,
     /// The measured output's noise (A6.4): zero without a baseline.
     pub(crate) process_noise: f64,
+    /// The table of a schedule's Apply (C10): the gains of every point, which the Auto entry writes; `None` for a loop without a schedule.
+    pub(crate) schedule: Option<BTreeMap<String, f64>>,
 }
 
 /// The preconditions of an Apply that need no runtime, in their order (B6.1, B6.7, A8.4, A8.5), and what the Apply takes from the study:
@@ -87,6 +97,7 @@ pub(crate) fn preconditions(context: &ApplyContext<'_>) -> Result<ApplyInputs, F
         loop_definition,
         &current,
     )?;
+    // A PID group's members and decoupler are written in one transaction through the group's adapter and its coefficient path (C7).
     let candidate = validate.law_candidate().ok_or_else(|| {
         Failure::new(
             "The validation of the study holds no candidate.",
@@ -94,8 +105,11 @@ pub(crate) fn preconditions(context: &ApplyContext<'_>) -> Result<ApplyInputs, F
             NextAction::None,
         )
     })?;
+    let coefficients = law_coefficients(loop_definition, &candidate)?;
     Ok(ApplyInputs {
         gains: candidate_gains(loop_definition, &candidate),
+        coefficients,
+        schedule: schedule_write_of(schedule_points(loop_definition), &candidate)?,
         validation_identity: validation_identity(&validate)?,
         task: validate.requirements,
         model: current.model,
@@ -239,6 +253,32 @@ pub(crate) fn candidate_gains(
         }
         // A program's own law writes its gains, and a trajectory law its feedforward gains too, to the seed variables (C2, C11).
         LawCandidate::Project(candidate) => project_gains(loop_definition, candidate),
+        // A state or search law writes its coefficients by symbol (`law_coefficients`), never through gains (C4, C5). The other laws
+        // have no adapter that Apply runs, so they carry no gains here.
+        // A switching controller writes its three settings, by their symbols, from the candidate's values (C3).
+        LawCandidate::OnOff(settings) => {
+            trust_control::commissioning::on_off_adapter::candidate_gains(loop_definition, settings)
+        }
+        LawCandidate::State(_) | LawCandidate::Search(_) | LawCandidate::Group(_) => {
+            ControllerGains::default()
+        }
+    }
+}
+
+/// The parameter values that a candidate writes, as its adapter materializes them (C0; `materialize`): a state or search law's
+/// coefficients by symbol (`materialize_coefficients`, C4, C5), and every other law's gains (`materialize`).
+///
+/// # Errors
+/// The adapter refuses the values (see `ControllerAdapter::materialize` and `ControllerAdapter::materialize_coefficients`).
+pub(crate) fn materialize_values(
+    adapter: &ControllerAdapter<'_>,
+    gains: &ControllerGains,
+    coefficients: Option<&BTreeMap<String, f64>>,
+    observed: &BTreeMap<String, f64>,
+) -> Result<BTreeMap<String, f64>, Failure> {
+    match coefficients {
+        Some(coefficients) => adapter.materialize_coefficients(coefficients, observed),
+        None => adapter.materialize(gains, observed),
     }
 }
 
@@ -329,13 +369,26 @@ pub(crate) fn prepare(
         ParameterTransactions::new(&mut clients.parameters, runtime_binding.clone(), source)
             .status()?;
     let retired = checkpoint_to_retire(&*context.journal, &observed)?;
-    let values = adapter.materialize(&inputs.gains, &observed.values)?;
+    let values = materialize_values(
+        &adapter,
+        &inputs.gains,
+        inputs.coefficients.as_ref(),
+        &observed.values,
+    )?;
     let review = review_of(
         review_input(&runtime_binding, &values)?,
         observed,
         new_transaction_id(),
     )?;
-    let kind = LawKind::of(&adapter, &inputs.model, &review.values)?;
+    // The profile reads the table beside the record, so that its Auto entry starts each point's gains at the candidate's values (C10).
+    // The record's own values keep their rounding; the table adds the other points' gains.
+    let mut profile_values = review.values.clone();
+    if let Some(schedule) = &inputs.schedule {
+        for (symbol, value) in schedule {
+            profile_values.entry(symbol.clone()).or_insert(*value);
+        }
+    }
+    let kind = LawKind::of(&adapter, &inputs.model, &profile_values)?;
     let binding = kind.binding(&adapter, loop_definition)?;
     let first = TransferSession::new(
         &mut clients.transfer,

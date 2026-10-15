@@ -23,7 +23,7 @@ use crate::messages::{
     InitializationOutcome, LimitSide, ModelCheck, RequirementChannel, RequirementOutcome,
     RunOutcome, ScenarioOutcome, ValidateResult, ValidationPlot, ValueRange,
 };
-use crate::model::GeneralModel;
+use crate::model::{decode_general_model, GeneralModel};
 use crate::stages::{stage_availability, StageEvidence};
 use crate::study::current_model::CurrentModel;
 use crate::study::is_recording_id;
@@ -32,14 +32,19 @@ use crate::study::tune::{refused_as, stage_evidence as tune_stage_evidence, Tune
 use crate::study::StudySection;
 use crate::tuning::automatic_criteria::{validate_criteria, AutomaticCriteria};
 use crate::tuning::candidate::{validate_parameters, ControlPidCandidate, LawCandidate};
+use crate::tuning::group_candidate::GroupCandidate;
+use crate::tuning::on_off_candidate::OnOffCandidate;
 use crate::tuning::project_candidate::{served_feedforward, ProjectCandidate};
 use crate::tuning::project_seed::{FeedforwardPidSeed, FeedforwardTerms};
 use crate::tuning::requirements::TuningRequirements;
+use crate::tuning::search::SearchCandidate;
+use crate::tuning::state_controller::StateControllerDesign;
 use crate::validation::configured_plant_verification::{isolated_plant_name, VerificationPlant};
 use crate::validation::engineer_scenario_effects::requirements_failure;
 use crate::validation::engineer_verification_campaign::{declared_scenarios, CampaignCase};
 use crate::validation::engineer_verification_plan::{VerificationPlan, FIXED_PARAMETER_PREFIX};
 use crate::validation::feedforward_case::measured_disturbance_case;
+use crate::validation::gain_schedule_case;
 use crate::validation::initialization_case::ENTRY_CASE_ID;
 use crate::validation::initialization_texts;
 use crate::validation::isolated_run_protocol::{
@@ -51,6 +56,7 @@ use crate::validation::run_validation::{
     RecordedRunEvaluation, RunCheck, RunRequirement, RunRequirementResult,
 };
 use crate::validation::scenario_contract::{valid_engineer_scenarios, EngineerScenario};
+use crate::validation::smith_case;
 use crate::validation::texts;
 
 mod answer;
@@ -112,6 +118,22 @@ pub struct ValidateSection {
     /// invalidates the validation (A8.4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project_candidate: Option<ProjectCandidate>,
+    /// The design of a state-feedback law that was validated, unapplied (N8.9, C4). Absent for every other law. A changed candidate
+    /// invalidates the validation (A8.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_candidate: Option<StateControllerDesign>,
+    /// The best trial of a finite search over a program's law that was validated, unapplied (N8.9, C5). Absent for every other law. A
+    /// changed candidate invalidates the validation (A8.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_candidate: Option<SearchCandidate>,
+    /// The settings of a switching controller that were validated, unapplied (N8.9, C3). Absent for every other law. A changed
+    /// candidate invalidates the validation (A8.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_off_candidate: Option<OnOffCandidate>,
+    /// The PID group's candidate that was validated, unapplied (N8.9, C7). Absent for every other law. A changed candidate invalidates
+    /// the validation (A8.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_candidate: Option<GroupCandidate>,
     /// The requirements that were validated (B4.3). Changed requirements invalidate the validation (A8.4).
     pub requirements: TuningRequirements,
     /// The verification scenarios that the validation ran with (B4.3): the list the study declared, or the loop's own. A changed
@@ -158,6 +180,10 @@ impl ValidateSection {
         self.model_revision == model.identity().revision
             && self.candidate == tune.candidate
             && self.project_candidate == tune.project_candidate
+            && self.on_off_candidate == tune.on_off_candidate
+            && self.state_candidate == tune.state_candidate
+            && self.search_candidate == tune.search_candidate
+            && self.group_candidate == tune.group_candidate
             && self.requirements == tune.requirements
             && self.declared_scenarios == declared
     }
@@ -168,6 +194,25 @@ impl ValidateSection {
         match (&self.candidate, &self.project_candidate) {
             (Some(candidate), None) => Some(LawCandidate::Pid(*candidate)),
             (None, Some(candidate)) => Some(LawCandidate::Project(candidate.clone())),
+            (None, None) => self
+                .state_candidate
+                .clone()
+                .map(|design| LawCandidate::State(Box::new(design)))
+                .or_else(|| {
+                    self.search_candidate
+                        .clone()
+                        .map(|search| LawCandidate::Search(Box::new(search)))
+                })
+                .or_else(|| {
+                    self.on_off_candidate
+                        .clone()
+                        .map(|settings| LawCandidate::OnOff(Box::new(settings)))
+                })
+                .or_else(|| {
+                    self.group_candidate
+                        .clone()
+                        .map(|group| LawCandidate::Group(Box::new(group)))
+                }),
             _ => None,
         }
     }
@@ -211,15 +256,9 @@ impl ValidateSection {
             plot: None,
         }
     }
-}
 
-impl StudySection for ValidateSection {
-    const KEY: &'static str = "validate";
-
-    /// The model revision is named, the requirements and the candidate hold the rules that Tune's do (B4.3, C1), the sample
-    /// grid is not empty, the runs share one program revision, and the overall result and the Apply rule follow from the runs
-    /// (N8.5, B5.4). A section that breaks one is never kept and never read (B10.4).
-    fn check(&self) -> Result<(), Failure> {
+    /// The model revision is named, and the requirements and the automatic criteria hold their rules (B4.3, C1).
+    fn check_model_and_requirements(&self) -> Result<(), Failure> {
         if self.model_revision.is_empty() {
             return Err(invalid("it names no model revision", Cause::ModelOrData));
         }
@@ -229,6 +268,25 @@ impl StudySection for ValidateSection {
         if let Some(criteria) = &self.requirements.automatic_criteria {
             validate_criteria(criteria)
                 .map_err(refused_as(Cause::Settings, NextAction::OpenRequirements))?;
+        }
+        Ok(())
+    }
+
+    /// The section holds exactly one candidate (C1, C2), and the candidate it holds keeps its rules.
+    fn check_candidates(&self) -> Result<(), Failure> {
+        let held = [
+            self.candidate.is_some(),
+            self.project_candidate.is_some(),
+            self.state_candidate.is_some(),
+            self.search_candidate.is_some(),
+            self.on_off_candidate.is_some(),
+            self.group_candidate.is_some(),
+        ];
+        if held.iter().filter(|present| **present).count() != 1 {
+            return Err(invalid(
+                "it holds neither a candidate nor a program candidate, or both (C1, C2)",
+                Cause::Settings,
+            ));
         }
         match (&self.candidate, &self.project_candidate) {
             (Some(candidate), None) => {
@@ -255,6 +313,46 @@ impl StudySection for ValidateSection {
                     ));
                 }
             }
+            (None, None) if self.state_candidate.is_some() => {
+                if let Some(design) = &self.state_candidate {
+                    if design.candidate.applied {
+                        return Err(invalid(
+                            "its state candidate is marked applied, but Validate never writes to the controller (N8.9)",
+                            Cause::Settings,
+                        ));
+                    }
+                }
+            }
+            (None, None) if self.search_candidate.is_some() => {
+                if let Some(search) = &self.search_candidate {
+                    search
+                        .check()
+                        .map_err(|reason| invalid(&reason, Cause::Settings))?;
+                }
+            }
+            (None, None) if self.group_candidate.is_some() => {
+                if let Some(group) = &self.group_candidate {
+                    group
+                        .check_stored()
+                        .map_err(|reason| invalid(reason, Cause::Settings))?;
+                }
+            }
+            (None, None) if self.on_off_candidate.is_some() => {
+                if let Some(settings) = &self.on_off_candidate {
+                    if settings.applied {
+                        return Err(invalid(
+                            "its switching candidate is marked applied, but Validate never writes to the controller (N8.9)",
+                            Cause::Settings,
+                        ));
+                    }
+                    if !settings.is_finite() {
+                        return Err(invalid(
+                            "its switching candidate holds a value that is not finite",
+                            Cause::Settings,
+                        ));
+                    }
+                }
+            }
             _ => {
                 return Err(invalid(
                     "it holds neither a candidate nor a program candidate, or both (C1, C2)",
@@ -262,6 +360,11 @@ impl StudySection for ValidateSection {
                 ))
             }
         }
+        Ok(())
+    }
+
+    /// The sample grid is not empty, and the model check names a recording of the study.
+    fn check_grid_and_model_check(&self) -> Result<(), Failure> {
         if self.conditions.step_ms == 0 || self.conditions.duration_ms == 0 {
             return Err(invalid("its sample grid is empty", Cause::ModelOrData));
         }
@@ -275,6 +378,11 @@ impl StudySection for ValidateSection {
                 Cause::ModelOrData,
             ));
         }
+        Ok(())
+    }
+
+    /// The scenarios, the entry case and the measured-disturbance case keep their rules, and a refused entry is Inconclusive.
+    fn check_runs(&self) -> Result<(), Failure> {
         if !valid_engineer_scenarios(&self.declared_scenarios) {
             return Err(requirements_failure(&texts::scenarios_invalid()));
         }
@@ -294,6 +402,11 @@ impl StudySection for ValidateSection {
         if let Some(case) = &self.disturbance_case {
             check_disturbance_case(case)?;
         }
+        Ok(())
+    }
+
+    /// The overall result and the Apply rule follow from the runs (N8.5, B5.4).
+    fn check_outcome(&self) -> Result<(), Failure> {
         let overall = overall_result(
             &self.scenarios,
             self.initialization.as_ref(),
@@ -312,6 +425,21 @@ impl StudySection for ValidateSection {
             ));
         }
         Ok(())
+    }
+}
+
+impl StudySection for ValidateSection {
+    const KEY: &'static str = "validate";
+
+    /// The model revision is named, the requirements and the candidate hold the rules that Tune's do (B4.3, C1), the sample
+    /// grid is not empty, the runs share one program revision, and the overall result and the Apply rule follow from the runs
+    /// (N8.5, B5.4). A section that breaks one is never kept and never read (B10.4).
+    fn check(&self) -> Result<(), Failure> {
+        self.check_model_and_requirements()?;
+        self.check_candidates()?;
+        self.check_grid_and_model_check()?;
+        self.check_runs()?;
+        self.check_outcome()
     }
 
     fn recording_ids(&self) -> Vec<&str> {
@@ -506,6 +634,14 @@ pub struct ValidateOutcome {
     pub failure: Option<Failure>,
 }
 
+/// The model's status and check of a validation, as the section keeps them (B5.4): a qualified model passes and has no check.
+fn qualification_of(qualification: &ModelQualification) -> (RequirementStatus, Option<ModelCheck>) {
+    match qualification {
+        ModelQualification::Qualified => (RequirementStatus::Pass, None),
+        ModelQualification::Checked(check) => (check.status, Some(check.clone())),
+    }
+}
+
 /// Composes the validation from the jobs of its campaign (B5.1 to B5.4). Each completed run is evaluated against its case's
 /// requirements (`evaluate_recorded_run`); each other job has no evidence, so its requirements are Inconclusive. The overall
 /// result is the campaign rule (N8.5), and Apply is available only when the model check passed and the candidate passed
@@ -544,14 +680,7 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
         Some(EntryJob::Refused(refusal)) => Some(refusal),
         Some(EntryJob::Ran { .. }) | None => None,
     };
-    let model_status = match &input.qualification {
-        ModelQualification::Qualified => RequirementStatus::Pass,
-        ModelQualification::Checked(check) => check.status,
-    };
-    let model_check = match &input.qualification {
-        ModelQualification::Qualified => None,
-        ModelQualification::Checked(check) => Some(check.clone()),
-    };
+    let (model_status, model_check) = qualification_of(&input.qualification);
     let eligible = status == RequirementStatus::Pass
         && matches!(
             campaign.candidate_evaluations.first(),
@@ -561,6 +690,10 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
         model_revision,
         candidate: tune.candidate,
         project_candidate: tune.project_candidate.clone(),
+        state_candidate: tune.state_candidate.clone(),
+        search_candidate: tune.search_candidate.clone(),
+        on_off_candidate: tune.on_off_candidate.clone(),
+        group_candidate: tune.group_candidate.clone(),
         requirements: tune.requirements.clone(),
         declared_scenarios: declared_scenarios(loop_definition)?,
         conditions: conditions_of(loop_definition, &nominal.plan),
@@ -643,6 +776,24 @@ struct CampaignOutcomes {
     plot: Option<ValidationPlot>,
 }
 
+/// The revision that names the model a case ran on (A9): the revision of the declared scenario's own model when it supplies one (C8),
+/// otherwise the study's model's.
+fn case_revision(loop_definition: &LoopDefinition, case_id: &str, study_revision: &str) -> String {
+    declared_scenarios(loop_definition)
+        .ok()
+        .and_then(|scenarios| {
+            scenarios
+                .into_iter()
+                .find(|scenario| scenario.id == case_id)
+        })
+        .and_then(|scenario| scenario.model)
+        .and_then(|value| decode_general_model(&value))
+        .map_or_else(
+            || study_revision.to_owned(),
+            |model| model.identity().revision.clone(),
+        )
+}
+
 /// Judges the current and the candidate job of each case against the case's requirements (B5.3, B5.4), in the order of the cases.
 ///
 /// # Errors
@@ -659,8 +810,17 @@ fn campaign_outcomes(
         plot: None,
     };
     for (index, (case, jobs)) in input.cases.iter().zip(input.jobs).enumerate() {
-        let plant = isolated_plant_name(jobs.plant, model_revision);
+        let plant = isolated_plant_name(
+            jobs.plant,
+            &case_revision(loop_definition, &case.id, model_revision),
+        );
         let averaged = case.plan.record_every > 1;
+        // The candidate's run is built with this case's record period (run_requests.rs), so its continuity rule takes that period (C10).
+        let continuity = gain_schedule_case::continuity_rule(
+            loop_definition,
+            input.tune.project_candidate.as_ref(),
+            case.plan.record_every,
+        )?;
         let current = job_outcome(
             loop_definition,
             case,
@@ -669,13 +829,14 @@ fn campaign_outcomes(
             averaged,
             criteria,
         )?;
-        let candidate = job_outcome(
+        let candidate = judged_job_outcome(
             loop_definition,
             case,
             jobs.candidate,
             &plant,
             averaged,
             criteria,
+            continuity.as_ref(),
         )?;
         // The plot shows the target-response case, the campaign's first (B5.3, B9.6).
         if index == 0 {
@@ -739,8 +900,8 @@ struct JobOutcome {
     evaluation: Option<RecordedRunEvaluation>,
 }
 
-/// The outcome of one job: a completed run is evaluated against its case's requirements (N8.3, N8.4). Any other job has no
-/// evidence, so its requirements are Inconclusive (B5.5, N8.5).
+/// The outcome of one job that is not a candidate's: a completed run is evaluated against its case's requirements (N8.3, N8.4). Any other
+/// job has no evidence, so its requirements are Inconclusive (B5.5, N8.5).
 fn job_outcome(
     loop_definition: &LoopDefinition,
     case: &CampaignCase,
@@ -749,10 +910,39 @@ fn job_outcome(
     averaged: bool,
     criteria: Option<&AutomaticCriteria>,
 ) -> Result<JobOutcome, Failure> {
+    judged_job_outcome(loop_definition, case, job, plant, averaged, criteria, None)
+}
+
+/// The outcome of one job, judged as `job_outcome` judges it, and with the schedule's continuity requirement when `continuity` is given: the
+/// rule of a schedule's candidate, whose run alone writes the schedule's table (C10 Validate).
+fn judged_job_outcome(
+    loop_definition: &LoopDefinition,
+    case: &CampaignCase,
+    job: &IsolatedRunStatus,
+    plant: &str,
+    averaged: bool,
+    criteria: Option<&AutomaticCriteria>,
+    continuity: Option<&gain_schedule_case::ContinuityRule>,
+) -> Result<JobOutcome, Failure> {
     let evaluation = if let IsolatedRunEvidence::Complete(record) = job.evidence() {
         let run = validation_run_of(record)?;
         let requirements = held_parameters(&case.requirements, &record.parameters);
-        Some(evaluate_recorded_run(&run, &requirements, averaged)?)
+        let mut evaluated = evaluate_recorded_run(&run, &requirements, averaged)?;
+        // A Smith predictor's flags and correction are judged on every run of the loop (C9).
+        smith_case::add_predictor_result(loop_definition, &run, averaged, &mut evaluated);
+        // A switching controller's transition rule, retained band and aborts are judged on every run (C3).
+        crate::validation::on_off_criteria::add_switching_results(
+            loop_definition,
+            &record.parameters,
+            &run,
+            averaged,
+            &mut evaluated,
+        );
+        // A schedule's active gains must change continuously across it, judged on the candidate's run (C10 Validate, D-20).
+        if let Some(rule) = continuity {
+            gain_schedule_case::add_continuity_result(rule, &run, &mut evaluated);
+        }
+        Some(evaluated)
     } else {
         None
     };

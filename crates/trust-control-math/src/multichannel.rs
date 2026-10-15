@@ -5,8 +5,13 @@
 //! The relative gain array and the decoupler need a square, nonsingular `K`, and both refuse one through the rules of
 //! [`crate::inverse::invert`]. The pairing reads the relative gains only, so it never receives a singular case (N4.5).
 
+use nalgebra::linalg::SVD;
+
 use crate::inverse::invert;
-use crate::linalg::{DenseMatrix, NumericalRejection, NumericalTolerance};
+use crate::linalg::{
+    matrix_from_rows, solve_least_squares, DenseMatrix, NumericalRejection,
+    NumericalRejectionReason, NumericalTolerance,
+};
 use crate::model::StateSpace;
 
 /// The pivot magnitude at or below which a state equation counts as singular (the rule of Control Studio's `solveLinear`).
@@ -129,6 +134,114 @@ pub fn steady_state_gain(system: &StateSpace, discrete: bool) -> Option<DenseMat
             })
             .collect(),
     )
+}
+
+/// The steady-state gain that settled trials give (C7 "Measured paths"), with the evidence of its fit.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticGainFit {
+    /// The gain `K`: one row per output, one column per input.
+    pub gain: DenseMatrix,
+    /// The numerical rank of the input steps.
+    pub input_rank: usize,
+    /// The condition number `σ_max / σ_min` of the input steps.
+    pub input_condition_number: f64,
+    /// The norm of the residuals of the fit over every output.
+    pub residual_norm: f64,
+}
+
+/// The least-squares steady-state gain of settled trials (C7, N4.5). `inputs` has one row per trial and one column per input, and
+/// `outputs` one row per trial and one column per output. Each output is fitted on its own, `inputs · kᵢ = outputs column i`, so the
+/// gain's row `i` is `kᵢ`. The rank and the conditioning of `inputs` are those of every fit.
+///
+/// # Errors
+/// Returns the rejection of [`solve_least_squares`] for an output that cannot be fitted, and `InconsistentDimensions` when there are
+/// fewer than two trials, the trials and the outputs do not pair, a row has another length, or a list is empty.
+pub fn identify_static_gain(
+    inputs: &DenseMatrix,
+    outputs: &DenseMatrix,
+    tolerance: &NumericalTolerance,
+) -> Result<StaticGainFit, NumericalRejection> {
+    let inconsistent = NumericalRejection {
+        reason: NumericalRejectionReason::InconsistentDimensions,
+    };
+    let input_width = inputs.first().map_or(0, Vec::len);
+    let output_width = outputs.first().map_or(0, Vec::len);
+    let rectangular = inputs.iter().all(|row| row.len() == input_width)
+        && outputs.iter().all(|row| row.len() == output_width);
+    if inputs.len() < 2
+        || inputs.len() != outputs.len()
+        || input_width == 0
+        || output_width == 0
+        || !rectangular
+    {
+        return Err(inconsistent);
+    }
+    let mut gain = Vec::with_capacity(output_width);
+    let mut residual_squared = 0.0;
+    let mut conditioning = None;
+    for output in 0..output_width {
+        let column: Vec<f64> = outputs.iter().map(|row| row[output]).collect();
+        let fit = solve_least_squares(inputs, &column, tolerance)?;
+        residual_squared += fit.residual_norm * fit.residual_norm;
+        if conditioning.is_none() {
+            conditioning = Some((fit.rank, fit.condition_number));
+        }
+        gain.push(fit.solution);
+    }
+    let (input_rank, input_condition_number) = conditioning.ok_or(inconsistent)?;
+    Ok(StaticGainFit {
+        gain,
+        input_rank,
+        input_condition_number,
+        residual_norm: residual_squared.sqrt(),
+    })
+}
+
+/// The condition number `σ_max / σ_min` of a square matrix (N4.5): the conditioning that a relative gain array keeps. `None` for an
+/// empty or rectangular matrix, or when the ratio is not finite.
+#[must_use]
+pub fn condition_number(matrix: &DenseMatrix) -> Option<f64> {
+    let order = matrix.len();
+    if order == 0 || matrix.iter().any(|row| row.len() != order) {
+        return None;
+    }
+    let square = matrix_from_rows(matrix, order).ok()?;
+    let singular = SVD::new(square, false, false).singular_values;
+    let largest = singular.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let smallest = singular.iter().copied().fold(f64::INFINITY, f64::min);
+    let ratio = largest / smallest;
+    ratio.is_finite().then_some(ratio)
+}
+
+/// The pairing that the relative gains name (N4.5): among the pairings whose diagonal relative gains are all positive, the one whose
+/// diagonal is closest to one, by the smallest sum of `|λᵢπ(i) − 1|`. Of two equally close pairings, the earlier in lexicographic order
+/// is named. `None` when no pairing has every diagonal element positive, so that no pairing is recommended.
+#[must_use]
+pub fn named_pairing(relative_gains: &DenseMatrix) -> Option<Vec<usize>> {
+    let columns: Vec<usize> = (0..relative_gains.len()).collect();
+    let mut best: Option<(f64, Vec<usize>)> = None;
+    for pairing in permutations(&columns) {
+        let positive = pairing
+            .iter()
+            .enumerate()
+            .all(|(row, &column)| relative_gains[row][column] > 0.0);
+        if !positive {
+            continue;
+        }
+        let cost: f64 = pairing
+            .iter()
+            .enumerate()
+            .map(|(row, &column)| (relative_gains[row][column] - 1.0).abs())
+            .sum();
+        let better = match &best {
+            None => true,
+            Some((best_cost, _)) => cost < *best_cost,
+        };
+        if better {
+            best = Some((cost, pairing));
+        }
+    }
+    best.map(|(_, pairing)| pairing)
 }
 
 /// Every permutation of `items`, in lexicographic order of their positions.

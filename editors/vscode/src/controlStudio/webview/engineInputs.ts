@@ -1,3 +1,4 @@
+import type { EngineHostPorts } from "./engineOpened";
 import type { EngineStageReceiver } from "./engineStages";
 
 /** The window event that carries the recorded inputs of an opened loop; its `detail` is the inputs (specification 35, A8.6). */
@@ -16,17 +17,26 @@ const STALE_VALIDATION_REASON = "Inputs changed. Tune and verify before applying
  * engine decides; this module only presents.
  */
 export const inputsReceiver: EngineStageReceiver = {
+  opened(_root, opened, ports) {
+    showStateFields(opened, ports);
+  },
   result(root, result, ports) {
     const inputs = record(result.inputs);
     if (inputs) {
       const view = root.ownerDocument.defaultView;
       view?.dispatchEvent(new view.CustomEvent(ENGINE_INPUTS_EVENT, { detail: inputs }));
     }
+    showStateFields(result, ports);
     if (record(result.invalidated)?.validation === true) {
       ports.receive("engineer", { status: "edited", reason: STALE_VALIDATION_REASON });
     }
   },
 };
+
+/** The design form's fields that the engine lists for the recorded state law (C4); an answer without them keeps the form as it is. */
+function showStateFields(answer: Record<string, unknown>, ports: EngineHostPorts): void {
+  if (Array.isArray(answer.stateFields)) ports.receive("engineer", { stateFields: answer.stateFields });
+}
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;

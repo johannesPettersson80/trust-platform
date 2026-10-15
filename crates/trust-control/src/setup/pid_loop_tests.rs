@@ -18,7 +18,7 @@ use crate::loop_definition::{
     LoopScope, ModeWhenTrue, ParameterBinding, PidInitialization, PostScan, RealType, StateType,
 };
 use crate::setup::catalog::{decode_catalog_answer, CompiledCatalog, PID_PARAMETERS};
-use crate::setup::loop_bindings::MeasuredSignal;
+use crate::setup::loop_bindings::{FormSignal, MeasuredSignal};
 use crate::setup::pid_bindings::{pid_parameters, pid_states, startup_state};
 
 const STATE_FIELDS: [&str; 7] = [
@@ -48,7 +48,17 @@ fn text_of(failure: &Failure) -> String {
         .unwrap_or_else(|| failure.message.clone())
 }
 
-fn signal(symbol: &str, unit: &str, minimum: f64, maximum: f64) -> MeasuredSignal {
+fn signal(symbol: &str, unit: &str, minimum: f64, maximum: f64) -> FormSignal {
+    FormSignal {
+        symbol: symbol.to_string(),
+        unit: unit.to_string(),
+        minimum: Some(minimum),
+        maximum: Some(maximum),
+    }
+}
+
+/// A measured signal that a function takes checked, not as a form draft (`MeasuredSignal`).
+fn measured(symbol: &str, unit: &str, minimum: f64, maximum: f64) -> MeasuredSignal {
     MeasuredSignal {
         symbol: symbol.to_string(),
         unit: unit.to_string(),
@@ -324,8 +334,8 @@ fn the_bounds_admit_every_value_the_plant_library_pid_pair_starts_with() {
     );
     let parameters = pid_parameters(
         "P1.Parameters",
-        &signal("P1.PV", "°C", 0.0, 100.0),
-        &signal("P1.MV", "%", 0.0, 100.0),
+        &measured("P1.PV", "°C", 0.0, 100.0),
+        &measured("P1.MV", "%", 0.0, 100.0),
     );
     for parameter in parameters {
         let name = field(&parameter.symbol);
@@ -507,6 +517,21 @@ fn the_startup_flag_is_an_application_state_that_validation_starts_true() {
         startup_state("P1.Initialized"),
         application_states.as_ref().expect("one state")[0]
     );
+}
+
+#[test]
+fn a_startup_flag_that_is_not_a_bool_is_refused_for_a_pid_loop() {
+    // C1 Setup: the startup-done flag is a BOOL the program sets. A REAL variable named as the flag is refused under the form's field.
+    let catalog = decode(generated_json());
+    let mut draft = generated_draft("Main.TIC101_ManualOutput");
+    draft.startup_flag = Some("Main.EH101_Power".to_string());
+    let failure = pid_loop_definition(&catalog, &scope(), &draft)
+        .expect_err("a REAL variable is not a startup-done flag");
+    assert_eq!(
+        failure.message,
+        "Main.EH101_Power is not a compiled BOOL symbol."
+    );
+    assert_eq!(failure.field.as_deref(), Some("startupFlag"));
 }
 
 #[test]
@@ -758,8 +783,8 @@ fn the_pid_parameters_follow_the_control_pid_bounds() {
     // pidBindings.ts `pidParameters`: closed-form bounds for a 0–80 °C measurement and a 0–100 % output (C0).
     let parameters = pid_parameters(
         "P1.Parameters",
-        &signal("P1.TemperatureC", "degC", 0.0, 80.0),
-        &signal("P1.AppliedPowerPct", "%", 0.0, 100.0),
+        &measured("P1.TemperatureC", "degC", 0.0, 80.0),
+        &measured("P1.AppliedPowerPct", "%", 0.0, 100.0),
     );
     let expected = [
         ("ProportionalGain", "%/degC", -1e6, 1e6),
@@ -794,8 +819,8 @@ fn the_pid_states_are_the_seven_retained_states_at_the_operating_point() {
     // rates and the feedforward at zero, and the rates and the nominal output span the signal spans (C1).
     let states = pid_states(
         "P1.Controller",
-        &signal("P1.TemperatureC", "degC", 0.0, 80.0),
-        &signal("P1.AppliedPowerPct", "%", 0.0, 100.0),
+        &measured("P1.TemperatureC", "degC", 0.0, 80.0),
+        &measured("P1.AppliedPowerPct", "%", 0.0, 100.0),
         0,
     );
     let output = |index| InitialValue::From(InitialSource::ModelOutput { index });
@@ -875,10 +900,11 @@ fn a_task_slower_than_two_seconds_gives_an_age_the_loop_refuses() {
 }
 
 #[test]
-fn a_unitless_signal_states_its_unit_as_one() {
-    // A blank unit is dimensionless: the parameters and the states say `1` (C0 needs a unit, and the loop reader writes the same).
+fn a_dimensionless_signal_entered_as_one_keeps_its_unit_as_one() {
+    // The form asks for a unit, and a dimensionless signal's unit is entered as `1`: the parameters and the states say `1`, as the
+    // loop reader writes it (C0 needs a unit).
     let draft = PidLoopDraft {
-        process_variable: signal("P1.TemperatureC", "", 0.0, 80.0),
+        process_variable: signal("P1.TemperatureC", "1", 0.0, 80.0),
         ..heater_draft()
     };
     let loop_definition =

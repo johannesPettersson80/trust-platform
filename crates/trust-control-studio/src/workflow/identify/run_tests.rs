@@ -10,9 +10,9 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 use trust_control::experiment::{
-    ControlEvidenceSource, ControlExperimentPlan, ControlExperimentRecovery, ControllerMode,
-    ExperimentSample, PlanAuxiliarySignal, PlanSignal, RecordingRecoveryBinding,
-    RecordingRecoveryOwner,
+    ControlEvidenceSource, ControlExperimentKind, ControlExperimentPlan, ControlExperimentRecovery,
+    ControllerMode, ExperimentSample, ExperimentValue, PlanAuxiliarySignal, PlanSignal,
+    RecordingRecoveryBinding, RecordingRecoveryOwner,
 };
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::baseline::BaselineSummary;
@@ -24,7 +24,8 @@ use trust_control::identification::connected_record::{BoundsCheck, ValidationRun
 use trust_control::identification::connected_run::{StartRead, PHYSICAL_TARGET_TEXT};
 use trust_control::identification::independent_validation::{RequirementStatus, RunEvaluation};
 use trust_control::identification::reconcile::StatusRead;
-use trust_control::loop_definition::LoopDefinition;
+use trust_control::loop_definition::{ExperimentKind, LoopDefinition};
+use trust_control::messages::CampaignRestoration;
 use trust_control::recording::evidence::{recording_evidence, RecordingEvidence};
 use trust_control::recording::{
     Acquisition, Completeness, EvidenceSource, RecordedRun, StopReason,
@@ -1057,4 +1058,172 @@ fn a_two_input_campaign_steps_each_input_in_turn_in_one_recording() {
         "the journal is cleared once nothing of the run is left running"
     );
     fs::remove_dir_all(&scratch_folder).expect("clean up");
+}
+
+/// The two-input tank of `two_input_loop` with no declared method, so that Identify chooses the method of each input without its own step
+/// (B3.3), and with each input's own identification step as the arguments give it (C7, C8).
+fn two_input_loop_with_steps(valve_step: Option<f64>, load_step: Option<f64>) -> LoopDefinition {
+    let mut loop_definition = two_input_loop();
+    if let Some(experiment) = loop_definition.experiment.as_mut() {
+        experiment.kind = ExperimentKind::Observation;
+        experiment.amplitude = 0.0;
+    }
+    if let Some(channels) = loop_definition.channels.as_mut() {
+        channels.inputs[0].experiment_step = valve_step;
+        channels.inputs[1].experiment_step = load_step;
+    }
+    loop_definition
+}
+
+/// Runs one identification of the two-input tank `loop_definition` on `state`, with `sample` as the loop's live sample, and says whether it
+/// ended without a failure. The fake recording holds no load values, so a run that gets past its steps is refused by its fit.
+fn run_two_inputs(
+    state: &Arc<super::test_support::FakeState>,
+    folder: &Path,
+    loop_definition: &LoopDefinition,
+    sample: ExperimentSample,
+) -> Result<(), Failure> {
+    use super::test_support::{
+        empty_journal, passes, FakeClock, FakeReport, FakeRuntime, Sampler, Study as FakeStudy,
+    };
+    let journal = empty_journal(folder);
+    let runtime = FakeRuntime::new(state);
+    let clock = FakeClock::new(state);
+    let report = FakeReport::new(state, false);
+    let mut sampler = Sampler(Some(sample));
+    let mut study = FakeStudy::new(state);
+    let request = IdentifyRequest {
+        loop_definition,
+        expected_settling_seconds: None,
+        evaluate: &passes,
+    };
+    run(
+        RunPorts {
+            runtime: &runtime,
+            sampler: &mut sampler,
+            retention: &mut study,
+            clock: &clock,
+            report: &report,
+            journal: &journal,
+        },
+        &request,
+        RunPurpose::Identify,
+    )
+    .map(|_| ())
+}
+
+/// Asserts that `plan` moves `signal` by a manual-output step from `from` to `to`, as an input with its own step is stepped (C7, C8).
+#[allow(clippy::float_cmp)] // The planned values are the sums of whole numbers, which are exact.
+fn assert_manual_output_step(plan: &ControlExperimentPlan, signal: &str, from: f64, to: f64) {
+    assert_eq!(
+        plan.kind,
+        ControlExperimentKind::MvStep,
+        "{signal} is stepped by a manual-output step"
+    );
+    assert_eq!(plan.affected_signal, signal);
+    let ExperimentValue::Number(start) = plan.from else {
+        panic!("{signal} starts from a number");
+    };
+    let ExperimentValue::Number(end) = plan.to else {
+        panic!("{signal} moves to a number");
+    };
+    assert_eq!((start, end), (from, to), "{signal} moves by its own step");
+}
+
+// C7, C8: when every input declares its own step, one campaign steps each input at its own step, each by a manual-output step of its size.
+#[test]
+fn campaign_steps_both_inputs_at_their_own_manual_output_steps() {
+    use super::test_support::{folder as scratch, FakeState, StartBehaviour};
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let folder = scratch("own-steps-both");
+    let loop_definition = two_input_loop_with_steps(Some(10.0), Some(5.0));
+    // The fit refuses the fake recording after both steps, which hold no load values, so only the steps that started are read here.
+    let _ = run_two_inputs(&state, &folder, &loop_definition, manual_sample_with_load());
+    let started = state.started_plans();
+    assert_eq!(started.len(), 2, "one experiment per plant input");
+    assert_manual_output_step(&started[0], "Main.TIC101_Manual", 30.0, 40.0);
+    assert_manual_output_step(&started[1], "P1.LoadKw", 20.0, 25.0);
+    assert_eq!(
+        state.count("recording.start"),
+        1,
+        "one recording holds both steps"
+    );
+    fs::remove_dir_all(&folder).expect("clean up");
+}
+
+// C7, C8: an input without its own step takes the method Identify chose for the loop, beside the input stepped at its own step.
+#[test]
+fn campaign_steps_an_input_without_a_step_by_the_method_identify_chose() {
+    use super::test_support::{folder as scratch, FakeState, StartBehaviour};
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let folder = scratch("own-step-first-only");
+    let loop_definition = two_input_loop_with_steps(Some(4.0), None);
+    let _ = run_two_inputs(&state, &folder, &loop_definition, manual_sample_with_load());
+    let started = state.started_plans();
+    assert_eq!(started.len(), 2, "one experiment per plant input");
+    assert_manual_output_step(&started[0], "Main.TIC101_Manual", 30.0, 34.0);
+    // The load has no step, so Identify chooses a plant-input step in Manual. Automatic sizes it at 10 % of the load's 50 kW range,
+    // which is within the 30 kW of headroom above the 20 kW measured.
+    assert_manual_output_step(&started[1], "P1.LoadKw", 20.0, 25.0);
+    fs::remove_dir_all(&folder).expect("clean up");
+}
+
+// C7, C8: an input without its own step would take a setpoint step in Auto, which cannot share a recording with a manual-output step, so
+// the campaign is refused by name before it records or starts anything.
+#[test]
+fn campaign_refuses_an_input_that_would_take_a_setpoint_step_before_it_records() {
+    use super::test_support::{folder as scratch, FakeState, StartBehaviour};
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let folder = scratch("own-step-in-auto");
+    let loop_definition = two_input_loop_with_steps(Some(4.0), None);
+    let mut sample = manual_sample_with_load();
+    sample.controller_mode = ControllerMode::Auto;
+    let failure = run_two_inputs(&state, &folder, &loop_definition, sample)
+        .expect_err("the inputs need both controller modes");
+    assert_eq!(
+        (failure.cause, failure.next_action),
+        (Cause::Settings, NextAction::OpenLoopSetup)
+    );
+    assert!(
+        failure.message.contains("P1.LoadKw"),
+        "the refusal names the load: {}",
+        failure.message
+    );
+    assert!(state.started_plans().is_empty(), "nothing is started");
+    assert_eq!(state.count("recording.start"), 0, "nothing is recorded");
+    // The refusal comes before the campaign journals anything, so the folder may never have been created.
+    if let Err(error) = fs::remove_dir_all(&folder) {
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::NotFound,
+            "clean up: {error}"
+        );
+    }
+}
+
+#[test]
+fn a_hold_confirms_the_campaigns_restoration_only_when_the_runtime_says_it_restored_or_needed_none()
+{
+    let status = |restoration: Value| json!({ "status": "completed", "restoration": restoration });
+    assert_eq!(
+        super::run::hold_restoration(&status(json!("restored"))),
+        Some(CampaignRestoration::Restored),
+        "a restoration the runtime confirmed is the campaign's restoration (C12)"
+    );
+    assert_eq!(
+        super::run::hold_restoration(&status(json!("not_required"))),
+        Some(CampaignRestoration::NotRequired),
+        "an experiment that wrote no output needed no restoration"
+    );
+    assert_eq!(
+        super::run::hold_restoration(&status(json!("pending"))),
+        None,
+        "a restoration not yet confirmed is no outcome to report"
+    );
+    assert_eq!(super::run::hold_restoration(&status(json!("failed"))), None);
+    assert_eq!(
+        super::run::hold_restoration(&json!({ "status": "completed" })),
+        None,
+        "a status without a restoration is no outcome to report"
+    );
 }

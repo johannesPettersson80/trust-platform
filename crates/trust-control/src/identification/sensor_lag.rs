@@ -2,10 +2,13 @@
 //! settings and the reference analysis, runs the grid search of `trust_control_math::sensor_lag`, and attaches the warnings
 //! and the boundary flags the specification requires (`fitSensorLagStep` in `sensorLagStepIdentification.ts`).
 //!
-//! The grids of the sensor lag are the declared `sensor_time_constant` or, when none is declared, the default grid of the
+//! The grids of the sensor lag are the declared sensor-time grid or, when none is declared, the default grid of the
 //! annex. The other grids and the measurement assumptions are those of the reference analysis.
 
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use trust_control_math::identify::step_response::StepResponseWindow;
+use trust_control_math::identify::ParameterInterval;
 use trust_control_math::sensor_lag::{
     fit_sensor_lag_step, HeldSample, SearchRange, SensorLagCandidate, SensorLagConsistency,
     SensorLagError, SensorLagSearch, StepReference,
@@ -19,7 +22,9 @@ use crate::identification::sensor_lag_texts::{
     NO_CONSISTENT_POINT_WARNING, SEARCH_BOUNDARY_WARNING, SEARCH_TOO_LARGE,
     TIMESTAMP_SHIFT_WARNING,
 };
-use crate::identification::step_response::{SearchGrid, StepResponseAnalysis};
+use crate::identification::step_response::{
+    SearchGrid, StepResponseAnalysis, StepResponseSettings,
+};
 
 /// The sensor-time grid of a sensor-lag fit when the settings declare none: 0.1 s to 10 s in steps of 0.1 s.
 pub const DEFAULT_SENSOR_TIME_CONSTANT: SearchGrid = SearchGrid {
@@ -28,13 +33,61 @@ pub const DEFAULT_SENSOR_TIME_CONSTANT: SearchGrid = SearchGrid {
     step: 0.1,
 };
 
-/// The sensor-lag analysis of one held step (`SensorLagStepAnalysis`): the reference windows and step, the best candidate,
-/// the measurement-consistent set, the boundary and zero-delay findings, the warnings and the fit's points.
-#[derive(Debug, Clone)]
+/// The least-squares candidate of a sensor-lag fit (`SensorLagStepAnalysis.best`): its baseline, its gain, its dead time,
+/// its two time constants and the sum of its squared residuals.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SensorLagBest {
+    /// The baseline output `y₀`.
+    pub baseline: f64,
+    /// The gain `K`.
+    pub gain: f64,
+    /// The dead time `L`, in s.
+    pub delay_seconds: f64,
+    /// The first time constant `τ`, in s.
+    pub time_constant_seconds: f64,
+    /// The second time constant `τ₂`, the sensor lag, in s.
+    pub second_time_constant_seconds: f64,
+    /// The sum of the squared residuals over the held samples.
+    pub squared_error: f64,
+}
+
+/// The measurement-consistent set of a sensor-lag search (`SensorLagStepAnalysis.consistency`): how many grid points stay
+/// within the measurement bound, and the smallest and largest value of each parameter over them (N2.4).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SensorLagRanges {
+    /// The number of consistent baseline grid points, summed over the consistent gains and shapes.
+    pub count: usize,
+    /// The interval of the consistent gains.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gain: Option<ParameterInterval>,
+    /// The interval of the consistent dead times, in s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay_seconds: Option<ParameterInterval>,
+    /// The interval of the consistent first time constants, in s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_constant_seconds: Option<ParameterInterval>,
+    /// The interval of the consistent second time constants, in s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub second_time_constant_seconds: Option<ParameterInterval>,
+    /// The interval of the consistent baselines.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<ParameterInterval>,
+}
+
+/// The sensor-lag analysis of one held step (`SensorLagStepAnalysis`): the reference windows and step, the grids searched,
+/// the best candidate, the measurement-consistent set, the boundary and zero-delay findings, the warnings and the fitted
+/// held samples.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SensorLagStepAnalysis {
+    /// The settings the search used: the reference's, with the comparison's own measurement settings.
+    pub settings: StepResponseSettings,
     /// The steady baseline window of the reference analysis.
     pub baseline: StepResponseWindow,
     /// The final window of the reference analysis.
+    #[serde(rename = "final")]
     pub final_window: StepResponseWindow,
     /// The fitted input change `Δu`.
     pub input_change: f64,
@@ -43,11 +96,11 @@ pub struct SensorLagStepAnalysis {
     /// The end of the held step in seconds.
     pub hold_end_seconds: f64,
     /// The sensor-time grid the fit searched, in seconds.
-    pub sensor_time_constant: SearchRange,
+    pub sensor_time_constant: SearchGrid,
     /// The least-squares candidate over the whole grid.
-    pub best: SensorLagCandidate,
+    pub best: SensorLagBest,
     /// The measurement-consistent set of the search.
-    pub consistency: SensorLagConsistency,
+    pub consistency: SensorLagRanges,
     /// Whether any best parameter lies on the edge of its grid.
     pub boundary_limited: bool,
     /// Whether the best dead time is zero and the search allowed zero, a one-sided finding rather than an unresolved bound.
@@ -121,12 +174,13 @@ pub fn fit_sensor_lag(
         .collect();
     let boundary_limited = fit.amplitude_on_boundary || fit.shape_on_boundary;
     Ok(SensorLagStepAnalysis {
+        settings: settings.clone(),
         baseline: reference.baseline.clone(),
         final_window: reference.final_window.clone(),
         input_change: reference.input_change,
         step_time_seconds: reference.step_time_seconds,
         hold_end_seconds: reference.hold_end_seconds,
-        sensor_time_constant: range(&sensor),
+        sensor_time_constant: sensor,
         zero_delay_lower_bound: fit.best.delay_seconds == 0.0 && settings.delay.minimum == 0.0,
         warnings: warnings(
             boundary_limited,
@@ -134,11 +188,35 @@ pub fn fit_sensor_lag(
             fit.consistency.count,
             settings.timestamp_shift_seconds,
         ),
-        best: fit.best,
-        consistency: fit.consistency,
+        best: best_of(fit.best),
+        consistency: ranges_of(&fit.consistency),
         boundary_limited,
         points,
     })
+}
+
+/// The best candidate of a fit as the analysis keeps it.
+fn best_of(candidate: SensorLagCandidate) -> SensorLagBest {
+    SensorLagBest {
+        baseline: candidate.baseline,
+        gain: candidate.gain,
+        delay_seconds: candidate.delay_seconds,
+        time_constant_seconds: candidate.time_constant_seconds,
+        second_time_constant_seconds: candidate.second_time_constant_seconds,
+        squared_error: candidate.squared_error,
+    }
+}
+
+/// The measurement-consistent set of a fit as the analysis keeps it.
+fn ranges_of(consistency: &SensorLagConsistency) -> SensorLagRanges {
+    SensorLagRanges {
+        count: consistency.count,
+        gain: consistency.gain,
+        delay_seconds: consistency.delay_seconds,
+        time_constant_seconds: consistency.time_constant_seconds,
+        second_time_constant_seconds: consistency.second_time_constant_seconds,
+        baseline: consistency.baseline,
+    }
 }
 
 /// The search range of a declared grid.

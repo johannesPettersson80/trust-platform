@@ -1,3 +1,4 @@
+/** V7.17 debt: a parked loop's retained-recording MIMO analysis on the TypeScript route. A served loop's measured paths are the engine's (C7). */
 import * as vscode from "vscode";
 import { decodeMimoAnalysisCommand } from "./messages";
 import { storeMimoAnalysis } from "./panelPersistence";

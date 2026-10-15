@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::identification::refusal::Refusal;
 use crate::loop_definition::{ControllerLaw, LoopDefinition, ParameterBinding, RealType};
+use crate::tuning::cascade_candidate::{cascade_mapped_parameters, served_cascade};
 use crate::tuning::project_candidate::served_seed;
 use crate::tuning::project_seed::ParallelPidSeed;
 use crate::tuning::proportional::GainBounds;
@@ -151,6 +152,9 @@ pub fn mapped_parameters(loop_definition: &LoopDefinition) -> Vec<MappedParamete
     };
     if let Some(seed) = served_seed(loop_definition) {
         return seed_parameters(seed, binding);
+    }
+    if let Some(seed) = served_cascade(loop_definition) {
+        return cascade_mapped_parameters(seed, binding);
     }
     let Some(ControllerLaw::Pid(pid)) = &loop_definition.controller.law else {
         return Vec::new();

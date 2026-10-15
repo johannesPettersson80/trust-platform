@@ -8,8 +8,8 @@ use serde::Deserialize;
 
 use super::catalog::{CompiledCatalog, CompiledController};
 use super::loop_bindings::{
-    binding, cyclic_task, identification_duration, loop_id, measurement_binding, stated_signal,
-    with_revision, MeasuredSignal,
+    binding, cyclic_task, identification_duration, loop_id, measured_signal, measurement_binding,
+    stated_signal, with_revision, FormSignal,
 };
 use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
@@ -25,9 +25,9 @@ pub struct IdentifyLoopDraft {
     /// The loop's name, from which its id is made.
     pub name: String,
     /// The plant input the program drives.
-    pub manipulated_variable: MeasuredSignal,
+    pub manipulated_variable: FormSignal,
     /// The measured output.
-    pub process_variable: MeasuredSignal,
+    pub process_variable: FormSignal,
     /// How long Studio records the project's experiment, in s; the form asks for it (C12).
     pub experiment_duration_seconds: Option<f64>,
 }
@@ -62,8 +62,16 @@ pub fn identify_loop_definition(
             )
         })?;
     let task = cyclic_task(program)?;
-    let process_variable = stated_signal(&draft.process_variable);
-    let input = stated_signal(&draft.manipulated_variable);
+    let input = stated_signal(&measured_signal(
+        &draft.manipulated_variable,
+        "plant input",
+        Some("identify.manipulatedVariable"),
+    )?);
+    let process_variable = stated_signal(&measured_signal(
+        &draft.process_variable,
+        "measured output",
+        Some("identify.processVariable"),
+    )?);
     let process_signal = measurement_binding(catalog, &process_variable)?;
     let input_signal = binding(catalog, &input, Direction::Read)?;
     let duration = identification_duration(&draft.name, draft.experiment_duration_seconds)?;

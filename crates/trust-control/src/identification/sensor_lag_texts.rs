@@ -24,9 +24,6 @@ pub const GRID_TOO_LARGE: &str =
 pub const NO_CANDIDATE: &str =
     "The baseline/gain grid has no candidate within the qualified windows; refine its spacing.";
 
-/// The refusal when a structure comparison is asked for on a record that already has independent validation.
-pub const VALIDATION_PRESENT: &str =
-    "Compare model structures on the retained estimation recording before independent validation.";
 /// The refusal when the first-order reference was fitted with other windows or measurement assumptions.
 pub const REFERENCE_CHANGED: &str = "Recheck the first-order reference before comparing with changed windows or measurement assumptions.";
 /// The refusal when the comparison has no estimation preview to start from.
@@ -39,3 +36,6 @@ pub const STRUCTURE_NOT_MET: &str =
     "That structure does not meet the declared model-error and improvement requirements.";
 /// The refusal when a structure is chosen before the comparison has been calculated.
 pub const CALCULATE_FIRST: &str = "Calculate a model-structure comparison before choosing a model.";
+/// The refusal when an independent check is asked for before the engineer has chosen a structure (N2.10: the check
+/// follows the choice).
+pub const CHOOSE_BEFORE_VALIDATION: &str = "Choose a model structure before the independent check.";

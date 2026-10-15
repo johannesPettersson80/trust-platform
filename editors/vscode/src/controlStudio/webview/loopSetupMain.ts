@@ -7,6 +7,6 @@ const root = document.querySelector<HTMLElement>("main");
 if (root) {
   const form = initializeLoopSetupForm(root, message => vscode.postMessage(message));
   window.addEventListener("message", event => {
-    if (event.data?.kind === "control-studio.setup.error") form.showError(String(event.data.reason));
+    if (event.data?.kind === "control-studio.setup.error") form.showError(String(event.data.reason), event.data.field ? String(event.data.field) : undefined);
   });
 }

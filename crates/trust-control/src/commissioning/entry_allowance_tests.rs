@@ -7,6 +7,31 @@ use crate::commissioning::fixture_loops::{
 };
 use serde_json::json;
 
+use crate::tuning::state_controller::fixtures::{loop_with_law, scalar_model};
+
+/// The whole text of a refusal, as the engineer reads it (its detail when it has more than one sentence).
+fn whole_text(failure: &Failure) -> String {
+    failure
+        .detail
+        .clone()
+        .unwrap_or_else(|| failure.message.clone())
+}
+
+/// A search law in its search-law form: one tuning axis, no seed, no component or model parameter.
+fn search_law_project() -> ControllerProject {
+    ControllerProject::from_value(&json!({
+        "convention": "project-owned-native-controller",
+        "family": "PID",
+        "initialization": { "kind": "declared-state-v1", "states": [] },
+        "axes": [{ "symbol": "P1.NotchQuality", "values": [1.0, 3.0] }],
+        "objective": { "requirementId": "target-error", "direction": "minimize" },
+        "maximumCandidates": 8,
+        "maximumCycles": 50000,
+        "wallBudgetMs": 60000
+    }))
+    .expect("the search-law block decodes")
+}
+
 /// The exact check of the fixture's 100 % output span: `1e-6 · 100`.
 const EXACT: f64 = 1e-4;
 
@@ -201,10 +226,63 @@ fn a_proportional_loop_allows_two_gain_times_noise_and_a_loop_without_a_law_keep
     assert!((allowance - EXACT).abs() < 1e-12);
 }
 
+/// A state law on the scalar model of the fixtures: one gain `K1` and one reference gain `N`, one state and one output.
+fn state_law_loop() -> crate::loop_definition::LoopDefinition {
+    let law = json!({
+        "family": "state-feedback",
+        "convention": "sampled-deviation-negative-feedback",
+        "gainSymbols": [["P1.K1"]],
+        "referenceGainSymbols": [["P1.N"]],
+        "initialization": { "kind": "declared-state-v1", "states": [] }
+    });
+    loop_with_law(&law, &[("P1.K1", "m3/s/m"), ("P1.N", "m3/s/m")], 1000.0)
+}
+
 #[test]
-fn a_loop_that_declares_state_feedback_is_refused_until_the_rust_engine_runs_it() {
+fn a_state_law_allowance_is_the_first_output_formula_of_c4_on_its_model() {
+    let loop_definition = state_law_loop();
+    let model = scalar_model();
+    let task = EngineerRequirements {
+        settling_band: 0.001,
+        ..requirements()
+    };
+    let values = BTreeMap::from([("P1.K1".to_owned(), 0.5), ("P1.N".to_owned(), 0.25)]);
+    // The one state is the one measured output, so its band is the settling band: 0.001 · (|K1| + |N|) = 0.00075, which is above
+    // the exact check of 1e-6 · 100 (the loop's 100 % output span).
+    let allowance = auto_entry_allowance(&loop_definition, &model, &task, &values, None, None)
+        .expect("the C4 allowance");
+    assert!((allowance - 0.00075).abs() < 1e-12, "{allowance}");
+}
+
+#[test]
+fn a_reviewed_tolerance_replaces_the_c4_allowance_and_the_state_law_needs_its_model_without_one() {
+    let loop_definition = state_law_loop();
+    let model = scalar_model();
+    let values = BTreeMap::from([("P1.K1".to_owned(), 0.5), ("P1.N".to_owned(), 0.25)]);
+    let reviewed = EngineerRequirements {
+        settling_band: 0.001,
+        transfer_tolerance: Some(0.5),
+        ..requirements()
+    };
+    let allowance = auto_entry_allowance(&loop_definition, &model, &reviewed, &values, None, None)
+        .expect("the reviewed tolerance");
+    assert_eq!(allowance, 0.5);
+    // The model-less rule cannot say which states are measured, so it refuses the state law by its rule.
+    let task = EngineerRequirements {
+        settling_band: 0.001,
+        ..requirements()
+    };
+    let failure = auto_entry_tolerance(&loop_definition, &task, &values, None, None)
+        .expect_err("a state law needs its model");
+    assert_eq!(whole_text(&failure), STATE_NEEDS_MODEL);
+    assert_eq!(failure.cause, Cause::Implementation);
+}
+
+#[test]
+fn a_search_law_has_no_auto_entry_allowance_without_a_reviewed_tolerance() {
     let mut loop_definition = parallel_pid_loop();
-    loop_definition.controller.state_feedback = Some(json!({}));
+    loop_definition.controller.law = None;
+    loop_definition.controller.project = Some(search_law_project());
     let failure = auto_entry_tolerance(
         &loop_definition,
         &requirements(),
@@ -212,12 +290,22 @@ fn a_loop_that_declares_state_feedback_is_refused_until_the_rust_engine_runs_it(
         Some(0.05),
         None,
     )
-    .expect_err("state feedback is parked");
-    assert_eq!(
-        failure.message,
-        "This loop uses state feedback, which Control Studio's Rust engine does not run yet."
-    );
-    assert_eq!(failure.cause, Cause::ControllerCapability);
+    .expect_err("a search law needs a reviewed tolerance");
+    assert_eq!(whole_text(&failure), REVIEWED_TOLERANCE_REQUIRED);
+    assert_eq!(failure.next_action, NextAction::OpenRequirements);
+    let reviewed = EngineerRequirements {
+        transfer_tolerance: Some(1.5),
+        ..requirements()
+    };
+    let allowance = auto_entry_tolerance(
+        &loop_definition,
+        &reviewed,
+        &gains(1.0, 0.0, 0.0),
+        Some(0.05),
+        None,
+    )
+    .expect("the reviewed tolerance");
+    assert_eq!(allowance, 1.5);
 }
 
 #[test]

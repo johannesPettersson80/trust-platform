@@ -12,6 +12,11 @@ export interface InputsResult {
    * The status of every stage after the change.
    */
   stages: StageAvailability[];
+  /**
+   * The design-form fields of a state law, with their labels, under the solver policy of the inputs it now records (D-B12): the
+   * page shows them before the first Tune. Absent for a loop without a state law.
+   */
+  stateFields?: FormField[] | null;
   [k: string]: unknown;
 }
 /**
@@ -45,5 +50,27 @@ export interface StageAvailability {
    * Its status.
    */
   status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
+  [k: string]: unknown;
+}
+/**
+ * One field of the design form that a family shows, with the label the page shows for it (the page's words, see `draft_label`).
+ */
+export interface FormField {
+  /**
+   * The field.
+   */
+  field:
+    | "desiredPoles"
+    | "stateWeights"
+    | "inputWeights"
+    | "processNoise"
+    | "measurementNoise"
+    | "solverMode"
+    | "horizonSteps"
+    | "terminalWeights";
+  /**
+   * The label the form shows.
+   */
+  label: string;
   [k: string]: unknown;
 }

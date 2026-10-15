@@ -5,12 +5,19 @@
 
 use std::collections::BTreeMap;
 
+use trust_control_math::linalg::DenseMatrix;
+
 use super::project_law::gain_symbols;
+use super::state_adapter::decode_state_law;
 use super::texts;
 use super::transfer::{output_limits, TransferValue};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::LoopDefinition;
+use crate::loop_definition::{ControllerProject, LoopDefinition};
+use crate::model::GeneralModel;
+use crate::tuning::state_controller::sampling::state_space;
+use crate::tuning::structure::is_exactly_zero;
 use crate::validation::engineer_verification_plan::EngineerRequirements;
+use crate::validation::model_route::bound_channels;
 
 /// The terms of the A6.4 allowance besides the measured noise: the integral and derivative gains, the task period in s and
 /// the error the controller enters Auto with. An absent term contributes nothing.
@@ -86,15 +93,19 @@ pub fn noise_aware_transfer_tolerance(
     Ok(exact.max(2.0 * gain.abs() * noise + integral + derivative))
 }
 
-/// The allowance of the first Auto output for a controller, with its gains in `values` (`autoEntryTolerance`, A6.4). A
+/// The refusal of a search law's Auto entry without a reviewed tolerance (C5, A6.4): its finite search has no first-output formula.
+pub const REVIEWED_TOLERANCE_REQUIRED: &str = "Auto entry needs a reviewed Auto-entry tolerance, because a search law has no first-output formula (C5, A6.4). Declare the tolerance in Requirements.";
+/// The refusal of a state law's allowance asked for without its model, which says which states are measured outputs (C4).
+const STATE_NEEDS_MODEL: &str = "The Auto-entry allowance of a state law needs its model (C4).";
+
+/// The allowance of the first Auto output for a law that needs no model, with its gains in `values` (`autoEntryTolerance`, A6.4). A
 /// reviewed tolerance of the task replaces every other term. Otherwise a PID or P law gets its allowance of
-/// [`noise_aware_transfer_tolerance`], and a loop without a law the exact check.
-///
-/// The state-feedback allowance of the `TypeScript` is a parked feature: a loop that declares state feedback is refused.
+/// [`noise_aware_transfer_tolerance`], and a loop without a law the exact check. A search law has no formula, so it has no allowance
+/// without a reviewed tolerance (C5). A state law's allowance needs its model: [`auto_entry_allowance`] gives it for any law.
 ///
 /// # Errors
-/// The reviewed tolerance is out of range, an output limit is not set, or the loop declares state feedback, which the Rust
-/// engine does not run yet.
+/// The reviewed tolerance is out of range, an output limit is not set, the loop declares state feedback (which needs its model), or
+/// the loop is a search law with no reviewed tolerance.
 pub fn auto_entry_tolerance(
     loop_definition: &LoopDefinition,
     task: &EngineerRequirements,
@@ -102,18 +113,162 @@ pub fn auto_entry_tolerance(
     process_noise: Option<f64>,
     entry_error: Option<f64>,
 ) -> Result<f64, Failure> {
+    // A binary output has no band (C3): its first output is the applied level, so its allowance is zero, not the A6.4 band.
+    if loop_definition.controller.on_off.is_some() {
+        return Ok(0.0);
+    }
     let exact = transfer_tolerance(loop_definition, task.transfer_tolerance)?;
     if task.transfer_tolerance.is_some() {
         return Ok(exact);
     }
     if loop_definition.controller.state_feedback.is_some() {
         return Err(Failure::new(
-            &texts::entry_state_feedback_parked(),
-            Cause::ControllerCapability,
+            STATE_NEEDS_MODEL,
+            Cause::Implementation,
             NextAction::None,
         ));
     }
+    if search_law(loop_definition) {
+        return Err(Failure::new(
+            REVIEWED_TOLERANCE_REQUIRED,
+            Cause::Settings,
+            NextAction::OpenRequirements,
+        ));
+    }
     law_entry_tolerance(loop_definition, values, process_noise, entry_error)
+}
+
+/// The allowance of the first Auto output for any law (A6.4, C4): a state law's C4 allowance from its model, and every other law's as
+/// [`auto_entry_tolerance`] gives it. A reviewed tolerance replaces the state law's allowance as it replaces every other.
+///
+/// # Errors
+/// As [`auto_entry_tolerance`], and as [`state_entry_tolerance`] for a state law without a reviewed tolerance.
+pub fn auto_entry_allowance(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    task: &EngineerRequirements,
+    values: &BTreeMap<String, f64>,
+    process_noise: Option<f64>,
+    entry_error: Option<f64>,
+) -> Result<f64, Failure> {
+    if loop_definition.controller.state_feedback.is_some() && task.transfer_tolerance.is_none() {
+        return state_entry_tolerance(loop_definition, model, task, values);
+    }
+    auto_entry_tolerance(loop_definition, task, values, process_noise, entry_error)
+}
+
+/// Whether the loop's controller is the search-law form of a program's law (C5): a `controller.project` with tuning axes and no seed.
+fn search_law(loop_definition: &LoopDefinition) -> bool {
+    loop_definition
+        .controller
+        .project
+        .as_ref()
+        .is_some_and(ControllerProject::is_search_law)
+}
+
+/// The C4 first-output allowance of a state law without a reviewed tolerance (`autoEntryTolerance`, A6.4, C4): for each plant input `i`,
+/// `Σⱼ|Kᵢⱼ|·bⱼ + Σₖ|Nᵢₖ|·bₖ`, where `b` is the settling band of the output the state or the controlled output is: the output's channel
+/// requirement when it declares one, else the task's band. A state is a measured output when its column of `C` selects exactly that
+/// output and that output's row selects only that state. A state that is not a measured output has no band, so the exact check
+/// stands; otherwise the allowance is the largest input's sum, and the exact check stands where it is larger.
+///
+/// # Errors
+/// The record does not decode as a state law; a coefficient has no value in `values`; or the loop's channels do not bind the model.
+pub fn state_entry_tolerance(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    task: &EngineerRequirements,
+    values: &BTreeMap<String, f64>,
+) -> Result<f64, Failure> {
+    let law = decode_state_law(loop_definition)?;
+    let exact = transfer_tolerance(loop_definition, None)?;
+    let Some(system) = state_space(model) else {
+        return Ok(exact);
+    };
+    let bound = bound_channels(loop_definition, model)?;
+    let bands: Vec<f64> = bound
+        .outputs
+        .iter()
+        .map(|output| {
+            output
+                .requirements
+                .as_ref()
+                .map_or(task.settling_band, |requirements| {
+                    requirements.settling_band
+                })
+        })
+        .collect();
+    let controlled: Vec<f64> = bound
+        .outputs
+        .iter()
+        .zip(&bands)
+        .filter(|(output, _)| output.reference.is_some())
+        .map(|(_, band)| *band)
+        .collect();
+    let state_bands: Option<Vec<f64>> = (0..system.a.len())
+        .map(|state| {
+            measured_output_of(&system.c, state).and_then(|output| bands.get(output).copied())
+        })
+        .collect();
+    let Some(state_bands) = state_bands else {
+        return Ok(exact);
+    };
+    let mut largest = f64::NEG_INFINITY;
+    for (gains, references) in law.gain_symbols.iter().zip(&law.reference_gain_symbols) {
+        let mut sum = 0.0;
+        for (column, symbol) in gains.iter().enumerate() {
+            let Some(band) = state_bands.get(column) else {
+                return Ok(exact);
+            };
+            sum += coefficient_of(values, symbol)?.abs() * band;
+        }
+        for (column, symbol) in references.iter().enumerate() {
+            let Some(band) = controlled.get(column) else {
+                return Ok(exact);
+            };
+            sum += coefficient_of(values, symbol)?.abs() * band;
+        }
+        if !sum.is_finite() {
+            return Ok(exact);
+        }
+        largest = largest.max(sum);
+    }
+    Ok(if largest.is_finite() {
+        exact.max(largest)
+    } else {
+        exact
+    })
+}
+
+/// The output that a state of the model measures (C4): the one output whose row of `C` selects only this state, with a one in the
+/// state's column, and no other output selects the state. `None` for any other state.
+fn measured_output_of(c: &DenseMatrix, state: usize) -> Option<usize> {
+    let selecting: Vec<usize> = c
+        .iter()
+        .enumerate()
+        .filter(|(_, row)| row.get(state).is_some_and(|value| !is_exactly_zero(*value)))
+        .map(|(output, _)| output)
+        .collect();
+    let [output] = selecting.as_slice() else {
+        return None;
+    };
+    let row = &c[*output];
+    let selects_only_this_state = row
+        .iter()
+        .enumerate()
+        .all(|(column, value)| column == state || is_exactly_zero(*value));
+    (row[state].to_bits() == 1.0_f64.to_bits() && selects_only_this_state).then_some(*output)
+}
+
+/// The value of one coefficient of the candidate record (C4). A candidate that holds no value for it is an implementation fault.
+fn coefficient_of(values: &BTreeMap<String, f64>, symbol: &str) -> Result<f64, Failure> {
+    values.get(symbol).copied().ok_or_else(|| {
+        Failure::new(
+            &format!("The candidate holds no value for the state coefficient {symbol}."),
+            Cause::Implementation,
+            NextAction::None,
+        )
+    })
 }
 
 /// The allowance of a PID or P law with the gains `values` holds (`lawEntryTolerance`): the gains are the law's own, or a program's

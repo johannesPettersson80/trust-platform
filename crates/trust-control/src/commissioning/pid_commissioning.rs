@@ -33,7 +33,7 @@ use crate::validation::engineer_verification_plan::EngineerRequirements;
 use super::actuator_feedback::{transfer_output_basis, transfer_target_allowance};
 use super::channel_mapping::connected_model_channels;
 use super::commissioning_result::{CommissioningChannel, TransferStatus};
-use super::entry_allowance::{auto_entry_error, auto_entry_tolerance, transfer_tolerance};
+use super::entry_allowance::{auto_entry_allowance, auto_entry_error, transfer_tolerance};
 use super::found_mode::{found_mode_of, FoundMode};
 use super::observation::{
     commissioning_observation, commissioning_reference_targets, commissioning_target,
@@ -353,8 +353,9 @@ impl<'a> PidStart<'a> {
 
     /// The Auto-entry allowance of the candidate at the entry error of these values (`autoEntryTolerance`; A6.4).
     fn allowance(&self, values: &BTreeMap<String, TransferValue>) -> Result<f64, Failure> {
-        auto_entry_tolerance(
+        auto_entry_allowance(
             self.loop_definition,
+            &self.model,
             self.task,
             &self.review.values,
             self.process_noise,
@@ -618,19 +619,23 @@ impl PidCampaign<'_> {
         })
     }
 
-    /// The criteria the response is judged by (`criteria`; B6.3, C1): the reviewed target and duration, the settling time and error limit,
-    /// the task period, and the ranges of the process and of the output. An ON/OFF output is refused by its adapter, so no switching limit
-    /// is set here.
+    /// The criteria the response is judged by (`criteria`; B6.3, C1, C3): the reviewed target and duration, the settling time and error
+    /// limit, the task period, and the ranges of the process and of the output. A switching controller adds its switching limits, from
+    /// its levels and the reviewed minimum times (`pidCommissioning.ts`).
     ///
     /// # Errors
-    /// The target cannot be built.
+    /// The target cannot be built, or a switching controller's reviewed settings hold no minimum time.
     pub fn criteria(&self) -> Result<CommissioningCriteria, Failure> {
-        Ok(run_criteria(
+        super::on_off_adapter::with_switching(
+            &run_criteria(
+                self.start.loop_definition,
+                &self.start.binding,
+                self.start.task,
+                self.target()?,
+            ),
             self.start.loop_definition,
-            &self.start.binding,
-            self.start.task,
-            self.target()?,
-        ))
+            &self.start.review.values,
+        )
     }
 
     /// The channels the run records (`channels`; C1, C13.8): the setpoint, the measurement and the manipulated variable, then every

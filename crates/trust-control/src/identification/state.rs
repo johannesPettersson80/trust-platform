@@ -15,6 +15,7 @@ use crate::experiment::{
 use crate::identification::data::{DataSource, ExcludedInterval, IdentificationSample};
 use crate::identification::form_draft::{valid_form_draft, IdentificationFormDraft};
 use crate::identification::review::{IdentificationModelSelection, IdentificationReviewInput};
+use crate::identification::sensor_lag_comparison::StructureChoice;
 use crate::identification::step_response::{valid_step_response_settings, StepResponseSettings};
 use crate::limits::RECORDING_SAMPLE_LIMIT;
 use crate::loop_definition::LoopDefinition;
@@ -241,6 +242,10 @@ pub struct SavedIdentificationState {
         skip_serializing_if = "Option::is_none"
     )]
     pub form: Option<IdentificationFormDraft>,
+    /// The sensor-lag structure the engineer kept at the preview (`structureChoice`). Absent in a state saved before the
+    /// sensor-lag comparison was served, and in a state without a choice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structure_choice: Option<StructureChoice>,
 }
 
 /// The saved form of a review input (`saveIdentificationInput`; A8.2): its JSON copy, in which a missing number (NaN or
@@ -337,8 +342,7 @@ pub fn identification_original_recording(
 ///   reference settings only for a two-lag (`sopdt`) request; a retained recording that matches the input; and no key
 ///   outside the saved input (`declaredProcess` and `closedLoop` included);
 /// - a valid form draft;
-/// - no key outside the saved state. A `structureChoice` of the sensor-lag comparison is such a key: that comparison is
-///   parked with stage V7, so a state that holds it is refused;
+/// - no key outside the saved state; a `structureChoice` is a key of it, and its value is one of the two structures;
 /// - the stage rules: an editing state has a form, and an estimation only beside a current input; a preview, a
 ///   qualified validation, a review and an accepted model have an estimation; a qualified estimation has none yet; and
 ///   a preview's current input is its estimation;

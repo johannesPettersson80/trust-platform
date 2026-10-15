@@ -10,10 +10,10 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use super::{
-    adapter_compatibility, control_loops_unreadable, discover_bindings, family_name, in_scope,
-    refused, select_binding, target_for_loop, BindingSelection, BindingTarget,
-    ControllerCompatibility, Discovery, LoopFileRead, LoopFileText, MAXIMUM_LOOP_BYTES,
-    MAXIMUM_LOOP_FILES,
+    adapter_compatibility, control_loops_unreadable, discover_bindings, estimator_model_files,
+    family_name, in_scope, refused, select_binding, target_for_loop, BindingSelection,
+    BindingTarget, ControllerCompatibility, Discovery, EstimatorModelFile, LoopFileRead,
+    LoopFileText, ModelFileText, MAXIMUM_LOOP_BYTES, MAXIMUM_LOOP_FILES,
 };
 use crate::failure::{Cause, NextAction};
 use crate::loop_definition::{
@@ -439,8 +439,11 @@ fn a_loop_that_uses_channels_is_refused_by_name_until_the_rust_engine_runs_them(
 fn a_pid_group_member_that_the_compiled_program_lacks_is_refused_with_its_name() {
     // hostBindingDiscovery.ts: "Compiled PID group member … is unavailable in the declared task." (C7; the group is read as declared).
     let mut loop_definition = loop_of(&tank_json("loop:tank"));
-    loop_definition.controller.group =
-        Some(json!({ "members": [{ "instance": "Main.Other", "type": "Control.PID" }] }));
+    loop_definition.controller.group = Some(
+        serde_json::from_value(json!({ "members": [{ "instance": "Main.Other", "type": "Control.PID",
+            "inputChannelId": "u1", "outputChannelId": "y1", "modeSymbol": "Main.Auto", "parameterSymbols": ["Main.Kp"] }] }))
+            .expect("a typed group member"),
+    );
     let refusal = target_for_loop("/project/control-loop.json", loop_definition, &catalog())
         .expect_err("the member is missing");
     assert_eq!(
@@ -539,6 +542,8 @@ fn a_served_program_law_is_accepted_with_the_families_its_seed_names() {
     assert_eq!(
         adapter_compatibility(&loop_of(&value)),
         ControllerCompatibility::Accepted {
+            recommended_family: None,
+            methods: None,
             families: vec!["P".to_string(), "PI".to_string()],
             family_settings: BTreeMap::from([
                 ("P".to_string(), vec!["Main.Kp".to_string()]),
@@ -577,6 +582,8 @@ fn a_served_pid_seed_names_the_settings_each_of_its_families_takes() {
     assert_eq!(
         adapter_compatibility(&loop_of(&value)),
         ControllerCompatibility::Accepted {
+            recommended_family: None,
+            methods: None,
             families: vec!["P".into(), "PI".into(), "PD".into(), "PID".into()],
             family_settings: BTreeMap::from([
                 ("P".to_string(), vec![kp()]),
@@ -600,6 +607,8 @@ fn the_compatibility_of_a_loop_serializes_with_its_kind_and_families() {
     );
     assert_eq!(
         serde_json::to_value(ControllerCompatibility::Accepted {
+            recommended_family: None,
+            methods: None,
             families: vec!["P".to_string(), "PID".to_string()],
             family_settings: BTreeMap::from([
                 ("P".to_string(), vec!["Main.Kp".to_string()]),
@@ -949,5 +958,125 @@ fn a_control_pid_loop_names_the_settings_each_family_takes_as_the_page_did() {
             ),
         ]),
         "each optional field is named by the families that take it"
+    );
+}
+
+/// A discrete state-space model text with `states` states and `inputs` inputs and one output, as a project's model file holds it.
+fn model_text(states: usize, inputs: usize) -> String {
+    let channel = |id: String| json!({ "id": id, "unit": "m", "operatingRange": { "minimum": -1.0, "maximum": 1.0 } });
+    let a: Vec<Vec<f64>> = (0..states)
+        .map(|row| {
+            (0..states)
+                .map(|column| if row == column { 0.5 } else { 0.0 })
+                .collect()
+        })
+        .collect();
+    let b: Vec<Vec<f64>> = (0..states).map(|_| vec![0.1; inputs]).collect();
+    json!({
+        "kind": "discrete-state-space", "revision": "model", "source": "provided",
+        "validation": "validated", "evidence": ["lesson"], "delaySeconds": 0, "sampleTimeSeconds": 1,
+        "inputs": (0..inputs).map(|index| channel(format!("u{index}"))).collect::<Vec<Value>>(),
+        "outputs": [channel("y".to_owned())],
+        "states": (0..states).map(|index| channel(format!("x{index}"))).collect::<Vec<Value>>(),
+        "a": a, "b": b, "c": [vec![1.0; states]], "d": [vec![0.0; inputs]],
+        "operatingPoint": { "inputs": vec![0.0; inputs], "outputs": [0.0] },
+    })
+    .to_string()
+}
+
+#[test]
+fn the_estimator_model_files_are_state_space_models_with_one_input_one_output_and_three_states_or_fewer(
+) {
+    // estimatorModelFiles.ts: a state-space model with one input, one output and at most three states, in the order the files are given.
+    // A file that is not a model, has two inputs or three states too many, or cannot be read is left out.
+    let files = vec![
+        ModelFileText {
+            file_name: "lqg-model.json".to_owned(),
+            read: LoopFileRead::Text(model_text(2, 1)),
+        },
+        ModelFileText {
+            file_name: "notes.json".to_owned(),
+            read: LoopFileRead::Text(json!({ "title": "not a model" }).to_string()),
+        },
+        ModelFileText {
+            file_name: "two-inputs.json".to_owned(),
+            read: LoopFileRead::Text(model_text(2, 2)),
+        },
+        ModelFileText {
+            file_name: "four-states.json".to_owned(),
+            read: LoopFileRead::Text(model_text(4, 1)),
+        },
+        ModelFileText {
+            file_name: "unread.json".to_owned(),
+            read: LoopFileRead::Unreadable,
+        },
+        ModelFileText {
+            file_name: "models/tanks.json".to_owned(),
+            read: LoopFileRead::Text(model_text(3, 1)),
+        },
+    ];
+    assert_eq!(
+        estimator_model_files(&files),
+        vec![
+            EstimatorModelFile {
+                file: "lqg-model.json".to_owned(),
+                states: 2
+            },
+            EstimatorModelFile {
+                file: "models/tanks.json".to_owned(),
+                states: 3
+            },
+        ]
+    );
+}
+
+/// Lesson 89's finite search (C5) is offered as its declared family with its coefficient variables, recommended, and with no named
+/// method: Automatic runs its search.
+#[test]
+fn a_search_law_is_offered_as_its_declared_family_with_automatic_alone() {
+    let lesson_89 = include_str!(
+        "../../../../editors/vscode/media/examples/control/07-classical-stability-and-frequency-design/89-mechanical-resonance/control-loop.json"
+    );
+    let loop_definition = LoopDefinition::decode(lesson_89).expect("lesson 89's loop decodes");
+    assert_eq!(
+        adapter_compatibility(&loop_definition),
+        ControllerCompatibility::Accepted {
+            families: vec!["PID".to_string()],
+            family_settings: BTreeMap::from([(
+                "PID".to_string(),
+                vec![
+                    "P1.NotchFrequencyHz".to_string(),
+                    "P1.NotchQuality".to_string()
+                ]
+            )]),
+            recommended_family: Some("PID".to_string()),
+            methods: Some(Vec::new()),
+        }
+    );
+}
+
+/// A project-designed loop's type describes the controller its program owns (B1.2), as the course's loops name theirs ("LQR state
+/// feedback" on the program `Main`): its type is not compared with the compiled one, while a PID-designed loop's still is.
+#[test]
+fn a_project_designed_loop_is_not_refused_for_the_type_that_describes_its_controller() {
+    let mut project_designed = tank_json("loop:tank");
+    project_designed["controller"]["design"] = json!("project");
+    project_designed["controller"]["type"] = json!("Tank level observation");
+    let controller = project_designed["controller"]
+        .as_object_mut()
+        .expect("controller");
+    controller.remove("law");
+    controller.remove("pidInitialization");
+    project_designed["experiment"] = json!({
+        "execution": "project-scripted", "kind": "observation", "amplitude": 0, "durationSeconds": 20, "seed": 1
+    });
+    let files = [text_file("/project/control-loop.json", &project_designed)];
+    let discovered = discover_bindings("/project", &catalog(), RUNTIME, &files);
+    assert!(
+        !reasons(&discovered)
+            .iter()
+            .any(|reason| reason.contains("has type")),
+        "{:?}",
+        reasons(&discovered)
     );
 }

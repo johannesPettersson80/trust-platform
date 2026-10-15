@@ -8,7 +8,11 @@ use serde_json::Value;
 
 use crate::identification::refusal::Refusal;
 use crate::tuning::formula::PiTuning;
+use crate::tuning::group_candidate::GroupCandidate;
+use crate::tuning::on_off_candidate::OnOffCandidate;
 use crate::tuning::project_candidate::ProjectCandidate;
+use crate::tuning::search::SearchCandidate;
+use crate::tuning::state_controller::StateControllerDesign;
 use crate::tuning::structure::{ParallelGains, Structure};
 use crate::tuning::texts;
 
@@ -100,42 +104,55 @@ pub struct ControlPidCandidate {
     pub measurement_filter_seconds: Option<f64>,
 }
 
-/// The candidate of a loop's law, unapplied (B4.1, C0): a `Control.PID` record, or the gains and seed variables of a program's own
-/// law (C2). A design, a manual entry and a stored section each hold one of the two; the structure and the gains are the same
-/// for either.
+/// The candidate of a loop's law, unapplied (B4.1, C0): a `Control.PID` record, the gains and seed variables of a program's own
+/// law (C2), the design of a state-feedback law (C4), or the best trial of a finite search (C5). A design, a manual entry and a
+/// stored section each hold one of them.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LawCandidate {
     /// The candidate of a `Control.PID` (C1): the complete record it writes.
     Pid(ControlPidCandidate),
     /// The candidate of a program's own law (C2): its gains, and the values of the seed variables that Apply writes.
     Project(ProjectCandidate),
+    /// The design of a state-feedback law (C4): its coefficient values, closed-loop poles and finite-horizon stages.
+    State(Box<StateControllerDesign>),
+    /// The best trial of a finite search over a program's law (C5): its parameters and every trial.
+    Search(Box<SearchCandidate>),
+    /// The settings of a switching controller (C3): its hysteresis and minimum times, by symbol.
+    OnOff(Box<OnOffCandidate>),
+    /// The design of a PID group (C7): each member's PI, the decoupler when the group has one, and the value of each variable that Apply
+    /// writes.
+    Group(Box<GroupCandidate>),
 }
 
 impl LawCandidate {
-    /// The structure of the candidate.
+    /// The structure of a `Control.PID` or of a program's law; `None` for a state or search candidate, which has no PID structure.
     #[must_use]
-    pub fn structure(&self) -> Structure {
+    pub fn structure(&self) -> Option<Structure> {
         match self {
-            Self::Pid(candidate) => candidate.structure,
-            Self::Project(candidate) => candidate.structure,
+            Self::Pid(candidate) => Some(candidate.structure),
+            Self::Project(candidate) => Some(candidate.structure),
+            Self::State(_) | Self::Search(_) | Self::OnOff(_) | Self::Group(_) => None,
         }
     }
 
-    /// The gains of the candidate, signed.
+    /// The gains of a `Control.PID` or of a program's law, signed; `None` for a state or search candidate.
     #[must_use]
-    pub fn gains(&self) -> ParallelGains {
+    pub fn gains(&self) -> Option<ParallelGains> {
         match self {
-            Self::Pid(candidate) => gains_of(candidate),
-            Self::Project(candidate) => candidate.gains,
+            Self::Pid(candidate) => Some(gains_of(candidate)),
+            Self::Project(candidate) => Some(candidate.gains),
+            Self::State(_) | Self::Search(_) | Self::OnOff(_) | Self::Group(_) => None,
         }
     }
 
-    /// The candidate in the two fields that a stored section and an answer keep: the `Control.PID` record, or the program's law.
+    /// The candidate in the two fields that a stored section and an answer keep for a `Control.PID` record and a program's law.
+    /// A state or search candidate has its own fields of the section, so it gives neither (`study::tune::CandidateFields`).
     #[must_use]
     pub fn into_parts(self) -> (Option<ControlPidCandidate>, Option<ProjectCandidate>) {
         match self {
             Self::Pid(candidate) => (Some(candidate), None),
             Self::Project(candidate) => (None, Some(candidate)),
+            Self::State(_) | Self::Search(_) | Self::OnOff(_) | Self::Group(_) => (None, None),
         }
     }
 }

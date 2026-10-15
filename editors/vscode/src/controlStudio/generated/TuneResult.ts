@@ -16,7 +16,7 @@ export type MarginValue =
  * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
  * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
  */
-export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual";
+export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
 /**
  * A named formula method (N5.2 to N5.5). Automatic is not a method here: it chooses among them (N5.11).
  */
@@ -64,6 +64,11 @@ export interface TuneResult {
    */
   feedforward?: FeedforwardAnswer | null;
   gainUnits: TuneGainUnits;
+  /**
+   * The candidate of a PID group, unapplied (C7): each member's design, the static decoupler when the group has one, and the value
+   * of each variable that Apply writes. Absent for every other law.
+   */
+  group?: GroupCandidate | null;
   /**
    * The margins of the candidate on the model (B4.6, N7.7); absent when they cannot be given.
    */
@@ -136,6 +141,11 @@ export interface TuneResult {
    */
   response?: TuneResponse | null;
   /**
+   * The gain schedule of a schedule loop's answer (C10): the choice, the reason and one row per operating point, with the gains that the
+   * table gives each point. Absent for a loop that is not a schedule.
+   */
+  schedule?: ScheduleAnswer | null;
+  /**
    * The value the candidate's record gives each bound setting of the loop's controller, under the setting's symbol (B4.2,
    * C0): the settings the page shows under the loop's own names. A setting the record does not hold is absent.
    */
@@ -152,6 +162,11 @@ export interface TuneResult {
    * The status of every stage after this result.
    */
   stages: StageAvailability[];
+  /**
+   * The answer of a state-feedback law's Tune (C4): its family, closed-loop poles, finite-horizon stages and design-form fields
+   * (D-B12). Absent for every other law.
+   */
+  state?: StateAnswer | null;
   [k: string]: unknown;
 }
 /**
@@ -393,6 +408,149 @@ export interface TuneGainUnits {
   [k: string]: unknown;
 }
 /**
+ * A PID group's candidate (C7), unapplied: the members' designs, the decoupler when the group has one, and the value of each variable
+ * that Apply writes.
+ */
+export interface GroupCandidate {
+  /**
+   * Always false: a candidate is never applied by Tune (N8.9).
+   */
+  applied: boolean;
+  /**
+   * The static decoupler `D = K⁻¹·diag(K)` and its channels, when the group's program applies one (C7).
+   */
+  decoupler?: GroupDecoupler | null;
+  /**
+   * Each member's design, in the group's member order.
+   */
+  members: GroupMemberDesign[];
+  /**
+   * Where the members' gains came from: the SIMC formula for every member (N5.2, N5.3).
+   */
+  source: "Manual" | "Imported" | "SIMC" | "AMIGO" | "Constrained comparison" | "Relay rule";
+  /**
+   * The value of each variable that Apply writes, by symbol: every member's proportional, integral and derivative gain, and each
+   * entry of the decoupler when the program has one (C7). Apply writes all of them in one transaction.
+   */
+  values: {
+    [k: string]: number;
+  };
+}
+/**
+ * The static decoupler of a group (C7): `D` by plant input (row) and member (column), the channels its rows and columns name, and
+ * the two-member block's configuration when the group has two members.
+ */
+export interface GroupDecoupler {
+  /**
+   * The configuration of `Control.StaticDecoupler2x2` for two members (C7; spec 37 §4.2), absent for a larger group.
+   */
+  block?: StaticDecoupler2X2Design | null;
+  /**
+   * The members' input channel identifiers, in member order: the rows of `D`.
+   */
+  inputChannelIds: string[];
+  /**
+   * `D = K⁻¹·diag(K)`, by plant input (row) and member (column).
+   */
+  matrix: number[][];
+  /**
+   * The members' instance paths, in member order: the columns of `D`.
+   */
+  memberInstances: string[];
+}
+/**
+ * The two-member decoupler as `Control.StaticDecoupler2x2` is configured (C7; spec 37 §4.2): the gain matrix `G = diag(K)⁻¹·K`, its
+ * determinant and relative determinant, and its inverse, which equals `D = K⁻¹·diag(K)`.
+ */
+export interface StaticDecoupler2X2Design {
+  /**
+   * The determinant of `G`.
+   */
+  determinant: number;
+  /**
+   * `G`, by output (row) and member input (column): `G[i][j] = Kᵢⱼ / Kᵢᵢ`, so its diagonal is one.
+   *
+   * @minItems 2
+   * @maxItems 2
+   */
+  gain: [[number, number], [number, number]];
+  /**
+   * `G⁻¹` by the block's rule (`Inverse11` … `Inverse22`); its rows give `u = G⁻¹·v`.
+   *
+   * @minItems 2
+   * @maxItems 2
+   */
+  inverse: [[number, number], [number, number]];
+  /**
+   * `|det G|` over the block's matrix scale: the block's `RelativeDeterminant`.
+   */
+  relativeDeterminant: number;
+}
+/**
+ * One member's design (C7): its own path, its relative gain, the gain it sees with the other loops closed, and its PI.
+ */
+export interface GroupMemberDesign {
+  /**
+   * The delay of the member's own path, in seconds (N5.15).
+   */
+  delaySeconds: number;
+  /**
+   * `Kᵢᵢ/λᵢᵢ`: the gain the member sees when the other loops are closed.
+   */
+  effectiveGain: number;
+  gains: ParallelGains1;
+  /**
+   * The identifier of the model input the member drives.
+   */
+  inputChannelId: string;
+  /**
+   * The member's instance path.
+   */
+  instance: string;
+  /**
+   * The symbol of the member's integral gain in its parameter record; the page shows it with the record's unit.
+   */
+  integralSymbol: string;
+  /**
+   * The identifier of the model output the member measures.
+   */
+  outputChannelId: string;
+  /**
+   * The steady-state gain of the member's own path, `Kᵢᵢ` (N4.5).
+   */
+  pathGain: number;
+  /**
+   * The symbol of the member's proportional gain in its parameter record; the page shows it with the record's unit.
+   */
+  proportionalSymbol: string;
+  /**
+   * The relative gain of the pairing, `λᵢᵢ`; one through a decoupler (C7).
+   */
+  relativeGain: number;
+  /**
+   * The time constant of the member's own path, in seconds (N5.15).
+   */
+  timeConstantSeconds: number;
+}
+/**
+ * The member's PI: its proportional and integral gains, and a derivative gain of zero.
+ */
+export interface ParallelGains1 {
+  /**
+   * The derivative gain `Kd`.
+   */
+  derivativeGain: number;
+  /**
+   * The integral gain `Ki = Kp / Ti`.
+   */
+  integralGain: number;
+  /**
+   * The proportional gain `Kp`.
+   */
+  proportionalGain: number;
+  [k: string]: unknown;
+}
+/**
  * The margins of a loop on its grid (B4.6, N7.7): the gain and phase margins with their crossovers, and the
  * peak sensitivity `Ms`. A margin the loop does not have is `Unbounded`; a margin that the grid does not show is
  * `NotObservedInRange` and never infinite (N7.8). When the crossover margins cannot be computed at all, their
@@ -448,7 +606,7 @@ export interface ProjectCandidate {
    * Always false: a candidate is never applied by Tune (N8.9).
    */
   applied: boolean;
-  gains: ParallelGains1;
+  gains: ParallelGains2;
   /**
    * Where the candidate came from.
    */
@@ -470,7 +628,7 @@ export interface ProjectCandidate {
 /**
  * The gains, signed. A term that the structure does not use is zero.
  */
-export interface ParallelGains1 {
+export interface ParallelGains2 {
   /**
    * The derivative gain `Kd`.
    */
@@ -594,6 +752,67 @@ export interface TuneTrace {
   [k: string]: unknown;
 }
 /**
+ * The gain schedule of a Tune answer (C10): the choice, the reason, the scheduling variable and one row per operating point.
+ */
+export interface ScheduleAnswer {
+  /**
+   * Whether the points share one PI (`fixed`) or each has its own (`scheduled`).
+   */
+  choice: "fixed" | "scheduled";
+  /**
+   * One row per operating point, in the order of the schedule's table.
+   */
+  points: ScheduleAnswerPoint[];
+  /**
+   * The reason of the candidate, as the study's section stores it.
+   */
+  reason: string;
+  scheduling: ScheduleAnswerVariable;
+}
+/**
+ * One operating point of a gain schedule's answer (C10): its name and value of the scheduling variable, its two gain variables, and the
+ * gains that the table gives it.
+ */
+export interface ScheduleAnswerPoint {
+  /**
+   * The integral gain that the table gives the point.
+   */
+  integralGain: number;
+  /**
+   * The program's integral gain variable for the point.
+   */
+  integralSymbol: string;
+  /**
+   * The point's name.
+   */
+  name: string;
+  /**
+   * The proportional gain that the table gives the point.
+   */
+  proportionalGain: number;
+  /**
+   * The program's proportional gain variable for the point.
+   */
+  proportionalSymbol: string;
+  /**
+   * The point's value of the scheduling variable.
+   */
+  value: number;
+}
+/**
+ * The scheduling variable: its path and its unit.
+ */
+export interface ScheduleAnswerVariable {
+  /**
+   * The variable's path.
+   */
+  symbol: string;
+  /**
+   * The variable's unit.
+   */
+  unit: string;
+}
+/**
  * The stage evidence after this result, from which `stages` is computed: whether the model and the candidate this result
  * is the answer of exist (B9.4). A preview keeps nothing, so it carries the study's own evidence (B4.5).
  */
@@ -666,5 +885,86 @@ export interface StageAvailability {
    * Its status.
    */
   status: "ready" | "needs-data" | "in-progress" | "complete" | "warning" | "failed" | "not-applicable";
+  [k: string]: unknown;
+}
+/**
+ * What a state-law Tune answers: the family, the closed-loop poles of the candidate, the horizon stages when the design has a
+ * finite horizon, and the design-form fields of the family.
+ */
+export interface StateAnswer {
+  /**
+   * The closed-loop poles of the candidate's mapped coefficients, on the sampled model (N7.11).
+   */
+  closedLoopPoles: ComplexValue[];
+  /**
+   * The family of the design.
+   */
+  family: "state-feedback" | "LQR" | "LQG";
+  /**
+   * The fields the design form shows for the family, with their labels (D-B12).
+   */
+  fields: FormField[];
+  /**
+   * The finite-horizon stages (the gains and the Riccati matrices), when the design has a finite horizon.
+   */
+  horizon?: StateHorizon | null;
+  [k: string]: unknown;
+}
+/**
+ * A complex number as its real and imaginary parts.
+ */
+export interface ComplexValue {
+  /**
+   * The imaginary part.
+   */
+  imaginary: number;
+  /**
+   * The real part.
+   */
+  real: number;
+  [k: string]: unknown;
+}
+/**
+ * One field of the design form that a family shows, with the label the page shows for it (the page's words, see `draft_label`).
+ */
+export interface FormField {
+  /**
+   * The field.
+   */
+  field:
+    | "desiredPoles"
+    | "stateWeights"
+    | "inputWeights"
+    | "processNoise"
+    | "measurementNoise"
+    | "solverMode"
+    | "horizonSteps"
+    | "terminalWeights";
+  /**
+   * The label the form shows.
+   */
+  label: string;
+  [k: string]: unknown;
+}
+/**
+ * The stages of a finite-horizon design.
+ */
+export interface StateHorizon {
+  /**
+   * The gains `K_0 … K_{N−1}`.
+   */
+  gainSequence: number[][][];
+  /**
+   * The policy that runs the design.
+   */
+  policy: "repeat-first-finite-gain" | "pinned-fixed-gain";
+  /**
+   * The Riccati matrices `P_0 … P_N`.
+   */
+  riccatiSequence: number[][][];
+  /**
+   * The number of control steps.
+   */
+  steps: number;
   [k: string]: unknown;
 }

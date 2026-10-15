@@ -55,6 +55,8 @@ export function studioFailure(failure: Record<string, unknown>): Record<string, 
   return {
     message: typeof failure.message === "string" ? failure.message : "",
     ...(typeof failure.detail === "string" && failure.detail ? { detail: failure.detail } : {}),
+    // The form field a refusal concerns (D-B12): the page shows its sentence under that field.
+    ...(typeof failure.field === "string" && failure.field ? { field: failure.field } : {}),
     nextAction: { kind: next, label },
   };
 }

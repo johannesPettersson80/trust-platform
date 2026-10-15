@@ -289,8 +289,93 @@ mod tests {
         file.to_string()
     }
 
+    /// The tank of `control-studio-gain-schedule.test.ts`: a level held by one library PID whose gains are scheduled over two points.
+    fn tank_catalog() -> trust_control::setup::catalog::CompiledCatalog {
+        let answer = serde_json::json!({
+            "ok": true,
+            "processImage": {},
+            "controlSymbols": {
+                "symbols": [
+                    { "symbol": "P1.LevelM", "type": "LREAL", "address": "%IL0" },
+                    { "symbol": "P1.SetpointM", "type": "LREAL", "address": "%ML0" },
+                    { "symbol": "P1.ValvePct", "type": "LREAL", "address": "%QL0" },
+                    { "symbol": "P1.ManualPct", "type": "LREAL", "address": "%ML8" },
+                    { "symbol": "P1.Auto", "type": "BOOL" },
+                    { "symbol": "P1.Started", "type": "BOOL" },
+                    { "symbol": "P1.KpLow", "type": "LREAL" },
+                    { "symbol": "P1.KiLow", "type": "LREAL" },
+                    { "symbol": "P1.KpHigh", "type": "LREAL" },
+                    { "symbol": "P1.KiHigh", "type": "LREAL" }
+                ],
+                "controllers": [
+                    { "instance": "P1", "type": "Main", "tasks": [{ "name": "MainTask", "intervalMs": 100 }] },
+                    { "instance": "P1.Loop", "type": "Control.PID", "tasks": [{ "name": "MainTask", "intervalMs": 100 }] }
+                ],
+                "links": [],
+                "writes": ["P1.ValvePct"]
+            }
+        });
+        trust_control::setup::catalog::decode_catalog_answer(&answer)
+            .expect("the compiled answer decodes")
+            .control
+    }
+
+    /// The setup's draft of the tank: Low at 0.09 m and High at 0.49 m, each with a tolerance of 0.01 m.
+    fn tank_draft() -> trust_control::setup::schedule_loop::ScheduleLoopDraft {
+        use trust_control::loop_definition::{Action, ModeWhenTrue};
+        use trust_control::setup::loop_bindings::FormSignal;
+        use trust_control::setup::pid_loop::{ModeChoice, SignalChoice};
+        use trust_control::setup::schedule_loop::{
+            ScheduleLoopDraft, SchedulePointDraft, SchedulingVariableDraft,
+        };
+        let signal = |symbol: &str, unit: &str, maximum: f64| FormSignal {
+            symbol: symbol.to_owned(),
+            unit: unit.to_owned(),
+            minimum: Some(0.0),
+            maximum: Some(maximum),
+        };
+        let point =
+            |name: &str, value: f64, proportional: &str, integral: &str| SchedulePointDraft {
+                name: name.to_owned(),
+                value: Some(value),
+                tolerance: Some(0.01),
+                proportional_gain: proportional.to_owned(),
+                integral_gain: integral.to_owned(),
+            };
+        ScheduleLoopDraft {
+            name: "Tank level".to_owned(),
+            action: Action::Direct,
+            instance: "P1.Loop".to_owned(),
+            parameter_record: "P1.Parameters".to_owned(),
+            scheduling: SchedulingVariableDraft {
+                symbol: "P1.LevelM".to_owned(),
+                unit: "m".to_owned(),
+            },
+            process_variable: signal("P1.LevelM", "m", 2.0),
+            manipulated_variable: signal("P1.ValvePct", "%", 100.0),
+            setpoint: SignalChoice {
+                symbol: "P1.SetpointM".to_owned(),
+                unit: None,
+                minimum: None,
+                maximum: None,
+            },
+            mode: ModeChoice {
+                symbol: "P1.Auto".to_owned(),
+                when_true: ModeWhenTrue::Auto,
+            },
+            manual_output: "P1.ManualPct".to_owned(),
+            points: vec![
+                point("Low", 0.09, "P1.KpLow", "P1.KiLow"),
+                point("High", 0.49, "P1.KpHigh", "P1.KiHigh"),
+            ],
+            experiment_step: None,
+            experiment_duration_seconds: None,
+            startup_flag: Some("P1.Started".to_owned()),
+        }
+    }
+
     #[test]
-    fn feedforward_smith_and_gain_schedule_loops_are_refused_as_parked_until_v7() {
+    fn feedforward_and_smith_loops_are_refused_as_parked_until_v7_and_a_schedule_point_is_served() {
         // V6 decision D12: these structures' loops carry the program's own law and parts the Rust loop does not decode; the engine
         // refuses them as a capability it does not have yet, so the panel keeps them on the TypeScript engine.
         let root = project("parked");
@@ -304,11 +389,6 @@ mod tests {
                 "loop:smith",
                 "Smith",
                 serde_json::json!({ "smithModel": { "gain": 1.0 } }),
-            ),
-            (
-                "loop:schedule",
-                "gain-scheduled",
-                serde_json::json!({ "schedule": [1.0, 2.0] }),
             ),
         ];
         for (id, family, extra) in cases {
@@ -335,9 +415,32 @@ mod tests {
                 refusal.message
             );
         }
+        // A gain schedule's point that the setup wrote is served (C10): the gate takes its project law and the engine opens it.
+        let example = LoopDefinition::decode(EXAMPLE).expect("example");
+        let scope = trust_control::loop_definition::LoopScope {
+            project_id: example.project_id.clone(),
+            runtime_id: example.runtime_id.clone(),
+        };
+        let planned = trust_control::setup::schedule_loop::schedule_loop_definitions(
+            &tank_catalog(),
+            &scope,
+            &tank_draft(),
+        )
+        .expect("the tank's schedule is generated");
+        let low = &planned[0];
+        fs::write(
+            root.join("control-loops/tank-level-low.json"),
+            serde_json::to_string(low).expect("the loop serializes"),
+        )
+        .expect("the schedule point");
+        let opened = open(&root, &example_runtime(), &low.id).expect("the written point opens");
+        assert!(
+            opened.rust_engine_support().is_ok(),
+            "a written schedule point is served by the gate"
+        );
         // A parked loop that does not decode is still listed as the loop it is (D12); opening it refuses it by name.
         let listed = list(&root, &example_runtime()).expect("listed");
-        for id in ["loop:feedforward", "loop:smith", "loop:schedule"] {
+        for id in ["loop:feedforward", "loop:smith", "loop:tank-level-low"] {
             assert!(
                 listed
                     .iter()

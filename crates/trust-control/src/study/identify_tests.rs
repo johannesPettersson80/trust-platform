@@ -63,6 +63,7 @@ fn comparison_of() -> ComparisonPresentation {
         on_search_boundary: false,
     };
     let fit = ModelFitEvidence {
+        model_structure: None,
         points: vec![
             ModelFitPoint {
                 time_seconds: 0.0,
@@ -716,4 +717,32 @@ fn only_the_estimation_recording_whose_request_the_section_keeps_is_fitted_again
         (refusal.cause, refusal.next_action),
         (Cause::ModelOrData, NextAction::Identify)
     );
+}
+
+#[test]
+fn the_scheduling_value_is_kept_when_it_was_read_and_absent_in_files_that_predate_it() {
+    let estimation = recording_file(EvidenceSource::SimulatedPlant, 20.0);
+    let section = provisional(&estimation);
+    assert_eq!(
+        section.scheduling_value, None,
+        "a loop without a schedule reads none"
+    );
+    let text = section.encode().expect("encoded");
+    assert!(
+        !text.contains("schedulingValue"),
+        "an absent value keeps the bytes of the files before it"
+    );
+    assert_eq!(
+        IdentifySection::decode(&text)
+            .expect("decoded")
+            .scheduling_value,
+        None
+    );
+    let read = section.with_scheduling_value(Some(0.095));
+    let text = read.encode().expect("encoded");
+    assert_eq!(
+        serde_json::from_str::<Value>(&text).expect("json")["schedulingValue"],
+        json!(0.095)
+    );
+    assert_eq!(IdentifySection::decode(&text).expect("decoded"), read);
 }

@@ -3,8 +3,10 @@
 //! follows the output. The startup-done rule (C1 Setup) is here as well, because the PID and the program's own law share it.
 
 use super::catalog::{pid_candidates, CompiledCatalog, PID_PARAMETERS};
-use super::loop_bindings::MeasuredSignal;
+use super::loop_bindings::{compiled, MeasuredSignal};
+use super::texts::configure::not_compiled_bool;
 use super::texts::generators as texts;
+use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
     InitialSource, InitialValue, InitializedState, Parameter, PostScan, RealType, StateType,
 };
@@ -208,4 +210,22 @@ pub fn startup_reason(
                 .any(|record| write.starts_with(format!("{record}.").as_str()))
         })
         .map(|write| texts::program_writes(write))
+}
+
+/// The startup-done flag a draft names is a compiled `BOOL` (C1 Setup): the program sets it, and validation starts it TRUE. Every
+/// structure that runs a flag checks it with this rule, and its refusal names the form's `startupFlag` field.
+///
+/// # Errors
+/// The flag is not a compiled variable, or it is not a `BOOL`.
+pub fn startup_flag_is_bool(catalog: &CompiledCatalog, flag: &str) -> Result<(), Failure> {
+    let symbol = compiled(catalog, flag).map_err(|failure| failure.with_field("startupFlag"))?;
+    if symbol.iec_type != "BOOL" {
+        return Err(Failure::new(
+            &not_compiled_bool(flag),
+            Cause::Settings,
+            NextAction::OpenLoopSetup,
+        )
+        .with_field("startupFlag"));
+    }
+    Ok(())
 }

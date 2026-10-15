@@ -10,8 +10,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::actuator_feedback::with_actuator_feedback;
+use super::cascade_adapter::cascade_guards;
 use super::channel_mapping::declared_channels;
 use super::entry_allowance::{noise_aware_transfer_tolerance, AllowanceTerms};
+use super::gain_schedule_adapter::{
+    is_table_variable, schedule_points, schedule_tracking_values, with_schedule_members,
+};
 use super::initial_state::{
     initialization_values, operating_input, operating_output, transfer_member,
     ControllerInitialization,
@@ -23,7 +27,7 @@ use super::initialization_plan::{
 use super::observation::commissioning_reference_targets;
 use super::pid_measurement::initialized_states;
 use super::profile::{CommissioningProfile, ProfileKind, RequiredTracking};
-use super::project_law::gain_symbols;
+use super::project_law::{additional_mode_members, gain_symbols};
 use super::texts;
 use super::transfer::{
     rounded_transfer_value, TransferBinding, TransferMember, TransferModeBinding, TransferValue,
@@ -134,7 +138,7 @@ impl DeclaredStateProfile {
             return Err(references_required());
         };
         let owned = initialized_states(&self.loop_definition, &self.definition);
-        let values: BTreeMap<String, f64> = if initialize {
+        let mut values: BTreeMap<String, f64> = if initialize {
             let all = initialization_values(
                 &self.loop_definition,
                 &self.model,
@@ -162,6 +166,14 @@ impl DeclaredStateProfile {
                 })
                 .collect::<Result<BTreeMap<String, f64>, Failure>>()?
         };
+        // The table of a schedule is initialized by the tracking as well: at an Auto entry with the candidate's gains, else as the middle.
+        if let Some(points) = schedule_points(&self.loop_definition) {
+            values.extend(schedule_tracking_values(
+                points,
+                binding,
+                initialize.then_some(&self.parameters),
+            )?);
+        }
         let mut bounded: Vec<String> = owned
             .iter()
             .filter(|state| state.post_scan == PostScan::Bounded)
@@ -226,6 +238,7 @@ pub fn declared_transfer_binding(
         .iter()
         .map(parameter_member)
         .chain(channels.measurements())
+        .chain(cascade_guards(loop_definition)?)
         .collect();
     let mode = TransferModeBinding {
         symbol: parameters.mode.symbol.clone(),
@@ -242,12 +255,17 @@ pub fn declared_transfer_binding(
         loop_id: parameters.loop_id.clone(),
         task_name: parameters.task_name.clone(),
         mode,
-        additional_modes: Vec::new(),
+        additional_modes: additional_mode_members(loop_definition),
         tracking_outputs: BTreeMap::new(),
         states,
         guards,
         output: channels.output,
         additional_outputs: Vec::new(),
+    };
+    // A schedule's table is written by the transfer, so its variables are states, and the loop's own gains leave the guards (C10).
+    let binding = match schedule_points(loop_definition) {
+        Some(points) => with_schedule_members(points, parameters, binding)?,
+        None => binding,
     };
     with_actuator_feedback(loop_definition, binding)
 }
@@ -347,7 +365,7 @@ pub fn declared_initialization_plan(
     let base =
         engineer_verification_plan(loop_definition, model, task, values, &controller_initial)?;
     let owned = initialized_states(loop_definition, definition);
-    let initialized: Vec<(String, f64)> = owned
+    let mut initialized: Vec<(String, f64)> = owned
         .iter()
         .map(|state| {
             base.initial_values
@@ -363,6 +381,10 @@ pub fn declared_initialization_plan(
                 })
         })
         .collect::<Result<Vec<(String, f64)>, Failure>>()?;
+    // A schedule's table starts at the candidate's gains. It follows the owned states, which `declared_requirements` pairs by position.
+    if let Some(points) = schedule_points(loop_definition) {
+        initialized.extend(schedule_tracking_values(points, &binding, Some(values))?);
+    }
     let timing = start_timing(base.step_ms);
     let (proportional, terms) = allowance_gains(loop_definition, values);
     let tolerance = noise_aware_transfer_tolerance(
@@ -393,9 +415,12 @@ pub fn declared_initialization_plan(
         .iter()
         .map(|(symbol, value)| event(timing.transfer_at_ms, symbol, *value))
         .collect();
+    // The table's variables start the run but are not observed: the entry case declares no unit for them.
+    let table = schedule_points(loop_definition).unwrap_or(&[]);
     let observed: Vec<String> = binding
         .states
         .iter()
+        .filter(|member| !is_table_variable(table, &member.symbol))
         .map(|member| member.symbol.clone())
         .chain(std::iter::once(binding.mode.symbol.clone()))
         .collect();

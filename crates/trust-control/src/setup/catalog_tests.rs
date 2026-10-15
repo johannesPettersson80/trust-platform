@@ -294,6 +294,31 @@ fn a_cascade_is_one_pids_output_feeding_anothers_setpoint() {
 }
 
 #[test]
+fn a_setpoint_with_two_sources_is_not_a_cascade_because_the_outer_output_is_not_its_only_source() {
+    // B1.3 "the only source": a second source of the inner setpoint makes the outer PID's output one of two, so there is no cascade.
+    let mut program = cascade_json();
+    program["links"][3]["fields"]["Setpoint"] = json!(["P1.JacketSetpointC", "P1.OtherSetpointC"]);
+    assert_eq!(
+        cascade_pairs(&pid_candidates(&decode(program))),
+        Vec::<CascadePair>::new()
+    );
+}
+
+#[test]
+fn a_setpoint_fed_only_by_the_outer_instance_is_a_cascade() {
+    // B1.3: the outer controller is the only source of the inner setpoint when its instance is that source (`feeds`).
+    let mut program = cascade_json();
+    program["links"][3]["fields"]["Setpoint"] = json!(["P1.Outer"]);
+    assert_eq!(
+        cascade_pairs(&pid_candidates(&decode(program))),
+        vec![CascadePair {
+            outer: "P1.Outer".to_string(),
+            inner: "P1.Inner".to_string(),
+        }]
+    );
+}
+
+#[test]
 fn the_entry_limit_counts_every_raw_entry_of_a_list() {
     // The bounded entry limit (A7 and the discovery's limit): exactly the limit decodes, one more is refused, and malformed entries count.
     let at_limit: Vec<Value> = (0..MAXIMUM_CATALOG_ENTRIES)
@@ -460,6 +485,38 @@ fn a_signal_listed_twice_needs_one_identity() {
     assert_eq!(
         refused(&answer(json!([signal("P1.X", "%IX0.0", "BYTE")]))),
         "Compiled signal P1.X has conflicting identities."
+    );
+}
+
+#[test]
+fn boolean_bits_of_the_process_image_are_catalog_signals() {
+    let answer = json!({
+        "ok": true,
+        "processImage": {
+            "commands": [],
+            "feedbacks": [],
+            "memory": [{ "symbol": "P1.Scratch", "address": "%MD20", "type": "DINT" }],
+            "booleans": [{ "symbol": "P1.ExperimentEnabled", "address": "%MX40.0", "type": "BOOL" }]
+        },
+        "controlSymbols": { "symbols": [], "controllers": [] }
+    });
+    let signals = decode_catalog_answer(&answer)
+        .expect("the answer decodes")
+        .signals;
+    assert_eq!(
+        signals
+            .iter()
+            .map(|signal| (
+                signal.symbol.as_str(),
+                signal.address.as_str(),
+                signal.iec_type.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            ("P1.ExperimentEnabled", "%MX40.0", "BOOL"),
+            ("P1.Scratch", "%MD20", "DINT")
+        ],
+        "a declared state may name a bit, and the signals are sorted by symbol"
     );
 }
 

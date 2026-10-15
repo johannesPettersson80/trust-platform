@@ -6,6 +6,7 @@ import type { CancelResult } from "../generated/CancelResult";
 import type { Failure } from "../generated/Failure";
 import type { IdentifyRequest } from "../generated/IdentifyRequest";
 import type { IdentifyResult } from "../generated/IdentifyResult";
+import type { ManualIdentificationAnswer } from "../generated/ManualIdentificationAnswer";
 import type { IdentifyReview } from "../generated/IdentifyReview";
 import type { InputsRequest } from "../generated/InputsRequest";
 import type { InputsResult } from "../generated/InputsResult";
@@ -44,6 +45,7 @@ export type IdentifyAnswer =
   | ResetResult
   | IdentifyReview
   | IdentifyResult
+  | ManualIdentificationAnswer
   | CancelResult;
 
 /** The engine's methods (specification 35, §0.1a). Each sends its request and returns the engine's answer. */

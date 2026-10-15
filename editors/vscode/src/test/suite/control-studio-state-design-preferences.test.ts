@@ -18,63 +18,13 @@ function decoder(): ((value: unknown, dimensions: { states: number; inputs: numb
 }
 
 suite("Control Studio state design preferences", () => {
-  test("keeps incomplete state-design input through saved acknowledgements and supports finite design fields", () => {
-    const { JSDOM } = require("jsdom");
-    const dom = new JSDOM('<main><section data-studio-state-design></section></main>');
-    try {
-      const root = dom.window.document.querySelector("main")!;
-      let changes = 0;
-      const editor = initializeThreePageStateDesign(root, undefined, () => { changes++; }, () => "LQR") as any;
-      const mode = root.querySelector('[data-state-design-mode]');
-      assert.ok(mode, "The solver policy must be selectable in the state-design form");
-      mode.value = "finite"; mode.dispatchEvent(new dom.window.Event("change"));
-      const steps = root.querySelector('[data-state-design-field="horizonSteps"]');
-      const terminal = root.querySelector('[data-state-design-field="terminalWeights"]');
-      steps.value = "2"; terminal.value = "[[1]]";
-      terminal.dispatchEvent(new dom.window.Event("input"));
-      assert.deepStrictEqual(editor.read(true).finiteHorizon, { steps: 2, terminalWeights: [[1]] });
-      const q = root.querySelector('[data-state-design-field="stateWeights"]');
-      q.value = "[["; q.dispatchEvent(new dom.window.Event("input"));
-      assert.ok(changes >= 3, "Every edit retires stale candidate evidence, including incomplete input");
-      const draft = editor.draft();
-      assert.strictEqual(draft.stateWeights, "[[");
-      const saved = controllerTuningPreferences({ method: "state-design", stateDesignDraft: draft });
-      assert.ok(saved, "Incomplete input is editing state, never a numeric solver setting");
-      editor.receive(undefined, (saved as any).stateDesignDraft);
-      assert.strictEqual(q.value, "[[", "A host acknowledgement must not erase a pending edit");
-      assert.throws(() => editor.read(true), /State weights/);
-      assert.strictEqual(q.getAttribute("aria-invalid"), "true");
-      q.value = "[[9]]"; q.dispatchEvent(new dom.window.Event("input"));
-      assert.deepStrictEqual(editor.read(true).stateWeights, [[9]]);
-      assert.strictEqual(q.hasAttribute("aria-invalid"), false);
-    } finally { dom.window.close(); }
-  });
-  test("shows a state-design error only under the field it concerns and clears it once the design reads", () => {
-    const { JSDOM } = require("jsdom");
-    const dom = new JSDOM('<main><section data-studio-state-design></section></main>');
-    try {
-      const root = dom.window.document.querySelector("main")!;
-      initializeThreePageStateDesign(root, undefined, () => undefined, () => "LQR");
-      const field = (name: string) => root.querySelector(`[data-state-design-field="${name}"]`);
-      const shown = () => [...root.querySelectorAll("[data-state-design-error]")].filter((error: any) => !error.hidden)
-        .map((error: any) => [error.dataset.stateDesignError, error.textContent]);
-      const mode = root.querySelector("[data-state-design-mode]");
-      mode.value = "finite"; mode.dispatchEvent(new dom.window.Event("change"));
-      for (const [name, value] of [["stateWeights", "[[400,0],[0,400]]"], ["inputWeights", "[[40000]]"], ["horizonSteps", "20"]]) {
-        field(name).value = value; field(name).dispatchEvent(new dom.window.Event("input"));
-      }
-      assert.deepStrictEqual(shown(), [["terminalWeights", "Enter the terminal weights matrix."]], "Only the missing terminal weights are named");
-      field("terminalWeights").value = "[[400,0],[0,400]]"; field("terminalWeights").dispatchEvent(new dom.window.Event("input"));
-      assert.deepStrictEqual(shown(), [], "A complete design shows no error");
-    } finally { dom.window.close(); }
-  });
-
   test("shows declared Q and R defaults while preserving blank drafts as explicit edits", () => {
     const { JSDOM } = require("jsdom");
     const dom = new JSDOM('<main><section data-studio-state-design></section></main>');
     try {
       const root = dom.window.document.querySelector("main")!;
-      const editor = initializeThreePageStateDesign(root, { stateWeights: [[2]], inputWeights: [[3]] }, undefined, () => "LQR") as any;
+      const editor = initializeThreePageStateDesign(root, { stateWeights: [[2]], inputWeights: [[3]] }, () => undefined) as any;
+      editor.setFields([{ field: "stateWeights", label: "State weights (Q)" }, { field: "inputWeights", label: "Input weights (R)" }]);
       assert.strictEqual(root.querySelector('[data-state-design-field="stateWeights"]').value, "[[2]]");
       assert.strictEqual(root.querySelector('[data-state-design-field="inputWeights"]').value, "[[3]]");
       const input = root.querySelector('[data-state-design-field="inputWeights"]'); input.value = ""; input.dispatchEvent(new dom.window.Event("input"));

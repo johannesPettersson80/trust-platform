@@ -296,9 +296,17 @@ fn a_two_channel_model_is_qualified_on_every_input_and_output_of_the_loop() {
 }
 
 #[test]
-fn an_engineer_compatibility_check_keeps_one_input_and_one_output() {
+fn an_engineer_compatibility_check_binds_every_channel_of_a_loop_with_channels() {
+    // Validate binds every model input and output through the loop's channels, so a bound two-input model may tune the loop.
     assert_eq!(
         assert_engineer_model_compatibility(&two_channel_loop(), &two_channel_model("kW", "L/s")),
+        Ok(())
+    );
+    // Without channel bindings the loop has one plant input and one measured output, which the two-input model does not fit.
+    let mut unbound = two_channel_loop();
+    unbound.channels = None;
+    assert_eq!(
+        assert_engineer_model_compatibility(&unbound, &two_channel_model("kW", "L/s")),
         Err(CompatibilityRefusal::UnmappedChannels)
     );
 }

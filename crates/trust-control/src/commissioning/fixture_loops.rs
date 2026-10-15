@@ -234,6 +234,50 @@ pub fn project_pid_loop() -> LoopDefinition {
     ))
 }
 
+/// A closed loop of a Smith predictor (C9): its PI's variables `Main.Program.Kp`, `Ki` and `Kd`, the model's gain, time constant and delay,
+/// and no library block. Its parameters bound the PI's gains and the model's three values as the setup writes them (N10).
+#[must_use]
+pub fn smith_predictor_loop() -> LoopDefinition {
+    let mut parameters = program_gains();
+    let values = parameters.as_array_mut().expect("the parameters");
+    for (symbol, unit, convention, minimum, maximum) in [
+        (
+            "Main.Program.ModelGain",
+            "degC/%",
+            "Smith predictor model gain",
+            -1e6,
+            1e6,
+        ),
+        (
+            "Main.Program.ModelTau",
+            "s",
+            "Smith predictor model time constant",
+            0.001,
+            1e5,
+        ),
+        (
+            "Main.Program.ModelDelay",
+            "s",
+            "Smith predictor model delay",
+            0.0,
+            1e4,
+        ),
+    ] {
+        values.push(json!({ "symbol": symbol, "iec_type": "LREAL", "unit": unit,
+            "convention": convention, "minimum": minimum, "maximum": maximum }));
+    }
+    decode(&project_loop_file(
+        "Smith",
+        json!({ "kind": "smith-pid", "family": "PI", "proportionalSymbol": "Main.Program.Kp",
+            "integralSymbol": "Main.Program.Ki", "derivativeSymbol": "Main.Program.Kd",
+            "gainSymbol": "Main.Program.ModelGain", "timeConstantSymbol": "Main.Program.ModelTau",
+            "delaySymbol": "Main.Program.ModelDelay" }),
+        &[program_integral_state(), program_previous_error_state()],
+        &[],
+        parameters,
+    ))
+}
+
 /// A closed loop of a program's own P law (C2): its seed names the variable `Main.Program.Kp` alone, and it declares no state.
 #[must_use]
 pub fn project_p_loop() -> LoopDefinition {
@@ -335,16 +379,12 @@ pub fn project_p_loop_with_formula_application() -> LoopDefinition {
     ))
 }
 
-/// A program's own law whose seed is a parked kind (C9): a Smith predictor's seed, with the keys `validSmithSeed` names. The gate refuses
-/// it by name, and no adapter here realizes it. Its model variables are not bound here, because a parked seed's keys are not read.
+/// A program's own law without a seed: the gate parks it by name, and no adapter here realizes it.
 #[must_use]
 pub fn parked_project_loop() -> LoopDefinition {
     decode(&project_loop_file(
         "PI",
-        json!({ "kind": "smith-pid", "family": "PI", "proportionalSymbol": "Main.Program.Kp",
-            "integralSymbol": "Main.Program.Ki", "derivativeSymbol": "Main.Program.Kd",
-            "gainSymbol": "Main.Program.ModelGain", "timeConstantSymbol": "Main.Program.ModelTau",
-            "delaySymbol": "Main.Program.ModelDelay" }),
+        Value::Null,
         &[],
         &[],
         program_gains(),

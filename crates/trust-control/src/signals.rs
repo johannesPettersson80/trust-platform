@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::failure::Failure;
 use crate::limits::RECORDING_CHANNEL_LIMIT;
-use crate::loop_definition::{LoopDefinition, ModeWhenTrue};
+use crate::loop_definition::{LoopDefinition, ModeWhenTrue, RealType, SchedulingVariable};
 
 /// A signal Control Studio reads: its identifier in the request, its IEC type and exactly one
 /// selector, an address or a symbol (E2.4).
@@ -260,6 +260,16 @@ impl InspectionSample {
         (!self.bindings[index].is_bool() || value == 0.0 || value == 1.0).then_some(value)
     }
 
+    /// The value of the signal that reads the variable `symbol` by its path, when it can be used (see [`Self::usable`]).
+    #[must_use]
+    pub fn usable_symbol(&self, symbol: &str) -> Option<f64> {
+        let binding = self
+            .bindings
+            .iter()
+            .find(|binding| binding.symbol.as_deref() == Some(symbol))?;
+        self.usable(&binding.id)
+    }
+
     /// The loop's mode, from the mode signal's usable value; `None` when it cannot be read.
     #[must_use]
     // A usable BOOL is exactly 0 or 1.
@@ -379,7 +389,46 @@ pub fn loop_inspection_bindings(loop_definition: &LoopDefinition) -> Vec<SignalB
             "BOOL",
         ));
     }
+    if let Some(scheduling) = scheduling_variable(loop_definition) {
+        // A scheduled loop also reads the variable it is scheduled by (C10 Identify, D-21), so the start of Identify reads it from the
+        // same watch as the loop's signals. A binding that already reads that variable by its path serves; a second one would name the
+        // same path twice, which the runtime refuses.
+        let reads_it = bindings
+            .iter()
+            .any(|binding| binding.symbol.as_deref() == Some(scheduling.symbol.as_str()));
+        if !reads_it {
+            let mut id = "scheduling".to_string();
+            while bindings.iter().any(|binding| binding.id == id) {
+                id.push('_');
+            }
+            bindings.push(SignalBinding::addressed(
+                &id,
+                None,
+                &scheduling.symbol,
+                real_type_name(scheduling.iec_type),
+            ));
+        }
+    }
     bindings
+}
+
+/// The variable that a gain-scheduled loop is scheduled by (C10); `None` for a loop without a schedule.
+fn scheduling_variable(loop_definition: &LoopDefinition) -> Option<&SchedulingVariable> {
+    loop_definition
+        .controller
+        .project
+        .as_ref()?
+        .schedule
+        .as_ref()
+        .map(|schedule| &schedule.scheduling)
+}
+
+/// The IEC name of a real type, as a binding names it.
+fn real_type_name(real: RealType) -> &'static str {
+    match real {
+        RealType::Real => "REAL",
+        RealType::Lreal => "LREAL",
+    }
 }
 
 /// The binding that reads the mode variable `symbol`: a BOOL with its address, or with its symbol.

@@ -133,6 +133,8 @@ fn a_family_is_accepted_only_when_the_selected_loops_adapter_realizes_it() {
         inputs: Vec::new(),
         outputs: Vec::new(),
         controller_compatibility: ControllerCompatibility::Accepted {
+            recommended_family: None,
+            methods: None,
             families: vec![
                 "P".to_string(),
                 "PI".to_string(),

@@ -16,5 +16,7 @@ pub mod restore;
 pub mod restore_texts;
 pub mod run;
 pub mod test_experiment_lifecycle;
+pub mod tune_schedule;
+pub mod tune_search;
 pub mod validate;
 pub mod validate_model_check;

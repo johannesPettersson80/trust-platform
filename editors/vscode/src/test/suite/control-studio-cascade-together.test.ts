@@ -78,8 +78,12 @@ suite("Control Studio cascade tuned together", () => {
       const { renderTunedController } = require("../../controlStudio/webview/threePageResults");
       const values = Object.fromEntries(loop.parameterBinding.parameters.map((parameter: any) => [parameter.symbol, parameter.symbol.endsWith("DerivativeGain") ? 0 : 1]));
       renderTunedController(dom.window.document.body, loop, { status: "candidate", family: "cascade", values });
-      assert.deepStrictEqual([...dom.window.document.querySelectorAll("dt")].map((label: any) => label.textContent), [
-        "P1.Inner · Proportional gain (Kp)", "P1.Inner · Integral gain (Ki)", "P1.Outer · Proportional gain (Kp)", "P1.Outer · Integral gain (Ki)"]);
+      // The served cascade shows one row for each controller, inner first, with its instance and its P and I (structureResults.ts).
+      const table = dom.window.document.querySelector("[data-studio-cascade-design]");
+      assert.ok(table, "the cascade's controllers are shown as one table");
+      assert.deepStrictEqual([...table.tBodies[0].rows].map((row: any) => row.cells[0].textContent), [
+        `Inner · ${loop.controller.project.seed.inner.instance}`, `Outer · ${loop.controller.project.seed.outer.instance}`]);
+      assert.strictEqual(dom.window.document.querySelectorAll("dt").length, 0, "the derivative gains are left out");
     } finally { (globalThis as any).document = saved; }
   });
 

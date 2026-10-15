@@ -5,6 +5,7 @@ use crate::commissioning::fixture_loops::{control_pid_loop, first_order_model};
 use crate::commissioning::transfer::TransferValueType;
 use crate::loop_definition::{InitialSource, InitialValue, PostScan};
 use crate::model::GeneralModel;
+use serde_json::json;
 
 /// A state of the given type and unit, bounded by `minimum` and `maximum`, with the given initial value.
 fn state(
@@ -94,21 +95,6 @@ fn a_list_of_valid_states_is_accepted_and_each_broken_declaration_is_refused() {
         ControllerInitialization::new(vec![boolean]).is_err(),
         "a BOOL state is dimensionless"
     );
-    let crowded: Vec<InitializedState> = (0..=MAXIMUM_STATES)
-        .map(|index| {
-            state(
-                &format!("Main.S{index}"),
-                "%",
-                StateType::Lreal,
-                (0.0, 1.0),
-                InitialValue::Constant(0.0),
-            )
-        })
-        .collect();
-    assert!(
-        ControllerInitialization::new(crowded).is_err(),
-        "at most 32 states"
-    );
 }
 
 #[test]
@@ -141,16 +127,13 @@ fn a_weight_is_a_symbol_or_a_number_never_both_and_a_parked_formula_is_refused()
         by_symbol
     )])
     .is_ok());
-    // The measured-disturbance feedforward's `scaled-model-input` is served (C8), so only the other kinds are parked.
+    // The measured-disturbance feedforward's `scaled-model-input` (C8) and the decoupler's `decoupled-output` (C7) are served, so only
+    // the other kinds are parked.
     let parked = [
         InitialValue::From(InitialSource::ModelState { index: 0 }),
         InitialValue::From(InitialSource::NotchHistory {
             index: 0,
             denominator_symbols: ["Main.A1".to_owned(), "Main.A2".to_owned()],
-        }),
-        InitialValue::From(InitialSource::DecoupledModelInput {
-            index: 0,
-            matrix_symbols: vec![vec!["Main.D".to_owned()]],
         }),
     ];
     for initial in parked {
@@ -162,6 +145,102 @@ fn a_weight_is_a_symbol_or_a_number_never_both_and_a_parked_formula_is_refused()
             "a parked formula is a controller capability"
         );
     }
+}
+
+/// The decoupler of two zones, D = [[1, −0.5], [−0.5, 1]], by the symbols that the group's parameter record gives its gains.
+fn decoupler_symbols() -> Vec<Vec<String>> {
+    vec![
+        vec!["P1.D11".to_owned(), "P1.D12".to_owned()],
+        vec!["P1.D21".to_owned(), "P1.D22".to_owned()],
+    ]
+}
+
+#[test]
+fn a_decoupled_share_is_the_row_of_the_inverse_applied_to_the_operating_inputs() {
+    // D⁻¹·[50, 50] = [100, 100], as control-studio-decoupler.test.ts checks it.
+    let matrix = vec![vec![1.0, -0.5], vec![-0.5, 1.0]];
+    for row in 0..2 {
+        let share = decoupled_share(&matrix, &[50.0, 50.0], row).expect("D is invertible");
+        assert!((share - 100.0).abs() <= 1e-9, "row {row} is {share}");
+    }
+}
+
+#[test]
+fn a_singular_or_unsquare_decoupler_is_refused() {
+    let singular = vec![vec![1.0, 1.0], vec![1.0, 1.0]];
+    let refusal = decoupled_share(&singular, &[50.0, 50.0], 0).expect_err("D is singular");
+    assert_eq!(refusal.cause, Cause::Settings);
+    assert!(refusal.message.contains("singular"), "{}", refusal.message);
+    let ragged = vec![vec![1.0, 0.0], vec![1.0]];
+    assert!(
+        decoupled_share(&ragged, &[50.0, 50.0], 0).is_err(),
+        "a ragged matrix is not square"
+    );
+    assert!(
+        decoupled_share(&[vec![1.0]], &[1.0], 1).is_err(),
+        "the row lies inside the matrix"
+    );
+}
+
+#[test]
+fn a_decoupled_state_starts_at_its_row_of_the_inverse_applied_to_the_plant_inputs_of_its_channels()
+{
+    // The two channels drive the heaters of `decoupler_zones_model` at its operating inputs, 50 % each, and D is bound as the group's gains.
+    let mut loop_definition = control_pid_loop();
+    loop_definition.channels = Some(
+        crate::json::decode_value(json!({
+            "inputs": [
+                { "modelChannelId": "P1.Heater1Pct", "signalId": "manipulatedVariable",
+                  "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 } },
+                { "modelChannelId": "P1.Heater2Pct", "signalId": "mv-2", "manualOutputSignal": "P1.Zone2ManualPct",
+                  "manualOutputType": "LREAL", "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 } }
+            ],
+            "outputs": [
+                { "modelChannelId": "P1.Zone1C", "signalId": "processVariable", "setpointSignalId": "setpoint" },
+                { "modelChannelId": "P1.Zone2C", "signalId": "pv-2", "setpointSignalId": "sp-2" }
+            ]
+        }))
+        .expect("the channels decode"),
+    );
+    loop_definition.parameter_binding = Some(
+        crate::json::decode_value(json!({
+            "loop_id": "loop:zones", "task_name": "MainTask",
+            "parameters": [
+                { "symbol": "P1.D11", "iec_type": "LREAL", "unit": "1", "convention": "decoupler gain", "minimum": -10, "maximum": 10 },
+                { "symbol": "P1.D12", "iec_type": "LREAL", "unit": "1", "convention": "decoupler gain", "minimum": -10, "maximum": 10 },
+                { "symbol": "P1.D21", "iec_type": "LREAL", "unit": "1", "convention": "decoupler gain", "minimum": -10, "maximum": 10 },
+                { "symbol": "P1.D22", "iec_type": "LREAL", "unit": "1", "convention": "decoupler gain", "minimum": -10, "maximum": 10 }
+            ],
+            "mode": { "symbol": "P1.ZonesAuto", "manual_value": false }
+        }))
+        .expect("the binding decodes"),
+    );
+    let declared = state(
+        "Main.Row",
+        "%",
+        StateType::Lreal,
+        (0.0, 200.0),
+        InitialValue::From(InitialSource::DecoupledOutput {
+            index: 1,
+            matrix_symbols: decoupler_symbols(),
+        }),
+    );
+    let definition = ControllerInitialization::new(vec![declared])
+        .expect("a decoupled state is served, so it is declared");
+    let parameters = BTreeMap::from([
+        ("P1.D11".to_owned(), 1.0),
+        ("P1.D12".to_owned(), -0.5),
+        ("P1.D21".to_owned(), -0.5),
+        ("P1.D22".to_owned(), 1.0),
+    ]);
+    let model = crate::tuning::structures::fixtures::decoupler_zones_model();
+    let values = initialization_values(&loop_definition, &model, &definition, &parameters)
+        .expect("the share at the operating point");
+    assert!(
+        (values["Main.Row"] - 100.0).abs() <= 1e-9,
+        "D⁻¹·[50, 50] gives 100 in row 1: {}",
+        values["Main.Row"]
+    );
 }
 
 #[test]

@@ -76,7 +76,7 @@ fn tuned() -> TuneSection {
         .section
 }
 
-/// Validates lesson 84's single-loop cases on the output path with the supplied heater, and the measured-disturbance case beside them.
+/// Validates lesson 84's single-loop cases with the supplied heater, and the measured-disturbance case beside them.
 /// Every job of a case has not completed, so each scenario row is Inconclusive, and the result is the disturbance row's (N8.5).
 fn validate_with(section: &TuneSection) -> ValidateOutcome {
     let loop_definition = lesson_84();
@@ -89,7 +89,7 @@ fn validate_with(section: &TuneSection) -> ValidateOutcome {
         ("P1.LeadS".to_owned(), 8.0),
         ("P1.LagS".to_owned(), 3.0),
     ]);
-    // The campaign takes the loop and its model as the study holds them: it reduces a feedforward to its output path (C8, Validate).
+    // The campaign takes the loop and its model as the study holds them: every case runs on the two-input model (C8, Validate).
     let cases = engineer_verification_campaign(
         &loop_definition,
         &model,
@@ -97,7 +97,7 @@ fn validate_with(section: &TuneSection) -> ValidateOutcome {
         &observed,
         &BTreeMap::new(),
     )
-    .expect("the single-loop campaign is built");
+    .expect("the campaign is built");
     let runs: Vec<(IsolatedRunStatus, IsolatedRunStatus)> = cases
         .iter()
         .map(|_| {

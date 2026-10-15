@@ -118,7 +118,7 @@ pub struct IdentificationQualificationMetrics {
 /// A recording qualified for a fit (N1.1; `QualifiedIdentificationData`): the samples received, the samples a fit may
 /// use, and whether they suffice. Suitability for a same-run preview and qualification for controller design are
 /// separate states: a recording is suitable for design only with independent validation available.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct QualifiedIdentificationData {
     /// Every sample received, unchanged; raw samples are never deleted (N1.4).

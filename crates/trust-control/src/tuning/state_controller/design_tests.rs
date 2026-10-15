@@ -2,10 +2,14 @@
 //! (`control-studio-numerics.test.ts`, `control-studio-loop-setup-state-feedback.test.ts`, `control-studio-loop-setup-lqg.test.ts`,
 //! and the design rules of `stateControllerDesign.ts`). The setup generators and the webviews are not ported here.
 
+use std::collections::BTreeMap;
+
 use serde_json::{json, Value};
 use trust_control_math::lqr::FiniteHorizon;
 
 use super::*;
+use crate::model::general::{decode_general_model, OperatingRange};
+use crate::tuning::state_controller::families::automatic_weights;
 use crate::tuning::state_controller::fixtures::{
     loop_with_law, scalar_model, transfer_function_model, two_tank_model, two_tank_model_with_delay,
 };
@@ -331,4 +335,134 @@ fn the_closed_loop_poles_come_from_the_mapped_values_and_a_pin_that_destabilises
     let failure = state_controller_poles(&loop_definition, &model, &pinned)
         .expect_err("the pinned gain is unstable");
     assert_eq!(full_text(&failure), texts::NOT_STRICTLY_STABLE);
+}
+
+/// A discrete scalar plant `x(k+1) = 2x(k) + u(k)` at one second: unstable, so a gain that does not stabilise it is refused.
+fn unstable_scalar_model() -> GeneralModel {
+    decode_general_model(&json!({
+        "kind": "discrete-state-space", "revision": "unstable", "source": "provided",
+        "validation": "validated", "evidence": ["bench"], "delaySeconds": 0, "sampleTimeSeconds": 1.0,
+        "inputs": [{ "id": "P1.PumpM3PerS", "unit": "m3/s", "operatingRange": { "minimum": 0.0, "maximum": 0.02 } }],
+        "outputs": [{ "id": "P1.Tank2M", "unit": "m", "operatingRange": { "minimum": 0.0, "maximum": 0.5 } }],
+        "states": [{ "id": "P1.Tank2M", "unit": "m", "operatingRange": { "minimum": -1.0, "maximum": 1.0 } }],
+        "a": [[2.0]], "b": [[1.0]], "c": [[1.0]], "d": [[0.0]],
+        "operatingPoint": { "inputs": [0.01], "outputs": [0.25] }
+    }))
+    .expect("the fixture model decodes")
+}
+
+#[test]
+fn a_pin_discards_the_optimality_claim_and_reads_back_its_poles() {
+    let loop_definition = loop_with_law(
+        &scalar_lqr(),
+        &[("P1.K", "m3/s/m"), ("P1.N", "m3/s/m")],
+        1000.0,
+    );
+    let model = scalar_model();
+    let preferences = StateDesignPreferences {
+        state_weights: Some(vec![vec![1.0]]),
+        input_weights: Some(vec![vec![1.0]]),
+        finite_horizon: Some(FiniteHorizon {
+            steps: 3,
+            terminal_weights: vec![vec![1.0]],
+        }),
+        ..StateDesignPreferences::default()
+    };
+    let design = design_state_controller(
+        &loop_definition,
+        &model,
+        60.0,
+        None,
+        Some(&preferences),
+        &[0],
+    )
+    .expect("the finite horizon designs the law");
+    assert_eq!(
+        design.horizon.as_ref().map(|horizon| horizon.policy),
+        Some(HorizonPolicy::RepeatFirstFiniteGain)
+    );
+    // Pinning the reference gain alone discards the optimality claim (D-B9), and the poles come from the pinned values.
+    let pins = BTreeMap::from([("P1.N".to_string(), 0.5)]);
+    let pinned =
+        pin_state_design(&loop_definition, &model, &design, &pins).expect("an admissible pin");
+    assert!((pinned.candidate.parameters["P1.N"] - 0.5).abs() <= 1e-12);
+    assert_eq!(
+        pinned.horizon.as_ref().map(|horizon| horizon.policy),
+        Some(HorizonPolicy::PinnedFixedGain)
+    );
+    let recomputed = state_controller_poles(&loop_definition, &model, &pinned.candidate.parameters)
+        .expect("the pinned law is stable");
+    assert_eq!(pinned.closed_loop_poles, recomputed);
+}
+
+#[test]
+fn a_pin_must_name_a_mapped_coefficient_within_its_bounds() {
+    let loop_definition = loop_with_law(
+        &scalar_lqr(),
+        &[("P1.K", "m3/s/m"), ("P1.N", "m3/s/m")],
+        1000.0,
+    );
+    let model = scalar_model();
+    let design = design_state_controller(&loop_definition, &model, 60.0, None, None, &[0])
+        .expect("the automatic weights design the law");
+    let unmapped = BTreeMap::from([("P1.Other".to_string(), 0.1)]);
+    let failure = pin_state_design(&loop_definition, &model, &design, &unmapped)
+        .expect_err("a symbol the law does not map is refused");
+    assert_eq!(full_text(&failure), texts::pin_not_mapped("P1.Other"));
+    let outside = BTreeMap::from([("P1.K".to_string(), 1000.0)]);
+    let failure = pin_state_design(&loop_definition, &model, &design, &outside)
+        .expect_err("a value above its bound is refused");
+    assert_eq!(full_text(&failure), texts::pin_outside_bounds("P1.K"));
+}
+
+#[test]
+fn a_finite_horizon_whose_repeated_first_gain_is_unstable_is_refused() {
+    // With one step and a zero terminal weight the first gain is zero, so the runtime repeats the unstable plant (D-B8).
+    let loop_definition = loop_with_law(
+        &scalar_lqr(),
+        &[("P1.K", "m3/s/m"), ("P1.N", "m3/s/m")],
+        1000.0,
+    );
+    let preferences = StateDesignPreferences {
+        state_weights: Some(vec![vec![1.0]]),
+        input_weights: Some(vec![vec![1.0]]),
+        finite_horizon: Some(FiniteHorizon {
+            steps: 1,
+            terminal_weights: vec![vec![0.0]],
+        }),
+        ..StateDesignPreferences::default()
+    };
+    let failure = design_state_controller(
+        &loop_definition,
+        &unstable_scalar_model(),
+        60.0,
+        None,
+        Some(&preferences),
+        &[0],
+    )
+    .expect_err("the repeated first gain does not stabilise the loop");
+    assert_eq!(full_text(&failure), texts::REPEATED_GAIN_UNSTABLE);
+}
+
+#[test]
+fn a_coordinate_without_a_span_has_no_automatic_weight() {
+    let failure = automatic_weights(
+        [OperatingRange {
+            minimum: 0.25,
+            maximum: 0.25,
+        }]
+        .into_iter(),
+    )
+    .expect_err("a zero span has no weight 1/span²");
+    assert_eq!(full_text(&failure), texts::ZERO_OPERATING_SPAN);
+    let weights = automatic_weights(
+        [OperatingRange {
+            minimum: 0.0,
+            maximum: 2.0,
+        }]
+        .into_iter(),
+    )
+    .expect("a span of two has the weight one quarter");
+    assert_eq!(weights.len(), 1);
+    assert!((weights[0][0] - 0.25).abs() <= 1e-12);
 }

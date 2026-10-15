@@ -15,6 +15,7 @@ use trust_control_math::simulate::TimeResponsePoint;
 
 use crate::analysis::general_feedback::ChannelPair;
 use crate::analysis::lead_lag::{LeadLagMode, LeadLagResult};
+use crate::analysis::measured_paths::{MeasuredPathsResult, SettledTrial};
 use crate::failure::Failure;
 use crate::model::{GeneralStateStructure, ModelTimeSettings, ResponseConnection};
 
@@ -36,6 +37,8 @@ pub enum AnalysisTool {
     Frequency,
     /// The measured frequency response of a recording (an operation).
     MeasuredFrequency,
+    /// The measured MIMO paths of a recording: the gain matrix, the relative gain array and the pairing (an operation; C7).
+    MeasuredPaths,
     /// The Nyquist and loop response with a controller (an operation).
     Feedback,
     /// The lead/lag design (a quick answer).
@@ -91,10 +94,10 @@ pub struct AnalysisInputs {
     /// `rootLocus` and `routh`: the selected value of the declared parameter.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_value: Option<f64>,
-    /// `measuredFrequency`: the recording, by its identifier.
+    /// `measuredFrequency` and `measuredPaths`: the recording, by its identifier.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_id: Option<String>,
-    /// `measuredFrequency`: the revision of the recording the request was made for.
+    /// `measuredFrequency` and `measuredPaths`: the revision of the recording the request was made for.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_revision: Option<String>,
     /// `measuredFrequency`: the tone frequencies in rad/s.
@@ -109,6 +112,13 @@ pub struct AnalysisInputs {
     /// `measuredFrequency`: the startup samples left out of the estimate, at least 1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub startup_samples: Option<u32>,
+    /// `measuredPaths`: one settled trial for each input of the loop, in any order (C7).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled_trials: Option<Vec<SettledTrial>>,
+    /// `measuredPaths`: the largest change that an input which was not stepped may make during a trial, in its unit: finite and
+    /// nonnegative. Absent, the check is not made.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maximum_unexcited_input_drift: Option<f64>,
     /// `leadLag`: the compensator.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<LeadLagMode>,
@@ -240,6 +250,8 @@ pub enum AnalysisResult {
     Frequency(FrequencyAnswer),
     /// `measuredFrequency` (B2).
     MeasuredFrequency(MeasuredFrequencyAnswer),
+    /// `measuredPaths` (C7): the measured gain matrix, relative gain array, decoupler and pairing.
+    MeasuredPaths(MeasuredPathsResult),
     /// `feedback` (B2).
     Feedback(FeedbackAnswer),
     /// `leadLag`.

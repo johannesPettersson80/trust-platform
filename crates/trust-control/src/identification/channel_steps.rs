@@ -1,12 +1,15 @@
 //! The steps of a campaign's plant inputs (`connectedIdentificationChannels.ts`; specification 35, C7 and C8): the loop each input is
-//! stepped on, the sample the step reads, the address of its Manual command from the runtime's I/O list, and the method of a resumed
-//! campaign's remaining steps. `connected_run` re-exports these rules, which the campaign and its recovery call.
+//! stepped on, the sample the step reads, the address of its Manual command from the runtime's I/O list, and the method each input's
+//! step runs under (`campaign_method`, `InputStep::own_method`), which a resumed campaign plans the same way. `connected_run` re-exports
+//! these rules, which the campaign and its recovery call.
 
 use serde_json::Value;
 
 use crate::experiment::{ControlExperimentKind, ExperimentSample};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::identification::policy::IdentificationMethod;
+use crate::identification::policy::{
+    project_scripted, validate_explicit_method, IdentificationMethod,
+};
 use crate::loop_definition::{ChannelInput, ExperimentKind, LoopDefinition, LoopSignal};
 
 /// The seed stride between the steps of two inputs (`index * 7919` of `preparePlan`), so that no two inputs share an excitation.
@@ -23,6 +26,9 @@ pub struct InputStep {
     pub input_symbol: String,
     /// Whether the input is the loop's own manipulated variable, whose sample the run reads as it is.
     pub manipulated: bool,
+    /// The method of the input's own identification step, a manual-output step of that size, when the input declares one (C7, C8).
+    /// `None` for an input that takes the campaign's method (`campaign_method`).
+    pub own_method: Option<IdentificationMethod>,
 }
 
 /// The steps of a loop's plant inputs, in input order (`connectedIdentificationChannels`). A loop with one plant input is stepped as
@@ -36,19 +42,15 @@ pub fn input_steps(
     loop_definition: &LoopDefinition,
     io: &Value,
 ) -> Result<Vec<InputStep>, Failure> {
-    let several = loop_definition
-        .channels
-        .as_ref()
-        .filter(|channels| channels.inputs.len() > 1);
-    let Some(channels) = several else {
+    let Some(inputs) = several_inputs(loop_definition) else {
         return Ok(vec![InputStep {
             loop_definition: loop_definition.clone(),
             input_symbol: loop_definition.signals.manipulated_variable.symbol.clone(),
             manipulated: true,
+            own_method: None,
         }]);
     };
-    channels
-        .inputs
+    inputs
         .iter()
         .enumerate()
         .map(|(index, input)| input_step(loop_definition, input, index, io))
@@ -76,8 +78,10 @@ fn input_step(
     let manipulated = symbol == loop_definition.signals.manipulated_variable.symbol;
     let mut variant = loop_definition.clone();
     if let Some(experiment) = variant.experiment.as_mut() {
+        // An input with its own step is stepped at it, as a step of that input (`experimentStep`, Specification 35 §17.9).
         if let Some(step) = input.experiment_step {
             experiment.amplitude = step;
+            experiment.kind = ExperimentKind::MvStep;
         }
         experiment.seed = experiment.seed.wrapping_add(seed_offset(index));
     }
@@ -105,6 +109,7 @@ fn input_step(
         loop_definition: variant,
         input_symbol: symbol,
         manipulated,
+        own_method: own_step_of(loop_definition, input).map(|_| manual_output_method()),
     })
 }
 
@@ -194,22 +199,98 @@ pub fn step_sample(
     Ok(Some(sample))
 }
 
-/// The method of a campaign's step of `kind` (`identificationMethod`): the loop's declared kind is the method as declared, and
-/// otherwise Identify chose the method. A resumed campaign plans its remaining inputs with the method its journaled step used.
+/// The method a campaign runs its steps under (C7, C8). A loop with several plant inputs whose every input declares its own
+/// identification step runs manual-output steps, so its campaign is a manual-output campaign. Otherwise the campaign runs the method
+/// Identify chose for the loop (`loop_method`, from `identification_method`), and the inputs without their own step take it.
 #[must_use]
-pub fn method_of_step(
+pub fn campaign_method(
     loop_definition: &LoopDefinition,
-    kind: ControlExperimentKind,
+    loop_method: IdentificationMethod,
 ) -> IdentificationMethod {
-    let declared = loop_definition
-        .experiment
+    if every_input_has_own_step(loop_definition) {
+        manual_output_method()
+    } else {
+        loop_method
+    }
+}
+
+/// The checks of the plant inputs' own identification steps, before anything changes mode or is recorded (C7, C8). An own step is a
+/// manual-output step, so the identification policy must permit one, as it permits a declared `mv_step` (`validate_explicit_method`).
+/// One recording holds one controller mode: an input without its own step takes the loop's method, and when that method is a setpoint
+/// step (Auto), it cannot run beside the manual-output step of an input with its own step, so the campaign is refused by name.
+///
+/// # Errors
+/// The policy does not permit a manual-output step, or an input without its own step would take a setpoint step beside one with its own.
+pub fn own_steps_check(
+    loop_definition: &LoopDefinition,
+    loop_method: IdentificationMethod,
+) -> Result<(), Failure> {
+    let Some(inputs) = several_inputs(loop_definition) else {
+        return Ok(());
+    };
+    if !inputs
+        .iter()
+        .any(|input| own_step_of(loop_definition, input).is_some())
+    {
+        return Ok(());
+    }
+    validate_explicit_method(loop_definition, ExperimentKind::MvStep)
+        .map_err(|error| error.failure())?;
+    let unstepped = inputs
+        .iter()
+        .find(|input| own_step_of(loop_definition, input).is_none());
+    match unstepped {
+        Some(input) if !loop_method.manual => Err(mixed_modes_failure(loop_definition, input)),
+        _ => Ok(()),
+    }
+}
+
+/// The refusal of a campaign whose input without its own step would take a setpoint step in Auto, beside a manual-output step.
+fn mixed_modes_failure(loop_definition: &LoopDefinition, input: &ChannelInput) -> Failure {
+    let symbol = loop_signal_of(loop_definition, &input.signal_id)
+        .map_or_else(|| input.signal_id.clone(), |signal| signal.symbol);
+    Failure::new(
+        &format!(
+            "Identify would step {symbol} by a setpoint step in Auto, which cannot run in the same recording as the manual-output steps of the inputs with their own step. Give {symbol} its own identification step, so that every input is stepped in Manual."
+        ),
+        Cause::Settings,
+        NextAction::OpenLoopSetup,
+    )
+}
+
+/// The identification step an input declares as its own (`experimentStep`, Specification 35 §17.9), or `None`. A loop with no
+/// experiment, and a project-scripted loop, which owns its excitation (C12), declare none.
+fn own_step_of(loop_definition: &LoopDefinition, input: &ChannelInput) -> Option<f64> {
+    if loop_definition.experiment.is_none() || project_scripted(loop_definition).is_some() {
+        return None;
+    }
+    input.experiment_step
+}
+
+/// The plant inputs of a loop that steps several of them (`input_steps`), or `None` for a loop with one.
+fn several_inputs(loop_definition: &LoopDefinition) -> Option<&[ChannelInput]> {
+    loop_definition
+        .channels
         .as_ref()
-        .map(|experiment| experiment.kind)
-        .filter(|declared| *declared != ExperimentKind::Observation);
+        .map(|channels| channels.inputs.as_slice())
+        .filter(|inputs| inputs.len() > 1)
+}
+
+/// Whether a loop with several plant inputs declares an own identification step for every one of them.
+fn every_input_has_own_step(loop_definition: &LoopDefinition) -> bool {
+    several_inputs(loop_definition).is_some_and(|inputs| {
+        inputs
+            .iter()
+            .all(|input| own_step_of(loop_definition, input).is_some())
+    })
+}
+
+/// The method of a manual-output step, which an input's own identification step runs (A6.2, B3.3): a step of the Manual command.
+fn manual_output_method() -> IdentificationMethod {
     IdentificationMethod {
-        kind,
-        manual: kind != ControlExperimentKind::SetpointStep,
-        automatic: declared.is_none(),
+        kind: ControlExperimentKind::MvStep,
+        manual: true,
+        automatic: false,
     }
 }
 
@@ -222,3 +303,7 @@ pub fn several_channels(loop_definition: &LoopDefinition) -> bool {
         .as_ref()
         .is_some_and(|channels| channels.inputs.len() > 1 || channels.outputs.len() > 1)
 }
+
+#[cfg(test)]
+#[path = "channel_steps_tests.rs"]
+mod tests;

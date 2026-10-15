@@ -1,8 +1,8 @@
 //! The setup form's model (specification 35, B1.3 and C0; `loopSetup/setupFormModel.ts`): what the compiled program shows, and only
 //! the choices a loop can use. The model is read from the compiled catalog alone; no name is guessed from the program's text.
 //!
-//! The `TypeScript` model also lists the model files an LQG estimator can implement (`estimatorModels`). They belong to the LQG
-//! structure (C4), which is parked until stage V7, so they are not ported here.
+//! The model files an LQG estimator can implement are listed beside this model in the discovery answer (`estimatorModels`, C4
+//! Setup; `discovery::estimator_model_files`), because the engine reads them from the project's folders, not from the catalog.
 
 use std::collections::BTreeSet;
 

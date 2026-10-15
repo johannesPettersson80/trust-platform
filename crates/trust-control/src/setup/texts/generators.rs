@@ -154,6 +154,19 @@ pub fn program_initializes(instance: &str) -> String {
     format!("The program initializes {instance} in its own code.")
 }
 
+/// An operating point of a gain schedule has no value of the scheduling variable (C10 Setup). It follows the operating point sentences
+/// of `loopSetupForm.ts`, which name a point by its number; the point's name stands here, since the form sends no row number.
+#[must_use]
+pub fn schedule_value_needed(point: &str) -> String {
+    format!("Enter operating point {point}'s value of the scheduling variable.")
+}
+
+/// An operating point of a gain schedule has no tolerance on its value (C10 Setup); see `schedule_value_needed`.
+#[must_use]
+pub fn schedule_tolerance_needed(point: &str) -> String {
+    format!("Enter operating point {point}'s tolerance on that value.")
+}
+
 /// Setup needs the startup-done flag for the reason given (C1 Setup; `loopSetupForm.ts`, `startupFlag`).
 #[must_use]
 pub fn startup_flag_needed(reason: &str) -> String {

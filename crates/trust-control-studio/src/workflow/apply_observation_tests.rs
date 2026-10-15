@@ -514,6 +514,7 @@ fn observing_checkpoint(
         process_noise: Some(0.0),
         validation_identity: "validation:1".into(),
         transfers: Vec::new(),
+        schedule_origin: None,
     }
 }
 

@@ -76,6 +76,48 @@ export interface IdentifyRequest {
         action: "review";
         settings: AcquisitionSettings1;
         [k: string]: unknown;
+      }
+    | {
+        action: "manualEdit";
+        form: IdentificationFormDraft;
+        [k: string]: unknown;
+      }
+    | {
+        action: "manualQualify";
+        form: IdentificationFormDraft1;
+        /**
+         * The identifier of the recording to check, `rec-…` (annex E4).
+         */
+        recordingId: string;
+        [k: string]: unknown;
+      }
+    | {
+        action: "manualFit";
+        [k: string]: unknown;
+      }
+    | {
+        action: "manualChooseStructure";
+        /**
+         * The structure to keep: the recommended one.
+         */
+        choice: "first_order" | "additional_lag";
+        [k: string]: unknown;
+      }
+    | {
+        action: "manualAccept";
+        [k: string]: unknown;
+      }
+    | {
+        action: "manualRestore";
+        [k: string]: unknown;
+      }
+    | {
+        action: "manualImport";
+        /**
+         * The text of the recording file (at most 32 MiB of text).
+         */
+        json: string;
+        [k: string]: unknown;
       };
   /**
    * Where the runtime listens, and its control token (E11.1). `identify` and `resume` reach the runtime and need it, and
@@ -211,6 +253,70 @@ export interface AcquisitionSettings1 {
    */
   setpointSignalId?: string | null;
   [k: string]: unknown;
+}
+/**
+ * The form the page holds: the requested model, whether the held-step analysis is on, and the text of each field.
+ */
+export interface IdentificationFormDraft {
+  /**
+   * The end of the excluded interval, as typed.
+   */
+  excludedEnd: string;
+  /**
+   * The start of the excluded interval, as typed.
+   */
+  excludedStart: string;
+  /**
+   * Whether the held-step analysis is switched on.
+   */
+  heldStep: boolean;
+  /**
+   * The model the engineer asks for.
+   */
+  model: "automatic" | "integrating" | "first_order" | "fopdt" | "second_order" | "sopdt";
+  /**
+   * Always 1.
+   */
+  schemaVersion: number;
+  /**
+   * The text of each field by its key: every key of [`IDENTIFICATION_FORM_KEYS`], and any key of
+   * [`IDENTIFICATION_COMPARISON_FORM_KEYS`].
+   */
+  values: {
+    [k: string]: string;
+  };
+}
+/**
+ * The form the page holds when it checks the recording.
+ */
+export interface IdentificationFormDraft1 {
+  /**
+   * The end of the excluded interval, as typed.
+   */
+  excludedEnd: string;
+  /**
+   * The start of the excluded interval, as typed.
+   */
+  excludedStart: string;
+  /**
+   * Whether the held-step analysis is switched on.
+   */
+  heldStep: boolean;
+  /**
+   * The model the engineer asks for.
+   */
+  model: "automatic" | "integrating" | "first_order" | "fopdt" | "second_order" | "sopdt";
+  /**
+   * Always 1.
+   */
+  schemaVersion: number;
+  /**
+   * The text of each field by its key: every key of [`IDENTIFICATION_FORM_KEYS`], and any key of
+   * [`IDENTIFICATION_COMPARISON_FORM_KEYS`].
+   */
+  values: {
+    [k: string]: string;
+  };
 }
 /**
  * Where the bound runtime listens and its control token, as the extension's runtime lifecycle

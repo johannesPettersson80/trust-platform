@@ -127,17 +127,17 @@ pub(crate) fn manual_candidate(
 /// The design of an entered candidate, for the answer of a run (B4.4): its own gains and structure, the manual settings'
 /// reason and description, and no formula's `λ`.
 #[must_use]
-pub(crate) fn design_of(candidate: &LawCandidate, objective: TuningObjective) -> Design {
-    Design {
+pub(crate) fn design_of(candidate: &LawCandidate, objective: TuningObjective) -> Option<Design> {
+    Some(Design {
         source: CandidateSource::Manual,
-        structure: candidate.structure(),
-        gains: candidate.gains(),
+        structure: candidate.structure()?,
+        gains: candidate.gains()?,
         objective,
         closed_loop_time_seconds: None,
         attempts: Vec::new(),
         reason: texts::MANUAL_READY.to_owned(),
         description: Some(texts::MANUAL_DESCRIPTION.to_owned()),
-    }
+    })
 }
 
 /// The values of the bound parameters, by the record field each holds (C0).

@@ -251,15 +251,18 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(posted[0].method, "start");
   });
 
-  test("leaves an Identify run to the TypeScript route, since Identify plant is a run on the engine route and a model-only run is the Recorded-data fit's (B3.3)", async function () {
+  test("refuses a served loop's Recorded-data fit check that names no kept recording at once, and sends nothing to the engine (B3.3)", async function () {
     this.timeout(30_000);
     const loop = projectLoop(coreLoopFile());
     const scope = scopeOf(loop);
     const current = startIdentifyRoute();
     assert.strictEqual(await current.open(loop, scope), true);
     posted = [];
-    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { model: "fopdt" }), scope), false);
-    assert.deepStrictEqual(posted, [], "the engine answers nothing for a model-only run");
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { form: MANUAL_FORM }), scope), true,
+      "the engine serves the page's check, so the TypeScript route does not take it");
+    const failures = posted.filter((message) => message.kind === "control-studio.engine.failure" && message.method === "identify");
+    assert.strictEqual(failures.length, 1, "the page is told why the check cannot run");
+    assert.strictEqual((failures[0].failure as { message: string }).message, "Open a recording before checking it.");
     assertNoToken();
   });
 
@@ -290,6 +293,11 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(await current.open(loop, scope), false);
     assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { model: "fopdt" }), scope), false);
     assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.study.reset", {}), scope), false);
+    // The Recorded-data fit's steps stay on the TypeScript route until V7.17 (B3.3).
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.edit", { form: {} }), scope), false);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.fit", {}), scope), false);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.accept", {}), scope), false);
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.identify.import", { json: "{}" }), scope), false);
     assertOnlyParkedTools();
   });
 
@@ -329,17 +337,82 @@ suite("Control Studio engine route", () => {
     kind: "archive",
   };
 
-  test("keeps the Recorded-data fit's file and its steps on the TypeScript route, on a loop the engine serves (B3.3)", async function () {
+  /** A Recorded-data fit's answer as the engine gives it (`ManualIdentificationAnswer`, B3.3): by default a recording kept for its check. */
+  function manualAnswerOf(changes: Record<string, unknown>): Record<string, unknown> {
+    return { status: "complete", nextFitRole: "estimation", hasRecording: true, primaryAction: "checkRecording",
+      primaryActionLabel: "Check recording", acceptanceReady: false, phase: "recording-selected", ...changes };
+  }
+
+  /** The form the page holds, as its text (`IdentificationFormDraft`, B3.3). */
+  const MANUAL_FORM = { schemaVersion: 1, model: "first_order", heldStep: false, values: { measurementBound: "0.05" }, excludedStart: "", excludedEnd: "" };
+
+  test("a served loop's Recorded-data fit takes each page command as the engine's manual action, and shows each answer (B3.3, B3.6)", async function () {
     this.timeout(30_000);
-    const { current, fake, scope } = await servedWith({ result: {} });
-    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.identify.import", { json: "{}" }), scope), false);
-    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { model: "fopdt" }), scope), false);
-    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.fit", {}), scope), false);
-    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.accept", {}), scope), false);
-    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.choose-structure", { choice: "first_order" }), scope), false);
-    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.edit", { form: {} }), scope), false);
-    assert.deepStrictEqual(identifyActionsOf(fake), [], "the engine runs none of the manual steps");
-    assert.deepStrictEqual(posted, [], "the engine answers none of them");
+    const answers: Array<Record<string, unknown>> = [
+      manualAnswerOf({ recordingId: "rec-7" }),
+      manualAnswerOf({ recordingId: "rec-7", form: MANUAL_FORM }),
+      manualAnswerOf({ recordingId: "rec-7", form: MANUAL_FORM, phase: "qualified", primaryAction: "fitPlant", primaryActionLabel: "Fit plant model" }),
+      { operationId: "operation-fit" },
+      manualAnswerOf({ recordingId: "rec-7", phase: "validation_required", primaryAction: "chooseStructure", primaryActionLabel: "Keep first-order model", structureChoice: "first_order" }),
+      manualAnswerOf({ recordingId: "rec-7", phase: "accepted", primaryAction: "modelReady", primaryActionLabel: "Model ready", acceptanceReady: true }),
+    ];
+    // Each answer is the engine's `{ result }` envelope, as `controlStudio/identify` answers it (B3.3).
+    const { current, fake, scope } = await servedWith(() => ({ result: answers.shift() }));
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.identify.import", { json: "{}" }), scope), true);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.edit", { form: MANUAL_FORM }), scope), true);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.run", { form: MANUAL_FORM }), scope), true);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.fit", {}), scope), true);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.choose-structure", { choice: "first_order" }), scope), true);
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.accept", {}), scope), true);
+    assert.deepStrictEqual(identifyActionsOf(fake), [
+      { action: "manualImport", json: "{}" },
+      { action: "manualEdit", form: MANUAL_FORM },
+      { action: "manualQualify", recordingId: "rec-7", form: MANUAL_FORM },
+      { action: "manualFit" },
+      { action: "manualChooseStructure", choice: "first_order" },
+      { action: "manualAccept" },
+    ], "each page command is the engine's manual action, with the recording the engine named for the check");
+    const shown = posted.filter((message) => message.kind === "control-studio.engine.result" && message.method === "identify");
+    assert.strictEqual(shown.length, 5, "each manual answer reaches the page as the identify result; the operation's start is not an answer");
+    assert.strictEqual((shown[4].result as { primaryAction: string }).primaryAction, "modelReady");
+  });
+
+  test("a served loop shows the engine's refusal of a file the page opened, and the command is not repeated (B3.6, B10.4)", async function () {
+    this.timeout(30_000);
+    const { current, fake, scope } = await servedWith({ failure: { message: "The file holds no complete recording.", cause: "modelOrData", nextAction: { kind: "none" } } });
+    assert.strictEqual(await current.importFile(commandMessage(scope, "control-studio.identify.import", { json: "{}" }), scope), true);
+    assert.strictEqual(identifyActionsOf(fake).length, 1, "the engine checks the file once");
+    const failures = posted.filter((message) => message.kind === "control-studio.engine.failure" && message.method === "identify");
+    assert.strictEqual(failures.length, 1);
+    assert.strictEqual((failures[0].failure as { message: string }).message, "The file holds no complete recording.");
+  });
+
+  test("a reopened loop whose page shows the Recorded-data fit restores the kept fit once, and shows the operation's answer (A8.6)", async () => {
+    const loop = { id: "tank", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: loop.id, loopRevision: "revision-test" };
+    const opened = openedAnswer([]).result as Record<string, unknown>;
+    const fake = fakeEngine({
+      "controlStudio/open": { result: { ...opened, pageView: { identifyMethod: "recorded-fit" } } },
+      "controlStudio/identify": { result: { operationId: "operation-restore" } },
+    });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    posted = [];
+    assert.strictEqual(await current.open(loop, scope), true);
+    assert.deepStrictEqual(identifyActionsOf(fake), [{ action: "manualRestore" }], "the page's method is the Recorded-data fit, so the study's fit is restored");
+    assert.strictEqual(await current.navigation(commandMessage(scope, "control-studio.navigation.select", { stage: "model", view: { acquisitionMethod: "recorded-fit" } }), scope), true);
+    assert.strictEqual(identifyActionsOf(fake).length, 1, "the restoration runs once for the open loop");
+    fake.notify({ operationId: "operation-restore", command: "identify", state: "finished", result: manualAnswerOf({ phase: "accepted", primaryAction: "modelReady", primaryActionLabel: "Model ready" }) });
+    const shown = posted.filter((message) => message.kind === "control-studio.engine.result" && message.method === "identify");
+    assert.strictEqual(shown.length, 1, "the restored fit's final update is the page's answer, not an identification");
+    assert.strictEqual((shown[0].result as { primaryActionLabel: string }).primaryActionLabel, "Model ready");
   });
 
   test("answers a recording the engine keeps but cannot yet check as recording-needed, with its reason and channels (B3.6)", async function () {
@@ -676,6 +749,17 @@ suite("Control Studio engine route", () => {
     assert.deepStrictEqual(ended.map((message) => message.payload), [{ status: "cancelled" }], "the campaign's end is the test's end");
   });
 
+  test("a finished identification sends the kept recording's samples to the page as its recording evidence (B3.8, C12)", async () => {
+    const { fake } = await reopenWith("operation-30", "identify", "running", { id: "tank", runtimeId: "simulator" });
+    const samples = [{ elapsedSeconds: 0, scan: 1, quality: "good", sp: 2, pv: 4, requestedMv: null, appliedMv: 0, additional: [] }];
+    fake.notify({ operationId: "operation-30", command: "identify", state: "finished", result: { recordingId: "rec-30", restoration: "restored", recordedSamples: samples } });
+    const evidence = posted.filter((message) => message.kind === "control-studio.recording.evidence");
+    assert.strictEqual(evidence.length, 1, "the kept recording reaches the page once");
+    assert.deepStrictEqual(evidence[0].payload, { recording: { rawSamples: samples, evidence: { recordingId: "rec-30" } } },
+      "the page draws the recorded signals the engine kept, and decides nothing about them");
+    assert.strictEqual(posted.filter((message) => message.kind === "control-studio.engine.result" && message.method === "identify").length, 1);
+  });
+
   test("on a loop without a project test a reopened identification is the Identify page's campaign, not the test's (C12, A8.6)", async () => {
     const { current, fake, scope } = await reopenWith("operation-16", "identify", "running", { id: "tank", runtimeId: "simulator" });
     assert.strictEqual(await current.handle(commandMessage(scope, "control-studio.experiment.abort", {}), scope), true);
@@ -881,5 +965,39 @@ suite("Control Studio engine route", () => {
     assert.deepStrictEqual(fake.requests.filter((sent) => sent.method === "controlStudio/tune"), [], "neither refused Tune reaches the engine");
     assert.deepStrictEqual(posted.map((message) => [message.kind, message.method]),
       [["control-studio.engine.failure", "tune"], ["control-studio.engine.failure", "tune"]], "each refusal is posted to the page as a Tune failure");
+  });
+
+  test("a served state law's Tune is the engine's state-space method, and its pins are not structure pins (C4, D-B9)", async function () {
+    this.timeout(30_000);
+    const loop = { id: "control-state-feedback", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: "control-state-feedback", loopRevision: "revision-test" };
+    const fake = fakeEngine({
+      "controlStudio/open": openedAnswer([]),
+      "controlStudio/tune": { result: { operationId: "operation-state" } },
+    });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    assert.strictEqual(await current.open(loop, scope), true);
+    posted = [];
+    assert.strictEqual(await current.tune(tuneMessage(scope, {
+      family: "LQR",
+      tuningPreferences: { method: "state-space", values: {}, stateDesignDraft: { stateWeights: "[[400, 0], [0, 400]]" } },
+      pinnedValues: { "P1.N": 0.1 },
+    }), scope), true, "the engine serves the state law, so its Tune is the engine's");
+    const request = fake.requests.find((sent) => sent.method === "controlStudio/tune");
+    assert.ok(request, "the Tune reaches the engine");
+    const params = request.params as Record<string, unknown>;
+    assert.strictEqual(params.method, "state-space", "the method is the engine's name for the state-space design");
+    assert.ok(!("pins" in params), "a state law's pins belong to its design, so the request carries no structure pins");
+    assert.ok(!("structure" in params), "the state family is not a PID structure");
+    assert.deepStrictEqual(posted.filter((message) => message.kind === "control-studio.engine.failure"), [],
+      "the route refuses none of the state law's Tune, with the pins the page keeps");
   });
 });

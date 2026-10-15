@@ -26,6 +26,7 @@ use trust_control::commissioning::application_texts::review_changed;
 use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
 use trust_control::commissioning::checkpoint_restore as rules;
 use trust_control::commissioning::commissioning_result::{TransferOwner, TransferStatus};
+use trust_control::commissioning::gain_schedule_adapter::check_restore_mode;
 use trust_control::commissioning::parameter_application::ParameterOwner;
 use trust_control::commissioning::parameter_binding::runtime_binding_of;
 use trust_control::commissioning::parameter_status::ParameterStatus;
@@ -249,6 +250,8 @@ fn reviewed(
         SharedJournal::new(&mut *context.journal).checkpoint(),
         &loop_definition.id,
     )?;
+    // A schedule's table is written at an Auto entry only, so a Restore into Manual would leave it as Apply wrote it (C10).
+    check_restore_mode(checkpoint.schedule_origin.as_ref(), checkpoint.found_mode)?;
     let source = target_of(client)?;
     let binding = runtime_binding_of(loop_definition)?;
     let observed = ParameterTransactions::new(client, binding, source).status()?;

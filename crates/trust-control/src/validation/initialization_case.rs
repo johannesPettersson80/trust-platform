@@ -172,12 +172,26 @@ fn declared_states(
     kind: &AdapterKind,
 ) -> Result<Vec<(String, String)>, Failure> {
     match kind {
+        AdapterKind::OnOff(initialization) => Ok(initialization
+            .states()
+            .iter()
+            .map(|state| (state.symbol.clone(), state.unit.clone()))
+            .collect()),
         AdapterKind::ControlPid(initialization) => Ok(initialization
             .states()
             .iter()
             .map(|state| (state.symbol.clone(), state.unit.clone()))
             .collect()),
-        AdapterKind::ProjectPid { project, .. } => Ok(project
+        AdapterKind::ProjectPid { project, .. }
+        | AdapterKind::Cascade { project, .. }
+        | AdapterKind::Group { project, .. }
+        | AdapterKind::Search { project } => Ok(project
+            .initialization
+            .states()
+            .iter()
+            .map(|state| (state.symbol.clone(), state.unit.clone()))
+            .collect()),
+        AdapterKind::State(law) => Ok(law
             .initialization
             .states()
             .iter()

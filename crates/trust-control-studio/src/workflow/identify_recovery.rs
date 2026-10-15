@@ -36,10 +36,11 @@ use trust_control::identification::campaign::journal::{
 };
 use trust_control::identification::campaign::{campaign_maximum_ms, campaign_recording_ms};
 use trust_control::identification::connected_run::{
-    fit_window, hold_end, input_steps, is_provisional, method_of_step, not_journaled,
+    campaign_method, fit_window, hold_end, input_steps, is_provisional, not_journaled,
     stopped_hold_outcome, HoldEnd,
 };
 use trust_control::identification::independent_validation::RunEvaluation;
+use trust_control::identification::policy::identification_method;
 use trust_control::identification::reconcile::ExperimentIdentity;
 use trust_control::identification::texts::apply_cancel_refused;
 use trust_control::loop_definition::LoopDefinition;
@@ -482,13 +483,18 @@ where
         return Ok(Ok(stepped));
     }
     let loop_definition = request.loop_definition;
+    // The method is the one a fresh run chooses from the loop's live sample, so the inputs that the campaign has not stepped are planned
+    // as the campaign would have planned them (C7, C8). The journaled step's kind is not the campaign's method.
+    let sample = ports.sampler.sample()?;
+    let loop_method =
+        identification_method(loop_definition, sample.as_ref()).map_err(|error| error.failure())?;
     // The plant inputs the campaign has not stepped follow in the same recording (C7, C8). Their order is the loop's, and the journal
     // counts the inputs still to step after the one it holds.
     let steps = input_steps(loop_definition, &ports.runtime.io_list()?)?;
     let remaining = usize::try_from(campaign.channels_remaining).unwrap_or(usize::MAX);
     let schedule = Schedule {
         steps: &steps,
-        method: method_of_step(loop_definition, plan.kind),
+        method: campaign_method(loop_definition, loop_method),
         validation: false,
         baseline,
         maximum_ms: campaign_maximum_ms(loop_definition)?,

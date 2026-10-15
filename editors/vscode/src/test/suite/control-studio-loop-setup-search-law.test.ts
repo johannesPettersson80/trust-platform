@@ -1,7 +1,4 @@
 import * as assert from "assert";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 import { decodeControlLoopDefinition, validateControlLoopDefinition } from "../../controlStudio/loopDefinition";
 import { open } from "./control-studio-loop-setup-form-harness";
 import { renderTunedController } from "../../controlStudio/webview/threePageResults";
@@ -111,34 +108,23 @@ suite("Control Studio coefficients tuned by search setup form", () => {
       const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
       assert.strictEqual(save.disabled, false, view.root.querySelector("[data-setup-message]")!.textContent ?? "");
       save.click();
-      const { projectId: _project, runtimeId: _runtime, startupFlag: _flag, ...expected } = draft;
-      assert.deepStrictEqual(view.posts[0].draft, { structure: "search", ...expected });
+      // The coefficients' values are posted as typed: the engine reads them (C5).
+      const { projectId: _project, runtimeId: _runtime, startupFlag: _flag, coefficients: _coefficients, ...expected } = draft;
+      assert.deepStrictEqual(view.posts[0].draft, { structure: "search", ...expected,
+        coefficients: [{ symbol: "P1.Weight", unit: "1", values: "0.5, 1, 2" }, { symbol: "P1.Horizon", unit: "s", values: "0.1; 5" }] });
     } finally { view.close(); }
   });
 
-  test("names a value list it cannot read and the combination limit", () => {
+  test("posts a value list it cannot read as typed; the engine refuses it and the combination limit", () => {
     const view = open(searchModel);
     try {
       for (const [field, value] of searchFill) view.set(field, value);
       view.set("search.coefficient.0.values", "0.5, fast");
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /values of P1\.Weight/);
-      view.set("search.coefficient.0.values", "1, 2, 3, 4, 5, 6, 7, 8, 9");
       view.set("search.coefficient.1.values", "1, 2, 3, 4, 5, 6, 7, 8");
-      assert.match(view.root.querySelector("[data-setup-message]")!.textContent ?? "", /64 combinations/);
+      const save = view.root.querySelector<HTMLButtonElement>("[data-setup-save]")!;
+      assert.strictEqual(save.disabled, false, "the engine reads the lists and checks the combinations, not the form");
+      save.click();
+      assert.deepStrictEqual(view.posts[0].draft.coefficients.map((entry: { values: string }) => entry.values), ["0.5, fast", "1, 2, 3, 4, 5, 6, 7, 8"]);
     } finally { view.close(); }
-  });
-});
-
-suite("Control Studio coefficients tuned by search saving", () => {
-  test("saves the searched law as one loop file", async () => {
-    const { saveLoopSetup } = require("../../controlStudio/loopSetup/loopSetupSave");
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trust-search-law-"));
-    try {
-      const { projectId: _project, runtimeId: _runtime, ...unscoped } = draft;
-      await saveLoopSetup(root, scope, oven, { structure: "search", ...unscoped });
-      const saved = JSON.parse(fs.readFileSync(path.join(root, "control-loops", "oven-mpc.json"), "utf8"));
-      assert.strictEqual(validateControlLoopDefinition(saved, scope).kind, "accepted");
-      assert.deepStrictEqual(saved.controller.project.axes.map((axis: any) => axis.symbol), ["P1.Weight", "P1.Horizon"]);
-    } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 });

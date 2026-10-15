@@ -12,7 +12,7 @@ export type TuneChoice = "faster" | "balanced" | "more-robust";
  * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
  * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
  */
-export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual";
+export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
 /**
  * Which terms a controller keeps (C0, "Families and zero terms"). A term the family does not use is written as an
  * explicit zero, so the structure follows from the gains that are not zero.

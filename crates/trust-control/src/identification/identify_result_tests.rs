@@ -15,7 +15,10 @@ use crate::identification::plant::IdentifiedModel;
 use crate::identification::presentation::identified_model_presentation;
 use crate::messages::TuneRequest;
 use crate::model::decode_general_model;
+use crate::recording::channels::ChannelQuality;
+use crate::recording::fixtures::{binding, loop_with_disturbance, run, sample};
 use crate::recording::EvidenceSource;
+use crate::signals::Quality;
 use crate::stages::{stage_availability, Stage};
 use crate::study::identify::IdentifyMethod;
 use crate::study::tune::{tune, TuneInputs};
@@ -70,6 +73,7 @@ fn fit() -> ModelFitEvidence {
         residual: measured - predicted,
     };
     ModelFitEvidence {
+        model_structure: None,
         points: vec![
             point(1.0, 0.0, 0.0),
             point(2.0, 0.2, 0.19),
@@ -442,6 +446,37 @@ fn the_study_holds_no_identification_without_an_identify_section() {
     );
 }
 
+// Specification 35, C12 and B3.5: a project test whose fit refuses finishes with its recording and its restoration, and the refusal as
+// its note. The study keeps no model, so the answer names none and says that the study has no model.
+#[test]
+fn a_project_test_answer_names_no_model_and_carries_the_refusal_as_its_note() {
+    let loop_definition = plant_loop();
+    let answer = project_test_result(
+        &loop_definition,
+        &Study::new(&loop_definition.id, &loop_definition.revision),
+        RECORDING_ID,
+        Some(CampaignRestoration::Restored),
+        Vec::new(),
+        "The recording is missing a nonzero step.".to_string(),
+    )
+    .expect("the answer");
+    assert_eq!(answer.recording_id, RECORDING_ID);
+    assert_eq!(answer.restoration, Some(CampaignRestoration::Restored));
+    assert_eq!(
+        answer.fit_refusal,
+        "The recording is missing a nonzero step."
+    );
+    assert!(!answer.stage_evidence.has_model, "no model is kept");
+    assert!(answer.stage_evidence.has_recording, "the recording is kept");
+    let json = serde_json::to_value(&answer).expect("the answer as JSON");
+    assert_eq!(
+        json["fitRefusal"],
+        "The recording is missing a nonzero step."
+    );
+    assert_eq!(json["recordedSamples"], json!([]));
+    assert!(json.get("modelType").is_none(), "{json}");
+}
+
 // Specification 35, B4.3: the answer carries the record Tune designs to for the study's model, with Automatic's values listed.
 #[test]
 fn the_answer_carries_the_record_automatic_forms_for_the_study_model() {
@@ -533,4 +568,60 @@ fn a_kept_candidate_answers_its_settings_and_no_prediction() {
     assert_eq!(answer.stages, stage_availability(&evidence));
     assert!(kept_candidate(&loop_definition, None, Some(&section), evidence).is_none());
     assert!(kept_candidate(&loop_definition, Some(&identify), None, evidence).is_none());
+}
+
+#[test]
+fn a_kept_recording_is_drawn_as_one_chart_row_per_sample_with_each_signal_in_its_own_place() {
+    // The feed flow is the additional signal of the fixture loop; the setpoint, the measurement and the output are its channels.
+    let loop_definition = loop_with_disturbance();
+    let bindings = vec![
+        binding("setpoint", "%ML0", "LREAL"),
+        binding("processVariable", "%IL0", "LREAL"),
+        binding("manipulatedVariable", "%QL0", "LREAL"),
+        binding("feed-flow", "%QL8", "LREAL"),
+    ];
+    let good = [Quality::Good; 4];
+    let samples = vec![
+        sample(
+            7,
+            Some(1_000_000_000),
+            &[Some(50.0), Some(49.0), Some(30.0), Some(2.0)],
+            &good,
+        ),
+        sample(
+            8,
+            Some(1_100_000_000),
+            &[Some(50.0), Some(49.5), Some(31.0), None],
+            &good,
+        ),
+    ];
+    let rows = recorded_chart_samples(&loop_definition, &run(bindings, samples));
+    assert_eq!(rows.len(), 2, "one row per recorded sample");
+    assert_eq!(rows[0].scan, 7);
+    assert_eq!(
+        rows[0].elapsed_seconds, 0.0,
+        "the first sample is the origin of the process time (A3.2)"
+    );
+    assert_eq!(
+        rows[1].elapsed_seconds, 0.1,
+        "the next sample is 0.1 s later"
+    );
+    assert_eq!((rows[0].sp, rows[0].pv), (Some(50.0), Some(49.0)));
+    assert_eq!(
+        rows[0].applied_mv,
+        Some(30.0),
+        "without an actuator the output the process received is the manipulated variable"
+    );
+    assert_eq!(
+        rows[0].requested_mv, None,
+        "a loop without an actuator has no separate request"
+    );
+    assert_eq!(rows[0].additional[0].id, "feed-flow");
+    assert_eq!(rows[0].additional[0].value, Some(2.0));
+    assert_eq!(rows[0].quality, ChannelQuality::Good);
+    assert_eq!(
+        rows[1].additional[0].value, None,
+        "a missing value stays missing; it is not interpolated (B10.3)"
+    );
+    assert_eq!(rows[1].quality, ChannelQuality::Bad);
 }

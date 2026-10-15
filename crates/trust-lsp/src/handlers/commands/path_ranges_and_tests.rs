@@ -987,6 +987,15 @@ END_CONFIGURATION
             })]),
             "compiled memory variables must be selectable in Control Studio"
         );
+        assert_eq!(
+            process_image.get("booleans").and_then(Value::as_array),
+            Some(&vec![json!({
+                "symbol": "P1.Enabled",
+                "address": "%QX16.0",
+                "type": "BOOL"
+            })]),
+            "a BOOL bit is listed apart from the plant candidates, so a declared state can name it"
+        );
 
         let symbols = result["controlSymbols"]["symbols"]
             .as_array()

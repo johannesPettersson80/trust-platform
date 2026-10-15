@@ -47,9 +47,14 @@ export function run(): Promise<void> {
   require("./control-studio-three-page-scenarios.test");
   require("./control-studio-three-page-experiments.test");
   require("./control-studio-three-page-identification.test");
+  require("./control-studio-identification-engine-answer.test");
+  require("./control-studio-three-page-search.test");
   require("./control-studio-three-page-analysis.test");
   require("./control-studio-three-page-mimo-analysis.test");
+  require("./control-studio-three-page-measured-paths.test");
   require("./control-studio-state-design-preferences.test");
+  require("./control-studio-state-space-page.test");
+  require("./control-studio-state-space-inputs.test");
   require("./control-studio-three-page-native.integration.test");
   require("./control-studio-room-heating-acceptance.integration.test");
   require("./control-studio-three-page-periodic.integration.test");
@@ -299,6 +304,7 @@ export function run(): Promise<void> {
   require("./control-studio-loop-setup-lqg.test");
   require("./control-studio-gain-schedule.test");
   require("./control-studio-decoupler.test");
+  require("./control-studio-structure-results.test");
   require("./control-studio-apply-settling.test");
   require("./control-studio-tune-prediction.test");
   require("./control-studio-domain-neutral.test");
@@ -408,6 +414,7 @@ export function run(): Promise<void> {
   require("./control-studio-engine-setup.test");
   require("./control-studio-engine-experiment.test");
   require("./control-studio-analyze-route.test");
+  require("./control-studio-measured-paths-route.test");
   require("./control-studio-analysis-parameters.test");
   require("./control-studio-engine-parked.test");
   require("./network-canvas-fleet-identity.test");

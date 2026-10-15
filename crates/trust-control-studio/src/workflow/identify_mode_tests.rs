@@ -731,6 +731,7 @@ fn the_cancel_of_a_journaled_apply_is_refused_and_names_restore() {
         process_noise: None,
         validation_identity: "validation-1".to_owned(),
         transfers: Vec::new(),
+        schedule_origin: None,
     };
     journal
         .lock()

@@ -949,3 +949,82 @@ fn a_model_that_is_not_one_input_and_one_output_is_refused_without_channel_bindi
         (Cause::Implementation, NextAction::OpenChannels)
     );
 }
+
+/// Lesson 84's loop as its file declares it, and its supplied two-input heater (`provided-model.json`), with the six values its controller
+/// runs with.
+fn lesson_84() -> (LoopDefinition, GeneralModel, BTreeMap<String, f64>) {
+    let loop_definition = LoopDefinition::decode(include_str!(
+        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+    ))
+    .expect("lesson 84 decodes");
+    let model = decode_general_model(&serde_json::from_str(include_str!(
+        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/provided-model.json"
+    ))
+    .expect("the supplied model is JSON"))
+    .expect("the supplied model decodes");
+    let values = BTreeMap::from([
+        ("P1.Parameters.ProportionalGain".to_owned(), 2.0),
+        ("P1.Parameters.IntegralGain".to_owned(), 0.5),
+        ("P1.Parameters.DerivativeGain".to_owned(), 0.0),
+        ("P1.FeedforwardGain".to_owned(), 0.5),
+        ("P1.LeadS".to_owned(), 8.0),
+        ("P1.LagS".to_owned(), 3.0),
+    ]);
+    (loop_definition, model, values)
+}
+
+#[test]
+fn a_two_input_plan_bounds_the_heater_and_starts_the_draw_off_at_its_operating_value() {
+    // C8: the heater is the one actuated input, so its bounds and its rates are checked and its identities are plain; the measured
+    // draw-off has no check of its own and starts at its operating value (zero), so it holds that value unless a case writes it. The
+    // controlled water temperature keeps its response checks, and its setpoint starts at the target (35 °C plus 1 °C).
+    let (loop_definition, model, values) = lesson_84();
+    let task = engineer_requirements(&json!({
+        "referenceChange": 1.0,
+        "maximumError": 0.3,
+        "settlingBand": 0.1,
+        "settlingTimeSeconds": 40.0,
+        "durationSeconds": 80.0,
+    }))
+    .expect("the task decodes");
+    let plan =
+        engineer_verification_plan(&loop_definition, &model, &task, &values, &BTreeMap::new())
+            .expect("the plan of lesson 84");
+    assert_eq!(plan.initial_values["P1.HeaterPct"], 75.0);
+    assert_eq!(plan.initial_values["P1.LoadKw"], 0.0);
+    assert_eq!(plan.initial_values["P1.SetpointC"], 36.0);
+    let identities = ids(&plan);
+    for id in [
+        "response-deadline",
+        "target-error",
+        "process-bounds",
+        "output-bounds",
+    ] {
+        assert!(identities.contains(&id), "{id} is planned: {identities:?}");
+    }
+    // With one output and one actuated input, the channel prefix is not used (VA-1); the fixed parameters keep their own prefix
+    // whatever the channel count, as `engineerVerificationPlan.ts` names them.
+    assert!(
+        identities
+            .iter()
+            .filter(|id| !id.starts_with(FIXED_PARAMETER_PREFIX))
+            .all(|id| !id.contains(':')),
+        "one output and one actuated input keep their plain identities: {identities:?}"
+    );
+    assert!(
+        identities
+            .iter()
+            .any(|id| id.starts_with(FIXED_PARAMETER_PREFIX)),
+        "the fixed parameters are planned under their prefix: {identities:?}"
+    );
+    assert!(
+        plan.requirements
+            .iter()
+            .all(|requirement| requirement.channel != "P1.LoadKw"),
+        "nothing bounds the measured disturbance (C8)"
+    );
+    assert!(plan
+        .observed_symbols
+        .iter()
+        .any(|symbol| symbol == "P1.LoadKw"));
+}

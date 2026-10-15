@@ -6,9 +6,10 @@
 //!
 //! Tune never writes to the controller (B4.1). When the request names a runtime connection, Tune reads the running controller's
 //! settings once, before the design, for the comparison of the predicted responses (B4.5); a read that fails leaves the comparison
-//! out, and Tune does not fail for it. Tune keeps no journal: the study is all it writes, and it owns no runtime operation that a
-//! restart would have to reattach (A8.5). The request's `storageFolder`, the folder of the operation journals, is therefore not
-//! read here.
+//! out, and Tune does not fail for it. Tune keeps no journal, except the isolated runs of a finite search (`workflow::tune_search`,
+//! which a loop with tuning axes starts instead of the design): otherwise the study is all it writes, and it owns no runtime
+//! operation that a restart would have to reattach (A8.5). The request's `storageFolder`, the folder of the operation journals, is read only for
+//! a gain schedule, to check its other points' journals before their sections are stored (C10).
 //!
 //! What can be refused without the design is refused before anything starts: the loop must open, no operation of this engine
 //! may work on it, and the study must hold a current model that the request's method can tune (B4.7, A8.4). Those last checks
@@ -28,13 +29,15 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
-use trust_control::failure::Failure;
-use trust_control::loop_definition::LoopDefinition;
+use trust_control::failure::{Cause, Failure, NextAction};
+use trust_control::loop_definition::{ControllerProject, LoopDefinition};
 use trust_control::messages::{TuneChoice, TuneMethod, TuneRequest};
 use trust_control::runtime::RuntimeConnection;
 use trust_control::study::current_model::{current_model, CurrentModel};
 use trust_control::study::identify::IdentifySection;
 use trust_control::study::inputs::InputsSection;
+use trust_control::study::tune::design::gain_schedule::schedule_of;
+use trust_control::study::tune::state::{self, StateDesignInput};
 use trust_control::study::tune::{
     check_before_start, relay_evidence_for, tune_held, TuneInputs, TuneSection,
 };
@@ -46,7 +49,13 @@ use crate::busy_loops::LoopClaims;
 use crate::commands::to_value;
 use crate::operation::{cancelled, OperationContext, Operations};
 use crate::runtime_client::RuntimeClient;
+use crate::workflow::tune_schedule;
+use crate::workflow::tune_search;
 use crate::{loops, storage};
+
+/// The refusal of the run's Tune stage on a finite search (C5): the search is its own operation, which `controlStudio/tune` starts.
+const SEARCH_NOT_IN_RUN: &str =
+    "A finite search runs as its own Tune operation, which controlStudio/tune starts; the run does not start it.";
 
 /// The command of the operation that `tune` starts (§0.1a).
 const TUNE_COMMAND: &str = "tune";
@@ -64,6 +73,10 @@ struct TuneWork {
     previous: Option<TuneSection>,
     /// The requirements the engineer recorded in the study's inputs, which the design takes as given (B4.3), when there are any.
     held: Option<TuningRequirements>,
+    /// The state-design choices the study keeps (D-B11), read for a state law's Tune only.
+    state_design: Option<StateDesignInput>,
+    /// The pinned settings of a switching controller (B4.2, C3), read for its Tune only.
+    on_off_pins: Option<BTreeMap<String, f64>>,
     /// The relay cycle of the study's estimation recording, read for the relay rule only (N5.R).
     relay: Option<RelayCycleEvidence>,
     request: TuneRequest,
@@ -100,6 +113,14 @@ pub fn answer(
     // rules read the rest of it (method, choice, structure and pins) through `TuneInputs`.
     let project_root = PathBuf::from(&request.project_root);
     let loop_definition = loops::open(&project_root, &request.runtime_id, &request.loop_id)?;
+    if loop_definition
+        .controller
+        .project
+        .as_ref()
+        .is_some_and(ControllerProject::is_search_law)
+    {
+        return tune_search::answer(operations, claims, request, loop_definition);
+    }
     let claim = claims.claim(
         &loop_definition.project_id,
         &loop_definition.id,
@@ -130,6 +151,18 @@ pub(crate) fn run_stage(
     loop_definition: &LoopDefinition,
     request: TuneRequest,
 ) -> Result<Value, Failure> {
+    if loop_definition
+        .controller
+        .project
+        .as_ref()
+        .is_some_and(ControllerProject::is_search_law)
+    {
+        return Err(Failure::new(
+            SEARCH_NOT_IN_RUN,
+            Cause::Settings,
+            NextAction::None,
+        ));
+    }
     let work = study_work(project_root, loop_definition, request)?;
     check_before_start(&work.inputs())?;
     run_tune(context, &work)
@@ -152,9 +185,17 @@ fn study_work(
     let relay = relay_evidence(project_root, loop_definition, identify, &request)?;
     let inputs = study.section::<InputsSection>()?;
     let declared = inputs.as_ref().and_then(InputsSection::declared_response);
+    let state_design = inputs
+        .as_ref()
+        .and_then(|inputs| inputs.state_design.clone());
+    let on_off_pins = inputs
+        .as_ref()
+        .and_then(|inputs| inputs.on_off_pins.clone());
     Ok(TuneWork {
         previous: study.section::<TuneSection>()?,
         held: inputs.and_then(|inputs| inputs.requirements),
+        state_design,
+        on_off_pins,
         model,
         relay,
         project_root: project_root.to_path_buf(),
@@ -215,7 +256,34 @@ pub(crate) fn running_settings(
 fn run_tune(context: &OperationContext, work: &TuneWork) -> Result<Value, Failure> {
     context.progress(texts::DESIGNING);
     let running = running_settings(work.request.connection.as_ref(), &work.loop_definition);
-    let outcome = tune_held(&work.inputs(), work.held.as_ref(), running.as_ref())?;
+    // A gain schedule's table is designed from all its operating points (C10), which `tune_schedule` gathers; the other points' sections are
+    // stored with this one, after the design.
+    let mut siblings = Vec::new();
+    let outcome = if let Some(schedule) = schedule_of(&work.loop_definition) {
+        let designed = tune_schedule::run(
+            &work.project_root,
+            schedule,
+            &work.inputs(),
+            work.held.as_ref(),
+            running.as_ref(),
+        )?;
+        siblings = designed.siblings;
+        designed.own
+    } else if work.request.method == Some(TuneMethod::StateSpace) {
+        state::run(
+            &work.inputs(),
+            work.held.as_ref(),
+            work.state_design.as_ref(),
+        )?
+    } else if work.loop_definition.controller.on_off.is_some() {
+        trust_control::study::tune::on_off::run(
+            &work.inputs(),
+            work.held.as_ref(),
+            work.on_off_pins.as_ref(),
+        )?
+    } else {
+        tune_held(&work.inputs(), work.held.as_ref(), running.as_ref())?
+    };
     if context.is_cancelled() {
         return Err(cancelled());
     }
@@ -227,8 +295,14 @@ fn run_tune(context: &OperationContext, work: &TuneWork) -> Result<Value, Failur
         &loop_definition.id,
         &loop_definition.revision,
     )?;
-    study.set_section(&outcome.section)?;
-    storage::save_study(&work.project_root, &study, &[])?;
+    // The other points' sections are stored first, then this one (C10 Tune). A write that fails after another one names the points that keep
+    // the table.
+    let storage_folder = PathBuf::from(&work.request.storage_folder);
+    tune_schedule::store_siblings(&work.project_root, &storage_folder, &siblings)?;
+    let stored = study
+        .set_section(&outcome.section)
+        .and_then(|()| storage::save_study(&work.project_root, &study, &[]));
+    stored.map_err(|failure| tune_schedule::own_write_failure(&siblings, failure))?;
     to_value(&outcome.result)
 }
 

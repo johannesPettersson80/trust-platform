@@ -89,6 +89,12 @@ Settling time, overshoot and steady-state error in the layout below are
 examples. The actual table must contain all required checks for the selected
 controller and task. A required scenario that did not complete is Inconclusive.
 
+A switching controller's three criteria (C3) and a Smith predictor's predictor
+row (C9) are rows of the table like the others: each is named by the engine's
+sentence for it ("Switching at threshold", "Retained band", "Output aborts",
+"Predictor active"), its limit is the threshold where it has one, and its
+verdict cell gives the engine's sentence.
+
 The plot is labelled **Measured response**. Show the recorded current and tuned
 controller responses with a small **Tuned / Current** legend and axes with
 signal units and time. Use the actual execution recordings, not the predicted

@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::loop_definition::LoopDefinition;
 use crate::tuning::candidate::CandidateSource;
 use crate::tuning::project_seed::{
-    FeedforwardPidSeed, FeedforwardTerms, ParallelPidSeed, TrajectoryFeedforwardSeed,
+    FeedforwardPidSeed, FeedforwardTerms, ParallelPidSeed, SmithPidSeed, SmithTerms,
+    TrajectoryFeedforwardSeed,
 };
 use crate::tuning::structure::{ParallelGains, Structure};
 
@@ -86,6 +87,15 @@ pub fn served_feedforward(loop_definition: &LoopDefinition) -> Option<&Feedforwa
     loop_definition.controller.project.as_ref()?.feedforward()
 }
 
+/// The Smith predictor's seed of a loop's program law (C9), when the loop declares one. A loop with a controller law has none.
+#[must_use]
+pub fn served_smith(loop_definition: &LoopDefinition) -> Option<&SmithPidSeed> {
+    if loop_definition.controller.law.is_some() {
+        return None;
+    }
+    loop_definition.controller.project.as_ref()?.smith()
+}
+
 /// The candidate of a program's own law for the gains a design chose (C2): the structure the gains give, and the variables of that
 /// structure with their values (`values`).
 #[must_use]
@@ -157,6 +167,38 @@ pub fn feedforward_candidate(
     {
         candidate.values.insert(lead_lag.lead_symbol.clone(), lead);
         candidate.values.insert(lead_lag.lag_symbol.clone(), lag);
+    }
+    candidate
+}
+
+/// The candidate of a Smith predictor (C9): the PI candidate for the gains a design chose, with the model's gain, time constant and
+/// delay in `values` by their variables, and the block's operating point beside them when the program uses the library block (D-18).
+/// Apply writes the derivative variable as zero (C0), as it does for any PI.
+#[must_use]
+pub fn smith_candidate(
+    seed: &SmithPidSeed,
+    source: CandidateSource,
+    gains: ParallelGains,
+    terms: SmithTerms,
+) -> ProjectCandidate {
+    let mut candidate = project_candidate(&seed.pid, source, gains);
+    candidate
+        .values
+        .insert(seed.gain_symbol.clone(), terms.gain);
+    candidate.values.insert(
+        seed.time_constant_symbol.clone(),
+        terms.time_constant_seconds,
+    );
+    candidate
+        .values
+        .insert(seed.delay_symbol.clone(), terms.delay_seconds);
+    if let Some(block) = &seed.library_block {
+        candidate
+            .values
+            .insert(block.operating_input_symbol.clone(), terms.operating.0);
+        candidate
+            .values
+            .insert(block.operating_output_symbol.clone(), terms.operating.1);
     }
     candidate
 }

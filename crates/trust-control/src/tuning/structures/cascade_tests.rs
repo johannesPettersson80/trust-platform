@@ -1,25 +1,28 @@
 //! Tests of the cascade design (specification 35, C6), ported from `control-studio-cascade-together.test.ts`: the inner loop designed first
 //! and the outer through the closed inner loop meet the outer requirements on the model, and the inner loop integrates faster than the
-//! outer one. The test's loop runs at a task period of 100 ms, as its fixture does.
-//!
-//! The support makes no prediction (see `fixtures::NoSupport`), so each PI is the declared response's. The TypeScript falls back to the
-//! balanced response when no objective is declared, so these tests declare balanced: it is the response the TypeScript tries first.
+//! outer one. The test's loop runs at a task period of 100 ms, as its fixture does. The design runs on the production path support,
+//! `ReducedPathSupport`, as the Tune of a cascade does.
 
 #![allow(clippy::float_cmp)] // The derivative gains are compared with zero exactly: a PI writes an explicit zero.
 
 use trust_control_math::identify::gain::ControllerAction;
 
 use super::*;
+use crate::tuning::candidate::DEFAULT_RATE_LIMIT_PER_S;
 use crate::tuning::objective::TuningObjective;
-use crate::tuning::structures::fixtures::{
-    requirements, smith_heater_model, vessel_model, NoSupport,
-};
+use crate::tuning::path_support::ReducedPathSupport;
+use crate::tuning::structures::fixtures::{requirements, smith_heater_model, vessel_model};
 
 fn cascade_loop() -> CascadeLoop {
     CascadeLoop {
         action: ControllerAction::Direct,
         task_period_ms: 100.0,
-        gain_limits: GainLimits::default(),
+        inner_gain_limits: GainLimits::default(),
+        outer_gain_limits: GainLimits::default(),
+        rate_limits: ParameterInterval {
+            minimum: -DEFAULT_RATE_LIMIT_PER_S,
+            maximum: DEFAULT_RATE_LIMIT_PER_S,
+        },
         plant_input_unit: "%".to_owned(),
         plant_input_limits: OutputLimits {
             minimum: 0.0,
@@ -58,7 +61,7 @@ fn the_inner_loop_first_and_the_outer_through_it_meet_the_outer_requirement_on_t
         &measurement(0),
         &measurement(1),
         &task(),
-        &NoSupport,
+        &ReducedPathSupport,
     )
     .expect("the vessel's cascade is designed");
     let (inner, outer) = (design.inner, design.outer);
@@ -128,7 +131,7 @@ fn a_transfer_function_is_not_a_cascade_model() {
         &measurement(0),
         &measurement(0),
         &task(),
-        &NoSupport,
+        &ReducedPathSupport,
     )
     .expect_err("a cascade is designed on a state-space model");
     assert_eq!(refusal.0, texts::CASCADE_MODEL);
@@ -142,7 +145,7 @@ fn a_measurement_outside_the_model_is_a_channel_mismatch() {
         &measurement(0),
         &measurement(2),
         &task(),
-        &NoSupport,
+        &ReducedPathSupport,
     )
     .expect_err("the vessel has two outputs");
     assert_eq!(refusal.0, texts::CASCADE_CHANNELS);

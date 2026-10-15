@@ -56,6 +56,7 @@ fn the_answer_names_the_selected_file_only_when_the_engine_accepts_the_selection
         loops: Vec::new(),
         rejected: Vec::new(),
         selected_file: None,
+        estimator_models: Vec::new(),
     };
     let value = serde_json::to_value(&listing).expect("json");
     assert!(

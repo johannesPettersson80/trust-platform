@@ -11,7 +11,7 @@ export type RelayDirection = "positive" | "negative";
  * The method of a Tune run (specification 35, B4.2; numerical annexes N5 and N5.R): a formula method, the relay rule, or the
  * settings the engineer enters. Absent in a request, the method is Automatic (B4.2).
  */
-export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual";
+export type TuneMethod = "SIMC" | "AMIGO" | "relay" | "manual" | "state-space";
 /**
  * A named formula method (N5.2 to N5.5). Automatic is not a method here: it chooses among them (N5.11).
  */
@@ -202,6 +202,10 @@ export type RunRequirement1 =
  */
 export type Movement = "up" | "down";
 /**
+ * The family of a state-controller law (C4).
+ */
+export type StateControllerFamily = "state-feedback" | "LQR" | "LQG";
+/**
  * Which terms a controller keeps (C0, "Families and zero terms"). A term the family does not use is written as an
  * explicit zero, so the structure follows from the gains that are not zero.
  */
@@ -239,6 +243,13 @@ export interface InputsSection {
    */
   method?: TuneMethod | null;
   /**
+   * The pinned settings of a switching controller (B4.2, C3): each of its three settings by symbol, as the engineer left them. Tune
+   * designs the other settings, applies these after the design, and refuses a pin outside its binding.
+   */
+  onOffPins?: {
+    [k: string]: number;
+  } | null;
+  /**
    * The settings the engineer pinned for the design (B4.2).
    */
   pins?: ControllerSettingsPins | null;
@@ -266,6 +277,11 @@ export interface InputsSection {
   settings?: {
     [k: string]: number;
   } | null;
+  /**
+   * The state-design choices of a state-feedback law (D-B11, C4): the family, the draft of the design form and the pinned
+   * coefficients, as the engineer left them. Tune reads them ([`StateDesignInput`]); absent until a state law is chosen.
+   */
+  stateDesign?: StateDesignInput | null;
   /**
    * The structure the engineer fixed (B4.4); absent leaves the structure to Automatic.
    */
@@ -558,4 +574,62 @@ export interface Window {
    * The start of the window, in seconds.
    */
   start: number;
+}
+/**
+ * The state-design choices a study keeps for a state-feedback law (D-B11, A8.1): the family the engineer chose, the draft of the
+ * design form as the engineer left it, and the coefficients the engineer pinned. Tune reads them. Only the parsed draft reaches a
+ * solver (`parse_state_design_draft`); the draft is editing state.
+ */
+export interface StateDesignInput {
+  /**
+   * The text of each field of the design form: the desired poles, the weights, the covariances and the horizon (C4).
+   */
+  draft?: StateDesignDraft | null;
+  /**
+   * The family of the law that the engineer chose; absent takes the family the loop declares.
+   */
+  family?: StateControllerFamily | null;
+  /**
+   * The coefficients the engineer pinned, by symbol (B4.2, C4): each replaces its designed value.
+   */
+  pins?: {
+    [k: string]: number;
+  } | null;
+}
+/**
+ * The text of the form's fields: the saved editing state, which only [`parse_state_design_draft`] reads.
+ */
+export interface StateDesignDraft {
+  /**
+   * The desired poles, as JSON.
+   */
+  desiredPoles?: string | null;
+  /**
+   * The horizon steps, as a number.
+   */
+  horizonSteps?: string | null;
+  /**
+   * The input weight, as JSON.
+   */
+  inputWeights?: string | null;
+  /**
+   * The measurement noise covariance, as JSON.
+   */
+  measurementNoise?: string | null;
+  /**
+   * The process noise covariance, as JSON.
+   */
+  processNoise?: string | null;
+  /**
+   * The solver choice: `finite` or `infinite`.
+   */
+  solverMode?: string | null;
+  /**
+   * The state weight, as JSON.
+   */
+  stateWeights?: string | null;
+  /**
+   * The terminal weights, as JSON.
+   */
+  terminalWeights?: string | null;
 }

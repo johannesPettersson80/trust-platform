@@ -3,6 +3,8 @@
 use super::*;
 use crate::identification::plant::tests::fopdt_samples;
 use crate::identification::plant::Partition;
+use crate::identification::sensor_lag_comparison::StructureRecommendation;
+use crate::identification::sensor_lag_review::tests::lesson_input;
 
 /// A review input of a simulated estimation recording, and of a validation recording when one is given, asking for the
 /// recommended model with no other statement.
@@ -113,34 +115,23 @@ fn equal_deterministic_samples_validate_when_their_recording_identities_differ()
         IdentificationReview::AcceptanceRequired(_)
     ));
 }
-
 #[test]
-fn a_two_lag_request_with_step_response_settings_is_refused_while_the_sensor_lag_comparison_is_parked(
-) {
-    let settings: StepResponseSettings = serde_json::from_value(serde_json::json!({
-        "baselineDurationSeconds": 5.0,
-        "finalDurationSeconds": 5.0,
-        "maximumWindowRange": 0.1,
-        "maximumWindowSlopePerSecond": 0.01,
-        "measurementBound": 0.05,
-        "onsetThreshold": 0.15,
-        "onsetSamples": 3,
-        "delay": { "minimum": 0.0, "maximum": 3.0, "step": 0.5 },
-        "timeConstant": { "minimum": 1.0, "maximum": 9.0, "step": 0.5 },
-        "baselineStep": 0.01,
-        "gainStep": 0.001,
-        "timestampShiftSeconds": 0.0
-    }))
-    .expect("the step-response settings decode");
-    let refusal = prepare_identification_review(&IdentificationReviewInput {
-        step_response_settings: Some(settings),
-        requested_kind: IdentificationModelSelection::Sopdt,
-        estimation_recording_id: Some("retained-estimation".to_string()),
-        ..review_input(fopdt_samples(2.0), None)
-    })
-    .expect_err("the sensor-lag comparison is parked");
+fn a_two_lag_request_with_step_response_settings_is_compared_on_the_estimation_record() {
+    // The lesson's held step at its residual limit of 0.02 °C: the additional lag is recommended and selected by the
+    // preview, and the comparison waits for the engineer's choice and the independent check (N2.10).
+    let review = prepare_identification_review(&lesson_input(None, Some(0.02)))
+        .expect("the sensor-lag comparison is served");
+    let IdentificationReview::ValidationRequired(review) = review else {
+        panic!("the comparison waits for the independent check");
+    };
+    let comparison = review
+        .fit
+        .model_structure
+        .expect("the comparison is attached to the fit");
     assert_eq!(
-        refusal.0,
-        "The sensor-lag comparison (second-order with dead time and a sensor lag) is not available yet."
+        comparison.recommended,
+        StructureRecommendation::AdditionalLag
     );
+    assert_eq!(comparison.choice, None);
+    assert_eq!(review.selected.kind, LowOrderModelKind::SecondOrderDeadTime);
 }

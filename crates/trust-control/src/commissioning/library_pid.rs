@@ -2,7 +2,7 @@
 //! seven retained states, each bound to its declared operating-point coordinate, and the application states that accompany
 //! them. Ported from `libraryPidInitialization.ts` (`libraryPidInitialization`, `assertLibraryPidStates`). The record is
 //! `PidInitialization::ControlPid`, and the loop file checks it at load (`loop_definition::checks`). A PID group's members
-//! (C7) are parked and not ported.
+//! (C7) are served by the group adapter (`commissioning::group_adapter`).
 
 use std::collections::BTreeSet;
 

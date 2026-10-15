@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use trust_control_math::linalg::{ComplexValue, DenseMatrix};
 
 use super::binding::{decode_state_controller_binding, StateControllerBinding};
@@ -17,11 +17,12 @@ use super::reference::reference_gain;
 use super::sampling::{sample_model, state_channels, state_space};
 use super::{texts, StateControllerFamily};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{LoopDefinition, Parameter};
+use crate::loop_definition::{LoopDefinition, Parameter, RealType};
 use crate::model::GeneralModel;
+use crate::tuning::settings_pins::single_precision;
 
 /// The status of a state-controller design: provisional until the actual Structured Text verifies it (C4).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum DesignStatus {
     /// Designed, not yet verified on the actual Structured Text.
@@ -29,7 +30,7 @@ pub enum DesignStatus {
 }
 
 /// The candidate: the coefficient values that a design writes, which stay unapplied (C4).
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StateCandidate {
     /// Always `false`: a design never applies its candidate.
@@ -41,7 +42,7 @@ pub struct StateCandidate {
 }
 
 /// The model the design was made on.
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectedModel {
     /// The model's revision.
@@ -50,16 +51,19 @@ pub struct SelectedModel {
     pub provenance: String,
 }
 
-/// The policy that runs a finite-horizon design (N5.14): the first gain repeats.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+/// The policy that runs a finite-horizon design (N5.14): the first gain repeats, or a pin fixes the gains, so the design is no
+/// longer the optimal law of its horizon (D-B9).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum HorizonPolicy {
     /// The runtime repeats the first finite gain `K_0`.
     RepeatFirstFiniteGain,
+    /// A pin replaced a designed coefficient: the gains are fixed by the engineer, and the stages are the design's own.
+    PinnedFixedGain,
 }
 
 /// The stages of a finite-horizon design.
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StateHorizon {
     /// The number of control steps.
@@ -72,8 +76,8 @@ pub struct StateHorizon {
     pub riccati_sequence: Vec<DenseMatrix>,
 }
 
-/// A state-controller design (C4).
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+/// A state-controller design (C4). The study stores it as the candidate of a state law (B4.1).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct StateControllerDesign {
     /// The design's status.
@@ -165,15 +169,7 @@ pub fn design_state_controller(
         &sampled,
         response_time_seconds,
     )?;
-    if controlled_outputs.len() != inputs
-        || controlled_outputs.iter().any(|&output| output >= outputs)
-    {
-        return Err(Failure::new(
-            texts::ONE_OBJECTIVE_PER_INPUT,
-            Cause::Implementation,
-            NextAction::OpenChannels,
-        ));
-    }
+    check_objectives(controlled_outputs, inputs, outputs)?;
     let reference = reference_gain(&sampled, system, &designed.gain, controlled_outputs)?;
 
     let values = map_design_values(
@@ -210,6 +206,115 @@ pub fn design_state_controller(
             riccati_sequence: stages.riccati_sequence,
         }),
     })
+}
+
+/// The design with its coefficients pinned (B4.2, C4): each pinned coefficient replaces the designed value, after the bounds of
+/// its parameter and the REAL rounding, and the closed-loop poles are read back from the realized values. A pin discards the
+/// optimality claim of a finite horizon, whose policy becomes `pinned-fixed-gain` (D-B9). Without pins the design stands.
+///
+/// # Errors
+/// Returns a failure when the law is not declared, a pinned symbol is not a coefficient the law maps, a pinned value lies
+/// outside its parameter's bounds, or the realized coefficients do not give strictly stable poles.
+pub fn pin_state_design(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    design: &StateControllerDesign,
+    pins: &BTreeMap<String, f64>,
+) -> Result<StateControllerDesign, Failure> {
+    if pins.is_empty() {
+        return Ok(design.clone());
+    }
+    let parameter_binding = loop_definition
+        .parameter_binding
+        .as_ref()
+        .ok_or_else(needs_binding)?;
+    let declared = loop_definition
+        .controller
+        .state_feedback
+        .as_ref()
+        .and_then(|value| decode_state_controller_binding(value, Some(parameter_binding)))
+        .ok_or_else(needs_binding)?;
+    let binding = StateControllerBinding {
+        family: design.candidate.structure,
+        ..declared
+    };
+    let mut values = design.candidate.parameters.clone();
+    for (symbol, value) in pins {
+        let not_mapped = || {
+            Failure::new(
+                &texts::pin_not_mapped(symbol),
+                Cause::Settings,
+                NextAction::None,
+            )
+        };
+        if !is_mapped(&binding, symbol) {
+            return Err(not_mapped());
+        }
+        let parameter = parameter_binding
+            .parameters
+            .iter()
+            .find(|parameter| parameter.symbol == *symbol)
+            .ok_or_else(not_mapped)?;
+        let realized = match parameter.iec_type {
+            RealType::Real => single_precision(*value),
+            RealType::Lreal => *value,
+        };
+        if !realized.is_finite() || realized < parameter.minimum || realized > parameter.maximum {
+            return Err(Failure::new(
+                &texts::pin_outside_bounds(symbol),
+                Cause::Settings,
+                NextAction::None,
+            ));
+        }
+        values.insert(symbol.clone(), realized);
+    }
+    let sampled = sample_model(model, loop_definition.controller.task_period_ms / 1000.0)?;
+    let poles = closed_loop_poles(&binding, &sampled, &values)?;
+    let mut pinned = design.clone();
+    pinned.candidate.parameters = values;
+    pinned.closed_loop_poles = poles;
+    if let Some(horizon) = pinned.horizon.as_mut() {
+        horizon.policy = HorizonPolicy::PinnedFixedGain;
+    }
+    Ok(pinned)
+}
+
+/// Whether the law maps `symbol`: a gain, a reference gain or an observer gain of its declaration.
+fn is_mapped(binding: &StateControllerBinding, symbol: &str) -> bool {
+    binding
+        .gain_symbols
+        .iter()
+        .chain(&binding.reference_gain_symbols)
+        .chain(binding.observer_gain_symbols.iter().flatten())
+        .flatten()
+        .any(|name| name.as_str() == symbol)
+}
+
+/// The refusal of a declared law that does not decode against its parameter record.
+fn needs_binding() -> Failure {
+    Failure::new(
+        texts::NEEDS_BINDING,
+        Cause::Implementation,
+        NextAction::OpenLoopSetup,
+    )
+}
+
+/// The controlled objectives of a design: one per plant input, each one a model output (C4).
+fn check_objectives(
+    controlled_outputs: &[usize],
+    inputs: usize,
+    outputs: usize,
+) -> Result<(), Failure> {
+    if controlled_outputs.len() != inputs
+        || controlled_outputs.iter().any(|&output| output >= outputs)
+    {
+        return Err(Failure::new(
+            texts::ONE_OBJECTIVE_PER_INPUT,
+            Cause::Implementation,
+            NextAction::OpenChannels,
+        ));
+    }
+    Ok(())
 }
 
 /// The coefficient values of a design: the gains `K`, the reference gains `N` and, for LQG, the observer gains `L`, each

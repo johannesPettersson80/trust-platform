@@ -3,6 +3,7 @@
 
 use std::collections::BTreeSet;
 
+use crate::commissioning::initial_state::MAXIMUM_STATES;
 use crate::limits::{MAXIMUM_EXPERIMENT_DURATION_MS, MINIMUM_EXPERIMENT_DURATION_MS};
 
 use super::{
@@ -130,6 +131,48 @@ impl LoopDefinition {
             }
         }
         self.check_project()?;
+        self.check_on_off()?;
+        self.check_pid_group()?;
+        self.check_state_budget()?;
+        Ok(())
+    }
+
+    /// Checks the states that the loop declares against the controller instances that hold them: each instance holds at most
+    /// `MAXIMUM_STATES` declared states (C7), so a loop with `n` instances, such as a PID group's members, declares at most
+    /// `MAXIMUM_STATES * n`. The count is the program's states and, for a library `Control.PID`, its retained and application states.
+    ///
+    /// # Errors
+    /// The loop declares more states than its instances hold.
+    pub(super) fn check_state_budget(&self) -> Result<(), String> {
+        let instances = self
+            .controller
+            .group
+            .as_ref()
+            .map_or(1, |group| group.members.len());
+        let program = self
+            .controller
+            .project
+            .as_ref()
+            .map_or(0, |project| project.initialization.states().len());
+        let library = self
+            .controller
+            .pid_initialization
+            .as_ref()
+            .map_or(0, |initialization| match initialization {
+                PidInitialization::ControlPid {
+                    states,
+                    application_states,
+                    ..
+                } => states.len() + application_states.as_ref().map_or(0, Vec::len),
+                PidInitialization::ParallelPid { .. } => 0,
+            });
+        let count = program + library;
+        let limit = MAXIMUM_STATES * instances;
+        if count > limit {
+            return Err(format!(
+                "the loop declares {count} controller states, but its {instances} controller instance(s) hold at most {MAXIMUM_STATES} each, {limit} in all"
+            ));
+        }
         Ok(())
     }
 
@@ -836,3 +879,7 @@ fn output_range_is_valid(minimum: Option<f64>, maximum: Option<f64>) -> bool {
         && maximum.is_none_or(f64::is_finite)
         && minimum.zip(maximum).is_none_or(|(low, high)| low < high)
 }
+
+#[cfg(test)]
+#[path = "checks_tests.rs"]
+mod tests;

@@ -81,8 +81,9 @@ export class ThreePageBindings {
     if (payload.status === "bindings" && Array.isArray(payload.targets)) {
       this.targets = payload.targets as ControlStudioBindingTargetSummary[];
       const target = this.targets.find(item => item.loopId === this.loop.id);
-      if (target?.controllerCompatibility.kind === "accepted") this.controller.receive({ availableFamilies: target.controllerCompatibility.families,
-        familySettings: familySettingsOf(target.controllerCompatibility) });
+      const compatibility = target?.controllerCompatibility;
+      if (compatibility?.kind === "accepted") this.controller.receive({ availableFamilies: compatibility.families,
+        familySettings: familySettingsOf(compatibility), ...controllerAnswerOf(compatibility) });
       const selectedInputs = this.loop.channels?.inputs.map(item => loopSignal(this.loop, item.signalId).symbol) ?? [this.loop.signals.manipulatedVariable.symbol];
       const selectedOutputs = this.loop.channels?.outputs.map(item => loopSignal(this.loop, item.signalId).symbol) ?? [this.loop.signals.processVariable.symbol];
       if (!this.recording) { this.populate(this.inputs, "inputs", selectedInputs); this.populate(this.outputs, "outputs", selectedOutputs); }
@@ -191,6 +192,14 @@ export function familySettingsOf(compatibility: unknown): Record<string, string[
   if (!settings) return undefined;
   return Object.fromEntries(Object.entries(settings).map(([family, symbols]) =>
     [family, Array.isArray(symbols) ? symbols.filter((symbol): symbol is string => typeof symbol === "string") : []]));
+}
+/** The family the engine recommends and the tuning methods it gives a state law (C4); a PID law's answer has neither, so the page lists its own. */
+function controllerAnswerOf(compatibility: unknown): Record<string, unknown> {
+  const answer = objectOf(compatibility);
+  return {
+    ...(typeof answer?.recommendedFamily === "string" ? { recommendedFamily: answer.recommendedFamily } : {}),
+    ...(Array.isArray(answer?.methods) ? { methods: answer?.methods } : {}),
+  };
 }
 function objectOf(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;

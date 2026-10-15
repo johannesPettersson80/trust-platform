@@ -1,10 +1,10 @@
 //! The loop contract (specification 35, §17.1 and A5): what a project's `control-loops/*.json`
 //! declares about one control loop, decoded and checked before any runtime access.
 //!
-//! The parts of the contract that the Rust engine does not run yet (state feedback, ON/OFF, PID
-//! groups, channels, cascades, declared analyses outside the C12 observation loops, and the program's
-//! own laws outside the shape C2 serves; checklist stage V7) are kept as declared and refused by
-//! [`LoopDefinition::rust_engine_support`].
+//! The parts of the contract that the Rust engine does not run (the two-loop-file cascade, which C6
+//! does not serve; channels outside the shapes the structures define; declared analyses outside the
+//! C12 observation loops; and the program's own laws outside the seeds and the search C2 and C5
+//! serve) are kept as declared and refused by [`LoopDefinition::rust_engine_support`].
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ mod bindings;
 mod channels;
 mod checks;
 mod controller;
+mod on_off;
+mod pid_group;
 mod project;
 mod schema_v1;
 mod texts;
@@ -37,9 +39,15 @@ pub use controller::{
     InitialValue, InitializedState, ManualOutputType, ModeWhenTrue, PidInitialization, PidLaw,
     PostScan, StateReference, StateType,
 };
+pub use pid_group::{PidControllerGroup, PidGroupMember};
 pub use project::{
-    AdditionalMode, ControllerProject, ObjectiveDirection, ProjectAxis, ProjectObjective,
-    ProjectSeedBlock,
+    AdditionalMode, ControllerProject, GainSchedule, ObjectiveDirection, ProjectAxis,
+    ProjectObjective, ProjectSeedBlock, SchedulePoint, SchedulingVariable,
+};
+
+pub use on_off::{
+    BandConvention, OnOffController, ThresholdEquality, DWELL_TIMER_MAXIMUM_SECONDS,
+    MINIMUM_TIME_MAXIMUM_SECONDS,
 };
 
 use checks::{expected_primary_direction, is_numeric};
@@ -265,12 +273,9 @@ impl LoopDefinition {
     /// The loop uses a feature the Rust engine does not run yet, or it has no controller law and is not one of the C12 kinds.
     pub fn rust_engine_support(&self) -> Result<(), Failure> {
         let parked = [
-            ("state feedback", self.controller.state_feedback.is_some()),
-            ("an ON/OFF controller", self.controller.on_off.is_some()),
-            ("a PID group", self.controller.group.is_some()),
             (
                 "channels",
-                self.channels.is_some() && !self.is_feedforward_channels(),
+                self.channels.is_some() && !self.serves_channels(),
             ),
             ("a declared analysis", self.declares_parked_analysis()),
             ("a cascade", self.cascade.is_some()),
@@ -293,8 +298,18 @@ impl LoopDefinition {
                 NextAction::OpenLoopSetup,
             ));
         }
+        if self.controller_structures() > 1 {
+            return Err(Failure::new(
+                "This loop declares more than one controller structure (a controller law, the program's own law, state feedback, an ON/OFF controller or a PID group), so Control Studio cannot tell which one tunes it.",
+                Cause::Implementation,
+                NextAction::OpenLoopSetup,
+            ));
+        }
         if self.controller.law.is_none()
             && self.controller.project.is_none()
+            && self.controller.state_feedback.is_none()
+            && self.controller.on_off.is_none()
+            && self.controller.group.is_none()
             && !self.is_observation_or_open_loop()
         {
             // A loop that should have its law and has none is a loop setup to repair, not a C12 loop.
@@ -310,17 +325,50 @@ impl LoopDefinition {
     /// Whether the loop is one of the two C12 kinds that have no controller law: an open-loop experiment loop (`topology:
     /// "open-loop"`), or an observation loop whose experiment the project runs (`execution: "project-scripted"`). The project
     /// designs the controller of both (`design: "project"`) and binds no law (specification 35, C12). A loop with a program's own law
-    /// (`controller.project`, C2) is never one of them: its project law is the controller.
+    /// (`controller.project`, C2), a state-feedback law (C4), an ON/OFF controller (C3) or a PID group (C7) is never one of them: that
+    /// structure is its controller.
     #[must_use]
     pub fn is_observation_or_open_loop(&self) -> bool {
         self.controller.law.is_none()
             && self.controller.project.is_none()
+            && self.controller.state_feedback.is_none()
+            && self.controller.on_off.is_none()
+            && self.controller.group.is_none()
             && self.controller.design == Some(Design::Project)
             && (self.topology == Some(Topology::OpenLoop)
                 || self
                     .experiment
                     .as_ref()
                     .is_some_and(|experiment| experiment.execution == Execution::ProjectScripted))
+    }
+
+    /// How many controller structures the loop declares: its controller law, the program's own law or a PID group, state feedback,
+    /// and an ON/OFF controller. A PID group's seed is its program law (C7), so the two together are one structure. A served loop
+    /// declares at most one.
+    fn controller_structures(&self) -> usize {
+        let controller = &self.controller;
+        [
+            controller.law.is_some(),
+            controller.project.is_some() || controller.group.is_some(),
+            controller.state_feedback.is_some(),
+            controller.on_off.is_some(),
+        ]
+        .into_iter()
+        .filter(|declared| *declared)
+        .count()
+    }
+
+    /// Whether the engine serves this loop's typed channels: a state-feedback law reads its controlled outputs from them (C4), a
+    /// C12 loop records each of them for its measured paths (C7), C8's two-input shape names the measured disturbance, a
+    /// cascade's one input and two outputs name its inner and outer measurements (C6), an ON/OFF controller's input carries its
+    /// actuator's dwell limits (C3), and a PID group's members are paired with its channels (C7).
+    pub(crate) fn serves_channels(&self) -> bool {
+        self.controller.state_feedback.is_some()
+            || self.is_observation_or_open_loop()
+            || self.is_feedforward_channels()
+            || self.is_cascade_channels()
+            || self.is_on_off_channels()
+            || self.controller.group.is_some()
     }
 
     /// Whether the loop's channels have the shape of a measured-disturbance feedforward (C8): the controller output and then the measured
@@ -393,19 +441,27 @@ pub fn parked_feature_of(raw: &Value) -> Option<String> {
         .get("project")
         .filter(|member| !member.is_null())
         .and_then(project::raw_parked_feature);
-    // The channels of a feedforward (C8) are served, so only the other loops with channels are parked by them.
+    // The channels of a state-feedback law (C4), of a C12 loop (C7) and of a feedforward (C8) are served, so only the other loops
+    // with channels are parked by them.
     let feedforward_seed = raw
         .pointer("/controller/project/seed/kind")
         .and_then(Value::as_str)
         == Some(project::FEEDFORWARD_PID);
+    let cascade_seed = raw
+        .pointer("/controller/project/seed/kind")
+        .and_then(Value::as_str)
+        == Some(project::CASCADE_PID);
+    let served_channels = feedforward_seed
+        || cascade_seed
+        || present(controller, "stateFeedback")
+        || is_observation_or_open_loop_raw(raw)
+        || on_off::on_off_channels_raw(raw)
+        || present(controller, "group");
     [
-        present(controller, "stateFeedback").then(|| "state feedback".to_owned()),
-        present(controller, "onOff").then(|| "an ON/OFF controller".to_owned()),
         project_feature,
-        present(controller, "group").then(|| "a PID group".to_owned()),
         present(raw, "channels")
             .then(|| "channels".to_owned())
-            .filter(|_| !feedforward_seed),
+            .filter(|_| !served_channels),
         declares_parked_analysis_raw(raw).then(|| "a declared analysis".to_owned()),
         present(raw, "cascade").then(|| "a cascade".to_owned()),
     ]
@@ -430,6 +486,9 @@ fn is_observation_or_open_loop_raw(raw: &Value) -> bool {
     let absent = |value: &Value, key: &str| value.get(key).is_none_or(Value::is_null);
     absent(controller, "law")
         && absent(controller, "project")
+        && absent(controller, "stateFeedback")
+        && absent(controller, "onOff")
+        && absent(controller, "group")
         && controller.get("design").and_then(Value::as_str) == Some("project")
         && (raw.get("topology").and_then(Value::as_str) == Some("open-loop")
             || raw.pointer("/experiment/execution").and_then(Value::as_str)

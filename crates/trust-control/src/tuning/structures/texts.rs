@@ -41,6 +41,10 @@ pub const GROUP_SINGULAR_OUTPUTS: &str =
 /// The sentence that follows a conflicting relative gain when no pairing has positive relative gains (N4.5).
 pub const NO_POSITIVE_PAIRING: &str = " No pairing of these channels has positive relative gains.";
 
+/// A group of more pairs than the pairing search covers names no pairing (N4.5).
+pub const PAIRING_LIMIT: &str =
+    " The pairing search covers at most eight pairs, so no pairing is named.";
+
 /// A decoupler needs one row and one column per group member (C7).
 pub const DECOUPLER_MEMBERS: &str = "A decoupler needs one row and one column per group member.";
 

@@ -115,4 +115,17 @@ suite("Control Studio three-page binding selectors", () => {
     assert.strictEqual(view.posts.some(post => post.kind === "control-studio.binding.select"), false,
       "the current loop/family does not trigger a target switch");
   });
+  test("the engine's answer for an opened state law reaches the controller with its recommended family and its one method", () => {
+    const view = surface();
+    const selected = loop();
+    const offered: string[][] = [];
+    view.controller.methodsChanged = methods => offered.push([...methods]);
+    const opened = target(selected, selected.id);
+    opened.controllerCompatibility = { kind: "accepted", families: ["state-feedback", "LQR"],
+      familySettings: { "state-feedback": ["P1.K1", "P1.K2", "P1.N"], LQR: ["P1.K1", "P1.K2", "P1.N"] },
+      recommendedFamily: "LQR", methods: ["state-space"] };
+    view.bindings.receive({ status: "bindings", targets: [opened] });
+    assert.deepStrictEqual(offered, [["state-space"]], "the engine's one method reaches the Tune page's list");
+    assert.strictEqual(view.controller.selectedFamily, "LQR", "the engine's recommended family is selected");
+  });
 });
