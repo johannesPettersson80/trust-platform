@@ -16,15 +16,7 @@ fn make_debug_context<'a>(
     storage: &'a mut VariableStorage,
     registry: &'a TypeRegistry,
 ) -> DebugRuntimeContext<'a> {
-    DebugRuntimeContext {
-        storage_abi: Default::default(),
-        storage,
-        registry,
-        stdlib: None,
-        profile: DateTimeProfile::default(),
-        current_instance: None,
-        now: trust_runtime::value::Duration::ZERO,
-    }
+    DebugRuntimeContext::new(storage, registry)
 }
 
 fn wait_for_pause(control: &DebugControl, timeout: Duration) {
@@ -341,9 +333,12 @@ fn watch_changes_reported_between_stops() {
         storage.push_frame("MAIN");
         storage.set_local("x", Value::DInt(1));
         let registry = TypeRegistry::new();
+        // The executor changes its own storage between statements; the hook sees each
+        // statement through a fresh context, as a scan would present it.
         let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&first_location), 0);
-        ctx.storage.set_local("x", Value::DInt(2));
+        storage.set_local("x", Value::DInt(2));
+        let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&second_location), 0);
     });
 

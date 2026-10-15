@@ -4,6 +4,8 @@
 #[cfg(feature = "hir")]
 pub mod hosted;
 
+#[cfg(feature = "std")]
+mod boundary_compile_fail;
 mod budget;
 mod call;
 mod const_pool;

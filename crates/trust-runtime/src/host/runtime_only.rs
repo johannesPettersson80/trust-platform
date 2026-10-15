@@ -97,6 +97,65 @@ impl ExecutionServices for HostServices {
 ///     let _ = runtime.io_mut();
 /// }
 /// ```
+///
+/// Installed borrows end before the next exclusive operation:
+///
+/// ```compile_fail,E0502
+/// use trust_runtime::Runtime;
+/// fn held(runtime: &mut Runtime) {
+///     let inputs = runtime.inputs();
+///     let _ = runtime.execute_cycle();
+///     let _ = inputs.len();
+/// }
+/// ```
+///
+/// ```
+/// use trust_runtime::Runtime;
+/// fn sequenced(runtime: &mut Runtime) {
+///     let _ = runtime.inputs().len();
+///     let _ = runtime.execute_cycle();
+/// }
+/// ```
+///
+/// Retained checkpoint capture needs the exclusive owner borrow (spec 34 §4.3.1):
+///
+/// ```compile_fail,E0596
+/// fn shared_capture(runtime: &trust_runtime::Runtime) {
+///     let _ = runtime.retain_snapshot();
+/// }
+/// ```
+///
+/// ```
+/// fn exclusive_capture(runtime: &mut trust_runtime::Runtime) {
+///     let _ = runtime.retain_snapshot();
+/// }
+/// ```
+///
+/// Engineering aliases are written through the checked `write_access`; no raw access map
+/// is exposed:
+///
+/// ```compile_fail,E0599
+/// fn bypass(runtime: &mut trust_runtime::Runtime) {
+///     let _ = runtime.access_map_mut();
+/// }
+/// ```
+///
+/// ```
+/// fn checked_alias(runtime: &mut trust_runtime::Runtime) {
+///     let _ = runtime.write_access("alias", trust_runtime::value::Value::Int(1));
+/// }
+/// ```
+///
+/// The portable core's construction module is private to that core:
+///
+/// ```compile_fail,E0603
+/// use trust_runtime::runtime_core::vm::construction;
+/// ```
+///
+/// ```
+/// use trust_runtime::runtime_core::vm::PreparedModule;
+/// fn names(_: &PreparedModule) {}
+/// ```
 pub struct Runtime {
     state: OwnedRuntimeState<HostServices>,
 }
