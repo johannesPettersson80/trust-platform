@@ -298,7 +298,10 @@ fn elapsed_since(
     instance_id: InstanceId,
 ) -> Result<Duration, RuntimeError> {
     let last = get_or_init_duration(ctx, instance_id, STATE_LAST_TIME, ctx.now)?;
-    let delta_nanos = ctx.now.as_nanos() - last.as_nanos();
+    // A span wider than the signed nanosecond range saturates at i64::MAX, which is never less
+    // than a preset, so the accumulated ET completes the timer (spec 08 section 5). A negative
+    // span still contributes nothing.
+    let delta_nanos = ctx.now.as_nanos().saturating_sub(last.as_nanos());
     let delta = if delta_nanos <= 0 {
         Duration::ZERO
     } else {

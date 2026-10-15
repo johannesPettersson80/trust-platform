@@ -165,6 +165,12 @@ does not introduce runtime aliasing. Shared backing bits require an IEC
 Direct-I/O layout resolves aliases, subranges, and enumerations to their
 storage type. BOOL occupies a bit; 8-, 16-, 32-, and 64-bit elementary
 families map to byte, word, double-word, and long-word I/O widths respectively.
+The long temporal forms LTIME, LDATE, LTOD and LDT (IEC 61131-3 Table 10, rows 12b
+to 15b, 64-bit) are 64-bit families and map to one long-word I/O width: the image
+LWORD carries the signed 64-bit nanosecond value as its two's-complement bit
+pattern, in both directions (specification 12 §4.1). DATE, TOD and DT have an
+implementer-specific width in Table 10, so they are refused at direct addresses;
+the L forms or an explicit conversion are the supported paths.
 A bounded STRING occupies exactly its declared byte capacity. Unbounded
 STRING, WSTRING, function-block, class, interface, pointer, reference, and
 other non-materializable layouts are rejected.
@@ -623,7 +629,12 @@ runtime behavior (CODESYS/TwinCAT-style):
 - Resolution: 1 ms for TIME/DATE/TOD/DT
 - Range: signed 64-bit ticks at the configured resolution
 
-Conversions or arithmetic that exceed the configured range raise `RuntimeError::DateTimeOutOfRange`.
+A DATE, TOD or DT result of conversion or arithmetic (including `CONCAT_DATE_TOD`) whose
+tick value leaves the signed 64-bit range raises
+`RuntimeError::DateTimeRange(DateTimeError::OutOfRange)`. TIME, LTIME, LTOD and LDT
+arithmetic beyond the signed 64-bit nanosecond range, and calendar or tick conversions whose
+intermediate value overflows, raise `RuntimeError::Overflow`. IEC 61131-3 Table 10 gives the
+ranges; the error variants are the truST runtime contract.
 
 **Uniform temporal storage (H / STBC 3.0):** TIME, DATE, TOD and DT use eight-byte
 signed storage and report `SIZEOF = 8`, just as their long variants do, on every
@@ -1717,9 +1728,12 @@ example `DINT_TO_INT` or `DINT_TO_REAL`). Representable untyped literals are
 contextualized to the other typed operand.
 
 Integer arithmetic, integer division (truncation toward zero), `MOD`, and unary
-negation are checked in the result type. Division by zero reports
+negation are checked in the result type. `MOD` returns `IN1 - (IN1 / IN2) *
+IN2` with that truncating division (IEC 61131-3 Table 29), so a nonzero result
+has the sign of `IN1`. Division by zero reports
 `RuntimeError::DivisionByZero`; modulo by zero reports
-`RuntimeError::ModuloByZero`. Either fault, and arithmetic overflow, aborts the
+`RuntimeError::ModuloByZero` (IEC Table 29 defines it as `0`; see
+`docs/IEC_DEVIATIONS.md`). Either fault, and arithmetic overflow, aborts the
 containing assignment before storage so the destination retains its previous
 value.
 
@@ -1729,10 +1743,14 @@ For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` results are
 accepted only when the result remains finite after representation at IEC basic
 single width. Otherwise evaluation returns `RuntimeError::Overflow` before an
 assignment store, leaving the target unchanged; the runtime does not clamp or
-store infinity or NaN. This rule does not define `LREAL`, subnormal underflow,
-signed zero, non-finite operands, explicit conversions, or named numerical
-functions such as `EXPT` and `EXP`. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10
-footnote e; see
+store infinity or NaN. The same rule applies to `LREAL` at IEC basic double
+width. A zero divisor, positive or negative and including `0.0 / 0.0`, reports
+`RuntimeError::DivisionByZero`, checked before the result. Results follow IEC
+60559 (IEC 61131-3 Table 10): signed zeros and subnormal results are kept, an
+underflow to a subnormal value or zero is not a fault, and comparisons treat
+`-0.0` and `+0.0` as equal. Explicit conversions follow §6.7 and named
+numerical functions §6.6. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10 footnote e;
+see
 `docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.)
 
 #### 6.6 REAL named numerical-function overflow
@@ -1741,9 +1759,13 @@ For finite `REAL` operands, `EXP` and `EXPT` results are accepted only when the
 result remains finite after representation at IEC basic single width.
 Otherwise evaluation returns `RuntimeError::Overflow` before an assignment
 store, leaving the target unchanged; the runtime does not clamp or store
-infinity or NaN. This rule does not define `LREAL`, non-finite operands,
-subnormal underflow, signed zero, explicit conversions, or domain behavior for
-other numerical functions. (IEC 61131-3 Ed.3, Tables 28-29; §6.4.2.1,
+infinity or NaN. The same rule applies to `LREAL` at IEC basic double width.
+`EXPT(0.0, 0.0)` is `1.0`; a zero base with a negative exponent and a negative
+base with a non-integer exponent have no finite result and raise `Overflow`. A
+domain error of another named function (for example `SQRT` or `LN` of a
+negative value, `LN(0.0)`, or `ASIN` outside [-1, 1]) raises `Overflow`
+(specification 07 §3.1). Subnormal results and signed zeros follow §6.5. (IEC
+61131-3 Ed.3, Tables 28-29; §6.4.2.1,
 Table 10 footnote e; see
 `docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.)
 
@@ -1793,7 +1815,10 @@ A `ULINT` value above `i64::MAX` returns `RuntimeError::Overflow`; the boundary
 does not wrap, truncate, saturate, or reinterpret the high bit as a sign.
 Every non-integer runtime tag returns `RuntimeError::TypeMismatch` without a
 substitute value. This is an internal operand-normalization contract, not an
-additional source-level implicit conversion. IEC 61131-3 Ed.3 section 6.4.2.1,
+additional source-level implicit conversion: it applies where the runtime
+converts or coerces an operand to the signed host width. Integer arithmetic,
+division, `MOD` and shifts compute in their result type (§6.4), so a `ULINT`
+operand above `i64::MAX` is valid there. IEC 61131-3 Ed.3 section 6.4.2.1,
 Table 10 supplies the integer ranges; the fail-closed host representation is
 the truST runtime contract specified by this section, not an IEC deviation.
 
@@ -2048,8 +2073,10 @@ portable runtime applies those operators as follows:
   integer, `REAL`, and `LREAL` factors. Integer division and the final real
   result truncate toward zero. Zero division returns
   `RuntimeError::DivisionByZero`, a non-numeric factor returns
-  `RuntimeError::TypeMismatch`, and a non-finite or out-of-range result returns
-  `RuntimeError::Overflow`.
+  `RuntimeError::TypeMismatch`, and a non-finite factor or a non-finite or
+  out-of-range result returns `RuntimeError::Overflow`. The named helpers
+  `MUL_TIME`, `MUL_LTIME`, `DIV_TIME` and `DIV_LTIME` compute exactly as these
+  operators (specification 07 §9).
   Compiler lowering preserves separate duration and numeric operand contexts:
   an untyped factor (including unary or parenthesized scalar expressions) must
   not inherit the result's TIME/LTIME type. Duration aliases follow the same
@@ -2827,8 +2854,8 @@ pub enum RuntimeError {
     DomainError(&'static str),
 
     // Date/time errors
-    #[error("date/time value out of range")]
-    DateTimeOutOfRange,
+    #[error("date/time out of range")]
+    DateTimeRange(DateTimeError),
 
     // Array/reference errors
     #[error("array index {index} out of bounds [{lower}..{upper}]")]

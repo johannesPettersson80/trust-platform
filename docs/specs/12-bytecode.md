@@ -115,6 +115,12 @@ does not silently change that transport encoding. Aggregate I/O strides use
 complete codec extents with relative gaps (specification 10 §1.2), not legacy
 aggregate SIZEOF or new internal temporal width. All leaf ranges remain checked.
 
+Direct-address images of the 64-bit long temporal types use the LWORD width.
+LTIME, LDATE, LTOD and LDT (IEC 61131-3 Table 10, rows 12b to 15b) each occupy
+one LWORD image whose bit pattern is the signed 64-bit nanosecond value, read and
+written in both directions. DATE, TOD and DT have no fixed width in Table 10 and
+stay refused at direct addresses in every ABI.
+
 
 #### 4.2 Section Table Entry
 

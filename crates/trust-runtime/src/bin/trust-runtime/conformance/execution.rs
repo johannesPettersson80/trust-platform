@@ -82,7 +82,13 @@ fn execute_runtime_case(case: &CaseDefinition, sources: &[String]) -> anyhow::Re
 
         if !case.manifest.advance_ms.is_empty() {
             let advance = case.manifest.advance_ms[cycle_idx];
-            harness.advance_time(Duration::from_millis(advance));
+            let advance = Duration::checked_from_millis(advance).with_context(|| {
+                format!(
+                    "case '{}' advance_ms[{cycle_idx}] {advance} is outside the millisecond time range",
+                    case.id
+                )
+            })?;
+            harness.advance_time(advance);
         }
 
         for (name, series) in &case.manifest.input_series {

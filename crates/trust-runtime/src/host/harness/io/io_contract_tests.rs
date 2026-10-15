@@ -61,9 +61,6 @@ fn harness_io_contract_elementary_types_map_to_exact_io_widths() {
         (TypeId::DWORD, IoSize::DWord),
         (TypeId::REAL, IoSize::DWord),
         (TypeId::TIME, IoSize::DWord),
-        (TypeId::DATE, IoSize::DWord),
-        (TypeId::TOD, IoSize::DWord),
-        (TypeId::DT, IoSize::DWord),
         (TypeId::LINT, IoSize::LWord),
         (TypeId::ULINT, IoSize::LWord),
         (TypeId::LWORD, IoSize::LWord),
@@ -74,6 +71,24 @@ fn harness_io_contract_elementary_types_map_to_exact_io_widths() {
         (TypeId::LDT, IoSize::LWord),
     ] {
         assert_eq!(io_size_for_type(type_id, &registry).unwrap(), expected);
+    }
+}
+
+#[test]
+fn harness_io_contract_short_dates_and_times_have_no_direct_width() {
+    // Spec 10 section 1.2: DATE, TOD and DT have an implementation-defined size (IEC 61131-3
+    // Table 10), so they are refused at direct addresses; their long forms map to LWORD above.
+    let registry = TypeRegistry::new();
+    for (type_id, name) in [
+        (TypeId::DATE, "DATE"),
+        (TypeId::TOD, "TOD"),
+        (TypeId::DT, "DT"),
+    ] {
+        let error = io_size_for_type(type_id, &registry).unwrap_err();
+        assert!(
+            error.to_string().contains(name),
+            "{name} refusal must name the type: {error}"
+        );
     }
 }
 

@@ -85,8 +85,7 @@ pub(super) fn handle_config_set(
                 updated.push("watchdog.enabled");
             }
             "watchdog.timeout_ms" => {
-                let timeout = parse_or_error!(expect_positive_i64(key, value));
-                settings.watchdog.timeout = crate::value::Duration::from_millis(timeout);
+                settings.watchdog.timeout = parse_or_error!(expect_duration_millis(key, value));
                 updated.push("watchdog.timeout_ms");
             }
             "watchdog.action" => {
@@ -104,8 +103,8 @@ pub(super) fn handle_config_set(
                 updated.push("fault.policy");
             }
             "retain.save_interval_ms" => {
-                let interval = parse_or_error!(expect_positive_i64(key, value));
-                settings.retain_save_interval = Some(crate::value::Duration::from_millis(interval));
+                let interval = parse_or_error!(expect_duration_millis(key, value));
+                settings.retain_save_interval = Some(interval);
                 updated.push("retain.save_interval_ms");
             }
             "retain.mode" => {
@@ -180,10 +179,8 @@ pub(super) fn handle_config_set(
             }
             "mesh.role" => {
                 let role = parse_or_error!(expect_non_empty_string(key, value));
-                settings.mesh.role = parse_or_error!(
-                    crate::config::MeshRole::parse(role)
-                        .map_err(|err| config_value_error(key, &err.to_string()))
-                );
+                settings.mesh.role = parse_or_error!(crate::config::MeshRole::parse(role)
+                    .map_err(|err| config_value_error(key, &err.to_string())));
                 updated.push("mesh.role");
                 restart_required.push("mesh.role");
             }

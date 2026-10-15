@@ -112,10 +112,18 @@ fn io_size_for_type(
         | Type::UDInt
         | Type::DWord
         | Type::Real
-        | Type::Time
-        | Type::Date
-        | Type::Tod
-        | Type::Dt => Ok(crate::io::IoSize::DWord),
+        | Type::Time => Ok(crate::io::IoSize::DWord),
+        // IEC 61131-3 Table 10 gives DATE, TOD and DT no fixed width, so no direct address can
+        // carry them. The long forms LDATE, LTOD and LDT are the supported direct-address types.
+        Type::Date => Err(CompileError::new(
+            "DATE has no fixed direct-address width (IEC 61131-3 Table 10): bind the long form LDATE, or convert explicitly to a long form",
+        )),
+        Type::Tod => Err(CompileError::new(
+            "TOD has no fixed direct-address width (IEC 61131-3 Table 10): bind the long form LTOD, or convert explicitly to a long form",
+        )),
+        Type::Dt => Err(CompileError::new(
+            "DT has no fixed direct-address width (IEC 61131-3 Table 10): bind the long form LDT, or convert explicitly to a long form",
+        )),
         Type::LInt
         | Type::ULInt
         | Type::LWord

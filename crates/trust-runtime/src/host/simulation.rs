@@ -836,12 +836,14 @@ fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
 }
 
 fn duration_from_millis(name: &str, millis: u64) -> Result<Duration, RuntimeError> {
+    let refused = || invalid_config(format!("{name} must be <= {MAX_DURATION_MILLIS}"));
     if millis > MAX_DURATION_MILLIS {
-        return Err(invalid_config(format!(
-            "{name} must be <= {MAX_DURATION_MILLIS}"
-        )));
+        return Err(refused());
     }
-    Ok(Duration::from_millis(millis as i64))
+    i64::try_from(millis)
+        .ok()
+        .and_then(Duration::checked_from_millis)
+        .ok_or_else(refused)
 }
 
 fn parse_u64(text: &str) -> Result<u64, RuntimeError> {
@@ -916,3 +918,6 @@ fn format_io(address: &IoAddress) -> String {
 #[cfg(test)]
 #[path = "simulation_contract_tests.rs"]
 mod contract_tests;
+#[cfg(test)]
+#[path = "simulation_duration_tests.rs"]
+mod duration_tests;
