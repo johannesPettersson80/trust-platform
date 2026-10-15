@@ -275,3 +275,31 @@ fn timer_steps_ignore_negative_elapsed_contributions_and_normalize_negative_pres
     assert!(out.q, "a negative preset completes at zero");
     assert_eq!(out.et, Duration::ZERO);
 }
+
+#[test]
+fn tp_expiry_on_a_low_sample_holds_pt_until_the_next_low_sample() {
+    // Spec 08 section 5: ET counts up while Q is TRUE and stops at PT. The call that completes the
+    // pulse returns Q FALSE and ET PT even when it samples IN FALSE; the first later executed call
+    // sampling IN FALSE resets ET to zero and rearms edge detection.
+    let pt = ms(10);
+    let mut tp = Tp::new();
+    let out = tp.step(true, pt, ms(4));
+    assert!(out.q);
+    assert_eq!(out.et, ms(4));
+
+    let expiry = tp.step(false, pt, ms(6));
+    assert!(!expiry.q, "the completing call returns Q FALSE");
+    assert_eq!(expiry.et, pt, "the completing call holds ET at PT");
+
+    let later_low = tp.step(false, pt, ms(1));
+    assert!(!later_low.q);
+    assert_eq!(
+        later_low.et,
+        Duration::ZERO,
+        "the first later low sample resets ET"
+    );
+
+    let restarted = tp.step(true, pt, ms(2));
+    assert!(restarted.q, "a later rising edge starts a new pulse");
+    assert_eq!(restarted.et, ms(2));
+}

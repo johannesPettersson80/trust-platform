@@ -725,7 +725,10 @@ fn lower_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<E
     }
     let target = lower_expr(&target_node, ctx)?;
     let parameter_contexts = lower_call_parameter_contexts(&target_node, ctx)?;
-    let args = lower_call_args(node, ctx, &parameter_contexts)?;
+    let mut args = lower_call_args(node, ctx, &parameter_contexts)?;
+    if let Some(long_names) = standard_bistable_long_names(&target_node, ctx) {
+        canonicalize_standard_bistable_arguments(&mut args, long_names);
+    }
     Ok(Expr::Call {
         target: Box::new(target),
         args,

@@ -28,6 +28,10 @@ mod reference_runtime_contract_tests;
 mod runtime_clock_source_contract_tests;
 
 #[cfg(test)]
+#[path = "standard_bistable_argument_tests.rs"]
+mod standard_bistable_argument_tests;
+
+#[cfg(test)]
 #[path = "statement_contract_tests.rs"]
 mod statement_contract_tests;
 

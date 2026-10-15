@@ -316,8 +316,8 @@ Runtime assertion note:
   comparison, and bounded user-facing message behavior.
 
 ## Table 43 - Bistable Function Blocks
-- [x] RS
-- [x] SR
+- [x] RS (rows 2a and 2b; long input names SET and RESET1 normalized at compile time)
+- [x] SR (rows 1a and 1b; long input names SET1 and RESET normalized at compile time)
 
 ## Table 44 - Edge Detection Function Blocks
 - [x] R_TRIG
