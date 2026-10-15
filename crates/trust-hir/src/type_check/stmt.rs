@@ -1,3 +1,4 @@
+use super::literals::exact_int_literal_value;
 use super::*;
 
 include!("stmt_impl_part_01.rs");

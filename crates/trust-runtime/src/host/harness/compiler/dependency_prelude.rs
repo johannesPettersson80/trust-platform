@@ -5,7 +5,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use crate::debug::SourceLocation;
 use crate::value::DateTimeProfile;
 
-use super::super::lower::{lower_expr, resolve_initializer_enum_variant};
+use super::super::lower::{lower_expr_with_context, resolve_initializer_enum_variant};
 use super::super::types::CompileError;
 use super::super::util::{collect_using_directives, namespace_qualified_name};
 use super::model::{CompileTimeConsts, LoweringContext};
@@ -217,9 +217,10 @@ fn evaluate_constant(
     ctx: &mut LoweringContext<'_>,
 ) -> Result<crate::value::Value, CompileError> {
     let type_id = lower_type_ref(&declaration.type_ref, ctx)?;
-    let expression = lower_expr(&declaration.initializer, ctx).and_then(|lowered| {
-        resolve_initializer_enum_variant(&declaration.initializer, lowered, type_id, ctx)
-    })?;
+    let expression = lower_expr_with_context(&declaration.initializer, ctx, Some(type_id))
+        .and_then(|lowered| {
+            resolve_initializer_enum_variant(&declaration.initializer, lowered, type_id, ctx)
+        })?;
     ctx.eval_compile_time_const_initializer(&expression, type_id)
 }
 

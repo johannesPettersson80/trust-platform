@@ -11,7 +11,9 @@ use crate::program_model::{
 };
 use crate::task::ProgramDef;
 
-use super::super::lower::{lower_expr, lower_stmt_list, resolve_initializer_enum_variant};
+use super::super::lower::{
+    lower_expr_with_context, lower_stmt_list, resolve_initializer_enum_variant,
+};
 use super::super::types::CompileError;
 use super::super::util::{collect_using_directives, namespace_qualified_name, node_text};
 use super::model::{

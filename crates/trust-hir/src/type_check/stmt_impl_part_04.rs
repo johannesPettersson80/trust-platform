@@ -9,6 +9,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         match (self.checker.current_function_return, return_expr) {
             (Some(expected), Some(expr)) if expected != TypeId::VOID => {
                 let actual = self.check_expression(&expr);
+                let errors_before = self.checker.diagnostics.error_count();
                 if !self.checker.is_assignable(expected, actual)
                     && !self.checker.is_contextual_int_literal(expected, &expr)
                     && !self.checker.is_contextual_real_literal(expected, &expr)
@@ -22,6 +23,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                             self.checker.type_name(actual)
                         ),
                     );
+                }
+                if self.checker.diagnostics.error_count() == errors_before {
+                    self.checker
+                        .check_untyped_literal_range(expected, &expr, true);
                 }
             }
             (Some(expected), None)
@@ -248,8 +253,15 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             return;
         }
 
-        if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value)
-            && (value_int < lower || value_int > upper)
+        let value_int = match exact_int_literal_value(value) {
+            Some(value_int) => Some(value_int),
+            None => self
+                .checker
+                .eval_const_int_expr_or_report(value)
+                .map(i128::from),
+        };
+        if let Some(value_int) = value_int
+            && (value_int < i128::from(lower) || value_int > i128::from(upper))
         {
             self.checker.diagnostics.error(
                 DiagnosticCode::OutOfRange,

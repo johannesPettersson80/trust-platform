@@ -7,7 +7,8 @@ use crate::value::Duration;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::super::lower::{
-    const_duration_from_node, const_int_from_node, lower_expr, resolve_initializer_enum_variant,
+    const_duration_from_node, const_int_from_node, lower_expr_with_context,
+    resolve_initializer_enum_variant,
 };
 use super::super::types::CompileError;
 use super::super::util::{

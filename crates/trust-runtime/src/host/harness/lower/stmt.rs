@@ -561,11 +561,40 @@ fn lower_jmp_stmt(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<St
 }
 
 fn lower_return(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt, CompileError> {
+    let return_type = enclosing_return_type(node, ctx)?;
     let expr = first_expr_child(node)
-        .map(|expr| lower_expr(&expr, ctx))
+        .map(|expr| lower_expr_with_context(&expr, ctx, return_type))
         .transpose()?;
     Ok(Stmt::Return {
         expr,
         location: stmt_location(node, ctx),
     })
+}
+
+/// Declared return type of the Function or Method that contains `node`, if there is one.
+fn enclosing_return_type(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<Option<TypeId>, CompileError> {
+    for ancestor in node.ancestors().skip(1) {
+        match ancestor.kind() {
+            SyntaxKind::Function | SyntaxKind::Method => {
+                let Some(name_node) = ancestor
+                    .children()
+                    .find(|child| child.kind() == SyntaxKind::Name)
+                else {
+                    return Ok(None);
+                };
+                let name = node_text(&name_node);
+                return lower_declared_return_slot_type(&ancestor, &name, ctx);
+            }
+            SyntaxKind::Program
+            | SyntaxKind::FunctionBlock
+            | SyntaxKind::Class
+            | SyntaxKind::Interface
+            | SyntaxKind::Property => return Ok(None),
+            _ => {}
+        }
+    }
+    Ok(None)
 }

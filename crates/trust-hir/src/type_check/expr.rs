@@ -390,13 +390,18 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         rhs_type: TypeId,
         rhs_node: &SyntaxNode,
     ) -> (TypeId, TypeId) {
-        if self.checker.is_contextual_int_literal(rhs_type, lhs_node)
+        // Comparisons do not enforce a subrange's bounds, so a literal takes the base type.
+        if self
+            .checker
+            .is_contextual_base_int_literal(rhs_type, lhs_node)
             || self.checker.is_contextual_real_literal(rhs_type, lhs_node)
         {
             self.checker.record_expression_type(lhs_node, rhs_type);
             return (rhs_type, rhs_type);
         }
-        if self.checker.is_contextual_int_literal(lhs_type, rhs_node)
+        if self
+            .checker
+            .is_contextual_base_int_literal(lhs_type, rhs_node)
             || self.checker.is_contextual_real_literal(lhs_type, rhs_node)
         {
             self.checker.record_expression_type(rhs_node, lhs_type);
