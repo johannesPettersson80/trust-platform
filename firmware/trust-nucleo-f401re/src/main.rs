@@ -1,16 +1,14 @@
 #![no_std]
 #![no_main]
 
-extern crate alloc;
-
-use trust_nucleo_f401re::application;
+mod application;
+mod board;
 mod memory;
-mod profile;
-mod runner;
-mod trace;
 
+use crate::board::{Clock, Io, Watchdog};
 use core::fmt::Write;
 use cortex_m_rt::{entry, exception};
+use trust_board_fixture::{board::Board as Fixture, memory::TargetMemory, records, runner};
 use trust_platform_stm32f4::{Board, ResetCookie};
 
 const WATCHDOG_PHASE: u16 = 0x5744;
@@ -46,7 +44,13 @@ fn main() -> ! {
     if let Some(cookie) = board.reset.cookie() {
         if cookie.phase == WATCHDOG_PHASE && reason.independent_watchdog() {
             board.reset.clear_cookie();
-            if trace::io(&mut board.console, &board.io, "watchdog-BOOT", false).is_err()
+            if records::io(
+                &mut board.console,
+                &Io(&mut board.io),
+                "watchdog-BOOT",
+                false,
+            )
+            .is_err()
                 || writeln!(board.console, "B1,STATE,WATCHDOG_RESET\r\nB1,DONE\r").is_err()
             {
                 trust_platform_stm32f4::emergency_halt("reset-uart");
@@ -65,7 +69,7 @@ fn main() -> ! {
     }
     if let Err(error) = run(&mut board) {
         board.io.safe_off();
-        trace::failure(&mut board.console, "runner", error);
+        records::failure(&mut board.console, "runner", error);
         idle(&mut board);
     }
     // The only deliberate missed feed. Backup-register cookie and RCC reset
@@ -86,34 +90,28 @@ fn main() -> ! {
     }
 }
 
+/// The F401 composition: the shared M2E runner on this board's adapter and memory map.
 fn run(board: &mut Board) -> Result<(), &'static str> {
-    trace::io(&mut board.console, &board.io, "BOOT", false)?;
-    trace::memory(&mut board.console, "boot")?;
-    let applications = application::load()?;
-    board
-        .reset
-        .set_cookie(ResetCookie {
-            phase: RUNNING_PHASE,
-        })
-        .map_err(|_| "reset-cookie")?;
-    board
-        .watchdog
-        .start_ms(4000)
-        .map_err(|_| "watchdog-start")?;
-    runner::main_fixture(board, applications.main)?;
-    // Each function drops its state and prepared module before the next one.
-    trace::memory(&mut board.console, "main-dropped")?;
-    runner::numeric_fixture(board, applications.numeric)?;
-    trace::memory(&mut board.console, "numeric-dropped")?;
-    runner::gpio_fixture(board, applications.gpio)?;
-    trace::memory(&mut board.console, "gpio-dropped")?;
-    writeln!(
-        board.console,
-        "B1,STACK_PEAK,{}\r",
-        memory::boot_stack_peak()
-    )
-    .map_err(|_| "uart")?;
-    Ok(())
+    let clock = Clock(&board.clock);
+    let mut io = Io(&mut board.io);
+    let mut watchdog = Watchdog(&mut board.watchdog);
+    let target = TargetMemory::new(&memory::HEAP, memory::STACK_WINDOW);
+    let mut fixture = Fixture {
+        clock: &clock,
+        io: &mut io,
+        console: &mut board.console,
+        watchdog: &mut watchdog,
+        memory: &target,
+    };
+    runner::run(&mut fixture, application::load, |dog| {
+        board
+            .reset
+            .set_cookie(ResetCookie {
+                phase: RUNNING_PHASE,
+            })
+            .map_err(|_| "reset-cookie")?;
+        dog.0.start_ms(4000).map_err(|_| "watchdog-start")
+    })
 }
 
 fn idle(board: &mut Board) -> ! {
@@ -140,7 +138,7 @@ unsafe fn HardFault(_: &cortex_m_rt::ExceptionFrame) -> ! {
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
     // Includes the stable allocator's allocation-error panic. Never formats the
     // panic payload, allocates, or steals the live Board's HAL ownership.
-    let (used, peak, allocations, failures) = memory::emergency_metrics();
+    let (used, peak, allocations, failures) = memory::HEAP.emergency_metrics();
     let mut record = FailureRecord {
         bytes: [0; 112],
         length: 0,

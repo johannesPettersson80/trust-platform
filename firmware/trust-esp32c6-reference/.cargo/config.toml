@@ -1,0 +1,5 @@
+[build]
+target = "riscv32imac-unknown-none-elf"
+
+[target.riscv32imac-unknown-none-elf]
+rustflags = ["-C", "link-arg=-Tlinkall.x", "-C", "link-arg=-Map=trust-esp32c6-reference.map"]

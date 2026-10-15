@@ -4,6 +4,7 @@
 **/Cargo.lock
 !/Cargo.lock
 !/firmware/trust-nucleo-f401re/Cargo.lock
+!/firmware/trust-esp32c6-reference/Cargo.lock
 !/fuzz/Cargo.lock
 !/crates/trust-ads-server/fuzz/Cargo.lock
 /firmware/trust-nucleo-f401re/target/

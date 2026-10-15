@@ -1,0 +1,5 @@
+# Name,   Type, SubType, Offset,   Size
+factory,  app,  factory, 0x10000,  0x1F0000
+stbc,     data, 0x40,    0x200000, 0x4000
+ckpt_a,   data, 0x41,    0x204000, 0x4000
+ckpt_b,   data, 0x41,    0x208000, 0x4000

@@ -5,8 +5,15 @@ It uses the shared source-free engine, not a second PLC dispatcher. Its bounded
 bring-up heap measures allocations; it does not claim allocation-free RUN or
 production controller qualification.
 
+The M2E fixture (runner, trace records, bundle decode, heap and stack measurement)
+lives in `crates/trust-board-fixture`, shared with the C6 composition. This firmware
+keeps only its board composition: `src/main.rs` (entry, identity, reset cookie,
+hardware-profile check, watchdog arm), `src/board.rs` (wrappers for the STM32 adapter
+types), `src/memory.rs` (the 72 KiB arena and the MSP window) and `src/application.rs`
+(the sector-1 load).
+
 Build on the authorized builder from the repository root with
-`cargo xtask portability build-firmware <build-config.json>`. This canonical command
+`cargo xtask portability build-firmware nucleo-f401re <build-report.json>`. This canonical command
 reads the checked-in firmware target flags, retains safe ICF and overflow checks,
 and normalizes checkout/registry/rust-source prefixes for every compiled crate.
 It records the full flags before invoking the locked release build. Direct Cargo
@@ -99,6 +106,6 @@ and [embedded-alloc 0.7.0](https://docs.rs/embedded-alloc/0.7.0/embedded_alloc/s
 
 The reference build uses the compiler's default machine-outliner pass count.
 An extra rerun produced an invalid Thumb return sequence on the pinned compiler;
-`xtask portability build-firmware` rejects this override. Safe ICF, all runtime
+`xtask portability build-firmware nucleo-f401re` rejects this override. Safe ICF, all runtime
 functions, overflow checks and fault recording remain enabled. Firmware size and
 physical execution are qualified separately.

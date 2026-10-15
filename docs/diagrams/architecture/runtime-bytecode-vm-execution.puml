@@ -211,21 +211,33 @@ package "Checked lifecycle and observation" as lifecyclePkg #Lavender {
     end note
 }
 
-package "MCU composition and evidence boundary" as mcuPkg #Wheat {
-    artifact "Independent application flash\nTRSTB002 main / numeric / GPIO artifacts" as bundle
-    component "firmware/trust-nucleo-f401re\nrunner + supervisor + measured heap/MSP" as firmware
+package "MCU compositions and evidence boundary" as mcuPkg #Wheat {
+    artifact "Independent application flash\nTRSTB002 main / numeric / GPIO artifacts\nsame bytes on both boards" as bundle
+    component "trust-board-fixture\nM2E runner + records + bundle decode\nmeasured heap / 16 KiB stack window" as fixture
+    component "firmware/trust-nucleo-f401re\nF401 composition: identity, reset cookie, supervisor" as firmware
     component "trust-platform-stm32f4::Board\nTIM2 / PC13 / PA5 / USART2 / IWDG" as board
     node "NUCLEO-F401RE" as device
+    component "firmware/trust-esp32c6-reference\nC6 composition: identity, reset cookie, supervisor" as c6firmware
+    component "trust-platform-esp32::Board\nSYSTIMER / GPIO9 / GPIO18 / USB-Serial-JTAG / MWDT0" as c6board
+    node "ESP32-C6-DevKitC-1" as c6device
     artifact --> bundle : stopped installation
-    bundle --> firmware
-    firmware --> prepared : same on-device admission
-    firmware --> owner : borrowed facade; optional register tier omitted
+    bundle --> firmware : sector 1
+    bundle --> c6firmware : stbc partition
+    firmware --> fixture
+    c6firmware --> fixture
+    fixture --> prepared : same on-device admission
+    fixture --> owner : borrowed facade; optional register tier omitted
     firmware --> board
+    c6firmware --> c6board
     board --> device
-    note bottom of firmware
-        Core does not depend on the board adapter; firmware has no host runtime dependency.
-        Vectors and immutable firmware data share sector 0; application sector 1,
+    c6board --> c6device
+    note bottom of fixture
+        Core depends on no board adapter and not on the fixture; the adapters depend on no
+        workspace crate; firmware has no host runtime dependency.
+        F401: vectors and immutable firmware data share sector 0; application sector 1,
         checkpoint reserves 2/3 and upper code sectors 4-7 stay independently erasable.
+        C6: factory application, 16 KiB stbc partition, reserved ckpt_a / ckpt_b;
+        no flash write or erase during RUN.
         All PLC functions and overflow checks remain present.
         Source/rendered diagrams do not establish flash/RAM fit, timing or hardware proof.
     end note

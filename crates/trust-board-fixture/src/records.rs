@@ -1,6 +1,10 @@
-//! Bounded, allocation-free UART records and borrowed runtime observations.
+//! Bounded, allocation-free `B1,` trace records and borrowed runtime observations.
+//! The record grammar and field order are the M2E oracle; every board emits them.
+use crate::{
+    board::{DigitalIo, Memory},
+    stack,
+};
 use core::fmt::Write;
-use trust_platform_stm32f4::{Console, DigitalIo};
 use trust_runtime_core::{
     memory::{InstanceId, VariableStorage},
     value::Value,
@@ -9,7 +13,7 @@ use trust_runtime_core::{
 /// Report a failure through one cold path; callers retain their safe-off and stop order.
 #[cold]
 #[inline(never)]
-pub fn failure(console: &mut Console, phase: &str, code: &str) {
+pub fn failure<K: Write>(console: &mut K, phase: &str, code: &str) {
     let _ = writeln!(console, "B1,FAIL,{phase},{code}\r");
 }
 
@@ -44,9 +48,13 @@ pub fn boolean(value: &Value) -> Result<u8, &'static str> {
     }
 }
 
-pub fn memory(console: &mut Console, phase: &str) -> Result<(), &'static str> {
-    let value = crate::memory::measure();
-    let stack_peak = crate::memory::boot_stack_peak();
+pub fn memory<K: Write, M: Memory>(
+    console: &mut K,
+    memory: &M,
+    phase: &str,
+) -> Result<(), &'static str> {
+    let value = memory.measure();
+    let stack_peak = memory.boot_stack_peak();
     writeln!(
         console,
         "B1,MEM,{phase},{},{},{},{},{},{},{},{}\r",
@@ -55,20 +63,17 @@ pub fn memory(console: &mut Console, phase: &str) -> Result<(), &'static str> {
         value.allocations,
         value.failures,
         stack_peak,
-        trust_nucleo_f401re::stack_guard::STACK_BYTES.saturating_sub(stack_peak),
+        stack::STACK_BYTES.saturating_sub(stack_peak),
         core::mem::size_of::<Value>(),
         core::mem::align_of::<Value>()
     )
     .map_err(|_| "uart")?;
-    trust_nucleo_f401re::stack_guard::check(
-        stack_peak,
-        trust_nucleo_f401re::stack_guard::STACK_BYTES.saturating_sub(stack_peak),
-    )
+    stack::check(stack_peak, stack::STACK_BYTES.saturating_sub(stack_peak))
 }
 
-pub fn io(
-    console: &mut Console,
-    io: &DigitalIo,
+pub fn io<K: Write, I: DigitalIo>(
+    console: &mut K,
+    io: &I,
     phase: &str,
     command: bool,
 ) -> Result<(), &'static str> {
@@ -76,8 +81,8 @@ pub fn io(
     writeln!(
         console,
         "B1,IO,{phase},{},{},{},{}\r",
-        u8::from(input.pc13_high),
-        u8::from(input.button_pressed),
+        u8::from(input.pin_high),
+        u8::from(input.pressed),
         u8::from(command),
         u8::from(io.output_readback())
     )

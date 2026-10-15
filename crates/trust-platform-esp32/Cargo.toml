@@ -1,0 +1,12 @@
+[package]
+name = "trust-platform-esp32"
+description = "Thin ESP32-C6-DevKitC-1 hardware adapter for the shared truST engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[target.'cfg(all(target_arch = "riscv32", target_os = "none"))'.dependencies]
+esp-hal = { version = "=1.2.2", features = ["esp32c6", "unstable"] }
+esp-storage = { version = "=0.10.0", features = ["esp32c6"] }
+critical-section = "1.2.0"

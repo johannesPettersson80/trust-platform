@@ -147,6 +147,10 @@ crates/
 
   trust-platform-esp32/            NEW; selected ESP32 adapter, initially C6
 
+  trust-board-fixture/             NEW; the M2E fixture shared by the F401 and C6
+                                  compositions: runner, records, bundle decode,
+                                  heap and stack measurement
+
 firmware/
   trust-nucleo-f401re/             NEW; confirmed board composition
     src/main.rs
@@ -2299,6 +2303,9 @@ firmware lockfile. TIM2 supplies 1 MHz monotonic ticks and SysTick supplies a
 at 230400 baud. Configured clock frequency is not independently calibrated clock
 accuracy. Extend TIM2 rollover and require observations less than one full counter
 period apart; record the reset epoch. GPIO polarity belongs to the board adapter.
+M0U (11 October 2026) later moved the workspace and this firmware to Rust 1.99.0, edition 2024
+and resolver 3. F401 board evidence recorded after M0U, including the 15 October 2026 replays,
+uses that tuple, which the C6 composition shares (D.2).
 
 The L2 link layout reserves sector 0 for vectors, sector 1 (16 KiB at
 0x08004000) for a separately programmable application bundle, sectors 2 and 3
@@ -2443,7 +2450,7 @@ graphs. No desktop dependency may be hidden by moving the adapter out of the wor
 
 | Area | Proposed first profile | Decision to freeze or evidence required |
 |---|---|---|
-| Board/chip | ESP32-C6-DevKitC-1, HP RV32IMAC core; provisional, not owned/ordered by this plan. | Confirm physical availability, module/flash size, and board revision in M0. Keep one PLC engine owner on the HP core. Another MCU family cannot satisfy ARCH-10. [E56, E57] |
+| Board/chip | ESP32-C6-DevKitC-1 with 8 MB flash, HP RV32IMAC core; owned since 15 October 2026. | M0 record: chip revision v0.2, eFuse block revision v0.3, 40 MHz crystal, chip ID 13, base MAC 20:6e:f1:17:04:c0, secure boot and flash encryption disabled; the factory flash image is retained with its SHA-256. Keep one PLC engine owner on the HP core. Another MCU family cannot satisfy ARCH-10. [E56, E57] |
 | Rust/HAL | `riscv32imac-unknown-none-elf` with `esp-hal`; radios disabled. | Pin compiler/HAL/startup/flash tools and linker layout. This is a stable bare-metal target, not the similarly named ESP-IDF target. [E56] |
 | Atomic/ownership boundary | IMAC permits existing atomic-backed values during measured bring-up; no new atomic RMW dependency in core. | Retire them in the shared bounded-storage slice before M3. C3/IMC becomes an additional gate after that work if selected; portable-atomic alone does not rewrite `alloc::sync::Arc` consumers. [R24, E46, E56] |
 | Numeric cost | No F/D floating-point extension on the selected target; REAL and LREAL use software arithmetic. | Measure numeric helpers/latency on C6 independently of F401; an ARM single-precision result is not a C6 estimate. Optional C3 also needs software floats. [E56, E57] |
@@ -2453,6 +2460,71 @@ graphs. No desktop dependency may be hidden by moving the adapter out of the wor
 | Alternative ESP-IDF composition | Available as an explicit platform integration choice if required drivers/services justify it. | Bind IDF, Rust wrapper, FreeRTOS/task, and synchronization versions; use the same core and PLC scheduler. Do not pull the desktop `trust-runtime` product into MCU firmware. [E34] |
 | Flash interference and supervision | Forbid installation/erase during RUN in the initial profile. | Qualify later persistence against the C6 stack/memory placement. E35's earlier ESP32 IDF guidance is background, not C6 bare-metal proof; review the selected implementation before permitting flash work in RUN. |
 | Milestones | M1 isolated core check, M2E linked firmware and saved-artifact execution, M5 qualification. | Missing hardware leaves physical gates open while independent host/F401 work proceeds. |
+
+**C6 reference composition (M2E).** The C6 runs the same M2E fixture as F401: the same
+application bundle bytes, oracle, record grammar and phase order, through the shared fixture crate
+(Section 3.2). Only the board adapter and the values below differ. They were measured on the owned
+board by two M0 probes on 15 October 2026 before any firmware was written.
+
+- **Toolchain.** Rust 1.99.0, edition 2024, resolver 3 and `riscv32imac-unknown-none-elf`, the
+  tuple of the current F401 firmware. `esp-hal` is pinned to 1.2.2 with the `esp32c6` and
+  `unstable` features; the timer-group watchdog, SYSTIMER alarm, reset reason, persistent RTC
+  memory and USB-Serial/JTAG drivers are unstable API in that release. `esp-bootloader-esp-idf`
+  0.6.0 supplies the application descriptor and `esp-storage` 0.10.0 the flash reads. The bench
+  host flashes and reads back with `espflash` 4.6.0.
+- **Bootloader.** The second-stage bootloader is the one bundled with `espflash` 4.6.0, which
+  reports `ESP-IDF v6.1-beta1-497-g14f663f003e`. M2E records its hash. M5 qualification requires a
+  released bootloader instead.
+- **Clock.** `CpuClock::max()` sets 160 MHz. SYSTIMER (16 MHz, 52 bits) supplies monotonic
+  microseconds without a rollover extension. The machine performance counter CSR 0x7E2 counts CPU
+  cycles from boot: 16,003,071 cycles in 100,018 µs. A 1 kHz SYSTIMER alarm interrupt only
+  increments a counter, as SysTick does on F401 (100 interrupts in 100,011 µs). A 10 ms period is
+  1,600,000 cycles.
+- **Numeric environment.** `misa` reads 0x40903105: RV32 with I, M, A, C, N, U and X, and without
+  F or D. REAL and LREAL therefore both use software floating point. IDENTITY reports `misa`, and
+  the verifier requires the F and D bits clear.
+- **Trace channel.** The native USB-Serial/JTAG port carries the `B1,` records through a bounded,
+  non-blocking writer with the shared 512-byte and 100 ms record budget. A record that misses its
+  deadline fails the run. The port stayed enumerated across three MWDT0 system resets with no
+  record lost, so one USB connection serves flashing, reset and capture. The ROM and the
+  second-stage bootloader print about 30 non-record lines at every boot. The C6 verifier profile
+  admits printable non-record lines only before each boot's first IDENTITY record, at most 64 per
+  boot, and reports their count. A non-record line anywhere else fails the run.
+- **Supervision.** `esp_hal::init` disables the RTC and timer-group watchdogs. The firmware arms
+  MWDT0 (TIMG0), stage 0 resetting the system, with F401's 4,000 ms interval. After the deliberately
+  withheld feed the chip reports reset reason 0x07 (`CoreMwdt0`; the ROM prints
+  `rst:0x7 (TG0_WDT_HPSYS)`). The bench host starts every run with a USB-Serial/JTAG reset, reason
+  0x15 (`CoreUsbUart`). A power-on reset reports 0x01. No debugger is attached during M2E, so
+  supervision during a debug halt is not evaluated; STATE-06 still applies before qualification.
+- **Reset cookie.** F401's two-word cookie codec is stored in persistent RTC fast memory. It
+  survives MWDT0 system resets and also USB-Serial/JTAG resets, and the host has no SWD path to
+  clear it. The firmware therefore reads and clears it at every boot. With reason 0x07, a watchdog
+  cookie completes the run. With reason 0x15 or 0x01, a leftover cookie is discarded and a new run
+  starts; that reset is the explicit new boot. Any other reason with a cookie present halts with a
+  FAIL record.
+- **GPIO.** The physical input is the BOOT button, GPIO9: active low with the internal pull-up. It
+  is a strapping pin sampled only at reset, so the firmware reads it only after boot. The output is
+  GPIO18, a plain pin with no board load, read back through its own pad input; the probe read back
+  1, 0, 1, 0 as commanded. The RGB LED on GPIO8 is a WS2812, not a plain LED, so optical output
+  stays unverified, as on F401.
+- **Memory.** The fixture keeps F401's 72 KiB allocator arena. The esp-hal stack region spans the
+  remaining HP SRAM (421 KiB in the probe); the fixture measures and budgets a 16 KiB window at its
+  top with F401's 2 KiB minimum headroom, so the boards' heap and stack evidence is directly
+  comparable. Exceeding the window fails the run although the region has room. Interrupts use the
+  same stack on RISC-V, so the window includes them.
+- **Flash layout.** The bootloader sits at 0x0 and the partition table at 0x8000, per the ESP-IDF
+  image format. Partitions: `factory` application at 0x10000 (1,984 KiB); `stbc` at 0x200000
+  (16 KiB), the separately installable application bundle, sized like F401 sector 1; and `ckpt_a`
+  at 0x204000 and `ckpt_b` at 0x208000 (16 KiB each), reserved like F401 sectors 2 and 3 with no
+  persistence implemented. The firmware reads `stbc` once at boot into RAM through `esp-storage`.
+  No flash write or erase happens during RUN.
+- **Identity.** IDENTITY carries eight values: the chip ID from the running image header (13); the
+  chip revision as major·100 + minor (2); the base MAC as its high 16 and low 32 bits; the flash
+  size in KiB from the running image header (8192); the CPU clock in Hz; `misa`; and the reset
+  reason. The verifier pins this board's MAC, as the F401 profile pins its UID.
+- **Bench topology.** One USB cable connects the Raspberry Pi 5 bench host to the DevKitC-1's
+  native USB port (GPIO12/13), addressed by its `/dev/serial/by-id` path, which contains the MAC.
+  The F401's ST-LINK stays on its own port, and every command names its port explicitly.
 
 The RISC-V choice exposes a different ISA, soft-float cost, interrupts, and platform stack early while keeping full value-model retirement off the initial dependency gate. A future C3/IMC or S3/Xtensa profile has its own toolchain/ownership and hardware gates; C6 qualification does not support the whole ESP32 family. If the target selection changes to C3, explicitly move atomic/string retirement before its first core build rather than promising both the old M1 timing and deferred storage work.
 

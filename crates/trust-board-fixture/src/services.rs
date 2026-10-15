@@ -1,6 +1,6 @@
 //! Explicit bring-up admission; logical cumulative charges are not heap limits.
+use crate::board::Clock;
 use core::cell::Cell;
-use trust_platform_stm32f4::Monotonic;
 use trust_runtime_core::{
     bytecode::ValidationLimits,
     error::RuntimeError,
@@ -28,12 +28,13 @@ pub fn limits() -> PreparationLimits {
     }
 }
 
-pub struct Services<'a> {
-    pub clock: &'a Monotonic,
+/// Execution services over one board clock; the deadline is armed per scan.
+pub struct Services<'a, C: Clock> {
+    pub clock: &'a C,
     pub deadline: Cell<Option<u64>>,
 }
 
-impl ExecutionServices for Services<'_> {
+impl<C: Clock> ExecutionServices for Services<'_, C> {
     fn deadline_exceeded(&self) -> bool {
         self.deadline
             .get()
@@ -44,7 +45,7 @@ impl ExecutionServices for Services<'_> {
     }
     fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
         Err(RuntimeError::ProfileUnsupported(
-            "no UTC clock in F401 bring-up".into(),
+            "no UTC clock in board bring-up".into(),
         ))
     }
 }
