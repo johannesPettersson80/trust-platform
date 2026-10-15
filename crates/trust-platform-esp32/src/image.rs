@@ -13,7 +13,7 @@ pub struct ImageHeader {
     pub flash_kib: u16,
 }
 
-/// Decode the first [`IMAGE_HEADER_BYTES`] of an ESP image. Returns `None` when the magic byte
+/// Decode the first `IMAGE_HEADER_BYTES` (24) bytes of an ESP image. Returns `None` when the magic byte
 /// is missing or the flash-size code is not one of 1, 2, 4, 8 or 16 MB.
 pub fn decode_image_header(bytes: &[u8; IMAGE_HEADER_BYTES]) -> Option<ImageHeader> {
     if bytes[0] != IMAGE_MAGIC {
