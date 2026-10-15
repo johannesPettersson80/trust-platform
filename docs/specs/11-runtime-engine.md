@@ -652,10 +652,10 @@ state has a stronger success boundary:
   `Degraded` or `Faulted` output-path health means the physical handoff is
   unconfirmed, even when `on_error = "warn"` or `"ignore"` made the ordinary
   driver call return successfully. Output-path health is the driver's health,
-  except that an MQTT incoming-queue overflow (specification 34 §11.1) degrades
-  the reported driver health but not the output path, so it never unconfirms a
-  safe-state handoff. The MQTT input-freshness states keep their existing effect
-  on both.
+  except that input-path conditions degrade or fault the reported driver health
+  but not the output path, so they never unconfirm a safe-state handoff. For
+  MQTT these are stale or missing input and incoming-queue overflow
+  (specification 32 §8, specification 34 §11.1).
 - A worker-backed driver whose handoff is queued, reconnecting, timed out, or
   otherwise pending must therefore return a safe-state error at the runtime
   boundary. A later asynchronous delivery does not retroactively turn that
@@ -2101,6 +2101,13 @@ first selects only `RuntimeEvent::Fault` entries and then applies the limit, so
 intervening non-fault events cannot reduce the requested number of faults.
 `SafeStateFailed` remains its own event type and is not silently relabeled as
 the originating resource fault.
+
+The event store keeps the newest 1,000 events, the largest limit either
+operation accepts; a newer event displaces the oldest. A debug control with no
+event sender attached buffers events for callers that drain them directly, such
+as embedders and the debugger. That buffer keeps the newest 1,024 events, drops
+the oldest beyond that bound and counts every dropped event, so the caller can
+tell that it missed events (specification 34 §11.1).
 
 Historian query parameters are strict objects. `historian.query` permits only
 `variable`, `since_ms`, and `limit`; `historian.alerts` permits only `limit`.

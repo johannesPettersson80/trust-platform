@@ -218,6 +218,25 @@ cannot busy-loop. Driver drop requests shutdown and returns within its bounded
 deadline even while a first connection is pending; this does not claim that a
 detached worker has already joined.
 
+Backoff follows connection failures only: a failed connect, a lost session or a
+failed publish. Input freshness is an input-path condition: the worker checks for
+new input without waiting, so an input read never holds the worker or delays
+output publication. A read that finds no message newer than the previous read
+reports stale input under the policy below, but a connected session stays
+connected, starts no backoff and keeps publishing outputs.
+
+The driver therefore tracks two paths. Input-path health covers stale or missing
+input and decoding; output-path health reflects only the broker connection and
+the publish outcomes, and it decides whether a safe-state handoff is confirmed
+(specification 11). A connection condition (not yet connected, a lost session,
+reconnect backoff) clears as soon as any operation finds the link up; a publish
+condition (a failed typed-output preflight or a pending handoff) clears only
+with a successful publish. The reported driver health is the more severe of the two,
+with the output-path detail on a tie, and an incoming-queue overflow degrades it
+further (specification 34 §11.1). A direction the configuration disables is
+always healthy: a driver without outputs has nothing to deliver for a safe
+state, and a driver without inputs reports no input condition.
+
 Under the default `fault` policy, disconnected or stale input, a bounded read
 without a snapshot, missed refresh/handoff deadlines, completed connection or
 publish failure, and typed-output preflight failure return an error and set
