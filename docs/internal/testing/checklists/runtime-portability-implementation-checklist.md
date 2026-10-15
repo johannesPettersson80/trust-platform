@@ -42,6 +42,13 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   platforms. The examples test now gives its Windows copy a loopback TCP endpoint with a token
   (as the generated-project tests already did); the product fix (a Windows default of loopback
   TCP with a generated token, and the examples' Windows instructions) belongs to A19.
+- [x] Guard 17 on `59b2f90ea` failed `remote_test_all` in
+  `opcua_interop_reads_exposed_scalars_with_reference_client`: two OPC UA fixture servers in
+  parallel were handed the same released port, one server thread panicked on bind, and
+  `start_wire_server` still reported success because its readiness check reached the other
+  server. Fixed at the root (`93e396558`): startup refuses a listen address in use and fails if
+  its server thread has stopped; the test's port reservation never repeats a port; a new test
+  pins the refusal. Clippy and five consecutive runs of the OPC UA suite pass.
 - [ ] Assurance campaign order, by expected defect yield; each slice is audit, tests, one
   batch, fixes, then commit, guard, push and CI:
   1. A05 mutation testing on the core VM, register IR, Tier-1, decoder/validator and the

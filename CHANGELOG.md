@@ -232,6 +232,10 @@ Target release: `v0.24.75`
   without an `io.toml` got a simulated driver so they validate and run.
 - Hosted instance creation reports `Overflow` instead of panicking when instance
   identities are exhausted.
+- The OPC UA server refuses to start, with a clear error, when its listen address
+  is already in use. Before, its server thread failed silently while startup
+  reported success, because the readiness check reached whichever process held
+  the port.
 - The release-candidate CI watcher no longer reports a run as complete before
   GitHub has registered any check for the new head.
 
