@@ -1,5 +1,5 @@
 CONFIGURATION AirportBaggageCommandObserverOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE AirportBaggageCommandObserverOop ON PLC
     TASK MainTask (INTERVAL := T#50ms, PRIORITY := 1);
     PROGRAM Diverter WITH MainTask : Main;
 END_RESOURCE

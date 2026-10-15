@@ -391,7 +391,7 @@ TwinCAT merge gate. Production validation for server mode is:
    and validates any guarded write path.
 
 Start the TwinCAT side with Target Browser, not Scope. The customer path is:
-discover or add the route, open `truST-ADS -> 851`, browse the `global.*`
+discover or add the route, open `truST_ADS -> 851`, browse the `global.*`
 symbols, read them, and perform a guarded write to a safe writable symbol such
 as `global.Setpoint`. Target Browser value preview can be used as a quick
 live-value sanity check. TwinCAT Scope View is optional interop only; it adds a

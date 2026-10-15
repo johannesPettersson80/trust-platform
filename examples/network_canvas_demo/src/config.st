@@ -4,7 +4,7 @@ VAR_GLOBAL
     running : BOOL := FALSE;
     line_state : INT := 1;
 END_VAR
-RESOURCE CommRes ON PLC
+RESOURCE Simulator ON PLC
     TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1);
     PROGRAM Main WITH MainTask : Main;
 END_RESOURCE

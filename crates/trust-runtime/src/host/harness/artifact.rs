@@ -1,7 +1,7 @@
 //! Source/context association around supplied artifacts, never replacement bodies.
 use super::{build, CompileError, SourceFile};
 use crate::{
-    bytecode::{BytecodeModule, BytecodeVersion, SectionData, SectionId},
+    bytecode::{BytecodeMetadata, BytecodeModule, BytecodeVersion, SectionData, SectionId},
     Runtime,
 };
 use smol_str::SmolStr;
@@ -165,18 +165,8 @@ fn select_resource(
     let metadata = module
         .metadata()
         .map_err(|err| CompileError::new(err.to_string()))?;
-    if let Some(index) = metadata
-        .resources
-        .iter()
-        .position(|resource| resource.name.eq_ignore_ascii_case(name))
-    {
+    if let Some(index) = configured_resource(&metadata, name)? {
         return Ok(index);
-    }
-    if metadata.resources.len() != 1 || !metadata.resources[0].name.eq_ignore_ascii_case("RESOURCE")
-    {
-        return Err(CompileError::new(format!(
-            "resource '{name}' not found in supplied bytecode"
-        )));
     }
     let Some(SectionData::StringTable(strings)) = module.section_mut(SectionId::StringTable) else {
         return Err(CompileError::new("missing string table"));
@@ -190,4 +180,27 @@ fn select_resource(
     };
     resources.resources[0].name_idx = index;
     Ok(0)
+}
+
+/// The launch rule for the configured resource (spec 11 §6.7.1): `Some(index)` for the resource
+/// whose name equals `name` case-insensitively, `None` when the module declares only the legacy
+/// placeholder `RESOURCE`, which launch then renames to `name`. Any other name is refused.
+pub fn configured_resource(
+    metadata: &BytecodeMetadata,
+    name: &str,
+) -> Result<Option<usize>, CompileError> {
+    if let Some(index) = metadata
+        .resources
+        .iter()
+        .position(|resource| resource.name.eq_ignore_ascii_case(name))
+    {
+        return Ok(Some(index));
+    }
+    if metadata.resources.len() == 1 && metadata.resources[0].name.eq_ignore_ascii_case("RESOURCE")
+    {
+        return Ok(None);
+    }
+    Err(CompileError::new(format!(
+        "resource '{name}' not found in supplied bytecode"
+    )))
 }

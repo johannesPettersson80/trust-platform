@@ -1,5 +1,5 @@
 CONFIGURATION ColdStoragePlantOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE ColdStoragePlantOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Plant WITH MainTask : Main;
 END_RESOURCE

@@ -1,5 +1,5 @@
 CONFIGURATION RoboticPalletizerCommandStateOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE RoboticPalletizerCommandStateOop ON PLC
     TASK MainTask (INTERVAL := T#20ms, PRIORITY := 1);
     PROGRAM Cell WITH MainTask : Main;
 END_RESOURCE

@@ -1,5 +1,5 @@
 CONFIGURATION FilterBackwashTemplateOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE FilterBackwashTemplateOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Backwash WITH MainTask : Main;
 END_RESOURCE

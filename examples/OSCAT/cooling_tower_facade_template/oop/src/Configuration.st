@@ -1,5 +1,5 @@
 CONFIGURATION CoolingTowerFacadeTemplateOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE CoolingTowerFacadeTemplateOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Tower WITH MainTask : Main;
 END_RESOURCE

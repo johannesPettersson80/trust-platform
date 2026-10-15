@@ -1,5 +1,5 @@
 CONFIGURATION MaintenanceStackClassicConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE MaintenanceStackClassic ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Main WITH MainTask : Main;
 END_RESOURCE

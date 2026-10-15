@@ -1,5 +1,5 @@
 CONFIGURATION BoosterCommissioningDecoratorOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE BoosterCommissioningDecoratorOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Cell WITH MainTask : Main;
 END_RESOURCE

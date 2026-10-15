@@ -25,6 +25,7 @@ pub use api::{
     bytecode_module_from_source_with_path, bytecode_module_from_sources,
     bytecode_module_from_sources_with_paths, CompileSession,
 };
+pub use artifact::configured_resource;
 pub(crate) use build::LoweredApplication;
 #[cfg(test)]
 pub(crate) use build::{lower_application, lower_application_with_abi};
