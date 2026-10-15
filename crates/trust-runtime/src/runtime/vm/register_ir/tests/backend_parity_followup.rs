@@ -259,6 +259,82 @@ fn vmpar_instruction_budget_faults_at_the_same_original_instruction_boundary() {
     }
 }
 
+/// The executor a nested-call budget run is forced onto.
+#[derive(Clone, Copy)]
+enum VmparNestedArm {
+    /// The canonical stack path, entered directly.
+    Stack,
+    /// The register executor with tier-1 off.
+    Interpreter,
+    /// The register executor with tier-1 selecting each block at its first hit.
+    Tier1,
+}
+
+/// Runs MAIN of `source` once on `arm` with `budget` work and returns its work-limit boundary. The program is
+/// entered with its own instance, as the cycle enters it.
+fn vmpar_nested_boundary(source: &str, arm: VmparNestedArm, budget: usize) -> PrefixBoundary {
+    let mut harness = TestHarness::from_source(source).expect("create nested-budget harness");
+    harness
+        .runtime_mut()
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("select VM backend");
+    harness.runtime_mut().set_execution_deadline(None);
+    let mut module = harness
+        .runtime()
+        .vm_module
+        .as_deref()
+        .expect("harness must load a VM module")
+        .clone();
+    let main_id = *module
+        .program_ids()
+        .get(&SmolStr::new("MAIN"))
+        .expect("main POU id");
+    let main_instance = match harness.runtime().storage().get_global("Main") {
+        Some(Value::Instance(id)) => Some(*id),
+        _ => None,
+    };
+    let result = match arm {
+        VmparNestedArm::Stack => {
+            module.set_legacy_instruction_budget(budget);
+            execute_pou_stack_with_locals(
+                harness.runtime_mut(),
+                &module,
+                main_id,
+                main_instance,
+                None,
+                false,
+                0,
+                trust_runtime_core::vm::hosted::budget::ExecutionEntry::Root,
+            )
+            .map(|_| ())
+        }
+        VmparNestedArm::Interpreter => {
+            harness
+                .runtime_mut()
+                .set_vm_tier1_specialized_executor_enabled(false);
+            module.set_legacy_instruction_budget(budget);
+            let mut context = LegacyRegisterFixtureContext::new(harness.runtime_mut(), &module)
+                .expect("prepare legacy register fixture");
+            try_execute_pou_with_register_ir(&mut context, &module, main_id, main_instance)
+                .map(|_| ())
+        }
+        VmparNestedArm::Tier1 => {
+            let runtime = harness.runtime_mut();
+            runtime.set_vm_tier1_specialized_executor_enabled(true);
+            runtime.reset_vm_tier1_specialized_executor();
+            runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
+            let mut context = LegacyRegisterFixtureContext::new(runtime, &module)
+                .expect("prepare legacy register fixture");
+            try_execute_pou_with_register_ir(&mut context, &module, main_id, main_instance)
+                .expect("tier1 warmup must compile the block");
+            module.set_legacy_instruction_budget(budget);
+            try_execute_pou_with_register_ir(&mut context, &module, main_id, main_instance)
+                .map(|_| ())
+        }
+    };
+    prefix_boundary(result)
+}
+
 #[test]
 fn vmpar_nested_function_call_shares_the_top_level_instruction_budget() {
     let source = r#"
@@ -324,5 +400,27 @@ fn vmpar_nested_function_call_shares_the_top_level_instruction_budget() {
             })),
         "nested call must consume the caller's remaining budget: main={main_count}, callee={callee_count}, errors={:?}",
         cycle.errors
+    );
+
+    // The same budget refuses the same work on every executor: the stack path, the register
+    // interpreter and tier-1 at threshold one report the same kind, used and limit.
+    let budget = main_count.max(callee_count);
+    let stack = vmpar_nested_boundary(source, VmparNestedArm::Stack, budget);
+    assert!(
+        matches!(
+            stack,
+            PrefixBoundary::Refused(trust_runtime_core::error::ExecutionLimitKind::Work, _, _)
+        ),
+        "stack arm: {stack:?}"
+    );
+    assert_eq!(
+        vmpar_nested_boundary(source, VmparNestedArm::Interpreter, budget),
+        stack,
+        "register interpreter"
+    );
+    assert_eq!(
+        vmpar_nested_boundary(source, VmparNestedArm::Tier1, budget),
+        stack,
+        "tier-1 at threshold one"
     );
 }

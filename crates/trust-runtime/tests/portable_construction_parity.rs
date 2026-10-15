@@ -1,8 +1,9 @@
 //! Actual authored current STBC through the portable validator and engine.
 use trust_runtime::bytecode::{BytecodeVersion, SectionData, SectionId, StorageOwner, StorageRole};
 use trust_runtime::harness::CompileSession;
-use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::value::{DateTimeValue, Duration, Value};
+use trust_runtime_core::vm::{ExecutionServices, PreparationLimits, PreparedModule, RuntimeState};
 
 const BLOCK: &str = r#"
 FUNCTION_BLOCK Counter
@@ -21,6 +22,35 @@ Observed := counter.Total;
 END_PROGRAM
 "#;
 
+/// Platform services with a debugger attached: every POU runs on the canonical stack path.
+struct DebugServices;
+
+impl ExecutionServices for DebugServices {
+    fn debug_active(&self) -> bool {
+        true
+    }
+    fn deadline_exceeded(&self) -> bool {
+        false
+    }
+    fn has_wall_clock(&self) -> bool {
+        false
+    }
+    fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+        Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+    }
+}
+
+/// The named variables of the root program instance, cloned so that two arms can be compared.
+fn root_values(state: &RuntimeState<'_>, root: &str, names: &[&str]) -> Vec<Option<Value>> {
+    let Some(Value::Instance(instance)) = state.storage().get_global(root) else {
+        panic!("{root} root")
+    };
+    names
+        .iter()
+        .map(|name| state.storage().get_instance_var(*instance, name).cloned())
+        .collect()
+}
+
 #[test]
 fn source_free_block_parameters_and_temporaries_have_distinct_storage() {
     let bytes = CompileSession::from_source(BLOCK)
@@ -30,21 +60,36 @@ fn source_free_block_parameters_and_temporaries_have_distinct_storage() {
         .unwrap();
     let prepared = PreparedModule::from_bytes(&bytes, PreparationLimits::default()).unwrap();
     let mut state = prepared.instantiate(0).unwrap();
+    let debug = DebugServices;
+    let mut stack = prepared.instantiate_with_services(0, &debug).unwrap();
     let Some(Value::Instance(main)) = state.storage().get_global("Main") else {
         panic!("Main root")
     };
     let main = *main;
     state.execute_cycle(Duration::ZERO).unwrap();
+    stack.execute_cycle(Duration::ZERO).unwrap();
     assert_eq!(
         state.storage().get_instance_var(main, "Observed"),
         Some(&Value::Int(10))
     );
+    assert_eq!(
+        root_values(&stack, "Main", &["Observed"]),
+        root_values(&state, "Main", &["Observed"]),
+        "stack arm after the first cycle"
+    );
     state.execute_cycle(Duration::from_millis(1)).unwrap();
+    stack.execute_cycle(Duration::from_millis(1)).unwrap();
     assert_eq!(
         state.storage().get_instance_var(main, "Observed"),
         Some(&Value::Int(20))
     );
+    assert_eq!(
+        root_values(&stack, "Main", &["Observed"]),
+        root_values(&state, "Main", &["Observed"]),
+        "stack arm after the second cycle"
+    );
     assert!(state.storage().current_frame().is_none());
+    assert!(stack.storage().current_frame().is_none());
 }
 
 #[test]
@@ -114,6 +159,14 @@ END_PROGRAM
         state.storage().get_instance_var(*main, "text"),
         Some(&Value::String("ZB".into()))
     );
+    let debug = DebugServices;
+    let mut stack = prepared.instantiate_with_services(0, &debug).unwrap();
+    stack.execute_cycle(Duration::ZERO).unwrap();
+    assert_eq!(
+        root_values(&stack, "Main", &["observed", "values", "text"]),
+        root_values(&state, "Main", &["observed", "values", "text"]),
+        "stack arm"
+    );
 }
 
 #[test]
@@ -153,6 +206,13 @@ END_CONFIGURATION
         panic!("array")
     };
     assert_eq!(values.elements(), &[Value::Int(2), Value::Int(41)]);
+    let debug = DebugServices;
+    let stack = prepared.instantiate_with_services(0, &debug).unwrap();
+    assert_eq!(
+        root_values(&stack, "P", &["first", "second", "values"]),
+        root_values(&state, "P", &["first", "second", "values"]),
+        "stack arm"
+    );
 }
 
 #[test]
@@ -211,12 +271,16 @@ END_PROGRAM
     };
     let prepared = PreparedModule::from_bytes(&bytes, PreparationLimits::default()).unwrap();
     let mut state = prepared.instantiate(0).unwrap();
+    let debug = DebugServices;
+    let mut stack = prepared.instantiate_with_services(0, &debug).unwrap();
     let Some(Value::Instance(main)) = state.storage().get_global("Main") else {
         panic!("Main root")
     };
     let main = *main;
+    let names = ["number", "Observed", "Bumped", "Disabled", "Shadowed"];
     for (millis, number, observed, shadowed) in [(0, 7, 12, 8), (1, 10, 29, 11)] {
         state.execute_cycle(Duration::from_millis(millis)).unwrap();
+        stack.execute_cycle(Duration::from_millis(millis)).unwrap();
         assert_eq!(
             state.storage().get_instance_var(main, "number"),
             Some(&Value::Int(number))
@@ -237,8 +301,14 @@ END_PROGRAM
             state.storage().get_instance_var(main, "Shadowed"),
             Some(&Value::Int(shadowed))
         );
+        assert_eq!(
+            root_values(&stack, "Main", &names),
+            root_values(&state, "Main", &names),
+            "stack arm"
+        );
     }
     assert!(state.storage().current_frame().is_none());
+    assert!(stack.storage().current_frame().is_none());
 }
 
 #[test]
@@ -277,4 +347,13 @@ END_PROGRAM
         Some(&Value::Int(3))
     );
     assert!(state.storage().current_frame().is_none());
+    let debug = DebugServices;
+    let mut stack = prepared.instantiate_with_services(0, &debug).unwrap();
+    stack.execute_cycle(Duration::ZERO).unwrap();
+    assert_eq!(
+        root_values(&stack, "Main", &["omitted", "supplied"]),
+        root_values(&state, "Main", &["omitted", "supplied"]),
+        "stack arm"
+    );
+    assert!(stack.storage().current_frame().is_none());
 }

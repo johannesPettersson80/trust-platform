@@ -191,6 +191,14 @@ fn compiled_nested_calls_preserve_pending_operands_and_the_admitted_depth() {
     state.restart(RestartMode::Cold).unwrap();
     state.execute_cycle(Duration::from_millis(20)).unwrap();
     assert!(state.fault().is_none());
+    let Some(Value::Instance(main)) = state.storage().get_global("Main") else {
+        panic!("program root")
+    };
+    assert_eq!(
+        state.storage().get_instance_var(*main, "answer"),
+        Some(&Value::Int(132)),
+        "the cold restart re-runs the nested chain on the next cycle"
+    );
 
     let limited = PreparedModule::from_bytes(
         &bytes,

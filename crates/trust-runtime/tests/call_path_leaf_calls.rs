@@ -4,6 +4,7 @@ use trust_runtime::bytecode::BytecodeVersion;
 use trust_runtime::harness::CompileSession;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::value::{DateTimeValue, Duration, Value};
+use trust_runtime_core::vm::register::RegisterExecutionConfiguration;
 use trust_runtime_core::vm::{ExecutionServices, PreparationLimits, PreparedModule};
 
 const LEAF_PARITY_SOURCE: &str = r#"
@@ -50,17 +51,51 @@ impl ExecutionServices for Attachment {
     }
 }
 
-/// One cycle's result and the observed globals after it.
-type CycleObservation = (Result<(), RuntimeError>, Vec<Option<Value>>);
+/// One cycle's result, the fault latched after it, and the observed globals after it.
+type CycleObservation = (
+    Result<(), RuntimeError>,
+    Option<RuntimeError>,
+    Vec<Option<Value>>,
+);
 
 struct Observation {
     cycles: Vec<CycleObservation>,
+    /// The fault that stopped the first failing cycle; the run continues after recovery.
     fault: Option<RuntimeError>,
     in_place_calls: u64,
+    tier1_block_executions: u64,
+}
+
+/// Platform services for `observe`: `debugger` attaches a debugger, and tier-1 selects each block at its first hit.
+struct ObservedArm {
+    debugger: bool,
+}
+
+impl ExecutionServices for ObservedArm {
+    fn register_configuration(&self) -> RegisterExecutionConfiguration {
+        RegisterExecutionConfiguration {
+            tier1_enabled: true,
+            tier1_hot_threshold: 1,
+            ..RegisterExecutionConfiguration::default()
+        }
+    }
+    fn debug_active(&self) -> bool {
+        self.debugger
+    }
+    fn deadline_exceeded(&self) -> bool {
+        false
+    }
+    fn has_wall_clock(&self) -> bool {
+        false
+    }
+    fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+        Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+    }
 }
 
 /// Runs LEAF_PARITY_SOURCE for 24 cycles with leaf calls in place or through the pump.
-/// `failing` is zeroed before cycle 21 so that the leaf fails at that cycle.
+/// `failing` is zeroed before cycle 21 so that the leaf fails at that cycle. The fault is then cleared and the
+/// divisor restored, so cycles 22 to 24 run on the recovered state.
 fn observe(debugger: bool, in_place: bool, failing: Option<&str>) -> Observation {
     let bytes = CompileSession::from_source(LEAF_PARITY_SOURCE)
         .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
@@ -68,12 +103,12 @@ fn observe(debugger: bool, in_place: bool, failing: Option<&str>) -> Observation
         .encode()
         .unwrap();
     let prepared = PreparedModule::from_bytes(&bytes, PreparationLimits::default()).unwrap();
-    let services = Attachment(debugger);
+    let services = ObservedArm { debugger };
     let mut state = prepared.instantiate_with_services(0, &services).unwrap();
     state.set_register_profile_enabled(true);
-    state.set_tier1_enabled(true);
     state.set_in_place_calls_enabled(in_place);
-    let mut cycles = Vec::new();
+    let compile_attempts = state.tier1_snapshot().compile_attempts;
+    let mut cycles: Vec<CycleObservation> = Vec::new();
     for tick in 1..=24i64 {
         if tick == 21
             && let Some(name) = failing
@@ -84,20 +119,31 @@ fn observe(debugger: bool, in_place: bool, failing: Option<&str>) -> Observation
         let Some(Value::Instance(main)) = state.storage().get_global("Main").cloned() else {
             panic!("program root")
         };
-        let values = ["count", "scaled", "seen", "answer"]
+        let values: Vec<Option<Value>> = ["count", "scaled", "seen", "answer"]
             .iter()
             .map(|name| state.storage().get_instance_var(main, name).cloned())
             .collect();
         let failed = result.is_err();
-        cycles.push((result, values));
+        cycles.push((result, state.fault().cloned(), values));
         if failed {
-            break;
+            state.clear_fault();
+            if let Some(name) = failing {
+                state.write_global(name, Value::Int(1)).unwrap();
+            }
         }
     }
+    assert_eq!(
+        state.tier1_snapshot().compile_attempts,
+        compile_attempts,
+        "RUN compiles nothing ({debugger}, {in_place}, {failing:?})"
+    );
     Observation {
+        fault: cycles
+            .iter()
+            .find_map(|(result, _, _)| result.clone().err()),
         cycles,
-        fault: state.fault().cloned(),
         in_place_calls: state.in_place_call_count(),
+        tier1_block_executions: state.tier1_snapshot().block_executions,
     }
 }
 
@@ -110,15 +156,40 @@ fn call_path_leaf_calls_stay_on_the_handler_while_a_debugger_is_attached() {
             in_place.in_place_calls > 0,
             "without a debugger the leaf calls run in place ({failing:?})"
         );
+        assert!(
+            in_place.tier1_block_executions > 0,
+            "tier-1 runs the leaf blocks in place ({failing:?})"
+        );
         let pumped = observe(false, false, failing);
+        assert!(
+            pumped.tier1_block_executions > 0,
+            "tier-1 runs the leaf blocks through the pump ({failing:?})"
+        );
         let debugged = observe(true, true, failing);
         assert_eq!(
             debugged.in_place_calls, 0,
             "a debugger attached keeps every leaf call on the handler ({failing:?})"
         );
+        assert_eq!(
+            debugged.tier1_block_executions, 0,
+            "a debugger attached keeps every block on the stack path ({failing:?})"
+        );
         assert_eq!(debugged.cycles, pumped.cycles, "results ({failing:?})");
         assert_eq!(debugged.fault, pumped.fault, "fault ({failing:?})");
         assert_eq!(debugged.cycles, in_place.cycles, "results ({failing:?})");
+        // The fault stops only its own cycle; the run then goes on and cycles 22 to 24 succeed.
+        assert_eq!(
+            in_place.fault.is_some(),
+            failing.is_some(),
+            "fault ({failing:?})"
+        );
+        assert_eq!(in_place.cycles.len(), 24, "all cycles run ({failing:?})");
+        assert!(
+            in_place.cycles[21..]
+                .iter()
+                .all(|(result, fault, _)| result.is_ok() && fault.is_none()),
+            "cycles 22 to 24 succeed after clear_fault ({failing:?})"
+        );
     }
 }
 
