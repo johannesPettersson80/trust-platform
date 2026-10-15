@@ -1,9 +1,10 @@
 //! The loop contract (specification 35, §17.1 and A5): what a project's `control-loops/*.json`
 //! declares about one control loop, decoded and checked before any runtime access.
 //!
-//! The parts of the contract that the Rust engine does not run yet (state feedback, ON/OFF, the
-//! program's own laws, PID groups, channels, cascades and declared analyses; checklist stage V7)
-//! are kept as declared and refused by [`LoopDefinition::rust_engine_support`].
+//! The parts of the contract that the Rust engine does not run yet (state feedback, ON/OFF, PID
+//! groups, channels, cascades, declared analyses outside the C12 observation loops, and the program's
+//! own laws outside the shape C2 serves; checklist stage V7) are kept as declared and refused by
+//! [`LoopDefinition::rust_engine_support`].
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -12,9 +13,17 @@ use serde_json::Value;
 use crate::failure::{Cause, Failure, NextAction};
 
 mod bindings;
+mod channels;
 mod checks;
 mod controller;
+mod project;
+mod schema_v1;
 mod texts;
+
+pub use channels::{
+    channel_signal, measured_disturbance, ChannelInput, ChannelOutput, ChannelRequirements,
+    ChannelSignal, LoopChannels,
+};
 
 pub use texts::NO_CONTROLLER_LAW;
 
@@ -28,10 +37,15 @@ pub use controller::{
     InitialValue, InitializedState, ManualOutputType, ModeWhenTrue, PidInitialization, PidLaw,
     PostScan, StateReference, StateType,
 };
+pub use project::{
+    AdditionalMode, ControllerProject, ObjectiveDirection, ProjectAxis, ProjectObjective,
+    ProjectSeedBlock,
+};
 
 use checks::{expected_primary_direction, is_numeric};
 
-/// The loop file format this crate reads.
+/// The loop file format this crate writes. It also reads version 1 files, by the rules of the `schema_v1` module, and keeps them as
+/// they are.
 pub const LOOP_SCHEMA_VERSION: u32 = 2;
 
 /// One control loop of a project.
@@ -82,13 +96,15 @@ pub struct LoopDefinition {
     /// The declared validation scenarios; ported with Validate (stage V3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_scenarios: Option<Value>,
-    /// Parked (stage V7): the loop's channels.
+    /// The loop's channels: the model's inputs and outputs (specification 35, C7 and C8). The gate parks a loop with channels until
+    /// their shapes are served (checklist V7).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub channels: Option<Value>,
-    /// Parked (stage V7): a declared control analysis.
+    pub channels: Option<LoopChannels>,
+    /// A declared control analysis (N7.6). A C12 observation or open-loop loop is served with it; any other loop parks on it (stage V7).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analysis: Option<Value>,
-    /// Parked (stage V7): the analysis's parameter names.
+    /// The analysis's parameters mapped to program symbols. Control Studio writes only the mapped symbols, within the analysis
+    /// bounds (B6.1, C12); a loop that is not a C12 observation or open-loop loop parks on it (stage V7).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analysis_parameter_symbols: Option<Value>,
     /// Parked (stage V7): the loop's place in a cascade.
@@ -112,7 +128,7 @@ pub enum LoopRejection {
     #[error("the loop definition is malformed: {0}")]
     Malformed(String),
     /// The file has another schema version.
-    #[error("the loop definition has schema version {0}; Control Studio reads version 2")]
+    #[error("the loop definition has schema version {0}; Control Studio reads versions 1 and 2")]
     UnsupportedVersion(u32),
     /// The loop belongs to another project or runtime.
     #[error("the loop belongs to another project or runtime")]
@@ -150,15 +166,18 @@ pub enum LoopRejection {
 }
 
 impl LoopDefinition {
-    /// Reads and checks a loop file: its fields, and the rules that need no runtime.
+    /// Reads and checks a loop file: its fields, and the rules that need no runtime. A version 1 file is read as version 2, by the
+    /// rules of `schema_v1`; the file itself is not rewritten.
     ///
     /// # Errors
     /// The text is not a loop definition of this format, or breaks one of its rules.
     pub fn decode(text: &str) -> Result<Self, LoopRejection> {
-        let value: Value = crate::json::parse_text(text)
+        let mut value: Value = crate::json::parse_text(text)
             .map_err(|error| LoopRejection::Malformed(error.to_string()))?;
         let version = value.get("schemaVersion").and_then(Value::as_u64);
-        if version != Some(u64::from(LOOP_SCHEMA_VERSION)) {
+        if version == Some(u64::from(schema_v1::SCHEMA_VERSION)) {
+            schema_v1::read_as_current(&mut value)?;
+        } else if version != Some(u64::from(LOOP_SCHEMA_VERSION)) {
             return Err(LoopRejection::UnsupportedVersion(
                 version
                     .and_then(|version| u32::try_from(version).ok())
@@ -171,6 +190,11 @@ impl LoopDefinition {
             .check_fields()
             .map_err(LoopRejection::Malformed)?;
         loop_definition.state_dimensionless_units();
+        if let Some(channels) = &loop_definition.channels {
+            channels
+                .check_bindings(&loop_definition)
+                .map_err(LoopRejection::Malformed)?;
+        }
         Ok(loop_definition)
     }
 
@@ -243,19 +267,36 @@ impl LoopDefinition {
         let parked = [
             ("state feedback", self.controller.state_feedback.is_some()),
             ("an ON/OFF controller", self.controller.on_off.is_some()),
-            ("the program's own law", self.controller.project.is_some()),
             ("a PID group", self.controller.group.is_some()),
-            ("channels", self.channels.is_some()),
             (
-                "a declared analysis",
-                self.analysis.is_some() || self.analysis_parameter_symbols.is_some(),
+                "channels",
+                self.channels.is_some() && !self.is_feedforward_channels(),
             ),
+            ("a declared analysis", self.declares_parked_analysis()),
             ("a cascade", self.cascade.is_some()),
         ];
         if let Some((feature, _)) = parked.iter().find(|(_, used)| *used) {
             return Err(parked_failure(feature));
         }
-        if self.controller.law.is_none() && !self.is_observation_or_open_loop() {
+        if let Some(feature) = self
+            .controller
+            .project
+            .as_ref()
+            .and_then(ControllerProject::parked_feature)
+        {
+            return Err(parked_failure(&feature));
+        }
+        if self.controller.law.is_some() && self.controller.project.is_some() {
+            return Err(Failure::new(
+                "This loop declares both a controller law and the program's own law, so Control Studio cannot tell which one tunes it.",
+                Cause::Implementation,
+                NextAction::OpenLoopSetup,
+            ));
+        }
+        if self.controller.law.is_none()
+            && self.controller.project.is_none()
+            && !self.is_observation_or_open_loop()
+        {
             // A loop that should have its law and has none is a loop setup to repair, not a C12 loop.
             return Err(Failure::new(
                 "This loop declares no controller law, so Control Studio cannot tune it.",
@@ -268,16 +309,53 @@ impl LoopDefinition {
 
     /// Whether the loop is one of the two C12 kinds that have no controller law: an open-loop experiment loop (`topology:
     /// "open-loop"`), or an observation loop whose experiment the project runs (`execution: "project-scripted"`). The project
-    /// designs the controller of both (`design: "project"`) and binds no law (specification 35, C12).
+    /// designs the controller of both (`design: "project"`) and binds no law (specification 35, C12). A loop with a program's own law
+    /// (`controller.project`, C2) is never one of them: its project law is the controller.
     #[must_use]
     pub fn is_observation_or_open_loop(&self) -> bool {
         self.controller.law.is_none()
+            && self.controller.project.is_none()
             && self.controller.design == Some(Design::Project)
             && (self.topology == Some(Topology::OpenLoop)
                 || self
                     .experiment
                     .as_ref()
                     .is_some_and(|experiment| experiment.execution == Execution::ProjectScripted))
+    }
+
+    /// Whether the loop's channels have the shape of a measured-disturbance feedforward (C8): the controller output and then the measured
+    /// disturbance are its two inputs, and the process variable is its one output. Only a loop whose program law is a feedforward seed
+    /// has that shape, and the gate serves it; any other channels stay parked.
+    #[must_use]
+    pub(crate) fn is_feedforward_channels(&self) -> bool {
+        let Some(loop_channels) = &self.channels else {
+            return false;
+        };
+        if self
+            .controller
+            .project
+            .as_ref()
+            .and_then(ControllerProject::feedforward)
+            .is_none()
+        {
+            return false;
+        }
+        let [controller, disturbance] = loop_channels.inputs.as_slice() else {
+            return false;
+        };
+        controller.signal_id == "manipulatedVariable"
+            && channels::measured_disturbance(self, disturbance)
+            && loop_channels.outputs.len() == 1
+            && loop_channels.outputs[0].signal_id == "processVariable"
+    }
+
+    /// Whether the loop's declared analysis or its parameter mapping parks the loop (stage V7). The declared analysis of a C12
+    /// observation or open-loop loop is served: the engine reads its tools, and writes its mapped parameters (specification 35,
+    /// §0.1a and C12; B6.1). Any other loop with the analysis keys stays on the `TypeScript` engine.
+    #[must_use]
+    pub fn declares_parked_analysis(&self) -> bool {
+        (self.analysis.is_some() || self.analysis_parameter_symbols.is_some())
+            && !self.is_observation_or_open_loop()
     }
 
     /// Refuses a loop of the C12 kinds for the stages that design, check or write a controller law: Tune, Validate, Apply, Restore
@@ -301,26 +379,61 @@ impl LoopDefinition {
 /// The parked feature (checklist V7) that a loop file uses, read from its JSON by the keys that
 /// [`LoopDefinition::rust_engine_support`] checks, for a file that does not decode as a loop the Rust engine runs: such a loop
 /// stays on the `TypeScript` engine until its feature is ported, and is refused as such rather than as a file without a usable
-/// loop (V6 decision D12). `None` when the file uses none of them.
+/// loop (V6 decision D12). A program's own law is read by the same gate as the typed loop (`project::parked_feature_of_parts`).
+/// `None` when the file uses none of them.
 #[must_use]
-pub fn parked_feature_of(raw: &Value) -> Option<&'static str> {
+pub fn parked_feature_of(raw: &Value) -> Option<String> {
+    // A file of another schema version is refused by its version (a version-1 file cannot declare these keys), not as parked.
+    if raw.get("schemaVersion").and_then(Value::as_u64) != Some(u64::from(LOOP_SCHEMA_VERSION)) {
+        return None;
+    }
     let present = |value: &Value, key: &str| value.get(key).is_some_and(|member| !member.is_null());
     let controller = &raw["controller"];
+    let project_feature = controller
+        .get("project")
+        .filter(|member| !member.is_null())
+        .and_then(project::raw_parked_feature);
+    // The channels of a feedforward (C8) are served, so only the other loops with channels are parked by them.
+    let feedforward_seed = raw
+        .pointer("/controller/project/seed/kind")
+        .and_then(Value::as_str)
+        == Some(project::FEEDFORWARD_PID);
     [
-        ("state feedback", present(controller, "stateFeedback")),
-        ("an ON/OFF controller", present(controller, "onOff")),
-        ("the program's own law", present(controller, "project")),
-        ("a PID group", present(controller, "group")),
-        ("channels", present(raw, "channels")),
-        (
-            "a declared analysis",
-            present(raw, "analysis") || present(raw, "analysisParameterSymbols"),
-        ),
-        ("a cascade", present(raw, "cascade")),
+        present(controller, "stateFeedback").then(|| "state feedback".to_owned()),
+        present(controller, "onOff").then(|| "an ON/OFF controller".to_owned()),
+        project_feature,
+        present(controller, "group").then(|| "a PID group".to_owned()),
+        present(raw, "channels")
+            .then(|| "channels".to_owned())
+            .filter(|_| !feedforward_seed),
+        declares_parked_analysis_raw(raw).then(|| "a declared analysis".to_owned()),
+        present(raw, "cascade").then(|| "a cascade".to_owned()),
     ]
     .into_iter()
-    .find(|(_, used)| *used)
-    .map(|(feature, _)| feature)
+    .flatten()
+    .next()
+}
+
+/// Whether a loop file that does not decode parks on its declared analysis, read from its JSON as
+/// [`LoopDefinition::declares_parked_analysis`] reads a decoded loop.
+fn declares_parked_analysis_raw(raw: &Value) -> bool {
+    let present = |key: &str| raw.get(key).is_some_and(|member| !member.is_null());
+    (present("analysis") || present("analysisParameterSymbols"))
+        && !is_observation_or_open_loop_raw(raw)
+}
+
+/// Whether a loop file is one of the two C12 kinds without a controller law, read from its JSON as
+/// [`LoopDefinition::is_observation_or_open_loop`] reads a decoded loop: no law, no program's own law, the project's design, and an
+/// open-loop topology or a project-scripted experiment.
+fn is_observation_or_open_loop_raw(raw: &Value) -> bool {
+    let controller = &raw["controller"];
+    let absent = |value: &Value, key: &str| value.get(key).is_none_or(Value::is_null);
+    absent(controller, "law")
+        && absent(controller, "project")
+        && controller.get("design").and_then(Value::as_str) == Some("project")
+        && (raw.get("topology").and_then(Value::as_str) == Some("open-loop")
+            || raw.pointer("/experiment/execution").and_then(Value::as_str)
+                == Some("project-scripted"))
 }
 
 /// The refusal of a loop that uses `feature`, which the Rust engine does not run yet (checklist V7).
@@ -335,3 +448,15 @@ pub fn parked_failure(feature: &str) -> Failure {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "loop_definition/project_tests.rs"]
+mod project_tests;
+
+#[cfg(test)]
+#[path = "loop_definition/project_feedforward_tests.rs"]
+mod project_feedforward_tests;
+
+#[cfg(test)]
+#[path = "loop_definition/analysis_gate_tests.rs"]
+mod analysis_gate_tests;

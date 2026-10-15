@@ -14,7 +14,7 @@ import { saveLoopSetup, type LoopSetupDraft } from "./loopSetupSave";
 import { renderLoopSetupBody } from "./loopSetupTemplate";
 import type { SetupFormModel } from "./setupFormModel";
 import { estimatorModelFiles } from "./estimatorModelFiles";
-import { engineAnswer, refusalText, setupSaveOutcome } from "./setupEngine";
+import { engineAnswer, refusalText, saveSetupDraft } from "./setupEngine";
 
 export const LOOP_SETUP_VIEW_TYPE = "trust-loop-setup";
 
@@ -58,7 +58,7 @@ ${renderLoopSetupBody(formModelOf(discovered.result, estimatorModels), escapeHtm
     if (message?.kind === "control-studio.setup.step-by-step" && stepByStep) { panel.dispose(); await stepByStep(); return; }
     const draft = message?.draft;
     if (message?.kind !== "control-studio.setup.save" || !draft) return;
-    const outcome = setupSaveOutcome(await engineAnswer(() => engine.setupSave({ projectRoot: folder.fsPath, runtimeId, languageTool, draft })));
+    const outcome = await saveSetupDraft(engine, { projectRoot: folder.fsPath, runtimeId, languageTool, draft });
     if (outcome.kind === "refused") {
       void webview.postMessage({ kind: "control-studio.setup.error", reason: refusalText(outcome.failure) });
       return;

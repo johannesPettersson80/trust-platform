@@ -488,6 +488,9 @@ Among acceptable forms, the simplest is selected (N2.1). A more complex form is 
 ranked ahead of a simpler acceptable form only because its error is lower. A fit
 percentage alone never selects a model.
 
+Identify fits no integrating form with a lag. A supplied model of that form (B3.7) is
+tuned without a fit error, and Automatic places its poles (N5.12(c)).
+
 One exception covers a resolved delay. When first order and first order with delay
 are both acceptable, first order with delay is selected if both of these hold:
 
@@ -761,7 +764,7 @@ no candidate:
 - a nonpositive required time constant;
 - an invalid delay;
 - a model normalized error (N3.2) above `0.25`;
-- an unsupported model structure;
+- an unsupported model structure, including an integrating model with a lag for SIMC or AMIGO (N5.12(c));
 - a failure of the method's own domain.
 
 A negative gain is not refused by itself. Its sign is checked against the loop's
@@ -888,9 +891,14 @@ model prediction, the declared choice is used and Validate decides.
 SIMC or AMIGO, when selected explicitly, calculates its formula unchanged
 (N5.2 to N5.5).
 
+An integrating model with a lag, `K′·exp(−L·s) / (s·(τ·s + 1))`, has the denominator
+`[τ, 1, 0]`. It is a second-order form with no constant term, so SIMC and AMIGO have no
+rule for it (N5.2, N5.3, N5.5) and refuse it (N5.7). Automatic places its poles by the
+matching of any delay-free second-order plant, as for lesson 90's axis `1/(s·(s + 1))`.
+
 **N5.13 Equivalent representations.** Compatible continuous SISO state-space and
 transfer-function representations feed the same controller calculations. The
-conversion of N4.7(c) is used. Validation runs on the originally selected model and
+conversion of N4.7(c) is used. Tune reads a supplied state-space model as its transfer function, scaled so that the lowest nonzero coefficient of its denominator is one, which is the form Identify writes (N2.1). Validation runs on the originally selected model and
 its state coordinates.
 
 **N5.14 Sampled state-feedback designs.** Pole placement and LQR use the existing
@@ -1349,3 +1357,74 @@ are never merged into one verdict.
 
 **N8.9 Validation does not change the controller.** A validation result does not
 write to the running controller.
+
+## N10. Structure bounds
+
+**N10.1 Purpose.** This section names each hard-coded bound that the setup of a controller structure applies, with the value it has today. Part C cites a bound by its name here and uses no other value for it. A changed value is a changed row of this section.
+
+**N10.2 Units and spans.** `mv` is the unit of the manipulated variable, `pv` the unit of the process value and `d` the unit of the measured disturbance (N0.3). `mv span`, `pv span` and `d span` are the declared maximum minus the declared minimum of that signal. `±x` means from `−x` to `x`. A bound written as `target span ÷ source span` uses the spans of the two signals that the coefficient connects.
+
+**N10.3 Bounds.**
+
+| Bound | Value | Unit | Structure |
+|---|---|---|---|
+| Proportional gain | ±1,000,000 | mv/pv | C1, C2, C6 to C11 |
+| Integral gain | ±1,000,000 | mv/(pv·s) | C1, C2, C6 to C11 |
+| Derivative gain | ±1,000,000 | mv·s/pv | C1, C2, C6 to C11 |
+| Setpoint weight, proportional and derivative | 0 to 1 | 1 | C1, C2, C6 to C11 |
+| Output rate limit, minimum | −1,000,000,000 to 0 | mv/s | C1, C2, C6 to C11 |
+| Output rate limit, maximum | 0 to 1,000,000,000 | mv/s | C1, C2, C6 to C11 |
+| Tracking time | 0.001 to 10,000 | s | C1, C2, C6 to C11 |
+| Setpoint rate state | ±1,000 × pv span | pv/s | C1, C2, C6 to C11 |
+| Process value rate state | ±1,000 × pv span | pv/s | C1, C2, C6 to C11 |
+| Feedforward state of a PID | ±1 × mv span | mv | C1, C2, C6 to C11 |
+| Nominal output state | mv minimum − 10 × mv span to mv maximum + 10 × mv span | mv | C1, C2, C6 to C11 |
+| Maximum snapshot age of the `control-pid-v1` start | the larger of 500 and 5 × task period | ms | C1 |
+| Integral state of a program law | mv minimum − 10 × mv span to mv maximum + 10 × mv span | mv | C2 |
+| Derivative state of a program law on the error | ±1 × pv span | pv | C2 |
+| Derivative state of a program law on the measurement | pv minimum to pv maximum | pv | C2 |
+| Candidates of a program law | 4 | count | C2 |
+| Retained state of a finite search started from the output | mv minimum − 10 × mv span to mv maximum + 10 × mv span | mv | C5 |
+| Retained state of a finite search started from the measurement | pv minimum − 1 × pv span to pv maximum + 1 × pv span | pv | C5 |
+| Retained state of a finite search with another start | ±1,000,000,000 | the state's unit | C5 |
+| Values the program keeps from scan to scan in a finite search | at most 3 | count | C5 |
+| Coefficients searched in a finite search | at most 4 | count | C5 |
+| Coefficient combinations tried in a finite search | at most 64 | count | C5 |
+| Candidates of a finite search | 64 | count | C5 |
+| Candidates of a single-design structure | 1 | count | C6 to C10 |
+| Cycle budget of a project block | 50,000 | cycles | C2, C5 to C10 |
+| Wall-clock budget of a project block | 60,000 | ms | C2, C5 to C10 |
+| Axes of a project tune | at most 8 | count | C2, C5 |
+| Candidates field of a project tune | 1 to 64 | count | C2, C5 |
+| Model parameters of a project block | at most 64 | count | C2 |
+| Required scenarios of a project block | at most 64 | count | C2 |
+| Additional modes of a transfer | at most 8 | count | C2, C6 |
+| Cascade identification order | 1 (maximum order) | count | C6 |
+| Cascade design simulation | at most 200,000 | samples | C6 |
+| Feedforward identification order | 2 (maximum order) | count | C8 |
+| Feedforward identification error limit | 0.05 | fraction of the measured output span | C8 |
+| Feedforward design simulation | at most 200,000 | samples | C8 |
+| Feedforward gain `K_ff` | ±1,000,000 | mv/d | C8 |
+| Feedforward lead time `T_lead` | 0 to 10,000 | s | C8 |
+| Feedforward lag time `T_lag` | 0.001 to 10,000 | s | C8 |
+| Identification disturbance step | more than 0 and at most the d span | d | C8 |
+| Smith model gain `K` | ±1,000,000 | pv/mv | C9 |
+| Smith model time constant `T` | 0.001 to 100,000 | s | C9 |
+| Smith model delay `θ` | 0 to 10,000 | s | C9 |
+| Smith correction state `c` | ±1 × pv span, starting at 0 | pv | C9 |
+| Scheduled gain | ±1,000,000 | the gain's unit | C10 |
+| Operating points of a schedule | 2 to 4 | count | C10 |
+| ON/OFF hysteresis | 0 to the pv span | pv | C3 |
+| ON/OFF minimum ON time and minimum OFF time | 0 to 3,600 | s | C3 |
+| ON/OFF dwell timer state | 0 to 1,000,000 | s | C3 |
+| Controller states in an ON/OFF setup | at most 32 | count | C3 |
+| Members of a PID group | at least 2 at setup; at most 16 in validation | count | C7 |
+| Static decoupler entry `D` | ±1,000 | ratio of the two mv units, or 1 for one unit | C7 |
+| Decoupler matrix of a seed | at most 8 rows | count | C7 |
+| Symbols listed by a PID group | at most 128 | count | C7 |
+| Measured signals besides the controlled output (state feedback) | 1 to 3 | count | C4 |
+| State-feedback identification order | 1 (maximum order) | count | C4 |
+| State-feedback coefficient limit | ±1,000 × target span ÷ source span | target unit per source unit | C4 |
+| LQG states | at most 3 | count | C4 |
+| LQG coefficient limit, gain, reference and observer | ±1,000 × target span ÷ source span | target unit per source unit | C4 |
+| Identification experiment duration | 1 s to 86,400 s (24 h) | s | all structures |

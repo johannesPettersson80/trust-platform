@@ -1,7 +1,8 @@
-//! The program's own laws (specification 35, C2 and §17.16; numerical annex N6.7): a `parallel-pid` seed names the variables
-//! that hold a program's gains, so that the law can be designed on the model as a `Control.PID` is, and the trajectory
-//! feedforward of a trajectory-following law. The designed gains are written to the variables the seed names; nothing here
-//! replaces the program's equations.
+//! The program's own laws (specification 35, C2, C11 and §17.16; numerical annex N6.7): a `parallel-pid` seed names the variables
+//! that hold a program's gains, so that the law can be designed on the model as a `Control.PID` is. A `trajectory-feedforward-pid`
+//! seed names the same three gains and, beside them, the variables of the rate and acceleration feedforward gains of a law that
+//! follows a planned trajectory (C11). The designed gains are written to the variables the seed names; nothing here replaces the
+//! program's equations.
 //!
 //! The other seed kinds (decentralized, cascade, feedforward, Smith predictor and decoupled groups) are not part of this
 //! module; the decoder refuses them.
@@ -10,13 +11,16 @@ use std::collections::BTreeMap;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use trust_control_math::model::state_space_transfer_polynomials;
 
 use crate::identification::refusal::Refusal;
+use crate::model::limits::MAXIMUM_CONVERSION_ORDER;
+use crate::model::GeneralModel;
 use crate::tuning::structure::{is_exactly_zero, ParallelGains, Structure};
 use crate::tuning::texts;
 
-/// A program law whose parallel gains are named by variables (C2): the family, the proportional variable, and the integral
-/// and derivative variables when the law has them.
+/// A program law whose parallel gains are named by variables (C2): the family, the proportional variable, and the integral and derivative
+/// variables when the law has them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ParallelPidSeed {
@@ -32,22 +36,88 @@ pub struct ParallelPidSeed {
     pub derivative_symbol: Option<String>,
 }
 
-/// A program's controller seed that the scalar rules design (C2, §17.16).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
-pub enum ProjectSeed {
-    /// A parallel law with named gain variables.
-    ParallelPid(ParallelPidSeed),
+/// The seed of a trajectory-following law (C11): the PID part, whose three gain variables are all named, and the variables of the rate
+/// and acceleration feedforward gains `K_v` and `K_a`. The five variables are distinct (`validTrajectorySeed`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrajectoryFeedforwardSeed {
+    /// The PID part: the family and the proportional, integral and derivative variables.
+    pub pid: ParallelPidSeed,
+    /// The variable that holds the rate feedforward gain `K_v`.
+    pub rate_symbol: String,
+    /// The variable that holds the acceleration feedforward gain `K_a`.
+    pub acceleration_symbol: String,
 }
 
-/// The gains that a seed's variables hold, from their values (`parallelSeedGains`): the proportional variable must be
+impl TrajectoryFeedforwardSeed {
+    /// The five variables the seed names: the PID's proportional, integral and derivative variables, then the rate and the acceleration
+    /// gains.
+    #[must_use]
+    pub fn variables(&self) -> Vec<&str> {
+        let mut symbols = vec![self.pid.proportional_symbol.as_str()];
+        symbols.extend(self.pid.integral_symbol.as_deref());
+        symbols.extend(self.pid.derivative_symbol.as_deref());
+        symbols.push(self.rate_symbol.as_str());
+        symbols.push(self.acceleration_symbol.as_str());
+        symbols
+    }
+}
+
+/// The variables of the lead and the lag time of a feedforward (C8): both are named, or neither is.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LeadLagSymbols {
+    /// The variable that holds the lead time `T_lead` in seconds.
+    pub lead_symbol: String,
+    /// The variable that holds the lag time `T_lag` in seconds.
+    pub lag_symbol: String,
+}
+
+/// The seed of a measured-disturbance feedforward (C8): the PI's three gain variables, the variable of the feedforward gain `K_ff`, and
+/// the variables of the lead and the lag times when the program has both (`validFeedforwardSeed`). The feedback law is a PI, so its
+/// derivative variable is named and written as zero.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FeedforwardPidSeed {
+    /// The PI part: the family PI, with its proportional, integral and derivative variables.
+    pub pid: ParallelPidSeed,
+    /// The variable that holds the feedforward gain `K_ff`.
+    pub gain_symbol: String,
+    /// The lead and lag variables, when the program has a lead and a lag.
+    pub lead_lag: Option<LeadLagSymbols>,
+}
+
+impl FeedforwardPidSeed {
+    /// The variables the seed names: the PI's three gains, the feedforward gain, and the lead and lag times when the seed names them.
+    #[must_use]
+    pub fn variables(&self) -> Vec<&str> {
+        let mut symbols = vec![self.pid.proportional_symbol.as_str()];
+        symbols.extend(self.pid.integral_symbol.as_deref());
+        symbols.extend(self.pid.derivative_symbol.as_deref());
+        symbols.push(self.gain_symbol.as_str());
+        if let Some(lead_lag) = &self.lead_lag {
+            symbols.push(lead_lag.lead_symbol.as_str());
+            symbols.push(lead_lag.lag_symbol.as_str());
+        }
+        symbols
+    }
+}
+
+/// The values of a feedforward (C8) at its design: the gain `K_ff`, and the lead and the lag times when the program has them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FeedforwardTerms {
+    /// The feedforward gain `K_ff`.
+    pub gain: f64,
+    /// The lead time `T_lead` in seconds, when the program has a lead and a lag.
+    pub lead_seconds: Option<f64>,
+    /// The lag time `T_lag` in seconds, when the program has a lead and a lag.
+    pub lag_seconds: Option<f64>,
+}
+
+/// The gains that a parallel seed's variables hold, from their values (`parallelSeedGains`): the proportional variable must be
 /// finite, and an absent integral or derivative variable is zero.
 #[must_use]
 pub fn parallel_seed_gains(
-    seed: &ProjectSeed,
+    seed: &ParallelPidSeed,
     parameters: &BTreeMap<String, f64>,
 ) -> Option<ParallelGains> {
-    let ProjectSeed::ParallelPid(seed) = seed;
     let proportional = parameters
         .get(&seed.proportional_symbol)
         .copied()
@@ -114,64 +184,55 @@ pub fn trajectory_feedforward(numerator: f64, a: f64, b: f64) -> Result<(f64, f6
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::float_cmp)] // The feedforward gains are exact quotients of exact inputs.
+/// The feedforward gains of a transfer function given by its coefficients from the highest power down (`trajectoryFeedforward`, C11):
+/// the numerator is one nonzero constant, and the denominator is `a·s² + b·s` or, with `a = 0`, `b·s`, with no constant term. A
+/// leading zero of either polynomial is no coefficient.
+///
+/// # Errors
+/// Returns a [`Refusal`] with the trajectory sentence when the transfer function has another form.
+pub fn trajectory_feedforward_of(
+    numerator: &[f64],
+    denominator: &[f64],
+) -> Result<(f64, f64), Refusal> {
+    let [gain] = without_leading_zeros(numerator) else {
+        return Err(Refusal::new(texts::TRAJECTORY_REFUSED));
+    };
+    let (quadratic, linear) = match without_leading_zeros(denominator) {
+        [quadratic, linear, constant] if is_exactly_zero(*constant) => (*quadratic, *linear),
+        [linear, constant] if is_exactly_zero(*constant) => (0.0, *linear),
+        _ => return Err(Refusal::new(texts::TRAJECTORY_REFUSED)),
+    };
+    trajectory_feedforward(*gain, quadratic, linear)
+}
 
-    use super::*;
-
-    fn seed() -> ParallelPidSeed {
-        ParallelPidSeed {
-            family: Structure::PI,
-            proportional_symbol: "Main.Kp".to_string(),
-            integral_symbol: Some("Main.Ki".to_string()),
-            derivative_symbol: None,
+/// The feedforward gains of a model (C11): its transfer function, or the exact transfer polynomials of a continuous state-space
+/// model (`state_space_transfer_polynomials`). A discrete model has z-plane poles, so it has no trajectory feedforward rule.
+///
+/// # Errors
+/// Returns a [`Refusal`] with the trajectory sentence when the model has no trajectory feedforward rule.
+pub fn trajectory_feedforward_of_model(model: &GeneralModel) -> Result<(f64, f64), Refusal> {
+    match model {
+        GeneralModel::TransferFunction { transfer, .. } => {
+            trajectory_feedforward_of(&transfer.numerator, &transfer.denominator)
         }
-    }
-
-    #[test]
-    fn the_gains_are_read_from_the_named_variables() {
-        let parameters =
-            BTreeMap::from([("Main.Kp".to_string(), 2.0), ("Main.Ki".to_string(), 0.5)]);
-        let gains =
-            parallel_seed_gains(&ProjectSeed::ParallelPid(seed()), &parameters).expect("bound");
-        assert_eq!(gains.proportional_gain, 2.0);
-        assert_eq!(gains.integral_gain, 0.5);
-        assert_eq!(gains.derivative_gain, 0.0);
-    }
-
-    #[test]
-    fn a_pi_law_without_an_integral_variable_is_refused() {
-        let mut without = seed();
-        without.integral_symbol = None;
-        assert_eq!(
-            check_family_terms(&without, Structure::PI)
-                .expect_err("no integral")
-                .0,
-            "A PI design needs an integral gain; the program's law has no integral gain."
-        );
-    }
-
-    #[test]
-    fn the_designed_gains_are_written_to_the_named_variables_only() {
-        let gains = ParallelGains {
-            proportional_gain: 1.5,
-            integral_gain: 0.3,
-            derivative_gain: 0.0,
-        };
-        let values = seed_values(&seed(), gains);
-        assert_eq!(values.len(), 2);
-        assert_eq!(values["Main.Ki"], 0.3);
-    }
-
-    #[test]
-    fn the_trajectory_feedforward_is_b_over_n_and_a_over_n() {
-        // n/(a s² + b s) with n = 2, a = 0.5, b = 4: K_v = 4/2 = 2, K_a = 0.5/2 = 0.25.
-        assert_eq!(
-            trajectory_feedforward(2.0, 0.5, 4.0).expect("integrator"),
-            (2.0, 0.25)
-        );
-        assert!(trajectory_feedforward(0.0, 0.5, 4.0).is_err());
-        assert!(trajectory_feedforward(2.0, 0.5, 0.0).is_err());
+        GeneralModel::ContinuousStateSpace { system, .. } => {
+            let transfer = state_space_transfer_polynomials(system, MAXIMUM_CONVERSION_ORDER)
+                .map_err(|_| Refusal::new(texts::TRAJECTORY_REFUSED))?;
+            trajectory_feedforward_of(&transfer.numerator, &transfer.denominator)
+        }
+        GeneralModel::DiscreteStateSpace { .. } => Err(Refusal::new(texts::TRAJECTORY_REFUSED)),
     }
 }
+
+/// The coefficients of a polynomial without its leading zeros, from the highest power that is not zero.
+fn without_leading_zeros(coefficients: &[f64]) -> &[f64] {
+    let first = coefficients
+        .iter()
+        .position(|value| !is_exactly_zero(*value))
+        .unwrap_or(coefficients.len());
+    &coefficients[first..]
+}
+
+#[cfg(test)]
+#[path = "project_seed_tests.rs"]
+mod tests;

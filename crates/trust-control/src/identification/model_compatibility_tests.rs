@@ -174,3 +174,131 @@ fn a_discrete_model_must_sample_at_the_controller_task_period() {
         Ok(())
     );
 }
+
+/// A loop with two plant inputs and two measured outputs (C7, C8): the heater (`P1.MV`, 0 to 100 %) and a measured load (`P1.LoadKw`,
+/// 0 to 50 kW), and the process temperature with its setpoint and a flow (`P1.Flow`, 0 to 20 L/s).
+fn two_channel_loop() -> LoopDefinition {
+    serde_json::from_value(json!({
+        "schemaVersion": 2,
+        "id": "tank",
+        "name": "Tank",
+        "revision": "sha256:tank",
+        "projectId": "test",
+        "runtimeId": "test",
+        "controller": {
+            "instance": "P1.Controller",
+            "type": "Control.PID",
+            "revision": "sha256:controller",
+            "action": "direct",
+            "taskPeriodMs": 100.0
+        },
+        "observedSampleTiming": { "nominalPeriodMs": 100.0 },
+        "signals": {
+            "setpoint": {
+                "symbol": "P1.SP", "iecType": "LREAL", "direction": "read",
+                "unit": "degC", "range": { "minimum": 20.0, "maximum": 80.0 }
+            },
+            "processVariable": {
+                "symbol": "P1.PV", "iecType": "LREAL", "direction": "read",
+                "unit": "degC", "range": { "minimum": 20.0, "maximum": 80.0 }
+            },
+            "manipulatedVariable": {
+                "symbol": "P1.MV", "iecType": "LREAL", "direction": "write",
+                "unit": "%", "range": { "minimum": 0.0, "maximum": 100.0 }
+            },
+            "additional": [
+                {
+                    "id": "load", "channel": "load", "role": "disturbance", "symbol": "P1.LoadKw",
+                    "iecType": "LREAL", "direction": "read", "unit": "kW",
+                    "range": { "minimum": 0.0, "maximum": 50.0 }
+                },
+                {
+                    "id": "flow", "channel": "flow", "role": "state", "symbol": "P1.Flow",
+                    "iecType": "LREAL", "direction": "read", "unit": "L/s",
+                    "range": { "minimum": 0.0, "maximum": 20.0 }
+                }
+            ]
+        },
+        "limits": { "outputMinimum": 0.0, "outputMaximum": 100.0 },
+        "channels": {
+            "inputs": [
+                {
+                    "modelChannelId": "heater", "signalId": "manipulatedVariable",
+                    "actuator": { "kind": "continuous", "minimum": 0.0, "maximum": 100.0 }
+                },
+                {
+                    "modelChannelId": "load", "signalId": "load",
+                    "actuator": { "kind": "continuous", "minimum": 0.0, "maximum": 50.0 }
+                }
+            ],
+            "outputs": [
+                { "modelChannelId": "temp", "signalId": "processVariable", "setpointSignalId": "setpoint" },
+                { "modelChannelId": "flow", "signalId": "flow" }
+            ]
+        }
+    }))
+    .expect("the two-channel loop decodes")
+}
+
+/// A validated one-state model of the two-channel loop: the heater and the load drive the temperature and the flow. The load and the
+/// flow carry the units given.
+fn two_channel_model(load_unit: &str, flow_unit: &str) -> GeneralModel {
+    decode_general_model(&json!({
+        "kind": "discrete-state-space",
+        "states": [{
+            "id": "history-0", "unit": "degC", "operatingRange": { "minimum": -60.0, "maximum": 60.0 }
+        }],
+        "a": [[0.9]],
+        "b": [[0.1, 0.05]],
+        "c": [[1.0], [0.5]],
+        "d": [[0.0, 0.0], [0.0, 0.0]],
+        "delaySeconds": 0.0,
+        "sampleTimeSeconds": 0.1,
+        "revision": "model-3",
+        "source": "fitted",
+        "validation": "validated",
+        "evidence": ["recording 9"],
+        "inputs": [
+            { "id": "heater", "unit": "%", "operatingRange": { "minimum": 0.0, "maximum": 100.0 } },
+            { "id": "load", "unit": load_unit, "operatingRange": { "minimum": 0.0, "maximum": 50.0 } }
+        ],
+        "outputs": [
+            { "id": "temp", "unit": "degC", "operatingRange": { "minimum": 20.0, "maximum": 80.0 } },
+            { "id": "flow", "unit": flow_unit, "operatingRange": { "minimum": 0.0, "maximum": 20.0 } }
+        ]
+    }))
+    .expect("the two-channel model decodes")
+}
+
+#[test]
+fn a_two_channel_model_is_qualified_on_every_input_and_output_of_the_loop() {
+    let loop_definition = two_channel_loop();
+    assert_eq!(
+        assert_qualified_model_result(&loop_definition, &two_channel_model("kW", "L/s")),
+        Ok(())
+    );
+    assert_eq!(
+        assert_qualified_model_result(&loop_definition, &two_channel_model("kW", "m3/s")),
+        Err(CompatibilityRefusal::OutputUnit {
+            id: "flow".to_string(),
+            symbol: "P1.Flow".to_string(),
+        }),
+        "the second output's unit differs from the loop's"
+    );
+    assert_eq!(
+        assert_qualified_model_result(&loop_definition, &two_channel_model("MW", "L/s")),
+        Err(CompatibilityRefusal::InputUnit {
+            id: "load".to_string(),
+            symbol: "P1.LoadKw".to_string(),
+        }),
+        "the second input's unit differs from the loop's"
+    );
+}
+
+#[test]
+fn an_engineer_compatibility_check_keeps_one_input_and_one_output() {
+    assert_eq!(
+        assert_engineer_model_compatibility(&two_channel_loop(), &two_channel_model("kW", "L/s")),
+        Err(CompatibilityRefusal::UnmappedChannels)
+    );
+}

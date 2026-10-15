@@ -84,7 +84,7 @@ pub fn check_family(
         .find(|target| target.loop_definition.id == selection.loop_id)
         .map(|target| &target.controller_compatibility);
     match compatibility {
-        Some(ControllerCompatibility::Accepted { families })
+        Some(ControllerCompatibility::Accepted { families, .. })
             if families.iter().any(|known| known == family) =>
         {
             Ok(())

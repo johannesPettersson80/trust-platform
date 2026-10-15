@@ -3,10 +3,12 @@
 
 mod parameters;
 mod pid;
+mod project;
 mod proportional;
 mod transactions;
 pub use parameters::*;
 pub use pid::*;
+pub use project::*;
 pub use proportional::*;
 pub use transactions::*;
 
@@ -368,6 +370,20 @@ pub fn init_filter_unit(symbol: &str) -> String {
 #[must_use]
 pub fn init_coordinates_units(symbol: &str) -> String {
     format!("Initialization coordinates or units do not match {symbol}.")
+}
+
+/// Feedforward initialization (`scaled-model-input`, controllerInitialState.ts; C8): the state's gain is not bound in the state's unit
+/// per the measured disturbance's unit, or the disturbance is not a model input. `unit` is the unit the gain must have.
+#[must_use]
+pub fn init_scaled_gain(symbol: &str, unit: &str) -> String {
+    format!("Initialization of {symbol} needs the bound gain in {unit}.")
+}
+
+/// Feedforward initialization (`scaled-measurement`, controllerInitializationFormulas.ts; C8): the loop binds no measured disturbance to
+/// the model input that the state reads.
+#[must_use]
+pub fn init_disturbance_unbound(symbol: &str) -> String {
+    format!("Initialization of {symbol} reads a measured disturbance that the loop does not bind to that model input.")
 }
 
 /// Boolean operating-point initialization (`model-input-is`, controllerInitialState.ts; C0): the state is not dimensionless, the

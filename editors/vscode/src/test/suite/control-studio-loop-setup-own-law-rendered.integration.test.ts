@@ -38,6 +38,10 @@ suite("Control Studio own P or PI law setup rendered", () => {
       await inner("d.querySelector('[data-setup-save]').click();return 'save';");
       const studio = await attachControlStudio(connection, port, "", "loop:temperature");
       await pollValue("Control Studio ready", () => evaluateInWebview(connection, studio, "return d.querySelector('[data-studio-three-page]')?.dataset.hostReady;"), value => value === "true", 10000);
+      // The engine serves the program's law and offers its families (setupDiscover, C2): P, and PI because the seed names Ki.
+      await pollValue("engine families", () => evaluateInWebview(connection, studio,
+        "return JSON.stringify(Array.from(d.querySelector('[data-studio-controller]').options, option => option.dataset.family));"),
+      value => value === JSON.stringify(["automatic", "P", "PI"]), 10000);
       await shot("studio");
       const saved = JSON.parse(fs.readFileSync(path.join(project, "control-loops", "temperature.json"), "utf8"));
       assert.strictEqual(validateControlLoopDefinition(saved, { projectId: saved.projectId, runtimeId: saved.runtimeId }).kind, "accepted");

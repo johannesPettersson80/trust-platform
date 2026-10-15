@@ -15,6 +15,7 @@ use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::identified_model_presentation;
 use crate::model::{ModelChannel, ModelIdentity, ModelSource, ModelValidation, OperatingRange};
 use crate::recording::EvidenceSource;
+use crate::study::current_model::CurrentModelSource;
 use crate::study::identify::{IdentifyMethod, IdentifySection, IdentifySignals};
 use crate::tuning::objective::TuningMethod;
 use crate::tuning::plant::{from_identified, TuningPlant};
@@ -286,12 +287,25 @@ fn the_same_dynamics_in_another_scale_or_with_a_zero_are_not_forms_identify_writ
             .0,
         NOT_A_FORM
     );
-    // An integrator with a lag, `s·(τs + 1)`, is not a form Identify fits.
+    // An integrator with a lag is read only with its `s` coefficient one (`1/(3s² + 2s)` is not `1/(3s² + s)` in that scale).
     assert_eq!(
-        read(&[1.0], &[3.0, 1.0, 0.0], 0.0)
-            .expect_err("an integrator with a lag")
+        read(&[1.0], &[3.0, 2.0, 0.0], 0.0)
+            .expect_err("an integrator with a lag in another scale")
             .0,
         NOT_A_FORM
+    );
+}
+
+#[test]
+fn an_integrator_with_a_lag_reads_back_its_rate_gain_and_lag() {
+    // Lesson 90's axis `1/(s² + s)`: the rate gain 1 and the lag 1 (N5.12(c)). With a dead time the lag keeps its own delay.
+    assert_eq!(
+        read(&[1.0], &[1.0, 1.0, 0.0], 0.0).expect("1/(s² + s)"),
+        expected(LowOrderModelKind::Integrating, 1.0, [Some(1.0), None], 0.0)
+    );
+    assert_eq!(
+        read(&[2.0], &[0.5, 1.0, 0.0], 3.0).expect("2·e^(−3s)/(0.5s² + s)"),
+        expected(LowOrderModelKind::Integrating, 2.0, [Some(0.5), None], 3.0)
     );
 }
 
@@ -356,6 +370,8 @@ fn a_model_without_its_deciding_error_is_refused() {
     let mut section = identify_section(Some(0.12));
     section
         .presentation
+        .as_mut()
+        .expect("a fit keeps its presentation")
         .presentation
         .validation
         .normalized_error = None;
@@ -367,25 +383,64 @@ fn a_model_without_its_deciding_error_is_refused() {
     );
 }
 
-#[test]
-fn a_state_space_model_is_not_a_form_identify_writes() {
+/// The study's current model of a supplied continuous state-space model with no dead time (B3.7): the states and the matrices
+/// as given, with no fit error, because a supplied model was not fitted.
+fn supplied_state_space(states: Vec<ModelChannel>, system: StateSpace) -> CurrentModel {
     let section = identify_section(None);
-    let state_space = GeneralModel::ContinuousStateSpace {
-        identity: section.selected_model.identity().clone(),
-        states: vec![channel("x", "°C")],
-        system: StateSpace {
+    let identity = ModelIdentity {
+        delay_seconds: 0.0,
+        ..section.selected_model.identity().clone()
+    };
+    CurrentModel {
+        source: CurrentModelSource::Supplied,
+        model: GeneralModel::ContinuousStateSpace {
+            identity,
+            states,
+            system,
+        },
+        identify: None,
+    }
+}
+
+#[test]
+fn a_supplied_state_space_model_is_read_as_its_transfer_function_in_the_form_identify_writes() {
+    // `0.375/(s + 0.25)` is `1.5/(4s + 1)`: the monic conversion, scaled by its constant term (N4.7(c), N5.13).
+    let current = supplied_state_space(
+        vec![channel("x", "°C")],
+        StateSpace {
             a: vec![vec![-0.25]],
             b: vec![vec![1.0]],
             c: vec![vec![0.375]],
             d: vec![vec![0.0]],
         },
-    };
-    let current = CurrentModel {
-        model: state_space,
-        ..fitted_current(section)
-    };
+    );
     assert_eq!(
-        tuning_model(&current).expect_err("a state-space model").0,
-        NOT_A_FORM
+        tuning_model(&current).expect("a first-order state-space model"),
+        IdentifiedModel {
+            normalized_error: None,
+            ..expected(LowOrderModelKind::FirstOrder, 1.5, [Some(4.0), None], 0.0)
+        }
+    );
+}
+
+#[test]
+fn lesson_90s_state_space_axis_is_the_integrator_with_a_lag() {
+    // The shipped axis has J·ω′ = u − B·ω and θ′ = ω with J = 1 and B = 1, so θ/u = 1/(s² + s) (N4.7(c)): its tuning model is
+    // the integrator with a lag of one second and rate gain one.
+    let current = supplied_state_space(
+        vec![channel("angle", "rad"), channel("velocity", "rad/s")],
+        StateSpace {
+            a: vec![vec![0.0, 1.0], vec![0.0, -1.0]],
+            b: vec![vec![0.0], vec![1.0]],
+            c: vec![vec![1.0, 0.0]],
+            d: vec![vec![0.0]],
+        },
+    );
+    assert_eq!(
+        tuning_model(&current).expect("lesson 90's axis"),
+        IdentifiedModel {
+            normalized_error: None,
+            ..expected(LowOrderModelKind::Integrating, 1.0, [Some(1.0), None], 0.0)
+        }
     );
 }

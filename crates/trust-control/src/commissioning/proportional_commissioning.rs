@@ -25,6 +25,7 @@ use super::observation_assessment::{
     assess_observation, JournalStage, ObservationRefusal, ObservedRecording,
 };
 use super::parameter_status::{same_parameter_values, ParameterStatus};
+use super::project_law::{entry_application_values, live_application_values};
 use super::starting_point::{compared_plant_inputs, StartingPoint};
 use super::texts;
 use super::transfer::{
@@ -38,7 +39,7 @@ use super::transfer_tracking::{
 /// (annex E6.4). The mode is written with it: Manual for a staging or recovery, Auto for an entry.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TransferStep {
-    /// The state values the transfer writes, by symbol: the reference and the Manual command.
+    /// The state values the transfer writes, by symbol: the reference, the Manual command and the application states of the law (C1).
     pub values: BTreeMap<String, f64>,
     /// The largest change of the first output the transfer accepts (A6.4).
     pub tolerance: f64,
@@ -419,7 +420,12 @@ pub fn manual_step(
     previous_reference: f64,
 ) -> Result<TransferStep, Failure> {
     Ok(TransferStep {
-        values: state_values(binding, observed, previous_reference)?,
+        values: state_values(
+            binding,
+            observed,
+            previous_reference,
+            live_application_values(loop_definition, binding, observed)?,
+        )?,
         tolerance: transfer_tolerance(loop_definition, task.transfer_tolerance)?,
         tracking: TransferTracking::Proportional(proportional_tracking(
             loop_definition,
@@ -447,7 +453,12 @@ pub fn auto_entry_step(
     let gain = gains.get(gain_symbol).copied().unwrap_or(f64::NAN);
     let reference = aligned_reference(loop_definition, binding, observed, gain)?;
     Ok(TransferStep {
-        values: state_values(binding, observed, reference)?,
+        values: state_values(
+            binding,
+            observed,
+            reference,
+            entry_application_values(loop_definition, binding)?,
+        )?,
         tolerance: auto_entry_tolerance(loop_definition, task, gains, process_noise, None)?,
         tracking: TransferTracking::Proportional(proportional_tracking(
             loop_definition,
@@ -469,7 +480,12 @@ pub fn target_step(
     target: f64,
 ) -> Result<TransferStep, Failure> {
     Ok(TransferStep {
-        values: state_values(binding, observed, target)?,
+        values: state_values(
+            binding,
+            observed,
+            target,
+            live_application_values(loop_definition, binding, observed)?,
+        )?,
         tolerance: transfer_target_allowance(binding).ok_or_else(binding_failure)?,
         tracking: TransferTracking::Proportional(proportional_tracking(
             loop_definition,
@@ -636,14 +652,17 @@ fn full_text(failure: &Failure) -> String {
 
 /// The state values of a transfer: the reference, and the Manual command set to the output the loop holds at the boundary, each
 /// rounded to its IEC type (`stateValues`, E6.2).
+/// The values a transfer writes for the states of its binding: the reference and the Manual command, and the application states of a
+/// program's own law (C1), each at the value the caller gives for it. The transfer protocol takes a value for every state.
 fn state_values(
     binding: &TransferBinding,
     observed: &BTreeMap<String, TransferValue>,
     reference: f64,
+    application: BTreeMap<String, f64>,
 ) -> Result<BTreeMap<String, f64>, Failure> {
     let (reference_member, manual_member) = state_pair(binding)?;
     let held = number_at(observed, output_symbol(binding)?)?;
-    Ok(BTreeMap::from([
+    let mut values = BTreeMap::from([
         (
             reference_member.symbol.clone(),
             rounded_transfer_value(reference_member, reference)?,
@@ -652,7 +671,9 @@ fn state_values(
             manual_member.symbol.clone(),
             rounded_transfer_value(manual_member, held)?,
         ),
-    ]))
+    ]);
+    values.extend(application);
+    Ok(values)
 }
 
 /// The reference that an aligned Auto entry starts from (`trackingReference`, C13.3): `r = PV + u / Kp`, from the process value and

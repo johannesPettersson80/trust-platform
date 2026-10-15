@@ -266,6 +266,13 @@ export interface LoopSummary {
          * The structures, as the setup page names them.
          */
         families: string[];
+        /**
+         * The parameter symbols that each family's manual settings and pins take, by the family's name (C0, C2). The page asks
+         * for these settings only, and Tune refuses any other.
+         */
+        familySettings: {
+          [k: string]: string[];
+        };
         kind: "accepted";
         [k: string]: unknown;
       }

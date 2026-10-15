@@ -12,6 +12,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::actuator_feedback::with_actuator_feedback;
+use super::declared_initialization::roles_distinct;
+use super::project_law::{application_members, connected_p_gain};
 use super::texts;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
@@ -181,7 +183,7 @@ pub fn output_limits(loop_definition: &LoopDefinition) -> Result<(f64, f64), Fai
 
 /// The gain parameter of a proportional law (`proportionalParameter`, `engineerVerificationPlan.ts`). The layer that owns
 /// that file is ported later; the transfer needs this decision now, so it is ported here. The analysis-based controller of
-/// that file is a parked feature and is not ported.
+/// that file is a parked feature and is not ported. A program's own P law (C2) has the gain of its seed.
 ///
 /// # Errors
 /// The loop has no proportional law or no setpoint, or its gain is not one of the bound parameters.
@@ -193,8 +195,8 @@ pub fn proportional_parameter(loop_definition: &LoopDefinition) -> Result<&Param
             NextAction::OpenLoopSetup,
         )
     };
-    let (Some(ControllerLaw::Proportional { gain_symbol }), Some(_)) = (
-        loop_definition.controller.law.as_ref(),
+    let (Some(gain_symbol), Some(_)) = (
+        connected_p_gain(loop_definition),
         loop_definition.signals.setpoint.as_ref(),
     ) else {
         return Err(unset());
@@ -206,7 +208,7 @@ pub fn proportional_parameter(loop_definition: &LoopDefinition) -> Result<&Param
             binding
                 .parameters
                 .iter()
-                .find(|parameter| parameter.symbol == *gain_symbol)
+                .find(|parameter| parameter.symbol.as_str() == gain_symbol)
         })
         .ok_or_else(unset)
 }
@@ -349,26 +351,39 @@ pub fn proportional_transfer_binding(
     };
     let process_variable =
         signal_member(&loop_definition.signals.process_variable).ok_or_else(primary_failure)?;
+    let mode = mode_binding(parameters);
+    // The application states of a program's own P law follow the reference and the Manual command, and the same transfer writes them
+    // (C1, C13 Apply step 4).
+    let manual_member = TransferMember {
+        symbol: manual,
+        iec_type: manual_type,
+        ..output.clone()
+    };
+    let states: Vec<TransferMember> = [reference, manual_member]
+        .into_iter()
+        .chain(application_members(loop_definition))
+        .collect();
+    let guards: Vec<TransferMember> = parameters
+        .parameters
+        .iter()
+        .map(parameter_member)
+        .chain(std::iter::once(process_variable))
+        .collect();
+    if !roles_distinct(&mode, &states, &guards, &output) {
+        return Err(Failure::new(
+            &texts::declared_roles_overlap(),
+            Cause::Implementation,
+            NextAction::OpenLoopSetup,
+        ));
+    }
     let binding = TransferBinding {
         loop_id: parameters.loop_id.clone(),
         task_name: parameters.task_name.clone(),
-        mode: mode_binding(parameters),
+        mode,
         additional_modes: Vec::new(),
         tracking_outputs: BTreeMap::new(),
-        states: vec![
-            reference,
-            TransferMember {
-                symbol: manual,
-                iec_type: manual_type,
-                ..output.clone()
-            },
-        ],
-        guards: parameters
-            .parameters
-            .iter()
-            .map(parameter_member)
-            .chain(std::iter::once(process_variable))
-            .collect(),
+        states,
+        guards,
         output,
         additional_outputs: Vec::new(),
     };

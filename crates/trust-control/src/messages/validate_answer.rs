@@ -9,6 +9,7 @@ use crate::failure::Failure;
 use crate::identification::connected_record::RunEvidence;
 use crate::identification::independent_validation::RequirementStatus;
 use crate::stages::{StageAvailability, StageEvidence};
+use crate::study::validate::DisturbanceCaseOutcome;
 use crate::tuning::requirements::TuningRequirements;
 
 use super::validate_initialization::InitializationOutcome;
@@ -113,6 +114,9 @@ pub struct ValidateResult {
     /// The Manual-to-Auto entry case of an Auto commissioning (B5.3, B5.4); absent when this validation ran no such case.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub initialization: Option<InitializationOutcome>,
+    /// The measured-disturbance case of a feedforward (C8, B5.4); absent when this validation ran none. Its failure ends Apply.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disturbance_case: Option<DisturbanceCaseOutcome>,
     /// The words the engine names for the rows of the table (B9.9).
     pub labels: ValidateLabels,
     /// The measured response of the target-response case for the plot (B5.4, B9.6); absent when the candidate's run has no sample.

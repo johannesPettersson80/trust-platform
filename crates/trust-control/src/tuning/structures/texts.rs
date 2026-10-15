@@ -15,6 +15,18 @@ pub const FEEDFORWARD_CHANNELS: &str = "A feedforward is designed on one model f
 /// A feedforward needs the disturbance's identification step, which must be positive (C8).
 pub const FEEDFORWARD_STEP: &str = "Declare the measured disturbance's identification step.";
 
+/// A feedforward is designed by Automatic, which designs its PI on the output path for the requirements (C8, B4.4).
+pub const FEEDFORWARD_AUTOMATIC: &str =
+    "A measured-disturbance feedforward is designed by Automatic: its PI is designed on the output path for the requirements. Choose Automatic.";
+
+/// A feedforward's feedback law is a PI, so the only structure it takes is PI (C0, C8).
+pub const FEEDFORWARD_STRUCTURE: &str =
+    "The feedback law of a measured-disturbance feedforward is a PI. Choose PI or Automatic.";
+
+/// Pinned settings are not yet served for a feedforward, whose gains are designed on the output path (C8).
+pub const FEEDFORWARD_PINS: &str =
+    "Pinned settings are not yet served for a measured-disturbance feedforward. Clear the pins and Tune again.";
+
 /// A Smith predictor is designed on a model from the controller output to the measurement (C9).
 pub const SMITH_MODEL: &str =
     "A Smith predictor is designed on a model from the controller output to the measurement.";

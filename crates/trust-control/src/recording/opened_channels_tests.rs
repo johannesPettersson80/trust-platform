@@ -465,12 +465,16 @@ fn an_extra_output_with_a_sample_that_is_not_good_is_refused_as_an_invalid_signa
 }
 
 #[test]
-fn the_view_of_an_extra_output_drops_the_loops_model_name_of_the_output_and_keeps_its_input_name() {
+fn the_view_of_an_extra_output_names_it_with_the_loops_measured_output_and_keeps_its_input_name() {
     let mut loop_definition = loop_definition();
-    loop_definition.channels = Some(json!({
-        "inputs": [{ "signalId": "manipulatedVariable", "modelChannelId": "u" }],
-        "outputs": [{ "signalId": "processVariable", "modelChannelId": "y" }],
-    }));
+    loop_definition.channels = Some(
+        serde_json::from_value(json!({
+            "inputs": [{ "signalId": "manipulatedVariable", "modelChannelId": "u",
+                "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 } }],
+            "outputs": [{ "signalId": "processVariable", "modelChannelId": "y" }],
+        }))
+        .expect("typed channels"),
+    );
     let recorded = with_extra_output(
         archive(&[[50.0, 48.0, 32.0], [50.0, 49.0, 32.0]]),
         "P1.RecordedTemperature",
@@ -484,15 +488,82 @@ fn the_view_of_an_extra_output_drops_the_loops_model_name_of_the_output_and_keep
         "P1.RecordedTemperature",
     )
     .expect("the extra output is a channel of the recording");
+    assert_eq!(
+        view.signals.process_variable.symbol, "P1.RecordedTemperature",
+        "the fit reads the recorded channel"
+    );
     let channels = view.channels.as_ref().expect("the loop's channel names");
     assert_eq!(
-        channels["outputs"],
-        json!([]),
-        "the loop's model name belongs to its own output, so the extra output names itself"
+        output_names(channels),
+        [("processVariable", "y")],
+        "the model names the loop's measured output, not the recorded channel (B3.6)"
     );
     assert_eq!(
-        channels["inputs"],
-        json!([{ "signalId": "manipulatedVariable", "modelChannelId": "u" }]),
+        input_names(channels),
+        [("manipulatedVariable", "u")],
         "the plant input is the loop's own, so it keeps its model name"
     );
+}
+
+#[test]
+fn an_extra_output_of_a_loop_without_channels_is_named_with_its_measured_output_symbol() {
+    let loop_definition = loop_definition();
+    let recorded = with_extra_output(
+        archive(&[[50.0, 48.0, 32.0], [50.0, 49.0, 32.0]]),
+        "P1.RecordedTemperature",
+        "degC",
+        &[(47.0, Quality::Good), (47.2, Quality::Good)],
+    );
+    let view = selection_loop(
+        &loop_definition,
+        &recorded,
+        "ValveMV",
+        "P1.RecordedTemperature",
+    )
+    .expect("the extra output is a channel of the recording");
+    let channels = view.channels.as_ref().expect("the view names its outputs");
+    assert_eq!(
+        output_names(channels),
+        [("processVariable", "LevelPV")],
+        "the loop's own measured output has no model name, so its symbol is the model's name"
+    );
+    assert_eq!(
+        input_names(channels),
+        Vec::<(&str, &str)>::new(),
+        "the plant input is the loop's own and is not renamed"
+    );
+}
+
+#[test]
+fn a_selected_signal_the_loop_binds_to_no_role_takes_the_roles_model_name() {
+    // The setpoint is selected as the measured output. It is not the loop's measured output, so the model names it with the
+    // identifier the loop's measured output has (B3.6).
+    let loop_definition = loop_definition();
+    let recorded = archive(&[[50.0, 48.0, 32.0]]);
+    let view = selection_loop(&loop_definition, &recorded, "ValveMV", "LevelSP")
+        .expect("both signals are the loop's");
+    assert_eq!(view.signals.process_variable.symbol, "LevelSP");
+    assert_eq!(
+        view.channels.as_ref().map(output_names),
+        Some(vec![("processVariable", "LevelPV")]),
+        "the setpoint is not the measured output, so the measured output's name is the model's"
+    );
+}
+
+/// The (signal, model name) pairs of the view's measured-output channels.
+fn output_names(channels: &crate::loop_definition::LoopChannels) -> Vec<(&str, &str)> {
+    channels
+        .outputs
+        .iter()
+        .map(|entry| (entry.signal_id.as_str(), entry.model_channel_id.as_str()))
+        .collect()
+}
+
+/// The (signal, model name) pairs of the view's plant-input channels.
+fn input_names(channels: &crate::loop_definition::LoopChannels) -> Vec<(&str, &str)> {
+    channels
+        .inputs
+        .iter()
+        .map(|entry| (entry.signal_id.as_str(), entry.model_channel_id.as_str()))
+        .collect()
 }

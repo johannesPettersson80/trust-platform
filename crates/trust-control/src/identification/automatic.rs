@@ -96,16 +96,28 @@ pub enum AutomaticIdentificationResult<E> {
         /// What the page shows of the model, with the traces of the record it was fitted from (B3.8).
         presentation: Box<ComparisonPresentation>,
     },
+    /// A state-space model of several plant inputs or measured outputs (C7, C8), kept with its records and without a
+    /// comparison presentation (B10.2).
+    StateModel {
+        /// The state-space model.
+        model: Box<GeneralModel>,
+        /// The records the model was fitted from.
+        runs: Vec<RuntimeVerificationResult<E>>,
+        /// The fit the model was made with.
+        fit: GeneralIdentificationFit,
+    },
 }
 
 impl<E> AutomaticIdentificationResult<E> {
-    /// What the page shows of the model (B3.8), however it was identified: the study keeps this with the model.
+    /// What the page shows of the model (B3.8), however it was identified: the study keeps this with the model. A state-space
+    /// model has none (B10.2).
     #[must_use]
-    pub fn presentation(&self) -> &ComparisonPresentation {
+    pub fn presentation(&self) -> Option<&ComparisonPresentation> {
         match self {
             Self::Accepted { presentation, .. } | Self::Model { presentation, .. } => {
-                presentation.as_ref()
+                Some(presentation.as_ref())
             }
+            Self::StateModel { .. } => None,
         }
     }
 }

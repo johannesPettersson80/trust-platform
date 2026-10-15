@@ -39,7 +39,7 @@ use crate::journal::{Journal, JournalEntry};
 use crate::runtime_client::RuntimeClient;
 use crate::workflow::identify::test_support::{
     folder, journaled_step, passes, plan, reopened, run_tank, whole_text, FakeClock, FakeState,
-    StartBehaviour, Study,
+    Sampler, StartBehaviour, Study,
 };
 use crate::workflow::identify::{IdentifyRequest, RunPurpose};
 use crate::workflow::identify_recovery::{cancel_operation_on, resume, RecoveryPorts};
@@ -585,6 +585,7 @@ fn reopening_follows_the_experiment_returns_the_mode_and_then_fits() {
     let resumed = resume(
         RecoveryPorts {
             runtime: &runtime,
+            sampler: &mut Sampler(None),
             retention: &mut study,
             clock: &FakeClock::new(&state),
             report: &report,
@@ -644,6 +645,7 @@ fn reopening_an_identification_whose_experiment_never_started_returns_the_mode()
     let Err(failure) = resume(
         RecoveryPorts {
             runtime: &runtime,
+            sampler: &mut Sampler(None),
             retention: &mut study,
             clock: &FakeClock::new(&state),
             report: &report,

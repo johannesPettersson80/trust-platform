@@ -43,6 +43,7 @@ pub mod pid_measurement;
 pub mod pid_operating_state;
 pub mod pid_recovery;
 pub mod profile;
+pub mod project_law;
 pub mod proportional_commissioning;
 pub mod proportional_recovery;
 pub mod restore_availability;

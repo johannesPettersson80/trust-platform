@@ -176,7 +176,11 @@ fn tune_designs_on_a_supplied_model_whose_error_was_never_recorded() {
     let outcome = tune(&inputs).expect("Automatic designs a candidate on the supplied model");
     assert_eq!(outcome.section.model_revision, "provided-course-model");
     assert!(
-        !outcome.section.candidate.applied,
+        outcome
+            .section
+            .candidate
+            .as_ref()
+            .is_some_and(|candidate| !candidate.applied),
         "Tune never writes (B4.1)"
     );
 }

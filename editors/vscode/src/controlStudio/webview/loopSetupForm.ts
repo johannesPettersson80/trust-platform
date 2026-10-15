@@ -70,25 +70,18 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
         manualOutput: value("feedback.manualOutput") } };
     }
     if (structure() === "own-law") {
-      if (!value("own.instance")) return { missing: "Choose the instance that computes the law." };
-      const pv = signal("own.processVariable", "measurement"); if (pv.missing) return pv;
-      if (!value("own.setpoint")) return { missing: "Choose the setpoint." };
-      const mv = signal("own.manipulatedVariable", "output"); if (mv.missing) return mv;
-      if (!value("own.mode")) return { missing: "Choose the Auto/Manual signal." };
-      if (!value("own.manualOutput")) return { missing: "Choose the manual output." };
-      const law = ownLaw(), integrating = law !== "P", differentiating = law === "PID";
-      const proportional = gainValue("own.proportionalGain", "proportional gain"); if (proportional.missing) return proportional;
-      const integral = integrating ? gainValue("own.integralGain", "integral gain") : {}; if (integral.missing) return integral;
-      if (integrating && !value("own.integralTerm")) return { missing: "Choose the variable holding the integral term." };
-      const derivative = differentiating ? gainValue("own.derivativeGain", "derivative gain") : {}; if (derivative.missing) return derivative;
-      if (differentiating && !value("own.derivativeState")) return { missing: "Choose the variable holding the previous value the derivative is taken from." };
-      if (differentiating && !value("own.derivativeOn")) return { missing: "Choose whether that previous value is the error or the measurement." };
-      const startup = startupFlag(); if (startup.missing) return startup;
-      return { draft: { structure: "own-law", name, action, ...(startup.value ? { startupFlag: startup.value } : {}), law,
-        instance: value("own.instance"), processVariable: pv.value, setpoint: { symbol: value("own.setpoint") }, manipulatedVariable: mv.value,
-        mode: { symbol: value("own.mode"), whenTrue: value("own.modeWhenTrue") || "Auto" }, manualOutput: value("own.manualOutput"),
-        proportionalGain: proportional.value, ...(integrating ? { integralGain: integral.value, integralTerm: value("own.integralTerm") } : {}),
-        ...(differentiating ? { derivativeGain: derivative.value, derivativeState: value("own.derivativeState"), derivativeOn: value("own.derivativeOn") } : {}) } };
+      const law = ownLawDraft(name, action, ownLaw()); if (!law.draft) return law;
+      return { draft: { structure: "own-law", ...law.draft } };
+    }
+    if (structure() === "trajectory-feedforward") {
+      // The program's PID law, with the planned trajectory it follows, the feedforward term it adds and the two feedforward gains (C11).
+      const law = ownLawDraft(name, action, "PID"); if (!law.draft) return law;
+      const rateGain = gainValue("traj.rateGain", "rate feedforward gain"); if (rateGain.missing) return rateGain;
+      const accelerationGain = gainValue("traj.accelerationGain", "acceleration feedforward gain"); if (accelerationGain.missing) return accelerationGain;
+      const planned = signal("traj.plannedTrajectory", "planned trajectory"); if (planned.missing) return planned;
+      if (!value("traj.feedforwardTerm")) return { missing: "Choose the variable holding the feedforward term." };
+      return { draft: { structure: "trajectory-feedforward", ownLaw: law.draft, rateGain: rateGain.value, accelerationGain: accelerationGain.value,
+        plannedTrajectory: planned.value, feedforwardTerm: value("traj.feedforwardTerm") } };
     }
     if (structure() === "search") {
       if (!value("search.instance")) return { missing: "Choose the instance that computes the law." };
@@ -213,15 +206,18 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
         delay: value("smith.delay"), correction: value("smith.correction") } } };
     }
     if (structure() !== "feedforward") return loop;
-    // The measured disturbance and the program's feedforward variables (Specification 35 §17.12).
+    // The measured disturbance and the program's feedforward variables (Specification 35 §17.12). The draft is the engine's
+    // FeedforwardLoopDraft (`parse_setup_draft` in setup/save.rs): the step is in the disturbance's unit, and the engine checks its range.
     const disturbance = signal("ff.disturbance", "measured disturbance"); if (disturbance.missing) return disturbance;
     if (!value("ff.disturbanceCommand")) return { missing: "Choose the variable Identify steps to move the disturbance." };
+    const step = Number(value("ff.disturbanceStep"));
+    if (!value("ff.disturbanceStep") || !Number.isFinite(step)) return { missing: "Enter the disturbance's identification step, in its unit." };
     if (!value("ff.gain")) return { missing: "Choose the variable holding the feedforward gain." };
     const leadLag = [["ff.lead", "lead time"], ["ff.lag", "lag time"], ["ff.filtered", "filtered disturbance the lag keeps"]] as const;
     const absent = leadLag.find(([field]) => !value(field));
     if (absent && leadLag.some(([field]) => value(field))) return { missing: `Choose the ${absent[1]} too, or no lead/lag at all.` };
     return { draft: { ...loop.draft, structure: "feedforward", disturbance: disturbance.value, disturbanceCommand: value("ff.disturbanceCommand"),
-      feedforward: { gain: value("ff.gain"),
+      disturbanceStep: step, feedforward: { gain: value("ff.gain"),
         ...(absent ? {} : { lead: value("ff.lead"), lag: value("ff.lag"), filtered: value("ff.filtered") }) } } };
   };
 
@@ -265,7 +261,30 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       manualOutput: value("feedback.manualOutput"),
       estimator: { modelFile: value("feedback.estimatorModel"), measurementNoise, states } } };
   };
-  const ownLaw = (): string => value("own.law") || "PI";
+  // A trajectory feedforward's program law is PID (C11); the other own-law setups take the chosen law.
+  const ownLaw = (): string => structure() === "trajectory-feedforward" ? "PID" : value("own.law") || "PI";
+  /** A program's own P, PI or PID law, with its variables, gain ranges and startup flag, as the own-law and trajectory setups ask for them. */
+  const ownLawDraft = (name: string, action: string, law: string): { draft?: Record<string, unknown>; missing?: string } => {
+    if (!value("own.instance")) return { missing: "Choose the instance that computes the law." };
+    const pv = signal("own.processVariable", "measurement"); if (pv.missing) return pv;
+    if (!value("own.setpoint")) return { missing: "Choose the setpoint." };
+    const mv = signal("own.manipulatedVariable", "output"); if (mv.missing) return mv;
+    if (!value("own.mode")) return { missing: "Choose the Auto/Manual signal." };
+    if (!value("own.manualOutput")) return { missing: "Choose the manual output." };
+    const integrating = law !== "P", differentiating = law === "PID";
+    const proportional = gainValue("own.proportionalGain", "proportional gain"); if (proportional.missing) return proportional;
+    const integral = integrating ? gainValue("own.integralGain", "integral gain") : {}; if (integral.missing) return integral;
+    if (integrating && !value("own.integralTerm")) return { missing: "Choose the variable holding the integral term." };
+    const derivative = differentiating ? gainValue("own.derivativeGain", "derivative gain") : {}; if (derivative.missing) return derivative;
+    if (differentiating && !value("own.derivativeState")) return { missing: "Choose the variable holding the previous value the derivative is taken from." };
+    if (differentiating && !value("own.derivativeOn")) return { missing: "Choose whether that previous value is the error or the measurement." };
+    const startup = startupFlag(); if (startup.missing) return startup;
+    return { draft: { name, action, ...(startup.value ? { startupFlag: startup.value } : {}), law,
+      instance: value("own.instance"), processVariable: pv.value, setpoint: { symbol: value("own.setpoint") }, manipulatedVariable: mv.value,
+      mode: { symbol: value("own.mode"), whenTrue: value("own.modeWhenTrue") || "Auto" }, manualOutput: value("own.manualOutput"),
+      proportionalGain: proportional.value, ...(integrating ? { integralGain: integral.value, integralTerm: value("own.integralTerm") } : {}),
+      ...(differentiating ? { derivativeGain: derivative.value, derivativeState: value("own.derivativeState"), derivativeOn: value("own.derivativeOn") } : {}) } };
+  };
   /** A gain variable of the program's own law with the range Tune may choose from. */
   const gainValue = (field: string, label: string): { value?: { symbol: string; minimum: number; maximum: number }; missing?: string } => {
     const symbol = value(field), minimum = value(`${field}.minimum`), maximum = value(`${field}.maximum`);
@@ -282,7 +301,7 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     .filter(box => box.checked).map(box => (box.dataset.setupField ?? "").replace(/include$/, ""));
   const seededWrite = (): string | undefined => {
     const cascade = structure() === "cascade", group = structure() === "group", onoff = structure() === "onoff", feedback = structure() === "state-feedback";
-    const own = structure() === "own-law", search = structure() === "search";
+    const own = structure() === "own-law" || structure() === "trajectory-feedforward", search = structure() === "search";
     if (structure() === "identify") return undefined;
     const prefixes = cascade ? ["outer.", "inner."] : group ? included() : onoff ? ["onoff."] : feedback ? ["feedback."] : own ? ["own."] : search ? ["search."] : [""];
     const instance = prefixes.map(prefix => value(`${prefix}instance`)).find(name => initializes.has(name));
@@ -408,6 +427,9 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
     if (integralFields) integralFields.hidden = ownLaw() === "P";
     const derivativeFields = root.querySelector<HTMLElement>("[data-own-derivative]");
     if (derivativeFields) derivativeFields.hidden = ownLaw() !== "PID";
+    // A trajectory feedforward's law is PID by its structure, so its law choice does not show.
+    const lawChoice = root.querySelector<HTMLElement>("[data-own-law-choice]");
+    if (lawChoice) lawChoice.hidden = structure() === "trajectory-feedforward";
     // A further measured output appears once the previous one is chosen; LQG shows one estimate per state of its model instead.
     const lqg = value("feedback.family") === "LQG";
     root.querySelectorAll<HTMLElement>("[data-feedback-state]").forEach(row => {
@@ -422,8 +444,10 @@ export function initializeLoopSetupForm(root: HTMLElement, post: (message: unkno
       const fields = member.querySelector<HTMLElement>("[data-group-member-fields]");
       if (fields) fields.hidden = !member.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked;
     });
-    // A feedforward or a Smith predictor is one PID loop plus its own variables.
-    for (const section of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-section]"))) section.hidden = section.dataset.setupSection !== structure()
+    // A feedforward or a Smith predictor is one PID loop plus its own variables. A trajectory feedforward is the program's own PID law
+    // (its section) plus the trajectory's variables (its section).
+    const shown = structure() === "trajectory-feedforward" ? ["own-law", "trajectory-feedforward"] : [structure()];
+    for (const section of Array.from(root.querySelectorAll<HTMLElement>("[data-setup-section]"))) section.hidden = !shown.includes(section.dataset.setupSection ?? "")
       && !(section.dataset.setupSection === "pid" && ["feedforward", "smith", "schedule"].includes(structure()));
     // A decoupler has one entry per plant input and included member.
     const decoupled = checked("group.decoupled"), size = included().length;

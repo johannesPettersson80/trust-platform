@@ -7,8 +7,16 @@ use super::*;
 use crate::identification::identify_result::tests::plant_loop;
 use crate::loop_definition::{ControllerLaw, ModeBinding, ParameterBinding, PidLaw, RealType};
 use crate::messages::TuneRequest;
-use crate::tuning::candidate::CandidateSource;
-use crate::tuning::settings_pins::ControllerSettingsPins;
+use crate::tuning::candidate::{CandidateSource, ControlPidCandidate, LawCandidate};
+use crate::tuning::settings_pins::{family_setting_symbols, ControllerSettingsPins};
+
+/// The `Control.PID` record of a manual candidate: these tests hold a `Control.PID` loop, so the candidate is a record.
+fn pid(candidate: &LawCandidate) -> ControlPidCandidate {
+    match candidate {
+        LawCandidate::Pid(candidate) => *candidate,
+        LawCandidate::Project(_) => panic!("a Control.PID loop gives a record"),
+    }
+}
 
 /// A loop with a PI-capable law over the parameters `Main.Kp`, `Main.Ki` and `Main.Kd` (each LREAL, 0 to 10 in unit 1), and
 /// over `Main.Tf` (REAL, 0 to 5) when `with_filter` is set, which the law then declares as its measurement filter.
@@ -73,6 +81,7 @@ fn a_pi_entry_on_a_bound_loop_is_an_unapplied_candidate_from_the_manual_source()
         &entry(&[("Main.Kp", 1.2), ("Main.Ki", 0.4)]),
         None,
     )
+    .map(|candidate| pid(&candidate))
     .expect("a complete PI entry is a candidate");
     assert_eq!(candidate.source, CandidateSource::Manual);
     assert!(!candidate.applied);
@@ -143,6 +152,7 @@ fn an_entry_that_changes_a_pinned_value_is_refused_and_one_that_keeps_it_is_kept
         &entry(&[("Main.Kp", 2.0), ("Main.Ki", 0.4)]),
         Some(&pins),
     )
+    .map(|candidate| pid(&candidate))
     .expect("the entry keeps the pinned Kp");
     assert!((kept.parameters.proportional_gain - 2.0).abs() <= 1e-12);
 }
@@ -164,6 +174,7 @@ fn a_law_that_declares_a_filter_needs_its_entered_filter_time_and_records_it() {
         &entry(&[("Main.Kp", 1.2), ("Main.Ki", 0.4), ("Main.Tf", 0.25)]),
         None,
     )
+    .map(|candidate| pid(&candidate))
     .expect("the entered filter time completes the entry");
     assert!(matches!(
         candidate.measurement_filter_seconds,
@@ -192,7 +203,7 @@ fn without_a_fixed_structure_the_entered_gains_give_it_and_the_method_must_be_ma
     )
     .expect("a proportional entry is a candidate")
     .expect("the manual method gives a candidate");
-    assert_eq!(proportional_only.structure, Structure::P);
+    assert_eq!(proportional_only.structure(), Structure::P);
     let with_integral = candidate_of(
         &loop_definition,
         &request(
@@ -202,10 +213,56 @@ fn without_a_fixed_structure_the_entered_gains_give_it_and_the_method_must_be_ma
     )
     .expect("a PI entry is a candidate")
     .expect("the manual method gives a candidate");
-    assert_eq!(with_integral.structure, Structure::PI);
+    assert_eq!(with_integral.structure(), Structure::PI);
     let formula = request(entry(&[("Main.Kp", 1.2)]), Some(TuneMethod::Simc));
     assert_eq!(
         candidate_of(&loop_definition, &formula).expect("a formula is not a candidate"),
         None
     );
+}
+
+#[test]
+fn a_control_pid_family_takes_the_record_fields_it_uses_and_its_filter_when_one_is_bound() {
+    // C0 "Families and zero terms": the page asks for the settings of the family alone, and Tune refuses any other.
+    fn names(symbols: &[&str]) -> Vec<String> {
+        symbols.iter().map(|symbol| (*symbol).to_owned()).collect()
+    }
+    let plain = bound_pi_loop(false);
+    assert_eq!(
+        family_setting_symbols(&plain, Structure::P),
+        names(&["Main.Kp"])
+    );
+    assert_eq!(
+        family_setting_symbols(&plain, Structure::PI),
+        names(&["Main.Kp", "Main.Ki"])
+    );
+    assert_eq!(
+        family_setting_symbols(&plain, Structure::PD),
+        names(&["Main.Kp", "Main.Kd"])
+    );
+    assert_eq!(
+        family_setting_symbols(&plain, Structure::PID),
+        names(&["Main.Kp", "Main.Ki", "Main.Kd"])
+    );
+    let filtered = bound_pi_loop(true);
+    assert_eq!(
+        family_setting_symbols(&filtered, Structure::P),
+        names(&["Main.Kp", "Main.Tf"]),
+        "the filter time is entered for every family once the law declares one (C0)"
+    );
+}
+
+#[test]
+fn a_proportional_law_names_its_gain_for_every_family_the_page_shows() {
+    // C13: a proportional law's one setting is its gain, whichever family the page shows (manualTuneSettings.ts).
+    let mut loop_definition = bound_pi_loop(false);
+    loop_definition.controller.law = Some(ControllerLaw::Proportional {
+        gain_symbol: "Main.Kp".to_owned(),
+    });
+    for family in [Structure::P, Structure::PI] {
+        assert_eq!(
+            family_setting_symbols(&loop_definition, family),
+            vec!["Main.Kp".to_owned()]
+        );
+    }
 }

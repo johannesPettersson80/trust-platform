@@ -10,7 +10,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{Direction, LoopDefinition, LoopSignal, Range};
+use crate::identification::selected_recording::selected_model_id;
+use crate::loop_definition::{
+    ChannelInput, ChannelOutput, Direction, LoopChannels, LoopDefinition, LoopSignal, Range,
+};
+use crate::model::simulation::{ActuatorCapabilities, ActuatorKind};
 use crate::recording::channels::{
     ACTUATOR_BINDING, MANIPULATED_VARIABLE_BINDING, PROCESS_VARIABLE_BINDING, SETPOINT_BINDING,
 };
@@ -396,8 +400,9 @@ pub fn check_selection(selection: &RecordingSignalSelection) -> Result<(), Failu
 /// The loop as the fit of one recording sees it when the engineer selected `input` as the plant input and `output` as the
 /// measured output (B3.6): the loop with those two signals in place of its own, so the fit reads them from the recording and
 /// names them in the model. A selected name that the loop does not have is a channel the run holds as an extra output, and the view takes
-/// it as that signal (`extra_signal`). The loop's model names belong to its own signals, so a role that takes an extra channel drops
-/// them.
+/// it as that signal (`extra_signal`). A selected name that is not the loop's own signal of its role is named in the view with the model
+/// identifier the loop gives the selected signal (`name_selected_role`), so the model names the loop's channel while the samples keep
+/// the recorded name.
 ///
 /// # Errors
 /// A selected name is neither a signal of the loop nor a channel of the run, or an extra channel's samples are missing or not good.
@@ -407,33 +412,42 @@ pub fn selection_loop(
     input: &str,
     output: &str,
 ) -> Result<LoopDefinition, Failure> {
-    let (manipulated, input_is_extra) = selected_signal(loop_definition, run, input)?;
-    let (process, output_is_extra) = selected_signal(loop_definition, run, output)?;
+    let manipulated = selected_signal(loop_definition, run, input)?;
+    let process = selected_signal(loop_definition, run, output)?;
     let mut view = loop_definition.clone();
+    if input != loop_definition.signals.manipulated_variable.symbol.as_str() {
+        name_selected_role(
+            &mut view,
+            loop_definition,
+            "inputs",
+            "manipulatedVariable",
+            input,
+        );
+    }
+    if output != loop_definition.signals.process_variable.symbol.as_str() {
+        name_selected_role(
+            &mut view,
+            loop_definition,
+            "outputs",
+            "processVariable",
+            output,
+        );
+    }
     view.signals.manipulated_variable = manipulated;
     view.signals.process_variable = process;
-    if input_is_extra {
-        clear_model_names(&mut view, "inputs");
-    }
-    if output_is_extra {
-        clear_model_names(&mut view, "outputs");
-    }
     Ok(view)
 }
 
-/// The loop signal a selected name stands for in the view: the loop's own signal, or else an extra output of the run. The flag tells
-/// the extra case.
+/// The loop signal a selected name stands for in the view: the loop's own signal, or else an extra output of the run.
 fn selected_signal(
     loop_definition: &LoopDefinition,
     run: &RecordedRun,
     symbol: &str,
-) -> Result<(LoopSignal, bool), Failure> {
+) -> Result<LoopSignal, Failure> {
     if let Some(signal) = loop_signal_named(loop_definition, symbol) {
-        return Ok((signal, false));
+        return Ok(signal);
     }
-    extra_signal(run, symbol)?
-        .map(|signal| (signal, true))
-        .ok_or_else(not_present)
+    extra_signal(run, symbol)?.ok_or_else(not_present)
 }
 
 /// The signal of an extra output of the run named `symbol` (B3.6): a channel the loop does not bind, which the run holds with its unit.
@@ -461,11 +475,60 @@ fn extra_signal(run: &RecordedRun, symbol: &str) -> Result<Option<LoopSignal>, F
     }))
 }
 
-/// Drops the loop's model names of one kind of channel from the view, so that the model names the channel the view gives instead of the
-/// loop's own (`channels`, B3.6).
-fn clear_model_names(view: &mut LoopDefinition, kind: &str) {
-    if let Some(channels) = view.channels.as_mut().and_then(Value::as_object_mut) {
-        channels.insert(kind.to_owned(), Value::Array(Vec::new()));
+/// Names the role of the view that takes the selected signal `selected`, which is not the loop's own signal of that role, with the
+/// model identifier the loop gives the selected signal (`selected_model_id`). The role's channel is the one channel of its kind on
+/// the role's signal `signal_id` in the view, so the model names the loop's channel while the fit reads the recorded one (B3.6). A kind
+/// with several channels keeps them: the fit refuses several channels (V7).
+fn name_selected_role(
+    view: &mut LoopDefinition,
+    loop_definition: &LoopDefinition,
+    kind: &str,
+    signal_id: &str,
+    selected: &str,
+) {
+    let model_id = selected_model_id(loop_definition, kind, selected);
+    let channels = view.channels.get_or_insert_with(|| LoopChannels {
+        inputs: Vec::new(),
+        outputs: Vec::new(),
+        initial_state: None,
+    });
+    if kind == "inputs" {
+        if channels.inputs.len() <= 1 {
+            // The view's input keeps the loop's actuator when the loop declares one, else a continuous one over the plant input's range.
+            let actuator = channels.inputs.first().map_or_else(
+                || continuous_actuator(loop_definition.signals.manipulated_variable.range),
+                |entry| entry.actuator,
+            );
+            channels.inputs = vec![ChannelInput {
+                model_channel_id: model_id,
+                signal_id: signal_id.to_owned(),
+                manual_output_signal: None,
+                manual_output_type: None,
+                applied_signal_id: None,
+                actuator,
+                experiment_step: None,
+            }];
+        }
+    } else if channels.outputs.len() <= 1 {
+        channels.outputs = vec![ChannelOutput {
+            model_channel_id: model_id,
+            signal_id: signal_id.to_owned(),
+            setpoint_signal_id: None,
+            requirements: None,
+        }];
+    }
+}
+
+/// A continuous actuator over `range`, with no rate or dwell limits: the view's plant input when the loop declares no channel for it.
+fn continuous_actuator(range: Range) -> ActuatorCapabilities {
+    ActuatorCapabilities {
+        kind: ActuatorKind::Continuous,
+        minimum: range.minimum,
+        maximum: range.maximum,
+        rate_up_per_s: None,
+        rate_down_per_s: None,
+        minimum_on_seconds: None,
+        minimum_off_seconds: None,
     }
 }
 

@@ -39,7 +39,8 @@ pub struct FileChange {
 /// changes, and the review identity that a confirmation must give back.
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeepReview {
-    /// The record, for example `Main.TIC101_Parameters`.
+    /// The record, for example `Main.TIC101_Parameters`; for a program's own law, its program instance (`P1`), whose gain variables
+    /// are the values.
     pub record: String,
     /// The values to keep, by field.
     pub values: BTreeMap<String, f64>,

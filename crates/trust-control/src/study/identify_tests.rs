@@ -19,6 +19,7 @@ use crate::model::{decode_general_model, ModelIdentity};
 use crate::recording::evidence::{recording_evidence, UNCONFIRMED_START_RECOVERED};
 use crate::recording::fixtures::{binding, run, sample};
 use crate::signals::Quality;
+use crate::study::current_model::current_model;
 use crate::study::{canonical_json, Study};
 
 /// The model of the `TypeScript` test: `1 / (s + 1)` from a command in V to a position in m, fitted from the evidence given.
@@ -301,7 +302,7 @@ fn a_fit_from_one_recording_is_never_stored_as_validated_evidence() {
 
     let mut same_record = provisional(&estimation);
     same_record.selected_model = fitted_model("validated", &["sha256:recording-fingerprint"]);
-    same_record.presentation = comparison_of();
+    same_record.presentation = Some(comparison_of());
     let message = refusal(&same_record);
     assert!(message.contains("never validated evidence"), "{message}");
 
@@ -329,7 +330,7 @@ fn a_fit_from_one_recording_is_never_stored_as_validated_evidence() {
 
     let mut unvalidated = validated(&estimation, &validation);
     unvalidated.selected_model = fitted_model("unvalidated", &["sha256:estimation"]);
-    unvalidated.presentation = comparison_of();
+    unvalidated.presentation = Some(comparison_of());
     let message = refusal(&unvalidated);
     assert!(message.contains("must be validated"), "{message}");
 
@@ -399,13 +400,70 @@ fn the_model_is_fitted_with_evidence_and_its_presentation_is_bound_to_it() {
 
     // The presentation must describe its own model: a negative delay is refused ...
     let mut delayed = provisional(&estimation);
-    delayed.presentation.presentation.delay_seconds = -1.0;
+    let delayed_shown = delayed
+        .presentation
+        .as_mut()
+        .expect("a fit keeps its presentation");
+    delayed_shown.presentation.delay_seconds = -1.0;
     assert!(refusal(&delayed).contains("does not describe the model"));
 
     // ... and so is a presentation whose output unit is not the model's.
     let mut wrong_unit = provisional(&estimation);
-    wrong_unit.presentation.presentation.units.output = "mm".into();
+    let wrong_shown = wrong_unit
+        .presentation
+        .as_mut()
+        .expect("a fit keeps its presentation");
+    wrong_shown.presentation.units.output = "mm".into();
     assert!(refusal(&wrong_unit).contains("does not describe the model"));
+}
+
+/// A discrete model of two plant inputs, a valve and a load, and one measured output, fitted from one recording (C7).
+fn two_input_model() -> GeneralModel {
+    let channel = |id: &str, unit: &str, maximum: f64| json!({ "id": id, "unit": unit, "operatingRange": { "minimum": 0.0, "maximum": maximum } });
+    decode_general_model(&json!({
+        "kind": "discrete-state-space", "revision": "model:fitted:two-inputs", "source": "fitted",
+        "validation": "unvalidated", "evidence": ["sha256:estimation"], "delaySeconds": 0.0,
+        "sampleTimeSeconds": 0.1,
+        "inputs": [channel("valve", "%", 100.0), channel("load", "kW", 50.0)],
+        "outputs": [channel("level", "m", 10.0)],
+        "states": [channel("x", "m", 10.0)],
+        "a": [[0.9]], "b": [[0.1, 0.02]], "c": [[1.0]], "d": [[0.0, 0.0]]
+    }))
+    .expect("a two-input model")
+}
+
+#[test]
+fn a_state_model_of_several_inputs_is_kept_without_a_presentation_and_read_back() {
+    // Specification 35, C7 and B10.2: a state-space identification of several plant inputs keeps its model and signals, and no
+    // comparison presentation.
+    let model = two_input_model();
+    let section = IdentifySection::new_state_model(
+        IdentifyMethod::Live(ControlExperimentKind::MvStep),
+        EvidenceSource::SimulatedPlant,
+        IdentifySignals {
+            inputs: vec!["Plant.Valve".into(), "Plant.Load".into()],
+            outputs: vec!["Plant.Level".into()],
+            setpoint: None,
+        },
+        "rec-0123456789abcdef0123456789abcdef",
+        model.clone(),
+    );
+    section
+        .check()
+        .expect("a state model of several inputs needs no presentation");
+    let value = serde_json::to_value(&section).expect("the section encodes");
+    assert!(
+        value.get("presentation").is_none(),
+        "the stored section has no presentation key"
+    );
+
+    let mut study = Study::new("loop:tank", "sha256:loop-1");
+    study.set_section(&section).expect("kept");
+    let current = current_model(&study)
+        .expect("the study reads")
+        .expect("the study holds a current model");
+    assert_eq!(current.model, model, "the model reads back");
+    assert_eq!(current.identify, Some(section), "the section reads back");
 }
 
 #[test]

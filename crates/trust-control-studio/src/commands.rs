@@ -16,7 +16,8 @@ use trust_control::commissioning::observation_assessment::observation_in_progres
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::identify_result::{study_candidate, study_identification};
 use trust_control::messages::{
-    OpenRequest, OpenResult, OperationRequest, OperationState, PageRequest, PreviewRequest,
+    OpenRequest, OpenResult, OperationRequest, OperationState, PageRequest, ParameterWorkRequest,
+    PreviewRequest,
 };
 use trust_control::setup::messages::{SetupDiscoverRequest, SetupSaveRequest};
 use trust_control::stages::stage_availability;
@@ -26,6 +27,7 @@ use trust_control::study::current_model::current_model;
 use trust_control::study::inputs::{stage_evidence_of, InputsSection};
 use trust_control::study::validate::ValidateSection;
 
+use super::analysis_parameters_action;
 use super::analyze_action;
 use super::apply_action;
 use super::busy_loops::LoopClaims;
@@ -64,6 +66,9 @@ pub const TUNE: &str = "controlStudio/tune";
 pub const PREVIEW: &str = "controlStudio/preview";
 /// Answers the analysis tools of the Tune page (B9.9, A7, B10.2).
 pub const ANALYZE: &str = "controlStudio/analyze";
+/// The parameter writes that a loop's declared analysis maps (C12, annex E7): the review of the values, and the confirmed Apply or
+/// Restore of the reviewed record as an operation. Each one is refused for a loop that the analysis does not serve.
+pub const PARAMETERS: &str = "controlStudio/parameters";
 /// Validates the candidate (B5): an operation, answered at once with its identifier. It runs the independent model check when
 /// the model is provisional (B5.2), then the actual-ST validation of the current and the candidate settings in isolated
 /// simulations (B5.3). Its final update carries the Validate result. It never writes to the controller.
@@ -86,7 +91,7 @@ pub const INPUTS: &str = "controlStudio/inputs";
 /// it names (Identify, Tune or Validate), as one operation. It never applies.
 pub const RUN: &str = "controlStudio/run";
 /// The methods this module answers.
-pub const METHODS: [&str; 16] = [
+pub const METHODS: [&str; 17] = [
     OPEN,
     STATUS,
     CANCEL,
@@ -103,6 +108,7 @@ pub const METHODS: [&str; 16] = [
     SETUP_DISCOVER,
     SETUP_SAVE,
     ANALYZE,
+    PARAMETERS,
 ];
 /// The notification that carries operation updates.
 pub const UPDATE_NOTIFICATION: &str = "controlStudio/update";
@@ -179,6 +185,9 @@ impl ControlStudio {
                 .and_then(|request: PreviewRequest| preview_action::answer(&request)),
             ANALYZE => argument(arguments).and_then(|request| {
                 analyze_action::answer(&self.operations, &self.claims, &request)
+            }),
+            PARAMETERS => argument(arguments).and_then(|request: ParameterWorkRequest| {
+                analysis_parameters_action::answer(&self.operations, &self.claims, request)
             }),
             VALIDATE => argument(arguments).and_then(|request| {
                 validate_action::answer(&self.operations, &self.pending, &self.claims, request)

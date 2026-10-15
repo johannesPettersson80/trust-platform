@@ -148,7 +148,8 @@ pub(super) fn tune_section(
         method: None,
         model_revision: "model-4".to_owned(),
         requirements,
-        candidate,
+        candidate: Some(candidate),
+        project_candidate: None,
         reason: "Designed for the test.".to_owned(),
         closed_loop_time_seconds: None,
         attempts: Vec::new(),
@@ -202,7 +203,8 @@ fn passing_section(
 ) -> ValidateSection {
     ValidateSection {
         model_revision: "model-4".to_owned(),
-        candidate,
+        candidate: Some(candidate),
+        project_candidate: None,
         requirements,
         declared_scenarios: Vec::new(),
         conditions: ValidationConditions {
@@ -216,6 +218,7 @@ fn passing_section(
         model_check: Some(model_check(RequirementStatus::Pass)),
         scenarios: vec![scenario("target-response", RequirementStatus::Pass)],
         initialization: None,
+        disturbance_case: None,
         entry_refusal: None,
         status: RequirementStatus::Pass,
         apply_available: true,
@@ -599,11 +602,20 @@ fn the_failure_names_the_model_check_then_a_failed_requirement_then_the_missing_
         &[],
         None,
         None,
+        None,
     );
     assert_eq!(by_model.next_action, NextAction::Identify);
     assert_eq!(by_model.cause, Cause::ModelOrData);
     assert!(by_model.message.contains("check"), "{}", by_model.message);
-    let by_requirement = failure_of(None, RequirementStatus::Fail, &scenarios, &[], None, None);
+    let by_requirement = failure_of(
+        None,
+        RequirementStatus::Fail,
+        &scenarios,
+        &[],
+        None,
+        None,
+        None,
+    );
     assert_eq!(by_requirement.next_action, NextAction::Tune);
     assert_eq!(by_requirement.cause, Cause::Settings);
     assert!(
@@ -616,6 +628,7 @@ fn the_failure_names_the_model_check_then_a_failed_requirement_then_the_missing_
         RequirementStatus::Inconclusive,
         &[scenario("declared", RequirementStatus::Inconclusive)],
         &[None],
+        None,
         None,
         None,
     );

@@ -12,7 +12,9 @@ use crate::experiment::number_text::js_to_precision;
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::refusal::Refusal;
 use crate::tuning::objective::{TuningMethod, TuningObjective};
-use crate::tuning::plant::{check_normalized_error, check_plant, from_identified, TuningPlant};
+use crate::tuning::plant::{
+    check_normalized_error, check_plant, from_identified, TuningPlant, SIMC_INTEGRATING_LAG,
+};
 use crate::tuning::structure::ParallelGains;
 use crate::tuning::texts;
 
@@ -81,11 +83,15 @@ pub fn tune_pi(
             Some(model.delay_seconds),
         ),
         (TuningPlant::FirstOrder(model), TuningMethod::Amigo) => (amigo_pi(*model), None),
-        (TuningPlant::Integrating(_), TuningMethod::Amigo) => {
+        (TuningPlant::Integrating(_) | TuningPlant::IntegratingWithLag(_), TuningMethod::Amigo) => {
             return Err(Refusal::new(texts::AMIGO_INTEGRATING));
         }
         (TuningPlant::SecondOrder(_), TuningMethod::Amigo) => {
             return Err(Refusal::new(texts::needs_first_order(method)));
+        }
+        // `check_plant` above refuses the lag form for both methods; these arms state the same refusals for the match.
+        (TuningPlant::IntegratingWithLag(_), TuningMethod::Simc) => {
+            return Err(Refusal::new(SIMC_INTEGRATING_LAG));
         }
     };
     let gains = gains.map_err(|refusal| refusal_of(refusal, method))?;

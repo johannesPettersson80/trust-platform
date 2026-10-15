@@ -5,6 +5,8 @@
 
 #![allow(clippy::float_cmp)]
 
+use std::collections::BTreeMap;
+
 use serde_json::{json, Value};
 
 use super::{
@@ -15,7 +17,8 @@ use super::{
 };
 use crate::failure::{Cause, NextAction};
 use crate::loop_definition::{
-    LoopDefinition, LoopScope, ModeBinding, Parameter, ParameterBinding, RealType,
+    AntiWindup, AntiWindupMethod, ControllerLaw, LoopDefinition, LoopScope, ModeBinding, Parameter,
+    ParameterBinding, RealType,
 };
 use crate::setup::binding_route::answer_selection;
 use crate::setup::catalog::{
@@ -421,7 +424,9 @@ fn a_directory_that_cannot_be_listed_names_the_control_loops_folder() {
 fn a_loop_that_uses_channels_is_refused_by_name_until_the_rust_engine_runs_them() {
     // hostBindingDiscovery.ts's channel path is parked (stage V7): the refusal names the channels.
     let mut loop_definition = loop_of(&tank_json("loop:tank"));
-    loop_definition.channels = Some(json!({ "inputs": [], "outputs": [] }));
+    loop_definition.channels = Some(
+        serde_json::from_value(json!({ "inputs": [], "outputs": [] })).expect("typed channels"),
+    );
     let refusal = target_for_loop("/project/control-loop.json", loop_definition, &catalog())
         .expect_err("a loop with channels is refused");
     assert_eq!(
@@ -512,6 +517,81 @@ fn a_loop_with_no_parameter_record_or_law_is_unconfigured_and_a_refused_adapter_
 }
 
 #[test]
+fn a_served_program_law_is_accepted_with_the_families_its_seed_names() {
+    // C2 Setup: P always, and PI where the seed names the integral variable; the engine serves the shape and offers these families.
+    let mut value = tank_json("loop:tank");
+    value["controller"]["design"] = json!("project");
+    value["controller"]["project"] = json!({
+        "family": "PI", "convention": "project-owned-native-controller",
+        "initialization": { "kind": "declared-state-v1", "states": [] },
+        "seed": { "kind": "parallel-pid", "family": "PI", "proportionalSymbol": "Main.Kp", "integralSymbol": "Main.Ki" },
+        "axes": [], "objective": { "requirementId": "target-error", "direction": "minimize" },
+        "maximumCandidates": 4, "maximumCycles": 50000, "wallBudgetMs": 60000
+    });
+    value["parameterBinding"] = json!({
+        "loop_id": "loop:tank", "task_name": "MainTask",
+        "parameters": [
+            { "symbol": "Main.Kp", "iec_type": "LREAL", "unit": "%/%", "convention": "proportional gain", "minimum": 0, "maximum": 100 },
+            { "symbol": "Main.Ki", "iec_type": "LREAL", "unit": "%/(%*s)", "convention": "integral gain", "minimum": 0, "maximum": 100 }
+        ],
+        "mode": { "symbol": "Main.Auto", "manual_value": false }
+    });
+    assert_eq!(
+        adapter_compatibility(&loop_of(&value)),
+        ControllerCompatibility::Accepted {
+            families: vec!["P".to_string(), "PI".to_string()],
+            family_settings: BTreeMap::from([
+                ("P".to_string(), vec!["Main.Kp".to_string()]),
+                (
+                    "PI".to_string(),
+                    vec!["Main.Kp".to_string(), "Main.Ki".to_string()]
+                ),
+            ]),
+        }
+    );
+}
+
+#[test]
+fn a_served_pid_seed_names_the_settings_each_of_its_families_takes() {
+    // C2 Setup and C0: a PID seed offers P, PI, PD and PID, and each family's manual settings and pins take its own variables.
+    let mut value = tank_json("loop:tank");
+    value["controller"]["design"] = json!("project");
+    value["controller"]["project"] = json!({
+        "family": "PID", "convention": "project-owned-native-controller",
+        "initialization": { "kind": "declared-state-v1", "states": [] },
+        "seed": { "kind": "parallel-pid", "family": "PID", "proportionalSymbol": "Main.Kp",
+            "integralSymbol": "Main.Ki", "derivativeSymbol": "Main.Kd" },
+        "axes": [], "objective": { "requirementId": "target-error", "direction": "minimize" },
+        "maximumCandidates": 4, "maximumCycles": 50000, "wallBudgetMs": 60000
+    });
+    value["parameterBinding"] = json!({
+        "loop_id": "loop:tank", "task_name": "MainTask",
+        "parameters": [
+            { "symbol": "Main.Kp", "iec_type": "LREAL", "unit": "%/%", "convention": "proportional gain", "minimum": 0, "maximum": 100 },
+            { "symbol": "Main.Ki", "iec_type": "LREAL", "unit": "%/(%*s)", "convention": "integral gain", "minimum": 0, "maximum": 100 },
+            { "symbol": "Main.Kd", "iec_type": "LREAL", "unit": "%*s/%", "convention": "derivative gain", "minimum": 0, "maximum": 100 }
+        ],
+        "mode": { "symbol": "Main.Auto", "manual_value": false }
+    });
+    let kp = || "Main.Kp".to_string();
+    assert_eq!(
+        adapter_compatibility(&loop_of(&value)),
+        ControllerCompatibility::Accepted {
+            families: vec!["P".into(), "PI".into(), "PD".into(), "PID".into()],
+            family_settings: BTreeMap::from([
+                ("P".to_string(), vec![kp()]),
+                ("PI".to_string(), vec![kp(), "Main.Ki".to_string()]),
+                ("PD".to_string(), vec![kp(), "Main.Kd".to_string()]),
+                (
+                    "PID".to_string(),
+                    vec![kp(), "Main.Ki".to_string(), "Main.Kd".to_string()]
+                ),
+            ]),
+        }
+    );
+}
+
+#[test]
 fn the_compatibility_of_a_loop_serializes_with_its_kind_and_families() {
     // hostBindingDiscovery.ts's ControllerAdapterCompatibility: { kind: "unconfigured" } | { kind: "accepted", families } | { kind: "rejected", reason }.
     assert_eq!(
@@ -521,9 +601,20 @@ fn the_compatibility_of_a_loop_serializes_with_its_kind_and_families() {
     assert_eq!(
         serde_json::to_value(ControllerCompatibility::Accepted {
             families: vec!["P".to_string(), "PID".to_string()],
+            family_settings: BTreeMap::from([
+                ("P".to_string(), vec!["Main.Kp".to_string()]),
+                (
+                    "PID".to_string(),
+                    vec!["Main.Kp".to_string(), "Main.Ki".to_string()]
+                ),
+            ]),
         })
         .expect("json"),
-        json!({ "kind": "accepted", "families": ["P", "PID"] })
+        json!({
+            "kind": "accepted",
+            "families": ["P", "PID"],
+            "familySettings": { "P": ["Main.Kp"], "PID": ["Main.Kp", "Main.Ki"] }
+        })
     );
     assert_eq!(
         serde_json::to_value(ControllerCompatibility::Rejected {
@@ -769,5 +860,94 @@ fn the_engine_answers_a_selection_with_the_loop_it_names_or_with_the_refusal_tha
     assert_eq!(
         (unrealized.cause, unrealized.next_action),
         (Cause::ControllerCapability, NextAction::ChooseMethod)
+    );
+}
+
+/// The symbols of a list, sorted, as the page compares a family's settings.
+fn sorted_symbols(symbols: &[&str]) -> Vec<String> {
+    let mut sorted: Vec<String> = symbols.iter().map(|symbol| (*symbol).to_owned()).collect();
+    sorted.sort();
+    sorted
+}
+
+/// The families of an accepted loop and their settings, each list sorted (`setupDiscover`'s `familySettings`).
+fn sorted_family_settings(loop_definition: &LoopDefinition) -> BTreeMap<String, Vec<String>> {
+    match adapter_compatibility(loop_definition) {
+        ControllerCompatibility::Accepted {
+            family_settings, ..
+        } => family_settings
+            .into_iter()
+            .map(|(family, mut symbols)| {
+                symbols.sort();
+                (family, symbols)
+            })
+            .collect(),
+        other => panic!("a Control.PID loop is accepted, not {other:?}"),
+    }
+}
+
+#[test]
+fn a_control_pid_loop_names_the_settings_each_family_takes_as_the_page_did() {
+    // The page's rule before the engine named the settings (manualTuneSettings.ts): Kp for every family; Ki for PI and PID; Kd for PD
+    // and PID; the tracking gain and β for PI and PID; γ for PD and PID; Tf for every family where the law declares it.
+    const KP: &str = "P1.Parameters.ProportionalGain";
+    const KI: &str = "P1.Parameters.IntegralGain";
+    const KD: &str = "P1.Parameters.DerivativeGain";
+    const BETA: &str = "P1.Parameters.ProportionalSetpointWeight";
+    const GAMMA: &str = "P1.Parameters.DerivativeSetpointWeight";
+    const TF: &str = "P1.Parameters.MeasurementFilterTime";
+    const TRACKING: &str = "P1.Parameters.TrackingTime";
+    let mut loop_definition = LoopDefinition::decode(include_str!(
+        "../../../../examples/control-pid-commissioning/control-loop.json"
+    ))
+    .expect("the commissioning example's loop");
+
+    // The shipped law declares Kp, Ki and Kd only.
+    assert_eq!(
+        sorted_family_settings(&loop_definition),
+        BTreeMap::from([
+            ("P".to_owned(), sorted_symbols(&[KP])),
+            ("PI".to_owned(), sorted_symbols(&[KP, KI])),
+            ("PD".to_owned(), sorted_symbols(&[KP, KD])),
+            ("PID".to_owned(), sorted_symbols(&[KP, KI, KD])),
+        ]),
+        "the shipped PID lessons keep the page's settings"
+    );
+
+    // Every optional field declared and bound: each one appears under the families that take it, and Tf under every family.
+    if let Some(ControllerLaw::Pid(pid)) = &mut loop_definition.controller.law {
+        pid.proportional_setpoint_weight_symbol = Some(BETA.to_owned());
+        pid.derivative_setpoint_weight_symbol = Some(GAMMA.to_owned());
+        pid.measurement_filter_time_symbol = Some(TF.to_owned());
+        pid.anti_windup = Some(AntiWindup {
+            method: AntiWindupMethod::BackCalculation,
+            tracking_gain_symbol: TRACKING.to_owned(),
+        });
+    }
+    if let Some(binding) = &mut loop_definition.parameter_binding {
+        binding.parameters.push(Parameter {
+            symbol: TF.to_owned(),
+            iec_type: RealType::Real,
+            unit: "s".to_owned(),
+            convention: "Control.PID MeasurementFilterTime".to_owned(),
+            minimum: 0.0,
+            maximum: 10.0,
+        });
+    }
+    assert_eq!(
+        sorted_family_settings(&loop_definition),
+        BTreeMap::from([
+            ("P".to_owned(), sorted_symbols(&[KP, TF])),
+            (
+                "PI".to_owned(),
+                sorted_symbols(&[KP, KI, BETA, TF, TRACKING])
+            ),
+            ("PD".to_owned(), sorted_symbols(&[KP, KD, GAMMA, TF])),
+            (
+                "PID".to_owned(),
+                sorted_symbols(&[KP, KI, KD, BETA, GAMMA, TF, TRACKING])
+            ),
+        ]),
+        "each optional field is named by the families that take it"
     );
 }

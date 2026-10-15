@@ -18,6 +18,7 @@ pub mod lead_lag_tool;
 pub mod limits;
 pub mod measured_frequency;
 pub mod model_views;
+pub mod parameter_writes;
 pub mod pole_view;
 pub mod routh;
 pub mod routh_interval;

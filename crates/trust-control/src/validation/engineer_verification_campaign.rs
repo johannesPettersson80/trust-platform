@@ -14,6 +14,7 @@ use crate::identification::independent_validation::{RequirementStatus, RunEvalua
 use crate::json::decode_value;
 use crate::loop_definition::LoopDefinition;
 use crate::model::{decode_general_model, GeneralModel};
+use crate::study::tune::design::feedforward::single_loop;
 use crate::validation::engineer_envelope_scenarios::engineer_envelope_scenarios;
 use crate::validation::engineer_scenario_effects::{
     check_scenario_effects, milliseconds_as_float, requirements_failure, EngineerScenarioEffect,
@@ -73,6 +74,11 @@ pub fn engineer_verification_campaign(
     values: &BTreeMap<String, f64>,
     controller_initial: &BTreeMap<String, f64>,
 ) -> Result<Vec<CampaignCase>, Failure> {
+    // A measured-disturbance feedforward is validated on its output path's view (C8 Validate): the single-loop cases of C1.
+    let single = single_loop(loop_definition, model)?;
+    let (loop_definition, model) = single.as_ref().map_or((loop_definition, model), |single| {
+        (&single.loop_definition, &single.model)
+    });
     let nominal =
         engineer_verification_plan(loop_definition, model, task, values, controller_initial)?;
     let scenarios = declared_scenarios(loop_definition)?;

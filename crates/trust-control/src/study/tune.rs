@@ -39,13 +39,15 @@ use crate::study::current_model::CurrentModel;
 use crate::study::identify::{IdentifyMethod, IdentifySection};
 use crate::study::StudySection;
 use crate::tuning::automatic_criteria::validate_criteria;
-use crate::tuning::candidate::{validate_parameters, ControlPidCandidate};
+use crate::tuning::candidate::{validate_parameters, ControlPidCandidate, LawCandidate};
+use crate::tuning::design_to_requirements::structure_word;
 use crate::tuning::objective::TuningMethod;
 use crate::tuning::plant::{check_normalized_error, check_plant, from_identified};
+use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::recommendation::Attempt;
 use crate::tuning::relay_rule::{self, RelayCycleEvidence};
 use crate::tuning::requirements::TuningRequirements;
-use crate::tuning::settings_pins::ControllerSettingsPins;
+use crate::tuning::settings_pins::{family_setting_symbols, ControllerSettingsPins};
 use crate::tuning::texts;
 
 pub mod comparison;
@@ -72,8 +74,12 @@ pub struct TuneSection {
     /// The requirements the candidate was designed to. The values that Tune generated are listed in their
     /// `automaticCriteria` (B4.3).
     pub requirements: TuningRequirements,
-    /// The candidate, unapplied (B4.1).
-    pub candidate: ControlPidCandidate,
+    /// The candidate of a `Control.PID`, unapplied (B4.1, C1). Absent for a program's own law, which keeps `project_candidate`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate: Option<ControlPidCandidate>,
+    /// The candidate of a program's own law, unapplied (B4.1, C2). Absent for a `Control.PID`: exactly one of the two is present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_candidate: Option<ProjectCandidate>,
     /// Why the candidate was chosen (B4.4).
     pub reason: String,
     /// The closed-loop time constant `λ` in seconds that the formula used (N5.4: shown and saved with the candidate);
@@ -96,6 +102,17 @@ impl TuneSection {
     pub fn is_current_for(&self, model: &GeneralModel) -> bool {
         self.model_revision == model.identity().revision
     }
+
+    /// The candidate the section holds, whichever law it is for. `check` admits exactly one of the two candidates, so this is `None`
+    /// only for a section that the study never keeps.
+    #[must_use]
+    pub fn law_candidate(&self) -> Option<LawCandidate> {
+        match (&self.candidate, &self.project_candidate) {
+            (Some(candidate), None) => Some(LawCandidate::Pid(*candidate)),
+            (None, Some(candidate)) => Some(LawCandidate::Project(candidate.clone())),
+            _ => None,
+        }
+    }
 }
 
 impl StudySection for TuneSection {
@@ -112,13 +129,37 @@ impl StudySection for TuneSection {
             validate_criteria(criteria)
                 .map_err(refused_as(Cause::Settings, NextAction::OpenRequirements))?;
         }
-        validate_parameters(&self.candidate.parameters)
-            .map_err(refused_as(Cause::Settings, NextAction::None))?;
-        if self.candidate.applied {
-            return Err(invalid(
-                "its candidate is marked applied, but Tune never writes to the controller (B4.1)",
-                Cause::Settings,
-            ));
+        match (&self.candidate, &self.project_candidate) {
+            (Some(candidate), None) => {
+                validate_parameters(&candidate.parameters)
+                    .map_err(refused_as(Cause::Settings, NextAction::None))?;
+                if candidate.applied {
+                    return Err(invalid(
+                        "its candidate is marked applied, but Tune never writes to the controller (B4.1)",
+                        Cause::Settings,
+                    ));
+                }
+            }
+            (None, Some(candidate)) => {
+                if candidate.applied {
+                    return Err(invalid(
+                        "its program candidate is marked applied, but Tune never writes to the controller (B4.1)",
+                        Cause::Settings,
+                    ));
+                }
+                if !candidate.is_finite() {
+                    return Err(invalid(
+                        "its program candidate holds a value that is not finite",
+                        Cause::Settings,
+                    ));
+                }
+            }
+            _ => {
+                return Err(invalid(
+                    "it holds neither a candidate nor a program candidate, or both (C1, C2)",
+                    Cause::Settings,
+                ))
+            }
         }
         if !js_text(&self.model_revision) {
             return Err(invalid("it names no model revision", Cause::ModelOrData));
@@ -384,7 +425,15 @@ fn check_pins(loop_definition: &LoopDefinition, request: &TuneRequest) -> Result
             NextAction::None,
         ));
     }
-    Ok(())
+    let symbols = family_setting_symbols(loop_definition, pins.family);
+    match pins.values.keys().find(|symbol| !symbols.contains(*symbol)) {
+        Some(symbol) => Err(Failure::new(
+            &texts::not_a_family_setting(symbol, structure_word(pins.family)),
+            Cause::Settings,
+            NextAction::None,
+        )),
+        None => Ok(()),
+    }
 }
 
 /// The entered settings name the loop's settings and lie within their bounds (B4.5): the first that does not is the refusal,
@@ -393,8 +442,23 @@ fn check_manual(loop_definition: &LoopDefinition, request: &TuneRequest) -> Resu
     let Some(settings) = &request.settings else {
         return Ok(());
     };
-    match manual::outside_bounds(loop_definition, settings) {
-        Some(sentence) => Err(Failure::new(&sentence, Cause::Settings, NextAction::None)),
+    if let Some(sentence) = manual::outside_bounds(loop_definition, settings) {
+        return Err(Failure::new(&sentence, Cause::Settings, NextAction::None));
+    }
+    // The family the request fixes, by its structure or by its pins, takes only its own settings (the page asks for these alone).
+    let Some(family) = request
+        .structure
+        .or(request.pins.as_ref().map(|pins| pins.family))
+    else {
+        return Ok(());
+    };
+    let symbols = family_setting_symbols(loop_definition, family);
+    match settings.keys().find(|symbol| !symbols.contains(*symbol)) {
+        Some(symbol) => Err(Failure::new(
+            &texts::not_a_family_setting(symbol, structure_word(family)),
+            Cause::Settings,
+            NextAction::None,
+        )),
         None => Ok(()),
     }
 }

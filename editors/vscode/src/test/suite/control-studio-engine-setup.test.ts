@@ -8,8 +8,9 @@ import type { ControlStudioEngine, EngineAnswer } from "../../controlStudio/engi
 import type { Failure } from "../../controlStudio/generated/Failure";
 import type { SetupDiscoverRequest } from "../../controlStudio/generated/SetupDiscoverRequest";
 import type { SetupDiscoverResult } from "../../controlStudio/generated/SetupDiscoverResult";
+import type { SetupSaveRequest } from "../../controlStudio/generated/SetupSaveRequest";
 import type { SetupSaveResult } from "../../controlStudio/generated/SetupSaveResult";
-import { engineAnswer, refusalText, setupSaveOutcome } from "../../controlStudio/loopSetup/setupEngine";
+import { engineAnswer, refusalText, saveSetupDraft, setupSaveOutcome } from "../../controlStudio/loopSetup/setupEngine";
 import { ThreePageBindingRoute } from "../../controlStudio/threePageBindingRoute";
 
 /**
@@ -200,6 +201,31 @@ suite("Control Studio engine setup", () => {
   test("shows a refusal with the words of its next action, or with its message alone", () => {
     assert.strictEqual(refusalText(SETTINGS_REFUSAL), "The loop has no such controller. Next: Loop setup…");
     assert.strictEqual(refusalText({ message: "The file is missing.", cause: "unclassified", nextAction: "none" }), "The file is missing.");
+  });
+
+  test("saves the feedforward draft the setup form posts unchanged, and a refusal of it is a refusal, never a parked structure (C8)", async () => {
+    // The form's draft for a feedforward: the keys are the fields of the engine's FeedforwardLoopDraft (setup/save.rs `parse_setup_draft`).
+    const draft = {
+      structure: "feedforward", name: "Water temperature", instance: "P1.Loop", action: "direct", parameterRecord: "P1.Parameters",
+      processVariable: { symbol: "P1.WaterC", unit: "degC", minimum: 0, maximum: 80 },
+      manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 },
+      setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
+      disturbance: { symbol: "P1.LoadKw", unit: "kW", minimum: 0, maximum: 50 }, disturbanceCommand: "P1.LoadKw", disturbanceStep: 10,
+      feedforward: { gain: "P1.FeedforwardGain", lead: "P1.LeadS", lag: "P1.LagS", filtered: "P1.FilteredLoadKw" },
+    };
+    assert.deepStrictEqual(Object.keys(draft).sort(), ["action", "disturbance", "disturbanceCommand", "disturbanceStep", "feedforward", "instance",
+      "manipulatedVariable", "manualOutput", "mode", "name", "parameterRecord", "processVariable", "setpoint", "structure"],
+      "the posted keys are the fields the engine's draft reads, and no other");
+    const requests: SetupSaveRequest[] = [];
+    const refusal: Failure = { message: "The disturbance step must be positive and at most 50 kW.", cause: "implementation", nextAction: "open-loop-setup" };
+    let answer: EngineAnswer<SetupSaveResult> = { result: { loops: [{ id: "loop:water-temperature", name: "Water temperature", file: "control-loops/water-temperature.json" }] } };
+    const engine = { setupSave: async (request: SetupSaveRequest) => { requests.push(request); return answer; } } as unknown as ControlStudioEngine;
+    const request: SetupSaveRequest = { projectRoot: "/project", runtimeId: "runtime:local", draft };
+    assert.deepStrictEqual(await saveSetupDraft(engine, request), { kind: "saved", file: "control-loops/water-temperature.json" });
+    assert.deepStrictEqual(requests, [request], "the engine receives the draft as the form posted it");
+    answer = { failure: refusal };
+    assert.deepStrictEqual(await saveSetupDraft(engine, request), { kind: "refused", failure: refusal },
+      "the engine's refusal of a feedforward is shown; the TypeScript generator is not asked");
   });
 
   test("answers a call that could not be made with an unclassified failure that names its reason", async () => {

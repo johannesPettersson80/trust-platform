@@ -10,9 +10,11 @@
 use std::collections::VecDeque;
 
 use trust_control_math::identify::gain::ControllerAction;
+use trust_control_math::identify::ParameterInterval;
 
 use super::*;
 use crate::tuning::objective::TuningObjective;
+use crate::tuning::prediction::RecordShaping;
 use crate::tuning::shortfall::{GainLimits, OutputLimits};
 use crate::tuning::structures::fixtures::{requirements, smith_heater_model, NoSupport};
 
@@ -25,6 +27,11 @@ fn facts() -> LoopFacts {
             minimum: 0.0,
             maximum: 100.0,
         },
+        rate_limits: ParameterInterval {
+            minimum: -1e6,
+            maximum: 1e6,
+        },
+        shaping: RecordShaping::default(),
         process_unit: "degC".to_owned(),
         manipulated_unit: "%".to_owned(),
     }

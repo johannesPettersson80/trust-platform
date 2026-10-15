@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use super::checks::{addresses_overlap, parse_address};
 use super::*;
 
-fn decode(value: &Value) -> Result<LoopDefinition, LoopRejection> {
+pub(super) fn decode(value: &Value) -> Result<LoopDefinition, LoopRejection> {
     LoopDefinition::decode(&value.to_string())
 }
 
@@ -21,7 +21,7 @@ fn validate(value: &Value) -> Result<(), LoopRejection> {
 }
 
 /// A complete SISO Control.PID loop with its parameter record.
-fn complete_loop() -> Value {
+pub(super) fn complete_loop() -> Value {
     json!({
         "schemaVersion": 2,
         "id": "loop:tank",
@@ -57,7 +57,7 @@ fn complete_loop() -> Value {
     })
 }
 
-fn with(mut value: Value, path: &[&str], replacement: Value) -> Value {
+pub(super) fn with(mut value: Value, path: &[&str], replacement: Value) -> Value {
     let mut target = &mut value;
     for key in &path[..path.len() - 1] {
         target = &mut target[*key];
@@ -105,9 +105,15 @@ fn accepts_the_complete_siso_control_pid_loop_without_losing_its_engineering_ide
 }
 
 #[test]
-fn only_the_current_schema_version_is_read_and_unknown_keys_are_refused() {
+fn only_schema_versions_one_and_two_are_read_and_unknown_keys_are_refused() {
+    let later = with(complete_loop(), &["schemaVersion"], json!(3));
+    assert_eq!(decode(&later), Err(LoopRejection::UnsupportedVersion(3)));
+    // A version 1 file declares none of the version 2 keys of the complete loop (schema_v1.rs).
     let earlier = with(complete_loop(), &["schemaVersion"], json!(1));
-    assert_eq!(decode(&earlier), Err(LoopRejection::UnsupportedVersion(1)));
+    assert!(
+        matches!(decode(&earlier), Err(LoopRejection::Malformed(_))),
+        "a version 1 file declares no parameter binding"
+    );
     let legacy = with(
         complete_loop(),
         &["controller", "saturationEvidence"],
@@ -682,7 +688,8 @@ fn the_rust_engine_runs_an_observation_loop_without_a_law_and_its_law_stages_ref
 fn the_engine_runs_an_observation_lesson_and_an_open_loop_lesson_of_the_examples() {
     // Specification 35, C12: heater lesson 04 is an observation loop (project-scripted, no law) and process-response lesson 13 is
     // an open-loop experiment loop (`topology: "open-loop"`, schema 2, no law). Both are the examples the course opens (checklist
-    // V7, wave 1). Cold-storage lesson 01 is schema 1 until the ON/OFF port, so it is not used here.
+    // V7, wave 1). The cold-storage lessons, which are schema 1, are tested by
+    // `the_cold_storage_lessons_of_schema_one_open_as_observation_loops`.
     for text in [
         include_str!(
             "../../../../examples/control/01-feedback-foundations-and-temperature-control/04-water-heater-p/control-loop.json"
@@ -705,6 +712,68 @@ fn the_engine_runs_an_observation_lesson_and_an_open_loop_lesson_of_the_examples
             "{}: no controller law, so Tune, Validate and Apply refuse it",
             value["id"]
         );
+    }
+}
+
+#[test]
+fn the_cold_storage_lessons_of_schema_one_open_as_observation_loops() {
+    // Specification 35, B1 and C12: lessons 01, 02, 03 and 80 are version 1 files, each a project-scripted observation with no law.
+    // The engine reads them by the version 1 rules, so they open and Identify serves them; Tune, Validate and Apply do not apply.
+    use crate::stages::{stage_availability, Stage, StageEvidence, StageStatus};
+
+    for text in [
+        include_str!(
+            "../../../../examples/control/01-feedback-foundations-and-temperature-control/01-cold-storage-loop-anatomy/control-loop.json"
+        ),
+        include_str!(
+            "../../../../examples/control/01-feedback-foundations-and-temperature-control/02-cold-storage-on-off/control-loop.json"
+        ),
+        include_str!(
+            "../../../../examples/control/01-feedback-foundations-and-temperature-control/03-cold-storage-hysteresis-dwell/control-loop.json"
+        ),
+        include_str!(
+            "../../../../examples/control/14-integrated-capstones/80-cold-storage/control-loop.json"
+        ),
+    ] {
+        let value: Value = serde_json::from_str(text).expect("json");
+        let id = &value["id"];
+        assert_eq!(value["schemaVersion"], 1, "{id} is a version 1 file");
+        let loop_definition =
+            LoopDefinition::decode(text).unwrap_or_else(|error| panic!("{id}: {error}"));
+        loop_definition
+            .validate(&scope(&value))
+            .unwrap_or_else(|error| panic!("{id}: {error}"));
+        loop_definition
+            .rust_engine_support()
+            .unwrap_or_else(|error| panic!("{id}: {error:?}"));
+        assert!(loop_definition.is_observation_or_open_loop(), "{id}");
+        let stages = stage_availability(&StageEvidence {
+            loop_bound: true,
+            controller_stages_apply: !loop_definition.is_observation_or_open_loop(),
+            ..StageEvidence::default()
+        });
+        let status = |wanted: Stage| {
+            stages
+                .iter()
+                .find(|stage| stage.stage == wanted)
+                .map(|stage| stage.status)
+        };
+        assert_eq!(
+            status(Stage::Identify),
+            Some(StageStatus::NeedsData),
+            "{id}: Identify is served"
+        );
+        for stage in [Stage::Tune, Stage::Validate, Stage::Apply] {
+            assert_eq!(
+                status(stage),
+                Some(StageStatus::NotApplicable),
+                "{id}: {stage:?} does not apply"
+            );
+        }
+        let refusal = loop_definition
+            .require_controller_law()
+            .expect_err("no controller law");
+        assert_eq!(refusal.message, NO_CONTROLLER_LAW, "{id}");
     }
 }
 
@@ -751,7 +820,7 @@ fn shipped_loops(folder: &std::path::Path, found: &mut Vec<std::path::PathBuf>) 
 }
 
 #[test]
-fn every_shipped_loop_of_the_current_version_decodes_and_validates() {
+fn every_shipped_loop_decodes_and_validates() {
     let mut files = Vec::new();
     shipped_loops(
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples"),
@@ -766,20 +835,19 @@ fn every_shipped_loop_of_the_current_version_decodes_and_validates() {
     for file in files {
         let text = std::fs::read_to_string(&file).expect("readable");
         let value: Value = serde_json::from_str(&text).expect("json");
-        if value["schemaVersion"] == 1 {
-            // The four cold-storage ON/OFF lessons; they are regenerated with the ON/OFF port (V7).
-            assert_eq!(
-                LoopDefinition::decode(&text),
-                Err(LoopRejection::UnsupportedVersion(1)),
-                "{}",
-                file.display()
-            );
-            continue;
-        }
-        if let Err(error) = LoopDefinition::decode(&text)
-            .and_then(|loop_definition| loop_definition.validate(&scope(&value)))
-        {
-            problems.push(format!("{}: {error}", file.display()));
+        match LoopDefinition::decode(&text) {
+            Ok(loop_definition) => {
+                if let Err(error) = loop_definition.validate(&scope(&value)) {
+                    problems.push(format!("{}: {error}", file.display()));
+                }
+            }
+            // A program's own law whose initialization names a formula the engine does not read yet (C2, V7) does not decode; the file
+            // is then refused by name, as a parked loop (V6 decision D12), so only an unparked file that fails here is a problem.
+            Err(error) => {
+                if parked_feature_of(&value).is_none() {
+                    problems.push(format!("{}: {error}", file.display()));
+                }
+            }
         }
     }
     assert!(problems.is_empty(), "{problems:#?}");
@@ -788,8 +856,9 @@ fn every_shipped_loop_of_the_current_version_decodes_and_validates() {
 #[test]
 fn every_shipped_loop_runs_on_the_rust_engine_or_is_parked_never_refused_otherwise() {
     // The panel keeps a parked loop on the TypeScript route silently (cause controller-capability); any other refusal at open is
-    // shown on the page as a failure. A loop without a controller law is not parked (C12): the 53 course loops of that shape
-    // open on the engine, so every shipped loop is held to the two outcomes here, and a refusal of another cause fails the test.
+    // shown on the page as a failure. A loop without a controller law is not parked (C12): the course loops of that shape, the
+    // version 1 cold-storage lessons among them, open on the engine, so every shipped loop is held to the two outcomes here, and a
+    // refusal of another cause fails the test.
     let mut files = Vec::new();
     shipped_loops(
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples"),

@@ -5,14 +5,18 @@
 //! `identification::selected_model_analysis`): the numerator is the gain, and the denominator is one, the integrator `s`,
 //! or the product of the factors `(τ·s + 1)` of the time constants. This module is the inverse. It reads the form, the
 //! gain, the time constants and the dead time back, accepts only the denominators Identify writes, and takes the normalized
-//! error that decides the model from the study's presentation of the fit.
+//! error that decides the model from the study's presentation of the fit. A supplied state-space model is read as its
+//! transfer function (N4.7(c)), scaled to the same form (N5.13); an integrator with a lag is read too (N5.12(c)), although
+//! Identify fits no such form.
 
 #![allow(clippy::module_name_repetitions)] // `tuning_model` names the model the module reads.
 
 use trust_control_math::identify::LowOrderModelKind;
+use trust_control_math::model::{state_space_transfer_polynomials, StateSpace};
 
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::refusal::Refusal;
+use crate::model::limits::MAXIMUM_CONVERSION_ORDER;
 use crate::model::GeneralModel;
 use crate::study::current_model::CurrentModel;
 use crate::tuning::candidate_margins::plant_transfer;
@@ -38,11 +42,22 @@ const ERROR_NOT_RECORDED: &str =
 /// the uncertainty and the search-boundary finding) is not part of the tuning model.
 ///
 /// # Errors
-/// Returns a [`Refusal`] when the model is not a transfer function of a low-order form Identify writes, or when the study
-/// does not record the normalized error that decides a fit.
+/// Returns a [`Refusal`] when the model, or its transfer function after the state-space conversion (N4.7(c)), is not a
+/// low-order form Identify writes, or when the study does not record the normalized error that decides a fit.
 pub(crate) fn tuning_model(current: &CurrentModel) -> Result<IdentifiedModel, Refusal> {
-    let GeneralModel::TransferFunction { identity, transfer } = &current.model else {
-        return Err(Refusal::new(NOT_LOW_ORDER));
+    let (identity, numerator, denominator) = match &current.model {
+        GeneralModel::TransferFunction { identity, transfer } => (
+            identity,
+            transfer.numerator.clone(),
+            transfer.denominator.clone(),
+        ),
+        GeneralModel::ContinuousStateSpace {
+            identity, system, ..
+        } => {
+            let (numerator, denominator) = converted(system)?;
+            (identity, numerator, denominator)
+        }
+        GeneralModel::DiscreteStateSpace { .. } => return Err(Refusal::new(NOT_LOW_ORDER)),
     };
     let normalized_error = match &current.identify {
         Some(_) => Some(
@@ -53,11 +68,44 @@ pub(crate) fn tuning_model(current: &CurrentModel) -> Result<IdentifiedModel, Re
         None => None,
     };
     low_order_model(
-        &transfer.numerator,
-        &transfer.denominator,
+        &numerator,
+        &denominator,
         identity.delay_seconds,
         normalized_error,
     )
+}
+
+/// The numerator and denominator of a continuous state-space model, `C·(s·I − A)⁻¹·B + D` (N4.7(c)), scaled as Identify writes
+/// its forms (N5.13): the lowest nonzero coefficient of the denominator is one. The conversion of `K/(T·s + 1)` is monic,
+/// `(K/T)/(s + 1/T)`; dividing numerator and denominator by `1/T` gives `K/(T·s + 1)` again.
+///
+/// # Errors
+/// Returns the structure refusal when the model is not single-input and single-output, or its order is above the conversion
+/// limit (N4.7(c)).
+fn converted(system: &StateSpace) -> Result<(Vec<f64>, Vec<f64>), Refusal> {
+    let transfer = state_space_transfer_polynomials(system, MAXIMUM_CONVERSION_ORDER)
+        .map_err(|_| Refusal::new(NOT_LOW_ORDER))?;
+    let Some(pivot) = transfer
+        .denominator
+        .iter()
+        .rev()
+        .copied()
+        .find(|value| !is_exactly_zero(*value))
+    else {
+        return Ok((transfer.numerator, transfer.denominator));
+    };
+    Ok((
+        transfer
+            .numerator
+            .iter()
+            .map(|value| value / pivot)
+            .collect(),
+        transfer
+            .denominator
+            .iter()
+            .map(|value| value / pivot)
+            .collect(),
+    ))
 }
 
 /// The low-order model of `n·e^(−L·s)/D(s)`, with the coefficients in descending powers, in the forms Identify writes:
@@ -66,13 +114,16 @@ pub(crate) fn tuning_model(current: &CurrentModel) -> Result<IdentifiedModel, Re
 /// - `D = [d₀, 0]`: an integrating form, with the rate gain `K′ = n/d₀`;
 /// - `D = [d₀, d₁]`: a first-order form, `T = d₀/d₁` and `K = n/d₁`, with a dead time when `L > 0`;
 /// - `D = [d₀, d₁, d₂]`: a second-order form, `K = n/d₂`, with a dead time when `L > 0`. Its time constants are the roots
-///   of `x² − (d₁/d₂)·x + d₀/d₂`, the larger first, when they are real. Complex roots leave both absent.
+///   of `x² − (d₁/d₂)·x + d₀/d₂`, the larger first, when they are real. Complex roots leave both absent;
+/// - `D = [d₀, d₁, 0]`: an integrating form with a lag, `K′ = n/d₁` and `τ = d₀/d₁` (N5.12(c)). Identify fits no such form. A
+///   supplied model may carry it, and only the pole placement of Automatic takes it.
 ///
 /// The denominator rebuilt from the form and its time constants, as Identify builds it, must equal the stored one within a
-/// relative `10⁻⁹`: every other transfer function is refused, and so the constant term (the `s` coefficient of the
-/// integrator) is one. A form with complex roots has no time constants to rebuild it from; its coefficients over its
-/// constant term stand for the rebuilt ones. The dead time is `L`, zero included. The model is stable when it integrates,
-/// or when every time constant it has is finite and positive.
+/// relative `10⁻⁹`: every other transfer function is refused, so the lowest nonzero coefficient is one (the constant term of a
+/// static, first-order or second-order form, or the `s` coefficient of an integrator, with or without its lag). A form with
+/// complex roots has no time constants to rebuild it from; its coefficients over its constant term stand for the rebuilt
+/// ones. The dead time is `L`, zero included. The model is stable when it integrates, or when every time constant it has is
+/// finite and positive.
 fn low_order_model(
     numerator: &[f64],
     denominator: &[f64],
@@ -106,6 +157,11 @@ fn low_order_model(
                 second_order_time_constants(linear / constant, quadratic / constant);
             (kind, constant, time_constants)
         }
+        [lag, linear, constant] if is_exactly_zero(constant) && !is_exactly_zero(linear) => (
+            LowOrderModelKind::Integrating,
+            linear,
+            [Some(lag / linear), None],
+        ),
         _ => return Err(Refusal::new(NOT_LOW_ORDER)),
     };
     let complex_roots = denominator.len() == 3 && matches!(time_constants, [None, None]);

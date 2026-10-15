@@ -4,14 +4,14 @@
 
 use trust_control_math::model::{OperatingPoint, StateSpace, TransferFunction};
 
-use super::path::PathSupport;
+use super::path::{LoopFacts, PathSupport};
 use crate::model::{
     GeneralModel, ModelChannel, ModelIdentity, ModelSource, ModelValidation, OperatingRange,
 };
 use crate::tuning::placement::{PlacementRefusal, PolePlacement};
 use crate::tuning::plant::TuningPlant;
 use crate::tuning::requirements::TuningRequirements;
-use crate::tuning::shortfall::{ResponsePredictor, TimePoint, Trial};
+use crate::tuning::shortfall::{DesignContext, ResponsePredictor, TimePoint, Trial};
 use crate::tuning::structure::{ParallelGains, Structure};
 use crate::tuning::typed_pid::TypedDesign;
 
@@ -251,13 +251,18 @@ impl PathSupport for NoSupport {
     fn predictor(
         &self,
         _path: &TuningPlant,
-        _operating_input: f64,
-        _operating_output: f64,
+        _facts: &LoopFacts,
+        _operating: (f64, f64),
     ) -> Box<dyn ResponsePredictor + '_> {
         Box::new(NoPrediction)
     }
 
-    fn placement(&self, _path: &TuningPlant) -> Box<dyn PolePlacement + '_> {
+    fn placement(
+        &self,
+        _path: &TuningPlant,
+        _requirements: &TuningRequirements,
+        _context: &DesignContext<'_>,
+    ) -> Box<dyn PolePlacement + '_> {
         Box::new(NoPlacement)
     }
 }

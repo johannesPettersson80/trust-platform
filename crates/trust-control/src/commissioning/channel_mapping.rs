@@ -1,7 +1,8 @@
 //! The loop's signals as the commissioning's transfers and models see them, for a loop without channel bindings
 //! (specification 35, §17.1 and C0; the Rust engine runs no channels yet, checklist V7). Ported from the scalar branches of
 //! `declaredControllerChannels.ts` and of `connectedModelChannels` in `loopChannels.ts`. A loop with channel bindings is
-//! refused here: its multichannel rules are parked and not ported.
+//! refused here, except a measured-disturbance feedforward (C8): its controller output is the same plant input and its process variable
+//! the same output, and its measured disturbance is read at the task boundary, never written by a transfer.
 
 use super::texts;
 use super::transfer::{output_limits, TransferMember, TransferValueType};
@@ -49,7 +50,7 @@ pub struct ConnectedChannels<'a> {
 /// value or output is not REAL or LREAL (a BOOL output is accepted when it is a dimensionless level from 0 to 1); or an
 /// output limit is not set.
 pub fn declared_channels(loop_definition: &LoopDefinition) -> Result<DeclaredChannels, Failure> {
-    if loop_definition.channels.is_some() {
+    if loop_definition.channels.is_some() && !loop_definition.is_feedforward_channels() {
         return Err(channels_parked());
     }
     let setpoint = loop_definition.signals.setpoint.as_ref().ok_or_else(|| {
@@ -87,19 +88,27 @@ pub fn declared_channels(loop_definition: &LoopDefinition) -> Result<DeclaredCha
 }
 
 /// The plant connection of a loop without channel bindings (`connectedModelChannels`, the scalar branch): the model must
-/// have one input and one output, which the loop's manipulated variable and process variable connect to.
+/// have one input and one output, which the loop's manipulated variable and process variable connect to. A measured-disturbance
+/// feedforward (C8) connects the same two signals, and its model has the measured disturbance as a second input or, for a single-loop
+/// view of its output path, none; the disturbance is then not a connection of this mapping.
 ///
 /// # Errors
-/// The loop has channel bindings, or the model is not one input and one output.
+/// The loop has channel bindings that are not a feedforward's, or the model does not have the loop's inputs and one output.
 pub fn connected_model_channels<'a>(
     loop_definition: &'a LoopDefinition,
     model: &GeneralModel,
 ) -> Result<ConnectedChannels<'a>, Failure> {
-    if loop_definition.channels.is_some() {
+    let feedforward = loop_definition.is_feedforward_channels();
+    if loop_definition.channels.is_some() && !feedforward {
         return Err(channels_parked());
     }
     let identity = model.identity();
-    if identity.inputs.len() != 1 || identity.outputs.len() != 1 {
+    let inputs_fit = if feedforward {
+        (1..=2).contains(&identity.inputs.len())
+    } else {
+        identity.inputs.len() == 1
+    };
+    if !inputs_fit || identity.outputs.len() != 1 {
         return Err(Failure::new(
             &texts::init_model_channels_unmapped(),
             Cause::ModelOrData,

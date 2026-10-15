@@ -9,7 +9,9 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use super::{model_route, selected_model_binding};
-use crate::commissioning::fixture_loops::{first_order_model, library_pid_loop};
+use crate::commissioning::fixture_loops::{
+    first_order_model, library_pid_loop, project_pi_loop_with_startup, project_pid_loop,
+};
 use crate::failure::NextAction;
 use crate::model::general::decode_general_model;
 use crate::model::{ActuatorCapabilities, ActuatorKind, GeneralModel};
@@ -89,6 +91,44 @@ fn the_controller_states_start_at_the_model_operating_point() {
         route.initial_values.len(),
         7,
         "exactly the seven declared states"
+    );
+}
+
+#[test]
+fn a_served_pi_law_starts_its_nominal_runs_at_its_declared_states() {
+    // C2 Validate: the integral term starts at the output at the switch to Auto, which with a setpoint weight of one is the operating
+    // command (3 %), and the startup-done flag is an application state that starts TRUE (C1). The gains are the seed's values.
+    let model = transfer_model(&json!([1]), &json!([1, 1]), 0.0, 3.0, 4.0);
+    let values = BTreeMap::from([("P1.Kp".to_owned(), 2.0), ("P1.Ki".to_owned(), 0.5)]);
+    let route = model_route(&project_pi_loop_with_startup(), &model, &values)
+        .expect("the route of a served PI law");
+    assert_eq!(
+        route.initial_values,
+        BTreeMap::from([
+            ("P1.Integral".to_owned(), 3.0),
+            ("Main.Program.Started".to_owned(), 1.0)
+        ]),
+        "exactly the declared states, at the operating point"
+    );
+}
+
+#[test]
+fn a_served_pid_law_starts_its_previous_error_at_zero_and_its_integral_at_the_output() {
+    // C2 Validate: the previous error of a weighted error with weight one starts at zero, and the integral term at the command (3 %).
+    let model = transfer_model(&json!([1]), &json!([1, 1]), 0.0, 3.0, 4.0);
+    let values = BTreeMap::from([
+        ("Main.Program.Kp".to_owned(), 2.0),
+        ("Main.Program.Ki".to_owned(), 0.5),
+        ("Main.Program.Kd".to_owned(), 0.1),
+    ]);
+    let route =
+        model_route(&project_pid_loop(), &model, &values).expect("the route of a served PID law");
+    assert_eq!(
+        route.initial_values,
+        BTreeMap::from([
+            ("Main.Program.Integral".to_owned(), 3.0),
+            ("Main.Program.PreviousError".to_owned(), 0.0)
+        ])
     );
 }
 

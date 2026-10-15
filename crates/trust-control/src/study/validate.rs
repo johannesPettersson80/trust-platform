@@ -27,15 +27,19 @@ use crate::model::GeneralModel;
 use crate::stages::{stage_availability, StageEvidence};
 use crate::study::current_model::CurrentModel;
 use crate::study::is_recording_id;
+use crate::study::tune::design::feedforward::shape_of;
 use crate::study::tune::{refused_as, stage_evidence as tune_stage_evidence, TuneSection};
 use crate::study::StudySection;
 use crate::tuning::automatic_criteria::{validate_criteria, AutomaticCriteria};
-use crate::tuning::candidate::{validate_parameters, ControlPidCandidate};
+use crate::tuning::candidate::{validate_parameters, ControlPidCandidate, LawCandidate};
+use crate::tuning::project_candidate::{served_feedforward, ProjectCandidate};
+use crate::tuning::project_seed::{FeedforwardPidSeed, FeedforwardTerms};
 use crate::tuning::requirements::TuningRequirements;
 use crate::validation::configured_plant_verification::{isolated_plant_name, VerificationPlant};
 use crate::validation::engineer_scenario_effects::requirements_failure;
 use crate::validation::engineer_verification_campaign::{declared_scenarios, CampaignCase};
 use crate::validation::engineer_verification_plan::{VerificationPlan, FIXED_PARAMETER_PREFIX};
+use crate::validation::feedforward_case::measured_disturbance_case;
 use crate::validation::initialization_case::ENTRY_CASE_ID;
 use crate::validation::initialization_texts;
 use crate::validation::isolated_run_protocol::{
@@ -61,6 +65,17 @@ const NO_EVIDENCE: &str = "No requirement was checked, so the validation has no 
 const PROGRAM_CHANGED: &str = "The program changed during the mandatory verification campaign.";
 /// The refusal of jobs that do not belong to the campaign they were given with.
 const JOBS_MISMATCH: &str = "The validation was given jobs that do not match its campaign's cases.";
+/// The words the table names the measured-disturbance case with (C8).
+const DISTURBANCE_CASE: &str = "Measured-disturbance case";
+/// The identity and the label of the disturbance case's one row (C8).
+const DISTURBANCE_ROW_ID: &str = "feedforward-disturbance";
+const DISTURBANCE_ROW_LABEL: &str = "Largest deviation after settling";
+/// The refusal of a feedforward whose Tune section holds no program candidate, which its disturbance case runs (C8).
+const NO_FEEDFORWARD_CANDIDATE: &str =
+    "The Tune result of the feedforward holds no program candidate, so its measured-disturbance case has no values to run.";
+/// The refusal of a feedforward candidate that lacks a value its seed names (C8).
+const FEEDFORWARD_VALUE_MISSING: &str =
+    "The feedforward candidate holds no value for one of the variables its seed names.";
 
 /// The validation conditions that the current and the candidate runs share (N8.1): the sample grid, the record period, the
 /// seed, the values the runs start from and the signals they observe. A scenario's own events and initial values belong to
@@ -89,8 +104,14 @@ pub struct ValidationConditions {
 pub struct ValidateSection {
     /// The revision of the model the candidate was validated on (A8.4).
     pub model_revision: String,
-    /// The candidate that was validated, unapplied (N8.9). A changed candidate invalidates the validation (A8.4).
-    pub candidate: ControlPidCandidate,
+    /// The `Control.PID` candidate that was validated, unapplied (N8.9). Absent for a program's own law. A changed candidate
+    /// invalidates the validation (A8.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate: Option<ControlPidCandidate>,
+    /// The program's own candidate that was validated, unapplied (N8.9, C2). Absent for a `Control.PID`. A changed candidate
+    /// invalidates the validation (A8.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_candidate: Option<ProjectCandidate>,
     /// The requirements that were validated (B4.3). Changed requirements invalidate the validation (A8.4).
     pub requirements: TuningRequirements,
     /// The verification scenarios that the validation ran with (B4.3): the list the study declared, or the loop's own. A changed
@@ -109,6 +130,10 @@ pub struct ValidateSection {
     /// for a study written before the case was recorded (B10.4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initialization: Option<InitializationOutcome>,
+    /// The measured-disturbance case of a feedforward (C8), when this validation ran it: its row on the model, judged against the error
+    /// allowance. Absent for any other loop, and for a study written before the case was recorded. A failed case ends Apply (B5.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disturbance_case: Option<DisturbanceCaseOutcome>,
     /// The sentence of the refusal that kept the Manual-to-Auto entry case from being planned (C1), when this validation refused it. The
     /// case is then Inconclusive with that sentence (B5.4). The study keeps the sentence, not its cause or next action, as it keeps no
     /// cause of a failure.
@@ -132,8 +157,19 @@ impl ValidateSection {
     ) -> bool {
         self.model_revision == model.identity().revision
             && self.candidate == tune.candidate
+            && self.project_candidate == tune.project_candidate
             && self.requirements == tune.requirements
             && self.declared_scenarios == declared
+    }
+
+    /// The candidate that was validated, whichever law it is for. `check` admits exactly one of the two candidates.
+    #[must_use]
+    pub fn law_candidate(&self) -> Option<LawCandidate> {
+        match (&self.candidate, &self.project_candidate) {
+            (Some(candidate), None) => Some(LawCandidate::Pid(*candidate)),
+            (None, Some(candidate)) => Some(LawCandidate::Project(candidate.clone())),
+            _ => None,
+        }
     }
 
     /// The result of this validation as the study holds it (A8.6): the table's rows, the model check's row and whether Apply is
@@ -161,6 +197,7 @@ impl ValidateSection {
                     &self.scenarios,
                     &[],
                     self.initialization.as_ref(),
+                    self.disturbance_case.as_ref(),
                     refusal.as_ref(),
                 )
             }),
@@ -169,6 +206,7 @@ impl ValidateSection {
             stage_evidence: evidence,
             model_agreement: self.model_check.as_ref().map(answer::model_agreement),
             initialization: self.initialization.clone(),
+            disturbance_case: self.disturbance_case.clone(),
             labels: answer::labels(),
             plot: None,
         }
@@ -192,13 +230,37 @@ impl StudySection for ValidateSection {
             validate_criteria(criteria)
                 .map_err(refused_as(Cause::Settings, NextAction::OpenRequirements))?;
         }
-        validate_parameters(&self.candidate.parameters)
-            .map_err(refused_as(Cause::Settings, NextAction::None))?;
-        if self.candidate.applied {
-            return Err(invalid(
-                "its candidate is marked applied, but Validate never writes to the controller (N8.9)",
-                Cause::Settings,
-            ));
+        match (&self.candidate, &self.project_candidate) {
+            (Some(candidate), None) => {
+                validate_parameters(&candidate.parameters)
+                    .map_err(refused_as(Cause::Settings, NextAction::None))?;
+                if candidate.applied {
+                    return Err(invalid(
+                        "its candidate is marked applied, but Validate never writes to the controller (N8.9)",
+                        Cause::Settings,
+                    ));
+                }
+            }
+            (None, Some(candidate)) => {
+                if candidate.applied {
+                    return Err(invalid(
+                        "its program candidate is marked applied, but Validate never writes to the controller (N8.9)",
+                        Cause::Settings,
+                    ));
+                }
+                if !candidate.is_finite() {
+                    return Err(invalid(
+                        "its program candidate holds a value that is not finite",
+                        Cause::Settings,
+                    ));
+                }
+            }
+            _ => {
+                return Err(invalid(
+                    "it holds neither a candidate nor a program candidate, or both (C1, C2)",
+                    Cause::Settings,
+                ))
+            }
         }
         if self.conditions.step_ms == 0 || self.conditions.duration_ms == 0 {
             return Err(invalid("its sample grid is empty", Cause::ModelOrData));
@@ -229,7 +291,15 @@ impl StudySection for ValidateSection {
                 Cause::ModelOrData,
             ));
         }
-        if self.status != overall_status(&self.scenarios, self.initialization.as_ref()) {
+        if let Some(case) = &self.disturbance_case {
+            check_disturbance_case(case)?;
+        }
+        let overall = overall_result(
+            &self.scenarios,
+            self.initialization.as_ref(),
+            self.disturbance_case.as_ref(),
+        );
+        if self.status != overall {
             return Err(invalid(
                 "its overall result does not follow from its runs (N8.5)",
                 Cause::ModelOrData,
@@ -250,6 +320,20 @@ impl StudySection for ValidateSection {
             .map(|check| check.recording_id.as_str())
             .collect()
     }
+}
+
+/// The measured-disturbance case of a feedforward's Validate (C8): one row on the model, as the Manual-to-Auto entry case is one set of rows
+/// (B5.4). Its requirement compares the largest deviation of the measurement after the settling time with the error allowance, and its
+/// result is that row's, so a case that cannot be judged is Inconclusive and never passes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DisturbanceCaseOutcome {
+    /// The words the table names the case with (C8): "Measured-disturbance case".
+    pub label: String,
+    /// The case's result (N8.5): the result of its row.
+    pub status: RequirementStatus,
+    /// The case's rows: its one requirement, with the measured deviation, the error allowance and the reason.
+    pub requirements: Vec<RequirementOutcome>,
 }
 
 /// What the refusals of Validate read (B5.5): the loop, the study's current model and Tune section, and the readiness of the
@@ -298,11 +382,23 @@ pub fn overall_status(
     scenarios: &[ScenarioOutcome],
     initialization: Option<&InitializationOutcome>,
 ) -> RequirementStatus {
+    overall_result(scenarios, initialization, None)
+}
+
+/// The overall result of a validation with its measured-disturbance case (N8.5, C8): the campaign rule over the candidate runs, the
+/// Manual-to-Auto entry case and the disturbance case, so a failed case fails the candidate and ends Apply (B5.4).
+#[must_use]
+pub fn overall_result(
+    scenarios: &[ScenarioOutcome],
+    initialization: Option<&InitializationOutcome>,
+    disturbance_case: Option<&DisturbanceCaseOutcome>,
+) -> RequirementStatus {
     combined_status(
         scenarios
             .iter()
             .map(|scenario| scenario.candidate.status)
-            .chain(initialization.map(|entry| entry.status)),
+            .chain(initialization.map(|entry| entry.status))
+            .chain(disturbance_case.map(|case| case.status)),
     )
 }
 
@@ -441,7 +537,9 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
             )
         })
         .transpose()?;
-    let status = overall_status(&campaign.scenarios, initialization.as_ref());
+    let disturbance = disturbance_case_of(loop_definition, input.model, tune)?;
+    let case = disturbance.as_ref();
+    let status = overall_result(&campaign.scenarios, initialization.as_ref(), case);
     let refusal = match input.entry {
         Some(EntryJob::Refused(refusal)) => Some(refusal),
         Some(EntryJob::Ran { .. }) | None => None,
@@ -462,12 +560,14 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
     let section = ValidateSection {
         model_revision,
         candidate: tune.candidate,
+        project_candidate: tune.project_candidate.clone(),
         requirements: tune.requirements.clone(),
         declared_scenarios: declared_scenarios(loop_definition)?,
         conditions: conditions_of(loop_definition, &nominal.plan),
         model_check: model_check.clone(),
         scenarios: campaign.scenarios.clone(),
         initialization: initialization.clone(),
+        disturbance_case: disturbance.clone(),
         entry_refusal: refusal.map(|refusal| refusal.message.clone()),
         status,
         apply_available: eligible,
@@ -487,6 +587,7 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
             &campaign.scenarios,
             &campaign.candidate_evaluations,
             initialization.as_ref(),
+            case,
             refusal,
         ))
     };
@@ -495,6 +596,7 @@ pub fn validate_outcome(input: &ValidationInput<'_>) -> Result<ValidateOutcome, 
         result: ValidateResult {
             model_agreement: model_check.as_ref().map(answer::model_agreement),
             initialization,
+            disturbance_case: disturbance,
             model_check,
             scenarios: campaign.scenarios,
             requirements: tune.requirements.clone(),
@@ -768,6 +870,138 @@ fn refused_row(refusal: &Failure) -> RequirementOutcome {
     }
 }
 
+/// The measured-disturbance case of a feedforward's Validate (C8), when the loop has a feedforward: the candidate's PI and feedforward values
+/// run on the model against a disturbance step, judged against the error allowance of the requirements (`measured_disturbance_case`). A case
+/// that cannot be judged is Inconclusive with the sentence of its refusal (B5.4). A loop without a feedforward has none.
+///
+/// # Errors
+/// The Tune section holds no program candidate, the candidate holds no value of the feedforward, or the loop's channels or disturbance step
+/// do not fit the model (`shape_of`).
+fn disturbance_case_of(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    tune: &TuneSection,
+) -> Result<Option<DisturbanceCaseOutcome>, Failure> {
+    let Some(seed) = served_feedforward(loop_definition) else {
+        return Ok(None);
+    };
+    let candidate = tune.project_candidate.as_ref().ok_or_else(|| {
+        Failure::new(
+            NO_FEEDFORWARD_CANDIDATE,
+            Cause::Implementation,
+            NextAction::None,
+        )
+    })?;
+    let shape = shape_of(loop_definition, model)?;
+    let terms = feedforward_terms(seed, candidate)?;
+    let period_seconds = loop_definition.controller.task_period_ms / 1_000.0;
+    let allowance = tune.requirements.maximum_error;
+    let judged = measured_disturbance_case(
+        model,
+        &shape.channels,
+        candidate.gains,
+        terms,
+        shape.disturbance_step,
+        period_seconds,
+        &tune.requirements,
+    );
+    let (status, value, reason) = match judged {
+        Ok(outcome) => {
+            let largest = outcome.largest_after_settling;
+            if outcome.passed {
+                (
+                    RequirementStatus::Pass,
+                    Some(largest),
+                    format!(
+                        "The measurement stays within the error allowance of {allowance:.3} from the settling time to the end of the disturbance step, with the candidate's PI and feedforward on the model (largest deviation {largest:.3})."
+                    ),
+                )
+            } else {
+                (
+                    RequirementStatus::Fail,
+                    Some(largest),
+                    format!(
+                        "The measurement leaves the error allowance of {allowance:.3} after the settling time: its largest deviation is {largest:.3} with the candidate's PI and feedforward on the model."
+                    ),
+                )
+            }
+        }
+        Err(refusal) => (RequirementStatus::Inconclusive, None, refusal.0),
+    };
+    let process = &loop_definition.signals.process_variable;
+    let row = RequirementOutcome {
+        id: DISTURBANCE_ROW_ID.to_owned(),
+        label: DISTURBANCE_ROW_LABEL.to_owned(),
+        channel: RequirementChannel {
+            role: "Measurement".to_owned(),
+            unit: process.unit.clone(),
+            symbol: process.symbol.clone(),
+        },
+        limit_side: LimitSide::AtMost,
+        status,
+        value,
+        limit: Some(allowance),
+        unit: process.unit.clone(),
+        source: isolated_plant_name(&VerificationPlant::Model, &model.identity().revision),
+        reason,
+        automatic: false,
+        guard: false,
+        measured_range: None,
+        limit_range: None,
+    };
+    Ok(Some(DisturbanceCaseOutcome {
+        label: DISTURBANCE_CASE.to_owned(),
+        status,
+        requirements: vec![row],
+    }))
+}
+
+/// The feedforward values of a candidate, read by their variables (C8): the gain, and the lead and the lag when the seed names them.
+///
+/// # Errors
+/// The candidate holds no value for one of the variables that the seed names.
+fn feedforward_terms(
+    seed: &FeedforwardPidSeed,
+    candidate: &ProjectCandidate,
+) -> Result<FeedforwardTerms, Failure> {
+    let value = |symbol: &str| {
+        candidate.values.get(symbol).copied().ok_or_else(|| {
+            Failure::new(
+                FEEDFORWARD_VALUE_MISSING,
+                Cause::Implementation,
+                NextAction::None,
+            )
+        })
+    };
+    let gain = value(&seed.gain_symbol)?;
+    let (lead_seconds, lag_seconds) = match &seed.lead_lag {
+        Some(lead_lag) => (
+            Some(value(&lead_lag.lead_symbol)?),
+            Some(value(&lead_lag.lag_symbol)?),
+        ),
+        None => (None, None),
+    };
+    Ok(FeedforwardTerms {
+        gain,
+        lead_seconds,
+        lag_seconds,
+    })
+}
+
+/// The row of a disturbance case must hold the result the case states (N8.5).
+///
+/// # Errors
+/// The case's result does not follow from its row.
+fn check_disturbance_case(case: &DisturbanceCaseOutcome) -> Result<(), Failure> {
+    if case.status != combined_status(case.requirements.iter().map(|row| row.status)) {
+        return Err(invalid(
+            "its measured-disturbance result does not follow from its row (N8.5)",
+            Cause::ModelOrData,
+        ));
+    }
+    Ok(())
+}
+
 /// The requirements of a run with its parameter overrides (B5.3, C0): a fixed parameter that the run overrode must hold the
 /// override's value through the run, not the value the plan was built with; the other requirements are the case's own.
 fn held_parameters(
@@ -1037,12 +1271,14 @@ fn failure_of(
     scenarios: &[ScenarioOutcome],
     evaluations: &[Option<RecordedRunEvaluation>],
     initialization: Option<&InitializationOutcome>,
+    disturbance_case: Option<&DisturbanceCaseOutcome>,
     refusal: Option<&Failure>,
 ) -> Failure {
     if let Some(check) = model_check.filter(|check| check.status != RequirementStatus::Pass) {
         return Failure::new(&check.reason, Cause::ModelOrData, NextAction::Identify);
     }
     let entry_rows = initialization.map_or(&[][..], |entry| entry.requirements.as_slice());
+    let case_rows = disturbance_case.map_or(&[][..], |case| case.requirements.as_slice());
     if status == RequirementStatus::Fail {
         if let Some(failed) = candidate_requirements(scenarios)
             .find(|requirement| requirement.status == RequirementStatus::Fail)
@@ -1060,6 +1296,13 @@ fn failure_of(
                 NextAction::OpenLoopSetup,
             );
         }
+        // A failed row of the measured-disturbance case: the feedforward's gain or its PI does not hold the error allowance (C8, B5.4).
+        if let Some(failed) = case_rows
+            .iter()
+            .find(|row| row.status == RequirementStatus::Fail)
+        {
+            return Failure::new(&failed.reason, Cause::Settings, NextAction::Tune);
+        }
     }
     // An Auto entry that cannot be planned names its own refusal, with the cause and next action that it carries (B5.5, C1).
     if let Some(refusal) = refusal {
@@ -1067,6 +1310,7 @@ fn failure_of(
     }
     let reason = candidate_requirements(scenarios)
         .chain(entry_rows.iter())
+        .chain(case_rows.iter())
         .find(|requirement| requirement.status != RequirementStatus::Pass)
         .map_or(NO_EVIDENCE, |requirement| requirement.reason.as_str());
     let entry_incomplete =
@@ -1183,3 +1427,7 @@ mod guard_rows_tests;
 #[cfg(test)]
 #[path = "validate_entry_tests.rs"]
 mod entry_tests;
+
+#[cfg(test)]
+#[path = "validate_disturbance_tests.rs"]
+mod disturbance_tests;

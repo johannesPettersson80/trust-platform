@@ -156,6 +156,15 @@ fn assert_fit_reads_the_extra_output(
         Some(vec![extra.to_string()]),
         "beside them, the recording's channel the fit read its measurement from (B3.6)"
     );
+    let measured = &section.selected_model.identity().outputs[0];
+    assert_eq!(
+        measured.id, loop_definition.signals.process_variable.symbol,
+        "the model names the loop's measured output, not the recorded channel (B3.6)"
+    );
+    assert_eq!(
+        measured.unit, "°C",
+        "the model keeps the recorded channel's unit"
+    );
     assert!(
         section.is_current_for(&loop_definition),
         "the fit is current for the loop (A8.4)"

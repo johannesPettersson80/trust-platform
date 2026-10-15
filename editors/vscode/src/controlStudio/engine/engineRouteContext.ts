@@ -7,6 +7,8 @@ import type { LoopMessageScope } from "../messages";
 export interface EngineLoop {
   readonly id: string;
   readonly runtimeId: string;
+  /** The parameters the loop's declared analysis maps to program symbols; their presence routes the parameter tool to the engine (C12). */
+  readonly analysisParameterSymbols?: Readonly<Record<string, string>>;
 }
 
 /** The engine methods whose calls and failures the page shows; `start` is the engine's own start. */
@@ -23,7 +25,8 @@ export type EngineMethod =
   | "apply"
   | "restore"
   | "keep"
-  | "cancel";
+  | "cancel"
+  | "parameters";
 
 /**
  * What one stage's route needs from the panel's engine route (specification 35, §0.1a): the client, the loop the engine serves, the

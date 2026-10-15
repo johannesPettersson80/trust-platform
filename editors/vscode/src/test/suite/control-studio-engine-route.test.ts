@@ -5,6 +5,7 @@ import * as path from "path";
 import type { LoopMessageScope } from "../../controlStudio/messages";
 import { createEnginePanelRoute, type EnginePanelRoute } from "../../controlStudio/engine/enginePanelRoute";
 import { startEngine, type EngineProcess } from "../../controlStudio/engine/engineProcess";
+import { tuneCandidatePayload } from "../../controlStudio/webview/engineTune";
 
 /**
  * The engine binary the test runner names (`ST_CONTROL_STUDIO_TEST_BIN`), else the one the build left in the cargo
@@ -531,8 +532,11 @@ suite("Control Studio engine route", () => {
     assert.deepStrictEqual(posted, []);
   });
 
-  /** The engine's answer to `controlStudio/open` for a served loop: the operations it runs and the journaled ones it reattaches. */
-  function openedAnswer(running: string[], reattached: string[] = []): Record<string, unknown> {
+  /**
+   * The engine's answer to `controlStudio/open` for a served loop: the operations it runs, the journaled ones it reattaches, and the
+   * study's tune section when the study holds a candidate.
+   */
+  function openedAnswer(running: string[], reattached: string[] = [], tune?: Record<string, unknown>): Record<string, unknown> {
     return {
       result: {
         kind: "opened",
@@ -545,8 +549,14 @@ suite("Control Studio engine route", () => {
         restoreAvailable: false,
         keepAvailable: false,
         applyObservationResumable: false,
+        ...(tune ? { tune } : {}),
       },
     };
+  }
+
+  /** A program's own law's candidate as the engine answers it (C2): its structure, its gains and its values by variable. */
+  function projectCandidateOf(structure: string): Record<string, unknown> {
+    return { applied: false, source: "SIMC", structure, gains: { kp: 2, ki: 0.5, kd: 0 }, values: { "P1.Kp": 2, "P1.Ki": 0.5 } };
   }
 
   test("a reopened loop follows the operations the engine runs for it, and shows the latest update of one still running (A8.6)", async () => {
@@ -746,5 +756,130 @@ suite("Control Studio engine route", () => {
     assert.strictEqual(await tuned, true);
     assert.deepStrictEqual(fake.requests.map((sent) => sent.method), ["controlStudio/open", "controlStudio/analyze", "controlStudio/inputs", "controlStudio/tune"],
       "the engine records the change, then starts the Tune");
+  });
+
+  test("a program's own law answers Tune with projectCandidate, and the pins the page keeps then name its family (C2, B4.2)", async function () {
+    this.timeout(30_000);
+    const loop = { id: "temperature", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: "temperature", loopRevision: "revision-test" };
+    const fake = fakeEngine({
+      "controlStudio/open": openedAnswer([]),
+      "controlStudio/tune": { result: { operationId: "operation-21" } },
+    });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    assert.strictEqual(await current.open(loop, scope), true);
+    assert.strictEqual(await current.tune(tuneMessage(scope, { family: "PI" }), scope), true);
+    // The program's answer has no Control.PID candidate: the route keeps the family its projectCandidate names.
+    fake.notify({ operationId: "operation-21", command: "tune", state: "finished", result: { projectCandidate: projectCandidateOf("PI") } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const shown = posted.find((message) => message.kind === "control-studio.engine.result" && message.method === "tune");
+    assert.deepStrictEqual((shown?.result as { projectCandidate?: unknown } | undefined)?.projectCandidate, projectCandidateOf("PI"),
+      "the page receives the program's candidate as the engine answered it");
+    assert.strictEqual(await current.tune(tuneMessage(scope, { pinnedValues: { "P1.Kp": 2 } }), scope), true);
+    const tunes = fake.requests.filter((sent) => sent.method === "controlStudio/tune");
+    assert.strictEqual(tunes.length, 2, "both Tunes reach the engine");
+    assert.deepStrictEqual((tunes[1].params as { pins?: unknown }).pins, { family: "PI", loopRevision: "revision-test", values: { "P1.Kp": 2 } },
+      "the pins name the family of the program's candidate, because the page's choice is automatic");
+  });
+
+  test("a reopened program's law names its stored candidate's family for the pins the page keeps (C2, A8.6)", async function () {
+    this.timeout(30_000);
+    const loop = { id: "temperature", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: "temperature", loopRevision: "revision-test" };
+    const fake = fakeEngine({
+      "controlStudio/open": openedAnswer([], [], { projectCandidate: projectCandidateOf("PI") }),
+      "controlStudio/tune": { result: { operationId: "operation-22" } },
+    });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    assert.strictEqual(await current.open(loop, scope), true);
+    assert.strictEqual(await current.tune(tuneMessage(scope, { pinnedValues: { "P1.Kp": 2 } }), scope), true);
+    const request = fake.requests.find((sent) => sent.method === "controlStudio/tune");
+    assert.deepStrictEqual((request?.params as { pins?: unknown } | undefined)?.pins, { family: "PI", loopRevision: "revision-test", values: { "P1.Kp": 2 } },
+      "the stored candidate's family keys the pins of the reopened page's Tune");
+  });
+
+  test("the Tune page takes a program's candidate's family and its values by variable, and a Control.PID candidate's settings as before (C2, B4.3)", () => {
+    const program = tuneCandidatePayload({ projectCandidate: projectCandidateOf("PI") });
+    assert.deepStrictEqual([program.status, program.family, program.values], ["candidate", "PI", { "P1.Kp": 2, "P1.Ki": 0.5 }]);
+    const pid = tuneCandidatePayload({ candidate: { structure: "PID" }, settings: { "P1.Kp": 3, "P1.Ki": 0.4, "P1.Kd": 0.1 } });
+    assert.deepStrictEqual([pid.family, pid.values], ["PID", { "P1.Kp": 3, "P1.Ki": 0.4, "P1.Kd": 0.1 }]);
+  });
+
+  test("the Tune page takes the engine's feedforward answer under its design, as the answer gives it, and no design without one (C8)", () => {
+    const feedforward = { outputPath: { gain: 0.2, timeConstantSeconds: 8, delaySeconds: 0 }, disturbancePath: { gain: -0.1, timeConstantSeconds: 3, delaySeconds: 0 },
+      gain: 0.5, leadSeconds: 8, lagSeconds: 3, disturbanceStep: 10, feedbackDeviation: 0.61, feedforwardDeviation: 0.004 };
+    const answered = tuneCandidatePayload({ projectCandidate: projectCandidateOf("PI"), feedforward });
+    assert.deepStrictEqual((answered.design as { feedforward: unknown }).feedforward, feedforward, "the page's feedforward view reads the answer's own names");
+    const plain = tuneCandidatePayload({ projectCandidate: projectCandidateOf("PI") });
+    assert.strictEqual(plain.design, undefined, "an answer without a feedforward has no design for the page to read");
+  });
+
+  test("a served loop claims a Tune whose family the page does not name: the engine receives it with no structure (C2)", async function () {
+    this.timeout(30_000);
+    const loop = { id: "temperature", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: "temperature", loopRevision: "revision-test" };
+    const fake = fakeEngine({
+      "controlStudio/open": openedAnswer([]),
+      "controlStudio/tune": { result: { operationId: "operation-24" } },
+    });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    assert.strictEqual(await current.open(loop, scope), true);
+    assert.strictEqual(await current.tune(tuneMessage(scope, { family: "PQ" }), scope), true,
+      "the engine serves the loop, so its Tune is the engine's and never the TypeScript session's");
+    const request = fake.requests.find((sent) => sent.method === "controlStudio/tune");
+    assert.ok(request, "the Tune reaches the engine");
+    assert.ok(!("structure" in (request.params as Record<string, unknown>)), "a family the page does not name is sent with no structure");
+  });
+
+  test("a served loop refuses, itself, a Tune it cannot send: pins with no family, or a method the engine does not run (C2)", async function () {
+    this.timeout(30_000);
+    const loop = { id: "temperature", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: "temperature", loopRevision: "revision-test" };
+    const fake = fakeEngine({
+      "controlStudio/open": openedAnswer([]),
+      "controlStudio/tune": { result: { operationId: "operation-25" } },
+    });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    assert.strictEqual(await current.open(loop, scope), true);
+    posted = [];
+    assert.strictEqual(await current.tune(tuneMessage(scope, { pinnedValues: { "P1.Kp": 2 } }), scope), true,
+      "pins that name no family are refused by the route, and the Tune is still claimed");
+    assert.strictEqual(await current.tune(tuneMessage(scope, { tuningPreferences: { method: "state-design", values: {} } }), scope), true,
+      "a method the engine does not run is refused by the route, and the Tune is still claimed");
+    assert.deepStrictEqual(fake.requests.filter((sent) => sent.method === "controlStudio/tune"), [], "neither refused Tune reaches the engine");
+    assert.deepStrictEqual(posted.map((message) => [message.kind, message.method]),
+      [["control-studio.engine.failure", "tune"], ["control-studio.engine.failure", "tune"]], "each refusal is posted to the page as a Tune failure");
   });
 });

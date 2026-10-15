@@ -13,7 +13,7 @@ use crate::messages::TuneRequest;
 use crate::study::tune::{refused_as, settings_refused};
 use crate::tuning::candidate::{
     candidate_from_control_pid, AntiWindup, CandidateSource, ControlPidCandidate,
-    ControlPidParameters, DEFAULT_RATE_LIMIT_PER_S,
+    ControlPidParameters, LawCandidate, DEFAULT_RATE_LIMIT_PER_S,
 };
 use crate::tuning::prediction::RecordShaping;
 use crate::tuning::settings_pins::{apply_pins, GainKey, MappedParameter};
@@ -181,11 +181,15 @@ pub(crate) fn record_shaping(
 
 /// The shaping of a candidate that the manual method has already written (C0).
 #[must_use]
-pub(crate) fn shaping_of_candidate(candidate: &ControlPidCandidate) -> RecordShaping {
-    RecordShaping {
-        proportional_setpoint_weight: candidate.parameters.proportional_setpoint_weight,
-        derivative_setpoint_weight: candidate.parameters.derivative_setpoint_weight,
-        measurement_filter_seconds: candidate.measurement_filter_seconds,
+pub(crate) fn shaping_of_candidate(candidate: &LawCandidate) -> RecordShaping {
+    match candidate {
+        LawCandidate::Pid(candidate) => RecordShaping {
+            proportional_setpoint_weight: candidate.parameters.proportional_setpoint_weight,
+            derivative_setpoint_weight: candidate.parameters.derivative_setpoint_weight,
+            measurement_filter_seconds: candidate.measurement_filter_seconds,
+        },
+        // A program's own law has no setpoint weight and no filter of its own (C2), so its shaping is the default.
+        LawCandidate::Project(_) => RecordShaping::default(),
     }
 }
 
@@ -258,6 +262,19 @@ pub(crate) fn record_settings(
             Some((parameter.symbol.clone(), value))
         })
         .collect()
+}
+
+/// The settings of a candidate of either law, by the symbol of each bound setting (B4.2, C0): a `Control.PID` record's settings, or
+/// the values that a program's own law writes to its seed variables (C2).
+#[must_use]
+pub(crate) fn candidate_settings(
+    candidate: &LawCandidate,
+    parameters: &[MappedParameter],
+) -> BTreeMap<String, f64> {
+    match candidate {
+        LawCandidate::Pid(candidate) => record_settings(candidate, parameters),
+        LawCandidate::Project(candidate) => candidate.values.clone(),
+    }
 }
 
 #[cfg(test)]

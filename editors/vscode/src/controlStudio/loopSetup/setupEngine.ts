@@ -1,6 +1,7 @@
-import type { EngineAnswer } from "../engine/engineClient";
+import type { ControlStudioEngine, EngineAnswer } from "../engine/engineClient";
 import { unclassifiedFailure } from "../engine/engineRouteContext";
 import type { Failure } from "../generated/Failure";
+import type { SetupSaveRequest } from "../generated/SetupSaveRequest";
 import type { SetupSaveResult } from "../generated/SetupSaveResult";
 
 /*
@@ -38,4 +39,9 @@ export function setupSaveOutcome(answer: EngineAnswer<SetupSaveResult>): SetupSa
   }
   const [first] = answer.result.loops;
   return first ? { kind: "saved", file: first.file } : { kind: "refused", failure: unclassifiedFailure("The engine wrote no loop.") };
+}
+
+/** Saves a confirmed draft through the engine and takes its answer apart (B1.3): the file it wrote, a parked structure, or a refusal. */
+export async function saveSetupDraft(engine: Pick<ControlStudioEngine, "setupSave">, request: SetupSaveRequest): Promise<SetupSaveOutcome> {
+  return setupSaveOutcome(await engineAnswer(() => engine.setupSave(request)));
 }

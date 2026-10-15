@@ -6,7 +6,11 @@
 //! change, the others stay as written. A record Create PLC code declared belongs to the
 //! equipment design (`plant.toml`, specification 39 §10): the answer names the loop instance and the
 //! settings the HMI Builder's equipment edit (`trust-lsp.hmiEquipment`) keeps, so the generated
-//! declarations stay the generator's own. Nothing is compiled, written or run here.
+//! declarations stay the generator's own.
+//!
+//! A REAL or LREAL variable takes its value as its initial value, written `: <type> := <value>;`. A
+//! program's own law keeps its gain variables this way (specification 35, C2 and B6.5): the request names
+//! the program instance, and its values name the variables. Nothing is compiled, written or run here.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -34,15 +38,18 @@ struct Args {
     /// Unsaved editor texts by project-relative path.
     #[serde(default)]
     open: BTreeMap<String, String>,
-    /// The record as Control Studio binds it, `P1.Parameters` or `Main.TIC101_Parameters`.
+    /// The record as Control Studio binds it, `P1.Parameters` or `Main.TIC101_Parameters`; or a program
+    /// instance, `P1`, whose variables the values name (a program's own law, C2).
     record: String,
-    /// The applied value of each kept field.
+    /// The applied value of each kept field, or of each variable the program instance names. A
+    /// `root.variable` that is a REAL or LREAL variable takes its one value, keyed by its own name.
     values: BTreeMap<String, f64>,
 }
 
 /// `trust-lsp.controlKeepParameters`: `{ ok, edit: { changes }, expected, kept }` for a record
-/// written by hand; `{ ok: false, generated: { instance, settings } }` for a record Create PLC code
-/// declared; `{ ok: false, errors }` when the values cannot be kept safely.
+/// written by hand, or for a program's REAL or LREAL variables; `{ ok: false, generated: { instance,
+/// settings } }` for a record Create PLC code declared; `{ ok: false, errors }` when the values
+/// cannot be kept safely.
 pub(super) fn keep<C: ServerContext>(context: &C, args: Vec<Value>) -> Value {
     keep_result(context, args).unwrap_or_else(refused)
 }
@@ -65,10 +72,13 @@ fn keep_result<C: ServerContext>(context: &C, args: Vec<Value>) -> Result<Value,
             args.record
         ));
     }
+    // `root.variable` names a record, or a REAL or LREAL variable that takes its own name's value; `root` names
+    // a program instance, and the values name its variables (C2).
     let (root, variable) = match args.record.split('.').collect::<Vec<_>>().as_slice() {
         [root, variable] if is_identifier(root) && is_identifier(variable) => {
-            (root.to_string(), variable.to_string())
+            (root.to_string(), Some(variable.to_string()))
         }
+        [root] if is_identifier(root) => (root.to_string(), None),
         _ => {
             return Err(format!(
                 "Keep in project writes a record declared in a program; copy the values into {} by hand.",
@@ -97,23 +107,33 @@ fn keep_result<C: ServerContext>(context: &C, args: Vec<Value>) -> Result<Value,
         let Some(pou) = program_node(&tree, &program) else {
             continue;
         };
-        let Some(declaration) = declaration(&pou, &variable) else {
-            continue;
-        };
-        if generated(&source.text, &declaration) {
-            return generated_answer(&pou, &root, &variable, &args.values, &args.record);
-        }
         let path = if source.path.is_absolute() {
             source.path.clone()
         } else {
             inputs.root.join(&source.path)
         };
+        let Some(variable) = variable.as_deref() else {
+            return program_variables_answer(
+                &pou,
+                &source.text,
+                &path,
+                &root,
+                &program,
+                &args.values,
+            );
+        };
+        let Some(declaration) = declaration(&pou, variable) else {
+            continue;
+        };
+        if generated(&source.text, &declaration) {
+            return generated_answer(&pou, &root, variable, &args.values, &args.record);
+        }
+        let edits = declaration_edits(&source.text, &declaration, &args.values, &args.record)?;
         return edit_answer(
             &path,
             &source.text,
-            &declaration,
-            &args.values,
-            &args.record,
+            edits,
+            args.values.keys().cloned().collect(),
         );
     }
     Err(format!(
@@ -153,17 +173,15 @@ fn generated_answer(
     }))
 }
 
-/// The edit of a declaration written by hand.
+/// The answer that edits a file: its edits, the text they were prepared from, and the fields they keep.
 fn edit_answer(
     path: &Path,
     text: &str,
-    declaration: &SyntaxNode,
-    values: &BTreeMap<String, f64>,
-    record: &str,
+    edits: Vec<TextEdit>,
+    kept: Vec<String>,
 ) -> Result<Value, String> {
     let uri = Url::from_file_path(path)
         .map_err(|_| format!("{} is not a valid file path", path.display()))?;
-    let edits = declaration_edits(text, declaration, values, record)?;
     let mut changes = Map::new();
     changes.insert(uri.to_string(), json!(edits));
     let mut expected = Map::new();
@@ -172,23 +190,61 @@ fn edit_answer(
         "ok": true,
         "edit": { "changes": changes },
         "expected": expected,
-        "kept": values.keys().collect::<Vec<_>>(),
+        "kept": kept,
     }))
+}
+
+/// The edit of a program's own variables (C2, B6.5): each named variable must be a REAL or LREAL variable of the program, and
+/// its value becomes its initial value.
+fn program_variables_answer(
+    pou: &SyntaxNode,
+    text: &str,
+    path: &Path,
+    root: &str,
+    program: &str,
+    values: &BTreeMap<String, f64>,
+) -> Result<Value, String> {
+    let mut edits = Vec::new();
+    for (name, value) in values {
+        let record = format!("{root}.{name}");
+        let declaration = declaration(pou, name).ok_or_else(|| {
+            format!("{record} is not declared in PROGRAM {program} of this project.")
+        })?;
+        if generated(text, &declaration) {
+            return Err(format!(
+                "{record} is declared by Create PLC code; copy its value into the PLC code by hand."
+            ));
+        }
+        if !is_real(&declaration) {
+            return Err(format!(
+                "{record} is not a REAL or LREAL variable; copy its value into the program by hand."
+            ));
+        }
+        let one = BTreeMap::from([(name.clone(), *value)]);
+        edits.extend(declaration_edits(text, &declaration, &one, &record)?);
+    }
+    edit_answer(path, text, edits, values.keys().cloned().collect())
 }
 
 /// The edits setting each value in the declaration's initializer: a field present takes the new
 /// value, written as the old one was (`LREAL#…` stays typed); a missing field is added; a
-/// declaration without an initializer gets one.
+/// declaration without an initializer gets one. A REAL or LREAL declaration takes its one value
+/// instead (`scalar_edits`).
 fn declaration_edits(
     text: &str,
     declaration: &SyntaxNode,
     values: &BTreeMap<String, f64>,
     record: &str,
 ) -> Result<Vec<TextEdit>, String> {
-    let range = |start: usize, end: usize| Range {
-        start: offset_to_position(text, start as u32),
-        end: offset_to_position(text, end as u32),
-    };
+    if is_real(declaration) {
+        return scalar_edits(text, declaration, values, record);
+    }
+    if !is_record(declaration) {
+        return Err(format!(
+            "{record} is not a record, so its fields cannot be kept; copy its value into the program by hand."
+        ));
+    }
+    let range = |start: usize, end: usize| lsp_range(text, start, end);
     let Some(list) = declaration
         .children()
         .find(|child| child.kind() == SyntaxKind::InitializerList)
@@ -263,6 +319,105 @@ fn declaration_edits(
         });
     }
     Ok(edits)
+}
+
+/// The edit of a REAL or LREAL variable's initial value (B6.5, C2), written `: <type> := <value>;`: an initializer takes the value
+/// and keeps its typed prefix (`LREAL#`), and a variable without one gets ` := <value>` before its `;`. A declaration that names
+/// other variables, or whose initializer is not one expression, cannot be edited safely and is refused by the variable's name.
+fn scalar_edits(
+    text: &str,
+    declaration: &SyntaxNode,
+    values: &BTreeMap<String, f64>,
+    record: &str,
+) -> Result<Vec<TextEdit>, String> {
+    let Ok([(key, &value)]) = <[(&String, &f64); 1]>::try_from(values.iter().collect::<Vec<_>>())
+    else {
+        return Err(format!("{record} keeps one value, its own."));
+    };
+    let names = declaration
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Name)
+        .count();
+    if names != 1 {
+        return Err(format!(
+            "{record} shares its declaration with other variables; copy its value into the program by hand."
+        ));
+    }
+    let declared = declaration
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Name)
+        .map(|name| code_text(&name))
+        .unwrap_or_default();
+    if !key.eq_ignore_ascii_case(&declared) {
+        return Err(format!("{record} keeps only its own value, not {key}."));
+    }
+    let tokens = declaration
+        .children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .collect::<Vec<_>>();
+    let semicolon = tokens
+        .iter()
+        .find(|token| token.kind() == SyntaxKind::Semicolon)
+        .map(|token| usize::from(token.text_range().start()))
+        .ok_or_else(|| format!("The declaration of {record} has no closing ';'."))?;
+    let assigned = tokens
+        .iter()
+        .any(|token| token.kind() == SyntaxKind::Assign);
+    let initializer = declaration
+        .children()
+        .find(|child| child.kind().is_initializer_expression_node());
+    let range = |start: usize, end: usize| lsp_range(text, start, end);
+    match (assigned, initializer) {
+        (false, None) => Ok(vec![TextEdit {
+            range: range(semicolon, semicolon),
+            new_text: format!(" := {}", st_real(value)),
+        }]),
+        (true, Some(initializer)) if initializer.kind().is_expression_node() => {
+            let (start, end) = code_range(&initializer)
+                .ok_or_else(|| format!("{record} has no value to replace."))?;
+            let written = code_text(&initializer);
+            let prefix = typed_prefix(&written).unwrap_or_default();
+            Ok(vec![TextEdit {
+                range: range(start, end),
+                new_text: format!("{prefix}{}", st_real(value)),
+            }])
+        }
+        _ => Err(format!(
+            "{record} has an initializer that Keep cannot read; copy its value into the program by hand."
+        )),
+    }
+}
+
+/// Whether a declaration's type is REAL or LREAL: the scalar variables whose initial value Keep in project writes (C2, B6.5).
+fn is_real(declaration: &SyntaxNode) -> bool {
+    declaration
+        .children()
+        .find(|child| child.kind() == SyntaxKind::TypeRef)
+        .is_some_and(|type_ref| {
+            let written = code_text(&type_ref);
+            written.eq_ignore_ascii_case("REAL") || written.eq_ignore_ascii_case("LREAL")
+        })
+}
+
+/// Whether a declaration's type is a named type, such as a record (`Control.PIDParameters`), rather than an elementary, array or
+/// string type, whose initializer is not a record's field list.
+fn is_record(declaration: &SyntaxNode) -> bool {
+    declaration
+        .children()
+        .find(|child| child.kind() == SyntaxKind::TypeRef)
+        .is_some_and(|type_ref| {
+            type_ref
+                .children()
+                .any(|child| matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName))
+        })
+}
+
+/// The LSP range of the bytes `start..end` of `text`.
+fn lsp_range(text: &str, start: usize, end: usize) -> Range {
+    Range {
+        start: offset_to_position(text, start as u32),
+        end: offset_to_position(text, end as u32),
+    }
 }
 
 /// Whether a declaration lies inside a region Create PLC code owns (`(* truST plant: …

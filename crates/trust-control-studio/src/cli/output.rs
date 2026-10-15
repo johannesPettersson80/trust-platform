@@ -217,8 +217,14 @@ fn rejected_lines(result: &Value) -> Vec<String> {
 /// The candidate's structure and its three gains with their units, as
 /// `Structure: PI. Kp = 2.5 %/°C, Ki = 0.31 %/(°C·s), Kd = 0`.
 fn candidate_line(result: &Value) -> String {
-    let candidate = member(result, "candidate");
-    let gains = member(candidate, "parameters");
+    // A program's own law answers its structure and gains in `projectCandidate` (C2); a Control.PID answers its record.
+    let project = member(result, "projectCandidate");
+    let (candidate, gains) = if project.is_null() {
+        let candidate = member(result, "candidate");
+        (candidate, member(candidate, "parameters"))
+    } else {
+        (project, member(project, "gains"))
+    };
     let units = member(result, "gainUnits");
     format!(
         "Structure: {}. {}, {}, {}",

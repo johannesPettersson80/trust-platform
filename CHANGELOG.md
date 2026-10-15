@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Loops whose program runs its own law now run on Control Studio's engine: a PID that the program computes itself
+  (`controller.project` with a parallel PID seed) and the program's P controller. Tune designs the gains on the model,
+  Validate runs the actual program, and Apply and Restore write and return the program's gain variables.
+- The course's remaining loops of these kinds now run on Control Studio's engine: the schema-1 observation loops (lessons 1, 2,
+  3 and 80), the loops with a declared analysis (lessons 44, 45, 47 and 48), whose gain chosen on the root locus or from the
+  Routh interval is reviewed and written to the program's variable, the measured-disturbance feedforward (lesson 84), whose
+  Tune designs the PI and the feedforward together and whose Validate also runs the measured disturbance, and the trajectory
+  feedforward (lesson 90), whose Tune designs the PID with its rate and acceleration feedforward gains on an integrating model
+  with a lag.
+- The Tune page's long analyses no longer lose their result when the calculation ends before the page has subscribed to it.
 - Control Studio's Tune page analysis now runs in its engine for every loop: Bode, the measured frequency response, Nyquist
   and loop response, root locus, Routh–Hurwitz, the pole-zero map, lead/lag design, the initial-state response,
   controllability and observability, and the relative gain array. Long calculations show Abort. Reopening a loop shows the last

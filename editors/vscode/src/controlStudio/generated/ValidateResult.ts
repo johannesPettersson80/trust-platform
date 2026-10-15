@@ -25,6 +25,10 @@ export interface ValidateResult {
    */
   applyAvailable: boolean;
   /**
+   * The measured-disturbance case of a feedforward (C8, B5.4); absent when this validation ran none. Its failure ends Apply.
+   */
+  disturbanceCase?: DisturbanceCaseOutcome | null;
+  /**
    * Why Apply is not available, with the next action that fixes it (B5.5); absent when Apply is available.
    */
   failure?: Failure | null;
@@ -71,71 +75,21 @@ export interface ValidateResult {
   [k: string]: unknown;
 }
 /**
- * A failed step as the engineer sees it: the message, a longer detail when it says more, the
- * cause, and the next action (A11.1).
+ * The measured-disturbance case of a feedforward's Validate (C8): one row on the model, as the Manual-to-Auto entry case is one set of rows
+ * (B5.4). Its requirement compares the largest deviation of the measurement after the settling time with the error allowance, and its
+ * result is that row's, so a case that cannot be judged is Inconclusive and never passes.
  */
-export interface Failure {
+export interface DisturbanceCaseOutcome {
   /**
-   * Why it went wrong.
-   */
-  cause:
-    | "model-or-data"
-    | "settings"
-    | "controller-capability"
-    | "task-infeasible"
-    | "implementation"
-    | "runtime"
-    | "approval"
-    | "unclassified";
-  /**
-   * The whole text, when it says more than the message.
-   */
-  detail?: string | null;
-  /**
-   * The first sentence: what went wrong.
-   */
-  message: string;
-  /**
-   * What to do next.
-   */
-  nextAction:
-    | "connect-runtime"
-    | "open-loop-setup"
-    | "open-limits"
-    | "open-requirements"
-    | "open-channels"
-    | "choose-method"
-    | "identify"
-    | "tune"
-    | "validate"
-    | "approve"
-    | "restore"
-    | "wait"
-    | "none";
-  /**
-   * The words of the next action's button, as [`NextAction::label`] gives them, so that a front end shows the engine's words
-   * (one source of the words); absent for `wait` and `none`.
-   */
-  nextActionLabel?: string | null;
-  [k: string]: unknown;
-}
-/**
- * The Manual-to-Auto entry case of an Auto commissioning (B5.3): the actual-ST run that starts the controller at the selected
- * model's operating point and enters Auto at the transfer, judged on its first output, its mode, its gains, its states and its
- * signal bounds. Its rows are guards (B9.9): the engine generated them from the loop's declaration.
- */
-export interface InitializationOutcome {
-  /**
-   * The words the table names the case with (B9.9): "Manual-to-Auto entry". Each row keeps its own label.
+   * The words the table names the case with (C8): "Measured-disturbance case".
    */
   label: string;
   /**
-   * Each row of the case in its order, each with `guard` set.
+   * The case's rows: its one requirement, with the measured deviation, the error allowance and the reason.
    */
   requirements: RequirementOutcome[];
   /**
-   * The case's result (N8.5): Fail when a row fails, Pass when every row passes, and Inconclusive otherwise, so a case that did not
-   * complete never passes (B5.4).
+   * The case's result (N8.5): the result of its row.
    */
   status: "Pass" | "Fail" | "Inconclusive";
 }
@@ -230,6 +184,75 @@ export interface ValueRange {
    * The lowest value.
    */
   minimum: number;
+}
+/**
+ * A failed step as the engineer sees it: the message, a longer detail when it says more, the
+ * cause, and the next action (A11.1).
+ */
+export interface Failure {
+  /**
+   * Why it went wrong.
+   */
+  cause:
+    | "model-or-data"
+    | "settings"
+    | "controller-capability"
+    | "task-infeasible"
+    | "implementation"
+    | "runtime"
+    | "approval"
+    | "unclassified";
+  /**
+   * The whole text, when it says more than the message.
+   */
+  detail?: string | null;
+  /**
+   * The first sentence: what went wrong.
+   */
+  message: string;
+  /**
+   * What to do next.
+   */
+  nextAction:
+    | "connect-runtime"
+    | "open-loop-setup"
+    | "open-limits"
+    | "open-requirements"
+    | "open-channels"
+    | "choose-method"
+    | "identify"
+    | "tune"
+    | "validate"
+    | "approve"
+    | "restore"
+    | "wait"
+    | "none";
+  /**
+   * The words of the next action's button, as [`NextAction::label`] gives them, so that a front end shows the engine's words
+   * (one source of the words); absent for `wait` and `none`.
+   */
+  nextActionLabel?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * The Manual-to-Auto entry case of an Auto commissioning (B5.3): the actual-ST run that starts the controller at the selected
+ * model's operating point and enters Auto at the transfer, judged on its first output, its mode, its gains, its states and its
+ * signal bounds. Its rows are guards (B9.9): the engine generated them from the loop's declaration.
+ */
+export interface InitializationOutcome {
+  /**
+   * The words the table names the case with (B9.9): "Manual-to-Auto entry". Each row keeps its own label.
+   */
+  label: string;
+  /**
+   * Each row of the case in its order, each with `guard` set.
+   */
+  requirements: RequirementOutcome[];
+  /**
+   * The case's result (N8.5): Fail when a row fails, Pass when every row passes, and Inconclusive otherwise, so a case that did not
+   * complete never passes (B5.4).
+   */
+  status: "Pass" | "Fail" | "Inconclusive";
 }
 /**
  * The words the engine names for the rows of the table (B9.9).

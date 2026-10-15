@@ -45,6 +45,18 @@ impl Structure {
     pub fn has_derivative(self) -> bool {
         matches!(self, Self::PD | Self::PID)
     }
+
+    /// Whether a law with the given terms offers the structure (C0, "Families and zero terms"): P always, PI where the law has an
+    /// integral term, PD where it has a derivative term, and PID where it has both.
+    #[must_use]
+    pub fn offered_by_terms(self, integral_term: bool, derivative_term: bool) -> bool {
+        match self {
+            Self::P => true,
+            Self::PI => integral_term,
+            Self::PD => derivative_term,
+            Self::PID => integral_term && derivative_term,
+        }
+    }
 }
 
 /// The parallel gains of a candidate, signed (N6.4): `u = Kp·e + Ki·∫e dt + Kd·de/dt` (N0.5). A term that the structure

@@ -11,8 +11,9 @@ use crate::messages::{TuneMethod, TuneRequest};
 use crate::study::tune::design::Design;
 use crate::study::tune::record::{candidate_record, record_shaping, LoopLimits};
 use crate::study::tune::settings_refused;
-use crate::tuning::candidate::{gains_of, CandidateSource, ControlPidCandidate};
+use crate::tuning::candidate::{CandidateSource, LawCandidate};
 use crate::tuning::objective::TuningObjective;
+use crate::tuning::project_candidate::{project_candidate, served_seed};
 use crate::tuning::settings_pins::{
     apply_pins, mapped_parameters, merge_manual_entry, ControllerSettingsPins, GainKey,
     MappedParameter,
@@ -60,7 +61,7 @@ pub fn outside_bounds(
 pub(crate) fn candidate_of(
     loop_definition: &LoopDefinition,
     request: &TuneRequest,
-) -> Result<Option<ControlPidCandidate>, Failure> {
+) -> Result<Option<LawCandidate>, Failure> {
     if request.method != Some(TuneMethod::Manual) {
         return Ok(None);
     }
@@ -81,7 +82,8 @@ pub(crate) fn candidate_of(
 
 /// The candidate of entered settings for a structure (B4.2, C0, C1): every setting the structure needs must be entered, a
 /// pinned value keeps its value, and the bounds and pins apply to the gains. The record is then written by
-/// `candidate_record`, as every design writes it. The gains that the structure does not take are left at zero.
+/// `candidate_record`, as every design writes it; a program's own law takes the gains and their seed variables instead (C2).
+/// The gains that the structure does not take are left at zero.
 ///
 /// # Errors
 /// The settings refusals of [`merge_manual_entry`] and [`apply_pins`] (cause Settings, no next action), and the record's
@@ -91,7 +93,7 @@ pub(crate) fn manual_candidate(
     family: Structure,
     entered: &BTreeMap<String, f64>,
     pins: Option<&ControllerSettingsPins>,
-) -> Result<ControlPidCandidate, Failure> {
+) -> Result<LawCandidate, Failure> {
     let mapped = mapped_parameters(loop_definition);
     let pinned = pins.map_or_else(BTreeMap::new, |pins| pins.values.clone());
     let values =
@@ -104,23 +106,32 @@ pub(crate) fn manual_candidate(
         &mapped,
     )
     .map_err(settings_refused())?;
+    let gains = family_gains(family, &applied);
+    if let Some(seed) = served_seed(loop_definition) {
+        return Ok(LawCandidate::Project(project_candidate(
+            seed,
+            CandidateSource::Manual,
+            gains,
+        )));
+    }
     candidate_record(
-        family_gains(family, &applied),
+        gains,
         CandidateSource::Manual,
         &LoopLimits::of(loop_definition),
         record_shaping(loop_definition, &applied),
         applied.get(&GainKey::BackCalculationGain).copied(),
     )
+    .map(LawCandidate::Pid)
 }
 
 /// The design of an entered candidate, for the answer of a run (B4.4): its own gains and structure, the manual settings'
 /// reason and description, and no formula's `λ`.
 #[must_use]
-pub(crate) fn design_of(candidate: &ControlPidCandidate, objective: TuningObjective) -> Design {
+pub(crate) fn design_of(candidate: &LawCandidate, objective: TuningObjective) -> Design {
     Design {
         source: CandidateSource::Manual,
-        structure: candidate.structure,
-        gains: gains_of(candidate),
+        structure: candidate.structure(),
+        gains: candidate.gains(),
         objective,
         closed_loop_time_seconds: None,
         attempts: Vec::new(),

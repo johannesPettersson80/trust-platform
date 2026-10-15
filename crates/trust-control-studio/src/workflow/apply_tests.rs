@@ -18,20 +18,22 @@ use trust_control::commissioning::apply_texts::checkpoint_unresolved;
 use trust_control::commissioning::checkpoint::{CheckpointStage, CommissioningCheckpoint};
 use trust_control::commissioning::commissioning_result::CommissioningStatus;
 use trust_control::commissioning::found_mode::FoundMode;
+use trust_control::commissioning::pid_commissioning::PidRunProfile;
 use trust_control::commissioning::starting_point::wait_cancelled;
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::study::Study;
 use trust_control::tuning::candidate::{
-    AntiWindup, CandidateSource, ControlPidCandidate, ControlPidParameters,
+    AntiWindup, CandidateSource, ControlPidCandidate, ControlPidParameters, LawCandidate,
 };
 use trust_control::tuning::structure::Structure;
 
+use super::law::LawKind;
 use super::review::{candidate_gains, checkpoint_to_retire, ApplyInputs};
 use super::run::run_confirmed;
 use super::test_support::{
-    gains, inputs, instant, journal_file, pid_loop, proportional_loop, scratch, Plant, Report,
-    Response, TARGET,
+    gains, inputs, instant, journal_file, model, own_p_loop_with_startup, own_pid_loop, pid_loop,
+    proportional_loop, scratch, Plant, Report, Response, TARGET,
 };
 use super::{review_with, ApplyContext};
 use crate::journal::{Journal, JournalEntry};
@@ -775,7 +777,7 @@ fn the_candidate_is_written_as_the_record_its_adapter_maps() {
         ("Main.Kd".to_owned(), 0.0),
     ]);
     let pid = pid_loop();
-    let gains = candidate_gains(&pid, &candidate);
+    let gains = candidate_gains(&pid, &LawCandidate::Pid(candidate));
     assert_eq!(gains.back_calculation_gain, None);
     assert_eq!(
         controller_adapter(&pid)
@@ -800,7 +802,10 @@ fn the_candidate_is_written_as_the_record_its_adapter_maps() {
     assert_eq!(
         controller_adapter(&proportional)
             .expect("the connected P")
-            .materialize(&candidate_gains(&proportional, &p_candidate), &observed)
+            .materialize(
+                &candidate_gains(&proportional, &LawCandidate::Pid(p_candidate)),
+                &observed,
+            )
             .expect("the P record"),
         BTreeMap::from([
             ("Main.Kd".to_owned(), 0.0),
@@ -808,4 +813,114 @@ fn the_candidate_is_written_as_the_record_its_adapter_maps() {
             ("Main.Kp".to_owned(), 2.0)
         ])
     );
+}
+
+/// C2 (`LawKind::of`): a served program's PI, PD or PID law runs its declared states, as a Control.PID does, so its profile is the declared
+/// one and carries its family's label. A program's P law is the connected P on its variable (C13).
+#[test]
+fn a_served_pid_law_runs_its_declared_profile_and_a_program_p_law_the_connected_p() {
+    let plant_model = model();
+    let pid = own_pid_loop();
+    let values = BTreeMap::from([
+        ("Main.Kp".to_owned(), 2.0),
+        ("Main.Ki".to_owned(), 0.5),
+        ("Main.Kd".to_owned(), 0.0),
+    ]);
+    let adapter = controller_adapter(&pid).expect("the served PID law");
+    let kind = LawKind::of(&adapter, &plant_model, &values).expect("the law of the served PID");
+    assert!(
+        matches!(&kind, LawKind::Pid(PidRunProfile::Declared(profile)) if profile.label == "PID"),
+        "{kind:?}"
+    );
+    let proportional = own_p_loop_with_startup();
+    let adapter = controller_adapter(&proportional).expect("the served P law");
+    let kind = LawKind::of(
+        &adapter,
+        &plant_model,
+        &BTreeMap::from([("Main.Kp".to_owned(), 2.0)]),
+    )
+    .expect("the law of the served P");
+    assert_eq!(kind, LawKind::Proportional);
+}
+
+/// C2 Apply (B6.1, B6.2, E7.3): a served program's PID law is applied as one entry. Its three seed gains are written in Manual before the
+/// transfer, and the one transfer to Auto carries its declared states with the mode, so the states and the mode change together.
+#[test]
+fn a_served_pid_law_writes_its_seed_gains_then_enters_auto_with_its_declared_states() {
+    let loop_definition = own_pid_loop();
+    let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
+    let folder = scratch("own-pid");
+    let outcome =
+        apply(&loop_definition, &plant, &folder, &inputs(gains(0.5), 0.0)).expect("applied");
+    let result = &outcome.result;
+    assert_eq!(
+        result.status,
+        CommissioningStatus::Passed,
+        "{}",
+        result.reason
+    );
+    let entry = result.transfers[0]
+        .transaction
+        .as_ref()
+        .and_then(|transaction| transaction.applied_values.clone())
+        .expect("the Auto entry's applied values");
+    assert!(
+        entry.contains_key("Main.Integral") && entry.contains_key("Main.PreviousError"),
+        "the declared states enter with the mode: {entry:?}"
+    );
+    {
+        let world = plant.world();
+        assert!(
+            world
+                .log
+                .starts_with(&["parameters apply".to_owned(), "transfer auto".to_owned()]),
+            "the gains are written in Manual before the entry: {:?}",
+            world.log
+        );
+        assert_eq!(
+            (
+                world.number("Main.Kp"),
+                world.number("Main.Ki"),
+                world.number("Main.Kd")
+            ),
+            (2.0, 0.5, 0.0)
+        );
+        assert!(world.in_auto(), "Apply leaves the loop in Auto (A6.2)");
+    }
+    let _ = std::fs::remove_dir_all(&folder);
+}
+
+/// C13 and C1 (B6.2, E11.10): a program's P law is applied as the connected P. Its entry transfer writes the reference r = PV + u/Kp with
+/// the startup-done flag TRUE and the mode, so the flag is set by the transaction that enters Auto.
+#[test]
+fn a_program_p_law_applies_the_connected_p_entry_with_its_startup_flag() {
+    let loop_definition = own_p_loop_with_startup();
+    let plant = Plant::start(&loop_definition, false, Response::FollowsTarget);
+    let folder = scratch("own-p-startup");
+    let outcome =
+        apply(&loop_definition, &plant, &folder, &inputs(gains(0.0), 0.0)).expect("applied");
+    let result = &outcome.result;
+    assert_eq!(
+        result.status,
+        CommissioningStatus::Passed,
+        "{}",
+        result.reason
+    );
+    let entry = result.transfers[0]
+        .transaction
+        .as_ref()
+        .and_then(|transaction| transaction.applied_values.clone())
+        .expect("the Auto entry's applied values");
+    assert_eq!(entry["Main.SP"], 2.004, "r = PV + u / Kp (C13.3)");
+    assert_eq!(
+        entry["Main.Started"], 1.0,
+        "the startup-done flag is written TRUE by the entry"
+    );
+    {
+        let world = plant.world();
+        assert_eq!(world.number("Main.Kp"), 2.0);
+        assert_eq!(world.number("Main.Started"), 1.0);
+        assert!(world.in_auto(), "Apply leaves the loop in Auto (A6.2)");
+    }
+    let _ = std::fs::remove_dir_all(&folder);
 }

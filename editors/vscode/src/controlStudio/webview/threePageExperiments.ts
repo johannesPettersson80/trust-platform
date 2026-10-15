@@ -26,6 +26,9 @@ export class ThreePageExperiments {
   private readonly parameterValues?: HTMLTextAreaElement;
   private readonly parameterFields?: ParameterFields;
   private readonly parameterBinding?: ParameterBinding;
+  private readonly restoreButton?: HTMLButtonElement;
+  /** The parameter tool's step on the Tune page, which mirrors the Identify button's parameter step (C12). */
+  private readonly parameterAction?: HTMLButtonElement;
   private plan: ControlExperimentPlan | undefined;
   private experimentId: string | undefined;
   private pending: PendingAction = undefined;
@@ -49,15 +52,21 @@ export class ThreePageExperiments {
     this.signals = section.querySelector<HTMLSelectElement>("[data-three-page-experiment-signals]")!;
     this.status = section.querySelector<HTMLElement>("[data-three-page-experiment-status]")!;
     this.planView = section.querySelector<HTMLElement>("[data-three-page-experiment-plan]")!;
-    this.parameterSection = section.querySelector<HTMLElement>("[data-three-page-experiment-parameters]") ?? undefined;
-    this.parameterStatus = section.querySelector<HTMLElement>("[data-three-page-experiment-parameter-status]") ?? undefined;
-    this.parameterValues = section.querySelector<HTMLTextAreaElement>("[data-three-page-experiment-parameter-values]") ?? undefined;
-    this.parameterBinding = loop.parameterPurpose === "experiment" ? loop.parameterBinding : undefined;
-    const parameterHost = section.querySelector<HTMLElement>("[data-three-page-experiment-parameter-fields]");
+    // The parameter tool sits with this test for experiment settings, and on the Tune page for a declared analysis (B6.1, C12).
+    // The whole page is searched, so either place is found.
+    this.parameterSection = root.querySelector<HTMLElement>("[data-three-page-experiment-parameters]") ?? undefined;
+    this.parameterStatus = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-status]") ?? undefined;
+    this.parameterValues = root.querySelector<HTMLTextAreaElement>("[data-three-page-experiment-parameter-values]") ?? undefined;
+    this.parameterBinding = parameterBindingOf(loop);
+    this.restoreButton = root.querySelector<HTMLButtonElement>("[data-three-page-experiment-restore]") ?? undefined;
+    this.restoreButton?.addEventListener("click", () => this.reviewRestore());
+    this.parameterAction = root.querySelector<HTMLButtonElement>("[data-three-page-experiment-parameter-action]") ?? undefined;
+    this.parameterAction?.addEventListener("click", () => this.tuneParameterStep());
+    const parameterHost = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-fields]");
     if (parameterHost && this.parameterValues && this.parameterBinding) {
       this.parameterFields = new ParameterFields(parameterHost, this.parameterValues, () => this.editParameters());
       this.parameterFields.configure(this.parameterBinding);
-      const mode = section.querySelector<HTMLElement>("[data-three-page-experiment-parameter-mode]");
+      const mode = root.querySelector<HTMLElement>("[data-three-page-experiment-parameter-mode]");
       if (mode) mode.textContent = `Activation: ${this.parameterBinding.mode.symbol} = ${String(this.parameterBinding.mode.manual_value)}`;
     }
     this.signals.addEventListener("change", () => this.publishSignalSelection());
@@ -82,6 +91,8 @@ export class ThreePageExperiments {
   private get approvalNeeded(): boolean { return this.reviewId !== undefined && this.reviewNeedsApproval; }
   /** The parameter tool is offered unless the engine has said it is unavailable for the served loop (B6.1). */
   private get parameterFlow(): boolean { return this.parameterBinding !== undefined && !this.parameterUnavailable; }
+  /** Experiment settings belong to the selected project test; an analysis's tool is on the Tune page, which needs no project test (C12). */
+  private get parameterOffered(): boolean { return this.parameterFlow && (this.parameterAction !== undefined || this.selectedMethod); }
   get primaryActionLabel(): string {
     if (this.experimentId) return "Abort test";
     if (this.pending === "review") return "Reviewing…";
@@ -110,13 +121,22 @@ export class ThreePageExperiments {
       this.approve();
       return true;
     }
-    if (this.parameterFlow) {
-      if (this.parameterPhase === "idle") return this.inspectParameters();
-      if (this.parameterPhase === "inspected" || this.parameterPhase === "edited") return this.reviewParameters();
-      if (this.parameterPhase === "reviewed") return this.applyParameters();
-    }
+    if (this.parameterFlow && this.parameterPhase !== "applied") return this.parameterStep();
     this.review();
     return true;
+  }
+
+  /** The parameter tool's next step (B6.1): inspect, then review, then apply. The Identify button and the Tune page's step both take it. */
+  private parameterStep(): boolean {
+    if (this.parameterPhase === "idle") return this.inspectParameters();
+    if (this.parameterPhase === "reviewed") return this.applyParameters();
+    return this.reviewParameters();
+  }
+
+  /** The Tune page's step of an analysis's tool. The analysis leads to it without a selected project test, so no method is needed. */
+  private tuneParameterStep(): boolean {
+    if (this.pending || this.experimentId !== undefined || this.hasReview || !this.parameterFlow || this.parameterPhase === "applied") return false;
+    return this.parameterStep();
   }
 
   /** Lets the existing Identify button mirror this adapter's state and label. */
@@ -275,6 +295,16 @@ export class ThreePageExperiments {
     return true;
   }
 
+  /** Reviews the values that the runtime retains from before the last write (C12, E7.5); the review is then applied as any review. */
+  private reviewRestore(): boolean {
+    if (!this.parameterBinding || this.pending || this.experimentId) return false;
+    this.pending = "parameter-review";
+    this.parameterStatusText("Reviewing the values from before the last write; the runtime has not changed.");
+    this.render();
+    this.post("control-studio.parameters.review-rollback");
+    return true;
+  }
+
   private applyParameters(): boolean {
     if (!this.parameterReviewId) return false;
     this.pending = "parameter-apply";
@@ -305,8 +335,8 @@ export class ThreePageExperiments {
       this.render();
       return;
     }
-    const binding = isParameterBinding(payload.binding) ? payload.binding : this.parameterBinding;
-    this.parameterFields?.configure(binding);
+    // The fields follow the binding that the engine names in its answer (C12). An answer without one, such as a review, keeps them.
+    if (isParameterBinding(payload.binding)) this.parameterFields?.configure(payload.binding);
     if (payload.status === "inspected" || payload.status === "draft") {
       const values = record(payload.values) ? payload.values : record(payload.observed) && record(payload.observed.values) ? payload.observed.values : undefined;
       if (values && this.parameterValues) {
@@ -321,7 +351,7 @@ export class ThreePageExperiments {
       this.parameterPhase = this.parameterReviewId ? "reviewed" : "edited";
       this.parameterStatusText(this.parameterReviewId ? "Review the exact experiment values before applying them." : "The parameter review was incomplete; review again.");
     } else if (payload.status === "applied") {
-      const observed = record(payload.observed) && record(payload.observed.values) ? payload.observed.values : undefined;
+      const observed = record(payload.values) ? payload.values : record(payload.observed) && record(payload.observed.values) ? payload.observed.values : undefined;
       if (observed && this.parameterValues) {
         this.parameterValues.value = JSON.stringify(observed, null, 2);
         this.parameterFields?.sync();
@@ -413,10 +443,21 @@ export class ThreePageExperiments {
 
   private renderParameters(): void {
     if (!this.parameterSection) return;
-    this.parameterSection.hidden = this.parameterUnavailable;
+    this.parameterSection.hidden = !this.parameterOffered;
     const editable = !this.pending && !this.experimentId && !this.hasReview &&
       (this.parameterPhase === "inspected" || this.parameterPhase === "edited");
     for (const input of Array.from(this.parameterSection.querySelectorAll<HTMLInputElement>("input"))) input.disabled = !editable;
+    if (this.restoreButton) {
+      this.restoreButton.hidden = this.parameterUnavailable;
+      this.restoreButton.disabled = this.pending !== undefined || this.experimentId !== undefined || this.hasReview || this.parameterPhase === "idle";
+    }
+    if (this.parameterAction) {
+      // Its step is the Identify button's parameter step; the review and start of the project test stay on the Identify page.
+      const step = this.parameterOffered && !this.hasReview && this.experimentId === undefined && this.parameterPhase !== "applied";
+      this.parameterAction.hidden = !step;
+      this.parameterAction.textContent = this.primaryActionLabel;
+      this.parameterAction.disabled = this.pending !== undefined || this.blocked() !== undefined;
+    }
     if (this.parameterStatus) this.parameterStatus.hidden = false;
   }
 
@@ -441,6 +482,19 @@ export class ThreePageExperiments {
     const node = this.section.querySelector<HTMLElement>(selector);
     if (node) node.textContent = value;
   }
+}
+
+/**
+ * The binding the parameter section starts from (B6.1, C12): a project test's own declared parameters. For a declared analysis the
+ * parameters are the ones the engine names in its answer, which the page configures its fields from; until an answer names them the
+ * section lists none. Its mode is the loop's, which the section shows as the activation.
+ */
+function parameterBindingOf(loop: ControlLoopDefinition): ParameterBinding | undefined {
+  const binding = loop.parameterBinding;
+  if (!binding) return undefined;
+  if (loop.parameterPurpose === "experiment") return binding;
+  if (!loop.analysisParameterSymbols) return undefined;
+  return { ...binding, parameters: [] };
 }
 
 function isControlExperimentPlan(value: unknown): value is ControlExperimentPlan {

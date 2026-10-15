@@ -270,6 +270,7 @@ mod tests {
 
     use super::*;
     use crate::tuning::design_to_requirements::pole_matched;
+    use crate::tuning::prediction::{predict_response, PredictedGains, PredictionConditions};
     use crate::tuning::shortfall::{GainLimits, OutputLimits, ResponsePredictor, TimePoint, Trial};
     use crate::tuning::typed_pid::TypedDesign;
     use trust_control_math::identify::gain::ControllerAction;
@@ -471,5 +472,88 @@ mod tests {
             panic!("a PD placement on a first-order model is refused");
         };
         assert_eq!(sentence.0, texts::PID_NOT_CONFIGURED);
+    }
+
+    #[test]
+    fn lesson_90s_axis_places_its_second_envelope_and_the_prediction_settles() {
+        // Lesson 90's axis is `1/(s·(s + 1))`: an integrator with a lag of one second. The settling time is 4 s, the band 0.01
+        // and the step 1, so the first placement (envelope 4.605, decay 1.151/s) leaves 0.012 from the target after 4 s, more
+        // than the band, and the second (envelope 5.756, 25 % faster) is used. Its gains, from `ω = 5.756/(0.8·4)` with
+        // `Kp = ω²·(1 + 6ζ)`, `Ki = 3ω³` and `Kd = (2ζ + 3)·ω − 1`, are Kp 18.768926, Ki 17.463786 and Kd 7.274915: the
+        // lesson's 18.77, 17.46 and 7.27.
+        let model = IdentifiedModel {
+            kind: LowOrderModelKind::Integrating,
+            gain: 1.0,
+            time_constant_seconds: Some(1.0),
+            second_time_constant_seconds: None,
+            dead_time_seconds: Some(0.0),
+            normalized_error: None,
+            normalized_estimation_error: None,
+            normalized_validation_error: None,
+            estimation_residuals: None,
+            validation_residuals: None,
+            uncertainty: None,
+            stable: true,
+            on_search_boundary: false,
+        };
+        let transfer = identified_transfer(&model).expect("the lag form has a transfer function");
+        assert_eq!(transfer.denominator, vec![1.0, 1.0, 0.0]);
+        let plant = PlacementPlant::new(&transfer, 0.0).expect("a delay-free second-order plant");
+        let envelope = first_envelope(1.0, 0.01) * ENVELOPE_STEP;
+        let gains = place_poles(
+            plant,
+            Family::PID,
+            PlacementRequest {
+                decay_rate: envelope / 4.0,
+                damping: DAMPING,
+                minimum_stiffness: 0.0,
+                sample_time_seconds: 0.02,
+                maximum_omega_sample_product: SAMPLE_RATE_LIMIT,
+            },
+        )
+        .expect("the pair and its third pole place");
+        assert!((gains.proportional_gain - 18.768_926).abs() < 1e-5);
+        assert!((gains.integral_gain - 17.463_786).abs() < 1e-5);
+        assert!((gains.derivative_gain - 7.274_915).abs() < 1e-5);
+        // The prediction of the placed gains, from the operating point, with the record's default setpoint weights (b = 1, c = 0).
+        let candidate = PredictedGains {
+            proportional_gain: gains.proportional_gain,
+            integral_gain: gains.integral_gain,
+            derivative_gain: gains.derivative_gain,
+            proportional_setpoint_weight: 1.0,
+            derivative_setpoint_weight: 0.0,
+            measurement_filter_seconds: 0.0,
+        };
+        let conditions = PredictionConditions {
+            period_seconds: 0.02,
+            duration_seconds: 8.0,
+            reference_change: 1.0,
+            operating_input: 0.0,
+            operating_output: 0.0,
+            input_disturbance: 0.0,
+            output_minimum: -20.0,
+            output_maximum: 20.0,
+            rate_minimum: -1.0e6,
+            rate_maximum: 1.0e6,
+        };
+        let response = predict_response(&model, &candidate, None, &conditions)
+            .expect("the lag plant predicts");
+        let after_deadline: Vec<f64> = response
+            .points
+            .iter()
+            .filter(|point| point.time_seconds >= 4.0 - 1e-9)
+            .map(|point| point.candidate_process_value)
+            .collect();
+        let final_value = after_deadline
+            .last()
+            .copied()
+            .expect("the response reaches its horizon");
+        // From the deadline the response stays within the allowed error 0.02 of the target and the band 0.01 of its final value.
+        assert!(after_deadline
+            .iter()
+            .all(|value| (value - 1.0).abs() <= 0.02));
+        assert!(after_deadline
+            .iter()
+            .all(|value| (value - final_value).abs() <= 0.01));
     }
 }

@@ -185,10 +185,18 @@ fn a_fit_needs_one_recording_or_two() {
 #[test]
 fn several_channels_are_not_fitted_here() {
     let mut loop_definition = loop_with(Action::Direct);
-    loop_definition.channels = Some(json!({
-        "inputs": [{ "signalId": "manipulatedVariable", "modelChannelId": "mv" }, { "signalId": "manipulatedVariable" }],
-        "outputs": [{ "signalId": "processVariable", "modelChannelId": "pv" }]
-    }));
+    loop_definition.channels = Some(
+        serde_json::from_value(json!({
+            "inputs": [
+                { "signalId": "manipulatedVariable", "modelChannelId": "mv",
+                    "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 } },
+                { "signalId": "manipulatedVariable", "modelChannelId": "mv2",
+                    "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 } }
+            ],
+            "outputs": [{ "signalId": "processVariable", "modelChannelId": "pv" }]
+        }))
+        .expect("typed channels"),
+    );
     let record = setpoint_record("one", CHANNELS, &constant_rows(), RequirementStatus::Pass);
     match fit_recorded_model(&loop_definition, &[record]) {
         Err(RecordedFitError::Parked { path }) => assert!(path.contains("multichannel")),

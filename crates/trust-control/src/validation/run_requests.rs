@@ -15,11 +15,12 @@ use crate::identification::connected_record::{
     RunConditions, ValidationRun, ValidationSample, ValidationValue,
 };
 use crate::limits::ISOLATED_SIMULATION_WALL_TIME_LIMIT_MS;
-use crate::loop_definition::{LoopDefinition, RealType};
+use crate::loop_definition::{LoopDefinition, ParameterBinding, RealType};
 use crate::model::{GeneralModel, SimulationOverride};
 use crate::recording::channels::ChannelQuality;
 use crate::signals::Quality;
-use crate::tuning::candidate::ControlPidCandidate;
+use crate::tuning::candidate::{ControlPidCandidate, LawCandidate};
+use crate::tuning::project_candidate::{served_feedforward, served_trajectory};
 use crate::tuning::settings_pins::{mapped_parameters, GainKey, MappedParameter};
 use crate::validation::engineer_scenario_effects::{requirements_failure, scenario_effect_tables};
 use crate::validation::engineer_verification_campaign::CampaignCase;
@@ -49,8 +50,9 @@ pub enum RunSettings<'a> {
     /// written to the run as parameter overrides exactly as the candidate's are (E8.3, E8.4). The compiled values are not the
     /// current settings once Apply has written a record.
     Current(&'a BTreeMap<String, f64>),
-    /// The candidate's record, written to the run as parameter overrides (E8.4).
-    Candidate(&'a ControlPidCandidate),
+    /// The candidate's values, written to the run as parameter overrides (E8.4): a `Control.PID` record's fields, or the seed
+    /// variables of a program's own law.
+    Candidate(&'a LawCandidate),
 }
 
 /// What one isolated run request is built from (B5.3, E8.4).
@@ -234,10 +236,78 @@ fn parameter_overrides(
                 )
             })
         }),
-        RunSettings::Candidate(candidate) => record_overrides(loop_definition, |mapped| {
-            candidate_value(candidate, mapped.key)
-        }),
+        RunSettings::Candidate(candidate) => {
+            let mut overrides =
+                record_overrides(loop_definition, |mapped| candidate_value(candidate, mapped))?;
+            overrides.extend(feedforward_overrides(loop_definition, candidate)?);
+            Ok(overrides)
+        }
     }
+}
+
+/// The refusal of a trajectory candidate that lacks one of its feedforward gains (C11).
+const TRAJECTORY_VALUE_MISSING: &str =
+    "A trajectory candidate holds no value for a feedforward gain.";
+/// The refusal of a measured-disturbance candidate that lacks one of its feedforward values (C8).
+const FEEDFORWARD_VALUE_MISSING: &str =
+    "A feedforward candidate holds no value for one of its feedforward variables.";
+
+/// The feedforward overrides of a feedforward-law candidate (C8, C11): a trajectory's rate and acceleration gains, or a measured-disturbance
+/// feedforward's gain with its lead and lag when its seed names them. Each is written to the variable its seed names, with the type, unit,
+/// convention and bounds that the binding declares. A candidate of another law has none.
+///
+/// # Errors
+/// The candidate holds no value for one of those variables, or the binding has no parameter of that variable.
+fn feedforward_overrides(
+    loop_definition: &LoopDefinition,
+    candidate: &LawCandidate,
+) -> Result<Vec<IsolatedParameterOverride>, Failure> {
+    let LawCandidate::Project(project) = candidate else {
+        return Ok(Vec::new());
+    };
+    let symbols = feedforward_symbols(loop_definition);
+    if symbols.is_empty() {
+        return Ok(Vec::new());
+    }
+    let missing = if served_trajectory(loop_definition).is_some() {
+        TRAJECTORY_VALUE_MISSING
+    } else {
+        FEEDFORWARD_VALUE_MISSING
+    };
+    let Some(binding) = &loop_definition.parameter_binding else {
+        return Err(Failure::new(
+            &texts::parameter_or_reference_binding_missing(),
+            Cause::Settings,
+            NextAction::OpenLoopSetup,
+        ));
+    };
+    symbols
+        .into_iter()
+        .map(|symbol| -> Result<IsolatedParameterOverride, Failure> {
+            let value =
+                project.values.get(symbol).copied().ok_or_else(|| {
+                    Failure::new(missing, Cause::Implementation, NextAction::None)
+                })?;
+            override_of(binding, symbol, value)
+        })
+        .collect()
+}
+
+/// The variables a feedforward-law candidate writes beyond its PI (C8, C11): a trajectory's rate and acceleration gains, or a
+/// measured-disturbance feedforward's gain and, when its seed names them, its lead and lag. A loop with neither has none.
+fn feedforward_symbols(loop_definition: &LoopDefinition) -> Vec<&str> {
+    if let Some(seed) = served_trajectory(loop_definition) {
+        return vec![seed.rate_symbol.as_str(), seed.acceleration_symbol.as_str()];
+    }
+    let Some(seed) = served_feedforward(loop_definition) else {
+        return Vec::new();
+    };
+    let mut symbols = vec![seed.gain_symbol.as_str()];
+    if let Some(lead_lag) = &seed.lead_lag {
+        symbols.push(lead_lag.lead_symbol.as_str());
+        symbols.push(lead_lag.lag_symbol.as_str());
+    }
+    symbols
 }
 
 /// A record as parameter overrides: each record field that the controller maps, with the type, unit, convention and bounds that
@@ -256,36 +326,67 @@ fn record_overrides(
     mapped_parameters(loop_definition)
         .iter()
         .map(|mapped| -> Result<IsolatedParameterOverride, Failure> {
-            let parameter = binding
-                .parameters
-                .iter()
-                .find(|parameter| parameter.symbol == mapped.symbol)
-                .ok_or_else(|| {
-                    Failure::new(
-                        &texts::parameter_or_reference_binding_missing(),
-                        Cause::Settings,
-                        NextAction::OpenLoopSetup,
-                    )
-                })?;
-            Ok(IsolatedParameterOverride {
-                symbol: parameter.symbol.clone(),
-                iec_type: match &parameter.iec_type {
-                    RealType::Real => IsolatedParameterType::Real,
-                    RealType::Lreal => IsolatedParameterType::Lreal,
-                },
-                unit: parameter.unit.clone(),
-                convention: parameter.convention.clone(),
-                minimum: parameter.minimum,
-                maximum: parameter.maximum,
-                value: value_of(mapped)?,
-            })
+            override_of(binding, &mapped.symbol, value_of(mapped)?)
         })
         .collect()
 }
 
+/// One variable of a binding as a parameter override: its type, unit, convention and bounds as the binding declares them, with the value
+/// written (E8.4).
+///
+/// # Errors
+/// The binding holds no parameter of that symbol.
+fn override_of(
+    binding: &ParameterBinding,
+    symbol: &str,
+    value: f64,
+) -> Result<IsolatedParameterOverride, Failure> {
+    let parameter = binding
+        .parameters
+        .iter()
+        .find(|parameter| parameter.symbol == symbol)
+        .ok_or_else(|| {
+            Failure::new(
+                &texts::parameter_or_reference_binding_missing(),
+                Cause::Settings,
+                NextAction::OpenLoopSetup,
+            )
+        })?;
+    Ok(IsolatedParameterOverride {
+        symbol: parameter.symbol.clone(),
+        iec_type: match &parameter.iec_type {
+            RealType::Real => IsolatedParameterType::Real,
+            RealType::Lreal => IsolatedParameterType::Lreal,
+        },
+        unit: parameter.unit.clone(),
+        convention: parameter.convention.clone(),
+        minimum: parameter.minimum,
+        maximum: parameter.maximum,
+        value,
+    })
+}
+
 /// The value of one record field of the candidate, by the gain key that names it (C0): the gains, the setpoint weights, the
 /// back-calculation gain `1/Tt` and the measurement filter time.
-fn candidate_value(candidate: &ControlPidCandidate, key: GainKey) -> Result<f64, Failure> {
+fn candidate_value(candidate: &LawCandidate, mapped: &MappedParameter) -> Result<f64, Failure> {
+    match candidate {
+        LawCandidate::Pid(candidate) => pid_value(candidate, mapped.key),
+        // A program's own law writes each of its variables from its gains, with zero for a term the structure does not use (C2).
+        LawCandidate::Project(candidate) => match mapped.key {
+            GainKey::ProportionalGain => Ok(candidate.gains.proportional_gain),
+            GainKey::IntegralGain => Ok(candidate.gains.integral_gain),
+            GainKey::DerivativeGain => Ok(candidate.gains.derivative_gain),
+            _ => Err(Failure::new(
+                "A program's own law holds no gain of this kind.",
+                Cause::Implementation,
+                NextAction::None,
+            )),
+        },
+    }
+}
+
+/// The value of one record field of a `Control.PID` candidate, by the gain key that names it (C0).
+fn pid_value(candidate: &ControlPidCandidate, key: GainKey) -> Result<f64, Failure> {
     let record = &candidate.parameters;
     match key {
         GainKey::ProportionalGain => Ok(record.proportional_gain),
@@ -381,3 +482,11 @@ fn channel_quality(quality: Quality) -> ChannelQuality {
 #[cfg(test)]
 #[path = "run_requests_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "run_requests_feedforward_tests.rs"]
+mod feedforward_tests;
+
+#[cfg(test)]
+#[path = "run_requests_feedforward_c8_tests.rs"]
+mod feedforward_c8_tests;

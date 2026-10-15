@@ -8,12 +8,14 @@
 
 use crate::experiment::ControlExperimentKind;
 use crate::failure::Failure;
+use crate::identification::connected_run::several_channels;
 use crate::identification::experiment_trace::ExperimentTrace;
+use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::{
     identified_model_key_numbers, identified_model_type_text,
 };
 use crate::identification::recording_import::display_engineering_unit;
-use crate::loop_definition::LoopDefinition;
+use crate::loop_definition::{channel_signal, LoopDefinition};
 use crate::messages::{
     CandidateOutcome, IdentifyPlot, IdentifyResult, PlotRole, PlotTrace, TuneMethod, TuneResult,
 };
@@ -25,7 +27,7 @@ use crate::study::identify::{IdentifySection, IdentifySignals};
 use crate::study::inputs::InputsSection;
 use crate::study::tune::model::tuning_model;
 use crate::study::tune::prediction::CandidateResponse;
-use crate::study::tune::record::record_settings;
+use crate::study::tune::record::candidate_settings;
 use crate::study::tune::requirements::study_requirements;
 use crate::study::tune::result::{tune_result, ResultInputs};
 use crate::study::tune::{controller_action, TuneSection};
@@ -47,9 +49,27 @@ pub fn identify_signals(
     kind: ControlExperimentKind,
 ) -> IdentifySignals {
     let signals = &loop_definition.signals;
+    let (inputs, outputs): (Vec<String>, Vec<String>) = match loop_definition.channels.as_ref() {
+        Some(channels) if several_channels(loop_definition) => (
+            channels
+                .inputs
+                .iter()
+                .map(|input| channel_symbol(loop_definition, &input.signal_id))
+                .collect(),
+            channels
+                .outputs
+                .iter()
+                .map(|output| channel_symbol(loop_definition, &output.signal_id))
+                .collect(),
+        ),
+        _ => (
+            vec![signals.manipulated_variable.symbol.clone()],
+            vec![signals.process_variable.symbol.clone()],
+        ),
+    };
     IdentifySignals {
-        inputs: vec![signals.manipulated_variable.symbol.clone()],
-        outputs: vec![signals.process_variable.symbol.clone()],
+        inputs,
+        outputs,
         setpoint: signals
             .setpoint
             .as_ref()
@@ -58,18 +78,28 @@ pub fn identify_signals(
     }
 }
 
+/// The symbol of the loop signal a channel is bound to. A binding that names no declared signal keeps its identifier.
+fn channel_symbol(loop_definition: &LoopDefinition, signal_id: &str) -> String {
+    channel_signal(loop_definition, signal_id)
+        .map_or_else(|| signal_id.to_owned(), |signal| signal.symbol.to_owned())
+}
+
 /// The result of the identification a section stores (B3.8): its model type, equation and key numbers, whether it is
 /// provisional, the readable text, the response plot, the recording the model was fitted from, the revision of the model, the
 /// requirements it is given, and `stages`. The text is the model type, " · Provisional" for a provisional model, then the
 /// equation and the key numbers, each on its own line. The revision is the one Validate's model check names for this model
-/// (B5.2). The requirements are the record [`identify_answer`] works out, and `None` where Automatic cannot form one.
+/// (B5.2). The requirements are the record [`identify_answer`] works out, and `None` where Automatic cannot form one. A section
+/// with no presentation, a state-space model (B10.2), is answered as a supplied model is.
 #[must_use]
 pub fn identify_result(
     section: &IdentifySection,
     evidence: StageEvidence,
     requirements: Option<TuningRequirements>,
 ) -> IdentifyResult {
-    let shown = &section.presentation.presentation;
+    let Some(comparison) = section.presentation.as_ref() else {
+        return supplied_result(&section.selected_model, evidence, requirements);
+    };
+    let shown = &comparison.presentation;
     let model_type = identified_model_type_text(shown);
     let key_numbers = identified_model_key_numbers(shown);
     let label = if section.provisional {
@@ -84,7 +114,7 @@ pub fn identify_result(
         key_numbers,
         provisional: section.provisional,
         text,
-        plot: response_plot(section),
+        plot: response_plot(section, comparison),
         recording_id: Some(section.estimation_recording_id.clone()),
         model_revision: section.selected_model.identity().revision.clone(),
         requirements,
@@ -220,6 +250,7 @@ pub fn kept_candidate(
         Some(TuneMethod::Relay) => Some(section.reason.clone()),
         _ => None,
     };
+    let candidate = section.law_candidate()?;
     Some(tune_result(ResultInputs {
         model: &model,
         method: section.method,
@@ -227,8 +258,8 @@ pub fn kept_candidate(
         action: controller_action(loop_definition),
         process_unit: &process_unit,
         manipulated_unit: &manipulated_unit,
-        candidate: section.candidate,
-        settings: record_settings(&section.candidate, &mapped_parameters(loop_definition)),
+        settings: candidate_settings(&candidate, &mapped_parameters(loop_definition)),
+        candidate,
         objective,
         closed_loop_time_seconds: section.closed_loop_time_seconds,
         attempts: section.attempts.clone(),
@@ -301,10 +332,9 @@ struct Series<'a> {
 
 /// The response plot of a section (B3.8, B9.7): the applied plant inputs and the measured outputs of the experiment, then the
 /// model's prediction, on the times of the recording. Without the experiment's traces the measured output is the measured
-/// value of each fitted point, as the page drew it, named by the channel the fit read (`read_channels`, B3.6). Nothing is
-/// interpolated or resampled.
-fn response_plot(section: &IdentifySection) -> IdentifyPlot {
-    let comparison = &section.presentation;
+/// value of each fitted point, as the page drew it, named by the channel the fit read (`read_channels`, B3.6), and its prediction
+/// carries that name too. Nothing is interpolated or resampled.
+fn response_plot(section: &IdentifySection, comparison: &ComparisonPresentation) -> IdentifyPlot {
     let shown = &comparison.presentation;
     let fitted = &shown.predicted_response;
     let predicted_output = comparison
@@ -319,6 +349,14 @@ fn response_plot(section: &IdentifySection) -> IdentifyPlot {
                 .map(|channel| channel.id.as_str())
         })
         .unwrap_or_default();
+    // The measured trace of a fit without the experiment's traces is named by the recorded channel the fit read, or by the model's
+    // output when the fit read none. Its prediction takes the same name: the model of an opened recording on a channel the loop does
+    // not bind carries the loop's model id, which is not that channel's name, so the two traces of the plot would disagree.
+    let fitted_name = section
+        .read_channels()
+        .outputs
+        .first()
+        .map_or(predicted_output, String::as_str);
     let mut series = Vec::new();
     if let Some(experiment) = &comparison.experiment {
         series.extend(
@@ -336,11 +374,7 @@ fn response_plot(section: &IdentifySection) -> IdentifyPlot {
     } else if !fitted.is_empty() {
         series.push(Series {
             role: PlotRole::Measurement,
-            symbol: section
-                .read_channels()
-                .outputs
-                .first()
-                .map_or(predicted_output, String::as_str),
+            symbol: fitted_name,
             unit: &shown.units.output,
             points: fitted
                 .iter()
@@ -349,9 +383,14 @@ fn response_plot(section: &IdentifySection) -> IdentifyPlot {
         });
     }
     if !fitted.is_empty() {
+        // A plot with the experiment's own traces keeps the model's output id for its prediction, as it did before.
         series.push(Series {
             role: PlotRole::Prediction,
-            symbol: predicted_output,
+            symbol: if comparison.experiment.is_some() {
+                predicted_output
+            } else {
+                fitted_name
+            },
             unit: &shown.units.output,
             points: fitted
                 .iter()

@@ -9,6 +9,19 @@ pub fn no_record() -> String {
     "Keep in project writes a parameter record, such as the one Control.PID is configured from; this loop binds none.".to_owned()
 }
 
+/// A gain of a program's own law is not a variable of a program instance (`<instance>.<variable>`), so Keep in project cannot write
+/// its initial value (C2, B6.5).
+#[must_use]
+pub fn gain_not_program_variable(symbol: &str) -> String {
+    format!("{symbol} is not a variable of a program instance, so Keep in project cannot write its initial value. Copy the value into the program by hand.")
+}
+
+/// The gains of a program's own law belong to two program instances, and Keep in project writes the variables of one (C2, B6.5).
+#[must_use]
+pub fn gains_of_two_instances() -> String {
+    "The gains of this program's law belong to different program instances, and Keep in project writes the variables of one. Copy the values into the program by hand.".to_owned()
+}
+
 /// The runtime reports none of the record's fields (`keepAppliedParameters`, keepInProject.ts).
 #[must_use]
 pub fn no_values(record: &str) -> String {

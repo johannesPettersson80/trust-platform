@@ -6,11 +6,11 @@
 //! that cancels it is the orchestration's (the next layer). A refusal is the answer, not a failed attempt: no other fit may
 //! replace it. A fit that is not refused is checked for the sign of its gain against the controller action (B3.9, N6.3).
 //!
-//! Not ported here (named in the report): the multichannel fit (`multichannelIdentification.ts`, V7) and the state-model
+//! Not ported here: the multichannel fit (`multichannelIdentification.ts`), which is `multichannel_fit` and is reached by its own
+//! entry, not by this one, since a loop with several channels has no single model channel to return here; and the state-model
 //! fallback (`recordedStateIdentification.ts`, V7). Where the `TypeScript` would run the fallback, this returns
 //! [`RecordedFitError::StateModelRequired`] with the failed attempts' sentences in the order they ran.
 
-use serde_json::Value;
 use trust_control_math::identify::gain::ControllerAction;
 use trust_control_math::identify::{LowOrderModelKind, SampleQuality};
 
@@ -42,6 +42,7 @@ use crate::identification::review::{
 use crate::identification::selected_model_analysis::{
     provisional_identification_model, ChannelSet, OperatingValues,
 };
+use crate::identification::selected_recording::role_model_id;
 use crate::identification::texts::{
     gain_sign_contradiction, zero_gain_refusal, MISSING_NONZERO_STEP,
 };
@@ -90,7 +91,7 @@ enum Attempt<E> {
 /// checked against the loop's controller action before the model is returned.
 ///
 /// # Errors
-/// The recordings are not one or two; the loop has several channels (V7); a refusal of the fit; or no attempt gave the
+/// The recordings are not one or two; the loop has several channels (`multichannel_fit` fits those); a refusal of the fit; or no attempt gave the
 /// model, when the state-model fallback (V7) would be needed.
 pub fn fit_recorded_model<E: Clone>(
     loop_definition: &LoopDefinition,
@@ -429,6 +430,7 @@ fn checked_action<E>(
                 }
             }
         }
+        AutomaticIdentificationResult::StateModel { .. } => {}
     }
     Ok(result)
 }
@@ -538,17 +540,17 @@ pub fn identification_samples<E>(
 }
 
 /// The model channels of a single-recording fit: the loop's plant input and measured output, with the identifiers the loop
-/// gives them (`modelChannelId`), or their symbols.
+/// gives them (`modelChannelId`), or their symbols (`role_model_id`).
 fn channels_of(loop_definition: &LoopDefinition) -> ChannelSet {
     let input = &loop_definition.signals.manipulated_variable;
     let output = &loop_definition.signals.process_variable;
     ChannelSet {
         inputs: vec![model_channel(
-            model_channel_id(loop_definition, "inputs").unwrap_or_else(|| input.symbol.clone()),
+            role_model_id(loop_definition, "inputs"),
             input,
         )],
         outputs: vec![model_channel(
-            model_channel_id(loop_definition, "outputs").unwrap_or_else(|| output.symbol.clone()),
+            role_model_id(loop_definition, "outputs"),
             output,
         )],
     }
@@ -565,34 +567,17 @@ fn model_channel(id: String, signal: &LoopSignal) -> ModelChannel {
     }
 }
 
-/// The model channel identifier the loop gives its first channel of one kind, read from the loop's stored channels.
-fn model_channel_id(loop_definition: &LoopDefinition, kind: &str) -> Option<String> {
+/// Whether the loop has more than one input or output channel (`loop.channels?.inputs.length > 1`). Such a loop is fitted by
+/// the multichannel fit (`multichannel_fit::fit_multichannel_model`), not here.
+pub(crate) fn has_several_channels(loop_definition: &LoopDefinition) -> bool {
     loop_definition
         .channels
-        .as_ref()?
-        .get(kind)?
-        .as_array()?
-        .first()?
-        .get("modelChannelId")?
-        .as_str()
-        .map(str::to_owned)
-}
-
-/// Whether the loop has more than one input or output channel (`loop.channels?.inputs.length > 1`). Such a loop is not
-/// fitted here (V7).
-pub(crate) fn has_several_channels(loop_definition: &LoopDefinition) -> bool {
-    ["inputs", "outputs"].iter().any(|kind| {
-        loop_definition
-            .channels
-            .as_ref()
-            .and_then(|channels: &Value| channels.get(*kind))
-            .and_then(Value::as_array)
-            .is_some_and(|entries| entries.len() > 1)
-    })
+        .as_ref()
+        .is_some_and(|channels| channels.inputs.len() > 1 || channels.outputs.len() > 1)
 }
 
 /// The decoded identification policy of the loop, when it has a valid one.
-fn policy_of(loop_definition: &LoopDefinition) -> Option<IdentificationPolicy> {
+pub(crate) fn policy_of(loop_definition: &LoopDefinition) -> Option<IdentificationPolicy> {
     loop_definition
         .identification_policy
         .as_ref()

@@ -18,8 +18,8 @@ use trust_control::messages::{
     AnalyzeAnswer, AnalyzeRequest, ApplicationAnswer, ApplicationRequest, CancelResult,
     IdentifyRequest, IdentifyResult, InputsRequest, InputsResult, KeepRequest, KeepResult,
     KeepReviewAnswer, OpenRequest, OpenResult, OperationRequest, OperationStarted, OperationUpdate,
-    PageRequest, PreviewRequest, ResetResult, RunRequest, RunResult, TuneRequest, TuneResult,
-    ValidateRequest, ValidateResult,
+    PageRequest, ParameterWorkAnswer, ParameterWorkRequest, PreviewRequest, ResetResult,
+    RunRequest, RunResult, TuneRequest, TuneResult, ValidateRequest, ValidateResult,
 };
 use trust_control::setup::messages::{
     SetupDiscoverRequest, SetupDiscoverResult, SetupSaveRequest, SetupSaveResult,
@@ -88,6 +88,8 @@ fn export(folder: &Path) -> io::Result<()> {
         SetupSaveResult,
         AnalyzeRequest,
         AnalyzeAnswer,
+        ParameterWorkRequest,
+        ParameterWorkAnswer,
         Failure,
     );
     Ok(())

@@ -760,8 +760,8 @@ fn keep_result(work: &LoopWork, study: &Study, fitted: Fitted) -> Result<Value, 
 
 /// Keeps the Identify section of `fitted` in `study`: the provisional model, its presentation and the request its recording was
 /// taken with. Its signals are the loop's for the fit's experiment (A8.4, B3.2), and `read` names the recording channels the fit
-/// read the plant input and measured output from, when it read other ones (B3.6). Answers with the result the page shows and the
-/// stages after it.
+/// read the plant input and measured output from, when it read other ones (B3.6). A state-space fit of several channels keeps its
+/// model with its signals and no presentation (B10.2). Answers with the result the page shows and the stages after it.
 fn keep_fitted(
     work: &LoopWork,
     study: &Study,
@@ -775,28 +775,36 @@ fn keep_fitted(
         result,
     } = fitted;
     let loop_definition = &work.loop_definition;
-    let AutomaticIdentificationResult::Model {
-        model,
-        runs,
-        presentation,
-        ..
-    } = result
-    else {
-        return Err(accepted_model_from_one_record());
+    let (model, runs, presentation) = match result {
+        AutomaticIdentificationResult::Model {
+            model,
+            runs,
+            presentation,
+            ..
+        } => (model, runs, Some(presentation)),
+        AutomaticIdentificationResult::StateModel { model, runs, .. } => (model, runs, None),
+        AutomaticIdentificationResult::Accepted { .. } => {
+            return Err(accepted_model_from_one_record());
+        }
     };
     let [record] = runs.as_slice() else {
         return Err(model_not_from_one_record());
     };
     let signals = identify_signals(loop_definition, experiment_kind(method));
-    let section = IdentifySection::new(
-        method,
-        source,
-        signals,
-        &recording_file_id,
-        None,
-        *model,
-        *presentation,
-    )
+    let section = match presentation {
+        Some(presentation) => IdentifySection::new(
+            method,
+            source,
+            signals,
+            &recording_file_id,
+            None,
+            *model,
+            *presentation,
+        ),
+        None => {
+            IdentifySection::new_state_model(method, source, signals, &recording_file_id, *model)
+        }
+    }
     .with_record_request(StoredRecordRequest {
         project_revision: record.project_revision.clone(),
         request: record.request.clone(),

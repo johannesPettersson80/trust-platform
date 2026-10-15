@@ -4,7 +4,6 @@
 use super::*;
 use crate::commissioning::fixture_loops::{control_pid_loop, first_order_model};
 use crate::commissioning::transfer::TransferValueType;
-use serde_json::json;
 
 #[test]
 fn a_loop_without_channels_declares_its_setpoint_process_value_output_and_manual_command() {
@@ -45,7 +44,11 @@ fn a_loop_without_a_setpoint_or_with_channel_bindings_is_refused() {
         "the reference is needed"
     );
     let mut with_channels = control_pid_loop();
-    with_channels.channels = Some(json!({}));
+    with_channels.channels = Some(crate::loop_definition::LoopChannels {
+        inputs: Vec::new(),
+        outputs: Vec::new(),
+        initial_state: None,
+    });
     assert!(
         declared_channels(&with_channels).is_err(),
         "channels are parked"

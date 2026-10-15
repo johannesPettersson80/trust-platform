@@ -14,6 +14,8 @@ import type { KeepReviewAnswer } from "../generated/KeepReviewAnswer";
 import type { OpenRequest } from "../generated/OpenRequest";
 import type { OpenResult } from "../generated/OpenResult";
 import type { OperationRequest } from "../generated/OperationRequest";
+import type { ParameterWorkAnswer } from "../generated/ParameterWorkAnswer";
+import type { ParameterWorkRequest } from "../generated/ParameterWorkRequest";
 import type { OperationStarted } from "../generated/OperationStarted";
 import type { OperationUpdate } from "../generated/OperationUpdate";
 import type { PageRequest } from "../generated/PageRequest";
@@ -61,6 +63,8 @@ export interface ControlStudioEngine {
   restore(request: ApplicationRequest): Promise<EngineAnswer<ApplicationAnswer>>;
   /** The answer is the Keep review, or the started operation when the request names the review's identity. */
   keep(request: KeepRequest): Promise<EngineAnswer<KeepReviewAnswer | OperationStarted>>;
+  /** The parameter writes of a declared analysis (C12): the review, its answer, or the started Apply or Restore. */
+  parameters(request: ParameterWorkRequest): Promise<EngineAnswer<ParameterWorkAnswer | OperationStarted>>;
   setupDiscover(request: SetupDiscoverRequest): Promise<EngineAnswer<SetupDiscoverResult>>;
   setupSave(request: SetupSaveRequest): Promise<EngineAnswer<SetupSaveResult>>;
   /** Without `tool` the answer lists the tools that apply; with it, a quick calculation, or the started operation (B9.9). */
@@ -86,6 +90,7 @@ const METHOD = {
   setupDiscover: "controlStudio/setupDiscover",
   setupSave: "controlStudio/setupSave",
   analyze: "controlStudio/analyze",
+  parameters: "controlStudio/parameters",
 } as const;
 
 const UPDATE_NOTIFICATION = "controlStudio/update";
@@ -113,6 +118,7 @@ export function createEngineClient(engine: EngineProcess): ControlStudioEngine {
     setupDiscover: (request) => call<SetupDiscoverResult>(METHOD.setupDiscover, request),
     setupSave: (request) => call<SetupSaveResult>(METHOD.setupSave, request),
     analyze: (request) => call<AnalyzeAnswer>(METHOD.analyze, request),
+    parameters: (request) => call<ParameterWorkAnswer | OperationStarted>(METHOD.parameters, request),
     onUpdate: (operationId, listener) =>
       engine.onNotification(UPDATE_NOTIFICATION, (params) => {
         const update = params as OperationUpdate;

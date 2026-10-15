@@ -76,15 +76,21 @@ suite("Control Studio three-page workflow", () => {
     try { await withStudio(async inner => {
       await inner("const method=d.querySelector('[data-engineer-acquisition-method]');method.value='project';method.dispatchEvent(new d.defaultView.Event('change',{bubbles:true}));d.defaultView.__projectEvents=[];d.defaultView.addEventListener('message',event=>{if(event.data.kind==='control-studio.experiment.result')d.defaultView.__projectEvents.push(event.data);});d.querySelector('[data-engineer-find]').click();return 'review';");
       const reviewed = JSON.parse(await pollValue("native project review", () => inner("return JSON.stringify(d.defaultView.__projectEvents);"), value => JSON.parse(value).some((message: any) => message.phase === "review"), 45000));
-      assert.strictEqual(reviewed.find((message: any) => message.phase === "review")?.payload.kind, "accepted", JSON.stringify(reviewed));
+      // The engine answers the review as `reviewed`, with its identity and the review the start will run (experimentRoute.ts:94).
+      assert.strictEqual(reviewed.find((message: any) => message.phase === "review")?.payload.kind, "reviewed", JSON.stringify(reviewed));
       assert.strictEqual(await inner("return d.querySelector('[data-engineer-find]').textContent;"), "Confirm and start");
       await inner("d.querySelector('[data-engineer-find]').click();return 'start';");
-      const completed = JSON.parse(await pollValue("native project terminal", () => inner("return JSON.stringify(d.defaultView.__projectEvents);"), value => JSON.parse(value).some((message: any) => message.phase === "terminal" || message.phase === "failed"), 20000));
-      const terminal = completed.find((message: any) => message.phase === "terminal")?.payload;
-      assert.strictEqual(terminal?.status, "completed", JSON.stringify(completed));
-      assert.strictEqual(terminal?.restoration, "restored", JSON.stringify(terminal));
-      assert.ok(terminal.recording, `The terminal result carries the kept recording: ${JSON.stringify(terminal).slice(0, 800)}`);
-      assert.ok(terminal.recording.rawSamples.length >= 10, "Retain runtime-scan data from the project sequence");
+      const completed = JSON.parse(await pollValue("native project terminal", () => inner("return JSON.stringify(d.defaultView.__projectEvents);"), value => JSON.parse(value).some((message: any) => message.phase === "engine-ended" || message.phase === "failed"), 20000));
+      // The engine ends the test with `engine-ended` (experimentRoute.ts:106) and sends its status alone. The campaign is `finished` only
+      // after its restoration is confirmed (run.rs hold_end, release_active), so the status is the restoration evidence this path has:
+      // the engine path names no restoration field on the page (a reported gap).
+      const ended = completed.find((message: any) => message.phase === "engine-ended")?.payload;
+      assert.strictEqual(ended?.status, "finished", JSON.stringify(completed));
+      // The kept recording reaches the page in the identification the engine answers (`control-studio.engine.result`, method identify):
+      // its identifier, and one time per sample on the plot the chart draws (identify_result.rs, IdentifyPlot.timeSeconds).
+      const identified = JSON.parse(await pollValue("native project identification", () => inner("return JSON.stringify((d.defaultView.__engineAnswers||[]).filter(e=>e.kind==='control-studio.engine.result'&&e.method==='identify').map(e=>e.result));"), value => JSON.parse(value).length > 0, 10000))[0];
+      assert.ok(typeof identified.recordingId === "string" && identified.recordingId.length > 0, `The identification names the kept recording: ${JSON.stringify(identified).slice(0, 800)}`);
+      assert.ok((identified.plot?.timeSeconds?.length ?? 0) >= 10, "Retain runtime-scan data from the project sequence");
       await pollValue("native measured project response", () => inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), value => Number(value) >= 2, 10000);
       assert.strictEqual(await inner("return String(d.querySelector('[data-engineer-acquisition-method]').disabled);"), "false", "Finishing restoration must unlock method selection");
       assert.strictEqual(await inner("return String(d.querySelector('[data-identify-import]').disabled);"), "false", "The recording action must unlock after the project test");

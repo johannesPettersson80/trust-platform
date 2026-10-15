@@ -106,7 +106,7 @@ export function bindEngineAnalysis(root: HTMLElement, events: EngineAnalysisEven
         return;
       case "control-studio.analysis.failure": {
         const failure = failureOf(message.failure);
-        if (failure) events.refused(undefined, failure);
+        if (failure) events.refused(typeof message.tool === "string" ? message.tool as AnalysisTool : undefined, failure);
         return;
       }
       default:

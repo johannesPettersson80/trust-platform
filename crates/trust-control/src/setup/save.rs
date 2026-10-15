@@ -11,10 +11,12 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::catalog::CompiledCatalog;
+use super::feedforward_loop::{feedforward_loop_definition, FeedforwardLoopDraft};
 use super::identify_loop::{identify_loop_definition, IdentifyLoopDraft};
 use super::own_law_loop::{own_law_loop_definition, OwnLawLoopDraft};
 use super::pid_loop::{pid_loop_definition, PidLoopDraft};
 use super::texts::save as texts;
+use super::trajectory_loop::{trajectory_loop_definition, TrajectoryLoopDraft};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{LoopDefinition, LoopRejection, LoopScope};
 
@@ -27,6 +29,10 @@ pub enum SetupDraft {
     Identify(IdentifyLoopDraft),
     /// A loop on the program's own law (C2, structure `own-law`).
     OwnLaw(OwnLawLoopDraft),
+    /// A loop on a trajectory-following law (C11, structure `trajectory-feedforward`).
+    TrajectoryFeedforward(TrajectoryLoopDraft),
+    /// A loop on a measured-disturbance feedforward (C8, structure `feedforward`).
+    Feedforward(FeedforwardLoopDraft),
     /// A structure the Rust engine does not run yet (stage V7). The save refuses it by name.
     Parked {
         /// The structure as the draft names it.
@@ -84,6 +90,8 @@ pub fn parse_setup_draft(value: &Value) -> Result<SetupDraft, Failure> {
         "pid" => decode(&structure, body).map(SetupDraft::Pid),
         "identify" => decode(&structure, body).map(SetupDraft::Identify),
         "own-law" => decode(&structure, body).map(SetupDraft::OwnLaw),
+        "trajectory-feedforward" => decode(&structure, body).map(SetupDraft::TrajectoryFeedforward),
+        "feedforward" => decode(&structure, body).map(SetupDraft::Feedforward),
         other if texts::parked_label(other).is_some() => Ok(SetupDraft::Parked {
             structure: other.to_string(),
         }),
@@ -106,6 +114,10 @@ pub fn plan_setup_save(
         SetupDraft::Pid(draft) => vec![pid_loop_definition(catalog, scope, draft)?],
         SetupDraft::Identify(draft) => vec![identify_loop_definition(catalog, scope, draft)?],
         SetupDraft::OwnLaw(draft) => vec![own_law_loop_definition(catalog, scope, draft)?],
+        SetupDraft::TrajectoryFeedforward(draft) => {
+            vec![trajectory_loop_definition(catalog, scope, draft)?]
+        }
+        SetupDraft::Feedforward(draft) => vec![feedforward_loop_definition(catalog, scope, draft)?],
         SetupDraft::Parked { structure } => {
             let label = texts::parked_label(structure).unwrap_or(structure.as_str());
             return Err(Failure::new(

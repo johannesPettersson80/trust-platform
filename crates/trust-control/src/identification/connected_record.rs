@@ -83,6 +83,9 @@ pub struct ConnectedRequest {
     pub acquisition: ConnectedAcquisition,
     /// The reviewed plan of the experiment.
     pub experiment: ControlExperimentPlan,
+    /// The reviewed plan of each plant input, in campaign order; written only when a campaign stepped several inputs (C7).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub experiments: Option<Vec<ControlExperimentPlan>>,
     /// The start of the steady baseline window, in s; written only when it is after the recording's start (B3.4).
     #[serde(
         rename = "baselineStartSeconds",
@@ -342,6 +345,7 @@ pub fn connected_identification_record<E>(
                 reason: verdict.reason,
             },
             experiment: plan.clone(),
+            experiments: None,
             baseline_start_seconds: baseline_start,
             baseline_end_seconds: baseline_end,
         },

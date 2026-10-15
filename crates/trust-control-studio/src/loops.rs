@@ -113,15 +113,35 @@ pub fn list(project_root: &Path, runtime_id: &str) -> Result<Vec<LoopEntry>, Fai
                     name: Some(loop_definition.name),
                     problem: None,
                 },
-                Err(problem) => LoopEntry {
-                    file,
-                    loop_id: None,
-                    name: None,
-                    problem: Some(problem),
+                // A parked loop is listed by its identity, as a served loop is; opening it refuses it by name (D12).
+                Err(problem) => match parked_identity_and_name(&entry.file) {
+                    Some((loop_id, name)) => LoopEntry {
+                        file,
+                        loop_id: Some(loop_id),
+                        name: Some(name),
+                        problem: None,
+                    },
+                    None => LoopEntry {
+                        file,
+                        loop_id: None,
+                        name: None,
+                        problem: Some(problem),
+                    },
                 },
             }
         })
         .collect())
+}
+
+/// The identifier and name of a loop file that does not decode because it uses a parked feature (`parked_feature_of`), when the file
+/// names both. Such a loop is listed as the loop it is; its open refuses it by name.
+fn parked_identity_and_name(file: &Path) -> Option<(String, String)> {
+    let raw: serde_json::Value = serde_json::from_str(&fs::read_to_string(file).ok()?).ok()?;
+    parked_feature_of(&raw)?;
+    Some((
+        raw["id"].as_str()?.to_owned(),
+        raw["name"].as_str()?.to_owned(),
+    ))
 }
 
 /// The checked loop `loop_id` of the project.
@@ -142,7 +162,7 @@ pub fn open(
             Err(problem) => {
                 // A loop that uses a parked feature is refused as such, even when its file does not decode (D12).
                 if let Some(feature) = parked_feature_in(&entry.file, loop_id) {
-                    return Err(parked_failure(feature));
+                    return Err(parked_failure(&feature));
                 }
                 problems.push(problem);
             }
@@ -161,7 +181,7 @@ pub fn open(
 }
 
 /// The parked feature of the loop `loop_id`, when `file` holds that loop and it uses one (`parked_feature_of`).
-fn parked_feature_in(file: &Path, loop_id: &str) -> Option<&'static str> {
+fn parked_feature_in(file: &Path, loop_id: &str) -> Option<String> {
     let raw: serde_json::Value = serde_json::from_str(&fs::read_to_string(file).ok()?).ok()?;
     if raw["id"].as_str() == Some(loop_id) {
         parked_feature_of(&raw)
@@ -313,6 +333,16 @@ mod tests {
                 refusal.message.contains("the program's own law"),
                 "{family}: {}",
                 refusal.message
+            );
+        }
+        // A parked loop that does not decode is still listed as the loop it is (D12); opening it refuses it by name.
+        let listed = list(&root, &example_runtime()).expect("listed");
+        for id in ["loop:feedforward", "loop:smith", "loop:schedule"] {
+            assert!(
+                listed
+                    .iter()
+                    .any(|entry| entry.loop_id.as_deref() == Some(id) && entry.problem.is_none()),
+                "{id} is listed: {listed:?}"
             );
         }
         fs::remove_dir_all(&root).expect("clean up");

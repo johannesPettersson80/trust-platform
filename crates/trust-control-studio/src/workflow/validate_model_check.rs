@@ -230,8 +230,10 @@ fn qualified_section(
     fingerprint: String,
     normalized_error: Option<f64>,
 ) -> IdentifySection {
-    let mut presentation = section.presentation.clone();
-    presentation.presentation.validation.normalized_error = normalized_error;
+    let presentation = section.presentation.clone().map(|mut shown| {
+        shown.presentation.validation.normalized_error = normalized_error;
+        shown
+    });
     IdentifySection {
         validation_recording_id: Some(file_id.to_string()),
         provisional: false,

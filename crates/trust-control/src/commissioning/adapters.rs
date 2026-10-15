@@ -3,11 +3,13 @@
 //! of its declared states, and the parameter values that a set of gains writes. Tune and the commissioning flows call these
 //! decisions and run the runtime themselves.
 //!
-//! Three adapters are ported: the shipped `Control.PID` (C1, with the library's `control-pid-v1` states), a program's parallel PID
-//! (C2, `parallel-pid-v1`) and the connected P (C13). A loop that uses another family is refused, never guessed at: the program's
-//! own law, ON/OFF (C3), state feedback (C4), notch (C5), cascade (C6), PID groups (C7), feedforward (C8), Smith (C9), gain
-//! scheduling (C10), trajectory (C11) and experiment loops (C12) have no law in `loop_definition` yet, and channels (multivariable
-//! loops) are parked with stage V7. `projectController.ts` is a parked feature and is not ported.
+//! Four adapters are ported: the shipped `Control.PID` (C1, with the library's `control-pid-v1` states), a program's parallel PID
+//! record (C2, `parallel-pid-v1`), the connected P (C13) and a program's own PI, PD or PID law (C2) whose seed names its gain
+//! variables and whose declared states start its integral and derivative terms. A program's own P law is the connected P on its
+//! seed's variable. A loop that uses another family is refused, never guessed at: ON/OFF (C3), state feedback (C4), notch (C5),
+//! cascade (C6), PID groups (C7), feedforward (C8), Smith (C9), gain scheduling (C10), trajectory (C11) and experiment loops
+//! (C12) have no adapter here, and channels (multivariable loops) are parked with stage V7. `projectController.ts` is a parked
+//! feature for every seed but `parallel-pid`, and is not ported.
 
 use std::collections::BTreeMap;
 
@@ -21,6 +23,7 @@ use super::initialization_plan::{
 use super::library_pid::library_pid_initialization;
 use super::pid_initialization::pid_initialization_adapter;
 use super::profile::CommissioningProfile;
+use super::project_law::{has_pid_terms, served_law};
 use super::texts;
 use super::transfer::{
     pid_transfer_binding, proportional_parameter, proportional_transfer_binding, TransferBinding,
@@ -28,12 +31,16 @@ use super::transfer::{
 use super::transfer_tracking::{parallel_pid_tracking, proportional_tracking, TransferTracking};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
-    ControllerLaw, LoopDefinition, Parameter, ParameterBinding, PidInitialization, PidLaw, RealType,
+    ControllerLaw, ControllerProject, InitialValue, LoopDefinition, Parameter, ParameterBinding,
+    PidInitialization, PidLaw, RealType,
 };
 use crate::model::GeneralModel;
+use crate::tuning::project_seed::{
+    seed_values, FeedforwardPidSeed, ParallelPidSeed, TrajectoryFeedforwardSeed,
+};
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::settings_pins::single_precision;
-use crate::tuning::structure::{is_exactly_zero, Structure};
+use crate::tuning::structure::{is_exactly_zero, ParallelGains, Structure};
 use crate::validation::engineer_verification_plan::EngineerRequirements;
 
 /// The structures a PID adapter can realize (C0, "Families and zero terms").
@@ -41,6 +48,9 @@ const PID_FAMILIES: [Structure; 4] = [Structure::P, Structure::PI, Structure::PD
 
 /// The structures the connected P can realize (C13): the proportional one only.
 const PROPORTIONAL_FAMILIES: [Structure; 1] = [Structure::P];
+
+/// The label of the shipped `Control.PID`'s commissioning profile.
+const CONTROL_PID_LABEL: &str = "Control.PID";
 
 /// The gains that an adapter maps (`ControllerGains`, C0). A term that the family does not use is written as an explicit zero,
 /// so an absent integral or derivative gain is zero. The optional terms are written only where the law declares them.
@@ -60,18 +70,38 @@ pub struct ControllerGains {
     pub derivative_setpoint_weight: Option<f64>,
     /// The measurement filter time `Tf` in seconds (C0).
     pub measurement_filter_seconds: Option<f64>,
+    /// The rate feedforward gain `K_v` of a trajectory-following law (C11), written only where the law's seed names its variable.
+    pub rate_gain: Option<f64>,
+    /// The acceleration feedforward gain `K_a` of a trajectory-following law (C11), written only where the law's seed names its variable.
+    pub acceleration_gain: Option<f64>,
+    /// The measured-disturbance feedforward gain `K_ff` (C8), written only where the law's seed names its variable.
+    pub feedforward_gain: Option<f64>,
+    /// The lead time `T_lead` in seconds of a measured-disturbance feedforward (C8), written with the lag time where the seed names both.
+    pub lead_seconds: Option<f64>,
+    /// The lag time `T_lag` in seconds of a measured-disturbance feedforward (C8), written with the lead time where the seed names both.
+    pub lag_seconds: Option<f64>,
 }
 
 /// Which adapter a loop's controller has (`controllerAdapter`): the shipped `Control.PID` with its states, a parallel PID with its
-/// `parallel-pid-v1` contract, or the connected P.
+/// `parallel-pid-v1` contract, the connected P, or a program's own PI, PD or PID law with its declared states.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AdapterKind {
     /// The shipped `Control.PID` (C1): its retained states, initialized by the library's `control-pid-v1` declaration.
     ControlPid(ControllerInitialization),
     /// A program's parallel PID (C2): its integral and derivative states, declared by `parallel-pid-v1`.
     ParallelPid,
-    /// The connected P (C13): the proportional gain only, with its integral and derivative gains written as zero.
+    /// The connected P (C13): the proportional gain only, with its integral and derivative gains written as zero. A program's own P
+    /// law (C2) is one too, on the variable its seed names.
     ConnectedP,
+    /// A program's own PI, PD or PID law (C2): its seed names the gain variables, and its declared states start the integral and
+    /// derivative terms as Validate does. The block is the law's controller project (the family its profile shows, its declared
+    /// states, and the families its seed offers); `seed` is the block's `parallel-pid` seed.
+    ProjectPid {
+        /// The controller's `project` block, as the loop declares it (boxed: it is far larger than the other kinds).
+        project: Box<ControllerProject>,
+        /// The seed that names the law's gain variables.
+        seed: ParallelPidSeed,
+    },
 }
 
 /// The start plan of an adapter: one plan of declared states, or a parallel PID's plan with its integral and derivative states.
@@ -91,15 +121,25 @@ pub struct ControllerAdapter<'a> {
 }
 
 /// The adapter of a loop's controller (`controllerAdapter`): the shipped `Control.PID` when its PID law declares `control-pid-v1`, a
-/// parallel PID for any other PID law, and the connected P for a proportional law.
+/// parallel PID for any other PID law, a program's own PI, PD or PID law for a seed with an integral or a derivative variable, and
+/// the connected P for a proportional law or a program's own P law.
 ///
 /// # Errors
-/// The loop uses a feature that no adapter here realizes; the library's initialization of a `Control.PID` does not fit the loop; or
-/// the loop has no proportional law that the connected P can use.
+/// The loop uses a feature that no adapter here realizes; the library's initialization of a `Control.PID` does not fit the loop; the
+/// loop has no proportional law that the connected P can use; or a program's own P law declares a law state, which a P law cannot
+/// start, or an application state that is not a constant.
 pub fn controller_adapter(
     loop_definition: &LoopDefinition,
 ) -> Result<ControllerAdapter<'_>, Failure> {
-    if let Some(feature) = parked_feature(loop_definition) {
+    let project_feature = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .and_then(crate::loop_definition::ControllerProject::parked_feature);
+    if let Some(feature) = project_feature
+        .as_deref()
+        .or_else(|| parked_feature(loop_definition))
+    {
         return Err(Failure::new(
             &texts::adapter_parked_feature(feature),
             Cause::ControllerCapability,
@@ -116,9 +156,15 @@ pub fn controller_adapter(
             }
             _ => AdapterKind::ParallelPid,
         }
+    } else if let Some(law) = served_law(loop_definition).filter(|law| has_pid_terms(law.seed)) {
+        AdapterKind::ProjectPid {
+            project: Box::new(law.project.clone()),
+            seed: law.seed.clone(),
+        }
     } else {
         proportional_parameter(loop_definition)
             .map_err(|failure| unrecognised_type(loop_definition, &failure))?;
+        connected_p_states(loop_definition)?;
         AdapterKind::ConnectedP
     };
     Ok(ControllerAdapter {
@@ -134,12 +180,14 @@ impl ControllerAdapter<'_> {
         &self.kind
     }
 
-    /// The structures the adapter can realize (`families`): the PID kinds offer P, PI, PD and PID, and the connected P offers P.
+    /// The structures the adapter can realize (`families`): the PID kinds offer P, PI, PD and PID, and the connected P offers P. A
+    /// program's own law offers the structures its seed's variables allow (C0 "Families", C2).
     #[must_use]
-    pub fn families(&self) -> &'static [Structure] {
-        match self.kind {
-            AdapterKind::ConnectedP => &PROPORTIONAL_FAMILIES,
-            AdapterKind::ControlPid(_) | AdapterKind::ParallelPid => &PID_FAMILIES,
+    pub fn families(&self) -> Vec<Structure> {
+        match &self.kind {
+            AdapterKind::ConnectedP => PROPORTIONAL_FAMILIES.to_vec(),
+            AdapterKind::ControlPid(_) | AdapterKind::ParallelPid => PID_FAMILIES.to_vec(),
+            AdapterKind::ProjectPid { project, .. } => project.offered_families(),
         }
     }
 
@@ -151,28 +199,43 @@ impl ControllerAdapter<'_> {
     pub fn transfer_binding(&self) -> Result<TransferBinding, Failure> {
         match &self.kind {
             AdapterKind::ControlPid(initialization) => {
-                control_pid_binding(self.loop_definition, initialization)
+                declared_binding(self.loop_definition, initialization)
+            }
+            AdapterKind::ProjectPid { project, .. } => {
+                declared_binding(self.loop_definition, &project.initialization)
             }
             AdapterKind::ParallelPid => pid_transfer_binding(self.loop_definition),
             AdapterKind::ConnectedP => proportional_transfer_binding(self.loop_definition),
         }
     }
 
-    /// The tracking that a recovery to Manual holds (`recoveryTracking`, A6.2): the declared states of the library PID, the parallel
-    /// PID's states, or the proportional reference. The tracking is not initialized here.
+    /// The tracking that a recovery to Manual holds (`recoveryTracking`, A6.2): the declared states of the library PID or of a
+    /// program's own law, the parallel PID's states, or the proportional reference. The tracking is not initialized here.
     ///
     /// # Errors
     /// The adapter's bindings or its declared states do not fit the loop.
     pub fn recovery_tracking(&self, model: &GeneralModel) -> Result<TransferTracking, Failure> {
         match &self.kind {
             AdapterKind::ControlPid(initialization) => {
-                let profile = control_pid_profile(
+                let profile = declared_profile_of(
                     self.loop_definition,
                     model,
+                    CONTROL_PID_LABEL,
                     initialization,
                     &BTreeMap::new(),
                 )?;
-                let binding = control_pid_binding(self.loop_definition, initialization)?;
+                let binding = declared_binding(self.loop_definition, initialization)?;
+                profile.tracking(&binding, false)
+            }
+            AdapterKind::ProjectPid { project, .. } => {
+                let profile = declared_profile_of(
+                    self.loop_definition,
+                    model,
+                    &project.family,
+                    &project.initialization,
+                    &BTreeMap::new(),
+                )?;
+                let binding = declared_binding(self.loop_definition, &project.initialization)?;
                 profile.tracking(&binding, false)
             }
             AdapterKind::ParallelPid => {
@@ -188,8 +251,8 @@ impl ControllerAdapter<'_> {
         }
     }
 
-    /// The commissioning profile of the adapter's declared states (`declaredProfile`, C1), at the given values. Only the shipped
-    /// `Control.PID` declares one; the parallel PID and the connected P have none.
+    /// The commissioning profile of the adapter's declared states (`declaredProfile`, C1, C2), at the given values. The shipped
+    /// `Control.PID` and a program's own PI, PD or PID law declare one; the parallel PID and the connected P have none.
     ///
     /// # Errors
     /// The declared states do not fit the loop, or the profile does not hold at the operating point.
@@ -199,27 +262,43 @@ impl ControllerAdapter<'_> {
         values: &BTreeMap<String, f64>,
     ) -> Result<Option<CommissioningProfile>, Failure> {
         match &self.kind {
-            AdapterKind::ControlPid(initialization) => {
-                control_pid_profile(self.loop_definition, model, initialization, values).map(Some)
-            }
+            AdapterKind::ControlPid(initialization) => declared_profile_of(
+                self.loop_definition,
+                model,
+                CONTROL_PID_LABEL,
+                initialization,
+                values,
+            )
+            .map(Some),
+            AdapterKind::ProjectPid { project, .. } => declared_profile_of(
+                self.loop_definition,
+                model,
+                &project.family,
+                &project.initialization,
+                values,
+            )
+            .map(Some),
             AdapterKind::ParallelPid | AdapterKind::ConnectedP => Ok(None),
         }
     }
 
     /// Checks that the adapter can start an Auto entry (`checkInitialization`, C0): the declared states and their binding for a
-    /// `Control.PID`, the explicit contract for a parallel PID, and the gain parameter for the connected P.
+    /// `Control.PID` or a program's own law, the explicit contract for a parallel PID, and the gain parameter for the connected P.
     ///
     /// # Errors
     /// The adapter's initialization is missing or does not fit the loop.
     pub fn check_initialization(&self) -> Result<(), Failure> {
         match &self.kind {
             AdapterKind::ControlPid(initialization) => {
-                control_pid_binding(self.loop_definition, initialization).map(|_| ())
+                declared_binding(self.loop_definition, initialization).map(|_| ())
             }
             AdapterKind::ParallelPid => {
                 pid_initialization_adapter(self.loop_definition).map(|_| ())
             }
             AdapterKind::ConnectedP => proportional_parameter(self.loop_definition).map(|_| ()),
+            AdapterKind::ProjectPid { project, .. } => {
+                declared_binding(self.loop_definition, &project.initialization).map(|_| ())
+            }
         }
     }
 
@@ -248,6 +327,14 @@ impl ControllerAdapter<'_> {
                 &texts::adapter_pid_record_gain_required(),
             ),
             AdapterKind::ConnectedP => connected_p_values(self.loop_definition, gains, observed),
+            AdapterKind::ProjectPid { project, seed } => project_pid_values(
+                self.loop_definition,
+                seed,
+                project.trajectory(),
+                project.feedforward(),
+                gains,
+                observed,
+            ),
         }
     }
 
@@ -265,13 +352,25 @@ impl ControllerAdapter<'_> {
     ) -> Result<AdapterStartPlan, Failure> {
         match &self.kind {
             AdapterKind::ControlPid(initialization) => {
-                control_pid_binding(self.loop_definition, initialization)?;
+                declared_binding(self.loop_definition, initialization)?;
                 declared_initialization_plan(
                     self.loop_definition,
                     model,
                     task,
                     values,
                     initialization,
+                    process_noise,
+                )
+                .map(AdapterStartPlan::Start)
+            }
+            AdapterKind::ProjectPid { project, .. } => {
+                declared_binding(self.loop_definition, &project.initialization)?;
+                declared_initialization_plan(
+                    self.loop_definition,
+                    model,
+                    task,
+                    values,
+                    &project.initialization,
                     process_noise,
                 )
                 .map(AdapterStartPlan::Start)
@@ -292,19 +391,22 @@ impl ControllerAdapter<'_> {
     }
 }
 
-/// The first feature of a loop that no adapter here realizes (C0 "Families", C3 to C12): such a loop is refused, not guessed at.
+/// The first feature of a loop that no adapter here realizes (C0 "Families", C3 to C12): such a loop is refused, not guessed at. A
+/// program's own law is read first by `ControllerProject::parked_feature`, the one gate of C2, in `controller_adapter`.
 fn parked_feature(loop_definition: &LoopDefinition) -> Option<&'static str> {
     let controller = &loop_definition.controller;
-    if controller.project.is_some() {
-        Some("the program's own law")
-    } else if controller.on_off.is_some() {
+    if controller.on_off.is_some() {
         Some("an ON/OFF controller")
     } else if controller.state_feedback.is_some() {
         Some("state feedback")
     } else if controller.group.is_some() {
         Some("a PID group")
-    } else if loop_definition.channels.is_some() {
+    } else if loop_definition.channels.is_some() && !loop_definition.is_feedforward_channels() {
         Some("channels")
+    } else if loop_definition.declares_parked_analysis() {
+        Some("a declared analysis")
+    } else if loop_definition.cascade.is_some() {
+        Some("a cascade")
     } else {
         None
     }
@@ -327,9 +429,9 @@ fn unrecognised_type(loop_definition: &LoopDefinition, failure: &Failure) -> Fai
     )
 }
 
-/// The transfer binding of the library PID (`requiredInitialization`, C1): the declared states must bind the loop's references, mode
-/// and manual command. A refusal keeps its reason and offers the choice of a method (A11.2).
-fn control_pid_binding(
+/// The transfer binding of a declared initialization (`requiredInitialization`, C1, C2): the declared states must bind the loop's
+/// references, mode and manual command. A refusal keeps its reason and offers the choice of a method (A11.2).
+fn declared_binding(
     loop_definition: &LoopDefinition,
     initialization: &ControllerInitialization,
 ) -> Result<TransferBinding, Failure> {
@@ -342,21 +444,43 @@ fn control_pid_binding(
     })
 }
 
-/// The commissioning profile of the library PID (`profile`, C1), at the given values.
-fn control_pid_profile(
+/// The commissioning profile of a declared initialization (`profile`, C1, C2), labelled with the controller's name, at the given
+/// values.
+fn declared_profile_of(
     loop_definition: &LoopDefinition,
     model: &GeneralModel,
+    label: &str,
     initialization: &ControllerInitialization,
     values: &BTreeMap<String, f64>,
 ) -> Result<CommissioningProfile, Failure> {
-    control_pid_binding(loop_definition, initialization)?;
-    declared_commissioning_profile(
-        loop_definition,
-        model,
-        initialization,
-        "Control.PID",
-        values,
-    )
+    declared_binding(loop_definition, initialization)?;
+    declared_commissioning_profile(loop_definition, model, initialization, label, values)
+}
+
+/// The declared states of a program's own P law (C13, C1): its application states are written at the Auto entry, at the same boundary
+/// as the reference, so each must take a constant initial value. A law state (an integral or a derivative term, which a P law cannot
+/// start) is refused by its name. A loop that is not a program's own law passes.
+fn connected_p_states(loop_definition: &LoopDefinition) -> Result<(), Failure> {
+    let Some(law) = served_law(loop_definition) else {
+        return Ok(());
+    };
+    for state in law.project.initialization.states() {
+        if !law.project.is_application_state(&state.symbol) {
+            return Err(Failure::new(
+                &texts::project_p_law_state(&state.symbol),
+                Cause::ControllerCapability,
+                NextAction::OpenLoopSetup,
+            ));
+        }
+        if !matches!(state.initial, InitialValue::Constant(_)) {
+            return Err(Failure::new(
+                &texts::project_p_application_formula(&state.symbol),
+                Cause::ControllerCapability,
+                NextAction::OpenLoopSetup,
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// One term of a PID record: the parameter it writes, whether the parameter is a gain (bounded by its magnitude, N6.4), and the value.
@@ -612,6 +736,197 @@ fn connected_p_values(
     Ok(values)
 }
 
+/// The values that a program's own PI, PD or PID law writes (`materialize` of the project law, C2): the gains its seed names, as
+/// `seed_values` gives them, each checked against its binding by magnitude (N6.4) and rounded as its `REAL` type holds it. A term
+/// the seed names no variable for must be zero, and a term the law cannot hold must be neutral.
+///
+/// # Errors
+/// The proportional gain is missing; a term the law cannot hold is not neutral; a nonzero term has no variable in the seed; the loop
+/// has no parameter binding; or a value is outside its binding.
+fn project_pid_values(
+    loop_definition: &LoopDefinition,
+    seed: &ParallelPidSeed,
+    trajectory: Option<&TrajectoryFeedforwardSeed>,
+    feedforward: Option<&FeedforwardPidSeed>,
+    gains: &ControllerGains,
+    observed: &BTreeMap<String, f64>,
+) -> Result<BTreeMap<String, f64>, Failure> {
+    let Some(proportional_gain) = gains.proportional_gain else {
+        return Err(Failure::new(
+            &texts::project_proportional_gain_required(),
+            Cause::Settings,
+            NextAction::Tune,
+        ));
+    };
+    unrepresented_terms(gains)?;
+    let parallel = ParallelGains {
+        proportional_gain,
+        integral_gain: named_term(
+            gains.integral_gain,
+            seed.integral_symbol.is_some(),
+            "integral",
+        )?,
+        derivative_gain: named_term(
+            gains.derivative_gain,
+            seed.derivative_symbol.is_some(),
+            "derivative",
+        )?,
+    };
+    let Some(binding) = loop_definition.parameter_binding.as_ref() else {
+        return Err(Failure::new(
+            &texts::parameter_pid_record_required(),
+            Cause::Implementation,
+            NextAction::OpenLoopSetup,
+        ));
+    };
+    let written = seed_values(seed, parallel);
+    let mut terms: Vec<Term<'_>> = written
+        .iter()
+        .map(|(symbol, value)| Term {
+            symbol: symbol.as_str(),
+            gain: true,
+            value: *value,
+        })
+        .collect();
+    terms.extend(feedforward_terms(trajectory, gains)?);
+    terms.extend(gain_feedforward_terms(feedforward, gains)?);
+    bound_values(binding, &terms, observed)
+}
+
+/// The feedforward terms of a measured-disturbance feedforward (C8): its gain `K_ff`, and its lead and lag times when the seed names
+/// them, each written to the variable its seed names. The seed's lead and lag are both written or both absent. A law without such a
+/// feedforward has nowhere to write one, so a nonzero term is refused there.
+///
+/// # Errors
+/// The candidate lacks the feedforward gain, or its lead and lag are not both present as the seed names them; or a law without a
+/// feedforward holds a nonzero term.
+fn gain_feedforward_terms<'a>(
+    feedforward: Option<&'a FeedforwardPidSeed>,
+    gains: &ControllerGains,
+) -> Result<Vec<Term<'a>>, Failure> {
+    let Some(seed) = feedforward else {
+        named_term(gains.feedforward_gain, false, "feedforward")?;
+        named_term(gains.lead_seconds, false, "lead")?;
+        named_term(gains.lag_seconds, false, "lag")?;
+        return Ok(Vec::new());
+    };
+    let refusal = || {
+        Failure::new(
+            &texts::project_feedforward_gain_required(),
+            Cause::Settings,
+            NextAction::Tune,
+        )
+    };
+    let gain = gains.feedforward_gain.ok_or_else(refusal)?;
+    let mut terms = vec![Term {
+        symbol: seed.gain_symbol.as_str(),
+        gain: true,
+        value: gain,
+    }];
+    match (&seed.lead_lag, gains.lead_seconds, gains.lag_seconds) {
+        (Some(lead_lag), Some(lead), Some(lag)) => {
+            terms.push(Term {
+                symbol: lead_lag.lead_symbol.as_str(),
+                gain: true,
+                value: lead,
+            });
+            terms.push(Term {
+                symbol: lead_lag.lag_symbol.as_str(),
+                gain: true,
+                value: lag,
+            });
+        }
+        (None, None, None) => {}
+        _ => return Err(refusal()),
+    }
+    Ok(terms)
+}
+
+/// The feedforward terms of a trajectory-following law (C11): its rate gain `K_v` and acceleration gain `K_a`, each written to the
+/// variable its seed names. Both gains are required for such a law. A law without a trajectory has nowhere to write a feedforward gain,
+/// so a nonzero one is refused, and a zero one is neutral.
+///
+/// # Errors
+/// The trajectory law's candidate lacks one of its feedforward gains, or a law without a trajectory holds a nonzero one.
+fn feedforward_terms<'a>(
+    trajectory: Option<&'a TrajectoryFeedforwardSeed>,
+    gains: &ControllerGains,
+) -> Result<Vec<Term<'a>>, Failure> {
+    let Some(seed) = trajectory else {
+        named_term(gains.rate_gain, false, "rate")?;
+        named_term(gains.acceleration_gain, false, "acceleration")?;
+        return Ok(Vec::new());
+    };
+    let (Some(rate), Some(acceleration)) = (gains.rate_gain, gains.acceleration_gain) else {
+        return Err(Failure::new(
+            &texts::project_feedforward_required(),
+            Cause::Settings,
+            NextAction::Tune,
+        ));
+    };
+    Ok(vec![
+        Term {
+            symbol: seed.rate_symbol.as_str(),
+            gain: true,
+            value: rate,
+        },
+        Term {
+            symbol: seed.acceleration_symbol.as_str(),
+            gain: true,
+            value: acceleration,
+        },
+    ])
+}
+
+/// The value of an integral or derivative gain of a program's own law (C2): the gain, or zero when it is absent. A nonzero gain for a
+/// term the seed names no variable for has nowhere to be written, so it is refused.
+///
+/// # Errors
+/// The seed names no variable for the term, and the gain is not zero.
+fn named_term(gain: Option<f64>, named: bool, term: &str) -> Result<f64, Failure> {
+    match gain {
+        Some(value) if !named && !is_exactly_zero(value) => Err(Failure::new(
+            &texts::project_term_missing(term),
+            Cause::ControllerCapability,
+            NextAction::ChooseMethod,
+        )),
+        _ => Ok(gain.unwrap_or(0.0)),
+    }
+}
+
+/// Refuses a term of the gain record that a program's own law has no variable for (C0, C2): a back-calculation gain, a setpoint weight
+/// other than one, a derivative setpoint weight other than zero, or a measurement filter time other than zero.
+///
+/// # Errors
+/// The gain record holds one of those terms without a variable to write it to.
+fn unrepresented_terms(gains: &ControllerGains) -> Result<(), Failure> {
+    let sentence = if gains.back_calculation_gain.is_some() {
+        texts::parameter_anti_windup_required()
+    } else if gains
+        .proportional_setpoint_weight
+        .is_some_and(|weight| !is_one(weight))
+    {
+        texts::parameter_setpoint_weight_required()
+    } else if gains
+        .derivative_setpoint_weight
+        .is_some_and(|weight| !is_exactly_zero(weight))
+    {
+        texts::parameter_derivative_weight_required()
+    } else if gains
+        .measurement_filter_seconds
+        .is_some_and(|time| !is_exactly_zero(time))
+    {
+        texts::parameter_filter_time_required()
+    } else {
+        return Ok(());
+    };
+    Err(Failure::new(
+        &sentence,
+        Cause::ControllerCapability,
+        NextAction::OpenLoopSetup,
+    ))
+}
+
 /// Whether a value is within its declared binding (N6.4, C0): a gain by its magnitude, any other term by its signed bounds.
 fn within(value: f64, bounds: GainBounds, gain: bool) -> bool {
     if gain {
@@ -644,3 +959,11 @@ fn is_one(value: f64) -> bool {
 #[cfg(test)]
 #[path = "adapters_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "trajectory_adapter_tests.rs"]
+mod trajectory_tests;
+
+#[cfg(test)]
+#[path = "feedforward_adapter_tests.rs"]
+mod feedforward_tests;

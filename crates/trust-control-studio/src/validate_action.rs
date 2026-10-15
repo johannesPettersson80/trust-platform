@@ -35,7 +35,7 @@ use trust_control::study::validate::{
     ValidateInputs, ValidateOutcome, ValidationInput,
 };
 use trust_control::study::Study;
-use trust_control::tuning::candidate::ControlPidCandidate;
+use trust_control::tuning::candidate::LawCandidate;
 use trust_control::validation::configured_plant_verification::{
     decode_configured_plant_binding, verification_plant, VerificationPlant,
 };
@@ -327,6 +327,18 @@ fn actual_part(
     })
 }
 
+/// The candidate that the Tune section holds, whichever law it is for. The section keeps exactly one of the two (its check), so a
+/// section without one is a defect of the study, not a choice of the engineer.
+fn law_candidate_of(tune: &TuneSection) -> Result<LawCandidate, Failure> {
+    tune.law_candidate().ok_or_else(|| {
+        Failure::new(
+            "The Tune result of the study holds no candidate.",
+            Cause::Implementation,
+            NextAction::None,
+        )
+    })
+}
+
 /// Reads the measured noise that the Manual-to-Auto entry case judges with (A6.4): the noise that Apply's Auto entry uses, so the case
 /// judges the same allowance that Apply will. The study and the noise are reads of the validation itself, so a failure here ends
 /// Validate (`?`) rather than making the case Inconclusive (B5.4).
@@ -350,7 +362,7 @@ fn plan_entry(
     observed: &BTreeMap<String, f64>,
     noise: f64,
 ) -> Result<EntryCase, Failure> {
-    let gains = candidate_gains(loop_definition, &tune.candidate);
+    let gains = candidate_gains(loop_definition, &law_candidate_of(tune)?);
     let values = controller_adapter(loop_definition)?.materialize(&gains, observed)?;
     plan_entry_case(loop_definition, model, &tune.requirements, &values, noise)
 }
@@ -373,7 +385,7 @@ fn run_entry(
     let request = entry.request(
         inputs.loop_definition,
         inputs.model,
-        &inputs.tune.candidate,
+        &law_candidate_of(inputs.tune)?,
         simulation.as_ref(),
         &job,
         inputs.project_revision,
@@ -433,12 +445,13 @@ fn run_on_plant(
                     NextAction::None,
                 )
             })?;
+            let candidate = law_candidate_of(inputs.tune)?;
             let shape = RunShape {
                 loop_definition: inputs.loop_definition,
                 model: inputs.model,
                 simulation: None,
                 observed: inputs.observed,
-                candidate: &inputs.tune.candidate,
+                candidate: &candidate,
                 project_revision: inputs.project_revision,
             };
             (session.progress)(&format!("Running scenario {}.", target.id));
@@ -496,12 +509,13 @@ fn model_runs(
         inputs.observed,
         &route.initial_values,
     )?;
+    let candidate = law_candidate_of(inputs.tune)?;
     let shape = RunShape {
         loop_definition: inputs.loop_definition,
         model: inputs.model,
         simulation: Some(&route.simulation),
         observed: inputs.observed,
-        candidate: &inputs.tune.candidate,
+        candidate: &candidate,
         project_revision: inputs.project_revision,
     };
     let build =
@@ -552,7 +566,7 @@ struct RunShape<'a> {
     model: &'a GeneralModel,
     simulation: Option<&'a SimulationOverride>,
     observed: &'a BTreeMap<String, f64>,
-    candidate: &'a ControlPidCandidate,
+    candidate: &'a LawCandidate,
     project_revision: &'a str,
 }
 

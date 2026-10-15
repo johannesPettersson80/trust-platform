@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use trust_control_math::margins::MarginValue;
 
+use crate::analysis::parameter_writes::WrittenValue;
 use crate::commissioning::application_records::ApplicationReview;
+use crate::commissioning::parameter_status::ParameterStatus;
 use crate::failure::Failure;
 use crate::identification::acquisition_settings::AcquisitionSettings;
 use crate::identification::recording_import::ImportCheck;
@@ -23,6 +25,7 @@ use crate::study::Page;
 use crate::tuning::candidate::ControlPidCandidate;
 use crate::tuning::candidate_margins::CandidateMargins;
 use crate::tuning::objective::{TuningMethod, TuningObjective};
+use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::recommendation::Attempt;
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::settings_pins::ControllerSettingsPins;
@@ -772,14 +775,62 @@ pub struct ComparisonEntry {
     pub outcome: CandidateOutcome,
 }
 
+/// One reduced path of a measured-disturbance feedforward, as Tune shows it (C7, C8): the gain, the time constant and the dead time of its
+/// first-order model.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedforwardPath {
+    /// The steady-state gain of the path.
+    pub gain: f64,
+    /// The time constant of the path in seconds.
+    pub time_constant_seconds: f64,
+    /// The dead time of the path in seconds.
+    pub delay_seconds: f64,
+}
+
+/// The answer of a measured-disturbance feedforward's Tune (C8): both reduced paths, the three feedforward values, the disturbance step
+/// and, on the model, the largest deviation of the measurement after that step with the PI alone and with the feedforward.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedforwardAnswer {
+    /// The path from the controller output to the measurement.
+    pub output_path: FeedforwardPath,
+    /// The path from the measured disturbance to the measurement.
+    pub disturbance_path: FeedforwardPath,
+    /// The feedforward gain `K_ff`, in the manipulated variable's unit per the disturbance's unit.
+    pub gain: f64,
+    /// The lead time `T_lead` in seconds, when the program has a lead and a lag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lead_seconds: Option<f64>,
+    /// The lag time `T_lag` in seconds, when the program has a lead and a lag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lag_seconds: Option<f64>,
+    /// The disturbance step of the test: the disturbance's identification step.
+    pub disturbance_step: f64,
+    /// The largest deviation of the measurement from its operating value after the step, with the PI alone, on the model.
+    pub feedback_deviation: f64,
+    /// The largest deviation of the measurement from its operating value after the step, with the PI and the feedforward, on the model.
+    pub feedforward_deviation: f64,
+}
+
 /// The final result of `controlStudio/tune` (specification 35, B4.3 to B4.6; the Tune page specification, "Result and
 /// plot"): the operation's result, and the `result` of the command line's `--json` object. Nothing in it is applied
 /// (B4.1).
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TuneResult {
-    /// The candidate, unapplied: its structure, its source and the complete `Control.PID` record it would write.
-    pub candidate: ControlPidCandidate,
+    /// The answer of a measured-disturbance feedforward (C8): both paths, the three values and the deviations. Absent for any other
+    /// structure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedforward: Option<FeedforwardAnswer>,
+    /// The candidate of a `Control.PID`, unapplied: its structure, its source and the complete record it would write. Absent for a
+    /// program's own law, which answers `projectCandidate` (C2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate: Option<ControlPidCandidate>,
+    /// The candidate of a program's own law, unapplied (C2): its structure, its source, its gains and the value of each seed
+    /// variable that Apply writes. Absent for a `Control.PID`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_candidate: Option<ProjectCandidate>,
     /// The value the candidate's record gives each bound setting of the loop's controller, under the setting's symbol (B4.2,
     /// C0): the settings the page shows under the loop's own names. A setting the record does not hold is absent.
     pub settings: BTreeMap<String, f64>,
@@ -966,6 +1017,83 @@ pub struct KeepResult {
     pub unknown: Vec<String>,
     /// What was kept, in words.
     pub reason: String,
+}
+
+/// The arguments of `controlStudio/parameters` (specification 35, C12 and §0.1a; annex E7): the writes of the parameters that a
+/// declared analysis maps. `values` holds the mapped symbols with the values a review or an apply sets; every other symbol of the
+/// record keeps its value. `review` is the identity that `apply` and `restore` confirm (A2.5, E11.8). The connection's token is a
+/// credential, never journaled.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ParameterWorkRequest {
+    /// The project folder.
+    pub project_root: String,
+    /// The runtime selected in VS Code or on the command line.
+    pub runtime_id: String,
+    /// The loop whose declared analysis maps the parameters.
+    pub loop_id: String,
+    /// The folder of the operation journals (A8.3).
+    pub storage_folder: String,
+    /// What the request does.
+    pub action: ParameterWorkAction,
+    /// The values to write, by mapped symbol (`review`, `apply`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub values: BTreeMap<String, f64>,
+    /// The identity of the review that `apply` or `restore` confirms (A2.5); absent to ask for the review.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<String>,
+    /// Where the runtime listens, and its control token (E11.1); the record is read and written through it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection: Option<RuntimeConnection>,
+    /// Whether the reviewed approval of a physical target was given (A2.5).
+    #[serde(default)]
+    pub physical_approved: bool,
+}
+
+/// What `controlStudio/parameters` does (C12). `draft` answers the values the declared analysis selects; `inspect` answers the mapped
+/// values the runtime holds; `review` and `reviewRestore` answer the review of an Apply or of a Restore, which writes nothing; `apply`
+/// and `restore` start the confirmed write as an operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ParameterWorkAction {
+    /// The values that the declared analysis selects.
+    Draft,
+    /// The mapped values that the runtime holds now.
+    Inspect,
+    /// The review of an Apply of the values.
+    Review,
+    /// The review of a Restore of the values that the runtime retains from before the last write.
+    ReviewRestore,
+    /// The confirmed Apply of the reviewed values, started as an operation.
+    Apply,
+    /// The confirmed Restore of the retained values, started as an operation.
+    Restore,
+}
+
+/// What `controlStudio/parameters` answers (C12). Each action gives the fields it needs: `draft` gives `values`; `inspect` gives
+/// `values` and `observed`; `review` and `reviewRestore` give `identity`, `changes` and `physical`. `apply` and `restore` answer an
+/// `operationId`, and the operation's result is `observed`, the record that the write was confirmed on.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ParameterWorkAnswer {
+    /// The mapped values, by symbol (`draft`, `inspect`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<BTreeMap<String, f64>>,
+    /// The record that the runtime reported (`inspect`, and the result of a confirmed write).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed: Option<ParameterStatus>,
+    /// The identity of the review, which the start names (`review`, `reviewRestore`; A2.5, E11.8).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<String>,
+    /// The values that the review changes, with the value in force and the value written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub changes: Vec<WrittenValue>,
+    /// Whether the target is physical, so that the write needs the engineer's approval (A2.5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub physical: Option<bool>,
+    /// The parameters the page shows (`draft`, `inspect`): only those the analysis may write, with the bounds the analysis allows (C12).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<crate::loop_definition::ParameterBinding>,
 }
 
 /// What `controlStudio/apply`, `controlStudio/restore` and `controlStudio/keep` answer at once (§0.1b): the review of the change, which

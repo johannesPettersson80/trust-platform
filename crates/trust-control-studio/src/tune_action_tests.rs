@@ -2,23 +2,28 @@
 //! operation starts, how `controlStudio/open` reports the Tune stage, and how the running settings are read for the comparison.
 //! The design is trust-control's (`study::tune`, tested there), and the whole method runs against a real runtime in
 //! `tests/control_studio_tune.rs`. No runtime runs here: a connection in these tests names a port nothing listens on, and no
-//! project below holds an Identify result, so every request is refused before an operation starts. A run that designs and stores
-//! a candidate needs a study with an Identify result and is not tested here.
+//! project below holds an Identify result, so every request is refused before an operation starts. The one run that designs a candidate
+//! here is a program's own PI law (C2), whose project imports a supplied model first (`importModel`): its answer carries
+//! `projectCandidate`, keyed by the seed's symbols, and no Control.PID `candidate`.
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
+use std::time::Duration;
 
+use parking_lot::Mutex;
 use serde_json::{json, Value};
 use trust_control::failure::{Cause, NextAction};
 use trust_control::identification::connected_run::loop_busy_refusal;
-use trust_control::loop_definition::LoopDefinition;
-use trust_control::messages::{OperationUpdate, TuneChoice, TuneRequest};
+use trust_control::loop_definition::{
+    InitialSource, InitialValue, InitializedState, LoopDefinition, PostScan, StateType,
+};
+use trust_control::messages::{OperationState, OperationUpdate, TuneChoice, TuneRequest};
 use trust_control::runtime::RuntimeConnection;
 
 use super::{answer, running_settings, with_declared_response};
 use crate::busy_loops::LoopClaims;
-use crate::commands::{ControlStudio, METHODS, OPEN, TUNE};
+use crate::commands::{ControlStudio, IDENTIFY, METHODS, OPEN, TUNE};
 use crate::operation::{Operations, UpdateSink};
 
 /// The example project's loop file.
@@ -45,15 +50,28 @@ impl Drop for Project {
 
 impl Project {
     fn new(name: &str) -> Self {
+        Self::with_loop(name, EXAMPLE)
+    }
+
+    /// A project folder of one test whose `control-loop.json` is `text`, which must decode.
+    fn with_loop(name: &str, text: &str) -> Self {
         let root = std::env::temp_dir().join(format!("trust-tune-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("the project folder");
-        fs::write(root.join("control-loop.json"), EXAMPLE).expect("the loop file");
-        let loop_definition = LoopDefinition::decode(EXAMPLE).expect("the example loop");
+        fs::write(root.join("control-loop.json"), text).expect("the loop file");
+        let loop_definition = LoopDefinition::decode(text).expect("the loop file decodes");
         Self {
             root,
             loop_definition,
         }
+    }
+
+    /// The arguments of `controlStudio/identify` that import `model` as the study's model (B3.7), for the loop.
+    fn import_request(&self, model: &str) -> Value {
+        let mut request = self.request();
+        // The identify request names its action as an object with the action's tag and fields (IdentifyRequest).
+        request["action"] = json!({ "action": "importModel", "json": model });
+        request
     }
 
     /// The arguments of `controlStudio/tune` and of `controlStudio/open` for the example loop: Automatic, no pins.
@@ -289,4 +307,233 @@ fn tune_takes_the_response_the_study_declares_when_its_request_names_none() {
         "the response the request names replaces the declared one"
     );
     assert_eq!(with_declared_response(request, None).choice, None);
+}
+
+/// The loop identifier of the program's own PI law of these tests.
+const OWN_LAW_ID: &str = "own-law-pi";
+
+/// The loop file of a program's own PI law (C2), as the setup writes it: the seed names `P1.Kp` and `P1.Ki`, and the declared state is the
+/// integral term, which its `pid-integral` formula starts on `P1.Kp`. It runs on the example's signals (°C and %) at 100 ms.
+fn own_law_pi_loop() -> String {
+    let integral = InitializedState {
+        symbol: "P1.Integral".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "%".to_owned(),
+        minimum: -110.0,
+        maximum: 110.0,
+        initial: InitialValue::From(InitialSource::PidIntegral {
+            index: 0,
+            input_index: 0,
+            gain_symbol: "P1.Kp".to_owned(),
+            weight_symbol: None,
+            weight: None,
+        }),
+        post_scan: PostScan::Bounded,
+    };
+    json!({
+        "schemaVersion": 2, "id": OWN_LAW_ID, "name": "Own PI law", "revision": "sha256:own-law-pi-1",
+        "projectId": "project:own-law-pi", "runtimeId": "simulator",
+        "controller": {
+            "instance": "P1.Controller", "type": "Control.PID", "revision": "sha256:own-law-controller",
+            "action": "direct", "taskPeriodMs": 100, "design": "project",
+            "modeSignal": "P1.AutoMode", "modeWhenTrue": "Auto",
+            "manualOutputSignal": "P1.ManualOutput", "manualOutputType": "LREAL",
+            "project": {
+                "family": "PI", "convention": "project-owned-native-controller",
+                "initialization": { "kind": "declared-state-v1", "states": [integral], "applicationStates": [] },
+                "seed": { "kind": "parallel-pid", "family": "PI", "proportionalSymbol": "P1.Kp", "integralSymbol": "P1.Ki" },
+                "axes": [],
+                "objective": { "requirementId": "target-error", "direction": "minimize" },
+                "maximumCandidates": 4, "maximumCycles": 50000, "wallBudgetMs": 60000
+            }
+        },
+        "signals": {
+            "setpoint": { "symbol": "P1.Setpoint", "address": "%ML0", "iecType": "LREAL", "direction": "read",
+                "unit": "°C", "range": { "minimum": 0, "maximum": 100 } },
+            "processVariable": { "symbol": "P1.ProcessValue", "address": "%IL0", "iecType": "LREAL", "direction": "read",
+                "unit": "°C", "range": { "minimum": 0, "maximum": 100 } },
+            "manipulatedVariable": { "symbol": "P1.ManipulatedValue", "address": "%QL0", "iecType": "LREAL",
+                "direction": "write", "unit": "%", "range": { "minimum": 0, "maximum": 100 } }
+        },
+        "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+        "observedSampleTiming": { "nominalPeriodMs": 100 },
+        "parameterBinding": {
+            "loop_id": OWN_LAW_ID, "task_name": "MainTask",
+            "parameters": [
+                { "symbol": "P1.Kp", "iec_type": "LREAL", "unit": "%/°C", "convention": "parallel proportional gain",
+                    "minimum": 0, "maximum": 100 },
+                { "symbol": "P1.Ki", "iec_type": "LREAL", "unit": "%/(°C*s)", "convention": "parallel integral gain",
+                    "minimum": 0, "maximum": 100 }
+            ],
+            "mode": { "symbol": "P1.AutoMode", "manual_value": false }
+        }
+    })
+    .to_string()
+}
+
+/// A supplied model of the own-law loop: `2/(5s + 1)` with a delay of one second, from % to °C, validated (B3.7).
+fn supplied_model() -> String {
+    json!({
+        "kind": "transfer-function", "revision": "own-law-model", "source": "provided",
+        "validation": "validated", "evidence": ["independent-course-measurement"], "delaySeconds": 1.0,
+        "inputs": [{ "id": "u", "unit": "%", "operatingRange": { "minimum": 0.0, "maximum": 100.0 } }],
+        "outputs": [{ "id": "y", "unit": "°C", "operatingRange": { "minimum": 0.0, "maximum": 100.0 } }],
+        "operatingPoint": { "inputs": [20.0], "outputs": [20.0] },
+        "numerator": [2.0], "denominator": [5.0, 1.0]
+    })
+    .to_string()
+}
+
+/// A sink that hands each operation update to the test, in order.
+struct Updates(Mutex<mpsc::Sender<OperationUpdate>>);
+
+impl UpdateSink for Updates {
+    fn send(&self, update: OperationUpdate) {
+        let _ = self.0.lock().send(update);
+    }
+}
+
+/// An engine whose operation updates the test receives.
+fn engine_with_updates() -> (ControlStudio, mpsc::Receiver<OperationUpdate>) {
+    let (sender, receiver) = mpsc::channel();
+    (
+        ControlStudio::new(Arc::new(Updates(Mutex::new(sender)))),
+        receiver,
+    )
+}
+
+/// Imports the supplied model as the study's model (B3.7) and answers the import.
+fn import_model(studio: &ControlStudio, project: &Project) -> Value {
+    let reply = studio
+        .execute(IDENTIFY, &[project.import_request(&supplied_model())])
+        .expect("the engine answers its own method");
+    assert!(reply.get("result").is_some(), "the model imports: {reply}");
+    reply["result"].clone()
+}
+
+/// Asks the engine for `controlStudio/tune` and waits for the operation's final update, which holds the Tune result (B4.3).
+fn tune_and_wait(
+    studio: &ControlStudio,
+    updates: &mpsc::Receiver<OperationUpdate>,
+    request: Value,
+) -> Value {
+    let started = tune(studio, request);
+    assert!(
+        started.get("result").is_some(),
+        "the operation starts: {started}"
+    );
+    loop {
+        let update = updates
+            .recv_timeout(Duration::from_secs(60))
+            .expect("an update of the Tune operation");
+        if update.state == OperationState::Running {
+            continue;
+        }
+        if let Some(failure) = &update.failure {
+            panic!(
+                "the Tune operation failed: {} ({:?})",
+                failure.message, failure.next_action
+            );
+        }
+        return update.result.expect("the Tune operation's result");
+    }
+}
+
+/// The symbols of an answer's settings or values, in order.
+fn symbols_of(settings: &Value) -> Vec<String> {
+    let mut symbols: Vec<String> = settings
+        .as_object()
+        .map(|map| map.keys().cloned().collect())
+        .unwrap_or_default();
+    symbols.sort();
+    symbols
+}
+
+#[test]
+fn an_own_law_pi_loop_opens_with_tune_validate_and_apply_applicable() {
+    // C2 and §0.1a: a served program's law has its controller stages, so Tune, Validate and Apply are applicable when the loop opens.
+    // Tune waits for its model. Opening starts nothing and writes nothing.
+    let project = Project::with_loop("own-law-open", &own_law_pi_loop());
+    let studio = engine();
+    let opened = studio
+        .execute(OPEN, &[project.request()])
+        .expect("answered");
+    let stages = &opened["result"]["stages"];
+    assert_eq!(status_of(stages, "Tune"), Some("needs-data"), "{opened}");
+    for stage in ["Tune", "Validate", "Apply"] {
+        assert_ne!(
+            status_of(stages, stage),
+            Some("not-applicable"),
+            "{stage} applies to a program's own law: {opened}"
+        );
+    }
+    assert!(nothing_started(studio.operations()), "nothing was started");
+    assert!(!project.has_study(), "opening writes nothing");
+}
+
+#[test]
+fn tune_automatic_answers_a_project_candidate_by_the_seed_symbols_once_a_model_is_imported() {
+    // B4.3 and C2: with the supplied model imported, Automatic designs the program's law. The answer carries the candidate as
+    // `projectCandidate`, unapplied, with its values keyed by the seed's variables, and no Control.PID `candidate`.
+    let project = Project::with_loop("own-law-automatic", &own_law_pi_loop());
+    let (studio, updates) = engine_with_updates();
+    let imported = import_model(&studio, &project);
+    assert_eq!(imported["modelRevision"], "own-law-model", "{imported}");
+    let result = tune_and_wait(&studio, &updates, project.request());
+    assert!(
+        result.get("candidate").is_none(),
+        "a program's law answers no Control.PID record: {result}"
+    );
+    let candidate = &result["projectCandidate"];
+    assert_eq!(candidate["applied"], false, "{result}");
+    assert!(
+        matches!(candidate["structure"].as_str(), Some("P" | "PI")),
+        "a PI seed offers P and PI, and Automatic picks one of them: {result}"
+    );
+    assert!(
+        candidate["gains"]["proportionalGain"].is_number()
+            && candidate["gains"]["integralGain"].is_number(),
+        "the gains are the candidate's: {result}"
+    );
+    let symbols = symbols_of(&candidate["values"]);
+    assert!(
+        symbols.contains(&"P1.Kp".to_owned()),
+        "the proportional variable: {result}"
+    );
+    assert!(
+        symbols
+            .iter()
+            .all(|symbol| symbol == "P1.Kp" || symbol == "P1.Ki"),
+        "only the seed's variables: {result}"
+    );
+    assert_eq!(result["settings"], candidate["values"], "{result}");
+}
+
+#[test]
+fn tune_with_the_pi_and_the_p_method_answers_the_family_symbols_only() {
+    // B4.4 and C2: a named method designs the family the engineer chose, and its answer keeps that family's variables: PI answers the
+    // proportional and the integral variable, and P answers the proportional variable alone.
+    let project = Project::with_loop("own-law-methods", &own_law_pi_loop());
+    let (studio, updates) = engine_with_updates();
+    import_model(&studio, &project);
+    let mut pi = project.request();
+    pi["method"] = json!("SIMC");
+    pi["structure"] = json!("PI");
+    let answered = tune_and_wait(&studio, &updates, pi);
+    assert_eq!(
+        answered["projectCandidate"]["structure"], "PI",
+        "{answered}"
+    );
+    assert_eq!(
+        symbols_of(&answered["settings"]),
+        ["P1.Ki", "P1.Kp"],
+        "{answered}"
+    );
+    let mut p = project.request();
+    p["method"] = json!("SIMC");
+    p["structure"] = json!("P");
+    let answered = tune_and_wait(&studio, &updates, p);
+    assert_eq!(answered["projectCandidate"]["structure"], "P", "{answered}");
+    assert_eq!(symbols_of(&answered["settings"]), ["P1.Kp"], "{answered}");
+    assert!(answered.get("candidate").is_none(), "{answered}");
 }

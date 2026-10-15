@@ -1,8 +1,8 @@
-//! The connected run (`ConnectedIdentification` of `connectedIdentification.ts`; specification 35, A6.2, A8.5, B3.4; runtime
-//! protocol annex E11.2 to E11.6 and E11.9): the sample and the method, the mode the method needs, the recording and its
-//! journal, the steady baseline, the one step with its journal written before the start is sent once, the hold, the
-//! restoration, the kept recording and its record, the fit, the settling that ends an owned experiment and clears the journal
-//! once nothing of the run is left running, and then the return of the loop to the mode it was found in.
+//! The connected run (`ConnectedIdentification` of `connectedIdentification.ts`; specification 35, A6.2, A8.5, B3.4 and C7, C8; runtime
+//! protocol annex E11.2 to E11.6 and E11.9): the sample and the method, the mode the method needs, the recording and its journal, the
+//! steady baseline, the steps of the loop's plant inputs in that one recording (each journaled before its start is sent once, held until
+//! it settles, and restored), the kept recording and its record, the fit, the settling that ends an owned experiment and clears the
+//! journal once nothing of the run is left running, and then the return of the loop to the mode it was found in.
 //!
 //! The helpers marked `pub(crate)` are the steps a resumed campaign shares (`connectedIdentificationRecovery.ts`).
 
@@ -11,6 +11,7 @@ use std::hash::BuildHasher;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::Mutex;
+use serde_json::Value;
 use trust_control::experiment::{ControlExperimentPlan, ExperimentSample, RecordingRecoveryOwner};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::automatic::AutomaticIdentificationResult;
@@ -24,16 +25,17 @@ use trust_control::identification::connected_record::{
 };
 use trust_control::identification::connected_run::{
     campaign_refusal, ended_and_restored, evaluation_refusal, experiment_recovery, fit_failure,
-    fit_window, hold_end, hold_refusal, identification_cancelled, is_provisional,
-    offers_setpoint_step, recording_settling_ms, restoration_allowance_ms, start_outcome,
-    start_reconciliation, step_hold_ms, step_plan, stopped_hold_outcome, FitWindow, HoldEnd,
-    StartOutcome, StartReconciliation, CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT,
-    RESTORATION_POLLS,
+    fit_window, hold_end, hold_refusal, identification_cancelled, input_steps, is_provisional,
+    offers_setpoint_step, recording_settling_ms, restoration_allowance_ms, several_channels,
+    start_outcome, start_reconciliation, step_hold_ms, step_plan, step_sample,
+    stopped_hold_outcome, FitWindow, HoldEnd, InputStep, StartOutcome, StartReconciliation,
+    CHECKING_TEXT, FITTING_TEXT, IDENTIFYING_TEXT, RESTORATION_POLLS,
 };
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::mode::{needs_mode_change, unreadable_mode_refusal};
+use trust_control::identification::multichannel_fit::fit_multichannel_model;
 use trust_control::identification::policy::{identification_method, IdentificationMethod};
-use trust_control::identification::recorded_model::fit_recorded_model;
+use trust_control::identification::recorded_model::{fit_recorded_model, RecordedFitError};
 use trust_control::loop_definition::LoopDefinition;
 use trust_control::recording::RecordedRun;
 
@@ -67,10 +69,37 @@ pub(crate) struct RunPorts<'a, T, S, K, C, P> {
     pub(crate) journal: &'a Mutex<Journal>,
 }
 
-/// The step a campaign held: its plan, and the window its recording is fitted from.
+/// The steps a campaign held: the plans of the plant inputs it stepped, in input order, and the window its recording is fitted from.
 struct Step {
-    plan: ControlExperimentPlan,
+    plans: Vec<ControlExperimentPlan>,
     window: FitWindow,
+}
+
+/// What a campaign steps and how: its inputs in input order, the method and the validation of its steps, the baseline they are judged
+/// against, and the durations that bound every hold (B3.4 steps 3 and 4). A campaign and a resumed campaign share it.
+pub(crate) struct Schedule<'b> {
+    /// The steps of the plant inputs, in input order.
+    pub(crate) steps: &'b [InputStep],
+    /// The method every step runs.
+    pub(crate) method: IdentificationMethod,
+    /// Whether the steps are the independent model check's.
+    pub(crate) validation: bool,
+    /// The steady baseline the steps are judged against.
+    pub(crate) baseline: &'b BaselineSummary,
+    /// The largest duration of the campaign, in ms.
+    pub(crate) maximum_ms: u64,
+    /// The duration of the recording, in ms.
+    pub(crate) recording_ms: u64,
+    /// Where the steady baseline ends, in process time of the recording.
+    pub(crate) baseline_end_seconds: f64,
+}
+
+/// Where a campaign stands when a step is dispatched, which the journal keeps: where the step starts, how many inputs follow it, and the
+/// plans of the inputs stepped before it.
+struct Progress<'p> {
+    step_seconds: f64,
+    remaining_after: u64,
+    stepped: &'p [ControlExperimentPlan],
 }
 
 /// One run and what it owns while it runs (`ConnectedIdentification`'s fields).
@@ -83,10 +112,9 @@ struct Run<'a, T: IdentifyRuntime, S, K, C, P, E> {
     may_abort: bool,
     /// The recording, until it is kept and released (`recorder`).
     recording: Option<T::Recording>,
-    /// The runtime identities the run journaled: its recording and its experiment.
+    /// The runtime identities the run journaled: its recording and its experiments.
     journaled: Vec<String>,
-    /// The mode change of a method that needs the other mode, which returns the loop once nothing of the run is left running
-    /// (`mode`).
+    /// The mode change of a method that needs the other mode, which returns the loop once nothing of the run is left running (`mode`).
     mode: Option<IdentificationMode<'a>>,
 }
 
@@ -207,8 +235,8 @@ where
         ))
     }
 
-    /// The campaign (`acquire`): the checks before anything is recorded, the recording, the baseline and the held step, then the
-    /// kept recording and its record.
+    /// The campaign (`acquire`): the checks before anything is recorded, the steps of the plant inputs in one recording, the kept
+    /// recording and its record.
     fn acquire(
         &mut self,
         method: IdentificationMethod,
@@ -221,29 +249,38 @@ where
         if let Some(refusal) = campaign_refusal(loop_definition, method, sample) {
             return Err(refusal);
         }
-        // One plant input: the loop is the one channel (connectedIdentificationChannels.ts is parked with V7).
+        // The plant inputs are read before anything is recorded, as `connectedIdentificationChannels` reads them (C7, C8).
+        let steps = input_steps(loop_definition, &self.io_list()?)?;
         let recording_ms =
             campaign_recording_ms(loop_definition, self.request.expected_settling_seconds)?;
         let mut recording = self.start_recording(recording_ms, maximum_ms)?;
-        let held = self.campaign(
-            &mut recording,
-            method,
-            validation,
-            sample,
-            maximum_ms,
-            recording_ms,
-        );
+        let held = self.campaign(&mut recording, method, validation, sample, &steps);
         let (step, mut recording) = self.held(recording, held)?;
         let kept = retain_recording(&mut recording, self.ports.retention);
         let (run, _released) = self.held(recording, kept)?;
-        connected_record(
+        campaign_record(
             loop_definition,
             &run,
-            None,
-            &step.plan,
+            step.plans,
             step.window,
             self.request.evaluate,
         )
+    }
+
+    /// The runtime's I/O list, read when the loop has several plant inputs, which gives the addresses of their Manual commands
+    /// (`connectedIdentificationChannels`). A loop with one plant input reads none.
+    fn io_list(&self) -> Result<Value, Failure> {
+        let several_inputs = self
+            .request
+            .loop_definition
+            .channels
+            .as_ref()
+            .is_some_and(|channels| channels.inputs.len() > 1);
+        if several_inputs {
+            self.ports.runtime.io_list()
+        } else {
+            Ok(Value::Null)
+        }
     }
 
     /// Starts the recording the campaign follows, with its owner journaled before the start is sent (E11.2). A start whose
@@ -282,24 +319,26 @@ where
         }
     }
 
-    /// The baseline and the one step on the campaign's shared watch (A3.6): the journal before the baseline, the plan, the
-    /// dispatch, the hold until it settles, and the restoration's confirmation.
+    /// The baseline, then the steps of the plant inputs on the campaign's shared watch (A3.6): the journal before the baseline, the
+    /// baseline, and each input's plan, dispatch, hold and restoration in input order.
     fn campaign(
         &mut self,
         recording: &mut T::Recording,
         method: IdentificationMethod,
         validation: bool,
         sample: Option<&ExperimentSample>,
-        maximum_ms: u64,
-        recording_ms: u64,
+        steps: &[InputStep],
     ) -> Result<Step, Failure> {
         let loop_definition = self.request.loop_definition;
+        let maximum_ms = campaign_maximum_ms(loop_definition)?;
+        let recording_ms =
+            campaign_recording_ms(loop_definition, self.request.expected_settling_seconds)?;
         let owner = recording.owner();
         self.persist(JournalEntry::IdentificationCampaign {
             campaign: Box::new(IdentificationCampaignJournal::baseline_phase(
                 &loop_definition.revision,
                 owner.clone(),
-                1,
+                count_u64(steps.len()),
             )),
         })?;
         let mut experiment = self.ports.runtime.experiment();
@@ -319,79 +358,119 @@ where
             mode.set_process_noise(baseline.half_range);
         }
         self.check_cancelled()?;
-        let step_seconds = campaign.seconds();
-        let hold_ms = step_hold_ms(
+        let schedule = Schedule {
+            steps,
+            method,
+            validation,
+            baseline: &baseline,
             maximum_ms,
             recording_ms,
-            restoration_allowance_ms(loop_definition, &baseline),
             baseline_end_seconds,
-            step_seconds,
-        );
-        let plan = self.prepare_plan(method, validation, &baseline, hold_ms)?;
-        self.dispatch(&plan, &baseline, step_seconds, &owner)?;
-        let state = campaign.hold(&plan, &baseline, step_seconds)?;
-        match hold_end(&state) {
-            HoldEnd::Unrestored(failure) => Err(failure),
-            HoldEnd::Stopped(failure) => {
-                self.active = None;
-                Err(stopped_hold_outcome(
-                    self.ports.report.is_cancelled(),
-                    failure,
-                ))
-            }
-            HoldEnd::Completed => {
-                self.active = None;
-                Ok(Step {
-                    plan,
-                    window: fit_window(baseline_end_seconds, baseline.window_seconds),
-                })
-            }
-        }
+        };
+        let plans = self.step_inputs(&mut campaign, &owner, &schedule, 0, Vec::new())?;
+        Ok(Step {
+            plans,
+            window: fit_window(baseline_end_seconds, baseline.window_seconds),
+        })
     }
 
-    /// The plan of the step (`preparePlan`), with a fresh identifier.
+    /// Steps the plant inputs from input `first` on, in input order, each in its own interval of the recording: planned, journaled and
+    /// started once, and held until it settles and is restored (B3.4 steps 3 to 6). `stepped` holds the plans of the inputs before
+    /// `first`; the result holds them with the plans of these steps.
+    fn step_inputs(
+        &mut self,
+        campaign: &mut IdentifyCampaign<'_, C, T::Recording, T::Experiment, P>,
+        owner: &RecordingRecoveryOwner,
+        schedule: &Schedule<'_>,
+        first: usize,
+        stepped: Vec<ControlExperimentPlan>,
+    ) -> Result<Vec<ControlExperimentPlan>, Failure> {
+        let loop_definition = self.request.loop_definition;
+        let count = schedule.steps.len();
+        let mut plans = stepped;
+        for (index, step) in schedule.steps.iter().enumerate().skip(first) {
+            self.check_cancelled()?;
+            let remaining = count - index;
+            let step_seconds = campaign.seconds();
+            let hold_ms = step_hold_ms(
+                schedule.maximum_ms,
+                schedule.recording_ms,
+                restoration_allowance_ms(loop_definition, schedule.baseline),
+                schedule.baseline_end_seconds,
+                step_seconds,
+                count_u32(remaining),
+            );
+            let plan = self.prepare_plan(step, schedule, hold_ms)?;
+            let progress = Progress {
+                step_seconds,
+                remaining_after: count_u64(remaining - 1),
+                stepped: &plans,
+            };
+            self.dispatch(&plan, owner, schedule, &progress)?;
+            let state = campaign.hold(&plan, schedule.baseline, step_seconds)?;
+            match hold_end(&state) {
+                HoldEnd::Unrestored(failure) => return Err(failure),
+                HoldEnd::Stopped(failure) => {
+                    self.active = None;
+                    return Err(stopped_hold_outcome(
+                        self.ports.report.is_cancelled(),
+                        failure,
+                    ));
+                }
+                HoldEnd::Completed => {
+                    self.active = None;
+                    plans.push(plan);
+                }
+            }
+        }
+        Ok(plans)
+    }
+
+    /// The plan of one input's step (`preparePlan`), with a fresh identifier: planned on the input's loop, and on the sample the input
+    /// reads.
     fn prepare_plan(
         &mut self,
-        method: IdentificationMethod,
-        validation: bool,
-        baseline: &BaselineSummary,
+        step: &InputStep,
+        schedule: &Schedule<'_>,
         hold_ms: f64,
     ) -> Result<ControlExperimentPlan, Failure> {
         if let Some(refusal) = hold_refusal(hold_ms) {
             return Err(refusal);
         }
-        let sample = self.ports.sampler.sample()?;
+        let sample = step_sample(step, self.ports.sampler.sample()?)?;
         let mut plan = step_plan(
-            self.request.loop_definition,
+            &step.loop_definition,
             sample.as_ref(),
-            method,
-            baseline,
+            schedule.method,
+            schedule.baseline,
             hold_ms,
-            validation,
+            schedule.validation,
         )?;
         plan.id = new_experiment_id();
         Ok(plan)
     }
 
-    /// Journals the step and its experiment, then sends the start once (`dispatch`). A refused start ends the run; a start
-    /// whose outcome is unknown is reconciled by its identity and never sent again (E11.4).
+    /// Journals the step and its experiment, then sends the start once (`dispatch`). A refused start ends the run; a start whose
+    /// outcome is unknown is reconciled by its identity and never sent again (E11.4).
     fn dispatch(
         &mut self,
         plan: &ControlExperimentPlan,
-        baseline: &BaselineSummary,
-        step_seconds: f64,
         owner: &RecordingRecoveryOwner,
+        schedule: &Schedule<'_>,
+        progress: &Progress<'_>,
     ) -> Result<(), Failure> {
         let loop_definition = self.request.loop_definition;
+        let campaign = IdentificationCampaignJournal::step_phase(
+            &loop_definition.revision,
+            owner.clone(),
+            plan.clone(),
+            *schedule.baseline,
+            progress.step_seconds,
+            progress.remaining_after,
+        )
+        .with_progress(schedule.baseline_end_seconds, progress.stepped.to_vec());
         self.persist(JournalEntry::IdentificationCampaign {
-            campaign: Box::new(IdentificationCampaignJournal::step_phase(
-                &loop_definition.revision,
-                owner.clone(),
-                plan.clone(),
-                *baseline,
-                step_seconds,
-                0,
-            )),
+            campaign: Box::new(campaign),
         })?;
         let recovery = experiment_recovery(loop_definition, plan, owner)?;
         self.journaled.push(plan.id.clone());
@@ -502,6 +581,41 @@ where
     }
 }
 
+/// Steps the plant inputs a resumed campaign still has to step, from input `first` on, in the recording it holds (`resumeCampaign`,
+/// C7, C8): each input is planned, journaled, started and held as a campaign's own step is. `stepped` holds the plans already stepped,
+/// and the result holds them with the plans of these steps. The flag says whether an experiment of the run is still owned here after
+/// a failure: an owned experiment is left to the runtime with its journal (A8.6), and nothing is aborted, kept or cleared.
+pub(crate) fn step_remaining<T, S, K, C, P, E>(
+    ports: RunPorts<'_, T, S, K, C, P>,
+    request: &IdentifyRequest<'_, E>,
+    campaign: &mut IdentifyCampaign<'_, C, T::Recording, T::Experiment, P>,
+    owner: &RecordingRecoveryOwner,
+    schedule: &Schedule<'_>,
+    first: usize,
+    stepped: Vec<ControlExperimentPlan>,
+) -> (Result<Vec<ControlExperimentPlan>, Failure>, bool)
+where
+    T: IdentifyRuntime,
+    S: LoopSampler,
+    K: RecordingRetention,
+    C: CampaignClock,
+    P: CampaignReport,
+    E: RunEvaluation + Clone,
+{
+    let mut run = Run {
+        ports,
+        request,
+        active: None,
+        may_abort: true,
+        recording: None,
+        journaled: Vec::new(),
+        mode: None,
+    };
+    let plans = run.step_inputs(campaign, owner, schedule, first, stepped);
+    let still_active = run.active.is_some();
+    (plans, still_active)
+}
+
 /// Stops the recording, keeps its run with its evidence, then releases the runtime buffer (`retainRecording`; E4.7, E11.6).
 /// A failed keep leaves the buffer for a retry.
 ///
@@ -546,8 +660,32 @@ pub(crate) fn connected_record<E: RunEvaluation>(
     }
 }
 
+/// The connected record of a campaign's kept recording, with the plan of every plant input it stepped (`completeRecording`): the
+/// record's experiment is the first of them, and its request keeps all of them in input order (C7, C8).
+///
+/// # Errors
+/// As [`connected_record`]; and a campaign that stepped no plant input, which is the engine's own wiring failure.
+pub(crate) fn campaign_record<E: RunEvaluation>(
+    loop_definition: &LoopDefinition,
+    run: &RecordedRun,
+    plans: Vec<ControlExperimentPlan>,
+    window: FitWindow,
+    evaluate: RunEvaluator<'_, E>,
+) -> Result<RuntimeVerificationResult<E>, Failure> {
+    let Some(first) = plans.first() else {
+        return Err(Failure::new(
+            "The campaign stepped no plant input, so it has no experiment to record.",
+            Cause::Implementation,
+            NextAction::None,
+        ));
+    };
+    let mut record = connected_record(loop_definition, run, None, first, window, evaluate)?;
+    record.request.experiments = Some(plans);
+    Ok(record)
+}
+
 /// Fits the records of a campaign (`fit`): the fit runs inside the operation, and a fit that ends after a cancellation is not
-/// the answer.
+/// the answer. A loop with several plant inputs or measured outputs is fitted as one multichannel state model (C7, C8).
 ///
 /// # Errors
 /// The operation is cancelled, or the fit gives no model.
@@ -558,8 +696,18 @@ pub(crate) fn fit_records<E: Clone>(
 ) -> Result<AutomaticIdentificationResult<E>, Failure> {
     check_cancelled(report)?;
     report.progress(FITTING_TEXT);
-    let fitted = fit_recorded_model(loop_definition, runs)
-        .map_err(|error| fit_failure(loop_definition, &error));
+    let fitted = if several_channels(loop_definition) {
+        fit_multichannel_model(loop_definition, runs)
+            .map(|identification| AutomaticIdentificationResult::StateModel {
+                model: Box::new(identification.model),
+                runs: identification.runs,
+                fit: identification.fit,
+            })
+            .map_err(|refusal| fit_failure(loop_definition, &RecordedFitError::Refused(refusal)))
+    } else {
+        fit_recorded_model(loop_definition, runs)
+            .map_err(|error| fit_failure(loop_definition, &error))
+    };
     check_cancelled(report)?;
     fitted
 }
@@ -604,6 +752,16 @@ pub(crate) fn check_cancelled(report: &impl CampaignReport) -> Result<(), Failur
         return Err(identification_cancelled());
     }
     Ok(())
+}
+
+/// A count of steps as the journal's `u32` (saturating, though a loop has at most sixteen inputs).
+fn count_u32(count: usize) -> u32 {
+    u32::try_from(count).unwrap_or(u32::MAX)
+}
+
+/// A count of steps as the journal's `u64` (saturating).
+fn count_u64(count: usize) -> u64 {
+    u64::try_from(count).unwrap_or(u64::MAX)
 }
 
 /// A new experiment identifier (`randomUUID` of `preparePlan`): `experiment-` and 32 hex digits drawn from the random seeds of

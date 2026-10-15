@@ -25,14 +25,19 @@ use std::path::Path;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use trust_control::experiment::{ControlExperimentRecovery, RecordingRecoveryOwner};
+use trust_control::experiment::{
+    ControlExperimentPlan, ControlExperimentRecovery, RecordingRecoveryOwner,
+};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::automatic::AutomaticIdentificationResult;
+use trust_control::identification::campaign::baseline::BaselineSummary;
 use trust_control::identification::campaign::journal::{
     IdentificationCampaignJournal, NO_RUNNING_EXPERIMENT_TEXT,
 };
+use trust_control::identification::campaign::{campaign_maximum_ms, campaign_recording_ms};
 use trust_control::identification::connected_run::{
-    fit_window, hold_end, is_provisional, not_journaled, stopped_hold_outcome, HoldEnd,
+    fit_window, hold_end, input_steps, is_provisional, method_of_step, not_journaled,
+    stopped_hold_outcome, HoldEnd,
 };
 use trust_control::identification::independent_validation::RunEvaluation;
 use trust_control::identification::reconcile::ExperimentIdentity;
@@ -42,13 +47,18 @@ use trust_control::recording::EvidenceSource;
 use trust_control::runtime::RuntimeConnection;
 
 use super::identify::cancel::{cancel_journaled, end_experiment};
-use super::identify::run::{clear_entries, connected_record, fit_records, retain_recording};
+use super::identify::run::{
+    campaign_record, clear_entries, fit_records, retain_recording, step_remaining, RunPorts,
+    Schedule,
+};
 use super::identify::{
-    cancel_identification, ConnectedRuntime, IdentifyRequest, IdentifyRuntime, RecordingRetention,
+    cancel_identification, ConnectedRuntime, IdentifyRequest, IdentifyRuntime, LoopSampler,
+    RecordingRetention,
 };
 use super::identify_campaign::{CampaignClock, CampaignReport, IdentifyCampaign, SystemClock};
 use super::identify_mode::{mode_journaled, IdentificationMode};
 use super::reconcile::{follow_until_ended, read_experiment_identity};
+use crate::identify_adapters::RuntimeSampler;
 use crate::journal::{Journal, JournalEntry};
 use crate::operation::OperationContext;
 use crate::runtime_client::runtime_recording::PendingReleases;
@@ -62,8 +72,8 @@ const SIMULATOR_TEXT: &str = "Reconnect the original simulator for identificatio
 /// reads follow.
 const RUNNING_TEXT: &str = "The interrupted experiment is still running in the runtime. The original mode returns when it ends; nothing is started or aborted meanwhile.";
 
-/// What a resumed campaign gave (`resume` of `IdentificationRecovery`): the fit of the recording of its one held step, as a
-/// campaign that was never interrupted gives it.
+/// What a resumed campaign gave (`resume` of `IdentificationRecovery`): the fit of the recording of its steps, as a campaign that was
+/// never interrupted gives it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResumedIdentification<E> {
     /// The model and the record it was fitted from.
@@ -75,10 +85,11 @@ pub struct ResumedIdentification<E> {
     pub recording_id: String,
 }
 
-/// The ports a resume reads and writes: the runtime, where the recording is kept, the clock that paces the polls, the
-/// operation's cancellation and progress, and the loop's journal.
-pub(crate) struct RecoveryPorts<'a, T, K, C, P> {
+/// The ports a resume reads and writes: the runtime, the loop's live sample for the plant inputs a resumed campaign still steps, where the
+/// recording is kept, the clock that paces the polls, the operation's cancellation and progress, and the loop's journal.
+pub(crate) struct RecoveryPorts<'a, T, S, K, C, P> {
     pub(crate) runtime: &'a T,
+    pub(crate) sampler: &'a mut S,
     pub(crate) retention: &'a mut K,
     pub(crate) clock: &'a C,
     pub(crate) report: &'a P,
@@ -99,7 +110,7 @@ pub(crate) struct RecoveryPorts<'a, T, K, C, P> {
 /// The runtime cannot be reached or is not simulated (reconnect the original simulator); the journal cannot be read or holds
 /// no step to resume; the recording cannot be recovered; the experiment's status cannot be read, its hold fails or its
 /// restoration is not confirmed, and the experiment, its recording and the journal are then left to the runtime (A8.6); the
-/// experiment never started, stopped before its hold ended, or covered one of several plant inputs; or the recording cannot be
+/// experiment never started or stopped before its hold ended, or a plant input the campaign still had to step is refused or stops; or the recording cannot be
 /// kept, its record or its fit fails, the journal cannot be cleared, or the mode cannot be returned (whose failure replaces only
 /// a record that succeeded).
 pub fn resume_identification<K, E>(
@@ -123,9 +134,13 @@ where
     )?);
     let runtime = ConnectedRuntime::new(connection, pending);
     let clock = SystemClock::new();
+    // The journaled campaign ran on the simulator (`require_simulator`), so its live sample is the simulated one.
+    let mut sampler =
+        RuntimeSampler::new(connection, loop_definition, EvidenceSource::SimulatedPlant);
     resume(
         RecoveryPorts {
             runtime: &runtime,
+            sampler: &mut sampler,
             retention,
             clock: &clock,
             report: context,
@@ -330,13 +345,16 @@ where
     clear_entries(journal, std::slice::from_ref(&recovery.experiment_id))
 }
 
-/// Resumes the journaled campaign on `ports` (`resumeCampaign`); see [`resume_identification`].
-pub(crate) fn resume<T, K, C, P, E>(
-    ports: RecoveryPorts<'_, T, K, C, P>,
+/// Resumes the journaled campaign on `ports` (`resumeCampaign`); see [`resume_identification`]. The journaled step is followed to its end,
+/// and then the plant inputs the campaign has not stepped yet are stepped in the same recording, in input order (C7, C8). The record keeps
+/// the plan of every input the campaign stepped.
+pub(crate) fn resume<T, S, K, C, P, E>(
+    ports: RecoveryPorts<'_, T, S, K, C, P>,
     request: &IdentifyRequest<'_, E>,
 ) -> Result<ResumedIdentification<E>, Failure>
 where
     T: IdentifyRuntime,
+    S: LoopSampler,
     K: RecordingRetention,
     C: CampaignClock,
     P: CampaignReport,
@@ -344,6 +362,7 @@ where
 {
     let RecoveryPorts {
         runtime,
+        sampler,
         retention,
         clock,
         report,
@@ -353,6 +372,8 @@ where
     let campaign = journaled_campaign(&journal.lock()).ok_or_else(no_running_experiment)?;
     let (plan, baseline) = campaign.resumable_step(&loop_definition.revision)?;
     let step_seconds = campaign.step_start_seconds.unwrap_or(0.0);
+    // A journal from before the baseline's end was written reads the step's start as that end, as the first step starts there.
+    let baseline_end_seconds = campaign.baseline_end_seconds.unwrap_or(step_seconds);
     let mut recording = runtime.recover_recording(loop_definition, &campaign.recording)?;
     let ended = match read_experiment_identity(|id| runtime.experiment_status(id), &plan.id) {
         // The status cannot be read: the experiment, its recording and the journal stay the runtime's, and reopening
@@ -361,8 +382,7 @@ where
         ExperimentIdentity::Absent { reason } => Err(never_started(&reason)),
         ExperimentIdentity::Running { .. } | ExperimentIdentity::Terminal { .. } => {
             let mut experiment = runtime.experiment();
-            // A hold that fails leaves the experiment to the runtime: nothing is aborted, kept or cleared (A8.6).
-            let state = IdentifyCampaign::new(
+            let mut held = IdentifyCampaign::new(
                 loop_definition,
                 clock,
                 &mut recording,
@@ -370,14 +390,33 @@ where
                 report,
                 false,
                 request.expected_settling_seconds,
-            )
-            .hold(plan, baseline, step_seconds)?;
+            );
+            // A hold that fails leaves the experiment to the runtime: nothing is aborted, kept or cleared (A8.6).
+            let state = held.hold(plan, baseline, step_seconds)?;
             match hold_end(&state) {
                 HoldEnd::Unrestored(failure) => return Err(failure),
                 HoldEnd::Stopped(failure) => {
                     Err(stopped_hold_outcome(report.is_cancelled(), failure))
                 }
-                HoldEnd::Completed => all_inputs_covered(campaign.channels_remaining),
+                HoldEnd::Completed => {
+                    let ports = RunPorts {
+                        runtime,
+                        sampler: &mut *sampler,
+                        retention: &mut *retention,
+                        clock,
+                        report,
+                        journal,
+                    };
+                    step_continuation(
+                        ports,
+                        request,
+                        &mut held,
+                        &campaign,
+                        plan,
+                        baseline,
+                        baseline_end_seconds,
+                    )?
+                }
             }
         }
     };
@@ -386,25 +425,23 @@ where
     // carries no start failure. Otherwise, or when that keep failed, the recording is kept now (`settleRecording`); a keep
     // that fails here leaves the buffer and the journal for a retry, and its failure replaces the step's.
     let mut kept = false;
-    let record = ended.and_then(|()| {
+    // The journal's entries of the campaign: its recording, and the experiment of every input it stepped, or of the journaled step alone
+    // when the steps gave no plan.
+    let mut journaled = vec![campaign.recording.recording_id.clone()];
+    match &ended {
+        Ok(plans) => journaled.extend(plans.iter().map(|stepped| stepped.id.clone())),
+        Err(_) => journaled.push(plan.id.clone()),
+    }
+    let window = fit_window(baseline_end_seconds, baseline.window_seconds);
+    let record = ended.and_then(|plans| {
         let run = retain_recording(&mut recording, retention)?;
         kept = true;
-        connected_record(
-            loop_definition,
-            &run,
-            None,
-            plan,
-            fit_window(step_seconds, baseline.window_seconds),
-            request.evaluate,
-        )
+        campaign_record(loop_definition, &run, plans, window, request.evaluate)
     });
     if !kept {
         retain_recording(&mut recording, retention)?;
     }
-    clear_entries(
-        journal,
-        &[campaign.recording.recording_id.clone(), plan.id.clone()],
-    )?;
+    clear_entries(journal, &journaled)?;
     // The loop's original mode returns here, once the experiment has ended and before the fit (A6.2, A8.6). A failed return
     // replaces only a record that succeeded; its checkpoint stays journaled for the next reconciliation.
     let returned = return_found_mode(runtime, journal, loop_definition);
@@ -416,6 +453,62 @@ where
         recording_id: record.run.id,
         result,
     })
+}
+
+/// Steps the plant inputs that a resumed campaign has not stepped yet, in the recording it holds, once its journaled step has ended
+/// (`resumeCampaign`, C7, C8). A campaign that has stepped every input gives the plans it holds. The outer `Err` is a refusal before
+/// a further input is stepped, or the failure of an experiment of the continuation that is still owned here: that one is left to the
+/// runtime with the journal (A8.6). The inner result is the outcome of the continuation, which the record keeps when it is `Ok`.
+fn step_continuation<T, S, K, C, P, E>(
+    ports: RunPorts<'_, T, S, K, C, P>,
+    request: &IdentifyRequest<'_, E>,
+    held: &mut IdentifyCampaign<'_, C, T::Recording, T::Experiment, P>,
+    campaign: &IdentificationCampaignJournal,
+    plan: &ControlExperimentPlan,
+    baseline: &BaselineSummary,
+    baseline_end_seconds: f64,
+) -> Result<Result<Vec<ControlExperimentPlan>, Failure>, Failure>
+where
+    T: IdentifyRuntime,
+    S: LoopSampler,
+    K: RecordingRetention,
+    C: CampaignClock,
+    P: CampaignReport,
+    E: RunEvaluation + Clone,
+{
+    let mut stepped = campaign.stepped_plans.clone();
+    stepped.push(plan.clone());
+    if campaign.channels_remaining == 0 {
+        return Ok(Ok(stepped));
+    }
+    let loop_definition = request.loop_definition;
+    // The plant inputs the campaign has not stepped follow in the same recording (C7, C8). Their order is the loop's, and the journal
+    // counts the inputs still to step after the one it holds.
+    let steps = input_steps(loop_definition, &ports.runtime.io_list()?)?;
+    let remaining = usize::try_from(campaign.channels_remaining).unwrap_or(usize::MAX);
+    let schedule = Schedule {
+        steps: &steps,
+        method: method_of_step(loop_definition, plan.kind),
+        validation: false,
+        baseline,
+        maximum_ms: campaign_maximum_ms(loop_definition)?,
+        recording_ms: campaign_recording_ms(loop_definition, request.expected_settling_seconds)?,
+        baseline_end_seconds,
+    };
+    let (stepped_plans, still_active) = step_remaining(
+        ports,
+        request,
+        held,
+        &campaign.recording,
+        &schedule,
+        steps.len().saturating_sub(remaining),
+        stepped,
+    );
+    match stepped_plans {
+        // An experiment of the continuation still owned here is left to the runtime with the journal (A8.6).
+        Err(failure) if still_active => Err(failure),
+        outcome => Ok(outcome),
+    }
 }
 
 /// Follows the experiment of the journaled campaign until nothing of it is left running, then lets `finish` restore the
@@ -535,22 +628,6 @@ fn never_started(reason: &str) -> Failure {
         Cause::Unclassified,
         NextAction::None,
     )
-}
-
-/// The refusal of a resumed campaign whose plant inputs were not all stepped: it finishes only the input it was stepping, and
-/// the others are identified again.
-fn all_inputs_covered(channels_remaining: u64) -> Result<(), Failure> {
-    if channels_remaining == 0 {
-        return Ok(());
-    }
-    Err(Failure::new(
-        &format!(
-            "The interrupted identification covered one of {} plant inputs. Identify again to cover the others.",
-            channels_remaining.saturating_add(1)
-        ),
-        Cause::Unclassified,
-        NextAction::Identify,
-    ))
 }
 
 /// The failure of a cancelled recovery whose experiment's status cannot be read (`reason`): nothing was restored.

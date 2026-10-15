@@ -21,6 +21,10 @@ use crate::tuning::texts;
 /// The normalized error above which a model is not used for tuning (N5.7, N3.2).
 pub const MAXIMUM_TUNING_MODEL_ERROR: f64 = 0.25;
 
+/// The refusal of SIMC for an integrating model with a lag: SIMC's integrating rule takes `K′·exp(−L·s)/s` only (N5.3, N5.7).
+pub(crate) const SIMC_INTEGRATING_LAG: &str =
+    "SIMC PI tuning has no rule for an integrating model with a lag.";
+
 /// A plant in the form a formula method accepts (N5.2, N5.3). The signed gain is the static gain `K` or the rate gain
 /// `K′`; the formulas run on its magnitude and the sign of N6.4 is applied to the result.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -32,17 +36,32 @@ pub enum TuningPlant {
     /// A stable second-order model with real poles (N5.2). Only SIMC's PI reduces it, by the half rule; every other
     /// structure refuses it, as it refuses any form that is not first order.
     SecondOrder(SecondOrderPlusDelay),
+    /// `K′·exp(−L·s)/(s·(τ·s + 1))`: an integrating model with a lag (N5.12(c)). Neither formula takes it, so SIMC and AMIGO
+    /// refuse it; pole placement takes it as a second-order plant with no constant term.
+    IntegratingWithLag(IntegratingLagPlant),
+}
+
+/// The rate gain `K′`, the lag `τ` and the dead time `L` of an integrating model with a lag (N5.12(c)).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IntegratingLagPlant {
+    /// The rate gain `K′`, in controlled-variable units per manipulated-variable unit per second.
+    pub rate_gain: f64,
+    /// The lag `τ` in seconds, finite and positive.
+    pub lag_seconds: f64,
+    /// The dead time `L` in seconds, zero included.
+    pub delay_seconds: f64,
 }
 
 impl TuningPlant {
     /// The signed gain that the sign rule of N6.2 checks: `K` for a first-order or second-order form, `K′` for an
-    /// integrating one.
+    /// integrating one, with or without a lag.
     #[must_use]
     pub fn signed_gain(&self) -> f64 {
         match self {
             Self::FirstOrder(model) => model.gain,
             Self::Integrating(model) => model.rate_gain,
             Self::SecondOrder(model) => model.gain,
+            Self::IntegratingWithLag(model) => model.rate_gain,
         }
     }
 
@@ -53,13 +72,14 @@ impl TuningPlant {
             Self::FirstOrder(model) => model.delay_seconds,
             Self::Integrating(model) => model.delay_seconds,
             Self::SecondOrder(model) => model.delay_seconds,
+            Self::IntegratingWithLag(model) => model.delay_seconds,
         }
     }
 
-    /// Whether the plant is an integrating one.
+    /// Whether the plant is an integrating one, with or without a lag.
     #[must_use]
     pub fn is_integrating(&self) -> bool {
-        matches!(self, Self::Integrating(_))
+        matches!(self, Self::Integrating(_) | Self::IntegratingWithLag(_))
     }
 }
 
@@ -92,10 +112,19 @@ pub fn from_identified(
     }
     let delay = model.dead_time_seconds.unwrap_or(0.0);
     match model.kind {
-        LowOrderModelKind::Integrating => Ok(TuningPlant::Integrating(IntegratingModel {
-            rate_gain: model.gain,
-            delay_seconds: delay,
-        })),
+        // The lag of an integrating model is its time constant (`identified_transfer` of the placement, N5.12(c)): a form
+        // without one is the plain integrator that the formulas take. Its time constant was checked above.
+        LowOrderModelKind::Integrating => Ok(match model.time_constant_seconds {
+            Some(lag) => TuningPlant::IntegratingWithLag(IntegratingLagPlant {
+                rate_gain: model.gain,
+                lag_seconds: lag,
+                delay_seconds: delay,
+            }),
+            None => TuningPlant::Integrating(IntegratingModel {
+                rate_gain: model.gain,
+                delay_seconds: delay,
+            }),
+        }),
         LowOrderModelKind::FirstOrder | LowOrderModelKind::FirstOrderDeadTime => {
             Ok(TuningPlant::FirstOrder(FirstOrderPlusDelay {
                 gain: model.gain,
@@ -177,11 +206,14 @@ pub fn check_plant(
         return Err(Refusal::new(sentence));
     }
     match (plant, method) {
-        (TuningPlant::Integrating(_), TuningMethod::Amigo) => {
+        (TuningPlant::Integrating(_) | TuningPlant::IntegratingWithLag(_), TuningMethod::Amigo) => {
             Err(Refusal::new(texts::AMIGO_INTEGRATING))
         }
         (TuningPlant::Integrating(_), TuningMethod::Simc) if delay <= 0.0 => {
             Err(Refusal::new(texts::SIMC_INTEGRATING_DELAY))
+        }
+        (TuningPlant::IntegratingWithLag(_), TuningMethod::Simc) => {
+            Err(Refusal::new(SIMC_INTEGRATING_LAG))
         }
         (TuningPlant::FirstOrder(_), TuningMethod::Amigo) => check_amigo_domain(plant),
         (TuningPlant::SecondOrder(_), TuningMethod::Amigo) => {
@@ -378,6 +410,35 @@ mod tests {
         assert_eq!(
             check_plant(&amigo, TuningMethod::Amigo, ControllerAction::Direct, "")
                 .expect_err("amigo")
+                .0,
+            "AMIGO is unavailable for integrating models."
+        );
+    }
+
+    #[test]
+    fn an_integrator_with_a_lag_is_its_own_plant_and_both_formulas_refuse_it() {
+        // `1/(s·(s + 1))` is lesson 90's axis: the lag form is a plant of its own, which SIMC and AMIGO refuse by name.
+        let model = identified(LowOrderModelKind::Integrating, 1.0, Some(1.0), Some(0.0));
+        let plant = from_identified(&model, TuningMethod::Simc)
+            .expect("an integrator with a lag is a stable plant");
+        assert_eq!(
+            plant,
+            TuningPlant::IntegratingWithLag(IntegratingLagPlant {
+                rate_gain: 1.0,
+                lag_seconds: 1.0,
+                delay_seconds: 0.0
+            })
+        );
+        assert!(plant.is_integrating());
+        assert_eq!(
+            check_plant(&plant, TuningMethod::Simc, ControllerAction::Direct, "")
+                .expect_err("SIMC has no lag rule")
+                .0,
+            SIMC_INTEGRATING_LAG
+        );
+        assert_eq!(
+            check_plant(&plant, TuningMethod::Amigo, ControllerAction::Direct, "")
+                .expect_err("AMIGO")
                 .0,
             "AMIGO is unavailable for integrating models."
         );

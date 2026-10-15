@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::loop_definition::LoopDefinition;
+use crate::tuning::project_candidate::served_feedforward;
 use crate::validation::scenario_contract::EngineerScenario;
 use crate::validation::texts;
 
@@ -107,8 +108,11 @@ pub fn verification_plant(
     plant: Option<&ConfiguredPlantBinding>,
 ) -> VerificationPlant {
     match plant {
+        // A measured-disturbance feedforward always validates on the model (C8 Validate).
         Some(plant)
-            if simulated_target && configured_plant_drives_loop(loop_definition, Some(plant)) =>
+            if simulated_target
+                && served_feedforward(loop_definition).is_none()
+                && configured_plant_drives_loop(loop_definition, Some(plant)) =>
         {
             VerificationPlant::Configured {
                 plant_id: plant.id.clone(),

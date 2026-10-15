@@ -88,8 +88,10 @@ pub struct IdentifySection {
     pub provisional: bool,
     /// The model: fitted from the recording, with the evidence it was fitted from.
     pub selected_model: GeneralModel,
-    /// What the page shows of the model: its presentation, with the traces of the experiment it was read from.
-    pub presentation: ComparisonPresentation,
+    /// What the page shows of the model: its presentation, with the traces of the experiment it was read from. A state-space
+    /// model of several plant inputs or measured outputs has none (B10.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<ComparisonPresentation>,
     /// The request the estimation recording was taken with, when a live identification took it: what fitting the recording
     /// again needs (B3.6).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -129,7 +131,31 @@ impl IdentifySection {
             validation_recording_id: validation_recording_id.map(str::to_string),
             provisional: validation_recording_id.is_none(),
             selected_model,
-            presentation,
+            presentation: Some(presentation),
+            record_request: None,
+        }
+    }
+
+    /// The section of a state-space identification of several plant inputs or measured outputs (C7, B10.2): the model with its
+    /// signals and its recording, and no comparison presentation. Such a model is provisional, as a fit from one recording is.
+    #[must_use]
+    pub fn new_state_model(
+        method: IdentifyMethod,
+        source: EvidenceSource,
+        signals: IdentifySignals,
+        estimation_recording_id: &str,
+        selected_model: GeneralModel,
+    ) -> Self {
+        Self {
+            method,
+            source,
+            signals,
+            recorded_channels: None,
+            estimation_recording_id: estimation_recording_id.to_string(),
+            validation_recording_id: None,
+            provisional: true,
+            selected_model,
+            presentation: None,
             record_request: None,
         }
     }
@@ -332,11 +358,26 @@ impl IdentifySection {
         }
     }
 
-    /// The presentation describes this model: its units, delay, errors, predicted response and traces.
+    /// The presentation describes this model: its units, delay, errors, predicted response and traces. A model of several
+    /// plant inputs or measured outputs may have none (B10.2).
     fn check_presentation(&self) -> Result<(), Failure> {
-        if !presentation_describes_model(&self.presentation, &self.selected_model) {
+        let Some(shown) = &self.presentation else {
+            return self.check_missing_presentation();
+        };
+        if !presentation_describes_model(shown, &self.selected_model) {
             return Err(refuse(
                 "its presentation does not describe the model (units, delay, errors, predicted response or traces)",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Only a model of several plant inputs or measured outputs may have no presentation (B10.2).
+    fn check_missing_presentation(&self) -> Result<(), Failure> {
+        let identity = self.selected_model.identity();
+        if identity.inputs.len() == 1 && identity.outputs.len() == 1 {
+            return Err(refuse(
+                "its presentation is missing, but a model of one plant input and one measured output has one (B10.2)",
             ));
         }
         Ok(())

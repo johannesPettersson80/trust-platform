@@ -11,6 +11,8 @@ export class ThreePageController {
   /** The configuration of the automatic candidate that manual settings edit, kept apart from the host's recommendation. */
   private candidate: string | undefined;
   private families: string[] = [];
+  /** The manual-settings symbols the engine names per family (`familySettings`, C2); undefined for a loop that names none. */
+  private familySettings: Record<string, readonly string[]> | undefined;
   private readonly select: HTMLSelectElement;
   get selectedFamily(): string { return this.explicit ? this.choice : this.candidate ?? this.recommended ?? "automatic"; }
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition, private readonly post: StudioPost) {
@@ -28,6 +30,7 @@ export class ThreePageController {
   }
   receive(payload: Record<string, unknown>): void {
     if (Array.isArray(payload.availableFamilies)) this.families = payload.availableFamilies.filter((family): family is string => typeof family === "string");
+    if ("familySettings" in payload) this.familySettings = payload.familySettings as Record<string, readonly string[]> | undefined;
     if (payload.status === "candidate" && typeof payload.family === "string") {
       if (!this.explicit) this.recommended = this.candidate = payload.family;
     } else if (typeof payload.controllerChoice === "string" && (payload.status === "restored" || !this.explicit || payload.controllerChoice === this.choice)) {
@@ -44,6 +47,10 @@ export class ThreePageController {
     this.choice = family ?? "automatic";
     this.explicit = this.choice !== "automatic";
     this.renderOptions();
+  }
+  /** The manual-settings symbols the engine names for a family, or undefined when it names none for this loop (a parked loop). */
+  symbolsOf(family: string): readonly string[] | undefined {
+    return this.familySettings ? this.familySettings[family] ?? [] : undefined;
   }
   private renderOptions(): void {
     if (!this.families.length) return;

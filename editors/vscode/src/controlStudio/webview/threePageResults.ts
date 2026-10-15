@@ -8,7 +8,6 @@ import { displayEngineeringUnit, formatEngineeringNumber } from "../chartContrac
 import { formatMatrixRows, formatNumberList } from "./numberListText";
 import type { CandidateRobustness, Margin } from "../candidateRobustness";
 import { familyLabel } from "../controllerFamilies";
-import type { FeedforwardDesign } from "../feedforwardPidDesign";
 import { signalRoleLabel } from "./signalRoles";
 
 export function renderTunedController(root: HTMLElement, loop: ControlLoopDefinition, payload: Record<string, unknown>): void {
@@ -62,7 +61,7 @@ export function renderTunedController(root: HTMLElement, loop: ControlLoopDefini
   if (Array.isArray(payload.comparison) && payload.comparison.length > 0) area.append(comparisonTable(payload.comparison));
   const design = payload.design as { horizon?: { steps: number; policy: string; gainSequence: number[][][]; riccatiSequence: number[][][] };
     decentralized?: { members: { inputId: string; outputId: string; pathGain: number; relativeGain: number; effectiveGain: number; timeConstantSeconds: number; delaySeconds: number }[] };
-    feedforward?: FeedforwardDesign; decoupler?: { matrix: number[][]; inputIds: string[]; memberIds: string[] } } | undefined;
+    feedforward?: FeedforwardAnswerView; decoupler?: { matrix: number[][]; inputIds: string[]; memberIds: string[] } } | undefined;
   if (design?.decentralized?.members.length) area.append(decentralizedTable(loop, design.decentralized.members));
   if (design?.feedforward) area.append(...feedforwardDesignView(loop, design.feedforward));
   if (design?.decoupler) area.append(decouplerTable(design.decoupler));
@@ -144,25 +143,40 @@ function decouplerTable(decoupler: { matrix: number[][]; inputIds: string[]; mem
   return table;
 }
 
-/** Specification 35 §17.12: both paths to the measurement and the predicted largest deviations with the PI alone and with feedforward. */
-function feedforwardDesignView(loop: ControlLoopDefinition, design: FeedforwardDesign): HTMLElement[] {
+/** A feedforward path as the engine answers it: its gain, its time constant and its dead time (`FeedforwardPath`, messages.rs). */
+interface FeedforwardPathView { gain: number; timeConstantSeconds: number; delaySeconds: number }
+/** The engine's answer of a measured-disturbance feedforward (C8, `FeedforwardAnswer`), in the names of its JSON. */
+interface FeedforwardAnswerView {
+  outputPath: FeedforwardPathView; disturbancePath: FeedforwardPathView;
+  gain: number; leadSeconds?: number; lagSeconds?: number;
+  disturbanceStep: number; feedbackDeviation: number; feedforwardDeviation: number;
+}
+
+/** Specification 35 §17.12: both paths, the feedforward values and the two largest deviations after the disturbance step, as the engine answers them. */
+function feedforwardDesignView(loop: ControlLoopDefinition, design: FeedforwardAnswerView): HTMLElement[] {
   const measurement = loop.signals.processVariable, output = loop.signals.manipulatedVariable;
   const disturbance = loop.signals.additional?.find(signal => signal.role === "disturbance");
+  const disturbanceUnit = disturbance?.unit ?? "1";
   const table = document.createElement("table"); table.className = "trust-table"; table.dataset.studioFeedforwardDesign = "";
   const header = table.createTHead().insertRow();
   for (const name of [`Path to ${measurement.symbol}`, "Gain K", "Time constant τ", "Delay θ"]) { const th = document.createElement("th"); th.textContent = name; header.append(th); }
   const body = table.createTBody();
   for (const [label, input, path] of [[`Controller output ${output.symbol}`, output.unit, design.outputPath],
-    [`Disturbance ${disturbance?.symbol ?? ""}`, disturbance?.unit ?? "1", design.disturbancePath]] as const) {
+    [`Disturbance ${disturbance?.symbol ?? ""}`, disturbanceUnit, design.disturbancePath]] as const) {
     const row = body.insertRow();
     for (const text of [label, `${formatEngineeringNumber(path.gain)}${unitSuffix(measurement.unit === input ? "1" : `${measurement.unit}/${input}`)}`,
       `${formatEngineeringNumber(path.timeConstantSeconds)} s`, `${formatEngineeringNumber(path.delaySeconds)} s`]) row.insertCell().textContent = text;
   }
+  // K_ff is in the output's unit per the disturbance's unit; the lead and the lag are the program's times, in seconds.
+  const values = document.createElement("p"); values.dataset.studioFeedforwardValues = "";
+  values.textContent = `Feedforward gain K_ff ${formatEngineeringNumber(design.gain)}${unitSuffix(output.unit === disturbanceUnit ? "1" : `${output.unit}/${disturbanceUnit}`)}`
+    + (typeof design.leadSeconds === "number" && typeof design.lagSeconds === "number"
+      ? ` · lead time T_lead ${formatEngineeringNumber(design.leadSeconds)} s · lag time T_lag ${formatEngineeringNumber(design.lagSeconds)} s` : "");
   const deviation = document.createElement("p"); deviation.dataset.studioFeedforwardDeviation = "";
   const unit = unitSuffix(measurement.unit);
-  deviation.textContent = `Largest deviation after a ${formatEngineeringNumber(design.disturbanceStep)}${unitSuffix(disturbance?.unit ?? "1")} disturbance step, on the model: `
-    + `${formatEngineeringNumber(design.largestDeviation.feedback)}${unit} with the PI alone, ${formatEngineeringNumber(design.largestDeviation.feedforward)}${unit} with feedforward`;
-  return [table, deviation];
+  deviation.textContent = `Largest deviation after a ${formatEngineeringNumber(design.disturbanceStep)}${unitSuffix(disturbanceUnit)} disturbance step, on the model: `
+    + `${formatEngineeringNumber(design.feedbackDeviation)}${unit} with the PI alone, ${formatEngineeringNumber(design.feedforwardDeviation)}${unit} with feedforward`;
+  return [table, values, deviation];
 }
 
 /** Specification 35 §17.9: each member's own path, its relative gain and the gain it has with the other loops closed. */

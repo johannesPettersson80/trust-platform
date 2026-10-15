@@ -13,7 +13,7 @@ use crate::identification::plant::IdentifiedModel;
 use crate::messages::{CandidateOutcome, ComparisonEntry, TuneGainUnits, TuneMethod, TuneResult};
 use crate::stages::{stage_availability, StageEvidence};
 use crate::study::tune::prediction::CandidateResponse;
-use crate::tuning::candidate::ControlPidCandidate;
+use crate::tuning::candidate::LawCandidate;
 use crate::tuning::candidate_margins::CandidateMargins;
 use crate::tuning::design_to_requirements::structure_word;
 use crate::tuning::method_description::{describe_method, MethodDescription};
@@ -45,8 +45,8 @@ pub(crate) struct ResultInputs<'a> {
     pub(crate) process_unit: &'a str,
     /// The manipulated variable's unit, as the sentences print it.
     pub(crate) manipulated_unit: &'a str,
-    /// The candidate, unapplied.
-    pub(crate) candidate: ControlPidCandidate,
+    /// The candidate, unapplied: a `Control.PID` record, or a program's own law's gains and values.
+    pub(crate) candidate: LawCandidate,
     /// The candidate's value of each bound setting, by symbol (B4.2, C0).
     pub(crate) settings: BTreeMap<String, f64>,
     /// The response the design used (N5.4).
@@ -98,11 +98,14 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
             inputs.model,
             automatic,
             from_formula,
-            inputs.candidate.structure,
+            inputs.candidate.structure(),
         ),
     };
     let (margins, margins_unavailable) = inputs.margins;
+    let (candidate, project_candidate) = inputs.candidate.into_parts();
     TuneResult {
+        // The feedforward answer (C8) is added by its own Tune run, which holds both paths; other structures have none.
+        feedforward: None,
         method_title: inputs
             .method
             .map_or(AUTOMATIC_TITLE, TuneMethod::title)
@@ -113,7 +116,8 @@ pub(crate) fn tune_result(inputs: ResultInputs<'_>) -> TuneResult {
             integral: described.units.integral_gain,
             derivative: described.units.derivative_gain,
         },
-        candidate: inputs.candidate,
+        candidate,
+        project_candidate,
         settings: inputs.settings,
         method: inputs.method,
         reason: inputs.reason,

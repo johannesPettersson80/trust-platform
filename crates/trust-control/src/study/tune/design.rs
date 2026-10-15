@@ -20,7 +20,9 @@ use crate::failure::{Cause, Failure, NextAction};
 use crate::identification::plant::IdentifiedModel;
 use crate::identification::recording_import::display_engineering_unit;
 use crate::identification::refusal::Refusal;
-use crate::loop_definition::{ControllerLaw, LoopDefinition, Parameter};
+use crate::loop_definition::{
+    ControllerLaw, InitialSource, InitialValue, LoopDefinition, Parameter,
+};
 use crate::messages::{ComparisonEntry, TuneMethod, TuneRequest, TuneResult};
 use crate::model::GeneralModel;
 use crate::stages::StageEvidence;
@@ -32,7 +34,7 @@ use crate::study::tune::prediction::{
     candidate_margins, candidate_outcome, candidate_prediction, current_prediction, TraceNames,
 };
 use crate::study::tune::record::{
-    candidate_record, gains_map, gains_of_map, pinned_settings, record_settings, record_shaping,
+    candidate_record, candidate_settings, gains_map, gains_of_map, pinned_settings, record_shaping,
     shaping_of_candidate, LoopLimits,
 };
 use crate::study::tune::relay;
@@ -42,7 +44,7 @@ use crate::study::tune::{
     check_before_start, controller_action, gain_unit, settings_refused, stage_evidence, TuneInputs,
     TuneOutcome, TuneSection,
 };
-use crate::tuning::candidate::{CandidateSource, ControlPidCandidate};
+use crate::tuning::candidate::{CandidateSource, LawCandidate};
 use crate::tuning::design_to_requirements::{
     design_to_requirements, nearest_responses, structure_word,
 };
@@ -51,6 +53,10 @@ use crate::tuning::objective::{TuningMethod, TuningObjective, AUTOMATIC_OBJECTIV
 use crate::tuning::placement::{ModelPlacement, PolePlacement};
 use crate::tuning::plant::{check_normalized_error, check_plant, from_identified, TuningPlant};
 use crate::tuning::prediction::{PredictedGains, RecordShaping, SelectedModelPredictor};
+use crate::tuning::project_candidate::{
+    project_candidate, served_feedforward, served_seed, served_trajectory, trajectory_candidate,
+};
+use crate::tuning::project_seed::trajectory_feedforward_of_model;
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::recommendation::{
     recommend, Attempt, AttemptStatus, RecommendationError, RecommendationInputs,
@@ -95,6 +101,10 @@ pub(crate) fn run(
     held: Option<&TuningRequirements>,
     running: Option<&BTreeMap<String, f64>>,
 ) -> Result<TuneOutcome, Failure> {
+    // A measured-disturbance feedforward has two inputs, so its model is not a low-order form: it has its own Tune (C8).
+    if served_feedforward(inputs.loop_definition).is_some() {
+        return feedforward::run(inputs, held, running);
+    }
     check_before_start(inputs)?;
     let Some(current) = inputs.model else {
         return Err(defect(NO_MODEL));
@@ -136,11 +146,13 @@ pub(crate) fn run(
         ),
         None => designed_candidate(inputs, &model, &requirements, &setup, &predictor, &context)?,
     };
+    let (stored, stored_project) = candidate.clone().into_parts();
     let section = TuneSection {
         method: request.method,
         model_revision: current.model.identity().revision.clone(),
         requirements: requirements.clone(),
-        candidate,
+        candidate: stored,
+        project_candidate: stored_project,
         reason: designed.reason.clone(),
         closed_loop_time_seconds: designed.closed_loop_time_seconds,
         attempts: designed.attempts.clone(),
@@ -185,7 +197,7 @@ fn designed_candidate(
     setup: &LoopSetup,
     predictor: &SelectedModelPredictor<'_>,
     context: &DesignContext<'_>,
-) -> Result<(Design, ControlPidCandidate, Vec<ComparisonEntry>), Failure> {
+) -> Result<(Design, LawCandidate, Vec<ComparisonEntry>), Failure> {
     let loop_definition = inputs.loop_definition;
     let request = inputs.request;
     let (designed, comparison) = if request.method == Some(TuneMethod::Relay) {
@@ -218,14 +230,42 @@ fn designed_candidate(
     let mapped = mapped_parameters(loop_definition);
     let (designed, applied) =
         pinned_design(loop_definition, request.pins.as_ref(), designed, &mapped)?;
-    let candidate = candidate_record(
-        designed.gains,
-        designed.source,
-        &LoopLimits::of(loop_definition),
-        record_shaping(loop_definition, &applied),
-        applied.get(&GainKey::BackCalculationGain).copied(),
-    )?;
+    let candidate = match (
+        served_trajectory(loop_definition),
+        served_seed(loop_definition),
+    ) {
+        // A trajectory law (C11) takes the PID design as it stands, and its feedforward gains from the model's transfer function.
+        (Some(trajectory), _) => {
+            let feedforward = trajectory_gains(inputs)?;
+            LawCandidate::Project(trajectory_candidate(
+                trajectory,
+                designed.source,
+                designed.gains,
+                feedforward,
+            ))
+        }
+        (None, Some(seed)) => {
+            LawCandidate::Project(project_candidate(seed, designed.source, designed.gains))
+        }
+        (None, None) => LawCandidate::Pid(candidate_record(
+            designed.gains,
+            designed.source,
+            &LoopLimits::of(loop_definition),
+            record_shaping(loop_definition, &applied),
+            applied.get(&GainKey::BackCalculationGain).copied(),
+        )?),
+    };
     Ok((designed, candidate, comparison))
+}
+
+/// The feedforward gains of a trajectory law (C11) from the study's model: `K_v = b/n` and `K_a = a/n` of the model `n/(a·s² + b·s)`. A
+/// model of another form has no trajectory feedforward rule, and Tune refuses the candidate with that sentence (Identify).
+fn trajectory_gains(inputs: &TuneInputs<'_>) -> Result<(f64, f64), Failure> {
+    let Some(current) = inputs.model else {
+        return Err(defect(NO_MODEL));
+    };
+    trajectory_feedforward_of_model(&current.model)
+        .map_err(refused(Cause::ModelOrData, NextAction::Identify))
 }
 
 /// The plant of the tuning model (N5.2 to N5.7): the form the named formula reads, or for Automatic the form SIMC reads. A
@@ -358,52 +398,106 @@ impl LoopSetup {
     }
 }
 
-/// What the recommendation reads from the loop's law (B4.4, C0): whether it is a PID law, which offers PI, PD and PID,
-/// whether an initialization adapter measures the first output from the operating input, and the bounds of the
-/// proportional gain's parameter.
+/// What the recommendation reads from the loop's law (B4.4, C0): which terms the law has, and so which structures it offers,
+/// whether an initialization adapter measures the first output from the operating input, and the bounds of the proportional
+/// gain's parameter.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct LawFacts {
-    has_pid_law: bool,
+    /// Whether the law has an integral term, so that PI is offered.
+    integral_term: bool,
+    /// Whether the law has a derivative term, so that PD is offered.
+    derivative_term: bool,
     operating_bias_applies: bool,
     proportional_bounds: Option<GainBounds>,
 }
 
 impl LawFacts {
-    /// The facts of the law of `loop_definition`.
+    /// The facts of the law of `loop_definition`: a `Control.PID` has both terms, a program's own law has the terms its seed names
+    /// (C2), and a proportional law has neither.
     fn of(loop_definition: &LoopDefinition) -> Self {
-        let (has_pid_law, proportional_symbol) = match &loop_definition.controller.law {
-            Some(ControllerLaw::Pid(pid)) => (true, Some(pid.proportional_gain_symbol.as_str())),
-            Some(ControllerLaw::Proportional { gain_symbol }) => {
-                (false, Some(gain_symbol.as_str()))
+        let (integral_term, derivative_term, proportional_symbol) = match (
+            &loop_definition.controller.law,
+            served_seed(loop_definition),
+        ) {
+            (Some(ControllerLaw::Pid(pid)), _) => {
+                (true, true, Some(pid.proportional_gain_symbol.as_str()))
             }
-            None => (false, None),
+            (Some(ControllerLaw::Proportional { gain_symbol }), _) => {
+                (false, false, Some(gain_symbol.as_str()))
+            }
+            (None, Some(seed)) => (
+                seed.integral_symbol.is_some(),
+                seed.derivative_symbol.is_some(),
+                Some(seed.proportional_symbol.as_str()),
+            ),
+            (None, None) => (false, false, None),
         };
         Self {
-            has_pid_law,
-            operating_bias_applies: loop_definition.controller.pid_initialization.is_some(),
+            integral_term,
+            derivative_term,
+            operating_bias_applies: operating_bias_applies(loop_definition),
             proportional_bounds: proportional_symbol
                 .and_then(|symbol| bound_parameter(loop_definition, symbol))
                 .map(bounds_of),
         }
     }
+
+    /// Whether the law offers `structure`, from its terms (C0).
+    fn offers(self, structure: Structure) -> bool {
+        structure.offered_by_terms(self.integral_term, self.derivative_term)
+    }
+}
+
+/// Whether the initial output is measured from the operating input (C1, C2): a `Control.PID` with its library initialization, or a
+/// program's own law whose declared states start the integral term from the output.
+fn operating_bias_applies(loop_definition: &LoopDefinition) -> bool {
+    loop_definition.controller.pid_initialization.is_some()
+        || loop_definition
+            .controller
+            .project
+            .as_ref()
+            .is_some_and(|project| {
+                project.initialization.states().iter().any(|state| {
+                    matches!(
+                        state.initial,
+                        InitialValue::From(InitialSource::PidIntegral { .. })
+                    )
+                })
+            })
 }
 
 /// The bounds of the gains of a PID law, by magnitude (N6.4), with each parameter's unit as the shortfall sentences print it
-/// (`gainRangeShortfall`). A loop whose law is not a PID law declares none.
+/// (`gainRangeShortfall`): the three gains of a `Control.PID`, or the variables of a program's own law that its seed names (C2). A
+/// loop whose law is a proportional law, or has no law, declares none.
 fn gain_limits(loop_definition: &LoopDefinition) -> GainLimits {
-    let Some(ControllerLaw::Pid(pid)) = &loop_definition.controller.law else {
-        return GainLimits::default();
+    let (proportional, integral, derivative) = match (
+        &loop_definition.controller.law,
+        served_seed(loop_definition),
+    ) {
+        (Some(ControllerLaw::Pid(pid)), _) => (
+            Some(pid.proportional_gain_symbol.as_str()),
+            Some(pid.integral_gain_symbol.as_str()),
+            Some(pid.derivative_gain_symbol.as_str()),
+        ),
+        (None, Some(seed)) => (
+            Some(seed.proportional_symbol.as_str()),
+            seed.integral_symbol.as_deref(),
+            seed.derivative_symbol.as_deref(),
+        ),
+        _ => return GainLimits::default(),
     };
-    let limit = |symbol: &str| {
-        bound_parameter(loop_definition, symbol).map(|parameter| GainLimit {
-            bounds: bounds_of(parameter),
-            unit: display_engineering_unit(&parameter.unit),
-        })
+    let limit = |symbol: Option<&str>| {
+        symbol
+            .and_then(|symbol| bound_parameter(loop_definition, symbol))
+            .map(|parameter| GainLimit {
+                bounds: bounds_of(parameter),
+                unit: display_engineering_unit(&parameter.unit),
+            })
     };
     GainLimits {
-        proportional: limit(pid.proportional_gain_symbol.as_str()),
-        integral: limit(pid.integral_gain_symbol.as_str()),
-        derivative: limit(pid.derivative_gain_symbol.as_str()),
+        proportional: limit(proportional),
+        integral: limit(integral),
+        derivative: limit(derivative),
     }
 }
 
@@ -480,18 +574,18 @@ fn design(
     }
 }
 
-/// The structure a named method designs when none is asked: PI on a PID law, P on a proportional law.
+/// The structure a named method designs when none is asked: PI where the law offers it, P otherwise.
 fn default_structure(law: LawFacts) -> Structure {
-    if law.has_pid_law {
+    if law.offers(Structure::PI) {
         Structure::PI
     } else {
         Structure::P
     }
 }
 
-/// Whether the loop's law offers a structure (C0): P always, PI, PD and PID only on a PID law (`controllerAdapters.ts`).
+/// Whether the loop's law offers a structure (C0): P always, and PI, PD and PID by the terms the law has (`controllerAdapters.ts`).
 fn check_offered(structure: Structure, law: LawFacts) -> Result<(), Failure> {
-    if structure == Structure::P || law.has_pid_law {
+    if law.offers(structure) {
         return Ok(());
     }
     Err(Failure::new(
@@ -590,7 +684,8 @@ fn automatic_design(
     let inputs = RecommendationInputs {
         topology: None,
         unsupported_branch: None,
-        has_pid_law: basis.law.has_pid_law,
+        has_integral_term: basis.law.integral_term,
+        has_derivative_term: basis.law.derivative_term,
         operating_bias_applies: basis.law.operating_bias_applies,
         proportional_bounds: basis.law.proportional_bounds,
         initialization: Ok(()),
@@ -804,7 +899,7 @@ struct Evaluation<'a> {
 fn answer(
     method: Option<TuneMethod>,
     designed: Design,
-    candidate: ControlPidCandidate,
+    candidate: LawCandidate,
     comparison: Vec<ComparisonEntry>,
     stage_evidence: StageEvidence,
     evaluation: &Evaluation<'_>,
@@ -822,7 +917,7 @@ fn answer(
         designed.gains,
         requirements,
     );
-    let settings = record_settings(&candidate, evaluation.parameters);
+    let settings = candidate_settings(&candidate, evaluation.parameters);
     tune_result(ResultInputs {
         model: evaluation.model,
         method,
@@ -865,6 +960,14 @@ fn defect(what: &str) -> Failure {
     )
 }
 
+/// The Tune of a measured-disturbance feedforward (C8), which reuses this module's answer and evaluation. Its output-path view and
+/// single loop are read by Validate (C8), so the module is visible to the crate.
+pub(crate) mod feedforward;
+
 #[cfg(test)]
 #[path = "design_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "trajectory_tests.rs"]
+mod trajectory_tests;

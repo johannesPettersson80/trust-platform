@@ -4,9 +4,10 @@
 //! explicit Cancel mean, and the sentences of the run with their causes and next actions (A11). The run's calls to the runtime
 //! are in `trust-lsp` (`workflow::identify`); every decision they need is here.
 //!
-//! One plant input only: stepping several plant inputs one after another (`connectedIdentificationChannels.ts`) is parked with
-//! stage V7, so a run steps the loop's own plant input once. The mode transfer of a method that needs the other mode moves with
-//! V4 (`identification::mode`).
+//! Several plant inputs (C7, C8): one campaign steps each input in turn, each in its own interval of one recording. The steps of
+//! a loop's inputs are planned here ([`input_steps`], as `connectedIdentificationChannels.ts` builds them), and the hold of each
+//! step shares the time left (`step_hold_ms`). The mode transfer of a method that needs the other mode moves with V4
+//! (`identification::mode`).
 
 use serde_json::Value;
 
@@ -42,8 +43,17 @@ use crate::identification::recorded_model::RecordedFitError;
 use crate::identification::texts::{compatibility_text, MISSING_NONZERO_STEP};
 use crate::limits::MINIMUM_EXPERIMENT_DURATION_MS;
 use crate::loop_definition::{Execution, LoopDefinition, RelayDirection};
-use crate::model::ModelValidation;
+use crate::model::{GeneralModel, ModelValidation};
 use crate::recording::EvidenceSource;
+
+// The steps of the loop's plant inputs (C7, C8) are in their own module; their rules are re-exported here.
+#[path = "channel_steps.rs"]
+mod channel_steps;
+
+pub use channel_steps::{
+    input_steps, loop_signal_of, manual_address, method_of_step, several_channels, step_sample,
+    InputStep,
+};
 
 /// The progress of a run that identifies the plant.
 pub const IDENTIFYING_TEXT: &str = "Identifying — recording the connected plant…";
@@ -291,10 +301,10 @@ pub fn offers_setpoint_step(
         && sample.is_some_and(|sample| sample.controller_mode == ControllerMode::Auto)
 }
 
-/// How long the step is held, in ms (B3.4 step 4): the maximum duration counted from the end of the baseline, within the
-/// recording, less `restoration_ms` for the restoration ([`restoration_allowance_ms`]). The step starts at `step_seconds` and
-/// the baseline ended at `baseline_end_seconds`, both in process time of the recording, so a long wait for a steady start
-/// never shortens the step.
+/// How long a step is held, in ms (B3.4 step 4): the maximum duration counted from the end of the baseline, within the recording,
+/// shared by the `remaining` inputs still to step, less `restoration_ms` for the restoration ([`restoration_allowance_ms`]). The
+/// step starts at `step_seconds` and the baseline ended at `baseline_end_seconds`, both in process time of the recording, so a
+/// long wait for a steady start never shortens the step. A campaign of one input has `remaining` 1 (`connectedIdentificationChannels`).
 #[must_use]
 pub fn step_hold_ms(
     maximum_ms: u64,
@@ -302,10 +312,12 @@ pub fn step_hold_ms(
     restoration_ms: f64,
     baseline_end_seconds: f64,
     step_seconds: f64,
+    remaining: u32,
 ) -> f64 {
     let after_baseline = ms_as_f64(maximum_ms) - (step_seconds - baseline_end_seconds) * 1_000.0;
     let within_recording = ms_as_f64(recording_ms) - step_seconds * 1_000.0;
-    after_baseline.min(within_recording).floor() - restoration_ms
+    let shared = after_baseline.min(within_recording) / f64::from(remaining.max(1));
+    shared.floor() - restoration_ms
 }
 
 /// The restoration allowance of a hold, in ms (B3.4 step 4): one baseline window, or, for a project-scripted experiment, which
@@ -407,6 +419,12 @@ pub fn approved_step_plan(
         on_off: on_off_actuator(loop_definition),
     })
     .map_err(|error| error.failure())?;
+    // A relay's switching band is centred on the baseline only for a loop with one plant input: a loop that steps several inputs
+    // keeps the measurement's own centre (`preparePlan` passes the baseline only when there is one channel).
+    let single_input = loop_definition
+        .channels
+        .as_ref()
+        .is_none_or(|channels| channels.inputs.len() <= 1);
     let reviewed = build_control_experiment_plan(&PlanInput {
         loop_definition,
         sample,
@@ -415,8 +433,8 @@ pub fn approved_step_plan(
         duration_seconds: hold_ms / 1_000.0,
         physical_topology_reviewed: physical_approved,
         seed: Some(step_seed(loop_definition, validation)),
-        process_center: Some(baseline.mean),
-        process_noise: Some(baseline.half_range),
+        process_center: single_input.then_some(baseline.mean),
+        process_noise: single_input.then_some(baseline.half_range),
         hold_seconds: None,
     });
     match reviewed {
@@ -773,9 +791,21 @@ fn another_method_action(loop_definition: &LoopDefinition) -> NextAction {
 pub fn is_provisional<E>(result: &AutomaticIdentificationResult<E>) -> bool {
     match result {
         AutomaticIdentificationResult::Accepted { .. } => false,
-        AutomaticIdentificationResult::Model { model, .. } => {
+        AutomaticIdentificationResult::Model { model, .. }
+        | AutomaticIdentificationResult::StateModel { model, .. } => {
             model.identity().validation != ModelValidation::Validated
         }
+    }
+}
+
+/// The model of a fitted result, whichever form it has: a single-channel model, or a state model of several channels (C7, C8).
+/// `None` for an accepted identification, whose model is checked by the session that accepts it.
+#[must_use]
+fn fitted_model<E>(result: &AutomaticIdentificationResult<E>) -> Option<&GeneralModel> {
+    match result {
+        AutomaticIdentificationResult::Model { model, .. }
+        | AutomaticIdentificationResult::StateModel { model, .. } => Some(model.as_ref()),
+        AutomaticIdentificationResult::Accepted { .. } => None,
     }
 }
 
@@ -790,21 +820,21 @@ pub fn qualification<E>(
     loop_definition: &LoopDefinition,
     result: &AutomaticIdentificationResult<E>,
 ) -> Result<(), Failure> {
-    if let AutomaticIdentificationResult::Model { model, .. } = result {
-        assert_qualified_model_result(loop_definition, model).map_err(|refusal| {
-            // The model's input meets the actuator range, which the output limits give: a missing or invalid limit is the
-            // precondition's refusal, and Limits opens there (B3.9). Any other refusal is identified again.
-            match (&refusal, plant_input_range(loop_definition)) {
-                (CompatibilityRefusal::InputActuatorRange { .. }, Err(limits)) => limits,
-                _ => Failure::new(
-                    &compatibility_text(&refusal),
-                    Cause::ModelOrData,
-                    NextAction::Identify,
-                ),
-            }
-        })?;
-    }
-    Ok(())
+    let Some(model) = fitted_model(result) else {
+        return Ok(());
+    };
+    assert_qualified_model_result(loop_definition, model).map_err(|refusal| {
+        // The model's input meets the actuator range, which the output limits give: a missing or invalid limit is the
+        // precondition's refusal, and Limits opens there (B3.9). Any other refusal is identified again.
+        match (&refusal, plant_input_range(loop_definition)) {
+            (CompatibilityRefusal::InputActuatorRange { .. }, Err(limits)) => limits,
+            _ => Failure::new(
+                &compatibility_text(&refusal),
+                Cause::ModelOrData,
+                NextAction::Identify,
+            ),
+        }
+    })
 }
 
 /// The refusal of a physical target on this path (A2.5). Declining approval offers no action (B3.9).

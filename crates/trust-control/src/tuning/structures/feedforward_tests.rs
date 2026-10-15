@@ -8,9 +8,11 @@
 #![allow(clippy::float_cmp)] // The derivative gain is compared with zero exactly: a PI writes an explicit zero.
 
 use trust_control_math::identify::gain::ControllerAction;
+use trust_control_math::identify::ParameterInterval;
 
 use super::*;
 use crate::tuning::objective::TuningObjective;
+use crate::tuning::prediction::RecordShaping;
 use crate::tuning::shortfall::{GainLimits, OutputLimits};
 use crate::tuning::structures::fixtures::{
     heater_model, requirements, slow_load_model, smith_heater_model, NoSupport,
@@ -25,6 +27,11 @@ fn facts() -> LoopFacts {
             minimum: 0.0,
             maximum: 100.0,
         },
+        rate_limits: ParameterInterval {
+            minimum: -1e6,
+            maximum: 1e6,
+        },
+        shaping: RecordShaping::default(),
         process_unit: "degC".to_owned(),
         manipulated_unit: "%".to_owned(),
     }
@@ -97,6 +104,24 @@ fn the_feedforward_cancels_most_of_the_disturbance_on_the_model() {
         deviation.feedforward < deviation.feedback / 10.0,
         "the feedforward cancels most of the disturbance on the model: {deviation:?}"
     );
+}
+
+#[test]
+fn the_design_reads_the_two_reduced_paths_that_reduce_paths_gives() {
+    let paths = reduce_paths(&heater_model(), &channels()).expect("the heater's paths reduce");
+    assert!(
+        (paths.output.gain - 0.2).abs() < 0.002,
+        "K_u {}",
+        paths.output.gain
+    );
+    assert!(
+        (paths.disturbance.gain + 0.1).abs() < 0.001,
+        "K_d {}",
+        paths.disturbance.gain
+    );
+    let design = design(&heater_model(), true);
+    assert_eq!(design.output_path, paths.output);
+    assert_eq!(design.disturbance_path, paths.disturbance);
 }
 
 #[test]

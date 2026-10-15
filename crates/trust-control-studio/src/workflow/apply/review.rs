@@ -20,6 +20,7 @@ use trust_control::commissioning::parameter_application::{
 };
 use trust_control::commissioning::parameter_binding::runtime_binding_of;
 use trust_control::commissioning::parameter_status::ParameterStatus;
+use trust_control::commissioning::project_law::project_gains;
 use trust_control::commissioning::transfer::{TransferBinding, TransferValue};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::connected_record::connected_identification_record;
@@ -37,7 +38,7 @@ use trust_control::study::inputs::{held_scenarios, InputsSection};
 use trust_control::study::tune::TuneSection;
 use trust_control::study::validate::{stage_evidence, ValidateSection};
 use trust_control::study::Study;
-use trust_control::tuning::candidate::ControlPidCandidate;
+use trust_control::tuning::candidate::LawCandidate;
 use trust_control::validation::engineer_verification_plan::EngineerRequirements;
 
 use super::journaling::{stage_word, unresolved};
@@ -86,8 +87,15 @@ pub(crate) fn preconditions(context: &ApplyContext<'_>) -> Result<ApplyInputs, F
         loop_definition,
         &current,
     )?;
+    let candidate = validate.law_candidate().ok_or_else(|| {
+        Failure::new(
+            "The validation of the study holds no candidate.",
+            Cause::Implementation,
+            NextAction::None,
+        )
+    })?;
     Ok(ApplyInputs {
-        gains: candidate_gains(loop_definition, &validate.candidate),
+        gains: candidate_gains(loop_definition, &candidate),
         validation_identity: validation_identity(&validate)?,
         task: validate.requirements,
         model: current.model,
@@ -209,21 +217,28 @@ pub(crate) fn measured_noise(
 #[must_use]
 pub(crate) fn candidate_gains(
     loop_definition: &LoopDefinition,
-    candidate: &ControlPidCandidate,
+    candidate: &LawCandidate,
 ) -> ControllerGains {
-    let record = &candidate.parameters;
-    let back_calculation = matches!(
-        &loop_definition.controller.law,
-        Some(ControllerLaw::Pid(law)) if law.anti_windup.is_some()
-    );
-    ControllerGains {
-        proportional_gain: Some(record.proportional_gain),
-        integral_gain: Some(record.integral_gain),
-        derivative_gain: Some(record.derivative_gain),
-        back_calculation_gain: back_calculation.then_some(record.tracking_time.recip()),
-        proportional_setpoint_weight: Some(record.proportional_setpoint_weight),
-        derivative_setpoint_weight: Some(record.derivative_setpoint_weight),
-        measurement_filter_seconds: candidate.measurement_filter_seconds,
+    match candidate {
+        LawCandidate::Pid(candidate) => {
+            let record = &candidate.parameters;
+            let back_calculation = matches!(
+                &loop_definition.controller.law,
+                Some(ControllerLaw::Pid(law)) if law.anti_windup.is_some()
+            );
+            ControllerGains {
+                proportional_gain: Some(record.proportional_gain),
+                integral_gain: Some(record.integral_gain),
+                derivative_gain: Some(record.derivative_gain),
+                back_calculation_gain: back_calculation.then_some(record.tracking_time.recip()),
+                proportional_setpoint_weight: Some(record.proportional_setpoint_weight),
+                derivative_setpoint_weight: Some(record.derivative_setpoint_weight),
+                measurement_filter_seconds: candidate.measurement_filter_seconds,
+                ..ControllerGains::default()
+            }
+        }
+        // A program's own law writes its gains, and a trajectory law its feedforward gains too, to the seed variables (C2, C11).
+        LawCandidate::Project(candidate) => project_gains(loop_definition, candidate),
     }
 }
 

@@ -10,10 +10,11 @@ use trust_control_math::model::OperatingPoint;
 
 use crate::commissioning::adapters::{controller_adapter, AdapterKind, AdapterStartPlan};
 use crate::commissioning::pid_initialization::pid_initialization_adapter;
+use crate::commissioning::project_law::application_states;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::LoopDefinition;
 use crate::model::{GeneralModel, SimulationOverride};
-use crate::tuning::candidate::ControlPidCandidate;
+use crate::tuning::candidate::LawCandidate;
 use crate::validation::engineer_scenario_effects::milliseconds_as_float;
 use crate::validation::engineer_verification_campaign::CampaignCase;
 use crate::validation::engineer_verification_plan::{EngineerRequirements, VerificationPlan};
@@ -134,7 +135,7 @@ impl EntryCase {
         &self,
         loop_definition: &LoopDefinition,
         model: &GeneralModel,
-        candidate: &ControlPidCandidate,
+        candidate: &LawCandidate,
         simulation: Option<&SimulationOverride>,
         request_id: &str,
         project_revision: &str,
@@ -176,6 +177,12 @@ fn declared_states(
             .iter()
             .map(|state| (state.symbol.clone(), state.unit.clone()))
             .collect()),
+        AdapterKind::ProjectPid { project, .. } => Ok(project
+            .initialization
+            .states()
+            .iter()
+            .map(|state| (state.symbol.clone(), state.unit.clone()))
+            .collect()),
         AdapterKind::ParallelPid => {
             let contract = pid_initialization_adapter(loop_definition)?;
             Ok([contract.integral_state, contract.derivative_state]
@@ -183,7 +190,11 @@ fn declared_states(
                 .map(|state| (state.symbol.clone(), state.unit.clone()))
                 .collect())
         }
-        AdapterKind::ConnectedP => Ok(Vec::new()),
+        // A program's own P law starts its application states (C1), which the entry run observes; a Control.PID's P law has none.
+        AdapterKind::ConnectedP => Ok(application_states(loop_definition)
+            .into_iter()
+            .map(|state| (state.symbol.clone(), state.unit.clone()))
+            .collect()),
     }
 }
 

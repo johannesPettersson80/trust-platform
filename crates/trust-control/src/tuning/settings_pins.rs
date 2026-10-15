@@ -8,7 +8,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::identification::refusal::Refusal;
-use crate::loop_definition::{ControllerLaw, LoopDefinition, RealType};
+use crate::loop_definition::{ControllerLaw, LoopDefinition, ParameterBinding, RealType};
+use crate::tuning::project_candidate::served_seed;
+use crate::tuning::project_seed::ParallelPidSeed;
 use crate::tuning::proportional::GainBounds;
 use crate::tuning::structure::{is_exactly_zero, Structure};
 use crate::tuning::texts;
@@ -144,10 +146,13 @@ pub fn apply_pins(
 /// the parameter binding does not hold is not mapped, and a loop without a PID law maps none.
 #[must_use]
 pub fn mapped_parameters(loop_definition: &LoopDefinition) -> Vec<MappedParameter> {
-    let (Some(ControllerLaw::Pid(pid)), Some(binding)) = (
-        &loop_definition.controller.law,
-        &loop_definition.parameter_binding,
-    ) else {
+    let Some(binding) = &loop_definition.parameter_binding else {
+        return Vec::new();
+    };
+    if let Some(seed) = served_seed(loop_definition) {
+        return seed_parameters(seed, binding);
+    }
+    let Some(ControllerLaw::Pid(pid)) = &loop_definition.controller.law else {
         return Vec::new();
     };
     let tracking_gain = pid
@@ -182,23 +187,46 @@ pub fn mapped_parameters(loop_definition: &LoopDefinition) -> Vec<MappedParamete
         (tracking_gain, GainKey::BackCalculationGain),
     ]
     .into_iter()
-    .filter_map(|(symbol, key)| {
-        let symbol = symbol?;
-        let parameter = binding
-            .parameters
-            .iter()
-            .find(|parameter| parameter.symbol == symbol)?;
-        Some(MappedParameter {
-            symbol: symbol.to_owned(),
-            key,
-            bounds: GainBounds {
-                minimum: parameter.minimum,
-                maximum: parameter.maximum,
-            },
-            real: matches!(parameter.iec_type, RealType::Real),
-        })
-    })
+    .filter_map(|(symbol, key)| mapped_parameter(binding, symbol?, key))
     .collect()
+}
+
+/// The bound parameters of a program's own law (C2): the seed's gain variables, each with the record field of its gain, so that
+/// the pins, the manual settings and the gain limits key on the variables the program holds.
+fn seed_parameters(seed: &ParallelPidSeed, binding: &ParameterBinding) -> Vec<MappedParameter> {
+    [
+        (
+            Some(seed.proportional_symbol.as_str()),
+            GainKey::ProportionalGain,
+        ),
+        (seed.integral_symbol.as_deref(), GainKey::IntegralGain),
+        (seed.derivative_symbol.as_deref(), GainKey::DerivativeGain),
+    ]
+    .into_iter()
+    .filter_map(|(symbol, key)| mapped_parameter(binding, symbol?, key))
+    .collect()
+}
+
+/// The bound parameter with `symbol`, as the record field `key` holds it: its bounds and whether it is `REAL` (C0). A symbol the
+/// binding does not hold maps nothing.
+fn mapped_parameter(
+    binding: &ParameterBinding,
+    symbol: &str,
+    key: GainKey,
+) -> Option<MappedParameter> {
+    let parameter = binding
+        .parameters
+        .iter()
+        .find(|parameter| parameter.symbol == symbol)?;
+    Some(MappedParameter {
+        symbol: symbol.to_owned(),
+        key,
+        bounds: GainBounds {
+            minimum: parameter.minimum,
+            maximum: parameter.maximum,
+        },
+        real: matches!(parameter.iec_type, RealType::Real),
+    })
 }
 
 /// Whether a value is within a parameter's bounds and representable in its type (C0): a gain by its magnitude (N6.4), the
@@ -305,6 +333,34 @@ fn required_keys(family: Structure, parameters: &[MappedParameter]) -> Vec<&Mapp
                 family.has_integral()
             }
         })
+        .collect()
+}
+
+/// The parameter symbols that a family's manual settings and its pins take (B4.2, C0, C2): the bound parameters that the manual
+/// entry of `family` requires, in the order of the mapping. A program's own law gives the variables of its seed that the family
+/// uses; a Control.PID gives the record fields that the family uses. The page asks for these, and Tune refuses any other.
+#[must_use]
+pub fn family_setting_symbols(loop_definition: &LoopDefinition, family: Structure) -> Vec<String> {
+    // A proportional law (C13) has one setting, its gain, for every family the page shows (`manualTuneSettings.ts`).
+    if let Some(ControllerLaw::Proportional { gain_symbol }) = &loop_definition.controller.law {
+        let bound = loop_definition
+            .parameter_binding
+            .as_ref()
+            .is_some_and(|binding| {
+                binding
+                    .parameters
+                    .iter()
+                    .any(|parameter| parameter.symbol == *gain_symbol)
+            });
+        return if bound {
+            vec![gain_symbol.clone()]
+        } else {
+            Vec::new()
+        };
+    }
+    required_keys(family, &mapped_parameters(loop_definition))
+        .into_iter()
+        .map(|parameter| parameter.symbol.clone())
         .collect()
 }
 

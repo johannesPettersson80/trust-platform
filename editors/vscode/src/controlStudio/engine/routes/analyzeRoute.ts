@@ -94,20 +94,31 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
   const send = (scope: LoopMessageScope, kind: string, fields: Record<string, unknown>): Promise<void> =>
     options.post({ ...scopeFields(scope), kind, ...fields });
 
-  /** Relays one analysis operation's updates to the page until it ends or the route is reset. */
+  /**
+   * Relays one analysis operation's updates to the page until it ends or the route is reset. The engine sends an update as a
+   * notification, which no listener keeps for a later subscriber, so an update sent before this subscription stands is never
+   * replayed. The operation's state is therefore asked for once the subscription stands (`controlStudio/status`; the engine records a
+   * final state before it sends it): an operation that has already ended reaches the page as its final update.
+   */
   function follow(operationId: string, scope: LoopMessageScope): void {
     stopWatching();
     running = operationId;
-    watch = client.onUpdate(operationId, (update: OperationUpdate) => {
-      if (running !== operationId) return;
-      if (update.state !== "running") stopWatching();
-      void send(scope, KIND.update, updateFields(operationId, update));
-      // The calculation ended with the inputs the engine read: the page shows them again when the panel reopens (A8.6, B9.9).
-      if (update.state === "finished" && update.result && opened) {
-        shown = answeredAnalysis(update.result as unknown as AnalysisEnvelope);
-        void recordPage(opened, scope);
-      }
-    });
+    watch = client.onUpdate(operationId, (update: OperationUpdate) => relayUpdate(operationId, scope, update));
+    void client.status({ operationId }).then(reply => {
+      if ("result" in reply && reply.result.state !== "running") relayUpdate(operationId, scope, reply.result);
+    }, () => undefined);
+  }
+
+  /** Sends the page one update of the operation the route follows; its final update ends the follow. */
+  function relayUpdate(operationId: string, scope: LoopMessageScope, update: OperationUpdate): void {
+    if (running !== operationId) return;
+    if (update.state !== "running") stopWatching();
+    void send(scope, KIND.update, updateFields(operationId, update));
+    // The calculation ended with the inputs the engine read: the page shows them again when the panel reopens (A8.6, B9.9).
+    if (update.state === "finished" && update.result && opened) {
+      shown = answeredAnalysis(update.result as unknown as AnalysisEnvelope);
+      void recordPage(opened, scope);
+    }
   }
 
   async function refresh(current: EngineLoop, scope: LoopMessageScope): Promise<void> {
@@ -156,15 +167,19 @@ export function createAnalyzeRoute(options: AnalyzeRouteOptions): AnalyzeRoute {
     const answer = reply.result;
     const operationId = record(answer)?.operationId;
     if (typeof operationId === "string") {
-      await send(scope, KIND.started, { tool, operationId });
+      // `started` is posted at once, and the route subscribes before it awaits the post: an update sent while the page acknowledges
+      // `started` reaches the route. An update sent before the subscription is recovered by `follow`.
+      const posted = send(scope, KIND.started, { tool, operationId });
       follow(operationId, scope);
+      await posted;
     } else if (typeof record(answer)?.tool === "string") {
       const envelope = answer as AnalysisEnvelope;
       // The inputs the engine read are the ones the page records and shows again (A8.6), not the ones it sent.
       shown = answeredAnalysis(envelope);
       await send(scope, KIND.answer, { envelope });
     } else {
-      await send(scope, KIND.failure, { method: "run", failure: unclassifiedFailure(UNEXPECTED_ANSWER) });
+      // The tool is named, so that the page ends the calculation it waits for (the refusal clears its pending run).
+      await send(scope, KIND.failure, { method: "run", tool, failure: unclassifiedFailure(UNEXPECTED_ANSWER) });
     }
     await recordPage(current, scope);
   }

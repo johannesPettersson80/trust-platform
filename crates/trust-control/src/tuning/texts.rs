@@ -316,6 +316,12 @@ pub fn not_a_setting(symbol: &str) -> String {
     format!("{symbol} is not a setting of this controller.")
 }
 
+/// B4.2 and C2: a pinned or entered setting that the family does not take (`family_setting_symbols`).
+#[must_use]
+pub fn not_a_family_setting(symbol: &str, family: &str) -> String {
+    format!("{symbol} is not a setting of family {family}.")
+}
+
 /// B4.5 and C0: a setting outside the range its parameter declares, or not finite (`manualPreview.ts`). The numbers are
 /// printed as the engineering format prints them, as the other sentences of Tune do.
 #[must_use]

@@ -230,12 +230,20 @@ fn the_program_s_own_law_in_a_mapping_is_refused_by_name_as_parked() {
     // configureControllerAdapter.ts copies `project`; the Rust adapter refuses the program's own law by name (V7).
     let source = example();
     let mut mapping = mapping_of(&source);
-    mapping["controller"]["project"] = serde_json::json!({});
+    // A complete block: the loop contract reads a block whole, so an empty object would be malformed rather than parked.
+    mapping["controller"]["project"] = serde_json::json!({
+        "family": "feedforward", "convention": "project-owned-native-controller",
+        "initialization": { "kind": "declared-state-v1", "states": [] }, "axes": [],
+        "objective": { "requirementId": "target-error", "direction": "minimize" },
+        "maximumCandidates": 4, "maximumCycles": 50000, "wallBudgetMs": 60000,
+        "seed": { "kind": "smith-pid" }
+    });
     let catalog = catalog_for(&source);
     let failure = apply_mapping(&mut source.clone(), &mapping, &catalog, Some("MainTask"))
         .expect_err("the program's own law is parked");
     assert_eq!(failure.cause, Cause::ControllerCapability);
     assert_eq!(failure.next_action, NextAction::None);
+    assert!(failure.message.contains("smith-pid"), "{}", failure.message);
 }
 
 #[test]

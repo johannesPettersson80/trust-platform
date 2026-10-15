@@ -83,11 +83,12 @@ function ownLawLoop(family: string, change?: (loop: LoopFile, controller: LoopFi
 
 /** The loops the engine parks, with the feature each one uses: course lessons where one carries the feature, else the generated shape. */
 const PARKED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
-  ["a declared analysis", () => readLoop(course("07-classical-stability-and-frequency-design", "44-routh-hurwitz"))],
   ["state feedback", () => readLoop(course("11-state-space-estimation-and-predictive-control", "68-state-feedback"))],
   ["channels", () => readLoop(course("10-multivariable-control", "61-mimo-paths"))],
+  ["channels in a relative-gain array", () => readLoop(course("10-multivariable-control", "62-relative-gain-array"))],
+  ["state feedback with channels (LQR)", () => readLoop(course("11-state-space-estimation-and-predictive-control", "69-lqr"))],
+  ["state feedback with channels (LQG)", () => readLoop(course("11-state-space-estimation-and-predictive-control", "72-lqg"))],
   ["the program's own law", () => readLoop(course("07-classical-stability-and-frequency-design", "89-mechanical-resonance"))],
-  ["a feedforward law", () => readLoop(course("14-integrated-capstones", "84-independent"))],
   ["a Smith predictor", () => ownLawLoop("Smith")],
   ["a gain schedule", () => ownLawLoop("gain-scheduled")],
   ["a cascade", () => ownLawLoop("cascade", loop => { loop.channels = { inputs: [], outputs: [] }; })],
@@ -99,6 +100,24 @@ const PARKED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
     controller.onOff = { mode: "on-off" };
     return loop;
   }],
+];
+
+/**
+ * The loops the engine serves now (specification 35 §0.1a, B1, C11 and C12): the schema-1 observation loops, read by the version-2 rules;
+ * the declared analyses, with the parameter tool for lessons 44 and 45 that map their parameters; the measured-disturbance feedforward (C8,
+ * lesson 84); and the trajectory feedforward (lesson 90).
+ */
+const SERVED_LOOPS: ReadonlyArray<readonly [string, () => LoopFile]> = [
+  ["a schema-1 observation loop", () => readLoop(course("01-feedback-foundations-and-temperature-control", "01-cold-storage-loop-anatomy"))],
+  ["a schema-1 ON/OFF lesson", () => readLoop(course("01-feedback-foundations-and-temperature-control", "02-cold-storage-on-off"))],
+  ["a schema-1 hysteresis lesson", () => readLoop(course("01-feedback-foundations-and-temperature-control", "03-cold-storage-hysteresis-dwell"))],
+  ["a schema-1 discrete-controller lesson", () => readLoop(course("14-integrated-capstones", "80-cold-storage"))],
+  ["a declared analysis with a parameter tool", () => readLoop(course("07-classical-stability-and-frequency-design", "44-routh-hurwitz"))],
+  ["a declared root locus with a parameter tool", () => readLoop(course("07-classical-stability-and-frequency-design", "45-root-locus"))],
+  ["a declared analysis without a parameter tool", () => readLoop(course("07-classical-stability-and-frequency-design", "47-nyquist-stability"))],
+  ["a declared sensitivity analysis without a parameter tool", () => readLoop(course("07-classical-stability-and-frequency-design", "48-sensitivity-functions"))],
+  ["a measured-disturbance feedforward", () => readLoop(course("14-integrated-capstones", "84-independent"))],
+  ["a trajectory feedforward", () => readLoop(course("09-industrial-control-structures", "90-trajectory-feedforward"))],
 ];
 
 suite("Control Studio engine parked loops", () => {
@@ -238,6 +257,16 @@ suite("Control Studio engine parked loops", () => {
       assert.strictEqual(await current.open(loop, scope), false, "the parked loop stays out of the way on a second open");
       assertOnlyParkedTools();
       await assertNoStageTakes(current, scope);
+    });
+  }
+
+  for (const [feature, load] of SERVED_LOOPS) {
+    test(`serves a loop with ${feature} on the engine, so its page's messages reach the engine route`, async function () {
+      this.timeout(60_000);
+      const loop = projectLoop(load());
+      const scope = scopeOf(loop);
+      const current = startRoute();
+      assert.strictEqual(await current.open(loop, scope), true, "the engine serves the loop, so the route takes its page's messages");
     });
   }
 

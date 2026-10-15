@@ -129,6 +129,7 @@ impl LoopDefinition {
                 return Err("the PID initialization's weights must be finite".into());
             }
         }
+        self.check_project()?;
         Ok(())
     }
 

@@ -10,6 +10,10 @@ use super::baseline::BaselineSummary;
 use crate::experiment::{ControlExperimentPlan, RecordingRecoveryOwner};
 use crate::failure::{Cause, Failure, NextAction};
 
+#[cfg(test)]
+#[path = "journal_tests.rs"]
+mod tests;
+
 /// The version of the journal's record (`schemaVersion: 1`).
 pub const JOURNAL_SCHEMA_VERSION: u32 = 1;
 
@@ -28,7 +32,9 @@ pub enum CampaignPhase {
 
 /// The record a campaign keeps before each dispatch (A8.5): its schema version, its loop revision, its phase, the identity of
 /// its recording, and for a step its plan, its baseline and where the step starts. `channels_remaining` counts the plant inputs
-/// that still follow this one: a resumed campaign finishes only the input it was stepping.
+/// that still follow this one: a resumed campaign steps them in the same recording (C7, C8). `baseline_end_seconds` is where the
+/// steady baseline ends, which the fit of the recording starts its window from, and `stepped_plans` holds the plans of the inputs
+/// stepped before this one, so that the record of a resumed campaign keeps every experiment of the recording.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IdentificationCampaignJournal {
@@ -49,6 +55,12 @@ pub struct IdentificationCampaignJournal {
     /// Where the step starts, in process time of the recording, once the step is dispatched.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step_start_seconds: Option<f64>,
+    /// Where the steady baseline ends, in process time of the recording, once the step is dispatched.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_end_seconds: Option<f64>,
+    /// The plans of the plant inputs stepped before this one, in order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stepped_plans: Vec<ControlExperimentPlan>,
     /// The plant inputs that still follow this one.
     pub channels_remaining: u64,
 }
@@ -69,11 +81,14 @@ impl IdentificationCampaignJournal {
             plan: None,
             baseline: None,
             step_start_seconds: None,
+            baseline_end_seconds: None,
+            stepped_plans: Vec::new(),
             channels_remaining,
         }
     }
 
-    /// The record of a campaign whose step is dispatched: the reviewed plan, the baseline, and where the step starts.
+    /// The record of a campaign whose step is dispatched: the reviewed plan, the baseline, and where the step starts. Its progress
+    /// (the end of the baseline and the plans stepped before) is added by [`Self::with_progress`].
     #[must_use]
     pub fn step_phase(
         loop_revision: &str,
@@ -91,8 +106,22 @@ impl IdentificationCampaignJournal {
             plan: Some(plan),
             baseline: Some(baseline),
             step_start_seconds: Some(step_start_seconds),
+            baseline_end_seconds: None,
+            stepped_plans: Vec::new(),
             channels_remaining,
         }
+    }
+
+    /// The record with the end of the steady baseline and the plans of the inputs stepped before this step.
+    #[must_use]
+    pub fn with_progress(
+        mut self,
+        baseline_end_seconds: f64,
+        stepped_plans: Vec<ControlExperimentPlan>,
+    ) -> Self {
+        self.baseline_end_seconds = Some(baseline_end_seconds);
+        self.stepped_plans = stepped_plans;
+        self
     }
 
     /// The plan and the baseline of a dispatched step that a resumed campaign reattaches to. The record must be a step of

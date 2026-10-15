@@ -1,4 +1,7 @@
+import type { Failure } from "../../generated/Failure";
 import type { IdentifyRequest } from "../../generated/IdentifyRequest";
+import type { ParameterWorkAnswer } from "../../generated/ParameterWorkAnswer";
+import type { ParameterWorkRequest } from "../../generated/ParameterWorkRequest";
 import type { OperationUpdate } from "../../generated/OperationUpdate";
 import type { LoopMessageScope } from "../../messages";
 import type { EngineAcquisitionSettings } from "../engineIdentify";
@@ -26,14 +29,20 @@ export interface ExperimentStageRoute extends EngineStageRoute {
  * no amplitude: the project owns the excitation. The review's identity is the engine's (E11.8), so this route mints none. The
  * page confirms the start with that identity and, on a physical target, with the engineer's approval; the engine checks both. The
  * start is the campaign that review describes, `identify` with the same settings, and Abort is `controlStudio/cancel` of that
- * campaign. The manual parameter tool has no engine method (B6.1), so a served loop refuses its requests. The engine decides every
- * rule; this route names the requests and reports the answers. Written in V6 step S10.
+ * campaign. The parameter tool of a declared analysis (C12, B6.1) is the engine's `controlStudio/parameters`: a served loop whose
+ * analysis maps parameters answers its requests through it, and any other served loop answers that the tool is unavailable. The
+ * engine decides every rule; this route names the requests and reports the answers. Written in V6 step S10, parameters in V7.
  */
 export function createExperimentRoute(context: EngineRouteContext): ExperimentStageRoute {
   /** The review the engine answered last: the settings its start runs, and the identity the page confirms (`planId`). */
   let review: { planId: string; settings: EngineAcquisitionSettings } | undefined;
   /** The campaign the engine runs for the page's test; Abort and the page's Cancel stop it. */
   let running: string | undefined;
+  /**
+   * The parameter review the engine answered last (C12): its identity, which the page's apply names, the values it reviewed, and
+   * whether it restores the values from before. An apply is spent with its start, so the page reviews again after it.
+   */
+  let parameterReview: { identity: string; values: Record<string, number>; rollback: boolean } | undefined;
   /** The listeners of the campaigns the route started; each one ends with its campaign. */
   const watchers = new Set<{ dispose(): void }>();
 
@@ -156,6 +165,191 @@ export function createExperimentRoute(context: EngineRouteContext): ExperimentSt
     return true;
   }
 
+  /** The parameter tool of a declared analysis (C12, B6.1): the engine reviews and writes the parameters the analysis maps. */
+  async function parameters(loop: EngineLoop, action: string, payload: Record<string, unknown>, scope: LoopMessageScope): Promise<boolean> {
+    // A loop whose analysis maps no parameter has no tool: the page shows none, and nothing is sent.
+    if (!loop.analysisParameterSymbols) {
+      await phase(scope, "parameters", { status: "unavailable" });
+      return true;
+    }
+    switch (action) {
+      case "inspect":
+        return inspectParameters(loop, scope);
+      case "review":
+        return reviewParameters(loop, "review", payload.json, scope);
+      case "review-rollback":
+        return reviewParameters(loop, "reviewRestore", undefined, scope);
+      case "apply":
+        return applyParameters(loop, payload, scope);
+      case "selected-analysis":
+        return draftParameters(loop, scope);
+      case "invalidate":
+        // The page's edit changes nothing the engine holds: the review is spent, and the page reviews again.
+        parameterReview = undefined;
+        await phase(scope, "parameters", { status: "edited", reason: "Values changed. Review again before applying." });
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * The binding the engine names for the mapped parameters, when its answer carries one (C12): the page configures its fields from it.
+   * It is read as data, so the route needs no type that the engine's generated answer does not declare yet.
+   */
+  function namedBinding(result: unknown): Record<string, unknown> {
+    const binding = (result as { binding?: unknown } | undefined)?.binding;
+    return binding === undefined ? {} : { binding };
+  }
+
+  /** The engine's record of the mapped parameters, for the page to show (`inspect`). */
+  async function inspectParameters(loop: EngineLoop, scope: LoopMessageScope): Promise<boolean> {
+    const reply = await context.ask(scope, "parameters", async () => context.client.parameters(await parameterRequest(loop, "inspect", {})));
+    if (!reply) {
+      await phase(scope, "parameters", { status: "failed" });
+      return true;
+    }
+    if ("failure" in reply) {
+      await parameterFailed(scope, reply.failure);
+      return true;
+    }
+    const answer = reply.result as ParameterWorkAnswer;
+    await phase(scope, "parameters", { status: "inspected", values: answer.values, observed: answer.observed, ...namedBinding(reply.result) });
+    return true;
+  }
+
+  /**
+   * The review of an Apply (`review`) or of a Restore (`reviewRestore`). The values are the page's JSON, which the engine checks: a
+   * text that is not JSON is the only refusal the route makes itself.
+   */
+  async function reviewParameters(loop: EngineLoop, action: "review" | "reviewRestore", json: unknown, scope: LoopMessageScope): Promise<boolean> {
+    let values: Record<string, number> = {};
+    if (action === "review") {
+      try {
+        values = JSON.parse(String(json)) as Record<string, number>;
+      } catch {
+        await phase(scope, "parameters", { status: "failed", reason: "The parameter values are not valid JSON." });
+        return true;
+      }
+    }
+    parameterReview = undefined;
+    const reply = await context.ask(scope, "parameters", async () => context.client.parameters(await parameterRequest(loop, action, action === "review" ? { values } : {})));
+    if (!reply) {
+      await phase(scope, "parameters", { status: "failed" });
+      return true;
+    }
+    if ("failure" in reply) {
+      await parameterFailed(scope, reply.failure);
+      return true;
+    }
+    const identity = (reply.result as { identity?: unknown }).identity;
+    if (typeof identity !== "string") {
+      await context.postFailure(scope, "parameters", unclassifiedFailure("The engine answered the parameter review with a result the page does not show."));
+      await phase(scope, "parameters", { status: "failed" });
+      return true;
+    }
+    parameterReview = { identity, values, rollback: action === "reviewRestore" };
+    await phase(scope, "parameters", { status: "reviewed", reviewId: identity, values, rollback: action === "reviewRestore" });
+    return true;
+  }
+
+  /**
+   * The confirmed write of the page's reviewed values, or of the values from before (`apply`, `restore`). The review is spent with its
+   * start, and the start names its identity: the engine refuses a record that changed since the review (E11.8). The write's answer
+   * follows as its operation's update (`watchParameters`).
+   */
+  async function applyParameters(loop: EngineLoop, payload: Record<string, unknown>, scope: LoopMessageScope): Promise<boolean> {
+    const review = parameterReview;
+    parameterReview = undefined;
+    if (!review || payload.reviewId !== review.identity) {
+      await phase(scope, "parameters", { status: "failed", reason: "This review expired. Review the exact values again." });
+      return true;
+    }
+    const action = review.rollback ? "restore" : "apply";
+    const extra = {
+      review: review.identity,
+      physicalApproved: payload.physicalApproved === true,
+      ...(review.rollback ? {} : { values: review.values }),
+    };
+    const reply = await context.ask(scope, "parameters", async () => context.client.parameters(await parameterRequest(loop, action, extra)));
+    if (!reply) {
+      await phase(scope, "parameters", { status: "failed" });
+      return true;
+    }
+    if ("failure" in reply) {
+      await parameterFailed(scope, reply.failure);
+      return true;
+    }
+    const operationId = (reply.result as { operationId?: unknown }).operationId;
+    if (typeof operationId !== "string") {
+      await context.postFailure(scope, "parameters", unclassifiedFailure("The engine answered the parameter write with a result the page does not show."));
+      await phase(scope, "parameters", { status: "failed" });
+      return true;
+    }
+    watchParameters(operationId, scope, review.rollback);
+    return true;
+  }
+
+  /** The engine's selected values of the analysis, copied for a review (`selected-analysis`). Nothing is written. */
+  async function draftParameters(loop: EngineLoop, scope: LoopMessageScope): Promise<boolean> {
+    const reply = await context.ask(scope, "parameters", async () => context.client.parameters(await parameterRequest(loop, "draft", {})));
+    if (!reply) {
+      await phase(scope, "parameters", { status: "failed" });
+      return true;
+    }
+    if ("failure" in reply) {
+      await parameterFailed(scope, reply.failure);
+      return true;
+    }
+    await phase(scope, "parameters", { status: "draft", values: (reply.result as { values?: unknown }).values, ...namedBinding(reply.result), reason: "Selected analysis values copied for review. The runtime has not changed." });
+    return true;
+  }
+
+  /** The request of one parameter action, with the loop, the study's journal folder and, when the action reads the runtime, its connection. */
+  async function parameterRequest(
+    loop: EngineLoop,
+    action: ParameterWorkRequest["action"],
+    extra: Partial<Pick<ParameterWorkRequest, "values" | "review" | "physicalApproved">>,
+  ): Promise<ParameterWorkRequest> {
+    const connection = action === "draft" ? undefined : await context.connection();
+    return {
+      projectRoot: context.projectRoot,
+      runtimeId: loop.runtimeId,
+      loopId: loop.id,
+      storageFolder: context.storageFolder,
+      action,
+      ...(connection ? { connection } : {}),
+      ...extra,
+    };
+  }
+
+  /** Shows a failure the engine answered for a parameter action: the failure itself, and the page's own refusal. */
+  async function parameterFailed(scope: LoopMessageScope, failure: Failure): Promise<void> {
+    await context.postFailure(scope, "parameters", failure);
+    await phase(scope, "parameters", { status: "failed", reason: failure.message });
+  }
+
+  /**
+   * Reports the parameter write when its operation ends (C12, E7.4): the record the runtime confirmed, or the failure that ended it.
+   */
+  function watchParameters(operationId: string, scope: LoopMessageScope, rollback: boolean): void {
+    const subscription = context.client.onUpdate(operationId, (update: OperationUpdate) => {
+      if (update.state === "running") return;
+      subscription.dispose();
+      watchers.delete(subscription);
+      const observed = update.result?.observed;
+      const values = update.result?.values;
+      if (update.state === "finished" && observed !== undefined) {
+        void phase(scope, "parameters", { status: "applied", values, observed, reason: rollback
+          ? "Previous values restored and observed after ST execution."
+          : "Reviewed values observed after ST execution." });
+        return;
+      }
+      void phase(scope, "parameters", { status: "failed", reason: update.failure?.message ?? "The parameter write was not confirmed." });
+    });
+    watchers.add(subscription);
+  }
+
   /** Stops the campaign the route started, through its restoration path (`controlStudio/cancel`). */
   async function abortTest(scope: LoopMessageScope): Promise<boolean> {
     const operationId = running;
@@ -185,13 +379,14 @@ export function createExperimentRoute(context: EngineRouteContext): ExperimentSt
         // The page's Cancel stops the test while the route runs one; the other stages' flows keep their own Cancel.
         case "control-studio.flow.cancel":
           return running ? abortTest(scope) : false;
-        // The manual parameter tool has no engine method (B6.1): a served loop takes the request and answers that it is unavailable.
+        // The parameter tool of a declared analysis (C12, B6.1); a loop without one answers that the tool is unavailable.
         case "control-studio.parameters.inspect":
         case "control-studio.parameters.review":
+        case "control-studio.parameters.review-rollback":
         case "control-studio.parameters.apply":
         case "control-studio.parameters.invalidate":
-          await phase(scope, "parameters", { status: "unavailable" });
-          return true;
+        case "control-studio.parameters.selected-analysis":
+          return parameters(loop, message.kind.slice("control-studio.parameters.".length), payload, scope);
         default:
           return false;
       }
@@ -199,6 +394,7 @@ export function createExperimentRoute(context: EngineRouteContext): ExperimentSt
     reset(): void {
       review = undefined;
       running = undefined;
+      parameterReview = undefined;
       for (const watcher of watchers) watcher.dispose();
       watchers.clear();
     },

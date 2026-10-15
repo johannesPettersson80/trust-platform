@@ -2,7 +2,7 @@ import { controllerInstanceLabel } from "./controllerGroupPresentation";
 import type { ControlStudioView } from "./panelTemplate";
 import { displayEngineeringUnit } from "./chartContract";
 import { THREE_PAGE_STYLES } from "./threePageStyles";
-import { hasProjectExperiment, renderThreePageExperimentTemplate } from "./threePageExperimentTemplate";
+import { hasProjectExperiment, renderThreePageAnalysisParameterTemplate, renderThreePageExperimentTemplate } from "./threePageExperimentTemplate";
 import { renderThreePageIdentificationTemplate } from "./threePageIdentificationTemplate";
 import { renderThreePageAnalysisTemplate } from "./threePageAnalysisTemplate";
 import { renderThreePageMimoAnalysisTemplate } from "./threePageMimoAnalysisTemplate";
@@ -51,6 +51,7 @@ ${[["model", "Identify"], ["tune", "Tune"], ["verify", "Validate"]].map(([id, la
  <div class="studio-result" data-studio-tuning-result hidden></div>
  ${loop?.controller.stateFeedback ? '<section class="studio-fields studio-result" data-studio-state-design hidden aria-label="State-space design inputs"></section>' : ''}
  ${renderThreePageAnalysisTemplate()}
+ ${loop ? renderThreePageAnalysisParameterTemplate(loop) : ""}
  ${renderThreePageMimoAnalysisTemplate()}
 </section>
 <section id="studio-page-verify" data-studio-page="verify" role="tabpanel" aria-labelledby="studio-tab-verify" hidden>

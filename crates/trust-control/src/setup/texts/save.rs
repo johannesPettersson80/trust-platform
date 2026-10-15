@@ -44,7 +44,6 @@ pub fn parked_label(structure: &str) -> Option<&'static str> {
         "onoff" => Some("An ON/OFF controller"),
         "state-feedback" => Some("State feedback"),
         "search" => Some("A search law"),
-        "feedforward" => Some("Feedforward"),
         "smith" => Some("A Smith predictor"),
         "schedule" => Some("A gain schedule"),
         _ => None,
@@ -67,6 +66,12 @@ pub fn structure_not_text() -> &'static str {
 #[must_use]
 pub fn draft_not_object() -> &'static str {
     "The setup draft must be a JSON object."
+}
+
+/// A trajectory feedforward is added to a PID law, because its seed names the three PID gains (C11): the program's own law must be PID.
+#[must_use]
+pub fn trajectory_law_not_pid() -> &'static str {
+    "The trajectory feedforward is added to a PID law: the program's own law must be PID."
 }
 
 /// The draft of a structure is not complete, or has a field the structure does not declare (§0.1b). `error` names the field.

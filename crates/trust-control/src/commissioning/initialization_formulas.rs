@@ -1,9 +1,9 @@
 //! The initialization formulas of the declared states (specification 35, C0 "Controller state initialization"; annex E6.4
 //! `initialization_formulas`): where a state's value comes from at the task boundary, so that the transfer reads it fresh
 //! when it starts rather than from an older snapshot. Ported from `controllerInitializationFormulas.ts`. The kinds
-//! `notch-history` (the notch of a program's own law, C5), `scaled-measurement` (the measured-disturbance feedforward, C8,
-//! which needs a second model input) and `decoupled-output` (the static decoupler, C7) are parked: they are not ported, and
-//! `ControllerInitialization::new` refuses the declarations that use them.
+//! `scaled-measurement` (the measured-disturbance feedforward, C8) is served: the transfer reads the measured disturbance fresh and
+//! multiplies it by the gain. The kinds `notch-history` (the notch of a program's own law, C5) and `decoupled-output` (the static
+//! decoupler, C7) stay parked: `ControllerInitialization::new` refuses the declarations that use them.
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,10 @@ use super::initial_state::{parked_source_word, ControllerInitialization};
 use super::texts;
 use super::transfer::{TransferBinding, TransferValue};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{InitialSource, InitialValue, InitializedState, LoopDefinition};
+use crate::loop_definition::{
+    channel_signal, measured_disturbance, InitialSource, InitialValue, InitializedState,
+    LoopDefinition,
+};
 use crate::model::GeneralModel;
 
 /// Where a declared state's value comes from at the start of a transfer (annex E6.4 `initialization_formulas`).
@@ -65,6 +68,13 @@ pub enum InitializationFormula {
         /// The predicate's level, a level of the actuator.
         value: f64,
     },
+    /// `scaled-measurement`: the gain times the measured disturbance, both read fresh (C8, `K_ff·d`).
+    ScaledMeasurement {
+        /// The measured disturbance, read fresh.
+        process_variable: String,
+        /// The feedforward gain, a guard that the snapshot holds.
+        gain_symbol: String,
+    },
 }
 
 /// The fresh source of each declared state that has one, keyed by state symbol (`initializationFormulas`). A state with a
@@ -81,7 +91,7 @@ pub fn initialization_formulas(
     let channels = connected_model_channels(loop_definition, model)?;
     let mut formulas = BTreeMap::new();
     for state in definition.states() {
-        if let Some(formula) = formula_of(&channels, state)? {
+        if let Some(formula) = formula_of(loop_definition, model, &channels, state)? {
             formulas.insert(state.symbol.clone(), formula);
         }
     }
@@ -112,6 +122,14 @@ pub fn evaluate_initialization_formula(
         InitializationFormula::ModelOutput { process_variable } => {
             snapshot_value(snapshot, process_variable)
         }
+        InitializationFormula::ScaledMeasurement {
+            process_variable,
+            gain_symbol,
+        } => {
+            let gain = snapshot_value(snapshot, gain_symbol)?;
+            let measured = snapshot_value(snapshot, process_variable)?;
+            Ok(gain * measured)
+        }
         InitializationFormula::PidIntegral {
             output_symbol,
             process_variable,
@@ -139,6 +157,8 @@ pub fn evaluate_initialization_formula(
 
 /// The formula of one declared state, or `None` for a constant (`initializationFormulas`, per state).
 fn formula_of(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
     channels: &ConnectedChannels<'_>,
     state: &InitializedState,
 ) -> Result<Option<InitializationFormula>, Failure> {
@@ -153,9 +173,6 @@ fn formula_of(
         ));
     }
     let formula = match source {
-        InitialSource::ModelInput { index } => InitializationFormula::ModelInput {
-            output_symbol: input_symbol(channels, state, *index)?,
-        },
         InitialSource::ModelInputIs { index, value } => {
             let output_symbol = input_symbol(channels, state, *index)?;
             let range = channels.input.range;
@@ -200,8 +217,22 @@ fn formula_of(
             weight_symbol: weight_symbol.clone(),
             weight: *weight,
         },
+        InitialSource::ScaledModelInput { index, gain_symbol } => {
+            InitializationFormula::ScaledMeasurement {
+                process_variable: disturbance_symbol(loop_definition, model, state, *index)?,
+                gain_symbol: gain_symbol.clone(),
+            }
+        }
+        // A model input that is the measured disturbance is read as a measurement, never as an actuator (C0, C8).
+        InitialSource::ModelInput { index } => {
+            match disturbance_symbol_at(loop_definition, model, *index) {
+                Some(process_variable) => InitializationFormula::ModelOutput { process_variable },
+                None => InitializationFormula::ModelInput {
+                    output_symbol: input_symbol(channels, state, *index)?,
+                },
+            }
+        }
         InitialSource::ModelState { .. }
-        | InitialSource::ScaledModelInput { .. }
         | InitialSource::DecoupledModelInput { .. }
         | InitialSource::NotchHistory { .. } => {
             return Err(Failure::new(
@@ -212,6 +243,43 @@ fn formula_of(
         }
     };
     Ok(Some(formula))
+}
+
+/// The signal of the measured disturbance at a model input, when the loop binds that input to a measured disturbance (C8): the loop's
+/// channel for the input, whose signal has the disturbance role. The transfer reads its symbol fresh at the task boundary.
+fn disturbance_symbol_at(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    index: usize,
+) -> Option<String> {
+    let model_input = model.identity().inputs.get(index)?;
+    let channel = loop_definition
+        .channels
+        .as_ref()?
+        .inputs
+        .iter()
+        .find(|channel| channel.model_channel_id == model_input.id)
+        .filter(|channel| measured_disturbance(loop_definition, channel))?;
+    channel_signal(loop_definition, &channel.signal_id).map(|signal| signal.symbol.to_owned())
+}
+
+/// The signal of the measured disturbance at a model input (C8, `scaled-measurement`), for a state that scales it by its gain.
+///
+/// # Errors
+/// The loop binds no measured disturbance to the model input.
+fn disturbance_symbol(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    state: &InitializedState,
+    index: usize,
+) -> Result<String, Failure> {
+    disturbance_symbol_at(loop_definition, model, index).ok_or_else(|| {
+        Failure::new(
+            &texts::init_disturbance_unbound(&state.symbol),
+            Cause::Settings,
+            NextAction::OpenLoopSetup,
+        )
+    })
 }
 
 /// The fresh value of an actuator command: the snapshot's value at its feedback guard when the binding tracks one

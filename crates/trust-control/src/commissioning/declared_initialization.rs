@@ -23,15 +23,14 @@ use super::initialization_plan::{
 use super::observation::commissioning_reference_targets;
 use super::pid_measurement::initialized_states;
 use super::profile::{CommissioningProfile, ProfileKind, RequiredTracking};
+use super::project_law::gain_symbols;
 use super::texts;
 use super::transfer::{
     rounded_transfer_value, TransferBinding, TransferMember, TransferModeBinding, TransferValue,
 };
 use super::transfer_tracking::{DeclaredStateKind, TransferTracking};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{
-    ControllerLaw, InitializedState, LoopDefinition, Parameter, PostScan, StateType,
-};
+use crate::loop_definition::{InitializedState, LoopDefinition, Parameter, PostScan, StateType};
 use crate::model::GeneralModel;
 use crate::validation::engineer_verification_plan::{
     engineer_verification_plan, EngineerRequirements,
@@ -463,23 +462,24 @@ fn declared_requirements(
 }
 
 /// The proportional gain of the law, and the allowance terms of its integral and derivative gains (`gains` of the `TypeScript`):
-/// a PID law has all three; any other law has none.
+/// the gains that the law's variables hold, where the law names a variable for them (a PID law, or a program's seed, C2).
 fn allowance_gains(
     loop_definition: &LoopDefinition,
     values: &BTreeMap<String, f64>,
 ) -> (Option<f64>, AllowanceTerms) {
-    match loop_definition.controller.law.as_ref() {
-        Some(ControllerLaw::Pid(law)) => (
-            values.get(&law.proportional_gain_symbol).copied(),
-            AllowanceTerms {
-                integral_gain: values.get(&law.integral_gain_symbol).copied(),
-                derivative_gain: values.get(&law.derivative_gain_symbol).copied(),
-                cycle_seconds: Some(loop_definition.controller.task_period_ms / 1000.0),
-                entry_error: None,
-            },
-        ),
-        _ => (None, AllowanceTerms::default()),
-    }
+    let Some(symbols) = gain_symbols(loop_definition) else {
+        return (None, AllowanceTerms::default());
+    };
+    let gain = |symbol: &str| values.get(symbol).copied();
+    (
+        gain(symbols.proportional),
+        AllowanceTerms {
+            integral_gain: symbols.integral.and_then(gain),
+            derivative_gain: symbols.derivative.and_then(gain),
+            cycle_seconds: Some(loop_definition.controller.task_period_ms / 1000.0),
+            entry_error: None,
+        },
+    )
 }
 
 /// A declared parameter as a guard of the transfer (`guards`, E6.2).
@@ -494,7 +494,7 @@ fn parameter_member(parameter: &Parameter) -> TransferMember {
 }
 
 /// Whether the roles of a binding have distinct symbols, without regard to case (`symbols`, `toUpperCase`).
-fn roles_distinct(
+pub(super) fn roles_distinct(
     mode: &TransferModeBinding,
     states: &[TransferMember],
     guards: &[TransferMember],

@@ -62,9 +62,12 @@ impl LawKind {
         values: &BTreeMap<String, f64>,
     ) -> Result<Self, Failure> {
         match adapter.kind() {
-            AdapterKind::ControlPid(_) | AdapterKind::ParallelPid => Ok(Self::Pid(
-                PidRunProfile::from_adapter(adapter.declared_profile(model, values)?),
-            )),
+            // A program's own PI, PD or PID runs its declared states, as a Control.PID does (C2): its profile is the declared one.
+            AdapterKind::ControlPid(_)
+            | AdapterKind::ParallelPid
+            | AdapterKind::ProjectPid { .. } => Ok(Self::Pid(PidRunProfile::from_adapter(
+                adapter.declared_profile(model, values)?,
+            ))),
             AdapterKind::ConnectedP => Ok(Self::Proportional),
         }
     }
@@ -734,7 +737,7 @@ pub(crate) fn law_target(
     binding: &TransferBinding,
 ) -> Result<f64, Failure> {
     match adapter.kind() {
-        AdapterKind::ControlPid(_) | AdapterKind::ParallelPid => {
+        AdapterKind::ControlPid(_) | AdapterKind::ParallelPid | AdapterKind::ProjectPid { .. } => {
             commissioning_target(loop_definition, model, task, binding)?
                 .ok_or_else(binding_unconfigured)
         }

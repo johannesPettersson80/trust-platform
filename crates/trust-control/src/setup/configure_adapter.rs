@@ -104,7 +104,8 @@ pub fn apply_mapping(
             .try_for_each(|state| check_member(catalog, &state.symbol, state.iec_type))
     });
     // `configureControllerAdapter.ts`: a failed state check is kept only for a controller without an initialization. The
-    // project's own law, ON/OFF and state feedback are refused by the adapter above, so only the PID initialization is left.
+    // program's own law outside the served shape (C2), ON/OFF and state feedback are refused by the adapter above, so only the PID
+    // initialization is left. A served program's own law is realized by its adapter.
     if let Err(failure) = states {
         if controller.pid_initialization.is_some() {
             return Err(failure);

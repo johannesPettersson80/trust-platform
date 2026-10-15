@@ -59,6 +59,18 @@ suite("Control Studio three-page binding selectors", () => {
       "controller choices must follow the selected plant input/output identities");
   });
 
+  test("the engine's manual-settings symbols for the selected loop reach the controller per family, and a loop that names none has none (C2)", () => {
+    const view = surface();
+    const selected = loop();
+    const named = target(selected, selected.id);
+    named.controllerCompatibility = { kind: "accepted", families: ["P", "PI"], familySettings: { P: ["P1.Kp"], PI: ["P1.Kp", "P1.Ki"] } };
+    view.bindings.receive({ status: "bindings", targets: [named] });
+    assert.deepStrictEqual([view.controller.symbolsOf("P"), view.controller.symbolsOf("PI")], [["P1.Kp"], ["P1.Kp", "P1.Ki"]]);
+    const plain = surface();
+    plain.bindings.receive({ status: "bindings", targets: [target(loop(), selected.id)] });
+    assert.strictEqual(plain.controller.symbolsOf("P"), undefined, "an answer without the field leaves the page its TypeScript reading (a parked loop)");
+  });
+
   test("invalid or ambiguous mapping invalidates current model evidence and gates work", () => {
     const view = surface();
     const selected = loop();

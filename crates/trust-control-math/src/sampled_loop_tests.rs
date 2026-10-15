@@ -105,3 +105,21 @@ fn a_static_feedforward_of_minus_one_cancels_the_disturbance_exactly() {
     let largest = largest_disturbance_deviation(&disturbance_case(&system), Some(feedforward));
     assert!(largest.abs() < 1e-12, "largest deviation {largest}");
 }
+
+#[test]
+fn the_disturbance_trace_has_a_value_per_sample_and_its_largest_magnitude_is_the_largest_deviation()
+{
+    // The trace is the measurement at each sample, so its magnitudes are the deviations that the largest deviation takes the maximum of.
+    let system = disturbed_lag();
+    let case = disturbance_case(&system);
+    let trace = disturbance_trace(&case, None);
+    assert!(trace.len() > 1, "a trace covers the test");
+    let largest = trace
+        .iter()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    let deviation = largest_disturbance_deviation(&case, None);
+    assert!(
+        (largest - deviation).abs() < 1e-12,
+        "{largest} vs {deviation}"
+    );
+}

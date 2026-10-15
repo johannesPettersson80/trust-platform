@@ -2,15 +2,32 @@
 
 #![allow(clippy::cast_precision_loss)] // Sample indices are small counts, far below 2^53.
 
-use super::{fit_selected_recording_model, SelectedRun};
+use std::time::Duration;
+
+use serde_json::{json, Value};
+
+use super::{fit_selected_recording_model, SelectedRecordingFit, SelectedRun};
+use crate::analysis::budget::{Budget, ANALYSIS_BUDGET};
+use crate::analysis::feedback_tool::{feedback_answer, feedback_definition};
+use crate::analysis::general_feedback::ChannelPair;
 use crate::identification::connected_record::RuntimeVerificationResult;
 use crate::identification::independent_validation::RequirementStatus;
+use crate::identification::model_comparison::presentation_describes_model;
 use crate::identification::record_fixtures::{build, Row, Spec, Verdict};
 use crate::identification::recorded_model::RecordedFitError;
 use crate::loop_definition::LoopDefinition;
+use crate::messages::AnalysisInputs;
+use crate::model::decode_general_model;
 use crate::recording::opened_channels::RecordingSignalSelection;
 
 const CHANNELS: &[(&str, &str)] = &[("ValveMV", "%"), ("LevelPV", "degC")];
+/// The channels of a recording that archives an output the loop does not bind, with the loop's plant input (B3.6).
+const ARCHIVED_OUTPUT: [(&str, &str); 2] = [("ValveMV", "%"), ("P1.RecordedTemperature", "degC")];
+/// The channels of a recording that archives a plant input the loop does not bind, with an archived output (B3.6).
+const ARCHIVED_INPUT: [(&str, &str); 2] = [
+    ("P1.RecordedValve", "%"),
+    ("P1.RecordedTemperature", "degC"),
+];
 
 fn loop_definition() -> LoopDefinition {
     crate::recording::fixtures::loop_definition()
@@ -215,4 +232,166 @@ fn an_isolated_run_with_the_identifier_of_the_connected_run_is_not_an_independen
         refusal_of(refused),
         "Two independent recordings from the same project revision are required."
     );
+}
+
+/// The pair of step records on `channels`: a connected record of a step of +5 at the tenth sample and an isolated simulation's
+/// record of a step of −5 at the twentieth, which checks the model (B5.2).
+fn step_pair(channels: &[(&str, &str)]) -> [RuntimeVerificationResult<Verdict>; 2] {
+    [
+        build(&Spec {
+            id: "connected",
+            project_revision: "sha256:project",
+            model_revision: "connected-plant:tank",
+            kind: "setpoint_step",
+            channels,
+            rows: &step_rows(10, 5.0),
+            baseline: None,
+            verdict: RequirementStatus::Pass,
+        }),
+        build(&Spec {
+            id: "isolated",
+            project_revision: "sha256:project",
+            model_revision: "sha256:simulation",
+            kind: "setpoint_step",
+            channels,
+            rows: &step_rows(20, -5.0),
+            baseline: None,
+            verdict: RequirementStatus::Pass,
+        }),
+    ]
+}
+
+/// A model channel of the given identifier and unit, with the operating range of the fixture controller.
+fn channel(id: &str, unit: &str) -> Value {
+    json!({ "id": id, "unit": unit, "operatingRange": { "minimum": -100.0, "maximum": 100.0 } })
+}
+
+/// The fit of the step pair on `channels` with the selected plant input and measured output, which must give a model.
+fn fitted(
+    loop_definition: &LoopDefinition,
+    channels: &[(&str, &str)],
+    input: &str,
+    output: &str,
+) -> SelectedRecordingFit {
+    let pair = step_pair(channels);
+    fit_selected_recording_model(
+        loop_definition,
+        &runs_of(&pair),
+        &selection(&[input], &[output]),
+    )
+    .expect("the pair fits")
+}
+
+#[test]
+fn a_measured_output_the_loop_does_not_bind_is_named_with_the_loops_measured_output() {
+    let fit = fitted(
+        &loop_definition(),
+        &ARCHIVED_OUTPUT,
+        "ValveMV",
+        "P1.RecordedTemperature",
+    );
+    let identity = fit.model.identity();
+    assert_eq!(
+        identity.inputs[0].id, "ValveMV",
+        "the plant input is the loop's own signal"
+    );
+    assert_eq!(
+        identity.outputs[0].id, "LevelPV",
+        "the model names the loop's measured output, not the archived channel (B3.6)"
+    );
+    assert_eq!(
+        identity.outputs[0].unit, "degC",
+        "with the unit of the recorded channel"
+    );
+    assert_eq!(
+        fit.presentation.output_id.as_deref(),
+        Some("LevelPV"),
+        "the presentation shows the model's output"
+    );
+    let experiment = fit
+        .presentation
+        .experiment
+        .as_ref()
+        .expect("the traces of the validation recording");
+    assert_eq!(
+        experiment.outputs[0].id, "P1.RecordedTemperature",
+        "the plot keeps the recorded channel's name"
+    );
+    assert!(
+        presentation_describes_model(&fit.presentation, &fit.model),
+        "the presentation is kept with the model it describes"
+    );
+}
+
+#[test]
+fn the_loops_channel_names_name_an_unbound_output_and_keep_a_bound_input() {
+    let mut loop_definition = loop_definition();
+    loop_definition.channels = Some(
+        serde_json::from_value(json!({
+            "inputs": [{ "signalId": "manipulatedVariable", "modelChannelId": "u",
+                "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 } }],
+            "outputs": [{ "signalId": "processVariable", "modelChannelId": "y" }],
+        }))
+        .expect("typed channels"),
+    );
+    let fit = fitted(
+        &loop_definition,
+        &ARCHIVED_OUTPUT,
+        "ValveMV",
+        "P1.RecordedTemperature",
+    );
+    let identity = fit.model.identity();
+    assert_eq!(identity.inputs[0].id, "u", "the loop's plant input");
+    assert_eq!(identity.outputs[0].id, "y", "the loop's measured output");
+    assert_eq!(fit.presentation.output_id.as_deref(), Some("y"));
+}
+
+#[test]
+fn an_archived_plant_input_the_loop_does_not_bind_is_named_with_the_loops_plant_input() {
+    let fit = fitted(
+        &loop_definition(),
+        &ARCHIVED_INPUT,
+        "P1.RecordedValve",
+        "P1.RecordedTemperature",
+    );
+    let identity = fit.model.identity();
+    assert_eq!(
+        identity.inputs[0].id, "ValveMV",
+        "the model names the loop's plant input (B3.6)"
+    );
+    assert_eq!(identity.inputs[0].unit, "%");
+    assert_eq!(identity.outputs[0].id, "LevelPV");
+    assert!(presentation_describes_model(&fit.presentation, &fit.model));
+}
+
+#[test]
+fn an_analysis_naming_the_loops_output_answers_for_a_model_fitted_on_an_archived_output() {
+    let fit = fitted(
+        &loop_definition(),
+        &ARCHIVED_OUTPUT,
+        "ValveMV",
+        "P1.RecordedTemperature",
+    );
+    // The controller takes the measured output's unit and gives the plant input's unit (N4.4).
+    let controller = decode_general_model(&json!({
+        "revision": "controller-1", "source": "provided", "validation": "unvalidated", "evidence": [],
+        "delaySeconds": 0.0, "kind": "transfer-function",
+        "inputs": [channel("e", "degC")], "outputs": [channel("c", "%")],
+        "numerator": [2.0], "denominator": [1.0]
+    }))
+    .expect("a valid controller");
+    let inputs = AnalysisInputs {
+        plant_channel: Some(ChannelPair {
+            input_id: "ValveMV".to_owned(),
+            output_id: "LevelPV".to_owned(),
+        }),
+        ..AnalysisInputs::default()
+    };
+    let definition = feedback_definition(&fit.model, Some(&controller), None, &inputs)
+        .expect("plantChannel names the loop's model identifiers (N4.4)");
+    assert_eq!(definition.plant_channel.output_id, "LevelPV");
+    let elapsed = || Duration::from_secs(0);
+    let cancelled = || false;
+    let budget = Budget::new(ANALYSIS_BUDGET, &elapsed, &cancelled);
+    feedback_answer(&definition, &inputs, &budget).expect("the analysis answers");
 }

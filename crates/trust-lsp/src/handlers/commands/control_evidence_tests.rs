@@ -183,3 +183,89 @@ fn keep_in_project_names_the_equipment_settings_of_a_record_create_plc_code_decl
     );
     std::fs::remove_dir_all(root).expect("remove temp dir");
 }
+
+/// A program with REAL and LREAL variables, an INT variable and a declaration that names two variables.
+const SCALARS: &str = "PROGRAM Main\nVAR\n    Kp : LREAL := LREAL#1.0;\n    Ki : LREAL;\n    Kd : REAL := 0.5;\n    Count : INT := 3;\n    Kx, Ky : LREAL := 1.0;\nEND_VAR\nEND_PROGRAM\n\nCONFIGURATION Config\nRESOURCE Res ON PLC\n    TASK MainTask(INTERVAL := T#100ms, PRIORITY := 1);\n    PROGRAM P1 WITH MainTask : Main;\nEND_RESOURCE\nEND_CONFIGURATION\n";
+
+/// The sentence of a refused keep.
+fn refusal_of(answer: &Value) -> &str {
+    answer["errors"][0]["message"].as_str().unwrap_or_default()
+}
+
+#[test]
+fn keep_in_project_writes_a_program_variables_initial_values_and_nothing_else() {
+    // C2, B6.5: the gain variables of a program instance take their values as initial values. A typed initializer keeps its
+    // prefix, a variable without one gets an initializer, and the other declarations stay as written.
+    let (root, context) = control_project("trustlsp-control-keep-scalars", SCALARS);
+    let answer = keep_value(
+        &context,
+        &root,
+        "P1",
+        json!({ "Kp": 2.5, "Ki": 0.125, "Kd": 3.0 }),
+    );
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert_eq!(answer["kept"], json!(["Kd", "Ki", "Kp"]), "{answer}");
+    let uri = Url::from_file_path(root.join("src").join("main.st"))
+        .expect("source uri")
+        .to_string();
+    let kept = with_lsp_edits(SCALARS, &answer["edit"]["changes"][&uri]);
+    assert!(
+        kept.contains("    Kp : LREAL := LREAL#2.5;\n")
+            && kept.contains("    Ki : LREAL := 0.125;\n")
+            && kept.contains("    Kd : REAL := 3.0;\n")
+            && kept.contains("    Count : INT := 3;\n")
+            && kept.contains("    Kx, Ky : LREAL := 1.0;\n"),
+        "{kept}"
+    );
+    std::fs::remove_dir_all(root).expect("remove temp dir");
+}
+
+#[test]
+fn keep_in_project_refuses_a_program_variable_it_cannot_write_by_its_name() {
+    let (root, context) = control_project("trustlsp-control-keep-scalar-refusals", SCALARS);
+    let not_real = keep_value(&context, &root, "P1", json!({ "Count": 1.0 }));
+    assert_eq!(not_real["ok"], false, "{not_real}");
+    assert!(
+        refusal_of(&not_real).starts_with("P1.Count is not a REAL or LREAL variable"),
+        "{not_real}"
+    );
+    let shared = keep_value(&context, &root, "P1", json!({ "Kx": 2.0 }));
+    assert!(
+        refusal_of(&shared).starts_with("P1.Kx shares its declaration with other variables"),
+        "{shared}"
+    );
+    let missing = keep_value(&context, &root, "P1", json!({ "Gain": 2.0 }));
+    assert!(
+        refusal_of(&missing).starts_with("P1.Gain is not declared in PROGRAM Main"),
+        "{missing}"
+    );
+    std::fs::remove_dir_all(root).expect("remove temp dir");
+}
+
+#[test]
+fn a_scalar_named_as_a_record_takes_its_own_name_as_its_one_value() {
+    let (root, context) = control_project("trustlsp-control-keep-scalar-record", SCALARS);
+    let answer = keep_value(&context, &root, "P1.Kp", json!({ "Kp": 2.5 }));
+    assert_eq!(answer["ok"], true, "{answer}");
+    let uri = Url::from_file_path(root.join("src").join("main.st"))
+        .expect("source uri")
+        .to_string();
+    let kept = with_lsp_edits(SCALARS, &answer["edit"]["changes"][&uri]);
+    assert!(kept.contains("    Kp : LREAL := LREAL#2.5;\n"), "{kept}");
+    let two = keep_value(&context, &root, "P1.Kp", json!({ "Kp": 2.5, "Ki": 1.0 }));
+    assert!(
+        refusal_of(&two).starts_with("P1.Kp keeps one value, its own."),
+        "{two}"
+    );
+    let other = keep_value(&context, &root, "P1.Kp", json!({ "Ki": 1.0 }));
+    assert!(
+        refusal_of(&other).starts_with("P1.Kp keeps only its own value, not Ki."),
+        "{other}"
+    );
+    let integer = keep_value(&context, &root, "P1.Count", json!({ "Count": 1.0 }));
+    assert!(
+        refusal_of(&integer).starts_with("P1.Count is not a record"),
+        "{integer}"
+    );
+    std::fs::remove_dir_all(root).expect("remove temp dir");
+}

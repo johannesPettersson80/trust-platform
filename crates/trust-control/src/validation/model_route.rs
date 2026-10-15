@@ -23,6 +23,7 @@ use crate::model::{
     materialize_selected_model_simulation, ActuatorCapabilities, ActuatorKind, GeneralModel,
     SelectedModelSimulationBinding, SimulationOverride,
 };
+use crate::study::tune::design::feedforward::single_loop;
 use crate::validation::scenario_contract::EngineerScenario;
 
 /// The plant id of the selected model's inline plant (`plantId: "selected-model"`).
@@ -56,8 +57,14 @@ pub fn model_route(
     values: &BTreeMap<String, f64>,
 ) -> Result<ModelRoute, Failure> {
     refuse_scenario_models(loop_definition)?;
-    let binding = selected_model_binding(loop_definition, model)?;
-    let model_value = serde_json::to_value(model)
+    // A measured-disturbance feedforward runs its plant on the output path's view (C8 Validate); the controller's initial values
+    // still read the full model, whose second input is the disturbance that the feedforward states start from.
+    let single = single_loop(loop_definition, model)?;
+    let (plant_loop, plant) = single.as_ref().map_or((loop_definition, model), |single| {
+        (&single.loop_definition, &single.model)
+    });
+    let binding = selected_model_binding(plant_loop, plant)?;
+    let model_value = serde_json::to_value(plant)
         .map_err(|_| Failure::new(MODEL_UNREADABLE, Cause::Implementation, NextAction::None))?;
     let materialized =
         materialize_selected_model_simulation(&model_value, &binding).map_err(|refusal| {
@@ -184,6 +191,22 @@ fn controller_initial_values(
             loop_definition,
             model,
             &definition,
+            values,
+        )?);
+    }
+    if let Some(project) = loop_definition.controller.project.as_ref() {
+        // A program's own law starts its declared states as Validate starts them (C2): the integral term at the operating output.
+        if states_overlap(loop_definition, &project.initialization) {
+            return Err(Failure::new(
+                STATES_OVERLAP,
+                Cause::Settings,
+                NextAction::OpenLoopSetup,
+            ));
+        }
+        initial.extend(initialization_values(
+            loop_definition,
+            model,
+            &project.initialization,
             values,
         )?);
     }

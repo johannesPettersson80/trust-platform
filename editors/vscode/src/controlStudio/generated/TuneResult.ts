@@ -38,7 +38,11 @@ export interface TuneResult {
    * for a named method.
    */
   attempts: Attempt[];
-  candidate: ControlPidCandidate;
+  /**
+   * The candidate of a `Control.PID`, unapplied: its structure, its source and the complete record it would write. Absent for a
+   * program's own law, which answers `projectCandidate` (C2).
+   */
+  candidate?: ControlPidCandidate | null;
   /**
    * The closed-loop time constant `λ` in seconds that the formula used (N5.4: shown with the candidate); absent for
    * AMIGO and for a design without `λ`.
@@ -54,6 +58,11 @@ export interface TuneResult {
    * [`crate::tuning::robustness::delay_margin`]; absent when the margins are.
    */
   delayMarginSeconds?: MarginValue | null;
+  /**
+   * The answer of a measured-disturbance feedforward (C8): both paths, the three values and the deviations. Absent for any other
+   * structure.
+   */
+  feedforward?: FeedforwardAnswer | null;
   gainUnits: TuneGainUnits;
   /**
    * The margins of the candidate on the model (B4.6, N7.7); absent when they cannot be given.
@@ -112,6 +121,11 @@ export interface TuneResult {
    */
   predictionUnavailable?: string | null;
   /**
+   * The candidate of a program's own law, unapplied (C2): its structure, its source, its gains and the value of each seed
+   * variable that Apply writes. Absent for a `Control.PID`.
+   */
+  projectCandidate?: ProjectCandidate | null;
+  /**
    * Why the candidate was chosen: the recommendation's reason for Automatic, the method's own otherwise (B4.4).
    */
   reason: string;
@@ -159,7 +173,7 @@ export interface Attempt {
   structure: "P" | "PI" | "PD" | "PID";
 }
 /**
- * The candidate, unapplied: its structure, its source and the complete `Control.PID` record it would write.
+ * A candidate of a `Control.PID` record, unapplied (B4.2): its source, its structure and the complete record it writes.
  */
 export interface ControlPidCandidate {
   /**
@@ -292,6 +306,75 @@ export interface ParallelGains {
   [k: string]: unknown;
 }
 /**
+ * The answer of a measured-disturbance feedforward's Tune (C8): both reduced paths, the three feedforward values, the disturbance step
+ * and, on the model, the largest deviation of the measurement after that step with the PI alone and with the feedforward.
+ */
+export interface FeedforwardAnswer {
+  disturbancePath: FeedforwardPath;
+  /**
+   * The disturbance step of the test: the disturbance's identification step.
+   */
+  disturbanceStep: number;
+  /**
+   * The largest deviation of the measurement from its operating value after the step, with the PI alone, on the model.
+   */
+  feedbackDeviation: number;
+  /**
+   * The largest deviation of the measurement from its operating value after the step, with the PI and the feedforward, on the model.
+   */
+  feedforwardDeviation: number;
+  /**
+   * The feedforward gain `K_ff`, in the manipulated variable's unit per the disturbance's unit.
+   */
+  gain: number;
+  /**
+   * The lag time `T_lag` in seconds, when the program has a lead and a lag.
+   */
+  lagSeconds?: number | null;
+  /**
+   * The lead time `T_lead` in seconds, when the program has a lead and a lag.
+   */
+  leadSeconds?: number | null;
+  outputPath: FeedforwardPath1;
+  [k: string]: unknown;
+}
+/**
+ * The path from the measured disturbance to the measurement.
+ */
+export interface FeedforwardPath {
+  /**
+   * The dead time of the path in seconds.
+   */
+  delaySeconds: number;
+  /**
+   * The steady-state gain of the path.
+   */
+  gain: number;
+  /**
+   * The time constant of the path in seconds.
+   */
+  timeConstantSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The path from the controller output to the measurement.
+ */
+export interface FeedforwardPath1 {
+  /**
+   * The dead time of the path in seconds.
+   */
+  delaySeconds: number;
+  /**
+   * The steady-state gain of the path.
+   */
+  gain: number;
+  /**
+   * The time constant of the path in seconds.
+   */
+  timeConstantSeconds: number;
+  [k: string]: unknown;
+}
+/**
  * The units of the candidate's gains.
  */
 export interface TuneGainUnits {
@@ -354,6 +437,52 @@ export interface CandidateMargins {
    * The sentence that says why the crossover margins are not available, when they are not.
    */
   unavailable?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * A candidate of a program's own law (C2, C11), unapplied: where it came from, its structure and gains, and the value of each seed
+ * variable that Apply writes.
+ */
+export interface ProjectCandidate {
+  /**
+   * Always false: a candidate is never applied by Tune (N8.9).
+   */
+  applied: boolean;
+  gains: ParallelGains1;
+  /**
+   * Where the candidate came from.
+   */
+  source: "Manual" | "Imported" | "SIMC" | "AMIGO" | "Constrained comparison" | "Relay rule";
+  /**
+   * The structure, from the gains that are not zero.
+   */
+  structure: "P" | "PI" | "PD" | "PID";
+  /**
+   * The value of each variable of the structure, by symbol: the proportional variable always, and the integral and derivative
+   * variables where the structure has those terms and the seed names them. A trajectory-following law also holds its rate and
+   * acceleration feedforward gains by their variables (C11). Apply writes an explicit zero to every other variable that the seed
+   * names (C0, C2), so this map does not hold those zeros.
+   */
+  values: {
+    [k: string]: number;
+  };
+}
+/**
+ * The gains, signed. A term that the structure does not use is zero.
+ */
+export interface ParallelGains1 {
+  /**
+   * The derivative gain `Kd`.
+   */
+  derivativeGain: number;
+  /**
+   * The integral gain `Ki = Kp / Ti`.
+   */
+  integralGain: number;
+  /**
+   * The proportional gain `Kp`.
+   */
+  proportionalGain: number;
   [k: string]: unknown;
 }
 /**

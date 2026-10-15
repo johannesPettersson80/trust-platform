@@ -9,6 +9,7 @@
 
 use trust_control_math::discretize::{discretize_state_space, DiscretizationMethod};
 use trust_control_math::identify::gain::ControllerAction;
+use trust_control_math::identify::ParameterInterval;
 use trust_control_math::linalg::{eigenvalues, NumericalTolerance};
 use trust_control_math::model::{StateSpace, Timing};
 use trust_control_math::simulate::{open_loop_response, time_settings, DelayedSystem};
@@ -25,6 +26,7 @@ use crate::model::GeneralModel;
 use crate::tuning::design_to_requirements::design_to_requirements;
 use crate::tuning::placement::PolePlacement;
 use crate::tuning::plant::TuningPlant;
+use crate::tuning::prediction::RecordShaping;
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::shortfall::{DesignContext, GainLimits, OutputLimits, ResponsePredictor};
 use crate::tuning::structure::{ParallelGains, Structure};
@@ -40,23 +42,31 @@ const POLE_TOLERANCE: NumericalTolerance = NumericalTolerance {
 const SLOWEST_RATE_LIMIT: f64 = 1e-9;
 
 /// The engine's part of a path design (Automatic, B4.4 and B4.5): the response predictor and the pole placement of a single loop
-/// closed around a reduced path. A path is a plant of its own, so the engine makes both for the plant it is given, at the path's
-/// operating point.
+/// closed around a reduced path. A path is a plant of its own, so the engine makes both for the plant it is given, for the loop's
+/// facts and the design's requirements. The production support is `tuning::path_support::ReducedPathSupport`.
 pub trait PathSupport {
-    /// The response predictor of the loop on `path`, at the path's operating input and output.
+    /// The response predictor of the loop on `path` (B4.5): the loop's task period, output and rate limits and record shaping from
+    /// `facts`, at the path's operating input and output `operating`.
     fn predictor(
         &self,
         path: &TuningPlant,
-        operating_input: f64,
-        operating_output: f64,
+        facts: &LoopFacts,
+        operating: (f64, f64),
     ) -> Box<dyn ResponsePredictor + '_>;
 
-    /// The pole placement of the loop on `path` (N5.12(c)).
-    fn placement(&self, path: &TuningPlant) -> Box<dyn PolePlacement + '_>;
+    /// The pole placement of the loop on `path` for the requirements and the design context (N5.12(c)); the context carries the
+    /// predictor, the period and the operating point that the placement reads.
+    fn placement(
+        &self,
+        path: &TuningPlant,
+        requirements: &TuningRequirements,
+        context: &DesignContext<'_>,
+    ) -> Box<dyn PolePlacement + '_>;
 }
 
 /// The facts of one loop that a single-loop design reads: the controller action, the task period, the parameter bounds, the
-/// manipulated variable's range, and the units of the measurement and of the manipulated variable.
+/// manipulated variable's range, the units of the measurement and of the manipulated variable, and what the predictor of the loop
+/// reads besides its model: the output rate limits and the record shaping of the candidate it predicts (B4.5, C0).
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoopFacts {
     /// The controller action (N6).
@@ -67,6 +77,10 @@ pub struct LoopFacts {
     pub gain_limits: GainLimits,
     /// The range of the manipulated variable, which limits the controller's output.
     pub output_limits: OutputLimits,
+    /// The output rate limits per second: the loop's declared rates, or `±10⁶` where it declares none.
+    pub rate_limits: ParameterInterval,
+    /// The setpoint weights and the measurement filter that the predicted record holds (C0).
+    pub shaping: RecordShaping,
     /// The unit of the measurement.
     pub process_unit: String,
     /// The unit of the manipulated variable.
@@ -292,8 +306,7 @@ pub fn design_pi_on_path(
     support: &dyn PathSupport,
 ) -> Result<ParallelGains, Refusal> {
     let (operating_input, operating_output) = operating;
-    let predictor = support.predictor(path, operating_input, operating_output);
-    let placement = support.placement(path);
+    let predictor = support.predictor(path, facts, operating);
     let integrating = if path.is_integrating() { "/s" } else { "" };
     let unit = format!(
         "{}/{}{integrating}",
@@ -310,6 +323,7 @@ pub fn design_pi_on_path(
         manipulated_unit: facts.manipulated_unit.as_str(),
         predictor: predictor.as_ref(),
     };
+    let placement = support.placement(path, requirements, &context);
     let design = design_to_requirements(
         path,
         Structure::PI,

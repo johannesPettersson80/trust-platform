@@ -15,7 +15,8 @@ use crate::identification::identify_result::tests::plant_loop;
 use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::presentation::identified_model_presentation;
 use crate::loop_definition::{
-    ControllerLaw, Design, Parameter, PidLaw, RealType, Topology, NO_CONTROLLER_LAW,
+    ControllerLaw, ControllerProject, Design, Parameter, PidLaw, RealType, Topology,
+    NO_CONTROLLER_LAW,
 };
 use crate::messages::{CandidateOutcome, PreviewRequest, TuneChoice, TuneMethod, TuneRole};
 use crate::model::decode_general_model;
@@ -25,7 +26,8 @@ use crate::study::identify::IdentifyMethod;
 use crate::study::Study;
 use crate::tuning::automatic_criteria::AutomaticCriteria;
 use crate::tuning::candidate::{
-    candidate_from_control_pid, AntiWindup, CandidateSource, ControlPidParameters,
+    candidate_from_control_pid, AntiWindup, CandidateSource, ControlPidCandidate,
+    ControlPidParameters,
 };
 use crate::tuning::objective::TuningObjective;
 use crate::tuning::relay_rule::RelayCycleEvidence;
@@ -165,14 +167,30 @@ fn pid_loop() -> LoopDefinition {
     loop_definition
 }
 
+/// The `Control.PID` record of an answer or a section: these tests design a `Control.PID` loop, which keeps a record.
+fn record(candidate: Option<&ControlPidCandidate>) -> &ControlPidCandidate {
+    candidate.expect("a Control.PID loop keeps a record")
+}
+
+/// The `Control.PID` record of a section, for the tests that break it.
+fn record_mut(section: &mut TuneSection) -> &mut ControlPidCandidate {
+    section
+        .candidate
+        .as_mut()
+        .expect("a Control.PID section keeps a record")
+}
+
 /// A SIMC section designed on the model of the given revision.
 pub(crate) fn valid_section(revision: &str) -> TuneSection {
     TuneSection {
         method: Some(TuneMethod::Simc),
         model_revision: revision.to_owned(),
         requirements: valid_requirements(),
-        candidate: candidate_from_control_pid(parameters(), CandidateSource::Simc)
-            .expect("a valid record"),
+        candidate: Some(
+            candidate_from_control_pid(parameters(), CandidateSource::Simc)
+                .expect("a valid record"),
+        ),
+        project_candidate: None,
         reason: "The SIMC formula result for the declared response.".to_owned(),
         closed_loop_time_seconds: Some(8.0),
         attempts: Vec::new(),
@@ -274,7 +292,7 @@ fn a_candidate_is_current_only_for_the_model_it_was_designed_on() {
 
 #[test]
 fn a_section_that_breaks_a_rule_is_neither_kept_nor_read() {
-    let applied = refusal_of(|section| section.candidate.applied = true);
+    let applied = refusal_of(|section| record_mut(section).applied = true);
     assert!(
         applied.message.contains("marked applied"),
         "{}",
@@ -321,7 +339,7 @@ fn a_section_that_breaks_a_rule_is_neither_kept_nor_read() {
         lambda.message
     );
 
-    let record = refusal_of(|section| section.candidate.parameters.tracking_time = 0.0);
+    let record = refusal_of(|section| record_mut(section).parameters.tracking_time = 0.0);
     assert!(
         record.message.contains("tracking time"),
         "{}",
@@ -333,7 +351,7 @@ fn a_section_that_breaks_a_rule_is_neither_kept_nor_read() {
     );
 
     let mut broken = valid_section("model:fitted:1");
-    broken.candidate.applied = true;
+    record_mut(&mut broken).applied = true;
     let mut study = Study::new("tank", "sha256:loop-1");
     assert!(broken.encode().is_err());
     assert!(study.set_section(&broken).is_err());
@@ -635,7 +653,9 @@ fn example_identify(loop_definition: &LoopDefinition) -> IdentifySection {
         &base.estimation_recording_id,
         None,
         base.selected_model.clone(),
-        base.presentation.clone(),
+        base.presentation
+            .clone()
+            .expect("a fit keeps its presentation"),
     )
 }
 
@@ -778,9 +798,18 @@ fn a_manual_entry_is_the_same_candidate_through_tune_and_through_preview_and_pre
     assert_eq!(outcome.section.method, Some(TuneMethod::Manual));
     assert_eq!(outcome.result.method, Some(TuneMethod::Manual));
     assert_eq!(outcome.result.method_title, "Manual settings");
-    assert_eq!(outcome.result.candidate.source, CandidateSource::Manual);
-    assert_eq!(outcome.result.candidate.structure, Structure::PI);
-    assert!(!outcome.result.candidate.applied, "Tune never applies");
+    assert_eq!(
+        record(outcome.result.candidate.as_ref()).source,
+        CandidateSource::Manual
+    );
+    assert_eq!(
+        record(outcome.result.candidate.as_ref()).structure,
+        Structure::PI
+    );
+    assert!(
+        !record(outcome.result.candidate.as_ref()).applied,
+        "Tune never applies"
+    );
     assert_eq!(outcome.result.reason, texts::MANUAL_READY);
     // The answer carries the evidence its stages are computed from: the model and the candidate it designed (B9.4).
     assert!(outcome.result.stage_evidence.has_model && outcome.result.stage_evidence.has_candidate);
@@ -920,8 +949,14 @@ fn a_qualified_relay_record_gives_the_relay_rule_candidate_with_its_ku_and_pu() 
     .expect("a qualified relay record designs the relay rule");
     assert_eq!(outcome.result.method, Some(TuneMethod::Relay));
     assert_eq!(outcome.result.method_title, "Relay rule");
-    assert_eq!(outcome.result.candidate.source, CandidateSource::RelayRule);
-    assert_eq!(outcome.result.candidate.structure, Structure::PI);
+    assert_eq!(
+        record(outcome.result.candidate.as_ref()).source,
+        CandidateSource::RelayRule
+    );
+    assert_eq!(
+        record(outcome.result.candidate.as_ref()).structure,
+        Structure::PI
+    );
     assert_eq!(
         outcome.result.reason,
         "Relay rule from Ku = 2 and Pu = 4 s: Kp = 0.45·Ku, Ti = Pu/1.2. Validate before applying."
@@ -929,8 +964,22 @@ fn a_qualified_relay_record_gives_the_relay_rule_candidate_with_its_ku_and_pu() 
     assert!(outcome.result.method_description.contains("Ku"));
     assert!(outcome.result.method_description.contains("Pu"));
     // The example is direct-acting, so Kp and Ki are positive (N6.4); Ki = Kp/Ti with Ti = 4/1.2 s.
-    assert!((outcome.result.candidate.parameters.proportional_gain - 0.9).abs() <= 1e-9);
-    assert!((outcome.result.candidate.parameters.integral_gain - 0.27).abs() <= 1e-9);
+    assert!(
+        (record(outcome.result.candidate.as_ref())
+            .parameters
+            .proportional_gain
+            - 0.9)
+            .abs()
+            <= 1e-9
+    );
+    assert!(
+        (record(outcome.result.candidate.as_ref())
+            .parameters
+            .integral_gain
+            - 0.27)
+            .abs()
+            <= 1e-9
+    );
 }
 
 #[test]
@@ -947,7 +996,7 @@ fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
     })
     .expect("SIMC designs a PI with the filter declared");
     assert_eq!(
-        calculated.result.candidate.measurement_filter_seconds,
+        record(calculated.result.candidate.as_ref()).measurement_filter_seconds,
         Some(0.0),
         "a calculated candidate writes Tf = 0 unless Tf is pinned (C0)"
     );
@@ -967,7 +1016,7 @@ fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
     })
     .expect("the pinned filter time keeps its value");
     assert_eq!(
-        pinned.result.candidate.measurement_filter_seconds,
+        record(pinned.result.candidate.as_ref()).measurement_filter_seconds,
         Some(0.5)
     );
     assert_ne!(
@@ -985,7 +1034,10 @@ fn a_law_that_declares_a_filter_writes_its_filter_time_and_predicts_with_it() {
         relay: None,
     })
     .expect("SIMC designs a PI without a filter");
-    assert_eq!(plain.result.candidate.measurement_filter_seconds, None);
+    assert_eq!(
+        record(plain.result.candidate.as_ref()).measurement_filter_seconds,
+        None
+    );
 }
 
 #[test]
@@ -1038,4 +1090,105 @@ fn the_result_names_each_setting_of_the_candidate_by_its_symbol() {
     })
     .expect("the entered settings with the filter time are a candidate");
     assert_eq!(filtered.result.settings.get(FILTER), Some(&0.25));
+}
+
+/// The commissioning example as a program's own PI law (C2): its controller law and its PID initialization are replaced by a
+/// served `parallel-pid` seed that names the example's proportional and integral parameters.
+fn example_program_pi_loop() -> LoopDefinition {
+    let mut loop_definition = example_loop();
+    loop_definition.controller.law = None;
+    loop_definition.controller.pid_initialization = None;
+    loop_definition.controller.project = Some(
+        ControllerProject::from_value(&json!({
+            "convention": "project-owned-native-controller",
+            "family": "PI",
+            "initialization": { "kind": "declared-state-v1", "states": [] },
+            "seed": { "kind": "parallel-pid", "family": "PI",
+                "proportionalSymbol": PROPORTIONAL, "integralSymbol": INTEGRAL },
+            "axes": [],
+            "objective": { "requirementId": "target-error", "direction": "minimize" },
+            "maximumCandidates": 4, "maximumCycles": 50000, "wallBudgetMs": 60000
+        }))
+        .expect("a served PI seed is a complete project block"),
+    );
+    loop_definition
+}
+
+#[test]
+fn a_program_pi_law_gives_a_project_candidate_whose_settings_name_its_variables() {
+    // C2 Tune: the answer carries the program's candidate, with the values of the variables of its structure, and no Control.PID record.
+    let loop_definition = example_program_pi_loop();
+    let identify = CurrentModel::identified(example_identify(&loop_definition));
+    let mut request = example_request(Some(TuneMethod::Simc));
+    request.structure = Some(Structure::PI);
+    let outcome = tune(&TuneInputs {
+        loop_definition: &loop_definition,
+        model: Some(&identify),
+        previous: None,
+        request: &request,
+        relay: None,
+    })
+    .expect("the program's PI law is designed on the model");
+    assert!(
+        outcome.result.candidate.is_none(),
+        "a program's law keeps no record"
+    );
+    assert!(outcome.section.candidate.is_none());
+    let candidate = outcome
+        .result
+        .project_candidate
+        .as_ref()
+        .expect("the program's candidate");
+    assert_eq!(candidate.structure, Structure::PI);
+    assert!(!candidate.applied, "Tune never applies");
+    assert_eq!(
+        candidate.values,
+        BTreeMap::from([
+            (PROPORTIONAL.to_owned(), candidate.gains.proportional_gain),
+            (INTEGRAL.to_owned(), candidate.gains.integral_gain),
+        ]),
+        "a PI candidate holds its proportional and integral variables only"
+    );
+    assert_eq!(outcome.result.settings, candidate.values);
+    assert_eq!(outcome.section.project_candidate.as_ref(), Some(candidate));
+
+    // A proportional design of the same law holds its proportional variable only (C2, the family's own variables).
+    let mut proportional = example_request(Some(TuneMethod::Simc));
+    proportional.structure = Some(Structure::P);
+    let answer = tune(&TuneInputs {
+        loop_definition: &loop_definition,
+        model: Some(&identify),
+        previous: None,
+        request: &proportional,
+        relay: None,
+    })
+    .expect("the program's P is designed on the model");
+    let candidate = answer
+        .result
+        .project_candidate
+        .as_ref()
+        .expect("the program's candidate");
+    assert_eq!(candidate.structure, Structure::P);
+    assert_eq!(
+        candidate.values,
+        BTreeMap::from([(PROPORTIONAL.to_owned(), candidate.gains.proportional_gain)])
+    );
+    assert!(
+        candidate.gains.integral_gain.abs() <= 1e-12,
+        "P has no integral term"
+    );
+}
+
+#[test]
+fn a_control_pid_section_keeps_its_bytes_and_holds_no_project_candidate() {
+    // C1: a Control.PID section names no project candidate, and reads and writes back unchanged.
+    let section = valid_section("model:fitted:1");
+    let text = section.encode().expect("the section encodes");
+    assert!(
+        !text.contains("projectCandidate"),
+        "the record's section has no program candidate"
+    );
+    let decoded = TuneSection::decode(&text).expect("the section decodes");
+    assert_eq!(decoded, section);
+    assert_eq!(decoded.encode().expect("the section encodes again"), text);
 }

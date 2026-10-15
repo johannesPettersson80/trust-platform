@@ -121,12 +121,13 @@ fn pi_draft() -> OwnLawLoopDraft {
 }
 
 /// The project block of a generated own-law loop: the `controller.project` value.
-fn project_of(loop_definition: &LoopDefinition) -> &Value {
+fn project_of(loop_definition: &LoopDefinition) -> Value {
     loop_definition
         .controller
         .project
         .as_ref()
         .expect("an own-law loop declares its project block")
+        .to_value()
 }
 
 #[test]
@@ -187,25 +188,31 @@ fn the_program_pi_is_a_project_controller_whose_seed_names_its_gains() {
         decode_value(project["initialization"]["states"].clone()).expect("the states decode");
     assert_eq!(
         states,
-        vec![
-            InitializedState {
-                symbol: "P1.Integral".to_string(),
-                iec_type: StateType::Lreal,
-                unit: "%".to_string(),
-                minimum: -1000.0,
-                maximum: 1100.0,
-                initial: InitialValue::From(InitialSource::PidIntegral {
-                    index: 0,
-                    input_index: 0,
-                    gain_symbol: "P1.Kp".to_string(),
-                    weight_symbol: None,
-                    weight: None,
-                }),
-                post_scan: PostScan::Bounded,
-            },
-            startup_state("P1.Started"),
-        ],
-        "the integral term starts at the output of the switch to Auto; the startup flag starts TRUE"
+        vec![InitializedState {
+            symbol: "P1.Integral".to_string(),
+            iec_type: StateType::Lreal,
+            unit: "%".to_string(),
+            minimum: -1000.0,
+            maximum: 1100.0,
+            initial: InitialValue::From(InitialSource::PidIntegral {
+                index: 0,
+                input_index: 0,
+                gain_symbol: "P1.Kp".to_string(),
+                weight_symbol: None,
+                weight: None,
+            }),
+            post_scan: PostScan::Bounded,
+        },],
+        "the integral term starts at the output of the switch to Auto"
+    );
+    // The startup-done flag is an application state (C1): it accompanies the law's states, and Validate starts it TRUE.
+    let application: Vec<InitializedState> =
+        decode_value(project["initialization"]["applicationStates"].clone())
+            .expect("the application states decode");
+    assert_eq!(
+        application,
+        vec![startup_state("P1.Started")],
+        "the startup flag is an application state, which the switch to Auto sets TRUE"
     );
     assert_eq!(
         (
@@ -273,13 +280,20 @@ fn a_p_law_has_only_its_proportional_gain() {
     );
     let states: Vec<InitializedState> =
         decode_value(project["initialization"]["states"].clone()).expect("the states decode");
+    assert!(
+        states.is_empty(),
+        "a P law has no integral term and no law state"
+    );
+    let application: Vec<InitializedState> =
+        decode_value(project["initialization"]["applicationStates"].clone())
+            .expect("the application states decode");
     assert_eq!(
-        states
+        application
             .iter()
             .map(|state| state.symbol.as_str())
             .collect::<Vec<_>>(),
         vec!["P1.Started"],
-        "a P law has no integral term; only the startup flag is started"
+        "only the startup flag is started, as an application state"
     );
 }
 

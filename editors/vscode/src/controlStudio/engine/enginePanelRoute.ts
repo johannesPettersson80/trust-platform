@@ -125,6 +125,12 @@ const ENGINE_METHOD_OF_PAGE = new Map<string, TuneMethod | undefined>([
   ["manual", "manual"],
 ]);
 
+/**
+ * What the route does with a served loop's Tune command (C2): the engine's request, or the route's own refusal of a Tune it cannot send.
+ * A served loop's Tune is never handed to the TypeScript session.
+ */
+type TuneOrder = { readonly request: TuneRequest } | { readonly refusal: string };
+
 interface Subscription {
   dispose(): void;
 }
@@ -323,7 +329,7 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
         void send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "identify", result });
       }
       if (update.state === "finished" && update.command === "tune" && result) {
-        lastFamily = familyOf(record(result.candidate)?.structure);
+        lastFamily = candidateFamilyOf(result);
         void send({ ...scopeFields(scope), kind: "control-studio.engine.result", method: "tune", result });
       }
       // The other stages' operations (Validate, the automatic flow, Apply, Restore, Keep): their result follows their last update.
@@ -367,24 +373,25 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
 
   /**
    * The engine's request of the page's Tune command (B4.1, B4.2): the method, the structure the engineer fixed, the pins and the
-   * entered settings. The response is not sent: the engine reads the one the study declares (B4.3). Undefined when the engine does
-   * not run the method, or when pins have no family to belong to, so that the TypeScript route keeps the command.
+   * entered settings. The response is not sent: the engine reads the one the study declares (B4.3). A family the page does not name is
+   * sent with no structure, so the engine applies its default or refuses it with its own reason. The route refuses only what it cannot
+   * send: a method the engine does not run, and pins with no family to belong to, because the engine's pins name their family.
    */
-  function tuneRequest(loop: EngineLoop, scope: LoopMessageScope, payload: Record<string, unknown>): TuneRequest | undefined {
+  function tuneRequest(loop: EngineLoop, scope: LoopMessageScope, payload: Record<string, unknown>): TuneOrder {
     const preferences = record(payload.tuningPreferences);
     const page = String(preferences?.method ?? "automatic");
-    if (!ENGINE_METHOD_OF_PAGE.has(page)) return undefined;
+    if (!ENGINE_METHOD_OF_PAGE.has(page)) return { refusal: "The engine does not run the tuning method the page chose." };
     const method = ENGINE_METHOD_OF_PAGE.get(page);
     const structure = familyOf(payload.family);
     const pinned = record(payload.pinnedValues);
     let pins: ControllerSettingsPins | undefined;
     if (pinned && Object.keys(pinned).length > 0) {
-      const family = structure ?? lastFamily ?? familyOf(options.tuningInputs?.()?.settingsPins?.family);
-      if (!family) return undefined;
+      const family = structure ?? lastFamily ?? inputsRoute.recorded().pins?.family ?? familyOf(options.tuningInputs?.()?.settingsPins?.family);
+      if (!family) return { refusal: "Choose a controller configuration before keeping settings." };
       pins = { family, loopRevision: scope.loopRevision, values: { ...(pinned as Record<string, number>) } };
     }
     const settings = method === "manual" ? record(preferences?.values) : undefined;
-    return {
+    return { request: {
       ...(method ? { method } : {}),
       ...(structure ? { structure } : {}),
       ...(pins ? { pins } : {}),
@@ -393,7 +400,7 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       projectRoot: options.projectRoot,
       runtimeId: loop.runtimeId,
       storageFolder: options.storageFolder,
-    };
+    } };
   }
 
   /**
@@ -515,6 +522,8 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       storedMethod = result.pageView?.identifyMethod ?? undefined;
       // The recording the study's model was fitted from is the one a reopened page's Fit refits (B3.6, A8.6); none when it has no model.
       recordingId = typeof result.identification?.recordingId === "string" ? result.identification.recordingId : undefined;
+      // The pins of the study's candidate belong to its family, which a reopened page's Tune needs for those pins (B4.2, A8.6).
+      lastFamily = candidateFamilyOf(result.tune);
       // The page follows the operations the engine runs for the loop (A8.6); the journaled operations are not updates it answers.
       follow(result.running, scope);
       await send({ ...scopeFields(scope), kind: "control-studio.engine.opened", result });
@@ -585,8 +594,13 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       if (value.kind !== "control-studio.flow.start") return false;
       const payload = record(value.payload);
       if (!payload || payload.from !== "tune") return false;
-      const request = tuneRequest(loop, scope, payload);
-      if (!request) return false;
+      // A served loop's Tune is the engine's (C2): the route claims it, and refuses only what it cannot send.
+      const order = tuneRequest(loop, scope, payload);
+      if ("refusal" in order) {
+        await postFailure(scope, "tune", unclassifiedFailure(order.refusal));
+        return true;
+      }
+      const request = order.request;
       // With a runtime connection the engine reads the running controller's settings for the comparison (B4.5); Tune never writes to it.
       const connection = await connectionOf();
       const reply = await ask(scope, "tune", () => client.tune(connection ? { ...request, connection } : request));
@@ -689,4 +703,13 @@ function openedAnalysis(result: OpenResult): AnalysisPage | undefined {
 /** A controller family as the engine names it, or undefined for any other value. */
 function familyOf(value: unknown): Structure | undefined {
   return value === "P" || value === "PI" || value === "PD" || value === "PID" ? value : undefined;
+}
+
+/**
+ * The family of the candidate an answer holds (B4.2): a Control.PID candidate's structure, or a program's own law's `projectCandidate`
+ * (C2), whose structure is its family too. Undefined when the answer holds neither.
+ */
+function candidateFamilyOf(answer: unknown): Structure | undefined {
+  const value = record(answer);
+  return familyOf(record(value?.candidate ?? value?.projectCandidate)?.structure);
 }

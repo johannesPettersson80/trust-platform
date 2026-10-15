@@ -7,6 +7,7 @@
 #![allow(clippy::module_name_repetitions)] // `CascadeDesign` and its records name the module's subject.
 
 use trust_control_math::identify::gain::ControllerAction;
+use trust_control_math::identify::ParameterInterval;
 use trust_control_math::sampled_loop::{unit_step_response, SamplePi};
 
 use super::channel::ChannelRequirements;
@@ -17,6 +18,8 @@ use super::path::{
 use super::texts;
 use crate::identification::refusal::Refusal;
 use crate::model::GeneralModel;
+use crate::tuning::candidate::DEFAULT_RATE_LIMIT_PER_S;
+use crate::tuning::prediction::RecordShaping;
 use crate::tuning::requirements::TuningRequirements;
 use crate::tuning::shortfall::{GainLimits, OutputLimits};
 use crate::tuning::structure::ParallelGains;
@@ -120,11 +123,18 @@ pub fn design_cascade(
         Some(own) => own.apply(&requirements.task),
         None => scaled_inner(&outer_task, ratio),
     };
+    // The cascade's facts carry no declared rate limits and no record shaping yet: the loop's own rates are served with C6 (stage V7.5).
+    let undeclared_rates = ParameterInterval {
+        minimum: -DEFAULT_RATE_LIMIT_PER_S,
+        maximum: DEFAULT_RATE_LIMIT_PER_S,
+    };
     let inner_facts = LoopFacts {
         action: cascade.action,
         task_period_ms: cascade.task_period_ms,
         gain_limits: cascade.gain_limits.clone(),
         output_limits: cascade.plant_input_limits,
+        rate_limits: undeclared_rates,
+        shaping: RecordShaping::default(),
         process_unit: inner.unit.clone(),
         manipulated_unit: cascade.plant_input_unit.clone(),
     };
@@ -158,6 +168,8 @@ pub fn design_cascade(
         task_period_ms: cascade.task_period_ms,
         gain_limits: cascade.gain_limits.clone(),
         output_limits: inner.range,
+        rate_limits: undeclared_rates,
+        shaping: RecordShaping::default(),
         process_unit: outer.unit.clone(),
         manipulated_unit: inner.unit.clone(),
     };

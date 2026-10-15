@@ -22,7 +22,6 @@ use crate::identification::selected_model_analysis::{accepted_identification_mod
 use crate::loop_definition::LoopDefinition;
 use crate::model::{GeneralModel, ModelChannel, OperatingRange};
 use crate::recording::opened_channels::RecordingSignalSelection;
-use serde_json::Value;
 
 /// The model of a selected pair of recordings, with the presentation that shows it.
 #[derive(Debug, Clone, PartialEq)]
@@ -76,27 +75,22 @@ pub fn fit_selected_recording_model(
     }
     let (inputs, outputs) =
         selected_channels(runs, selection).map_err(RecordedFitError::Refused)?;
-    let model_channels = ChannelSet {
-        inputs: inputs
-            .iter()
-            .map(|channel| model_channel_with_id(loop_definition, "inputs", channel))
-            .collect(),
-        outputs: outputs
-            .iter()
-            .map(|channel| model_channel_with_id(loop_definition, "outputs", channel))
-            .collect(),
-    };
     if let ([input], [output]) = (inputs.as_slice(), outputs.as_slice()) {
+        // The model names the channels the loop gives its plant input and measured output (B3.6); the samples and the traces
+        // read the recorded channels.
+        let model_input = model_channel_with_id(loop_definition, "inputs", input);
+        let model_output = model_channel_with_id(loop_definition, "outputs", output);
+        let signals = ExperimentSignals {
+            inputs: signals_of(&inputs),
+            outputs: signals_of(&outputs),
+        };
         // The attempt that runs first; a failure of it falls through to the state fit, as the TypeScript does.
         if let Ok(fit) = single_channel_fit(
             loop_definition,
             (estimation, validation),
             (input, output),
-            &model_channels,
-            &ExperimentSignals {
-                inputs: signals_of(&inputs),
-                outputs: signals_of(&outputs),
-            },
+            (&model_input, &model_output),
+            &signals,
         ) {
             return Ok(fit);
         }
@@ -109,13 +103,14 @@ pub fn fit_selected_recording_model(
     })
 }
 
-/// The single-input, single-output fit of two selected recordings: the independent acceptance, the accepted plant model
-/// and the presentation with the traces of the validation recording.
+/// The single-input, single-output fit of two selected recordings: the independent acceptance, the accepted plant model with the
+/// channels the loop names (`model_input`, `model_output`), and the presentation with the traces of the validation recording. The
+/// recorded channels (`input`, `output`) are the ones the samples are read from.
 fn single_channel_fit(
     loop_definition: &LoopDefinition,
     (estimation, validation): (&SelectedRun<'_>, &SelectedRun<'_>),
     (input, output): (&ModelChannel, &ModelChannel),
-    model_channels: &ChannelSet,
+    (model_input, model_output): (&ModelChannel, &ModelChannel),
     signals: &ExperimentSignals,
 ) -> Result<SelectedRecordingFit, Refusal> {
     let estimation_samples = selected_samples(estimation, input, output);
@@ -128,10 +123,19 @@ fn single_channel_fit(
         maximum_normalized_error(loop_definition),
     )
     .map_err(Refusal::new)?;
-    let model = accepted_identification_model(&accepted, model_channels)?;
+    let channels = ChannelSet {
+        inputs: vec![model_input.clone()],
+        outputs: vec![model_output.clone()],
+    };
+    let model = accepted_identification_model(&accepted, &channels)?;
     let experiment = experiment_from_run(loop_definition, validation.run, Some(signals))?;
-    let presentation =
-        comparison_presentation(experiment, input, output, &accepted.model, &accepted.fit);
+    let presentation = comparison_presentation(
+        experiment,
+        model_input,
+        model_output,
+        &accepted.model,
+        &accepted.fit,
+    );
     Ok(SelectedRecordingFit {
         model,
         presentation,
@@ -246,40 +250,68 @@ fn selected_channel(runs: &[SelectedRun<'_>], id: &str) -> Result<ModelChannel, 
     })
 }
 
-/// A selected channel with its model identifier: the loop's `modelChannelId` for the signal when the loop gives one, or the
-/// signal's symbol.
+/// A selected channel with its model identifier (`selected_model_id`), with its unit and operating range.
 fn model_channel_with_id(
     loop_definition: &LoopDefinition,
     kind: &str,
     channel: &ModelChannel,
 ) -> ModelChannel {
     ModelChannel {
-        id: model_id_of(loop_definition, kind, &channel.id),
+        id: selected_model_id(loop_definition, kind, &channel.id),
         unit: channel.unit.clone(),
         operating_range: channel.operating_range,
     }
 }
 
-/// The model identifier of the loop's channel of one kind that names the signal `symbol` (`inputId` and `outputId` in
-/// `fitSelectedRecordingModel`), or the symbol itself.
-fn model_id_of(loop_definition: &LoopDefinition, kind: &str, symbol: &str) -> String {
-    loop_definition
-        .channels
-        .as_ref()
-        .and_then(|channels: &Value| channels.get(kind))
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .find(|entry| {
-            entry
-                .get("signalId")
-                .and_then(Value::as_str)
-                .and_then(|signal_id| signal_symbol(loop_definition, signal_id))
-                .as_deref()
-                == Some(symbol)
-        })
-        .and_then(|entry| entry.get("modelChannelId")?.as_str().map(str::to_owned))
-        .unwrap_or_else(|| symbol.to_owned())
+/// The model identifier of a selected signal of one kind, `inputs` or `outputs` (`inputId` and `outputId` in
+/// `fitSelectedRecordingModel`): the `modelChannelId` the loop gives the signal, or else the loop's model identifier for the role
+/// (`role_model_id`). A recorded channel the loop does not bind takes the identifier its own signal of that role has, so the model
+/// names the loop's channel (B3.6).
+#[must_use]
+pub(crate) fn selected_model_id(
+    loop_definition: &LoopDefinition,
+    kind: &str,
+    symbol: &str,
+) -> String {
+    bound_model_id(loop_definition, kind, symbol)
+        .unwrap_or_else(|| role_model_id(loop_definition, kind))
+}
+
+/// The model identifier of the loop's own signal of one role, `inputs` (the plant input) or `outputs` (the measured output): the
+/// `modelChannelId` of the loop's channel of that kind that names the signal, or the signal's symbol when the loop binds none.
+#[must_use]
+pub(crate) fn role_model_id(loop_definition: &LoopDefinition, kind: &str) -> String {
+    let symbol = role_symbol(loop_definition, kind);
+    bound_model_id(loop_definition, kind, symbol).unwrap_or_else(|| symbol.to_owned())
+}
+
+/// The `modelChannelId` of the loop's channel of one kind that names the signal `symbol`, when the loop binds one.
+fn bound_model_id(loop_definition: &LoopDefinition, kind: &str, symbol: &str) -> Option<String> {
+    let channels = loop_definition.channels.as_ref()?;
+    let names =
+        |signal_id: &str| signal_symbol(loop_definition, signal_id).as_deref() == Some(symbol);
+    if kind == "inputs" {
+        channels
+            .inputs
+            .iter()
+            .find(|entry| names(&entry.signal_id))
+            .map(|entry| entry.model_channel_id.clone())
+    } else {
+        channels
+            .outputs
+            .iter()
+            .find(|entry| names(&entry.signal_id))
+            .map(|entry| entry.model_channel_id.clone())
+    }
+}
+
+/// The symbol of the loop's own signal of one role: the manipulated variable for `inputs`, the process variable for `outputs`.
+fn role_symbol<'a>(loop_definition: &'a LoopDefinition, kind: &str) -> &'a str {
+    if kind == "inputs" {
+        &loop_definition.signals.manipulated_variable.symbol
+    } else {
+        &loop_definition.signals.process_variable.symbol
+    }
 }
 
 /// The symbol of a loop signal by its identifier (`loopSignal`): the primary signals by their role names, and the

@@ -9,12 +9,14 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use super::*;
+use crate::commissioning::fixture_loops::{first_order_model, project_pid_loop};
 use crate::identification::connected_record::{RunEvent, RunEvidence, ValidationChannel};
 use crate::model::decode_general_model;
 use crate::tuning::candidate::{
-    AntiWindup, CandidateSource, ControlPidParameters, DEFAULT_RATE_LIMIT_PER_S,
+    AntiWindup, CandidateSource, ControlPidParameters, LawCandidate, DEFAULT_RATE_LIMIT_PER_S,
 };
-use crate::tuning::structure::Structure;
+use crate::tuning::project_candidate::{project_candidate, served_seed};
+use crate::tuning::structure::{ParallelGains, Structure};
 use crate::validation::engineer_verification_plan::{
     engineer_requirements, engineer_verification_plan, EngineerRequirements,
 };
@@ -262,7 +264,7 @@ fn the_current_settings_and_the_candidate_are_both_written_as_their_records() {
     )
     .expect_err("a current setting the runtime did not give");
     assert_eq!(refused.next_action, NextAction::ConnectRuntime);
-    let candidate = sample_candidate(2.0, 0.5);
+    let candidate = LawCandidate::Pid(sample_candidate(2.0, 0.5));
     let tuned = request_for(
         &loop_definition,
         &plan,
@@ -292,6 +294,61 @@ fn the_current_settings_and_the_candidate_are_both_written_as_their_records() {
         .find(|parameter| parameter.symbol == "Main.Ki")
         .expect("Main.Ki is overridden");
     assert_eq!(ki.value, 0.5);
+}
+
+#[test]
+fn a_program_candidate_writes_its_seed_variables_and_an_explicit_zero_for_the_term_it_omits() {
+    // C2 and E8.4: the nominal runs write the candidate as parameter overrides. A PI candidate of a PID seed writes the proportional
+    // and integral variables and an explicit zero to the derivative variable, which the seed names but the structure does not use.
+    let loop_definition = project_pid_loop();
+    let model = first_order_model();
+    let gains = BTreeMap::from([
+        ("Main.Program.Kp".to_owned(), 2.0),
+        ("Main.Program.Ki".to_owned(), 0.5),
+        ("Main.Program.Kd".to_owned(), 0.0),
+    ]);
+    let plan = engineer_verification_plan(
+        &loop_definition,
+        &model,
+        &fixture_task(),
+        &gains,
+        &BTreeMap::new(),
+    )
+    .expect("the plan of the program's law");
+    let seed = served_seed(&loop_definition).expect("the served seed");
+    let candidate = LawCandidate::Project(project_candidate(
+        seed,
+        CandidateSource::Simc,
+        ParallelGains {
+            proportional_gain: 2.0,
+            integral_gain: 0.5,
+            derivative_gain: 0.0,
+        },
+    ));
+    let request = isolated_run_request(&RunRequestInput {
+        loop_definition: &loop_definition,
+        model: &model,
+        plan: &plan,
+        case: &nominal_case(&plan),
+        settings: RunSettings::Candidate(&candidate),
+        simulation: None,
+        request_id: "run-program-candidate",
+        expected_project_revision: "sha256:project",
+    })
+    .expect("the candidate request of the program's law");
+    let written: BTreeMap<String, f64> = request
+        .parameter_overrides
+        .iter()
+        .map(|parameter| (parameter.symbol.clone(), parameter.value))
+        .collect();
+    assert_eq!(
+        written,
+        BTreeMap::from([
+            ("Main.Program.Kd".to_owned(), 0.0),
+            ("Main.Program.Ki".to_owned(), 0.5),
+            ("Main.Program.Kp".to_owned(), 2.0)
+        ])
+    );
 }
 
 #[test]
@@ -459,17 +516,17 @@ fn the_record_fields_take_the_values_of_their_gain_keys() {
     let mut candidate = sample_candidate(2.0, 0.5);
     candidate.parameters.tracking_time = 4.0;
     assert_eq!(
-        candidate_value(&candidate, GainKey::BackCalculationGain).expect("1/Tt"),
+        pid_value(&candidate, GainKey::BackCalculationGain).expect("1/Tt"),
         0.25,
         "the back-calculation gain is 1/Tt (C0)"
     );
     assert!(
-        candidate_value(&candidate, GainKey::MeasurementFilterSeconds).is_err(),
+        pid_value(&candidate, GainKey::MeasurementFilterSeconds).is_err(),
         "a filter the candidate does not set is refused"
     );
     candidate.measurement_filter_seconds = Some(0.1);
     assert_eq!(
-        candidate_value(&candidate, GainKey::MeasurementFilterSeconds).expect("Tf"),
+        pid_value(&candidate, GainKey::MeasurementFilterSeconds).expect("Tf"),
         0.1
     );
 }

@@ -5,6 +5,7 @@
 //! the selection itself. Nothing here writes a file. A loop that uses channels is refused by name, because the Rust engine does
 //! not run channels yet (stage V7).
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use schemars::JsonSchema;
@@ -20,6 +21,7 @@ use crate::json::parse_text;
 use crate::loop_definition::{
     AuxiliaryRole, LoopDefinition, LoopScope, ManualOutputType, Range, RealType,
 };
+use crate::tuning::settings_pins::family_setting_symbols;
 use crate::tuning::structure::Structure;
 
 /// The most loop files one discovery reads (B1.2; a product limit).
@@ -92,6 +94,10 @@ pub enum ControllerCompatibility {
     Accepted {
         /// The structures, as the setup page names them.
         families: Vec<String>,
+        /// The parameter symbols that each family's manual settings and pins take, by the family's name (C0, C2). The page asks
+        /// for these settings only, and Tune refuses any other.
+        #[serde(rename = "familySettings")]
+        family_settings: BTreeMap<String, Vec<String>>,
     },
     /// No adapter realizes the loop, and this is why.
     Rejected {
@@ -606,20 +612,55 @@ fn adapter_compatibility(loop_definition: &LoopDefinition) -> ControllerCompatib
     {
         return ControllerCompatibility::Unconfigured;
     }
-    match controller_adapter(loop_definition) {
-        Ok(adapter) => ControllerCompatibility::Accepted {
-            families: adapter
-                .families()
+    // A served program's own law (C2) is accepted with the families its seed names.
+    if let Some(project) = controller
+        .project
+        .as_ref()
+        .filter(|project| project.parked_feature().is_none())
+    {
+        let families = project.offered_families();
+        return ControllerCompatibility::Accepted {
+            families: families
                 .iter()
                 .map(|structure| family_name(*structure).to_string())
                 .collect(),
-        },
+            family_settings: family_settings_of(loop_definition, &families),
+        };
+    }
+    match controller_adapter(loop_definition) {
+        Ok(adapter) => {
+            let families = adapter.families();
+            ControllerCompatibility::Accepted {
+                families: families
+                    .iter()
+                    .map(|structure| family_name(*structure).to_string())
+                    .collect(),
+                family_settings: family_settings_of(loop_definition, &families),
+            }
+        }
         Err(Failure {
             message, detail, ..
         }) => ControllerCompatibility::Rejected {
             reason: detail.unwrap_or(message),
         },
     }
+}
+
+/// The parameter symbols that each offered family's manual settings and pins take, by the family's name (C0, C2): the same rule
+/// that Tune applies to the settings and pins it accepts (`family_setting_symbols`).
+fn family_settings_of(
+    loop_definition: &LoopDefinition,
+    families: &[Structure],
+) -> BTreeMap<String, Vec<String>> {
+    families
+        .iter()
+        .map(|structure| {
+            (
+                family_name(*structure).to_string(),
+                family_setting_symbols(loop_definition, *structure),
+            )
+        })
+        .collect()
 }
 
 /// The controller symbols a loop declares, as the `TypeScript` walk finds them (`declaredControllerSymbols`): every text under a key

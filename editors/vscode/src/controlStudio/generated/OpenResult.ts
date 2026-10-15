@@ -301,6 +301,10 @@ export type Movement = "up" | "down";
  */
 export type Structure = "P" | "PI" | "PD" | "PID";
 /**
+ * The manual output's type.
+ */
+export type ManualOutputType = "REAL" | "LREAL" | "BOOL";
+/**
  * Who designs the controller.
  */
 export type Design = "pid" | "project";
@@ -355,10 +359,6 @@ export type ControllerLaw =
        */
       proportionalSetpointWeightSymbol?: string | null;
     };
-/**
- * The manual output's type.
- */
-export type ManualOutputType = "REAL" | "LREAL" | "BOOL";
 /**
  * The mode a mode signal's TRUE value means.
  */
@@ -1640,13 +1640,14 @@ export interface Window {
  */
 export interface LoopDefinition {
   /**
-   * Parked (stage V7): a declared control analysis.
+   * A declared control analysis (N7.6). A C12 observation or open-loop loop is served with it; any other loop parks on it (stage V7).
    */
   analysis?: {
     [k: string]: unknown;
   };
   /**
-   * Parked (stage V7): the analysis's parameter names.
+   * The analysis's parameters mapped to program symbols. Control Studio writes only the mapped symbols, within the analysis
+   * bounds (B6.1, C12); a loop that is not a C12 observation or open-loop loop parks on it (stage V7).
    */
   analysisParameterSymbols?: {
     [k: string]: unknown;
@@ -1658,11 +1659,10 @@ export interface LoopDefinition {
     [k: string]: unknown;
   };
   /**
-   * Parked (stage V7): the loop's channels.
+   * The loop's channels: the model's inputs and outputs (specification 35, C7 and C8). The gate parks a loop with channels until
+   * their shapes are served (checklist V7).
    */
-  channels?: {
-    [k: string]: unknown;
-  };
+  channels?: LoopChannels | null;
   controller: Controller;
   /**
    * The loop's identification experiment.
@@ -1729,6 +1729,134 @@ export interface LoopDefinition {
   };
 }
 /**
+ * The loop's channels: the model's inputs and outputs, and the state deviations of the selected model.
+ */
+export interface LoopChannels {
+  /**
+   * The state deviations in the selected model's declared coordinates: at most 32 and finite.
+   */
+  initialState?: number[] | null;
+  /**
+   * The model's inputs, in order: one to sixteen.
+   */
+  inputs: ChannelInput[];
+  /**
+   * The model's outputs, in order: one to sixteen.
+   */
+  outputs: ChannelOutput[];
+  [k: string]: unknown;
+}
+/**
+ * One model input: the loop signal it drives or reads, its Manual command and its actuator.
+ */
+export interface ChannelInput {
+  actuator: ActuatorCapabilities;
+  /**
+   * The identifier of the loop signal that reports the actuator's applied value, when it is not the default one.
+   */
+  appliedSignalId?: string | null;
+  /**
+   * The input's own identification step, in its unit: positive and within the actuator's span (specification 35, §17.9).
+   */
+  experimentStep?: number | null;
+  /**
+   * The Manual command the input is stepped through, when it has one.
+   */
+  manualOutputSignal?: string | null;
+  /**
+   * The type of the Manual command.
+   */
+  manualOutputType?: ManualOutputType | null;
+  /**
+   * The input's identifier in the model.
+   */
+  modelChannelId: string;
+  /**
+   * The identifier of the loop signal the input is bound to.
+   */
+  signalId: string;
+  [k: string]: unknown;
+}
+/**
+ * The input's actuator: its kind, its range and its rate or minimum-time limits.
+ */
+export interface ActuatorCapabilities {
+  /**
+   * The kind of the actuator.
+   */
+  kind: "continuous" | "on-off";
+  /**
+   * The largest value in the actuator's range.
+   */
+  maximum: number;
+  /**
+   * The smallest value in the actuator's range.
+   */
+  minimum: number;
+  /**
+   * The shortest time an on-off actuator stays off, in seconds.
+   */
+  minimumOffSeconds?: number | null;
+  /**
+   * The shortest time an on-off actuator stays on, in seconds.
+   */
+  minimumOnSeconds?: number | null;
+  /**
+   * The largest fall per second, when limited.
+   */
+  rateDownPerS?: number | null;
+  /**
+   * The largest rise per second, when limited.
+   */
+  rateUpPerS?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * One model output: the loop signal it measures, its setpoint and its own requirements.
+ */
+export interface ChannelOutput {
+  /**
+   * The output's identifier in the model.
+   */
+  modelChannelId: string;
+  /**
+   * The output's own requirements, in place of the loop's, when it has them: they need a setpoint.
+   */
+  requirements?: ChannelRequirements | null;
+  /**
+   * The identifier of the loop signal that holds the output's setpoint, when it has one.
+   */
+  setpointSignalId?: string | null;
+  /**
+   * The identifier of the loop signal the output is bound to.
+   */
+  signalId: string;
+  [k: string]: unknown;
+}
+/**
+ * A measurement's own requirements: the setpoint change of its own test, the largest error allowed at its settling time, the
+ * band around its final value, and the time by which it settles.
+ */
+export interface ChannelRequirements {
+  /**
+   * The largest error allowed at the settling time; positive.
+   */
+  maximumError: number;
+  /**
+   * The setpoint change of the measurement's own test.
+   */
+  referenceChange: number;
+  /**
+   * The band around the final value; positive and below the largest error.
+   */
+  settlingBand: number;
+  /**
+   * The time by which the response settles, in seconds; positive.
+   */
+  settlingTimeSeconds: number;
+  [k: string]: unknown;
+}
+/**
  * The controller that runs the loop.
  */
 export interface Controller {
@@ -1789,7 +1917,8 @@ export interface Controller {
    */
   pidInitialization?: PidInitialization | null;
   /**
-   * Parked (stage V7): the program's own law.
+   * The program's own law (C2): its family, its states, its seed and its search settings. [`ControllerProject`] decodes and
+   * checks it; the engine serves the `parallel-pid` shape and refuses the rest by name.
    */
   project?: {
     [k: string]: unknown;
@@ -2567,7 +2696,11 @@ export interface TuneResult {
    * for a named method.
    */
   attempts: Attempt[];
-  candidate: ControlPidCandidate;
+  /**
+   * The candidate of a `Control.PID`, unapplied: its structure, its source and the complete record it would write. Absent for a
+   * program's own law, which answers `projectCandidate` (C2).
+   */
+  candidate?: ControlPidCandidate | null;
   /**
    * The closed-loop time constant `λ` in seconds that the formula used (N5.4: shown with the candidate); absent for
    * AMIGO and for a design without `λ`.
@@ -2583,6 +2716,11 @@ export interface TuneResult {
    * [`crate::tuning::robustness::delay_margin`]; absent when the margins are.
    */
   delayMarginSeconds?: MarginValue | null;
+  /**
+   * The answer of a measured-disturbance feedforward (C8): both paths, the three values and the deviations. Absent for any other
+   * structure.
+   */
+  feedforward?: FeedforwardAnswer | null;
   gainUnits: TuneGainUnits;
   /**
    * The margins of the candidate on the model (B4.6, N7.7); absent when they cannot be given.
@@ -2642,6 +2780,11 @@ export interface TuneResult {
    */
   predictionUnavailable?: string | null;
   /**
+   * The candidate of a program's own law, unapplied (C2): its structure, its source, its gains and the value of each seed
+   * variable that Apply writes. Absent for a `Control.PID`.
+   */
+  projectCandidate?: ProjectCandidate | null;
+  /**
    * Why the candidate was chosen: the recommendation's reason for Automatic, the method's own otherwise (B4.4).
    */
   reason: string;
@@ -2690,7 +2833,7 @@ export interface Attempt {
   structure: "P" | "PI" | "PD" | "PID";
 }
 /**
- * The candidate, unapplied: its structure, its source and the complete `Control.PID` record it would write.
+ * A candidate of a `Control.PID` record, unapplied (B4.2): its source, its structure and the complete record it writes.
  */
 export interface ControlPidCandidate {
   /**
@@ -2825,6 +2968,75 @@ export interface ParallelGains {
   [k: string]: unknown;
 }
 /**
+ * The answer of a measured-disturbance feedforward's Tune (C8): both reduced paths, the three feedforward values, the disturbance step
+ * and, on the model, the largest deviation of the measurement after that step with the PI alone and with the feedforward.
+ */
+export interface FeedforwardAnswer {
+  disturbancePath: FeedforwardPath;
+  /**
+   * The disturbance step of the test: the disturbance's identification step.
+   */
+  disturbanceStep: number;
+  /**
+   * The largest deviation of the measurement from its operating value after the step, with the PI alone, on the model.
+   */
+  feedbackDeviation: number;
+  /**
+   * The largest deviation of the measurement from its operating value after the step, with the PI and the feedforward, on the model.
+   */
+  feedforwardDeviation: number;
+  /**
+   * The feedforward gain `K_ff`, in the manipulated variable's unit per the disturbance's unit.
+   */
+  gain: number;
+  /**
+   * The lag time `T_lag` in seconds, when the program has a lead and a lag.
+   */
+  lagSeconds?: number | null;
+  /**
+   * The lead time `T_lead` in seconds, when the program has a lead and a lag.
+   */
+  leadSeconds?: number | null;
+  outputPath: FeedforwardPath1;
+  [k: string]: unknown;
+}
+/**
+ * The path from the measured disturbance to the measurement.
+ */
+export interface FeedforwardPath {
+  /**
+   * The dead time of the path in seconds.
+   */
+  delaySeconds: number;
+  /**
+   * The steady-state gain of the path.
+   */
+  gain: number;
+  /**
+   * The time constant of the path in seconds.
+   */
+  timeConstantSeconds: number;
+  [k: string]: unknown;
+}
+/**
+ * The path from the controller output to the measurement.
+ */
+export interface FeedforwardPath1 {
+  /**
+   * The dead time of the path in seconds.
+   */
+  delaySeconds: number;
+  /**
+   * The steady-state gain of the path.
+   */
+  gain: number;
+  /**
+   * The time constant of the path in seconds.
+   */
+  timeConstantSeconds: number;
+  [k: string]: unknown;
+}
+/**
  * The units of the candidate's gains.
  */
 export interface TuneGainUnits {
@@ -2887,6 +3099,53 @@ export interface CandidateMargins {
    * The sentence that says why the crossover margins are not available, when they are not.
    */
   unavailable?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * A candidate of a program's own law (C2, C11), unapplied: where it came from, its structure and gains, and the value of each seed
+ * variable that Apply writes.
+ */
+export interface ProjectCandidate {
+  /**
+   * Always false: a candidate is never applied by Tune (N8.9).
+   */
+  applied: boolean;
+  gains: ParallelGains1;
+  /**
+   * Where the candidate came from.
+   */
+  source: "Manual" | "Imported" | "SIMC" | "AMIGO" | "Constrained comparison" | "Relay rule";
+  /**
+   * Which terms a controller keeps (C0, "Families and zero terms"). A term the family does not use is written as an
+   * explicit zero, so the structure follows from the gains that are not zero.
+   */
+  structure: "P" | "PI" | "PD" | "PID";
+  /**
+   * The value of each variable of the structure, by symbol: the proportional variable always, and the integral and derivative
+   * variables where the structure has those terms and the seed names them. A trajectory-following law also holds its rate and
+   * acceleration feedforward gains by their variables (C11). Apply writes an explicit zero to every other variable that the seed
+   * names (C0, C2), so this map does not hold those zeros.
+   */
+  values: {
+    [k: string]: number;
+  };
+}
+/**
+ * The gains, signed. A term that the structure does not use is zero.
+ */
+export interface ParallelGains1 {
+  /**
+   * The derivative gain `Kd`.
+   */
+  derivativeGain: number;
+  /**
+   * The integral gain `Ki = Kp / Ti`.
+   */
+  integralGain: number;
+  /**
+   * The proportional gain `Kp`.
+   */
+  proportionalGain: number;
   [k: string]: unknown;
 }
 /**
@@ -3048,6 +3307,10 @@ export interface ValidateResult {
    */
   applyAvailable: boolean;
   /**
+   * The measured-disturbance case of a feedforward (C8, B5.4); absent when this validation ran none. Its failure ends Apply.
+   */
+  disturbanceCase?: DisturbanceCaseOutcome | null;
+  /**
    * Why Apply is not available, with the next action that fixes it (B5.5); absent when Apply is available.
    */
   failure?: Failure | null;
@@ -3094,71 +3357,21 @@ export interface ValidateResult {
   [k: string]: unknown;
 }
 /**
- * A failed step as the engineer sees it: the message, a longer detail when it says more, the
- * cause, and the next action (A11.1).
+ * The measured-disturbance case of a feedforward's Validate (C8): one row on the model, as the Manual-to-Auto entry case is one set of rows
+ * (B5.4). Its requirement compares the largest deviation of the measurement after the settling time with the error allowance, and its
+ * result is that row's, so a case that cannot be judged is Inconclusive and never passes.
  */
-export interface Failure {
+export interface DisturbanceCaseOutcome {
   /**
-   * Why it went wrong.
-   */
-  cause:
-    | "model-or-data"
-    | "settings"
-    | "controller-capability"
-    | "task-infeasible"
-    | "implementation"
-    | "runtime"
-    | "approval"
-    | "unclassified";
-  /**
-   * The whole text, when it says more than the message.
-   */
-  detail?: string | null;
-  /**
-   * The first sentence: what went wrong.
-   */
-  message: string;
-  /**
-   * What to do next.
-   */
-  nextAction:
-    | "connect-runtime"
-    | "open-loop-setup"
-    | "open-limits"
-    | "open-requirements"
-    | "open-channels"
-    | "choose-method"
-    | "identify"
-    | "tune"
-    | "validate"
-    | "approve"
-    | "restore"
-    | "wait"
-    | "none";
-  /**
-   * The words of the next action's button, as [`NextAction::label`] gives them, so that a front end shows the engine's words
-   * (one source of the words); absent for `wait` and `none`.
-   */
-  nextActionLabel?: string | null;
-  [k: string]: unknown;
-}
-/**
- * The Manual-to-Auto entry case of an Auto commissioning (B5.3): the actual-ST run that starts the controller at the selected
- * model's operating point and enters Auto at the transfer, judged on its first output, its mode, its gains, its states and its
- * signal bounds. Its rows are guards (B9.9): the engine generated them from the loop's declaration.
- */
-export interface InitializationOutcome {
-  /**
-   * The words the table names the case with (B9.9): "Manual-to-Auto entry". Each row keeps its own label.
+   * The words the table names the case with (C8): "Measured-disturbance case".
    */
   label: string;
   /**
-   * Each row of the case in its order, each with `guard` set.
+   * The case's rows: its one requirement, with the measured deviation, the error allowance and the reason.
    */
   requirements: RequirementOutcome[];
   /**
-   * The case's result (N8.5): Fail when a row fails, Pass when every row passes, and Inconclusive otherwise, so a case that did not
-   * complete never passes (B5.4).
+   * The case's result (N8.5): the result of its row.
    */
   status: "Pass" | "Fail" | "Inconclusive";
 }
@@ -3253,6 +3466,75 @@ export interface ValueRange {
    * The lowest value.
    */
   minimum: number;
+}
+/**
+ * A failed step as the engineer sees it: the message, a longer detail when it says more, the
+ * cause, and the next action (A11.1).
+ */
+export interface Failure {
+  /**
+   * Why it went wrong.
+   */
+  cause:
+    | "model-or-data"
+    | "settings"
+    | "controller-capability"
+    | "task-infeasible"
+    | "implementation"
+    | "runtime"
+    | "approval"
+    | "unclassified";
+  /**
+   * The whole text, when it says more than the message.
+   */
+  detail?: string | null;
+  /**
+   * The first sentence: what went wrong.
+   */
+  message: string;
+  /**
+   * What to do next.
+   */
+  nextAction:
+    | "connect-runtime"
+    | "open-loop-setup"
+    | "open-limits"
+    | "open-requirements"
+    | "open-channels"
+    | "choose-method"
+    | "identify"
+    | "tune"
+    | "validate"
+    | "approve"
+    | "restore"
+    | "wait"
+    | "none";
+  /**
+   * The words of the next action's button, as [`NextAction::label`] gives them, so that a front end shows the engine's words
+   * (one source of the words); absent for `wait` and `none`.
+   */
+  nextActionLabel?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * The Manual-to-Auto entry case of an Auto commissioning (B5.3): the actual-ST run that starts the controller at the selected
+ * model's operating point and enters Auto at the transfer, judged on its first output, its mode, its gains, its states and its
+ * signal bounds. Its rows are guards (B9.9): the engine generated them from the loop's declaration.
+ */
+export interface InitializationOutcome {
+  /**
+   * The words the table names the case with (B9.9): "Manual-to-Auto entry". Each row keeps its own label.
+   */
+  label: string;
+  /**
+   * Each row of the case in its order, each with `guard` set.
+   */
+  requirements: RequirementOutcome[];
+  /**
+   * The case's result (N8.5): Fail when a row fails, Pass when every row passes, and Inconclusive otherwise, so a case that did not
+   * complete never passes (B5.4).
+   */
+  status: "Pass" | "Fail" | "Inconclusive";
 }
 /**
  * The words the engine names for the rows of the table (B9.9).

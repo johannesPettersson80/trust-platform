@@ -3,7 +3,10 @@
 use serde_json::json;
 
 use super::*;
-use crate::experiment::{ControlEvidenceSource, PlanSignal, RecordingRecoveryBinding};
+use crate::experiment::{
+    ControlEvidenceSource, ExperimentValue, PlanAuxiliarySignal, PlanSignal,
+    RecordingRecoveryBinding,
+};
 use crate::identification::connected_record::connected_identification_record;
 use crate::identification::model_comparison::ComparisonPresentation;
 use crate::identification::record_fixtures::{fitted_model, setpoint_record, Row, Verdict};
@@ -213,15 +216,15 @@ fn the_step_holds_the_maximum_after_the_baseline_less_one_window_and_a_hold_unde
 ) {
     // A 600 s maximum, a recording of the 300 s baseline budget and the maximum, and a 30 s window (5 % of the maximum).
     let window = js_round(baseline().window_seconds * 1_000.0);
-    let hold = step_hold_ms(600_000, 900_000, window, 30.0, 30.0);
+    let hold = step_hold_ms(600_000, 900_000, window, 30.0, 30.0, 1);
     assert_eq!(hold, 570_000.0);
     assert_eq!(
-        step_hold_ms(600_000, 900_000, window, 200.0, 200.0),
+        step_hold_ms(600_000, 900_000, window, 200.0, 200.0, 1),
         570_000.0,
         "a long wait for a steady start never shortens the step"
     );
     assert_eq!(
-        step_hold_ms(600_000, 900_000, window, 400.0, 400.0),
+        step_hold_ms(600_000, 900_000, window, 400.0, 400.0, 1),
         470_000.0,
         "the step ends within the recording"
     );
@@ -976,5 +979,210 @@ fn a_loop_with_an_operation_running_refuses_another_and_names_it_and_offers_to_w
     assert_eq!(
         (refusal.cause, refusal.next_action),
         (Cause::Unclassified, NextAction::Wait)
+    );
+}
+
+/// The tank with two plant inputs (C7, C8), declared as lesson 84 declares them: the valve, which is the manipulated variable, and a
+/// measured load (`P1.LoadKw`, 0 to 50 kW) stepped through its own Manual command. Each input has an identification step of 10.
+fn two_input_loop() -> LoopDefinition {
+    serde_json::from_value(json!({
+        "schemaVersion": 2, "id": "heater", "name": "Heater", "revision": "sha256:heater",
+        "projectId": "project", "runtimeId": "runtime",
+        "controller": {
+            "instance": "P1.Controller", "type": "Control.PID", "revision": "sha256:controller",
+            "action": "direct", "taskPeriodMs": 100.0,
+            "manualOutputSignal": "P1.ManualPct", "manualOutputType": "LREAL"
+        },
+        "observedSampleTiming": { "nominalPeriodMs": 100.0 },
+        "signals": {
+            "setpoint": { "symbol": "LevelSP", "iecType": "LREAL", "direction": "read", "unit": "%",
+                "range": { "minimum": 0.0, "maximum": 100.0 } },
+            "processVariable": { "symbol": "LevelPV", "iecType": "LREAL", "direction": "read", "unit": "%",
+                "range": { "minimum": 0.0, "maximum": 100.0 } },
+            "manipulatedVariable": { "symbol": "ValveMV", "iecType": "LREAL", "direction": "write", "unit": "%",
+                "range": { "minimum": 0.0, "maximum": 100.0 } },
+            "additional": [{
+                "id": "load", "channel": "load", "role": "disturbance", "symbol": "P1.LoadKw", "iecType": "LREAL",
+                "direction": "read", "unit": "kW", "range": { "minimum": 0.0, "maximum": 50.0 }
+            }]
+        },
+        "limits": { "outputMinimum": 0.0, "outputMaximum": 100.0 },
+        "experiment": { "execution": "control-studio", "kind": "mv_step", "amplitude": 10.0,
+            "durationSeconds": 600.0, "seed": 1 },
+        "channels": {
+            "inputs": [
+                { "modelChannelId": "valve", "signalId": "manipulatedVariable", "manualOutputSignal": "P1.ManualPct",
+                  "manualOutputType": "LREAL", "actuator": { "kind": "continuous", "minimum": 0.0, "maximum": 100.0 },
+                  "experimentStep": 10.0 },
+                { "modelChannelId": "load", "signalId": "load", "manualOutputSignal": "P1.LoadKw",
+                  "manualOutputType": "LREAL", "actuator": { "kind": "continuous", "minimum": 0.0, "maximum": 50.0 },
+                  "experimentStep": 10.0 }
+            ],
+            "outputs": [{ "modelChannelId": "level", "signalId": "processVariable", "setpointSignalId": "setpoint" }]
+        }
+    }))
+    .expect("the two-input loop decodes")
+}
+
+/// A live sample of the two-input loop in Manual: the valve at 30 %, the level at 45 % and the measured load at 20 kW.
+fn two_input_sample() -> ExperimentSample {
+    let mut live = sample(EvidenceSource::SimulatedPlant, ControllerMode::Manual);
+    live.additional.push(PlanAuxiliarySignal {
+        id: "load".to_owned(),
+        signal: PlanSignal {
+            symbol: "P1.LoadKw".to_owned(),
+            address: None,
+            value: 20.0,
+            unit: "kW".to_owned(),
+            quality: Quality::Good,
+        },
+    });
+    live
+}
+
+/// The output-step method the two-input loop declares.
+fn output_step() -> IdentificationMethod {
+    IdentificationMethod {
+        kind: ControlExperimentKind::MvStep,
+        manual: true,
+        automatic: false,
+    }
+}
+
+// C7, C8: a campaign of several plant inputs steps them in input order. The valve is stepped on the loop itself; the load is stepped
+// through its own Manual command, with the address the runtime's I/O list gives it and its own identification step.
+#[test]
+fn a_two_input_campaign_steps_the_valve_then_the_load_each_through_its_own_command() {
+    let loop_definition = two_input_loop();
+    let io = json!({ "inputs": [], "outputs": [], "memory": [{ "name": "p1.loadkw", "address": "%MD4" }] });
+    let steps = input_steps(&loop_definition, &io).expect("two inputs step in order");
+    assert_eq!(steps.len(), 2);
+    assert_eq!(steps[0].input_symbol, "ValveMV");
+    assert!(steps[0].manipulated);
+    assert_eq!(steps[1].input_symbol, "P1.LoadKw");
+    assert!(!steps[1].manipulated);
+    let live = two_input_sample();
+    let valve_sample =
+        step_sample(&steps[0], Some(live.clone())).expect("the valve is the loop's own input");
+    let first = step_plan(
+        &steps[0].loop_definition,
+        valve_sample.as_ref(),
+        output_step(),
+        &baseline(),
+        300_000.0,
+        false,
+    )
+    .expect("the valve steps");
+    assert_eq!(first.affected_signal, "P1.ManualPct");
+    assert_eq!(
+        first.address, None,
+        "the loop's own command has no address here"
+    );
+    let load_sample =
+        step_sample(&steps[1], Some(live)).expect("the load is measured, so it is its sample");
+    let second = step_plan(
+        &steps[1].loop_definition,
+        load_sample.as_ref(),
+        output_step(),
+        &baseline(),
+        300_000.0,
+        false,
+    )
+    .expect("the load steps through its own command");
+    assert_eq!(second.affected_signal, "P1.LoadKw");
+    assert_eq!(second.address.as_deref(), Some("%MD4"));
+    assert_eq!(second.value_type, "LREAL");
+    assert_eq!((second.minimum, second.maximum), (0.0, 50.0));
+    let ExperimentValue::Number(from) = second.from else {
+        panic!("the load starts from a number");
+    };
+    let ExperimentValue::Number(to) = second.to else {
+        panic!("the load moves to a number");
+    };
+    assert_eq!((from, to), (20.0, 30.0), "the load's own step of 10 kW");
+    assert_eq!(
+        steps[0].loop_definition.experiment.as_ref().map(|e| e.seed),
+        Some(1),
+        "the first input keeps the loop's seed"
+    );
+    assert_eq!(
+        steps[1].loop_definition.experiment.as_ref().map(|e| e.seed),
+        Some(1 + 7_919),
+        "the second input has its own seed"
+    );
+    assert!(several_channels(&loop_definition));
+}
+
+#[test]
+fn a_load_without_a_manual_address_is_stepped_by_name_and_a_missing_measurement_is_refused() {
+    let loop_definition = two_input_loop();
+    let steps = input_steps(
+        &loop_definition,
+        &json!({ "inputs": [], "outputs": [], "memory": [] }),
+    )
+    .expect("the load steps by name");
+    assert_eq!(
+        steps[1].loop_definition.controller.manual_output_address,
+        None
+    );
+    let refusal = step_sample(
+        &steps[1],
+        Some(sample(
+            EvidenceSource::SimulatedPlant,
+            ControllerMode::Manual,
+        )),
+    )
+    .expect_err("the load has no current measurement");
+    assert_eq!(refusal.message, "No current measured input for P1.LoadKw.");
+}
+
+#[test]
+fn the_steps_of_several_inputs_share_the_time_left_and_a_single_input_is_stepped_as_it_is() {
+    // Two inputs share the 600 s maximum after a 10 s baseline wait and the 30 s window, within a 620 s recording.
+    let window = js_round(baseline().window_seconds * 1_000.0);
+    assert_eq!(
+        step_hold_ms(600_000, 620_000, window, 30.0, 40.0, 2),
+        260_000.0,
+        "half of what is left, less one window"
+    );
+    assert_eq!(
+        step_hold_ms(600_000, 620_000, window, 30.0, 40.0, 1),
+        550_000.0,
+        "one input has all the time left"
+    );
+    let plain = loop_definition();
+    let steps = input_steps(&plain, &json!({})).expect("one input steps as it is");
+    assert_eq!(steps.len(), 1);
+    assert!(steps[0].manipulated);
+    assert_eq!(steps[0].loop_definition, plain);
+    assert!(!several_channels(&plain));
+}
+
+#[test]
+fn a_manual_address_is_the_first_entry_of_its_name_and_none_without_an_address() {
+    let io = json!({
+        "inputs": [{ "name": "P1.LoadKw", "address": "%IX1" }],
+        "outputs": [],
+        "memory": [{ "name": "P1.LoadKw", "address": "%MD4" }, { "name": "P1.Other" }]
+    });
+    assert_eq!(manual_address(&io, "p1.loadkw").as_deref(), Some("%IX1"));
+    assert_eq!(manual_address(&io, "P1.Other"), None, "no address");
+    assert_eq!(manual_address(&io, "P1.Missing"), None, "no entry");
+    assert_eq!(manual_address(&Value::Null, "P1.LoadKw"), None, "no list");
+}
+
+#[test]
+fn a_resumed_input_takes_its_method_from_the_declared_kind_or_the_automatic_choice() {
+    let declared = two_input_loop();
+    assert_eq!(
+        method_of_step(&declared, ControlExperimentKind::MvStep),
+        output_step()
+    );
+    let mut undeclared = two_input_loop();
+    undeclared.experiment = None;
+    assert!(method_of_step(&undeclared, ControlExperimentKind::MvStep).automatic);
+    assert!(
+        !method_of_step(&undeclared, ControlExperimentKind::SetpointStep).manual,
+        "a setpoint step runs in Auto"
     );
 }

@@ -81,7 +81,8 @@ export class ThreePageBindings {
     if (payload.status === "bindings" && Array.isArray(payload.targets)) {
       this.targets = payload.targets as ControlStudioBindingTargetSummary[];
       const target = this.targets.find(item => item.loopId === this.loop.id);
-      if (target?.controllerCompatibility.kind === "accepted") this.controller.receive({ availableFamilies: target.controllerCompatibility.families });
+      if (target?.controllerCompatibility.kind === "accepted") this.controller.receive({ availableFamilies: target.controllerCompatibility.families,
+        familySettings: familySettingsOf(target.controllerCompatibility) });
       const selectedInputs = this.loop.channels?.inputs.map(item => loopSignal(this.loop, item.signalId).symbol) ?? [this.loop.signals.manipulatedVariable.symbol];
       const selectedOutputs = this.loop.channels?.outputs.map(item => loopSignal(this.loop, item.signalId).symbol) ?? [this.loop.signals.processVariable.symbol];
       if (!this.recording) { this.populate(this.inputs, "inputs", selectedInputs); this.populate(this.outputs, "outputs", selectedOutputs); }
@@ -179,6 +180,21 @@ export class ThreePageBindings {
   }
 }
 function same(left: readonly string[], right: readonly string[]): boolean { return left.length === right.length && left.every(item => right.includes(item)); }
+
+/**
+ * The manual-settings symbols per family, which the engine answers beside a loop's families (`setupDiscover`, C2): symbol lists keyed by
+ * family. It is read as data, since the generated answer type gains the field with the engine's change. Undefined when the answer names
+ * none, as it does for a parked loop.
+ */
+export function familySettingsOf(compatibility: unknown): Record<string, string[]> | undefined {
+  const settings = objectOf(objectOf(compatibility)?.familySettings);
+  if (!settings) return undefined;
+  return Object.fromEntries(Object.entries(settings).map(([family, symbols]) =>
+    [family, Array.isArray(symbols) ? symbols.filter((symbol): symbol is string => typeof symbol === "string") : []]));
+}
+function objectOf(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
 
 /** A channel's option text: its name and its unit; an older file's channels read as the applied input and the measured output. */
 function channelLabel(catalog: RecordingSignalCatalog, channel: { id: string; unit: string }): string {

@@ -12,10 +12,16 @@ use std::fs;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
+use serde_json::json;
+use trust_control::experiment::{
+    ControlExperimentPlan, ControllerMode, ExperimentSample, PlanAuxiliarySignal, PlanSignal,
+};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::journal::NO_RUNNING_EXPERIMENT_TEXT;
 use trust_control::identification::connected_run::{identification_cancelled, FITTING_TEXT};
 use trust_control::identification::texts::MISSING_NONZERO_STEP;
+use trust_control::loop_definition::LoopDefinition;
+use trust_control::signals::Quality;
 
 use super::{cancel_recovery, resume, RecoveryPorts, ResumedIdentification, RUNNING_TEXT};
 use crate::journal::{Journal, JournalEntry};
@@ -69,6 +75,7 @@ fn resume_tank(
     let runtime = FakeRuntime::new(state);
     let clock = FakeClock::new(state);
     let report = FakeReport::new(state, cancelled);
+    let mut sampler = Sampler(Some(live_sample()));
     let mut study = Study::new(state);
     let request = IdentifyRequest {
         loop_definition: &loop_definition,
@@ -78,6 +85,76 @@ fn resume_tank(
     resume(
         RecoveryPorts {
             runtime: &runtime,
+            sampler: &mut sampler,
+            retention: &mut study,
+            clock: &clock,
+            report: &report,
+            journal,
+        },
+        &request,
+    )
+}
+
+/// The tank with a second plant input (C7, C8): a measured load (`P1.LoadKw`, 0 to 50 kW) that is stepped through its own Manual command
+/// with an identification step of 10, beside the tank's valve (`Main.TIC101_Output`). The loop declares an explicit output step.
+fn two_input_tank(revision: &str) -> LoopDefinition {
+    serde_json::from_value(json!({
+        "schemaVersion": 2, "id": "tank", "name": "Tank", "revision": revision,
+        "projectId": "project", "runtimeId": "runtime",
+        "controller": { "instance": "Main.TIC101", "type": "Control.PID", "revision": "sha256:test",
+            "action": "direct", "taskPeriodMs": 100, "manualOutputSignal": "Main.TIC101_Manual",
+            "manualOutputType": "LREAL" },
+        "signals": {
+            "setpoint": { "symbol": "Main.TIC101_Setpoint", "iecType": "LREAL", "direction": "read",
+                "unit": "degC", "range": { "minimum": 0, "maximum": 100 } },
+            "processVariable": { "symbol": "Main.TT101.Value", "iecType": "LREAL", "direction": "read",
+                "unit": "degC", "range": { "minimum": 0, "maximum": 100 } },
+            "manipulatedVariable": { "symbol": "Main.TIC101_Output", "iecType": "LREAL", "direction": "write",
+                "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+            "additional": [{ "id": "load", "channel": "load", "role": "disturbance", "symbol": "P1.LoadKw",
+                "iecType": "LREAL", "direction": "read", "unit": "kW", "range": { "minimum": 0, "maximum": 50 } }]
+        },
+        "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+        "observedSampleTiming": { "nominalPeriodMs": 100 },
+        "experiment": { "execution": "control-studio", "kind": "mv_step", "amplitude": 10,
+            "durationSeconds": 600, "seed": 1 },
+        "channels": {
+            "inputs": [
+                { "modelChannelId": "valve", "signalId": "manipulatedVariable",
+                  "manualOutputSignal": "Main.TIC101_Manual", "manualOutputType": "LREAL",
+                  "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 }, "experimentStep": 10 },
+                { "modelChannelId": "load", "signalId": "load",
+                  "manualOutputSignal": "P1.LoadKw", "manualOutputType": "LREAL",
+                  "actuator": { "kind": "continuous", "minimum": 0, "maximum": 50 }, "experimentStep": 10 }
+            ],
+            "outputs": [{ "modelChannelId": "temperature", "signalId": "processVariable",
+                "setpointSignalId": "setpoint" }]
+        }
+    }))
+    .expect("the two-input tank decodes")
+}
+
+/// Resumes the campaign journaled in `journal` for the two-input tank at `revision` on `state`, with the live sample `sample`.
+fn resume_two_inputs(
+    state: &Arc<FakeState>,
+    journal: &Mutex<Journal>,
+    sample: ExperimentSample,
+) -> Result<ResumedIdentification<Verdict>, Failure> {
+    let loop_definition = two_input_tank("rev-1");
+    let runtime = FakeRuntime::new(state);
+    let clock = FakeClock::new(state);
+    let report = FakeReport::new(state, false);
+    let mut sampler = Sampler(Some(sample));
+    let mut study = Study::new(state);
+    let request = IdentifyRequest {
+        loop_definition: &loop_definition,
+        expected_settling_seconds: None,
+        evaluate: &passes,
+    };
+    resume(
+        RecoveryPorts {
+            runtime: &runtime,
+            sampler: &mut sampler,
             retention: &mut study,
             clock: &clock,
             report: &report,
@@ -436,26 +513,67 @@ fn a_journal_without_a_dispatched_step_of_this_loop_revision_has_no_running_expe
     fs::remove_dir_all(&other_revision).expect("clean up");
 }
 
+// C7, C8: a resumed campaign that has not stepped every plant input follows its journaled step to its end, then steps the rest in the
+// same recording. The load is stepped through its own Manual command, and the recording and the journal are then kept and cleared.
 #[test]
-fn a_campaign_that_covered_one_of_several_plant_inputs_keeps_its_recording_and_asks_to_identify_again(
-) {
+fn a_resumed_campaign_continues_with_the_second_plant_input_in_the_same_recording() {
     let state = FakeState::new(StartBehaviour::Acknowledged, 30_000);
     state.restart("experiment-1", 30_000, 540_000, 2.0);
-    let folder = folder("resume-channels");
-    let journal = journaled_step(&folder, &plan("experiment-1", 540_000), 30.0, 1);
-    let Err(failure) = resume_tank(&state, &journal, "rev-1", false) else {
-        panic!("one plant input is left");
+    let folder = folder("resume-second-input");
+    let step: ControlExperimentPlan = serde_json::from_value(json!({
+        "id": "experiment-1", "source": "simulation", "kind": "mv_step",
+        "affectedSignal": "Main.TIC101_Output", "valueType": "LREAL", "from": 30, "to": 40, "unit": "%",
+        "minimum": 0, "maximum": 100, "durationMs": 540_000, "expectedScan": 300, "task": "$background",
+        "stopConditions": ["Abort"], "restorationValue": 30, "requiresPhysicalApproval": false,
+        "trajectory": [{ "atMs": 0, "value": 40 }]
+    }))
+    .expect("the valve's step");
+    let journal = journaled_step(&folder, &step, 30.0, 1);
+    // The live sample is in Manual, where an output step runs, and it measures the load.
+    let mut sample = live_sample();
+    sample.controller_mode = ControllerMode::Manual;
+    sample.additional.push(PlanAuxiliarySignal {
+        id: "load".to_owned(),
+        signal: PlanSignal {
+            symbol: "P1.LoadKw".to_owned(),
+            address: None,
+            value: 20.0,
+            unit: "kW".to_owned(),
+            quality: Quality::Good,
+        },
+    });
+    // The fake recording holds no load values, so the fit of the two inputs refuses it, and the refusal names the load.
+    let Err(failure) = resume_two_inputs(&state, &journal, sample) else {
+        panic!("the fake recording holds no load to fit");
     };
+    let started = state.started_plans();
     assert_eq!(
-        whole_text(&failure),
-        "The interrupted identification covered one of 2 plant inputs. Identify again to cover the others."
+        started.len(),
+        1,
+        "the second input is started once, after the journaled step"
     );
-    assert_eq!(failure.next_action, NextAction::Identify);
-    assert_eq!(state.count("experiment.abort"), 0, "nothing is aborted");
-    assert_eq!(state.count("retain"), 1, "the recording is kept");
-    let fitting = format!("progress {FITTING_TEXT}");
-    assert!(!state.calls().contains(&fitting), "nothing is fitted");
-    assert_eq!(reopened(&folder), Vec::<JournalEntry>::new());
+    assert_eq!(
+        started[0].affected_signal, "P1.LoadKw",
+        "through its own Manual command"
+    );
+    assert_eq!(
+        state.count("retain"),
+        1,
+        "the recording of both inputs is kept once"
+    );
+    assert_eq!(
+        reopened(&folder),
+        Vec::<JournalEntry>::new(),
+        "the journal is cleared"
+    );
+    assert!(
+        fitted_after_release(&state),
+        "the fit reads the kept recording"
+    );
+    assert!(
+        whole_text(&failure).contains("P1.LoadKw"),
+        "the fit names the load it could not read: {failure:?}"
+    );
     fs::remove_dir_all(&folder).expect("clean up");
 }
 

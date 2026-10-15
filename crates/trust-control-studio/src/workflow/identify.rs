@@ -19,6 +19,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
+use serde_json::Value;
 use trust_control::experiment::{ControlExperimentPlan, ExperimentSample, RecordingRecoveryOwner};
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::acquisition_settings::{
@@ -148,6 +149,15 @@ pub trait IdentifyRuntime {
             Cause::Unclassified,
             NextAction::None,
         ))
+    }
+
+    /// The runtime's I/O list (`io.list`), which gives the address of each variable by its name (C7). A runtime that has none
+    /// answers `null`, so no command has an address.
+    ///
+    /// # Errors
+    /// The runtime cannot be reached or refuses the request.
+    fn io_list(&self) -> Result<Value, Failure> {
+        Ok(Value::Null)
     }
 }
 

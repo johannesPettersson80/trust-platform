@@ -372,6 +372,18 @@ suite("Control Studio engine Apply, Restore and Keep page", () => {
     } finally { state.restore(); }
   });
 
+  test("a program's own law's Apply review names each variable it writes by its symbol, with the values the engine gives (C2, B6.2)", () => {
+    const state = pageState();
+    try {
+      const review = { ...applyReview, physical: true, parameters: [{ symbol: "P1.Kp", unit: "%", running: 2, next: 3 },
+        { symbol: "P1.Ki", unit: "%", running: 0.5, next: 0.8 }] };
+      applicationReceiver.result?.(state.root, review, state.ports);
+      const text = state.panel()?.textContent ?? "";
+      assert.ok(text.includes("P1.Kp: 2 now, writes 3 %"), text);
+      assert.ok(text.includes("P1.Ki: 0.5 now, writes 0.8 %"), text);
+    } finally { state.restore(); }
+  });
+
   test("on a simulated target the press of Apply is its confirmation: the review's identity is sent at once, and no review is shown", () => {
     // A2.5, B9.3: a simulated target shows no approval block; pressing the action confirms it. The engine still refuses the
     // confirmation when the runtime changed since the review.

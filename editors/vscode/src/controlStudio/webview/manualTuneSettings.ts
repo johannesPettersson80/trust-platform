@@ -13,17 +13,23 @@ export interface ManualTuneSettingsControls {
   read(): ManualTuneSettingsValue;
 }
 
+/** The settings a controller family takes, as the engine names them (`setupDiscover`'s `familySettings`, C2); undefined when it names none. */
+export type FamilySymbols = (family: string) => readonly string[] | undefined;
+
 /**
  * Renders editable declared controller settings beside a candidate without writing runtime values. Manual settings have
- * no Keep toggles: each edit is the setting, and `changed` receives every complete set of values.
+ * no Keep toggles: each edit is the setting, and `changed` receives every complete set of values. The chosen family's settings are
+ * the symbols the engine names for it when it names them; a parked loop has none, and keeps the page's reading of the loop's law.
  */
 export function initializeManualTuneSettings(root: HTMLElement, loop: ControlLoopDefinition,
-  changed?: (value: ManualTuneSettingsValue) => void): ManualTuneSettingsControls {
+  changed?: (value: ManualTuneSettingsValue) => void, familySymbols?: FamilySymbols): ManualTuneSettingsControls {
   const area = root.querySelector<HTMLElement>("[data-studio-tuning-result]")!;
   const rows = new Map<string, HTMLInputElement>();
   let values: Record<string, number> = {};
 
   const symbols = (family = "PID"): Set<string> => {
+    const named = familySymbols?.(family);
+    if (named) return new Set(named);
     const group = groupSettingSymbols(loop);
     if (group) return group;
     const pid = decodePidLaw(loop.controller.law, loop.parameterBinding);

@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use serde_json::Value;
 use trust_control::experiment::{ControlExperimentPlan, RecordingRecoveryOwner};
 use trust_control::failure::Failure;
 use trust_control::identification::connected_run::StartRead;
@@ -86,6 +87,10 @@ impl IdentifyRuntime for ConnectedRuntime<'_> {
     /// The study's connection: the mode change transfers the loop on the runtime the run works on (E11.1, annex E6).
     fn transfer_connection(&self) -> Result<RuntimeConnection, Failure> {
         Ok(self.connection.clone())
+    }
+
+    fn io_list(&self) -> Result<Value, Failure> {
+        RuntimeClient::read_io_list(self.connection)
     }
 }
 

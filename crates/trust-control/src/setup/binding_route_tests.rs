@@ -139,6 +139,7 @@ fn a_family_is_accepted_only_when_the_selected_loops_adapter_realizes_it() {
                 "PD".to_string(),
                 "PID".to_string(),
             ],
+            family_settings: std::collections::BTreeMap::new(),
         },
     };
     let discovery = Discovery {

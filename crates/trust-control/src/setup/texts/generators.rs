@@ -161,3 +161,30 @@ pub fn startup_flag_needed(reason: &str) -> String {
         "{reason} Choose the flag that marks its startup as done, so validation keeps the values it starts from."
     )
 }
+
+/// A feedforward's lead time, lag time and filtered disturbance are chosen together, or none of them (C8, `feedforwardGenerator.ts`).
+#[must_use]
+pub fn feedforward_gain_group() -> &'static str {
+    "Choose the lead time, the lag time and the filtered disturbance together, or none of them."
+}
+
+/// A feedforward's variables differ from each other and from the loop's signals (C8, `feedforwardGenerator.ts`).
+#[must_use]
+pub fn feedforward_variables_distinct() -> &'static str {
+    "The feedforward's variables must differ from each other and from the loop's signals."
+}
+
+/// The disturbance step is positive and at most the disturbance's span (C8, `feedforwardGenerator.ts`).
+#[must_use]
+pub fn feedforward_step_span(span: f64, unit: &str) -> String {
+    format!("The disturbance step must be positive and at most {span} {unit}.")
+}
+
+/// The variable Identify steps to move the measured disturbance is not an explicitly actuated simulation or test input: Setup refuses it
+/// before any write (C8, D-5). Such an input is a REAL or LREAL variable that the program only reads, at a memory address `%M`.
+#[must_use]
+pub fn feedforward_command_not_actuated(symbol: &str) -> String {
+    format!(
+        "{symbol} cannot move the measured disturbance: a disturbance command must be a simulation or test input, a REAL or LREAL variable the program only reads, at a memory address (%M)."
+    )
+}

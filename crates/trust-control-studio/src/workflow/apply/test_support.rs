@@ -15,7 +15,9 @@ use std::time::Duration;
 
 use serde_json::{json, Map, Value};
 use trust_control::commissioning::adapters::ControllerGains;
-use trust_control::loop_definition::LoopDefinition;
+use trust_control::loop_definition::{
+    InitialSource, InitialValue, InitializedState, LoopDefinition, PostScan, StateType,
+};
 use trust_control::model::general::decode_general_model;
 use trust_control::model::GeneralModel;
 use trust_control::runtime::RuntimeConnection;
@@ -83,6 +85,98 @@ pub(crate) fn proportional_loop() -> LoopDefinition {
         json!({ "kind": "proportional", "gainSymbol": "Main.Kp" }),
         None,
     ))
+}
+
+/// The loop of a program's own PID law (C2) on the apply tests' signals and gains: the seed names `Main.Kp`, `Main.Ki` and `Main.Kd`,
+/// and the declared states are `Main.Integral`, started by `pid-integral` on `Main.Kp`, and `Main.PreviousError`, started by
+/// `weighted-error`: the variables of `pid_loop`.
+#[must_use]
+pub(crate) fn own_pid_loop() -> LoopDefinition {
+    let integral = InitializedState {
+        symbol: "Main.Integral".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "V".to_owned(),
+        minimum: -20.0,
+        maximum: 20.0,
+        initial: InitialValue::From(InitialSource::PidIntegral {
+            index: 0,
+            input_index: 0,
+            gain_symbol: "Main.Kp".to_owned(),
+            weight_symbol: None,
+            weight: None,
+        }),
+        post_scan: PostScan::Bounded,
+    };
+    let previous = InitializedState {
+        symbol: "Main.PreviousError".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "m".to_owned(),
+        minimum: -20.0,
+        maximum: 20.0,
+        initial: InitialValue::From(InitialSource::WeightedError {
+            index: 0,
+            weight_symbol: None,
+            weight: Some(1.0),
+        }),
+        post_scan: PostScan::Bounded,
+    };
+    own_law_loop(
+        "PID",
+        json!({ "kind": "parallel-pid", "family": "PID", "proportionalSymbol": "Main.Kp",
+            "integralSymbol": "Main.Ki", "derivativeSymbol": "Main.Kd" }),
+        &[integral, previous],
+        &[],
+    )
+}
+
+/// The loop of a program's own P law (C2) with its startup-done flag (C1): the seed names `Main.Kp`, and `Main.Started` is an application
+/// state that the Auto entry sets TRUE (C13 Apply step 4).
+#[must_use]
+pub(crate) fn own_p_loop_with_startup() -> LoopDefinition {
+    let started = InitializedState {
+        symbol: "Main.Started".to_owned(),
+        iec_type: StateType::Bool,
+        unit: "1".to_owned(),
+        minimum: 0.0,
+        maximum: 1.0,
+        initial: InitialValue::Constant(1.0),
+        post_scan: PostScan::Unchanged,
+    };
+    own_law_loop(
+        "P",
+        json!({ "kind": "parallel-pid", "family": "P", "proportionalSymbol": "Main.Kp" }),
+        &[],
+        &[started],
+    )
+}
+
+/// The loop file of a program's own law (C2) on the apply tests' signals and gains: the controller is `design: project` with no law, and
+/// its `project` block holds the family, the declared and application states and the seed, as the setup writes them.
+#[allow(clippy::needless_pass_by_value)] // A test fixture: `json!` borrows the seed, and the fixture takes the JSON literal in place.
+fn own_law_loop(
+    family: &str,
+    seed: Value,
+    states: &[InitializedState],
+    application: &[InitializedState],
+) -> LoopDefinition {
+    let mut file = loop_file(Value::Null, None);
+    file["controller"]["design"] = json!("project");
+    file["controller"]["project"] = json!({
+        "family": family,
+        "convention": "project-owned-native-controller",
+        "initialization": {
+            "kind": "declared-state-v1",
+            "states": serde_json::to_value(states).expect("the states serialize"),
+            "applicationStates": serde_json::to_value(application).expect("the states serialize")
+        },
+        "seed": seed,
+        "axes": [],
+        "objective": { "requirementId": "target-error", "direction": "minimize" },
+        "maximumCandidates": 4,
+        "maximumCycles": 50000,
+        "wallBudgetMs": 60000
+    });
+    decode_loop(&file)
 }
 
 #[allow(clippy::needless_pass_by_value)] // A test fixture: it takes the JSON literals its callers write in place.
@@ -883,6 +977,26 @@ impl World {
                     .as_str()
                     .unwrap_or_default();
                 applied.insert(reference.to_owned(), process + held / gain);
+            }
+        }
+        // A declared-state entry (E6.4, `declared-state-v1`) holds the Manual command at the held output and, when it aligns its
+        // output, sets the reference to the measurement, as the runtime's tracking does (`transfer/tracking.rs` `calculate`).
+        if pending.tracking["kind"] == "declared-state-v1" {
+            let held = self.number(
+                pending.binding["output"]["symbol"]
+                    .as_str()
+                    .unwrap_or_default(),
+            );
+            if let Some(manual) = pending.tracking["manual_command_symbol"].as_str() {
+                applied.insert(manual.to_owned(), held);
+            }
+            if pending.tracking["align_output"] == true {
+                if let (Some(reference), Some(process)) = (
+                    pending.tracking["reference_symbol"].as_str(),
+                    pending.tracking["process_variable"].as_str(),
+                ) {
+                    applied.insert(reference.to_owned(), self.number(process));
+                }
             }
         }
         let mode = if pending.manual {

@@ -240,6 +240,16 @@ impl RuntimeClient {
         )
     }
 
+    /// The runtime's I/O list (`io.list`), which gives the address of each variable by its name: the address of a plant
+    /// input's Manual command is read from it (C7).
+    ///
+    /// # Errors
+    /// The runtime cannot be reached or refuses the request.
+    pub fn read_io_list(connection: &RuntimeConnection) -> Result<Value, Failure> {
+        let mut client = Self::connect(connection)?;
+        client.call("io.list", None)
+    }
+
     /// The values of the loop's bound ST parameters, as the runtime reports them (`values` of `control.parameters.status`,
     /// E7.2). These are the settings the controller runs with now (B5.3).
     ///

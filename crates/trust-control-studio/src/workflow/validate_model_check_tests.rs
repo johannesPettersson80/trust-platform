@@ -175,6 +175,8 @@ fn a_qualified_identify_result_keeps_the_check_error_as_its_validation_error() {
     assert_eq!(
         qualified
             .presentation
+            .as_ref()
+            .expect("a fit keeps its presentation")
             .presentation
             .validation
             .normalized_error,
@@ -182,8 +184,18 @@ fn a_qualified_identify_result_keeps_the_check_error_as_its_validation_error() {
         "the check's error is the qualified model's validation error"
     );
     assert_eq!(
-        qualified.presentation.presentation.estimation,
-        provisional.presentation.presentation.estimation,
+        qualified
+            .presentation
+            .as_ref()
+            .expect("a fit keeps its presentation")
+            .presentation
+            .estimation,
+        provisional
+            .presentation
+            .as_ref()
+            .expect("a fit keeps its presentation")
+            .presentation
+            .estimation,
         "the estimation evidence stays as the fit recorded it"
     );
 }

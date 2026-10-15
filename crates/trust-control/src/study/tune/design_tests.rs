@@ -70,7 +70,8 @@ fn requirements(method: Option<TuningMethod>) -> TuningRequirements {
 /// A PID law whose proportional gain is bound between 0 and 100.
 fn pid_law() -> LawFacts {
     LawFacts {
-        has_pid_law: true,
+        integral_term: true,
+        derivative_term: true,
         operating_bias_applies: false,
         proportional_bounds: Some(GainBounds {
             minimum: 0.0,
@@ -82,7 +83,8 @@ fn pid_law() -> LawFacts {
 /// A law that has only a proportional gain.
 fn proportional_law() -> LawFacts {
     LawFacts {
-        has_pid_law: false,
+        integral_term: false,
+        derivative_term: false,
         ..pid_law()
     }
 }
@@ -472,7 +474,7 @@ fn the_answer_of_a_simc_pi_carries_its_lambda_its_margins_and_its_response() {
             answer(
                 Some(TuneMethod::Simc),
                 designed,
-                candidate,
+                crate::tuning::candidate::LawCandidate::Pid(candidate),
                 comparison,
                 StageEvidence::default(),
                 &evaluation,

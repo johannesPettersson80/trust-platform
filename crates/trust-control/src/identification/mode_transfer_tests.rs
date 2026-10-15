@@ -10,7 +10,8 @@ use std::collections::BTreeMap;
 use super::*;
 use crate::commissioning::commissioning_result::TransferState;
 use crate::commissioning::fixture_loops::{
-    library_pid_loop, parallel_pid_loop_without_actuator, proportional_loop,
+    library_pid_loop, parallel_pid_loop_without_actuator, project_p_loop, project_pid_loop,
+    proportional_loop,
 };
 use crate::commissioning::transfer::TransferMember;
 
@@ -478,5 +479,40 @@ fn a_setpoint_the_program_overwrote_in_manual_returns_after_the_auto_entry() {
     assert_eq!(
         reference_return(&loop_definition, &binding, &original, &holding).expect("no step"),
         None
+    );
+}
+
+/// C2 and A6.4: a program's own PI law answers its first step with the allowance of its seed's variables, with the same formula as a
+/// PID record: 2·Kp·n from P, Ki·Δt·n from I on the noise, and Ki·Δt·|r − y| from the error the step leaves, here 0.5 · 0.01 · 2 for a
+/// setpoint 2 degC above the measurement, so 2 · 2 · 0.05 + 0.5 · 0.01 · 0.05 + 0.5 · 0.01 · 2 = 0.21025 on the 10 ms fixture task.
+#[test]
+fn a_program_pi_law_allows_its_own_first_step_from_its_seed_variables() {
+    let loop_definition = project_pid_loop();
+    let binding = mode_binding(&loop_definition).expect("a binding");
+    let observed = status_of(&binding, false, &|symbol| match symbol {
+        "Main.Program.Kp" => 2.0,
+        "Main.Program.Ki" => 0.5,
+        "LevelSP" => 45.0,
+        "LevelPV" => 43.0,
+        _ => 0.0,
+    });
+    let expected = 2.0 * 2.0 * 0.05 + 0.5 * 0.01 * 0.05 + 0.5 * 0.01 * 2.0;
+    let allowance = auto_entry_response(&loop_definition, &observed, Some(0.05));
+    assert!(
+        (allowance - expected).abs() < 1e-9,
+        "{allowance} versus {expected}"
+    );
+}
+
+/// C13: a program's own P law has no integral or derivative term, so its Auto entry adds no PID response, as a proportional law has none.
+#[test]
+fn a_program_p_law_adds_no_pid_response_on_its_connected_p_entry() {
+    let loop_definition = project_p_loop();
+    let binding = mode_binding(&loop_definition).expect("the connected P transfers");
+    let observed = status_of(&binding, true, &|_| 1.0);
+    assert_eq!(
+        auto_entry_response(&loop_definition, &observed, Some(0.05)),
+        0.0,
+        "a proportional law has no PID response"
     );
 }

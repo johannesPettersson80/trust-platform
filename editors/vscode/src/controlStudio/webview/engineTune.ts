@@ -12,22 +12,28 @@ type Fields = Record<string, unknown>;
 /**
  * The candidate the Tune page shows, in the names that threePageTuning.ts and threePageResults.ts read (B4.3 to B4.6). A Tune answer
  * passes its own stage evidence, which the engine computed for it (B9.4); an opened candidate passes none, because the open answer's
- * evidence sets the gates before it (`engineStages.ts`).
+ * evidence sets the gates before it (`engineStages.ts`). A program's own law answers with `projectCandidate` and no `candidate` (C2): its
+ * structure is the family, and its values by variable are the values the page shows. A measured-disturbance feedforward's answer (C8) goes
+ * under `design.feedforward`, the field the page's feedforward view reads, as the engine gives it.
  */
 export function tuneCandidatePayload(result: Fields, stageEvidence?: Fields): Fields {
-  const candidate = record(result.candidate);
+  const project = record(result.projectCandidate);
+  const candidate = record(result.candidate) ?? project;
   const margins = record(result.margins);
   const marginsUnavailable = textOf(result.marginsUnavailable);
+  const feedforward = record(result.feedforward);
   return {
     status: "candidate",
     family: textOf(candidate?.structure),
-    values: record(result.settings) ?? {},
+    // A Control.PID candidate's values are its settings; a program's law gives them by variable in `projectCandidate.values`.
+    values: record(project?.values ?? result.settings) ?? {},
     ...(margins ? { robustness: robustnessOf(margins, result.delayMarginSeconds) } : {}),
     ...(typeof result.methodDescription === "string" ? { methodDescription: result.methodDescription } : {}),
     outcome: record(result.outcome),
     comparison: arrayOf(result.comparison),
     unavailable: marginsUnavailable ? [marginsUnavailable] : [],
     task: record(result.requirements),
+    ...(feedforward ? { design: { feedforward } } : {}),
     ...(stageEvidence ? { stageEvidence } : {}),
   };
 }

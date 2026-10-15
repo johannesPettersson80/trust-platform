@@ -5,11 +5,13 @@
 //! recorded input, N3.1), `response` (the held responses), `single_run` (the largest input change),
 //! `step_response` (the bounded step method), `relay` (relay cycles and the PI candidate), `score` (the
 //! independent check) and `gain` (the sign rule of a gain). Which fitted form is recommended is not decided here:
-//! `trust-control` makes that choice.
+//! `trust-control` makes that choice. The multichannel ARX fit of two or more inputs or outputs (`arx`, C7 and C8) is a separate
+//! family of models: it gives a state space, not a low-order transfer function.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub mod arx;
 pub mod fit;
 pub mod gain;
 pub mod relay;

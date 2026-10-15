@@ -101,6 +101,56 @@ fn a_loop_without_a_pid_law_or_a_binding_has_no_record() {
 }
 
 #[test]
+fn a_program_pi_law_keeps_its_proportional_and_integral_variables_of_its_instance() {
+    // C2, B6.5: a program's gains are variables of its program instance, so the record is the instance and the fields are the
+    // variables. The running values are read under the instance's names.
+    let record =
+        keepable_record(&fixture_loops::project_pi_loop_on_p1()).expect("the law's record");
+    assert_eq!(
+        record,
+        KeepableRecord {
+            record: "P1".to_owned(),
+            fields: vec!["Kp".to_owned(), "Ki".to_owned()],
+        }
+    );
+    let running = BTreeMap::from([
+        ("P1.Kp".to_owned(), 2.0),
+        ("P1.Ki".to_owned(), 0.5),
+        ("P1.Integral".to_owned(), 9.0),
+    ]);
+    let values = kept_values(&record, &running).expect("the values");
+    assert_eq!(
+        values,
+        BTreeMap::from([("Kp".to_owned(), 2.0), ("Ki".to_owned(), 0.5)])
+    );
+}
+
+#[test]
+fn a_gain_inside_a_block_of_the_program_is_refused_by_its_name() {
+    // B6.5: `Main.Program.Kp` is a variable of a block, not of the program instance, and the keep edit writes only the instance's.
+    let failure =
+        keepable_record(&fixture_loops::project_pid_loop()).expect_err("a gain inside a block");
+    // `Failure::new` keeps the first sentence as the message and the whole text as the detail.
+    assert_eq!(
+        failure
+            .detail
+            .as_deref()
+            .unwrap_or(failure.message.as_str()),
+        keep_texts::gain_not_program_variable("Main.Program.Kp")
+    );
+    assert_eq!(failure.cause, Cause::ControllerCapability);
+    assert_eq!(failure.next_action, NextAction::OpenLoopSetup);
+}
+
+#[test]
+fn a_program_variable_is_one_instance_and_one_name() {
+    assert_eq!(program_variable("P1.Kp"), Some(("P1", "Kp")));
+    assert_eq!(program_variable("Main.Program.Kp"), None);
+    assert_eq!(program_variable("Kp"), None);
+    assert_eq!(program_variable("P1."), None);
+}
+
+#[test]
 fn only_finite_running_values_of_the_bound_fields_are_kept() {
     let running = BTreeMap::from([
         ("Main.Parameters.Kp".to_owned(), 2.5),

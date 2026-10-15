@@ -90,8 +90,11 @@ pub struct RecommendationInputs<'a> {
     pub topology: Option<&'static str>,
     /// The refusal of a model structure that the scalar comparison does not design (`unsupportedPlantBranch`).
     pub unsupported_branch: Option<&'static str>,
-    /// Whether the loop's law is a PID law, so that PI, PD and PID are offered; otherwise the loop offers P only.
-    pub has_pid_law: bool,
+    /// Whether the law has an integral term, so that PI is offered, and PID with a derivative term too (C0).
+    pub has_integral_term: bool,
+    /// Whether the law has a derivative term, so that PD is offered, and PID with an integral term too (C0). A law with neither
+    /// term offers P only.
+    pub has_derivative_term: bool,
     /// Whether the initial output is measured from the operating input (the loop declares an initialization adapter).
     pub operating_bias_applies: bool,
     /// The bounds of the proportional gain's parameter, or `None` when the loop binds none.
@@ -108,6 +111,18 @@ pub struct RecommendationInputs<'a> {
     pub placement: &'a dyn PolePlacement,
     /// The gain's unit, for the sign sentence (N6.3).
     pub gain_unit: &'a str,
+}
+
+impl RecommendationInputs<'_> {
+    /// Whether the law has a PID term, so that a structure beyond P is offered.
+    fn has_pid_term(&self) -> bool {
+        self.has_integral_term || self.has_derivative_term
+    }
+
+    /// Whether the law offers `structure`, from its terms (C0).
+    fn offers(&self, structure: Structure) -> bool {
+        structure.offered_by_terms(self.has_integral_term, self.has_derivative_term)
+    }
 }
 
 /// The recommendation of the least complex candidate (`recommendAutomaticController`).
@@ -150,7 +165,7 @@ pub fn recommend(
             None
         }
     };
-    if !inputs.has_pid_law {
+    if !inputs.has_pid_term() {
         return match proportional_choice {
             Some(design) => Ok(Recommendation {
                 design,
@@ -163,7 +178,10 @@ pub fn recommend(
         };
     }
     let mut typed: Vec<(Structure, Result<TypedDesign, Refusal>)> = Vec::new();
-    for structure in [Structure::PI, Structure::PD, Structure::PID] {
+    for structure in [Structure::PI, Structure::PD, Structure::PID]
+        .into_iter()
+        .filter(|structure| inputs.offers(*structure))
+    {
         let outcome = typed_attempt(plant, structure, inputs);
         attempts.push(attempt_of(structure, &outcome));
         typed.push((structure, outcome));
@@ -211,7 +229,7 @@ fn proportional_attempt(
     inputs.initialization.clone()?;
     let context = inputs.context;
     let design = match plant {
-        TuningPlant::Integrating(model) if inputs.has_pid_law && model.delay_seconds > 0.0 => {
+        TuningPlant::Integrating(model) if inputs.has_pid_term() && model.delay_seconds > 0.0 => {
             integrating_proportional_to_requirements(
                 *model,
                 inputs.requirements,
@@ -225,7 +243,7 @@ fn proportional_attempt(
         },
     };
     check_initial_output(&design, inputs)?;
-    if inputs.has_pid_law {
+    if inputs.has_pid_term() {
         typed_proportional(design.gains.proportional_gain)
     } else {
         Ok(design)
@@ -251,7 +269,9 @@ fn simple_proportional(
             integrating_design(*model, operating_input, &requirements)?
         }
         TuningPlant::Integrating(_) => return Err(Refusal::new(texts::SIMPLE_P_NO_DELAY)),
-        TuningPlant::SecondOrder(_) => return Err(Refusal::new(texts::SIMPLE_P_MODEL)),
+        TuningPlant::SecondOrder(_) | TuningPlant::IntegratingWithLag(_) => {
+            return Err(Refusal::new(texts::SIMPLE_P_MODEL))
+        }
     };
     Ok(TypedDesign {
         structure: Structure::P,
@@ -419,7 +439,8 @@ mod tests {
         RecommendationInputs {
             topology,
             unsupported_branch: None,
-            has_pid_law,
+            has_integral_term: has_pid_law,
+            has_derivative_term: has_pid_law,
             operating_bias_applies: false,
             proportional_bounds: Some(GainBounds {
                 minimum: 0.0,

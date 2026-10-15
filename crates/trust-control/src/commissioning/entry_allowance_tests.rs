@@ -2,7 +2,9 @@
 #![allow(clippy::float_cmp)]
 
 use super::*;
-use crate::commissioning::fixture_loops::{parallel_pid_loop, proportional_loop, requirements};
+use crate::commissioning::fixture_loops::{
+    parallel_pid_loop, project_p_loop, project_pid_loop, proportional_loop, requirements,
+};
 use serde_json::json;
 
 /// The exact check of the fixture's 100 % output span: `1e-6 · 100`.
@@ -242,4 +244,36 @@ fn the_entry_error_is_the_setpoint_less_the_measurement_when_both_are_numbers() 
         None,
         "a BOOL is not a setpoint"
     );
+}
+
+#[test]
+fn a_program_pi_law_takes_its_allowance_from_the_gains_of_its_seed_variables() {
+    // A6.4 with the program's own variables: Kp 2, Ki 0.5 and Kd 0 on the 10 ms task, a noise of 0.05 and an entry error of 2:
+    // 2·Kp·n = 0.2 from P, Ki·Δt·(|e| + n) = 0.5 · 0.01 · 2.05 = 0.01025 from I, and nothing from D.
+    let loop_definition = project_pid_loop();
+    let values = BTreeMap::from([
+        ("Main.Program.Kp".to_owned(), 2.0),
+        ("Main.Program.Ki".to_owned(), 0.5),
+        ("Main.Program.Kd".to_owned(), 0.0),
+    ]);
+    let allowance = auto_entry_tolerance(
+        &loop_definition,
+        &requirements(),
+        &values,
+        Some(0.05),
+        Some(2.0),
+    )
+    .expect("the allowance");
+    assert!((allowance - 0.21025).abs() < 1e-12, "{allowance}");
+}
+
+#[test]
+fn a_program_p_law_takes_the_connected_p_allowance_of_its_seed_variable() {
+    // C13 step 5: 2·|Kp|·n with Ki and Kd zero, so 2 · 2 · 0.05 = 0.2.
+    let loop_definition = project_p_loop();
+    let values = BTreeMap::from([("Main.Program.Kp".to_owned(), 2.0)]);
+    let allowance =
+        auto_entry_tolerance(&loop_definition, &requirements(), &values, Some(0.05), None)
+            .expect("the allowance");
+    assert!((allowance - 0.2).abs() < 1e-12, "{allowance}");
 }

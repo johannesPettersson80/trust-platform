@@ -178,7 +178,7 @@ suite("Control Studio feedforward from a measured disturbance", () => {
     }
   });
 
-  test("Tune names the feedforward values and shows both paths and the predicted deviations", () => {
+  test("Tune shows the engine's feedforward answer: both paths, K_ff, lead and lag, and the two largest deviations", () => {
     const loop = feedforwardLoop();
     const { JSDOM } = require("jsdom") as { JSDOM: new (html: string) => any };
     const dom = new JSDOM("<div data-studio-tuning-result></div>");
@@ -186,8 +186,9 @@ suite("Control Studio feedforward from a measured disturbance", () => {
     (globalThis as any).document = dom.window.document;
     try {
       const { renderTunedController } = require("../../controlStudio/webview/threePageResults");
+      // The engine's FeedforwardAnswer in the names its JSON gives (messages.rs): the page shows these and computes none of them.
       const feedforward = { outputPath: { gain: 0.2, timeConstantSeconds: 8, delaySeconds: 0 }, disturbancePath: { gain: -0.1, timeConstantSeconds: 3, delaySeconds: 0 },
-        gain: 0.5, leadSeconds: 8, lagSeconds: 3, disturbanceStep: 10, largestDeviation: { feedback: 0.61, feedforward: 0.004 } };
+        gain: 0.5, leadSeconds: 8, lagSeconds: 3, disturbanceStep: 10, feedbackDeviation: 0.61, feedforwardDeviation: 0.004 };
       renderTunedController(dom.window.document.body, loop, { status: "candidate", family: "feedforward", values, design: { feedforward } });
       const document = dom.window.document;
       assert.deepStrictEqual([...document.querySelectorAll("dt")].map((label: any) => label.textContent),
@@ -197,8 +198,27 @@ suite("Control Studio feedforward from a measured disturbance", () => {
       assert.deepStrictEqual([...table.querySelectorAll("tbody tr")].map((row: any) => [...row.cells].map((cell: any) => cell.textContent)), [
         ["Controller output P1.HeaterPct", "0.2 °C/%", "8 s", "0 s"],
         ["Disturbance P1.LoadKw", "-0.1 °C/kW", "3 s", "0 s"]]);
+      assert.strictEqual(document.querySelector("[data-studio-feedforward-values]")?.textContent,
+        "Feedforward gain K_ff 0.5 %/kW · lead time T_lead 8 s · lag time T_lag 3 s");
       assert.strictEqual(document.querySelector("[data-studio-feedforward-deviation]")?.textContent,
         "Largest deviation after a 10 kW disturbance step, on the model: 0.61 °C with the PI alone, 0.004 °C with feedforward");
+    } finally { (globalThis as any).document = saved; }
+  });
+
+  test("Tune names only the gain of a feedforward without lead and lag, as the engine answers it", () => {
+    const loop = feedforwardLoop(false);
+    const { JSDOM } = require("jsdom") as { JSDOM: new (html: string) => any };
+    const dom = new JSDOM("<div data-studio-tuning-result></div>");
+    const saved = (globalThis as any).document;
+    (globalThis as any).document = dom.window.document;
+    try {
+      const { renderTunedController } = require("../../controlStudio/webview/threePageResults");
+      const feedforward = { outputPath: { gain: 0.2, timeConstantSeconds: 8, delaySeconds: 0 }, disturbancePath: { gain: -0.1, timeConstantSeconds: 3, delaySeconds: 0 },
+        gain: 0.5, disturbanceStep: 10, feedbackDeviation: 0.61, feedforwardDeviation: 0.004 };
+      renderTunedController(dom.window.document.body, loop, { status: "candidate", family: "feedforward", values: { "P1.Parameters.ProportionalGain": 5,
+        "P1.Parameters.IntegralGain": 1, "P1.Parameters.DerivativeGain": 0, "P1.FeedforwardGain": 0.5 }, design: { feedforward } });
+      assert.strictEqual(dom.window.document.querySelector("[data-studio-feedforward-values]")?.textContent, "Feedforward gain K_ff 0.5 %/kW",
+        "without lead and lag the answer gives no lead or lag time");
     } finally { (globalThis as any).document = saved; }
   });
 });
@@ -227,6 +247,10 @@ suite("Control Studio feedforward setup", () => {
       assert.match(message.textContent ?? "", /measured disturbance/i, "the disturbance is the next missing item");
       for (const [field, value] of [["ff.disturbance", "P1.LoadKw"], ["ff.disturbance.unit", "kW"], ["ff.disturbance.minimum", "0"],
         ["ff.disturbance.maximum", "50"], ["ff.disturbanceCommand", "P1.LoadKw"], ["ff.gain", "P1.FeedforwardGain"]]) view.set(field, value);
+      // The draft carries the disturbance's identification step, in its unit (the engine's disturbanceStep); the form asks for it (C8).
+      assert.strictEqual(save.disabled, true, "the step is still missing");
+      assert.match(message.textContent ?? "", /identification step/i, "the step is the next missing item");
+      view.set("ff.disturbanceStep", "10");
       assert.strictEqual(save.disabled, false, message.textContent ?? "");
       view.set("ff.lead", "P1.LeadS");
       assert.strictEqual(save.disabled, true, "a lead time needs its lag time and the filtered disturbance");
@@ -239,7 +263,7 @@ suite("Control Studio feedforward setup", () => {
         processVariable: { symbol: "P1.WaterC", unit: "degC", minimum: 0, maximum: 80 },
         manipulatedVariable: { symbol: "P1.HeaterPct", unit: "%", minimum: 0, maximum: 100 },
         setpoint: { symbol: "P1.SetpointC" }, mode: { symbol: "P1.Auto", whenTrue: "Auto" }, manualOutput: "P1.ManualPct",
-        disturbance: { symbol: "P1.LoadKw", unit: "kW", minimum: 0, maximum: 50 }, disturbanceCommand: "P1.LoadKw",
+        disturbance: { symbol: "P1.LoadKw", unit: "kW", minimum: 0, maximum: 50 }, disturbanceCommand: "P1.LoadKw", disturbanceStep: 10,
         feedforward: { gain: "P1.FeedforwardGain", lead: "P1.LeadS", lag: "P1.LagS", filtered: "P1.FilteredLoadKw" },
       } }]);
     } finally { view.close(); }

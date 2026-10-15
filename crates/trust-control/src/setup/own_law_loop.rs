@@ -19,9 +19,10 @@ use super::pid_loop::{setpoint_signal, ModeChoice, SignalChoice};
 use super::texts::generators as texts;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
-    Action, Controller, Design, Direction, Execution, ExperimentKind, InitialSource, InitialValue,
-    InitializedState, Limits, LoopDefinition, LoopScope, ModeBinding, ModeWhenTrue, Parameter,
-    ParameterBinding, PostScan, SampleTiming, Signals, Topology, LOOP_SCHEMA_VERSION,
+    Action, Controller, ControllerProject, Design, Direction, Execution, ExperimentKind,
+    InitialSource, InitialValue, InitializedState, Limits, LoopDefinition, LoopScope, ModeBinding,
+    ModeWhenTrue, Parameter, ParameterBinding, PostScan, SampleTiming, Signals, Topology,
+    LOOP_SCHEMA_VERSION,
 };
 
 /// The law a program computes itself: proportional, proportional and integral, or all three parts (C2).
@@ -132,16 +133,18 @@ pub fn own_law_loop_definition(
         parts.derivative,
         &process_variable,
     )?);
+    // The startup-done flag is an application state (C1): it accompanies the law's states, and a program's P law may declare it.
     let startup = draft
         .startup_flag
         .as_deref()
         .filter(|flag| !flag.is_empty());
-    states.extend(startup.map(startup_state));
+    let application: Vec<InitializedState> = startup.map(startup_state).into_iter().collect();
     let controller = own_law_controller(
         draft,
         program,
         manual,
         &states,
+        &application,
         &parallel_seed(draft, parts),
         task.interval_ms,
     )?;
@@ -414,6 +417,7 @@ fn own_law_controller(
     program: &CompiledController,
     manual: &CompiledSymbol,
     states: &[InitializedState],
+    application: &[InitializedState],
     seed: &Value,
     period_ms: f64,
 ) -> Result<Controller, Failure> {
@@ -435,20 +439,37 @@ fn own_law_controller(
         pid_initialization: None,
         state_feedback: None,
         on_off: None,
-        project: Some(project_block(family_name(draft.law), seed, states)),
+        project: Some(
+            ControllerProject::from_value(&project_block(
+                family_name(draft.law),
+                seed,
+                states,
+                application,
+            ))
+            .map_err(|message| refuse_settings(&message))?,
+        ),
         group: None,
     })
 }
 
 /// The program's own law as `controller.project` holds it (C2): its family, its states, its seed, and the requirement that Tune ranks
 /// its candidates by. V7 decodes this value.
-fn project_block(family: &str, seed: &Value, states: &[InitializedState]) -> Value {
+fn project_block(
+    family: &str,
+    seed: &Value,
+    states: &[InitializedState],
+    application: &[InitializedState],
+) -> Value {
     // These records always serialize; the default (null) could only be refused by the loop contract, never written silently.
     let states = serde_json::to_value(states).unwrap_or_default();
+    let mut initialization = json!({ "kind": "declared-state-v1", "states": states });
+    if !application.is_empty() {
+        initialization["applicationStates"] = serde_json::to_value(application).unwrap_or_default();
+    }
     json!({
         "family": family,
         "convention": "project-owned-native-controller",
-        "initialization": { "kind": "declared-state-v1", "states": states },
+        "initialization": initialization,
         "seed": seed,
         // One controlled output: its verification campaign names the error requirement without a channel prefix.
         "axes": [],

@@ -63,14 +63,14 @@ suite("Control Studio manual Tune settings", () => {
       ], "Equal entries read alike and no entry switches to exponent notation");
     } finally { f.restore(); }
   });
-  function setup(payload: Record<string, unknown>, definition = loop) {
+  function setup(payload: Record<string, unknown>, definition = loop, familySymbols?: (family: string) => readonly string[] | undefined) {
     const dom = new JSDOM(`<main><div data-studio-tuning-result></div></main>`);
     const previousDocument = (globalThis as any).document;
     const previousWindow = (globalThis as any).window;
     (globalThis as any).document = dom.window.document;
     (globalThis as any).window = dom.window;
     const root = dom.window.document.querySelector("main") as HTMLElement;
-    const controls = initializeManualTuneSettings(root, definition, undefined);
+    const controls = initializeManualTuneSettings(root, definition, undefined, familySymbols);
     controls.render(payload);
     return { dom, root, controls, restore() { (globalThis as any).document = previousDocument; (globalThis as any).window = previousWindow; dom.window.close(); } };
   }
@@ -183,6 +183,23 @@ suite("Control Studio manual Tune settings", () => {
     try {
       f.root.querySelector<HTMLInputElement>("[data-studio-manual-value='P1.Parameters.ProportionalGain']")!.value = "150";
       assert.throws(() => f.controls.read(), (error: Error) => error.message === "Enter proportional gain (Kp) between 0 and 100.");
+    } finally { f.restore(); }
+  });
+
+  test("a served program's manual form asks only for the symbols the engine names for the chosen family: family P on a PI seed asks for Kp alone (C2)", () => {
+    const definition: any = { controller: { instance: "P1", type: "Main", design: "project", project: { family: "PI", seed: { kind: "parallel-pid", family: "PI",
+      proportionalSymbol: "P1.Kp", integralSymbol: "P1.Ki" } } },
+      parameterBinding: { parameters: [
+        { symbol: "P1.Kp", iec_type: "REAL", unit: "%/degC", convention: "Kp", minimum: 0, maximum: 20 },
+        { symbol: "P1.Ki", iec_type: "REAL", unit: "%/(degC*s)", convention: "Ki", minimum: 0, maximum: 10 }] } };
+    const named: Record<string, string[]> = { P: ["P1.Kp"], PI: ["P1.Kp", "P1.Ki"] };
+    const f = setup({ status: "candidate", family: "P", values: { "P1.Kp": 2, "P1.Ki": 0.5 } }, definition, family => named[family]);
+    try {
+      const asked = () => Array.from(f.root.querySelectorAll<HTMLInputElement>("[data-studio-manual-value]"), input => input.dataset.studioManualValue);
+      assert.deepStrictEqual(asked(), ["P1.Kp"], "family P asks for the proportional gain alone");
+      assert.deepStrictEqual(f.controls.read(), { values: { "P1.Kp": 2 } }, "and reads only that setting");
+      f.controls.render({ status: "candidate", family: "PI", values: { "P1.Kp": 2, "P1.Ki": 0.5 } });
+      assert.deepStrictEqual(asked(), ["P1.Kp", "P1.Ki"], "family PI asks for both gains");
     } finally { f.restore(); }
   });
 });

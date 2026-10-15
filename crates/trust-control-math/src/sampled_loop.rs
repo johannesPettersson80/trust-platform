@@ -124,15 +124,12 @@ pub fn unit_step_response(
     SampledResponse { times, values }
 }
 
-/// The largest deviation of the measurement from its operating value after a measured-disturbance step at the start of the test
-/// (C8), with the PI on the measurement and, when given, the feedforward. The controller output and the disturbance are the two
-/// inputs of the plant. The deviation is the magnitude of the measurement at each sample, read with the inputs that reach the
-/// plant at that sample, and the result is the largest of them.
+/// The measurement after a measured-disturbance step at the start of the test (C8), with the PI on the measurement and, when given,
+/// the feedforward: one value per sample, sample `k` at `k` sample periods. The controller output and the disturbance are the two
+/// inputs of the plant, and each value is read with the inputs that reach the plant at that sample. The values are the measurement's
+/// deviation from its operating value, since the model's states and inputs start from zero deviation.
 #[must_use]
-pub fn largest_disturbance_deviation(
-    case: &DisturbanceCase<'_>,
-    feedforward: Option<Feedforward>,
-) -> f64 {
+pub fn disturbance_trace(case: &DisturbanceCase<'_>, feedforward: Option<Feedforward>) -> Vec<f64> {
     let system = case.system;
     let sample_time = case.sample_time_seconds;
     let delay_steps = whole_samples(case.delay_seconds / sample_time);
@@ -142,7 +139,7 @@ pub fn largest_disturbance_deviation(
     let mut state = vec![0.0; system.states()];
     let mut integral = 0.0;
     let mut filtered = 0.0;
-    let mut largest = 0.0_f64;
+    let mut values = Vec::with_capacity(steps + 1);
     for _ in 0..=steps {
         let delayed = delay.oldest();
         let error = -output_value(system, &state, case.measurement, &delayed);
@@ -154,11 +151,23 @@ pub fn largest_disturbance_deviation(
         inputs[case.controller_input] = command;
         inputs[case.disturbance_input] = case.disturbance_step;
         let applied = delay.push(inputs);
-        largest = largest.max(output_value(system, &state, case.measurement, &applied).abs());
+        values.push(output_value(system, &state, case.measurement, &applied));
         integral += case.law.integral_gain * error * case.period_seconds;
         state = advance(system, &state, &applied);
     }
-    largest
+    values
+}
+
+/// The largest deviation of the measurement from its operating value after a measured-disturbance step at the start of the test
+/// (C8), with the PI on the measurement and, when given, the feedforward: the largest magnitude of [`disturbance_trace`].
+#[must_use]
+pub fn largest_disturbance_deviation(
+    case: &DisturbanceCase<'_>,
+    feedforward: Option<Feedforward>,
+) -> f64 {
+    disturbance_trace(case, feedforward)
+        .iter()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()))
 }
 
 /// The feedforward term of one sample (C8): `K_ff·d` without a lead and a lag. With them, `z` follows `d` through the lag as

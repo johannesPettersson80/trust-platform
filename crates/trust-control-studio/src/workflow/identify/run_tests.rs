@@ -11,7 +11,8 @@ use parking_lot::Mutex;
 use serde_json::{json, Value};
 use trust_control::experiment::{
     ControlEvidenceSource, ControlExperimentPlan, ControlExperimentRecovery, ControllerMode,
-    ExperimentSample, PlanSignal, RecordingRecoveryBinding, RecordingRecoveryOwner,
+    ExperimentSample, PlanAuxiliarySignal, PlanSignal, RecordingRecoveryBinding,
+    RecordingRecoveryOwner,
 };
 use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::campaign::baseline::BaselineSummary;
@@ -929,4 +930,131 @@ fn a_cancelled_run_records_starts_and_keeps_nothing_and_says_it_was_cancelled() 
     assert_eq!(kept.0, Vec::<String>::new(), "nothing is kept");
     assert_eq!(reopened(&folder), Vec::<JournalEntry>::new());
     let _ = fs::remove_dir_all(&folder);
+}
+
+/// The tank with a second plant input (C7, C8): a measured load (`P1.LoadKw`, 0 to 50 kW) stepped through its own Manual command with an
+/// identification step of 10, beside the valve (`Main.TIC101_Output`), which the loop's own command moves. The loop declares an output step.
+fn two_input_loop() -> LoopDefinition {
+    serde_json::from_value(json!({
+        "schemaVersion": 2, "id": "tank", "name": "Tank", "revision": "rev-1",
+        "projectId": "project", "runtimeId": "runtime",
+        "controller": { "instance": "Main.TIC101", "type": "Control.PID", "revision": "sha256:test",
+            "action": "direct", "taskPeriodMs": 100, "manualOutputSignal": "Main.TIC101_Manual",
+            "manualOutputType": "LREAL" },
+        "signals": {
+            "setpoint": { "symbol": "Main.TIC101_Setpoint", "iecType": "LREAL", "direction": "read",
+                "unit": "degC", "range": { "minimum": 0, "maximum": 100 } },
+            "processVariable": { "symbol": "Main.TT101.Value", "iecType": "LREAL", "direction": "read",
+                "unit": "degC", "range": { "minimum": 0, "maximum": 100 } },
+            "manipulatedVariable": { "symbol": "Main.TIC101_Output", "iecType": "LREAL", "direction": "write",
+                "unit": "%", "range": { "minimum": 0, "maximum": 100 } },
+            "additional": [{ "id": "load", "channel": "load", "role": "disturbance", "symbol": "P1.LoadKw",
+                "iecType": "LREAL", "direction": "read", "unit": "kW", "range": { "minimum": 0, "maximum": 50 } }]
+        },
+        "limits": { "outputMinimum": 0, "outputMaximum": 100 },
+        "observedSampleTiming": { "nominalPeriodMs": 100 },
+        "experiment": { "execution": "control-studio", "kind": "mv_step", "amplitude": 10,
+            "durationSeconds": 600, "seed": 1 },
+        "channels": {
+            "inputs": [
+                { "modelChannelId": "valve", "signalId": "manipulatedVariable",
+                  "manualOutputSignal": "Main.TIC101_Manual", "manualOutputType": "LREAL",
+                  "actuator": { "kind": "continuous", "minimum": 0, "maximum": 100 }, "experimentStep": 10 },
+                { "modelChannelId": "load", "signalId": "load",
+                  "manualOutputSignal": "P1.LoadKw", "manualOutputType": "LREAL",
+                  "actuator": { "kind": "continuous", "minimum": 0, "maximum": 50 }, "experimentStep": 10 }
+            ],
+            "outputs": [{ "modelChannelId": "temperature", "signalId": "processVariable",
+                "setpointSignalId": "setpoint" }]
+        }
+    }))
+    .expect("the two-input tank decodes")
+}
+
+/// A live sample of the two-input tank in Manual, where an output step runs: the valve at 30 %, the tank at 45 degC, and the load measured
+/// at 20 kW.
+fn manual_sample_with_load() -> ExperimentSample {
+    let mut sample = super::test_support::live_sample();
+    sample.controller_mode = ControllerMode::Manual;
+    sample.additional.push(PlanAuxiliarySignal {
+        id: "load".to_owned(),
+        signal: PlanSignal {
+            symbol: "P1.LoadKw".to_owned(),
+            address: None,
+            value: 20.0,
+            unit: "kW".to_owned(),
+            quality: Quality::Good,
+        },
+    });
+    sample
+}
+
+// C7, C8: one campaign steps each plant input in turn, each through its own experiment and Manual command, in one recording. The record
+// keeps every plan in input order, and the journal is cleared once nothing of the run is left running.
+#[test]
+fn a_two_input_campaign_steps_each_input_in_turn_in_one_recording() {
+    use super::test_support::{
+        empty_journal, folder as scratch, passes, reopened, FakeClock, FakeReport, FakeRuntime,
+        FakeState, Sampler, StartBehaviour, Study as FakeStudy,
+    };
+    let state = FakeState::new(StartBehaviour::Acknowledged, 0);
+    let scratch_folder = scratch("two-input-campaign");
+    let journal = empty_journal(&scratch_folder);
+    let loop_definition = two_input_loop();
+    let runtime = FakeRuntime::new(&state);
+    let clock = FakeClock::new(&state);
+    let report = FakeReport::new(&state, false);
+    let mut sampler = Sampler(Some(manual_sample_with_load()));
+    let mut study = FakeStudy::new(&state);
+    let request = IdentifyRequest {
+        loop_definition: &loop_definition,
+        expected_settling_seconds: None,
+        evaluate: &passes,
+    };
+    let outcome = run(
+        RunPorts {
+            runtime: &runtime,
+            sampler: &mut sampler,
+            retention: &mut study,
+            clock: &clock,
+            report: &report,
+            journal: &journal,
+        },
+        &request,
+        RunPurpose::RecordValidation,
+    )
+    .expect("both plant inputs are stepped and recorded");
+    let super::IdentifyResult::Recorded(record) = outcome.result else {
+        panic!("the independent check records its run");
+    };
+    let started = state.started_plans();
+    assert_eq!(started.len(), 2, "one experiment per plant input");
+    assert_eq!(
+        started[0].affected_signal, "Main.TIC101_Manual",
+        "the valve steps through the loop's own Manual command, first"
+    );
+    assert_eq!(
+        started[1].affected_signal, "P1.LoadKw",
+        "the load steps through its own Manual command, second"
+    );
+    let experiments = record
+        .request
+        .experiments
+        .clone()
+        .expect("the record keeps the plan of every input");
+    let kept: Vec<&str> = experiments.iter().map(|plan| plan.id.as_str()).collect();
+    let sent: Vec<&str> = started.iter().map(|plan| plan.id.as_str()).collect();
+    assert_eq!(kept, sent, "the record keeps the plans in input order");
+    assert_eq!(
+        state.count("recording.start"),
+        1,
+        "one recording holds both steps"
+    );
+    assert_eq!(state.count("retain"), 1, "the recording is kept once");
+    assert_eq!(
+        reopened(&scratch_folder),
+        Vec::<JournalEntry>::new(),
+        "the journal is cleared once nothing of the run is left running"
+    );
+    fs::remove_dir_all(&scratch_folder).expect("clean up");
 }

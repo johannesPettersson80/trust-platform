@@ -79,7 +79,7 @@ impl CurrentModel {
     #[must_use]
     pub fn fit_error(&self) -> Option<f64> {
         let section = self.identify.as_ref()?;
-        let shown = &section.presentation.presentation;
+        let shown = &section.presentation.as_ref()?.presentation;
         if section.provisional {
             shown.estimation.normalized_error
         } else {

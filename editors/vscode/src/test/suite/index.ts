@@ -290,6 +290,7 @@ export function run(): Promise<void> {
   require("./control-studio-loop-setup-onoff.test");
   require("./control-studio-loop-setup-state-feedback.test");
   require("./control-studio-loop-setup-own-law.test");
+  require("./control-studio-loop-setup-trajectory.test");
   require("./control-studio-trajectory-feedforward.test");
   require("./control-studio-loop-setup-search-law.test");
   require("./control-studio-cascade-together.test");
@@ -406,6 +407,8 @@ export function run(): Promise<void> {
   require("./control-studio-engine-run.test");
   require("./control-studio-engine-setup.test");
   require("./control-studio-engine-experiment.test");
+  require("./control-studio-analyze-route.test");
+  require("./control-studio-analysis-parameters.test");
   require("./control-studio-engine-parked.test");
   require("./network-canvas-fleet-identity.test");
   require("./ads-status-summary.test");

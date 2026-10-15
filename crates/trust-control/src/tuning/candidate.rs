@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use crate::identification::refusal::Refusal;
 use crate::tuning::formula::PiTuning;
+use crate::tuning::project_candidate::ProjectCandidate;
 use crate::tuning::structure::{ParallelGains, Structure};
 use crate::tuning::texts;
 
@@ -97,6 +98,46 @@ pub struct ControlPidCandidate {
     /// zero for a calculated candidate unless `Tf` is pinned, and the entered value for manual settings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub measurement_filter_seconds: Option<f64>,
+}
+
+/// The candidate of a loop's law, unapplied (B4.1, C0): a `Control.PID` record, or the gains and seed variables of a program's own
+/// law (C2). A design, a manual entry and a stored section each hold one of the two; the structure and the gains are the same
+/// for either.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LawCandidate {
+    /// The candidate of a `Control.PID` (C1): the complete record it writes.
+    Pid(ControlPidCandidate),
+    /// The candidate of a program's own law (C2): its gains, and the values of the seed variables that Apply writes.
+    Project(ProjectCandidate),
+}
+
+impl LawCandidate {
+    /// The structure of the candidate.
+    #[must_use]
+    pub fn structure(&self) -> Structure {
+        match self {
+            Self::Pid(candidate) => candidate.structure,
+            Self::Project(candidate) => candidate.structure,
+        }
+    }
+
+    /// The gains of the candidate, signed.
+    #[must_use]
+    pub fn gains(&self) -> ParallelGains {
+        match self {
+            Self::Pid(candidate) => gains_of(candidate),
+            Self::Project(candidate) => candidate.gains,
+        }
+    }
+
+    /// The candidate in the two fields that a stored section and an answer keep: the `Control.PID` record, or the program's law.
+    #[must_use]
+    pub fn into_parts(self) -> (Option<ControlPidCandidate>, Option<ProjectCandidate>) {
+        match self {
+            Self::Pid(candidate) => (Some(candidate), None),
+            Self::Project(candidate) => (None, Some(candidate)),
+        }
+    }
 }
 
 /// The loop limits that a generated candidate takes its defaults from (`pidCandidateFactory.ts`): each is absent when the

@@ -58,6 +58,7 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
     ...(model.pids.length > 1 ? [["group", "PID group: interacting PIDs tuned together"] as [string, string]] : []),
     ...(model.instances.length ? [["onoff", "ON/OFF: the program switches the output"], ["state-feedback", "State feedback: the program feeds measured outputs back"],
       ["own-law", "Own P, PI or PID: the program computes the output from its gain variables"],
+      ["trajectory-feedforward", "Trajectory feedforward: the PID adds a feedforward along the program's planned trajectory"],
       ["search", "Other law: Tune searches the program's coefficient values"]] as [string, string][] : []),
     ["identify", "Identify only, no controller"]];
   const band: [string, string][] = [["half-band", "Half the band: switches at setpoint ± hysteresis"],
@@ -95,6 +96,7 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
  <section class="studio-fields" data-setup-section="feedforward">
   ${signal("ff.disturbance", "Measured disturbance", undefined, model.signals ?? model.addressedReal)}
   ${select("ff.disturbanceCommand", "Variable Identify steps to move the disturbance", manualOutputs)}
+  <label class="studio-field">Identification step of the disturbance, in its unit<input type="number" step="any" data-setup-field="ff.disturbanceStep"></label>
   ${select("ff.gain", "Feedforward gain", model.reals)}
   <label class="studio-field">Lead time (s)<select data-setup-field="ff.lead">${options(model.reals, undefined, "None: no lead/lag")}</select></label>
   <label class="studio-field">Lag time (s)<select data-setup-field="ff.lag">${options(model.reals, undefined, "None")}</select></label>
@@ -178,8 +180,8 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
  </section>
  <section class="studio-fields" data-setup-section="own-law">
   ${select("own.instance", "Instance that computes the law", model.instances)}
-  ${choice("own.law", "Law", [["PI", "PI: u = Kp·e + I, where I integrates Ki·e"], ["P", "P: u = Kp·e plus the program's own offset"],
-    ["PID", "PID: u = Kp·e + I + D, where D is Kd times the rate of the error or measurement"]], "PI")}
+  <div data-own-law-choice>${choice("own.law", "Law", [["PI", "PI: u = Kp·e + I, where I integrates Ki·e"], ["P", "P: u = Kp·e plus the program's own offset"],
+    ["PID", "PID: u = Kp·e + I + D, where D is Kd times the rate of the error or measurement"]], "PI")}</div>
   ${signal("own.processVariable", "Measurement")}
   ${select("own.setpoint", "Setpoint", model.signals ?? model.addressedReal)}
   ${signal("own.manipulatedVariable", "Output", undefined, model.signals ?? model.addressedReal)}
@@ -196,6 +198,12 @@ export function renderLoopSetupBody(model: SetupFormModel, escape: (value: strin
    ${select("own.derivativeState", "Previous value the derivative is taken from", model.reals)}
    <label class="studio-field">That previous value is<select data-setup-field="own.derivativeOn">${options([], undefined)}<option value="error">${escape("The error")}</option><option value="measurement">${escape("The measurement")}</option></select></label>
   </div>
+ </section>
+ <section class="studio-fields" data-setup-section="trajectory-feedforward">
+  ${signal("traj.plannedTrajectory", "Planned trajectory the feedforward follows", undefined, model.signals ?? model.addressedReal)}
+  ${gain("traj.rateGain", "Rate feedforward gain Kv")}
+  ${gain("traj.accelerationGain", "Acceleration feedforward gain Ka")}
+  ${select("traj.feedforwardTerm", "Feedforward term the program adds to its output", model.reals)}
  </section>
  <section class="studio-fields" data-setup-section="search">
   ${choice("search.family", "Law", [["MPC", "Model predictive control"], ["ratio", "Ratio"], ["split-range", "Split range"], ["override", "Override"],

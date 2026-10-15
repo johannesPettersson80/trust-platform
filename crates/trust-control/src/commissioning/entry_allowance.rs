@@ -5,10 +5,11 @@
 
 use std::collections::BTreeMap;
 
+use super::project_law::gain_symbols;
 use super::texts;
 use super::transfer::{output_limits, TransferValue};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{ControllerLaw, LoopDefinition};
+use crate::loop_definition::LoopDefinition;
 use crate::validation::engineer_verification_plan::EngineerRequirements;
 
 /// The terms of the A6.4 allowance besides the measured noise: the integral and derivative gains, the task period in s and
@@ -115,7 +116,8 @@ pub fn auto_entry_tolerance(
     law_entry_tolerance(loop_definition, values, process_noise, entry_error)
 }
 
-/// The allowance of a PID or P law with the gains `values` holds (`lawEntryTolerance`).
+/// The allowance of a PID or P law with the gains `values` holds (`lawEntryTolerance`): the gains are the law's own, or a program's
+/// seed variables (C2). A loop without a law has the exact check.
 fn law_entry_tolerance(
     loop_definition: &LoopDefinition,
     values: &BTreeMap<String, f64>,
@@ -124,28 +126,17 @@ fn law_entry_tolerance(
 ) -> Result<f64, Failure> {
     let cycle_seconds = Some(loop_definition.controller.task_period_ms / 1000.0);
     let gain = |symbol: &str| values.get(symbol).copied();
-    match loop_definition.controller.law.as_ref() {
-        Some(ControllerLaw::Pid(law)) => noise_aware_transfer_tolerance(
+    match gain_symbols(loop_definition) {
+        Some(symbols) => noise_aware_transfer_tolerance(
             loop_definition,
             None,
-            gain(law.proportional_gain_symbol.as_str()),
+            gain(symbols.proportional),
             process_noise,
             AllowanceTerms {
-                integral_gain: gain(law.integral_gain_symbol.as_str()),
-                derivative_gain: gain(law.derivative_gain_symbol.as_str()),
+                integral_gain: symbols.integral.and_then(gain),
+                derivative_gain: symbols.derivative.and_then(gain),
                 cycle_seconds,
                 entry_error,
-            },
-        ),
-        Some(ControllerLaw::Proportional { gain_symbol }) => noise_aware_transfer_tolerance(
-            loop_definition,
-            None,
-            gain(gain_symbol.as_str()),
-            process_noise,
-            AllowanceTerms {
-                cycle_seconds,
-                entry_error,
-                ..AllowanceTerms::default()
             },
         ),
         None => transfer_tolerance(loop_definition, None),

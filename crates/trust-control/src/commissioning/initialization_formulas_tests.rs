@@ -241,3 +241,42 @@ fn a_formula_serializes_with_the_kind_word_of_the_protocol() {
     assert_eq!(value["kind"], "model-input-is");
     assert_eq!(value["output_symbol"], "ValveMV");
 }
+
+/// Lesson 84's feedforward state reads the measured disturbance fresh at the task boundary, as a scaled measurement (C8).
+#[test]
+fn the_feedforward_state_reads_the_measured_disturbance_fresh_as_a_scaled_measurement() {
+    let loop_definition = LoopDefinition::decode(include_str!(
+        "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+    ))
+    .expect("lesson 84 decodes");
+    let model = crate::tuning::structures::fixtures::heater_model();
+    let definition = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("a project block")
+        .initialization
+        .clone();
+    let formulas = initialization_formulas(&loop_definition, &model, &definition)
+        .expect("the formulas are read");
+    assert_eq!(
+        formulas["P1.Controller.StateValue.FeedForward"],
+        InitializationFormula::ScaledMeasurement {
+            process_variable: "P1.LoadKw".to_owned(),
+            gain_symbol: "P1.FeedforwardGain".to_owned(),
+        }
+    );
+    // The filtered disturbance reads the measured disturbance as a measurement, never as an actuator (C0, C8).
+    assert_eq!(
+        formulas["P1.FilteredLoadKw"],
+        InitializationFormula::ModelOutput {
+            process_variable: "P1.LoadKw".to_owned(),
+        }
+    );
+    assert_eq!(
+        formulas["P1.Controller.StateValue.NominalOutput"],
+        InitializationFormula::ModelInput {
+            output_symbol: "P1.HeaterPct".to_owned(),
+        }
+    );
+}

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::bindings::RealType;
+use super::project::ControllerProject;
 
 /// The controller that runs the loop.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -58,9 +59,11 @@ pub struct Controller {
     /// Parked (stage V7): an ON/OFF controller.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_off: Option<Value>,
-    /// Parked (stage V7): the program's own law.
+    /// The program's own law (C2): its family, its states, its seed and its search settings. [`ControllerProject`] decodes and
+    /// checks it; the engine serves the `parallel-pid` shape and refuses the rest by name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub project: Option<Value>,
+    #[schemars(with = "Option<Value>")]
+    pub project: Option<ControllerProject>,
     /// Parked (stage V7): a PID group.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<Value>,

@@ -1,7 +1,7 @@
 import type { ControlLoopDefinition } from "../loopDefinition";
 import type { ControllerTuningPreferences } from "../controllerTuningPreferences";
 import type { StudioPost } from "./threePageOperation";
-import { initializeManualTuneSettings } from "./manualTuneSettings";
+import { initializeManualTuneSettings, type FamilySymbols } from "./manualTuneSettings";
 import { renderTunedController } from "./threePageResults";
 import { initializeThreePageStateDesign } from "./threePageStateDesign";
 
@@ -26,8 +26,9 @@ export class ThreePageTuning {
   private readonly method: HTMLSelectElement;
   private readonly stateDesign;
   constructor(private readonly root: HTMLElement, private readonly loop: ControlLoopDefinition,
-    private readonly post: StudioPost, private readonly family: () => string, private readonly choice: () => string = family) {
-    this.fields = initializeManualTuneSettings(root, loop, value => this.previewLater(value.values));
+    private readonly post: StudioPost, private readonly family: () => string, private readonly choice: () => string = family,
+    familySymbols?: FamilySymbols) {
+    this.fields = initializeManualTuneSettings(root, loop, value => this.previewLater(value.values), familySymbols);
     this.method = root.querySelector<HTMLSelectElement>("[data-engineer-tuning-method]")!;
     if (loop.controller.stateFeedback) {
       const option = root.ownerDocument.createElement("option"); option.value = "state-design"; option.textContent = "State-space design"; this.method.append(option);

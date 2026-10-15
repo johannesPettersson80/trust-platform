@@ -21,11 +21,12 @@ use crate::commissioning::commissioning_result::TransferStatus;
 use crate::commissioning::declared_initialization::{declared_states, DeclaredStateTracking};
 use crate::commissioning::entry_allowance::{noise_aware_transfer_tolerance, AllowanceTerms};
 use crate::commissioning::found_mode::{found_mode_of, FoundMode};
+use crate::commissioning::project_law::gain_symbols;
 use crate::commissioning::proportional_commissioning::binding_failure;
 use crate::commissioning::transfer::{TransferBinding, TransferValue};
 use crate::commissioning::transfer_tracking::{DeclaredStateKind, TransferTracking};
 use crate::failure::{Cause, Failure, NextAction};
-use crate::loop_definition::{ControllerLaw, LoopDefinition};
+use crate::loop_definition::LoopDefinition;
 
 /// The suffix of the transfer loop of Identify's mode change (`:identification-mode`), so that its transaction record is apart
 /// from Apply's (annex E12.2: one record per transfer loop).
@@ -171,15 +172,18 @@ pub fn mode_output_change(
 /// `noise_aware_transfer_tolerance` with the gains `observed` reports and the measured output noise `process_noise`, that is the
 /// larger of the exact check and `2·|Kp|·n + |Ki|·Δt·n + 4·|Kd|·n/Δt`, plus the integral step on the error the controller enters
 /// with, `|Ki|·Δt·|r − y|`, which identification moved the measurement away from the setpoint to make. Δt is the loop's task
-/// period, r its setpoint and y its process value as `observed` reports them. A loop without a PID law, or a response that is
-/// not a finite number (a gain or a value that `observed` does not report), allows no response: zero.
+/// period, r its setpoint and y its process value as `observed` reports them. The gains are the law's, or a program's seed
+/// variables (C2). A loop without an integral or derivative term (no law, or a proportional law), or a response that is not a
+/// finite number (a gain or a value that `observed` does not report), allows no response: zero.
 #[must_use]
 pub fn auto_entry_response(
     loop_definition: &LoopDefinition,
     observed: &TransferStatus,
     process_noise: Option<f64>,
 ) -> f64 {
-    let Some(ControllerLaw::Pid(law)) = loop_definition.controller.law.as_ref() else {
+    let Some(symbols) = gain_symbols(loop_definition)
+        .filter(|symbols| symbols.integral.is_some() || symbols.derivative.is_some())
+    else {
         return 0.0;
     };
     let Some(setpoint) = loop_definition.signals.setpoint.as_ref() else {
@@ -189,15 +193,16 @@ pub fn auto_entry_response(
     let cycle_seconds = loop_definition.controller.task_period_ms / 1000.0;
     let measured = value(&loop_definition.signals.process_variable.symbol);
     let error = (value(&setpoint.symbol) - measured).abs();
-    let integral_gain = value(&law.integral_gain_symbol);
+    // An absent integral term contributes nothing; a reported-missing gain stays NaN and so allows no response.
+    let integral_gain = symbols.integral.map_or(0.0, value);
     let allowance = noise_aware_transfer_tolerance(
         loop_definition,
         None,
-        Some(value(&law.proportional_gain_symbol)),
+        Some(value(symbols.proportional)),
         process_noise,
         AllowanceTerms {
-            integral_gain: Some(integral_gain),
-            derivative_gain: Some(value(&law.derivative_gain_symbol)),
+            integral_gain: symbols.integral.map(value),
+            derivative_gain: symbols.derivative.map(value),
             cycle_seconds: Some(cycle_seconds),
             entry_error: None,
         },

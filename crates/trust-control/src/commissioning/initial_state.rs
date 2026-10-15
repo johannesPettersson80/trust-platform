@@ -57,13 +57,12 @@ impl ControllerInitialization {
 }
 
 /// The kind word of a formula that the Rust engine does not run yet (the parked features of checklist V7: the notch of a
-/// program's own law, the measured-disturbance feedforward, the decoupler and the state models), or `None` for a formula it
-/// runs.
+/// program's own law, the decoupler and the state models), or `None` for a formula it runs. The measured-disturbance feedforward's
+/// `scaled-model-input` is served (C8).
 #[must_use]
 pub(super) fn parked_source_word(initial: &InitialValue) -> Option<&'static str> {
     match initial {
         InitialValue::From(InitialSource::ModelState { .. }) => Some("model-state"),
-        InitialValue::From(InitialSource::ScaledModelInput { .. }) => Some("scaled-model-input"),
         InitialValue::From(InitialSource::DecoupledModelInput { .. }) => {
             Some("decoupled-model-input")
         }
@@ -74,7 +73,8 @@ pub(super) fn parked_source_word(initial: &InitialValue) -> Option<&'static str>
             | InitialSource::ModelOutput { .. }
             | InitialSource::ModelInputIs { .. }
             | InitialSource::PidIntegral { .. }
-            | InitialSource::WeightedError { .. },
+            | InitialSource::WeightedError { .. }
+            | InitialSource::ScaledModelInput { .. },
         ) => None,
     }
 }
@@ -188,6 +188,9 @@ fn validate_state(state: &InitializedState) -> Result<(), Failure> {
             weight,
             ..
         }) => weight_fits(weight_symbol.as_deref(), *weight),
+        InitialValue::From(InitialSource::ScaledModelInput { gain_symbol, .. }) => {
+            !gain_symbol.is_empty()
+        }
         InitialValue::From(_) => true,
     };
     if fits {
@@ -229,6 +232,16 @@ fn initial_value(
         }
         InitialValue::From(InitialSource::ModelInputIs { index, value }) => {
             boolean_state_value(loop_definition, model, state, *index, *value)
+        }
+        InitialValue::From(InitialSource::ScaledModelInput { index, gain_symbol }) => {
+            scaled_model_input(
+                loop_definition,
+                model,
+                state,
+                *index,
+                gain_symbol,
+                parameters,
+            )
         }
         InitialValue::From(InitialSource::PidIntegral {
             index,
@@ -288,6 +301,42 @@ fn initial_value(
             ))
         }
     }
+}
+
+/// The value of a feedforward state at the operating point: its gain times the measured disturbance at its operating value, `K_ff·d`
+/// (C8, `scaled-model-input`). The gain must be bound in the state's unit per the disturbance's unit, as the TypeScript checks it.
+///
+/// # Errors
+/// The disturbance is not a model input, the gain is not a bound parameter in the state's unit per the input's unit, or the gain's value
+/// is not finite.
+fn scaled_model_input(
+    loop_definition: &LoopDefinition,
+    model: &GeneralModel,
+    state: &InitializedState,
+    index: usize,
+    gain_symbol: &str,
+    parameters: &BTreeMap<String, f64>,
+) -> Result<f64, Failure> {
+    let input = model
+        .identity()
+        .inputs
+        .get(index)
+        .ok_or_else(|| refusal(&texts::init_coordinates_units(&state.symbol)))?;
+    let expected = format!("{}/{}", state.unit, input.unit);
+    let bound_unit = loop_definition
+        .parameter_binding
+        .as_ref()
+        .and_then(|binding| {
+            binding
+                .parameters
+                .iter()
+                .find(|parameter| parameter.symbol == gain_symbol)
+        })
+        .map(|parameter| parameter.unit.as_str());
+    if bound_unit != Some(expected.as_str()) {
+        return Err(refusal(&texts::init_scaled_gain(&state.symbol, &expected)));
+    }
+    Ok(parameter_value(loop_definition, parameters, gain_symbol)? * operating_input(model, index))
 }
 
 /// The value of a Boolean state that follows an operating command: 1 when the operating input equals the predicate, else 0

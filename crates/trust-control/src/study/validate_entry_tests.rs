@@ -12,6 +12,7 @@ use super::tests::{
 use super::*;
 use crate::identification::connected_record::ValidationChannel;
 use crate::signals::Quality;
+use crate::tuning::candidate::LawCandidate;
 use crate::validation::initialization_case::{plan_entry_case, EntryCase};
 use crate::validation::isolated_run_protocol::{
     IsolatedRunConditions, IsolatedRunObservation, IsolatedRunRecord, IsolatedRunSample,
@@ -373,7 +374,7 @@ fn the_entry_request_carries_the_candidate_and_the_channels_with_their_units() {
         .request(
             &loop_definition,
             &fixture_model(),
-            &sample_candidate(2.0, 0.5),
+            &LawCandidate::Pid(sample_candidate(2.0, 0.5)),
             None,
             "entry-job",
             "rev-1",

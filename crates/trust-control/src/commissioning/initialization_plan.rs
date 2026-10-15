@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::entry_allowance::{noise_aware_transfer_tolerance, AllowanceTerms};
 use super::initial_state::{operating_input, operating_output};
 use super::pid_operating_state::pid_operating_state;
+use super::project_law::{application_states, entry_application_values};
 use super::texts;
 use super::transfer::{
     output_limits, parallel_pid_contract, proportional_parameter, proportional_transfer_binding,
@@ -18,7 +19,7 @@ use super::transfer::{
 use super::transfer_tracking::proportional_tracking_reference;
 use crate::failure::{Cause, Failure, NextAction};
 use crate::loop_definition::{
-    ControllerLaw, LoopDefinition, LoopSignal, ManualOutputType, ParameterBinding, PidLaw,
+    ControllerLaw, LoopDefinition, LoopSignal, ManualOutputType, ParameterBinding, PidLaw, PostScan,
 };
 use crate::model::GeneralModel;
 use crate::validation::engineer_verification_plan::{
@@ -440,20 +441,38 @@ pub fn proportional_initialization_plan(
     let reference_member = &binding.states[0];
     let command_member = &binding.states[1];
     let command_value = rounded_transfer_value(command_member, applied)?;
+    // The application states take their declared values, and the same transfer writes them with the reference and the mode (C1,
+    // C13 Apply step 4). The run starts from those values, as Validate starts the flag TRUE.
+    let application = entry_application_values(loop_definition, &binding)?;
+    let mut starting = vec![
+        (reference_member.symbol.clone(), process),
+        (command_member.symbol.clone(), command_value),
+    ];
+    starting.extend(
+        application
+            .iter()
+            .map(|(symbol, value)| (symbol.clone(), *value)),
+    );
+    let mut written = vec![event(
+        timing.transfer_at_ms,
+        &reference_member.symbol,
+        reference,
+    )];
+    written.extend(
+        application
+            .iter()
+            .map(|(symbol, value)| event(timing.transfer_at_ms, symbol, *value)),
+    );
+    let observed: Vec<String> = std::iter::once(mode.symbol.clone())
+        .chain(application.keys().cloned())
+        .collect();
     let (run, base_requirements) = start_run(
         &timing,
         base,
         (mode.symbol.as_str(), mode.manual_value),
-        vec![
-            (reference_member.symbol.clone(), process),
-            (command_member.symbol.clone(), command_value),
-        ],
-        vec![mode.symbol.clone()],
-        vec![event(
-            timing.transfer_at_ms,
-            &reference_member.symbol,
-            reference,
-        )],
+        starting,
+        observed,
+        written,
     );
     let mut requirements = vec![
         bounds(
@@ -471,6 +490,11 @@ pub fn proportional_initialization_plan(
             auto,
         ),
     ];
+    requirements.extend(application_requirements(
+        loop_definition,
+        &timing,
+        &application,
+    ));
     requirements.extend(bounds_on(base_requirements, timing.window));
     Ok(StartPlan {
         reference,
@@ -478,6 +502,32 @@ pub fn proportional_initialization_plan(
         run,
         requirements,
     })
+}
+
+/// The requirements that each application state of a program's own law holds its value after the entry (`initialized-state:`, C1): a
+/// state the program does not move is held to its value, and a bounded one stays within its bounds, as a declared initialization
+/// checks its states.
+fn application_requirements(
+    loop_definition: &LoopDefinition,
+    timing: &StartTiming,
+    values: &BTreeMap<String, f64>,
+) -> Vec<RunRequirement> {
+    application_states(loop_definition)
+        .into_iter()
+        .filter_map(|state| {
+            let value = *values.get(&state.symbol)?;
+            let (minimum, maximum) = match state.post_scan {
+                PostScan::Unchanged => (value, value),
+                PostScan::Bounded => (state.minimum, state.maximum),
+            };
+            Some(RunRequirement {
+                id: format!("initialized-state:{}", state.symbol),
+                channel: state.symbol.clone(),
+                window: timing.transfer_window,
+                check: RunCheck::StateBounds { minimum, maximum },
+            })
+        })
+        .collect()
 }
 
 /// A run's whole milliseconds as seconds, as the `TypeScript` divides them (`ms / 1000`). A run lasts at most 24 h, far below

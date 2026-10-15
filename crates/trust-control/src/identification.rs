@@ -25,6 +25,7 @@ pub mod mode;
 pub mod mode_transfer;
 pub mod model_comparison;
 pub mod model_compatibility;
+pub mod multichannel_fit;
 pub mod plant;
 pub mod policy;
 pub mod presentation;

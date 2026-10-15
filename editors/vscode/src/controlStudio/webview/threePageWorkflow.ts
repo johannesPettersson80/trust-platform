@@ -123,7 +123,8 @@ if (root) {
   }, () => bindingsBlock ?? (startingExperiment ? "Starting simulator…" : undefined), runNextAction, () => application.synchronize());
   const resetButton = root.querySelector<HTMLButtonElement>("[data-studio-reset-chart]");
   if (resetButton) operation.bindReset(resetButton, () => Boolean(experiments?.busy || startingExperiment || application.active || recovery?.active));
-  const tuning = loop ? new ThreePageTuning(root, loop, post, () => controller?.selectedFamily ?? "automatic", () => controller?.choice ?? "automatic") : undefined;
+  const tuning = loop ? new ThreePageTuning(root, loop, post, () => controller?.selectedFamily ?? "automatic", () => controller?.choice ?? "automatic",
+    family => controller?.symbolsOf(family)) : undefined;
   const application = new ThreePageApplication(root, post, () => operation.busy, message => operation.notice("verify", message),
     failure => operation.failure("verify", failure),
     () => operation.stageBlock() !== undefined || experiments?.busy === true || recovery?.active === true);

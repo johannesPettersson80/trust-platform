@@ -16,25 +16,31 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::keep_texts;
+use super::project_law::{gain_symbols, served_law};
 use crate::failure::{Cause, Failure, NextAction};
 use crate::json;
 use crate::loop_definition::{ControllerLaw, LoopDefinition};
 
-/// The parameter record Keep in project writes, and the fields of it that the loop binds.
+/// The parameter record Keep in project writes, and the fields of it that the loop binds. For a program's own law, the record is
+/// the program instance that declares its gain variables, and the fields are those variables (C2, B6.5).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeepableRecord {
-    /// The record's symbol as the controller is configured from it, for example `Main.Parameters`.
+    /// The record's symbol as the controller is configured from it, for example `Main.Parameters`; or a program instance, `P1`.
     pub record: String,
-    /// The bound fields of the record, by their names within it, in the binding's order.
+    /// The bound fields of the record, by their names within it, in the binding's order; or a program's gain variables.
     pub fields: Vec<String>,
 }
 
 /// The record a `Control.PID` law is configured from, and the fields of it that the parameter binding names (`keepableRecord`,
-/// keepInProject.ts).
+/// keepInProject.ts). A program's own law keeps its gain variables, which the record names by their program instance (C2, B6.5).
 ///
 /// # Errors
-/// The loop has no PID law, no parameter binding, or binds no field of that record.
+/// The loop has no PID law, no parameter binding, or binds no field of that record; or a gain of a program's own law is not a
+/// variable of one program instance.
 pub fn keepable_record(loop_definition: &LoopDefinition) -> Result<KeepableRecord, Failure> {
+    if served_law(loop_definition).is_some() {
+        return program_law_record(loop_definition);
+    }
     let (Some(ControllerLaw::Pid(law)), Some(binding)) = (
         loop_definition.controller.law.as_ref(),
         loop_definition.parameter_binding.as_ref(),
@@ -64,6 +70,50 @@ fn no_record() -> Failure {
         Cause::Implementation,
         NextAction::OpenLoopSetup,
     )
+}
+
+/// The record of a program's own law (C2): the program instance that declares its gain variables, and the variables by name. Each
+/// gain is `<instance>.<variable>`, and all of them belong to one instance.
+///
+/// # Errors
+/// A gain is not a variable of a program instance, or the gains belong to two instances.
+fn program_law_record(loop_definition: &LoopDefinition) -> Result<KeepableRecord, Failure> {
+    let gains = gain_symbols(loop_definition).ok_or_else(no_record)?;
+    let mut instance: Option<&str> = None;
+    let mut fields = Vec::new();
+    for symbol in [Some(gains.proportional), gains.integral, gains.derivative]
+        .into_iter()
+        .flatten()
+    {
+        let Some((root, field)) = program_variable(symbol) else {
+            return Err(Failure::new(
+                &keep_texts::gain_not_program_variable(symbol),
+                Cause::ControllerCapability,
+                NextAction::OpenLoopSetup,
+            ));
+        };
+        if instance.is_some_and(|known| known != root) {
+            return Err(Failure::new(
+                &keep_texts::gains_of_two_instances(),
+                Cause::ControllerCapability,
+                NextAction::OpenLoopSetup,
+            ));
+        }
+        instance = Some(root);
+        fields.push(field.to_owned());
+    }
+    let record = instance.ok_or_else(no_record)?;
+    Ok(KeepableRecord {
+        record: record.to_owned(),
+        fields,
+    })
+}
+
+/// The instance and the variable of a program's own variable's symbol, `<instance>.<variable>`: two names joined by one `.`.
+fn program_variable(symbol: &str) -> Option<(&str, &str)> {
+    let (root, field) = symbol.split_once('.')?;
+    let is_name = |name: &str| !name.is_empty() && !name.contains('.');
+    (is_name(root) && is_name(field)).then_some((root, field))
 }
 
 /// The values Keep in project writes: each bound field whose running value is finite, by field name

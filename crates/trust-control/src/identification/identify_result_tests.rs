@@ -138,6 +138,14 @@ fn first_order_section() -> IdentifySection {
     )
 }
 
+/// The presentation a fit keeps (B10.2): the tests change what the page shows through it.
+fn presentation_mut(section: &mut IdentifySection) -> &mut ComparisonPresentation {
+    section
+        .presentation
+        .as_mut()
+        .expect("a fit keeps its presentation")
+}
+
 fn plot_trace(role: PlotRole, symbol: &str, unit: &str, values: &[Option<f64>]) -> PlotTrace {
     PlotTrace {
         role,
@@ -215,32 +223,65 @@ fn the_plot_shows_the_applied_input_the_measurement_and_the_prediction_on_the_re
 #[test]
 fn a_fit_without_its_experiment_names_its_measurement_by_the_recorded_channel_it_read() {
     // B3.6: a fit of a recorded channel that the loop does not bind names its measurement by that channel, in the plot of its
-    // first answer and of `controlStudio/open` alike (`read_channels`).
+    // first answer and of `controlStudio/open` alike (`read_channels`). Its prediction carries the same name, not the model's id.
     let mut section = first_order_section();
-    section.presentation.experiment = None;
+    presentation_mut(&mut section).experiment = None;
     section.recorded_channels = Some(IdentifySignals {
         inputs: vec!["Plant.Command".to_owned()],
         outputs: vec!["Plant.Recorded".to_owned()],
         setpoint: None,
     });
-    let measurement = |section: &IdentifySection| -> Option<String> {
+    let named = |section: &IdentifySection| -> Vec<(PlotRole, String)> {
         identify_result(section, StageEvidence::default(), None)
             .plot
             .traces
             .into_iter()
-            .find(|trace| trace.role == PlotRole::Measurement)
-            .map(|trace| trace.symbol)
+            .map(|trace| (trace.role, trace.symbol))
+            .collect()
     };
-    assert_eq!(measurement(&section).as_deref(), Some("Plant.Recorded"));
+    assert_eq!(
+        named(&section),
+        [
+            (PlotRole::Measurement, "Plant.Recorded".to_owned()),
+            (PlotRole::Prediction, "Plant.Recorded".to_owned()),
+        ],
+        "both traces of the fit carry the recorded channel's name"
+    );
     section.recorded_channels = None;
-    assert_eq!(measurement(&section).as_deref(), Some("Plant.Position"));
+    assert_eq!(
+        named(&section),
+        [
+            (PlotRole::Measurement, "Plant.Position".to_owned()),
+            (PlotRole::Prediction, "Plant.Position".to_owned()),
+        ],
+        "a fit of the loop's own channel names both traces by it"
+    );
+}
+
+#[test]
+fn a_fit_that_read_no_output_channel_names_both_traces_by_the_model_output() {
+    // The fallback of the name: the model's output, when the fit read no measured channel.
+    let mut section = first_order_section();
+    presentation_mut(&mut section).experiment = None;
+    presentation_mut(&mut section).output_id = None;
+    section.recorded_channels = Some(IdentifySignals {
+        inputs: vec!["Plant.Command".to_owned()],
+        outputs: Vec::new(),
+        setpoint: None,
+    });
+    let plot = identify_result(&section, StageEvidence::default(), None).plot;
+    assert!(
+        plot.traces.iter().all(|trace| trace.symbol == "position"),
+        "{:?}",
+        plot.traces
+    );
 }
 
 #[test]
 fn without_the_experiments_traces_the_plot_shows_the_measured_values_of_the_fit() {
     let mut section = first_order_section();
-    section.presentation.experiment = None;
-    section.presentation.output_id = None;
+    presentation_mut(&mut section).experiment = None;
+    presentation_mut(&mut section).output_id = None;
     let plot = identify_result(&section, StageEvidence::default(), None).plot;
     assert_eq!(plot.time_seconds, [1.0, 2.0, 3.0]);
     assert_eq!(
@@ -254,12 +295,12 @@ fn without_the_experiments_traces_the_plot_shows_the_measured_values_of_the_fit(
             ),
             plot_trace(
                 PlotRole::Prediction,
-                "position",
+                "Plant.Position",
                 "m",
                 &[Some(0.0), Some(0.19), Some(0.39)]
             ),
         ],
-        "the prediction is named by the model's output channel"
+        "the prediction carries the measured trace's name: the loop's channel the fit read"
     );
 }
 
@@ -474,7 +515,12 @@ fn a_kept_candidate_answers_its_settings_and_no_prediction() {
     assert_eq!(answer.candidate, section.candidate);
     assert_eq!(
         answer.settings,
-        record_settings(&section.candidate, &mapped_parameters(&loop_definition))
+        candidate_settings(
+            &section
+                .law_candidate()
+                .expect("the section keeps its candidate"),
+            &mapped_parameters(&loop_definition),
+        )
     );
     assert_eq!(answer.reason, section.reason);
     assert!(answer.response.is_none(), "the study keeps no prediction");

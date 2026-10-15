@@ -116,6 +116,258 @@ pub fn proportional_loop() -> LoopDefinition {
     ))
 }
 
+/// The gains of a program's own law: `Main.Program.Kp`, `Ki` and `Kd`, bounded by magnitude (N6.4).
+fn program_gains() -> Value {
+    json!([
+        gain("Main.Program.Kp", "proportional gain"),
+        gain("Main.Program.Ki", "integral gain"),
+        gain("Main.Program.Kd", "derivative gain")
+    ])
+}
+
+/// The integral state of a program's PI or PID law, started at the operating point by its `pid-integral` formula on `Kp`.
+fn program_integral_state() -> InitializedState {
+    InitializedState {
+        symbol: "Main.Program.Integral".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "%".to_owned(),
+        minimum: -110.0,
+        maximum: 110.0,
+        initial: InitialValue::From(InitialSource::PidIntegral {
+            index: 0,
+            input_index: 0,
+            gain_symbol: "Main.Program.Kp".to_owned(),
+            weight_symbol: None,
+            weight: None,
+        }),
+        post_scan: PostScan::Bounded,
+    }
+}
+
+/// The previous error of a program's PD or PID law, started by its `weighted-error` formula (C2 Validate).
+fn program_previous_error_state() -> InitializedState {
+    InitializedState {
+        symbol: "Main.Program.PreviousError".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "%".to_owned(),
+        minimum: -100.0,
+        maximum: 100.0,
+        initial: InitialValue::From(InitialSource::WeightedError {
+            index: 0,
+            weight_symbol: None,
+            weight: Some(1.0),
+        }),
+        post_scan: PostScan::Bounded,
+    }
+}
+
+/// The loop file of a program's own law (C2): `design: project`, no `law` and no `pidInitialization`, and the `project` block that
+/// the setup writes.
+#[allow(clippy::needless_pass_by_value)] // A test fixture: it takes the JSON literals its callers write in place.
+fn project_loop_file(
+    family: &str,
+    seed: Value,
+    states: &[InitializedState],
+    application: &[InitializedState],
+    parameters: Value,
+) -> Value {
+    let mut file = loop_file(Value::Null, None, parameters, true);
+    file["controller"]["design"] = json!("project");
+    file["controller"]["project"] = json!({
+        "family": family,
+        "convention": "project-owned-native-controller",
+        "initialization": { "kind": "declared-state-v1", "states": states, "applicationStates": application },
+        "seed": seed,
+        "axes": [],
+        "objective": { "requirementId": "target-error", "direction": "minimize" },
+        "maximumCandidates": 4,
+        "maximumCycles": 50000,
+        "wallBudgetMs": 60000
+    });
+    file
+}
+
+/// A closed loop of a program instance's own PI law (C2): its seed names `P1.Kp` and `P1.Ki`, and its declared state is the integral
+/// term, which its `pid-integral` formula starts on `P1.Kp`.
+#[must_use]
+pub fn project_pi_loop_on_p1() -> LoopDefinition {
+    let integral = InitializedState {
+        symbol: "P1.Integral".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "%".to_owned(),
+        minimum: -110.0,
+        maximum: 110.0,
+        initial: InitialValue::From(InitialSource::PidIntegral {
+            index: 0,
+            input_index: 0,
+            gain_symbol: "P1.Kp".to_owned(),
+            weight_symbol: None,
+            weight: None,
+        }),
+        post_scan: PostScan::Bounded,
+    };
+    decode(&project_loop_file(
+        "PI",
+        json!({ "kind": "parallel-pid", "family": "PI", "proportionalSymbol": "P1.Kp",
+            "integralSymbol": "P1.Ki" }),
+        &[integral],
+        &[],
+        json!([
+            gain("P1.Kp", "parallel proportional gain"),
+            gain("P1.Ki", "parallel integral gain")
+        ]),
+    ))
+}
+
+/// A closed loop of a program's own PID law (C2): its seed names the variables `Main.Program.Kp`, `Ki` and `Kd`, and its declared
+/// states are the integral and the previous error.
+#[must_use]
+pub fn project_pid_loop() -> LoopDefinition {
+    let states = [program_integral_state(), program_previous_error_state()];
+    decode(&project_loop_file(
+        "PID",
+        json!({ "kind": "parallel-pid", "family": "PID", "proportionalSymbol": "Main.Program.Kp",
+            "integralSymbol": "Main.Program.Ki", "derivativeSymbol": "Main.Program.Kd" }),
+        &states,
+        &[],
+        program_gains(),
+    ))
+}
+
+/// A closed loop of a program's own P law (C2): its seed names the variable `Main.Program.Kp` alone, and it declares no state.
+#[must_use]
+pub fn project_p_loop() -> LoopDefinition {
+    decode(&project_loop_file(
+        "P",
+        json!({ "kind": "parallel-pid", "family": "P", "proportionalSymbol": "Main.Program.Kp" }),
+        &[],
+        &[],
+        json!([gain("Main.Program.Kp", "proportional gain")]),
+    ))
+}
+
+/// A program's own P law with a startup flag (C1): the flag is an application state, a BOOL that the connected P entry writes TRUE at
+/// the Auto entry (C13).
+#[must_use]
+pub fn project_p_loop_with_startup() -> LoopDefinition {
+    let started = InitializedState {
+        symbol: "Main.Program.Started".to_owned(),
+        iec_type: StateType::Bool,
+        unit: "1".to_owned(),
+        minimum: 0.0,
+        maximum: 1.0,
+        initial: InitialValue::Constant(1.0),
+        post_scan: PostScan::Unchanged,
+    };
+    decode(&project_loop_file(
+        "P",
+        json!({ "kind": "parallel-pid", "family": "P", "proportionalSymbol": "Main.Program.Kp" }),
+        &[],
+        &[started],
+        json!([gain("Main.Program.Kp", "proportional gain")]),
+    ))
+}
+
+/// A program's own PI law with its startup flag (C1, C2): its seed names `P1.Kp` and `P1.Ki`, its declared state is the integral term
+/// that its `pid-integral` formula starts on `P1.Kp`, and the startup-done flag is an application state that the Auto entry sets TRUE.
+#[must_use]
+pub fn project_pi_loop_with_startup() -> LoopDefinition {
+    let integral = InitializedState {
+        symbol: "P1.Integral".to_owned(),
+        iec_type: StateType::Lreal,
+        unit: "%".to_owned(),
+        minimum: -110.0,
+        maximum: 110.0,
+        initial: InitialValue::From(InitialSource::PidIntegral {
+            index: 0,
+            input_index: 0,
+            gain_symbol: "P1.Kp".to_owned(),
+            weight_symbol: None,
+            weight: None,
+        }),
+        post_scan: PostScan::Bounded,
+    };
+    let started = InitializedState {
+        symbol: "Main.Program.Started".to_owned(),
+        iec_type: StateType::Bool,
+        unit: "1".to_owned(),
+        minimum: 0.0,
+        maximum: 1.0,
+        initial: InitialValue::Constant(1.0),
+        post_scan: PostScan::Unchanged,
+    };
+    decode(&project_loop_file(
+        "PI",
+        json!({ "kind": "parallel-pid", "family": "PI", "proportionalSymbol": "P1.Kp",
+            "integralSymbol": "P1.Ki" }),
+        &[integral],
+        &[started],
+        json!([
+            gain("P1.Kp", "parallel proportional gain"),
+            gain("P1.Ki", "parallel integral gain")
+        ]),
+    ))
+}
+
+/// A program's own P law that declares a law state, an integral term that a P law cannot start (C13): the connected P refuses it by
+/// name.
+#[must_use]
+pub fn project_p_loop_with_law_state() -> LoopDefinition {
+    decode(&project_loop_file(
+        "P",
+        json!({ "kind": "parallel-pid", "family": "P", "proportionalSymbol": "Main.Program.Kp" }),
+        &[program_integral_state()],
+        &[],
+        json!([gain("Main.Program.Kp", "proportional gain")]),
+    ))
+}
+
+/// A program's own P law whose application state takes a formula (C13): the Auto entry cannot compute it without the model, so the
+/// connected P refuses it by name.
+#[must_use]
+pub fn project_p_loop_with_formula_application() -> LoopDefinition {
+    decode(&project_loop_file(
+        "P",
+        json!({ "kind": "parallel-pid", "family": "P", "proportionalSymbol": "Main.Program.Kp" }),
+        &[],
+        &[program_integral_state()],
+        json!([gain("Main.Program.Kp", "proportional gain")]),
+    ))
+}
+
+/// A program's own law whose seed is a parked kind (C9): a Smith predictor's seed, with the keys `validSmithSeed` names. The gate refuses
+/// it by name, and no adapter here realizes it. Its model variables are not bound here, because a parked seed's keys are not read.
+#[must_use]
+pub fn parked_project_loop() -> LoopDefinition {
+    decode(&project_loop_file(
+        "PI",
+        json!({ "kind": "smith-pid", "family": "PI", "proportionalSymbol": "Main.Program.Kp",
+            "integralSymbol": "Main.Program.Ki", "derivativeSymbol": "Main.Program.Kd",
+            "gainSymbol": "Main.Program.ModelGain", "timeConstantSymbol": "Main.Program.ModelTau",
+            "delaySymbol": "Main.Program.ModelDelay" }),
+        &[],
+        &[],
+        program_gains(),
+    ))
+}
+
+/// A program's own PID law whose block carries a tuning axis (C5): its seed is a served shape, but the block is a search, which the
+/// gate parks.
+#[must_use]
+pub fn parked_axes_project_loop() -> LoopDefinition {
+    let mut file = project_loop_file(
+        "PID",
+        json!({ "kind": "parallel-pid", "family": "PID", "proportionalSymbol": "Main.Program.Kp",
+            "integralSymbol": "Main.Program.Ki", "derivativeSymbol": "Main.Program.Kd" }),
+        &[program_integral_state(), program_previous_error_state()],
+        &[],
+        program_gains(),
+    );
+    file["controller"]["project"]["axes"] =
+        json!([{ "symbol": "Main.Program.Kp", "values": [1.0, 2.0] }]);
+    decode(&file)
+}
+
 /// The requirements of the study: a 4 s test duration and a 0.02 settling band (B6.2, B6.3).
 ///
 /// # Panics

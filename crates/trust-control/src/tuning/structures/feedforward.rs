@@ -63,6 +63,67 @@ pub struct FeedforwardDesign {
     pub pi: ParallelGains,
 }
 
+/// The two reduced paths of a feedforward (C8): from the controller output to the measurement, and from the measured disturbance to it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FeedforwardPaths {
+    /// The path from the controller output to the measurement.
+    pub output: TwoPointReduction,
+    /// The path from the measured disturbance to the measurement.
+    pub disturbance: TwoPointReduction,
+}
+
+/// Checks that the model has the feedforward's two inputs, the controller output and the measured disturbance, and one output,
+/// the measurement (C8). The two inputs are different inputs, and the measurement is an output of the model.
+///
+/// # Errors
+/// Returns a refusal naming the feedforward's channels when the model or the channel indices do not fit.
+fn check_channels(model: &GeneralModel, channels: &FeedforwardChannels) -> Result<(), Refusal> {
+    let identity = model.identity();
+    let input_count = identity.inputs.len();
+    let output_count = identity.outputs.len();
+    if input_count != 2
+        || output_count != 1
+        || channels.controller_input >= input_count
+        || channels.disturbance_input >= input_count
+        || channels.controller_input == channels.disturbance_input
+        || channels.measurement >= output_count
+    {
+        return Err(Refusal::new(texts::FEEDFORWARD_CHANNELS));
+    }
+    Ok(())
+}
+
+/// Reduces both paths of a feedforward to first order with delay by the two-point method (C7, C8), from the open-loop step responses
+/// of the model: the controller output's path and the disturbance's path, each to the measurement.
+///
+/// # Errors
+/// Returns a refusal when the model does not have the feedforward's channels, or when a path cannot be reduced.
+pub fn reduce_paths(
+    model: &GeneralModel,
+    channels: &FeedforwardChannels,
+) -> Result<FeedforwardPaths, Refusal> {
+    check_channels(model, channels)?;
+    let plant = delayed_plant(model)?;
+    let output_response =
+        open_loop_step_response(&plant, channels.controller_input, "feedforward")?;
+    let output = two_point_path(
+        &output_response.times,
+        &output_response.outputs[channels.measurement],
+        "controller output",
+    )?;
+    let disturbance_response =
+        open_loop_step_response(&plant, channels.disturbance_input, "feedforward")?;
+    let disturbance = two_point_path(
+        &disturbance_response.times,
+        &disturbance_response.outputs[channels.measurement],
+        "disturbance",
+    )?;
+    Ok(FeedforwardPaths {
+        output,
+        disturbance,
+    })
+}
+
 /// Designs the PI on the controller output's path and the feedforward from both paths (C8).
 ///
 /// # Errors
@@ -77,38 +138,16 @@ pub fn design_feedforward(
     task: &TuningRequirements,
     support: &dyn PathSupport,
 ) -> Result<FeedforwardDesign, Refusal> {
-    let identity = model.identity();
-    let input_count = identity.inputs.len();
-    let output_count = identity.outputs.len();
-    if input_count != 2
-        || output_count != 1
-        || channels.controller_input >= input_count
-        || channels.disturbance_input >= input_count
-        || channels.controller_input == channels.disturbance_input
-        || channels.measurement >= output_count
-    {
-        return Err(Refusal::new(texts::FEEDFORWARD_CHANNELS));
-    }
+    check_channels(model, channels)?;
     let Some(step) = disturbance_step.filter(|value| *value > 0.0) else {
         return Err(Refusal::new(texts::FEEDFORWARD_STEP));
     };
 
+    let FeedforwardPaths {
+        output: output_path,
+        disturbance: disturbance_path,
+    } = reduce_paths(model, channels)?;
     let plant = delayed_plant(model)?;
-    let output_response =
-        open_loop_step_response(&plant, channels.controller_input, "feedforward")?;
-    let output_path = two_point_path(
-        &output_response.times,
-        &output_response.outputs[channels.measurement],
-        "controller output",
-    )?;
-    let disturbance_response =
-        open_loop_step_response(&plant, channels.disturbance_input, "feedforward")?;
-    let disturbance_path = two_point_path(
-        &disturbance_response.times,
-        &disturbance_response.outputs[channels.measurement],
-        "disturbance",
-    )?;
-
     let (operating_inputs, operating_outputs) = operating_point(model);
     let pi = design_pi_on_path(
         &reduced_plant(&output_path, output_path.delay_seconds),

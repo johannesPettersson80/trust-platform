@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)] // The lesson's feedforward values are exact products of its gain and its operating input.
+
 use super::*;
 use crate::commissioning::fixture_loops::{control_pid_loop, first_order_model};
 use crate::commissioning::transfer::TransferValueType;
@@ -139,12 +141,9 @@ fn a_weight_is_a_symbol_or_a_number_never_both_and_a_parked_formula_is_refused()
         by_symbol
     )])
     .is_ok());
+    // The measured-disturbance feedforward's `scaled-model-input` is served (C8), so only the other kinds are parked.
     let parked = [
         InitialValue::From(InitialSource::ModelState { index: 0 }),
-        InitialValue::From(InitialSource::ScaledModelInput {
-            index: 0,
-            gain_symbol: "Main.Kff".to_owned(),
-        }),
         InitialValue::From(InitialSource::NotchHistory {
             index: 0,
             denominator_symbols: ["Main.A1".to_owned(), "Main.A2".to_owned()],
@@ -379,5 +378,56 @@ fn the_operating_point_reads_zero_where_the_model_has_no_coordinate_and_the_stat
     assert_eq!(
         TransferValueType::from(StateType::Lreal),
         TransferValueType::Lreal
+    );
+}
+
+/// Lesson 84's control loop as the shipped file holds it: the measured-disturbance feedforward (C8).
+const LESSON_84: &str = include_str!(
+    "../../../../editors/vscode/media/examples/control/14-integrated-capstones/84-independent/control-loop.json"
+);
+
+#[test]
+fn the_feedforward_state_starts_at_its_gain_times_the_disturbance_at_the_operating_point() {
+    // C8: FeedForward starts at K_ff·d with d the disturbance's operating value, 10 kW on the heater, and z starts at d.
+    let loop_definition = LoopDefinition::decode(LESSON_84).expect("lesson 84 decodes");
+    let model = crate::tuning::structures::fixtures::heater_model();
+    let definition = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("a project block")
+        .initialization
+        .clone();
+    let parameters = BTreeMap::from([("P1.FeedforwardGain".to_owned(), 0.5)]);
+    let values = initialization_values(&loop_definition, &model, &definition, &parameters)
+        .expect("the states start at the operating point");
+    assert_eq!(values["P1.Controller.StateValue.FeedForward"], 5.0);
+    assert_eq!(values["P1.FilteredLoadKw"], 10.0);
+    assert_eq!(values["P1.Initialized"], 1.0);
+}
+
+#[test]
+fn a_feedforward_gain_in_another_unit_than_the_state_per_the_disturbance_is_refused() {
+    // The gain must be `%/kW`: the state's unit per the disturbance's unit (controllerInitialState.ts).
+    let text = LESSON_84.replace("\"unit\": \"%/kW\"", "\"unit\": \"%\"");
+    let loop_definition = LoopDefinition::decode(&text).expect("the unit is not checked at decode");
+    let model = crate::tuning::structures::fixtures::heater_model();
+    let definition = loop_definition
+        .controller
+        .project
+        .as_ref()
+        .expect("a project block")
+        .initialization
+        .clone();
+    let parameters = BTreeMap::from([("P1.FeedforwardGain".to_owned(), 0.5)]);
+    let refusal = initialization_values(&loop_definition, &model, &definition, &parameters)
+        .expect_err("the gain's unit is wrong");
+    assert_eq!(refusal.cause, Cause::Settings);
+    assert!(
+        refusal
+            .message
+            .contains("P1.Controller.StateValue.FeedForward"),
+        "{}",
+        refusal.message
     );
 }
