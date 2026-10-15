@@ -136,6 +136,33 @@ Target release: `v0.24.75`
 - `VariableStorage::create_instance`, which panics when instance identities run
   out, is test support only; production construction uses
   `try_create_instance`.
+- POUs that contain a FOR loop now run on the register path and Tier-1. The FOR
+  loop's zero-step guard was the one opcode the register path could not lower,
+  so every such POU fell back to the slower stack path.
+- `MUL_TIME`, `MUL_LTIME`, `DIV_TIME` and `DIV_LTIME` compute exactly as the
+  `*` and `/` duration operators they name (IEC 61131-3 Table 35): integer
+  factors scale exactly and a real result truncates toward zero. They used to
+  round ties to even in binary64, which also lost nanoseconds for integer
+  factors on durations above about 104 days. A non-finite factor is `Overflow`
+  on both paths.
+- `LIMIT` follows IEC 61131-3 Table 32, `MIN(MAX(IN, MN), MX)`: with inverted
+  limits (`MN > MX`) it returns `MX`.
+- Numeric text conversions accept `_` only between two digits, and a sign only
+  on the digits (`'1__0'`, `'_1'`, `'2#+-1'` and `'+2#1'` are rejected).
+- An untyped integer literal takes the type of its destination: an assignment,
+  a variable, array element or structure field initializer, a call argument,
+  `RETURN`, or the other operand of a comparison. Every integer type accepts its
+  whole range as a literal: `ULINT` up to 18446744073709551615, `UDINT` and
+  `LINT` values above 2147483647, and typed minimums such as
+  `LINT#-9223372036854775808`. A literal outside the destination's range or
+  subrange is an analysis error, and subrange bounds take the subrange's base
+  type, so a `LINT` subrange can have bounds beyond the `DINT` range.
+- Untyped literal arithmetic in a declaration's initializer takes the declared
+  type, as it already did in assignments: `x : LREAL := 5 / 2` is now 2.5
+  (it was 2.0).
+- `TIME` and `LTIME` literals are computed exactly, so the largest duration
+  (`T#9223372036s854ms775us807ns`) is accepted, and `REAL#` literals round once
+  to the nearest `REAL` instead of rounding through `LREAL`.
 - Tier-1 telemetry drops the deoptimization counters (Tier-1 never deoptimizes),
   and the register profile counts interpreted block entries.
 - An oversized bytecode container is always reported as an invalid header, even
@@ -221,6 +248,12 @@ Target release: `v0.24.75`
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
+### Removed
+
+- `Runtime::clear_debug_control`. It had no caller, and dropping the debug
+  handle released every active force although it claimed to leave the installed
+  state unchanged; detaching a debugger keeps forces (specification 11 §6.9).
+
 ### Fixed
 
 - 83 example projects named a resource in `runtime.toml` that their ST did not
@@ -232,6 +265,31 @@ Target release: `v0.24.75`
   without an `io.toml` got a simulated driver so they validate and run.
 - Hosted instance creation reports `Overflow` instead of panicking when instance
   identities are exhausted.
+- `CONCAT_TOD`, `CONCAT_LTOD`, `CONCAT_DT` and `CONCAT_LDT` reject a component
+  outside its range instead of carrying it into the next field
+  (`CONCAT_TOD(0, 75, 0, 0)` was 01:15:00).
+- `SHL`, `SHR`, `ROL` and `ROR` handle shift counts over the full 64-bit range:
+  a count of 2^32 or more no longer wraps (`SHL(BYTE#1, LINT#4294967296)` was
+  `BYTE#1`).
+- `MID`, `DELETE` and `REPLACE` with a length past the end clamp to the end
+  instead of overflowing (a panic in debug builds), and string positions above
+  2^32 give the same result on 32-bit targets as on 64-bit ones.
+- `TIME_TO_DWORD` and a `TIME` written to a `DWORD` process-image slot reject a
+  negative duration instead of storing 0.
+- `TON`, `TOF` and `TP` saturate their elapsed time at `PT` across a clock span
+  wider than the `TIME` range; such a span panicked in debug builds and added
+  nothing in release builds.
+- `LTIME`, `LDATE`, `LTOD` and `LDT` variables can be bound to long-word direct
+  addresses (`%IL`, `%QL`, `%ML`) and carry their exact 64-bit value. `DATE`, `TOD`
+  and `DT` are refused at direct addresses with an error that names the long
+  forms; the harness used to size them as `DWORD`.
+- Durations in the runtime configuration, `config.set`, simulation settings,
+  conformance cases and the test-harness protocol that exceed the representable
+  range (about 292 years) are refused; they used to wrap to negative durations
+  in release builds.
+- Control `pause` and `resume` on a faulted or stopped resource return the error
+  code `resource_not_running` and change nothing; they used to reply `paused` or
+  `running` although the resource was not scanning.
 - The OPC UA server refuses to start, with a clear error, when its listen address
   is already in use. Before, its server thread failed silently while startup
   reported success, because the readiness check reached whichever process held

@@ -42,6 +42,12 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   platforms. The examples test now gives its Windows copy a loopback TCP endpoint with a token
   (as the generated-project tests already did); the product fix (a Windows default of loopback
   TCP with a generated token, and the examples' Windows instructions) belongs to A19.
+  Open, needs a short design before code (15 October): spec 11 defines the default endpoint only
+  for Unix-like platforms (`unix://`, 0600 socket) and is silent on Windows. Recommendation:
+  on Windows, `trust-runtime` project generation writes a loopback TCP endpoint and a random
+  per-project token (as managed-fleet scaffolding already does for its endpoints), and the
+  shipped examples stop hard-coding a control endpoint so each platform uses its generated
+  default; a token is never committed to the repository. Spec 11 is updated first.
 - [x] Guard 17 on `59b2f90ea` failed `remote_test_all` in
   `opcua_interop_reads_exposed_scalars_with_reference_client`: two OPC UA fixture servers in
   parallel were handed the same released port, one server thread panicked on bind, and
@@ -49,6 +55,98 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   server. Fixed at the root (`93e396558`): startup refuses a listen address in use and fails if
   its server thread has stopped; the test's port reservation never repeats a port; a new test
   pins the refusal. Clippy and five consecutive runs of the OPC UA suite pass.
+- [x] Guard 18 on `fcf2499f2` passed; pushed `a446a0c91..fcf2499f2` to PR #137. Native CI is
+  green: Test passes on Linux, macOS and Windows (the Windows examples run included), and the
+  Release Gate Report passes; 23 checks succeeded and the 3 schedule-only jobs (capture refresh,
+  Miri nightly, fuzz extended nightly) were skipped (`ci-fcf2499f2.log`).
+- [ ] A13/A27 audit (`A13/AUDIT-REPORT.md`, read-only, expected values computed independently
+  from IEC 61131-3 and IEC 60559): 251 boundary rows across 13 standard-function families; 152
+  covered, 7 covered weakly, 70 missing, 22 needing a decision. Decided on the merits (specs 07,
+  08, 10, 34 and DEV-023):
+  - `MUL_TIME`/`DIV_TIME` are the named forms of `*`/`/` (IEC Table 35) and now compute as the
+    operator does (exact integer factors, real results truncated toward zero); the helpers had
+    rounded ties-to-even in binary64, which also lost nanoseconds on integer factors above 2^53.
+  - `LIMIT` follows IEC Table 32 (`MIN(MAX(IN, MN), MX)`; inverted limits give `MX`).
+  - `MOD` = `IN1 - (IN1/IN2)*IN2` (IEC Table 29); `MOD` by zero keeps faulting, recorded as
+    DEV-023 because IEC defines it as `0`.
+  - REAL and LREAL: one finite-result rule, a zero divisor (either sign, `0.0/0.0` too) is
+    `DivisionByZero`, IEC 60559 signed zeros and subnormals are kept, `EXPT(0,0) = 1`, other
+    domain errors are `Overflow`; `ULINT` arithmetic above `i64::MAX` is valid.
+  - `CONCAT_TOD`/`DT` accepted out-of-range components (`CONCAT_TOD(0, 75, 0, 0)` gave 01:15);
+    every component must now be in range. Numeric text follows the IEC single-underscore rule.
+    Shifts of non-bit inputs are `TypeMismatch`; counter edge memory follows the input on reset
+    calls; `TP` with `PT <= 0` keeps `Q` false; `ASSERT_NEAR` documents its real tolerance;
+    `INSERT`'s example in spec 07 was wrong; `FIND` of an empty pattern is 1.
+  - Implementation and tests in progress (agents N1 for the changes, N2 for the oracle tests).
+- [ ] A03 finding: the FOR loop's zero-step guard (`HALT`, opcode `0x01`) had no register
+  lowering, so every POU with a FOR loop fell back whole to the shared stack path (fallback
+  reason `unsupported_opcode_0x01`). Register IR also leaves 23 more opcodes to the stack path
+  (shifts and rotates, `EXPT`, partial access, method and virtual calls, debug marks). HOST-04
+  now requires the HALT lowering (in progress); the other opcodes are optimization coverage,
+  measured by A03 once it runs.
+- [ ] A03 (`property_executor_differential.rs`, proptest 1.12 with a fixed seed): generated
+  well-typed programs (BOOL/INT/DINT/LINT/REAL/LREAL, functions, IF/CASE/FOR/WHILE, arrays,
+  division and overflow on purpose) run on the stack, register and Tier-1 arms with per-cycle
+  comparison of results, faults, outputs and variables. 48 cases pass in CI; a 3,000-case campaign
+  passed (`A03-campaign-1`). The first run found only a test defect (NaN/infinity written to a
+  REAL input, which the runtime correctly refuses with `NonFiniteValue`).
+- [ ] A04 (`property_metamorphic.rs`): positional arguments, POU order, artifact round trip and
+  repeated preparation preserve per-cycle behaviour; 48 cases each pass.
+- [ ] A10/A15/A11 audit (`A10/AUDIT-REPORT.md`): 72 requirements, 48 asserted exactly, 10
+  weakly, 14 missing. Decisions: generation tokens (MEM-07, UPDATE-04), RETAIN-01 identity and
+  sequence, the installation journal and the bounded persistence worker stay in C, MCU or M3 as
+  spec 34 §4.3.1 and §10 assign them. Non-returning callbacks (TIME-03): first taken to be covered
+  by the runtime watchdog, which the A10 tests disproved (see below); independent hosted hang
+  supervision is a separate H slice. The missing H tests and the RT_* trace-runner fix (the
+  runners ignored the cases' declared `expect.*` and `no_partial_apply`) are below.
+- [ ] A06/A07: a pinned nightly (`nightly-2026-10-14`, rustc 1.101) is installed on the builder
+  for cargo-fuzz and Miri. Two cargo-fuzz targets are added: `bytecode_admission` (CRC repaired,
+  full preparation under small explicit limits, register and stack executors agree for three
+  cycles) and `bytecode_reprepare` (repeated preparation agrees; decode→encode fixed point). They
+  and the A03/A04/A08 property tests are registered in the fuzz-program registry
+  (`verification/fuzz-program.toml` and its closed contract); its campaign record still needs a
+  run at the committed source. The `ci.yml` execution-source digests had drifted on this branch
+  (19f3b6787, 0f066c9fb, 887b84fd2 only added commands) and are re-pinned.
+- [ ] A08 (`stateful_lifecycle_sequences.rs`, model in `support/lifecycle_model.rs`): 1–24-step
+  sequences of scan, checked and queued writes, forces, pause/resume, warm/cold restart, retain
+  save and online change (accepted, malformed, incompatible) against an explicit spec model,
+  comparing every observable after each step. Findings:
+  - Decided: the hosted `Runtime::clear_fault` is the tooling reset of the fault holder (spec 11
+    "Fault-state clear lifecycle", sentence added); no product path calls it, and product
+    recovery always restarts (STATE-06).
+  - Defect: `Runtime::clear_debug_control` (no caller since the initial release) dropped active
+    forces, against its own doc and spec 11 §6.9; removed.
+  - Defect (found reviewing A08): control `pause`/`resume` replied `paused`/`running` on a faulted
+    or stopped resource whose scheduler thread had exited; spec 11 §6.9 now requires a stable
+    error naming the state, and recovery only through `restart`.
+  - Spec gaps recorded for a spec pass: values after a scan that faults after the scan-boundary
+    writes; two queued writes to one target; writes and forces while faulted; operations while
+    the debugger holds the resource; direct-address initializers at restart.
+- [ ] A10/A15/A11 tests: retain checkpoint truncation at every length and corrupt headers, the
+  deadline swept over every poll point, failed periodic save, candidate refusal on a live
+  runtime, allocation refusal in retained apply and graph transfer, store faults in warm restart,
+  read-side input failure, failed warm restart keeping live state; the RT_* trace runners now
+  enforce every declared `expect` key and reject unknown ones. Findings:
+  - TIME-03 is not met on hosted builds: the watchdog checks elapsed time only after the cycle
+    returns, so a driver read that never returns stalls the resource with no fault (spec 34 R33
+    already names the same-thread watchdog). The test is written and ignored with that reason;
+    independent hosted hang supervision is the next H slice.
+  - Spec 11 §6.9.2 said every restart clears debug mutations, while spec 10 §4.8 keeps them after a
+    failed preparation; the clearing boundary is the commit (wording fixed).
+  - `RT_RELOAD_001` releases its force before any scan, so it never showed a force surviving a
+    failed reload; `failure_injection_warm_restart_state.rs` now does.
+- [ ] A12 (`temporal_layout_*.rs`, 15 tests) and A14 (`scheduling_*.rs`, 19 tests). Defects:
+  - Timer elapsed spans wider than the TIME range panicked in debug builds and wrapped in release
+    (spec 08 §5: saturates at PT).
+  - LTIME, LDATE, LTOD and LDT were refused at `%IL`/`%QL` addresses although spec 10 maps 64-bit
+    families to long words; they now map to LWORD with their exact 64-bit value (IEC 61131-3 Table
+    10); DATE, TOD and DT stay refused (implementation-defined size), now stated in spec 10.
+  - `Duration::from_millis/micros/secs` multiplied unchecked, so very large configuration,
+    control, simulation or conformance values wrapped to negative durations in release builds;
+    untrusted inputs now use checked constructors and are refused.
+  - Not defects: reference SIZEOF follows the executing target (spec 29 §1); TIME images count
+    whole milliseconds (spec 07 §2.8); OPC UA exposes no temporal types. SCHED-04 timing admission
+    has no H seam (spec 34 defers it to M3/M4).
 - [ ] Assurance campaign order, by expected defect yield; each slice is audit, tests, one
   batch, fixes, then commit, guard, push and CI:
   1. A05 mutation testing on the core VM, register IR, Tier-1, decoder/validator and the
@@ -3807,7 +3905,7 @@ proof and this bookkeeping cannot invent product work or block it by itself.
 | SCHED-01 | A1/A4/H/C; QH/QF/QE | A4 cooperative readiness/order regressions retained; F401 run-8 oracle verifies nominal deadlines and 40 activations with zero misses. Complete host/C6 scheduling-profile qualification remains H/E/Q. |
 | SCHED-02 | A4/H/C; QH/QF/QE | pending — open |
 | SCHED-03 | A4/H/C; QH/QF/QE | pending — open |
-| SCHED-04 | A4/H/C; QH/QF/QE | pending — open |
+| SCHED-04 | A4/H/C; QH/QF/QE | pending — open. Not applicable to H (A14 round 5): no timing-admission API or seam exists, and spec 34 (~line 1610) defers the full timing-admission record to M3/M4. H writes no accept/reject test for it. |
 | SCHED-05 | A1 fix/native evidence; A4 fixture; B/E/H/QH/QF/QE parity | A1 nominal-deadline correction integrates through A4 saved fixture; F401 run 8 confirms 25 ms on 10 ms samples, 40 activations through 1000 ms and zero misses. Other host/C6 replay remains E/H/Q. |
 | LOAD-01 | A2/A3/A4/C; QH/QF/QE | Fresh native and F401 run-8 consumers construct/execute saved STBC 2.0 without HIR or source. Other profiles and production admission remain E/H/C/Q. |
 | LOAD-02 | A2/A3/A4/C; QH/QF/QE | A4 partial (A4-E/A): TYPE_TABLE, construction roots, task/I/O metadata and executable initializers supply fresh state; missing or inconsistent executable metadata fails admission. Complete later-profile coverage remains H/C. |
