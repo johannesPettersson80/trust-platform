@@ -7,6 +7,67 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**15 October, night: publication of A01, the call-path regression fix and A20 slice 1 (Claude
+lead; the owner authorized fixing all errors in one go and testing again overnight).**
+Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.log`,
+`ci-77fba46dc.log`) and builder `runtime-portability-h/H-perf-diag-6/`, `A20-focused-9/`,
+`H-cost-model-7/`.
+
+- [x] Guard 10 passed on `77fba46dc` (planner and catalog staleness advisory); the pre-push
+  hook accepted the push `be569f21e..77fba46dc` to PR #137. Native CI complete: 23 checks
+  pass, none fail (3 nightly-only skipped), including Test on macOS (29 min), Ubuntu (40 min)
+  and Windows (55 min), so A01 and the #135/#136 fixes pass on all three native platforms.
+- [x] `call_binding` regression root cause, measured without timing noise: callgrind
+  instruction counts on the PERF-01 workload, per benchmark build. Alternating timings alone
+  could not attribute 2%, because LTO code layout moved one neutral build by 4%.
+  - A01's register/tier-1 step charge (`charge_instruction_cost`) stayed out of line: about
+    1,100 extra instructions per cycle. A01's stdlib text charges built an overflow error and
+    charged zero bytes on every call: about 230 per cycle.
+  - `ea0193246` inlines the step charge (the work-limit refusal is out of line and cold) and
+    the text helpers, which skip calls without text and build the overflow error lazily.
+  - Diagnostic builds: pre-A01 `be569f21e` 238.15 M instructions, A01 + fix 238.19 M
+    (+0.016%); timing 5,501 ns against pre-A01 5,524 ns and U 5,308 ns (ratio 1.036).
+- [x] A20 slice 1 (`80ede29f5`): integration tests start the real `trust-runtime play` on a
+  private copy of an example and drive it through `ctl`, which the old tests only did against
+  a fake server.
+  - `runtime_ctl_journeys.rs`: integer and boolean I/O writes, forces, an out-of-range write
+    (no fault), production and debug pause and step (#135, #136), the §6.8.1 status, health,
+    stats and `config-get` renderings, cold restart and shutdown.
+  - `tutorial_ctl_commands.rs`: each documented `ctl` sequence as written; the memory marker
+    write is proven by arithmetic on the counter offset, without time windows; a scan of the
+    guides and every example README runs each documented `ctl` command line through the CLI,
+    with a self-check that the scan rejects `restart --mode cold`.
+  - Fixed by the findings: `restart cold` and `config-get` in the operator guide, safety
+    tutorial and cloud guides; the operator guide's `status` and "recent events" text; the
+    memory marker readings (`Int(41)`); the OPC UA example's RESOURCE name.
+  - Focused check 9 (builder, before the Clippy fix in the harness): workspace 9,573 passed,
+    0 failed, 30 ignored; A20 18 of 18 in three repetitions; core lanes, doc tests and
+    compositions pass. Clippy then passed on the workspace after two collapsed `if`s.
+- [x] F401 replay of batch 7's firmware (`H-cost-model-board-7`; ELF `d15ecf0b…`, application
+  `71cb8c62…`): `xtask portability verify` passes 101 samples, GPIO, call depths, watchdog
+  reset and DONE; MSP peak 11,616 B, longest main scan 3,749 µs. The link leaves 4,960 B
+  upper flash (batch 6: 5,152; the inlined text helpers cost 192 B) and 704 B sector-0 free.
+- [x] Batch 7 on `80ede29f5` (`H-cost-model-7`, source identical at start and end): 12 of 12
+  steps pass, including canonical rule files, i686, firmware link and inspection, the
+  application tests (work cost model) and PERF-01. PERF-01 `call_binding` medians 1.020 to
+  1.042 in all five rounds (batch 6: up to 1.103), pooled p99 1.016; `refs_sizeof` medians
+  0.840 to 0.878, pooled p99 0.524; `string_stdlib` medians 0.962 to 0.990, pooled p99 0.931.
+- [ ] Release guard on the commit that records this evidence, the push to PR #137 and native CI.
+- [ ] Owner decisions found by A20 (not changed overnight):
+  - 89 other example projects name a `[resource]` in `runtime.toml` that their ST does not
+    declare (every other communication example, `network_canvas_demo`, all 80 OSCAT
+    projects), so `play` refuses them, as specifications 10 and 11 require. This is
+    pre-existing on `main` `603278202`.
+  - `trust-runtime validate` falls back to the primary resource (`run/commands.rs:107`),
+    contrary to specifications 10 and 11, so the documented build and validate loop passes
+    projects that `play` refuses.
+  - `ads_server_basic` names its resource `truST-ADS`, which no IEC RESOURCE identifier can
+    match.
+  - `set` and `var.force` still reject untyped integers for `INT` targets; #135's literal rule
+    covers I/O mutations only (spec 11).
+  - No `ctl` command shows `write_rejected` or recent events: `events.tail` and `faults` are
+    control operations without CLI subcommands.
+
 **14 October, evening: A01 native contract coverage (Claude lead).** The audit, owner
 decisions, product corrections and regressions below are on the H branch after PR #137's
 first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
