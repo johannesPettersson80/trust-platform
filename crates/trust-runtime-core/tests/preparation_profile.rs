@@ -1,5 +1,8 @@
 //! Admission regressions consume the actual saved artifact without a compiler.
-use trust_runtime_core::bytecode::{BytecodeModule, SectionData, SectionId, StorageRole};
+use trust_runtime_core::bytecode::{
+    BytecodeError, BytecodeModule, SectionData, SectionId, StorageRole,
+    BYTECODE_MAX_CONTAINER_BYTES,
+};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 const BYTES: &[u8] =
@@ -27,6 +30,35 @@ fn decoded_and_byte_entry_points_enforce_the_same_artifact_bound() {
     assert!(PreparedModule::from_bytes(&bytes, below).is_err());
     assert!(PreparedModule::from_decoded(&raw, below).is_err());
 }
+#[test]
+fn container_bound_is_reported_before_decode_work_is_charged() {
+    // Spec 12 §4.6: the 64 MiB container bound precedes every decode charge, so a host budget
+    // cannot turn an oversized artifact into a work-limit error.
+    let oversized = vec![0u8; BYTECODE_MAX_CONTAINER_BYTES + 1];
+    let expected =
+        BytecodeError::InvalidHeader("encoded container exceeds fixed resource limit".into());
+    assert_eq!(
+        BytecodeModule::decode_with_limits(&oversized, usize::MAX, usize::MAX).unwrap_err(),
+        expected
+    );
+    // This work budget is below the artifact's own length. Charging work first reported a work
+    // limit here, so the fixed bound must be checked before any charge.
+    assert_eq!(
+        BytecodeModule::decode_with_limits(&oversized, usize::MAX, BYTECODE_MAX_CONTAINER_BYTES)
+            .unwrap_err(),
+        expected
+    );
+    let raised = PreparationLimits {
+        max_artifact_bytes: 2 * BYTECODE_MAX_CONTAINER_BYTES,
+        max_preparation_work: 2 * BYTECODE_MAX_CONTAINER_BYTES,
+        ..Default::default()
+    };
+    assert_eq!(
+        PreparedModule::from_bytes(&oversized, raised).unwrap_err(),
+        RuntimeError::from(expected)
+    );
+}
+
 #[test]
 fn preparation_demand_has_exact_accounting_boundaries() {
     let raw = decoded();

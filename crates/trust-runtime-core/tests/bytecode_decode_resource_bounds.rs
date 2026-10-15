@@ -363,8 +363,8 @@ fn nested_resource_counts_must_fit_before_allocation() {
 
 #[test]
 fn ref_table_count_admits_the_exact_limit_and_refuses_one_more() {
-    // Site: decode/section_decode.rs:84 with decode.rs:38-60. A 16-byte record is
-    // location, flags, reserved, owner, offset and a zero segment count.
+    // Site: decode/section_decode.rs `read_ref_table_count`, then decode.rs `read_bounded_count`.
+    // A 16-byte record is location, flags, reserved, owner, offset and a zero segment count.
     let mut payload = vec![0u8; 4 + 16 * BYTECODE_MAX_REFERENCES];
     set_word(&mut payload, 0, BYTECODE_MAX_REFERENCES as u32);
     let decoded = decode_section_at(BytecodeVersion::new(1, 1), SectionId::RefTable, payload)
@@ -378,7 +378,7 @@ fn ref_table_count_admits_the_exact_limit_and_refuses_one_more() {
     assert_count_rejected(
         SectionId::RefTable,
         65_537u32.to_le_bytes().to_vec(),
-        "REF_TABLE count exceeds fixed resource limit",
+        "REF_TABLE entries exceed fixed resource limit",
     );
 }
 

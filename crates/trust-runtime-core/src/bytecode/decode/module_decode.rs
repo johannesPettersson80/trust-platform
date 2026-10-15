@@ -12,14 +12,15 @@ impl BytecodeModule {
         max_allocation_bytes: usize,
         max_work: usize,
     ) -> Result<(Self, DecodeStats), BytecodeError> {
-        let mut accounting = DecodeBudget::new(max_allocation_bytes, max_work);
-        let budget = &mut accounting;
-        budget.charge(0, bytes.len())?;
+        // Spec 12 §4.6: the fixed container bound precedes every decode charge.
         if bytes.len() > BYTECODE_MAX_CONTAINER_BYTES {
             return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
                 "encoded container exceeds fixed resource limit",
             )));
         }
+        let mut accounting = DecodeBudget::new(max_allocation_bytes, max_work);
+        let budget = &mut accounting;
+        budget.charge(0, bytes.len())?;
         let mut reader = BytecodeReader::new(bytes);
         let magic = reader.read_bytes(4)?;
         if magic != MAGIC {

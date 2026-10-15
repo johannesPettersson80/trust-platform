@@ -76,12 +76,24 @@ pub(super) fn decode_const_pool(
     Ok(ConstPool { entries })
 }
 
+/// REF_TABLE count. Spec 12 §4.6.2: the fixed reference limit is reported as an entry limit
+/// before the section-bounds check, which then reads the count itself.
+fn read_ref_table_count(reader: &mut BytecodeReader<'_>) -> Result<usize, BytecodeError> {
+    let declared = reader.clone().read_u32()? as usize;
+    if declared > BYTECODE_MAX_REFERENCES {
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::ResourceLimit("REF_TABLE entries"),
+        ));
+    }
+    read_bounded_count(reader, 16, "REF_TABLE")
+}
+
 pub(super) fn decode_ref_table(
     version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
     budget: &mut DecodeBudget,
 ) -> Result<RefTable, BytecodeError> {
-    let count = read_bounded_count_with_limit(reader, 16, BYTECODE_MAX_REFERENCES, "REF_TABLE")?;
+    let count = read_ref_table_count(reader)?;
     let mut entries = budget.vector(count)?;
     for _ in 0..count {
         let location = reader.read_u8()?;

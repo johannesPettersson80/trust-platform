@@ -193,8 +193,12 @@ mod tests {
                 "TYPE_TABLE count exceeds section bounds",
             ),
             (
-                SectionDiagnostic::CountLimit("REF_TABLE"),
-                "REF_TABLE count exceeds fixed resource limit",
+                SectionDiagnostic::CountLimit("POU_INDEX parameter"),
+                "POU_INDEX parameter count exceeds fixed resource limit",
+            ),
+            (
+                SectionDiagnostic::ResourceLimit("REF_TABLE entries"),
+                "REF_TABLE entries exceed fixed resource limit",
             ),
             (
                 SectionDiagnostic::DuplicateSection(0x10),
