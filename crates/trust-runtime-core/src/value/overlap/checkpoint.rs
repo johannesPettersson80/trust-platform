@@ -80,7 +80,8 @@ impl StructValue {
 }
 
 fn decode_checkpoint(bytes: &[u8], value: &StructValue) -> Result<PhysicalValue, RuntimeError> {
-    if bytes.len() > MAX_WIRE_LENGTH {
+    // `try_from` states the 32-bit wire limit and is not a dead comparison on 32-bit targets.
+    if u32::try_from(bytes.len()).is_err() {
         return Err(RuntimeError::Overflow);
     }
     let mut reader = CheckpointReader::new(bytes);
@@ -358,7 +359,7 @@ fn write_count(out: &mut Vec<u8>, value: usize) -> Result<(), RuntimeError> {
 }
 
 fn check_checkpoint_size(size: usize) -> Result<(), RuntimeError> {
-    if size > MAX_WIRE_LENGTH {
+    if u32::try_from(size).is_err() {
         return Err(RuntimeError::Overflow);
     }
     Ok(())
