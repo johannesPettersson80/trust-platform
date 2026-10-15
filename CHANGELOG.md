@@ -76,6 +76,7 @@ Target release: `v0.24.75`
   report their application failure without turning an invalid request into a PLC fault.
 
 - Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
+- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6-reference` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
 
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.
@@ -117,6 +118,7 @@ Target release: `v0.24.75`
 
 ### Changed
 
+- Move the M2E runner, trace records, bundle decoding and heap/stack measurement from the F401 firmware into the shared `trust-board-fixture` crate used by both board compositions; F401 code grows by 256 bytes. `xtask portability build-firmware`, `inspect` and `verify` now take the board name (`nucleo-f401re` or `esp32c6-devkitc-1`).
 - `trust-runtime validate` resolves the configured resource exactly as `play`
   does, so a resource name the program does not declare now fails validation
   instead of passing and then failing at start-up.

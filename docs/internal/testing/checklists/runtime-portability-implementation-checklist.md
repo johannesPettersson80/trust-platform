@@ -7,6 +7,62 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**15 October, evening: ESP32-C6 M2E bring-up passes on the owned board (owner: "do it").**
+Branch `feat/runtime-portability-c6`: the C6 commits on H's head plus the supervisor test fix
+(`62bda0a2c`), for one push to PR #137 together with H (owner decision).
+
+- [x] M0 on the owned ESP32-C6-DevKitC-1 (8 MB flash): chip revision v0.2, eFuse block revision
+  v0.3, 40 MHz crystal, chip ID 13, MAC 20:6e:f1:17:04:c0, secure boot and flash encryption off.
+  Factory flash backed up (SHA-256 `b9e9e489…72d0d1`). Two probes measured the design inputs before
+  any firmware was written: the USB-Serial/JTAG port survives MWDT0 system resets with no lost
+  record; the watchdog reset reports 0x07; the RTC-fast cookie survives; PCCR counts 160 cycles
+  per µs from boot; `misa` 0x40903105 (no F/D); GPIO9 idle high; GPIO18 pad readback; esp-storage
+  flash reads; 1 kHz SYSTIMER interrupt.
+- [x] Spec 34 D.2 "C6 reference composition (M2E)", §3.2 `trust-board-fixture`, and the post-M0U
+  toolchain note in D.1.
+- [x] Code, commits `64175c998..b2cea72c6`: the shared fixture crate with the F401 moved onto it
+  (F401 code +256 B, 4,256 B free; sector 0 640 B free), the C6 adapter and composition, `xtask
+  portability` board profiles with the C6 inspect and verify rules, unsafe and concurrency
+  registrations, CI target checks for both adapters, the C6 lock graph in the supply-chain gate,
+  and the execution diagram.
+- [x] Focused checks 1–5 (`c6-focused-N`) and batches 1–4 (`c6-batch-N`) on the committed SHAs.
+- [x] C6 guard 1 (`e29f01a29`) failed only the external AST unsafe gate: its patterns missed
+  `pub unsafe fn` (now covered) and it rejects `unsafe extern` blocks (the C6 stack window is now a
+  constant that inspection pins, as on F401), fixed in `b2cea72c6`.
+- [x] C6 guard 2 (`881cd505e`): the full test run failed one test,
+  `bound_socket_is_owner_only_from_creation`, with `Permission denied`. Round 8 narrowed the
+  process-wide umask around `bind`, so a directory another thread created in that moment had no
+  search permission (a production hazard for directories created at startup). `f2f6c237c` binds,
+  restricts to 0600 and only then listens, never touching the umask; a regression test creates
+  directories in a second thread during 400 binds.
+- [x] H CI on `5c2963c00`: Linux and Windows passed; macOS failed
+  `many_short_cycles_inside_their_timeout_are_never_declared_hung` (a 2 ms pace against a 4 ms
+  watchdog leaves no room for OS jitter). `62bda0a2c` gives both supervisor race tests a 100 ms
+  watchdog and keeps the accumulation check (40 cycles of 5 ms exceed it).
+- [x] F401 board run 1 (`f401-board-1`) on the refactored firmware (`da307998…`, byte-identical in
+  batches 1–4): verify passed, 101 rows, stack peak 11,672 B, slowest main scan 3,770 µs.
+- [x] C6 board runs, all retained:
+  - run 1 failed before any flash write: espflash 4.6.0 panicked on a custom data subtype; the
+    partition table now uses custom types 0x40 and 0x41 (`1aa9ea76c`), pinned by an xtask test;
+  - run 2: `B1,FAIL,main-cycle,runtime_execution_timeout` at the first task activation.
+    Diagnostic builds (deadline raised, then instructions counted) showed 188,838 instructions in
+    about 1.77 M cycles from flash; the scan path now executes from HP SRAM (`05672b0ef`, 304,796 B
+    of RAM code, 52,580 B stack region), and inspection requires the dispatch loop there;
+  - run 3 (`c6-board-3`, firmware `eb49c2a1…` at `05672b0ef`): verify passed, 101 rows, stack
+    peak 10,856 B, slowest main scan 1,966 µs, numeric 2,291 µs (366,426 cycles), 33 banner lines,
+    reset reasons 0x15 then 0x07, checkpoint partitions byte-identical;
+  - run 4 (`c6-board-4`, firmware `7cea5f23…` at `8dad879e5`, whose firmware inputs equal the
+    final head's): verify passed,
+    101 rows, stack peak 10,856 B, slowest main scan 1,972 µs, numeric 2,277 µs (364,114 cycles),
+    33 banner lines, checkpoint partitions byte-identical.
+- [ ] Open: QIO flash mode did not boot with espflash's bundled bootloader (the board stays on
+  DIO); that bootloader is ESP-IDF v6.1-beta1 and M5 needs a released one; supervision during a
+  debug halt is not evaluated; optical LED and manual button transitions stay unverified; board
+  selection and USB discovery in the hardware canvas (owner request) is a separate slice.
+
+Evidence: `~/projects/.artifacts/runtime-portability-c6/` on the Pi and
+`/mnt/HC_Volume_107089260/builder-storage/runtime-portability-c6/` on the builder.
+
 **15 October, late morning: the remaining owner questions decided, then the full assurance
 campaign (owner: "do what's most professional and best and supports the IEC standard if
 applicable. Then move on to all the tests. We need a perfect runtime that's bug-free").**
