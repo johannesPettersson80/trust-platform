@@ -2508,10 +2508,20 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   1, 0, 1, 0 as commanded. The RGB LED on GPIO8 is a WS2812, not a plain LED, so optical output
   stays unverified, as on F401.
 - **Memory.** The fixture keeps F401's 72 KiB allocator arena. The esp-hal stack region spans the
-  remaining HP SRAM (421 KiB in the probe); the fixture measures and budgets a 16 KiB window at its
-  top with F401's 2 KiB minimum headroom, so the boards' heap and stack evidence is directly
-  comparable. Exceeding the window fails the run although the region has room. Interrupts use the
-  same stack on RISC-V, so the window includes them.
+  HP SRAM left after static data and RAM-resident code (about 51 KiB); the fixture measures and
+  budgets a 16 KiB window at its top with F401's 2 KiB minimum headroom, so the boards' heap and
+  stack evidence is directly comparable. Exceeding the window fails the run although the region
+  has room. Interrupts use the same stack on RISC-V, so the window includes them.
+- **Code placement.** Executed from flash through the 32 KB cache, one task activation retired
+  188,838 instructions in about 1.77 M cycles (11.07 ms, over the 10 ms period): the core stalled
+  on code fetches. Scan-time code therefore executes from HP SRAM. The firmware enables esp-hal's
+  RAM-code linker hook (`ESP_HAL_CONFIG_USE_RWTEXT_LD_HOOK`) and selects the core's engine, call,
+  dispatch, value, standard-library, process-image, memory, scheduling and numeric modules, the
+  fixture loop, the adapter, the allocator and libm (about 303 KB). Load-time code (bytecode
+  validation and decoding, preparation, construction) stays in flash. With that placement the same
+  activation takes about 264,000 cycles (1.65 ms), and the slowest numeric scan 2.31 ms instead of
+  8.50 ms. Inspection fails if the VM dispatch loop is not in HP SRAM. Soft-float and memory
+  routines run from the chip's ROM.
 - **Flash layout.** The bootloader sits at 0x0 and the partition table at 0x8000, per the ESP-IDF
   image format. Partitions: `factory` application at 0x10000 (1,984 KiB); `stbc` at 0x200000
   (16 KiB), the separately installable application bundle, sized like F401 sector 1; and `ckpt_a`

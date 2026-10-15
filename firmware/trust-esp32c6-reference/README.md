@@ -56,8 +56,16 @@ with espflash 4.6.0 (ESP-IDF v6.1-beta1). M5 qualification requires a released b
 |---|---|---|
 | Allocator arena (`HEAP_MEMORY`) | 72 KiB static | the fixture's bounded bring-up allocator |
 | Main-stack window | top 16 KiB of the esp-hal stack region | measured by the fixture, 2 KiB minimum headroom |
+| Scan-time code (`.rwtext`) | about 303 KB | the interpreter's scan path, executed from RAM |
 
-The esp-hal stack region spans the rest of HP SRAM (about 421 KiB in the M0 probe). The fixture
+Scan-time code runs from HP SRAM. From flash, through the 32 KB cache, one task activation took
+about 1.77 M cycles for 188,838 instructions (11.07 ms, over the 10 ms period); from RAM it takes
+about 264,000 cycles (1.65 ms). `rwtext_hook.x` lists the selected modules; `build.rs` puts it on
+the linker path and `.cargo/config.toml` enables esp-hal's hook. Load-time code (validation,
+decoding, preparation) stays in flash. `xtask portability inspect` fails if the VM dispatch loop is
+not in HP SRAM.
+
+The esp-hal stack region spans the HP SRAM left after static data and RAM code (about 51 KiB). The fixture
 measures and budgets only the top 16 KiB. Exceeding that window fails the run, although the region
 has room. Interrupts use the same stack on RISC-V, so the window includes them.
 
