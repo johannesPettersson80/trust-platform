@@ -69,6 +69,7 @@ pub fn dispatch_native_stdlib_call(
 }
 
 /// UTF-8 byte length of a STRING or WSTRING value, which TIME-08 charges per byte.
+#[inline(always)]
 fn text_byte_len(value: &Value) -> Option<usize> {
     match value {
         Value::String(text) => Some(text.len()),
@@ -79,18 +80,24 @@ fn text_byte_len(value: &Value) -> Option<usize> {
 
 /// Charge the text bytes of every argument before the function body runs (TIME-02, TIME-08).
 /// One charge covers all arguments, so a refusal leaves the allowance and the body untouched.
+/// A call without text arguments charges nothing, as an empty work charge consumes nothing.
+#[inline(always)]
 fn charge_text_arguments(runtime: &mut impl CallContext, values: &[Value]) -> Result<(), VmTrap> {
-    let bytes = values
-        .iter()
-        .filter_map(text_byte_len)
-        .try_fold(0usize, usize::checked_add)
-        .ok_or(RuntimeError::Overflow)
-        .map_err(VmTrap::Runtime)?;
+    let mut bytes = 0usize;
+    for len in values.iter().filter_map(text_byte_len) {
+        bytes = bytes
+            .checked_add(len)
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::Overflow))?;
+    }
+    if bytes == 0 {
+        return Ok(());
+    }
     runtime.charge_text_work(bytes).map_err(VmTrap::Runtime)
 }
 
 /// Charge a text result as a new value after the function body returns (TIME-08).
 /// A refused charge discards the result.
+#[inline(always)]
 fn charge_text_return(runtime: &mut impl CallContext, result: &Value) -> Result<(), VmTrap> {
     match text_byte_len(result) {
         Some(bytes) => runtime.charge_text_result(bytes).map_err(VmTrap::Runtime),

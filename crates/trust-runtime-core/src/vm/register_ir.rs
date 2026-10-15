@@ -181,6 +181,7 @@ pub struct RegisterBlock {
     pub instructions: Vec<RegisterInstr>,
 }
 
+#[inline(always)]
 fn charge_instruction_cost_step(
     runtime: &impl RegisterContext,
     costs: &[usize],
@@ -193,31 +194,45 @@ fn charge_instruction_cost_step(
     charge_instruction_cost(runtime, cost)
 }
 
-/// Charge a step that stands for `units` original instructions of one unit each. A step that
-/// does not fit spends the rest of the allowance on the originals before the refused one, then
-/// refuses that original as the stack executor does: `used` is the limit, `requested` is one unit.
+/// Charge a step that stands for `units` original instructions of one unit each. This runs on
+/// every executed step, so it is inlined into the executors and a refusal is handled out of
+/// line (measured: an out-of-line charge cost about 11 instructions per step).
+#[inline(always)]
 #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
 fn charge_instruction_cost(
     runtime: &impl RegisterContext,
     units: usize,
 ) -> Result<(), RuntimeError> {
-    match runtime.charge_execution_work(units) {
-        Err(RuntimeError::ExecutionLimit {
-            kind: crate::error::ExecutionLimitKind::Work,
-            used,
-            limit,
-            ..
-        }) => {
-            runtime.charge_execution_work(limit.saturating_sub(used))?;
-            Err(RuntimeError::ExecutionLimit {
-                kind: crate::error::ExecutionLimitKind::Work,
-                used: limit,
-                requested: 1,
-                limit,
-            })
-        }
-        outcome => outcome,
-    }
+    runtime
+        .charge_execution_work(units)
+        .or_else(|error| refuse_instruction_cost(runtime, error))
+}
+
+/// A step that does not fit spends the rest of the allowance on the originals before the
+/// refused one, then refuses that original as the stack executor does: `used` is the limit,
+/// `requested` is one unit. Any other error passes through unchanged.
+#[cold]
+#[inline(never)]
+fn refuse_instruction_cost(
+    runtime: &impl RegisterContext,
+    error: RuntimeError,
+) -> Result<(), RuntimeError> {
+    let RuntimeError::ExecutionLimit {
+        kind: crate::error::ExecutionLimitKind::Work,
+        used,
+        limit,
+        ..
+    } = error
+    else {
+        return Err(error);
+    };
+    runtime.charge_execution_work(limit.saturating_sub(used))?;
+    Err(RuntimeError::ExecutionLimit {
+        kind: crate::error::ExecutionLimitKind::Work,
+        used: limit,
+        requested: 1,
+        limit,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
