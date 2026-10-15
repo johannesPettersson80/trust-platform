@@ -92,7 +92,9 @@ fn dispatch_evaluate_allows_pure_stdlib_calls() {
 fn dispatch_evaluate_resolves_instance_and_retain() {
     let runtime = trust_runtime::RuntimeBuilder::new();
     let mut storage = trust_runtime::memory::VariableStorage::new();
-    let instance_id = storage.create_instance("MyFB");
+    let instance_id = storage
+        .try_create_instance("MyFB")
+        .expect("instance identity");
     storage.set_instance_var(instance_id, "iv", RuntimeValue::Int(7));
     let frame_id = storage.push_frame_with_instance("METHOD", instance_id);
     storage.set_retain("r", RuntimeValue::DInt(9));

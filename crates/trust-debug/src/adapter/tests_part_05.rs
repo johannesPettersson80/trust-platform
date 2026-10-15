@@ -26,9 +26,13 @@ fn dispatch_threads_stack_scopes_variables() {
             .expect("valid debug array"),
         )),
     );
-    let parent_id = storage.create_instance("ParentFB");
+    let parent_id = storage
+        .try_create_instance("ParentFB")
+        .expect("instance identity");
     storage.set_instance_var(parent_id, "pv", RuntimeValue::Bool(false));
-    let instance_id = storage.create_instance("MyFB");
+    let instance_id = storage
+        .try_create_instance("MyFB")
+        .expect("instance identity");
     if let Some(instance) = storage.get_instance_mut(instance_id) {
         instance.parent = Some(parent_id);
     }

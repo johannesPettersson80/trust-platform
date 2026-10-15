@@ -65,7 +65,10 @@ impl VariableStorage {
         removed
     }
 
-    /// Legacy infallible host construction; admitted execution uses try_create_instance.
+    /// Test support only: panics when instance identities are exhausted. Every production
+    /// construction path uses `try_create_instance`, which fails with `Overflow` instead
+    /// (specification 34 HOST-02).
+    #[cfg(any(test, feature = "test-support"))]
     pub fn create_instance(&mut self, type_name: impl Into<SmolStr>) -> InstanceId {
         self.try_create_instance(type_name)
             .expect("instance identity or allocation exhausted")
