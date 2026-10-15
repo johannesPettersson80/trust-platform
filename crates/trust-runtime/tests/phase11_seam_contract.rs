@@ -283,12 +283,6 @@ fn assert_tier1_path(observation: &ConversionObservation, failures: &mut Vec<Str
                 observation.path
             ));
         }
-        if profile.deopt_count != 0 {
-            failures.push(format!(
-                "{} unexpected tier1 deopts: {profile:?}",
-                observation.path
-            ));
-        }
     }
     assert_register_path(observation, failures);
 }

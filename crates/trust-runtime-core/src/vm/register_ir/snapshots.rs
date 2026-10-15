@@ -31,6 +31,8 @@ pub struct VmRegisterProfileSnapshot {
     pub fallback_reasons: Vec<VmRegisterFallbackReason>,
     /// Observed register-block entry counts.
     pub hot_blocks: Vec<VmRegisterHotBlock>,
+    /// Block entries run by the interpreter, counted apart from Tier-1 block executions.
+    pub interpreted_block_entries: u64,
     /// Reference operations observed since the last profile reset.
     pub ref_ops: VmRegisterRefOpCounters,
     /// Call and frame operations observed since the last profile reset.
@@ -137,24 +139,11 @@ pub struct VmTier1SpecializedExecutorSnapshot {
     pub cache_evictions: u64,
     /// Completed specialized-block executions.
     pub block_executions: u64,
-    /// Specialized operations using a general checked path.
-    pub deopt_count: u64,
-    /// Observed specialized-operation fallback reasons.
-    pub deopt_reasons: Vec<VmTier1SpecializedExecutorDeoptReason>,
 }
 
 /// Tier-1 specialized register-executor compile failure reason counter.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VmTier1SpecializedExecutorCompileFailureReason {
-    /// Stable preparation, fallback or deoptimization reason.
-    pub reason: String,
-    /// Number of observations for this reason.
-    pub count: u64,
-}
-
-/// Tier-1 specialized register-executor deoptimization reason counter.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct VmTier1SpecializedExecutorDeoptReason {
     /// Stable preparation, fallback or deoptimization reason.
     pub reason: String,
     /// Number of observations for this reason.

@@ -8,8 +8,7 @@ pub use super::register_ir::{
     RegisterExecutionConfiguration, VmRegisterCallOpCounters, VmRegisterFallbackReason,
     VmRegisterHotBlock, VmRegisterLoweringCacheSnapshot, VmRegisterPreparationSnapshot,
     VmRegisterProfileSnapshot, VmRegisterRefOpCounters, VmRegisterValueOpCounters,
-    VmTier1SpecializedExecutorCompileFailureReason, VmTier1SpecializedExecutorDeoptReason,
-    VmTier1SpecializedExecutorSnapshot,
+    VmTier1SpecializedExecutorCompileFailureReason, VmTier1SpecializedExecutorSnapshot,
 };
 
 impl super::PreparedModule {

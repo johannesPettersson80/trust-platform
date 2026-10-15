@@ -125,7 +125,7 @@ fn render_table(report: &BenchReport) -> String {
                 if let Some(tier1) = &vm_profile.tier1_specialized_executor {
                     let _ = writeln!(
                         out,
-                        "  tier1-specialized-executor: enabled={} threshold={} cache={}/{} compile={}/{}/{} evictions={} executions={} deopts={}",
+                        "  tier1-specialized-executor: enabled={} threshold={} cache={}/{} compile={}/{}/{} evictions={} executions={}",
                         tier1.enabled,
                         tier1.hot_block_threshold,
                         tier1.cached_blocks,
@@ -134,8 +134,7 @@ fn render_table(report: &BenchReport) -> String {
                         tier1.compile_successes,
                         tier1.compile_failures,
                         tier1.cache_evictions,
-                        tier1.block_executions,
-                        tier1.deopt_count
+                        tier1.block_executions
                     );
                     if !tier1.compile_failure_reasons.is_empty() {
                         let reasons = tier1
@@ -145,15 +144,6 @@ fn render_table(report: &BenchReport) -> String {
                             .collect::<Vec<_>>()
                             .join(" ");
                         let _ = writeln!(out, "    compile-failure-reasons: {reasons}");
-                    }
-                    if !tier1.deopt_reasons.is_empty() {
-                        let reasons = tier1
-                            .deopt_reasons
-                            .iter()
-                            .map(|entry| format!("{}={}", entry.reason, entry.count))
-                            .collect::<Vec<_>>()
-                            .join(" ");
-                        let _ = writeln!(out, "    deopt-reasons: {reasons}");
                     }
                 }
             }

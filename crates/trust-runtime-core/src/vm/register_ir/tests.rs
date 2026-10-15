@@ -740,6 +740,12 @@ fn precompiled_tier1_selection_honors_threshold_and_capacity_without_new_compile
     );
     assert!(state.select_prepared_block(second));
     assert_eq!(state.snapshot().cache_evictions, 1);
+    // Spec 34 HOST-04: eviction keeps the hotness count, so `first` is selected at its next entry.
+    assert!(
+        state.select_prepared_block(first),
+        "an evicted block is selected again at once without re-warming"
+    );
+    assert_eq!(state.snapshot().cache_evictions, 2);
     assert_eq!(state.snapshot().compile_attempts, 0);
 }
 

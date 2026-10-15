@@ -148,12 +148,6 @@ struct VmTier1SpecializedExecutorCompileFailureReasonReport {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct VmTier1SpecializedExecutorDeoptReasonReport {
-    reason: String,
-    count: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
 struct VmTier1SpecializedExecutorReport {
     enabled: bool,
     hot_block_threshold: u64,
@@ -165,8 +159,6 @@ struct VmTier1SpecializedExecutorReport {
     compile_failure_reasons: Vec<VmTier1SpecializedExecutorCompileFailureReasonReport>,
     cache_evictions: u64,
     block_executions: u64,
-    deopt_count: u64,
-    deopt_reasons: Vec<VmTier1SpecializedExecutorDeoptReasonReport>,
 }
 
 #[derive(Debug, Clone, Serialize)]

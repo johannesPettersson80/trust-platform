@@ -389,7 +389,6 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
     assert!(tier1.compile_successes >= 1, "snapshot={tier1:?}");
     assert!(tier1.block_executions >= 1, "snapshot={tier1:?}");
     assert_eq!(tier1.compile_failures, 0, "snapshot={tier1:?}");
-    assert_eq!(tier1.deopt_count, 0, "snapshot={tier1:?}");
 
     let profile = runtime.vm_register_profile_snapshot();
     assert_eq!(profile.register_program_fallbacks, 0, "profile={profile:?}");
@@ -431,7 +430,6 @@ fn register_executor_tier1_specialized_executor_executes_bool_or_without_deopt()
     let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
     assert!(snapshot.compile_successes >= 1, "snapshot={snapshot:?}");
     assert!(snapshot.block_executions >= 1, "snapshot={snapshot:?}");
-    assert_eq!(snapshot.deopt_count, 0, "snapshot={snapshot:?}");
     let profile = runtime.vm_register_profile_snapshot();
     assert_eq!(
         profile.value_ops.read_value_clones, 0,

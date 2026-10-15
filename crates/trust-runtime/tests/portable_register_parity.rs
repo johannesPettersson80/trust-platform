@@ -746,9 +746,18 @@ fn call_free_profile_hits_split_into_interpreted_and_tier1_entries() {
             blocks * (threshold - 1),
             "threshold {threshold}: {tier1:?}"
         );
+        // The register profile records interpreted entries itself, not as the hits less Tier-1.
+        assert_eq!(
+            profile.interpreted_block_entries, interpreted,
+            "threshold {threshold}: {profile:?} {tier1:?}"
+        );
         let stack_profile = stack.register_profile_snapshot();
         assert_eq!(
             stack_profile.register_programs_executed, 0,
+            "stack arm: {stack_profile:?}"
+        );
+        assert_eq!(
+            stack_profile.interpreted_block_entries, 0,
             "stack arm: {stack_profile:?}"
         );
     }

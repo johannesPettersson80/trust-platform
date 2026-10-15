@@ -62,8 +62,7 @@ pub use trust_runtime_core::vm::register::{
     VmRegisterCallOpCounters, VmRegisterFallbackReason, VmRegisterHotBlock,
     VmRegisterLoweringCacheSnapshot, VmRegisterPreparationSnapshot, VmRegisterProfileSnapshot,
     VmRegisterRefOpCounters, VmRegisterValueOpCounters,
-    VmTier1SpecializedExecutorCompileFailureReason, VmTier1SpecializedExecutorDeoptReason,
-    VmTier1SpecializedExecutorSnapshot,
+    VmTier1SpecializedExecutorCompileFailureReason, VmTier1SpecializedExecutorSnapshot,
 };
 
 #[cfg(test)]

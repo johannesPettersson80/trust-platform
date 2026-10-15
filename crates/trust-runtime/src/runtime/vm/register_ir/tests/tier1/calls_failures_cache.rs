@@ -236,8 +236,6 @@ fn register_executor_tier1_specialized_executor_executes_non_dint_binary_without
     assert!(snapshot.compile_attempts >= 1);
     assert!(snapshot.compile_successes >= 1);
     assert!(snapshot.block_executions >= 1);
-    assert_eq!(snapshot.deopt_count, 0, "snapshot={snapshot:?}");
-    assert!(snapshot.deopt_reasons.is_empty(), "snapshot={snapshot:?}");
 }
 
 #[test]

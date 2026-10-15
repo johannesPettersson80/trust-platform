@@ -231,15 +231,6 @@ fn project_vm_profile_report(
                 .collect(),
             cache_evictions: tier1_snapshot.cache_evictions,
             block_executions: tier1_snapshot.block_executions,
-            deopt_count: tier1_snapshot.deopt_count,
-            deopt_reasons: tier1_snapshot
-                .deopt_reasons
-                .iter()
-                .map(|entry| VmTier1SpecializedExecutorDeoptReasonReport {
-                    reason: entry.reason.clone(),
-                    count: entry.count,
-                })
-                .collect(),
         })
     } else {
         None

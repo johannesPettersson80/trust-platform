@@ -241,6 +241,13 @@ pub(crate) fn step_register_activation(
                 super::super::context::StatementFrame::from_frame(frame),
             )?;
             activation.executor = select_block_executor(runtime, activation.plan.as_ref(), block);
+            if activation.profile_enabled
+                && matches!(activation.executor, BlockExecutor::Interpreted)
+            {
+                runtime
+                    .register_profile_mut()
+                    .record_interpreted_block_entry();
+            }
             activation.block_started = true;
             activation.instruction_index = 0;
         }

@@ -117,10 +117,6 @@ fn vmpar_tier1_deadline_traps_in_compiled_block_without_commit() {
         after_deadline.block_executions, before_deadline.block_executions,
         "deadline trap must not be counted as a completed tier1 block: before={before_deadline:?} after={after_deadline:?}",
     );
-    assert_eq!(
-        after_deadline.deopt_count, before_deadline.deopt_count,
-        "deadline trap must not be hidden as tier1 deopt: before={before_deadline:?} after={after_deadline:?}",
-    );
 }
 
 #[test]
@@ -191,7 +187,6 @@ fn vmpar_stack_register_and_tier1_paths_produce_expected_forward_value() {
         tier1_profile.compile_failures, 0,
         "snapshot={tier1_profile:?}"
     );
-    assert_eq!(tier1_profile.deopt_count, 0, "snapshot={tier1_profile:?}");
 }
 
 #[test]

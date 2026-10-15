@@ -7,6 +7,7 @@ pub struct RegisterProfileState {
     register_program_fallbacks: u64,
     fallback_reasons: BTreeMap<String, u64>,
     block_hits: BTreeMap<(u32, u32, u32), u64>,
+    interpreted_block_entries: u64,
     ref_ops: VmRegisterRefOpCounters,
     call_ops: VmRegisterCallOpCounters,
     value_ops: VmRegisterValueOpCounters,
@@ -61,6 +62,7 @@ impl RegisterProfileState {
             .values_mut()
             .for_each(|count| *count = 0);
         self.block_hits.values_mut().for_each(|count| *count = 0);
+        self.interpreted_block_entries = 0;
         self.ref_ops = VmRegisterRefOpCounters::default();
         self.call_ops = VmRegisterCallOpCounters::default();
         self.value_ops = VmRegisterValueOpCounters::default();
@@ -93,6 +95,7 @@ impl RegisterProfileState {
             register_program_fallbacks: self.register_program_fallbacks,
             fallback_reasons,
             hot_blocks,
+            interpreted_block_entries: self.interpreted_block_entries,
             ref_ops: self.ref_ops.clone(),
             call_ops: self.call_ops.clone(),
             value_ops: self.value_ops.clone(),
@@ -119,6 +122,14 @@ impl RegisterProfileState {
             .entry((pou_id, block_id, start_pc))
             .or_insert(0);
         *entry = entry.saturating_add(1);
+    }
+
+    /// Count a block entry that the interpreter runs; Tier-1 entries are counted separately.
+    pub fn record_interpreted_block_entry(&mut self) {
+        if !self.enabled {
+            return;
+        }
+        self.interpreted_block_entries = self.interpreted_block_entries.saturating_add(1);
     }
 
     pub fn record_ref_op(&mut self, kind: RegisterRefOpKind) {

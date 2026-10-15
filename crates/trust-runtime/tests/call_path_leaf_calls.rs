@@ -1,10 +1,11 @@
 //! Leaf calls run in place only where the handler is not needed; debugging and non-leaf callees keep the handler.
 #![cfg(feature = "register-ir")]
+use std::cell::Cell;
 use trust_runtime::bytecode::BytecodeVersion;
 use trust_runtime::harness::CompileSession;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::value::{DateTimeValue, Duration, Value};
-use trust_runtime_core::vm::register::RegisterExecutionConfiguration;
+use trust_runtime_core::vm::register::{RegisterExecutionConfiguration, VmRegisterProfileSnapshot};
 use trust_runtime_core::vm::{ExecutionServices, PreparationLimits, PreparedModule};
 
 const LEAF_PARITY_SOURCE: &str = r#"
@@ -64,11 +65,16 @@ struct Observation {
     fault: Option<RuntimeError>,
     in_place_calls: u64,
     tier1_block_executions: u64,
+    /// Cumulative in-place call count after each cycle.
+    in_place_by_cycle: Vec<u64>,
+    /// Cumulative `debug_mode` fallbacks after each cycle.
+    debug_mode_by_cycle: Vec<u64>,
 }
 
-/// Platform services for `observe`: `debugger` attaches a debugger, and tier-1 selects each block at its first hit.
+/// Platform services for `observe`. `debugger` is the attachment state, which a run may change;
+/// tier-1 selects each block at its first hit.
 struct ObservedArm {
-    debugger: bool,
+    debugger: Cell<bool>,
 }
 
 impl ExecutionServices for ObservedArm {
@@ -80,7 +86,7 @@ impl ExecutionServices for ObservedArm {
         }
     }
     fn debug_active(&self) -> bool {
-        self.debugger
+        self.debugger.get()
     }
     fn deadline_exceeded(&self) -> bool {
         false
@@ -97,19 +103,36 @@ impl ExecutionServices for ObservedArm {
 /// `failing` is zeroed before cycle 21 so that the leaf fails at that cycle. The fault is then cleared and the
 /// divisor restored, so cycles 22 to 24 run on the recovered state.
 fn observe(debugger: bool, in_place: bool, failing: Option<&str>) -> Observation {
+    observe_attaching_at(debugger, None, in_place, failing)
+}
+
+/// `observe`, with a debugger that attaches before cycle `attach_at` when one is given.
+fn observe_attaching_at(
+    debugger: bool,
+    attach_at: Option<i64>,
+    in_place: bool,
+    failing: Option<&str>,
+) -> Observation {
     let bytes = CompileSession::from_source(LEAF_PARITY_SOURCE)
         .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
         .unwrap()
         .encode()
         .unwrap();
     let prepared = PreparedModule::from_bytes(&bytes, PreparationLimits::default()).unwrap();
-    let services = ObservedArm { debugger };
+    let services = ObservedArm {
+        debugger: Cell::new(debugger),
+    };
     let mut state = prepared.instantiate_with_services(0, &services).unwrap();
     state.set_register_profile_enabled(true);
     state.set_in_place_calls_enabled(in_place);
     let compile_attempts = state.tier1_snapshot().compile_attempts;
     let mut cycles: Vec<CycleObservation> = Vec::new();
+    let mut in_place_by_cycle = Vec::new();
+    let mut debug_mode_by_cycle = Vec::new();
     for tick in 1..=24i64 {
+        if attach_at == Some(tick) {
+            services.debugger.set(true);
+        }
         if tick == 21
             && let Some(name) = failing
         {
@@ -125,6 +148,8 @@ fn observe(debugger: bool, in_place: bool, failing: Option<&str>) -> Observation
             .collect();
         let failed = result.is_err();
         cycles.push((result, state.fault().cloned(), values));
+        in_place_by_cycle.push(state.in_place_call_count());
+        debug_mode_by_cycle.push(debug_mode_fallbacks(&state.register_profile_snapshot()));
         if failed {
             state.clear_fault();
             if let Some(name) = failing {
@@ -144,6 +169,8 @@ fn observe(debugger: bool, in_place: bool, failing: Option<&str>) -> Observation
         cycles,
         in_place_calls: state.in_place_call_count(),
         tier1_block_executions: state.tier1_snapshot().block_executions,
+        in_place_by_cycle,
+        debug_mode_by_cycle,
     }
 }
 
@@ -191,6 +218,48 @@ fn call_path_leaf_calls_stay_on_the_handler_while_a_debugger_is_attached() {
             "cycles 22 to 24 succeed after clear_fault ({failing:?})"
         );
     }
+}
+
+/// Fallbacks recorded because a debugger was attached when a POU was entered.
+fn debug_mode_fallbacks(profile: &VmRegisterProfileSnapshot) -> u64 {
+    profile
+        .fallback_reasons
+        .iter()
+        .filter(|reason| reason.reason == "debug_mode")
+        .map(|reason| reason.count)
+        .sum()
+}
+
+/// Spec 34 §4.3 HOST-04 "takes effect at the next activation start": a debugger attached before
+/// cycle 11 stops in-place calls from that cycle and records `debug_mode` fallbacks from it, while
+/// every cycle's values stay those of the pumped arm.
+#[test]
+fn call_path_debugger_attached_before_cycle_11_takes_effect_at_the_next_activation() {
+    let attached = observe_attaching_at(false, Some(11), true, None);
+    let pumped = observe(false, false, None);
+    let in_place = &attached.in_place_by_cycle;
+    assert!(
+        in_place[9] > in_place[0],
+        "leaf calls run in place before the attach: {in_place:?}"
+    );
+    assert!(
+        in_place[10..].iter().all(|count| *count == in_place[9]),
+        "cycles 11 to 24 add no in-place call: {in_place:?}"
+    );
+    let debug_mode = &attached.debug_mode_by_cycle;
+    assert_eq!(
+        debug_mode[9], 0,
+        "no debug_mode fallback before the attach: {debug_mode:?}"
+    );
+    assert!(
+        debug_mode[10] > 0,
+        "the first activation after the attach falls back as debug_mode: {debug_mode:?}"
+    );
+    assert_eq!(
+        attached.cycles, pumped.cycles,
+        "results equal the pumped arm"
+    );
+    assert_eq!(attached.fault, pumped.fault, "fault equals the pumped arm");
 }
 
 /// Smallest construction allowance that admits the whole observation with leaf calls in place or through the pump.

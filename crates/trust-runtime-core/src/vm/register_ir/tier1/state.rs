@@ -139,8 +139,6 @@ pub struct RegisterTier1SpecializedExecutorState {
     compile_failure_reasons: BTreeMap<String, u64>,
     cache_evictions: u64,
     block_executions: u64,
-    deopt_count: u64,
-    deopt_reasons: BTreeMap<String, u64>,
 }
 
 impl Default for RegisterTier1SpecializedExecutorState {
@@ -159,8 +157,6 @@ impl Default for RegisterTier1SpecializedExecutorState {
             compile_failure_reasons: BTreeMap::new(),
             cache_evictions: 0,
             block_executions: 0,
-            deopt_count: 0,
-            deopt_reasons: BTreeMap::new(),
         }
     }
 }
@@ -289,8 +285,6 @@ impl RegisterTier1SpecializedExecutorState {
             .for_each(|count| *count = 0);
         self.cache_evictions = 0;
         self.block_executions = 0;
-        self.deopt_count = 0;
-        self.deopt_reasons.values_mut().for_each(|count| *count = 0);
     }
 
     pub fn invalidate_all(&mut self) {
@@ -312,15 +306,6 @@ impl RegisterTier1SpecializedExecutorState {
                 },
             )
             .collect::<Vec<_>>();
-        let deopt_reasons = self
-            .deopt_reasons
-            .iter()
-            .filter(|(_, count)| **count != 0)
-            .map(|(reason, count)| VmTier1SpecializedExecutorDeoptReason {
-                reason: reason.clone(),
-                count: *count,
-            })
-            .collect::<Vec<_>>();
         VmTier1SpecializedExecutorSnapshot {
             enabled: self.enabled,
             hot_block_threshold: self.hot_block_threshold,
@@ -332,8 +317,6 @@ impl RegisterTier1SpecializedExecutorState {
             compile_failure_reasons,
             cache_evictions: self.cache_evictions,
             block_executions: self.block_executions,
-            deopt_count: self.deopt_count,
-            deopt_reasons,
         }
     }
 
