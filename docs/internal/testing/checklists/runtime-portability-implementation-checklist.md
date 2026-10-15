@@ -78,8 +78,37 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
   `deopt_reasons` are never written, so five assertions on them pass vacuously
   (`tier1/state.rs:142-143`); G14, an evicted Tier-1 block is reselected on its next entry
   without re-warming (`tier1/state.rs:212-220`).
-- [ ] Release guard on the A02 commit, the push to PR #137 (after `a42059511`'s native CI
-  completes) and native CI.
+- [x] Guard 12 passed on `787bc6d54`; pushed `a42059511..787bc6d54` after `a42059511`'s native
+  CI completed green (23 pass; Test macOS 36 min, Ubuntu 34, Windows 30), which includes the
+  A20 real-binary journeys on all three operating systems.
+- [x] A09 resource boundaries, test-only gaps. A read-only audit listed every declared limit
+  (spec 12 §4.6, spec 34 TIME-08/09, LOAD-04/09, MEM-02/03/06) with its enforcing code and
+  found exact-limit acceptance missing for many and `is_err()`-only refusals in the named
+  suites. New tests assert the exact error at 0/1, the exact limit and limit + 1:
+  - preparation: `max_call_depth` 1,024/1,025, zero work allowances refused as
+    `ProfileUnsupported` on both routes, `max_process_image_bytes` N/N-1 as `PreparationLimit`,
+    exact `PreparationLimit` for the cumulative budget, and no live allocation after a refused
+    preparation (counting allocator);
+  - decode and validation: native-call arguments 1,024/1,025, construction records
+    65,536/65,537 and nodes 1,000,000/1,000,001, REF_TABLE, POU locals and parameters at the
+    decoder, the 1,000,001st instruction refused before its jump is checked, first-fault order
+    (REF_TABLE before POU locals; instruction limit before operand stack), constant nesting
+    64/65, and a 2^32-byte array sized exactly on 32-bit as on 64-bit (sizes are `u64`);
+  - runtime: every `vm_resource_limit_cases` scenario with its exact error and exact-N
+    acceptance (the locals fixture had tripped the REF_TABLE check first), an oversized
+    container that leaves the installed program running, execution-frame capacity, measured
+    construction and scan allowances N/N-1 with `used + requested == N`, array upper bound,
+    HMI string capacity, reference-path depth 64/65 (`TypeMismatch`), and a malformed retain
+    checkpoint path refused (`Overflow`; RETAIN-02 fixes no error kind, MEM-06's
+    `TypeMismatch` governs value copies).
+- [ ] A09 owner decisions from the audit: MQTT incoming queue drops the oldest of 256 silently
+  (`io/mqtt/session.rs:63-64`; spec 34 §11.1 requires explicit overflow); `SIZEOF` nesting 128
+  exists only in code (`vm/dispatch_sizeof.rs:8`; spec 12 §4.6 has 64 elsewhere); with
+  `max_artifact_bytes` above 64 MiB the decode work charge refuses before the container bound
+  (`decode/module_decode.rs:17-21`); no declared debugger/control queue capacity; no declared
+  instance-count capacity (legacy `create_instance` panics on exhaustion). Also: spec 12 §4.6.2
+  names "REF_TABLE entries" while the decoder reports "REF_TABLE count".
+- [ ] Release guard on the A09 commit, the push to PR #137 and native CI.
 - [ ] Owner decisions found by A20 (not changed overnight):
   - 89 other example projects name a `[resource]` in `runtime.toml` that their ST does not
     declare (every other communication example, `network_canvas_demo`, all 80 OSCAT
@@ -3498,7 +3527,7 @@ implied by this test plan. Tests of C-only functionality run when C implements i
 | [ ] A06 — Byte-level container fuzzing (H/qualification) | Existing `fuzz/fuzz_targets/bytecode_container.rs` calls decode only, with a 1 MiB input cap. Exercise truncation, lengths, overflow, section order/overlap, checksums and supported-version boundaries. | No panic, hang or uncontrolled resource use within declared limits. Seed corpus, engine/tool version, duration, executions, coverage and minimized failures retained. Decoder survival does not certify validation or execution. |
 | [ ] A07 — Structured validator/admission fuzzing (H/C/qualification) | Add or verify a harness that reaches decode → full validator → profile admission/preparation. Seed valid supported STBC versions and mutate instructions, types, references, calls, imports, initialization, storage/image demand and bound configuration. Recompute integrity fields where needed to reach deeper checks. Start from `bytecode_source_free`, `bytecode_validation_budget`, `bytecode_validation_scale`, `source_free_profile_admission` and saved artifacts. | Inputs rejected deterministically within declared work/memory bounds; no unvalidated executable state. A rejected candidate leaves the installed generation and outputs intact. Native deterministic regressions for every discovered defect. Mark the deeper harness missing until its code actually exists. |
 | [ ] A08 — Stateful operation-sequence testing (H/C) | Generate valid and invalid sequences of load, install, start, scan, checked write, debug operation, stop, warm/cold restart and candidate replacement. Include stale references/generations, repeated failures and recovery. | Compare against a small explicit state-transition model from the spec. Assert legal transitions, ownership, retained state and failure atomicity after every operation. Bound both sequence length and resource demand. |
-| [ ] A09 — Resource-boundary and exhaustion tests (H/C) | Test zero, one, exact-limit and limit-plus-one for stack/call/reference/type depth, instruction/helper work, strings/arrays, images, instances, validation/preparation memory and service queues with explicitly declared capacities. Include compound-size multiplication/offset overflow on 32-bit. | Correct stable fault and first-fault order; no premature publication, leak, stale handle or partially installed candidate. Cover `vm_resource_limit_cases`, `portable_execution_frames`, `bytecode_decode_resource_bounds` and allocation profiles. |
+| [ ] A09 — Resource-boundary and exhaustion tests (H/C); test-only gaps closed 15 October, five owner decisions open (current checkpoint) | Test zero, one, exact-limit and limit-plus-one for stack/call/reference/type depth, instruction/helper work, strings/arrays, images, instances, validation/preparation memory and service queues with explicitly declared capacities. Include compound-size multiplication/offset overflow on 32-bit. | Correct stable fault and first-fault order; no premature publication, leak, stale handle or partially installed candidate. Cover `vm_resource_limit_cases`, `portable_execution_frames`, `bytecode_decode_resource_bounds` and allocation profiles. |
 | [ ] A10 — Failure injection and transactional recovery (H/C) | Inject reservation refusal, clock/deadline expiry at different phases, driver/import failure, copyback failure, retain/checkpoint failure and failed replacement. Include failure after earlier parameters/outputs have been staged. Exercise non-returning driver/import callbacks under external supervision: verify independent recovery or rejection by the applicable capability/profile rule; an in-thread deadline poll cannot cancel a hung callback (PORT-02/TIME-03/TEST-01). | Snapshot pre/post logical state and journal/identity ownership; assert the spec's commit/rollback/safe-state boundary. Physical I/O is qualified separately—do not promise rollback of effects already sent to hardware. Retain the original error while cleanup finishes. |
 | [ ] A11 — Ownership, aliasing and lifetime stress (H/C) | Nested arrays/structures, independent PLC copies, COW, reference escape, IN_OUT/OUT aliases, frame retirement, instance batches, retained graphs and re-entry. Repeat successful and failed operations with reusable scratch. Start with `memory_lifetime`, `bounded_value_semantics`, `checked_owner_references` and source-free restart tests. | No cross-instance/state contamination; dead references rejected; no stranded identities or unrecycled scratch after fault. Existing safety checks remain enabled. |
 | [ ] A12 — Temporal ABI and physical layout (H) | TIME/DATE/TOD/DT and long variants, SIZEOF, relative field placement, nested/overlapping structures, direct/partial access, I/O encoding and external protocol units. Check 32-bit and 64-bit hosts and supported artifact compatibility boundaries. Start with `temporal_storage_abi`, `sizeof_semantics`, `datetime_range` and `io_hierarchy`. | Exact eight-byte product contract and explicit legacy/external conversions; no silent truncation, field overlap or hidden host-size dependence. Include minimum/maximum, negative and fractional-time cases. |
