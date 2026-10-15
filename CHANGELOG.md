@@ -187,6 +187,13 @@ Target release: `v0.24.75`
   of silently stalling the scan after a production `pause` (issue #136). An
   attached debugger still steps from a breakpoint. `resume` always releases a
   debugger hold, and `status` reports the hold instead of `running`.
+- Corrected `trust-runtime ctl` commands in the documentation: the operator guide
+  and the safety commissioning tutorial now use `restart cold` (the CLI has no
+  `--mode` flag), the cloud troubleshooting guide and profile cookbook use
+  `config-get`, the operator guide describes the actual `status` line and points
+  to `stats` for cycle timing, and the memory marker tutorial shows the `Int`
+  values that `io-read` prints. Tests now run these documented commands against
+  a real runtime.
 - Charge standard-library text work. CONCAT, REPLACE, MID and the other text and
   conversion functions charge 1 work unit per UTF-8 byte of their text arguments
   before they run, and their text result as a new value. A program that keeps

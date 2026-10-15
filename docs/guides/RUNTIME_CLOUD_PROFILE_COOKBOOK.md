@@ -135,7 +135,7 @@ After any profile change:
 
 ```bash
 trust-runtime validate --project <project>
-trust-runtime ctl --project <project> config.get
+trust-runtime ctl --project <project> config-get
 curl -s http://<host>:<port>/api/runtime-cloud/state | jq '.context'
 ```
 

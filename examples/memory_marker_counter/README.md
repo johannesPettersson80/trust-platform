@@ -53,8 +53,8 @@ Procedure:
 
 Expected after first cycle:
 
-- `%QW0 = Word(41)` (latched cycle-start value)
-- `%MW0 = Word(42)` (incremented writeback at cycle end)
+- `%QW0 = Int(41)` (latched cycle-start value)
+- `%MW0 = Int(42)` (incremented writeback at cycle end)
 
 Expected after more cycles:
 
