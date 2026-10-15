@@ -71,6 +71,13 @@ impl VariableStorage {
             .expect("instance identity or allocation exhausted")
     }
 
+    /// Test support only: moves the next instance identity so the exhaustion path is reachable
+    /// without creating 2^32 instances.
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn set_next_instance_id_for_test(&mut self, next: u32) {
+        self.next_instance_id = next;
+    }
+
     #[must_use]
     pub fn get_instance(&self, id: InstanceId) -> Option<&InstanceData> {
         self.instances.get(&id)

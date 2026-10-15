@@ -197,7 +197,7 @@ fn run_mqtt_worker(
             && let Some((seq, outputs)) = take_mqtt_pending_output(&shared)
         {
             let result = driver.write_outputs(&outputs);
-            let health = driver.health();
+            let health = driver.connection_health();
             let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
             state.output_inflight = false;
             state.completed_output_seq = seq;
@@ -236,7 +236,7 @@ fn run_mqtt_worker(
             let mut inputs = vec![0u8; input_len];
             let result = driver.read_inputs(&mut inputs);
             let input_error = result.as_ref().err().cloned();
-            let health = driver.health();
+            let health = driver.connection_health();
             let mut state = shared.lock().unwrap_or_else(|err| err.into_inner());
             if result.is_ok() && matches!(health, IoDriverHealth::Ok) {
                 state.latest_inputs = Some(inputs);

@@ -250,7 +250,7 @@ fn write_safe_outputs(drivers: &mut [IoDriverEntry], outputs: &[u8]) -> Result<(
                 )
                 .into(),
             )),
-            Ok(()) => match entry.driver.health() {
+            Ok(()) => match entry.driver.output_health() {
                 IoDriverHealth::Ok => None,
                 IoDriverHealth::Degraded { error } | IoDriverHealth::Faulted { error } => {
                     Some(RuntimeError::IoDriver(
@@ -376,6 +376,128 @@ mod tests {
 
         assert!(writes.lock().unwrap().is_empty());
         assert_eq!(sink.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn safe_state_is_confirmed_by_output_path_health_when_reported_health_is_degraded() {
+        let mut io = IoSubsystem::new();
+        io.try_resize(0, 1, 0).unwrap();
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let sink: Arc<Mutex<Vec<IoDriverStatus>>> = Arc::new(Mutex::new(Vec::new()));
+        let overflow = IoDriverHealth::Degraded {
+            error: "incoming queue overflow: 1 messages dropped".into(),
+        };
+        io.add_driver(
+            "Mqtt",
+            Box::new(SplitHealthDriver {
+                health: overflow.clone(),
+                output_health: IoDriverHealth::Ok,
+                writes: writes.clone(),
+            }),
+        );
+        io.set_health_sink(Some(sink.clone()));
+        io.set_safe_state(IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.2").unwrap(),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        io.apply_safe_state()
+            .expect("output-path health is Ok, so the safe state is confirmed");
+
+        assert_eq!(writes.lock().unwrap().as_slice(), &[vec![4]]);
+        // Ordinary health reporting still shows the degraded driver.
+        assert_eq!(sink.lock().unwrap()[0].health, overflow);
+    }
+
+    #[test]
+    fn safe_state_is_unconfirmed_by_output_path_health_alone() {
+        let mut io = IoSubsystem::new();
+        io.try_resize(0, 1, 0).unwrap();
+        io.add_driver(
+            "Output",
+            Box::new(SplitHealthDriver {
+                health: IoDriverHealth::Ok,
+                output_health: IoDriverHealth::Degraded {
+                    error: "mqtt output handoff pending".into(),
+                },
+                writes: Arc::new(Mutex::new(Vec::new())),
+            }),
+        );
+        io.set_safe_state(IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.2").unwrap(),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        let error = io
+            .apply_safe_state()
+            .expect_err("a degraded output path leaves the safe state unconfirmed");
+
+        assert!(
+            error
+                .to_string()
+                .contains("unconfirmed for driver 'Output'"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn safe_state_stays_unconfirmed_when_reported_health_is_degraded_for_another_reason() {
+        let mut io = IoSubsystem::new();
+        io.try_resize(0, 1, 0).unwrap();
+        io.add_driver(
+            "Mqtt",
+            Box::new(FakeDriver::new(
+                IoDriverHealth::Degraded {
+                    error: "mqtt disconnected: broker closed".into(),
+                },
+                false,
+            )),
+        );
+        io.set_safe_state(IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.2").unwrap(),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        let error = io
+            .apply_safe_state()
+            .expect_err("a degraded connection leaves the safe state unconfirmed");
+
+        assert!(
+            error.to_string().contains("unconfirmed for driver 'Mqtt'"),
+            "{error}"
+        );
+    }
+
+    /// Reports ordinary and output-path health separately, as an MQTT driver does after overflow.
+    struct SplitHealthDriver {
+        health: IoDriverHealth,
+        output_health: IoDriverHealth,
+        writes: Arc<Mutex<Vec<Vec<u8>>>>,
+    }
+
+    impl IoDriver for SplitHealthDriver {
+        fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+            self.writes.lock().unwrap().push(outputs.to_vec());
+            Ok(())
+        }
+
+        fn health(&self) -> IoDriverHealth {
+            self.health.clone()
+        }
+
+        fn output_health(&self) -> IoDriverHealth {
+            self.output_health.clone()
+        }
     }
 
     struct FakeDriver {

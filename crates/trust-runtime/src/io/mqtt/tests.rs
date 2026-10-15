@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicUsize;
 include!("tests/nonfinite_case.rs");
 include!("tests/safe_state.rs");
 include!("tests/tag_mapping.rs");
+include!("tests/incoming_overflow.rs");
 
 const MQTT_CI_TIMING_SLACK: StdDuration = StdDuration::from_millis(100);
 
@@ -67,6 +68,10 @@ impl MqttSessionFactory for MockFactory {
         Ok(Box::new(MockSession {
             state: Arc::clone(&self.state),
         }))
+    }
+
+    fn incoming_dropped(&self) -> u64 {
+        0
     }
 }
 

@@ -15,7 +15,7 @@ pub struct MqttIoDriver {
 
 impl MqttIoDriver {
     pub fn from_params(value: &toml::Value) -> Result<Self, RuntimeError> {
-        Self::from_params_with_factory(value, Arc::new(RumqttSessionFactory))
+        Self::from_params_with_factory(value, Arc::new(RumqttSessionFactory::default()))
     }
 
     fn from_params_with_factory(
@@ -68,6 +68,16 @@ impl MqttIoDriver {
             && requested.username == stored.username
             && requested.client_id == stored.client_id
             && requested.allow_insecure_remote == stored.allow_insecure_remote)
+    }
+
+    /// Connection health without the incoming-overflow overlay. The worker thread reads this one:
+    /// a degraded state there starts reconnect backoff and stops input snapshots, and an overflow
+    /// must not do either.
+    fn connection_health(&self) -> IoDriverHealth {
+        match &self.worker {
+            Some(worker) => worker.health(),
+            None => self.health.clone(),
+        }
     }
 
     fn set_degraded(&mut self, message: impl AsRef<str>) {
@@ -349,9 +359,11 @@ impl IoDriver for MqttIoDriver {
     }
 
     fn health(&self) -> IoDriverHealth {
-        if let Some(worker) = &self.worker {
-            return worker.health();
-        }
-        self.health.clone()
+        overlay_incoming_overflow(self.connection_health(), self.factory.incoming_dropped())
+    }
+
+    /// The overflow concerns received messages only, so it never unconfirms a safe-state handoff.
+    fn output_health(&self) -> IoDriverHealth {
+        self.connection_health()
     }
 }

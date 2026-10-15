@@ -70,7 +70,7 @@ pub fn create_fb_instance(
         None
     };
 
-    let instance_id = storage.create_instance(fb.name.clone());
+    let instance_id = storage.try_create_instance(fb.name.clone())?;
     if let Some(parent_id) = parent_id
         && let Some(instance) = storage.get_instance_mut(instance_id)
     {
@@ -130,7 +130,7 @@ pub fn create_program_instance(
     initializer_catalog: &InitializerCatalog,
     program: &ProgramDef,
 ) -> Result<InstanceId, RuntimeError> {
-    let instance_id = storage.create_instance(program.name.clone());
+    let instance_id = storage.try_create_instance(program.name.clone())?;
     init_var_defaults(
         storage,
         registry,
@@ -178,7 +178,7 @@ pub fn create_class_instance(
         None
     };
 
-    let instance_id = storage.create_instance(class_def.name.clone());
+    let instance_id = storage.try_create_instance(class_def.name.clone())?;
     if let Some(parent_id) = parent_id
         && let Some(instance) = storage.get_instance_mut(instance_id)
     {
@@ -629,9 +629,11 @@ fn function_block_type_name(
 
 #[cfg(test)]
 mod tests {
-    use super::create_fb_instance;
-    use crate::program_model::{expr::Expr, FunctionBlockDef, Param};
+    use super::{create_class_instance, create_fb_instance, create_program_instance};
+    use crate::error::RuntimeError;
+    use crate::program_model::{expr::Expr, ClassDef, FunctionBlockDef, Param};
     use crate::stdlib::StandardLibrary;
+    use crate::task::ProgramDef;
     use crate::value::{DateTimeProfile, Value};
     use indexmap::IndexMap;
     use smol_str::SmolStr;
@@ -680,6 +682,95 @@ mod tests {
         assert_eq!(
             storage.get_instance_var(instance_id, "inc"),
             Some(&Value::Int(5))
+        );
+    }
+
+    #[test]
+    fn hosted_creation_at_instance_identity_limit_fails_and_keeps_existing_instances() {
+        let registry = TypeRegistry::new();
+        let profile = DateTimeProfile::default();
+        let stdlib = StandardLibrary::new();
+        let catalog = crate::program_model::InitializerCatalog::default();
+        let classes: IndexMap<SmolStr, ClassDef> = IndexMap::new();
+        let function_blocks: IndexMap<SmolStr, FunctionBlockDef> = IndexMap::new();
+        let functions: IndexMap<SmolStr, crate::program_model::FunctionDef> = IndexMap::new();
+        let program = ProgramDef {
+            name: "Main".into(),
+            vars: Vec::new(),
+            temps: Vec::new(),
+            using: Vec::new(),
+            body: Vec::new(),
+        };
+        let class = ClassDef {
+            name: "Counter".into(),
+            base: None,
+            interfaces: Vec::new(),
+            vars: Vec::new(),
+            using: Vec::new(),
+            methods: Vec::new(),
+        };
+        let fb = FunctionBlockDef {
+            name: "Adjust".into(),
+            base: None,
+            interfaces: Vec::new(),
+            params: Vec::new(),
+            vars: Vec::new(),
+            temps: Vec::new(),
+            using: Vec::new(),
+            methods: Vec::new(),
+            body: Vec::new(),
+        };
+        let mut storage = crate::memory::VariableStorage::new();
+        let existing = storage
+            .try_create_instance("EXISTING")
+            .expect("first instance");
+        assert!(storage.set_instance_var(existing, "KEEP", Value::Int(7)));
+        storage.set_next_instance_id_for_test(u32::MAX);
+
+        let program_error = create_program_instance(
+            &mut storage,
+            &registry,
+            &profile,
+            &classes,
+            &function_blocks,
+            &functions,
+            &stdlib,
+            &catalog,
+            &program,
+        )
+        .expect_err("program identity space is exhausted");
+        let class_error = create_class_instance(
+            &mut storage,
+            &registry,
+            &profile,
+            &classes,
+            &function_blocks,
+            &functions,
+            &stdlib,
+            &catalog,
+            &class,
+        )
+        .expect_err("class identity space is exhausted");
+        let fb_error = create_fb_instance(
+            &mut storage,
+            &registry,
+            &profile,
+            &classes,
+            &function_blocks,
+            &functions,
+            &stdlib,
+            &catalog,
+            &fb,
+        )
+        .expect_err("function block identity space is exhausted");
+
+        assert_eq!(program_error, RuntimeError::Overflow);
+        assert_eq!(class_error, RuntimeError::Overflow);
+        assert_eq!(fb_error, RuntimeError::Overflow);
+        assert_eq!(storage.instances().len(), 1);
+        assert_eq!(
+            storage.get_instance_var(existing, "KEEP"),
+            Some(&Value::Int(7))
         );
     }
 }
