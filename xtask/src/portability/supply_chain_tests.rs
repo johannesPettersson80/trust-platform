@@ -55,14 +55,16 @@ fi
 }
 
 #[test]
-fn both_lock_graphs_are_audited_and_any_graph_failure_fails_the_gate() {
+fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
     for exceptions in [true, false] {
         for failure in [
             "",
             "deny --locked check",
             "--manifest-path firmware/",
+            "--manifest-path firmware/trust-esp32c6-reference/",
             "audit --json --file Cargo.lock",
             "audit --json --file firmware/",
+            "audit --json --file firmware/trust-esp32c6-reference/",
         ] {
             let fixture = fixture();
             let log = fixture.0.join("commands.txt");
@@ -86,7 +88,7 @@ fn both_lock_graphs_are_audited_and_any_graph_failure_fails_the_gate() {
             );
             let commands = fs::read_to_string(log).unwrap();
             let commands: Vec<_> = commands.lines().collect();
-            assert_eq!(commands.len(), 4, "every independent graph check must run");
+            assert_eq!(commands.len(), 6, "every independent graph check must run");
             assert_eq!(
                 commands[0],
                 "deny --locked check advisories licenses bans sources"
@@ -95,18 +97,26 @@ fn both_lock_graphs_are_audited_and_any_graph_failure_fails_the_gate() {
                 "deny --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml --config "
             ));
             assert!(commands[1].ends_with(" check advisories licenses bans sources"));
+            assert!(commands[2].starts_with(
+                "deny --locked --manifest-path firmware/trust-esp32c6-reference/Cargo.toml --config "
+            ));
+            assert!(commands[2].ends_with(" check advisories licenses bans sources"));
             let suffix = if exceptions {
                 " --ignore RUSTSEC-2026-0110"
             } else {
                 ""
             };
             assert_eq!(
-                commands[2],
+                commands[3],
                 format!("audit --json --file Cargo.lock{suffix}")
             );
             assert_eq!(
-                commands[3],
+                commands[4],
                 format!("audit --json --file firmware/trust-nucleo-f401re/Cargo.lock{suffix}")
+            );
+            assert_eq!(
+                commands[5],
+                format!("audit --json --file firmware/trust-esp32c6-reference/Cargo.lock{suffix}")
             );
         }
     }
