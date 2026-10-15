@@ -156,6 +156,7 @@ fn resolve_endpoint(
     endpoint: Option<String>,
     token: Option<String>,
 ) -> anyhow::Result<(ControlEndpoint, Option<String>, Option<PathBuf>)> {
+    let token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
     client::resolve_endpoint(bundle, endpoint, token)
 }
 

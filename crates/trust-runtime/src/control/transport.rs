@@ -28,12 +28,8 @@ pub(crate) fn spawn_control_server(
         }
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
-            if path.exists() {
-                let _ = std::fs::remove_file(path);
-            }
-            let listener = std::os::unix::net::UnixListener::bind(path).map_err(|err| {
-                RuntimeError::ControlError(format!("bind {path:?}: {err}").into())
-            })?;
+            let listener = bind_owner_only_socket(path)?;
+            // Defence in depth: the umask already created the socket owner-only.
             set_unix_permissions(path)?;
             let state = state.clone();
             thread::spawn(move || {
@@ -76,6 +72,59 @@ fn handle_unix_client(stream: std::os::unix::net::UnixStream, state: Arc<Control
     }
 }
 
+/// The process umask is process-wide, so the binds that narrow it run one at a time.
+#[cfg(unix)]
+static UMASK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Binds the control socket so that it is owner-only from the moment it exists.
+///
+/// Spec 11 says a generated Unix socket is "created with restrictive permissions (0600)"
+/// (section 6.8.3), and that a local Unix control socket without a configured token "may use
+/// Admin authority because the socket is local and created with mode 0600" (section 6.9.5).
+/// Binding first and narrowing the mode afterwards would leave a window in which other local
+/// users can connect with that Admin authority.
+/// The umask is therefore narrowed only around `bind` and restored right after it, even when
+/// the bind fails. A path that holds anything other than a socket is refused, not removed.
+#[cfg(unix)]
+fn bind_owner_only_socket(
+    path: &std::path::Path,
+) -> Result<std::os::unix::net::UnixListener, RuntimeError> {
+    use std::os::unix::fs::FileTypeExt;
+
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_socket() => {
+            std::fs::remove_file(path).map_err(|err| {
+                RuntimeError::ControlError(
+                    format!("remove stale socket {}: {err}", path.display()).into(),
+                )
+            })?;
+        }
+        Ok(_) => {
+            return Err(RuntimeError::ControlError(
+                format!(
+                    "control socket path {} exists and is not a socket; refusing to replace it",
+                    path.display()
+                )
+                .into(),
+            ));
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => {
+            return Err(RuntimeError::ControlError(
+                format!("inspect {}: {err}", path.display()).into(),
+            ));
+        }
+    }
+    // Owner-only umask: a socket created under 0177 gets mode 0777 & !0177 = 0600.
+    let _umask_guard = UMASK_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o177));
+    let bound = std::os::unix::net::UnixListener::bind(path);
+    rustix::process::umask(previous);
+    bound.map_err(|err| RuntimeError::ControlError(format!("bind {path:?}: {err}").into()))
+}
+
 #[cfg(unix)]
 fn set_unix_permissions(path: &std::path::Path) -> Result<(), RuntimeError> {
     use std::os::unix::fs::PermissionsExt;
@@ -86,3 +135,6 @@ fn set_unix_permissions(path: &std::path::Path) -> Result<(), RuntimeError> {
     std::fs::set_permissions(path, perms)
         .map_err(|err| RuntimeError::ControlError(format!("socket chmod: {err}").into()))
 }
+
+#[cfg(all(test, unix))]
+mod tests;

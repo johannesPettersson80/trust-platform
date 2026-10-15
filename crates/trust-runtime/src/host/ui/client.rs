@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::RuntimeConfig;
 
 pub(super) enum ControlStream {
     Tcp(std::net::TcpStream),
@@ -77,13 +78,26 @@ impl ControlClient {
     }
 }
 
+/// Resolves the endpoint, the token and the project root for the console (spec 11 section
+/// 6.8.1). `token` is the explicit `--token` or `TRUST_CTL_TOKEN`, merged by the caller.
+///
+/// With `--endpoint`, the project named by `--project` still supplies the token when none is
+/// known. It is read only for that purpose, and no project is detected from the working
+/// directory, as `trust-runtime ctl` does not detect one.
 pub(super) fn resolve_endpoint(
     bundle: Option<PathBuf>,
     endpoint: Option<String>,
     token: Option<String>,
 ) -> anyhow::Result<(ControlEndpoint, Option<String>, Option<PathBuf>)> {
-    let mut auth = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
+    let mut auth = token;
     if let Some(endpoint) = endpoint {
+        if auth.is_none()
+            && let Some(project) = bundle.as_ref()
+        {
+            auth = RuntimeConfig::load(project.join("runtime.toml"))?
+                .control_auth_token
+                .map(|value| value.to_string());
+        }
         return Ok((ControlEndpoint::parse(&endpoint)?, auth, bundle));
     }
     let bundle_path = detect_bundle_path(bundle).map_err(anyhow::Error::from)?;
@@ -149,3 +163,6 @@ pub(super) fn fetch_data(client: &mut ControlClient) -> anyhow::Result<UiData> {
         settings: parse_settings(&settings),
     })
 }
+
+#[cfg(test)]
+mod tests;
