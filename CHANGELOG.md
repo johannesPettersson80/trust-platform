@@ -1158,11 +1158,12 @@ Target release: `v0.24.75`
 
 ### Security
 
-- The Unix control socket is created owner-only (0600) from the start. It used
-  to be bound with the default permissions and narrowed afterwards, so another
-  local user connecting in that moment got the token-less Unix Admin role. An
-  existing file at the socket path that is not a socket is refused instead of
-  deleted.
+- The Unix control socket accepts connections only once it is owner-only (0600):
+  it is bound, restricted and only then made to listen, without changing the
+  process umask that every thread shares. It used to listen first and be
+  narrowed afterwards, so another local user connecting in that moment got the
+  token-less Unix Admin role. An existing file at the socket path that is not a
+  socket is refused instead of deleted.
 - trust-lsp inline runtime values send the editor's control token only to the
   editor's own endpoint; an endpoint configured in the repository's
   `trust-lsp.toml` receives only the token configured next to it.

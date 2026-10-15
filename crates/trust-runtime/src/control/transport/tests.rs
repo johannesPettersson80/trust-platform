@@ -3,9 +3,8 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::PoisonError;
 
-use super::{bind_owner_only_socket, UMASK_LOCK};
+use super::bind_owner_only_socket;
 
 static DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -34,15 +33,6 @@ impl Drop for ScratchDir {
     }
 }
 
-/// Reads the process umask. The mask is set back in the same call, under the lock that the
-/// binds use, so no bind can run while it is read.
-fn current_umask() -> rustix::fs::Mode {
-    let _guard = UMASK_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
-    let current = rustix::process::umask(rustix::fs::Mode::empty());
-    rustix::process::umask(current);
-    current
-}
-
 #[test]
 fn bound_socket_is_owner_only_from_creation() {
     let dir = ScratchDir::new();
@@ -57,20 +47,52 @@ fn bound_socket_is_owner_only_from_creation() {
 }
 
 #[test]
-fn bind_restores_the_process_umask_on_success_and_failure() {
+fn binding_leaves_directories_created_by_other_threads_usable() {
+    // The process umask is shared by every thread. Binding never narrows it, so a directory that
+    // another thread creates meanwhile keeps its owner's search permission. Narrowing it around
+    // `bind` (the earlier design) created such directories without it.
     let dir = ScratchDir::new();
-    let before = current_umask();
+    let created = dir.0.join("created");
+    std::fs::create_dir(&created).expect("create parent for concurrent directories");
+    let worker = {
+        let created = created.clone();
+        std::thread::spawn(move || {
+            for index in 0..400 {
+                std::fs::create_dir(created.join(index.to_string())).expect("create directory");
+            }
+        })
+    };
+    for _ in 0..400 {
+        drop(bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket"));
+    }
+    worker.join().expect("directory worker");
+    for entry in std::fs::read_dir(&created).expect("list directories") {
+        let mode = entry
+            .expect("directory entry")
+            .metadata()
+            .expect("directory metadata")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o700, 0o700, "directory lost its owner permissions");
+    }
+}
 
-    let _listener = bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket");
-    assert_eq!(
-        current_umask(),
-        before,
-        "a successful bind restores the umask"
-    );
+#[test]
+fn the_owner_can_connect_once_the_socket_listens() {
+    let dir = ScratchDir::new();
+    let listener = bind_owner_only_socket(&dir.socket()).expect("bind owner-only socket");
 
+    let _client = std::os::unix::net::UnixStream::connect(dir.socket()).expect("owner connects");
+    listener.accept().expect("accept the owner's connection");
+}
+
+#[test]
+fn a_bind_into_a_missing_directory_fails_and_leaves_no_file() {
+    let dir = ScratchDir::new();
     let missing_parent = dir.0.join("missing").join("ctl.sock");
+
     assert!(bind_owner_only_socket(&missing_parent).is_err());
-    assert_eq!(current_umask(), before, "a failed bind restores the umask");
+    assert!(!missing_parent.exists());
 }
 
 #[test]

@@ -29,8 +29,6 @@ pub(crate) fn spawn_control_server(
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
             let listener = bind_owner_only_socket(path)?;
-            // Defence in depth: the umask already created the socket owner-only.
-            set_unix_permissions(path)?;
             let state = state.clone();
             thread::spawn(move || {
                 for stream in listener.incoming().map_while(Result::ok) {
@@ -72,24 +70,20 @@ fn handle_unix_client(stream: std::os::unix::net::UnixStream, state: Arc<Control
     }
 }
 
-/// The process umask is process-wide, so the binds that narrow it run one at a time.
-#[cfg(unix)]
-static UMASK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-/// Binds the control socket so that it is owner-only from the moment it exists.
+/// Binds the control socket so that no other local user can ever connect to it.
 ///
 /// Spec 11 says a generated Unix socket is "created with restrictive permissions (0600)"
 /// (section 6.8.3), and that a local Unix control socket without a configured token "may use
 /// Admin authority because the socket is local and created with mode 0600" (section 6.9.5).
-/// Binding first and narrowing the mode afterwards would leave a window in which other local
-/// users can connect with that Admin authority.
-/// The umask is therefore narrowed only around `bind` and restored right after it, even when
-/// the bind fails. A path that holds anything other than a socket is refused, not removed.
+/// A socket that is bound but not yet listening refuses every connection, so the socket is
+/// bound, restricted to its owner and only then made to listen: no connection can be made
+/// while its mode is still the umask default. The process umask, which every thread shares, is
+/// never changed. A path that holds anything other than a socket is refused, not removed.
 #[cfg(unix)]
 fn bind_owner_only_socket(
     path: &std::path::Path,
 ) -> Result<std::os::unix::net::UnixListener, RuntimeError> {
-    use std::os::unix::fs::FileTypeExt;
+    use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 
     match std::fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_socket() => {
@@ -115,25 +109,46 @@ fn bind_owner_only_socket(
             ));
         }
     }
-    // Owner-only umask: a socket created under 0177 gets mode 0777 & !0177 = 0600.
-    let _umask_guard = UMASK_LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let previous = rustix::process::umask(rustix::fs::Mode::from_raw_mode(0o177));
-    let bound = std::os::unix::net::UnixListener::bind(path);
-    rustix::process::umask(previous);
-    bound.map_err(|err| RuntimeError::ControlError(format!("bind {path:?}: {err}").into()))
+    let failed = |action: &str, err: std::io::Error| {
+        RuntimeError::ControlError(format!("{action} {}: {err}", path.display()).into())
+    };
+    let socket = unix_stream_socket().map_err(|err| failed("create socket for", err.into()))?;
+    let address =
+        rustix::net::SocketAddrUnix::new(path).map_err(|err| failed("address", err.into()))?;
+    rustix::net::bind(&socket, &address).map_err(|err| failed("bind", err.into()))?;
+    // From here on a failure removes the socket file this call created.
+    let listen = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+        .map_err(|err| failed("restrict", err))
+        .and_then(|()| {
+            rustix::net::listen(&socket, 128).map_err(|err| failed("listen on", err.into()))
+        });
+    if let Err(err) = listen {
+        let _ = std::fs::remove_file(path);
+        return Err(err);
+    }
+    Ok(std::os::unix::net::UnixListener::from(socket))
 }
 
+/// A close-on-exec Unix stream socket, as `UnixListener::bind` creates. Apple targets have no
+/// atomic close-on-exec socket flag, so the flag is set right after creation, as `std` does.
 #[cfg(unix)]
-fn set_unix_permissions(path: &std::path::Path) -> Result<(), RuntimeError> {
-    use std::os::unix::fs::PermissionsExt;
-    let mut perms = std::fs::metadata(path)
-        .map_err(|err| RuntimeError::ControlError(format!("socket metadata: {err}").into()))?
-        .permissions();
-    perms.set_mode(0o600);
-    std::fs::set_permissions(path, perms)
-        .map_err(|err| RuntimeError::ControlError(format!("socket chmod: {err}").into()))
+fn unix_stream_socket() -> rustix::io::Result<std::os::fd::OwnedFd> {
+    use rustix::net::{AddressFamily, SocketType};
+    #[cfg(not(target_vendor = "apple"))]
+    {
+        rustix::net::socket_with(
+            AddressFamily::UNIX,
+            SocketType::STREAM,
+            rustix::net::SocketFlags::CLOEXEC,
+            None,
+        )
+    }
+    #[cfg(target_vendor = "apple")]
+    {
+        let socket = rustix::net::socket(AddressFamily::UNIX, SocketType::STREAM, None)?;
+        rustix::io::fcntl_setfd(&socket, rustix::io::FdFlags::CLOEXEC)?;
+        Ok(socket)
+    }
 }
 
 #[cfg(all(test, unix))]
