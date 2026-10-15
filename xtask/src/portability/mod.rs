@@ -1,5 +1,6 @@
-//! Host-side packaging and evidence checks for the F401 reference composition.
+//! Host-side packaging and evidence checks for the reference compositions: F401 and ESP32-C6.
 mod benchmark;
+mod board;
 mod build;
 mod build_artifacts;
 mod bundle;
@@ -10,10 +11,12 @@ mod source_identity;
 #[cfg(all(test, unix))]
 mod supply_chain_tests;
 mod trace;
+mod trace_profile;
 #[cfg(all(test, unix))]
 mod worker_gate_tests;
 
 use anyhow::{bail, Context, Result};
+use board::Board;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
@@ -34,7 +37,9 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             anyhow::ensure!(passed, "hosted benchmark acceptance failed");
             Ok(())
         }
-        [action, output] if action == "build-firmware" => build::firmware(root, output),
+        [action, name, output] if action == "build-firmware" => {
+            build::firmware(root, &Board::parse(name)?.profile(), output)
+        }
         [action, gpio, output] if action == "pack" => {
             let main = fs::read(root.join(FIXTURES).join("program-v2.stbc"))?;
             let numeric = fs::read(root.join(FIXTURES).join("numeric-v2.stbc"))?;
@@ -45,25 +50,27 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
                 "main_sha256":digest(&main), "numeric_sha256":digest(&numeric), "gpio_sha256":digest(&gpio)}));
             Ok(())
         }
-        [action, input, output] if action == "inspect" => {
+        [action, name, input, output] if action == "inspect" => {
+            let board = Board::parse(name)?.profile();
             let bytes = fs::read(input).context("read linked firmware")?;
-            write_report(output, elf::inspect(&bytes)?)
+            write_report(output, elf::inspect(&board, &bytes)?)
         }
         [action, current, baseline, output] if action == "footprint" => {
             let current = fs::read_to_string(current).context("read new linker map")?;
             let baseline = fs::read_to_string(baseline).context("read retained baseline linker map")?;
             write_report(output, map::compare(&current, &baseline)?)
         }
-        [action, input, output] if action == "verify" => {
+        [action, name, input, output] if action == "verify" => {
+            let board = Board::parse(name)?.profile();
             let raw = fs::read(input).context("read physical UART capture")?;
             anyhow::ensure!(raw.len() <= 256 * 1024, "UART capture exceeds reference bound");
             let text = std::str::from_utf8(&raw).context("UART capture is not UTF-8")?;
             let oracle = fs::read_to_string(root.join(FIXTURES).join("expected-a4-trace.csv"))?;
-            let mut report = trace::verify(text, &oracle)?;
+            let mut report = trace::verify(&board, text, &oracle)?;
             report["uart_sha256"] = digest(&raw).into();
             write_report(output, report)
         }
-        _ => bail!("expected portability build-firmware <config.json>, pack <gpio.stbc> <application.bin>, inspect <firmware.elf> <report.json>, verify <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
+        _ => bail!("expected portability build-firmware <board> <report.json>, pack <gpio.stbc> <application.bin>, inspect <board> <firmware.elf> <report.json>, verify <board> <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
     }
 }
 

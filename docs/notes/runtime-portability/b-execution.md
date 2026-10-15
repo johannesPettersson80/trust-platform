@@ -59,9 +59,9 @@ No source correction or command retry occurs while it runs.
 | Host checks | `cargo test -p trust-platform-stm32f4 -p xtask --no-fail-fast`; standalone firmware `cargo test --lib --target x86_64-unknown-linux-gnu`; runtime GPIO test plus required api_smoke/debug_control/complete_program/runtime_reliability | Frozen source |
 | MCU | Platform check and standalone release firmware build for `thumbv7em-none-eabihf`, linker map retained | Frozen source |
 | Quality | Changed-package Clippy, runtime cross-target warnings, supply chain, architecture full-map, then diagram render/drift; formatting and diff checks | Diagrams depend on architecture |
-| Packaging | Rust `cargo xtask portability pack`, then `inspect` linked ELF; preserve SHA-256 for ELF and every application artifact | Producer/link success |
+| Packaging | Rust `cargo xtask portability pack`, then `inspect nucleo-f401re` linked ELF; preserve SHA-256 for ELF and every application artifact | Producer/link success |
 | Physical | Back up current 512 KiB flash and reset/option evidence externally; program/verify firmware and separate application sector; capture bounded UART from before reset; no mass erase or option change | ELF inspection passed |
-| Device result | Rust `cargo xtask portability verify` captured UART against the unchanged A4 CSV and numeric contract | Complete physical capture |
+| Device result | Rust `cargo xtask portability verify nucleo-f401re` captured UART against the unchanged A4 CSV and numeric contract | Complete physical capture |
 | Closeout | Independent source/evidence reconciliation, measured sizes/heap/stack/timing table; failed/unrun checks explicit | All reachable batch steps finish |
 
 Required physical evidence: 101 main samples at 10 ms for one second, 40 nominal 25 ms

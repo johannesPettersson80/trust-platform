@@ -285,6 +285,8 @@ fn family(name: &str) -> &'static str {
         ("embedded_alloc::", "allocator"),
         ("__rustc::__rust_", "allocator"),
         ("trust_nucleo_f401re::", "firmware"),
+        // The M2E runner moved from the F401 firmware into the shared fixture crate.
+        ("trust_board_fixture::", "firmware"),
         ("trust_platform_stm32f4::", "adapter"),
     ] {
         if name.contains(needle) {

@@ -1,12 +1,11 @@
 //! The reference firmware's single build configuration, with local paths normalized.
+use super::board::BoardProfile;
 use anyhow::{ensure, Context, Result};
 use std::{env, fs, path::Path, process::Command};
 
-const TARGET: &str = "thumbv7em-none-eabihf";
-
-pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
+pub(super) fn firmware(root: &Path, board: &BoardProfile, report: &str) -> Result<()> {
     let root = root.canonicalize()?;
-    let directory = root.join("firmware/trust-nucleo-f401re");
+    let directory = root.join(board.firmware_dir);
     let config = fs::read_to_string(directory.join(".cargo/config.toml"))?;
     let cargo_home = env::var_os("CARGO_HOME")
         .map(std::path::PathBuf::from)
@@ -37,11 +36,18 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
         Err(error) => return Err(error).context("enumerate Cargo registry source roots"),
     }
     registry_sources.sort();
-    let mut flags = flags(&config, &root, &cargo_home, &library, &registry_sources)?;
+    let mut flags = flags(
+        board,
+        &config,
+        &root,
+        &cargo_home,
+        &library,
+        &registry_sources,
+    )?;
     let binary_flags = artifacts.map_flags(&mut flags)?;
     let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
     let mut configuration = serde_json::json!({
-        "target": TARGET, "profile": "release", "rustflags": flags,
+        "board": board.name, "target": board.target, "profile": "release", "rustflags": flags,
         "binary_rustflags": binary_flags, "manifest": directory.join("Cargo.toml"),
         "status": "started",
         "note": "Path normalization does not claim cross-checkout binary reproducibility."
@@ -55,9 +61,9 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
             "--locked",
             "--release",
             "--target",
-            TARGET,
+            board.target,
             "--bin",
-            "trust-nucleo-f401re",
+            board.bin,
             "--message-format=json-render-diagnostics",
             "--",
         ])
@@ -83,12 +89,13 @@ pub(super) fn firmware(root: &Path, report: &str) -> Result<()> {
         "reference firmware build failed: {}",
         output.status
     );
-    configuration["artifacts"] = artifacts.retain(std::str::from_utf8(&output.stdout)?)?;
+    configuration["artifacts"] = artifacts.retain(std::str::from_utf8(&output.stdout)?, board)?;
     configuration["status"] = "linked".into();
     super::write_report(report, configuration)
 }
 
 fn flags(
+    board: &BoardProfile,
     config: &str,
     root: &Path,
     cargo_home: &Path,
@@ -98,7 +105,7 @@ fn flags(
     let config: toml::Value = toml::from_str(config)?;
     let mut flags = config
         .get("target")
-        .and_then(|targets| targets.get(TARGET))
+        .and_then(|targets| targets.get(board.target))
         .and_then(|target| target.get("rustflags"))
         .and_then(toml::Value::as_array)
         .context("firmware target rustflags must be an array")?
@@ -115,6 +122,16 @@ fn flags(
             .any(|flag| flag.contains("machine-outliner-reruns")),
         "reference firmware requires the compiler's default outliner pass count"
     );
+    for pair in board.required_rustflags {
+        ensure!(
+            flags
+                .windows(2)
+                .any(|window| window[0] == pair[0] && window[1] == pair[1]),
+            "firmware target rustflags omit {} {}",
+            pair[0],
+            pair[1]
+        );
+    }
     for (source, normalized) in [
         (root.to_path_buf(), "/src"),
         (cargo_home.join("registry").join("src"), "/registry"),
@@ -180,6 +197,7 @@ mod tests {
             ],
         );
         let flags = flags(
+            &BoardProfile::nucleo_f401re(),
             config,
             Path::new(root),
             Path::new(cargo_home),
@@ -202,14 +220,16 @@ mod tests {
 
     #[test]
     fn extra_outliner_pass_is_rejected_before_building_firmware() {
+        let board = BoardProfile::nucleo_f401re();
         let config = include_str!("../../../firmware/trust-nucleo-f401re/.cargo/config.toml");
         let mut config: toml::Value = toml::from_str(config).unwrap();
-        let target_flags = config["target"][TARGET]["rustflags"]
+        let target_flags = config["target"][board.target]["rustflags"]
             .as_array_mut()
             .unwrap();
         target_flags.push("-C".into());
         target_flags.push("llvm-args=-machine-outliner-reruns=1".into());
         let error = flags(
+            &board,
             &toml::to_string(&config).unwrap(),
             Path::new("task"),
             Path::new("cargo"),
@@ -229,7 +249,15 @@ mod tests {
             cargo_home.join("registry/src/first"),
             cargo_home.join("registry/src/second"),
         ];
-        let flags = flags(config, root, cargo_home, Path::new("library"), &registries).unwrap();
+        let flags = flags(
+            &BoardProfile::nucleo_f401re(),
+            config,
+            root,
+            cargo_home,
+            Path::new("library"),
+            &registries,
+        )
+        .unwrap();
         let mappings: Vec<_> = flags
             .iter()
             .filter(|flag| flag.starts_with("--remap-path-prefix="))
@@ -250,5 +278,33 @@ mod tests {
             mappings[5],
             &format!("--remap-path-prefix={}=/registry1", registries[1].display())
         );
+    }
+
+    #[test]
+    fn c6_profile_requires_its_linker_script() {
+        let board = BoardProfile::esp32c6_devkitc_1();
+        let config = "[target.riscv32imac-unknown-none-elf]\nrustflags = [\"-C\", \"link-arg=-Tlinkall.x\", \"-C\", \"link-arg=-Map=trust-esp32c6-reference.map\"]\n";
+        let accepted = flags(
+            &board,
+            config,
+            Path::new("task"),
+            Path::new("cargo"),
+            Path::new("library"),
+            &[],
+        )
+        .unwrap();
+        assert!(accepted
+            .windows(2)
+            .any(|pair| pair == ["-C", "link-arg=-Tlinkall.x"]));
+        let without_linker_script = config.replace("link-arg=-Tlinkall.x", "link-arg=-Tother.x");
+        assert!(flags(
+            &board,
+            &without_linker_script,
+            Path::new("task"),
+            Path::new("cargo"),
+            Path::new("library"),
+            &[],
+        )
+        .is_err());
     }
 }

@@ -45,7 +45,7 @@ upper flash and 2 KiB measured MSP, with the 72 KiB heap and 16 KiB MSP partitio
 | F401/C6 portable graphs and isolated no_std behavior | Rust 1.95 locked no-default core tests, both MCU checks, no-dev feature trees. |
 | Actual 32-bit execution | Rust 1.95 no-default lib plus five selected source-free/foundations/load/frame suites on i686 musl using rust-lld and self-contained linking. |
 | Firmware and adapter checks | Rust 1.95 firmware/native tooling regressions, adapter cross-check and firmware release Clippy. |
-| Final release firmware identity/size | Canonical `cargo +1.95.0 xtask portability build-firmware`, retained map and `portability inspect`; no speculative linker knobs. |
+| Final release firmware identity/size | Canonical `cargo +1.95.0 xtask portability build-firmware nucleo-f401re <report>`, retained map and `portability inspect nucleo-f401re`; no speculative linker knobs. |
 | Dependency resolution/LSP prepush parity | Remaining hygiene/IEC/diagram contracts and Windows GNU LSP/xtask test compilation with CC/CXX unset; unchanged mesh/TLS retains its prior source-specific eight-iteration proof, and guard overlaps are deduplicated. |
 | Tool/provenance and advisory metadata | Native xtask tests via guard; applicable Python gate/contract/provenance suites; metadata statuses do not claim an unexecuted proof. |
 | MSRV and Rust API documentation | Rust 1.95 locked all-target checks, stable all-feature Rustdoc with denied warnings, matching the distinct CI lanes. |
