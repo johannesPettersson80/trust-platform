@@ -54,6 +54,34 @@ impl ExecutionServices for HostServices {
 /// selects prepared optimizations; it never removes an IEC function. Full
 /// controller/development services and construction APIs use the `full` feature.
 ///
+/// A saved application runs without a compiler session. This example loads the
+/// portability GPIO fixture, writes a global through the checked runtime-only API,
+/// runs one cycle, and reads the program result:
+///
+/// ```
+/// use trust_runtime::{
+///     runtime_core::vm::PreparationLimits,
+///     value::{Duration, Value},
+///     Runtime,
+/// };
+///
+/// const GPIO: &[u8] = include_bytes!("../../tests/fixtures/portability/f401/gpio.stbc");
+/// let mut runtime = Runtime::from_bytes(GPIO, PreparationLimits::default())?;
+/// runtime.write_global("probe_depth", Value::Int(3))?;
+/// runtime.advance_time(Duration::from_millis(10));
+/// runtime.execute_cycle()?;
+/// assert_eq!(runtime.storage().get_global("probe_depth"), Some(&Value::Int(3)));
+/// let Some(Value::Instance(plant)) = runtime.storage().get_global("Plant") else {
+///     panic!("admitted program root")
+/// };
+/// assert_eq!(
+///     runtime.storage().get_instance_var(*plant, "depth_result"),
+///     Some(&Value::Int(3)),
+/// );
+/// assert!(!runtime.faulted());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
 /// ```compile_fail,E0599
 /// fn bypass(runtime: &mut trust_runtime::Runtime) {
 ///     let _ = runtime.storage_mut();
@@ -68,6 +96,7 @@ impl ExecutionServices for HostServices {
 /// fn bypass(runtime: &mut trust_runtime::Runtime) {
 ///     let _ = runtime.io_mut();
 /// }
+/// ```
 pub struct Runtime {
     state: OwnedRuntimeState<HostServices>,
 }

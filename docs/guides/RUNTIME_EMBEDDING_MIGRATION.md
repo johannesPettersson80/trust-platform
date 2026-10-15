@@ -59,12 +59,98 @@ timing and report application rejection separately from queue acceptance.
 `retain:` targets resolve retained declarations in their actual globals or
 program fields; no second live retain bank is created.
 
+An alias write goes through the same checked owner as a global write. The alias
+is declared with `VAR_ACCESS` and must be `READ_WRITE`:
+
+```rust
+use trust_runtime::{harness::CompileSession, value::Value};
+
+let mut runtime = CompileSession::from_source(
+    "PROGRAM Main VAR member : INT := 2; END_VAR END_PROGRAM \
+     CONFIGURATION C PROGRAM P : Main; \
+     VAR_ACCESS Engineering : P.member : INT READ_WRITE; END_VAR \
+     END_CONFIGURATION",
+).build_runtime()?;
+runtime.write_access("Engineering", Value::Int(9))?;
+assert_eq!(runtime.read_access("Engineering"), Some(Value::Int(9)));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+A process-image write takes effect at once, but it is not a persistent override.
+Every cycle publishes each bound output again from its PLC variable. Here the
+bound `lamp` stays FALSE, so the cycle replaces the written TRUE with FALSE. To
+change a bound output for good, change the value the program computes.
+
+```rust
+use trust_runtime::{harness::CompileSession, io::IoAddress, value::Value};
+
+let mut runtime = CompileSession::from_source(
+    "PROGRAM Main VAR lamp AT %QX0.0 : BOOL := FALSE; END_VAR END_PROGRAM",
+).build_runtime()?;
+let lamp = IoAddress::parse("%QX0.0")?;
+runtime.write_io(&lamp, Value::Bool(true))?;
+assert_eq!(runtime.io().read(&lamp)?, Value::Bool(true));
+runtime.execute_cycle()?;
+assert_eq!(runtime.io().read(&lamp)?, Value::Bool(false));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+To drive the program, write an input that it reads. The next cycle executes with
+that input, and the program's output follows:
+
+```rust
+use trust_runtime::{harness::CompileSession, io::IoAddress, value::Value};
+
+let mut runtime = CompileSession::from_source(
+    "PROGRAM Main VAR button AT %IX0.0 : BOOL; lamp AT %QX0.0 : BOOL; END_VAR \
+     lamp := button; END_PROGRAM",
+).build_runtime()?;
+runtime.write_io(&IoAddress::parse("%IX0.0")?, Value::Bool(true))?;
+runtime.execute_cycle()?;
+assert_eq!(runtime.io().read(&IoAddress::parse("%QX0.0")?)?, Value::Bool(true));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
 Task/resource/image/binding updates in the full controller use a staged,
 resource-only transaction and preserve PLC values and instance identities.
 Code or declared-schema replacement follows the existing warm-restart and
 retain policy. Failure to prepare or bind a candidate leaves the old controller
 installed. Resolve live references again after replacement rather than guessing
 instance IDs from artifact indexes.
+
+A declaration change uses the same boundary. The replacement below adds `added`
+and changes the code. `count` is RETAIN, so it keeps its value by name.
+`transient` is not retained, so it starts again from its declaration. The
+logical time is kept, and the replacement code runs in the next cycle.
+Specification 34 §11.3 defines which retained graphs migrate. An incompatible
+retained object graph is rejected, and the installed controller stays unchanged.
+
+```rust
+use trust_runtime::{harness::CompileSession, value::{Duration, Value}};
+
+let mut runtime = CompileSession::from_source(
+    "VAR_GLOBAL RETAIN count : DINT := DINT#3; END_VAR \
+     VAR_GLOBAL transient : DINT := DINT#4; END_VAR \
+     PROGRAM Main count := count + DINT#1; END_PROGRAM",
+).build_runtime()?;
+runtime.write_global("count", Value::DInt(12))?;
+runtime.write_global("transient", Value::DInt(99))?;
+runtime.set_current_time(Duration::from_millis(35));
+let replacement = CompileSession::from_source(
+    "VAR_GLOBAL RETAIN count : DINT := DINT#3; END_VAR \
+     VAR_GLOBAL transient : DINT := DINT#4; END_VAR \
+     VAR_GLOBAL added : DINT := DINT#7; END_VAR \
+     PROGRAM Main count := count + DINT#2; END_PROGRAM",
+).build_bytecode_module()?;
+runtime.apply_bytecode_module(&replacement, None)?;
+assert_eq!(runtime.storage().get_global("count"), Some(&Value::DInt(12)));
+assert_eq!(runtime.storage().get_global("transient"), Some(&Value::DInt(4)));
+assert_eq!(runtime.storage().get_global("added"), Some(&Value::DInt(7)));
+assert_eq!(runtime.current_time(), Duration::from_millis(35));
+runtime.execute_cycle()?;
+assert_eq!(runtime.storage().get_global("count"), Some(&Value::DInt(14)));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
 
 STBC 1.1 loading requires the full authoring composition's explicit matching
 construction context, `CompileSession::build_runtime_from_bytecode`. It preserves
