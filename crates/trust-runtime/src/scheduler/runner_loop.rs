@@ -102,8 +102,14 @@ fn run_resource_loop_core<C, F>(
     C: Clock + Clone,
     F: FnMut(&mut Runtime) -> Result<(), RuntimeError>,
 {
+    let shared = LoopShared {
+        stop: &stop,
+        state: &state,
+        last_error: &last_error,
+        supervision: &supervision,
+    };
     let mut paused = false;
-    let mut automatic_restarts = AutomaticRestartLimiter::default();
+    let mut restarts = AutomaticRestartLimiter::default();
     let mut hang_supervisor: Option<supervisor::HangSupervisor> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
@@ -117,16 +123,7 @@ fn run_resource_loop_core<C, F>(
         if let Err(err) =
             supervisor::sync_hang_supervisor(&mut hang_supervisor, &runner, &supervision)
         {
-            if faulted::halt_and_wait(
-                &mut runner,
-                &stop,
-                &state,
-                &last_error,
-                &supervision,
-                &mut automatic_restarts,
-                err,
-            ) == faulted::FaultedWait::Stopped
-            {
+            if halt(&mut runner, &shared, &mut restarts, err) == Next::Exit {
                 return;
             }
             paused = false;
@@ -134,59 +131,20 @@ fn run_resource_loop_core<C, F>(
         }
 
         if stop.load(Ordering::SeqCst) {
-            let mut stop_error = None;
-            if let Err(err) = runner.runtime.apply_io_safe_state() {
-                stop_error = Some(err);
-            }
-            if let Err(err) = runner.runtime.save_retain_store()
-                && stop_error.is_none()
-            {
-                stop_error = Some(err);
-            }
-            // A stop request ends the thread at once, so a stop-time failure is recorded
-            // without entering the faulted wait.
-            if let Some(err) = stop_error {
-                set_last_error(&last_error, err);
-                set_resource_state(&state, ResourceState::Faulted);
-            } else {
-                set_resource_state(&state, ResourceState::Stopped);
-            }
+            stop_resource(&mut runner, &shared);
             break;
         }
 
-        if let Some(commands) = runner.command_rx.as_ref() {
-            while let Ok(command) = commands.try_recv() {
-                match command {
-                    ResourceCommand::Pause => {
-                        paused = true;
-                        set_resource_state(&state, ResourceState::Paused);
-                    }
-                    ResourceCommand::Resume => {
-                        paused = false;
-                        set_resource_state(&state, ResourceState::Running);
-                    }
-                    other => apply_resource_command(&mut runner.runtime, other),
-                }
-            }
-        }
+        drain_commands(&mut runner, &state, &mut paused);
 
         if let Some(mode) = faulted::take_pending_restart(&runner) {
             match runner.restart_with_retain_store(mode) {
                 Ok(()) => {
-                    automatic_restarts.reset();
+                    restarts.reset();
                     faulted::clear_recovered_fault(&supervision, &last_error);
                 }
                 Err(err) => {
-                    if faulted::halt_and_wait(
-                        &mut runner,
-                        &stop,
-                        &state,
-                        &last_error,
-                        &supervision,
-                        &mut automatic_restarts,
-                        err,
-                    ) == faulted::FaultedWait::Stopped
-                    {
+                    if halt(&mut runner, &shared, &mut restarts, err) == Next::Exit {
                         return;
                     }
                     paused = false;
@@ -196,18 +154,7 @@ fn run_resource_loop_core<C, F>(
         }
 
         if paused {
-            let now_raw = runner.clock.now();
-            let interval = runner.cycle_interval.as_nanos();
-            if interval <= 0 {
-                thread::yield_now();
-            } else {
-                let sleep_interval =
-                    scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
-                let deadline = Duration::from_nanos(
-                    now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()),
-                );
-                runner.clock.sleep_until(deadline);
-            }
+            sleep_one_interval(&runner, runner.clock.now());
             continue;
         }
 
@@ -230,147 +177,222 @@ fn run_resource_loop_core<C, F>(
         restore_cycle_deadlines(&mut runner.runtime, deadline_snapshot);
         supervision.withdraw();
         if let Err(err) = result {
-            if watchdog.enabled
-                && matches!(
-                    err,
-                    RuntimeError::WatchdogTimeout
-                        | RuntimeError::ExecutionTimeout
-                        | RuntimeError::ExecutionLimit { .. }
-                )
-            {
-                let watchdog_err = match err {
-                    RuntimeError::ExecutionLimit { .. } => err,
-                    _ => RuntimeError::WatchdogTimeout,
-                };
-                if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
-                    if !try_automatic_restart(
-                        &mut runner,
-                        &mut automatic_restarts,
-                        &watchdog_err,
-                        &state,
-                        &last_error,
-                        &supervision,
-                    ) && faulted::wait_while_faulted(
-                        &mut runner,
-                        &stop,
-                        &state,
-                        &last_error,
-                        &supervision,
-                        &mut automatic_restarts,
-                    ) == faulted::FaultedWait::Stopped
-                    {
-                        return;
-                    }
-                    continue;
-                }
-                let err = runner.runtime.watchdog_fault(watchdog_err);
-                if faulted::halt_and_wait(
-                    &mut runner,
-                    &stop,
-                    &state,
-                    &last_error,
-                    &supervision,
-                    &mut automatic_restarts,
-                    err,
-                ) == faulted::FaultedWait::Stopped
-                {
-                    return;
-                }
-                continue;
-            }
-            if matches!(
-                runner.runtime.fault_policy(),
-                crate::watchdog::FaultPolicy::Restart
-            ) && !matches!(err, RuntimeError::ResourcePanic(_))
-            {
-                if !try_automatic_restart(
-                    &mut runner,
-                    &mut automatic_restarts,
-                    &err,
-                    &state,
-                    &last_error,
-                    &supervision,
-                ) && faulted::wait_while_faulted(
-                    &mut runner,
-                    &stop,
-                    &state,
-                    &last_error,
-                    &supervision,
-                    &mut automatic_restarts,
-                ) == faulted::FaultedWait::Stopped
-                {
-                    return;
-                }
-                continue;
-            }
-            if faulted::halt_and_wait(
-                &mut runner,
-                &stop,
-                &state,
-                &last_error,
-                &supervision,
-                &mut automatic_restarts,
-                err,
-            ) == faulted::FaultedWait::Stopped
+            if handle_cycle_error(&mut runner, &shared, &mut restarts, watchdog, err) == Next::Exit
             {
                 return;
             }
             continue;
         }
-        if watchdog.enabled {
-            let active_elapsed = wall_start.elapsed().saturating_sub(paused_during_cycle);
-            let elapsed = i64::try_from(active_elapsed.as_nanos()).unwrap_or(i64::MAX);
-            if elapsed > watchdog.timeout.as_nanos() {
-                if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
-                    let err = RuntimeError::WatchdogTimeout;
-                    if !try_automatic_restart(
-                        &mut runner,
-                        &mut automatic_restarts,
-                        &err,
-                        &state,
-                        &last_error,
-                        &supervision,
-                    ) && faulted::wait_while_faulted(
-                        &mut runner,
-                        &stop,
-                        &state,
-                        &last_error,
-                        &supervision,
-                        &mut automatic_restarts,
-                    ) == faulted::FaultedWait::Stopped
-                    {
-                        return;
-                    }
-                    continue;
-                }
-                let err = runner.runtime.watchdog_timeout();
-                if faulted::halt_and_wait(
-                    &mut runner,
-                    &stop,
-                    &state,
-                    &last_error,
-                    &supervision,
-                    &mut automatic_restarts,
-                    err,
-                ) == faulted::FaultedWait::Stopped
-                {
-                    return;
-                }
-                continue;
+        let active_elapsed = wall_start.elapsed().saturating_sub(paused_during_cycle);
+        if let Some(next) = handle_watchdog_overrun(
+            &mut runner,
+            &shared,
+            &mut restarts,
+            watchdog,
+            active_elapsed,
+        ) {
+            if next == Next::Exit {
+                return;
             }
-        }
-        automatic_restarts.reset();
-
-        let interval = runner.cycle_interval.as_nanos();
-        if interval <= 0 {
-            thread::yield_now();
             continue;
         }
-        let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
-        let deadline =
-            Duration::from_nanos(now_raw.as_nanos().saturating_add(sleep_interval.as_nanos()));
-        runner.clock.sleep_until(deadline);
+        restarts.reset();
+        sleep_one_interval(&runner, now_raw);
     }
+}
+
+/// The handles every step of the scan loop shares with the control plane and the supervisor.
+struct LoopShared<'a> {
+    stop: &'a AtomicBool,
+    state: &'a Arc<Mutex<ResourceState>>,
+    last_error: &'a Arc<Mutex<Option<RuntimeError>>>,
+    supervision: &'a supervisor::ScanSupervision,
+}
+
+/// What the scan loop does after a fault was handled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Next {
+    /// A recovery succeeded, so the loop continues with the next pass.
+    Continue,
+    /// A stop request ended the faulted wait, so the thread ends.
+    Exit,
+}
+
+/// Records a halting fault and waits in the faulted state (spec 11 section 6.6).
+fn halt<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    shared: &LoopShared<'_>,
+    restarts: &mut AutomaticRestartLimiter,
+    fault: RuntimeError,
+) -> Next {
+    let wait = faulted::halt_and_wait(
+        runner,
+        shared.stop,
+        shared.state,
+        shared.last_error,
+        shared.supervision,
+        restarts,
+        fault,
+    );
+    next_after(wait)
+}
+
+/// Tries an automatic warm restart; when the retry budget is spent or the restart fails, the
+/// resource is faulted and waits for recovery.
+fn retry_or_wait<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    shared: &LoopShared<'_>,
+    restarts: &mut AutomaticRestartLimiter,
+    reason: &RuntimeError,
+) -> Next {
+    if try_automatic_restart(
+        runner,
+        restarts,
+        reason,
+        shared.state,
+        shared.last_error,
+        shared.supervision,
+    ) {
+        return Next::Continue;
+    }
+    let wait = faulted::wait_while_faulted(
+        runner,
+        shared.stop,
+        shared.state,
+        shared.last_error,
+        shared.supervision,
+        restarts,
+    );
+    next_after(wait)
+}
+
+fn next_after(wait: faulted::FaultedWait) -> Next {
+    match wait {
+        faulted::FaultedWait::Resumed => Next::Continue,
+        faulted::FaultedWait::Stopped => Next::Exit,
+    }
+}
+
+/// Follows the watchdog action for a timeout or limit error, the fault policy's automatic restart
+/// for other errors (never for a contained panic), and otherwise halts.
+fn handle_cycle_error<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    shared: &LoopShared<'_>,
+    restarts: &mut AutomaticRestartLimiter,
+    watchdog: crate::watchdog::WatchdogPolicy,
+    err: RuntimeError,
+) -> Next {
+    if watchdog.enabled
+        && matches!(
+            err,
+            RuntimeError::WatchdogTimeout
+                | RuntimeError::ExecutionTimeout
+                | RuntimeError::ExecutionLimit { .. }
+        )
+    {
+        let watchdog_err = match err {
+            RuntimeError::ExecutionLimit { .. } => err,
+            _ => RuntimeError::WatchdogTimeout,
+        };
+        if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
+            return retry_or_wait(runner, shared, restarts, &watchdog_err);
+        }
+        let err = runner.runtime.watchdog_fault(watchdog_err);
+        return halt(runner, shared, restarts, err);
+    }
+    if matches!(
+        runner.runtime.fault_policy(),
+        crate::watchdog::FaultPolicy::Restart
+    ) && !matches!(err, RuntimeError::ResourcePanic(_))
+    {
+        return retry_or_wait(runner, shared, restarts, &err);
+    }
+    halt(runner, shared, restarts, err)
+}
+
+/// Applies the watchdog action when a cycle that returned still overran its active-execution
+/// budget. None when the watchdog is disabled or the cycle stayed within it.
+fn handle_watchdog_overrun<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    shared: &LoopShared<'_>,
+    restarts: &mut AutomaticRestartLimiter,
+    watchdog: crate::watchdog::WatchdogPolicy,
+    active_elapsed: std::time::Duration,
+) -> Option<Next> {
+    if !watchdog.enabled {
+        return None;
+    }
+    let elapsed = i64::try_from(active_elapsed.as_nanos()).unwrap_or(i64::MAX);
+    if elapsed <= watchdog.timeout.as_nanos() {
+        return None;
+    }
+    if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
+        return Some(retry_or_wait(
+            runner,
+            shared,
+            restarts,
+            &RuntimeError::WatchdogTimeout,
+        ));
+    }
+    let err = runner.runtime.watchdog_timeout();
+    Some(halt(runner, shared, restarts, err))
+}
+
+/// Applies the safe state and saves the retain store for a stop request. A stop request ends the
+/// thread at once, so a stop-time failure is recorded without entering the faulted wait.
+fn stop_resource<C: Clock + Clone>(runner: &mut ResourceRunner<C>, shared: &LoopShared<'_>) {
+    let mut stop_error = None;
+    if let Err(err) = runner.runtime.apply_io_safe_state() {
+        stop_error = Some(err);
+    }
+    if let Err(err) = runner.runtime.save_retain_store()
+        && stop_error.is_none()
+    {
+        stop_error = Some(err);
+    }
+    if let Some(err) = stop_error {
+        set_last_error(shared.last_error, err);
+        set_resource_state(shared.state, ResourceState::Faulted);
+    } else {
+        set_resource_state(shared.state, ResourceState::Stopped);
+    }
+}
+
+/// Serves every queued command: pause and resume change the loop's state, the others act on the
+/// runtime.
+fn drain_commands<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    state: &Arc<Mutex<ResourceState>>,
+    paused: &mut bool,
+) {
+    let Some(commands) = runner.command_rx.as_ref() else {
+        return;
+    };
+    while let Ok(command) = commands.try_recv() {
+        match command {
+            ResourceCommand::Pause => {
+                *paused = true;
+                set_resource_state(state, ResourceState::Paused);
+            }
+            ResourceCommand::Resume => {
+                *paused = false;
+                set_resource_state(state, ResourceState::Running);
+            }
+            other => apply_resource_command(&mut runner.runtime, other),
+        }
+    }
+}
+
+/// Sleeps until one cycle interval after `from`, or yields when the interval is not positive.
+fn sleep_one_interval<C: Clock + Clone>(runner: &ResourceRunner<C>, from: Duration) {
+    let interval = runner.cycle_interval.as_nanos();
+    if interval <= 0 {
+        thread::yield_now();
+        return;
+    }
+    let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
+    let deadline = Duration::from_nanos(from.as_nanos().saturating_add(sleep_interval.as_nanos()));
+    runner.clock.sleep_until(deadline);
 }
 
 #[derive(Debug, Default)]
