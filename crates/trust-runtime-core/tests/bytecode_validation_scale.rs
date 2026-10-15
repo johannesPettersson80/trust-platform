@@ -200,3 +200,106 @@ fn diagnostic_length_does_not_replace_the_actual_rejection_with_a_budget_error()
         other => panic!("lost original rejection: {other:?}"),
     }
 }
+
+// A source-free artifact whose one declaration is an array of `elements` BOOL values.
+// Every construction table is present; only the declaration has content.
+fn source_free_array_declaration(elements: i64) -> BytecodeModule {
+    let mut module = bytecode_helpers::base_module();
+    module.version = BytecodeVersion::SOURCE_FREE;
+    module.flags = HEADER_FLAG_CRC32;
+    let Some(SectionData::TypeTable(types)) = module.section_mut(SectionId::TypeTable) else {
+        panic!("types");
+    };
+    types.entries.push(TypeEntry {
+        kind: TypeKind::Array,
+        name_idx: None,
+        data: TypeData::Array {
+            elem_type_id: 0,
+            dims: vec![(0, elements - 1)],
+        },
+    });
+    types.offsets = compute_type_offsets_for_entries(&types.entries).unwrap();
+    let declaration = StorageDeclaration {
+        owner: StorageOwner::Global,
+        role: StorageRole::Variable,
+        retain: 0,
+        flags: 0,
+        owner_pou_id: None,
+        name_idx: 2,
+        type_id: Some(1),
+        slot: 0,
+        ref_idx: None,
+        default_const_idx: None,
+        construction_nodes: 0,
+        related_declaration_idx: None,
+        source_name_idx: None,
+    };
+    module.sections.extend([
+        Section {
+            id: SectionId::StorageLayout.as_raw(),
+            flags: 0,
+            data: SectionData::StorageLayout(StorageLayout {
+                entries: vec![declaration],
+            }),
+        },
+        Section {
+            id: SectionId::ConstructionRoots.as_raw(),
+            flags: 0,
+            data: SectionData::ConstructionRoots(ConstructionRoots::default()),
+        },
+        Section {
+            id: SectionId::Initializers.as_raw(),
+            flags: 0,
+            data: SectionData::Initializers(InitializerIndex::default()),
+        },
+        Section {
+            id: SectionId::AccessBindings.as_raw(),
+            flags: 0,
+            data: SectionData::AccessBindings(AccessBindings::default()),
+        },
+    ]);
+    module
+}
+
+#[test]
+fn construction_node_demand_admits_one_million_and_refuses_one_more() {
+    // An array demands the root node plus one node per element: 1 + 999,999 nodes.
+    assert_eq!(
+        construction_demands(
+            source_free_array_declaration(999_999).view(),
+            ValidationLimits::default()
+        ),
+        Ok(vec![1_000_000])
+    );
+    // Sites: validate/construction/demand.rs:213-217 (`add`, reached from `include`)
+    // and the per-declaration check at demand.rs:203. Both return
+    // ConstructionDemandOverflow; `add` reports 1 + 1,000,000 nodes first.
+    assert_eq!(
+        construction_demands(
+            source_free_array_declaration(1_000_000).view(),
+            ValidationLimits::default()
+        ),
+        Err(BytecodeError::from(
+            RejectionReason::ConstructionDemandOverflow
+        ))
+    );
+}
+
+#[test]
+fn construction_record_limit_refuses_the_next_declaration_at_validation() {
+    // Site: validate/construction.rs:58 (sections), reached before any declaration is
+    // indexed. The count is one past the 65,536 limit.
+    let mut module = source_free_array_declaration(1);
+    let Some(SectionData::StorageLayout(layout)) = module.section_mut(SectionId::StorageLayout)
+    else {
+        panic!("layout");
+    };
+    let declaration = layout.entries[0].clone();
+    layout.entries = vec![declaration; BYTECODE_MAX_CONSTRUCTION_RECORDS + 1];
+    assert_eq!(
+        module
+            .validated_source_free(ValidationLimits::default())
+            .unwrap_err(),
+        BytecodeError::from(RejectionReason::InvalidConstructionRecord)
+    );
+}

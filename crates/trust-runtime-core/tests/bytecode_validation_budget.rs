@@ -4,7 +4,8 @@ mod bytecode_helpers;
 use bytecode_helpers::base_module;
 use trust_runtime_core::bytecode::{
     BytecodeError, BytecodeModule, ConstEntry, RejectionReason, SectionData, SectionId,
-    ValidationLimits, BYTECODE_MAX_INSTRUCTIONS,
+    ValidationLimits, BYTECODE_MAX_INSTRUCTIONS, BYTECODE_MAX_LOCALS_PER_POU,
+    BYTECODE_MAX_REFERENCES, NATIVE_CALL_KIND_FUNCTION,
 };
 
 fn module_with_code(code: Vec<u8>) -> BytecodeModule {
@@ -35,6 +36,25 @@ fn load_bool(code: &mut Vec<u8>) {
 fn jump(code: &mut Vec<u8>, opcode: u8, offset: i32) {
     code.push(opcode);
     code.extend_from_slice(&offset.to_le_bytes());
+}
+
+// CALL_NATIVE with function kind, symbol 0 ("R" in the base string table) and arg_count.
+fn call_native(code: &mut Vec<u8>, arg_count: u32) {
+    code.push(0x09);
+    code.extend_from_slice(&NATIVE_CALL_KIND_FUNCTION.to_le_bytes());
+    code.extend_from_slice(&0u32.to_le_bytes());
+    code.extend_from_slice(&arg_count.to_le_bytes());
+}
+
+// Accepts only an InvalidSection whose rendered text is exactly `expected`.
+fn assert_refused_as_invalid_section<T: std::fmt::Debug>(
+    result: Result<T, BytecodeError>,
+    expected: &str,
+) {
+    match result {
+        Err(BytecodeError::InvalidSection(ref message)) if message == expected => {}
+        other => panic!("expected InvalidSection({expected:?}), got {other:?}"),
+    }
 }
 
 #[test]
@@ -346,4 +366,126 @@ fn nested_type_metadata_consumes_the_shared_work_budget() {
     module
         .validated()
         .expect("nested metadata fits normal hosted limits");
+}
+
+#[test]
+fn call_native_argument_boundary_is_exact_through_module_validation() {
+    // 1,024 BOOL values are pushed; the call pops all of them and its result is discarded.
+    let mut admitted = Vec::new();
+    load_bool(&mut admitted);
+    admitted.extend(std::iter::repeat_n(0x11, 1023));
+    call_native(&mut admitted, 1024);
+    admitted.extend_from_slice(&[0x12, 0x06]);
+    module_with_code(admitted)
+        .validated()
+        .expect("1,024 native-call arguments are admitted");
+
+    // Site: validate/pou_and_instr.rs:214-218. Operand decoding refuses 1,025 before
+    // any stack shape is analysed.
+    let mut refused = Vec::new();
+    call_native(&mut refused, 1025);
+    refused.push(0x06);
+    assert_eq!(
+        module_with_code(refused).validated().unwrap_err(),
+        BytecodeError::from(RejectionReason::CallNativeArgCountOutOfRange)
+    );
+}
+
+#[test]
+fn decode_charge_refuses_instruction_1000001_before_its_jump_is_checked() {
+    // Site: validate/instructions.rs:66. 1,000,000 NOPs are admitted. The next
+    // instruction is a JUMP far outside the body; the decode charge refuses it before
+    // its opcode is read or its target is checked.
+    let mut code = vec![0x00; BYTECODE_MAX_INSTRUCTIONS];
+    jump(&mut code, 0x02, i32::MAX);
+    assert_refused_as_invalid_section(
+        module_with_code(code).validated(),
+        "decoded module instructions exceed fixed resource limit",
+    );
+}
+
+#[test]
+fn reference_table_overflow_is_the_first_declared_resource_fault() {
+    use trust_runtime_core::bytecode::{RefEntry, RefLocation};
+    let mut module = base_module();
+    let Some(SectionData::RefTable(refs)) = module.section_mut(SectionId::RefTable) else {
+        panic!("refs");
+    };
+    let entry = RefEntry {
+        location: RefLocation::Global,
+        owner_id: 0,
+        offset: 0,
+        segments: vec![],
+    };
+    refs.entries = vec![entry; BYTECODE_MAX_REFERENCES + 1];
+    let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) else {
+        panic!("index");
+    };
+    // Sites: validate/module_validate.rs:91 calls validate/resource_limits.rs:12-16,
+    // which checks REF_TABLE before POU locals. The POU's local count also exceeds its
+    // limit, so the REF_TABLE check must be the one reported.
+    index.entries[0].local_ref_count = BYTECODE_MAX_LOCALS_PER_POU as u32 + 1;
+    assert_refused_as_invalid_section(
+        module.validated(),
+        "REF_TABLE entries exceed fixed resource limit",
+    );
+}
+
+#[test]
+fn pou_local_overflow_is_reported_when_the_reference_table_fits() {
+    let mut module = base_module();
+    let Some(SectionData::PouIndex(index)) = module.section_mut(SectionId::PouIndex) else {
+        panic!("index");
+    };
+    index.entries[0].local_ref_count = BYTECODE_MAX_LOCALS_PER_POU as u32 + 1;
+    assert_refused_as_invalid_section(
+        module.validated(),
+        "POU local references exceed fixed resource limit",
+    );
+}
+
+#[test]
+fn decoded_instruction_limit_precedes_the_operand_stack_limit_in_one_body() {
+    // Sites: validate/instructions.rs:66 (decode charge) runs for the whole body before
+    // the DUP push in validate/stack_shape.rs:214-219, whose depth check is
+    // validate/budget.rs:82. The 16,384th DUP would reach 16,385 stack values, but the
+    // body's 1,000,001st instruction is refused while decoding.
+    let depth = trust_runtime_core::vm::VM_MAX_OPERAND_STACK;
+    let mut code = Vec::new();
+    load_bool(&mut code);
+    code.extend(std::iter::repeat_n(0x11, depth));
+    code.extend(std::iter::repeat_n(0x00, BYTECODE_MAX_INSTRUCTIONS - depth));
+    assert_refused_as_invalid_section(
+        module_with_code(code).validated(),
+        "decoded module instructions exceed fixed resource limit",
+    );
+}
+
+#[test]
+fn operand_stack_limit_refuses_the_value_above_the_fixed_depth() {
+    // Site: validate/budget.rs:82 via the DUP push in validate/stack_shape.rs:214-219.
+    // One PUSH_CONST and `depth` DUPs leave depth + 1 values; the last DUP is refused.
+    let depth = trust_runtime_core::vm::VM_MAX_OPERAND_STACK;
+    let mut code = Vec::new();
+    load_bool(&mut code);
+    code.extend(std::iter::repeat_n(0x11, depth));
+    code.push(0x06);
+    assert_refused_as_invalid_section(
+        module_with_code(code).validated(),
+        "operand stack values exceed fixed resource limit",
+    );
+}
+
+#[test]
+fn operand_stack_limit_admits_exactly_the_fixed_depth() {
+    // One PUSH_CONST and depth - 1 DUPs leave exactly depth values, all popped again.
+    let depth = trust_runtime_core::vm::VM_MAX_OPERAND_STACK;
+    let mut code = Vec::new();
+    load_bool(&mut code);
+    code.extend(std::iter::repeat_n(0x11, depth - 1));
+    code.extend(std::iter::repeat_n(0x12, depth));
+    code.push(0x06);
+    module_with_code(code)
+        .validated()
+        .expect("exactly the operand-stack limit is admitted");
 }

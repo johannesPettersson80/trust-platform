@@ -495,4 +495,14 @@ mod tests {
             Err(SizeOfError::UnsupportedType)
         );
     }
+
+    #[test]
+    fn lreal_array_of_two_pow_twenty_nine_elements_has_the_same_size_on_every_target() {
+        // 2^29 LREAL elements occupy 2^32 bytes, one more than a 32-bit usize holds. Sizes are
+        // computed in u64, so a 32-bit target (the i686 lane) reports the exact extent instead
+        // of wrapping to zero.
+        let mut registry = TypeRegistry::new();
+        let array = registry.register_array(TypeId::LREAL, vec![(0, (1_i64 << 29) - 1)]);
+        assert_eq!(size_of_type(array, &registry), Ok(4_294_967_296));
+    }
 }

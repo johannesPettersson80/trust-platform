@@ -210,3 +210,26 @@ fn activation_record_charge_matches_native_layout_and_clone_preserves_registry()
         clone.execution_frame_capacity()
     );
 }
+
+#[test]
+fn reserved_frame_capacity_refusal_is_call_stack_overflow_and_issues_no_identity() {
+    let mut storage = VariableStorage::new();
+    storage.reserve_execution_frames(1).unwrap();
+    let first = storage.reserve_execution_frame().unwrap();
+    // The counter advances past the one admitted identity (reserve_execution_frame, memory/execution_frames.rs:58-73).
+    assert_eq!(storage.next_frame_id, first.0 + 1);
+    let next_after_first = storage.next_frame_id;
+
+    // The capacity check runs before the identity is issued, so the counter is unchanged.
+    let error = storage.reserve_execution_frame().unwrap_err();
+    assert_eq!(
+        error,
+        crate::vm::VmTrap::CallStackOverflow.into_runtime_error()
+    );
+    assert_eq!(
+        error.stable_code(),
+        crate::error::StableErrorCode::VmCallStackOverflow
+    );
+    assert_eq!(storage.next_frame_id, next_after_first);
+    assert_eq!(storage.execution_frame_count(), 1);
+}

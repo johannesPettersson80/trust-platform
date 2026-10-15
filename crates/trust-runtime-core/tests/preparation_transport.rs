@@ -1,6 +1,7 @@
 //! Byte transport is decoded once; struct-built input retains bounded encoding.
 use trust_runtime_core::{
     bytecode::{BytecodeError, BytecodeModule, SectionData, SectionId, ValidationLimits},
+    error::RuntimeError,
     value::Duration,
     vm::{PreparationLimits, PreparedModule},
 };
@@ -77,16 +78,23 @@ fn both_routes_enforce_exact_cumulative_limits_and_full_validation() {
             ..Default::default()
         };
         assert!(prepare(exact).is_ok());
-        assert!(prepare(PreparationLimits {
-            max_preparation_bytes: usage.bytes - 1,
-            ..exact
-        })
-        .is_err());
-        assert!(prepare(PreparationLimits {
-            max_preparation_work: usage.work - 1,
-            ..exact
-        })
-        .is_err());
+        // The cumulative charge that crosses either limit is refused at budget.rs:43-46.
+        assert_eq!(
+            prepare(PreparationLimits {
+                max_preparation_bytes: usage.bytes - 1,
+                ..exact
+            })
+            .unwrap_err(),
+            RuntimeError::PreparationLimit
+        );
+        assert_eq!(
+            prepare(PreparationLimits {
+                max_preparation_work: usage.work - 1,
+                ..exact
+            })
+            .unwrap_err(),
+            RuntimeError::PreparationLimit
+        );
         assert!(prepare(PreparationLimits {
             max_artifact_bytes: FIXTURE.len() - 1,
             ..Default::default()

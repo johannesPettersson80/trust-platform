@@ -263,3 +263,71 @@ fn native_payload_transfer_allocates_only_the_final_argument_vector() {
     assert_eq!(transfer.peak, 2 * core::mem::size_of::<VmNativeArg>());
     assert_eq!(transfer.live, transfer.peak);
 }
+
+#[test]
+fn refused_preparation_retires_every_tracked_allocation() {
+    use trust_runtime_core::{
+        bytecode::{BytecodeError, BytecodeModule, RejectionReason},
+        error::{RuntimeError, StableErrorCode},
+    };
+    let bytes: &[u8] =
+        include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
+    // Measured before the counted window: the logical preparation demand and the
+    // validator's peak analysis storage for the same admitted bytes.
+    let measured_bytes = PreparedModule::from_bytes(bytes, PreparationLimits::default())
+        .unwrap()
+        .preparation_usage()
+        .bytes;
+    let raw = BytecodeModule::decode(bytes).unwrap();
+    let measured_scratch = raw
+        .validated_with_limits(ValidationLimits::default())
+        .unwrap()
+        .stats()
+        .peak_scratch_bytes;
+    drop(raw);
+    assert!(measured_bytes > 0 && measured_scratch > 0);
+    // Built before the window, so comparing against it allocates nothing counted.
+    let scratch_refusal =
+        RuntimeError::from(BytecodeError::from(RejectionReason::ValidationStorageLimit));
+
+    let capture = Capture::begin();
+    // Logical demand one byte below the measured total (budget.rs:43-46).
+    let logical = PreparedModule::from_bytes(
+        bytes,
+        PreparationLimits {
+            max_preparation_bytes: measured_bytes - 1,
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(logical, RuntimeError::PreparationLimit);
+    drop(logical);
+    let logical_sample = Capture::phase();
+    // Validation scratch one byte below its measured peak (validate/budget.rs:35-37).
+    let scratch = PreparedModule::from_bytes(
+        bytes,
+        PreparationLimits {
+            validation: ValidationLimits {
+                max_scratch_bytes: measured_scratch - 1,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(scratch, scratch_refusal);
+    assert_eq!(
+        scratch.stable_code(),
+        StableErrorCode::BytecodeInvalidSection
+    );
+    drop(scratch);
+    let scratch_sample = Capture::phase();
+    drop(capture);
+    for sample in [logical_sample, scratch_sample] {
+        assert!(!sample.invalid_accounting);
+        assert_eq!(
+            sample.live, 0,
+            "refused preparation must retire every tracked allocation"
+        );
+    }
+}

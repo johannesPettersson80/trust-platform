@@ -2,6 +2,7 @@ use trust_runtime::bytecode::{
     BytecodeMetadata, BytecodeVersion, ProcessImageConfig, ResourceMetadata,
     SUPPORTED_MAJOR_VERSION,
 };
+use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::io::PROCESS_IMAGE_AREA_LIMIT;
 use trust_runtime::task::TaskConfig;
@@ -152,6 +153,15 @@ END_PROGRAM
     assert!(
         err.to_string().contains("process image area limit"),
         "expected process-image cap error, got {err}"
+    );
+    // apply_resource_metadata checks the input area first (installed_lifecycle.rs), and the
+    // shared helper builds this exact InvalidIoAddress text (io_image/mod.rs:237-249).
+    assert_eq!(
+        err,
+        RuntimeError::InvalidIoAddress(
+            format!("input exceeds {PROCESS_IMAGE_AREA_LIMIT} byte process image area limit")
+                .into()
+        )
     );
 }
 

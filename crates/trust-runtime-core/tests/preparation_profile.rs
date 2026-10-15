@@ -1,8 +1,10 @@
 //! Admission regressions consume the actual saved artifact without a compiler.
 use trust_runtime_core::bytecode::{BytecodeModule, SectionData, SectionId, StorageRole};
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 const BYTES: &[u8] =
     include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
+const GPIO: &[u8] = include_bytes!("../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
 fn decoded() -> BytecodeModule {
     BytecodeModule::decode(BYTES).unwrap()
 }
@@ -43,22 +45,29 @@ fn preparation_demand_has_exact_accounting_boundaries() {
             .preparation_usage(),
         baseline
     );
-    assert!(PreparedModule::from_decoded(
-        &raw,
-        PreparationLimits {
-            max_preparation_bytes: baseline.bytes - 1,
-            ..limits
-        }
-    )
-    .is_err());
-    assert!(PreparedModule::from_decoded(
-        &raw,
-        PreparationLimits {
-            max_preparation_work: baseline.work - 1,
-            ..limits
-        }
-    )
-    .is_err());
+    // The cumulative charge that crosses either limit is refused at budget.rs:43-46.
+    assert_eq!(
+        PreparedModule::from_decoded(
+            &raw,
+            PreparationLimits {
+                max_preparation_bytes: baseline.bytes - 1,
+                ..limits
+            }
+        )
+        .unwrap_err(),
+        RuntimeError::PreparationLimit
+    );
+    assert_eq!(
+        PreparedModule::from_decoded(
+            &raw,
+            PreparationLimits {
+                max_preparation_work: baseline.work - 1,
+                ..limits
+            }
+        )
+        .unwrap_err(),
+        RuntimeError::PreparationLimit
+    );
 }
 #[test]
 fn unresolved_native_import_is_rejected_before_instantiation() {
@@ -180,14 +189,18 @@ fn byte_entry_cumulative_preparation_includes_decoded_tables() {
             .preparation_usage(),
         usage
     );
-    assert!(PreparedModule::from_bytes(
-        BYTES,
-        PreparationLimits {
-            max_preparation_bytes: usage.bytes - 1,
-            ..limits
-        }
-    )
-    .is_err());
+    // The byte route refuses the same cumulative charge at budget.rs:43-46.
+    assert_eq!(
+        PreparedModule::from_bytes(
+            BYTES,
+            PreparationLimits {
+                max_preparation_bytes: usage.bytes - 1,
+                ..limits
+            }
+        )
+        .unwrap_err(),
+        RuntimeError::PreparationLimit
+    );
 }
 
 #[test]
@@ -228,5 +241,91 @@ fn execution_profile_rejection_is_not_a_bytecode_format_error() {
     assert_eq!(
         error.stable_code(),
         StableErrorCode::RuntimePreparationLimit
+    );
+}
+
+#[test]
+fn call_depth_admission_is_exact_at_the_fixed_limit() {
+    // Spec 12 §4.6 fixes 1,024 active call frames; prepared.rs:165-171 refuses 1,025.
+    let raw = decoded();
+    let at_limit = PreparationLimits {
+        max_call_depth: 1024,
+        ..Default::default()
+    };
+    PreparedModule::from_decoded(&raw, at_limit).unwrap();
+    PreparedModule::from_bytes(BYTES, at_limit).unwrap();
+    let above = PreparationLimits {
+        max_call_depth: 1025,
+        ..Default::default()
+    };
+    let refused = RuntimeError::ProfileUnsupported("invalid preparation profile limits".into());
+    assert_eq!(
+        PreparedModule::from_decoded(&raw, above).unwrap_err(),
+        refused
+    );
+    assert_eq!(
+        PreparedModule::from_bytes(BYTES, above).unwrap_err(),
+        refused
+    );
+}
+
+#[test]
+fn zero_time_allowances_are_unsupported_on_both_routes() {
+    // Spec 34 TIME-09; prepared.rs:165-171 refuses a zero scan or construction allowance.
+    let raw = decoded();
+    let unsupported = RuntimeError::ProfileUnsupported("invalid preparation profile limits".into());
+    for limits in [
+        PreparationLimits {
+            max_work: 0,
+            ..Default::default()
+        },
+        PreparationLimits {
+            max_construction_work: 0,
+            ..Default::default()
+        },
+    ] {
+        assert_eq!(
+            PreparedModule::from_decoded(&raw, limits).unwrap_err(),
+            unsupported
+        );
+        assert_eq!(
+            PreparedModule::from_bytes(BYTES, limits).unwrap_err(),
+            unsupported
+        );
+    }
+}
+
+#[test]
+fn process_image_limit_is_exact_for_inputs_outputs_and_memory() {
+    // gpio.st declares %IX0.0 and %QX0.0, so the admitted process image is non-empty.
+    let raw = BytecodeModule::decode(GPIO).unwrap();
+    let Some(SectionData::ResourceMeta(meta)) = raw.section(SectionId::ResourceMeta) else {
+        panic!("resources")
+    };
+    let [resource] = meta.resources.as_slice() else {
+        panic!("one resource")
+    };
+    let image = resource.inputs_size as usize
+        + resource.outputs_size as usize
+        + resource.memory_size as usize;
+    assert!(image > 0);
+    let exact = PreparationLimits {
+        max_process_image_bytes: image,
+        ..Default::default()
+    };
+    PreparedModule::from_decoded(&raw, exact).unwrap();
+    PreparedModule::from_bytes(GPIO, exact).unwrap();
+    let below = PreparationLimits {
+        max_process_image_bytes: image - 1,
+        ..Default::default()
+    };
+    // prepared.rs:275-276 compares the admitted image bytes with the profile limit.
+    assert_eq!(
+        PreparedModule::from_decoded(&raw, below).unwrap_err(),
+        RuntimeError::PreparationLimit
+    );
+    assert_eq!(
+        PreparedModule::from_bytes(GPIO, below).unwrap_err(),
+        RuntimeError::PreparationLimit
     );
 }

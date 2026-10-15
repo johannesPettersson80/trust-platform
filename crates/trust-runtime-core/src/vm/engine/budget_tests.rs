@@ -236,6 +236,128 @@ fn construction_allowance_is_separate_from_the_scan_allowance() {
 }
 
 #[test]
+fn scan_allowance_boundary_is_exact_at_the_measured_unit_count() {
+    // TIME-08: each top-level invocation has its own `max_work`, so the least allowance under
+    // which ten scans complete is the largest invocation's work N over those scans. The search
+    // measures N rather than assuming an instruction count; ten scans make sure the tasks run.
+    let artifact = include_bytes!(
+        "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+    );
+    let first_scan = |limit: usize| {
+        let limits = crate::vm::PreparationLimits {
+            max_work: limit,
+            ..Default::default()
+        };
+        let prepared = PreparedModule::from_bytes(artifact, limits).unwrap();
+        let mut state = prepared.instantiate(0).unwrap();
+        for scan in 1..=10_i64 {
+            state.execute_cycle(crate::value::Duration::from_millis(scan * 10))?;
+        }
+        Ok::<(), RuntimeError>(())
+    };
+    let mut low: usize = 1;
+    let mut high: usize = crate::vm::PreparationLimits::default().max_work;
+    assert_eq!(
+        first_scan(high),
+        Ok(()),
+        "the default scan allowance must run ten scans"
+    );
+    while low < high {
+        let middle = low + (high - low) / 2;
+        if first_scan(middle).is_ok() {
+            high = middle;
+        } else {
+            low = middle + 1;
+        }
+    }
+    let units = low;
+    assert!(units > 1, "the scans must consume work");
+    assert_eq!(first_scan(units), Ok(()), "exactly N units must complete");
+
+    // The invocation of work N crosses N - 1 only with its final charge, so the refusal
+    // reports used + requested == N against the limit N - 1 (vm/budget.rs:64-71).
+    match first_scan(units - 1) {
+        Err(RuntimeError::ExecutionLimit {
+            kind: ExecutionLimitKind::Work,
+            used,
+            requested,
+            limit,
+        }) => {
+            assert_eq!(limit, units - 1);
+            assert_eq!(
+                used + requested,
+                units,
+                "used {used}, requested {requested}"
+            );
+            assert!(used <= limit);
+        }
+        other => panic!("expected the exact work refusal at N - 1, got {other:?}"),
+    }
+}
+
+#[test]
+fn construction_allowance_boundary_is_exact_at_the_measured_unit_count() {
+    let artifact = include_bytes!(
+        "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+    );
+    let admits = |limit: usize| {
+        let limits = crate::vm::PreparationLimits {
+            max_construction_work: limit,
+            ..Default::default()
+        };
+        let prepared = PreparedModule::from_bytes(artifact, limits).unwrap();
+        prepared.instantiate(0).is_ok()
+    };
+    // Admission is monotone in the construction allowance (TIME-09), so the least admitting
+    // limit is the artifact's construction work N. The search measures N rather than
+    // assuming a count.
+    let mut low: usize = 1;
+    let mut high: usize = crate::vm::PreparationLimits::default().max_construction_work;
+    assert!(
+        admits(high),
+        "the default construction allowance must admit the artifact"
+    );
+    while low < high {
+        let middle = low + (high - low) / 2;
+        if admits(middle) {
+            high = middle;
+        } else {
+            low = middle + 1;
+        }
+    }
+    let units = low;
+    assert!(units > 1, "constructing the artifact must consume work");
+    assert!(
+        admits(units),
+        "exactly N construction units must instantiate"
+    );
+
+    // The first refused charge would take the total to exactly N: used + requested == N
+    // (vm/budget.rs:64-71 refuses the whole charge and reports the units already used).
+    let limits = crate::vm::PreparationLimits {
+        max_construction_work: units - 1,
+        ..Default::default()
+    };
+    let prepared = PreparedModule::from_bytes(artifact, limits).unwrap();
+    let outcome = prepared.instantiate(0);
+    match outcome {
+        Err(RuntimeError::ExecutionLimit {
+            kind: ExecutionLimitKind::Work,
+            used,
+            requested,
+            limit,
+        }) => {
+            assert_eq!(limit, units - 1);
+            assert_eq!(used + requested, units);
+        }
+        other => panic!(
+            "N-1 construction units must refuse with ExecutionLimit(Work), got {:?}",
+            other.err()
+        ),
+    }
+}
+
+#[test]
 fn empty_work_preserves_exhaustion_deadline_stride_and_latch() {
     let prepared = PreparedModule::from_bytes(
         include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),

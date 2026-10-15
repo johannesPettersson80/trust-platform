@@ -680,6 +680,42 @@ mod tests {
             Some(&Value::Int(7))
         );
     }
+
+    #[test]
+    fn reference_path_depth_admits_64_segments_and_refuses_the_65th_with_type_mismatch() {
+        let prepared = PreparedModule::from_bytes(
+            include_bytes!(
+                "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+            ),
+            crate::vm::PreparationLimits::default(),
+        )
+        .unwrap();
+        let mut data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let state =
+            EngineState::borrow(&mut data, &prepared, &super::super::services::LOGICAL_ONLY);
+        // Sixty-five nested single-element arrays. The structural bound is 64 edges
+        // (spec 12 §4.6; spec 34 §6.1 MEM-06: exceeding it reports TypeMismatch). Segment depth 64
+        // is refused at path_write.rs:90, before the segment is matched against its value.
+        let mut root = Value::DInt(7);
+        for _ in 0..65 {
+            root = Value::Array(alloc::boxed::Box::new(ArrayValue::from_canonical_parts(
+                vec![root],
+                vec![(0, 0)],
+            )));
+        }
+        let admitted = vec![RefSegment::Index(vec![0]); 64];
+        assert_eq!(
+            state.charge_path_write(&root, &admitted, &Value::DInt(1)),
+            Ok(())
+        );
+        let refused = vec![RefSegment::Index(vec![0]); 65];
+        assert_eq!(
+            state.charge_path_write(&root, &refused, &Value::DInt(1)),
+            Err(RuntimeError::TypeMismatch)
+        );
+    }
 }
 
 #[cfg(test)]

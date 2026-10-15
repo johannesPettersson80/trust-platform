@@ -438,6 +438,34 @@ fn zero_extent_physical_parent_and_empty_child_roundtrip() {
 }
 
 #[test]
+fn checkpoint_leaf_path_count_beyond_the_structural_depth_refuses_the_checkpoint() {
+    let layout = checkpoint_layout(StorageAbi::UniformTemporal64);
+    let logical = StructValue::from_canonical_parts(
+        "SignedOverlay".into(),
+        OrderedMap::from_iter([
+            ("raw".into(), Value::DWord(7)),
+            ("signed".into(), Value::DInt(7)),
+        ]),
+    )
+    .with_physical_layout(Some(layout))
+    .unwrap();
+    let mut checkpoint = logical.encode_physical_checkpoint().unwrap().unwrap();
+    // The first leaf's path count is the u32 at byte 17; its single segment follows at byte 21.
+    assert_eq!(&checkpoint[17..21], &1u32.to_le_bytes()[..]);
+    checkpoint[17..21].copy_from_slice(&65u32.to_le_bytes());
+    let restored =
+        StructValue::from_canonical_parts("SignedOverlay".into(), logical.fields().clone());
+    // A stored path longer than the structural bound makes the checkpoint invalid, and spec 34
+    // RETAIN-02 admits only a complete, valid checkpoint. The count reader refuses 65 > 64 before
+    // any segment is read (checkpoint.rs:101, 437-441). MEM-06's TypeMismatch governs value-copy
+    // traversal, not decoding stored checkpoint bytes.
+    assert_eq!(
+        restored.with_physical_checkpoint(&checkpoint).err(),
+        Some(RuntimeError::Overflow)
+    );
+}
+
+#[test]
 fn checkpoint_preserves_array_rank_above_type_path_depth() {
     let types = TypeTable {
         offsets: Vec::new(),

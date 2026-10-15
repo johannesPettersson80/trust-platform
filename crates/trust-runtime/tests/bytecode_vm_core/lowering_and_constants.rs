@@ -157,3 +157,44 @@ fn vm_enforces_instruction_budget() {
         RuntimeError::ExecutionTimeout.stable_code()
     );
 }
+
+#[test]
+fn vm_array_index_admits_the_upper_bound_and_refuses_one_past_it() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            arr : ARRAY[1..3] OF INT := [INT#10, INT#20, INT#30];
+            idx : INT := INT#3;
+            out : INT := INT#0;
+        END_VAR
+        out := arr[idx];
+        END_PROGRAM
+    "#;
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "the upper bound must be accepted: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out", 30i16);
+
+    // dispatch.rs:591-595 routes REF_INDEX through dynamic_ref_index, whose upper check
+    // (dispatch_refs.rs:359-365) reports the index and both bounds.
+    let past_upper = source.replace("idx : INT := INT#3;", "idx : INT := INT#4;");
+    let mut harness = vm_harness(&past_upper);
+    let cycle = harness.cycle();
+    assert_eq!(
+        cycle.errors,
+        vec![RuntimeError::IndexOutOfBounds {
+            index: 4,
+            lower: 1,
+            upper: 3,
+        }]
+    );
+    assert_eq!(
+        cycle.errors[0].stable_code(),
+        trust_runtime::error::StableErrorCode::RuntimeIndexOutOfBounds
+    );
+    harness.assert_eq("out", 0i16);
+}
