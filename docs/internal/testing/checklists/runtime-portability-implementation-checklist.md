@@ -108,6 +108,29 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
   (`decode/module_decode.rs:17-21`); no declared debugger/control queue capacity; no declared
   instance-count capacity (legacy `create_instance` panics on exhaustion). Also: spec 12 §4.6.2
   names "REF_TABLE entries" while the decoder reports "REF_TABLE count".
+- [x] A25 audit (read-only) and positive examples. The installed `Runtime` has no public
+  mutable access to storage, registry, I/O or access map in either composition. Spec 34
+  HOST-03's missing migration examples are now compiled and run from the embedding guide: an
+  alias write, a process-image write (a bound output is republished from its variable each
+  cycle; writing an input the program reads drives the output), and a schema replacement
+  (retained `count` kept by name, `transient` restarted, `added` initialized, logical time
+  kept). A runtime-only example runs the F401 fixture, and an unclosed doc fence is fixed. Doc
+  tests: full 16 and runtime-only 4 pass.
+- [ ] A25 owner decisions:
+  - stable rustdoc does not check the error code of a `compile_fail,E0xxx` doc test (verified
+    with rustc 1.99.0: a test declaring E0308 passes on E0425), so the 18 compile-fail doc
+    tests prove only that a snippet does not compile. A nightly doc-test lane, `trybuild` (a
+    new dev-dependency) or a harness that checks rustc's JSON diagnostics would prove the
+    reason. The audit's new compile-fail cases (escaping borrows E0502/E0515, private tokens
+    E0451/E0616, internal traits E0277/E0603, runtime-only E0596/E0599) wait for that choice;
+  - the public core owners reachable through `trust_runtime::runtime_core`
+    (`OwnedRuntimeState`, `RuntimeState`) return an unchecked `&mut [u8]` input image and
+    expose `reset_task_timing`, time and fault setters that the installed controller keeps
+    crate-private (`vm/engine/owned.rs:172, 220-222, 240-248`; `vm/engine/api.rs:162, 207-209`);
+  - the debug context has a public `&mut VariableStorage` field (`host/debug/hook.rs:13-16`)
+    and `ReferenceContext` is an unsealed public trait under `full` (`vm/context.rs:9`);
+  - CI's `cargo test --all-targets` runs no doc tests, no gate builds the runtime-only
+    composition, and the public-API baselines are stale and not compared by any gate.
 - [ ] Release guard on the A09 commit, the push to PR #137 and native CI. Guard 13
   (`aedf192b8`) failed FULLMAP-CHECK-10: A09 had grown `runtime_core_compiler_free_load.rs`
   past the 1,000-line module threshold. That file is restored, and its zero-allowance
@@ -3547,7 +3570,7 @@ implied by this test plan. Tests of C-only functionality run when C implements i
 | [ ] A22 — Hardware replay and disturbance (H22/B/E/Q) | Replay the same qualified artifacts on the connected F401 and the selected C6 when available; GPIO, timers, UART, watchdog, reset, actual I/O failures and declared interference. Re-measure flash, heap and stack for the changed build. | Reviewed physical topology and source/firmware/artifact identity, real trace agreement, safe outputs and measured resource margins. Keep historical bring-up distinct from current-build qualification. |
 | [ ] A23 — Soak, lifecycle cycling and recovery (H/C/QH/QF/QE) | Define realistic long-running workloads, durations, restart/replacement counts, release phases, service/memory pressure and permitted maintenance before launch. For H/QH, start from §14.1's proposed 100,000-cycle integration workload at 10 ms, freezing its suitability and limits before execution. Define extended hosted soak separately under TEST-03; extend by declared risk and platform envelope. | No unexplained faults, drift, leaks or missed configured deadlines inside the declared nominal envelope. Injected failures have their own expected outcomes. Duration alone is not a reliability probability or WCET proof. |
 | [ ] A24 — Coverage-guided review and final acceptance (H/Q) | Inspect line/branch coverage on changed failure/cleanup code and uncovered assertions; combine with mutation survivors and independent full-diff/spec review. After focused gates are green, execute the required deduplicated broad acceptance/release batch at its frozen identity. | Explain uncovered critical paths and remaining platform/qualification gaps. Coverage percentage, test count or a tool's exit code alone is not correctness. Commit/push/release still require the existing authorizations and exact-SHA guard. |
-| [ ] A25 — Public API and type-boundary rejection (H) | Compile ordinary external consumers and compile-fail cases for forbidden installed-state mutation, invalid validated-token construction, escaping borrows and unavailable internal execution traits. Include supported API migration examples and rustdoc cases. | Valid consumers build under the declared features; forbidden examples fail for the intended error, not an unrelated missing import/dependency. Public installed state cannot bypass checked mutation. |
+| [ ] A25 — Public API and type-boundary rejection (H); audit and positive examples done 15 October, reason-checked compile-fail tests wait for an owner decision (current checkpoint) | Compile ordinary external consumers and compile-fail cases for forbidden installed-state mutation, invalid validated-token construction, escaping borrows and unavailable internal execution traits. Include supported API migration examples and rustdoc cases. | Valid consumers build under the declared features; forbidden examples fail for the intended error, not an unrelated missing import/dependency. Public installed state cannot bypass checked mutation. |
 | [ ] A26 — Source/compiler-to-artifact integration (H) | Existing lexer/parser/HIR/IDE/WASM tests plus real ST projects through compile, saved artifact, load and execution. Include TEST_PROGRAM workflows, configurations, namespaces, OOP/interfaces, alias/default lowering and local/static/edge/retain declarations. Exercise source diagnostics and valid programs, not only hand-built bytecode. | Correct diagnostics and lowering; source-built and compiler-free execution agree where promised. A hand-built fixture does not alone prove the source-authoring route. |
 | [ ] A27 — Independent conformance/oracle checks (H/Q) | For critical numerics, timers/counters, scheduling and storage semantics, derive expected vectors directly from the owning IEC/product contract independently of the runtime implementation. Where an already available independent implementation/reference tool matches the contract, compare bounded common cases and document differences. | Independent expected values and documented precision/platform assumptions. Majority agreement is not authority over the spec; unavailable/licensed hardware or tools remain explicit limitations. |
 | [ ] A28 — Bounded formal/model checks, feasibility first (C/Q) | Assess small pure high-risk kernels: checked offset/count arithmetic, deadline advancement, identity reuse/lifetime rules and transactional state machines. Use a supported bounded checker or explicit finite-state exploration where its assumptions can be stated. | Record model, bounds, assumptions and correspondence to production code; a bounded proof applies only to those bounds and properties. Tool availability and feasibility are open, and this is not a claim to formally verify the entire runtime. |
