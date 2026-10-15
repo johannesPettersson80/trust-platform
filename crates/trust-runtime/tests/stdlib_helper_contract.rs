@@ -188,14 +188,15 @@ fn ties_to_even_rounding_handles_both_signs() {
 }
 
 #[test]
-fn duration_scaling_rounds_nanoseconds_ties_to_even() {
+fn duration_scaling_truncates_nanoseconds_toward_zero() {
     assert_eq!(
         scale_time(Duration::from_nanos(1), &Value::LReal(2.5), true),
         Ok(Duration::from_nanos(2))
     );
+    // 1.5 truncates to 1; the old ties-to-even helper returned 2 (spec 07 section 9).
     assert_eq!(
         scale_time(Duration::from_nanos(3), &Value::LReal(0.5), true),
-        Ok(Duration::from_nanos(2))
+        Ok(Duration::from_nanos(1))
     );
     assert_eq!(
         scale_time(Duration::from_nanos(5), &Value::Int(2), false),

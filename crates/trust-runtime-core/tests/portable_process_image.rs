@@ -48,6 +48,23 @@ fn shared_typed_codec_retains_signed_bits_time_and_finite_float_errors() {
         Err(RuntimeError::IoDriver(_))
     ));
 }
+
+#[test]
+fn typed_time_image_rejects_negative_durations_before_truncating_to_millis() {
+    let time = |duration| coerce_to_io(Value::Time(duration), ConversionType::Time, IoSize::DWord);
+    assert_eq!(time(Duration::from_nanos(-1)), Err(RuntimeError::Overflow));
+    assert_eq!(time(Duration::from_millis(-1)), Err(RuntimeError::Overflow));
+    assert_eq!(time(Duration::ZERO), Ok(Value::DWord(0)));
+    assert_eq!(
+        time(Duration::from_millis(4_294_967_295)),
+        Ok(Value::DWord(u32::MAX))
+    );
+    assert_eq!(
+        time(Duration::from_millis(4_294_967_296)),
+        Err(RuntimeError::Overflow)
+    );
+}
+
 #[test]
 fn preparation_restores_declared_string_window_and_overflow_is_nonmutating() {
     let strings = vec!["%QB20".into()];

@@ -325,22 +325,17 @@ fn tod_components_to_nanos(args: &[Value]) -> Result<i64, RuntimeError> {
     let minute = to_i64(&args[1])?;
     let second = to_i64(&args[2])?;
     let millis = to_i64(&args[3])?;
-    if hour < 0 || minute < 0 || second < 0 || millis < 0 {
+    // Spec 07 section 9: each component is checked against its own range, so
+    // none carries into the next field and the sum stays below one day.
+    if !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=59).contains(&second)
+        || !(0..=999).contains(&millis)
+    {
         return Err(RuntimeError::Overflow);
     }
-    let total = hour
-        .checked_mul(3_600)
-        .and_then(|v| v.checked_add(minute.checked_mul(60)?))
-        .and_then(|v| v.checked_add(second))
-        .ok_or(RuntimeError::Overflow)?;
-    let nanos = total
-        .checked_mul(1_000_000_000)
-        .and_then(|v| v.checked_add(millis.checked_mul(1_000_000)?))
-        .ok_or(RuntimeError::Overflow)?;
-    if nanos >= NANOS_PER_DAY {
-        return Err(RuntimeError::Overflow);
-    }
-    Ok(nanos)
+    let seconds = hour * 3_600 + minute * 60 + second;
+    Ok(seconds * 1_000_000_000 + millis * 1_000_000)
 }
 
 fn date_ticks_to_days(date: &DateValue, profile: DateTimeProfile) -> Result<i64, RuntimeError> {

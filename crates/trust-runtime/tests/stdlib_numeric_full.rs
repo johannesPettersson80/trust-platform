@@ -15,17 +15,17 @@ fn numeric_full() {
 
     assert_eq!(lib.call("ABS", &[Value::Int(-5)]).unwrap(), Value::Int(5));
 
-    let sqrt = lib.call("SQRT", &[Value::Real(9.0)]).unwrap();
-    match sqrt {
-        Value::Real(value) => assert!((value - 3.0).abs() < 1e-6),
-        _ => panic!("expected REAL result"),
-    }
+    assert_eq!(
+        lib.call("SQRT", &[Value::Real(9.0)]),
+        Ok(Value::Real(3.0)),
+        "SQRT(9.0) is exactly 3.0"
+    );
 
-    let log = lib.call("LOG", &[Value::Real(100.0)]).unwrap();
-    match log {
-        Value::Real(value) => assert!((value - 2.0).abs() < 1e-6),
-        _ => panic!("expected REAL result"),
-    }
+    assert_eq!(
+        lib.call("LOG", &[Value::Real(100.0)]),
+        Ok(Value::Real(2.0)),
+        "LOG(100.0) is exactly 2.0"
+    );
 
     let atan2 = lib
         .call("ATAN2", &[Value::Real(0.0), Value::Real(1.0)])
@@ -62,13 +62,11 @@ fn numeric_full() {
         Value::Int(1)
     );
 
-    let expt = lib
-        .call("EXPT", &[Value::Real(2.0), Value::Real(3.0)])
-        .unwrap();
-    match expt {
-        Value::Real(value) => assert!((value - 8.0).abs() < 1e-6),
-        _ => panic!("expected REAL result"),
-    }
+    assert_eq!(
+        lib.call("EXPT", &[Value::Real(2.0), Value::Real(3.0)]),
+        Ok(Value::Real(8.0)),
+        "EXPT(2.0, 3.0) is exactly 8.0"
+    );
 
     assert_eq!(lib.call("MOVE", &[Value::Int(42)]).unwrap(), Value::Int(42));
 

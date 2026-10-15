@@ -374,6 +374,10 @@ The following requirements bind the runtime implementation of IEC
   publish new user-visible outputs.
 - Edge memory, current value, and outputs are isolated by function-block
   instance. A new instance starts with `CV = 0` and both edge memories false.
+- Edge memory follows the count input on every executed call, including a call
+  whose reset or load dominates the count: a `CU` held high through a reset is
+  not counted again when the reset is released (IEC 61131-3 Table 45 declares
+  `CU` and `CD` as `R_EDGE` inputs, evaluated on each execution).
 
 ## 5. Timer Function Blocks (Table 46, Figure 15)
 
@@ -538,7 +542,8 @@ machine above and requires `PT` and `ET` to use its named TIME or LTIME family.
   `ET = 0`, no active interval, and a first-call elapsed contribution of zero.
 - `PT <= 0` is normalized to zero. A zero-preset `TON` completes on an
   executed call with `IN = TRUE`; a zero-preset `TP` has no positive-duration
-  pulse; and a zero-preset `TOF` expires on the falling-edge call.
+  pulse, so its `Q` stays `FALSE`; and a zero-preset `TOF` expires on the
+  falling-edge call.
 - Elapsed contributions are non-negative. A direct negative delta, a stationary
   runtime clock, or a backward runtime clock contributes zero and establishes
   the new baseline without reducing `ET`.
