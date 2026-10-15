@@ -149,10 +149,15 @@ pub fn run_runtime(
         .as_ref()
         .map(|bundle| bundle.runtime.cycle_interval)
         .unwrap_or_else(|| Duration::from_millis(10));
+    let hang_action = bundle
+        .as_ref()
+        .map(|bundle| bundle.runtime.watchdog_hang_action)
+        .unwrap_or_default();
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
         .with_start_gate(start_gate.clone())
-        .with_time_scale(simulation_time_scale);
+        .with_time_scale(simulation_time_scale)
+        .with_hang_action(hang_action);
     if realtime_config.enabled {
         runner = runner.with_thread_init_hook(make_thread_init_hook(
             realtime_config.clone(),
@@ -568,6 +573,10 @@ pub fn run_runtime(
     let join_result = handle
         .join()
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));
+    // A halting fault keeps the thread alive until a stop request, so the final state is known
+    // only after the join. It selects the exit status below.
+    let final_state = handle.state();
+    let final_error = handle.last_error();
     if let Some(service) = openot_persistence.as_mut() {
         service.shutdown();
     }
@@ -581,6 +590,16 @@ pub fn run_runtime(
         server.shutdown();
     }
     join_result?;
+    if final_state == trust_runtime::scheduler::ResourceState::Faulted {
+        let detail = final_error.map_or_else(|| "unknown fault".to_string(), |err| err.to_string());
+        logger.log(
+            LogLevel::Error,
+            "runtime_exit",
+            json!({ "status": "faulted", "error": detail }),
+        );
+        // Returned through the binary's error path, so the process exits with status 1.
+        anyhow::bail!("runtime resource faulted: {detail}");
+    }
     logger.log(
         LogLevel::Debug,
         "runtime_exit",

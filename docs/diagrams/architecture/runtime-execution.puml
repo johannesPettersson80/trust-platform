@@ -143,12 +143,17 @@ package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
     component "Retain checkpoint and restart\ncanonical global/program destinations\nSTRN v3: logical values + physical layout/backing\nchecked capture + transactional restoration" as retainOwner
     component "Startup composition\nselected transports / T0 SHM / Linux RT posture" as startup
     component "Launcher signals / ResourceControl\nSTOP, safe outputs, durable save" as shutdown
+    component "Faulted wait\nno tasks or outputs; serves reads and config;\nrestart / online change resume; STOP ends\n(scheduler/faulted.rs)" as faultedWait
+    component "Hang supervisor (watchdog enabled)\nindependent thread reads the published deadline;\nWatchdogTimeout + hang_action fault | abort (exit 70)\n(scheduler/supervisor.rs)" as hangSupervisor
     runtime --> resourceChange : metadata / direct / MQTT bindings
     resourceChange --> state : preserve values, live identities, debug/IR/fault state
     runtime --> codeChange : source/bytecode schema replacement
     codeChange --> state : publish only fully prepared candidate
     runtime --> retainOwner
     runner --> safeState : STOP / FAULT / watchdog
+    runner --> faultedWait : halting fault (process keeps serving)
+    faultedWait --> runner : successful restart / online change
+    hangSupervisor ..> runner : cycle deadline; declares a hung scan Faulted
     safeState --> state : separate checked safety entry
     startup --> runner
     shutdown --> runner

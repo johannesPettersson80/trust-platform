@@ -177,6 +177,7 @@ fn run_watchdog_case(
     if state != ResourceState::Faulted {
         handle.stop();
     }
+    handle.stop();
     let join_panicked = handle.join().is_err();
     let recorded_writes = writes.lock().expect("driver writes lock").clone();
 

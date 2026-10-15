@@ -185,3 +185,88 @@ fn healthy_resource_keeps_today_replies_and_scheduler_commands_in_both_modes() {
         assert_eq!(sent, expected, "{label}: scheduler commands");
     }
 }
+
+#[test]
+fn restart_and_reload_follow_the_scan_thread_state() {
+    // Spec 11 section 6.6: a faulted resource takes a restart request, because its scan thread is
+    // alive in the faulted wait. A stopped resource has no thread, and a hung one has a scan thread
+    // inside a call that did not return. Both refuse restart and bytecode reload with the stable
+    // code. A refused reload sends no command, so it does not wait for a reply.
+    use crate::config::ControlMode;
+    use crate::scheduler::{ResourceControl, ResourceState, StdClock};
+    use crate::RestartMode;
+
+    let restart_request = json!({"id": 1, "type": "restart", "params": {"mode": "warm"}});
+    let reload_request = json!({"id": 2, "type": "bytecode.reload", "params": {"bytes": "eA=="}});
+
+    let (faulted, faulted_rx) =
+        resource_state_fixture(ControlMode::Production, ResourceState::Faulted);
+    let accepted = handle_request_value(restart_request.clone(), &faulted, None);
+    assert!(
+        accepted.ok,
+        "faulted restart is accepted: {:?}",
+        accepted.error
+    );
+    assert_eq!(
+        faulted.pending_restart.lock().ok().and_then(|guard| *guard),
+        Some(RestartMode::Warm)
+    );
+    drop(faulted_rx);
+
+    let (stopped, stopped_rx) =
+        resource_state_fixture(ControlMode::Production, ResourceState::Stopped);
+    let refused = handle_request_value(restart_request.clone(), &stopped, None);
+    assert!(!refused.ok);
+    assert_eq!(refused.error_code.as_deref(), Some("resource_not_running"));
+    assert_eq!(
+        stopped.pending_restart.lock().ok().and_then(|guard| *guard),
+        None,
+        "a refused restart leaves no pending request"
+    );
+    let refused_reload = handle_request_value(reload_request.clone(), &stopped, None);
+    assert!(!refused_reload.ok);
+    assert_eq!(
+        refused_reload.error_code.as_deref(),
+        Some("resource_not_running")
+    );
+    assert!(
+        stopped_rx.try_recv().is_err(),
+        "a refused reload sends no scheduler command"
+    );
+
+    let (control, hung_rx) = ResourceControl::stub_with_state(
+        StdClock::new(),
+        ResourceState::Faulted,
+        Some(crate::error::RuntimeError::WatchdogTimeout),
+    );
+    control.mark_hung_for_test();
+    let (mut hung, _unused_rx) =
+        resource_state_fixture(ControlMode::Production, ResourceState::Faulted);
+    hung.resource = control;
+    for request in [restart_request, reload_request] {
+        let response = handle_request_value(request, &hung, None);
+        assert!(!response.ok, "a hung resource refuses the request");
+        assert_eq!(
+            response.error_code.as_deref(),
+            Some("resource_not_running"),
+            "hung refusals carry the stable code"
+        );
+        assert!(
+            response
+                .error
+                .as_deref()
+                .is_some_and(|text| text.contains("did not return") && text.contains("restarted")),
+            "hung refusals name the cause and the recovery: {:?}",
+            response.error
+        );
+    }
+    assert!(
+        hung_rx.try_recv().is_err(),
+        "a hung reload sends no scheduler command"
+    );
+    assert_eq!(
+        hung.pending_restart.lock().ok().and_then(|guard| *guard),
+        None,
+        "a refused restart leaves no pending request"
+    );
+}

@@ -230,8 +230,10 @@ impl DebugControl {
                         state.target_thread
                     ));
                     let wait_started = std::time::Instant::now();
+                    state.watchdog_hold_started = Some(wait_started);
                     state = cvar.wait(state).expect("debug state poisoned");
                     self.record_watchdog_pause(wait_started.elapsed());
+                    state.watchdog_hold_started = None;
                     trace_debug(&format!(
                         "hook.wake mode={:?} location={} current_thread={:?} target_thread={:?}",
                         state.mode,

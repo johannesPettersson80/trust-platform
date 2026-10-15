@@ -33,6 +33,7 @@ fn bundle_with_backend(
             retain_path: None,
             retain_save_interval: trust_runtime::value::Duration::from_millis(1000),
             watchdog: trust_runtime::watchdog::WatchdogPolicy::default(),
+            watchdog_hang_action: trust_runtime::watchdog::HangAction::default(),
             fault_policy: trust_runtime::watchdog::FaultPolicy::SafeHalt,
             web: trust_runtime::config::WebConfig {
                 enabled: false,

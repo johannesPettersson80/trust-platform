@@ -615,6 +615,7 @@ fn config_handler_contract_config_get_contains_complete_stable_key_set() {
             "simulation.warning",
             "watchdog.action",
             "watchdog.enabled",
+            "watchdog.hang_action",
             "watchdog.timeout_ms",
             "web.auth",
             "web.enabled",

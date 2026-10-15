@@ -13,6 +13,7 @@ impl DebugControl {
                     target_thread: None,
                     breakpoints: Vec::new(),
                     breakpoint_generation: HashMap::new(),
+                    watchdog_hold_started: None,
                     breakpoint_stops_this_cycle: HashSet::new(),
                     frame_locations: HashMap::new(),
                     logs: Vec::new(),
@@ -43,6 +44,17 @@ impl DebugControl {
 
     pub(crate) fn watchdog_pause_elapsed(&self) -> std::time::Duration {
         std::time::Duration::from_nanos(self.watchdog_pause_nanos.load(Ordering::Relaxed))
+    }
+
+    /// Whether the scan thread is waiting in a debugger hold right now, and the completed pause
+    /// total. Both are read under the state lock, which the hold updates, so the pair is consistent.
+    pub(crate) fn watchdog_hold_view(&self) -> (bool, std::time::Duration) {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().expect("debug state poisoned");
+        (
+            state.watchdog_hold_started.is_some(),
+            self.watchdog_pause_elapsed(),
+        )
     }
 
     pub(crate) fn begin_cycle(&self) {

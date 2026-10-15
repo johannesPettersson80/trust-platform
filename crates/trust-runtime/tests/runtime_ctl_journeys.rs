@@ -325,3 +325,72 @@ fn ctl_faults_accepts_a_limit_and_lists_no_fault_on_a_healthy_runtime() {
     );
     runtime.assert_running_without_fault();
 }
+
+/// The memory-marker counter, extended so that writing 1000 to its counter input faults the PLC.
+/// The retained flag makes the fault happen once, so a warm restart does not trip it again. The
+/// counter climbs by one per scan, so it cannot reach 1000 by itself within a test.
+fn counter_faults_on_a_written_value() -> ExampleRuntime {
+    ExampleRuntime::new("memory_marker_counter")
+        .edit_source(
+            "src/Main.st",
+            "END_VAR\n\nCounterLatched := Counter;\n",
+            "END_VAR\nVAR RETAIN\n    Tripped : BOOL;\nEND_VAR\n\nCounterLatched := Counter;\n",
+        )
+        .edit_source(
+            "src/Main.st",
+            "Counter := Counter + 1;\nEND_PROGRAM",
+            "Counter := Counter + 1;\nIF NOT Tripped AND CounterLatched = 1000 THEN\n    Tripped := TRUE;\n    CounterLatched := 100 / (CounterLatched - 1000);\nEND_IF;\nEND_PROGRAM",
+        )
+}
+
+#[test]
+fn halting_fault_keeps_the_process_serving_until_a_warm_restart_recovers_it() {
+    // Spec 11 section 6.6, "Faulted resource lifecycle (hosted runtime)": the process keeps running
+    // and `status` reports the fault. `restart warm` runs the warm initialization and resumes.
+    let mut runtime = counter_faults_on_a_written_value().start();
+    runtime.wait_for_snapshot(WAIT, "a running scan", |s| s.scan() >= 3);
+
+    runtime.ctl_ok(&["io-write", "%MW0", "1000"]);
+    runtime.wait_until(WAIT, "the division fault to be reported", || {
+        runtime.ctl_ok(&["status"]).contains("state=faulted")
+    });
+    let line = runtime.ctl_ok(&["status"]);
+    assert!(
+        line.contains("state=faulted") && line.contains("fault=division by zero"),
+        "status must report the root fault: {line}"
+    );
+    assert!(
+        runtime.is_running(),
+        "a halting fault must not end the process\n{}",
+        runtime.diagnostics()
+    );
+
+    runtime.ctl_ok(&["restart", "warm"]);
+    runtime.wait_until(WAIT, "the warm restart to resume the scan", || {
+        runtime.ctl_ok(&["status"]).contains("state=running")
+    });
+    runtime.wait_for_snapshot(WAIT, "a scan after the warm restart", |s| s.scan() >= 1);
+    runtime.assert_running_without_fault();
+}
+
+#[test]
+fn stopped_faulted_runtime_exits_with_status_one() {
+    // Spec 11 section 6.6: the process exits with status 0 when the resource ends Stopped and with
+    // status 1 when it ends Faulted, so a service manager can tell a clean stop from a failure.
+    let mut runtime = counter_faults_on_a_written_value().start();
+    runtime.wait_for_snapshot(WAIT, "a running scan", |s| s.scan() >= 3);
+
+    runtime.ctl_ok(&["io-write", "%MW0", "1000"]);
+    runtime.wait_until(WAIT, "the division fault to be reported", || {
+        runtime.ctl_ok(&["status"]).contains("state=faulted")
+    });
+
+    runtime.ctl_ok(&["shutdown"]);
+    let exit = runtime.wait_for_exit(Duration::from_secs(10));
+    assert_eq!(
+        exit.code(),
+        Some(1),
+        "a runtime that stops while faulted must exit with status 1\n{}",
+        runtime.diagnostics()
+    );
+}

@@ -129,8 +129,28 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   enforce every declared `expect` key and reject unknown ones. Findings:
   - TIME-03 is not met on hosted builds: the watchdog checks elapsed time only after the cycle
     returns, so a driver read that never returns stalls the resource with no fault (spec 34 R33
-    already names the same-thread watchdog). The test is written and ignored with that reason;
-    independent hosted hang supervision is the next H slice.
+    already names the same-thread watchdog). Fixed in round 6 (below).
+- [ ] Round 6 — faulted resource lifecycle and hosted hang supervision (spec 11 §6.6, both blocks
+  written 15 October). Found while reviewing A08/R4: after an ordinary halting fault the runner
+  loop ended its thread, the binary then shut the servers down and exited with status 0, and a
+  control `restart` was acknowledged ("restart queued") but never applied, so a faulted PLC could
+  not be recovered without restarting the process, and every resource command (debugger and web
+  snapshots, status reports, online change) failed after a fault. Now the faulted resource waits in
+  `scheduler/faulted.rs` (no tasks or outputs; serves reads and configuration; `restart` or online
+  change resumes after the configured initialization; `stop` ends it), and the process exits with
+  status 1 when it ends faulted. A per-resource supervisor (`scheduler/supervisor.rs`) reads the
+  published cycle deadline and faults a scan that does not return (TIME-03);
+  `runtime.watchdog.hang_action = "abort"` exits with status 70. The hung-driver test is un-ignored.
+- [ ] Round 4 focused checks: check 1 stopped on its free-space guard (the assurance cargo target
+  had grown to 230 GB; removed). Check 2: 10 workspace tests failed from two causes (the new
+  initializer range check passed a subrange type to a base-type test; an A08 atomicity check
+  treated a faulting scan as a refusal) and Clippy found two `explicit_auto_deref` items. Check 3:
+  everything else green; the remaining failures were a real gap (subrange bounds beyond the DINT
+  range were never declarable in the harness, because bounds were lowered without the base type), a
+  250 ms wait in an OpenOT persistence test on a loaded builder, and a ctl-journey race: the test
+  harness released reserved ports before the runtimes bound them and shared one token, so one
+  journey's client could reach another journey's runtime (fixed: per-copy tokens, ports never handed
+  out twice).
   - Spec 11 §6.9.2 said every restart clears debug mutations, while spec 10 §4.8 keeps them after a
     failed preparation; the clearing boundary is the commit (wording fixed).
   - `RT_RELOAD_001` releases its force before any scan, so it never showed a force surviving a

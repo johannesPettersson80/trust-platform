@@ -12,7 +12,7 @@ use crate::config::{
 use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
 use crate::linux_rt::LinuxRtConfig;
 use crate::value::Duration;
-use crate::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
+use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogPolicy};
 
 #[derive(Debug, Clone)]
 pub struct RuntimeSettings {
@@ -21,6 +21,8 @@ pub struct RuntimeSettings {
     pub execution_backend_source: ExecutionBackendSource,
     pub log_level: SmolStr,
     pub watchdog: WatchdogPolicy,
+    /// `runtime.watchdog.hang_action`. Applied when the resource starts, so a change needs a restart.
+    pub watchdog_hang_action: HangAction,
     pub fault_policy: FaultPolicy,
     pub retain_mode: RetainMode,
     pub retain_save_interval: Option<Duration>,
@@ -48,6 +50,7 @@ impl RuntimeSettings {
             execution_backend_source: ExecutionBackendSource::Default,
             log_level: base.log_level,
             watchdog: base.watchdog,
+            watchdog_hang_action: HangAction::default(),
             fault_policy: base.fault_policy,
             retain_mode: base.retain_mode,
             retain_save_interval: base.retain_save_interval,
@@ -118,6 +121,7 @@ impl RuntimeSettings {
         );
         settings.execution_backend = config.execution_backend;
         settings.execution_backend_source = config.execution_backend_source;
+        settings.watchdog_hang_action = config.watchdog_hang_action;
         settings.opcua = OpcUaSettings {
             enabled: config.opcua.enabled,
             listen: config.opcua.listen.clone(),

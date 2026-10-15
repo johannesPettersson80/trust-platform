@@ -120,3 +120,39 @@ fn resource_pause_between_cycles_starts_no_scan_or_watchdog_interval() {
     handle.stop();
     handle.join().expect("join runtime");
 }
+
+#[test]
+fn supervisor_does_not_trip_during_a_debugger_hold_longer_than_the_timeout() {
+    let (runtime, debug) = counter_runtime();
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+    debug.set_stop_sender(stop_tx);
+    debug.pause();
+
+    let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
+    runner.runtime_mut().set_watchdog_policy(watchdog_policy());
+    let mut handle = runner
+        .spawn("debug-hold-supervisor")
+        .expect("spawn runtime");
+
+    let stop = stop_rx
+        .recv_timeout(WallDuration::from_secs(2))
+        .expect("runtime must stop at the requested statement boundary");
+    assert_eq!(stop.reason, DebugStopReason::Pause);
+
+    // The hold lasts five watchdog timeouts. The supervisor finds the scan thread inside the hold
+    // and suspends its check, so the hold is never declared a hang.
+    thread::sleep(PAUSE_DWELL);
+    assert!(!handle.is_hung(), "a debugger hold is not a hang");
+    assert_eq!(handle.state(), ResourceState::Running);
+    assert_eq!(handle.last_error(), None);
+
+    debug.continue_run();
+    thread::sleep(WallDuration::from_millis(60));
+    assert!(!handle.is_hung());
+    assert_eq!(handle.state(), ResourceState::Running);
+    assert_eq!(handle.last_error(), None);
+
+    handle.stop();
+    debug.continue_run();
+    handle.join().expect("join runtime");
+}

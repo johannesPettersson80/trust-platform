@@ -4,6 +4,7 @@ pub struct ResourceHandle<C: Clock + Clone> {
     stop: Arc<AtomicBool>,
     state: Arc<Mutex<ResourceState>>,
     last_error: Arc<Mutex<Option<RuntimeError>>>,
+    supervision: Arc<supervisor::ScanSupervision>,
     thread_id: thread::ThreadId,
     clock: C,
     join: Option<thread::JoinHandle<()>>,
@@ -18,6 +19,7 @@ impl<C: Clock + Clone> ResourceHandle<C> {
             stop: self.stop.clone(),
             state: self.state.clone(),
             last_error: self.last_error.clone(),
+            supervision: self.supervision.clone(),
             clock: self.clock.clone(),
             cmd_tx: self.cmd_tx.clone(),
         }
@@ -43,6 +45,12 @@ impl<C: Clock + Clone> ResourceHandle<C> {
         *self.state.lock().expect("resource state poisoned")
     }
 
+    /// Whether hosted hang supervision found the scan thread inside a call that did not return.
+    #[must_use]
+    pub fn is_hung(&self) -> bool {
+        self.supervision.is_hung()
+    }
+
     /// Thread id for the running resource.
     #[must_use]
     pub fn thread_id(&self) -> thread::ThreadId {
@@ -64,6 +72,7 @@ pub struct ResourceControl<C: Clock + Clone> {
     stop: Arc<AtomicBool>,
     state: Arc<Mutex<ResourceState>>,
     last_error: Arc<Mutex<Option<RuntimeError>>>,
+    supervision: Arc<supervisor::ScanSupervision>,
     clock: C,
     cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
 }
@@ -76,12 +85,17 @@ impl<C: Clock + Clone> ResourceControl<C> {
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Ready));
         let last_error = Arc::new(Mutex::new(None));
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
         (
             Self {
                 stop,
                 state,
                 last_error,
+                supervision,
                 clock,
                 cmd_tx,
             },
@@ -100,18 +114,30 @@ impl<C: Clock + Clone> ResourceControl<C> {
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(initial_state));
         let last_error = Arc::new(Mutex::new(initial_error));
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
         (
             Self {
                 stop,
                 state,
                 last_error,
+                supervision,
                 clock,
                 cmd_tx,
             },
             cmd_rx,
         )
     }
+
+    /// Mark the stub as hung, as hosted hang supervision does when the scan thread does not return.
+    #[cfg(test)]
+    pub(crate) fn mark_hung_for_test(&self) {
+        self.supervision.set_hung_for_test(true);
+    }
+
     /// Pause the runtime cycles.
     pub fn pause(&self) -> Result<(), RuntimeError> {
         self.send_command(ResourceCommand::Pause)?;
@@ -141,6 +167,12 @@ impl<C: Clock + Clone> ResourceControl<C> {
     #[must_use]
     pub fn state(&self) -> ResourceState {
         *self.state.lock().expect("resource state poisoned")
+    }
+
+    /// Whether hosted hang supervision found the scan thread inside a call that did not return.
+    #[must_use]
+    pub fn is_hung(&self) -> bool {
+        self.supervision.is_hung()
     }
 
     /// Retrieve the last error if the resource faulted.

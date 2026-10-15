@@ -219,6 +219,7 @@ fn checked_admission_resource_handle_reports_the_owner_fault_for_a_later_shared_
         );
         std::thread::sleep(StdDuration::from_millis(1));
     }
+    handle.stop();
     handle.join().unwrap();
     assert_eq!(handle.state(), ResourceState::Faulted);
     assert_eq!(

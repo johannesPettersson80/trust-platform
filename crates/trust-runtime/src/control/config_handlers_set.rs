@@ -95,6 +95,14 @@ pub(super) fn handle_config_set(
                         .map_err(|err| config_value_error(key, &err.to_string())));
                 updated.push("watchdog.action");
             }
+            "watchdog.hang_action" => {
+                let action = parse_or_error!(expect_non_empty_string(key, value));
+                settings.watchdog_hang_action =
+                    parse_or_error!(crate::watchdog::HangAction::parse(action)
+                        .map_err(|err| config_value_error(key, &err.to_string())));
+                updated.push("watchdog.hang_action");
+                restart_required.push("watchdog.hang_action");
+            }
             "fault.policy" => {
                 let policy = parse_or_error!(expect_non_empty_string(key, value));
                 settings.fault_policy =

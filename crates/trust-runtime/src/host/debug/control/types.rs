@@ -58,6 +58,10 @@ struct DebugState {
     target_thread: Option<u32>,
     breakpoints: Vec<DebugBreakpoint>,
     breakpoint_generation: HashMap<u32, u64>,
+    /// Start of the debugger hold the scan thread is waiting in, if one is in progress. It is set
+    /// and cleared under the same lock as the watchdog pause total, so hosted hang supervision
+    /// never sees a hold half-recorded.
+    watchdog_hold_started: Option<std::time::Instant>,
     breakpoint_stops_this_cycle: HashSet<BreakpointCycleKey>,
     frame_locations: HashMap<FrameId, SourceLocation>,
     logs: Vec<DebugLog>,

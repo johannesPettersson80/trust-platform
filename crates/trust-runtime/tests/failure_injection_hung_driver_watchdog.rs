@@ -7,13 +7,14 @@
 //! after the observation and before every join, and the driver also gives up
 //! after a bounded wait, so a broken test cannot hang the process.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::error::RuntimeError;
 use trust_runtime::io::IoDriver;
-use trust_runtime::scheduler::{Clock, ResourceRunner, ResourceState};
+use trust_runtime::scheduler::{Clock, ResourceHandle, ResourceRunner, ResourceState};
 use trust_runtime::value::Duration;
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
 use trust_runtime::RuntimeBuilder;
@@ -68,7 +69,6 @@ impl IoDriver for HungInputDriver {
 }
 
 #[test]
-#[ignore = "TIME-03: hosted independent hang supervision is not implemented yet; scope H slice after round 4 (runtime-portability checklist A10)"]
 fn enabled_watchdog_faults_the_resource_while_an_input_read_is_hung() {
     let (entered_tx, entered_rx) = mpsc::channel::<()>();
     let (release_tx, release_rx) = mpsc::channel::<()>();
@@ -124,4 +124,176 @@ fn enabled_watchdog_faults_the_resource_while_an_input_read_is_hung() {
         Some(RuntimeError::WatchdogTimeout),
         "the watchdog fault must name the watchdog timeout"
     );
+}
+
+/// Like `HungInputDriver`, and it counts physical output writes. A test can then show that a cycle
+/// the supervisor declared hung commits nothing when its blocked call finally returns.
+#[derive(Debug)]
+struct CountingHungDriver {
+    entered: Sender<()>,
+    release: Receiver<()>,
+    output_writes: Arc<AtomicUsize>,
+}
+
+impl IoDriver for CountingHungDriver {
+    fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
+        let _ = self.entered.send(());
+        match self.release.recv_timeout(StdDuration::from_secs(10)) {
+            Ok(()) | Err(RecvTimeoutError::Disconnected) => Ok(()),
+            Err(RecvTimeoutError::Timeout) => Err(RuntimeError::IoTransport(
+                "hung input driver was never released".into(),
+            )),
+        }
+    }
+
+    fn write_outputs(&mut self, _outputs: &[u8]) -> Result<(), RuntimeError> {
+        self.output_writes.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+}
+
+/// A resource whose first input read blocks until the test releases it.
+struct HungResource {
+    handle: ResourceHandle<StepClock>,
+    entered: Receiver<()>,
+    release: Sender<()>,
+    output_writes: Arc<AtomicUsize>,
+}
+
+fn spawn_hung_resource(timeout: Duration) -> HungResource {
+    let (entered_tx, entered_rx) = mpsc::channel::<()>();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let output_writes = Arc::new(AtomicUsize::new(0));
+
+    let mut builder = RuntimeBuilder::new();
+    builder.io_mut().resize(1, 0, 0);
+    let mut runtime = builder.build().expect("install declared test runtime");
+    runtime.add_io_driver(
+        "hung-input",
+        Box::new(CountingHungDriver {
+            entered: entered_tx,
+            release: release_rx,
+            output_writes: Arc::clone(&output_writes),
+        }),
+    );
+
+    let mut runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
+    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+        enabled: true,
+        timeout,
+        action: WatchdogAction::Halt,
+    });
+    let handle = runner
+        .spawn("hung-driver-supervisor")
+        .expect("spawn runner");
+    HungResource {
+        handle,
+        entered: entered_rx,
+        release: release_tx,
+        output_writes,
+    }
+}
+
+/// Releases the blocked read, stops the resource and joins it.
+fn release_and_join(hung: HungResource) {
+    let HungResource {
+        mut handle,
+        release,
+        ..
+    } = hung;
+    let _ = release.send(());
+    handle.stop();
+    handle.join().expect("resource thread joins after release");
+}
+
+/// Waits for the fault that the supervisor records while the read is still blocked, and returns
+/// the instant that the fault was observed.
+fn wait_for_fault(handle: &ResourceHandle<StepClock>) -> Instant {
+    let deadline = Instant::now() + StdDuration::from_secs(2);
+    while handle.state() != ResourceState::Faulted {
+        assert!(
+            Instant::now() < deadline,
+            "the hung read must fault the resource while it is still blocked"
+        );
+        std::thread::sleep(StdDuration::from_millis(1));
+    }
+    Instant::now()
+}
+
+#[test]
+fn supervisor_records_the_hang_within_timeout_plus_two_check_intervals() {
+    let hung = spawn_hung_resource(Duration::from_millis(100));
+    hung.entered
+        .recv_timeout(StdDuration::from_secs(5))
+        .expect("the input read must start");
+    let read_started = Instant::now();
+    let observed = wait_for_fault(&hung.handle);
+
+    // The deadline is armed before the read starts, so the fault is due within the timeout plus two
+    // check intervals of clamp(100 ms / 4, 1 ms, 100 ms) = 25 ms. The slack covers polling and
+    // scheduling on a loaded host.
+    let budget = StdDuration::from_millis(100)
+        + StdDuration::from_millis(2 * 25)
+        + StdDuration::from_millis(100);
+    let elapsed = observed.duration_since(read_started);
+    assert!(
+        elapsed <= budget,
+        "watchdog fault recorded after {elapsed:?}, budget {budget:?}"
+    );
+    assert!(
+        hung.handle.is_hung(),
+        "the supervisor marks the scan thread hung"
+    );
+    assert_eq!(
+        hung.handle.last_error(),
+        Some(RuntimeError::WatchdogTimeout)
+    );
+    release_and_join(hung);
+}
+
+#[test]
+fn releasing_the_blocked_read_finishes_the_scan_without_committing_outputs() {
+    let hung = spawn_hung_resource(Duration::from_millis(100));
+    hung.entered
+        .recv_timeout(StdDuration::from_secs(5))
+        .expect("the input read must start");
+    wait_for_fault(&hung.handle);
+    assert!(hung.handle.is_hung());
+    assert_eq!(
+        hung.output_writes.load(Ordering::SeqCst),
+        0,
+        "no output is written while the read is blocked"
+    );
+
+    hung.release
+        .send(())
+        .expect("the blocked read is still waiting");
+    let deadline = Instant::now() + StdDuration::from_secs(5);
+    while hung.handle.is_hung() {
+        assert!(
+            Instant::now() < deadline,
+            "the scan thread must finish once its blocked read returns"
+        );
+        std::thread::sleep(StdDuration::from_millis(1));
+    }
+
+    assert_eq!(
+        hung.handle.state(),
+        ResourceState::Faulted,
+        "the watchdog action keeps the resource faulted"
+    );
+    assert_eq!(
+        hung.handle.last_error(),
+        Some(RuntimeError::WatchdogTimeout)
+    );
+    assert_eq!(
+        hung.output_writes.load(Ordering::SeqCst),
+        0,
+        "the hung cycle must not commit its outputs after the read returns"
+    );
+    let HungResource { mut handle, .. } = hung;
+    handle.stop();
+    handle
+        .join()
+        .expect("resource thread joins after the faulted wait stops");
 }

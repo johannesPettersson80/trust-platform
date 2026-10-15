@@ -23,5 +23,8 @@ include!("scheduler/runner_api.rs");
 include!("scheduler/runner_loop.rs");
 include!("scheduler/handle_shared.rs");
 
+mod faulted;
+mod supervisor;
+
 #[cfg(test)]
 mod tests;

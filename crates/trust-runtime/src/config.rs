@@ -22,7 +22,7 @@ use crate::opcua::{
 use crate::simulation::SimulationConfig;
 use crate::value::Duration;
 use crate::value::Value;
-use crate::watchdog::{FaultPolicy, RetainMode, WatchdogAction, WatchdogPolicy};
+use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogAction, WatchdogPolicy};
 
 mod parser;
 

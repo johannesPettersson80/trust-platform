@@ -92,6 +92,7 @@ fn logical_limit_keeps_its_diagnosis_while_using_the_configured_watchdog_action(
         .spawn("quota-watchdog-cause")
         .unwrap();
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().unwrap();
     assert_eq!(handle.state(), ResourceState::Faulted);
     assert!(

@@ -1349,6 +1349,57 @@ execution model, not an IEC deviation.
   from one millisecond through one second, later attempts increase
   exponentially, and the resulting delay never exceeds one second.
 
+**Faulted resource lifecycle (hosted runtime):**
+- A fault that halts the resource (policy `Halt` or `SafeHalt`, a watchdog
+  `halt` or `safe_halt` action, an exhausted automatic restart, or a failed
+  restart) leaves the resource in FAULT after the fault action has run. The
+  runtime process keeps running: the control plane, web UI, HMI and protocol
+  servers stay available, `status` reports the fault, and `last_error` keeps the
+  root fault.
+- The faulted resource executes no task and commits no outputs. It waits for a
+  recovery request: `restart` (warm or cold) runs the configured initialization
+  and retain policy and then resumes cyclic execution (specification 34
+  STATE-06); an online change prepares and commits as in section 6.7.1 and then
+  resumes; `stop` ends the resource. A failed recovery leaves the resource in
+  FAULT with the new error. `pause` and `resume` are rejected while faulted.
+- The runtime process ends only on a stop request or a termination signal. It
+  exits with status 0 when the resource ends Stopped and with status 1 when it
+  ends Faulted, so a service manager can tell a clean stop from a failure.
+
+**Hosted hang supervision (specification 34 TIME-03):**
+- The checks above run on the scan thread, so none of them can act while that
+  thread is inside a driver or native callback that does not return. With the
+  watchdog enabled, the hosted runtime therefore runs an independent supervisor
+  thread per resource.
+- The scan thread publishes the active-execution deadline of the cycle it is
+  running and withdraws it when the cycle ends. A debugger hold suspends the
+  deadline exactly as it suspends the watchdog, so operator dwell time never
+  counts.
+- The supervisor checks the published deadline at least every
+  `clamp(timeout / 4, 1 ms, 100 ms)`. A cycle still running one check interval
+  after its deadline is hung. The supervisor then sets the resource to Faulted,
+  records `WatchdogTimeout` as `last_error` with the detail that the scan did not
+  return, and applies `runtime.watchdog.hang_action`:
+  - `fault` (default): nothing more. The process keeps serving the control
+    plane, `status` reports the fault, and requests that need the scan thread
+    (`pause`, `resume`, `restart`, online change) are rejected with the stable
+    error that names the resource state, because only a new runtime process can
+    recover a thread that does not return.
+  - `abort`: after recording the fault, the process exits at once with status
+    70, so an external service manager can restart it.
+- truST cannot drive outputs while the scan thread is blocked, because that
+  thread owns the drivers and the process image. A hang therefore relies on the
+  I/O devices' own communication-loss behaviour, which installations must
+  configure; it does not claim a confirmed safe state.
+- If a call the supervisor declared hung returns later, the scan thread finds
+  its deadline expired and follows the configured watchdog action for an
+  overrun; the cycle's outputs are not committed.
+- The maximum time from a deadline to the recorded fault is two check
+  intervals. Detecting and faulting a hang is a protection result, not
+  completion of the missed control deadline.
+- With the watchdog disabled there is no supervisor and a hang is not detected;
+  the configuration documentation states this.
+
 **Per-cycle deadline lifecycle:**
 - Before executing a cycle with an enabled watchdog, the scheduler arms both
   the execution and output-commit deadlines from the same wall-clock start and

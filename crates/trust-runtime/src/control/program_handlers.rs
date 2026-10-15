@@ -16,8 +16,18 @@ pub(super) enum StepKind {
     Out,
 }
 
-/// Stable code for a pause or resume that the resource cannot take (spec 11 section 6.9).
+/// Stable code for a pause, resume, restart or reload that the resource cannot take (spec 11
+/// sections 6.6 and 6.9).
 const RESOURCE_NOT_RUNNING: &str = "resource_not_running";
+
+const HUNG_MESSAGE: &str =
+    "resource scan thread did not return; the runtime process must be restarted";
+
+/// Refuse a request that needs the scan thread while hosted hang supervision reports that the
+/// scan thread is inside a call that did not return. Only a new runtime process recovers it.
+fn hung_refusal(id: u64) -> ControlResponse {
+    ControlResponse::error_with_code(id, HUNG_MESSAGE.to_string(), RESOURCE_NOT_RUNNING)
+}
 
 fn control_mode(state: &ControlState) -> ControlMode {
     state
@@ -47,6 +57,9 @@ fn resource_not_running(id: u64, resource: ResourceState) -> ControlResponse {
 }
 
 pub(super) fn handle_pause(id: u64, state: &ControlState) -> ControlResponse {
+    if state.resource.is_hung() {
+        return hung_refusal(id);
+    }
     let resource = state.resource.state();
     if !accepts_pause_resume(resource) {
         return resource_not_running(id, resource);
@@ -62,6 +75,9 @@ pub(super) fn handle_pause(id: u64, state: &ControlState) -> ControlResponse {
 }
 
 pub(super) fn handle_resume(id: u64, state: &ControlState) -> ControlResponse {
+    if state.resource.is_hung() {
+        return hung_refusal(id);
+    }
     let resource = state.resource.state();
     if !accepts_pause_resume(resource) {
         return resource_not_running(id, resource);
@@ -117,6 +133,15 @@ pub(super) fn handle_restart(
         "warm" => RestartMode::Warm,
         _ => return ControlResponse::error(id, "invalid restart mode".into()),
     };
+    if state.resource.is_hung() {
+        return hung_refusal(id);
+    }
+    // A live scan thread takes the request: a running or paused resource at its next scan
+    // boundary, a faulted one in the faulted wait. A stopped resource has no thread left.
+    let resource = state.resource.state();
+    if matches!(resource, ResourceState::Stopped) {
+        return resource_not_running(id, resource);
+    }
     if let Ok(mut guard) = state.pending_restart.lock() {
         *guard = Some(mode);
     }
@@ -139,6 +164,15 @@ pub(super) fn handle_bytecode_reload(
         Ok(bytes) => bytes,
         Err(err) => return ControlResponse::error(id, format!("invalid bytecode: {err}")),
     };
+    if state.resource.is_hung() {
+        return hung_refusal(id);
+    }
+    // A stopped resource has no scan thread to apply the change, so the request is refused
+    // instead of waiting for a reply that cannot come.
+    let resource = state.resource.state();
+    if matches!(resource, ResourceState::Stopped) {
+        return resource_not_running(id, resource);
+    }
     let (tx, rx) = std::sync::mpsc::channel();
     if let Err(err) = state
         .resource

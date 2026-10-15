@@ -264,6 +264,7 @@ fn panic_in_io_driver_faults_resource_visibly() {
 
     let state = handle.state();
     let last_error = handle.last_error();
+    handle.stop();
     let join_result = handle.join();
 
     assert_eq!(state, ResourceState::Faulted);
@@ -309,6 +310,7 @@ fn panic_in_shared_resource_faults_without_poison_detection() {
 
     let state = handle.state();
     let last_error = handle.last_error();
+    handle.stop();
     let join_result = handle.join();
 
     assert_eq!(state, ResourceState::Faulted);
@@ -371,6 +373,7 @@ fn modbus_fault_policy_faults_resource_state() {
         handle.last_error().is_some(),
         "fault policy must surface the driver error"
     );
+    handle.stop();
     handle.join().expect("runner join");
 }
 
@@ -526,6 +529,7 @@ fn deliberate_stop_and_fault_safe_state_paths_are_explicit() {
     let mut handle = runner.spawn("fault-safe-state").expect("spawn runner");
 
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert_eq!(handle.state(), ResourceState::Faulted);
@@ -585,6 +589,7 @@ fn persistent_fault_restart_policy_escalates_to_visible_fault() {
         "restart attempts should be bounded, reads={}",
         reads.load(Ordering::SeqCst)
     );
+    handle.stop();
     handle.join().expect("runner join");
 }
 
@@ -635,6 +640,7 @@ END_PROGRAM
         }
         other => panic!("expected RestartLimitExceeded, got {other:?}"),
     }
+    handle.stop();
     handle.join().expect("runner join");
 }
 
@@ -662,6 +668,7 @@ fn panic_applies_safe_outputs_before_faulting_resource() {
     let mut handle = runner.spawn("panic-safe-state").expect("spawn runner");
 
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert_eq!(handle.state(), ResourceState::Faulted);
@@ -688,6 +695,7 @@ fn panic_does_not_follow_ordinary_restart_policy() {
         .expect("spawn runner");
 
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert_eq!(handle.state(), ResourceState::Faulted);
@@ -761,6 +769,7 @@ fn watchdog_deadline_breach_before_commit_prevents_output_write() {
         writes.lock().expect("driver writes lock").is_empty(),
         "watchdog breach before output commit must prevent physical output writes"
     );
+    handle.stop();
     handle.join().expect("runner join");
 }
 
@@ -836,6 +845,7 @@ fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
         .spawn("watchdog-partial-safe-state")
         .expect("spawn runner");
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert!(matches!(

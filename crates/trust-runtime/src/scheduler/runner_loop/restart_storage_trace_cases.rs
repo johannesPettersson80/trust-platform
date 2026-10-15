@@ -145,6 +145,10 @@ fn run_restart_case(
             let mut limiter = AutomaticRestartLimiter::default();
             let resource_state = Arc::new(Mutex::new(ResourceState::Running));
             let resource_error = Arc::new(Mutex::new(None));
+            let supervision = supervisor::ScanSupervision::new(
+                Arc::clone(&resource_state),
+                Arc::clone(&resource_error),
+            );
             let state_before = resource_state_name(&resource_state);
             if !try_automatic_restart(
                 &mut runner,
@@ -152,6 +156,7 @@ fn run_restart_case(
                 &RuntimeError::DivisionByZero,
                 &resource_state,
                 &resource_error,
+                &supervision,
             ) {
                 return Err("automatic fault restart was not accepted".to_string());
             }

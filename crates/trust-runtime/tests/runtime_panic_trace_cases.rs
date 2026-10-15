@@ -160,6 +160,7 @@ fn input_driver_panic_observation(
     let state = handle.state();
     let resource_panic = matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_)));
     let last_error = handle.last_error().map(|error| error.to_string());
+    handle.stop();
     let join_ok = handle.join().is_ok();
     Ok(BTreeMap::from([
         ("state".to_string(), json!(resource_state_name(state))),
@@ -207,6 +208,7 @@ fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>
     let state = handle.state();
     let resource_panic = matches!(handle.last_error(), Some(RuntimeError::ResourcePanic(_)));
     let last_error = handle.last_error().map(|error| error.to_string());
+    handle.stop();
     handle
         .join()
         .map_err(|_| "panic safe-output resource thread escaped containment".to_string())?;

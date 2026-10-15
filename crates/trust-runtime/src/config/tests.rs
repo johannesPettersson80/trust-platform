@@ -1729,3 +1729,5 @@ fn runtime_config_load_defaults_execution_backend_source_when_omitted() {
         crate::execution_backend::ExecutionBackendSource::Default
     );
 }
+
+mod hang_action_tests;

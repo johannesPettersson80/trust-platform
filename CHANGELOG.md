@@ -33,6 +33,15 @@ Target release: `v0.24.75`
 
 ### Added
 
+- Hosted hang supervision. With the watchdog enabled, an independent supervisor
+  thread watches each cycle's deadline, so a driver or native call that never
+  returns now faults the resource (`WatchdogTimeout`) within two check intervals
+  of its deadline instead of stalling it silently. `runtime.watchdog.hang_action`
+  selects what follows: `fault` (default) keeps the process serving the control
+  plane, and `abort` exits the process with status 70 so a service manager can
+  restart it. truST cannot drive outputs while the scan thread is blocked, so a
+  hang relies on the I/O devices' communication-loss behaviour.
+
 - `trust-runtime ctl events` and `ctl faults` (optional `--limit N`) print recent
   runtime events and faults, so a rejected write's `write_rejected` event is
   visible from the command line.
@@ -255,6 +264,17 @@ Target release: `v0.24.75`
   state unchanged; detaching a debugger keeps forces (specification 11 §6.9).
 
 ### Fixed
+
+- A fault that halts the resource no longer ends the runtime process. The
+  resource stays faulted with its safe state applied, `status`, the web UI, HMI
+  and protocol servers keep working, and `restart` (warm or cold) or an online
+  change recovers it after the configured initialization. Before, the resource
+  thread ended, a `restart` request was acknowledged but never applied, and the
+  process exited with status 0. The process now exits with status 1 when it
+  ends with the resource faulted.
+- Control `restart` and online change on a stopped resource, or on one whose
+  scan thread did not return, return `resource_not_running` instead of
+  reporting that a restart was queued.
 
 - 83 example projects named a resource in `runtime.toml` that their ST did not
   declare; their RESOURCE declarations now match. For the seven communication
