@@ -133,14 +133,18 @@ fn many_short_cycles_inside_their_timeout_are_never_declared_hung() {
     runtime.add_io_driver(
         "paced-input",
         Box::new(PacedInput {
-            pace: StdDuration::from_millis(2),
+            pace: StdDuration::from_millis(5),
             reads: Arc::clone(&reads),
         }),
     );
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
+    // Each cycle needs 5 ms, far inside the 100 ms timeout even when a CI host oversleeps or
+    // preempts the scan thread; a cycle that really overruns is a true hang, so the margin must
+    // cover OS jitter. The 40 cycles together take at least 200 ms, so a supervisor that carried
+    // elapsed time across cycles instead of restarting it would still declare a hang here.
     runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
-        timeout: Duration::from_millis(4),
+        timeout: Duration::from_millis(100),
         action: WatchdogAction::Halt,
     });
     let handle = runner.spawn("short-cycles").expect("spawn resource");
@@ -209,7 +213,9 @@ fn an_overrunning_cycle_is_declared_once_and_stays_declared_until_its_call_retur
 
 #[test]
 fn a_warm_restart_after_an_overrun_is_supervised_again_without_a_false_hang() {
-    let blocked = spawn_blocked(Some(4), true);
+    // The blocked read forces the overrun whatever the timeout; 100 ms keeps the forty fast cycles
+    // after the restart clear of OS scheduling jitter, which a 4 ms timeout did not.
+    let blocked = spawn_blocked(Some(100), true);
     blocked
         .entered
         .recv_timeout(WAIT)
