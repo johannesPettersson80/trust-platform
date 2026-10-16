@@ -400,9 +400,9 @@ impl SymbolCollector<'_> {
             // optionally namespace-qualified): the type-qualified form
             // resolves to the enum's value, a legal constant initializer.
             let (type_parts, member) = parts.split_at(parts.len() - 1);
-            if let Some(type_symbol) =
-                self.table
-                    .enum_type_member_symbol(type_parts, member[0].as_str())
+            if let Some(type_symbol) = self
+                .table
+                .enum_type_member_symbol(type_parts, member[0].as_str())
             {
                 return InitializerReferenceResolution::Found(type_symbol);
             }

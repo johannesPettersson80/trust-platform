@@ -107,7 +107,9 @@ impl SymbolCollector<'_> {
             for name_node in var_decl.children().filter(|n| n.kind() == SyntaxKind::Name) {
                 if let Some((name, _)) = name_from_node(&name_node) {
                     let key = const_key(scope, name.as_str());
-                    self.const_exprs.entry(key).or_insert((origin, expr.clone()));
+                    self.const_exprs
+                        .entry(key)
+                        .or_insert((origin, expr.clone()));
                 }
             }
         }

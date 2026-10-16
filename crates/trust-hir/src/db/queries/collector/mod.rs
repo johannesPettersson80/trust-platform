@@ -118,7 +118,12 @@ impl<'a> SymbolCollector<'a> {
     fn phase_precollect(&mut self, root: &SyntaxNode) {
         self.precollect_pous(root, &[]);
         self.precollect_types(root, &[]);
-        self.precollect_constants(root, &[], &[], self.const_origin_filter.unwrap_or(FileId(0)));
+        self.precollect_constants(
+            root,
+            &[],
+            &[],
+            self.const_origin_filter.unwrap_or(FileId(0)),
+        );
     }
 
     fn phase_collect_symbols(&mut self, root: &SyntaxNode) {
