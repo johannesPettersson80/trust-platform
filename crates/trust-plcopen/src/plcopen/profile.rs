@@ -10,7 +10,7 @@ pub fn supported_profile() -> PlcopenProfile {
             "types/dataTypes/dataType[baseType subset: elementary|derived|array|struct|enum|subrange] (import/export)",
             "instances/configurations/resources/tasks/program instances",
             "CODESYS addData/globalVars (import/export)",
-            "CODESYS addData/method for FUNCTION_BLOCK members (import/export)",
+            "CODESYS addData/method for FUNCTION_BLOCK and PROGRAM members (import/export)",
             "CODESYS addData/projectstructure folder mapping (import/export)",
             "pou/body/ST plain-text bodies (multi-worksheet import order preserved)",
             "addData/data[name=trust.sourceMap|trust.vendorExtensions|trust.exportAdapter]",
@@ -62,9 +62,9 @@ pub fn supported_profile() -> PlcopenProfile {
                 notes: "Import prefers interface-as-plaintext for VAR_GLOBAL fidelity and falls back to variable node synthesis; export emits deterministic CODESYS globalVars metadata.",
             },
             PlcopenCompatibilityMatrixEntry {
-                capability: "CODESYS method members (addData/method on FUNCTION_BLOCK POUs)",
+                capability: "CODESYS method members (addData/method on FUNCTION_BLOCK and PROGRAM POUs)",
                 status: "supported",
-                notes: "Import reconstructs FUNCTION_BLOCK methods from vendor metadata and export emits deterministic Method objects/object IDs on the owning POU and project structure. Other vendor OOP objects such as properties remain out of scope.",
+                notes: "Import reconstructs FUNCTION_BLOCK and PROGRAM methods from vendor metadata and export emits deterministic Method objects/object IDs on the owning POU and project structure. Other vendor OOP objects such as properties remain out of scope.",
             },
             PlcopenCompatibilityMatrixEntry {
                 capability: "CODESYS project structure folder mapping (addData/projectstructure)",

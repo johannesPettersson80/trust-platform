@@ -94,6 +94,9 @@ Target release: `v0.24.75`
   too: textual actions nested structurally under the parent POU
   (`<pou><actions><action name="Plain">`) merge the same way, where they
   were previously dropped silently.
+- Import e!COCKPIT methods attached to PROGRAM POUs (previously only
+  function-block methods were kept): the method body merges into the
+  program mirror so self-calls like `StateToBool(...)` resolve.
 - Make function-block and program `VAR_INPUT` members writable (CODESYS
   parity): the owning body and external POUs may assign them between calls.
   Function/method parameters stay call-local, and pointer/reference input

@@ -416,6 +416,11 @@ Table 47 adopts the Table 40 textual edge-input form for programs. A program
 samples each edge-qualified `BOOL` input once per executed program cycle and
 the program body observes only the resulting one-cycle pulse.
 
+**Program methods (e!COCKPIT dialect)**: a program may declare methods, and
+the program body calls them by bare name without a `THIS` qualifier. truST
+imports vendor method metadata attached to program POUs exactly like
+function-block methods and resolves the self-calls against them.
+
 ### Program-singleton access (vendor extension)
 
 ```

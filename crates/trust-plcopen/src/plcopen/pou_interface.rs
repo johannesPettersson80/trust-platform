@@ -501,9 +501,12 @@ fn extract_codesys_method_sources(
     if method_nodes.is_empty() {
         return Vec::new();
     }
-    if pou_type != PlcopenPouType::FunctionBlock {
+    if !matches!(
+        pou_type,
+        PlcopenPouType::FunctionBlock | PlcopenPouType::Program
+    ) {
         warnings.push(format!(
-            "pou '{}' contains {} CODESYS method object(s) on '{}'; truST only imports vendor method metadata into FUNCTION_BLOCK sources",
+            "pou '{}' contains {} CODESYS method object(s) on '{}'; truST only imports vendor method metadata into FUNCTION_BLOCK and PROGRAM sources",
             pou_name,
             method_nodes.len(),
             pou_type.as_xml()
@@ -512,9 +515,9 @@ fn extract_codesys_method_sources(
             "PLCO213",
             "warning",
             "addData/data[method]",
-            "CODESYS method objects were skipped because the owning POU is not imported as a FUNCTION_BLOCK",
+            "CODESYS method objects were skipped because the owning POU is not imported as a FUNCTION_BLOCK or PROGRAM",
             Some(pou_name.to_string()),
-            "Convert the source POU to a FUNCTION_BLOCK or move the methods to a supported owner type",
+            "Move the methods to a FUNCTION_BLOCK or PROGRAM owner type",
         ));
         return Vec::new();
     }
