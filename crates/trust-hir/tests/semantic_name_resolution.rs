@@ -233,3 +233,67 @@ END_VAR
         "the owning file keeps its own constant failure"
     );
 }
+
+// Nightly-follow-up: CASE labels and namespace-scoped enums (s4 E202 residual).
+#[test]
+fn qualified_enum_member_as_case_label_resolves() {
+    // s4 shape: `CASE eMode OF eMqttPayloadMode.state:` (fbMqttPayloadCreate).
+    check_no_errors(
+        r#"
+TYPE eMqttPayloadMode : (state := 0, event := 1, autodiscovery := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    eMode : eMqttPayloadMode;
+END_VAR
+    CASE eMode OF
+        eMqttPayloadMode.state:
+            ;
+        eMqttPayloadMode.event:
+            ;
+        eMqttPayloadMode.autodiscovery:
+            ;
+    END_CASE
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn qualified_enum_members_cover_all_values() {
+    check_no_errors(
+        r#"
+TYPE eMqttPayloadMode : (state := 0, event := 1, autodiscovery := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    eMode : eMqttPayloadMode;
+END_VAR
+    CASE eMode OF
+        eMqttPayloadMode.state, eMqttPayloadMode.event, eMqttPayloadMode.autodiscovery:
+            ;
+    END_CASE
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn namespace_scoped_enum_member_in_call_argument_resolves() {
+    check_no_errors(
+        r#"
+NAMESPACE App
+TYPE eChar : (Slash := 47, Comma := 44);
+END_TYPE
+FUNCTION strExtractToken : INT
+VAR_INPUT s : STRING; n : INT; c : eChar; i : INT; END_VAR
+    strExtractToken := 0;
+END_FUNCTION
+PROGRAM Main
+VAR s : STRING; i : INT; END_VAR
+    i := strExtractToken(s, 0, eChar.Slash, i);
+END_PROGRAM
+END_NAMESPACE
+"#,
+    );
+}

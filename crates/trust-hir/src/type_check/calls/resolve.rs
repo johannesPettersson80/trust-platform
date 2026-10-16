@@ -166,7 +166,9 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
 
     /// CODESYS qualified enum member access (`EnumType.Member`): returns the
     /// enum's type id when `node` is a two-part field expression whose base
-    /// names an enum type and whose member names one of its values.
+    /// names an enum type and whose member names one of its values. The base
+    /// resolves through the scope chain first, so namespace-scoped enums
+    /// (e!COCKPIT `NAMESPACE App TYPE eChar ...`) are found.
     pub(in crate::type_check) fn resolve_qualified_enum_member(
         &self,
         node: &SyntaxNode,
@@ -178,7 +180,12 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         let type_symbol = self
             .checker
             .symbols
-            .resolve_global_or_qualified_name(parts[0].as_str())?;
+            .resolve(parts[0].as_str(), self.checker.current_scope)
+            .or_else(|| {
+                self.checker
+                    .symbols
+                    .resolve_global_or_qualified_name(parts[0].as_str())
+            })?;
         if !matches!(
             self.checker.symbols.get(type_symbol)?.kind,
             SymbolKind::Type

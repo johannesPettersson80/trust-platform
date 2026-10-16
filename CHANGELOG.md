@@ -104,6 +104,10 @@ Target release: `v0.24.75`
   `output =>` with no target, at a comma or the closing parenthesis) as a
   CODESYS vendor extension: the parameter is skipped instead of erroring.
   `?=` still requires a target.
+- Extend CODESYS qualified enum member access (`EnumType.Member`) to CASE
+  labels (with numeric value tracking for coverage checks) and to enums
+  declared inside namespaces, closing the remaining E202 residual (43
+  measured s4 sites: 32 CASE labels, 4 namespace-scoped member reads).
 - Default function-block members to Public (classic IEC instance access):
   plain `VAR`, `VAR_STAT`, methods, and properties are reachable through
   the instance name (`fbInst.member`) from other POUs; restriction is

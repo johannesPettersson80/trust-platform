@@ -685,18 +685,22 @@ impl SymbolTable {
         matched.map_or(EnumValueResolution::NotFound, EnumValueResolution::Resolved)
     }
 
-    /// Returns the type symbol when `type_parts` resolve to an enum type
-    /// declaring a value named `member` (CODESYS `EnumType.Member`
-    /// qualified access).
+    /// Returns the type symbol when `type_parts` resolve — through the given
+    /// scope chain first, then globally — to an enum type declaring a value
+    /// named `member` (CODESYS `EnumType.Member` qualified access).
     pub fn enum_type_member_symbol(
         &self,
         type_parts: &[SmolStr],
         member: &str,
+        scope: ScopeId,
     ) -> Option<SymbolId> {
-        let symbol_id = match type_parts {
-            [single] => self.lookup(single.as_str()),
-            _ => self.resolve_qualified(type_parts),
-        }?;
+        let type_name = type_parts.last()?;
+        let symbol_id = if type_parts.len() == 1 {
+            self.resolve(type_name.as_str(), scope)
+        } else {
+            self.resolve_qualified(type_parts)
+        };
+        let symbol_id = symbol_id.or_else(|| self.lookup(type_name.as_str()))?;
         let symbol = self.get(symbol_id)?;
         let resolved = self.resolve_alias_type(symbol.type_id);
         match self.type_by_id(resolved) {

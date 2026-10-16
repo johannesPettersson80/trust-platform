@@ -320,7 +320,7 @@ impl SymbolCollector<'_> {
         if parts.len() >= 2
             && self
                 .table
-                .enum_type_member_symbol(&parts[..parts.len() - 1], name.as_str())
+                .enum_type_member_symbol(&parts[..parts.len() - 1], name.as_str(), scope)
                 .is_some()
         {
             return None;
@@ -400,9 +400,9 @@ impl SymbolCollector<'_> {
             // optionally namespace-qualified): the type-qualified form
             // resolves to the enum's value, a legal constant initializer.
             let (type_parts, member) = parts.split_at(parts.len() - 1);
-            if let Some(type_symbol) = self
-                .table
-                .enum_type_member_symbol(type_parts, member[0].as_str())
+            if let Some(type_symbol) =
+                self.table
+                    .enum_type_member_symbol(type_parts, member[0].as_str(), scope)
             {
                 return InitializerReferenceResolution::Found(type_symbol);
             }
