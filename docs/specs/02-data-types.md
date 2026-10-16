@@ -240,6 +240,9 @@ END_TYPE
 - First value is the default initial value (unless explicitly initialized)
 - Different enums may use the same identifiers
 - Qualified access: `TrafficLight#Red` resolves ambiguity
+- Qualified member access (CODESYS parity, vendor extension): `TrafficLight.Red`
+  resolves to the value in initializers and expressions, optionally
+  namespace-qualified (`Ns.TrafficLight.Red`); an unknown member is rejected
 - Error if enumerated literal cannot be unambiguously determined
 
 ### 3.2 Data Types with Named Values (Section 6.4.4.3)

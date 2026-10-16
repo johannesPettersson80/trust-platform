@@ -149,6 +149,17 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             return SemanticOutcome::Resolved(symbol.type_id);
         }
 
+        // CODESYS qualified enum member access (`EnumType.Member`): the base
+        // names a type, not a value, so resolve the member directly to the
+        // enum type instead of reporting the type as a value.
+        if let Some(enum_type) = self
+            .checker
+            .resolve_ref()
+            .resolve_qualified_enum_member(node)
+        {
+            return SemanticOutcome::Resolved(enum_type);
+        }
+
         if let Some(symbol_id) = self
             .checker
             .resolve_ref()

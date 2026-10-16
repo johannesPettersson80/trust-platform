@@ -135,3 +135,55 @@ END_PROGRAM
 "#,
     );
 }
+
+// CODESYS qualified enum member access (`EnumType.Member`, vendor extension):
+// the base names an enum type, not a value.
+#[test]
+fn qualified_enum_member_in_gvl_initializer_resolves() {
+    check_no_errors_multi(&[
+        r#"
+TYPE eModeMaster : (Off := 0, Night := 2, Auto := 3, Hybrid := 2, Disabled := 4);
+END_TYPE
+"#,
+        r#"
+NAMESPACE SomeNs
+VAR_GLOBAL RETAIN PERSISTENT
+    aeMasterManual : ARRAY[0..7] OF eModeMaster := [eModeMaster.Hybrid, eModeMaster.Night, eModeMaster.Disabled];
+END_VAR
+END_NAMESPACE
+"#,
+    ]);
+}
+
+#[test]
+fn qualified_enum_member_in_pou_body_resolves() {
+    check_no_errors(
+        r#"
+TYPE eModeMaster : (Off := 0, Night := 2, Hybrid := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    x : eModeMaster;
+END_VAR
+    x := eModeMaster.Hybrid;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn qualified_enum_member_with_unknown_member_still_rejected() {
+    check_has_error(
+        r#"
+TYPE eModeMaster : (Off := 0, Night := 2);
+END_TYPE
+PROGRAM Main
+VAR
+    x : eModeMaster;
+END_VAR
+    x := eModeMaster.Nope;
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidOperation,
+    );
+}

@@ -97,6 +97,9 @@ Target release: `v0.24.75`
 - Import e!COCKPIT methods attached to PROGRAM POUs (previously only
   function-block methods were kept): the method body merges into the
   program mirror so self-calls like `StateToBool(...)` resolve.
+- Resolve CODESYS qualified enum member access (`EnumType.Member`, optionally
+  namespace-qualified) in variable initializers and expressions, instead of
+  reporting undefined-identifier or type-as-value errors.
 - Make function-block and program `VAR_INPUT` members writable (CODESYS
   parity): the owning body and external POUs may assign them between calls.
   Function/method parameters stay call-local, and pointer/reference input

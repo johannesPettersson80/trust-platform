@@ -685,6 +685,32 @@ impl SymbolTable {
         matched.map_or(EnumValueResolution::NotFound, EnumValueResolution::Resolved)
     }
 
+    /// Returns the type symbol when `type_parts` resolve to an enum type
+    /// declaring a value named `member` (CODESYS `EnumType.Member`
+    /// qualified access).
+    pub fn enum_type_member_symbol(
+        &self,
+        type_parts: &[SmolStr],
+        member: &str,
+    ) -> Option<SymbolId> {
+        let symbol_id = match type_parts {
+            [single] => self.lookup(single.as_str()),
+            _ => self.resolve_qualified(type_parts),
+        }?;
+        let symbol = self.get(symbol_id)?;
+        let resolved = self.resolve_alias_type(symbol.type_id);
+        match self.type_by_id(resolved) {
+            Some(Type::Enum { values, .. })
+                if values
+                    .iter()
+                    .any(|(value_name, _)| value_name.eq_ignore_ascii_case(member)) =>
+            {
+                Some(symbol_id)
+            }
+            _ => None,
+        }
+    }
+
     /// Sets the table's constant values.
     pub fn set_const_values(&mut self, values: FxHashMap<(Option<SmolStr>, SmolStr), i64>) {
         self.const_values = values

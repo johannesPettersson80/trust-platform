@@ -164,6 +164,43 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
             .resolve_child_symbol(program_id, &parts[1])
     }
 
+    /// CODESYS qualified enum member access (`EnumType.Member`): returns the
+    /// enum's type id when `node` is a two-part field expression whose base
+    /// names an enum type and whose member names one of its values.
+    pub(in crate::type_check) fn resolve_qualified_enum_member(
+        &self,
+        node: &SyntaxNode,
+    ) -> Option<TypeId> {
+        let parts = self.qualified_name_from_field_expr(node)?;
+        if parts.len() != 2 {
+            return None;
+        }
+        let type_symbol = self
+            .checker
+            .symbols
+            .resolve_global_or_qualified_name(parts[0].as_str())?;
+        if !matches!(
+            self.checker.symbols.get(type_symbol)?.kind,
+            SymbolKind::Type
+        ) {
+            return None;
+        }
+        let resolved = self
+            .checker
+            .symbols
+            .resolve_alias_type(self.checker.symbols.get(type_symbol)?.type_id);
+        match self.checker.symbols.type_by_id(resolved) {
+            Some(Type::Enum { values, .. })
+                if values
+                    .iter()
+                    .any(|(value_name, _)| value_name.eq_ignore_ascii_case(parts[1].as_str())) =>
+            {
+                Some(resolved)
+            }
+            _ => None,
+        }
+    }
+
     fn resolve_using_in_scope(&self, scope_id: ScopeId, name: &str) -> UsingResolution {
         let Some(scope) = self.checker.symbols.get_scope(scope_id) else {
             return UsingResolution::None;
