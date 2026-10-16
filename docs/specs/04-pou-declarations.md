@@ -311,7 +311,17 @@ END_FUNCTION_BLOCK
    IEC input-transfer model where input values are set by the caller.
    Function and method parameters remain call-local and read-only, and
    pointer/reference input slots stay read-only per the truST indirect-write
-   policy (`02-data-types.md` section 4.4).
+   policy (`02-data-types.md` section 4.4). Assignments through an
+   input-parameter slot (`fbInput.field := value` where `fbInput` is a
+   `VAR_INPUT` function-block instance) remain rejected.
+9. **Members default to Public** (classic IEC instance access): plain `VAR`,
+   `VAR_STAT`, methods, and properties of a function block are reachable
+   through the instance name from outside (`fbInst.member`), matching the
+   IEC function-block model where instance state is externally readable and
+   writable. Restriction is opt-in with `VAR_PROTECTED` and `VAR_PRIVATE`;
+   `VAR_IN_OUT`, `VAR_TEMP`, and `VAR_EXTERNAL` members keep the restricted
+   default because they only mean something inside the POU. CLASS members
+   keep the Protected default (IEC 61131-3 Ed.3 object model).
 
 Table 40 permits input, output, in-out, external, ordinary, and temporary
 sections. truST also accepts `VAR_STAT` as ordinary persistent instance

@@ -80,7 +80,7 @@ END_CLASS
 }
 
 #[test]
-fn member_access_function_block_variable_defaults_to_protected() {
+fn member_access_function_block_variable_defaults_to_public() {
     assert_eq!(
         symbol_visibility(
             r#"
@@ -93,12 +93,12 @@ END_FUNCTION_BLOCK
             "Device",
             "Value",
         ),
-        Visibility::Protected
+        Visibility::Public
     );
 }
 
 #[test]
-fn member_access_function_block_method_defaults_to_protected() {
+fn member_access_function_block_method_defaults_to_public() {
     assert_eq!(
         symbol_visibility(
             r#"
@@ -111,12 +111,12 @@ END_FUNCTION_BLOCK
             "Device",
             "Read",
         ),
-        Visibility::Protected
+        Visibility::Public
     );
 }
 
 #[test]
-fn member_access_function_block_property_defaults_to_protected() {
+fn member_access_function_block_property_defaults_to_public() {
     assert_eq!(
         symbol_visibility(
             r#"
@@ -131,7 +131,7 @@ END_FUNCTION_BLOCK
             "Device",
             "Level",
         ),
-        Visibility::Protected
+        Visibility::Public
     );
 }
 
@@ -707,6 +707,29 @@ VAR
     Stored : INT;
 END_VAR
 BumpInstance(Value := Stored);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn member_access_function_block_variable_is_externally_accessible() {
+    // Classic IEC: FB members are reachable through the instance name
+    // (CODESYS parity measured on s4, MqttSendQueue.st).
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK Device
+VAR
+    Stored : INT;
+END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+    DeviceInstance : Device;
+    Seen : INT;
+END_VAR
+    DeviceInstance.Stored := INT#1;
+    Seen := DeviceInstance.Stored;
 END_PROGRAM
 "#,
     );

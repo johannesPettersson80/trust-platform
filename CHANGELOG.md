@@ -104,6 +104,12 @@ Target release: `v0.24.75`
   `output =>` with no target, at a comma or the closing parenthesis) as a
   CODESYS vendor extension: the parameter is skipped instead of erroring.
   `?=` still requires a target.
+- Default function-block members to Public (classic IEC instance access):
+  plain `VAR`, `VAR_STAT`, methods, and properties are reachable through
+  the instance name (`fbInst.member`) from other POUs; restriction is
+  opt-in with `VAR_PROTECTED`/`VAR_PRIVATE`, and `VAR_IN_OUT`/`VAR_TEMP`/
+  `VAR_EXTERNAL` members keep the restricted default. Assignment through
+  an input-parameter slot (`fbInput.field := value`) stays rejected.
 - Make function-block and program `VAR_INPUT` members writable (CODESYS
   parity): the owning body and external POUs may assign them between calls.
   Function/method parameters stay call-local, and pointer/reference input

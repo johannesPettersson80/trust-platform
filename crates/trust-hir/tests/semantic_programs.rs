@@ -204,8 +204,10 @@ END_PROGRAM
 }
 
 #[test]
-fn test_program_singleton_fb_plain_var_stays_protected() {
-    check_has_error(
+fn test_program_singleton_fb_plain_var_is_accessible() {
+    // Classic IEC: FB members are reachable through the instance name, so
+    // the deep singleton chain reads plain VAR members too (s4 T7).
+    check_no_errors(
         r#"
 FUNCTION_BLOCK Worker
     VAR
@@ -224,6 +226,5 @@ PROGRAM Main
     ok := OtherPrg.fb.state;
 END_PROGRAM
 "#,
-        DiagnosticCode::InvalidOperation,
     );
 }

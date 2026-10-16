@@ -410,8 +410,13 @@ impl SymbolCollector<'_> {
             return Visibility::Public;
         };
         match parent.kind {
-            SymbolKind::Class | SymbolKind::FunctionBlock => Visibility::Protected,
-            SymbolKind::Interface => Visibility::Public,
+            // Classes default to Protected (IEC 61131-3 Ed.3 object model).
+            // Function blocks default to Public: classic IEC reaches members
+            // through the instance name (`fbInstance.var`), and CODESYS
+            // projects rely on it — restriction is opt-in via
+            // VAR_PROTECTED/VAR_PRIVATE.
+            SymbolKind::Class => Visibility::Protected,
+            SymbolKind::Interface | SymbolKind::FunctionBlock => Visibility::Public,
             _ => Visibility::Public,
         }
     }
