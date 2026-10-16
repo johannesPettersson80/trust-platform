@@ -14,6 +14,9 @@ pub const BYTECODE_MAX_PARAMETERS_PER_POU: usize = 1_024;
 pub const BYTECODE_MAX_NATIVE_ARGUMENTS: usize = 1_024;
 /// Maximum nested type references while validating or materializing one constant payload.
 pub const BYTECODE_MAX_CONST_NESTING: u8 = 64;
+/// Maximum structural type/value edges, independently of active POU/recipe calls.
+/// The root is depth zero: 64 edges (65 visited nodes) are admitted.
+pub const BYTECODE_MAX_TYPE_NESTING: usize = BYTECODE_MAX_CONST_NESTING as usize;
 
 /// Limits for temporary semantic analysis, excluding the caller-owned decoded artifact.
 /// Accounted bytes cover requested analysis capacities and retained qualified-name scratch.

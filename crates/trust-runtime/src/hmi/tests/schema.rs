@@ -401,6 +401,7 @@ END_PROGRAM
     let harness = TestHarness::from_source(source).expect("build harness");
     let metadata = harness.runtime().metadata_snapshot();
     let snapshot = crate::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };

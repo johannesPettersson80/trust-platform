@@ -7,18 +7,42 @@ use crate::vm::VmTrap;
 
 pub(super) use super::destinations::SavedDestinations;
 
-fn lookup_work(count: usize) -> usize {
-    // Conservative bound for the fixed-size key searches in each journal operation.
-    12 * (count.max(1).ilog2() as usize + 1)
-}
-
 impl EngineState<'_> {
+    /// Save a single write's original root directly in the active journal.
+    /// Admission and cloning finish before insertion; a later failure still
+    /// restores the first snapshot of each physical destination.
+    pub(super) fn journal_output_destination(
+        &mut self,
+        frame: &VmFrame,
+        reference: ValueRefView<'_>,
+    ) -> Result<(), RuntimeError> {
+        let Some(journal) = self.data.resources.output_journal.as_ref() else {
+            return Ok(());
+        };
+        let key = self.snapshot_key(Some(frame), reference)?;
+        if journal.contains_key(&key) {
+            return Ok(());
+        }
+        let root = self.snapshot_root(Some(frame), key)?;
+        // The saved value and the journal's growth are call-transaction bookkeeping:
+        // neither the work allowance nor the cumulative allocation charge admits them
+        // (spec 34 TIME-08). The detached value needs no temporary heap collection.
+        // Insertion can still refuse allocation, in which case the destination is untouched.
+        let saved = root.clone();
+        self.data
+            .resources
+            .output_journal
+            .as_mut()
+            .ok_or(RuntimeError::InvalidExecutionState)?
+            .insert(key, saved)?;
+        Ok(())
+    }
+
     fn snapshot_key(
         &self,
         frame: Option<&VmFrame>,
         reference: ValueRefView<'_>,
     ) -> Result<Key, RuntimeError> {
-        self.charge_work_units(reference.path.len() + 1)?;
         let is_current = frame.is_some_and(|frame| {
             reference.location == MemoryLocation::Local(frame.reference_frame_id())
         });
@@ -31,17 +55,20 @@ impl EngineState<'_> {
                 (root, reference.path.first())
             {
                 let field = self
+                    .data
                     .storage
                     .ref_for_instance_recursive(*instance, name)
                     .ok_or(RuntimeError::NullReference)?;
-                self.storage
+                self.data
+                    .storage
                     .resolve_reference_parts(field.location, field.offset, &reference.path[1..])
                     .ok_or(RuntimeError::NullReference)?
             } else {
                 reference
             }
         } else {
-            self.storage
+            self.data
+                .storage
                 .resolve_reference_parts(reference.location, reference.offset, reference.path)
                 .ok_or(RuntimeError::NullReference)?
         };
@@ -56,7 +83,7 @@ impl EngineState<'_> {
         if frame.is_some_and(|frame| key.0 == MemoryLocation::Local(frame.reference_frame_id())) {
             frame.and_then(|frame| frame.locals.get(key.1))
         } else {
-            self.storage.read_direct_slot_by_location(key.0, key.1)
+            self.data.storage.read_direct_slot_by_location(key.0, key.1)
         }
         .ok_or(RuntimeError::NullReference)
     }
@@ -86,12 +113,10 @@ impl EngineState<'_> {
             self.snapshot_root(None, key)?;
             keys.push(key);
         }
+        // Destination sorting and deduplication are journal bookkeeping (TIME-08).
         crate::sort::heap_sort(keys.len(), &mut |operation| -> Result<bool, RuntimeError> {
             match operation {
-                crate::sort::Operation::Charge => {
-                    self.charge_work_units(1)?;
-                    Ok(false)
-                }
+                crate::sort::Operation::Charge => Ok(false),
                 crate::sort::Operation::Less(a, b) => Ok(keys[a] < keys[b]),
                 crate::sort::Operation::Swap(a, b) => {
                     keys.swap(a, b);
@@ -99,14 +124,11 @@ impl EngineState<'_> {
                 }
             }
         })?;
-        self.charge_work_units(keys.len())?;
         keys.dedup();
         self.charge_allocation_bytes(SavedDestinations::allocation_bytes(keys.len())?)?;
         let mut saved = SavedDestinations::with_capacity(keys.len())?;
         for key in keys {
-            self.charge_work_units(lookup_work(saved.len()))?;
             let root = self.snapshot_root(None, key)?;
-            self.charge_allocation_bytes(self.value_clone_charge(root, 0)?)?;
             // Keys are unique and sorted; reserved capacity covers every append.
             saved.insert(key, root.clone())?;
         }
@@ -121,31 +143,21 @@ impl EngineState<'_> {
         let mut saved = SavedDestinations::new();
         for reference in references {
             let key = self.snapshot_key(frame, reference)?;
-            let active = self.resources.output_journal.as_ref();
-            self.charge_work_units(
-                lookup_work(saved.len()) + active.map_or(0, |journal| lookup_work(journal.len())),
-            )?;
+            let active = self.data.resources.output_journal.as_ref();
             if saved.contains_key(&key) || active.is_some_and(|journal| journal.contains_key(&key))
             {
                 continue;
             }
             let root = self.snapshot_root(frame, key)?;
-            // Charge whole replacement allocations, relocation and insertion shifts
-            // for both temporary and active journals before cloning or mutation.
-            let (bytes, moved) = saved.insertion_demand(&key)?;
-            let (active_bytes, active_moved) =
+            // Admit both journals' growth before cloning or mutation. The saved values
+            // are transient rollback snapshots; relocation and shifts are journal
+            // bookkeeping (TIME-08).
+            let (bytes, _) = saved.insertion_demand(&key)?;
+            let (active_bytes, _) =
                 active.map_or(Ok((0, 0)), |journal| journal.insertion_demand(&key))?;
-            self.charge_work_units(
-                lookup_work(saved.len())
-                    + moved
-                    + active.map_or(0, |journal| lookup_work(journal.len()))
-                    + active_moved,
-            )?;
-            let clone_bytes = self.value_clone_charge(root, 0)?;
             self.charge_allocation_bytes(
                 bytes
                     .checked_add(active_bytes)
-                    .and_then(|bytes| bytes.checked_add(clone_bytes))
                     .ok_or(RuntimeError::Overflow)?,
             )?;
             saved.insert(key, root.clone())?;
@@ -165,7 +177,9 @@ impl EngineState<'_> {
             {
                 frame.locals[offset] = value;
             } else {
-                self.storage.restore_direct_slot(location, offset, value);
+                self.data
+                    .storage
+                    .restore_direct_slot(location, offset, value);
             }
         }
     }
@@ -175,12 +189,17 @@ impl EngineState<'_> {
         frame: &mut VmFrame,
         action: impl FnOnce(&mut Self, &mut VmFrame) -> Result<T, VmTrap>,
     ) -> Result<T, VmTrap> {
-        if self.resources.output_journal.is_some() {
+        if self.data.resources.output_journal.is_some() {
             return Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState));
         }
-        self.resources.output_journal = Some(SavedDestinations::new());
+        self.data.resources.output_journal = Some(SavedDestinations::new());
         let result = action(self, frame);
-        let saved = self.resources.output_journal.take().unwrap_or_default();
+        let saved = self
+            .data
+            .resources
+            .output_journal
+            .take()
+            .unwrap_or_default();
         match result {
             Ok(value) => Ok(value),
             Err(error) => {
@@ -190,6 +209,13 @@ impl EngineState<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod call_path_alias_tests;
+#[cfg(test)]
+mod single_destination_tests;
+#[cfg(test)]
+mod work_allowance_tests;
 
 #[cfg(test)]
 mod tests {
@@ -206,22 +232,34 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state =
-            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let mut state = EngineState::borrow(
+            &mut state_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
         let original = Value::Array(alloc::boxed::Box::new(
             crate::value::ArrayValue::from_canonical_parts(
                 vec![Value::DInt(7), Value::DInt(9)],
                 vec![(0, 1)],
             ),
         ));
-        state.storage.set_global("bulk_array", original.clone());
-        state.storage.set_global("bulk_scalar", Value::DInt(11));
-        let root = state.storage.ref_for_global("bulk_array").unwrap();
+        state
+            .data
+            .storage
+            .set_global("bulk_array", original.clone());
+        state
+            .data
+            .storage
+            .set_global("bulk_scalar", Value::DInt(11));
+        let root = state.data.storage.ref_for_global("bulk_array").unwrap();
         let mut first = root.clone();
         first.path.push(crate::value::RefSegment::Index(vec![0]));
         let mut second = root.clone();
         second.path.push(crate::value::RefSegment::Index(vec![1]));
-        let scalar = state.storage.ref_for_global("bulk_scalar").unwrap();
+        let scalar = state.data.storage.ref_for_global("bulk_scalar").unwrap();
         let references = [&scalar, &second, &first, &second];
         let saved = state
             .snapshot_input_destinations(references.iter().map(|r| r.as_view()))
@@ -234,13 +272,19 @@ mod tests {
                 (scalar.location, scalar.offset)
             ]
         );
-        assert!(state.storage.write_by_ref_ref(&second, Value::DInt(90)));
-        assert!(state.storage.write_by_ref_ref(&first, Value::DInt(70)));
-        assert!(state.storage.write_by_ref_ref(&scalar, Value::DInt(110)));
+        assert!(state
+            .data
+            .storage
+            .write_by_ref_ref(&second, Value::DInt(90)));
+        assert!(state.data.storage.write_by_ref_ref(&first, Value::DInt(70)));
+        assert!(state
+            .data
+            .storage
+            .write_by_ref_ref(&scalar, Value::DInt(110)));
         state.restore_destinations(None, saved);
-        assert_eq!(state.storage.get_global("bulk_array"), Some(&original));
+        assert_eq!(state.data.storage.get_global("bulk_array"), Some(&original));
         assert_eq!(
-            state.storage.get_global("bulk_scalar"),
+            state.data.storage.get_global("bulk_scalar"),
             Some(&Value::DInt(11))
         );
     }
@@ -254,10 +298,16 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state =
-            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-        state.storage.set_global("bulk_probe", Value::DInt(7));
-        let valid = state.storage.ref_for_global("bulk_probe").unwrap();
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let state = EngineState::borrow(
+            &mut state_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
+        state.data.storage.set_global("bulk_probe", Value::DInt(7));
+        let valid = state.data.storage.ref_for_global("bulk_probe").unwrap();
         let mut invalid = valid.clone();
         invalid.offset = usize::MAX;
         let references = [&valid, &invalid, &valid];
@@ -273,13 +323,13 @@ mod tests {
             "later references must not be inspected after failure"
         );
         assert_eq!(
-            state.storage.get_global("bulk_probe"),
+            state.data.storage.get_global("bulk_probe"),
             Some(&Value::DInt(7))
         );
     }
 
     #[test]
-    fn exhausted_second_output_rolls_back_global_and_current_frame() {
+    fn journal_growth_is_not_charged_and_a_later_failure_rolls_back_every_destination() {
         let prepared = PreparedModule::from_bytes(
             include_bytes!(
                 "../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
@@ -287,16 +337,41 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state =
-            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-        state.storage.set_global("output_probe", Value::DInt(7));
-        let output = state.storage.ref_for_global("output_probe").unwrap();
-        let id = state.storage.reserve_execution_frame().unwrap();
-        state.lifetimes.live_activations.push(id);
-        let suspended = state.storage.reserve_execution_frame().unwrap();
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let mut state = EngineState::borrow(
+            &mut state_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
         state
+            .data
+            .storage
+            .set_global("output_probe", Value::DInt(7));
+        let output = state.data.storage.ref_for_global("output_probe").unwrap();
+        state
+            .data
+            .storage
+            .set_global("output_probe_extra", Value::DInt(8));
+        let extra = state
+            .data
+            .storage
+            .ref_for_global("output_probe_extra")
+            .unwrap();
+        let id = state.data.storage.reserve_execution_frame().unwrap();
+        state.data.storage.activate_execution_frame(id).unwrap();
+        let suspended = state.data.storage.reserve_execution_frame().unwrap();
+        state
+            .data
             .storage
             .suspend_execution_frame(suspended, &mut vec![Value::DInt(11)])
+            .unwrap();
+        let fresh = state.data.storage.reserve_execution_frame().unwrap();
+        state
+            .data
+            .storage
+            .suspend_execution_frame(fresh, &mut vec![Value::DInt(12)])
             .unwrap();
         let mut frame = VmFrame {
             activation: Some(id),
@@ -324,28 +399,55 @@ mod tests {
                     offset: 0,
                 }
                 .write(state, frame, Value::DInt(110))?;
-                // Exhaust the real policy budget after writes have begun, then exercise
-                // the same checked target path used by the next native output.
-                state.resources.work_budget.reset(0);
-                VmWriteTarget::from_reference(&output).write(state, frame, Value::DInt(700))
+                VmWriteTarget::from_reference(&extra).write(state, frame, Value::DInt(80))?;
+                // The journal's first allocation holds four entries, so the fifth
+                // destination grows it. That growth is call-transaction bookkeeping
+                // (spec 34 TIME-08): an exhausted allocation allowance admits it, and the
+                // later failure must still restore every destination.
+                state
+                    .data
+                    .resources
+                    .construction_bytes
+                    .set(state.prepared.limits.max_construction_bytes);
+                VmWriteTarget::DirectStorage {
+                    location: MemoryLocation::Local(fresh),
+                    offset: 0,
+                }
+                .write(state, frame, Value::DInt(120))?;
+                assert_eq!(
+                    state.data.resources.construction_bytes.get(),
+                    state.prepared.limits.max_construction_bytes
+                );
+                Err::<(), _>(VmTrap::Runtime(RuntimeError::DivisionByZero))
             })
             .unwrap_err();
-        assert!(matches!(
-            error,
-            VmTrap::Runtime(RuntimeError::ExecutionTimeout)
-        ));
+        assert!(
+            matches!(&error, VmTrap::Runtime(RuntimeError::DivisionByZero)),
+            "unexpected later failure: {error:?}"
+        );
         assert_eq!(
-            state.storage.get_global("output_probe"),
+            state.data.storage.get_global("output_probe"),
             Some(&Value::DInt(7))
+        );
+        assert_eq!(
+            state.data.storage.get_global("output_probe_extra"),
+            Some(&Value::DInt(8))
         );
         assert_eq!(frame.locals, [Value::DInt(9)]);
         assert_eq!(
             state
+                .data
                 .storage
                 .read_direct_slot_by_location(MemoryLocation::Local(suspended), 0),
             Some(&Value::DInt(11))
         );
-        assert_eq!(state.resources.work_budget.remaining(), 0);
+        assert_eq!(
+            state
+                .data
+                .storage
+                .read_direct_slot_by_location(MemoryLocation::Local(fresh), 0),
+            Some(&Value::DInt(12))
+        );
     }
     #[test]
     fn native_output_journal_ignores_unrelated_large_values_and_preserves_aliases() {
@@ -356,11 +458,20 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state =
-            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-        state.storage.set_global("output_probe", Value::DInt(7));
-        let reference = state.storage.ref_for_global("output_probe").unwrap();
-        let id = state.storage.reserve_execution_frame().unwrap();
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let mut state = EngineState::borrow(
+            &mut state_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
+        state
+            .data
+            .storage
+            .set_global("output_probe", Value::DInt(7));
+        let reference = state.data.storage.ref_for_global("output_probe").unwrap();
+        let id = state.data.storage.reserve_execution_frame().unwrap();
         let mut frame = VmFrame {
             activation: Some(id),
             pou_id: None,
@@ -375,7 +486,7 @@ mod tests {
             instance_owner: None,
         };
         let measure = |state: &mut EngineState<'_>, frame: &mut VmFrame| {
-            let before = state.resources.construction_bytes.get();
+            let before = state.data.resources.construction_bytes.get();
             state
                 .with_output_transaction(frame, |state, frame| {
                     VmWriteTarget::from_reference(&reference).write(
@@ -391,10 +502,10 @@ mod tests {
                     Ok(())
                 })
                 .unwrap();
-            state.resources.construction_bytes.get() - before
+            state.data.resources.construction_bytes.get() - before
         };
         let small = measure(&mut state, &mut frame);
-        state.storage.set_global(
+        state.data.storage.set_global(
             "unrelated",
             Value::Array(alloc::boxed::Box::new(
                 crate::value::ArrayValue::from_canonical_parts(
@@ -404,12 +515,14 @@ mod tests {
             )),
         );
         let large = measure(&mut state, &mut frame);
+        // TIME-08: journal growth is bookkeeping, so neither size draws allocation.
+        assert_eq!(small, 0, "journal growth draws no allocation");
         assert_eq!(
             small, large,
             "snapshot cost follows destinations, not runtime size"
         );
         assert_eq!(
-            state.storage.get_global("output_probe"),
+            state.data.storage.get_global("output_probe"),
             Some(&Value::DInt(90))
         );
     }
@@ -423,20 +536,29 @@ mod tests {
             crate::vm::PreparationLimits::default(),
         )
         .unwrap();
-        let mut state =
-            EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-        let first = state.storage.create_instance("Probe");
-        let second = state.storage.create_instance("Probe");
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                .unwrap();
+        let mut state = EngineState::borrow(
+            &mut state_data,
+            &prepared,
+            &super::super::services::LOGICAL_ONLY,
+        );
+        let first = state.data.storage.create_instance("Probe");
+        let second = state.data.storage.create_instance("Probe");
         state
+            .data
             .storage
             .set_instance_var(first, "number", Value::DInt(7));
         state
+            .data
             .storage
             .set_instance_var(second, "number", Value::DInt(9));
         state
+            .data
             .storage
             .set_global("alias_probe", Value::Instance(first));
-        let root = state.storage.ref_for_global("alias_probe").unwrap();
+        let root = state.data.storage.ref_for_global("alias_probe").unwrap();
         let mut field = root.clone();
         field
             .path
@@ -468,17 +590,17 @@ mod tests {
             .unwrap_err();
         assert!(matches!(error, VmTrap::Runtime(RuntimeError::Overflow)));
         assert_eq!(
-            state.storage.get_global("alias_probe"),
+            state.data.storage.get_global("alias_probe"),
             Some(&Value::Instance(first))
         );
         assert_eq!(
-            state.storage.get_instance_var(first, "number"),
+            state.data.storage.get_instance_var(first, "number"),
             Some(&Value::DInt(7))
         );
         assert_eq!(
-            state.storage.get_instance_var(second, "number"),
+            state.data.storage.get_instance_var(second, "number"),
             Some(&Value::DInt(9))
         );
-        assert!(state.resources.output_journal.is_none());
+        assert!(state.data.resources.output_journal.is_none());
     }
 }

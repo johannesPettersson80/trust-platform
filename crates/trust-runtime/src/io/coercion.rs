@@ -13,6 +13,9 @@ fn coerce_binding_from_io(
     binding: &IoBinding,
     codec: &IoBindingCodec,
 ) -> Result<Value, RuntimeError> {
+    if let Some(prepared) = &codec.prepared {
+        return prepared.decode(value);
+    }
     let target = codec
         .wire_type
         .or(binding.value_type)
@@ -25,6 +28,9 @@ fn coerce_binding_to_io(
     binding: &IoBinding,
     codec: &IoBindingCodec,
 ) -> Result<Value, RuntimeError> {
+    if let Some(prepared) = &codec.prepared {
+        return prepared.encode(value, binding.address.size);
+    }
     let target = codec
         .wire_type
         .or(binding.value_type)

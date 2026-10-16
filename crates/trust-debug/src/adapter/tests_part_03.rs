@@ -2,8 +2,8 @@ use super::*;
 
 #[test]
 fn dispatch_pause_falls_back_to_global_when_no_active_thread() {
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     let control = adapter.session().debug_control();
 
     control.set_current_thread(None);
@@ -131,16 +131,14 @@ END_PROGRAM
 
 #[test]
 fn dispatch_threads_maps_tasks() {
-    let mut runtime = Runtime::new();
-    runtime
-        .register_program(ProgramDef {
-            name: SmolStr::new("MAIN"),
-            vars: Vec::new(),
-            temps: Vec::new(),
-            using: Vec::new(),
-            body: Vec::new(),
-        })
-        .unwrap();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
+    runtime.register_program(ProgramDef {
+        name: SmolStr::new("MAIN"),
+        vars: Vec::new(),
+        temps: Vec::new(),
+        using: Vec::new(),
+        body: Vec::new(),
+    });
     runtime.register_task(TaskConfig {
         name: SmolStr::new("FAST"),
         interval: Duration::ZERO,
@@ -158,7 +156,7 @@ fn dispatch_threads_maps_tasks() {
         fb_instances: Vec::new(),
     });
 
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     let threads_req = Request::<serde_json::Value> {
         seq: 1,
         message_type: MessageType::Request,

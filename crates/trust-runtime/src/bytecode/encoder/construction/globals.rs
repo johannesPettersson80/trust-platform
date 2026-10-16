@@ -46,7 +46,8 @@ impl BytecodeEncoder<'_> {
         for program in &config.programs {
             let owner = self
                 .pou_ids
-                .program_id(&program.type_name)
+                .program_instance_id(&program.name)
+                .or_else(|| self.pou_ids.program_id(&program.type_name))
                 .ok_or_else(|| BytecodeError::InvalidSection("program template missing".into()))?;
             let reference = self
                 .construction
@@ -76,7 +77,7 @@ impl BytecodeEncoder<'_> {
                 None,
             )?;
         }
-        for function in input.runtime.functions().values() {
+        for function in input.builder.functions().values() {
             let owner = self
                 .pou_ids
                 .function_id(&function.name)

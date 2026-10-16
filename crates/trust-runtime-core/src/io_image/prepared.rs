@@ -87,6 +87,13 @@ impl IoValueCodec {
                         14 => ConversionType::Real,
                         15 => ConversionType::LReal,
                         16 => ConversionType::Time,
+                        // Long temporal forms (IEC Table 10, 64-bit). DATE (18), TOD (20) and
+                        // DT (22) have no fixed direct-address width, so they stay unmapped and
+                        // preparation refuses them with TypeMismatch.
+                        17 => ConversionType::LTime,
+                        19 => ConversionType::LDate,
+                        21 => ConversionType::LTod,
+                        23 => ConversionType::Ldt,
                         24 => {
                             if *max_length == 0 {
                                 return Err(RuntimeError::TypeMismatch);

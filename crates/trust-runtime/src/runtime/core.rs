@@ -4,18 +4,18 @@
 
 use crate::debug::DebugControl;
 use crate::execution_backend::ExecutionBackend;
-use crate::io::{IoDriver, IoDriverStatus, IoInterface, IoSafeState};
+use crate::io::{IoDriver, IoDriverStatus, IoInterface};
 use crate::memory::{AccessMap, FrameId, InstanceId, VariableStorage};
 use crate::metrics::RuntimeMetrics;
 use crate::program_model::{
     ClassDef, EdgeInput, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
 };
 use crate::program_model::{Expr, LValue};
-use crate::retain::{RetainManager, RetainStore};
+use crate::retain::RetainManager;
 use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig, TaskState};
 use crate::value::{DateTimeProfile, Duration, Value};
-use crate::watchdog::{FaultAction, FaultDecision, FaultPolicy, WatchdogPolicy};
+use crate::watchdog::FaultDecision;
 use crate::{error, stdlib};
 use indexmap::IndexMap;
 use smol_str::SmolStr;
@@ -32,7 +32,7 @@ use super::metrics_subsystem::MetricsSubsystem;
 use super::opcua_client_subsystem::OpcUaClientSubsystem;
 use super::openot_telemetry::OpenOtTelemetrySubsystem;
 use super::types::{GlobalInitValue, GlobalVarMeta, RetainPolicy};
-use super::watchdog_subsystem::WatchdogSubsystem;
+use super::vm::HostedRegisterEnvironment;
 
 /// Minimal runtime entry point (extended later).
 pub struct Runtime {
@@ -70,7 +70,6 @@ pub struct Runtime {
     pub(super) cycle_counter: u64,
     pub(super) retain: RetainManager,
     pub(super) metrics: MetricsSubsystem,
-    pub(super) watchdog: WatchdogSubsystem,
     pub(super) faults: FaultSubsystem,
     pub(super) openot_telemetry: OpenOtTelemetrySubsystem,
     pub(super) execution_deadline: Option<std::time::Instant>,
@@ -148,5 +147,34 @@ mod accessor_contract_tests;
 impl Default for Runtime {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Runtime {
+    /// Consume materialized authoring values only for historical private tests.
+    pub(crate) fn from_authoring_fixture(builder: super::RuntimeBuilder) -> Self {
+        let mut fixture = Self::new();
+        fixture.resource_name = builder.resource_name;
+        fixture.profile = builder.profile;
+        fixture.storage = builder.storage;
+        fixture.registry = builder.registry;
+        fixture.initializer_catalog = builder.initializer_catalog;
+        fixture.stdlib = builder.stdlib;
+        fixture.functions = builder.functions;
+        fixture.function_blocks = builder.function_blocks;
+        fixture.classes = builder.classes;
+        fixture.interfaces = builder.interfaces;
+        fixture.edge_inputs = builder.edge_inputs;
+        fixture.programs = builder.programs;
+        fixture.globals = builder.globals;
+        fixture.access = builder.access;
+        *fixture.io.interface_mut() = builder.io;
+        fixture.statement_index = builder.statement_index;
+        fixture.source_text_index = builder.source_text_index;
+        fixture.source_label_index = builder.source_label_index;
+        for task in builder.tasks {
+            fixture.register_task(task);
+        }
+        fixture
     }
 }

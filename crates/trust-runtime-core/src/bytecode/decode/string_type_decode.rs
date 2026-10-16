@@ -58,7 +58,7 @@ pub(super) fn decode_type_table(
             validate_type_range(payload.len(), base, idx, offset, next, &offsets)?;
 
             let mut entry_reader = BytecodeReader::new(&payload[offset..next]);
-            let entry = decode_type_entry(&mut entry_reader, budget)?;
+            let entry = decode_type_entry(version, &mut entry_reader, budget)?;
             if entry_reader.remaining() != 0 {
                 return Err(BytecodeError::from(
                     RejectionReason::TypeEntryLengthMismatch,
@@ -70,7 +70,7 @@ pub(super) fn decode_type_table(
     } else {
         let mut entries = budget.vector(count)?;
         for _ in 0..count {
-            entries.push(decode_type_entry(&mut reader, budget)?);
+            entries.push(decode_type_entry(version, &mut reader, budget)?);
         }
         Ok(TypeTable {
             offsets: Vec::new(),
@@ -101,6 +101,7 @@ pub(super) fn validate_type_range(
 }
 
 pub(super) fn decode_type_entry(
+    version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
     budget: &mut DecodeBudget,
 ) -> Result<TypeEntry, BytecodeError> {
@@ -110,6 +111,11 @@ pub(super) fn decode_type_entry(
     let name_idx = optional_u32(reader.read_u32()?);
     let kind = TypeKind::from_raw(kind)
         .ok_or_else(|| BytecodeError::from(RejectionReason::InvalidTypeKind))?;
+    if matches!(kind, TypeKind::OverlappingStruct | TypeKind::LocatedStruct)
+        && !version.has_relative_layouts()
+    {
+        return Err(RejectionReason::InvalidTypeKind.into());
+    }
     let data = match kind {
         TypeKind::Primitive => {
             let prim_id = reader.read_u16()?;
@@ -130,13 +136,27 @@ pub(super) fn decode_type_entry(
             }
             TypeData::Array { elem_type_id, dims }
         }
-        TypeKind::Struct => {
-            let field_count = read_bounded_count(reader, 8, "TYPE_TABLE struct field")?;
+        TypeKind::Struct | TypeKind::OverlappingStruct | TypeKind::LocatedStruct => {
+            let located = kind != TypeKind::Struct;
+            let field_count = read_bounded_count(
+                reader,
+                if located { 12 } else { 8 },
+                "TYPE_TABLE struct field",
+            )?;
             let mut fields = budget.vector(field_count)?;
             for _ in 0..field_count {
                 let name_idx = reader.read_u32()?;
                 let type_id = reader.read_u32()?;
-                fields.push(Field { name_idx, type_id });
+                let bit_offset = if located {
+                    optional_u32(reader.read_u32()?)
+                } else {
+                    None
+                };
+                fields.push(Field {
+                    name_idx,
+                    type_id,
+                    bit_offset,
+                });
             }
             TypeData::Struct { fields }
         }
@@ -178,7 +198,11 @@ pub(super) fn decode_type_entry(
             for _ in 0..field_count {
                 let name_idx = reader.read_u32()?;
                 let type_id = reader.read_u32()?;
-                fields.push(Field { name_idx, type_id });
+                fields.push(Field {
+                    name_idx,
+                    type_id,
+                    bit_offset: None,
+                });
             }
             TypeData::Union { fields }
         }

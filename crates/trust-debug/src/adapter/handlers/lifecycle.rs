@@ -158,6 +158,10 @@ impl DebugAdapter {
             }
         }
 
-        reload_result.map(|breakpoints| (breakpoints, was_running))
+        reload_result.map(|breakpoints| {
+            self.watch_cache.clear();
+            self.variable_handles.clear();
+            (breakpoints, was_running)
+        })
     }
 }

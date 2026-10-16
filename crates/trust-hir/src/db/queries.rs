@@ -60,6 +60,7 @@ pub trait SemanticDatabase: SourceDatabase {
 /// The main database struct.
 pub struct Database {
     sources: FxHashMap<FileId, Arc<String>>,
+    temporal_storage: TemporalStorage,
     salsa_state: Mutex<salsa_backend::SalsaState>,
     source_revision: AtomicU64,
 }
@@ -76,6 +77,7 @@ impl Default for Database {
     fn default() -> Self {
         Self {
             sources: FxHashMap::default(),
+            temporal_storage: TemporalStorage::default(),
             salsa_state: Mutex::new(salsa_backend::SalsaState::default()),
             source_revision: AtomicU64::new(1),
         }
@@ -87,6 +89,7 @@ impl Database {
     pub(crate) fn new_with_salsa_observability() -> Self {
         Self {
             sources: FxHashMap::default(),
+            temporal_storage: TemporalStorage::default(),
             salsa_state: Mutex::new(salsa_backend::SalsaState::with_event_observability(
                 true, false,
             )),

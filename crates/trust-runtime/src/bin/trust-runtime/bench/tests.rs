@@ -370,7 +370,7 @@ fn project_bench_json_output_omits_tier1_executor_stats_by_default() {
 }
 
 #[test]
-fn project_bench_output_contains_tier1_compile_failure_reasons() {
+fn project_bench_retains_preparation_failure_reasons_without_run_compilation() {
     let project = unique_temp_dir("project-bench-tier1-compile-failure");
     write_project_bench_sizeof_fixture(&project);
 
@@ -388,16 +388,30 @@ fn project_bench_output_contains_tier1_compile_failure_reasons() {
     assert_eq!(
         value
             .pointer(
-                "/report/vm_profile/tier1_specialized_executor/compile_failure_reasons/0/reason"
+                "/report/vm_profile/register_preparation/specialization_failure_reasons/0/reason"
             )
             .and_then(serde_json::Value::as_str),
         Some("unsupported_instr:size_of_type")
     );
 
+    for counter in ["compile_attempts", "compile_successes", "compile_failures"] {
+        let path = format!("/report/vm_profile/tier1_specialized_executor/{counter}");
+        assert_eq!(
+            value.pointer(&path).and_then(serde_json::Value::as_u64),
+            Some(0),
+            "RUN must not compile: {counter}"
+        );
+    }
+    assert_eq!(
+        value
+            .pointer("/report/watched_globals/g_size")
+            .and_then(serde_json::Value::as_u64),
+        Some(2)
+    );
     let rendered_table =
         render_bench_output(&report, BenchOutputFormat::Table).expect("render table");
     assert!(
-        rendered_table.contains("compile-failure-reasons:"),
+        rendered_table.contains("preparation-failure-reasons:"),
         "{rendered_table}"
     );
     assert!(

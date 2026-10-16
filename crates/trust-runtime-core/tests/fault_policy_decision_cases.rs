@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::watchdog::{FaultAction, FaultPolicy, FaultSubsystem};
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001";
@@ -53,10 +54,44 @@ fn run_fault_policy_case(
         .ok_or_else(|| format!("{} scenario must be a string", case.id))?;
     let (observed, expected) = execute_scenario(scenario)?;
     probe.trace = vec![observed.render()];
-    let failures = (observed != expected)
+    let mut failures = (observed != expected)
         .then(|| format!("expected {expected:?}, observed {observed:?}"))
         .into_iter()
         .collect::<Vec<_>>();
+    // Each decision is one operation under test. The projection reads the fault record and
+    // reports an action; it writes no retained or process-image state and reports no error.
+    for (action, before, after) in [
+        (
+            observed.healthy_action,
+            observed.healthy_before,
+            observed.healthy_after,
+        ),
+        (
+            observed.faulted_action,
+            observed.faulted_before,
+            observed.faulted_after,
+        ),
+    ] {
+        let before_state = projection_state(before, None);
+        let after_state = projection_state(after, Some(action));
+        let operation = ObservedOperation {
+            outcome: "accept_value",
+            fault_surface: None,
+            status_before: None,
+            status_after: None,
+            before: &before_state,
+            after: &after_state,
+        };
+        match check_case_expectation(case, &operation) {
+            Ok(mismatches) => failures.extend(mismatches),
+            Err(error) => failures.push(error),
+        }
+    }
+    for trace_step in case.trace.as_deref().unwrap_or(&[]) {
+        if let Err(error) = check_trace_fields(&trace_step.expected, &[]) {
+            failures.push(error);
+        }
+    }
     Ok(CaseExecution {
         result: if failures.is_empty() {
             CaseResult::Passed
@@ -166,6 +201,29 @@ impl HolderObservation {
                 _ => "other",
             }),
         }
+    }
+}
+
+/// The fault record at one side of a decision. The decision's action is the target once it exists.
+fn projection_state(observation: HolderObservation, action: Option<&'static str>) -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: action.map(|action| action.into()),
+        siblings: [
+            ("policy".to_string(), observation.policy.into()),
+            (
+                "faulted".to_string(),
+                observation.faulted.to_string().into(),
+            ),
+            (
+                "last_fault".to_string(),
+                format!("{:?}", observation.last_fault).into(),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+        diagnostics: Vec::new(),
     }
 }
 

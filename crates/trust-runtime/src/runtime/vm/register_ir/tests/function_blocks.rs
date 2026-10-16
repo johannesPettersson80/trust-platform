@@ -76,9 +76,8 @@ fn tier1_compiler_accepts_function_block_self_field_dynamic_ops() {
             })
         })
         .expect("function block fused self-field dynamic block");
-    let key = super::tier1_block_key(&vm_module, fb_pou_id, block);
     assert!(
-        super::compile_tier1_block(&vm_module, block, key).is_ok(),
+        super::compile_tier1_block(&vm_module, block).is_ok(),
         "expected tier-1 compiler to accept self-field dynamic block: {:?}",
         block.instructions
     );
@@ -192,9 +191,8 @@ fn tier1_compiler_accepts_function_block_index_dynamic_ops() {
                     .any(|instruction| matches!(instruction, RegisterInstr::StoreDynamic { .. }))
         })
         .expect("function block ref-index/dynamic block");
-    let key = super::tier1_block_key(&vm_module, fb_pou_id, block);
     assert!(
-        super::compile_tier1_block(&vm_module, block, key).is_ok(),
+        super::compile_tier1_block(&vm_module, block).is_ok(),
         "expected tier-1 compiler to accept index dynamic block: {:?}",
         block.instructions
     );
@@ -284,6 +282,7 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -348,6 +347,8 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir_with_locals(
         &mut runtime,
         &module,
@@ -385,6 +386,8 @@ fn register_lowering_error_fallback_reason_includes_pou_name_and_message() {
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("fallback decision");
     assert_eq!(outcome, RegisterExecutionOutcome::FallbackToStack);

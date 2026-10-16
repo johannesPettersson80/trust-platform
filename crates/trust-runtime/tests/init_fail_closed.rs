@@ -2,7 +2,7 @@ use trust_runtime::debug::RuntimeEvent;
 use trust_runtime::eval::expr::LValue;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 #[test]
 fn interface_param_defaults_to_null_reference() {
@@ -43,39 +43,42 @@ END_PROGRAM
 
 #[test]
 fn debug_queued_lvalue_write_failure_is_observable() {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new().build().unwrap();
     let debug = runtime.enable_debug();
     debug.enqueue_lvalue_write(None, LValue::Name("missing".into()), Value::DInt(7));
 
-    let err = runtime
+    // HOST-09 rejects an invalid engineering request without faulting PLC execution.
+    runtime
         .execute_cycle()
-        .expect_err("queued debug write to missing target must fail");
-    assert!(
-        err.to_string().contains("missing"),
-        "expected missing target context, got {err}"
-    );
+        .expect("the independent scan remains executable");
+    assert!(!runtime.faulted());
     assert!(runtime.storage().get_global("missing").is_none());
     let events = debug.drain_runtime_events();
     assert!(
         events.iter().any(
-            |event| matches!(event, RuntimeEvent::Fault { error, .. } if error.contains("missing"))
+            |event| matches!(event, RuntimeEvent::WriteRejected { target, error, .. }
+                if target.contains("missing") && error.contains("missing"))
         ),
-        "expected runtime fault event for debug write failure, got {events:?}"
+        "expected rejected-write event for debug write failure, got {events:?}"
     );
 }
 
 #[test]
 fn debug_queued_global_write_unknown_target_fails() {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new().build().unwrap();
     let debug = runtime.enable_debug();
     debug.enqueue_global_write("missing", Value::DInt(7));
 
-    let err = runtime
+    runtime
         .execute_cycle()
-        .expect_err("queued debug global write to missing target must fail");
-    assert!(
-        err.to_string().contains("missing"),
-        "expected missing target context, got {err}"
-    );
+        .expect("the invalid request must not fault the scan");
+    assert!(!runtime.faulted());
+    assert!(debug
+        .drain_runtime_events()
+        .iter()
+        .any(|event| matches!(event,
+        RuntimeEvent::WriteRejected { target, error, .. }
+            if target.as_str() == "missing"
+                && error == &trust_runtime::error::RuntimeError::NullReference.to_string())));
     assert!(runtime.storage().get_global("missing").is_none());
 }

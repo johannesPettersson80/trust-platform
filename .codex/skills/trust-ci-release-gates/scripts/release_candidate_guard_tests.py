@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import io
 import json
@@ -771,6 +772,39 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ValueError, "checks are still pending"):
             guard.build_failure_ledger(self.head, checks, {})
+
+    def collect_with_rollups(self, rollups: list[list[dict]], wait: bool) -> tuple[int, int]:
+        """Run collect-failures against a fake `gh pr view` that returns each rollup in turn."""
+        real_run = guard.run
+        calls = {"gh": 0}
+
+        def fake_run(command, **kwargs):
+            if command[0] != "gh":
+                return real_run(command, **kwargs)
+            rollup = rollups[min(calls["gh"], len(rollups) - 1)]
+            calls["gh"] += 1
+            payload = {"headRefOid": self.head, "statusCheckRollup": rollup, "url": "https://example.invalid/pr/1"}
+            return subprocess.CompletedProcess(command, 0, stdout=json.dumps(payload), stderr="")
+
+        args = argparse.Namespace(repo=str(self.repo), pr=1, wait=wait, timeout=60, interval=0)
+        with mock.patch.object(guard, "run", side_effect=fake_run), mock.patch.object(guard.time, "sleep"):
+            with mock.patch("sys.stderr", new_callable=io.StringIO):
+                status = guard.collect_failures(args)
+        return status, calls["gh"]
+
+    def test_collect_failures_waits_while_no_checks_are_registered(self) -> None:
+        done = [{"name": "Windows", "conclusion": "SUCCESS", "status": "COMPLETED"}]
+        status, polls = self.collect_with_rollups([[], [], done], wait=True)
+        self.assertEqual(status, 0)
+        self.assertEqual(polls, 3)
+        ledger = json.loads(guard.failure_ledger_path(self.repo, self.head).read_text(encoding="utf-8"))
+        self.assertEqual(ledger["check_count"], 1)
+
+    def test_collect_failures_without_wait_reports_unregistered_checks_as_pending(self) -> None:
+        status, polls = self.collect_with_rollups([[]], wait=False)
+        self.assertEqual(status, 3)
+        self.assertEqual(polls, 1)
+        self.assertFalse(guard.failure_ledger_path(self.repo, self.head).exists())
 
     def test_failure_ledger_requires_logs_for_every_failed_check(self) -> None:
         checks = [

@@ -8644,16 +8644,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_2EEF1852335396B08229"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/runtime/vm/budget.rs"
-name = "rejected_charge_does_not_underflow_the_remaining_budget"
-ignore_state = "not_ignored"
-disposition = "catalog_mapped"
-catalog_test_id = "TEST_AUTO_2EEF1852335396B08229"
-last_reviewed = "2026-07-26"
-
-[[reviews]]
 discovery_id = "DISC_2EF333970C227C26B570"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-plcopen/src/plcopen/tests/project_model_contract.rs"

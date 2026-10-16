@@ -215,6 +215,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "lexical-parse-float"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52a9f232fbd6f550bc0137dcb5f99ab674071ac2d690ac69704593cb4abbea56"
+dependencies = [
+ "lexical-parse-integer",
+ "lexical-util",
+]
+
+[[package]]
+name = "lexical-parse-integer"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a7a039f8fb9c19c996cd7b2fcce303c1b2874fe1aca544edc85c4a5f8489b34"
+dependencies = [
+ "lexical-util",
+]
+
+[[package]]
+name = "lexical-util"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2604dd126bb14f13fb5d1bd6a66155079cb9fa655b37f875b3a742c705dbed17"
+
+[[package]]
 name = "libm"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -309,6 +334,12 @@ checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
  "semver",
 ]
+
+[[package]]
+name = "ryu"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "semver"
@@ -438,19 +469,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1c906769ad99c88eaa54e728060edef082f8e358ff32030cb7c7d315e81109"
 
 [[package]]
+name = "trust-board-fixture"
+version = "0.24.75"
+dependencies = [
+ "critical-section",
+ "embedded-alloc",
+ "trust-runtime-core",
+]
+
+[[package]]
 name = "trust-nucleo-f401re"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "embedded-alloc",
+ "trust-board-fixture",
  "trust-platform-stm32f4",
- "trust-runtime-core",
 ]
 
 [[package]]
 name = "trust-platform-stm32f4"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "cortex-m",
  "embedded-hal-nb",
@@ -461,11 +500,13 @@ dependencies = [
 
 [[package]]
 name = "trust-runtime-core"
-version = "0.24.74"
+version = "0.24.75"
 dependencies = [
  "indexmap",
+ "lexical-parse-float",
  "libm",
  "rustc-hash",
+ "ryu",
  "smol_str",
  "thiserror",
 ]

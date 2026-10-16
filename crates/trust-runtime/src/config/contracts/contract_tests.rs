@@ -100,7 +100,14 @@ fn runtime_cloud_profile_round_trips_complete_vocabulary() {
 
 #[test]
 fn runtime_cloud_profile_rejects_near_matches_with_owning_key() {
-    for text in ["", "development", "factory", "wide-area", "wan profile", "wan\0"] {
+    for text in [
+        "",
+        "development",
+        "factory",
+        "wide-area",
+        "wan profile",
+        "wan\0",
+    ] {
         let message =
             invalid_text(RuntimeCloudProfile::parse(text).expect_err("invalid cloud profile"));
         assert!(message.contains("runtime.cloud.profile"), "text={text:?}");
@@ -118,7 +125,11 @@ fn runtime_cloud_secure_transport_requirement_is_exact() {
 #[test]
 fn preferred_transport_round_trips_complete_vocabulary() {
     for (text, expected, canonical) in [
-        ("realtime", RuntimeCloudPreferredTransport::Realtime, "realtime"),
+        (
+            "realtime",
+            RuntimeCloudPreferredTransport::Realtime,
+            "realtime",
+        ),
         (" ZENOH ", RuntimeCloudPreferredTransport::Zenoh, "zenoh"),
         ("mesh", RuntimeCloudPreferredTransport::Mesh, "mesh"),
         ("mqtt", RuntimeCloudPreferredTransport::Mqtt, "mqtt"),
@@ -172,11 +183,7 @@ fn preferred_transport_rejects_near_matches_with_owning_key() {
 fn openot_fence_mode_round_trips_complete_vocabulary() {
     for (text, expected, canonical) in [
         ("fenced", OpenOtTelemetryFenceMode::Fenced, "fenced"),
-        (
-            " UNFENCED ",
-            OpenOtTelemetryFenceMode::Unfenced,
-            "unfenced",
-        ),
+        (" UNFENCED ", OpenOtTelemetryFenceMode::Unfenced, "unfenced"),
     ] {
         let parsed = OpenOtTelemetryFenceMode::parse(text).expect("fence mode");
         assert_eq!(parsed, expected);
@@ -187,10 +194,12 @@ fn openot_fence_mode_round_trips_complete_vocabulary() {
 #[test]
 fn openot_fence_mode_rejects_near_matches_with_owning_key() {
     for text in ["", "fence", "un-fenced", "none", "fenced mode", "fenced\0"] {
-        let message = invalid_text(
-            OpenOtTelemetryFenceMode::parse(text).expect_err("invalid fence mode"),
+        let message =
+            invalid_text(OpenOtTelemetryFenceMode::parse(text).expect_err("invalid fence mode"));
+        assert!(
+            message.contains("runtime.openot.fence_mode"),
+            "text={text:?}"
         );
-        assert!(message.contains("runtime.openot.fence_mode"), "text={text:?}");
         assert!(message.contains(text), "text={text:?}");
     }
 }
@@ -210,8 +219,7 @@ fn openot_source_round_trips_complete_vocabulary() {
 #[test]
 fn openot_source_rejects_near_matches_with_owning_key() {
     for text in ["", "heart-beat", "st_fb", "stfb", "automatic", "st-fb\0"] {
-        let message =
-            invalid_text(OpenOtTelemetrySource::parse(text).expect_err("invalid source"));
+        let message = invalid_text(OpenOtTelemetrySource::parse(text).expect_err("invalid source"));
         assert!(message.contains("runtime.openot.source"), "text={text:?}");
         assert!(message.contains(text), "text={text:?}");
     }
@@ -292,10 +300,7 @@ fn openot_config_clone_owns_path_and_producer_lists() {
     original.producer_instance = None;
     original.producer_instances.clear();
     assert_eq!(copy.path, PathBuf::from("telemetry.jsonl"));
-    assert_eq!(
-        copy.producer_instance.as_deref(),
-        Some("Plant.Telemetry")
-    );
+    assert_eq!(copy.producer_instance.as_deref(), Some("Plant.Telemetry"));
     assert_eq!(copy.producer_instances.len(), 2);
 }
 

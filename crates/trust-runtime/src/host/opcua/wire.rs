@@ -10,6 +10,9 @@ pub fn start_wire_server(
     }
     validate_security_profile(&config.security)?;
     let (bind_host, bind_port) = parse_listen(config.listen.as_str())?;
+    // Another process on this port would answer the readiness check below, so an address in use
+    // is refused before the server starts (spec 11, OPC UA server startup).
+    ensure_listen_address_free(bind_host.as_str(), bind_port)?;
     let endpoint_path = normalize_endpoint_path(config.endpoint_path.as_str())?;
     let connect_host = if bind_host == "0.0.0.0" || bind_host == "::" {
         "127.0.0.1".to_string()
@@ -32,7 +35,9 @@ pub fn start_wire_server(
     let exposure_patterns = compile_exposure_patterns(config.expose.as_slice())?;
     let candidates = snapshot_provider()
         .as_ref()
-        .map(|snapshot| collect_exposed_nodes(snapshot, exposure_patterns.as_slice(), config.max_nodes))
+        .map(|snapshot| {
+            collect_exposed_nodes(snapshot, exposure_patterns.as_slice(), config.max_nodes)
+        })
         .unwrap_or_default();
     let (user_token_ids, user_credentials) = user_tokens(config)?;
     let mut builder = ::opcua::server::prelude::ServerBuilder::new()
@@ -148,7 +153,21 @@ pub fn start_wire_server(
         })
         .map_err(|err| RuntimeError::ThreadSpawn(format!("OPC UA server thread: {err}").into()))?;
 
-    wait_for_endpoint(connect_host.as_str(), bind_port, StdDuration::from_secs(4))?;
+    let started = wait_until_listening(&server, &server_thread, StdDuration::from_secs(4));
+    if server_thread.is_finished() {
+        let detail = match server_thread.join() {
+            Ok(()) => "the server exited".to_string(),
+            Err(panic) => panic_detail(panic.as_ref()),
+        };
+        return Err(RuntimeError::ControlError(
+            startup_failure_message(bind_host.as_str(), bind_port, &detail).into(),
+        ));
+    }
+    if let Err(error) = started {
+        // A server that never reached Running within the timeout is stopped, not left behind.
+        server.write().abort();
+        return Err(error);
+    }
     let wire_server = OpcUaWireServer {
         endpoint_url,
         security: config.security,
@@ -420,17 +439,59 @@ fn parse_listen(listen: &str) -> Result<(String, u16), RuntimeError> {
 }
 
 #[cfg(feature = "opcua-wire")]
-fn wait_for_endpoint(host: &str, port: u16, timeout: StdDuration) -> Result<(), RuntimeError> {
+fn ensure_listen_address_free(host: &str, port: u16) -> Result<(), RuntimeError> {
+    std::net::TcpListener::bind((host, port))
+        .map(drop)
+        .map_err(|err| {
+            RuntimeError::ControlError(
+                format!("OPC UA listen address {host}:{port} is unavailable: {err}").into(),
+            )
+        })
+}
+
+/// The message of a panic payload, for an error that reports a stopped server thread.
+#[cfg(feature = "opcua-wire")]
+fn panic_detail(panic: &(dyn std::any::Any + Send)) -> String {
+    panic
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| panic.downcast_ref::<&str>().map(|text| (*text).to_string()))
+        .unwrap_or_else(|| "the server thread panicked".to_string())
+}
+
+/// The stable startup error (spec 11). opcua panics when its own bind fails, which is the same
+/// refusal of an address in use that the check before startup reports.
+#[cfg(feature = "opcua-wire")]
+fn startup_failure_message(host: &str, port: u16, detail: &str) -> String {
+    if detail.starts_with("Could not bind to socket") {
+        format!("OPC UA listen address {host}:{port} is unavailable: {detail}")
+    } else {
+        format!("OPC UA server stopped during startup: {detail}")
+    }
+}
+
+#[cfg(feature = "opcua-wire")]
+fn wait_until_listening(
+    server: &Arc<::opcua::sync::RwLock<::opcua::server::prelude::Server>>,
+    server_thread: &std::thread::JoinHandle<()>,
+    timeout: StdDuration,
+) -> Result<(), RuntimeError> {
+    // opcua sets the Running state only after its own listener is bound, so another process that
+    // answers on the same port never counts as this server being ready (spec 11). A server thread
+    // that stops ends the wait at once; the caller reports why.
     let deadline = Instant::now() + timeout;
-    while Instant::now() < deadline {
-        if std::net::TcpStream::connect((host, port)).is_ok() {
+    loop {
+        let server_state = server.read().server_state();
+        if server_state.read().is_running() {
             return Ok(());
         }
-        std::thread::sleep(StdDuration::from_millis(40));
+        if server_thread.is_finished() || Instant::now() >= deadline {
+            return Err(RuntimeError::ControlError(
+                "OPC UA server did not start listening during startup".into(),
+            ));
+        }
+        std::thread::sleep(StdDuration::from_millis(10));
     }
-    Err(RuntimeError::ControlError(
-        format!("OPC UA endpoint not reachable at {host}:{port}").into(),
-    ))
 }
 
 #[cfg(feature = "opcua-wire")]
@@ -491,4 +552,26 @@ fn from_wire_variant(value: &::opcua::types::Variant) -> Option<OpcUaVariant> {
 #[cfg(feature = "opcua-wire")]
 fn opcua_status_error(status: ::opcua::types::StatusCode) -> RuntimeError {
     RuntimeError::ControlError(format!("OPC UA status: {status}").into())
+}
+
+#[cfg(all(test, feature = "opcua-wire"))]
+mod startup_tests {
+    use super::startup_failure_message;
+
+    #[test]
+    fn a_failed_server_bind_reports_the_same_refusal_as_the_check_before_startup() {
+        let message = startup_failure_message(
+            "127.0.0.1",
+            4840,
+            "Could not bind to socket Os { code: 48, kind: AddrInUse }",
+        );
+        assert!(
+            message.starts_with("OPC UA listen address 127.0.0.1:4840 is unavailable:"),
+            "{message}"
+        );
+        assert_eq!(
+            startup_failure_message("127.0.0.1", 4840, "the server exited"),
+            "OPC UA server stopped during startup: the server exited"
+        );
+    }
 }

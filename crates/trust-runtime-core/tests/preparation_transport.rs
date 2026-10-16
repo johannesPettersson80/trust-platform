@@ -1,6 +1,7 @@
 //! Byte transport is decoded once; struct-built input retains bounded encoding.
 use trust_runtime_core::{
-    bytecode::{BytecodeModule, SectionData, SectionId, ValidationLimits},
+    bytecode::{BytecodeError, BytecodeModule, SectionData, SectionId, ValidationLimits},
+    error::RuntimeError,
     value::Duration,
     vm::{PreparationLimits, PreparedModule},
 };
@@ -77,16 +78,23 @@ fn both_routes_enforce_exact_cumulative_limits_and_full_validation() {
             ..Default::default()
         };
         assert!(prepare(exact).is_ok());
-        assert!(prepare(PreparationLimits {
-            max_preparation_bytes: usage.bytes - 1,
-            ..exact
-        })
-        .is_err());
-        assert!(prepare(PreparationLimits {
-            max_preparation_work: usage.work - 1,
-            ..exact
-        })
-        .is_err());
+        // The cumulative charge that crosses either limit is refused at budget.rs:43-46.
+        assert_eq!(
+            prepare(PreparationLimits {
+                max_preparation_bytes: usage.bytes - 1,
+                ..exact
+            })
+            .unwrap_err(),
+            RuntimeError::PreparationLimit
+        );
+        assert_eq!(
+            prepare(PreparationLimits {
+                max_preparation_work: usage.work - 1,
+                ..exact
+            })
+            .unwrap_err(),
+            RuntimeError::PreparationLimit
+        );
         assert!(prepare(PreparationLimits {
             max_artifact_bytes: FIXTURE.len() - 1,
             ..Default::default()
@@ -142,4 +150,179 @@ fn byte_artifact_bound_counts_original_padding_not_reserialized_length() {
         }
     )
     .is_ok());
+}
+
+#[test]
+fn metadata_accounting_does_not_replace_full_validator_rejection_codes() {
+    let original = BytecodeModule::decode(FIXTURE).unwrap();
+    let mut missing_strings = original.clone();
+    missing_strings
+        .sections
+        .retain(|section| section.id != SectionId::StringTable.as_raw());
+
+    let mut invalid_opcode = original.clone();
+    let Some(SectionData::PouIndex(index)) = original.section(SectionId::PouIndex) else {
+        panic!("fixture POU index")
+    };
+    let first = index
+        .entries
+        .iter()
+        .find(|entry| entry.code_length > 0)
+        .unwrap();
+    let body_start = first.code_offset as usize;
+    let Some(SectionData::PouBodies(code)) = invalid_opcode.section_mut(SectionId::PouBodies)
+    else {
+        panic!("fixture bodies")
+    };
+    code[body_start] = 0xff;
+
+    let mut truncated = original.clone();
+    let Some(SectionData::PouIndex(index)) = truncated.section_mut(SectionId::PouIndex) else {
+        panic!("fixture POU index")
+    };
+    index
+        .entries
+        .iter_mut()
+        .find(|entry| entry.id == first.id)
+        .unwrap()
+        .code_length = 1;
+    let Some(SectionData::PouBodies(code)) = truncated.section_mut(SectionId::PouBodies) else {
+        panic!("fixture bodies")
+    };
+    // A one-byte body containing LOAD_CONST has no room for its u32 operand.
+    // The surrounding container and all section framing remain well formed.
+    code[body_start] = 0x10;
+
+    for (raw, expected) in [
+        (
+            missing_strings,
+            BytecodeError::MissingSection("STRING_TABLE".into()),
+        ),
+        (invalid_opcode, BytecodeError::InvalidOpcode(0xff)),
+        (truncated, BytecodeError::UnexpectedEof),
+    ] {
+        let rejected = raw.validate().unwrap_err();
+        assert_eq!(rejected, expected);
+        let bytes = raw.encode().unwrap();
+        for result in [
+            PreparedModule::from_bytes(&bytes, PreparationLimits::default()),
+            PreparedModule::from_decoded(&raw, PreparationLimits::default()),
+        ] {
+            assert_eq!(result.unwrap_err().stable_code(), rejected.stable_code());
+        }
+    }
+}
+
+#[test]
+fn pou_materialization_uses_admitted_names_and_refuses_invalid_identity_metadata() {
+    let raw = BytecodeModule::decode(FIXTURE).unwrap();
+    let Some(SectionData::PouIndex(index)) = raw.section(SectionId::PouIndex) else {
+        panic!("fixture POU index");
+    };
+    let Some(SectionData::StringTable(strings)) = raw.section(SectionId::StringTable) else {
+        panic!("fixture strings");
+    };
+    let prepared = PreparedModule::from_decoded(&raw, Default::default()).unwrap();
+    for pou in &index.entries {
+        assert_eq!(
+            prepared.pou_name(pou.id),
+            Some(strings.entries[pou.name_idx as usize].as_str())
+        );
+    }
+    assert!(index.entries.len() >= 2);
+    for bad_name in [false, true] {
+        let mut forged = raw.clone();
+        let Some(SectionData::PouIndex(index)) = forged.section_mut(SectionId::PouIndex) else {
+            panic!("fixture POU index");
+        };
+        if bad_name {
+            index.entries[0].name_idx = u32::MAX;
+        } else {
+            index.entries[1].id = index.entries[0].id;
+        }
+        // Both construction routes must reject this at the validator boundary;
+        // removing redundant materialization storage does not relax admission.
+        assert!(forged.validated_source_free(Default::default()).is_err());
+        assert!(PreparedModule::from_decoded(&forged, Default::default()).is_err());
+        let bytes = forged.encode().unwrap();
+        assert!(PreparedModule::from_bytes(&bytes, Default::default()).is_err());
+    }
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn owned_and_artifact_retaining_routes_preserve_sections_faults_and_usage() {
+    for fixture in [
+        FIXTURE,
+        &include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc")
+            [..],
+        &include_bytes!("../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc")[..],
+    ] {
+        let mut raw = BytecodeModule::decode(fixture).unwrap();
+        raw.sections.reverse();
+        let bytes = raw.encode().unwrap();
+        let limits = PreparationLimits::default();
+        let owned = PreparedModule::from_bytes(&bytes, limits).unwrap();
+        let (borrowed, retained) =
+            PreparedModule::from_bytes_with_artifact(&bytes, limits).unwrap();
+        assert_eq!(retained, raw);
+        assert_eq!(retained.encode().unwrap(), bytes);
+        assert_eq!(owned.preparation_usage(), borrowed.preparation_usage());
+        assert_eq!(owned.type_table(), borrowed.type_table());
+        assert_eq!(owned.strings(), borrowed.strings());
+        assert_eq!(
+            owned.storage_declarations(),
+            borrowed.storage_declarations()
+        );
+        assert_eq!(owned.construction_roots(), borrowed.construction_roots());
+        let mut left = owned.instantiate(0).unwrap();
+        let mut right = borrowed.instantiate(0).unwrap();
+        for millis in (0..=1000).step_by(10) {
+            left.execute_cycle(Duration::from_millis(millis)).unwrap();
+            right.execute_cycle(Duration::from_millis(millis)).unwrap();
+            assert_eq!(left.storage().globals(), right.storage().globals());
+            for (id, instance) in left.storage().instances() {
+                let other = right.storage().get_instance(*id).unwrap();
+                assert_eq!(instance.variables, other.variables);
+                assert_eq!(instance.type_name, other.type_name);
+                assert_eq!(instance.parent, other.parent);
+            }
+            assert_eq!(left.outputs(), right.outputs());
+        }
+        for limit in [
+            PreparationLimits {
+                max_preparation_bytes: owned.preparation_usage().bytes - 1,
+                ..limits
+            },
+            PreparationLimits {
+                max_preparation_work: owned.preparation_usage().work - 1,
+                ..limits
+            },
+            PreparationLimits {
+                max_process_image_bytes: 0,
+                ..limits
+            },
+            PreparationLimits {
+                validation: ValidationLimits {
+                    max_work: 0,
+                    ..limits.validation
+                },
+                ..limits
+            },
+        ] {
+            let left = PreparedModule::from_bytes(&bytes, limit).map(|m| m.preparation_usage());
+            let right = PreparedModule::from_bytes_with_artifact(&bytes, limit)
+                .map(|(m, _)| m.preparation_usage());
+            assert_eq!(left, right);
+        }
+        // Validator faults precede materialization on both byte routes.
+        let Some(SectionData::PouBodies(code)) = raw.section_mut(SectionId::PouBodies) else {
+            panic!("fixture code")
+        };
+        code[0] = 0xff;
+        let malformed = raw.encode().unwrap();
+        let left = PreparedModule::from_bytes(&malformed, limits).unwrap_err();
+        let right = PreparedModule::from_bytes_with_artifact(&malformed, limits).unwrap_err();
+        assert_eq!(left, right);
+    }
 }

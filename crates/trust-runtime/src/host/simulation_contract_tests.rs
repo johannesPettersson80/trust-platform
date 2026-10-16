@@ -726,7 +726,11 @@ fn simulation_contract_default_values_and_io_formatting_cover_every_width() {
 #[test]
 fn simulation_contract_disabled_controller_performs_no_io_or_fault() {
     let target = IoAddress::parse("%IX0.0").unwrap();
-    let mut runtime = Runtime::new();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(1, 1, 0);
+    let mut runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: false,
         disturbances: vec![SimulationDisturbance {
@@ -774,7 +778,11 @@ value = "FALSE"
 "#,
     );
     let mut controller = SimulationController::new(config);
-    let mut runtime = Runtime::new();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(1, 0, 0);
+    let mut runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
 
     controller
         .apply_pre_cycle(Duration::from_millis(10), &mut runtime)
@@ -788,15 +796,13 @@ fn simulation_contract_equal_due_effects_preserve_coupling_order() {
     let source_a = IoAddress::parse("%QX0.0").unwrap();
     let source_b = IoAddress::parse("%QX0.1").unwrap();
     let target = IoAddress::parse("%IX0.0").unwrap();
-    let mut runtime = Runtime::new();
-    runtime
-        .io_mut()
-        .write(&source_a, Value::Bool(true))
-        .unwrap();
-    runtime
-        .io_mut()
-        .write(&source_b, Value::Bool(false))
-        .unwrap();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(1, 1, 0);
+    let mut runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
+    runtime.write_io(&source_a, Value::Bool(true)).unwrap();
+    runtime.write_io(&source_b, Value::Bool(false)).unwrap();
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         couplings: vec![
@@ -834,8 +840,12 @@ fn simulation_contract_equal_due_effects_preserve_coupling_order() {
 fn simulation_contract_unchanged_coupling_does_not_enqueue_again() {
     let source = IoAddress::parse("%QW0").unwrap();
     let target = IoAddress::parse("%IW0").unwrap();
-    let mut runtime = Runtime::new();
-    runtime.io_mut().write(&source, Value::Word(7)).unwrap();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(2, 2, 0);
+    let mut runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
+    runtime.write_io(&source, Value::Word(7)).unwrap();
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         couplings: vec![SignalCouplingRule {
@@ -863,8 +873,12 @@ fn simulation_contract_unchanged_coupling_does_not_enqueue_again() {
 fn simulation_contract_delayed_effect_is_not_visible_until_exact_due_boundary() {
     let source = IoAddress::parse("%QX0.0").unwrap();
     let target = IoAddress::parse("%IX0.0").unwrap();
-    let mut runtime = Runtime::new();
-    runtime.io_mut().write(&source, Value::Bool(true)).unwrap();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(1, 1, 0);
+    let mut runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
+    runtime.write_io(&source, Value::Bool(true)).unwrap();
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         couplings: vec![SignalCouplingRule {
@@ -896,7 +910,11 @@ fn simulation_contract_coupling_source_read_error_remains_an_io_error() {
     let mut source = IoAddress::parse("%QW0").unwrap();
     source.wildcard = true;
     let target = IoAddress::parse("%IW0").unwrap();
-    let runtime = Runtime::new();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(2, 2, 0);
+    let runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         couplings: vec![SignalCouplingRule {
@@ -918,7 +936,11 @@ fn simulation_contract_coupling_source_read_error_remains_an_io_error() {
 
 #[test]
 fn simulation_contract_failed_disturbance_write_becomes_runtime_fault() {
-    let mut runtime = Runtime::new();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(0, 0, 0);
+    let mut runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         disturbances: vec![SimulationDisturbance {
@@ -941,7 +963,11 @@ fn simulation_contract_failed_disturbance_write_becomes_runtime_fault() {
 
 #[test]
 fn simulation_contract_failed_delayed_write_becomes_runtime_fault() {
-    let mut runtime = Runtime::new();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(0, 0, 0);
+    let mut runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         ..SimulationConfig::default()
@@ -965,7 +991,11 @@ fn simulation_contract_failed_delayed_write_becomes_runtime_fault() {
 
 #[test]
 fn simulation_contract_physics_enable_read_failure_is_a_simulation_fault() {
-    let runtime = Runtime::new();
+    let mut builder = crate::RuntimeBuilder::new();
+    builder.io_mut().resize(2, 1, 0);
+    let runtime = builder
+        .build()
+        .expect("install simulation image dimensions");
     let mut invalid_enable = IoAddress::parse("%QX0.0").unwrap();
     invalid_enable.wildcard = true;
     let physics = PhysicsController::new(&PhysicsConfig {

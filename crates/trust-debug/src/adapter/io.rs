@@ -10,9 +10,11 @@ use serde_json::Value;
 use smol_str::SmolStr;
 
 use trust_hir::TypeId;
+use trust_runtime::debug::DebugControl;
 use trust_runtime::io::{IoAddress, IoSize, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
 use trust_runtime::memory::IoArea;
 use trust_runtime::value::Value as RuntimeValue;
+use trust_runtime::Runtime;
 
 use crate::protocol::{
     IoReleaseArguments, IoStateEntry, IoStateEventBody, IoWriteArguments, Request,
@@ -167,12 +169,15 @@ impl DebugAdapter {
             }
         };
 
-        self.session
-            .debug_control()
-            .enqueue_io_write(address.clone(), value.clone());
-        if let Err(err) = runtime.io_mut().write(&address, value.clone()) {
+        if let Err(message) = queue_io_request(
+            &self.session.debug_control(),
+            &mut runtime,
+            &address,
+            &value,
+            IoRequest::Write,
+        ) {
             return DispatchOutcome {
-                responses: vec![self.error_response(&request, &format!("{err}"))],
+                responses: vec![self.error_response(&request, &message)],
                 ..DispatchOutcome::default()
             };
         }
@@ -256,16 +261,19 @@ impl DebugAdapter {
             }
         };
 
-        self.session
-            .debug_control()
-            .force_io(address.clone(), value.clone());
-        self.set_io_forced(&address, true);
-        if let Err(err) = runtime.io_mut().write(&address, value.clone()) {
+        if let Err(message) = queue_io_request(
+            &self.session.debug_control(),
+            &mut runtime,
+            &address,
+            &value,
+            IoRequest::Force,
+        ) {
             return DispatchOutcome {
-                responses: vec![self.error_response(&request, &err.to_string())],
+                responses: vec![self.error_response(&request, &message)],
                 ..DispatchOutcome::default()
             };
         }
+        self.set_io_forced(&address, true);
         DispatchOutcome {
             responses: vec![self.ok_response::<Value>(&request, None)],
             ..DispatchOutcome::default()
@@ -456,7 +464,11 @@ impl DebugAdapter {
                 source: None,
                 value_type: type_id_for_value(&value)
                     .and_then(trust_runtime::io::io_value_type_name)
-                    .map(str::to_string),
+                    .map(str::to_string)
+                    .or_else(|| match &value {
+                        RuntimeValue::Enum(enum_value) => Some(enum_value.type_name().to_string()),
+                        _ => None,
+                    }),
                 value: format_value(&value),
                 forced: false,
                 writable: None,
@@ -737,10 +749,18 @@ pub(super) fn io_state_from_snapshot(snapshot: IoSnapshot) -> IoStateEventBody {
             .map(|entry| {
                 let name = entry.name.map(|name| name.to_string());
                 let address = format_io_address(&entry.address);
+                // The declared enumeration name travels with every snapshot state; elementary
+                // and value-derived names are fallbacks for entries that carry none.
                 let value_type = entry
-                    .value_type
-                    .and_then(trust_runtime::io::io_value_type_name)
-                    .map(str::to_string)
+                    .value_type_name
+                    .as_ref()
+                    .map(|name| name.to_string())
+                    .or_else(|| {
+                        entry
+                            .value_type
+                            .and_then(trust_runtime::io::io_value_type_name)
+                            .map(str::to_string)
+                    })
                     .or_else(|| match &entry.value {
                         IoSnapshotValue::Value(value) => value_type_name(value),
                         IoSnapshotValue::Error(_) | IoSnapshotValue::Unresolved => None,
@@ -828,3 +848,50 @@ pub(super) fn format_io_address(address: &IoAddress) -> String {
     }
     format!("%{area}{size}{path}")
 }
+
+/// How a DAP I/O request reaches the PLC.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::adapter) enum IoRequest {
+    /// A one-shot write, applied at the next scan boundary.
+    Write,
+    /// A force that stays active until it is released.
+    Force,
+}
+
+/// Queue a DAP I/O request and apply its checked image write. The request is queued first, so a
+/// full request queue refuses it before the image changes. A failed checked write withdraws the
+/// queued request again, so a refused or failed request changes nothing.
+pub(in crate::adapter) fn queue_io_request(
+    debug: &DebugControl,
+    runtime: &mut Runtime,
+    address: &IoAddress,
+    value: &RuntimeValue,
+    request: IoRequest,
+) -> Result<(), String> {
+    match request {
+        IoRequest::Write => {
+            debug
+                .try_enqueue_io_write(address.clone(), value.clone())
+                .map_err(|refused| refused.to_string())?;
+            if let Err(err) = runtime.write_io(address, value.clone()) {
+                debug.withdraw_io_write(address, value);
+                return Err(err.to_string());
+            }
+        }
+        IoRequest::Force => {
+            let previous = debug.forced_io_value(address);
+            debug
+                .try_force_io(address.clone(), value.clone())
+                .map_err(|refused| refused.to_string())?;
+            if let Err(err) = runtime.write_io(address, value.clone()) {
+                debug.restore_io_force(address, previous);
+                return Err(err.to_string());
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "io_queue_refusal_tests.rs"]
+mod queue_refusal_tests;

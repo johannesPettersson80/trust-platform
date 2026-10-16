@@ -87,9 +87,10 @@ pub(crate) fn init_locals(
             continue;
         }
         let value = if let Some(expr) = &local.initializer {
-            crate::harness::initializer::evaluate_initializer(
+            crate::harness::initializer::evaluate_initializer_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -99,9 +100,10 @@ pub(crate) fn init_locals(
                 local.type_id,
             )?
         } else {
-            crate::harness::initializer::default_value_for_type_id(
+            crate::harness::initializer::default_value_for_type_id_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -194,9 +196,10 @@ pub(crate) fn init_locals_in_frame(
             continue;
         }
         let value = if let Some(expr) = &local.initializer {
-            crate::harness::initializer::evaluate_initializer(
+            crate::harness::initializer::evaluate_initializer_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -206,9 +209,10 @@ pub(crate) fn init_locals_in_frame(
                 local.type_id,
             )?
         } else {
-            crate::harness::initializer::default_value_for_type_id(
+            crate::harness::initializer::default_value_for_type_id_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -238,9 +242,10 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
             .is_none()
         {
             let value = if let Some(expr) = &local.initializer {
-                crate::harness::initializer::evaluate_initializer(
+                crate::harness::initializer::evaluate_initializer_with_abi(
                     ctx.storage,
                     ctx.registry,
+                    crate::value::StorageAbi::LegacyTemporal32,
                     ctx.initializer_catalog
                         .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                     &ctx.profile,
@@ -250,9 +255,10 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
                     local.type_id,
                 )?
             } else {
-                crate::harness::initializer::default_value_for_type_id(
+                crate::harness::initializer::default_value_for_type_id_with_abi(
                     ctx.storage,
                     ctx.registry,
+                    crate::value::StorageAbi::LegacyTemporal32,
                     ctx.initializer_catalog
                         .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                     &ctx.profile,
@@ -269,9 +275,10 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
 
     if ctx.storage.get_global(key.as_ref()).is_none() {
         let value = if let Some(expr) = &local.initializer {
-            crate::harness::initializer::evaluate_initializer(
+            crate::harness::initializer::evaluate_initializer_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -281,9 +288,10 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
                 local.type_id,
             )?
         } else {
-            crate::harness::initializer::default_value_for_type_id(
+            crate::harness::initializer::default_value_for_type_id_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,

@@ -14,6 +14,7 @@ fn snapshot_with_two_frames() -> (DebugSnapshot, FrameId, FrameId) {
     assert!(storage.set_local("value", Value::DInt(2)));
     (
         DebugSnapshot {
+            storage_abi: Default::default(),
             storage,
             now: Duration::from_millis(7),
         },
@@ -257,6 +258,7 @@ fn snapshot_write_is_isolated_from_the_source_storage_clone() {
         .expect("snapshot write");
 
     let mut original = DebugSnapshot {
+        storage_abi: Default::default(),
         storage: original,
         now: Duration::ZERO,
     };

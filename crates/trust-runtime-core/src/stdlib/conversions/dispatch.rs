@@ -61,7 +61,7 @@ fn normalize_source_value(
     src: Option<ConversionType>,
     mode: ConversionMode,
 ) -> Result<(Value, ConversionType), RuntimeError> {
-    let actual_src = value_type_id(value).ok_or(RuntimeError::TypeMismatch)?;
+    let actual_src = value_type_id(value).ok_or_else(|| RuntimeError::TypeMismatch)?;
     let Some(expected) = src else {
         return Ok((value.clone(), actual_src));
     };

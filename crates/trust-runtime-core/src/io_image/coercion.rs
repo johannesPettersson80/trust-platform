@@ -33,8 +33,13 @@ pub fn expected_size_for_type(value_type: ConversionType) -> Option<IoSize> {
         ConversionType::LInt
         | ConversionType::ULInt
         | ConversionType::LWord
-        | ConversionType::LReal => Some(IoSize::LWord),
+        | ConversionType::LReal
+        | ConversionType::LTime
+        | ConversionType::LDate
+        | ConversionType::LTod
+        | ConversionType::Ldt => Some(IoSize::LWord),
         ConversionType::String => None,
+        // DATE, TOD and DT have no fixed width in IEC Table 10 and stay refused here.
         _ => None,
     }
 }
@@ -53,6 +58,10 @@ pub fn io_value_type_name(value_type: ConversionType) -> Option<&'static str> {
         ConversionType::ULInt => Some("ULINT"),
         ConversionType::Real => Some("REAL"),
         ConversionType::LReal => Some("LREAL"),
+        ConversionType::LTime => Some("LTIME"),
+        ConversionType::LDate => Some("LDATE"),
+        ConversionType::LTod => Some("LTOD"),
+        ConversionType::Ldt => Some("LDT"),
         ConversionType::Byte => Some("BYTE"),
         ConversionType::Word => Some("WORD"),
         ConversionType::DWord => Some("DWORD"),
@@ -250,6 +259,24 @@ pub fn coerce_from_io(value: Value, target: ConversionType) -> Result<Value, Run
             }
             _ => Err(RuntimeError::TypeMismatch),
         },
+        ConversionType::LTime => match value {
+            Value::LWord(word) => Ok(Value::LTime(crate::value::Duration::from_nanos(
+                word as i64,
+            ))),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        ConversionType::LDate => match value {
+            Value::LWord(word) => Ok(Value::LDate(crate::value::LDateValue::new(word as i64))),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        ConversionType::LTod => match value {
+            Value::LWord(word) => Ok(Value::LTod(crate::value::LTimeOfDayValue::new(word as i64))),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        ConversionType::Ldt => match value {
+            Value::LWord(word) => Ok(Value::Ldt(crate::value::LDateTimeValue::new(word as i64))),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -371,6 +398,12 @@ pub fn coerce_scalar_to_io(value: Value, target: ConversionType) -> Result<Value
         }
         ConversionType::Time => match value {
             Value::Time(value) => {
+                // Spec 12 section 4.1: a TIME in a DWORD image is unsigned 32-bit
+                // milliseconds with its checked range. The sign is tested on the
+                // nanoseconds, since `as_millis` truncates toward zero (T#-1ns is 0 ms).
+                if value.as_nanos() < 0 {
+                    return Err(RuntimeError::Overflow);
+                }
                 let millis = value.as_millis();
                 let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
                 Ok(Value::DWord(millis))
@@ -407,6 +440,23 @@ pub fn coerce_scalar_to_io(value: Value, target: ConversionType) -> Result<Value
             }
             Ok(Value::LWord(val.to_bits()))
         }
+        // The 64-bit temporal values carry their signed nanoseconds as the LWORD bit pattern.
+        ConversionType::LTime => match value {
+            Value::LTime(value) => Ok(Value::LWord(value.as_nanos() as u64)),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        ConversionType::LDate => match value {
+            Value::LDate(value) => Ok(Value::LWord(value.nanos() as u64)),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        ConversionType::LTod => match value {
+            Value::LTod(value) => Ok(Value::LWord(value.nanos() as u64)),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
+        ConversionType::Ldt => match value {
+            Value::Ldt(value) => Ok(Value::LWord(value.nanos() as u64)),
+            _ => Err(RuntimeError::TypeMismatch),
+        },
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

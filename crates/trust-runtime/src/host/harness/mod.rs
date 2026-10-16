@@ -3,6 +3,7 @@
 #![allow(missing_docs)]
 
 mod api;
+mod artifact;
 mod build;
 mod coerce;
 mod compiler;
@@ -24,11 +25,21 @@ pub use api::{
     bytecode_module_from_source_with_path, bytecode_module_from_sources,
     bytecode_module_from_sources_with_paths, CompileSession,
 };
+pub use artifact::configured_resource;
 pub(crate) use build::LoweredApplication;
+#[cfg(test)]
+pub(crate) use build::{lower_application, lower_application_with_abi};
 pub use coerce::{coerce_initializer_value_to_type, coerce_value_to_type};
+pub(crate) use config::{program_access_target_policy, AccessTargetPolicy};
 pub use harness::TestHarness;
-pub(crate) use io::{bind_value_ref_to_address, collect_direct_field_bindings, InstanceBinding};
-pub use parse::{parse_debug_expression, parse_debug_lvalue};
+pub(crate) use io::{
+    bind_value_ref_to_address, collect_direct_field_bindings, parse_field_address, FieldAddress,
+    InstanceBinding,
+};
+pub use parse::{
+    parse_debug_expression, parse_debug_expression_with_abi, parse_debug_lvalue,
+    parse_debug_lvalue_with_abi,
+};
 pub use protocol::{
     decode_json_value, encode_json_value, HarnessAutomation, HarnessAutomationError,
     HarnessLoadSummary, HarnessRunUntilSummary, HarnessStateSummary, HarnessValueSnapshot,

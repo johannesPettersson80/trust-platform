@@ -5,8 +5,11 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
-use trust_runtime::config::RuntimeBundle;
+use trust_runtime::config::RuntimeConfig;
 use trust_runtime::control::ControlEndpoint;
+
+#[cfg(test)]
+mod tests;
 
 pub(crate) fn call_control_request(
     bundle: Option<PathBuf>,
@@ -15,6 +18,7 @@ pub(crate) fn call_control_request(
     request_type: &str,
     params: Option<JsonValue>,
 ) -> anyhow::Result<ControlCallResult> {
+    let token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
     let target = resolve_control_target(bundle, endpoint, token)?;
     let request = json!({
         "id": 1,
@@ -54,26 +58,33 @@ struct ResolvedControlTarget {
     auth_token: Option<String>,
 }
 
+/// Resolves the endpoint and token the way `trust-runtime ctl` does (spec 11 section 6.8.1).
+///
+/// The explicit or environment token comes first. The project's `runtime.toml` supplies the
+/// endpoint when none is given and the token when none is known. It is read even with
+/// `--endpoint`, so the project token stays eligible when only the endpoint is overridden.
 fn resolve_control_target(
     bundle: Option<PathBuf>,
     endpoint: Option<String>,
     token: Option<String>,
 ) -> anyhow::Result<ResolvedControlTarget> {
-    let mut auth_token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
-    let endpoint_text = if let Some(endpoint) = endpoint {
-        endpoint
-    } else if let Some(bundle_path) = bundle {
-        let bundle = RuntimeBundle::load(bundle_path)?;
-        if auth_token.is_none() {
-            auth_token = bundle
-                .runtime
-                .control_auth_token
-                .as_ref()
-                .map(|value| value.to_string());
+    let mut auth_token = token;
+    let project_runtime = match bundle {
+        Some(project) if endpoint.is_none() || auth_token.is_none() => {
+            Some(RuntimeConfig::load(project.join("runtime.toml"))?)
         }
-        bundle.runtime.control_endpoint.to_string()
-    } else {
-        anyhow::bail!("--endpoint or --project required");
+        _ => None,
+    };
+    if auth_token.is_none() {
+        auth_token = project_runtime
+            .as_ref()
+            .and_then(|runtime| runtime.control_auth_token.as_ref())
+            .map(ToString::to_string);
+    }
+    let endpoint_text = match (endpoint, project_runtime) {
+        (Some(endpoint), _) => endpoint,
+        (None, Some(runtime)) => runtime.control_endpoint.to_string(),
+        (None, None) => anyhow::bail!("--endpoint or --project required"),
     };
     let endpoint = ControlEndpoint::parse(&endpoint_text)?;
     Ok(ResolvedControlTarget {

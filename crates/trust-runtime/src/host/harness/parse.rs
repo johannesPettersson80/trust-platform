@@ -16,6 +16,17 @@ pub fn parse_debug_expression(
     profile: DateTimeProfile,
     using: &[SmolStr],
 ) -> Result<Expr, CompileError> {
+    parse_debug_expression_with_abi(expression, registry, profile, using, Default::default())
+}
+
+/// Parse using the admitted artifact ABI for constant type/array-size expressions.
+pub fn parse_debug_expression_with_abi(
+    expression: &str,
+    registry: &mut TypeRegistry,
+    profile: DateTimeProfile,
+    using: &[SmolStr],
+    storage_abi: crate::value::StorageAbi,
+) -> Result<Expr, CompileError> {
     let expression = expression.trim();
     let expression = expression.strip_suffix(';').unwrap_or(expression).trim();
     if expression.is_empty() {
@@ -59,7 +70,7 @@ pub fn parse_debug_expression(
         semantic_db: None,
         semantic_file_id: None,
         statement_locations: &mut statement_locations,
-        compile_time_consts: Default::default(),
+        compile_time_consts: super::compiler::CompileTimeConsts::with_storage_abi(storage_abi),
     };
     super::lower_expr(expr, &mut ctx)
 }
@@ -70,6 +81,17 @@ pub fn parse_debug_lvalue(
     registry: &mut TypeRegistry,
     profile: DateTimeProfile,
     using: &[SmolStr],
+) -> Result<LValue, CompileError> {
+    parse_debug_lvalue_with_abi(expression, registry, profile, using, Default::default())
+}
+
+/// Parse using the admitted artifact ABI for constant type/array-size expressions.
+pub fn parse_debug_lvalue_with_abi(
+    expression: &str,
+    registry: &mut TypeRegistry,
+    profile: DateTimeProfile,
+    using: &[SmolStr],
+    storage_abi: crate::value::StorageAbi,
 ) -> Result<LValue, CompileError> {
     let expression = expression.trim();
     let expression = expression.strip_suffix(';').unwrap_or(expression).trim();
@@ -114,7 +136,7 @@ pub fn parse_debug_lvalue(
         semantic_db: None,
         semantic_file_id: None,
         statement_locations: &mut statement_locations,
-        compile_time_consts: Default::default(),
+        compile_time_consts: super::compiler::CompileTimeConsts::with_storage_abi(storage_abi),
     };
     super::lower::lower_lvalue(target, &mut ctx)
 }

@@ -5,13 +5,17 @@
 mod breakpoints;
 mod control;
 pub mod dap;
+mod execution_snapshot;
 mod hook;
 mod resolve;
 mod trace;
 mod types;
 
-pub use control::{ControlAction, ControlOutcome, DebugControl, DebugMode, StepKind};
-pub(crate) use control::{ForcedVarTarget, PendingVarTarget};
+pub(crate) use control::PendingVarTarget;
+pub use control::{
+    ControlAction, ControlOutcome, DebugControl, DebugMode, ForcedVarTarget, RequestQueueFull,
+    StepKind,
+};
 pub use dap::{DebugScope, DebugSource, DebugVariable, DebugVariableHandles, VariableHandle};
 pub use hook::{DebugHook, DebugRuntimeContext, NoopDebugHook};
 pub use resolve::{location_to_line_col, offset_to_line_col, resolve_breakpoint_location};

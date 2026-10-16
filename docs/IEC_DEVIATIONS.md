@@ -15,6 +15,29 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-10-15 - MOD by zero faults
+
+- ID: DEV-023
+- Area: Integer arithmetic (`MOD` function and operator)
+- Normative IEC requirement: IEC 61131-3 Ed.3 Table 29 defines `MOD` as the
+  result of the ST statements `IF (IN2 = 0) THEN OUT := 0; ELSE OUT := IN1 -
+  (IN1/IN2)*IN2; END_IF`, so `MOD` by zero yields `0`.
+- truST behavior and conflict:
+  - `MOD` by zero raises `RuntimeError::ModuloByZero` (stable code
+    `runtime_modulo_by_zero`) and aborts the containing assignment before
+    storage, as integer division by zero raises `DivisionByZero`
+    (specification 10 §6.4, specification 07 §3.1).
+  - For a nonzero divisor truST computes exactly the Table 29 formula.
+  - Faulting replaces the normative zero result for a zero divisor.
+- Impact:
+  - A program that relies on `MOD(x, 0) = 0` faults on truST instead of
+    continuing with `0`.
+- Mitigation:
+  - A silent `0` hides a logic error in a control program, so truST reports it
+    as it reports integer division by zero. Portable source that needs the
+    Table 29 result guards the divisor: `IF d = 0 THEN r := 0; ELSE r := x MOD
+    d; END_IF`.
+
 ## 2026-07-30 - Value-bearing RETURN statement
 
 - ID: DEV-022

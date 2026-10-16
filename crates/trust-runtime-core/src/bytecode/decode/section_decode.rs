@@ -76,12 +76,24 @@ pub(super) fn decode_const_pool(
     Ok(ConstPool { entries })
 }
 
+/// REF_TABLE count. Spec 12 §4.6.2: the fixed reference limit is reported as an entry limit
+/// before the section-bounds check, which then reads the count itself.
+fn read_ref_table_count(reader: &mut BytecodeReader<'_>) -> Result<usize, BytecodeError> {
+    let declared = reader.clone().read_u32()? as usize;
+    if declared > BYTECODE_MAX_REFERENCES {
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::ResourceLimit("REF_TABLE entries"),
+        ));
+    }
+    read_bounded_count(reader, 16, "REF_TABLE")
+}
+
 pub(super) fn decode_ref_table(
     version: BytecodeVersion,
     reader: &mut BytecodeReader<'_>,
     budget: &mut DecodeBudget,
 ) -> Result<RefTable, BytecodeError> {
-    let count = read_bounded_count_with_limit(reader, 16, BYTECODE_MAX_REFERENCES, "REF_TABLE")?;
+    let count = read_ref_table_count(reader)?;
     let mut entries = budget.vector(count)?;
     for _ in 0..count {
         let location = reader.read_u8()?;
@@ -90,7 +102,7 @@ pub(super) fn decode_ref_table(
         let owner_id = reader.read_u32()?;
         let offset = reader.read_u32()?;
         let segment_count = read_bounded_count(reader, 8, "REF_TABLE segment")?;
-        if location == 5 && version.major != 2 {
+        if location == 5 && !version.is_source_free() {
             return Err(RejectionReason::InvalidRefLocation.into());
         }
         let location = RefLocation::from_raw(location)
@@ -299,9 +311,10 @@ pub(super) fn decode_io_map(
     let binding_count = read_bounded_count(reader, 12, "IO_MAP")?;
     let mut bindings = budget.vector(binding_count)?;
     for _ in 0..binding_count {
-        let address_str_idx = reader.read_u32()?;
-        let ref_idx = reader.read_u32()?;
-        let type_id = optional_u32(reader.read_u32()?);
+        let record = Record::<12>::read(reader)?;
+        let address_str_idx = record.word::<0>();
+        let ref_idx = record.word::<4>();
+        let type_id = record.optional::<8>();
         bindings.push(IoBinding {
             address_str_idx,
             ref_idx,
@@ -318,13 +331,13 @@ pub(super) fn decode_debug_map(
     let entry_count = read_bounded_count(reader, 24, "DEBUG_MAP")?;
     let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
-        let pou_id = reader.read_u32()?;
-        let code_offset = reader.read_u32()?;
-        let file_idx = reader.read_u32()?;
-        let line = reader.read_u32()?;
-        let column = reader.read_u32()?;
-        let kind = reader.read_u8()?;
-        let _reserved = reader.read_bytes(3)?;
+        let record = Record::<24>::read(reader)?;
+        let pou_id = record.word::<0>();
+        let code_offset = record.word::<4>();
+        let file_idx = record.word::<8>();
+        let line = record.word::<12>();
+        let column = record.word::<16>();
+        let kind = record.0[20];
         entries.push(DebugEntry {
             pou_id,
             code_offset,
@@ -344,13 +357,12 @@ pub(super) fn decode_var_meta(
     let entry_count = read_bounded_count(reader, 20, "VAR_META")?;
     let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
-        let name_idx = reader.read_u32()?;
-        let type_id = reader.read_u32()?;
-        let ref_idx = reader.read_u32()?;
-        let retain = reader.read_u8()?;
-        let _flags = reader.read_u8()?;
-        let _reserved = reader.read_u16()?;
-        let init_const_idx = optional_u32(reader.read_u32()?);
+        let record = Record::<20>::read(reader)?;
+        let name_idx = record.word::<0>();
+        let type_id = record.word::<4>();
+        let ref_idx = record.word::<8>();
+        let retain = record.0[12];
+        let init_const_idx = record.optional::<16>();
         entries.push(VarMetaEntry {
             name_idx,
             type_id,
@@ -369,8 +381,9 @@ pub(super) fn decode_retain_init(
     let entry_count = read_bounded_count(reader, 8, "RETAIN_INIT")?;
     let mut entries = budget.vector(entry_count)?;
     for _ in 0..entry_count {
-        let ref_idx = reader.read_u32()?;
-        let const_idx = reader.read_u32()?;
+        let record = Record::<8>::read(reader)?;
+        let ref_idx = record.word::<0>();
+        let const_idx = record.word::<4>();
         entries.push(RetainInitEntry { ref_idx, const_idx });
     }
     Ok(RetainInit { entries })
@@ -383,3 +396,6 @@ pub(super) fn optional_u32(value: u32) -> Option<u32> {
         Some(value)
     }
 }
+
+#[cfg(test)]
+mod fixed_record_tests;

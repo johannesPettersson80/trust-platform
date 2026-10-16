@@ -91,6 +91,14 @@ fn validate_startup_artifacts(
     };
     let persistence = config.persistence.clone();
     OpenOtPersistenceConsumer::new(definition.clone(), None)?;
+    #[cfg(any(
+        feature = "openot-database-sqlite",
+        feature = "openot-database-postgresql",
+        feature = "openot-database-timescaledb",
+        feature = "openot-database-mysql",
+        feature = "openot-database-sqlserver",
+        feature = "openot-database-influxdb3",
+    ))]
     super::projection::LoggingProjector::new(std::iter::once(definition.clone()))?;
     SharedMemoryOpenOtSource::open_with_limits(
         &source_path,

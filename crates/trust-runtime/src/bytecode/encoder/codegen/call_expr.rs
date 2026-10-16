@@ -119,11 +119,35 @@ impl<'a> BytecodeEncoder<'a> {
             crate::program_model::Expr::Field {
                 target: receiver,
                 field,
-            } => Ok(NativeCallTarget {
-                kind: NativeTargetKind::Method,
-                name: field.clone(),
-                receiver: NativeReceiver::Expression(receiver),
-            }),
+            } => {
+                // Qualified function names share field syntax with instance methods.
+                let mut root = receiver.as_ref();
+                while let crate::program_model::Expr::Field { target, .. } = root {
+                    root = target.as_ref();
+                }
+                let bound_receiver = if let crate::program_model::Expr::Name(name) = root {
+                    ctx.local_ref(name).is_some()
+                        || ctx.self_field_name(name).is_some()
+                        || self.resolve_name_ref(ctx, name)?.is_some()
+                } else {
+                    false
+                };
+                if !bound_receiver
+                    && let Some(qualified) = qualified_field_expr_name(target)
+                    && let Some(function_name) = self.resolve_function_call_name(ctx, &qualified)
+                {
+                    return Ok(NativeCallTarget {
+                        kind: NativeTargetKind::Function,
+                        name: function_name,
+                        receiver: NativeReceiver::None,
+                    });
+                }
+                Ok(NativeCallTarget {
+                    kind: NativeTargetKind::Method,
+                    name: field.clone(),
+                    receiver: NativeReceiver::Expression(receiver),
+                })
+            }
             crate::program_model::Expr::Name(name) => {
                 let key = SmolStr::new(name.to_ascii_uppercase());
                 if ctx.local_ref(name).is_some()
@@ -264,9 +288,10 @@ impl<'a> BytecodeEncoder<'a> {
         let Some(return_type) = return_type else {
             return Ok(Value::Null);
         };
-        crate::harness::initializer::default_value_for_type_id(
+        crate::harness::initializer::default_value_for_type_id_with_abi(
             self.runtime.storage(),
             self.runtime.registry(),
+            self.runtime.storage_abi(),
             self.runtime.initializer_catalog(),
             &self.runtime.profile(),
             None,

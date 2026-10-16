@@ -63,7 +63,11 @@ impl DebugAdapter {
                 (
                     storage.frames().iter().any(|frame| frame.id == frame_id),
                     !storage.globals().is_empty(),
-                    !storage.retain().is_empty(),
+                    !super::super::variables::retained::references(
+                        self.session.metadata(),
+                        storage,
+                    )
+                    .is_empty(),
                     !storage.instances().is_empty(),
                 )
             })

@@ -10,6 +10,13 @@ pub trait IoDriver: Send {
     fn health(&self) -> IoDriverHealth {
         IoDriverHealth::Ok
     }
+
+    /// Report the output-path health that a safe-state handoff depends on (specification 11,
+    /// safe-state handoff confirmation). Defaults to `health()`; a driver overrides it only when
+    /// its reported health includes conditions that concern received data alone.
+    fn output_health(&self) -> IoDriverHealth {
+        self.health()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

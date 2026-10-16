@@ -14,6 +14,8 @@ pub struct RuntimeConfig {
     pub retain_path: Option<PathBuf>,
     pub retain_save_interval: Duration,
     pub watchdog: WatchdogPolicy,
+    /// What hosted hang supervision does after it records a hung scan thread.
+    pub watchdog_hang_action: HangAction,
     pub fault_policy: FaultPolicy,
     pub web: WebConfig,
     pub tls: TlsConfig,

@@ -336,7 +336,7 @@ END_PROGRAM
 }
 
 #[test]
-fn bounded_string_normalization_reports_budget_failure_before_commit() {
+fn bounded_string_normalization_allocates_only_the_retained_prefix() {
     let module = CompileSession::from_source(
         "VAR_GLOBAL text : STRING[3]; END_VAR PROGRAM Main END_PROGRAM",
     )
@@ -349,14 +349,44 @@ fn bounded_string_normalization_reports_budget_failure_before_commit() {
     };
     let prepared = PreparedModule::from_bytes(&module.encode().unwrap(), limits).unwrap();
     let mut state = prepared.instantiate(0).unwrap();
+    state
+        .write_global("text", Value::String("x".repeat(2 * 1024 * 1024).into()))
+        .unwrap();
+    // The caller owns the large input; only its three-byte normalized prefix
+    // needs new backing storage. The input traversal still consumes work.
+    assert_eq!(
+        state.storage().get_global("text"),
+        Some(&Value::String("xxx".into()))
+    );
+}
+
+#[test]
+fn bounded_string_normalization_reports_work_failure_before_commit() {
+    let module = CompileSession::from_source(
+        "VAR_GLOBAL text : STRING[3] := 'old'; END_VAR PROGRAM Main END_PROGRAM",
+    )
+    .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
+    .unwrap();
+    let limits = PreparationLimits {
+        max_construction_bytes: 1024 * 1024,
+        max_work: 1024 * 1024,
+        ..Default::default()
+    };
+    let prepared = PreparedModule::from_bytes(&module.encode().unwrap(), limits).unwrap();
+    let mut state = prepared.instantiate(0).unwrap();
     let before = state.storage().get_global("text").unwrap().clone();
     let error = state
         .write_global("text", Value::String("x".repeat(2 * 1024 * 1024).into()))
         .unwrap_err();
-    assert_eq!(
+    assert!(matches!(
         error,
-        trust_runtime_core::vm::VmTrap::BudgetExceeded.into_runtime_error()
-    );
+        trust_runtime_core::error::RuntimeError::ExecutionLimit {
+            kind: trust_runtime_core::error::ExecutionLimitKind::Work,
+            used,
+            requested,
+            limit,
+        } if limit == limits.max_work && used <= limit && requested > limit - used
+    ));
     assert_eq!(state.storage().get_global("text"), Some(&before));
 }
 

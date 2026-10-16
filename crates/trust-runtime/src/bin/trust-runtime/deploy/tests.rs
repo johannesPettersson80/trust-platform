@@ -201,3 +201,49 @@ fn source_diff_propagates_invalid_source_directory_errors() {
     );
     let _ = fs::remove_dir_all(root);
 }
+
+#[test]
+fn deploy_validation_requires_legacy_context_and_accepts_source_free_artifacts() {
+    use trust_runtime::{bytecode::BytecodeVersion, harness::CompileSession};
+    let source =
+        "VAR_GLOBAL marker : INT := 7; END_VAR PROGRAM Main marker := marker + 1; END_PROGRAM";
+    for (version, with_sources) in [
+        (BytecodeVersion::LEGACY, true),
+        (BytecodeVersion::LEGACY, false),
+        (BytecodeVersion::SOURCE_FREE_V2, true),
+        (BytecodeVersion::SOURCE_FREE_V2, false),
+        (BytecodeVersion::SOURCE_FREE, true),
+        (BytecodeVersion::SOURCE_FREE, false),
+    ] {
+        let root = temp_dir("artifact-context");
+        fs::write(
+            root.join("runtime.toml"),
+            trust_runtime::bundle_template::render_runtime_toml(&"RESOURCE".into(), 10),
+        )
+        .unwrap();
+        fs::write(
+            root.join("io.toml"),
+            "[io]\ndriver = \"simulated\"\nparams = {}\n",
+        )
+        .unwrap();
+        let module = CompileSession::from_source(source)
+            .build_bytecode_module_for_version(version)
+            .unwrap();
+        fs::write(root.join("program.stbc"), module.encode().unwrap()).unwrap();
+        if with_sources {
+            fs::create_dir(root.join("src")).unwrap();
+            fs::write(root.join("src/main.st"), source).unwrap();
+        }
+        let bundle = RuntimeBundle::load(&root).unwrap();
+        let result = validate_bundle(&bundle);
+        if version == BytecodeVersion::LEGACY && !with_sources {
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("construction context"));
+        } else {
+            result.unwrap();
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+}

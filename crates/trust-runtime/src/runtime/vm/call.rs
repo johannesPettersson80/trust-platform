@@ -11,7 +11,6 @@ use trust_runtime_core::vm::hosted::call::stdlib::{
     bind_conversion_value, bind_stdlib_named_values, bind_stdlib_positional_values,
     dispatch_native_stdlib_call,
 };
-pub(super) use trust_runtime_core::vm::hosted::call::{execute_native_call, push_call_frame};
 pub(super) use trust_runtime_core::vm::hosted::context::VM_LOCAL_SENTINEL_FRAME_ID;
 #[cfg(test)]
 use trust_runtime_core::vm::hosted::symbols::{

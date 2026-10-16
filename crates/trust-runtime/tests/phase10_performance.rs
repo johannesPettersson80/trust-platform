@@ -152,13 +152,13 @@ fn phase10_ads_opcua_publish_clone_partial_baseline() {
     let ads_capture_outputs = summarize(&measure(PUBLISH_SAMPLES, || {
         write_publish_values(&mut ads_runtime, PUBLISH_POINTS);
         ads_bridge
-            .capture_outputs(ads_runtime.storage_mut(), 20)
+            .capture_outputs(&mut ads_runtime, 20)
             .expect("capture ADS outputs");
     }));
     let ads_worker_handoff = summarize(&measure(PUBLISH_SAMPLES, || {
         write_publish_values(&mut ads_runtime, PUBLISH_POINTS);
         ads_bridge
-            .capture_outputs(ads_runtime.storage_mut(), 21)
+            .capture_outputs(&mut ads_runtime, 21)
             .expect("queue ADS outputs");
         ads_worker.tick(22).expect("publish ADS outputs");
     }));
@@ -168,13 +168,13 @@ fn phase10_ads_opcua_publish_clone_partial_baseline() {
     let opcua_capture_outputs = summarize(&measure(PUBLISH_SAMPLES, || {
         write_publish_values(&mut opcua_runtime, PUBLISH_POINTS);
         opcua_bridge
-            .capture_outputs(opcua_runtime.storage_mut(), 20)
+            .capture_outputs(&mut opcua_runtime, 20)
             .expect("capture OPC UA outputs");
     }));
     let opcua_worker_handoff = summarize(&measure(PUBLISH_SAMPLES, || {
         write_publish_values(&mut opcua_runtime, PUBLISH_POINTS);
         opcua_bridge
-            .capture_outputs(opcua_runtime.storage_mut(), 21)
+            .capture_outputs(&mut opcua_runtime, 21)
             .expect("queue OPC UA outputs");
         opcua_worker.tick(22).expect("publish OPC UA outputs");
     }));
@@ -322,12 +322,14 @@ fn build_publish_source(point_count: usize) -> String {
 }
 
 fn build_ads_bridge(point_count: usize) -> AdsConnectionBridge {
-    let mut harness =
+    let harness =
         TestHarness::from_source(&build_publish_source(point_count)).expect("compile ADS fixture");
     let bindings = build_ads_bindings(harness.runtime(), point_count);
     let mut bridge = AdsConnectionBridge::new(bindings).expect("ADS bridge");
+    // Bridge-only setup owns a detached value fixture outside measured execution.
+    let mut values = harness.runtime().storage().clone();
     bridge
-        .capture_outputs(harness.runtime_mut().storage_mut(), 0)
+        .capture_outputs(&mut values, 0)
         .expect("capture ADS outputs");
     bridge
 }
@@ -335,7 +337,7 @@ fn build_ads_bridge(point_count: usize) -> AdsConnectionBridge {
 fn build_ads_worker_fixture(
     point_count: usize,
 ) -> (
-    Runtime,
+    trust_runtime::memory::VariableStorage,
     AdsConnectionBridge,
     AdsConnectionWorker<MockAdsTransport>,
 ) {
@@ -349,7 +351,7 @@ fn build_ads_worker_fixture(
         AdsConnectionBridge::with_transport(MockAdsTransport::new(symbols), bindings)
             .expect("ADS bridge with worker");
     worker.tick(0).expect("connect ADS worker");
-    (harness.into_runtime(), bridge, worker)
+    (harness.runtime().storage().clone(), bridge, worker)
 }
 
 fn build_ads_bindings(runtime: &Runtime, point_count: usize) -> Vec<AdsBinding> {
@@ -402,9 +404,10 @@ fn build_opcua_bridge(point_count: usize) -> OpcUaClientBridge {
         })
         .collect::<Vec<_>>();
     let mut bridge = OpcUaClientBridge::new(bindings).expect("OPC UA bridge");
-    let mut runtime = harness.into_runtime();
+    let runtime = harness.into_runtime();
+    let mut values = runtime.storage().clone();
     bridge
-        .capture_outputs(runtime.storage_mut(), 0)
+        .capture_outputs(&mut values, 0)
         .expect("capture OPC UA outputs");
     bridge
 }
@@ -412,7 +415,7 @@ fn build_opcua_bridge(point_count: usize) -> OpcUaClientBridge {
 fn build_opcua_worker_fixture(
     point_count: usize,
 ) -> (
-    Runtime,
+    trust_runtime::memory::VariableStorage,
     OpcUaClientBridge,
     OpcUaClientWorker<MockOpcUaClientTransport>,
 ) {
@@ -461,17 +464,19 @@ fn build_opcua_worker_fixture(
     )
     .expect("OPC UA bridge with worker");
     worker.tick(0).expect("connect OPC UA worker");
-    (harness.into_runtime(), bridge, worker)
+    (harness.runtime().storage().clone(), bridge, worker)
 }
 
 fn build_point_names(point_count: usize) -> Vec<String> {
     (0..point_count).map(|index| format!("p{index}")).collect()
 }
 
-fn write_publish_values(runtime: &mut Runtime, point_count: usize) {
-    let generation = runtime.cycle_counter() as f32 + 1.0;
+fn write_publish_values(values: &mut trust_runtime::memory::VariableStorage, point_count: usize) {
+    // These samples measure the protocol bridge, not a PLC scan. The original
+    // fixture never executed a cycle, so its completed-cycle generation was one.
+    let generation = 1.0;
     for index in 0..point_count {
-        runtime.storage_mut().set_global(
+        values.set_global(
             SmolStr::new(format!("p{index}")),
             Value::Real(generation + index as f32),
         );

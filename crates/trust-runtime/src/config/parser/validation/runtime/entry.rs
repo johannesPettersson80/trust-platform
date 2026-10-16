@@ -33,30 +33,39 @@ impl RuntimeToml {
             opcua_client,
             opcua,
         } = self.runtime;
-        let (execution_backend, execution_backend_source) =
-            match execution_backend.as_deref().map(str::trim) {
-                Some(value) if !value.is_empty() => {
-                    if value.eq_ignore_ascii_case("interpreter") {
-                        return Err(RuntimeError::InvalidConfig(
+        let (execution_backend, execution_backend_source) = match execution_backend
+            .as_deref()
+            .map(str::trim)
+        {
+            Some(value) if !value.is_empty() => {
+                if value.eq_ignore_ascii_case("interpreter") {
+                    return Err(RuntimeError::InvalidConfig(
                             "runtime.execution_backend='interpreter' is no longer supported for production runtimes; use 'vm'"
                                 .into(),
                         ));
-                    }
-                    let backend = ExecutionBackend::parse(value)?;
-                    (backend, ExecutionBackendSource::Config)
                 }
-                Some(_) => {
-                    return Err(RuntimeError::InvalidConfig(
-                        "runtime.execution_backend must not be empty".into(),
-                    ));
-                }
-                None => (ExecutionBackend::BytecodeVm, ExecutionBackendSource::Default),
-            };
+                let backend = ExecutionBackend::parse(value)?;
+                (backend, ExecutionBackendSource::Config)
+            }
+            Some(_) => {
+                return Err(RuntimeError::InvalidConfig(
+                    "runtime.execution_backend must not be empty".into(),
+                ));
+            }
+            None => (
+                ExecutionBackend::BytecodeVm,
+                ExecutionBackendSource::Default,
+            ),
+        };
 
         let parsed_control = parse_control(&control)?;
         let parsed_retain_mode = parse_retain_mode(&retain)?;
         let retain_path = parse_optional_path("runtime.retain.path", retain.path)?;
         let watchdog_action = WatchdogAction::parse(&watchdog.action)?;
+        let watchdog_hang_action = match watchdog.hang_action.as_deref() {
+            Some(text) => HangAction::parse(text)?,
+            None => HangAction::default(),
+        };
         let fault_policy = FaultPolicy::parse(&fault.policy)?;
         let parsed_tls = parse_tls_section(tls)?;
         let parsed_web = parse_web_section(
@@ -105,6 +114,7 @@ impl RuntimeToml {
                 )?,
                 action: watchdog_action,
             },
+            watchdog_hang_action,
             fault_policy,
             web: parsed_web.config,
             tls: parsed_tls.config,

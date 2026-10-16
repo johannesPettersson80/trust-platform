@@ -1,10 +1,18 @@
 use verification_cases::{
-    CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot, TraceStep,
+    check_case_expectation, check_trace_fields, CaseExecution, CaseRecord, CaseResult,
+    ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
 
+/// Trace fields that `compare_nonfinite_mqtt_step` compares.
+const NONFINITE_READ_FIELDS: &[&str] = &[
+    "driver_health",
+    "error_contains",
+    "read_result",
+    "visible_count",
+    "visible_temp_milli",
+];
 const NONFINITE_TEST_ID: &str = "TEST_RUNTIME_MQTT_NONFINITE_BATCH_TRANSACTION_001";
-const NONFINITE_CASE_FILE: &str =
-    "verification/cases/runtime_safety/RT_SAFE_NAN_001.toml";
+const NONFINITE_CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_NAN_001.toml";
 const NONFINITE_CASE_FILE_DIGEST: &str =
     "sha256:d6bd8d524b98a29f813f04bd0156a09ec8c241b873362b269fde937b1ed7e01a";
 const NONFINITE_CASE_ID: &str =
@@ -25,11 +33,8 @@ fn run_nonfinite_mqtt_case() {
         NONFINITE_CASE_FILE,
         NONFINITE_CASE_FILE_DIGEST,
     );
-    let result = verification_cases::run_case_file(
-        &config,
-        &mut probe,
-        run_nonfinite_mqtt_case_record,
-    );
+    let result =
+        verification_cases::run_case_file(&config, &mut probe, run_nonfinite_mqtt_case_record);
 
     std::env::set_current_dir(original_dir)
         .expect("MQTT case runner must restore current directory");
@@ -65,7 +70,10 @@ fn run_nonfinite_mqtt_case_record(
         .as_deref()
         .ok_or_else(|| format!("{} has no trace", case.id))?;
     if trace.len() != 3 {
-        return Err(format!("{} must contain exactly three trace steps", case.id));
+        return Err(format!(
+            "{} must contain exactly three trace steps",
+            case.id
+        ));
     }
 
     let state = Arc::new(Mutex::new(MockState {
@@ -104,12 +112,72 @@ payload_format = "text"
     let mut inputs = [0u8; 6];
     let mut mismatches = Vec::new();
     let mut observations = Vec::new();
+    let mut observed_steps = Vec::new();
+    // The mapped input image after each step, so the operation under test can be
+    // evaluated from the image before it and the image after it.
+    let mut input_images = Vec::new();
     for step in trace {
+        if let Err(error) = check_trace_fields(&step.expected, NONFINITE_READ_FIELDS) {
+            mismatches.push(format!("{} step {}: {error}", case.id, step.sequence));
+        }
         let observation = execute_nonfinite_mqtt_step(step, &state, &mut driver, &mut inputs)?;
         compare_nonfinite_mqtt_step(step, &observation, &mut mismatches)?;
         observations.push(observation.to_json());
+        observed_steps.push(observation);
+        input_images.push(inputs);
     }
     probe.observed = Some(serde_json::json!({ "trace": observations }));
+
+    // The case is titled rejection and recovery, and its expectations describe the
+    // rejected non-finite batch followed by its recovery. The operation under test runs
+    // from the state the accepted batch before the rejected step left, to the state the
+    // final recovery step left. Its diagnostic is the stable error of the rejected step.
+    // The per-step trace comparisons above still assert that the rejected step leaves
+    // the count and the temperature unchanged.
+    let last = observed_steps
+        .len()
+        .checked_sub(1)
+        .ok_or_else(|| format!("{} has no trace steps", case.id))?;
+    let operation = trace
+        .iter()
+        .position(|step| {
+            step.expected
+                .get("read_result")
+                .and_then(|value| value.as_str())
+                == Some("rejected")
+        })
+        .ok_or_else(|| format!("{} has no rejected read step", case.id))?;
+    if operation == 0 || operation >= last {
+        return Err(format!(
+            "{} rejected read must follow an accepted batch and precede a recovery step",
+            case.id
+        ));
+    }
+    let rejected = &observed_steps[operation];
+    let recovery = &observed_steps[last];
+    let before = nonfinite_snapshot(&input_images[operation - 1], Vec::new());
+    let after = nonfinite_snapshot(
+        &input_images[last],
+        rejected.error.iter().cloned().collect(),
+    );
+    let observed = ObservedOperation {
+        outcome: if recovery.read_result == "accepted" {
+            "accept_value"
+        } else {
+            "reject"
+        },
+        fault_surface: None,
+        // The resource run status is not observed here: this runner drives the MQTT
+        // driver without a resource. The driver health is not the run status.
+        status_before: None,
+        status_after: None,
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &observed) {
+        Ok(declared) => mismatches.extend(declared),
+        Err(error) => mismatches.push(error),
+    }
 
     if mismatches.is_empty() {
         Ok(CaseExecution {
@@ -161,12 +229,10 @@ fn execute_nonfinite_mqtt_step(
         match action.as_str() {
             "deliver_finite_batch" => {
                 let count = nonfinite_trace_nonnegative_integer(&step.stimulus, "count")?;
-                let temp_milli =
-                    nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
-                guard.payloads.push_back(packet(
-                    "line/in/count",
-                    count.to_string().into_bytes(),
-                ));
+                let temp_milli = nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
+                guard
+                    .payloads
+                    .push_back(packet("line/in/count", count.to_string().into_bytes()));
                 guard.payloads.push_back(packet(
                     "line/in/temp",
                     format_milli_payload(temp_milli).into_bytes(),
@@ -175,17 +241,15 @@ fn execute_nonfinite_mqtt_step(
             "deliver_nonfinite_batch" => {
                 let count = nonfinite_trace_nonnegative_integer(&step.stimulus, "count")?;
                 let temp_token = nonfinite_trace_string(&step.stimulus, "temp_token")?;
-                guard.payloads.push_back(packet(
-                    "line/in/count",
-                    count.to_string().into_bytes(),
-                ));
+                guard
+                    .payloads
+                    .push_back(packet("line/in/count", count.to_string().into_bytes()));
                 guard
                     .payloads
                     .push_back(packet("line/in/temp", temp_token.into_bytes()));
             }
             "deliver_finite_point_after_wait" => {
-                let temp_milli =
-                    nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
+                let temp_milli = nonfinite_trace_nonnegative_integer(&step.stimulus, "temp_milli")?;
                 guard.payloads.push_back(packet(
                     "line/in/temp",
                     format_milli_payload(temp_milli).into_bytes(),
@@ -232,14 +296,15 @@ fn compare_nonfinite_mqtt_step(
     for (field, expected) in &step.expected {
         let matches = match field.as_str() {
             "driver_health" => expected.as_str() == Some(observation.driver_health),
-            "error_contains" => expected
-                .as_str()
-                .is_some_and(|needle| observation.error.as_deref().is_some_and(|error| error.contains(needle))),
+            "error_contains" => expected.as_str().is_some_and(|needle| {
+                observation
+                    .error
+                    .as_deref()
+                    .is_some_and(|error| error.contains(needle))
+            }),
             "read_result" => expected.as_str() == Some(observation.read_result),
             "visible_count" => expected.as_integer() == Some(i64::from(observation.visible_count)),
-            "visible_temp_milli" => {
-                expected.as_integer() == Some(observation.visible_temp_milli)
-            }
+            "visible_temp_milli" => expected.as_integer() == Some(observation.visible_temp_milli),
             _ => return Err(format!("unreviewed MQTT expected field {field}")),
         };
         if !matches {
@@ -253,10 +318,7 @@ fn compare_nonfinite_mqtt_step(
     Ok(())
 }
 
-fn observed_nonfinite_field(
-    field: &str,
-    observation: &NonfiniteMqttStepObservation,
-) -> String {
+fn observed_nonfinite_field(field: &str, observation: &NonfiniteMqttStepObservation) -> String {
     match field {
         "driver_health" => observation.driver_health.to_string(),
         "error_contains" => observation.error.as_deref().unwrap_or("none").to_string(),
@@ -272,6 +334,28 @@ fn nonfinite_health_label(health: IoDriverHealth) -> &'static str {
         IoDriverHealth::Ok => "ok",
         IoDriverHealth::Degraded { .. } => "degraded",
         IoDriverHealth::Faulted { .. } => "faulted",
+    }
+}
+
+/// Decodes the visible count (UINT at offset 0) and temperature (REAL at offset 2, in milli-units).
+fn decode_visible(inputs: &[u8; 6]) -> (u16, i64) {
+    let count = u16::from_le_bytes([inputs[0], inputs[1]]);
+    let temp = f32::from_le_bytes([inputs[2], inputs[3], inputs[4], inputs[5]]);
+    (count, (f64::from(temp) * 1_000.0).round() as i64)
+}
+
+/// Snapshot of the mapped input image that this runner reads.
+fn nonfinite_snapshot(inputs: &[u8; 6], diagnostics: Vec<String>) -> StateSnapshot {
+    let (count, temp_milli) = decode_visible(inputs);
+    StateSnapshot {
+        process_image_hash: Some(format!("{inputs:?}")),
+        retain_hash: None,
+        target: Some(serde_json::json!(temp_milli)),
+        siblings: std::collections::BTreeMap::from([(
+            "visible_count".to_string(),
+            serde_json::json!(count),
+        )]),
+        diagnostics,
     }
 }
 

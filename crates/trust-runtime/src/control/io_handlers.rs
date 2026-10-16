@@ -55,7 +55,9 @@ pub(super) fn handle_io_write(
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
-    state.debug.enqueue_io_write(address, value);
+    if let Err(error) = state.debug.try_enqueue_io_write(address, value) {
+        return ControlResponse::error(id, error.to_string());
+    }
     ControlResponse::ok(id, json!({"status": "queued"}))
 }
 
@@ -82,7 +84,9 @@ pub(super) fn handle_io_force(
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
-    state.debug.force_io(address, value);
+    if let Err(error) = state.debug.try_force_io(address, value) {
+        return ControlResponse::error(id, error.to_string());
+    }
     ControlResponse::ok(id, json!({"status": "forced"}))
 }
 

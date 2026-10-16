@@ -1,3 +1,18 @@
+/// Newest runtime events the product event store keeps for `events.tail` and `faults`. It is the
+/// largest limit either operation accepts (specification 11, event store).
+const EVENT_STORE_CAPACITY: usize = 1_000;
+
+/// Append a runtime event, dropping the oldest events beyond `EVENT_STORE_CAPACITY`.
+fn store_event(
+    store: &mut VecDeque<trust_runtime::debug::RuntimeEvent>,
+    event: trust_runtime::debug::RuntimeEvent,
+) {
+    store.push_back(event);
+    while store.len() > EVENT_STORE_CAPACITY {
+        store.pop_front();
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn run_runtime(
     project: Option<PathBuf>,
@@ -62,7 +77,7 @@ pub fn run_runtime(
     }
 
     if let Some(bundle) = &bundle {
-        apply_bundle_runtime_overrides(&mut runtime, bundle)?;
+        apply_bundle_runtime_services(&mut runtime, bundle)?;
     }
     runtime
         .set_execution_backend(selected_execution_backend)
@@ -104,10 +119,7 @@ pub fn run_runtime(
             for event in event_rx {
                 log_runtime_event(&event_logger, &event);
                 if let Ok(mut guard) = events.lock() {
-                    guard.push_back(event);
-                    while guard.len() > 200 {
-                        guard.pop_front();
-                    }
+                    store_event(&mut guard, event);
                 }
             }
         });
@@ -137,10 +149,15 @@ pub fn run_runtime(
         .as_ref()
         .map(|bundle| bundle.runtime.cycle_interval)
         .unwrap_or_else(|| Duration::from_millis(10));
+    let hang_action = bundle
+        .as_ref()
+        .map(|bundle| bundle.runtime.watchdog_hang_action)
+        .unwrap_or_default();
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
         .with_start_gate(start_gate.clone())
-        .with_time_scale(simulation_time_scale);
+        .with_time_scale(simulation_time_scale)
+        .with_hang_action(hang_action);
     if realtime_config.enabled {
         runner = runner.with_thread_init_hook(make_thread_init_hook(
             realtime_config.clone(),
@@ -556,6 +573,10 @@ pub fn run_runtime(
     let join_result = handle
         .join()
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));
+    // A halting fault keeps the thread alive until a stop request, so the final state is known
+    // only after the join. It selects the exit status below.
+    let final_state = handle.state();
+    let final_error = handle.last_error();
     if let Some(service) = openot_persistence.as_mut() {
         service.shutdown();
     }
@@ -569,6 +590,16 @@ pub fn run_runtime(
         server.shutdown();
     }
     join_result?;
+    if final_state == trust_runtime::scheduler::ResourceState::Faulted {
+        let detail = final_error.map_or_else(|| "unknown fault".to_string(), |err| err.to_string());
+        logger.log(
+            LogLevel::Error,
+            "runtime_exit",
+            json!({ "status": "faulted", "error": detail }),
+        );
+        // Returned through the binary's error path, so the process exits with status 1.
+        anyhow::bail!("runtime resource faulted: {detail}");
+    }
     logger.log(
         LogLevel::Debug,
         "runtime_exit",

@@ -645,8 +645,19 @@ impl Type {
             Self::Bool => 1,
             Self::SInt | Self::USInt | Self::Byte => 8,
             Self::Int | Self::UInt | Self::Word => 16,
-            Self::DInt | Self::UDInt | Self::DWord | Self::Real | Self::Time => 32,
-            Self::LInt | Self::ULInt | Self::LWord | Self::LReal | Self::LTime | Self::LDate => 64,
+            Self::DInt | Self::UDInt | Self::DWord | Self::Real => 32,
+            Self::LInt
+            | Self::ULInt
+            | Self::LWord
+            | Self::LReal
+            | Self::Time
+            | Self::Date
+            | Self::Tod
+            | Self::Dt
+            | Self::LTime
+            | Self::LDate
+            | Self::LTod
+            | Self::Ldt => 64,
             Self::Char => 8,
             Self::WChar => 16,
             Self::Subrange { base, .. } => match *base {

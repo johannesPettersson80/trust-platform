@@ -239,6 +239,7 @@ pub fn sample_type_table() -> (StringTable, TypeTable) {
                     fields: vec![Field {
                         name_idx: 3,
                         type_id: 0,
+                        bit_offset: None,
                     }],
                 },
             },
@@ -279,6 +280,7 @@ pub fn sample_type_table() -> (StringTable, TypeTable) {
                     fields: vec![Field {
                         name_idx: 3,
                         type_id: 0,
+                        bit_offset: None,
                     }],
                 },
             },

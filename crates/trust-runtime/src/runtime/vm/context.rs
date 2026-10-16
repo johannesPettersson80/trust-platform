@@ -102,14 +102,22 @@ impl trust_runtime_core::vm::hosted::context::ExecutionContext for Runtime {
             return;
         };
         if let Some(debug) = self.debug.as_mut() {
-            debug.refresh_snapshot_from_storage(&self.storage, self.current_time);
+            debug.refresh_snapshot_from_storage_with_abi(
+                &self.storage,
+                self.current_time,
+                crate::value::StorageAbi::LegacyTemporal32,
+            );
             debug.on_statement(Some(&location), depth);
         }
     }
 
     fn sizeof_value(&self, value: &Value) -> Result<u64, crate::error::RuntimeError> {
-        crate::value::size_of_value(&self.registry, value)
-            .map_err(super::dispatch_sizeof::sizeof_error_to_runtime)
+        crate::value::size_of_value_with_abi(
+            &self.registry,
+            value,
+            crate::value::StorageAbi::LegacyTemporal32,
+        )
+        .map_err(super::dispatch_sizeof::sizeof_error_to_runtime)
     }
 
     fn take_execution_buffers(

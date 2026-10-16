@@ -95,8 +95,11 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             .checker
             .type_of_assignment_target(target, resolved_target.as_ref());
         let value_type = self.check_expression(value);
+        let errors_before = self.checker.diagnostics.error_count();
 
-        let is_context_int = self.checker.is_contextual_int_literal(target_type, value);
+        let is_context_int = self
+            .checker
+            .is_contextual_base_int_literal(target_type, value);
         let is_context_real = self.checker.is_contextual_real_literal(target_type, value);
         let is_context_char = self.checker.is_contextual_char_literal(target_type, value);
         if self.checker.is_assignable(target_type, value_type)
@@ -104,7 +107,9 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             || is_context_real
             || is_context_char
         {
-            let checked_type = if is_context_int || is_context_real || is_context_char {
+            // A contextual integer literal is checked against a subrange target by its own value;
+            // passing the target here would make the subrange check accept any value.
+            let checked_type = if is_context_real || is_context_char {
                 target_type
             } else {
                 value_type
@@ -124,6 +129,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 node.text_range(),
                 format!("cannot assign '{}' to '{}'", value_name, target_name),
             );
+        }
+        if self.checker.diagnostics.error_count() == errors_before {
+            self.checker
+                .check_untyped_literal_range(target_type, value, false);
         }
     }
 

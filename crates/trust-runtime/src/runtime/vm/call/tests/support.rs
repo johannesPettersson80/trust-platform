@@ -7,12 +7,12 @@ use crate::bytecode::TypeTable;
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, MemoryLocation};
 use crate::program_model::{FunctionBlockDef, Param};
+use crate::runtime::LegacyRuntimeFixture as Runtime;
 use crate::stdlib::{time, StdParams};
 use crate::value::{
     DateTimeValue, DateValue, LDateTimeValue, LTimeOfDayValue, RefPath, RefSegment, StructValue,
     TimeOfDayValue, Value, ValueRef,
 };
-use crate::Runtime;
 use trust_hir::symbols::ParamDirection;
 use trust_hir::TypeId;
 
@@ -30,6 +30,7 @@ fn manual_vm_function_block_module(params: Vec<VmParamMeta>) -> (VmModule, u32) 
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("FB"),
             code_start: 0,
             code_end: 0,
@@ -81,6 +82,7 @@ fn manual_vm_function_module(
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new(name),
             code_start: 0,
             code_end: 0,

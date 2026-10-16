@@ -8,11 +8,35 @@ impl BytecodeEncoder<'_> {
     pub(in crate::bytecode::encoder) fn collect_instance_templates(
         &mut self,
     ) -> Result<(), BytecodeError> {
-        for program in self.programs().values() {
-            let owner = self
-                .pou_ids
-                .program_id(&program.name)
-                .ok_or_else(missing_owner)?;
+        let programs = if let Some(input) = self.authoring {
+            let config = input.configuration.as_ref().ok_or_else(missing_owner)?;
+            let mut programs = Vec::with_capacity(config.programs.len());
+            for binding in &config.programs {
+                let owner = self
+                    .pou_ids
+                    .program_instance_id(&binding.name)
+                    .or_else(|| self.pou_ids.program_id(&binding.type_name))
+                    .ok_or_else(missing_owner)?;
+                let program = input
+                    .program_defs
+                    .get(&normalize_name(&binding.type_name))
+                    .cloned()
+                    .ok_or_else(missing_owner)?;
+                programs.push((owner, program));
+            }
+            programs
+        } else {
+            self.programs()
+                .values()
+                .map(|program| {
+                    self.pou_ids
+                        .program_id(&program.name)
+                        .map(|owner| (owner, program.clone()))
+                        .ok_or_else(missing_owner)
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        };
+        for (owner, program) in programs {
             for variable in &program.vars {
                 self.add_instance_variable(owner, owner, variable, &variable.name)?;
             }

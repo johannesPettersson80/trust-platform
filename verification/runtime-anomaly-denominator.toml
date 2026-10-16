@@ -5701,15 +5701,6 @@ reason_code = "no_taxonomy_stimulus_or_response"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_2EEF1852335396B08229"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/runtime/vm/budget.rs"
-name = "rejected_charge_does_not_underflow_the_remaining_budget"
-disposition = "reviewed_nonmapping"
-reason_code = "supporting_internal_contract_only"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_2F1B45B0EBC8AFE8C307"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/web_ide_integration/web_ide_integration_part_09/shell_modules.rs"

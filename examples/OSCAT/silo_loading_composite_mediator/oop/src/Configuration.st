@@ -1,5 +1,5 @@
 CONFIGURATION SiloLoadingCompositeMediatorOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE SiloLoadingCompositeMediatorOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM System WITH MainTask : Main;
 END_RESOURCE

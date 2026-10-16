@@ -66,6 +66,7 @@ pub(super) fn control_state_named_with_audit(
     harness.cycle();
 
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };

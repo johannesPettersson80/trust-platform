@@ -165,6 +165,12 @@ does not introduce runtime aliasing. Shared backing bits require an IEC
 Direct-I/O layout resolves aliases, subranges, and enumerations to their
 storage type. BOOL occupies a bit; 8-, 16-, 32-, and 64-bit elementary
 families map to byte, word, double-word, and long-word I/O widths respectively.
+The long temporal forms LTIME, LDATE, LTOD and LDT (IEC 61131-3 Table 10, rows 12b
+to 15b, 64-bit) are 64-bit families and map to one long-word I/O width: the image
+LWORD carries the signed 64-bit nanosecond value as its two's-complement bit
+pattern, in both directions (specification 12 §4.1). DATE, TOD and DT have an
+implementer-specific width in Table 10, so they are refused at direct addresses;
+the L forms or an explicit conversion are the supported paths.
 A bounded STRING occupies exactly its declared byte capacity. Unbounded
 STRING, WSTRING, function-block, class, interface, pointer, reference, and
 other non-materializable layouts are rejected.
@@ -176,6 +182,16 @@ seven. Relative offsets are added to the base binding with checked arithmetic.
 Bit offsets carry into bytes, non-BOOL leaves reject a bit offset, and a
 hierarchical address advances only its final path component while preserving
 the root byte identity. No offset or stride may wrap.
+
+External aggregate I/O strides derive from the actual leaf codec widths and
+relative offsets, not artifact `SIZEOF`. A relative structure's wire extent is
+the greatest leaf end, including gaps, rounded to bytes; array stride is that
+complete extent. For example, TIME fields at bytes zero and eight using the
+existing four-byte unsigned-millisecond codec occupy a twelve-byte wire extent,
+even though the new internal structure occupies sixteen bytes. Element two
+starts twelve wire bytes after element one. This distinction preserves existing
+codecs and prevents adjacent bindings from aliasing because gaps were omitted.
+
 
 The HIR layer must not depend on runtime `Value` types or raw CST nodes for
 lowered initializer metadata. Syntax classification helpers delegate to the
@@ -613,7 +629,29 @@ runtime behavior (CODESYS/TwinCAT-style):
 - Resolution: 1 ms for TIME/DATE/TOD/DT
 - Range: signed 64-bit ticks at the configured resolution
 
-Conversions or arithmetic that exceed the configured range raise `RuntimeError::DateTimeOutOfRange`.
+A DATE, TOD or DT result of conversion or arithmetic (including `CONCAT_DATE_TOD`) whose
+tick value leaves the signed 64-bit range raises
+`RuntimeError::DateTimeRange(DateTimeError::OutOfRange)`. TIME, LTIME, LTOD and LDT
+arithmetic beyond the signed 64-bit nanosecond range, and calendar or tick conversions whose
+intermediate value overflows, raise `RuntimeError::Overflow`. IEC 61131-3 Table 10 gives the
+ranges; the error variants are the truST runtime contract.
+
+**Uniform temporal storage (H / STBC 3.0):** TIME, DATE, TOD and DT use eight-byte
+signed storage and report `SIZEOF = 8`, just as their long variants do, on every
+platform. TIME retains its existing nanosecond Duration domain; DATE/TOD/DT retain
+profile ticks. This implementer-specific choice preserves their established
+range and precision rather than reducing them to a vendor's 32-bit model
+(IEC 61131-3 Ed.3 §6.4.2, Table 10, footnote b). The artifact ABI selects physical
+widths: existing 1.1/2.0 retain four-byte short temporal sizes and offsets, with
+checked, atomic rejection of unrepresentable physical writes. Specification 12
+§4.1 defines the version window. Source analysis selects that same ABI before
+layout checks or constant SIZEOF evaluation; a compatibility import must not
+suppress overlap diagnostics or analyze an old four-byte layout as eight bytes.
+The choice is an explicit artifact compatibility input, not a platform setting.
+Changing it invalidates cached semantic results without modifying source text.
+ External DWORD TIME I/O remains the separately
+specified checked unsigned-millisecond transport codec.
+
 
 #### 2.6 Default Values
 
@@ -742,16 +780,20 @@ The portable runtime core SHALL preserve these value and program-model rules:
   out-of-bounds indices, checked-arithmetic failures, and offsets that cannot
   be represented by the target `usize` are rejected rather than wrapped.
 - Portable `SIZEOF` type calculation resolves aliases, subranges, and
-  enumerations to their storage type; sums structure fields; selects the
-  largest union variant; multiplies fixed inclusive array dimensions by the
+  enumerations to their storage type; sums ordinary structure fields and uses
+  the complete relative extent, including gaps, for located/overlapping
+  structures under the uniform ABI; selects the largest union variant; multiplies fixed inclusive array dimensions by the
   element size; uses the declared bounded string capacity (twice that capacity
   for `WSTRING`); and uses the runtime reference-handle width for references
   and pointers. Unknown types, unbounded strings, wildcard or reversed array
   dimensions, and unsupported types are rejected. Any representable dimension
-  product or byte-size overflow is rejected rather than wrapped.
+  product or byte-size overflow is rejected rather than wrapped. Legacy ABI
+  calculations retain their historical structure field-sum rule; the selected
+  ABI follows the artifact, not the target processor (section 2.5).
 - Portable runtime-value size calculation uses the exact elementary tag width,
-  counts string content in Unicode scalar elements (`WSTRING` twice), sums
-  structure fields, multiplies a validated array extent by its element size,
+  counts string content in Unicode scalar elements (`WSTRING` twice), resolves
+  located structures through their admitted layout and otherwise sums structure
+  fields, multiplies a validated array extent by its element size,
   resolves an enumeration through its declared base type, and uses the runtime
   reference-handle width. `NULL` has no storage size and is rejected.
 - Stable runtime error identifiers use the exact lower-snake-case strings
@@ -1279,9 +1321,14 @@ Per IEC 61131-3, within each **scheduled task** execution:
 
 The bytecode executor applies the fixed resource limits in
 `12-bytecode.md` section 4.6. In particular, one top-level VM invocation may
-execute at most 1,000,000 original bytecode instructions. Nested calls share
-that remaining budget, and every execution backend charges the same original
-bytecode instruction count. Budget exhaustion is reported through the current
+use at most 1,000,000 work units: one per executed original bytecode
+instruction, plus the value-size work that specification 34 TIME-08 defines
+(array and reference copies, text work, lifetime traversal of reference-holding
+values). Scalar operations add nothing beyond their instruction, and engine
+bookkeeping is never charged. Nested calls share that remaining budget, and
+every execution backend charges the same total. Program construction and
+restart construction run under the separate construction allowance of
+specification 34 TIME-09. Budget exhaustion is reported through the current
 execution-timeout category before the invocation can complete; configured
 deadline and watchdog checks remain independent.
 
@@ -1681,9 +1728,12 @@ example `DINT_TO_INT` or `DINT_TO_REAL`). Representable untyped literals are
 contextualized to the other typed operand.
 
 Integer arithmetic, integer division (truncation toward zero), `MOD`, and unary
-negation are checked in the result type. Division by zero reports
+negation are checked in the result type. `MOD` returns `IN1 - (IN1 / IN2) *
+IN2` with that truncating division (IEC 61131-3 Table 29), so a nonzero result
+has the sign of `IN1`. Division by zero reports
 `RuntimeError::DivisionByZero`; modulo by zero reports
-`RuntimeError::ModuloByZero`. Either fault, and arithmetic overflow, aborts the
+`RuntimeError::ModuloByZero` (IEC Table 29 defines it as `0`; see
+`docs/IEC_DEVIATIONS.md`). Either fault, and arithmetic overflow, aborts the
 containing assignment before storage so the destination retains its previous
 value.
 
@@ -1693,10 +1743,14 @@ For finite `REAL` operands, binary `+`, `-`, `*`, `/`, and `**` results are
 accepted only when the result remains finite after representation at IEC basic
 single width. Otherwise evaluation returns `RuntimeError::Overflow` before an
 assignment store, leaving the target unchanged; the runtime does not clamp or
-store infinity or NaN. This rule does not define `LREAL`, subnormal underflow,
-signed zero, non-finite operands, explicit conversions, or named numerical
-functions such as `EXPT` and `EXP`. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10
-footnote e; see
+store infinity or NaN. The same rule applies to `LREAL` at IEC basic double
+width. A zero divisor, positive or negative and including `0.0 / 0.0`, reports
+`RuntimeError::DivisionByZero`, checked before the result. Results follow IEC
+60559 (IEC 61131-3 Table 10): signed zeros and subnormal results are kept, an
+underflow to a subnormal value or zero is not a fault, and comparisons treat
+`-0.0` and `+0.0` as equal. Explicit conversions follow §6.7 and named
+numerical functions §6.6. (IEC 61131-3 Ed.3, §6.4.2.1, Table 10 footnote e;
+see
 `docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.)
 
 #### 6.6 REAL named numerical-function overflow
@@ -1705,9 +1759,13 @@ For finite `REAL` operands, `EXP` and `EXPT` results are accepted only when the
 result remains finite after representation at IEC basic single width.
 Otherwise evaluation returns `RuntimeError::Overflow` before an assignment
 store, leaving the target unchanged; the runtime does not clamp or store
-infinity or NaN. This rule does not define `LREAL`, non-finite operands,
-subnormal underflow, signed zero, explicit conversions, or domain behavior for
-other numerical functions. (IEC 61131-3 Ed.3, Tables 28-29; §6.4.2.1,
+infinity or NaN. The same rule applies to `LREAL` at IEC basic double width.
+`EXPT(0.0, 0.0)` is `1.0`; a zero base with a negative exponent and a negative
+base with a non-integer exponent have no finite result and raise `Overflow`. A
+domain error of another named function (for example `SQRT` or `LN` of a
+negative value, `LN(0.0)`, or `ASIN` outside [-1, 1]) raises `Overflow`
+(specification 07 §3.1). Subnormal results and signed zeros follow §6.5. (IEC
+61131-3 Ed.3, Tables 28-29; §6.4.2.1,
 Table 10 footnote e; see
 `docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.)
 
@@ -1757,7 +1815,10 @@ A `ULINT` value above `i64::MAX` returns `RuntimeError::Overflow`; the boundary
 does not wrap, truncate, saturate, or reinterpret the high bit as a sign.
 Every non-integer runtime tag returns `RuntimeError::TypeMismatch` without a
 substitute value. This is an internal operand-normalization contract, not an
-additional source-level implicit conversion. IEC 61131-3 Ed.3 section 6.4.2.1,
+additional source-level implicit conversion: it applies where the runtime
+converts or coerces an operand to the signed host width. Integer arithmetic,
+division, `MOD` and shifts compute in their result type (§6.4), so a `ULINT`
+operand above `i64::MAX` is valid there. IEC 61131-3 Ed.3 section 6.4.2.1,
 Table 10 supplies the integer ranges; the fail-closed host representation is
 the truST runtime contract specified by this section, not an IEC deviation.
 
@@ -2012,8 +2073,10 @@ portable runtime applies those operators as follows:
   integer, `REAL`, and `LREAL` factors. Integer division and the final real
   result truncate toward zero. Zero division returns
   `RuntimeError::DivisionByZero`, a non-numeric factor returns
-  `RuntimeError::TypeMismatch`, and a non-finite or out-of-range result returns
-  `RuntimeError::Overflow`.
+  `RuntimeError::TypeMismatch`, and a non-finite factor or a non-finite or
+  out-of-range result returns `RuntimeError::Overflow`. The named helpers
+  `MUL_TIME`, `MUL_LTIME`, `DIV_TIME` and `DIV_LTIME` compute exactly as these
+  operators (specification 07 §9).
   Compiler lowering preserves separate duration and numeric operand contexts:
   an untyped factor (including unary or parenthesized scalar expressions) must
   not inherit the result's TIME/LTIME type. Duration aliases follow the same
@@ -2186,9 +2249,14 @@ transaction:
    function-block instance mutation through the failed call boundary.
 
 A call cannot map the same or overlapping caller storage to two writable
-formals. Rejecting this before execution makes transfer independent of
-parameter declaration order. An input may snapshot storage that is also the
-single target of one output or in-out. These implementer-specific rules are
+formals when the source shows the overlap: the same variable, a variable and
+one of its members or elements, or elements whose index expressions are
+written identically. The compiler rejects such a call before execution.
+Writable connections that coincide only at run time, such as `A[i]` and `A[j]`
+with `i = j`, or a dereferenced reference and the variable it designates, are
+not an error: step 6 commits the transfers in formal declaration order, so the
+value of the last declared formal remains. An input may snapshot storage that
+is also the single target of one output or in-out. These implementer-specific rules are
 recorded in
 [`IEC_DECISIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
 
@@ -2786,8 +2854,8 @@ pub enum RuntimeError {
     DomainError(&'static str),
 
     // Date/time errors
-    #[error("date/time value out of range")]
-    DateTimeOutOfRange,
+    #[error("date/time out of range")]
+    DateTimeRange(DateTimeError),
 
     // Array/reference errors
     #[error("array index {index} out of bounds [{lower}..{upper}]")]

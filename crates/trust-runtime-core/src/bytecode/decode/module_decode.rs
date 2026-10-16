@@ -12,14 +12,15 @@ impl BytecodeModule {
         max_allocation_bytes: usize,
         max_work: usize,
     ) -> Result<(Self, DecodeStats), BytecodeError> {
-        let mut accounting = DecodeBudget::new(max_allocation_bytes, max_work);
-        let budget = &mut accounting;
-        budget.charge(0, bytes.len())?;
+        // Spec 12 §4.6: the fixed container bound precedes every decode charge.
         if bytes.len() > BYTECODE_MAX_CONTAINER_BYTES {
             return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
                 "encoded container exceeds fixed resource limit",
             )));
         }
+        let mut accounting = DecodeBudget::new(max_allocation_bytes, max_work);
+        let budget = &mut accounting;
+        budget.charge(0, bytes.len())?;
         let mut reader = BytecodeReader::new(bytes);
         let magic = reader.read_bytes(4)?;
         if magic != MAGIC {
@@ -68,13 +69,10 @@ impl BytecodeModule {
             ));
         }
 
-        if major == 2 && flags != HEADER_FLAG_CRC32 {
-            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
-                "STBC 2.0 requires CRC32 and no reserved flags",
-            )));
-        }
+        let version = BytecodeVersion::new(major, minor);
+        super::super::module::storage_abi_for_header(version, flags)?;
         if flags & HEADER_FLAG_CRC32 != 0 {
-            let actual = crate::crc32::checksum(&bytes[section_table_off..]);
+            let actual = super::super::header_checksum(version, bytes, section_table_off);
             if actual != checksum {
                 return Err(BytecodeError::InvalidChecksum {
                     expected: checksum,
@@ -83,18 +81,14 @@ impl BytecodeModule {
             }
         }
 
-        let version = BytecodeVersion::new(major, minor);
-        if !version.is_supported() {
-            return Err(BytecodeError::UnsupportedVersion { major, minor });
-        }
-
         let mut entries = budget.vector(section_count)?;
         let mut table_reader = BytecodeReader::new(&bytes[section_table_off..table_end]);
         for _ in 0..section_count {
-            let id = table_reader.read_u16()?;
-            let flags = table_reader.read_u16()?;
-            let offset = table_reader.read_u32()?;
-            let length = table_reader.read_u32()?;
+            let record = Record::<12>::read(&mut table_reader)?;
+            let id = record.half::<0>();
+            let flags = record.half::<2>();
+            let offset = record.word::<4>();
+            let length = record.word::<8>();
             entries.push(SectionEntry {
                 id,
                 flags,

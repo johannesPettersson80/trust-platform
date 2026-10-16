@@ -55,6 +55,14 @@ This specification defines the type system for trust-hir.
 | 15a | `DATE_AND_TIME` / `DT` | Date and time | Impl. | Impl. | Implementer specific |
 | 15b | `LDATE_AND_TIME` / `LDT` | Long date and time | `LDT#1970-01-01-00:00:00` | 64 | Signed ns since 1970-01-01-00:00:00 |
 
+**truST temporal representation:** new applications use eight-byte signed
+storage for TIME/DATE/TOD/DT as well as their long variants. TIME/LTIME retain
+nanoseconds; short calendar types retain the configured profile ticks. This is
+the implementer-specific choice permitted by IEC 61131-3 Ed.3 §6.4.2, Table 10,
+footnote b. `SIZEOF`, array strides and relative field extents agree on every
+platform. Specification 12 §4.1 preserves the legacy artifact ABI; explicit
+external I/O codecs retain their separately checked encoding.
+
 ### Strings
 
 | No. | Keyword | Description | Default Value | Bits/Char | Notes |

@@ -330,11 +330,14 @@ fn declare_subscribers(
                 };
                 let mut updates = IndexMap::new();
                 updates.insert(local_name.clone(), value);
-                let _ = resource.send_command(ResourceCommand::MeshApply {
+                // The subscriber callback never blocks: a refused update is skipped and logged.
+                if let Err(err) = resource.send_command(ResourceCommand::MeshApply {
                     updates,
                     source,
                     sequence,
-                });
+                }) {
+                    tracing::warn!("mesh subscribe skipped update: {err}");
+                }
             })
             .background()
             .wait();

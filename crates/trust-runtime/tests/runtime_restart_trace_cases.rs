@@ -7,9 +7,19 @@ use trust_runtime::harness::TestHarness;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
-    TraceStep,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
+
+/// Trace `expected` fields this runner compares. Any other field fails the case.
+const RESTART_EXPECTED_FIELDS: &[&str] = &[
+    "current_time_ms",
+    "et_ms",
+    "non_retain",
+    "ordinary",
+    "q",
+    "retain",
+];
 
 const TEST_ID: &str = "TEST_RUNTIME_RESTART_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_RESTART_TIME_002.toml";
@@ -85,9 +95,42 @@ fn run_trace_case(case: &CaseRecord, probe: &mut RestartProbe) -> Result<CaseExe
     let mut harness = TestHarness::from_source(RESTART_SOURCE)
         .map_err(|error| format!("{} failed to compile: {error}", case.id))?;
     let mut mismatches = Vec::new();
+    let mut observed_steps = Vec::new();
 
     for step in trace {
-        execute_trace_step(&mut harness, step, probe, &mut mismatches)?;
+        check_trace_fields(&step.expected, RESTART_EXPECTED_FIELDS)?;
+        observed_steps.push(execute_trace_step(
+            &mut harness,
+            step,
+            probe,
+            &mut mismatches,
+        )?);
+    }
+
+    // The operation under test is the restart. Its before state is the state the
+    // previous step observed, and its after state is the state after the restart.
+    // A restart that the runtime refuses returns an error above, so reaching this
+    // point means the restart was accepted.
+    let operation = trace
+        .iter()
+        .position(|step| step.stimulus.contains_key("restart"))
+        .ok_or_else(|| format!("{} has no restart step", case.id))?;
+    if operation == 0 {
+        return Err(format!("{} restart step has no preceding state", case.id));
+    }
+    let before = restart_snapshot(&observed_steps[operation - 1]);
+    let after = restart_snapshot(&observed_steps[operation]);
+    let observed = ObservedOperation {
+        outcome: "accept_value",
+        fault_surface: None,
+        status_before: None,
+        status_after: None,
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &observed) {
+        Ok(found) => mismatches.extend(found),
+        Err(error) => mismatches.push(error),
     }
 
     if mismatches.is_empty() {
@@ -110,7 +153,7 @@ fn execute_trace_step(
     step: &TraceStep,
     probe: &mut RestartProbe,
     mismatches: &mut Vec<String>,
-) -> Result<(), String> {
+) -> Result<ObservedState, String> {
     if let Some(mode) = optional_text(&step.stimulus, "restart")? {
         let mode = match mode {
             "warm" => RestartMode::Warm,
@@ -186,7 +229,27 @@ fn execute_trace_step(
             step.sequence
         ));
     }
-    Ok(())
+    Ok(actual)
+}
+
+/// The timer and retained state one step observed. The timer is the target, the
+/// ordinary and non-retained values are siblings, and the retained value is the
+/// retain component. The program has no I/O, so the process image stays unset.
+fn restart_snapshot(state: &ObservedState) -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: Some(state.retain.to_string()),
+        target: Some(json!({
+            "current_time_ms": state.current_time_ms,
+            "et_ms": state.et_ms,
+            "q": state.q,
+        })),
+        siblings: BTreeMap::from([
+            ("non_retain".to_string(), json!(state.non_retain)),
+            ("ordinary".to_string(), json!(state.ordinary)),
+        ]),
+        diagnostics: Vec::new(),
+    }
 }
 
 fn set_optional_bool(

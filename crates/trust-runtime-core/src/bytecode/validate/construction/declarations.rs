@@ -171,9 +171,16 @@ fn validate_role<'a>(
         if decl.slot >= pou.local_ref_count || decl.retain != 0 {
             return Err(RejectionReason::InvalidConstructionRecord.into());
         }
-        let return_slots = u32::from(pou.return_type_id.is_some());
+        // FB parameters live in the instance, while its frame contains only
+        // VAR_TEMP and scratch slots. Functions and methods own frame parameters.
+        let frame_signature = matches!(pou.kind, PouKind::Function | PouKind::Method);
+        let return_slots = u32::from(frame_signature && pou.return_type_id.is_some());
         let parameter_end = return_slots
-            .checked_add(pou.params.len() as u32)
+            .checked_add(if frame_signature {
+                pou.params.len() as u32
+            } else {
+                0
+            })
             .ok_or(RejectionReason::InvalidConstructionRecord)?;
         let expected_role = if decl.slot < return_slots {
             StorageRole::Return

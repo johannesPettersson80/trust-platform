@@ -293,7 +293,9 @@ pub(super) fn resolve_alias(
     mut ty: u32,
     budget: &mut ValidationBudget,
 ) -> Result<u32, BytecodeError> {
-    for _ in 0..64 {
+    // Permit 64 alias edges and inspect the resulting 65th node. The limit is
+    // expressed in edges from a depth-zero root, not in visited nodes.
+    for _ in 0..=crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
         budget.work(1)?;
         match tables
             .types

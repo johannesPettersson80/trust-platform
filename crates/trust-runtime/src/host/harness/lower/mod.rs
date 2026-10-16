@@ -2,8 +2,8 @@ mod expr;
 mod stmt;
 
 pub(super) use expr::{
-    const_duration_from_node, const_int_from_node, lower_expr, lower_lvalue, parse_subrange,
-    resolve_initializer_enum_variant,
+    const_duration_from_node, const_int_from_node, lower_expr, lower_expr_with_context,
+    lower_lvalue, parse_subrange, parse_subrange_in, resolve_initializer_enum_variant,
 };
 pub(super) use stmt::lower_stmt_list;
 
@@ -26,6 +26,10 @@ mod reference_runtime_contract_tests;
 #[cfg(test)]
 #[path = "runtime_clock_source_contract_tests.rs"]
 mod runtime_clock_source_contract_tests;
+
+#[cfg(test)]
+#[path = "standard_bistable_argument_tests.rs"]
+mod standard_bistable_argument_tests;
 
 #[cfg(test)]
 #[path = "statement_contract_tests.rs"]

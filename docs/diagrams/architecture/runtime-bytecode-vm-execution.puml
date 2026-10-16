@@ -7,306 +7,262 @@ skinparam linetype ortho
 skinparam nodesep 45
 skinparam ranksep 35
 
-title truST Runtime: VM Execution and Helper Evaluation
+title truST Runtime: Prepared Shared Execution and Checked Host Boundaries
 
-package "Opt-in STBC 2.0 authoring (A3)" as sourceFreeAuthoring {
-    component "CompileSession::build_bytecode_module_for_version" as sourceFreeApi
-    component "LoweredApplication\noriginal declarations and Exprs\nno startup evaluation" as loweredApplication
-    component "bytecode::encoder::construction\nreachable templates, actions, shared recipes\nI/O, task and access bindings" as constructionEncoder
-    artifact "STBC 2.0\nTYPE_TABLE + construction metadata\nordinary bytecode initializer bodies" as sourceFreeArtifact
-    sourceFreeApi --> loweredApplication
-    loweredApplication --> constructionEncoder
-    constructionEncoder --> sourceFreeArtifact
-    note bottom of sourceFreeArtifact
-        Portable format and staging-write validation; no HIR in the artifact.
-        Initial and after-restart static contexts remain distinct.
-        Legacy Runtime import stays 1.x; PreparedModule admits 2.0.
-        RuntimeState executes typed helpers and lifetime/visibility checks.
-        Prepared indexes and one immutable native registry are built at admission.
-        Mutable state separates lifetimes, construction, images and resource accounting.
-        Stores use indexed declarations; output groups journal destination slots only.
-        I/O stages bound values; publication work follows bindings, not image size.
-        One execution allowance covers instructions and helper work across nested calls.
-        Physical deadlines are polled at boundaries and a bounded work stride.
-        Borrowed reference checks do not allocate reference paths.
+package "Construction and immutable code" as preparationPkg #LightYellow {
+    component "RuntimeBuilder / LoweredApplication\nconstruction-only source registry and values" as builder
+    component "bytecode::encoder\nSTBC 3.0 declarations, roots, actions and recipes" as encoder
+    component "Explicit legacy context importer\nsupplied 1.1 code + lowered construction context" as legacy
+    artifact "STBC 3.0 deployment artifact (legacy 2.0 readable)\ncode, TYPE_TABLE, references, resource and debug records" as artifact
+    component "core::bytecode::decode / validate\nCRC, bounded counts, typed instructions,\nstaging visibility and memory/work limits" as validation
+    component "PreparedModule\nfallible profile/import admission\nimmutable VM + indexes + standard-library descriptors" as prepared
+    component "PreparedRegisterPlans\noptional register-ir feature\neager lowering + immutable specialized blocks" as plans
+    builder --> encoder
+    builder --> legacy : explicit source construction context
+    legacy --> artifact : supplied body preservation
+    encoder --> artifact
+    artifact --> validation
+    validation --> prepared : private validated token
+    prepared --> plans : charge preparation before allocation
+    note bottom of prepared
+        Runtime::from_bytes consumes source-free artifact bytes.
+        Ordinary byte preparation transfers validated owned tables;
+        borrowed/artifact-retaining inputs clone at the shared materializer boundary.
+        No serialization of current PLC values or lazy materialization occurs in RUN.
+        Types, imports, instruction targets, construction demand and profile limits
+        remain validated on every admitted composition, including MCU targets.
+        Optional register plans alter representation, never the PLC function set.
+        Portable POU indexes hold sparse IDs and private payload ordinals;
+        payload capacity and index storage are charged before materialization.
+        Read-only lookup/iteration preserves ID order; hosted map APIs stay intact.
+        One execution-frame registry owns reserved/active membership, POU owners
+        and suspended locals; no parallel live-ID or owner collections.
+        Tail activation lookup/retirement is direct; non-tail cleanup stays checked.
+        Per-POU frame plans retain admitted ranges for all initialization phases,
+        including empty phases and the after-restart static selection.
+        Declaration owner ranges are prepared once; checked identities preserve
+        sparse POU IDs and physical slot holes without max-ID-sized allocation.
+        Typed construction borrows admitted field/variant metadata across callbacks;
+        owned result dimensions retain charged copies. Marker reads search each
+        required directory once, admitting work before each lookup and row access.
+        Owner/root ordinal tables are bounded by admitted record counts;
+        POU identities fold into full-key-checked buckets; collisions use charged binary fallback. Active type-operation masks
+        replace repeated membership scans; the type stack still owns depth/unwind.
+        Marker search plans reserve both destinations before storage publication;
+        exclusive publication guards retain checked positions without repeated searches.
     end note
 }
 
-
-component "trust-runtime-core::numeric::math\nlocked libm primitives\nshared by operators and hosted stdlib" as coreMath
-note right of coreMath
-    A1 preserves promotion, narrowing and fault policy.
-    Core value storage uses a portable ordered-map alias.
-    The shared core dispatcher serves hosted and source-free adapters.
-end note
-
-package "Production Cycle Entry" as entryPkg #LightBlue {
-    component "Runtime::execute_cycle()\n(runtime/cycle.rs)" as cycle
-    component "execute_task() /\nexecute_background_programs()" as taskDispatch
-    component "ensure_vm_module_loaded() /\nbuild_vm_module()\n(runtime/cycle.rs)" as ensureVm
-
-    cycle --> taskDispatch
-    taskDispatch --> ensureVm : execute_program_by_name / execute_function_block_ref
-}
-
-package "Lazy VM Module Materialization" as modulePkg #LightYellow {
-    artifact "BytecodeModule::from_runtime*\n(runtime -> STBC sections)" as bytecodeBuild
-    component "trust-runtime-core::bytecode\nBytecodeModule::decode() + validated()\n(shared decode + bounded analysis)" as bytecodeGuard
-    component "VmModule::from_validated()\n(trust-runtime-core/vm/module.rs)" as vmModule
-    component "VmModule cached on Runtime\nstrings, refs, consts, pou tables,\nnative symbol specs, debug map" as vmModuleState
-
-    ensureVm --> bytecodeBuild : when vm_module missing
-    bytecodeBuild --> bytecodeGuard
-    bytecodeGuard --> vmModule : immutable ValidatedBytecode token
-    note left of bytecodeGuard
-        Core owns container, byte serialization, CRC and metadata.
-        Host compatibility view borrows sections without cloning.
-        Compiler/HIR lowering remains hosted.
-        Source-free executable state is owned by core RuntimeState.
-        Real modules share compact decoded instructions and stack effects.
-        Module context builds sorted lookup indexes once; ranges are intervals.
-        Block-entry stack states use fallible bounded scratch storage.
-        All POUs and metadata share one analysis work budget.
-    end note
-    vmModule --> vmModuleState
-}
-
-note right of vmModuleState
-    Native-call symbol metadata is
-    prepared when the VmModule is built.
-    CALL_NATIVE does not need to split
-    raw symbol strings every cycle.
-
-    `SIZEOF(...)` operands are resolved to
-    static types before ST bytecode emit.
-    Production codegen emits `SIZEOF_TYPE`
-    only; legacy `SIZEOF_VALUE` exists for
-    compatibility / negative-path coverage.
-end note
-
-package "Program / FB Execution Inside VM" as vmExecPkg #LightCyan {
-    component "vm::dispatch::execute_program_by_name() /\nexecute_function_block_ref()" as vmEntry
-    component "try_execute_pou_with_register_ir_with_locals()\n(register path + lowering cache)" as regTry
-    component "execute_register_program()\n(register executor + tier1)" as regExec
-    component "trust-runtime-core::vm::dispatch\nexecute_pou_stack_with_locals()" as stackExec
-    component "instruction budget\n(original bytecode costs, shared by nested calls)" as instructionBudget
-    component "debug_map.rs\n(pc -> source / symbol lookup)" as debugMap
-
-    vmModuleState --> vmEntry
-    vmEntry --> regTry
-    regTry --> regExec : eligible + not stepping
-    regTry --> stackExec : debug mode / lowering error / unsupported shape / fallback
-    regExec --> instructionBudget : fused instruction cost
-    stackExec --> instructionBudget : one original instruction
-    regExec --> debugMap
-    stackExec --> debugMap
-    regExec --> coreMath : shared arithmetic
-    stackExec --> coreMath : shared arithmetic
-}
-
-note right of regTry
-    RegisterLoweringCacheState and the
-    tier1 specialized executor live here.
-
-    Debug stepping intentionally keeps
-    stack-bytecode execution as the
-    single source of truth.
-end note
-
-note right of instructionBudget
-    Stack, register, and tier-1 execution
-    charge the same original bytecode count.
-    Nested POU/native calls receive the caller's
-    remaining budget; exhaustion maps to the
-    existing execution-timeout category.
-end note
-
-package "Shared Core Runtime Bridges" as bridgePkg #Lavender {
-    component "call/mod.rs + continuation.rs\nshared call preparation/completion\nbinding + edge/output restoration" as callBridge
-    component "dispatch_refs.rs\nref / deref / dynamic field-index bridge" as refBridge
-    component "reference_attempt.rs\n?= live type/interface compatibility" as attemptBridge
-    component "frames.rs + stack.rs\nframe stack + operand stacks\n(pooled execution buffers)" as vmStacks
-    component "VariableStorage\n(trust-runtime-core/memory.rs)" as storage
-
-    regExec --> callBridge : CALL_NATIVE
-    stackExec --> callBridge : CALL_NATIVE
-    regExec --> refBridge : LoadRef / StoreRef / RefField / RefIndex / LoadDynamic
-    stackExec --> refBridge : ref opcodes
-    stackExec --> attemptBridge : REFERENCE_ATTEMPT 0x64
-    vmEntry --> vmStacks
-    callBridge --> vmStacks : owned call continuation
-    stackExec --> vmStacks : push / finish / unwind in one loop
-    callBridge --> storage : direct field bind / instance reads-writes
-    refBridge --> storage : ValueRef-based reads-writes
-    attemptBridge --> refBridge : live ValueRef type
-    attemptBridge --> storage : live instance type
-}
-
-note bottom of callBridge
-    Current performance-sensitive boundary:
-    - VM native-call argument marshaling
-    - FUNCTION_BLOCK parameter binding
-    - OUT / IN_OUT copy-back
-    - iterative stack-VM calls
-    - synchronous hosted optimized adapter
-end note
-
-note bottom of refBridge
-    Current performance-sensitive boundary:
-    - ValueRef materialization
-    - dynamic field/index traversal
-    - instance-field resolution
-    - storage read/write cloning pressure
-end note
-
-package "Source-free execution (trust-runtime-core)" as portableEngine #LightGreen {
-    component "PreparedModule\nvalidated artifact + profile admission\nimmutable VM and construction metadata" as prepared
-    component "RuntimeState\nowned storage + process images\nnominal-deadline tasks + latched fault" as portableState
-    component "initialization/\nTYPE_TABLE values and STBC initializer bodies\nstaged writes + recursive lifetime checks" as portableInit
-    interface "ExecutionServices\nphysical deadline, UTC, retain persistence" as services
-    component "Shared stdlib/\nscalar functions + storage-backed timers/FBs" as portableStdlib
-    sourceFreeArtifact --> prepared
-    prepared --> bytecodeGuard
-    prepared --> portableState : instantiate
-    portableState --> portableInit : construction / frame entry / restart
-    portableInit --> stackExec : same dispatcher and shared fuel
-    portableState --> stackExec : scheduled + background POUs
-    portableState --> storage
-    portableState --> services
-    callBridge --> portableStdlib
-    portableState --> instructionBudget
-    note bottom of portableState
-        Single-owner execution; input sample, due tasks, background,
-        retain checkpoint, then output publication.
-        A failed restart never publishes its candidate state.
-        This diagram is architecture, not hardware qualification.
+package "One state authority" as ownershipPkg #LightGreen {
+    component "OwnedRuntimeState<S> / RuntimeState\n(core/engine/owned.rs + api.rs)" as owner
+    component "EngineData\nsole VariableStorage and process images\ntasks, construction, fault and execution resources" as data
+    component "EngineState\nprivate borrowed operation context\nExecutionContext / RegisterContext" as context
+    component "Host Runtime facade\n(runtime/installed.rs)\nread-only metadata + mutable host adapters" as host
+    component "runtime-only std facade\n(runtime_only.rs)\nclock/deadline services; no HIR/compiler/product graph" as minimal
+    component "ExecutionServices\nplatform clocks, deadlines, observers\ndefault no-op adapters where applicable" as services
+    prepared --> owner : admitted instantiation
+    owner *-- data
+    owner --> context : temporary exclusive entry
+    context --> data : checked policy and accounting
+    host *-- owner
+    minimal *-- owner
+    context --> services
+    note bottom of owner
+        Public facades do not implement raw mutable execution context traits.
+        Checked writes normalize against admitted types and commit only after
+        range, constant, lifetime, binding and deadline checks succeed.
+        Invalid engineering requests do not themselves latch a PLC fault.
+        Shared entry state owns one cumulative work/deadline allowance.
     end note
 }
 
-package "Scope B composition: NUCLEO-F401RE" as f401Composition #Wheat {
-    artifact "Independent flash sector 1\nTRSTB002 bundle: A4 main + numeric + GPIO\nlengths and CRCs checked before preparation" as f401Bundle
-    component "firmware/trust-nucleo-f401re\nsingle-owner runner + supervisor\nbounded heap and MSP instrumentation\nL2: code sectors 4–7; checkpoint reserves 2/3" as f401Runner
-    component "trust-platform-stm32f4::Board\nTIM2 monotonic, PC13 sample, PA5 publication\nUSART2, IWDG, reset cookie, identity" as f401Board
-    artifact "Bounded UART trace\nxtask portability verify / inspect\nlogical oracle versus physical observations" as f401Evidence
-    node "STM32F401RE / MB1136\nactual GPIO IDR, hardware time and reset flags" as f401Device
-
-    sourceFreeArtifact --> f401Bundle : stopped bench installation
-    f401Bundle --> f401Runner : independently installed bytes
-    f401Runner --> prepared : source-free admission; no compiler/HIR
-    f401Runner --> portableState : sample image, execute cycle, read committed output
-    f401Runner ..> services : physical deadline adapter; no UTC or retain store
-    f401Runner --> f401Board : publish or safe-off; feed only after accepted work
-    f401Board --> f401Runner : physical input / IDR readback / timer / reset evidence
-    f401Board --> f401Device : owned HAL/PAC peripherals
-    f401Runner --> f401Evidence
-    note bottom of f401Runner
-        Separate firmware workspace composes the same core, not another VM.
-        Core never imports the board adapter; platform has no runtime dependency.
-        SysTick records IRQ activity only; it never executes PLC work.
-        Injected input-image cases remain distinct from physical PC13 samples.
-        72 KiB heap and 16 KiB MSP are bring-up reservations, not fit results.
-        B-R1 keeps all IEC operations and admission checks; shared compact CRC,
-        byte-input preparation without re-encoding, and static default-library metadata.
-        Source/diagrams do not establish hardware, timing or bounded-RUN acceptance.
+package "Shared execution choices" as executionPkg #LightCyan {
+    component "EngineState::execute_pou\nprepared POU and parameter-presence bindings" as entry
+    component "Core register executor\nexecute_register_program\nprepared lowering / tier-1 selection" as register
+    component "Core stack dispatcher\nexecute_pou_stack_with_locals\none opcode loop; no-register calls stay in-loop" as stack
+    component "VM activation pump\nregister-ir mixed stack/register continuations\nsaved caller cursor + leased register scratch" as pump
+    component "call preparation/completion\nframes, parameters, edges, OUT/IN_OUT journal" as calls
+    component "Reference operations\nborrowed checks; materialized character fallback\ndynamic field/index and reference-attempt policy" as references
+    component "Core numerics / full standard library\nlocked libm + conversions + timers/counters/FBs" as library
+    component "ExecutionBudget\noriginal bytecode instruction costs + bounded helper work\nphysical deadline boundary/stride checks" as allowance
+    context --> entry
+    entry --> stack : no register-ir feature
+    entry --> pump : register-ir feature
+    pump --> register : eligible POU scratch available
+    pump --> stack : unprepared / unsupported / recursive scratch occupied
+    plans --> register
+    register --> pump : user POU call that can nest yields destination and cursor
+    stack --> pump : register-ir stack activation yields cursor
+    pump --> calls : common return validation and output copyback
+    register --> calls : library call, or leaf POU call run in place
+    stack --> calls : immediate library call
+    register --> references
+    stack --> references
+    calls --> library
+    references --> context
+    calls --> context
+    register --> allowance
+    stack --> allowance
+    pump --> allowance
+    calls --> allowance
+    library --> allowance
+    note bottom of calls
+        Uniquely owned expression arguments move into function/method bindings;
+        borrowed inputs, constants and storage reads retain copy admission.
+        Owned bound locals move into selected callee scratch; declining optimized
+        execution preserves the original payload for the shared stack fallback.
+        A single output snapshot enters the active rollback journal directly,
+        after resolution and growth/copy admission; commit checks remain.
+        Frame declarations publish local values without persistent instance markers.
+        Edge qualification reuses the installed POU ID; compatibility callers
+        retain name resolution and the same edge transaction.
+    end note
+    note bottom of register
+        Independent eligible-POU scratch, including frame locals and parameter-presence
+        payloads, is reserved before RUN and recycled after success or fault. Returned
+        locals stay leased through caller copyback; recursive re-entry uses stack fallback
+        until the caller returns that payload.
+        Borrowed entry payloads retain separately charged, fallible copies.
+        Nested register re-entry falls back before starting a frame or resetting fuel.
+        A call to a prepared POU that makes no user call (a leaf) runs to completion
+        inside the caller's call instruction, with the pump's checks, charges,
+        completion and failure cleanup; debugging and occupied scratch use the pump.
+        Hot thresholds and fixed prepared LRU select already compiled blocks.
+        Profile reset preserves selection; tier reset clears selection/hits,
+        retains immutable prepared code and requires warmup again.
+        No std timing/thread-local state or first-use compilation lives in plans.
+    end note
+    note bottom of pump
+        Stack callers resume from their saved PC and operand scope. Register callers
+        resume within the selected block at the instruction after the yielded call;
+        block selection, statement hooks, read counts and instruction charges are not replayed.
+        The leased per-POU register buffer stays unavailable until completion or unwind.
+        One shared stack-frame/operand buffer serves stack fallbacks across the activation tree.
+    end note
+    note bottom of stack
+        Without register-ir, a native user call pushes a child frame and saves
+        a cursor continuation inside this same opcode loop. Return runs the
+        shared PreparedCall completion path and restores the parent cursor.
+        HIR optimized hooks retain their existing synchronous admission order.
     end note
 }
 
-package "Stable Machine Error Boundary" as errorPkg #HoneyDew {
-    component "StableErrorCode\n(trust-runtime-core/error_code.rs)" as stableCode
-    component "BytecodeError::stable_code()\n(decoder + validator category)" as bytecodeCode
-    component "VmTrap::stable_code() +\nRuntimeError::stable_code()" as runtimeCode
-    component "typed HMI write admission failure\n(type / string / subrange / non-finite)" as hmiWriteCode
-    artifact "ControlResponse.error_code\n(stable lower-snake-case identifier)" as controlErrorCode
-
-    bytecodeGuard --> bytecodeCode : rejected candidate
-    bytecodeCode --> stableCode
-    vmEntry --> runtimeCode : execution trap
-    runtimeCode --> stableCode
-    hmiWriteCode --> stableCode
-    hmiWriteCode --> controlErrorCode : rejected before queueing
+package "Common cooperative cycle" as cyclePkg #LightBlue {
+    component "Core cycle controller\nready-task scratch; nominal deadlines;\npriority/due/index ordering; background programs" as cycle
+    component "CycleHooks / CycleAccess\ncallback-scoped checked host ports\noptional read-only program observations" as hooks
+    card "CycleStart\npending engineering writes + runtime events" as start
+    card "BeforeInputSample\nphysical image acquisition / debug I/O / forces" as input
+    card "Mapped-input sample\nAfterInputSample: ADS / OPC UA cache copyback" as latched
+    card "Ready tasks + background\nshared POU entries" as work
+    card "BeforeOutputSample\nretain save" as retain
+    card "Mapped Q/M sample\nAfterOutputSample: forces, protocol capture, inspection" as sample
+    card "Deadline check + publish_outputs\nphysical driver submission" as submit
+    card "Commit / final observations\nthen hosted telemetry and cycle metrics" as outcome
+    owner --> cycle
+    host --> hooks : adapters borrowed for one cycle
+    cycle --> hooks
+    cycle --> start
+    start --> input
+    input --> latched
+    latched --> work
+    work --> retain
+    retain --> sample
+    sample --> submit
+    submit --> outcome
+    work --> entry
+    note bottom of submit
+        Pre-submission or driver failure restores touched flat-Q windows.
+        M and hierarchical effects retain the existing hosted rollback domain.
+        Successful driver submission commits Q; subsequent deadline/telemetry
+        faults cannot undo already accepted physical output work.
+        Ordinary no-hook MCU execution retains its existing publication path.
+    end note
 }
 
-note right of errorPkg
-    Stable identifiers are selected by
-    exhaustive enum matches. Diagnostic
-    text remains separate and is never
-    parsed to recover a machine code.
-
-    BytecodeError -> RuntimeError and
-    VmTrap -> RuntimeError preserve the
-    selected bytecode_* / vm_* code.
-end note
-
-package "Helper Evaluation\n(non-cycle helper flows only)" as helperPkg #MistyRose {
-    component "Runtime::evaluate_expression()\n(runtime/core/evaluation.rs)" as runtimeEval
-    component "helper_eval::const_expr\ncompile-time const folding" as constEval
-    component "helper_eval::storage_expr\ndebug/config/init reads" as storageEval
-    component "helper_eval::storage_lvalue\ndebug pending writes" as storageWrite
-    component "harness::initializer\nstartup/default materialization" as initService
-    component "runtime/vm/local_init.rs\nlegacy 1.x HIR local/static initializer plans" as vmLocalInit
-    component "DebugRuntimeContext\n(debug/hook.rs)" as debugCtx
-
-    runtimeEval --> storageEval
-    initService --> storageEval : evaluate default expressions
-    vmEntry --> vmLocalInit : first local/static materialization
-    vmLocalInit --> initService : default + aggregate values
-    debugCtx --> storageEval
-    cycle --> storageWrite : pending debug writes
-    constEval --> storage
-    storageEval --> storage
-    initService --> storage : materialize globals/instances
-    storageWrite --> storage
+package "Checked lifecycle and observation" as lifecyclePkg #Lavender {
+    component "ResourceReconfiguration\nstaged images/tasks + exclusive commit\nno initializer replay or storage clone" as resource
+    component "Prepared replacement / restart\nisolated construction + retain compatibility\natomic candidate publication" as replacement
+    component "Safe outputs\nseparate checked owner operation\nall drivers attempted; owning fault retained" as safe
+    component "StatementFrame\ncurrent + suspended invocation views" as frames
+    component "HostedExecutionServices / RuntimeMetadata\nsource lookup and detached DebugSnapshot" as debugger
+    component "DAP expression scratch\nseparate authoring types and copied inspection values" as scratch
+    host --> resource : resource / direct / MQTT binding updates
+    resource --> owner : preserve identities, live values, debug/IR/fault state
+    host --> replacement : code / schema / warm restart
+    replacement --> owner : commit fully validated candidate
+    host --> safe : STOP / watchdog / fault policy
+    safe --> hooks : authoritative images; deadline suspension for safety delivery
+    context --> frames : observer borrow only after construction
+    frames --> debugger
+    services --> debugger
+    debugger --> scratch
+    scratch --> host : checked writes / queued next-scan requests
+    note bottom of replacement
+        Failed candidate preparation leaves the installed generation unchanged.
+        Restart construction has no active debugger observations.
+        Resource-only binding changes preserve task timing; explicit task changes
+        reseed registration timing/SINGLE while thread identity history is retained.
+    end note
+    note bottom of debugger
+        Detached snapshots retain real local-slot offsets and ancestor identities.
+        Compiler scratch names are hidden from user-facing rows.
+        Snapshot edits never mutate live locals or executable types.
+        Retired queued frame destinations produce WriteRejected at the next scan.
+    end note
 }
 
-note right of helperPkg
-    These helpers exist for bounded
-    const/debug/config/init flows only.
-    Startup materialization is
-    orchestrated by harness::initializer.
-    VM local/static initialization
-    consumes the same default/materialization
-    service through local init plans.
+package "MCU compositions and evidence boundary" as mcuPkg #Wheat {
+    artifact "Independent application flash\nTRSTB002 main / numeric / GPIO artifacts\nsame bytes on both boards" as bundle
+    component "trust-board-fixture\nM2E runner + records + bundle decode\nmeasured heap / 16 KiB stack window" as fixture
+    component "firmware/trust-nucleo-f401re\nF401 composition: identity, reset cookie, supervisor" as firmware
+    component "trust-platform-stm32f4::Board\nTIM2 / PC13 / PA5 / USART2 / IWDG" as board
+    node "NUCLEO-F401RE" as device
+    component "firmware/trust-esp32c6-reference\nC6 composition: identity, reset cookie, supervisor" as c6firmware
+    component "trust-platform-esp32::Board\nSYSTIMER / GPIO9 / GPIO18 / USB-Serial-JTAG / MWDT0" as c6board
+    node "ESP32-C6-DevKitC-1" as c6device
+    artifact --> bundle : stopped installation
+    bundle --> firmware : sector 1
+    bundle --> c6firmware : stbc partition
+    firmware --> fixture
+    c6firmware --> fixture
+    fixture --> prepared : same on-device admission
+    fixture --> owner : borrowed facade; optional register tier omitted
+    firmware --> board
+    c6firmware --> c6board
+    board --> device
+    c6board --> c6device
+    note bottom of fixture
+        Core depends on no board adapter and not on the fixture; the adapters depend on no
+        workspace crate; firmware has no host runtime dependency.
+        F401: vectors and immutable firmware data share sector 0; application sector 1,
+        checkpoint reserves 2/3 and upper code sectors 4-7 stay independently erasable.
+        C6: factory application, 16 KiB stbc partition, reserved ckpt_a / ckpt_b;
+        no flash write or erase during RUN.
+        All PLC functions and overflow checks remain present.
+        Source/rendered diagrams do not establish flash/RAM fit, timing or hardware proof.
+    end note
+}
 
-    Scheduled task/program execution
-    does not pass through EvalContext or
-    an interpreter backend anymore.
-end note
+package "Separate helper / historical boundary" as helpersPkg #Gainsboro {
+    component "Compiler const folding / declaration lowering\nnon-executable source authoring" as authoringHelpers
+    component "Private cfg(test) LegacyRuntimeFixture\nold host core/cycle/VM and 1.1 assertion corpus" as historical
+    component "Stable error codes\nBytecodeError / VmTrap / RuntimeError" as errors
+    authoringHelpers --> builder
+    historical ..> legacy : test fixture context only
+    validation --> errors
+    stack --> errors
+    register --> errors
+    context --> errors
+    note bottom of historical
+        Historical executors and HIR local-initializer helpers are test-only.
+        Product cycles, explicit POU entries and restarts use the same core engine.
+        Diagnostic text is separate from stable machine error identities.
+    end note
+}
 
 legend right
-    **What this diagram clarifies**
-    1. Production task/program execution goes directly to the VM path.
-    2. There is no production backend-dispatch seam or interpreter backend.
-    3. The VM hot path is the combination of:
-       - register_ir.rs
-       - dispatch.rs
-       - call/mod.rs + call/continuation.rs
-       - dispatch_refs.rs
-       - memory.rs
-    4. `helper_eval` handles const/debug/config/init helpers only.
-    5. Bytecode resource limits are checked before executable materialization.
-    6. Stable bytecode, VM, runtime, and HMI error identifiers do not depend on diagnostic text.
-    7. Remaining evaluator internals are test-only and are not part of the runtime scan-loop architecture.
+    Architecture source view, not a compilation or release/hardware acceptance record.
+    Full and runtime-only hosts share execution; selected service graphs differ.
+    No production Expr evaluator, lazy VM build or second mutable PLC authority.
 end legend
-
-note as FootprintDetails
-Structured admission diagnostics retain reasons/context;
-text rendering is deferred. Shared compact keys and sorting
-preserve identities, ordering and the uniform PLC function set.
-F401 sector 0 contains vectors and bounded immutable firmware data;
-application/checkpoint erase sectors remain independent.
-Upper-region headroom and total flash use are reported separately.
-Live frames use sorted identities; portable instances use compact live entries.
-Existing variable hash indexes replace duplicate portable name caches.
-Sorted destination journals preserve alias rollback; charged retirement completes
-cleanup even when execution fuel is exhausted.
-Bulk input journals sort/deduplicate physical slots before snapshotting.
-Observed deadline expiry stays latched through cleanup until operation reset.
-Compiled PLC calls use explicit VM continuations with isolated operand floors;
-shared prepare/complete helpers preserve bindings, edges and error cleanup.
-Firmware fixture phases keep independent native frames and stop on failed stack margin.
-Prepared-module control owners live in the measured bring-up heap before instantiation.
-Warm/cold restart carries process images into staged state before initialization;
-ordered configuration actions win at selected targets, while other values survive.
-Failed replacement leaves the installed state and images intact.
-end note
 @enduml

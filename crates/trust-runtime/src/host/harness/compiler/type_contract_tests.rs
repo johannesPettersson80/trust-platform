@@ -1,13 +1,13 @@
-use crate::harness::CompileSession;
+use crate::harness::{lower_application, CompileSession, SourceFile};
 use crate::program_model::Expr;
 use crate::value::Value;
-use crate::Runtime;
+use crate::RuntimeBuilder;
 use trust_hir::{Type, TypeId};
 
-fn runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+fn runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
         .unwrap_or_else(|error| panic!("type fixture must compile: {error}"))
+        .builder
 }
 
 fn compile_error(source: &str) -> String {
@@ -17,14 +17,14 @@ fn compile_error(source: &str) -> String {
     }
 }
 
-fn type_id(runtime: &Runtime, name: &str) -> TypeId {
+fn type_id(runtime: &RuntimeBuilder, name: &str) -> TypeId {
     runtime
         .registry()
         .lookup(name)
         .unwrap_or_else(|| panic!("missing type {name}"))
 }
 
-fn type_def<'a>(runtime: &'a Runtime, name: &str) -> &'a Type {
+fn type_def<'a>(runtime: &'a RuntimeBuilder, name: &str) -> &'a Type {
     let id = type_id(runtime, name);
     runtime
         .registry()

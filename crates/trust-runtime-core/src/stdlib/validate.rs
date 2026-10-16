@@ -9,10 +9,10 @@ use crate::value::Value;
 /// Register the shared validate functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 2] = [
     super::registration::descriptor!("IS_VALID", IN, is_valid),
     super::registration::descriptor!("IS_VALID_BCD", IN, is_valid_bcd),
 ];

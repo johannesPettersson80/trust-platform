@@ -5,6 +5,8 @@ use std::sync::atomic::AtomicUsize;
 include!("tests/nonfinite_case.rs");
 include!("tests/safe_state.rs");
 include!("tests/tag_mapping.rs");
+include!("tests/incoming_overflow.rs");
+include!("tests/input_output_health.rs");
 
 const MQTT_CI_TIMING_SLACK: StdDuration = StdDuration::from_millis(100);
 
@@ -15,6 +17,8 @@ struct MockState {
     payloads: VecDeque<MqttInboundPayload>,
     published: Vec<(SmolStr, Vec<u8>)>,
     fail_publish_once: bool,
+    /// Time each session read takes before it returns payloads, to model a silent broker.
+    take_delay: Option<StdDuration>,
 }
 
 struct MockSession {
@@ -28,6 +32,14 @@ impl MqttSession for MockSession {
     }
 
     fn take_payloads(&mut self) -> Vec<MqttInboundPayload> {
+        let delay = self
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take_delay;
+        if let Some(delay) = delay {
+            thread::sleep(delay);
+        }
         let mut guard = self.state.lock().unwrap_or_else(|e| e.into_inner());
         guard.payloads.drain(..).collect()
     }
@@ -67,6 +79,10 @@ impl MqttSessionFactory for MockFactory {
         Ok(Box::new(MockSession {
             state: Arc::clone(&self.state),
         }))
+    }
+
+    fn incoming_dropped(&self) -> u64 {
+        0
     }
 }
 
@@ -1033,7 +1049,7 @@ fn mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out() {
         ..MockState::default()
     }));
     let factory = Arc::new(MockFactory {
-        state,
+        state: Arc::clone(&state),
         attempts: Arc::new(AtomicUsize::new(0)),
         fail_first: false,
         always_fail: false,
@@ -1050,6 +1066,11 @@ topic_in = "line/in"
     .expect("construct mqtt driver");
 
     driver.read_inputs(&mut [0u8; 4]).expect("initial payload");
+    {
+        // The broker goes silent: a session read now takes longer than the scan's refresh wait.
+        let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        guard.take_delay = Some(StdDuration::from_millis(100));
+    }
     let mut stale = [0xA5; 4];
     let error = driver
         .read_inputs(&mut stale)

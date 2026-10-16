@@ -272,12 +272,32 @@ impl SymbolCollector<'_> {
                 }
             }
             Type::Struct { fields, .. } => {
-                let mut total = 0u64;
-                for field in fields {
-                    total =
-                        total.checked_add(self.sizeof_type_bytes_inner(field.type_id, stack)?)?;
+                if self.temporal_storage == TemporalStorage::Uniform64
+                    && fields.iter().any(|field| field.address.is_some())
+                {
+                    let mut end = 0u128;
+                    for field in fields {
+                        let address = field.address.as_deref()?;
+                        let resolved = self.table.resolve_alias_type(field.type_id);
+                        let width = if matches!(self.table.type_by_id(resolved), Some(Type::Bool)) {
+                            1
+                        } else {
+                            u128::from(self.sizeof_type_bytes_inner(field.type_id, stack)?)
+                                .checked_mul(8)?
+                        };
+                        let (_, field_end) =
+                            super::types::relative_address_bit_interval(address, width)?;
+                        end = end.max(field_end);
+                    }
+                    u64::try_from(end.div_ceil(8)).ok()
+                } else {
+                    let mut total = 0u64;
+                    for field in fields {
+                        total = total
+                            .checked_add(self.sizeof_type_bytes_inner(field.type_id, stack)?)?;
+                    }
+                    Some(total)
                 }
-                Some(total)
             }
             Type::Union { variants, .. } => {
                 let mut max = 0u64;
@@ -292,6 +312,7 @@ impl SymbolCollector<'_> {
             Type::WString {
                 max_len: Some(max_len),
             } => u64::from(*max_len).checked_mul(2),
+            Type::Time | Type::Date | Type::Tod | Type::Dt => Some(self.temporal_storage.bytes()),
             Type::Pointer { .. } | Type::Reference { .. } => {
                 Some(POINTER_REFERENCE_HANDLE_SIZE_BYTES)
             }

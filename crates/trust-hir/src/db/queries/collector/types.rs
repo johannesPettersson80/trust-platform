@@ -444,15 +444,6 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn type_storage_bit_width(&self, type_id: TypeId) -> Option<u128> {
-        let resolved = self.table.resolve_alias_type(type_id);
-        if matches!(self.table.type_by_id(resolved), Some(Type::Bool)) {
-            return Some(1);
-        }
-        self.sizeof_type_bytes(resolved)
-            .and_then(|bytes| u128::from(bytes).checked_mul(8))
-    }
-
     pub(super) fn collect_union_type(&mut self, node: &SyntaxNode, name: SmolStr) -> TypeId {
         let mut variants = Vec::new();
         let mut seen_variants = FxHashMap::default();
@@ -1241,9 +1232,12 @@ fn subrange_contains_star(node: &SyntaxNode) -> bool {
         .any(|token| token.kind() == SyntaxKind::Star)
 }
 
-fn relative_address_bit_interval(address: &str, bit_width: u128) -> Option<(u128, u128)> {
+pub(super) fn relative_address_bit_interval(
+    address: &str,
+    bit_width: u128,
+) -> Option<(u128, u128)> {
     let address = address.strip_prefix('%')?;
-    let (unit, offset) = address.split_at(1);
+    let (unit, offset) = address.split_at_checked(1)?;
     if !matches!(
         unit,
         "X" | "x" | "B" | "b" | "W" | "w" | "D" | "d" | "L" | "l"

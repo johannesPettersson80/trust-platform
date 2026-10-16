@@ -1,5 +1,5 @@
 CONFIGURATION WarehouseConveyorMergeMediatorOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE WarehouseConveyorMergeMediatorOop ON PLC
     TASK MainTask (INTERVAL := T#50ms, PRIORITY := 1);
     PROGRAM Merge WITH MainTask : Main;
 END_RESOURCE

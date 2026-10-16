@@ -56,7 +56,8 @@ END_PROGRAM
         (0, true, true, 0, true, 0, true, false, 0),
         (10, true, true, 0, true, 10, false, false, 0),
         (20, false, true, 10, true, 20, false, true, 1),
-        (30, false, true, 20, false, 0, false, false, 1),
+        // The pulse ends on this FALSE sample: ET stops at PT and resets on the next one.
+        (30, false, true, 20, false, 25, false, false, 1),
         (40, false, false, 25, false, 0, false, false, 1),
     ] {
         state.write_global("signal", Value::Bool(signal)).unwrap();

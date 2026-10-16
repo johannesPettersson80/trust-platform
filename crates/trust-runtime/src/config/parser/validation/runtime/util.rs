@@ -49,10 +49,16 @@ fn parse_runtime_duration_millis(
             format!("{field} must be >= {minimum}").into(),
         ));
     }
-    if value > MAX_RUNTIME_DURATION_MILLIS {
-        return Err(RuntimeError::InvalidConfig(
+    let too_large = || {
+        RuntimeError::InvalidConfig(
             format!("{field} must be <= {MAX_RUNTIME_DURATION_MILLIS}").into(),
-        ));
+        )
+    };
+    if value > MAX_RUNTIME_DURATION_MILLIS {
+        return Err(too_large());
     }
-    Ok(Duration::from_millis(value as i64))
+    i64::try_from(value)
+        .ok()
+        .and_then(Duration::checked_from_millis)
+        .ok_or_else(too_large)
 }

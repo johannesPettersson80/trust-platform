@@ -205,14 +205,30 @@ numeric or bit-string value. `STRING_TO_REAL('NaN')` and
 value. This specification intentionally does not freeze the runtime-error
 variant used for those two text-rejection cases.
 
+The compact text implementation shall preserve the existing conversion contract
+on every platform. Decimal parsing uses correctly rounded binary64 conversion
+before the existing destination conversion, including subnormal values and signed
+zero; lossy parsing is forbidden. Formatting preserves the prior shortest
+round-tripping binary64 digits expanded into decimal notation, with the existing
+`.0` suffix for integral real conversion output. `REAL` continues to widen to
+binary64 before formatting. Normalization, malformed-input errors and non-finite
+rejection remain unchanged. Compact lookup tables are an implementation choice,
+not a per-device capability restriction (IEC §6.6.2.5.2, Table 23).
+
 ### 2.8 Runtime Conversion Dispatch and Boundary Contract
 
 The following requirements bind runtime execution of IEC 61131-3 Tables
 22-27 and the truST conversion extensions documented above:
 
 - Conversion names are ASCII case-insensitive. `SRC_TO_DST` and
-  `SRC_TRUNC_DST` validate the named source family before conversion;
-  `TO_DST`, `TRUNC_DST`, and `TRUNC` infer the source from the runtime value.
+  `SRC_TRUNC_DST` first normalize the argument to the named source type: an
+  integer or real source accepts a value of its family (`ANY_INT` or
+  `ANY_REAL`) when that value is representable in the source type (for a real
+  source: finite after IEC 60559 rounding to the source width), and raises
+  `RuntimeError::Overflow` otherwise, so `SINT_TO_BYTE(INT#256)` faults before
+  the `BYTE` conversion; a BCD source requires exactly its declared type and
+  raises `RuntimeError::TypeMismatch` for any other. `TO_DST`, `TRUNC_DST`,
+  and `TRUNC` infer the source from the runtime value.
   Every conversion requires exactly one argument.
 - Ordinary real-to-integer conversions round to nearest with ties to even.
   `TRUNC`, `TRUNC_DST`, and `SRC_TRUNC_DST` truncate toward zero. Non-finite
@@ -225,13 +241,15 @@ The following requirements bind runtime execution of IEC 61131-3 Tables
 - `REAL_TO_DWORD`, `DWORD_TO_REAL`, `LREAL_TO_LWORD`, and
   `LWORD_TO_LREAL` are exact binary transfers for finite values. A transferred
   NaN or infinity is rejected as `RuntimeError::Overflow`.
-- Text-to-integer conversion trims surrounding whitespace, accepts embedded
-  `_` separators, and accepts `base#digits` for bases 2 through 36 with an
-  optional sign on `digits`. An empty value, invalid digit, or base outside
-  2 through 36 raises `RuntimeError::TypeMismatch`; malformed input never
-  panics.
+- Text-to-integer conversion trims surrounding whitespace, accepts single `_`
+  separators between two digits (the IEC 61131-3 §6.3.2 rule for numeric
+  literals), and accepts `base#digits` for bases 2 through 36 with an optional
+  sign on `digits`. An empty value, invalid digit, leading, trailing or
+  repeated `_`, or base outside 2 through 36 raises
+  `RuntimeError::TypeMismatch`; malformed input never panics.
 - Text-to-real conversion accepts finite Rust/IEC-compatible decimal and
-  exponent text after whitespace and `_` normalization. NaN, infinity, and a
+  exponent text after whitespace and `_` normalization, with the same
+  single-separator rule. NaN, infinity, and a
   finite decimal whose destination result becomes non-finite raise
   `RuntimeError::Overflow`.
 - Numeric and bit-string text output is decimal. Integral finite real output
@@ -297,12 +315,16 @@ is separate and is recorded in
 [`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation);
 it does not widen the standard-function signature.
 
-For finite `REAL` operands, `EXP` and `EXPT` return a value only when the
-result remains finite at IEC basic single width. A result outside that finite
-range raises `RuntimeError::Overflow` before assignment storage and leaves the
-target unchanged. The runtime does not clamp or store infinity or NaN. `LREAL`
-and other exceptional numerical-function behavior remain outside this rule;
-see `docs/specs/10-runtime-semantics.md` and
+For finite `REAL` or `LREAL` operands, `EXP` and `EXPT` return a value only
+when the result remains finite at the operand's IEC basic width (single for
+`REAL`, double for `LREAL`). A result outside that finite range raises
+`RuntimeError::Overflow` before assignment storage and leaves the target
+unchanged. The runtime does not clamp or store infinity or NaN. `EXPT(0.0,
+0.0)` is `1.0`; a zero base with a negative exponent, and a negative base with
+a non-integer exponent, have no finite result and raise `Overflow`. Results
+keep IEC 60559 signed zeros and subnormal values, and an underflow to a
+subnormal value or zero is not a fault. See
+`docs/specs/10-runtime-semantics.md` and
 `docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.
 
 ### 3.1 Runtime Numerical Conformance Contract
@@ -312,7 +334,12 @@ The following requirements bind the runtime implementation of IEC
 
 - `ABS` preserves the operand's elementary numeric type. Unsigned values are
   returned unchanged. The most-negative value of each signed integer type
-  raises `RuntimeError::Overflow`; it is never wrapped.
+  raises `RuntimeError::Overflow`; it is never wrapped. `ABS(-0.0)` is `+0.0`.
+- `MOD` returns `IN1 - (IN1 / IN2) * IN2` with integer division truncating
+  toward zero (IEC 61131-3 Table 29), so a nonzero result has the sign of
+  `IN1`. `MOD` by zero raises `RuntimeError::ModuloByZero`; IEC Table 29
+  defines that case as `0`, and the deviation is recorded in
+  `docs/IEC_DEVIATIONS.md`.
 - The named real functions accept `REAL` or `LREAL`. A `REAL` input produces a
   `REAL` result and an `LREAL` input produces an `LREAL` result. A domain error
   or non-finite result raises `RuntimeError::Overflow`.
@@ -346,6 +373,9 @@ X := 2#1100_0000;
 Y := SHL(X, 2);    // Y = 2#0000_0000 (bits shifted out)
 Z := ROL(X, 2);    // Z = 2#0000_0011 (bits rotated)
 ```
+
+`IN` must be a bit-string value (`ANY_BIT`); an integer, real or other `IN`
+raises `RuntimeError::TypeMismatch`.
 
 ## 5. Bitwise Boolean Functions (Table 31)
 
@@ -420,7 +450,9 @@ documented formal names; the reviewed executed-ST representative
 - `MIN` and `MAX` require at least two inputs and compare every input after
   resolving one common elementary runtime type.
 - `LIMIT` first resolves `MN`, `IN`, and `MX` to one common type, then returns
-  `MN` when `IN < MN`, `MX` when `IN > MX`, and `IN` otherwise.
+  `MIN(MAX(IN, MN), MX)` (IEC 61131-3 Table 32): `MN` when `IN < MN`, `MX`
+  when `IN > MX`, and `IN` otherwise. With inverted limits (`MN > MX`) the
+  result is `MX`.
 - `MUX` interprets `K` as a zero-based input number. A negative or out-of-range
   selector raises `RuntimeError::IndexOutOfBounds`. All candidate inputs must
   belong to one valid common type even when the selected candidate itself
@@ -488,7 +520,7 @@ Left5 := LEFT(Str, 5);                 // 'Hello'
 Right5 := RIGHT(Str, 5);               // 'World'
 Mid := MID(Str, 5, 7);                 // 'World' (5 chars starting at pos 7)
 Full := CONCAT('Hello', ' ', 'World'); // 'Hello World'
-Inserted := INSERT('AC', 'B', 2);      // 'ABC'
+Inserted := INSERT('AC', 'B', 1);      // 'ABC'
 Deleted := DELETE('ABCD', 2, 2);       // 'AD' (delete 2 chars at pos 2)
 Replaced := REPLACE('ABCD', 'XX', 2, 2); // 'AXXD'
 Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
@@ -512,7 +544,7 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 - `MID`, `DELETE`, and `REPLACE` use one-based positions. Positions below one
   are clamped to the first element. A start beyond the final element returns
   the empty string for `MID` and leaves the input unchanged for `DELETE` and
-  `REPLACE`.
+  `REPLACE`. A length that runs past the final element is clamped to it.
 - `INSERT` treats `P` as the number of existing elements before the insertion:
   zero inserts before the first element, `P = LEN(IN1)` appends, and larger
   values also append. For example, `INSERT('AC', 'B', 1) = 'ABC'`.
@@ -520,7 +552,7 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
   `REPLACE` with a non-positive length inserts the replacement at its clamped
   start without deleting an element.
 - `FIND` returns the one-based position of the first match and zero when no
-  match exists. A found position that cannot be represented as `INT` raises
+  match exists. An empty `IN2` matches at position 1. A found position that cannot be represented as `INT` raises
   `RuntimeError::Overflow`.
 - The internal `__TRUST_LIMIT_STRING(IN, L)` assignment helper truncates by
   Unicode scalar count, preserves the string family, and rejects a negative or
@@ -576,12 +608,15 @@ product contract:
   nanoseconds and produce `LTIME` for same-family subtraction.
 - Adding a duration to `TOD`, `LTOD`, `DT`, or `LDT` does not wrap at a day
   boundary. It returns the checked signed result in the same value family.
-- `MUL_TIME`, `MUL_LTIME`, `DIV_TIME`, and `DIV_LTIME` accept signed or
-  unsigned integer and `REAL`/`LREAL` factors. Integer division and the final
-  real result truncate toward zero; zero division returns
-  `RuntimeError::DivisionByZero`; a non-numeric factor returns
-  `RuntimeError::TypeMismatch`; a non-finite or out-of-range result returns
-  `RuntimeError::Overflow`.
+- `MUL_TIME`, `MUL_LTIME`, `DIV_TIME`, and `DIV_LTIME` are the named forms of
+  the `*` and `/` duration operators (IEC 61131-3 Table 35) and compute exactly
+  as the operators do. They accept signed or unsigned integer and
+  `REAL`/`LREAL` factors. An integer factor scales the nanosecond count
+  exactly, with integer division truncating toward zero; a real factor scales
+  it in binary64 and the real result truncates toward zero. Zero division
+  returns `RuntimeError::DivisionByZero`; a non-numeric factor returns
+  `RuntimeError::TypeMismatch`; a non-finite factor or an out-of-range result
+  returns `RuntimeError::Overflow`.
 - Ordering compares stored ticks or nanoseconds only when both operands have
   the same runtime date/time family. Cross-family ordering returns
   `RuntimeError::TypeMismatch`.
@@ -640,6 +675,12 @@ runtime dispatch boundary.
 | `SPLIT_LDT` | LDT → YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, MILLISECOND |
 | `DAY_OF_WEEK` | DATE → 0=Sunday..6=Saturday |
 
+The `CONCAT_*` functions accept only valid components, as a date or time
+literal does: month 1 to 12, a day that exists in that month, hour 0 to 23,
+minute 0 to 59, second 0 to 59 and millisecond 0 to 999. Any component
+outside its range, including an invalid calendar date, raises
+`RuntimeError::Overflow`; a component never carries into the next field.
+
 **Notes**:
 - `SPLIT_*` output types are `ANY_INT`; the Implementer specifies concrete types.
 - Additional inputs/outputs (for example, microsecond/nanosecond) are Implementer specific.
@@ -658,8 +699,9 @@ HalfTime := DIV_TIME(BaseTime, 2);
 `IS_VALID` requires exactly one `REAL` or `LREAL` and returns whether it is
 finite. `IS_VALID_BCD` requires exactly one `BYTE`, `WORD`, `DWORD`, or
 `LWORD` and checks every nibble in the declared width; it returns `FALSE` for
-an invalid nibble rather than raising a BCD decoding error. Unsupported value
-families raise `RuntimeError::TypeMismatch`. Validation functions do not
+an invalid nibble rather than raising a BCD decoding error. The type checker
+rejects an unsupported argument type at compile time; a dynamic call that
+reaches the runtime with one raises `RuntimeError::TypeMismatch`. Validation functions do not
 modify their input.
 
 | Function | Description | Signature |
@@ -805,9 +847,10 @@ assertion, and timer functions obeys these rules:
 - Bit extraction and reconstruction preserve the declared widths 1, 8, 16,
   32, and 64. Masks include exactly the requested low bits, with every width
   of 64 or greater producing the full `u64` mask.
-- Duration scaling accepts finite numeric factors, uses ties-to-even rounding
-  at nanosecond precision, rejects division by zero, and returns overflow
-  rather than wrapping an unrepresentable result.
+- Duration scaling follows the `*` and `/` duration operators exactly
+  (section 9): integer factors scale exactly and a real result truncates toward
+  zero. It rejects division by zero and returns overflow rather than wrapping
+  an unrepresentable result.
 
 The runtime clock dispatcher receives normalized uppercase names. `TIME`
 returns the supplied logical elapsed duration exactly. `CURRENT_DT` follows
@@ -861,7 +904,9 @@ families with `RuntimeError::TypeMismatch`. `ASSERT_TRUE` and `ASSERT_FALSE`
 accept only `BOOL`. `ASSERT_NEAR` accepts finite numeric values, succeeds when
 `ABS(EXPECTED - ACTUAL) <= DELTA`, rejects a negative `DELTA` as
 `RuntimeError::AssertionFailed`, and rejects non-finite inputs as
-`RuntimeError::Overflow`. The inclusive boundary permits only the machine
-rounding tolerance introduced by converting the three finite operands to the
-runtime comparison width. A successful assertion always returns `Value::Null`;
+`RuntimeError::Overflow`. The comparison runs in binary64 and also succeeds
+when the difference exceeds `DELTA` by no more than four binary64 epsilons
+times the largest of `|EXPECTED|`, `|ACTUAL|`, `DELTA` and `1.0`, which
+absorbs the rounding of decimal operands such as `ASSERT_NEAR(1.0, 1.1,
+0.1)`. A successful assertion always returns `Value::Null`;
 failed assertions never return a normal value.

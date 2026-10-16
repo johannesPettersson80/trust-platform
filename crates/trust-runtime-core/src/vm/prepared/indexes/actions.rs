@@ -1,4 +1,5 @@
 use super::declarations::push_group;
+use super::keys::ActionKey;
 use super::*;
 use crate::bytecode::{InitializationOnce, InitializationStage};
 
@@ -43,7 +44,7 @@ impl PreparedIndexes {
             let id = u32::try_from(id).map_err(|_| RuntimeError::Overflow)?;
             push_group(
                 &mut self.actions,
-                (entry.owner_pou_id, entry.phase as u8, entry.trigger as u8),
+                ActionKey::new(entry.owner_pou_id, entry.phase as u8, entry.trigger as u8),
                 id,
                 budget,
             )?;

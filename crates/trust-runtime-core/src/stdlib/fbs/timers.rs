@@ -146,24 +146,26 @@ impl Tp {
             self.active = true;
             self.et = Duration::ZERO;
         }
+        let mut expired = false;
         if self.active {
             self.et = accumulate_elapsed(self.et, delta, pt);
             if self.et.as_nanos() >= pt.as_nanos() {
                 self.active = false;
                 self.et = pt;
+                expired = true;
             }
         }
-        if !input && !self.active {
+        // The call that completes the pulse keeps ET at PT even when it samples IN FALSE. The first
+        // later executed call sampling IN FALSE resets ET (spec 08 section 5).
+        if !input && !self.active && !expired {
             self.et = Duration::ZERO;
         }
         self.q = self.active;
         self.prev_in = input;
-        let et = if self.active || input {
-            self.et
-        } else {
-            Duration::ZERO
-        };
-        TimerOutput { q: self.q, et }
+        TimerOutput {
+            q: self.q,
+            et: self.et,
+        }
     }
 }
 
@@ -298,7 +300,10 @@ fn elapsed_since(
     instance_id: InstanceId,
 ) -> Result<Duration, RuntimeError> {
     let last = get_or_init_duration(ctx, instance_id, STATE_LAST_TIME, ctx.now)?;
-    let delta_nanos = ctx.now.as_nanos() - last.as_nanos();
+    // A span wider than the signed nanosecond range saturates at i64::MAX, which is never less
+    // than a preset, so the accumulated ET completes the timer (spec 08 section 5). A negative
+    // span still contributes nothing.
+    let delta_nanos = ctx.now.as_nanos().saturating_sub(last.as_nanos());
     let delta = if delta_nanos <= 0 {
         Duration::ZERO
     } else {

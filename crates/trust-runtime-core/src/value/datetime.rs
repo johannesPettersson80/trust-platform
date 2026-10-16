@@ -21,25 +21,48 @@ impl Duration {
         Self { nanos }
     }
 
+    /// Microseconds as a duration. A value beyond the signed nanosecond range saturates at
+    /// `i64::MAX` or `i64::MIN` nanoseconds; it never wraps or panics. Untrusted input that must
+    /// be refused uses [`Duration::checked_from_micros`] instead.
     #[must_use]
     pub fn from_micros(micros: i64) -> Self {
         Self {
-            nanos: micros * 1_000,
+            nanos: micros.saturating_mul(1_000),
         }
     }
 
+    /// Milliseconds as a duration; saturates at the nanosecond range like [`Duration::from_micros`].
     #[must_use]
     pub fn from_millis(millis: i64) -> Self {
         Self {
-            nanos: millis * 1_000_000,
+            nanos: millis.saturating_mul(1_000_000),
         }
     }
 
+    /// Seconds as a duration, saturating at the nanosecond range like [`Duration::from_micros`].
     #[must_use]
     pub fn from_secs(secs: i64) -> Self {
         Self {
-            nanos: secs * 1_000_000_000,
+            nanos: secs.saturating_mul(1_000_000_000),
         }
+    }
+
+    /// Microseconds as a duration, or `None` when the nanosecond value leaves the `i64` range.
+    #[must_use]
+    pub fn checked_from_micros(micros: i64) -> Option<Self> {
+        micros.checked_mul(1_000).map(Self::from_nanos)
+    }
+
+    /// Milliseconds as a duration, or `None` when the nanosecond value leaves the `i64` range.
+    #[must_use]
+    pub fn checked_from_millis(millis: i64) -> Option<Self> {
+        millis.checked_mul(1_000_000).map(Self::from_nanos)
+    }
+
+    /// Seconds as a duration, or `None` when the nanosecond value leaves the `i64` range.
+    #[must_use]
+    pub fn checked_from_secs(secs: i64) -> Option<Self> {
+        secs.checked_mul(1_000_000_000).map(Self::from_nanos)
     }
 
     #[must_use]
@@ -245,6 +268,47 @@ mod tests {
         assert_eq!(Duration::from_nanos(-3).as_nanos(), -3);
         assert_eq!(Duration::from_micros(7).as_nanos(), 7_000);
         assert_eq!(Duration::from_secs(2).as_nanos(), 2_000_000_000);
+    }
+
+    #[test]
+    fn checked_duration_constructors_refuse_values_beyond_the_nanosecond_range() {
+        assert_eq!(
+            Duration::checked_from_millis(9_223_372_036_854),
+            Some(Duration::from_nanos(9_223_372_036_854_000_000))
+        );
+        assert_eq!(Duration::checked_from_millis(9_223_372_036_855), None);
+        assert_eq!(Duration::checked_from_millis(i64::MAX), None);
+        assert_eq!(Duration::checked_from_micros(i64::MIN), None);
+        assert_eq!(Duration::checked_from_secs(i64::MAX), None);
+        assert_eq!(
+            Duration::checked_from_secs(-9_223_372_036),
+            Some(Duration::from_nanos(-9_223_372_036_000_000_000))
+        );
+    }
+
+    #[test]
+    fn duration_constructors_saturate_at_the_nanosecond_range_without_panicking() {
+        assert_eq!(
+            Duration::from_millis(i64::MAX),
+            Duration::from_nanos(i64::MAX)
+        );
+        assert_eq!(
+            Duration::from_millis(i64::MIN),
+            Duration::from_nanos(i64::MIN)
+        );
+        assert_eq!(
+            Duration::from_micros(i64::MAX),
+            Duration::from_nanos(i64::MAX)
+        );
+        assert_eq!(
+            Duration::from_secs(i64::MAX),
+            Duration::from_nanos(i64::MAX)
+        );
+        assert_eq!(
+            Duration::from_secs(i64::MIN),
+            Duration::from_nanos(i64::MIN)
+        );
+        assert_eq!(Duration::from_millis(-3).as_nanos(), -3_000_000);
     }
 
     #[test]

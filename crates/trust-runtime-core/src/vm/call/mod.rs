@@ -27,9 +27,8 @@ pub(super) mod stdlib;
 mod tests;
 
 use self::bindings::{
-    bind_builtin_function_block_arguments, bind_vm_call_arguments,
-    bind_vm_function_block_arguments, clone_value_with_profile, normalize_output_copyback_value,
-    unpack_native_call_payload, VmNativeArg,
+    bind_builtin_function_block_arguments, bind_vm_function_block_arguments,
+    normalize_output_copyback_value, unpack_native_call_payload, VmNativeArg,
 };
 use self::stdlib::dispatch_native_stdlib_call;
 
@@ -43,7 +42,9 @@ pub fn push_call_frame(
     return_pc: usize,
     runtime_instance: Option<InstanceId>,
 ) -> Result<usize, VmTrap> {
-    let pou = module.pou(pou_id).ok_or(VmTrap::MissingPou(pou_id))?;
+    let pou = module
+        .pou(pou_id)
+        .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
     let local_count = super::materialization_limits::checked_local_count(pou.local_ref_count)?;
     let frame = VmFrame {
         pou_id: Some(pou_id),
@@ -55,6 +56,43 @@ pub fn push_call_frame(
         local_ref_count: pou.local_ref_count,
         locals: vec![Value::Null; local_count],
         parameter_values_present: Vec::new(),
+        runtime_instance,
+        instance_owner: pou.primary_instance_owner,
+    };
+    let entry_pc = frame.code_start;
+    frame_stack.push(frame)?;
+    Ok(entry_pc)
+}
+
+/// Push an eligible register POU using the frame payload reserved for its
+/// controller during construction.
+#[cfg(feature = "register-ir")]
+pub fn push_call_frame_with_reserved_payload(
+    frame_stack: &mut FrameStack,
+    module: &VmModule,
+    pou_id: u32,
+    return_pc: usize,
+    runtime_instance: Option<InstanceId>,
+) -> Result<usize, VmTrap> {
+    let pou = module
+        .pou(pou_id)
+        .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
+    let local_count = super::materialization_limits::checked_local_count(pou.local_ref_count)?;
+    frame_stack.reserve_for_push()?;
+    let (mut locals, mut parameter_values_present) =
+        frame_stack.take_reserved_frame_payload(local_count)?;
+    locals.fill(Value::Null);
+    parameter_values_present.fill(false);
+    let frame = VmFrame {
+        pou_id: Some(pou_id),
+        activation: None,
+        return_pc,
+        code_start: pou.code_start,
+        code_end: pou.code_end,
+        local_ref_start: pou.local_ref_start,
+        local_ref_count: pou.local_ref_count,
+        locals,
+        parameter_values_present,
         runtime_instance,
         instance_owner: pou.primary_instance_owner,
     };
@@ -97,6 +135,14 @@ pub fn execute_native_call(
     result
 }
 
+/// Whether a native call of `kind` may hand a user call back to its caller.
+/// `prepare_native_call` completes the standard library kind immediately; the
+/// register leaf flag relies on that.
+#[cfg(any(feature = "register-ir", test))]
+pub(in crate::vm) const fn native_call_may_yield(kind: u32) -> bool {
+    kind != NATIVE_CALL_KIND_STDLIB
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_native_call(
     runtime: &mut impl ExecutionContext,
@@ -107,9 +153,14 @@ pub(super) fn prepare_native_call(
     symbol_idx: u32,
     arg_count: u32,
 ) -> Result<NativeCall, VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _timing =
+        crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::CallPrepare);
     if runtime.deadline_exceeded() {
         return Err(VmTrap::DeadlineExceeded);
     }
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _consumer = crate::vm::diagnostic_timing::attribution::native(symbol_idx);
     let spec = module.native_symbol_spec(symbol_idx)?;
     let (target_name, normalized_target_name, resolved_function_pou_id, conversion_spec, arg_specs) =
         match spec {
@@ -148,7 +199,7 @@ pub(super) fn prepare_native_call(
         ));
     }
 
-    let (receiver_value, vm_args) =
+    let (receiver_value, mut vm_args) =
         unpack_native_call_payload(operand_stack, arg_specs, receiver_count)?;
 
     match kind {
@@ -195,7 +246,7 @@ pub(super) fn prepare_native_call(
                 normalized_target_name,
                 resolved_function_pou_id,
                 receiver_value,
-                &vm_args,
+                &mut vm_args,
             )
         }
         _ => Err(VmTrap::InvalidNativeCallKind(kind)),
@@ -212,7 +263,7 @@ fn dispatch_native_vm_call(
     normalized_target_name: &SmolStr,
     resolved_function_pou_id: Option<u32>,
     receiver_value: Option<Value>,
-    args: &[VmNativeArg],
+    args: &mut [VmNativeArg],
 ) -> Result<NativeCall, VmTrap> {
     match kind {
         NATIVE_CALL_KIND_FUNCTION => {
@@ -228,7 +279,7 @@ fn dispatch_native_vm_call(
             let instance_type_name = runtime
                 .storage()
                 .get_instance(instance_id)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?
                 .type_name
                 .clone();
             let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
@@ -271,7 +322,7 @@ fn dispatch_native_vm_call(
             let instance = runtime
                 .storage()
                 .get_instance(instance_id)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             let type_key = SmolStr::new(instance.type_name.to_ascii_uppercase());
             let owner_pou_id = module
                 .function_block_ids
@@ -302,6 +353,9 @@ fn execute_native_builtin_function_block_call(
     kind: fbs::BuiltinFbKind,
     args: &[VmNativeArg],
 ) -> Result<(), VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _timing =
+        crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::BuiltinExecute);
     runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
     let out_bindings = bind_builtin_function_block_arguments(
         runtime,
@@ -325,7 +379,7 @@ fn execute_native_builtin_function_block_call(
             let value = binding
                 .source
                 .read_checked(runtime)?
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
             let (value, cloned) = materialize_borrowed_value(value);
             if cloned {
@@ -357,7 +411,7 @@ fn native_receiver_count(kind: u32) -> Result<usize, VmTrap> {
 }
 
 /// Preserve caller activation identity while the shared dispatcher runs a callee.
-#[cfg(feature = "hir")]
+#[cfg(any(feature = "hir", feature = "register-ir"))]
 #[allow(clippy::too_many_arguments)]
 fn execute_vm_target(
     runtime: &mut impl ExecutionContext,
@@ -365,27 +419,31 @@ fn execute_vm_target(
     caller_frame: &mut VmFrame,
     pou_id: u32,
     instance: Option<InstanceId>,
-    initial_locals: Option<&[Value]>,
+    initial_locals: &mut Option<Vec<Value>>,
     parameter_values_present: Option<&[bool]>,
     capture_return: bool,
     depth: u32,
 ) -> Result<super::dispatch::VmPouStackResult, VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _timing =
+        crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::PouExecute);
     runtime
         .suspend_frame(caller_frame)
         .map_err(VmTrap::Runtime)?;
     let result = (|| {
-        if let Some(result) = runtime.try_execute_optimized(
+        if let Some(result) = runtime.try_execute_optimized_with_parameter_presence_owned(
             module,
             pou_id,
             instance,
             initial_locals,
+            parameter_values_present,
             capture_return,
             depth,
             super::budget::ExecutionEntry::Nested,
         )? {
             Ok(result)
         } else {
-            super::dispatch::execute_pou_stack_with_parameter_presence(
+            super::dispatch::execute_pou_stack_with_owned_locals(
                 runtime,
                 module,
                 pou_id,
@@ -399,8 +457,13 @@ fn execute_vm_target(
         }
     })();
     // Resume even when execution failed, so caller storage is never left parked.
-    runtime
-        .resume_frame(caller_frame)
-        .map_err(VmTrap::Runtime)?;
-    result.map_err(VmTrap::from)
+    match runtime.resume_frame(caller_frame) {
+        Ok(()) => result.map_err(VmTrap::from),
+        Err(error) => {
+            if let Ok(result) = result {
+                let _ = runtime.recycle_optimized_result_locals(pou_id, result.locals);
+            }
+            Err(VmTrap::Runtime(error))
+        }
+    }
 }

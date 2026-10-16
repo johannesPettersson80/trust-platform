@@ -36,12 +36,15 @@ pub fn evaluate_task_readiness(
             missed_intervals = (intervals - 1) as u64;
             state.overrun_count = state.overrun_count.saturating_add(missed_intervals);
         }
-        let due_time =
-            Duration::from_nanos(state.last_run.as_nanos().saturating_add(interval_nanos));
-        due_at = Some(match due_at {
-            Some(existing) if existing.as_nanos() <= due_time.as_nanos() => existing,
-            _ => due_time,
-        });
+        // `periodic_due` needs SINGLE FALSE and `event_due` needs SINGLE TRUE, so an event due
+        // time can never be present here and the periodic deadline is the only candidate.
+        debug_assert!(
+            due_at.is_none(),
+            "event and periodic readiness are exclusive"
+        );
+        due_at = Some(Duration::from_nanos(
+            state.last_run.as_nanos().saturating_add(interval_nanos),
+        ));
         // The last deadline passed, not the sample: a late sample does not move the next ones.
         state.last_run = Duration::from_nanos(
             state

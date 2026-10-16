@@ -1,5 +1,5 @@
 CONFIGURATION PasteurizerQualityChainOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE PasteurizerQualityChainOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Pasteurizer WITH MainTask : Main;
 END_RESOURCE

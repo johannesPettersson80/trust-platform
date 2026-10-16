@@ -2,6 +2,17 @@ pub(in crate::harness) fn parse_subrange(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<(i64, i64), CompileError> {
+    parse_subrange_in(node, ctx, None)
+}
+
+/// Subrange bounds whose untyped literals take `base` as their destination type, so a subrange
+/// of LINT accepts bounds beyond the DINT range (IEC 61131-3 section 6.4.4.3: the bounds are values
+/// of the base type).
+pub(in crate::harness) fn parse_subrange_in(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+    base: Option<TypeId>,
+) -> Result<(i64, i64), CompileError> {
     let exprs = direct_expr_children(node);
     if exprs.is_empty() {
         return Err(CompileError::new("missing subrange bounds"));
@@ -10,15 +21,15 @@ pub(in crate::harness) fn parse_subrange(
         if is_wildcard_expr(&exprs[0]) {
             return Ok((0, i64::MAX));
         }
-        let value = const_int_from_node(&exprs[0], ctx)?;
+        let value = const_int_from_node_in(&exprs[0], ctx, base)?;
         return Ok((value, value));
     }
     if exprs.len() == 2 {
         if is_wildcard_expr(&exprs[0]) || is_wildcard_expr(&exprs[1]) {
             return Ok((0, i64::MAX));
         }
-        let lower = const_int_from_node(&exprs[0], ctx)?;
-        let upper = const_int_from_node(&exprs[1], ctx)?;
+        let lower = const_int_from_node_in(&exprs[0], ctx, base)?;
+        let upper = const_int_from_node_in(&exprs[1], ctx, base)?;
         return Ok((lower, upper));
     }
     Err(CompileError::new("invalid subrange bounds"))
@@ -32,7 +43,15 @@ pub(in crate::harness) fn const_value_from_node(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Value, CompileError> {
-    let expr = lower_expr(node, ctx)?;
+    const_value_from_node_in(node, ctx, None)
+}
+
+fn const_value_from_node_in(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+    expected: Option<TypeId>,
+) -> Result<Value, CompileError> {
+    let expr = lower_expr_with_context(node, ctx, expected)?;
     ctx.eval_compile_time_const_expr(&expr)
 }
 
@@ -40,7 +59,15 @@ pub(in crate::harness) fn const_int_from_node(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<i64, CompileError> {
-    let value = const_value_from_node(node, ctx)?;
+    const_int_from_node_in(node, ctx, None)
+}
+
+fn const_int_from_node_in(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+    expected: Option<TypeId>,
+) -> Result<i64, CompileError> {
+    let value = const_value_from_node_in(node, ctx, expected)?;
     match value {
         Value::SInt(v) => Ok(v as i64),
         Value::Int(v) => Ok(v as i64),

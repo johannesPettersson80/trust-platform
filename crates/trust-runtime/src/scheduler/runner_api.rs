@@ -9,6 +9,7 @@ pub struct ResourceRunner<C: Clock + Clone> {
     command_rx: Option<std::sync::mpsc::Receiver<ResourceCommand>>,
     simulation: Option<crate::simulation::SimulationController>,
     thread_init_hook: Option<Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>>,
+    hang_action: crate::watchdog::HangAction,
 }
 
 impl<C: Clock + Clone> ResourceRunner<C> {
@@ -24,6 +25,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             command_rx: None,
             simulation: None,
             thread_init_hook: None,
+            hang_action: crate::watchdog::HangAction::default(),
         }
     }
 
@@ -62,6 +64,14 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         hook: Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>,
     ) -> Self {
         self.thread_init_hook = Some(hook);
+        self
+    }
+
+    /// Select what hosted hang supervision does after it records a hung scan thread
+    /// (`runtime.watchdog.hang_action`). The default is [`crate::watchdog::HangAction::Fault`].
+    #[must_use]
+    pub fn with_hang_action(mut self, action: crate::watchdog::HangAction) -> Self {
+        self.hang_action = action;
         self
     }
 
@@ -106,12 +116,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     pub fn tick_with_shared(&mut self, shared: &SharedGlobals) -> Result<(), RuntimeError> {
         let now = self.clock.now();
         self.runtime.set_current_time(now);
-        shared.with_lock(|globals| {
-            shared.sync_into_locked(globals, &mut self.runtime)?;
-            let result = self.runtime.execute_cycle();
-            shared.sync_from_locked(globals, &self.runtime)?;
-            result
-        })
+        shared.execute_cycle(&mut self.runtime)
     }
 
     /// Spawn the runner in a dedicated OS thread.
@@ -119,14 +124,19 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
         let clock = self.clock.clone();
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
 
         let stop_thread = stop.clone();
         let state_thread = state.clone();
         let last_error_thread = last_error.clone();
+        let supervision_thread = supervision.clone();
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
         let builder = thread::Builder::new().name(name.into());
@@ -139,7 +149,13 @@ impl<C: Clock + Clone> ResourceRunner<C> {
                     state_thread.clone(),
                     last_error_thread.clone(),
                     move || {
-                        run_resource_loop(runner, stop_thread, state_thread, last_error_thread);
+                        run_resource_loop(
+                            runner,
+                            stop_thread,
+                            state_thread,
+                            last_error_thread,
+                            supervision_thread,
+                        );
                     },
                 );
             })
@@ -158,6 +174,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             stop,
             state,
             last_error,
+            supervision,
             thread_id,
             clock,
             join: Some(join),
@@ -167,21 +184,27 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
     /// Spawn the runner with shared global synchronization.
     pub fn spawn_with_shared(
-        self,
+        mut self,
         name: impl Into<String>,
         shared: SharedGlobals,
     ) -> Result<ResourceHandle<C>, RuntimeError> {
+        shared.validate_destination(&mut self.runtime)?;
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
         let clock = self.clock.clone();
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
 
         let stop_thread = stop.clone();
         let state_thread = state.clone();
         let last_error_thread = last_error.clone();
+        let supervision_thread = supervision.clone();
         let shared_thread = shared.clone();
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
@@ -200,6 +223,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
                             stop_thread,
                             state_thread,
                             last_error_thread,
+                            supervision_thread,
                             shared_thread,
                         );
                     },
@@ -220,6 +244,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             stop,
             state,
             last_error,
+            supervision,
             thread_id,
             clock,
             join: Some(join),

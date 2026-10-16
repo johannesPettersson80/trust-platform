@@ -6,6 +6,7 @@ import copy
 from dataclasses import replace
 import json
 import re
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,6 +31,8 @@ from .fuzz_program_source_contract import (
 )
 from .fuzz_program_analysis import analyze_fuzz_program
 from .fuzz_program_discovery import (
+    PROPERTY_DRIFT_KIND,
+    REVIEWED_PROPERTY_TEST_FILES,
     has_unmodeled_property_framework,
     is_fuzz_like_test_name,
     scan_cargo_fuzz_targets,
@@ -45,6 +48,8 @@ EXPECTED_CARGO_TARGETS = {
     ("fuzz/Cargo.toml", "hir_lowering", "fuzz/fuzz_targets/hir_lowering.rs"),
     ("fuzz/Cargo.toml", "plcopen_xml", "fuzz/fuzz_targets/plcopen_xml.rs"),
     ("fuzz/Cargo.toml", "bytecode_container", "fuzz/fuzz_targets/bytecode_container.rs"),
+    ("fuzz/Cargo.toml", "bytecode_admission", "fuzz/fuzz_targets/bytecode_admission.rs"),
+    ("fuzz/Cargo.toml", "bytecode_reprepare", "fuzz/fuzz_targets/bytecode_reprepare.rs"),
     ("fuzz/Cargo.toml", "runtime_config", "fuzz/fuzz_targets/runtime_config.rs"),
     ("fuzz/Cargo.toml", "lsp_incremental", "fuzz/fuzz_targets/lsp_incremental.rs"),
     ("fuzz/Cargo.toml", "hmi_payloads", "fuzz/fuzz_targets/hmi_payloads.rs"),
@@ -75,6 +80,24 @@ EXPECTED_SMOKE_IDS = {
 }
 
 
+PROPERTY_EXECUTOR_FILE = "crates/trust-runtime/tests/property_executor_differential.rs"
+PROPERTY_STATEFUL_FILE = "crates/trust-runtime/tests/stateful_lifecycle_sequences.rs"
+
+
+def _rust_fixture_repo(directory: Path, relative: str, source: str) -> Path:
+    """Write one Rust test file into a scratch git repository that the scanner can enumerate."""
+
+    subprocess.run(["git", "init", "-q", str(directory)], check=True)
+    crate = relative.split("/")[1]
+    manifest = directory / "crates" / crate / "Cargo.toml"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(f'[package]\nname = "{crate}"\nversion = "0.0.0"\npublish = false\n')
+    target = directory / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source)
+    return directory
+
+
 class FuzzProgramDiscoveryTests(unittest.TestCase):
     def test_live_inventory_covers_root_and_nested_cargo_fuzz_targets(self) -> None:
         result = scan_cargo_fuzz_targets(ROOT)
@@ -91,6 +114,114 @@ class FuzzProgramDiscoveryTests(unittest.TestCase):
         result = scan_fuzz_like_tests(ROOT)
         self.assertEqual([], list(result.diagnostics))
         self.assertEqual(EXPECTED_SMOKE_IDS, {fact.stable_id for fact in result.facts})
+
+    def test_reviewed_property_test_files_match_their_classification(self) -> None:
+        result = scan_fuzz_like_tests(ROOT)
+        for relative in REVIEWED_PROPERTY_TEST_FILES:
+            with self.subTest(path=relative):
+                self.assertTrue((ROOT / relative).is_file(), relative)
+                self.assertEqual(
+                    [],
+                    [item for item in result.diagnostics if item.path == relative],
+                )
+
+    def test_unlisted_proptest_file_still_fails_visibly(self) -> None:
+        relative = "crates/example/tests/unlisted_property.rs"
+        source = (
+            "use proptest::prelude::*;\n\n"
+            "proptest! {\n"
+            "    #[test]\n"
+            "    fn unlisted_property(value in 0u8..4) {\n"
+            "        prop_assert!(value < 4);\n"
+            "    }\n"
+            "}\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = _rust_fixture_repo(Path(directory), relative, source)
+            result = scan_fuzz_like_tests(root)
+        self.assertTrue(
+            any(
+                item.kind == "unsupported_fuzz_like_framework" and item.path == relative
+                for item in result.diagnostics
+            ),
+            result.diagnostics,
+        )
+
+    def test_drifted_reviewed_property_test_file_fails_visibly(self) -> None:
+        executor = (ROOT / PROPERTY_EXECUTOR_FILE).read_text()
+        stateful = (ROOT / PROPERTY_STATEFUL_FILE).read_text()
+        variants = {
+            "seed literal": (
+                PROPERTY_EXECUTOR_FILE,
+                executor,
+                executor.replace(
+                    "const SEED: u64 = 0x7472_7573_7445_5841;",
+                    "const SEED: u64 = 0x7472_7573_7445_5842;",
+                ),
+            ),
+            "case literal": (
+                PROPERTY_EXECUTOR_FILE,
+                executor,
+                executor.replace(
+                    "const DEFAULT_CASES: u32 = 48;",
+                    "const DEFAULT_CASES: u32 = 49;",
+                ),
+            ),
+            "renamed test": (
+                PROPERTY_EXECUTOR_FILE,
+                executor,
+                executor.replace(
+                    "fn executors_agree_on_generated_programs(",
+                    "fn executors_agree_on_programs(",
+                ),
+            ),
+            "extra test in the proptest block": (
+                PROPERTY_EXECUTOR_FILE,
+                executor,
+                executor.replace(
+                    "fn executors_agree_on_generated_programs(case in program_case()) {",
+                    "fn extra_case(case in program_case()) {}\n\n"
+                    "    #[test]\n"
+                    "    fn executors_agree_on_generated_programs(case in program_case()) {",
+                ),
+            ),
+            "new proptest block": (
+                PROPERTY_EXECUTOR_FILE,
+                executor,
+                executor
+                + (
+                    "\nproptest! {\n    #[test]\n    fn extra_property(value in 0u8..2) {\n"
+                    "        prop_assert!(value < 2);\n    }\n}\n"
+                ),
+            ),
+            "unlisted framework marker": (
+                PROPERTY_EXECUTOR_FILE,
+                executor,
+                executor
+                + (
+                    "\n#[cfg(any())]\nfn unlisted_marker() {\n"
+                    "    let _ = quickcheck::quickcheck as fn(fn(u8) -> bool);\n}\n"
+                ),
+            ),
+            "removed cfg gate": (
+                PROPERTY_STATEFUL_FILE,
+                stateful,
+                stateful.replace('#![cfg(feature = "full")]\n', ""),
+            ),
+        }
+        for label, (relative, original, drifted_text) in variants.items():
+            with self.subTest(drift=label):
+                self.assertNotEqual(original, drifted_text)
+                with tempfile.TemporaryDirectory() as directory:
+                    root = _rust_fixture_repo(Path(directory), relative, drifted_text)
+                    result = scan_fuzz_like_tests(root)
+                self.assertTrue(
+                    any(
+                        item.kind == PROPERTY_DRIFT_KIND and item.path == relative
+                        for item in result.diagnostics
+                    ),
+                    result.diagnostics,
+                )
 
     def test_candidate_vocabulary_is_narrow_and_explicit(self) -> None:
         self.assertTrue(is_fuzz_like_test_name("decoder_fuzz_smoke_budget"))
@@ -281,9 +412,9 @@ class FuzzProgramContractTests(unittest.TestCase):
         self.assertTrue(any("semantic digest drifted" in item for item in failures), failures)
 
     def test_every_live_target_has_one_registered_record(self) -> None:
-        self.assertEqual(17, len(self.program["targets"]))
+        self.assertEqual(19, len(self.program["targets"]))
         self.assertEqual(
-            11,
+            13,
             sum(row["target_kind"] == "cargo_fuzz" for row in self.program["targets"]),
         )
         self.assertEqual(
@@ -354,7 +485,7 @@ class FuzzProgramContractTests(unittest.TestCase):
     def test_target_kind_union_fields_fail_closed(self) -> None:
         corrupted = copy.deepcopy(self.program)
         corrupted["targets"][0]["discovery_id"] = "DISC_00000000000000000000"
-        corrupted["targets"][11]["corpus_path"] = "fuzz/corpus/invented"
+        corrupted["targets"][13]["corpus_path"] = "fuzz/corpus/invented"
         failures = validate_fuzz_program_contract(ROOT, corrupted)
         self.assertTrue(any("union contract" in item for item in failures), failures)
 

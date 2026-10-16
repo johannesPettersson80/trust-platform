@@ -1,12 +1,16 @@
 //! Callback-recording tests of value construction, not initializer VM execution.
 use super::*;
+use super::{
+    construct_intrinsic_value as construct_intrinsic_value_with_table,
+    construct_value as construct_value_with_table,
+};
 use crate::bytecode::{EnumVariant, TypeKind};
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
 use crate::value::{DateTimeValue, DateValue, ValueRef};
 use alloc::vec;
 
 struct Recorder {
-    types: TypeTable,
+    types: Arc<TypeTable>,
     strings: Vec<SmolStr>,
     type_recipes: Vec<(u32, u32)>,
     member_recipes: Vec<(u32, u32, u32)>,
@@ -25,10 +29,10 @@ struct Recorder {
 impl Recorder {
     fn new(types: Vec<TypeEntry>) -> Self {
         Self {
-            types: TypeTable {
+            types: Arc::new(TypeTable {
                 offsets: Vec::new(),
                 entries: types,
-            },
+            }),
             strings: vec![
                 "Record".into(),
                 "A".into(),
@@ -60,9 +64,6 @@ impl ValueConstructionContext for Recorder {
             .checked_sub(1)
             .ok_or(RuntimeError::Overflow)?;
         Ok(())
-    }
-    fn types(&self) -> &TypeTable {
-        &self.types
     }
     fn strings(&self) -> &[SmolStr] {
         &self.strings
@@ -127,6 +128,50 @@ impl ValueConstructionContext for Recorder {
         self.active.pop().expect("balanced construction entry");
     }
 }
+fn construct_value(
+    ctx: &mut Recorder,
+    type_id: u32,
+    mode: ValueConstructionMode,
+) -> Result<Value, RuntimeError> {
+    let types = Arc::clone(&ctx.types);
+    construct_value_with_table(&types, ctx, type_id, mode)
+}
+fn construct_intrinsic_value(ctx: &mut Recorder, type_id: u32) -> Result<Value, RuntimeError> {
+    let types = Arc::clone(&ctx.types);
+    construct_intrinsic_value_with_table(&types, ctx, type_id)
+}
+#[test]
+fn struct_type_metadata_is_borrowed_while_output_storage_is_still_charged() {
+    let fields = vec![Field {
+        name_idx: 1,
+        type_id: 0,
+        bit_offset: None,
+    }];
+    let mut ctx = Recorder::new(vec![
+        primitive(7),
+        ty(TypeKind::Struct, TypeData::Struct { fields }),
+    ]);
+    let field_bytes = 2 * (size_of::<Value>() + size_of::<SmolStr>() + 4 * size_of::<usize>())
+        + size_of::<StructValue>()
+        + 2 * size_of::<usize>();
+    // TIME-08: the struct node and its scalar child are constructed nodes (CONSTRUCT).
+    // The field visit and name copy are bookkeeping, but the name still charges its
+    // bytes, and the borrowed Field records add no clone-only work or bytes.
+    ctx.remaining_work = 2;
+    ctx.remaining_bytes = field_bytes + "A".len();
+    ctx.remaining_values = 2;
+    let Value::Struct(value) =
+        construct_value(&mut ctx, 1, ValueConstructionMode::Default).unwrap()
+    else {
+        panic!("struct")
+    };
+    assert_eq!(value.type_name(), "");
+    assert_eq!(value.fields().get("A"), Some(&Value::Int(0)));
+    assert_eq!(ctx.remaining_work, 0);
+    assert_eq!(ctx.remaining_bytes, 0);
+    assert_eq!(ctx.remaining_values, 0);
+    assert!(ctx.active.is_empty());
+}
 fn ty(kind: TypeKind, data: TypeData) -> TypeEntry {
     TypeEntry {
         kind,
@@ -161,10 +206,12 @@ fn record_context() -> Recorder {
                 Field {
                     name_idx: 1,
                     type_id: 1,
+                    bit_offset: None,
                 },
                 Field {
                     name_idx: 2,
                     type_id: 1,
+                    bit_offset: None,
                 },
             ],
         },
@@ -247,7 +294,7 @@ fn apply_merges_only_exact_type_recipe_and_does_not_recoerce_recipe_return() {
 #[test]
 fn array_tails_and_ordinary_defaults_invoke_each_element_recipe_separately() {
     let mut ctx = record_context();
-    ctx.types.entries.push(ty(
+    Arc::make_mut(&mut ctx.types).entries.push(ty(
         TypeKind::Array,
         TypeData::Array {
             elem_type_id: 1,
@@ -402,7 +449,7 @@ fn callback_cycles_budget_exhaustion_and_callback_reference_failure_unwind_conte
     assert!(ctx.active.is_empty());
     ctx.remaining_work = 100_000;
     ctx.remaining_bytes = 0;
-    ctx.types.entries.push(ty(
+    Arc::make_mut(&mut ctx.types).entries.push(ty(
         TypeKind::Array,
         TypeData::Array {
             elem_type_id: 0,
@@ -433,16 +480,18 @@ fn callback_cycles_budget_exhaustion_and_callback_reference_failure_unwind_conte
 fn union_defaults_materialize_all_variants_and_unknown_fields_keep_failure_order() {
     let mut ctx = record_context();
     ctx.type_recipes.retain(|(ty, _)| *ty != 2);
-    ctx.types.entries[2].kind = TypeKind::Union;
-    ctx.types.entries[2].data = TypeData::Union {
+    Arc::make_mut(&mut ctx.types).entries[2].kind = TypeKind::Union;
+    Arc::make_mut(&mut ctx.types).entries[2].data = TypeData::Union {
         fields: vec![
             Field {
                 name_idx: 1,
                 type_id: 1,
+                bit_offset: None,
             },
             Field {
                 name_idx: 2,
                 type_id: 1,
+                bit_offset: None,
             },
         ],
     };
@@ -505,8 +554,9 @@ fn array_branch_preserves_exact_work_allocation_and_validation_order() {
             },
         ),
     ];
-    // One root visit, copied dimension bytes, three elements, and three leaf visits.
-    let work = 1 + size_of::<(i64, i64)>() + 3 + 3;
+    // TIME-08: one root node and three element nodes (CONSTRUCT). The copied dimension
+    // bytes and the element count are bookkeeping and charge no work.
+    let work = 1 + 3;
     let bytes = size_of::<(i64, i64)>() + 3 * size_of::<Value>() + size_of::<ArrayValue>();
     let mut exact = Recorder::new(types.clone());
     exact.remaining_work = work;
@@ -549,12 +599,29 @@ fn recipe_overlay_branch_preserves_exact_copy_charges_and_checks() {
     // reserve. Overlay capacity and final canonical fields each cost another one.
     let field_reserve = size_of::<StructValue>() + 2 * size_of::<usize>();
     let bytes = 3 * field_reserve + "Record".len();
-    let work = 1 + "Record".len();
-    for below in [None, Some(0), Some(1), Some(2)] {
+    // TIME-08: the constructed struct node is the only work; the name copy is bookkeeping.
+    let work = 1;
+    // That node is charged before the recipe runs, so an empty allowance refuses first.
+    let mut starved = Recorder::new(vec![record.clone()]);
+    starved.responses = vec![structure(&[])];
+    starved.type_recipes = vec![(0, 0)];
+    starved.remaining_work = 0;
+    assert_eq!(
+        construct_value(
+            &mut starved,
+            0,
+            ValueConstructionMode::Apply(structure(&[])),
+        ),
+        Err(RuntimeError::Overflow)
+    );
+    assert!(starved.calls.is_empty());
+    assert!(starved.checks.is_empty());
+    assert!(starved.active.is_empty());
+    for below in [None, Some(1), Some(2)] {
         let mut context = Recorder::new(vec![record.clone()]);
         context.responses = vec![structure(&[])];
         context.type_recipes = vec![(0, 0)];
-        context.remaining_work = work - usize::from(below == Some(0));
+        context.remaining_work = work;
         context.remaining_bytes = bytes - usize::from(below == Some(1));
         context.remaining_values = 1 - usize::from(below == Some(2));
         let result = construct_value(

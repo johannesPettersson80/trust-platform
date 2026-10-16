@@ -4,19 +4,43 @@
   "allowed_workspace_edges": [
     {
       "from": "trust-nucleo-f401re",
-      "to": "trust-runtime-core",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability Scope B",
-      "rationale": "Separate bare-metal firmware workspace consumes the compiler-free shared engine with default features disabled; it does not implement PLC semantics."
-    },
-    {
-      "from": "trust-nucleo-f401re",
       "to": "trust-platform-stm32f4",
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability Scope B",
       "rationale": "Separate firmware workspace composes the fixed board peripheral adapter; the root workspace platform crate has no runtime or compiler dependency."
+    },
+    {
+      "from": "trust-board-fixture",
+      "to": "trust-runtime-core",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability M2E (shared fixture and C6)",
+      "rationale": "The shared M2E fixture prepares and executes the source-free artifacts on the compiler-free core with default features disabled."
+    },
+    {
+      "from": "trust-nucleo-f401re",
+      "to": "trust-board-fixture",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability M2E (shared fixture and C6)",
+      "rationale": "The F401 composition runs the shared M2E fixture; it keeps identity, reset cookie and supervision."
+    },
+    {
+      "from": "trust-esp32c6-reference",
+      "to": "trust-board-fixture",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability M2E (shared fixture and C6)",
+      "rationale": "The C6 composition runs the same shared M2E fixture as F401."
+    },
+    {
+      "from": "trust-esp32c6-reference",
+      "to": "trust-platform-esp32",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability M2E (shared fixture and C6)",
+      "rationale": "Separate firmware workspace composes the fixed C6 board peripheral adapter."
     },
     {
       "from": "trust-debug",
@@ -41,6 +65,14 @@
       "status": "allowed",
       "owner": "verification",
       "rationale": "trust-dev tests consume the shared digest-bound verification case artifact contract"
+    },
+    {
+      "from": "trust-dev",
+      "to": "trust-runtime-core",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability diagnostic test-support",
+      "rationale": "The ignored native PLCopen CLI construction test captures the shared core's existing bounded callsite recorder with test-support; the developer CLI retains its normal runtime public API dependency."
     },
     {
       "from": "trust-dev",
@@ -196,6 +228,14 @@
     },
     {
       "from": "trust-runtime",
+      "to": "trust-runtime-core",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime test-support",
+      "rationale": "Hosted runtime tests use the core's test-support feature for bounded VM seam fixtures; production consumers retain the normal dependency facade."
+    },
+    {
+      "from": "trust-runtime",
       "to": "verification-cases",
       "kind": "dev",
       "status": "allowed",
@@ -309,6 +349,41 @@
     },
     {
       "from": "trust-nucleo-f401re",
+      "to": "trust-runtime",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-runtime-core",
+      "to": "trust-platform-esp32",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-runtime-core",
+      "to": "trust-board-fixture",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-platform-esp32",
+      "to": "trust-runtime",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-platform-esp32",
+      "to": "trust-hir",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-board-fixture",
+      "to": "trust-runtime",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-board-fixture",
+      "to": "trust-hir",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-esp32c6-reference",
       "to": "trust-runtime",
       "kind": "normal"
     },
@@ -1267,10 +1342,10 @@
       },
       {
         "path": "crates/trust-runtime/src/runtime/vm/local_init/expr.rs",
-        "owner": "runtime VM",
-        "rationale": "VM local initializer expression lowering is a single recursive semantic boundary",
-        "review_date": "2026-08-21",
-        "split_plan": "Extract expression families only with VM initialization parity coverage."
+        "owner": "runtime historical initializer tests",
+        "rationale": "The cfg(test)-only historical VM initializer corpus retains its recursive expression compatibility owner; production construction executes admitted core initializer bodies.",
+        "review_date": "2026-10-11",
+        "split_plan": "Keep private historical assertions distinct from admitted production proof; split fixture expression families only with their existing compatibility assertions."
       }
     ],
     "module_size_allowlist": [
@@ -1302,13 +1377,22 @@
         "split_plan": "Maintain decode, encode, format, metadata and validation child modules; keep analysis budget, shared instruction decoder and semantic passes separate. A3 versioned-format additions stay in those responsibilities; split any individual file approaching 1000 lines rather than creating a second validator or unrelated top-level namespace."
       },
       {
+        "crate_name": "trust-runtime-core",
+        "module_name": "value",
+        "path": "crates/trust-runtime-core/src/value",
+        "owner": "runtime-core/value",
+        "rationale": "The value namespace groups distinct shared contracts for representation, layout, references, partial access, string semantics, date/time, defaults and overlap operations. Its aggregate is the sum of focused implementation and test modules, not one construction path; platform adapters consume these same contracts.",
+        "review_date": "2026-10-12",
+        "split_plan": "Keep representation and scalar sizing, date/time, reference access, partial access, defaults, string semantics and overlap layout/writers in their current focused owners. Split any individual file approaching 1000 lines by its existing semantic responsibility; preserve one portable value implementation and keep tests beside the contract they exercise."
+      },
+      {
         "crate_name": "trust-runtime",
         "module_name": "runtime",
         "path": "crates/trust-runtime/src/runtime",
         "owner": "runtime/core",
-        "rationale": "runtime execution remains the largest host orchestration module after core extraction",
-        "review_date": "2026-05-02",
-        "split_plan": "Continue extracting VM execution internals into register_ir/vm child modules and avoid adding new top-level runtime execution files."
+        "rationale": "Hosted runtime composition owns admitted-state facades, immutable tooling metadata and borrowed I/O/protocol/retain/debug services. The historical core/cycle/VM namespace is cfg(test) only; production execution belongs to trust-runtime-core.",
+        "review_date": "2026-10-11",
+        "split_plan": "Keep installation, cycle, lifecycle, checked bindings and service adapters in their existing focused owners. Do not restore a production host dispatcher, raw mutable state access or first-use materialization; keep historical fixture ownership explicit."
       },
       {
         "crate_name": "trust-lsp",
@@ -1464,12 +1548,12 @@
         "split_plan": "Split GET/POST workspace actions into child handlers if this route changes again."
       },
       {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/interpreter.rs",
-        "name": "execute_register_block_interpreted",
-        "owner": "runtime/VM",
-        "rationale": "register-IR interpreted execution loop is mutation-locked and kept as one dispatch path",
-        "review_date": "2026-05-02",
-        "split_plan": "Extract instruction-family helpers only with runtime VM mutation shard coverage."
+        "path": "crates/trust-runtime-core/src/vm/register_ir/interpreter.rs",
+        "name": "execute_register_block_interpreted_slice",
+        "owner": "runtime-core/register execution",
+        "rationale": "The resumable interpreter retains the existing shared instruction-family dispatch body and its cursor across user-call yields; hosted and portable owners use the same checked context.",
+        "review_date": "2026-10-13",
+        "split_plan": "Keep operation families in shared child helpers; preserve full stack/register parity and fault, fuel, deadline, resume-cursor and reference assertions."
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime/run/runtime/entry.rs",
@@ -1496,12 +1580,12 @@
         "split_plan": "Split request cases into typed child handlers if the IDE HTTP API changes."
       },
       {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs",
-        "name": "execute_tier1_compiled_block",
-        "owner": "runtime/VM",
-        "rationale": "tier1 compiled execution is mutation-locked and kept as a single hot loop",
-        "review_date": "2026-05-02",
-        "split_plan": "Extract instruction-family helpers only under the tier1 mutation shards."
+        "path": "crates/trust-runtime-core/src/vm/register_ir/tier1/execute.rs",
+        "name": "execute_tier1_compiled_block_slice",
+        "owner": "runtime-core/register specialization",
+        "rationale": "The resumable tier-1 slice retains the existing checked specialized instruction body and original bytecode costs while preserving executor and cursor state across user-call yields; no host Runtime is a production interpreter owner.",
+        "review_date": "2026-10-13",
+        "split_plan": "Extract instruction-family helpers only with canonical specialized/generic/stack parity, resume-cursor and lifecycle assertions."
       },
       {
         "path": "crates/trust-runtime-core/src/vm/dispatch.rs",
@@ -1536,20 +1620,12 @@
         "split_plan": "Split read/write/list operations if IDE file API changes."
       },
       {
-        "path": "crates/trust-runtime/src/host/harness/build.rs",
-        "name": "lower_application",
-        "owner": "runtime/harness",
-        "rationale": "The shared frontend lowers parser and HIR declarations before either legacy materialization or explicit STBC 2.0 production; startup evaluation is owned by the selected consumer.",
-        "review_date": "2026-10-09",
-        "split_plan": "Keep materialization separate and extract additional frontend phases only with both producer and hosted constructor regressions."
-      },
-      {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/lower.rs",
+        "path": "crates/trust-runtime-core/src/vm/register_ir/lower.rs",
         "name": "lower_pou_to_register_ir",
-        "owner": "runtime/VM",
-        "rationale": "register-IR lowering root is mutation-locked after BOARD-10",
-        "review_date": "2026-05-02",
-        "split_plan": "Move more decode/fuse/verify phases to existing child modules when lowering changes."
+        "owner": "runtime-core/register preparation",
+        "rationale": "Fallible source-free register lowering runs during PreparedModule construction, not first use in a hosted scan.",
+        "review_date": "2026-10-11",
+        "split_plan": "Keep decode, block analysis, fusion and verification in existing shared children; retain bounded preparation and supplied-bytecode assertions."
       },
       {
         "path": "crates/trust-runtime/src/web/runtime_cloud_routes/actions.rs",
@@ -1608,12 +1684,12 @@
         "split_plan": "Split address parsing from binding projection if I/O harness logic grows."
       },
       {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/lower/fuse.rs",
+        "path": "crates/trust-runtime-core/src/vm/register_ir/lower/fuse.rs",
         "name": "try_fuse_instruction_window",
-        "owner": "runtime/VM",
-        "rationale": "fusion window logic is mutation-sensitive and kept in one helper",
-        "review_date": "2026-05-02",
-        "split_plan": "Split fusion cases only under the register-ir-lower-fuse mutation shard."
+        "owner": "runtime-core/register preparation",
+        "rationale": "Shared preparation-time fusion preserves original instruction costs and supported operation semantics.",
+        "review_date": "2026-10-11",
+        "split_plan": "Split fusion families only with canonical fusion parity, malformed-input and instruction-cost assertions."
       },
       {
         "path": "crates/trust-runtime/src/bytecode/encoder/codegen/expr.rs",
@@ -1958,96 +2034,24 @@
         "review_date": "2026-10-10"
       },
       {
-        "path": "firmware/trust-nucleo-f401re/src/main.rs",
-        "line": 135,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Cortex-M exception ABI is required by cortex-m-rt; HardFault abandons execution permanently through the nonallocating terminal board safe-off path.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/application.rs",
-        "line": 17,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "The exact 16 KiB flash sector1 slice is linker-excluded from firmware and never mutated during RUN; bundle ranges and CRCs are checked before prepared admission.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 38,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "MeasuredHeap delegates to the critical-section protected allocator over one private72KiB arena; instrumentation uses atomics and never allocates or panics.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 39,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "GlobalAlloc layout contract is inherited; allocation forwards the unchanged layout and records failure/live/peak counters without allocating.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 41,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer is retained as allocation-failure evidence, never dereferenced.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 53,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; deallocation preserves the pair and does not expose the arena elsewhere.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 55,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 63,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private72KiB aligned arena exclusively to LlffHeap.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 91,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Aligned volatile reads remain inside the reserved16KiB MSP SRAM region; reported watermark is measured evidence, not an exhaustive stack bound.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 122,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Interrupts are masked; writes paint only aligned reserved MSP addresses below the sampled active MSP minus256-byte guard, preserving earlier observed peaks.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 126,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Restores only the entry interrupt-enable state after painting finishes; the adapter never enables interrupts that were disabled on entry.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
+        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+        "line": 21,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
         "review_date": "2026-10-10"
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 26,
+        "line": 22,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
+        "review_date": "2026-10-10"
+      },
+      {
+        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+        "line": 25,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2063,7 +2067,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 30,
+        "line": 29,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2071,7 +2075,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 32,
+        "line": 31,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2086,20 +2090,140 @@
         "review_date": "2026-10-10"
       },
       {
-        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 36,
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 57,
         "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
       },
       {
-        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 39,
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 58,
         "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 60,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 66,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
+        "line": 69,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
+        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 27,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 28,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 31,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 33,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 35,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 37,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "line": 40,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 62,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 63,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 65,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 72,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
+        "line": 77,
+        "owner": "runtime portability",
+        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
+        "review_date": "2026-10-15"
       },
       {
         "path": "crates/trust-lsp/src/perf.rs",
@@ -2404,6 +2528,230 @@
         "invariant": "the test read-write fake writes exactly the supplied read capacity and reports that same initialized byte count",
         "test_evidence": "cargo test -p trust-tcads-native native_read_and_read_write_validate_returned_lengths",
         "review_date": "2026-07-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 39,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Callers give the allocator one region, once, before any allocation; the region is valid, aligned and owned by nothing else for the program's lifetime (documented Safety contract).",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 42,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Forwards the caller's init contract unchanged to the inner LlffHeap; the composition's arena is exclusively owned by the allocator.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 59,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "MeasuredHeap delegates to the critical-section protected LlffHeap over the composition's private 72 KiB arena; instrumentation uses relaxed atomics and never allocates or panics.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 60,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "GlobalAlloc layout contract is inherited; allocation forwards the unchanged layout and records failure/live/peak counts.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 62,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer is retained as allocation-failure evidence.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 74,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; deallocation preserves the pair and exposes no alias.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 76,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 144,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Interrupts are masked by the critical section; writes paint only aligned addresses of the composition's 16 KiB stack window below the sampled stack pointer minus a 256-byte guard.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 168,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Aligned volatile reads stay inside the composition's 16 KiB stack window; the reported watermark is measured evidence, not a worst-case proof.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 204,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Reads the Cortex-M MSP register only (nomem, nostack, preserves_flags); no memory is accessed.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-board-fixture/src/memory.rs",
+        "line": 221,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Copies the RISC-V stack pointer register only (nomem, nostack, preserves_flags); no memory is accessed.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/clock.rs",
+        "line": 101,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Reads the C6 machine performance-cycle counter CSR 0x7E2 only; no memory is accessed. The counter runs from boot (M0 probe).",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 38,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Clears only mstatus.MIE in the terminal single-core halt; no suspended handler ever resumes.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 46,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Write-one-to-clear of GPIO18's bit only: latches the output low without touching another pin.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 49,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Write-one-to-set of GPIO18's output enable only, after its latch is low.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 58,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Writes the documented TIMG write-protect key to the watchdog write-protect register only.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 60,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Any write to WDTFEED restarts MWDT0 and touches nothing else.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 63,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Re-arms write protection on the TIMG watchdog registers.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 81,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Writes one byte into the USB-Serial/JTAG EP1 FIFO data field (every 8-bit value is valid); the halt never resumes the live console driver.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
+        "line": 148,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Reads the misa CSR only; no memory is accessed.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
+        "line": 119,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "The index is bounds-checked against the two-word RTC-fast COOKIE static; only ResetControl writes it, in program order.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
+        "line": 127,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Both loads stay inside the two-word RTC-fast COOKIE static; volatile, so the value comes from RTC memory.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "firmware/trust-esp32c6-reference/src/application.rs",
+        "line": 20,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "An AtomicBool once-flag admits a single caller per boot, so this is the only reference to the static 16 KiB bundle buffer ever created.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "firmware/trust-esp32c6-reference/src/main.rs",
+        "line": 161,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "wfi only suspends the core until an interrupt is pending; no memory or register is touched.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "firmware/trust-esp32c6-reference/src/memory.rs",
+        "line": 32,
+        "owner": "runtime portability M2E board/firmware",
+        "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static is exclusively owned by the allocator.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "firmware/trust-nucleo-f401re/src/application.rs",
+        "line": 10,
+        "owner": "runtime portability Scope B board/firmware",
+        "invariant": "The exact 16 KiB flash sector-1 slice is linker-excluded from firmware and never mutated during RUN; bundle ranges and CRCs are validated by the shared decode before any payload is exposed.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "firmware/trust-nucleo-f401re/src/main.rs",
+        "line": 133,
+        "owner": "runtime portability Scope B board/firmware",
+        "invariant": "Cortex-M exception ABI is required by cortex-m-rt; HardFault abandons execution permanently through the nonallocating terminal board safe-off path.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
+        "line": 20,
+        "owner": "runtime portability Scope B board/firmware",
+        "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -2590,24 +2938,6 @@
         "review_date": "2026-10-10"
       },
       {
-        "path_prefix": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "primitive": "Atomic",
-        "owner": "runtime portability Scope B",
-        "shared_state": "heap counters and measured boot stack peak",
-        "invariant": "Allocator internals serialize via Cortex-M critical sections; relaxed atomics expose instrumentation only and do not replace allocation ownership.",
-        "test_evidence": "Planned frozen Scope B native arithmetic tests plus real SysTick/watchdog/heap trace; no hardware result claimed before batch.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path_prefix": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "primitive": "Ordering::",
-        "owner": "runtime portability Scope B",
-        "shared_state": "heap counters and measured boot stack peak",
-        "invariant": "Allocator internals serialize via Cortex-M critical sections; relaxed atomics expose instrumentation only and do not replace allocation ownership.",
-        "test_evidence": "Planned frozen Scope B native arithmetic tests plus real SysTick/watchdog/heap trace; no hardware result claimed before batch.",
-        "review_date": "2026-10-10"
-      },
-      {
         "path_prefix": "crates/trust-runtime/src/scheduler/",
         "primitive": "*",
         "owner": "runtime/scheduler",
@@ -2750,6 +3080,87 @@
         "invariant": "allocation counters are atomic and only active in the perf_alloc_metrics test feature",
         "test_evidence": "cargo test -p trust-lsp --features perf_alloc_metrics perf::",
         "review_date": "2026-05-02"
+      },
+      {
+        "path_prefix": "crates/trust-board-fixture/src/memory.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "heap counters and measured boot stack peak",
+        "invariant": "Allocator internals serialize through the target's single-core critical sections; relaxed atomics expose instrumentation only and do not replace allocation ownership.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "crates/trust-board-fixture/src/memory.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "heap counters and measured boot stack peak",
+        "invariant": "Allocator internals serialize through the target's single-core critical sections; relaxed atomics expose instrumentation only and do not replace allocation ownership.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/clock.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "1 kHz SYSTIMER tick count",
+        "invariant": "Only the tick interrupt increments the AtomicU32; main reads relaxed counts for instrumentation, never as a memory-publication or PLC scheduler fence.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/clock.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "1 kHz SYSTIMER tick count",
+        "invariant": "Only the tick interrupt increments the AtomicU32; main reads relaxed counts for instrumentation, never as a memory-publication or PLC scheduler fence.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/clock.rs",
+        "primitive": "Mutex",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "periodic tick timer handle",
+        "invariant": "A critical_section::Mutex serializes the handler's interrupt clear with enable/disable from main on the single core; interrupts are masked inside.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/mod.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "board-taken flag",
+        "invariant": "One swap admits a single Board::take per boot because esp_hal::init panics on a second call; no data is published through it.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/mod.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "board-taken flag",
+        "invariant": "One swap admits a single Board::take per boot because esp_hal::init panics on a second call; no data is published through it.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "firmware/trust-esp32c6-reference/src/application.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "bundle read once-flag",
+        "invariant": "One AcqRel swap admits a single bundle read per boot; it guards the static buffer's only mutable reference and publishes no data.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
+      },
+      {
+        "path_prefix": "firmware/trust-esp32c6-reference/src/application.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability M2E board/firmware",
+        "shared_state": "bundle read once-flag",
+        "invariant": "One AcqRel swap admits a single bundle read per boot; it guards the static buffer's only mutable reference and publishes no data.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
+        "review_date": "2026-10-15"
       }
     ],
     "tool_gates": [

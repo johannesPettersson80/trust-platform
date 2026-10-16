@@ -333,6 +333,16 @@ pub(super) fn format_address(address: &IoAddress) -> String {
     }
 }
 
+/// Stable wire label of a debugger stop reason, shared by stop projections and status holds.
+pub(super) fn debug_stop_reason_label(reason: crate::debug::DebugStopReason) -> &'static str {
+    match reason {
+        crate::debug::DebugStopReason::Breakpoint => "breakpoint",
+        crate::debug::DebugStopReason::Step => "step",
+        crate::debug::DebugStopReason::Pause => "pause",
+        crate::debug::DebugStopReason::Entry => "entry",
+    }
+}
+
 pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
     match event {
         RuntimeEvent::CycleStart { cycle, time } => json!({
@@ -369,6 +379,16 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "type": "task_overrun",
             "name": name.as_str(),
             "missed": missed,
+            "time_ns": time.as_nanos(),
+        }),
+        RuntimeEvent::WriteRejected {
+            target,
+            error,
+            time,
+        } => json!({
+            "type": "write_rejected",
+            "target": target.as_str(),
+            "error": error,
             "time_ns": time.as_nanos(),
         }),
         RuntimeEvent::Fault { error, time } => json!({

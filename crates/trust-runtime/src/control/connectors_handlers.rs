@@ -33,7 +33,7 @@ pub(super) fn handle_connectors_status(id: u64, state: &ControlState) -> Control
         .unwrap_or_default();
     match ads_status_report_from_state(state) {
         Ok(report) => connectors.extend(project_ads_status_report(&report)),
-        Err(error) => warnings.push(error),
+        Err(error) => warnings.push(error.message().to_string()),
     }
     match ads_server_status_report_from_state(state) {
         Ok(report) => {

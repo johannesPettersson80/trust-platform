@@ -144,6 +144,21 @@ endpoint and is not covered by this managed-session rule.
 
 - A successful write is queued for the next scan boundary and is consumed
   once.
+- Managed-local I/O writes and forces also update the authoritative process
+  image immediately after checked admission, preserving the existing I/O
+  inspection response. This image update is distinct from applying a PLC
+  input binding or delivering a physical output: ordered input writes are
+  reapplied after physical sampling at the next scan, and output forces reach
+  drivers at the normal output-publication boundary. A rejected image update
+  shall not install a queued write or a force. Detached paused I/O displays
+  remain presentation; they do not copy images back into the installed owner.
+- Queue acceptance and a detached paused-display edit are not proof that the
+  live destination was changed. At application, the runtime rechecks the
+  destination lifetime and type. A retired invocation-local destination is
+  rejected with a `write_rejected` event; it shall not redirect to a newer frame
+  or fault the PLC solely because the engineering request is stale. H implements
+  this rule through specification 34 HOST-09. Continue does not copy a detached
+  debugger frame back into live VM locals or change next-scan write timing.
 - A successful force remains active across scans, pause/resume, and a
   non-terminating detach until an authorized release or a runtime clearing
   boundary.
@@ -418,6 +433,14 @@ including at `0` and `u64::MAX`.
 Debugger scopes and variable visibility follow IEC variable sections and access
 rules.
 
+The Retain scope projects the installed retained global and program-member
+checkpoint destinations from their ordinary global/instance storage. Program
+members use the checkpoint's canonical `@program/<root>/<member>` identity;
+editing or forcing such a row targets that current declared destination through
+the same checked owner/queue boundary as its normal scope. The scope shall not
+create a separate executable retain bank or guess live instance IDs. Detached
+inspection fixtures may contain a legacy bank solely for presentation coverage.
+
 **Rules**:
 - Local scopes include variables declared in the active POU’s `VAR`,
   `VAR_TEMP`, `VAR_INPUT`, `VAR_OUTPUT`, and `VAR_IN_OUT` sections.
@@ -444,6 +467,16 @@ expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
 ### Reload / Hot Reload
 
 - `stReload` replaces runtime sources and revalidates breakpoints.
+- Successful source/schema replacement invalidates compiled watch expressions,
+  their scratch registries and the adapter's expression-text cache together. Retired
+  frame/snapshot locations, step/stop state and queued mutations are also cleared;
+  old variable handles are never reused to identify new storage. UI watch
+  definitions remain, and the failed-candidate path preserves the old installation.
+
+  User watch definitions remain in the editor; the next ordinary evaluation
+  reparses and registers them against the current installed metadata. A failed
+  reload preserves the previous watch set and cache. Ordinary same-schema restart
+  does not require a watch-schema replacement.
 - If the session was paused before reload, it remains paused after reload.
 - Source compilation and runtime reload are fail-closed. A compile,
   bytecode-validation, resource-validation, or retained-state preparation

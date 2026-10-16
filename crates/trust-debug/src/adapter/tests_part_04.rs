@@ -238,11 +238,11 @@ END_PROGRAM
     {
         let mut guard = runtime.lock().unwrap();
         guard
-            .storage_mut()
-            .set_global("trigger1", RuntimeValue::Bool(true));
+            .write_global("trigger1", RuntimeValue::Bool(true))
+            .unwrap();
         guard
-            .storage_mut()
-            .set_global("trigger2", RuntimeValue::Bool(true));
+            .write_global("trigger2", RuntimeValue::Bool(true))
+            .unwrap();
     }
 
     let runtime_thread = Arc::clone(&runtime);

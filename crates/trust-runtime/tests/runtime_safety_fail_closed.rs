@@ -10,7 +10,10 @@ use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{Clock, ResourceRunner, ResourceState, SharedGlobals};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::{FaultPolicy, WatchdogAction, WatchdogPolicy};
-use trust_runtime::{RetainSnapshot, Runtime};
+use trust_runtime::{RetainSnapshot, Runtime, RuntimeBuilder};
+
+#[path = "runtime_safety_fail_closed/focused_regressions.rs"]
+mod focused_regressions;
 
 #[derive(Clone, Debug)]
 struct StepClock {
@@ -194,20 +197,34 @@ impl RetainStore for FailingRetainStore {
 }
 
 fn output_runtime(writes: Arc<Mutex<Vec<Vec<u8>>>>, driver: RecordingDriver) -> Runtime {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
-    runtime.storage_mut().set_global("out", Value::Bool(true));
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(true))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
     runtime
         .io_mut()
         .bind("out", IoAddress::parse("%QX0.0").expect("output address"));
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver("recorder", Box::new(driver));
     assert!(writes.lock().expect("driver writes lock").is_empty());
     runtime
 }
 
 fn runtime_with_panicking_input_driver() -> Runtime {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(1, 0, 0);
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver("panic-input", Box::new(PanickingReadDriver));
     runtime
 }
@@ -247,6 +264,7 @@ fn panic_in_io_driver_faults_resource_visibly() {
 
     let state = handle.state();
     let last_error = handle.last_error();
+    handle.stop();
     let join_result = handle.join();
 
     assert_eq!(state, ResourceState::Faulted);
@@ -263,8 +281,23 @@ fn panic_in_io_driver_faults_resource_visibly() {
 
 #[test]
 fn panic_in_shared_resource_faults_without_poison_detection() {
-    let mut runtime = runtime_with_panicking_input_driver();
-    runtime.storage_mut().set_global("shared", Value::Int(1));
+    let mut builder = RuntimeBuilder::new();
+    builder.io_mut().resize(1, 0, 0);
+    builder
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "shared".into(),
+            type_id: TypeId::INT,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Int(1))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare shared global");
+    let mut runtime = builder.build().expect("install shared runtime");
+    runtime.add_io_driver("panic-input", Box::new(PanickingReadDriver));
     let shared =
         SharedGlobals::from_runtime(vec!["shared".into()], &runtime).expect("shared globals");
     let clock = StepClock::new();
@@ -277,6 +310,7 @@ fn panic_in_shared_resource_faults_without_poison_detection() {
 
     let state = handle.state();
     let last_error = handle.last_error();
+    handle.stop();
     let join_result = handle.join();
 
     assert_eq!(state, ResourceState::Faulted);
@@ -294,9 +328,10 @@ fn panic_in_shared_resource_faults_without_poison_detection() {
 #[test]
 fn modbus_warn_and_ignore_policy_do_not_fault_resource_state() {
     for policy in ["warn", "ignore"] {
-        let mut runtime = Runtime::new();
+        let mut runtime = RuntimeBuilder::new();
         runtime.io_mut().resize(2, 0, 0);
         let driver = ModbusTcpDriver::from_params(&modbus_params(policy)).expect("modbus driver");
+        let mut runtime = runtime.build().expect("install declared test runtime");
         runtime.add_io_driver(format!("modbus-{policy}"), Box::new(driver));
         let clock = StepClock::new();
         let runner = ResourceRunner::new(runtime, clock, Duration::from_millis(1));
@@ -322,9 +357,10 @@ fn modbus_warn_and_ignore_policy_do_not_fault_resource_state() {
 
 #[test]
 fn modbus_fault_policy_faults_resource_state() {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(2, 0, 0);
     let driver = ModbusTcpDriver::from_params(&modbus_params("fault")).expect("modbus driver");
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver("modbus-fault", Box::new(driver));
     let clock = StepClock::new();
     let runner = ResourceRunner::new(runtime, clock, Duration::from_millis(1));
@@ -337,6 +373,7 @@ fn modbus_fault_policy_faults_resource_state() {
         handle.last_error().is_some(),
         "fault policy must surface the driver error"
     );
+    handle.stop();
     handle.join().expect("runner join");
 }
 
@@ -372,11 +409,12 @@ fn requested_stop_applies_safe_outputs_before_thread_exits() {
 #[test]
 fn requested_stop_faults_when_safe_state_handoff_is_unconfirmed() {
     let writes = Arc::new(Mutex::new(Vec::new()));
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
     let address = IoAddress::parse("%QX0.0").expect("safe-state output address");
     let mut safe_state = IoSafeState::default();
     safe_state.outputs.push((address, Value::Bool(false)));
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.set_io_safe_state(safe_state);
     runtime.add_io_driver(
         "degraded-safe-state",
@@ -491,6 +529,7 @@ fn deliberate_stop_and_fault_safe_state_paths_are_explicit() {
     let mut handle = runner.spawn("fault-safe-state").expect("spawn runner");
 
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert_eq!(handle.state(), ResourceState::Faulted);
@@ -508,8 +547,9 @@ fn deliberate_stop_and_fault_safe_state_paths_are_explicit() {
 #[test]
 fn persistent_fault_restart_policy_escalates_to_visible_fault() {
     let reads = Arc::new(AtomicUsize::new(0));
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(1, 0, 0);
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.set_fault_policy(FaultPolicy::Restart);
     runtime.add_io_driver(
         "persistent-failure",
@@ -549,6 +589,7 @@ fn persistent_fault_restart_policy_escalates_to_visible_fault() {
         "restart attempts should be bounded, reads={}",
         reads.load(Ordering::SeqCst)
     );
+    handle.stop();
     handle.join().expect("runner join");
 }
 
@@ -599,6 +640,7 @@ END_PROGRAM
         }
         other => panic!("expected RestartLimitExceeded, got {other:?}"),
     }
+    handle.stop();
     handle.join().expect("runner join");
 }
 
@@ -626,6 +668,7 @@ fn panic_applies_safe_outputs_before_faulting_resource() {
     let mut handle = runner.spawn("panic-safe-state").expect("spawn runner");
 
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert_eq!(handle.state(), ResourceState::Faulted);
@@ -652,6 +695,7 @@ fn panic_does_not_follow_ordinary_restart_policy() {
         .expect("spawn runner");
 
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert_eq!(handle.state(), ResourceState::Faulted);
@@ -664,7 +708,9 @@ fn panic_does_not_follow_ordinary_restart_policy() {
 
 #[test]
 fn unexpected_thread_unwind_after_running_faults_control_surface() {
-    let runtime = Runtime::new();
+    let runtime = RuntimeBuilder::new()
+        .build()
+        .expect("install empty test runtime");
     let clock = PanicOnFirstSleepClock::new();
     let runner = ResourceRunner::new(runtime, clock, Duration::from_millis(1));
     let mut handle = runner
@@ -723,18 +769,41 @@ fn watchdog_deadline_breach_before_commit_prevents_output_write() {
         writes.lock().expect("driver writes lock").is_empty(),
         "watchdog breach before output commit must prevent physical output writes"
     );
+    handle.stop();
     handle.join().expect("runner join");
 }
 
 #[test]
 fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
     let writes = Arc::new(Mutex::new(Vec::new()));
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
-    runtime.storage_mut().set_global("safe", Value::Bool(true));
     runtime
-        .storage_mut()
-        .set_global("unconfigured", Value::Bool(false));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "safe".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(true))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "unconfigured".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
     runtime.io_mut().bind(
         "safe",
         IoAddress::parse("%QX0.0").expect("safe output address"),
@@ -743,6 +812,7 @@ fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
         "unconfigured",
         IoAddress::parse("%QX0.1").expect("unconfigured output address"),
     );
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver("recorder", Box::new(RecordingDriver::new(writes.clone())));
 
     runtime
@@ -755,8 +825,8 @@ fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
     );
 
     runtime
-        .storage_mut()
-        .set_global("unconfigured", Value::Bool(true));
+        .write_global("unconfigured", Value::Bool(true))
+        .expect("checked test write");
     let mut safe_state = IoSafeState::default();
     safe_state.outputs.push((
         IoAddress::parse("%QX0.0").expect("safe output address"),
@@ -775,6 +845,7 @@ fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
         .spawn("watchdog-partial-safe-state")
         .expect("spawn runner");
     wait_for_fault(&handle);
+    handle.stop();
     handle.join().expect("runner join");
 
     assert!(matches!(
@@ -813,26 +884,23 @@ fn retain_save_failure_prevents_output_commit_when_due() {
 
 #[test]
 fn nonfinite_typed_output_faults_before_driver_commit() {
+    // HOST-09 prevents raw corruption of an installed controller. Keep the
+    // original malformed-value assertion at its actual output codec owner.
     let writes = Arc::new(Mutex::new(Vec::new()));
-    let mut runtime = Runtime::new();
-    runtime.io_mut().resize(0, 4, 0);
-    runtime
-        .storage_mut()
-        .set_global("out", Value::Real(f32::NAN));
-    runtime.io_mut().bind_typed(
+    let mut storage = trust_runtime::memory::VariableStorage::new();
+    storage.set_global("out", Value::Real(f32::NAN));
+    let mut interface = trust_runtime::io::IoInterface::new();
+    interface.resize(0, 4, 0);
+    interface.bind_typed(
         "out",
         IoAddress::parse("%QD0").expect("REAL output address"),
         TypeId::REAL,
     );
-    runtime.add_io_driver(
-        "recorder",
-        Box::new(RecordingDriver::new(Arc::clone(&writes))),
-    );
-
-    let err = runtime
-        .execute_cycle()
+    let mut driver = RecordingDriver::new(Arc::clone(&writes));
+    let err = interface
+        .write_outputs(&storage)
+        .and_then(|()| driver.write_outputs(interface.outputs()))
         .expect_err("non-finite typed output must fail the cycle");
-
     assert_eq!(
         err,
         RuntimeError::IoDriver("typed REAL process-image value must be finite".into())
@@ -841,6 +909,62 @@ fn nonfinite_typed_output_faults_before_driver_commit() {
         writes.lock().expect("driver writes lock").is_empty(),
         "rejected output must not reach the physical driver"
     );
+}
+
+#[test]
+fn installed_nonfinite_seed_and_live_write_are_rejected_without_side_effects() {
+    let mut seed = RuntimeBuilder::new();
+    seed.register_global(trust_runtime::program_model::VarDef {
+        name: "out".into(),
+        type_id: TypeId::REAL,
+        initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Real(
+            f32::NAN,
+        ))),
+        retain: trust_runtime::RetainPolicy::Unspecified,
+        static_storage: false,
+        external: false,
+        in_out: false,
+        constant: false,
+        address: None,
+    })
+    .expect("declare REAL seed");
+    assert!(
+        seed.build().is_err(),
+        "non-finite construction seed cannot be admitted"
+    );
+
+    let mut builder = RuntimeBuilder::new();
+    builder.io_mut().resize(0, 4, 0);
+    builder
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out".into(),
+            type_id: TypeId::REAL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Real(1.0))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare finite REAL");
+    builder
+        .io_mut()
+        .bind_typed("out", IoAddress::parse("%QD0").unwrap(), TypeId::REAL);
+    let mut runtime = builder.build().expect("install finite runtime");
+    let writes = Arc::new(Mutex::new(Vec::new()));
+    runtime.add_io_driver(
+        "recorder",
+        Box::new(RecordingDriver::new(Arc::clone(&writes))),
+    );
+    let outputs = runtime.io().outputs().to_vec();
+    let time = runtime.current_time();
+    assert!(runtime.write_global("out", Value::Real(f32::NAN)).is_err());
+    assert_eq!(runtime.storage().get_global("out"), Some(&Value::Real(1.0)));
+    assert_eq!(runtime.io().outputs(), outputs);
+    assert_eq!(runtime.current_time(), time);
+    assert!(!runtime.faulted());
+    assert!(writes.lock().unwrap().is_empty());
 }
 
 #[test]

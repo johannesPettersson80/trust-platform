@@ -39,6 +39,26 @@ pub(super) fn decode_instructions(
     budget: &mut ValidationBudget,
     mut validate_operand: impl FnMut(&Instruction, &mut ValidationBudget) -> Result<(), BytecodeError>,
 ) -> Result<Vec<Instruction>, BytecodeError> {
+    // POU and initializer validation share framing and jump checks. Keep their
+    // operand rules separate without emitting two portable decoder bodies.
+    #[cfg(not(feature = "std"))]
+    let validate_operand: &mut dyn FnMut(
+        &Instruction,
+        &mut ValidationBudget,
+    ) -> Result<(), BytecodeError> = &mut validate_operand;
+    #[cfg(feature = "std")]
+    let validate_operand = &mut validate_operand;
+    decode_instructions_with(code, count, budget, validate_operand)
+}
+
+#[cfg_attr(not(feature = "std"), inline(never))]
+fn decode_instructions_with(
+    code: &[u8],
+    count: &mut usize,
+    budget: &mut ValidationBudget,
+    validate_operand: &mut (impl FnMut(&Instruction, &mut ValidationBudget) -> Result<(), BytecodeError>
+              + ?Sized),
+) -> Result<Vec<Instruction>, BytecodeError> {
     let _ = i32::try_from(code.len()).map_err(|_| RejectionReason::CodePositionOverflow)?;
     let mut reader = BytecodeReader::new(code);
     let mut instructions = Vec::new();
@@ -95,9 +115,4 @@ pub(super) fn decode_instructions(
 }
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn decoded_instruction_is_twenty_bytes_on_each_target() {
-        assert_eq!(core::mem::size_of::<super::Instruction>(), 20);
-    }
-}
+mod tests;

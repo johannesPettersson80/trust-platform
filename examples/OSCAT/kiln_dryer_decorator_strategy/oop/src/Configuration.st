@@ -1,5 +1,5 @@
 CONFIGURATION KilnDryerDecoratorStrategyOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE KilnDryerDecoratorStrategyOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Dryer WITH MainTask : Main;
 END_RESOURCE

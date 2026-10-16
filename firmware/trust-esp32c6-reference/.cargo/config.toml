@@ -1,0 +1,9 @@
+[build]
+target = "riscv32imac-unknown-none-elf"
+
+[target.riscv32imac-unknown-none-elf]
+rustflags = ["-C", "link-arg=-Tlinkall.x", "-C", "link-arg=-Map=trust-esp32c6-reference.map"]
+
+[env]
+# Scan-time code executes from HP SRAM through esp-hal's RAM-code linker hook (spec 34 D.2).
+ESP_HAL_CONFIG_USE_RWTEXT_LD_HOOK = "true"

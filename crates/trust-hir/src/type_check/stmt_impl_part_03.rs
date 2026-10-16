@@ -84,7 +84,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             if !self.checker.is_assignable(selector_type, label_type)
                 && !self
                     .checker
-                    .is_contextual_int_literal(selector_type, &child)
+                    .is_contextual_case_int_literal(selector_type, &child)
                 && !self
                     .checker
                     .is_contextual_real_literal(selector_type, &child)
@@ -137,7 +137,9 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
 
         let label_type = self.check_expression(expr);
         if !self.checker.is_assignable(selector_type, label_type)
-            && !self.checker.is_contextual_int_literal(selector_type, expr)
+            && !self
+                .checker
+                .is_contextual_case_int_literal(selector_type, expr)
             && !self.checker.is_contextual_real_literal(selector_type, expr)
         {
             self.checker.diagnostics.error(

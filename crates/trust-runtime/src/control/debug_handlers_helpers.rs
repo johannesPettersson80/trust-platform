@@ -2,12 +2,7 @@ fn debug_stop_to_json(
     stop: crate::debug::DebugStop,
     state: &ControlState,
 ) -> Option<serde_json::Value> {
-    let reason = match stop.reason {
-        crate::debug::DebugStopReason::Breakpoint => "breakpoint",
-        crate::debug::DebugStopReason::Step => "step",
-        crate::debug::DebugStopReason::Pause => "pause",
-        crate::debug::DebugStopReason::Entry => "entry",
-    };
+    let reason = super::types::debug_stop_reason_label(stop.reason);
     let mut payload = json!({
         "reason": reason,
         "thread_id": stop.thread_id,
@@ -89,9 +84,10 @@ fn evaluate_with_snapshot(
     let eval = |storage: &mut crate::memory::VariableStorage,
                 instance_id: Option<crate::memory::InstanceId>|
      -> Result<Value, RuntimeError> {
-        crate::helper_eval::eval_storage_expr_with_stdlib(
+        crate::helper_eval::eval_storage_expr_with_abi(
             storage,
             registry,
+            snapshot.storage_abi,
             &profile,
             instance_id,
             Some(metadata.stdlib()),

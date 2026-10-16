@@ -189,8 +189,13 @@ impl BreakpointManager {
                     ));
                     let condition = match requested_bp.condition.as_deref() {
                         Some(condition) => {
-                            match parse_debug_expression(condition, &mut registry, profile, &using)
-                            {
+                            match trust_runtime::harness::parse_debug_expression_with_abi(
+                                condition,
+                                &mut registry,
+                                profile,
+                                &using,
+                                context.metadata.storage_abi(),
+                            ) {
                                 Ok(expr) => Some(expr),
                                 Err(err) => {
                                     breakpoints.push(Breakpoint::unverified(
@@ -224,7 +229,13 @@ impl BreakpointManager {
 
                     let log_message = match requested_bp.log_message.as_deref() {
                         Some(template) => {
-                            match parse_log_message(template, &mut registry, profile, &using) {
+                            match parse_log_message_with_abi(
+                                template,
+                                &mut registry,
+                                profile,
+                                &using,
+                                context.metadata.storage_abi(),
+                            ) {
                                 Ok(fragments) => Some(fragments),
                                 Err(err) => {
                                     breakpoints.push(Breakpoint::unverified(
@@ -243,6 +254,7 @@ impl BreakpointManager {
                     resolved_breakpoints.push(DebugBreakpoint {
                         location,
                         condition,
+                        type_registry: Some(Arc::new(registry.clone())),
                         hit_condition,
                         log_message,
                         hits: 0,

@@ -14,10 +14,10 @@ use smol_str::SmolStr;
 /// Register the shared string functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 10] = [
     super::registration::descriptor!("CONCAT", VAR_IN_1_2, concat),
     super::registration::descriptor!("DELETE", IN_L_P, delete),
     super::registration::descriptor!("FIND", IN1_IN2, find),

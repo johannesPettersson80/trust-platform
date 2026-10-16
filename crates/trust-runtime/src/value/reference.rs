@@ -3,6 +3,7 @@ pub use trust_runtime_core::value::{
     single_ref_index, PartialAccess, PartialAccessError, RefIndices, RefPath, RefSegment, ValueRef,
     ValueRefView,
 };
+#[cfg(test)]
 pub(crate) use trust_runtime_core::value::{materialize_value_path, write_value_path_typed};
 #[cfg(test)]
 pub(crate) use trust_runtime_core::value::{read_value_path_borrowed, write_value_path};

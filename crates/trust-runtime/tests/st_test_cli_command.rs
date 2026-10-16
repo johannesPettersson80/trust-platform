@@ -122,7 +122,7 @@ fn filter_zero_message_is_clear_in_human_output() {
 }
 
 #[test]
-fn timeout_flag_reports_error_for_infinite_loop_test() {
+fn infinite_loop_reports_work_exhaustion_without_physical_deadline() {
     let project = unique_temp_dir("timeout-project");
     let sources = project.join("src");
     std::fs::create_dir_all(&sources).expect("create src dir");
@@ -143,10 +143,10 @@ END_TEST_PROGRAM
             "--project",
             project.to_str().expect("project path utf-8"),
             "--timeout",
-            "1",
+            "0",
         ])
         .output()
-        .expect("run trust-dev test --timeout 1");
+        .expect("run trust-dev test --timeout 0");
 
     assert!(
         !output.status.success(),
@@ -156,7 +156,10 @@ END_TEST_PROGRAM
     );
 
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("test timed out after 1 second"));
+    // Disabling wall time must not disable logical fuel. Physical deadline
+    // expiry is tested independently with an already-expired deadline.
+    assert!(text.contains("work limit 1000000"), "{text}");
+    assert!(!text.contains("test timed out after"), "{text}");
 
     let _ = std::fs::remove_dir_all(project);
 }

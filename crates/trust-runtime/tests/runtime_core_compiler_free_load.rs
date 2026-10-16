@@ -2,7 +2,7 @@
 use std::cell::Cell;
 use trust_runtime::bytecode::BytecodeVersion;
 use trust_runtime::harness::CompileSession;
-use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::error::{ExecutionLimitKind, RuntimeError, StableErrorCode};
 use trust_runtime_core::memory::{InstanceId, VariableStorage};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::{DateTimeValue, Duration, Value};
@@ -136,7 +136,7 @@ fn authored_saved_fixture_matches_legacy_at_every_scan() {
         "portability/main.st",
         source,
     )])
-    .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
+    .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE_V2)
     .expect("saved fixture source")
     .encode()
     .expect("saved fixture STBC");
@@ -259,7 +259,7 @@ fn partial_access_configuration_permissions_and_global_constants() {
     );
     assert_eq!(
         state.write_access("missing_alias", Value::Bool(true)),
-        Err(RuntimeError::InvalidAlias)
+        Err(RuntimeError::UndefinedVariable("missing_alias".into()))
     );
     state.write_access("SELECTED", Value::Bool(true)).unwrap();
     assert_eq!(state.read_access("observed").unwrap(), Value::Word(15));
@@ -300,7 +300,7 @@ fn initializer_limits_and_failed_restart_leave_original_state_intact() {
     let bytes = artifact(&source);
     for limits in [
         PreparationLimits {
-            max_work: 0,
+            max_construction_work: 0,
             ..Default::default()
         },
         PreparationLimits {
@@ -557,7 +557,7 @@ fn recipe_recursion_and_dispatch_loops_share_bounded_initialization_work() {
     let baseline = PreparedModule::from_bytes(
         &baseline_bytes,
         PreparationLimits {
-            max_work: 1000,
+            max_construction_work: 1000,
             ..Default::default()
         },
     )
@@ -602,7 +602,7 @@ fn recipe_recursion_and_dispatch_loops_share_bounded_initialization_work() {
         let prepared = PreparedModule::from_bytes(
             &bytes,
             PreparationLimits {
-                max_work: 1000,
+                max_construction_work: 1000,
                 ..Default::default()
             },
         )
@@ -620,9 +620,20 @@ fn recipe_recursion_and_dispatch_loops_share_bounded_initialization_work() {
                 .to_string()
                 .contains("cyclic typed default construction"));
         } else {
+            // TIME-08: the JMP loop charges one INSTR unit per iteration, so the
+            // 1000-unit construction allowance stops it at used 1000.
             assert_eq!(
                 error,
-                trust_runtime_core::vm::VmTrap::BudgetExceeded.into_runtime_error()
+                RuntimeError::ExecutionLimit {
+                    kind: ExecutionLimitKind::Work,
+                    used: 1000,
+                    requested: 1,
+                    limit: 1000,
+                }
+            );
+            assert_eq!(
+                error.stable_code(),
+                StableErrorCode::RuntimeExecutionTimeout
             );
         }
     }
@@ -840,9 +851,24 @@ fn repeated_aggregate_loads_exhaust_the_copy_allocation_budget_before_final_comm
         .instantiate(0)
         .expect("construction fits the copy budget");
     let error = state.execute_cycle(Duration::from_millis(10)).unwrap_err();
+    let RuntimeError::ExecutionLimit {
+        kind: ExecutionLimitKind::AllocationBytes,
+        used,
+        requested,
+        limit,
+    } = &error
+    else {
+        panic!("expected copy allocation refusal, got {error:?}")
+    };
+    assert_eq!(*limit, 1024 * 1024);
+    assert!(*used <= *limit);
+    assert!(
+        *requested > *limit - *used,
+        "the refused copy crosses the limit"
+    );
     assert_eq!(
-        error,
-        trust_runtime_core::vm::VmTrap::BudgetExceeded.into_runtime_error()
+        error.stable_code(),
+        StableErrorCode::RuntimeExecutionTimeout
     );
     assert_eq!(field(state.storage(), "committed"), Value::Bool(false));
     assert_eq!(state.fault(), Some(&error));
@@ -898,7 +924,16 @@ fn scalar_construction_budget_is_cumulative_across_repeated_frame_entries() {
     let error = state.execute_cycle(Duration::from_millis(10)).unwrap_err();
     assert_eq!(
         error,
-        trust_runtime_core::vm::VmTrap::BudgetExceeded.into_runtime_error()
+        RuntimeError::ExecutionLimit {
+            kind: ExecutionLimitKind::ConstructedValues,
+            used: 100,
+            requested: 1,
+            limit: 100,
+        }
+    );
+    assert_eq!(
+        error.stable_code(),
+        StableErrorCode::RuntimeExecutionTimeout
     );
     assert_eq!(field(state.storage(), "committed"), Value::Bool(false));
 }

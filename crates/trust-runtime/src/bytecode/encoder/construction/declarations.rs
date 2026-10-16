@@ -20,6 +20,9 @@ impl BytecodeEncoder<'_> {
             ));
         }
         if expression.is_some()
+            && !self
+                .authoring
+                .is_some_and(|input| input.builder.manual_seed_mode)
             && type_id.is_some_and(|ty| {
                 crate::harness::class_type_name(ty, self.runtime.registry()).is_some()
             })

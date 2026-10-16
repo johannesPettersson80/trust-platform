@@ -50,7 +50,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             }
 
             if let Some(control_type) = control_type {
-                let context_literal = self.checker.is_contextual_int_literal(control_type, expr);
+                let context_literal = self
+                    .checker
+                    .is_contextual_base_int_literal(control_type, expr);
+                let errors_before = self.checker.diagnostics.error_count();
                 if expr_type != TypeId::UNKNOWN && expr_type != control_type && !context_literal {
                     let label = match idx {
                         0 => "initial value",
@@ -66,6 +69,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                             self.checker.type_name(control_type)
                         ),
                     );
+                }
+                if self.checker.diagnostics.error_count() == errors_before {
+                    self.checker
+                        .check_untyped_literal_range(control_type, expr, true);
                 }
             }
         }

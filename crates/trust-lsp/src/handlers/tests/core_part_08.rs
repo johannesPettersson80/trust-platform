@@ -335,3 +335,132 @@ END_PROGRAM
 
     handle.join().expect("control stub thread");
 }
+
+/// Serves one control connection and sends the request it received to the returned channel. It
+/// answers with a failure, so the inline-value fetch ends after that first request.
+fn spawn_recording_control_stub() -> (String, std::sync::mpsc::Receiver<Value>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind recording control stub");
+    let addr = listener.local_addr().expect("recording control stub addr");
+    let (request_tx, request_rx) = std::sync::mpsc::channel();
+    thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept recording control stub");
+        let mut reader = BufReader::new(stream.try_clone().expect("clone recording stream"));
+        let mut line = String::new();
+        reader.read_line(&mut line).expect("read recorded request");
+        let request: Value =
+            serde_json::from_str(line.trim_end()).expect("recorded request is JSON");
+        request_tx.send(request).expect("send recorded request");
+        writeln!(
+            stream,
+            "{}",
+            json!({ "id": 1, "ok": false, "error": "recorded" })
+        )
+        .expect("write recorded response");
+    });
+    (format!("tcp://{addr}"), request_rx)
+}
+
+/// A workspace whose `trust-lsp.toml` runtime section is `repository`, with the editor's
+/// `trust_lsp.runtime` settings set to `editor`.
+fn inline_value_state(repository: RuntimeConfig, editor: Value) -> ServerState {
+    let state = ServerState::new();
+    let root_uri = tower_lsp::lsp_types::Url::parse("file:///workspace/").unwrap();
+    state.set_workspace_folders(vec![root_uri.clone()]);
+    state.set_workspace_config(
+        root_uri,
+        ProjectConfig {
+            root: PathBuf::from("/workspace"),
+            config_path: None,
+            include_paths: Vec::new(),
+            vendor_profile: None,
+            stdlib: StdlibSettings::default(),
+            libraries: Vec::new(),
+            dependencies: Vec::new(),
+            dependency_resolution_issues: Vec::new(),
+            diagnostic_external_paths: Vec::new(),
+            build: BuildConfig::default(),
+            targets: Vec::new(),
+            indexing: IndexingConfig::default(),
+            diagnostics: DiagnosticSettings::default(),
+            runtime: repository,
+            workspace: WorkspaceSettings::default(),
+            telemetry: TelemetryConfig::default(),
+        },
+    );
+    state.set_config(json!({ "trust_lsp": { "runtime": editor } }));
+    state
+}
+
+/// Runs one runtime inline-value request and returns the control request that the stub received.
+/// The wait is bounded, so a request that is never sent fails the test instead of hanging it.
+fn runtime_inline_request_sent(
+    state: &ServerState,
+    requests: &std::sync::mpsc::Receiver<Value>,
+) -> Value {
+    let source = runtime_inline_values_source();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///workspace/runtime.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+    inline_value(state, runtime_inline_values_params(uri, source)).expect("inline values");
+    requests
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("the runtime endpoint received a control request")
+}
+
+#[test]
+pub(super) fn lsp_inline_values_repository_endpoint_never_receives_the_editor_token() {
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let state = inline_value_state(
+        RuntimeConfig {
+            control_endpoint: Some(endpoint),
+            control_auth_token: None,
+        },
+        json!({
+            "control_endpoint_enabled": true,
+            "control_auth_token": "editor-token",
+        }),
+    );
+
+    let request = runtime_inline_request_sent(&state, &requests);
+
+    assert_eq!(request["type"], json!("debug.scopes"));
+    assert!(
+        request.get("auth").is_none(),
+        "the editor token reached a repository endpoint: {request}"
+    );
+}
+
+#[test]
+pub(super) fn lsp_inline_values_repository_endpoint_uses_its_own_token() {
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let state = inline_value_state(
+        RuntimeConfig {
+            control_endpoint: Some(endpoint),
+            control_auth_token: Some("repository-token".to_string()),
+        },
+        json!({
+            "control_endpoint_enabled": true,
+            "control_auth_token": "editor-token",
+        }),
+    );
+
+    let request = runtime_inline_request_sent(&state, &requests);
+
+    assert_eq!(request["auth"], json!("repository-token"));
+}
+
+#[test]
+pub(super) fn lsp_inline_values_editor_token_goes_to_the_editor_endpoint() {
+    let (endpoint, requests) = spawn_recording_control_stub();
+    let state = inline_value_state(
+        RuntimeConfig::default(),
+        json!({
+            "control_endpoint_enabled": true,
+            "control_endpoint": endpoint,
+            "control_auth_token": "editor-token",
+        }),
+    );
+
+    let request = runtime_inline_request_sent(&state, &requests);
+
+    assert_eq!(request["auth"], json!("editor-token"));
+}

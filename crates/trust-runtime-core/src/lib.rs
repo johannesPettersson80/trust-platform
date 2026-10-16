@@ -10,6 +10,10 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
+// `VmTrap` and `RuntimeError` own heap payloads, so `ok_or(Variant)` builds an error
+// and runs its drop glue on every success. The execution paths build errors lazily;
+// eager construction cost 2.8M instructions per 1,152 call-benchmark cycles in drops.
+#![allow(clippy::unnecessary_lazy_evaluations)]
 
 extern crate alloc;
 

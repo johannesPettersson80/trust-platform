@@ -14,6 +14,7 @@ pub fn make_context<'a>(
         initializer_catalog: None,
         profile: DateTimeProfile::default(),
         now: Duration::ZERO,
+        #[cfg(feature = "debug")]
         debug: None,
         call_depth: 0,
         functions: None,
@@ -35,6 +36,7 @@ pub fn make_debug_context<'a>(
     registry: &'a TypeRegistry,
 ) -> DebugRuntimeContext<'a> {
     DebugRuntimeContext {
+        storage_abi: Default::default(),
         storage,
         registry,
         stdlib: None,

@@ -405,3 +405,68 @@ pub(super) fn is_long_tod_literal(text: &str) -> bool {
 pub(super) fn is_long_dt_literal(text: &str) -> bool {
     has_literal_prefix(text, &["LDT#", "LDATE_AND_TIME#"])
 }
+
+/// The exact value of an integer literal. The magnitude is read as u64, so the whole unsigned
+/// 64-bit range stays exact. Covers an IntLiteral with or without a typed prefix, a sign inside a
+/// typed literal, and a unary sign or parentheses around the literal. None otherwise.
+pub(crate) fn exact_int_literal_value(node: &SyntaxNode) -> Option<i128> {
+    match node.kind() {
+        SyntaxKind::Literal => exact_literal_token_value(node),
+        SyntaxKind::ParenExpr => exact_int_literal_value(&node.children().next()?),
+        SyntaxKind::UnaryExpr => {
+            let op = int_unary_op_from_node(node)?;
+            let value = exact_int_literal_value(&node.children().next()?)?;
+            Some(match op {
+                IntUnaryOp::Plus => value,
+                IntUnaryOp::Minus => -value,
+            })
+        }
+        _ => None,
+    }
+}
+
+fn exact_literal_token_value(node: &SyntaxNode) -> Option<i128> {
+    let mut digits = None;
+    let mut negative = false;
+    for token in node
+        .descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+    {
+        match token.kind() {
+            SyntaxKind::IntLiteral => digits = Some(token.text().to_string()),
+            SyntaxKind::Minus => negative = true,
+            _ => {}
+        }
+    }
+    let magnitude = i128::from(parse_exact_magnitude(&digits?)?);
+    Some(if negative { -magnitude } else { magnitude })
+}
+
+/// The unsigned magnitude of an IntLiteral's text, read as u64. Based literals use bases 2 through
+/// 36, and `_` separators are dropped.
+fn parse_exact_magnitude(text: &str) -> Option<u64> {
+    let cleaned: String = text.chars().filter(|c| *c != '_').collect();
+    if let Some((base_str, digits)) = cleaned.split_once('#') {
+        let base: u32 = base_str.parse().ok()?;
+        if !(2..=36).contains(&base) {
+            return None;
+        }
+        return u64::from_str_radix(digits, base).ok();
+    }
+    cleaned.parse::<u64>().ok()
+}
+
+/// Whether `value` lies in the integer type `ty`.
+pub(crate) fn integer_type_range_fits(ty: &Type, value: i128) -> bool {
+    match ty {
+        Type::SInt => i8::try_from(value).is_ok(),
+        Type::Int => i16::try_from(value).is_ok(),
+        Type::DInt => i32::try_from(value).is_ok(),
+        Type::LInt => i64::try_from(value).is_ok(),
+        Type::USInt => u8::try_from(value).is_ok(),
+        Type::UInt => u16::try_from(value).is_ok(),
+        Type::UDInt => u32::try_from(value).is_ok(),
+        Type::ULInt => u64::try_from(value).is_ok(),
+        _ => false,
+    }
+}

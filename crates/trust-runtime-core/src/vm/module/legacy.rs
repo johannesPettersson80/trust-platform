@@ -24,23 +24,25 @@ impl VmModule {
             .collect();
         Ok(Self {
             version,
+            storage_abi: version.storage_abi().map_err(RuntimeError::from)?,
             code,
             strings,
             types,
+            physical_layouts: Vec::new(),
+            ref_types: alloc::vec![None; refs.len()],
             refs,
             consts,
             native_symbol_specs,
-            pou_by_id: HashMap::new(),
-            program_ids: HashMap::new(),
-            function_ids: HashMap::new(),
-            function_block_ids: HashMap::new(),
-            class_ids: HashMap::new(),
-            parent_pou_ids: HashMap::new(),
-            interface_type_ids_by_pou: HashMap::new(),
-            pou_params: HashMap::new(),
-            pou_has_return_slot: HashSet::new(),
-            method_table_by_owner: HashMap::new(),
-            ref_types: HashMap::new(),
+            pou_by_id: PouMap::default(),
+            program_ids: HashMap::default(),
+            function_ids: HashMap::default(),
+            function_block_ids: HashMap::default(),
+            class_ids: HashMap::default(),
+            parent_pou_ids: IdMap::default(),
+            interface_type_ids_by_pou: PouMap::default(),
+            pou_params: PouMap::default(),
+            pou_has_return_slot: IdSet::default(),
+            method_table_by_owner: PouMap::default(),
             debug_map: debug_map::VmDebugMap::default(),
             instruction_budget: super::super::VM_MAX_EXECUTED_INSTRUCTIONS,
         })
@@ -56,6 +58,8 @@ impl VmModule {
         has_return: bool,
     ) {
         self.assert_legacy();
+        let mut entry = entry;
+        entry.kind = kind;
         let key = SmolStr::new(entry.name.to_ascii_uppercase());
         match kind {
             PouKind::Program => {
@@ -91,11 +95,8 @@ impl VmModule {
     /// Append a legacy reference and its optional declared type as one association.
     pub fn append_legacy_reference(&mut self, reference: VmRef, ty: Option<u32>) {
         self.assert_legacy();
-        let index = self.refs.len() as u32;
         self.refs.push(reference);
-        if let Some(ty) = ty {
-            self.ref_types.insert(index, ty);
-        }
+        self.ref_types.push(ty);
     }
 
     /// Append a symbol while updating its cached native-call descriptor.
@@ -143,6 +144,46 @@ impl VmModule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
+
+    #[test]
+    fn legacy_reference_type_slots_stay_aligned_when_references_are_appended() {
+        let mut module = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            Vec::new(),
+            Vec::new(),
+            TypeTable::default(),
+            vec![VmRef::Global {
+                offset: 0,
+                path: crate::value::RefPath::new(),
+            }],
+            Vec::new(),
+        )
+        .unwrap();
+        assert_eq!(module.ref_types, vec![None]);
+        assert_eq!(module.ref_type(0), None);
+
+        module.append_legacy_reference(
+            VmRef::Global {
+                offset: 1,
+                path: crate::value::RefPath::new(),
+            },
+            Some(9),
+        );
+        module.append_legacy_reference(
+            VmRef::Global {
+                offset: 2,
+                path: crate::value::RefPath::new(),
+            },
+            None,
+        );
+        assert_eq!(module.refs.len(), module.ref_types.len());
+        assert_eq!(module.ref_types, vec![None, Some(9), None]);
+        assert_eq!(module.ref_type(1), Some(9));
+        assert_eq!(module.ref_type(2), None);
+        assert_eq!(module.ref_type(3), None);
+        assert_eq!(module.ref_type(u32::MAX), None);
+    }
 
     #[test]
     fn legacy_construction_cannot_forge_source_free_metadata() {

@@ -222,28 +222,39 @@ fn project_vm_profile_report(
             compile_failure_reasons: tier1_snapshot
                 .compile_failure_reasons
                 .iter()
-                .map(|entry| VmTier1SpecializedExecutorCompileFailureReasonReport {
-                    reason: entry.reason.clone(),
-                    count: entry.count,
-                })
+                .map(
+                    |entry| VmTier1SpecializedExecutorCompileFailureReasonReport {
+                        reason: entry.reason.clone(),
+                        count: entry.count,
+                    },
+                )
                 .collect(),
             cache_evictions: tier1_snapshot.cache_evictions,
             block_executions: tier1_snapshot.block_executions,
-            deopt_count: tier1_snapshot.deopt_count,
-            deopt_reasons: tier1_snapshot
-                .deopt_reasons
-                .iter()
-                .map(|entry| VmTier1SpecializedExecutorDeoptReasonReport {
-                    reason: entry.reason.clone(),
-                    count: entry.count,
-                })
-                .collect(),
         })
     } else {
         None
     };
 
+    let preparation = runtime.vm_register_preparation_snapshot();
     VmProfileReport {
+        register_preparation: VmRegisterPreparationReport {
+            pou_count: preparation.pou_count,
+            lowered_pous: preparation.lowered_pous,
+            lowering_failures: preparation.lowering_failures,
+            specialized_blocks: preparation.specialized_blocks,
+            specialization_failures: preparation.specialization_failures,
+            specialization_failure_reasons: preparation
+                .specialization_failure_reasons
+                .iter()
+                .map(
+                    |entry| VmTier1SpecializedExecutorCompileFailureReasonReport {
+                        reason: entry.reason.clone(),
+                        count: entry.count,
+                    },
+                )
+                .collect(),
+        },
         register_programs_executed: register_snapshot.register_programs_executed,
         register_program_fallbacks: register_snapshot.register_program_fallbacks,
         fallback_reasons,

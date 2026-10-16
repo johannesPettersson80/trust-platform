@@ -12,10 +12,19 @@ SECTIONS
   .firmware_rodata ALIGN(ADDR(.vector_table) + SIZEOF(.vector_table), 32) : ALIGN(32)
   {
     __firmware_rodata_start = .;
-    *(.rodata.*dec2flt*POWER_OF_FIVE_128*)
+    /* Compact decimal codecs replace the old core float tables. Use their
+     * vacated space for the measured merged immutable strings instead. */
+    *(.rodata.str1.1)
     *(.rodata.cst4 .rodata.cst8 .rodata.cst16 .rodata.cst32)
-    *(.rodata.*flt2dec*)
     *(.rodata.*stdlib*parameters*)
+    /* Named complete descriptor arrays and immutable decimal/lookup tables.
+     * Source namespaces are shortened by the canonical build; bounds still fail
+     * closed if a compiler or registry change exceeds the measured capacity. */
+    __firmware_descriptor_tables_start = .;
+    *(.rodata.*stdlib*FUNCTIONS* .rodata.*stdlib*FAMILIES*)
+    __firmware_descriptor_tables_end = .;
+    *(.rodata.*ryu*DIGIT_TABLE* .rodata.*ryu*POW5*)
+    *(.rodata..Lswitch.table.*)
     . = ALIGN(32);
     /* Two immutable 256-byte tables measured in the pinned full-function image. */
     __firmware_fixed_tables_start = .;

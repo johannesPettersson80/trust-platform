@@ -5,6 +5,10 @@ impl<'a> BytecodeEncoder<'a> {
         pou_id: u32,
         body: &[crate::program_model::Stmt],
     ) -> Result<(Vec<u8>, Vec<DebugEntry>), BytecodeError> {
+        // Legacy import supplies executable bodies; only construction expressions are compiled.
+        if self.legacy.is_some() {
+            return Ok((Vec::new(), Vec::new()));
+        }
         let mut code = Vec::new();
         let mut debug_entries = Vec::new();
         for stmt in body {
@@ -123,9 +127,7 @@ impl<'a> BytecodeEncoder<'a> {
                 }
             }
             crate::program_model::Stmt::Exit { .. } => self.emit_loop_jump(ctx, code, true)?,
-            crate::program_model::Stmt::Continue { .. } => {
-                self.emit_loop_jump(ctx, code, false)?
-            }
+            crate::program_model::Stmt::Continue { .. } => self.emit_loop_jump(ctx, code, false)?,
             _ => false,
         };
 
@@ -213,14 +215,10 @@ impl<'a> BytecodeEncoder<'a> {
         code.push(0x06);
         Ok(true)
     }
-
 }
 
 fn stmt_is_intentional_nop(stmt: &crate::program_model::Stmt) -> bool {
-    matches!(
-        stmt,
-        crate::program_model::Stmt::Label { stmt: None, .. }
-    )
+    matches!(stmt, crate::program_model::Stmt::Label { stmt: None, .. })
 }
 
 fn stmt_contains_c1_required_call(stmt: &crate::program_model::Stmt) -> bool {
@@ -237,12 +235,9 @@ fn stmt_contains_c1_required_call(stmt: &crate::program_model::Stmt) -> bool {
         } => {
             expr_contains_call(condition)
                 || then_block.iter().any(stmt_contains_c1_required_call)
-                || else_if
-                    .iter()
-                    .any(|(expr, block)| {
-                        expr_contains_call(expr)
-                            || block.iter().any(stmt_contains_c1_required_call)
-                    })
+                || else_if.iter().any(|(expr, block)| {
+                    expr_contains_call(expr) || block.iter().any(stmt_contains_c1_required_call)
+                })
                 || else_block.iter().any(stmt_contains_c1_required_call)
         }
         Stmt::Case {
@@ -252,16 +247,14 @@ fn stmt_contains_c1_required_call(stmt: &crate::program_model::Stmt) -> bool {
             ..
         } => {
             expr_contains_call(selector)
-                || branches.iter().any(|(_, block)| {
-                    block.iter().any(stmt_contains_c1_required_call)
-                })
+                || branches
+                    .iter()
+                    .any(|(_, block)| block.iter().any(stmt_contains_c1_required_call))
                 || else_block.iter().any(stmt_contains_c1_required_call)
         }
         Stmt::While {
             condition, body, ..
-        } => {
-            expr_contains_call(condition) || body.iter().any(stmt_contains_c1_required_call)
-        }
+        } => expr_contains_call(condition) || body.iter().any(stmt_contains_c1_required_call),
         Stmt::Repeat { body, until, .. } => {
             body.iter().any(stmt_contains_c1_required_call) || expr_contains_call(until)
         }
@@ -281,9 +274,10 @@ fn stmt_contains_c1_required_call(stmt: &crate::program_model::Stmt) -> bool {
             .as_deref()
             .map(stmt_contains_c1_required_call)
             .unwrap_or(false),
-        Stmt::AssignAttempt { value, .. } | Stmt::Return { expr: Some(value), .. } => {
-            expr_contains_call(value)
-        }
+        Stmt::AssignAttempt { value, .. }
+        | Stmt::Return {
+            expr: Some(value), ..
+        } => expr_contains_call(value),
         Stmt::Return { expr: None, .. }
         | Stmt::Jmp { .. }
         | Stmt::Exit { .. }
@@ -296,7 +290,9 @@ fn expr_contains_call(expr: &crate::program_model::Expr) -> bool {
     match expr {
         Expr::Call { .. } => true,
         Expr::ArrayInitializer(elements) => elements.iter().any(expr_contains_call),
-        Expr::StructInitializer(fields) => fields.iter().any(|(_, value)| expr_contains_call(value)),
+        Expr::StructInitializer(fields) => {
+            fields.iter().any(|(_, value)| expr_contains_call(value))
+        }
         Expr::Unary { expr, .. } => expr_contains_call(expr),
         Expr::Binary { left, right, .. } => expr_contains_call(left) || expr_contains_call(right),
         Expr::Index { target, indices } => {
@@ -409,7 +405,9 @@ fn expr_contains_sizeof(expr: &crate::program_model::Expr) -> bool {
             expr_contains_sizeof(target)
                 || args.iter().any(|arg| match &arg.value {
                     crate::program_model::ArgValue::Expr(expr) => expr_contains_sizeof(expr),
-                    crate::program_model::ArgValue::Target(target) => lvalue_contains_sizeof(target),
+                    crate::program_model::ArgValue::Target(target) => {
+                        lvalue_contains_sizeof(target)
+                    }
                 })
         }
         Expr::Ref(lvalue) => lvalue_contains_sizeof(lvalue),

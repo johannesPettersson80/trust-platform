@@ -194,7 +194,6 @@ fn accessors_vm_tier1_toggle_and_reset_preserve_configuration() {
     assert_eq!(enabled.compile_failures, 0);
     assert_eq!(enabled.cache_evictions, 0);
     assert_eq!(enabled.block_executions, 0);
-    assert_eq!(enabled.deopt_count, 0);
 
     runtime.set_vm_tier1_specialized_executor_enabled(false);
     assert!(!runtime.vm_tier1_specialized_executor_snapshot().enabled);

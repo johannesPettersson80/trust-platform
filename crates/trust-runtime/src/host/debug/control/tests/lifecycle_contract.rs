@@ -71,6 +71,7 @@ fn pause_records_one_global_pending_stop_and_invalidates_snapshot() {
         let (lock, _) = &*control.state;
         let mut state = lock.lock().expect("debug state");
         state.snapshot = Some(crate::debug::DebugSnapshot {
+            storage_abi: Default::default(),
             storage: crate::memory::VariableStorage::new(),
             now: crate::value::Duration::from_millis(7),
         });
@@ -171,6 +172,7 @@ fn continue_clears_pending_control_state_and_snapshot() {
         let (lock, _) = &*control.state;
         let mut state = lock.lock().expect("debug state");
         state.snapshot = Some(crate::debug::DebugSnapshot {
+            storage_abi: Default::default(),
             storage: crate::memory::VariableStorage::new(),
             now: crate::value::Duration::from_millis(1),
         });

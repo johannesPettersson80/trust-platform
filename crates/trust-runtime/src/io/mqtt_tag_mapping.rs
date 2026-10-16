@@ -47,15 +47,6 @@ struct MqttScalarLayout {
     data_type: &'static str,
     io_size: IoSize,
     width: usize,
-    value_type: TypeId,
-    enum_type: Option<MqttEnumLayout>,
-}
-
-#[derive(Debug, Clone)]
-struct MqttEnumLayout {
-    type_id: TypeId,
-    type_name: SmolStr,
-    variants: Vec<(SmolStr, i64)>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,7 +56,6 @@ struct PlannedMapping {
     reference: ValueRef,
     layout: MqttScalarLayout,
     address: IoAddress,
-    needs_binding: bool,
 }
 
 /// Resolve MQTT tag mappings into typed point maps and shared process-image bindings.
@@ -96,8 +86,8 @@ pub fn resolve_mqtt_tag_mappings(
         })?;
         let area = mapping.direction.area();
         let existing = existing_address(runtime, &resolved.reference, area, layout.io_size)?;
-        let (address, needs_binding) = if let Some(address) = existing {
-            (address, false)
+        let address = if let Some(address) = existing {
+            address
         } else {
             let next = match area {
                 IoArea::Input => &mut next_input,
@@ -118,7 +108,7 @@ pub fn resolve_mqtt_tag_mappings(
             *next = next.checked_add(layout.width).ok_or_else(|| {
                 RuntimeError::InvalidConfig("MQTT tag mapping process-image size overflow".into())
             })?;
-            (address, true)
+            address
         };
         planned.push(PlannedMapping {
             mapping,
@@ -126,7 +116,6 @@ pub fn resolve_mqtt_tag_mappings(
             reference: resolved.reference,
             layout,
             address,
-            needs_binding,
         });
     }
 
@@ -137,42 +126,11 @@ pub fn resolve_mqtt_tag_mappings(
     MqttIoDriver::validate_params(&lowered)?;
 
     let memory_len = runtime.io().memory().len();
-    runtime
-        .io_mut()
-        .try_resize(next_input, next_output, memory_len)?;
-    for plan in planned {
-        if let Some(enum_type) = plan.layout.enum_type {
-            if plan.needs_binding {
-                runtime.io_mut().bind_ref_named_enum(
-                    plan.reference,
-                    plan.address,
-                    enum_type.type_id,
-                    plan.layout.value_type,
-                    enum_type.type_name,
-                    enum_type.variants,
-                    plan.tag_name,
-                );
-            } else {
-                let configured = runtime.io_mut().configure_ref_named_enum(
-                    &plan.reference,
-                    &plan.address,
-                    enum_type.type_id,
-                    plan.layout.value_type,
-                    enum_type.type_name,
-                    enum_type.variants,
-                    plan.tag_name,
-                );
-                debug_assert!(configured, "planned MQTT binding must still exist");
-            }
-        } else if plan.needs_binding {
-            runtime.io_mut().bind_ref_named_typed(
-                plan.reference,
-                plan.address,
-                plan.layout.value_type,
-                plan.tag_name,
-            );
-        }
-    }
+    let bindings = planned
+        .into_iter()
+        .map(|plan| (plan.reference, plan.address, plan.tag_name))
+        .collect::<Vec<_>>();
+    runtime.configure_io_bindings(&bindings, [next_input, next_output, memory_len])?;
     Ok(lowered)
 }
 
@@ -195,8 +153,8 @@ fn existing_address(
     area: IoArea,
     expected_size: IoSize,
 ) -> Result<Option<IoAddress>, RuntimeError> {
-    let matches = runtime
-        .io()
+    let io = runtime.io();
+    let matches = io
         .bindings()
         .iter()
         .filter(|binding| {
@@ -265,72 +223,46 @@ fn mqtt_scalar_layout(runtime: &Runtime, type_id: TypeId) -> Option<MqttScalarLa
     match ty {
         Type::Alias { target, .. } => mqtt_scalar_layout(runtime, *target),
         Type::Subrange { base, .. } => mqtt_scalar_layout(runtime, *base),
-        Type::Enum {
-            name, values, base, ..
-        } => {
-            let mut layout = mqtt_scalar_layout(runtime, *base)?;
-            layout.enum_type = Some(MqttEnumLayout {
-                type_id,
-                type_name: name.clone(),
-                variants: values.clone(),
-            });
-            Some(layout)
-        }
+        Type::Enum { base, .. } => mqtt_scalar_layout(runtime, *base),
         Type::Bool => Some(MqttScalarLayout {
             data_type: "bool",
             io_size: IoSize::Bit,
             width: 1,
-            value_type: TypeId::BOOL,
-            enum_type: None,
         }),
         Type::UInt => Some(MqttScalarLayout {
             data_type: "u16",
             io_size: IoSize::Word,
             width: 2,
-            value_type: TypeId::UINT,
-            enum_type: None,
         }),
         Type::Word => Some(MqttScalarLayout {
             data_type: "u16",
             io_size: IoSize::Word,
             width: 2,
-            value_type: TypeId::WORD,
-            enum_type: None,
         }),
         Type::Int => Some(MqttScalarLayout {
             data_type: "i16",
             io_size: IoSize::Word,
             width: 2,
-            value_type: TypeId::INT,
-            enum_type: None,
         }),
         Type::UDInt => Some(MqttScalarLayout {
             data_type: "u32",
             io_size: IoSize::DWord,
             width: 4,
-            value_type: TypeId::UDINT,
-            enum_type: None,
         }),
         Type::DWord => Some(MqttScalarLayout {
             data_type: "u32",
             io_size: IoSize::DWord,
             width: 4,
-            value_type: TypeId::DWORD,
-            enum_type: None,
         }),
         Type::DInt => Some(MqttScalarLayout {
             data_type: "i32",
             io_size: IoSize::DWord,
             width: 4,
-            value_type: TypeId::DINT,
-            enum_type: None,
         }),
         Type::Real => Some(MqttScalarLayout {
             data_type: "f32",
             io_size: IoSize::DWord,
             width: 4,
-            value_type: TypeId::REAL,
-            enum_type: None,
         }),
         _ => None,
     }

@@ -5,20 +5,56 @@
 
 #[cfg(feature = "hir")]
 use super::debug_map;
+use super::validated_source::ValidatedSource;
 use super::{const_pool, materialization_limits, opcode_operand_len, symbols, VmTrap};
 use crate::bytecode::{
-    PouKind, RefEntry, RefLocation, RefTable, SectionData, SectionId, StringTable, TypeTable,
-    VarMeta,
+    PouKind, RefEntry, RefLocation, RefTable, SectionData, SectionId, StringTable, TypeData,
+    TypeTable, VarMeta,
 };
 use crate::error::{PreparationDiagnostic, RuntimeError};
 use crate::memory::IoArea;
 use crate::value::{ref_indices_from_iter, RefPath, RefSegment as ValueRefSegment, Value};
 #[cfg(not(feature = "std"))]
-use alloc::collections::{BTreeMap as HashMap, BTreeSet as HashSet};
+use alloc::collections::{BTreeMap as HashMap, BTreeMap as IdMap, BTreeSet as IdSet};
 use alloc::vec::Vec;
 use smol_str::SmolStr;
+// POU ids are integer keys that the call path looks up on every invocation, so
+// hosted builds hash them with Fx rather than SipHash.
 #[cfg(feature = "std")]
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap as IdMap, FxHashSet as IdSet};
+#[cfg(feature = "std")]
+use std::collections::HashMap;
+
+#[cfg(not(feature = "std"))]
+mod pou_map;
+#[cfg(not(feature = "std"))]
+pub use pou_map::PouMap;
+/// Hosted metadata keeps a hash map, with the Fx hasher.
+#[cfg(feature = "std")]
+pub type PouMap<V> = IdMap<u32, V>;
+
+fn pou_map<V>(count: usize) -> Result<PouMap<V>, RuntimeError> {
+    #[cfg(not(feature = "std"))]
+    {
+        PouMap::with_capacity(count)
+    }
+    #[cfg(feature = "std")]
+    {
+        let _ = count;
+        Ok(IdMap::default())
+    }
+}
+
+fn insert_pou<V>(map: &mut PouMap<V>, id: u32, value: V) -> Result<Option<V>, RuntimeError> {
+    #[cfg(not(feature = "std"))]
+    {
+        map.try_insert(id, value)
+    }
+    #[cfg(feature = "std")]
+    {
+        Ok(map.insert(id, value))
+    }
+}
 
 /// Immutable execution metadata for a validated legacy hosted module.
 /// Source-free applications are admitted through `PreparedModule` instead.
@@ -36,31 +72,34 @@ fn overwrite_code(module: &mut VmModule) {
 #[derive(Debug, Clone)]
 pub struct VmModule {
     pub(crate) version: crate::bytecode::BytecodeVersion,
+    pub(crate) storage_abi: crate::value::StorageAbi,
     pub(crate) code: Vec<u8>,
     pub(crate) strings: Vec<SmolStr>,
     pub(crate) types: TypeTable,
+    pub(crate) physical_layouts:
+        Vec<Option<alloc::sync::Arc<crate::value::overlap::PhysicalLayout>>>,
     pub(crate) refs: Vec<VmRef>,
     pub(crate) consts: Vec<Value>,
-    pub(crate) pou_by_id: HashMap<u32, VmPouEntry>,
+    pub(crate) pou_by_id: PouMap<VmPouEntry>,
     pub(crate) program_ids: HashMap<SmolStr, u32>,
     #[cfg(feature = "hir")]
     pub(crate) function_ids: HashMap<SmolStr, u32>,
     pub(crate) function_block_ids: HashMap<SmolStr, u32>,
     pub(crate) class_ids: HashMap<SmolStr, u32>,
-    pub(crate) parent_pou_ids: HashMap<u32, u32>,
-    pub(crate) interface_type_ids_by_pou: HashMap<u32, Vec<u32>>,
+    pub(crate) parent_pou_ids: IdMap<u32, u32>,
+    pub(crate) interface_type_ids_by_pou: PouMap<Vec<u32>>,
     pub(crate) native_symbol_specs: Vec<VmNativeSymbolSpec>,
-    pub(crate) pou_params: HashMap<u32, Vec<VmParamMeta>>,
-    pub(crate) pou_has_return_slot: HashSet<u32>,
-    pub(crate) method_table_by_owner: HashMap<u32, HashMap<SmolStr, u32>>,
-    pub(crate) ref_types: HashMap<u32, u32>,
+    pub(crate) pou_params: PouMap<Vec<VmParamMeta>>,
+    pub(crate) pou_has_return_slot: IdSet<u32>,
+    pub(crate) method_table_by_owner: PouMap<HashMap<SmolStr, u32>>,
+    pub(crate) ref_types: Vec<Option<u32>>,
     #[cfg(feature = "hir")]
     pub(crate) debug_map: debug_map::VmDebugMap,
     pub(crate) instruction_budget: usize,
 }
 
 /// One encoded native-call argument descriptor.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VmNativeArgSpec {
     /// Original parameter or symbol name.
     pub name: Option<SmolStr>,
@@ -69,7 +108,7 @@ pub struct VmNativeArgSpec {
 }
 
 /// Parsed native-call symbol or retained parse failure.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VmNativeSymbolSpec {
     /// A successfully parsed native-call descriptor.
     Parsed {
@@ -88,40 +127,61 @@ pub enum VmNativeSymbolSpec {
     ParseError(SmolStr),
 }
 
-#[cfg(feature = "hir")]
+#[cfg(any(feature = "hir", feature = "register-ir"))]
 mod access;
 #[cfg(feature = "hir")]
 mod legacy;
 
 impl VmModule {
-    /// Materialize validated STBC 1.x for the hosted adapter; STBC 2.0 requires preparation.
+    /// Immutable storage interpretation selected by the admitted artifact header.
+    pub fn storage_abi(&self) -> crate::value::StorageAbi {
+        self.storage_abi
+    }
+    pub(crate) fn physical_layout(
+        &self,
+        type_id: u32,
+    ) -> Option<alloc::sync::Arc<crate::value::overlap::PhysicalLayout>> {
+        let mut current = type_id;
+        for _ in 0..=crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            let entry = self.types.entries.get(current as usize)?;
+            if let TypeData::Alias { target_type_id } = entry.data {
+                current = target_type_id;
+            } else {
+                return self.physical_layouts.get(current as usize)?.clone();
+            }
+        }
+        None
+    }
+
+    /// Materialize validated STBC 1.x for the hosted adapter; 2.0/3.0 require preparation.
     #[cfg(feature = "hir")]
     pub fn from_validated(
         module: &crate::bytecode::ValidatedBytecode<'_>,
     ) -> Result<Self, RuntimeError> {
         if module.view().version.major != 1 {
             return Err(invalid_bytecode(SmolStr::new_static(
-                "STBC 2.0 construction and initializer execution requires the shared engine",
+                "source-free construction and initializer execution requires the shared engine",
             )));
         }
-        Self::materialize(module, &mut |_, _| Ok(()))
+        let mut source = *module;
+        Self::materialize(&mut source, &mut |_, _| Ok(()))
     }
 
-    pub(crate) fn from_source_free(
-        module: &crate::bytecode::ValidatedBytecode<'_>,
+    pub(super) fn from_source_free(
+        module: &mut impl ValidatedSource,
         budget: &mut super::prepared::PreparationBudget,
     ) -> Result<Self, RuntimeError> {
-        if module.view().version.major != 2 {
+        if !module.view().version.is_source_free() {
             return Err(invalid_bytecode(SmolStr::new_static(
-                "source-free execution requires STBC 2.0",
+                "source-free execution requires STBC 2.0 or 3.0",
             )));
         }
         Self::materialize(module, &mut |bytes, work| budget.charge(bytes, work))
     }
 
     fn materialize(
-        module: &crate::bytecode::ValidatedBytecode<'_>,
-        charge: &mut impl FnMut(usize, usize) -> Result<(), RuntimeError>,
+        module: &mut impl ValidatedSource,
+        charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
     ) -> Result<Self, RuntimeError> {
         let strings = match module.section(SectionId::StringTable) {
             Some(SectionData::StringTable(table)) => table,
@@ -154,8 +214,16 @@ impl VmModule {
 
         materialization_limits::validate_materialization_limits(ref_table, pou_index)?;
         let refs = decode_ref_table(ref_table, strings)?;
-        let consts =
-            const_pool::decode_const_pool_entries_charged(const_pool, types, strings, charge)?;
+        let storage_abi = module.view().storage_abi().map_err(RuntimeError::from)?;
+        let physical_layouts =
+            crate::value::overlap::prepare_layouts(types, &strings.entries, storage_abi, charge)?;
+        let consts = const_pool::decode_const_pool_entries_with_layouts(
+            const_pool,
+            types,
+            strings,
+            &physical_layouts,
+            charge,
+        )?;
         let mut native_symbol_specs = strings
             .entries
             .iter()
@@ -166,7 +234,7 @@ impl VmModule {
             Some(SectionData::VarMeta(meta)) => Some(meta),
             _ => None,
         };
-        let ref_types = build_ref_type_map(var_meta)?;
+        let ref_types = build_dense_ref_types(var_meta, refs.len())?;
         #[cfg(feature = "hir")]
         let debug_map = debug_map::VmDebugMap::from_sections(
             strings,
@@ -181,18 +249,31 @@ impl VmModule {
             },
         );
 
-        let mut pou_by_id = HashMap::new();
-        let mut program_ids = HashMap::new();
-        let mut function_ids = HashMap::new();
-        let mut function_block_ids = HashMap::new();
-        let mut class_ids = HashMap::new();
-        let mut parent_pou_ids = HashMap::new();
-        let mut interface_type_ids_by_pou = HashMap::new();
-        let mut pou_params = HashMap::new();
-        let mut pou_has_return_slot = HashSet::new();
-        let mut method_table_by_owner: HashMap<u32, HashMap<SmolStr, u32>> = HashMap::new();
+        let count = pou_index.entries.len();
+        #[cfg(not(feature = "std"))]
+        charge(0, count)?; // Count class payloads before exact vector reservations.
+        #[cfg(not(feature = "std"))]
+        let class_count = pou_index
+            .entries
+            .iter()
+            .filter(|entry| entry.class_meta.is_some())
+            .count();
+        #[cfg(feature = "std")]
+        let class_count = 0;
+        let mut pou_by_id = pou_map(count)?;
+        let mut program_ids = HashMap::default();
+        let mut function_ids = HashMap::default();
+        let mut function_block_ids = HashMap::default();
+        let mut class_ids = HashMap::default();
+        let mut parent_pou_ids = IdMap::default();
+        let mut interface_type_ids_by_pou = pou_map(class_count)?;
+        let mut pou_params = pou_map(count)?;
+        let mut pou_has_return_slot = IdSet::default();
+        let mut method_table_by_owner: PouMap<HashMap<SmolStr, u32>> = pou_map(class_count)?;
 
-        let mut pou_name_by_id: HashMap<u32, SmolStr> = HashMap::new();
+        // Admission has already checked POU identities and name indexes. Read
+        // the canonical string table directly instead of rebuilding an id/name
+        // map used only during this loop.
         for entry in &pou_index.entries {
             let name = strings
                 .entries
@@ -205,15 +286,6 @@ impl VmModule {
                     }
                     .into_runtime_error()
                 })?;
-            if pou_name_by_id.insert(entry.id, name).is_some() {
-                return Err(PreparationDiagnostic::DuplicatePou(entry.id).into_runtime_error());
-            }
-        }
-
-        for entry in &pou_index.entries {
-            let name = pou_name_by_id.get(&entry.id).cloned().ok_or_else(|| {
-                PreparationDiagnostic::MissingDecodedPou(entry.id).into_runtime_error()
-            })?;
             let code_start = entry.code_offset as usize;
             let code_end = code_start
                 .checked_add(entry.code_length as usize)
@@ -222,6 +294,7 @@ impl VmModule {
                 return Err(PreparationDiagnostic::PouCodeRange(name.clone()).into_runtime_error());
             }
             let mut vm_entry = VmPouEntry {
+                kind: entry.kind,
                 name: SmolStr::new(name.clone()),
                 code_start,
                 code_end,
@@ -231,7 +304,7 @@ impl VmModule {
             };
             vm_entry.primary_instance_owner =
                 infer_primary_instance_owner(&vm_entry, bodies, &refs);
-            pou_by_id.insert(entry.id, vm_entry);
+            insert_pou(&mut pou_by_id, entry.id, vm_entry)?;
 
             if entry.return_type_id.is_some() {
                 pou_has_return_slot.insert(entry.id);
@@ -256,7 +329,7 @@ impl VmModule {
                     default_const_idx: param.default_const_idx,
                 });
             }
-            pou_params.insert(entry.id, params);
+            insert_pou(&mut pou_params, entry.id, params)?;
 
             let key = SmolStr::new(name.to_ascii_uppercase());
             if matches!(entry.kind, PouKind::Program) {
@@ -298,15 +371,16 @@ impl VmModule {
                 if let Some(parent) = class_meta.parent_pou_id {
                     parent_pou_ids.insert(owner, parent);
                 }
-                interface_type_ids_by_pou.insert(
+                insert_pou(
+                    &mut interface_type_ids_by_pou,
                     owner,
                     class_meta
                         .interfaces
                         .iter()
                         .map(|interface| interface.interface_type_id)
                         .collect(),
-                );
-                let table = method_table_by_owner.entry(owner).or_default();
+                )?;
+                let mut table = HashMap::default();
                 for method in &class_meta.methods {
                     let method_name = strings
                         .entries
@@ -328,15 +402,25 @@ impl VmModule {
                         .into_runtime_error());
                     }
                 }
+                insert_pou(&mut method_table_by_owner, owner, table)?;
             }
         }
         symbols::resolve_native_symbol_specs(&mut native_symbol_specs, &function_ids);
 
         Ok(Self {
             version: module.view().version,
-            code: bodies.clone(),
-            strings: strings.entries.clone(),
-            types: types.clone(),
+            storage_abi,
+            code: module
+                .take_bodies()
+                .ok_or_else(|| invalid_bytecode(SmolStr::new_static("missing POU_BODIES")))?,
+            strings: module
+                .take_strings()
+                .ok_or_else(|| invalid_bytecode(SmolStr::new_static("missing STRING_TABLE")))?
+                .entries,
+            types: module
+                .take_types()
+                .ok_or_else(|| invalid_bytecode(SmolStr::new_static("missing TYPE_TABLE")))?,
+            physical_layouts,
             refs,
             consts,
             pou_by_id,
@@ -380,7 +464,9 @@ impl VmModule {
 
     /// Return the declared type of a reference when metadata supplies it.
     pub fn ref_type(&self, ref_idx: u32) -> Option<u32> {
-        self.ref_types.get(&ref_idx).copied()
+        usize::try_from(ref_idx)
+            .ok()
+            .and_then(|index| self.ref_types.get(index).copied().flatten())
     }
 
     /// Resolve a canonical uppercase method name within its owner.
@@ -411,11 +497,12 @@ impl VmModule {
 }
 
 /// Build declared reference types, rejecting duplicate reference metadata.
+#[cfg(feature = "hir")]
 pub fn build_ref_type_map(var_meta: Option<&VarMeta>) -> Result<HashMap<u32, u32>, RuntimeError> {
     let Some(var_meta) = var_meta else {
-        return Ok(HashMap::new());
+        return Ok(HashMap::default());
     };
-    let mut ref_types = HashMap::new();
+    let mut ref_types = HashMap::default();
     for entry in &var_meta.entries {
         if ref_types.insert(entry.ref_idx, entry.type_id).is_some() {
             return Err(invalid_bytecode(SmolStr::new_static(
@@ -426,9 +513,40 @@ pub fn build_ref_type_map(var_meta: Option<&VarMeta>) -> Result<HashMap<u32, u32
     Ok(ref_types)
 }
 
+/// Build the runtime reference-type table directly by validated REF_TABLE ordinal.
+fn build_dense_ref_types(
+    var_meta: Option<&VarMeta>,
+    reference_count: usize,
+) -> Result<Vec<Option<u32>>, RuntimeError> {
+    let mut ref_types = Vec::new();
+    ref_types
+        .try_reserve_exact(reference_count)
+        .map_err(|_| RuntimeError::PreparationLimit)?;
+    ref_types.resize(reference_count, None);
+
+    if let Some(var_meta) = var_meta {
+        for entry in &var_meta.entries {
+            let index = usize::try_from(entry.ref_idx).map_err(|_| {
+                invalid_bytecode(SmolStr::new_static("VAR_META ref index out of range"))
+            })?;
+            let slot = ref_types.get_mut(index).ok_or_else(|| {
+                invalid_bytecode(SmolStr::new_static("VAR_META ref index out of range"))
+            })?;
+            if slot.replace(entry.type_id).is_some() {
+                return Err(invalid_bytecode(SmolStr::new_static(
+                    "duplicate VAR_META ref index",
+                )));
+            }
+        }
+    }
+    Ok(ref_types)
+}
+
 /// Code range and frame shape of one POU.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VmPouEntry {
+    /// Closed POU category retained from the admitted descriptor.
+    pub kind: crate::bytecode::PouKind,
     /// Original parameter or symbol name.
     pub name: SmolStr,
     /// Inclusive byte offset of the POU body.
@@ -444,7 +562,7 @@ pub struct VmPouEntry {
 }
 
 /// Declared parameter binding metadata.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VmParamMeta {
     /// Original parameter or symbol name.
     pub name: SmolStr,
@@ -457,7 +575,7 @@ pub struct VmParamMeta {
 }
 
 /// Decoded reference descriptor; runtime contexts resolve artifact owner identities.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VmRef {
     /// Active initializer staging result.
     InitializerResult {
@@ -639,6 +757,7 @@ mod owner_inference_tests {
 
     fn infer(code: &[u8], refs: &[VmRef]) -> Option<u32> {
         let entry = VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: "Main".into(),
             code_start: 0,
             code_end: code.len(),
@@ -707,6 +826,51 @@ mod owner_inference_tests {
             for length in 1..5 {
                 assert_eq!(infer(&code[..length], &refs), None);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod dense_ref_type_tests {
+    use super::build_dense_ref_types;
+    use crate::bytecode::{VarMeta, VarMetaEntry};
+    use crate::error::StableErrorCode;
+    use alloc::vec;
+
+    fn entry(ref_idx: u32, type_id: u32) -> VarMetaEntry {
+        VarMetaEntry {
+            name_idx: 0,
+            type_id,
+            ref_idx,
+            retain: 0,
+            init_const_idx: None,
+        }
+    }
+
+    #[test]
+    fn dense_ref_types_preserve_ordinals_and_absent_metadata() {
+        let metadata = VarMeta {
+            entries: vec![entry(2, 7), entry(0, 3)],
+        };
+        assert_eq!(
+            build_dense_ref_types(Some(&metadata), 4).unwrap(),
+            vec![Some(3), None, Some(7), None]
+        );
+        assert_eq!(build_dense_ref_types(None, 3).unwrap(), vec![None; 3]);
+    }
+
+    #[test]
+    fn dense_ref_types_reject_duplicate_and_out_of_range_indices() {
+        for metadata in [
+            VarMeta {
+                entries: vec![entry(1, 2), entry(1, 3)],
+            },
+            VarMeta {
+                entries: vec![entry(2, 2)],
+            },
+        ] {
+            let error = build_dense_ref_types(Some(&metadata), 2).unwrap_err();
+            assert_eq!(error.stable_code(), StableErrorCode::VmBytecodeDecode);
         }
     }
 }

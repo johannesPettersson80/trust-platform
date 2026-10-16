@@ -1,5 +1,8 @@
 use super::*;
 
+#[cfg(test)]
+mod tests;
+
 pub(super) fn validate_pou_index(
     tables: &ValidationContext<'_>,
     bodies: &[u8],

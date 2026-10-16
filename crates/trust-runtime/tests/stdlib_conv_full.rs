@@ -1,3 +1,4 @@
+use trust_runtime::error::RuntimeError;
 use trust_runtime::stdlib::StandardLibrary;
 use trust_runtime::value::{
     DateTimeValue, DateValue, LDateTimeValue, LTimeOfDayValue, TimeOfDayValue, Value,
@@ -127,20 +128,22 @@ fn conversion_full() {
         lib.call("DWORD_TO_TIME", &[Value::DWord(123)]).unwrap(),
         Value::Time(trust_runtime::value::Duration::from_millis(123))
     );
-    assert!(lib
-        .call(
+    assert_eq!(
+        lib.call(
             "TIME_TO_DWORD",
             &[Value::Time(trust_runtime::value::Duration::from_millis(-1))]
-        )
-        .is_err());
-    assert!(lib
-        .call(
+        ),
+        Err(RuntimeError::Overflow)
+    );
+    assert_eq!(
+        lib.call(
             "TIME_TO_DWORD",
             &[Value::Time(trust_runtime::value::Duration::from_millis(
                 i64::from(u32::MAX) + 1
             ))]
-        )
-        .is_err());
+        ),
+        Err(RuntimeError::Overflow)
+    );
 
     // String/char conversions.
     assert_eq!(
@@ -198,27 +201,25 @@ fn conversion_full() {
         lib.call("BYTE_BCD_TO_UINT", &[Value::Byte(0x25)]).unwrap(),
         Value::UInt(25)
     );
-    assert!(lib.call("BYTE_BCD_TO_UINT", &[Value::Byte(0xFA)]).is_err());
+    assert_eq!(
+        lib.call("BYTE_BCD_TO_UINT", &[Value::Byte(0xFA)]),
+        Err(RuntimeError::TypeMismatch)
+    );
 }
 
 #[test]
 fn string_to_real_rejects_non_finite_text() {
     let lib = StandardLibrary::new();
 
-    let err = lib
-        .call("STRING_TO_REAL", &[Value::String("NaN".into())])
-        .expect_err("STRING_TO_REAL must reject NaN");
-    assert!(
-        err.to_string().contains("overflow") || err.to_string().contains("type"),
-        "expected finite-value conversion error, got {err}"
+    assert_eq!(
+        lib.call("STRING_TO_REAL", &[Value::String("NaN".into())]),
+        Err(RuntimeError::Overflow),
+        "STRING_TO_REAL must reject NaN with the stable overflow error"
     );
-
-    let err = lib
-        .call("STRING_TO_LREAL", &[Value::String("inf".into())])
-        .expect_err("STRING_TO_LREAL must reject infinity");
-    assert!(
-        err.to_string().contains("overflow") || err.to_string().contains("type"),
-        "expected finite-value conversion error, got {err}"
+    assert_eq!(
+        lib.call("STRING_TO_LREAL", &[Value::String("inf".into())]),
+        Err(RuntimeError::Overflow),
+        "STRING_TO_LREAL must reject infinity with the stable overflow error"
     );
 }
 

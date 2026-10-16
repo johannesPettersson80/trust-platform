@@ -1,5 +1,5 @@
 CONFIGURATION WaterBoosterOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE WaterBoosterOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Station WITH MainTask : Main;
 END_RESOURCE

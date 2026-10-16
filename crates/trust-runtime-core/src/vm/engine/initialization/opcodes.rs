@@ -18,7 +18,7 @@ impl EngineState<'_> {
         stack: &mut OperandStack,
         depth: u32,
     ) -> Result<(), RuntimeError> {
-        if opcode != DEFAULT_VALUE && self.construction.initializers.is_empty() {
+        if opcode != DEFAULT_VALUE && self.data.construction.initializers.is_empty() {
             return Err(VmTrap::InvalidOpcode(opcode).into_runtime_error());
         }
         let value = match opcode {
@@ -36,7 +36,8 @@ impl EngineState<'_> {
                     ),
                 };
                 self.with_construction_frame(frame, |context| {
-                    construct_value(context, operand, mode)
+                    let prepared = context.prepared;
+                    construct_value(&prepared.vm.types, context, operand, mode)
                 })?
             }
             ARRAY_NEW => {
@@ -100,7 +101,6 @@ impl EngineState<'_> {
                     .get(operand as usize)
                     .cloned()
                     .ok_or(RuntimeError::TypeMismatch)?;
-                self.charge_work_units(structure.fields().len())?;
                 if structure
                     .fields()
                     .keys()

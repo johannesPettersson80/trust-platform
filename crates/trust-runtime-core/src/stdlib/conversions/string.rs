@@ -24,8 +24,8 @@ pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Va
         Value::Word(v) => Some(v.to_string()),
         Value::DWord(v) => Some(v.to_string()),
         Value::LWord(v) => Some(v.to_string()),
-        Value::Real(v) => Some(format_real_string(f64::from(*v))),
-        Value::LReal(v) => Some(format_real_string(*v)),
+        Value::Real(v) => Some(crate::value::float_text::real(f64::from(*v))),
+        Value::LReal(v) => Some(crate::value::float_text::real(*v)),
         _ => None,
     };
 
@@ -53,21 +53,36 @@ pub(super) fn parse_int_text(text: &str) -> Result<i128, RuntimeError> {
     if trimmed.is_empty() {
         return Err(RuntimeError::TypeMismatch);
     }
-    let cleaned: String = trimmed.chars().filter(|c| *c != '_').collect();
-    if let Some((base_str, digits)) = cleaned.split_once('#') {
-        let base: u32 = base_str.parse().map_err(|_| RuntimeError::TypeMismatch)?;
+    if let Some((base_str, digits)) = trimmed.split_once('#') {
+        // Spec 07 section 2.8: the optional sign belongs to the digits, never to the base.
+        // `u32::from_str` accepts a leading `+`, so the base must be decimal digits only.
+        let base_digits = strip_separators(base_str, 10)?;
+        if !base_digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let base: u32 = base_digits
+            .parse()
+            .map_err(|_| RuntimeError::TypeMismatch)?;
         if !(2..=36).contains(&base) {
             return Err(RuntimeError::TypeMismatch);
         }
+        let digits = strip_separators(digits, base)?;
         if digits.is_empty() {
             return Err(RuntimeError::TypeMismatch);
         }
-        let negative = digits.starts_with('-');
-        let digits = digits.strip_prefix(['+', '-']).unwrap_or(digits);
-        let value = i128::from_str_radix(digits, base).map_err(|_| RuntimeError::TypeMismatch)?;
+        // Spec 07 section 2.8: one optional sign on the digits. `from_str_radix` would
+        // accept a second sign, so a sign left after the first one is rejected here.
+        let (negative, unsigned) = match digits.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, digits.strip_prefix('+').unwrap_or(digits.as_str())),
+        };
+        if unsigned.starts_with(['+', '-']) {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let value = i128::from_str_radix(unsigned, base).map_err(|_| RuntimeError::TypeMismatch)?;
         return if negative { Ok(-value) } else { Ok(value) };
     }
-    cleaned
+    strip_separators(trimmed, 10)?
         .parse::<i128>()
         .map_err(|_| RuntimeError::TypeMismatch)
 }
@@ -77,15 +92,36 @@ pub(super) fn parse_real_text(text: &str) -> Result<f64, RuntimeError> {
     if trimmed.is_empty() {
         return Err(RuntimeError::TypeMismatch);
     }
-    let cleaned: String = trimmed.chars().filter(|c| *c != '_').collect();
-    let value = cleaned
-        .parse::<f64>()
-        .map_err(|_| RuntimeError::TypeMismatch)?;
+    let cleaned = strip_separators(trimmed, 10)?;
+    let value = crate::value::float_text::parse(&cleaned)?;
     if value.is_finite() {
         Ok(value)
     } else {
         Err(RuntimeError::Overflow)
     }
+}
+
+// IEC 61131-3 section 6.3.2: a single `_` between two digits of a numeric
+// literal is not significant, and no other use is allowed. A leading, trailing
+// or repeated `_` is malformed text. `radix` is the digit set of the literal:
+// decimal for real text and for a base prefix, the base itself for `digits`.
+fn strip_separators(text: &str, radix: u32) -> Result<String, RuntimeError> {
+    let mut cleaned = String::with_capacity(text.len());
+    let mut previous: Option<char> = None;
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '_' {
+            let after_digit = chars.peek().is_some_and(|next| next.is_digit(radix));
+            let before_digit = previous.is_some_and(|prev| prev.is_digit(radix));
+            if !(before_digit && after_digit) {
+                return Err(RuntimeError::TypeMismatch);
+            }
+        } else {
+            cleaned.push(ch);
+        }
+        previous = Some(ch);
+    }
+    Ok(cleaned)
 }
 
 pub(super) fn convert_to_char(value: &Value, dst: ConversionType) -> Result<Value, RuntimeError> {
@@ -135,14 +171,6 @@ pub(super) fn convert_to_char(value: &Value, dst: ConversionType) -> Result<Valu
         },
         _ => Err(RuntimeError::TypeMismatch),
     }
-}
-
-fn format_real_string(value: f64) -> String {
-    let mut text = value.to_string();
-    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
-        text.push_str(".0");
-    }
-    text
 }
 
 fn string_to_char(text: &str, wide: bool) -> Result<Value, RuntimeError> {

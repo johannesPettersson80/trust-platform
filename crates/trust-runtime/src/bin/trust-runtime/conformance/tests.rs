@@ -202,6 +202,37 @@ mod tests {
     }
 
     #[test]
+    fn time_series_literals_refuse_values_beyond_the_signed_nanosecond_range() {
+        assert_eq!(
+            parse_duration("9223372036854ms").expect("largest millisecond literal"),
+            Duration::from_nanos(9_223_372_036_854_000_000)
+        );
+        assert_eq!(
+            parse_duration("9223372036854775807ns").expect("largest nanosecond literal"),
+            Duration::from_nanos(i64::MAX)
+        );
+        for raw in [
+            "9223372036855ms",
+            "9223372036854775807s",
+            "18446744073709551615ms",
+        ] {
+            assert!(parse_duration(raw).is_err(), "{raw} must be refused");
+        }
+    }
+
+    #[test]
+    fn advance_series_refuses_milliseconds_beyond_the_signed_nanosecond_range() {
+        let manifest = CaseManifest {
+            cycles: 1,
+            advance_ms: vec![i64::MAX],
+            ..CaseManifest::default()
+        };
+        let error = validate_series_lengths(&case_with_manifest(manifest), 1)
+            .expect_err("an advance beyond the nanosecond range must be refused");
+        assert!(error.to_string().contains("advance_ms[0]"), "{error}");
+    }
+
+    #[test]
     fn parse_typed_values_supports_core_manifest_types() {
         assert_eq!(
             parse_typed_value("BOOL:true").expect("bool"),
@@ -224,28 +255,34 @@ mod tests {
         assert!(validate_series_lengths(&case_with_manifest(manifest.clone()), 2).is_ok());
 
         manifest.advance_ms = vec![1];
-        assert!(validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
-            .expect_err("short advance series must fail")
-            .to_string()
-            .contains("advance_ms length"));
+        assert!(
+            validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
+                .expect_err("short advance series must fail")
+                .to_string()
+                .contains("advance_ms length")
+        );
         manifest.advance_ms = vec![1, 2];
 
         manifest
             .input_series
             .insert("Input".to_string(), vec!["INT:1".to_string()]);
-        assert!(validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
-            .expect_err("short named-input series must fail")
-            .to_string()
-            .contains("input series"));
+        assert!(
+            validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
+                .expect_err("short named-input series must fail")
+                .to_string()
+                .contains("input series")
+        );
         manifest.input_series.clear();
 
         manifest
             .direct_input_series
             .insert("%IX0.0".to_string(), vec!["BOOL:true".to_string()]);
-        assert!(validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
-            .expect_err("short direct-input series must fail")
-            .to_string()
-            .contains("direct input series"));
+        assert!(
+            validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
+                .expect_err("short direct-input series must fail")
+                .to_string()
+                .contains("direct input series")
+        );
         manifest.direct_input_series.clear();
 
         for before_cycle in [0, 3] {
@@ -253,17 +290,25 @@ mod tests {
                 before_cycle,
                 mode: "warm".to_string(),
             }];
-            assert!(validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
-                .expect_err("out-of-range restart must fail")
-                .to_string()
-                .contains("must be within 1..=2"));
+            assert!(
+                validate_series_lengths(&case_with_manifest(manifest.clone()), 2)
+                    .expect_err("out-of-range restart must fail")
+                    .to_string()
+                    .contains("must be within 1..=2")
+            );
         }
 
         for mode in ["warm", "hot", "fault"] {
-            assert_eq!(parse_restart_mode(mode).expect("warm-like mode"), RestartMode::Warm);
+            assert_eq!(
+                parse_restart_mode(mode).expect("warm-like mode"),
+                RestartMode::Warm
+            );
         }
         for mode in ["cold", "download"] {
-            assert_eq!(parse_restart_mode(mode).expect("cold-like mode"), RestartMode::Cold);
+            assert_eq!(
+                parse_restart_mode(mode).expect("cold-like mode"),
+                RestartMode::Cold
+            );
         }
         assert!(parse_restart_mode("resume").is_err());
         assert!(should_skip_step_value("skip"));
@@ -290,16 +335,8 @@ mod tests {
             ("LWORD:64", Value::LWord(64), "LWORD"),
             ("REAL:1.5", Value::Real(1.5), "REAL"),
             ("LREAL:2.5", Value::LReal(2.5), "LREAL"),
-            (
-                "TIME:3s",
-                Value::Time(Duration::from_secs(3)),
-                "TIME",
-            ),
-            (
-                "LTIME:4ns",
-                Value::LTime(Duration::from_nanos(4)),
-                "LTIME",
-            ),
+            ("TIME:3s", Value::Time(Duration::from_secs(3)), "TIME"),
+            ("LTIME:4ns", Value::LTime(Duration::from_nanos(4)), "LTIME"),
             (
                 "STRING:hello",
                 Value::String("hello".to_string().into()),

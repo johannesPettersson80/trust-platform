@@ -26,6 +26,11 @@ pub(super) fn convert_to_bit_string(
         Value::Real(v) if dst == ConversionType::DWord => Ok(Value::DWord(v.to_bits())),
         Value::LReal(v) if dst == ConversionType::LWord => Ok(Value::LWord(v.to_bits())),
         Value::Time(duration) if dst == ConversionType::DWord => {
+            // Spec 07 section 2.8: a negative value is rejected. The sign is tested on the
+            // nanoseconds, since `as_millis` truncates toward zero and maps T#-1ns to 0 ms.
+            if duration.as_nanos() < 0 {
+                return Err(RuntimeError::Overflow);
+            }
             let millis = duration.as_millis();
             let millis = u32::try_from(millis).map_err(|_| RuntimeError::Overflow)?;
             Ok(Value::DWord(millis))

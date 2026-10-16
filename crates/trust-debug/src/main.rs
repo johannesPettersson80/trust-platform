@@ -1,6 +1,6 @@
 use tracing::info;
 use trust_debug::{DebugAdapter, DebugSession};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -12,7 +12,13 @@ fn main() {
         .init();
 
     info!("Starting trust-debug adapter");
-    let runtime = Runtime::new();
+    let runtime = match RuntimeBuilder::new().build() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("trust-debug initialization failed: {error}");
+            std::process::exit(1);
+        }
+    };
     let session = DebugSession::new(runtime);
     let mut adapter = DebugAdapter::new(session);
     if let Err(err) = adapter.run_stdio() {

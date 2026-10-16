@@ -22,4 +22,5 @@ trust-syntax.workspace = true
 trust-wasm-analysis.workspace = true
 
 [dev-dependencies]
+trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
 verification-cases.workspace = true

@@ -5,7 +5,8 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::numeric::to_i64;
 use trust_runtime_core::value::Value;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001";
@@ -59,13 +60,60 @@ fn run_normalization_case(
         "NON_INTEGER_RUNTIME_VALUE" => non_integer_checks(),
         other => return Err(format!("unreviewed integer normalization scenario {other}")),
     };
-    let failures = checks
-        .into_iter()
-        .filter_map(|(label, actual, expected)| {
-            (actual != expected)
-                .then(|| format!("{label}: expected {expected:?}, observed {actual:?}"))
-        })
-        .collect::<Vec<_>>();
+    let mut failures = Vec::new();
+    for (label, actual, expected) in &checks {
+        if actual != expected {
+            failures.push(format!(
+                "{label}: expected {expected:?}, observed {actual:?}"
+            ));
+        }
+        // Each conversion is one operation under test. It has no state to write before or
+        // after, and a rejection reports its error as the diagnostic.
+        let before = StateSnapshot {
+            process_image_hash: None,
+            retain_hash: None,
+            target: None,
+            siblings: BTreeMap::new(),
+            diagnostics: Vec::new(),
+        };
+        let after = StateSnapshot {
+            process_image_hash: None,
+            retain_hash: None,
+            target: actual.as_ref().ok().map(|value| format!("{value}").into()),
+            siblings: BTreeMap::new(),
+            diagnostics: actual
+                .as_ref()
+                .err()
+                .map(|error| error.to_string())
+                .into_iter()
+                .collect(),
+        };
+        let operation = ObservedOperation {
+            outcome: if actual.is_ok() {
+                "accept_value"
+            } else {
+                "reject"
+            },
+            fault_surface: None,
+            status_before: None,
+            status_after: None,
+            before: &before,
+            after: &after,
+        };
+        match check_case_expectation(case, &operation) {
+            Ok(mismatches) => failures.extend(
+                mismatches
+                    .into_iter()
+                    .map(|mismatch| format!("{label}: {mismatch}")),
+            ),
+            Err(error) => failures.push(format!("{label}: {error}")),
+        }
+    }
+    for trace_step in case.trace.as_deref().unwrap_or(&[]) {
+        if let Err(error) = check_trace_fields(&trace_step.expected, &[]) {
+            failures.push(error);
+        }
+    }
     Ok(CaseExecution {
         result: if failures.is_empty() {
             CaseResult::Passed

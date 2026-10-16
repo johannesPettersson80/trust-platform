@@ -1,5 +1,5 @@
 impl RetainSnapshot {
-    pub fn from_runtime(runtime: &Runtime) -> Self {
+    pub fn from_runtime(runtime: &mut Runtime) -> Result<Self, RuntimeError> {
         runtime.retain_snapshot()
     }
 }
@@ -92,7 +92,10 @@ impl FileRetainStore {
     }
 
     #[cfg(test)]
-    fn with_file_ops(path: impl Into<PathBuf>, file_ops: std::sync::Arc<dyn RetainFileOps>) -> Self {
+    fn with_file_ops(
+        path: impl Into<PathBuf>,
+        file_ops: std::sync::Arc<dyn RetainFileOps>,
+    ) -> Self {
         Self {
             path: path.into(),
             file_ops,
@@ -107,8 +110,8 @@ impl FileRetainStore {
         let tmp_path = temp_retain_path(path);
         let write_result = (|| {
             let mut file = self.file_ops.create_temp(&tmp_path).map_err(|err| {
-                    RuntimeError::RetainStore(format!("create temp retain {tmp_path:?}: {err}").into())
-                })?;
+                RuntimeError::RetainStore(format!("create temp retain {tmp_path:?}: {err}").into())
+            })?;
             file.write_all(bytes).map_err(|err| {
                 RuntimeError::RetainStore(format!("write temp retain {tmp_path:?}: {err}").into())
             })?;

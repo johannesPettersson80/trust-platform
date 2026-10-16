@@ -151,6 +151,7 @@ END_PROGRAM
     control
         .send_command(ResourceCommand::ReloadBytecode {
             bytes: updated_bytes,
+            claim: trust_runtime::scheduler::ReloadClaim::default(),
             respond_to: tx,
         })
         .expect("queue reload command");
@@ -247,8 +248,8 @@ END_PROGRAM
     };
     harness
         .runtime_mut()
-        .storage_mut()
-        .set_instance_var(g_fb_before, "count", Value::Int(7));
+        .write_instance(g_fb_before, "count", Value::Int(7))
+        .unwrap();
 
     let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
     harness
@@ -516,6 +517,7 @@ END_PROGRAM
     control
         .send_command(ResourceCommand::ReloadBytecode {
             bytes: vec![0x00, 0x01, 0x02, 0x03],
+            claim: trust_runtime::scheduler::ReloadClaim::default(),
             respond_to: tx,
         })
         .expect("send reload command");

@@ -963,8 +963,9 @@ sysfs_base = "/tmp/gpio"
             }],
             health: IoDriverHealth::Ok,
         };
-        let mut runtime = crate::Runtime::new();
-        runtime.io_mut().resize(0, 1, 0);
+        let mut builder = crate::RuntimeBuilder::new();
+        builder.io_mut().resize(0, 1, 0);
+        let mut runtime = builder.build().expect("install GPIO output image");
         runtime.add_io_driver("gpio", Box::new(driver));
         runtime.set_io_safe_state(crate::io::IoSafeState {
             outputs: vec![(

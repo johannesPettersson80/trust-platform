@@ -1,12 +1,10 @@
 //! TYPE_TABLE assignment policy shared by hosted and source-free execution.
 
 use super::module::VmModule;
-use crate::bytecode::{TypeData, TypeTable};
+use crate::bytecode::{TypeData, TypeTable, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
-use crate::value::{normalize_assignment_for_target, truncate_string_elements, RefSegment, Value};
+use crate::value::{normalize_assignment_for_target, RefSegment, Value};
 use alloc::string::String;
-
-const TYPE_POLICY_MAX_DEPTH: usize = 16;
 
 /// Normalize assignment to a declared module type.
 pub fn normalize_vm_value_for_type(
@@ -85,7 +83,7 @@ pub fn normalize_value_for_type_table(
     value: Value,
     depth: usize,
 ) -> Result<Value, RuntimeError> {
-    if depth >= TYPE_POLICY_MAX_DEPTH {
+    if depth > BYTECODE_MAX_TYPE_NESTING {
         return Err(RuntimeError::TypeMismatch);
     }
     let Some(entry) = types.entries.get(type_idx as usize) else {
@@ -124,17 +122,7 @@ pub fn normalize_value_for_type_table(
         TypeData::Primitive {
             prim_id,
             max_length,
-        } => {
-            let value = normalize_string_primitive(*prim_id, *max_length, value);
-            let value = match default_value_for_primitive(*prim_id) {
-                Some(target) => normalize_assignment_for_target(&target, value),
-                None => value,
-            };
-            if !primitive_value_matches(*prim_id, &value) {
-                return Err(RuntimeError::TypeMismatch);
-            }
-            Ok(value)
-        }
+        } => normalize_primitive_value(*prim_id, *max_length, value),
         TypeData::Reference { .. } => Ok(match value {
             Value::Null => Value::Reference(None),
             value => value,
@@ -143,23 +131,51 @@ pub fn normalize_value_for_type_table(
     }
 }
 
+/// Normalize one primitive without resolving its TYPE_TABLE entry again.
+/// Values that already match the target primitive need no conversion through a default
+/// value after string bounds are applied. Mismatched primitive families retain
+/// the existing shared coercion.
+pub(crate) fn normalize_primitive_value(
+    prim_id: u16,
+    max_length: u16,
+    value: Value,
+) -> Result<Value, RuntimeError> {
+    let value = normalize_string_primitive(prim_id, max_length, value);
+    if primitive_value_matches(prim_id, &value) {
+        return Ok(value);
+    }
+    let value = match default_value_for_primitive(prim_id) {
+        Some(target) => normalize_assignment_for_target(&target, value),
+        None => value,
+    };
+    if primitive_value_matches(prim_id, &value) {
+        Ok(value)
+    } else {
+        Err(RuntimeError::TypeMismatch)
+    }
+}
+
 fn normalize_string_primitive(prim_id: u16, max_length: u16, value: Value) -> Value {
     if max_length == 0 {
         return value;
     }
     match (prim_id, value) {
-        (24, Value::String(text)) => {
-            Value::String(truncate_string_elements(text.as_str(), u32::from(max_length)).into())
-        }
-        (25, Value::WString(text)) => {
-            Value::WString(truncate_string_elements(&text, u32::from(max_length)))
+        (24, Value::String(text)) => match text.char_indices().nth(usize::from(max_length)) {
+            Some((end, _)) => Value::String(text[..end].into()),
+            None => Value::String(text),
+        },
+        (25, Value::WString(mut text)) => {
+            if let Some((end, _)) = text.char_indices().nth(usize::from(max_length)) {
+                text.truncate(end);
+            }
+            Value::WString(text)
         }
         (_, value) => value,
     }
 }
 
 fn resolved_primitive_id(types: &TypeTable, type_idx: u32, depth: usize) -> Option<u16> {
-    if depth >= TYPE_POLICY_MAX_DEPTH {
+    if depth > BYTECODE_MAX_TYPE_NESTING {
         return None;
     }
     let entry = types.entries.get(type_idx as usize)?;
@@ -180,7 +196,7 @@ pub fn resolved_primitive_shape(
     type_idx: u32,
     depth: usize,
 ) -> Option<(u16, u16)> {
-    if depth >= TYPE_POLICY_MAX_DEPTH {
+    if depth > BYTECODE_MAX_TYPE_NESTING {
         return None;
     }
     let entry = types.entries.get(type_idx as usize)?;
@@ -200,7 +216,7 @@ pub fn resolved_primitive_shape(
 
 /// Resolve aliases within the type-policy recursion bound.
 pub fn resolved_alias_type(types: &TypeTable, type_idx: u32, depth: usize) -> Option<u32> {
-    if depth >= TYPE_POLICY_MAX_DEPTH {
+    if depth > BYTECODE_MAX_TYPE_NESTING {
         return None;
     }
     let entry = types.entries.get(type_idx as usize)?;
@@ -212,7 +228,7 @@ pub fn resolved_alias_type(types: &TypeTable, type_idx: u32, depth: usize) -> Op
     }
 }
 
-fn primitive_value_matches(prim_id: u16, value: &Value) -> bool {
+pub(crate) fn primitive_value_matches(prim_id: u16, value: &Value) -> bool {
     // STBC 2.0 native counter slots remain unbound until their first call.
     // Once bound, ANY_INT preserves the caller's integer width and signedness.
     if prim_id == 0x0100 {

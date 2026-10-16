@@ -4,10 +4,11 @@ pub struct ResourceHandle<C: Clock + Clone> {
     stop: Arc<AtomicBool>,
     state: Arc<Mutex<ResourceState>>,
     last_error: Arc<Mutex<Option<RuntimeError>>>,
+    supervision: Arc<supervisor::ScanSupervision>,
     thread_id: thread::ThreadId,
     clock: C,
     join: Option<thread::JoinHandle<()>>,
-    cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    cmd_tx: std::sync::mpsc::SyncSender<ResourceCommand>,
 }
 
 impl<C: Clock + Clone> ResourceHandle<C> {
@@ -18,6 +19,7 @@ impl<C: Clock + Clone> ResourceHandle<C> {
             stop: self.stop.clone(),
             state: self.state.clone(),
             last_error: self.last_error.clone(),
+            supervision: self.supervision.clone(),
             clock: self.clock.clone(),
             cmd_tx: self.cmd_tx.clone(),
         }
@@ -43,6 +45,12 @@ impl<C: Clock + Clone> ResourceHandle<C> {
         *self.state.lock().expect("resource state poisoned")
     }
 
+    /// Whether hosted hang supervision found the scan thread inside a call that did not return.
+    #[must_use]
+    pub fn is_hung(&self) -> bool {
+        self.supervision.is_hung()
+    }
+
     /// Thread id for the running resource.
     #[must_use]
     pub fn thread_id(&self) -> thread::ThreadId {
@@ -64,8 +72,9 @@ pub struct ResourceControl<C: Clock + Clone> {
     stop: Arc<AtomicBool>,
     state: Arc<Mutex<ResourceState>>,
     last_error: Arc<Mutex<Option<RuntimeError>>>,
+    supervision: Arc<supervisor::ScanSupervision>,
     clock: C,
-    cmd_tx: std::sync::mpsc::Sender<ResourceCommand>,
+    cmd_tx: std::sync::mpsc::SyncSender<ResourceCommand>,
 }
 
 impl<C: Clock + Clone> ResourceControl<C> {
@@ -76,12 +85,17 @@ impl<C: Clock + Clone> ResourceControl<C> {
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Ready));
         let last_error = Arc::new(Mutex::new(None));
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
+        let (cmd_tx, cmd_rx) = command_channel();
         (
             Self {
                 stop,
                 state,
                 last_error,
+                supervision,
                 clock,
                 cmd_tx,
             },
@@ -100,27 +114,39 @@ impl<C: Clock + Clone> ResourceControl<C> {
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(initial_state));
         let last_error = Arc::new(Mutex::new(initial_error));
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
+        let (cmd_tx, cmd_rx) = command_channel();
         (
             Self {
                 stop,
                 state,
                 last_error,
+                supervision,
                 clock,
                 cmd_tx,
             },
             cmd_rx,
         )
     }
+
+    /// Mark the stub as hung, as hosted hang supervision does when the scan thread does not return.
+    #[cfg(test)]
+    pub(crate) fn mark_hung_for_test(&self) {
+        self.supervision.set_hung_for_test(true);
+    }
+
     /// Pause the runtime cycles.
-    pub fn pause(&self) -> Result<(), RuntimeError> {
+    pub fn pause(&self) -> Result<(), CommandSendError> {
         self.send_command(ResourceCommand::Pause)?;
         self.clock.wake();
         Ok(())
     }
 
     /// Resume the runtime cycles.
-    pub fn resume(&self) -> Result<(), RuntimeError> {
+    pub fn resume(&self) -> Result<(), CommandSendError> {
         self.send_command(ResourceCommand::Resume)?;
         self.clock.wake();
         Ok(())
@@ -143,6 +169,12 @@ impl<C: Clock + Clone> ResourceControl<C> {
         *self.state.lock().expect("resource state poisoned")
     }
 
+    /// Whether hosted hang supervision found the scan thread inside a call that did not return.
+    #[must_use]
+    pub fn is_hung(&self) -> bool {
+        self.supervision.is_hung()
+    }
+
     /// Retrieve the last error if the resource faulted.
     #[must_use]
     pub fn last_error(&self) -> Option<RuntimeError> {
@@ -152,11 +184,10 @@ impl<C: Clock + Clone> ResourceControl<C> {
             .clone()
     }
 
-    /// Send a command to the running resource.
-    pub fn send_command(&self, command: ResourceCommand) -> Result<(), RuntimeError> {
-        self.cmd_tx
-            .send(command)
-            .map_err(|_| RuntimeError::ControlError("command channel closed".into()))
+    /// Queue a command for the running resource without blocking. A full queue refuses the
+    /// command with [`CommandSendError::Full`] and queues nothing (specification 11 section 6.9).
+    pub fn send_command(&self, command: ResourceCommand) -> Result<(), CommandSendError> {
+        try_queue(&self.cmd_tx, command)
     }
 }
 
@@ -195,6 +226,32 @@ impl SharedGlobals {
         self.with_lock(|globals| globals.get(name).cloned())
     }
 
+    fn validate_destination(&self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
+        self.with_lock(|globals| {
+            for name in &self.names {
+                let value = globals
+                    .get(name)
+                    .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
+                runtime.validate_global_write(name, value.clone())?;
+            }
+            Ok(())
+        })
+    }
+
+    fn execute_cycle(&self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
+        if runtime.faulted() {
+            return Err(RuntimeError::ResourceFaulted);
+        }
+        let result = self.with_lock(|globals| {
+            self.sync_into_locked(globals, runtime)?;
+            let cycle_result = runtime.execute_cycle();
+            let publication_result = self.sync_from_locked(globals, runtime);
+            // Keep the owning PLC error when publication fails as well.
+            cycle_result.and(publication_result)
+        });
+        result.map_err(|error| runtime.scheduler_fault(error))
+    }
+
     fn sync_into_locked(
         &self,
         globals: &IndexMap<SmolStr, Value>,
@@ -204,9 +261,7 @@ impl SharedGlobals {
             let value = globals
                 .get(name)
                 .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
-            runtime
-                .storage_mut()
-                .set_global(name.clone(), value.clone());
+            runtime.write_global(name, value.clone())?;
         }
         Ok(())
     }

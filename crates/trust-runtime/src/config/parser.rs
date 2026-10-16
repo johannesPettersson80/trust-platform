@@ -135,6 +135,8 @@ struct WatchdogSection {
     enabled: bool,
     timeout_ms: u64,
     action: String,
+    /// Optional for existing projects; absent means `fault`.
+    hang_action: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -22,6 +22,10 @@ mod util;
 mod variables;
 
 #[cfg(test)]
+mod mqtt_install_enum_value_type_tests;
+#[cfg(test)]
+mod remote_value_type_tests;
+#[cfg(test)]
 mod tests;
 
 use std::collections::{HashMap, HashSet};

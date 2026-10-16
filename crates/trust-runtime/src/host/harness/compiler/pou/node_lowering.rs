@@ -31,6 +31,7 @@ fn lower_program_node(
             using: ctx.using.clone(),
             body,
         },
+        external_names: vars.external_names,
         globals,
         access,
     })

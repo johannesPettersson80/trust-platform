@@ -11,6 +11,12 @@ env:
   RUST_BACKTRACE: 1
   # GitHub runners do not guarantee sccache availability; disable wrapper in CI.
   RUSTC_WRAPPER: ""
+  # Every integration test is its own binary linking the runtime. Line tables keep file:line
+  # backtraces at a fraction of the size of full debug info, and CI never reuses incremental
+  # caches, so both settings keep `cargo build --all-targets` inside the runners' free disk.
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_PROFILE_TEST_DEBUG: line-tables-only
 
 jobs:
   portable-core:
@@ -19,7 +25,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [thumbv7em-none-eabihf, riscv32imac-unknown-none-elf]
+        include:
+          - target: thumbv7em-none-eabihf
+            board_adapter: trust-platform-stm32f4
+          - target: riscv32imac-unknown-none-elf
+            board_adapter: trust-platform-esp32
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.0
@@ -32,6 +42,10 @@ jobs:
         run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
       - name: Record resolved target features
         run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features,no-dev
+      - name: Check the board adapter and shared fixture for the target
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --locked -p ${{ matrix.board_adapter }} -p trust-board-fixture --target ${{ matrix.target }}
       - name: Mark gate success
         if: ${{ success() }}
         run: |
@@ -254,6 +268,22 @@ jobs:
           done
           echo "Full test suite failed after 2 attempts." | tee -a "${LOG_PATH}"
           exit 1
+      - name: Doc tests with checked compile-fail codes, and the runtime-only composition
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
+          # `cargo test --all-targets` runs no doc tests. Stable rustdoc checks the error code
+          # declared by a `compile_fail,E0xxx` doc test only with RUSTC_BOOTSTRAP set, so these
+          # runs prove why each forbidden API use is rejected, not only that it fails to build.
+          RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime -p trust-runtime-core 2>&1 | tee -a "${LOG_PATH}"
+          RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime --no-default-features --features runtime-only 2>&1 | tee -a "${LOG_PATH}"
+          # Most integration tests need the full composition; these five are the runtime-only set.
+          cargo test --locked -p trust-runtime --no-default-features --features runtime-only \
+            --test hosted_platform_legacy_gating --test hosted_platform_cycle_port_source \
+            --test hosted_platform_composition_graph --test hosted_platform_cross_composition \
+            --test runtime_only_composition 2>&1 | tee -a "${LOG_PATH}"
       - name: Upload test suite log
         if: ${{ always() }}
         uses: actions/upload-artifact@v7

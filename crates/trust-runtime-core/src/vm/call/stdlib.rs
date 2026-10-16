@@ -1,4 +1,6 @@
 use super::context::CallContext;
+#[cfg(all(feature = "std", feature = "test-support"))]
+use crate::vm::diagnostic_timing::attribution::{self, CopyConsumerKind};
 use alloc::{vec, vec::Vec};
 use smol_str::SmolStr;
 
@@ -21,6 +23,11 @@ pub fn dispatch_native_stdlib_call(
     conversion_spec: Option<conversions::ConversionSpec>,
     args: &[VmNativeArg],
 ) -> Result<Value, VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _timing =
+        crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::BuiltinExecute);
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _consumer = attribution::consumer(CopyConsumerKind::StandardLibrary, None);
     if time::is_runtime_clock_name(normalized_target_name.as_str()) {
         if !args.is_empty() {
             return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
@@ -40,18 +47,62 @@ pub fn dispatch_native_stdlib_call(
     }
     if let Some(conversion_spec) = conversion_spec {
         let value = bind_conversion_value(runtime, frame, args)?;
-        return conversions::call_conversion_spec(conversion_spec, core::slice::from_ref(&value))
-            .map_err(VmTrap::Runtime);
+        charge_text_arguments(runtime, core::slice::from_ref(&value))?;
+        let result =
+            conversions::call_conversion_spec(conversion_spec, core::slice::from_ref(&value))
+                .map_err(VmTrap::Runtime)?;
+        charge_text_return(runtime, &result)?;
+        return Ok(result);
     }
     if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();
         let func = entry.func;
         let values = bind_stdlib_values(runtime, frame, &params, args)?;
-        return func(&values).map_err(VmTrap::Runtime);
+        charge_text_arguments(runtime, &values)?;
+        let result = func(&values).map_err(VmTrap::Runtime)?;
+        charge_text_return(runtime, &result)?;
+        return Ok(result);
     }
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
         target_name.clone(),
     )))
+}
+
+/// UTF-8 byte length of a STRING or WSTRING value, which TIME-08 charges per byte.
+#[inline(always)]
+fn text_byte_len(value: &Value) -> Option<usize> {
+    match value {
+        Value::String(text) => Some(text.len()),
+        Value::WString(text) => Some(text.len()),
+        _ => None,
+    }
+}
+
+/// Charge the text bytes of every argument before the function body runs (TIME-02, TIME-08).
+/// One charge covers all arguments, so a refusal leaves the allowance and the body untouched.
+/// A call without text arguments charges nothing, as an empty work charge consumes nothing.
+#[inline(always)]
+fn charge_text_arguments(runtime: &mut impl CallContext, values: &[Value]) -> Result<(), VmTrap> {
+    let mut bytes = 0usize;
+    for len in values.iter().filter_map(text_byte_len) {
+        bytes = bytes
+            .checked_add(len)
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::Overflow))?;
+    }
+    if bytes == 0 {
+        return Ok(());
+    }
+    runtime.charge_text_work(bytes).map_err(VmTrap::Runtime)
+}
+
+/// Charge a text result as a new value after the function body returns (TIME-08).
+/// A refused charge discards the result.
+#[inline(always)]
+fn charge_text_return(runtime: &mut impl CallContext, result: &Value) -> Result<(), VmTrap> {
+    match text_byte_len(result) {
+        Some(bytes) => runtime.charge_text_result(bytes).map_err(VmTrap::Runtime),
+        None => Ok(()),
+    }
 }
 
 /// Bind the single operand of a recognized conversion.
@@ -80,6 +131,8 @@ pub fn bind_conversion_value(
             name.clone(),
         )));
     }
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _parameter = attribution::parameter(0, 3, false);
     resolve_vm_arg_value(runtime, frame, arg)
 }
 
@@ -96,47 +149,98 @@ fn dispatch_native_split_call(
     runtime.with_output_transaction(frame, |runtime, frame| {
         match name {
             "SPLIT_DATE" => {
+                let [year_output, month_output, day_output] = outputs.as_slice() else {
+                    return Err(VmTrap::InvalidNativeCall(
+                        "split output count".into(),
+                    ));
+                };
                 let (year, month, day) = time::split_date(&input, *runtime.profile())?;
-                write_output_int(runtime, frame, &outputs[0], year)?;
-                write_output_int(runtime, frame, &outputs[1], month)?;
-                write_output_int(runtime, frame, &outputs[2], day)?;
+                write_output_int(runtime, frame, year_output, year)?;
+                write_output_int(runtime, frame, month_output, month)?;
+                write_output_int(runtime, frame, day_output, day)?;
             }
             "SPLIT_TOD" => {
+                let [hour_output, minute_output, second_output, millis_output] =
+                    outputs.as_slice()
+                else {
+                    return Err(VmTrap::InvalidNativeCall(
+                        "split output count".into(),
+                    ));
+                };
                 let (hour, minute, second, millis) = time::split_tod(&input, *runtime.profile())?;
-                write_output_int(runtime, frame, &outputs[0], hour)?;
-                write_output_int(runtime, frame, &outputs[1], minute)?;
-                write_output_int(runtime, frame, &outputs[2], second)?;
-                write_output_int(runtime, frame, &outputs[3], millis)?;
+                write_output_int(runtime, frame, hour_output, hour)?;
+                write_output_int(runtime, frame, minute_output, minute)?;
+                write_output_int(runtime, frame, second_output, second)?;
+                write_output_int(runtime, frame, millis_output, millis)?;
             }
             "SPLIT_LTOD" => {
+                let [hour_output, minute_output, second_output, millis_output] =
+                    outputs.as_slice()
+                else {
+                    return Err(VmTrap::InvalidNativeCall(
+                        "split output count".into(),
+                    ));
+                };
                 let (hour, minute, second, millis) = time::split_ltod(&input)?;
-                write_output_int(runtime, frame, &outputs[0], hour)?;
-                write_output_int(runtime, frame, &outputs[1], minute)?;
-                write_output_int(runtime, frame, &outputs[2], second)?;
-                write_output_int(runtime, frame, &outputs[3], millis)?;
+                write_output_int(runtime, frame, hour_output, hour)?;
+                write_output_int(runtime, frame, minute_output, minute)?;
+                write_output_int(runtime, frame, second_output, second)?;
+                write_output_int(runtime, frame, millis_output, millis)?;
             }
             "SPLIT_DT" => {
+                let [
+                    year_output,
+                    month_output,
+                    day_output,
+                    hour_output,
+                    minute_output,
+                    second_output,
+                    millis_output,
+                ] = outputs.as_slice()
+                else {
+                    return Err(VmTrap::InvalidNativeCall(
+                        "split output count".into(),
+                    ));
+                };
                 let (year, month, day, hour, minute, second, millis) =
                     time::split_dt(&input, *runtime.profile())?;
-                write_output_int(runtime, frame, &outputs[0], year)?;
-                write_output_int(runtime, frame, &outputs[1], month)?;
-                write_output_int(runtime, frame, &outputs[2], day)?;
-                write_output_int(runtime, frame, &outputs[3], hour)?;
-                write_output_int(runtime, frame, &outputs[4], minute)?;
-                write_output_int(runtime, frame, &outputs[5], second)?;
-                write_output_int(runtime, frame, &outputs[6], millis)?;
+                write_output_int(runtime, frame, year_output, year)?;
+                write_output_int(runtime, frame, month_output, month)?;
+                write_output_int(runtime, frame, day_output, day)?;
+                write_output_int(runtime, frame, hour_output, hour)?;
+                write_output_int(runtime, frame, minute_output, minute)?;
+                write_output_int(runtime, frame, second_output, second)?;
+                write_output_int(runtime, frame, millis_output, millis)?;
             }
             "SPLIT_LDT" => {
+                let [
+                    year_output,
+                    month_output,
+                    day_output,
+                    hour_output,
+                    minute_output,
+                    second_output,
+                    millis_output,
+                ] = outputs.as_slice()
+                else {
+                    return Err(VmTrap::InvalidNativeCall(
+                        "split output count".into(),
+                    ));
+                };
                 let (year, month, day, hour, minute, second, millis) = time::split_ldt(&input)?;
-                write_output_int(runtime, frame, &outputs[0], year)?;
-                write_output_int(runtime, frame, &outputs[1], month)?;
-                write_output_int(runtime, frame, &outputs[2], day)?;
-                write_output_int(runtime, frame, &outputs[3], hour)?;
-                write_output_int(runtime, frame, &outputs[4], minute)?;
-                write_output_int(runtime, frame, &outputs[5], second)?;
-                write_output_int(runtime, frame, &outputs[6], millis)?;
+                write_output_int(runtime, frame, year_output, year)?;
+                write_output_int(runtime, frame, month_output, month)?;
+                write_output_int(runtime, frame, day_output, day)?;
+                write_output_int(runtime, frame, hour_output, hour)?;
+                write_output_int(runtime, frame, minute_output, minute)?;
+                write_output_int(runtime, frame, second_output, second)?;
+                write_output_int(runtime, frame, millis_output, millis)?;
             }
-            _ => {}
+            _ => {
+                return Err(VmTrap::InvalidNativeCall(
+                    "invalid split function".into(),
+                ));
+            }
         }
         Ok(Value::Null)
     })
@@ -157,6 +261,8 @@ fn bind_split_vm_args(
             }));
         }
         let mut outputs = Vec::with_capacity(params.len().saturating_sub(1));
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter = attribution::parameter(0, 3, false);
         let input = resolve_vm_arg_value(runtime, frame, &args[0])?;
         for arg in &args[1..] {
             outputs.push(require_output_target(arg)?);
@@ -196,6 +302,8 @@ fn bind_split_vm_args(
         assigned[position] = Some(arg);
     }
 
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _parameter = attribution::parameter(0, 3, false);
     let input = assigned[0]
         .ok_or({
             VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
@@ -262,7 +370,12 @@ pub fn bind_stdlib_positional_values(
         }
     }
     let mut values = Vec::with_capacity(args.len());
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let mut diagnostic_formals = 0..;
     for arg in args {
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter =
+            attribution::parameter(diagnostic_formals.next().unwrap_or(usize::MAX), 3, false);
         values.push(resolve_vm_arg_value(runtime, frame, arg)?);
     }
     Ok(values)
@@ -316,6 +429,8 @@ fn bind_stdlib_named_values_fixed(
                 name.clone(),
             )));
         }
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter = attribution::parameter(position, 3, false);
         values[position] = Some(resolve_vm_arg_value(runtime, frame, arg)?);
     }
 
@@ -358,6 +473,8 @@ fn bind_stdlib_named_values_variadic(
                     name.clone(),
                 )));
             }
+            #[cfg(all(feature = "std", feature = "test-support"))]
+            let _parameter = attribution::parameter(position, 3, false);
             fixed_values[position] = Some(resolve_vm_arg_value(runtime, frame, arg)?);
             continue;
         }
@@ -386,6 +503,8 @@ fn bind_stdlib_named_values_variadic(
                     name.clone(),
                 )));
             }
+            #[cfg(all(feature = "std", feature = "test-support"))]
+            let _parameter = attribution::variadic_parameter(fixed.len(), offset);
             variadic_values[offset] = Some(resolve_vm_arg_value(runtime, frame, arg)?);
             max_index = Some(max_index.map_or(offset, |max| max.max(offset)));
             continue;

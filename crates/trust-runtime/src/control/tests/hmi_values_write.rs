@@ -672,6 +672,80 @@ allow = ["resource/RESOURCE/program/Main/field/label"]
 }
 
 #[test]
+fn hmi_write_string_capacity_admits_the_declared_length_and_refuses_one_more() {
+    // hmi_handlers_parse.rs:12-14 and :113-122: a value fits when its element count is at
+    // most the declared STRING[n] capacity, so the boundary is n and n+1 elements.
+    let source = r#"
+PROGRAM Main
+VAR
+    label : STRING[3] := 'OK';
+END_VAR
+END_PROGRAM
+"#;
+    let root = temp_dir("hmi-write-string-boundary");
+    write_file(
+        &root.join("hmi.toml"),
+        r#"
+[write]
+enabled = true
+allow = ["resource/RESOURCE/program/Main/field/label"]
+"#,
+    );
+
+    let mut state = hmi_test_state(source);
+    set_hmi_project_root(&mut state, &root);
+
+    let exact = handle_request_value(
+        json!({
+            "id": 78,
+            "type": "hmi.write",
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/label",
+                "value": "ABC"
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(
+        exact.ok,
+        "a value of exactly the declared length must be accepted: {:?}",
+        exact.error
+    );
+    let writes = state.debug.drain_var_writes();
+    assert_eq!(writes.len(), 1, "the exact-length write must queue once");
+    assert_eq!(writes[0].value, Value::String("ABC".into()));
+
+    let one_more = handle_request_value(
+        json!({
+            "id": 79,
+            "type": "hmi.write",
+            "params": {
+                "id": "resource/RESOURCE/program/Main/field/label",
+                "value": "ABCD"
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(
+        !one_more.ok,
+        "one element past the declared length must be refused"
+    );
+    assert_eq!(
+        one_more.error.as_deref(),
+        Some("invalid hmi.write value for target 'resource/RESOURCE/program/Main/field/label'")
+    );
+    assert_eq!(
+        one_more.error_code.as_deref(),
+        Some("runtime_string_capacity_exceeded")
+    );
+    assert!(state.debug.drain_var_writes().is_empty());
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
 fn hmi_write_rejects_out_of_range_subrange_value() {
     let source = r#"
 PROGRAM Main
@@ -732,7 +806,11 @@ allow = ["resource/RESOURCE/program/Main/field/limited"]
         &state,
         None,
     );
-    assert!(values.ok, "subrange value read must succeed: {:?}", values.error);
+    assert!(
+        values.ok,
+        "subrange value read must succeed: {:?}",
+        values.error
+    );
     assert_eq!(
         values
             .result

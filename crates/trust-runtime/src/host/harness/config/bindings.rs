@@ -14,7 +14,7 @@ pub(super) fn ensure_wildcards_resolved(
 }
 
 pub(super) fn register_access_bindings(
-    runtime: &mut Runtime,
+    runtime: &mut RuntimeBuilder,
     access_decls: &[AccessDecl],
 ) -> Result<(), CompileError> {
     for decl in access_decls {
@@ -30,9 +30,12 @@ pub(super) fn register_access_bindings(
         let resolved = resolve_access_path(runtime, &decl.path)?;
         match resolved {
             ResolvedAccess::Variable { reference, partial } => {
-                runtime
-                    .access_map_mut()
-                    .bind_with_mode(decl.name.clone(), reference, partial, writable);
+                runtime.access_map_mut().bind_with_mode(
+                    decl.name.clone(),
+                    reference,
+                    partial,
+                    writable,
+                );
             }
             ResolvedAccess::Direct(_) => {
                 return Err(CompileError::new(

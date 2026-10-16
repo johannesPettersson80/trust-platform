@@ -1,4 +1,5 @@
 //! Strict checks of device records; synthetic tests never constitute board evidence.
+use super::{board::BoardProfile, trace_profile};
 use anyhow::{bail, ensure, Context, Result};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -58,9 +59,13 @@ fn polarity(raw: u64, pressed: u64) -> Result<()> {
     );
     Ok(())
 }
-fn stack(used: u64, remaining: u64) -> Result<()> {
+fn stack(board: &BoardProfile, used: u64, remaining: u64) -> Result<()> {
+    let window = board.stack_window_bytes;
     ensure!(
-        used <= 16384 && remaining <= 16384 && used + remaining == 16384 && remaining >= 2048,
+        used <= window
+            && remaining <= window
+            && used + remaining == window
+            && remaining >= board.stack_headroom_bytes,
         "insufficient measured stack headroom"
     );
     Ok(())
@@ -134,7 +139,7 @@ fn record_order() -> Vec<String> {
     order
 }
 
-pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
+pub(super) fn verify(board: &BoardProfile, text: &str, oracle: &str) -> Result<Value> {
     ensure!(
         text.len() <= 256 * 1024 && text.ends_with('\n'),
         "oversized or truncated UART capture"
@@ -159,14 +164,27 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
     let mut done = false;
     let mut max_scan_us = 0;
     let mut last_irq = 0;
+    let mut record_index = 0;
+    let mut banner_lines: u64 = 0;
+    let mut boot_banner_lines: u64 = 0;
     for (line_index, line) in text.lines().enumerate() {
         ensure!(!done, "records after completion");
+        if !line.starts_with("B1,") {
+            trace_profile::admit_banner(
+                board,
+                identities.len(),
+                states.last().copied(),
+                boot_banner_lines,
+                line,
+            )
+            .with_context(|| format!("UART line {}", line_index + 1))?;
+            banner_lines += 1;
+            boot_banner_lines += 1;
+            continue;
+        }
+        let record = record_index;
+        record_index += 1;
         let f: Vec<_> = line.trim_end_matches('\r').split(',').collect();
-        ensure!(
-            f.first() == Some(&"B1"),
-            "foreign UART record at line {}",
-            line_index + 1
-        );
         let kind = f.get(1).copied().context("missing record kind")?;
         let key = if ["MEM", "PREP", "IO", "GPIO", "NUM", "STATE"].contains(&kind) {
             format!("{kind}:{}", f.get(2).context("missing record phase")?)
@@ -174,7 +192,7 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
             kind.to_owned()
         };
         ensure!(
-            order.get(line_index) == Some(&key),
+            order.get(record) == Some(&key),
             "record order mismatch at line {}: {key}",
             line_index + 1
         );
@@ -194,19 +212,12 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
                     hex(f[8])?,
                     hex(f[9])?,
                 ];
-                ensure!(
-                    id[0] == 0x10016433 && id[1..4] == [0x00410016, 0x30395119, 0x35363638],
-                    "wrong connected reference device"
-                );
-                ensure!(
-                    id[4] == 512 && id[5] == 84_000_000 && id[6] & ((3 << 22) | (1 << 24)) == 0,
-                    "identity/profile mismatch"
-                );
+                trace_profile::identity(board, &id, identities.len())?;
                 if identities.is_empty() {
-                    ensure!(line_index == 0, "identity must start capture");
+                    ensure!(record == 0, "identity must start capture");
                 } else {
                     ensure!(
-                        states.last() == Some(&"WATCHDOG_ARM") && id[7] & (1 << 29) != 0,
+                        states.last() == Some(&"WATCHDOG_ARM"),
                         "missing independent watchdog reset evidence"
                     );
                 }
@@ -226,7 +237,7 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
                 );
                 let n = numbers(&f[9..])?;
                 ensure!(
-                    n[0] == 0 && n[1] < 10_000 && n[2] < 840_000 && n[3] >= last_irq,
+                    n[0] == 0 && n[1] < 10_000 && n[2] < board.scan_cycle_bound && n[3] >= last_irq,
                     "scan timing, overrun or IRQ mismatch"
                 );
                 if rows > 0 {
@@ -251,7 +262,7 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
                 ensure!(
                     n[0..3] == [15_000_000, 1, 40]
                         && n[3] < 10_000
-                        && n[4] < 840_000
+                        && n[4] < board.scan_cycle_bound
                         && n[5..8] == [1_000_000_000, 0, 101],
                     "numeric state mismatch"
                 );
@@ -264,10 +275,10 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
                 );
                 let n = numbers(&f[3..])?;
                 ensure!(
-                    n[0] <= n[1] && n[1] <= 72 * 1024 && n[3] == 0,
+                    n[0] <= n[1] && n[1] <= board.heap_bytes && n[3] == 0,
                     "heap exhausted or invalid accounting"
                 );
-                stack(n[4], n[5])?;
+                stack(board, n[4], n[5])?;
                 ensure!(
                     n[6] > 0 && n[6] <= 32 && n[7].is_power_of_two() && n[7] <= 8,
                     "unexpected target Value layout"
@@ -340,7 +351,7 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
                     n[0] == depths.len() as u64 + 1 && n[3] > last_irq,
                     "stack depth/IRQ sequence mismatch"
                 );
-                stack(n[1], n[2])?;
+                stack(board, n[1], n[2])?;
                 last_irq = n[3];
                 depths.push(n);
             }
@@ -351,7 +362,7 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
                 );
                 let peak = dec(f[2])?;
                 ensure!(
-                    peak <= 14336
+                    peak <= board.stack_peak_bound()
                         && depths.iter().all(|n| n[1] <= peak)
                         && memories.values().all(|n| n[4] <= peak),
                     "invalid cumulative stack peak"
@@ -381,6 +392,9 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
                         identities.len() == 2,
                         "reset not confirmed by hardware identity"
                     );
+                }
+                if name == "WATCHDOG_ARM" {
+                    boot_banner_lines = 0;
                 }
                 states.push(name);
             }
@@ -427,7 +441,7 @@ pub(super) fn verify(text: &str, oracle: &str) -> Result<Value> {
         );
     }
     Ok(
-        json!({"status":"passed", "identity":identities, "trace_samples":rows, "max_main_scan_us":max_scan_us,
+        json!({"status":"passed", "board":board.name, "boot_banner_lines":banner_lines, "identity":identities, "trace_samples":rows, "max_main_scan_us":max_scan_us,
         "numeric_state":numeric_state, "numeric_bits":numeric, "memory":memories, "gpio":gpio, "stack_depths":depths,
         "stack_peak":stack_peak, "manual_button_transition":"unverified", "physical_markings":"unverified", "optical_led":"unverified"}),
     )
@@ -495,7 +509,10 @@ mod tests {
     }
     #[test]
     fn complete_synthetic_protocol_is_accepted_without_claiming_board_execution() {
-        assert_eq!(verify(&synthetic(), ORACLE).unwrap()["trace_samples"], 101);
+        assert_eq!(
+            verify(&nucleo(), &synthetic(), ORACLE).unwrap()["trace_samples"],
+            101
+        );
     }
     #[test]
     fn missing_corrupt_duplicate_and_unsafe_records_are_rejected() {
@@ -516,7 +533,10 @@ mod tests {
             ("B1,IO,gpio-FAULT,1,0,0,0", "B1,IO,gpio-FAULT,1,0,0,1"),
         ] {
             assert!(good.contains(from));
-            assert!(verify(&good.replace(from, to), ORACLE).is_err(), "{from}");
+            assert!(
+                verify(&nucleo(), &good.replace(from, to), ORACLE).is_err(),
+                "{from}"
+            );
         }
         let mut reordered: Vec<_> = good.lines().collect();
         let memory_index = reordered
@@ -524,13 +544,122 @@ mod tests {
             .position(|line| line.starts_with("B1,MEM,main-prepare"))
             .unwrap();
         reordered.swap(memory_index, memory_index + 1);
-        assert!(verify(&(reordered.join("\n") + "\n"), ORACLE).is_err());
+        assert!(verify(&nucleo(), &(reordered.join("\n") + "\n"), ORACLE).is_err());
         let nan = good.replace(
             &format!("{:016x}", std::f64::consts::SQRT_2.to_bits()),
             "7ff8000000000000",
         );
-        assert!(verify(&nan, ORACLE).is_err());
-        assert!(verify(good.trim_end(), ORACLE).is_err());
-        assert!(verify(&(good + "B1,DONE\n"), ORACLE).is_err());
+        assert!(verify(&nucleo(), &nan, ORACLE).is_err());
+        assert!(verify(&nucleo(), good.trim_end(), ORACLE).is_err());
+        assert!(verify(&nucleo(), &(good + "B1,DONE\n"), ORACLE).is_err());
+    }
+
+    const F401_FIRST: &str =
+        "B1,IDENTITY,10016433,00410016,30395119,35363638,512,84000000,00000000,00000000";
+    const F401_SECOND: &str =
+        "B1,IDENTITY,10016433,00410016,30395119,35363638,512,84000000,00000000,20000000";
+    const C6_FIRST: &str =
+        "B1,IDENTITY,0000000d,00000002,0000206e,f11704c0,8192,160000000,40903105,00000015";
+    const C6_SECOND: &str =
+        "B1,IDENTITY,0000000d,00000002,0000206e,f11704c0,8192,160000000,40903105,00000007";
+
+    fn nucleo() -> BoardProfile {
+        BoardProfile::nucleo_f401re()
+    }
+
+    fn c6() -> BoardProfile {
+        BoardProfile::esp32c6_devkitc_1()
+    }
+
+    fn banner(lines: usize) -> String {
+        (0..lines)
+            .map(|index| format!("ESP-ROM boot line {index}\n"))
+            .collect()
+    }
+
+    /// The synthetic protocol with C6 IDENTITY lines, `before_first` banner lines before the first
+    /// IDENTITY and `before_second` banner lines after `STATE,WATCHDOG_ARM`.
+    fn c6_synthetic(before_first: usize, before_second: usize) -> String {
+        let records = synthetic()
+            .replace(F401_FIRST, C6_FIRST)
+            .replace(F401_SECOND, C6_SECOND);
+        let mut out = banner(before_first);
+        for line in records.lines() {
+            out.push_str(line);
+            out.push('\n');
+            if line == "B1,STATE,WATCHDOG_ARM" {
+                out.push_str(&banner(before_second));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn c6_capture_with_boot_banners_is_accepted_and_counted() {
+        let report = verify(&c6(), &c6_synthetic(30, 30), ORACLE).unwrap();
+        assert_eq!(report["trace_samples"], 101);
+        assert_eq!(report["boot_banner_lines"], 60);
+        assert_eq!(report["board"], "esp32c6-devkitc-1");
+        let full = verify(&c6(), &c6_synthetic(64, 64), ORACLE).unwrap();
+        assert_eq!(full["boot_banner_lines"], 128);
+        let power_on = c6_synthetic(30, 30).replace(",40903105,00000015", ",40903105,00000001");
+        assert!(verify(&c6(), &power_on, ORACLE).is_ok());
+    }
+
+    #[test]
+    fn f401_capture_keeps_its_name_and_admits_no_banner_lines() {
+        let report = verify(&nucleo(), &synthetic(), ORACLE).unwrap();
+        assert_eq!(report["board"], "nucleo-f401re");
+        assert_eq!(report["boot_banner_lines"], 0);
+        let with_banner = format!("ESP-ROM boot line 0\n{}", synthetic());
+        assert!(verify(&nucleo(), &with_banner, ORACLE).is_err());
+    }
+
+    #[test]
+    fn each_board_rejects_the_other_boards_identity() {
+        assert!(verify(&nucleo(), &c6_synthetic(30, 30), ORACLE).is_err());
+        assert!(verify(&c6(), &synthetic(), ORACLE).is_err());
+    }
+
+    #[test]
+    fn c6_identity_mutations_are_rejected() {
+        let good = c6_synthetic(30, 30);
+        let mutations = [
+            good.replace("0000206e,f11704c0", "0000206e,f11704c1"),
+            good.replace(",40903105,", ",40903125,"),
+            good.replace(",40903105,", ",4090310d,"),
+            good.replace(C6_SECOND, &C6_SECOND.replace(",00000007", ",0000000b")),
+            good.replace(C6_FIRST, &C6_FIRST.replace(",00000015", ",00000007")),
+        ];
+        for mutated in mutations {
+            assert!(verify(&c6(), &mutated, ORACLE).is_err());
+        }
+    }
+
+    #[test]
+    fn c6_banner_mutations_are_rejected() {
+        let good = c6_synthetic(30, 30);
+        let late = "ESP-ROM late line\n";
+        let after_first = good.replace(&format!("{C6_FIRST}\n"), &format!("{C6_FIRST}\n{late}"));
+        let after_second = good.replace(&format!("{C6_SECOND}\n"), &format!("{C6_SECOND}\n{late}"));
+        assert!(verify(&c6(), &after_first, ORACLE).is_err());
+        assert!(verify(&c6(), &after_second, ORACLE).is_err());
+        assert!(verify(&c6(), &c6_synthetic(65, 30), ORACLE).is_err());
+        assert!(verify(&c6(), &c6_synthetic(30, 65), ORACLE).is_err());
+        let non_printable = good.replacen("ESP-ROM boot line 3\n", "ESP-ROM boot\u{7} line 3\n", 1);
+        assert!(verify(&c6(), &non_printable, ORACLE).is_err());
+    }
+
+    #[test]
+    fn scan_cycle_bounds_are_board_values_for_trace_and_numeric_state() {
+        let good = c6_synthetic(30, 30);
+        let inside = good.replacen(",0,100,8400,", ",0,100,1599999,", 1);
+        assert!(verify(&c6(), &inside, ORACLE).is_ok());
+        let at_bound = good.replacen(",0,100,8400,", ",0,100,1600000,", 1);
+        assert!(verify(&c6(), &at_bound, ORACLE).is_err());
+        let state_at_bound = good.replace(",16800,1000000000,", ",1600000,1000000000,");
+        assert!(verify(&c6(), &state_at_bound, ORACLE).is_err());
+        let f401_at_bound = synthetic().replacen(",0,100,8400,", ",0,100,840000,", 1);
+        assert!(verify(&nucleo(), &f401_at_bound, ORACLE).is_err());
     }
 }

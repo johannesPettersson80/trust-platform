@@ -55,6 +55,7 @@ fn snapshot(
         storage.set_global(name, value);
     }
     crate::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage,
         now: Duration::from_millis(10),
     }

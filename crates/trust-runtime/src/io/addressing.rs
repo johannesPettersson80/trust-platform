@@ -10,6 +10,9 @@ use trust_runtime_core::io_image::IoEnumBinding;
 
 #[derive(Debug, Clone, Default)]
 struct IoBindingCodec {
+    // Source-free bindings retain the exact alias/enum codec admitted by core;
+    // artifact type-table indexes are never cast to authoring HIR identities.
+    prepared: Option<trust_runtime_core::io_image::IoValueCodec>,
     wire_type: Option<TypeId>,
     enum_type: Option<IoEnumBinding>,
 }

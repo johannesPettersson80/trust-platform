@@ -74,6 +74,10 @@ pub struct DebugBreakpoint {
     pub location: SourceLocation,
     /// Optional condition expression evaluated at the statement boundary.
     pub condition: Option<Expr>,
+    /// Parser-owned registry for anonymous types referenced by expressions.
+    /// This remains detached from the installed schema and lives as long as
+    /// the compiled breakpoint or logpoint.
+    pub type_registry: Option<std::sync::Arc<TypeRegistry>>,
     /// Optional hit count condition.
     pub hit_condition: Option<HitCondition>,
     /// Optional logpoint template fragments.
@@ -91,6 +95,7 @@ impl DebugBreakpoint {
         Self {
             location,
             condition: None,
+            type_registry: None,
             hit_condition: None,
             log_message: None,
             hits: 0,
@@ -111,6 +116,8 @@ pub struct DebugLog {
 /// Snapshot of runtime state at a stop.
 #[derive(Debug, Clone)]
 pub struct DebugSnapshot {
+    /// Storage interpretation of the installed artifact that produced this snapshot.
+    pub storage_abi: crate::value::StorageAbi,
     /// Variable storage snapshot.
     pub storage: VariableStorage,
     /// Current runtime time.
@@ -118,6 +125,21 @@ pub struct DebugSnapshot {
 }
 
 impl DebugSnapshot {
+    /// Resolve scratch-only expressions before queueing a paused assignment.
+    /// Snapshot writes remain presentation; the owner rechecks the destination.
+    pub fn resolve_lvalue_expressions(
+        &mut self,
+        target: LValue,
+        registry: &TypeRegistry,
+        stdlib: Option<&StandardLibrary>,
+        profile: &DateTimeProfile,
+        frame_id: Option<FrameId>,
+    ) -> Result<LValue, RuntimeError> {
+        target.resolve_expressions(&mut |expr| {
+            self.evaluate_expression(expr, registry, stdlib, profile, frame_id)
+        })
+    }
+
     /// Evaluate an expression against this paused-state snapshot.
     pub fn evaluate_expression(
         &mut self,
@@ -127,11 +149,13 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<Value, RuntimeError> {
+        let storage_abi = self.storage_abi;
         let eval = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::eval_storage_expr_with_stdlib(
+            crate::helper_eval::eval_storage_expr_with_abi(
                 storage,
                 registry,
+                storage_abi,
                 profile,
                 instance_id,
                 stdlib,
@@ -156,9 +180,17 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<Value, RuntimeError> {
+        let storage_abi = self.storage_abi;
         let read = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::read_storage_lvalue(storage, registry, profile, instance_id, target)
+            crate::helper_eval::read_storage_lvalue_with_abi(
+                storage,
+                registry,
+                storage_abi,
+                profile,
+                instance_id,
+                target,
+            )
         };
 
         if let Some(frame_id) = frame_id {
@@ -179,11 +211,13 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
+        let storage_abi = self.storage_abi;
         let write = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::write_storage_lvalue(
+            crate::helper_eval::write_storage_lvalue_with_abi(
                 storage,
                 registry,
+                storage_abi,
                 profile,
                 instance_id,
                 target,
@@ -204,6 +238,16 @@ impl DebugSnapshot {
 /// Runtime scheduling and diagnostic events.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeEvent {
+    /// A queued/forced engineering value was rejected by the installed owner.
+    /// Queue acceptance is not evidence that a value reached PLC storage.
+    WriteRejected {
+        /// Requested destination, for operator/debugger reporting.
+        target: SmolStr,
+        /// The checked application error; this is not a PLC execution fault.
+        error: String,
+        /// Cycle-boundary logical time of the attempted application.
+        time: Duration,
+    },
     /// Cycle start event.
     CycleStart {
         /// Cycle counter value.

@@ -26,7 +26,8 @@ mappings = [
         .read_inputs(&mut inputs)
         .expect("write-only mappings must not require an input snapshot");
     assert_eq!(
-        inputs, [0xA5],
+        inputs,
+        [0xA5],
         "write-only MQTT must not erase input bytes owned by another driver"
     );
     assert_eq!(attempts.load(Ordering::SeqCst), 0);
@@ -209,6 +210,64 @@ output_points = [
         &[(SmolStr::new("traffic/north/green"), b"true".to_vec())],
         "mixed mappings must not fall back to trust/io/out"
     );
+}
+
+#[test]
+fn contextual_legacy_mqtt_tag_mapping_uses_the_admitted_construction_archive() {
+    let source = r#"
+PROGRAM Main
+    VAR value : INT; END_VAR
+    value := value + INT#1;
+END_PROGRAM
+CONFIGURATION Config
+    RESOURCE CPU ON PLC
+        TASK Fast(INTERVAL := T#10ms, PRIORITY := 1);
+        PROGRAM A WITH Fast : Main;
+    END_RESOURCE
+END_CONFIGURATION
+"#;
+    let session = crate::harness::CompileSession::from_source(source);
+    let legacy = session
+        .build_bytecode_module_for_version(crate::bytecode::BytecodeVersion::LEGACY)
+        .unwrap();
+    let mut runtime = session.build_runtime_from_bytecode(&legacy, None).unwrap();
+    assert_eq!(
+        runtime.deployment_artifact().unwrap().version,
+        crate::bytecode::BytecodeVersion::LEGACY
+    );
+
+    let lowered = crate::io::resolve_mqtt_tag_mappings(
+        &mut runtime,
+        &params(
+            r#"
+broker = "127.0.0.1:1883"
+mappings = [
+  { tag = "A.value", topic = "legacy/out/value", direction = "write" }
+]
+"#,
+        ),
+    )
+    .expect("legacy contextual tag mapping must reconfigure from admitted metadata");
+    assert_eq!(
+        lowered["output_points"][0]["topic"].as_str(),
+        Some("legacy/out/value")
+    );
+    assert_eq!(
+        runtime.deployment_artifact().unwrap().version,
+        crate::bytecode::BytecodeVersion::SOURCE_FREE,
+        "successful resource re-admission retires the old export archive"
+    );
+
+    runtime.set_current_time(crate::value::Duration::from_millis(10));
+    runtime.execute_cycle().unwrap();
+    let Some(crate::value::Value::Instance(instance)) = runtime.storage().get_global("A") else {
+        panic!("configured instance A must stay installed");
+    };
+    assert_eq!(
+        runtime.storage().get_instance_var(*instance, "value"),
+        Some(&crate::value::Value::Int(1))
+    );
+    assert_eq!(runtime.io().outputs(), &[1, 0]);
 }
 
 #[test]

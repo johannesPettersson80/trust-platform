@@ -1,5 +1,5 @@
 //! Owned user-call inputs and completion: shared by iterative and hosted tier entries.
-use super::bindings::{VmFbOutBinding, VmOutBinding};
+use super::bindings::{bind_vm_call_arguments_owned, VmFbOutBinding, VmOutBinding};
 use super::*;
 use crate::vm::{dispatch::VmPouStackResult, edge::EdgeInputTransaction};
 
@@ -33,15 +33,19 @@ impl PreparedCall {
         caller: &VmFrame,
         pou_id: u32,
         instance: Option<InstanceId>,
-        args: &[VmNativeArg],
+        args: &mut [VmNativeArg],
     ) -> Result<Self, VmTrap> {
-        let bound = bind_vm_call_arguments(runtime, module, caller, pou_id, args)?;
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _timing =
+            crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::ArgumentBind);
+        let (bound, capture_return) =
+            bind_vm_call_arguments_owned(runtime, module, caller, pou_id, args)?;
         Ok(Self {
             pou_id,
             instance,
             locals: Some(bound.locals),
             present: Some(bound.present),
-            capture_return: module.pou_has_return_slot(pou_id),
+            capture_return,
             outputs: Outputs::Function(bound.out_bindings),
             edge: None,
         })
@@ -55,6 +59,9 @@ impl PreparedCall {
         args: &[VmNativeArg],
     ) -> Result<Self, VmTrap> {
         runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _timing =
+            crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::ArgumentBind);
         let outputs =
             bind_vm_function_block_arguments(runtime, module, caller, pou_id, instance, args)?;
         let edge = EdgeInputTransaction::begin(runtime, module, pou_id, Some(instance))
@@ -74,9 +81,9 @@ impl PreparedCall {
             edge.restore(runtime);
         }
     }
-    #[cfg(feature = "hir")]
+    #[cfg(any(feature = "hir", feature = "register-ir"))]
     pub(in crate::vm) fn execute_sync(
-        self,
+        mut self,
         runtime: &mut impl ExecutionContext,
         module: &VmModule,
         caller: &mut VmFrame,
@@ -88,7 +95,7 @@ impl PreparedCall {
             caller,
             self.pou_id,
             self.instance,
-            self.locals.as_deref(),
+            &mut self.locals,
             self.present.as_deref(),
             self.capture_return,
             depth,
@@ -102,16 +109,35 @@ impl PreparedCall {
         caller_frame: &mut VmFrame,
         result: Result<VmPouStackResult, VmTrap>,
     ) -> Result<Value, VmTrap> {
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _timing =
+            crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::CallComplete);
         self.restore_edges(runtime);
         let result = result?;
-        match self.outputs {
-            Outputs::Function(out_bindings) => {
-                complete_function(runtime, module, caller_frame, result, out_bindings)
-            }
+        let pou_id = self.pou_id;
+        let VmPouStackResult {
+            return_value,
+            mut locals,
+        } = result;
+        let completed = match self.outputs {
+            Outputs::Function(out_bindings) => complete_function(
+                runtime,
+                module,
+                caller_frame,
+                return_value,
+                &mut locals,
+                out_bindings,
+            ),
             Outputs::FunctionBlock(out_bindings) => {
-                drop(result);
                 complete_function_block(runtime, module, caller_frame, out_bindings)
             }
+        };
+        let recycled = runtime
+            .recycle_optimized_result_locals(pou_id, locals)
+            .map_err(VmTrap::Runtime);
+        match completed {
+            Err(error) => Err(error),
+            Ok(value) => recycled.map(|()| value),
         }
     }
 }
@@ -120,20 +146,21 @@ fn complete_function(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
     caller_frame: &mut VmFrame,
-    result: VmPouStackResult,
+    return_value: Option<Value>,
+    locals: &mut [Value],
     out_bindings: Vec<VmOutBinding>,
 ) -> Result<Value, VmTrap> {
     let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
     for binding in out_bindings {
-        let value = result
-            .locals
-            .get(binding.slot)
-            .map(|value| clone_value_with_profile(runtime, value, RegisterValueOpKind::CopyOutput))
-            .ok_or_else(|| {
-                VmTrap::InvalidNativeCall(
-                    format!("native call output slot {} out of bounds", binding.slot).into(),
-                )
-            })??;
+        // Binding assigns one distinct local slot per parameter. Caller targets
+        // may alias, but the completed callee payload is private and is recycled
+        // after this group. Transfer it while retaining ordered preflight/commit.
+        let slot = locals.get_mut(binding.slot).ok_or_else(|| {
+            VmTrap::InvalidNativeCall(
+                format!("native call output slot {} out of bounds", binding.slot).into(),
+            )
+        })?;
+        let value = core::mem::replace(slot, Value::Null);
         let value = normalize_output_copyback_value(
             runtime,
             module,
@@ -154,7 +181,7 @@ fn complete_function(
         })?;
     }
 
-    Ok(result.return_value.unwrap_or(Value::Null))
+    Ok(return_value.unwrap_or(Value::Null))
 }
 
 fn complete_function_block(
@@ -170,7 +197,7 @@ fn complete_function_block(
             let value = binding
                 .source
                 .read_checked(runtime)?
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
             let (value, cloned) = materialize_borrowed_value(value);
             if cloned {

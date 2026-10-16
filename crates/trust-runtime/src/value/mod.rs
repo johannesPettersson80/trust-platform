@@ -13,3 +13,6 @@ pub use trust_runtime_core::value::partial_access::*;
 pub use trust_runtime_core::value::size::*;
 pub(crate) use trust_runtime_core::value::string_semantics::*;
 pub use trust_runtime_core::value::types::*;
+
+/// Artifact-selected internal storage layout; external I/O codecs remain independent.
+pub use trust_runtime_core::value::StorageAbi;

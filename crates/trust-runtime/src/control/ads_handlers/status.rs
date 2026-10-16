@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::ads::diagnostics::AdsStatusReport;
 use crate::scheduler::ResourceCommand;
 
+use super::super::resource_queue::ResourceReadError;
 use super::super::{ControlResponse, ControlState};
 
 const ADS_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
@@ -16,22 +17,27 @@ pub(in crate::control) fn handle_ads_status(id: u64, state: &ControlState) -> Co
                 ControlResponse::error(id, format!("ADS status serialization failed: {error}"))
             }
         },
-        Err(error) => ControlResponse::error(id, error),
+        Err(error) => error.into_response(id),
     }
 }
 
 pub(in crate::control) fn ads_status_report_from_state(
     state: &ControlState,
-) -> Result<AdsStatusReport, String> {
+) -> Result<AdsStatusReport, ResourceReadError> {
     let (tx, rx) = mpsc::channel();
     if let Err(error) = state
         .resource
         .send_command(ResourceCommand::AdsStatus { respond_to: tx })
     {
-        return Err(format!("ADS status request failed: {error}"));
+        return Err(ResourceReadError::from_send(
+            "ADS status request failed",
+            error,
+        ));
     }
     match rx.recv_timeout(ADS_STATUS_TIMEOUT) {
         Ok(report) => Ok(report),
-        Err(error) => Err(format!("ADS status request timed out: {error}")),
+        Err(error) => Err(ResourceReadError::failed(format!(
+            "ADS status request timed out: {error}"
+        ))),
     }
 }

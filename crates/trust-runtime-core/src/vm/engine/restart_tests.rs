@@ -154,35 +154,39 @@ fn warm_and_cold_restart_reapply_ordered_direct_actions_before_publishing_images
         PreparedModule::from_bytes(&module.encode().unwrap(), PreparationLimits::default())
             .unwrap();
     for mode in [RestartMode::Warm, RestartMode::Cold] {
-        let mut state = EngineState::new(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        let mut state_data =
+            EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        let mut state = EngineState::borrow(&mut state_data, &prepared, &services::LOGICAL_ONLY);
         for image in [
-            &mut state.images.inputs,
-            &mut state.images.outputs,
-            &mut state.images.memory,
+            &mut state.data.images.inputs,
+            &mut state.data.images.outputs,
+            &mut state.data.images.memory,
         ] {
             image.copy_from_slice(&[0xa8, 0x5a]);
         }
         for address in ["%IX1.2.3", "%QX1.2.3", "%MX1.2.3"] {
             state
+                .data
                 .images
                 .hierarchical
                 .insert(key(address), Value::Bool(false));
         }
         state
+            .data
             .images
             .hierarchical
             .insert(key("%MX9.8.7"), Value::Bool(true));
         state.restart(mode).unwrap();
-        assert_eq!(state.images.inputs, [0xa9, 0x5a], "input {mode:?}");
+        assert_eq!(state.data.images.inputs, [0xa9, 0x5a], "input {mode:?}");
         assert_eq!(
-            state.images.outputs,
+            state.data.images.outputs,
             [0xab, 0x5a],
             "ordered overlapping output {mode:?}"
         );
-        assert_eq!(state.images.memory, [0xa9, 0x5a], "marker {mode:?}");
+        assert_eq!(state.data.images.memory, [0xa9, 0x5a], "marker {mode:?}");
         for address in ["%IX1.2.3", "%QX1.2.3", "%MX1.2.3", "%MX9.8.7"] {
             assert_eq!(
-                state.images.hierarchical.get(&key(address)),
+                state.data.images.hierarchical.get(&key(address)),
                 Some(&Value::Bool(true)),
                 "{address} {mode:?}"
             );

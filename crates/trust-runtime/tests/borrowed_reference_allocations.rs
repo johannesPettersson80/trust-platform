@@ -2,12 +2,7 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use trust_runtime::harness::CompileSession;
-use trust_runtime_core::value::Value;
-use trust_runtime_core::vm::hosted::{
-    dispatch_refs,
-    module::{VmModule, VmRef},
-    FrameStack,
-};
+use trust_runtime_core::value::{RefSegment, Value};
 
 struct CountingAllocator;
 thread_local! {
@@ -46,28 +41,20 @@ static ALLOCATOR: CountingAllocator = CountingAllocator;
 fn hosted_field_load_and_store_do_not_allocate_reference_paths() {
     let session = CompileSession::from_source("TYPE Pair : STRUCT number : INT; END_STRUCT; END_TYPE VAR_GLOBAL item : Pair; END_VAR PROGRAM Main item.number := INT#7; END_PROGRAM");
     let mut runtime = session.build_runtime().unwrap();
-    let bytecode = session.build_bytecode_module().unwrap();
-    let module = VmModule::from_validated(&bytecode.view().validated().unwrap()).unwrap();
-    let index = module
-        .refs()
-        .iter()
-        .position(|reference| matches!(reference, VmRef::Global { path, .. } if !path.is_empty()))
-        .unwrap() as u32;
-    let mut frames = FrameStack::default();
-    // Prepare any host lookup caches before measuring the ordinary repeated path.
-    dispatch_refs::store_ref(&mut runtime, &module, &mut frames, index, Value::Int(7)).unwrap();
-    let _ = dispatch_refs::load_ref(&runtime, &module, &frames, index).unwrap();
+    let mut reference = runtime.storage().ref_for_global("item").unwrap();
+    reference.path.push(RefSegment::Field("number".into()));
+    // Resolve the path before measuring and use the installed owner's checked
+    // surface. STBC 2.0 does not expose a legacy raw ReferenceContext.
+    runtime.write_reference(&reference, Value::Int(7)).unwrap();
+    let _ = runtime.read_reference(&reference).unwrap();
     ALLOCATIONS.with(|count| count.set(0));
     ENABLED.with(|enabled| enabled.set(true));
     let outcome = (|| {
         for _ in 0..128 {
-            dispatch_refs::store_ref(&mut runtime, &module, &mut frames, index, Value::Int(7))?;
-            assert_eq!(
-                dispatch_refs::load_ref(&runtime, &module, &frames, index)?,
-                Value::Int(7)
-            );
+            runtime.write_reference(&reference, Value::Int(7))?;
+            assert_eq!(runtime.read_reference(&reference)?, Value::Int(7));
         }
-        Ok::<(), trust_runtime_core::vm::VmTrap>(())
+        Ok::<(), trust_runtime_core::error::RuntimeError>(())
     })();
     ENABLED.with(|enabled| enabled.set(false));
     outcome.unwrap();
@@ -75,6 +62,107 @@ fn hosted_field_load_and_store_do_not_allocate_reference_paths() {
         ALLOCATIONS.with(Cell::get),
         0,
         "borrowed policy/traversal must not materialize paths"
+    );
+}
+
+#[test]
+fn actual_field_load_and_store_opcodes_do_not_allocate_reference_paths() {
+    use trust_runtime_core::{
+        bytecode::{SectionData, SectionId},
+        error::RuntimeError,
+        memory::VariableStorage,
+        value::{DateTimeValue, Duration},
+        vm::{ExecutionServices, PreparationLimits, PreparedModule},
+    };
+
+    // Instruction-boundary observation selects the actual shared dispatch path;
+    // frame setup and other instructions are outside this allocation assertion.
+    struct OpcodeAllocationObserver {
+        code: Vec<u8>,
+        armed: Cell<bool>,
+        loads: Cell<usize>,
+        stores: Cell<usize>,
+    }
+    impl ExecutionServices for OpcodeAllocationObserver {
+        fn debug_active(&self) -> bool {
+            true
+        }
+        fn deadline_exceeded(&self) -> bool {
+            false
+        }
+        fn has_wall_clock(&self) -> bool {
+            false
+        }
+        fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
+            Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
+        }
+        fn on_statement(
+            &self,
+            _pou: u32,
+            pc: usize,
+            _depth: u32,
+            _storage: &VariableStorage,
+            _time: Duration,
+        ) {
+            ENABLED.with(|enabled| enabled.set(false));
+            if !self.armed.get() {
+                return;
+            }
+            // Specification 12's reference instructions, without decoding operands.
+            const LOAD_REF: u8 = 0x20;
+            const STORE_REF: u8 = 0x21;
+            match self.code[pc] {
+                LOAD_REF => self.loads.set(self.loads.get() + 1),
+                STORE_REF => self.stores.set(self.stores.get() + 1),
+                _ => return,
+            }
+            ENABLED.with(|enabled| enabled.set(true));
+        }
+    }
+    let session = CompileSession::from_source(
+        "TYPE Pair : STRUCT number : INT; END_STRUCT; END_TYPE \
+         VAR_GLOBAL item : Pair; observed : INT; END_VAR \
+         PROGRAM Main item.number := INT#7; observed := item.number; END_PROGRAM",
+    );
+    let module = session.build_bytecode_module().unwrap();
+    let Some(SectionData::PouBodies(code)) = module.section(SectionId::PouBodies) else {
+        panic!("the real producer must supply instruction bytes");
+    };
+    let services = OpcodeAllocationObserver {
+        code: code.clone(),
+        armed: Cell::new(false),
+        loads: Cell::new(0),
+        stores: Cell::new(0),
+    };
+    let prepared =
+        PreparedModule::from_bytes(&module.encode().unwrap(), PreparationLimits::default())
+            .unwrap();
+    let mut state = prepared.instantiate_with_services(0, &services).unwrap();
+    // Warm declared lookup/unique-value state before repeated hot-path measurement.
+    state.execute_cycle(Duration::ZERO).unwrap();
+    ALLOCATIONS.with(|count| count.set(0));
+    services.armed.set(true);
+    let outcome = (|| {
+        for ms in 1..=128 {
+            state.execute_cycle(Duration::from_millis(ms))?;
+            ENABLED.with(|enabled| enabled.set(false));
+            assert_eq!(state.storage().get_global("observed"), Some(&Value::Int(7)));
+        }
+        Ok::<(), RuntimeError>(())
+    })();
+    ENABLED.with(|enabled| enabled.set(false));
+    services.armed.set(false);
+    outcome.unwrap();
+    assert_eq!(services.loads.get(), 128, "the real LOAD_REF path executed");
+    assert_eq!(
+        services.stores.get(),
+        256,
+        "both field/global STORE_REF paths executed"
+    );
+    assert_eq!(
+        ALLOCATIONS.with(Cell::get),
+        0,
+        "actual reference instructions must not materialize paths"
     );
 }
 

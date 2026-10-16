@@ -15,6 +15,7 @@ trust-hir = { path = "../crates/trust-hir" }
 trust-lsp = { path = "../crates/trust-lsp" }
 trust-plcopen = { path = "../crates/trust-plcopen" }
 trust-runtime = { path = "../crates/trust-runtime" }
+trust-runtime-core = { path = "../crates/trust-runtime-core", features = ["register-ir"] }
 trust-syntax = { path = "../crates/trust-syntax" }
 serde_json = "1.0.152"
 
@@ -45,6 +46,18 @@ doc = false
 [[bin]]
 name = "bytecode_container"
 path = "fuzz_targets/bytecode_container.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "bytecode_admission"
+path = "fuzz_targets/bytecode_admission.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "bytecode_reprepare"
+path = "fuzz_targets/bytecode_reprepare.rs"
 test = false
 doc = false
 

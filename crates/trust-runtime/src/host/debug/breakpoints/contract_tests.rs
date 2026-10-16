@@ -22,6 +22,7 @@ impl EvalFixture {
 
     fn context(&mut self) -> DebugRuntimeContext<'_> {
         DebugRuntimeContext {
+            storage_abi: Default::default(),
             storage: &mut self.storage,
             registry: &self.registry,
             stdlib: None,

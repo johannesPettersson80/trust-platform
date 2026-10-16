@@ -22,6 +22,11 @@ truST product clock sources `TIME()` and `CURRENT_DT()` are outside the IEC
 standard-function tables and are specified and tested as product runtime
 helpers.
 
+The private runtime registration lists use fixed named arrays for firmware placement.
+Their 89 entries, parameter lists and implementations remain unchanged; existing
+registration-baseline and hosted-override tests pin that representation change.
+No IEC function-table coverage row is reduced by this placement work (Tables 22–36).
+
 Spec 34 A1 routes numerical functions through the shared locked libm primitives.
 `portable_numeric_contract.rs` adds finite reference, width, signed-zero, fault and
 control-threshold assertions (IEC §6.6.2.5.8, Tables 28/29). Execution evidence is
@@ -176,6 +181,8 @@ Implementer extensions tracked outside IEC Table 27:
 - [x] WCHAR_TO_WORD
 
 Runtime text-conversion behavior:
+- [ ] Compact lossless float text backend: authored differential coverage against
+  the previous Rust parser/formatter; validation pending footprint correction 5.
 - [x] Direct native tests cover `DINT_TO_STRING`, `REAL_TO_STRING`,
   `DWORD_TO_STRING`, and `STRING_TO_DINT`.
 - [x] Non-finite `STRING_TO_REAL`/`STRING_TO_LREAL` text is rejected; the
@@ -309,8 +316,8 @@ Runtime assertion note:
   comparison, and bounded user-facing message behavior.
 
 ## Table 43 - Bistable Function Blocks
-- [x] RS
-- [x] SR
+- [x] RS (rows 2a and 2b; long input names SET and RESET1 normalized at compile time)
+- [x] SR (rows 1a and 1b; long input names SET1 and RESET normalized at compile time)
 
 ## Table 44 - Edge Detection Function Blocks
 - [x] R_TRIG
@@ -355,3 +362,6 @@ all three explicit TIME variants through real Structured Text. The three
 regressions assert overflow-safe elapsed accumulation for TON, TOF, and TP.
 Restart, PT-change, skipped-call, nonmonotonic-clock, and TP short-input/retrigger
 branches remain explicit test debt and are not implied by these checked rows.
+
+SPLIT_DATE/TOD/LTOD/DT/LDT VM output handling retains exact binding and transaction semantics; output slice shapes are checked before writes. The native short-arity case asserts that destinations remain unchanged.
+Ties-to-even parity uses exact integer parity only on representable half-integers; exponent-boundary and randomized native equivalence assertions preserve the original remainder-based result.

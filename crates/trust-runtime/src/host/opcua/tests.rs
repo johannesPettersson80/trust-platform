@@ -177,7 +177,7 @@ fn opcua_client_rejected_security_policy_during_login_prompts_for_auth() {
 
 #[test]
 fn persistent_worker_applies_subscription_updates_without_reconnecting_per_scan() {
-    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let mut storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -185,7 +185,7 @@ fn persistent_worker_applies_subscription_updates_without_reconnecting_per_scan(
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
     let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -202,23 +202,16 @@ fn persistent_worker_applies_subscription_updates_without_reconnecting_per_scan(
         .emit_sample(&point, Value::Real(22.5), 10);
     worker.tick(10).expect("drain update");
     assert_eq!(
-        runtime.storage().get_global("line1_temp"),
+        storage.get_global("line1_temp"),
         Some(&Value::Real(0.0)),
         "worker callbacks must not mutate runtime storage mid-scan"
     );
 
-    bridge
-        .apply_inputs(runtime.storage_mut(), 11)
-        .expect("apply input");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(22.5))
-    );
+    bridge.apply_inputs(&mut storage, 11).expect("apply input");
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(22.5)));
 
     worker.tick(20).expect("second worker tick");
-    bridge
-        .apply_inputs(runtime.storage_mut(), 21)
-        .expect("second scan");
+    bridge.apply_inputs(&mut storage, 21).expect("second scan");
     assert_eq!(
         worker.transport().connect_count,
         1,
@@ -235,8 +228,8 @@ fn opcua_event_queue_rejects_saturation_and_recovers_after_drain() {
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point]);
-    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
-    let bindings = opcua_bindings(&runtime, &connection.points);
+    let storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let bindings = opcua_bindings(&storage, &connection.points);
     let (_bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -311,7 +304,7 @@ fn opcua_client_rejects_non_finite_subscription_values_before_storage() {
     ];
 
     for (case_name, data_type, variant, initial_value) in cases {
-        let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", initial_value.clone())]);
+        let mut storage = storage_with_opcua_globals(vec![("line1_temp", initial_value.clone())]);
         let point = opcua_point(
             "line1_temp",
             "ns=2;i=2",
@@ -319,7 +312,7 @@ fn opcua_client_rejects_non_finite_subscription_values_before_storage() {
             OpcUaClientPointAccess::Read,
         );
         let connection = opcua_connection(vec![point.clone()]);
-        let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+        let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
         let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
             connection,
             MockOpcUaClientTransport::default(),
@@ -331,11 +324,11 @@ fn opcua_client_rejects_non_finite_subscription_values_before_storage() {
         worker.transport_mut().emit_wire_sample(&point, variant);
         worker.tick(10).expect("drain rejected update");
         bridge
-            .apply_inputs(runtime.storage_mut(), 11)
+            .apply_inputs(&mut storage, 11)
             .expect("faulted point is skipped");
 
         assert_eq!(
-            runtime.storage().get_global("line1_temp"),
+            storage.get_global("line1_temp"),
             Some(&initial_value),
             "{case_name}: rejected input must leave PLC storage unchanged"
         );
@@ -365,7 +358,7 @@ fn opcua_client_rejects_non_finite_subscription_values_before_storage() {
 
 #[test]
 fn persistent_worker_batches_writes_without_reconnecting_per_write() {
-    let mut runtime = runtime_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
+    let mut storage = storage_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_setpoint",
         "ns=2;i=3",
@@ -373,7 +366,7 @@ fn persistent_worker_batches_writes_without_reconnecting_per_write() {
         OpcUaClientPointAccess::ReadWrite,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
     let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -387,12 +380,12 @@ fn persistent_worker_batches_writes_without_reconnecting_per_write() {
         .emit_sample(&point, Value::Real(10.0), 10);
     worker.tick(10).expect("drain baseline");
     bridge
-        .apply_inputs(runtime.storage_mut(), 11)
+        .apply_inputs(&mut storage, 11)
         .expect("apply baseline");
 
-    write_global(&mut runtime, "line1_setpoint", Value::Real(31.0));
+    write_global(&mut storage, "line1_setpoint", Value::Real(31.0));
     bridge
-        .capture_outputs(runtime.storage_mut(), 12)
+        .capture_outputs(&mut storage, 12)
         .expect("queue first write");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -406,9 +399,9 @@ fn persistent_worker_batches_writes_without_reconnecting_per_write() {
         vec![("line1_setpoint".into(), Value::Real(31.0))]
     );
 
-    write_global(&mut runtime, "line1_setpoint", Value::Real(44.0));
+    write_global(&mut storage, "line1_setpoint", Value::Real(44.0));
     bridge
-        .capture_outputs(runtime.storage_mut(), 13)
+        .capture_outputs(&mut storage, 13)
         .expect("queue second write");
     worker.tick(13).expect("publish second write");
 
@@ -418,7 +411,7 @@ fn persistent_worker_batches_writes_without_reconnecting_per_write() {
 
 #[test]
 fn persistent_worker_rejected_write_marks_point_without_reconnecting() {
-    let mut runtime = runtime_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
+    let mut storage = storage_with_opcua_globals(vec![("line1_setpoint", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_setpoint",
         "ns=2;i=3",
@@ -426,7 +419,7 @@ fn persistent_worker_rejected_write_marks_point_without_reconnecting() {
         OpcUaClientPointAccess::ReadWrite,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
     let transport = MockOpcUaClientTransport {
         write_error: Some(OpcUaClientBridgeError::validation(
             "OPC UA node 'ns=2;i=3' write returned BadUserAccessDenied",
@@ -437,9 +430,9 @@ fn persistent_worker_rejected_write_marks_point_without_reconnecting() {
         OpcUaClientBridge::with_transport(connection, transport, bindings).expect("bridge");
 
     worker.tick(0).expect("connect");
-    write_global(&mut runtime, "line1_setpoint", Value::Real(31.0));
+    write_global(&mut storage, "line1_setpoint", Value::Real(31.0));
     bridge
-        .capture_outputs(runtime.storage_mut(), 12)
+        .capture_outputs(&mut storage, 12)
         .expect("queue write");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -470,7 +463,7 @@ fn persistent_worker_rejected_write_marks_point_without_reconnecting() {
 
 #[test]
 fn persistent_worker_marks_stale_then_recovers_on_subscription_update() {
-    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let mut storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -479,7 +472,7 @@ fn persistent_worker_marks_stale_then_recovers_on_subscription_update() {
     );
     let mut connection = opcua_connection(vec![point.clone()]);
     connection.timeout_ms = 50;
-    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
     let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -499,17 +492,14 @@ fn persistent_worker_marks_stale_then_recovers_on_subscription_update() {
     worker.tick(61).expect("recover from subscription update");
     assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
     bridge
-        .apply_inputs(runtime.storage_mut(), 62)
+        .apply_inputs(&mut storage, 62)
         .expect("apply recovered value");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(12.0))
-    );
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(12.0)));
 }
 
 #[test]
 fn persistent_worker_reconnects_after_session_loss_without_scan_thread_io() {
-    let runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -517,7 +507,7 @@ fn persistent_worker_reconnects_after_session_loss_without_scan_thread_io() {
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, &[point]);
+    let bindings = opcua_bindings(&storage, &[point]);
     let (bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -543,7 +533,7 @@ fn persistent_worker_reconnects_after_session_loss_without_scan_thread_io() {
 
 #[test]
 fn persistent_worker_recreates_subscription_after_server_restart() {
-    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let mut storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -551,7 +541,7 @@ fn persistent_worker_recreates_subscription_after_server_restart() {
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
     let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::default(),
@@ -565,12 +555,9 @@ fn persistent_worker_recreates_subscription_after_server_restart() {
         .emit_sample(&point, Value::Real(18.0), 10);
     worker.tick(10).expect("initial subscription update");
     bridge
-        .apply_inputs(runtime.storage_mut(), 11)
+        .apply_inputs(&mut storage, 11)
         .expect("apply initial value");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(18.0))
-    );
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(18.0)));
 
     worker
         .transport_mut()
@@ -595,17 +582,14 @@ fn persistent_worker_recreates_subscription_after_server_restart() {
         .tick(2_110)
         .expect("post-restart subscription update");
     bridge
-        .apply_inputs(runtime.storage_mut(), 2_111)
+        .apply_inputs(&mut storage, 2_111)
         .expect("apply post-restart value");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(19.0))
-    );
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(19.0)));
 }
 
 #[test]
 fn persistent_worker_uses_recovery_hook_to_reestablish_subscriptions() {
-    let mut runtime = runtime_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
+    let mut storage = storage_with_opcua_globals(vec![("line1_temp", Value::Real(0.0))]);
     let point = opcua_point(
         "line1_temp",
         "ns=2;i=2",
@@ -613,7 +597,7 @@ fn persistent_worker_uses_recovery_hook_to_reestablish_subscriptions() {
         OpcUaClientPointAccess::Read,
     );
     let connection = opcua_connection(vec![point.clone()]);
-    let bindings = opcua_bindings(&runtime, std::slice::from_ref(&point));
+    let bindings = opcua_bindings(&storage, std::slice::from_ref(&point));
     let (mut bridge, mut worker) = OpcUaClientBridge::with_transport(
         connection,
         MockOpcUaClientTransport::recovering(),
@@ -653,12 +637,9 @@ fn persistent_worker_uses_recovery_hook_to_reestablish_subscriptions() {
         .tick(2_110)
         .expect("post-recovery subscription update");
     bridge
-        .apply_inputs(runtime.storage_mut(), 2_111)
+        .apply_inputs(&mut storage, 2_111)
         .expect("apply post-recovery value");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(21.0))
-    );
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(21.0)));
 }
 
 #[test]
@@ -810,12 +791,13 @@ impl OpcUaClientTransport for MockOpcUaClientTransport {
     }
 }
 
-fn runtime_with_opcua_globals(globals: Vec<(&str, Value)>) -> crate::Runtime {
-    let mut runtime = crate::Runtime::new();
+fn storage_with_opcua_globals(globals: Vec<(&str, Value)>) -> crate::memory::VariableStorage {
+    // Bridge cache/copyback tests need no executable controller or schema mutation.
+    let mut storage = crate::memory::VariableStorage::new();
     for (name, value) in globals {
-        runtime.storage_mut().set_global(SmolStr::new(name), value);
+        storage.set_global(SmolStr::new(name), value);
     }
-    runtime
+    storage
 }
 
 fn opcua_connection(points: Vec<OpcUaClientPointConfig>) -> OpcUaClientConnectionConfig {
@@ -850,22 +832,21 @@ fn opcua_point(
 }
 
 fn opcua_bindings(
-    runtime: &crate::Runtime,
+    storage: &crate::memory::VariableStorage,
     points: &[OpcUaClientPointConfig],
 ) -> Vec<OpcUaClientBinding> {
     points
         .iter()
         .map(|point| OpcUaClientBinding {
             point: point.clone(),
-            reference: runtime
-                .storage()
+            reference: storage
                 .ref_for_global(point.var.as_str())
                 .expect("global ref"),
         })
         .collect()
 }
 
-fn write_global(runtime: &mut crate::Runtime, name: &str, value: Value) {
-    let reference = runtime.storage().ref_for_global(name).expect("global ref");
-    assert!(runtime.storage_mut().write_by_ref(reference, value));
+fn write_global(storage: &mut crate::memory::VariableStorage, name: &str, value: Value) {
+    let reference = storage.ref_for_global(name).expect("global ref");
+    assert!(storage.write_by_ref(reference, value));
 }

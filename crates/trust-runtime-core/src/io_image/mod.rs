@@ -253,8 +253,47 @@ pub fn process_image_area_limit_error(area: &str) -> Result<(), RuntimeError> {
 }
 
 impl IoAddressKey {
+    /// Recover this concrete image identity for non-executable authoring/export.
+    /// The first path component is the existing address's byte/module component.
+    pub fn address(&self) -> Result<IoAddress, RuntimeError> {
+        let byte = *self
+            .path
+            .first()
+            .ok_or_else(|| RuntimeError::InvalidIoAddress("empty image identity".into()))?;
+        let mut path = Vec::new();
+        path.try_reserve_exact(self.path.len())
+            .map_err(|_| RuntimeError::Overflow)?;
+        path.extend_from_slice(&self.path);
+        let address = IoAddress {
+            area: self.area,
+            size: self.size,
+            byte,
+            bit: self.bit,
+            path,
+            wildcard: false,
+        };
+        validate_process_image_address(&address)?;
+        Ok(address)
+    }
+
     /// Logical bytes copied when cloning the owned hierarchical path.
     pub fn clone_allocation_bytes(&self) -> Option<usize> {
         self.path.len().checked_mul(core::mem::size_of::<u32>())
+    }
+}
+
+#[cfg(test)]
+mod address_identity_tests {
+    use super::*;
+
+    #[test]
+    fn authoring_export_preserves_flat_and_hierarchical_image_identity() {
+        for text in ["%IX7.3", "%QB9", "%MW10", "%QL16", "%IX2.4.7", "%QD1.3"] {
+            let original = IoAddress::parse(text).unwrap();
+            let key = IoAddressKey::from(&original);
+            let exported = key.address().unwrap();
+            assert_eq!(exported, original, "{text}");
+            assert_eq!(IoAddressKey::from(&exported), key, "{text}");
+        }
     }
 }

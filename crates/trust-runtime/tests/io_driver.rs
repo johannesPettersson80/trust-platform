@@ -5,7 +5,7 @@ use trust_runtime::eval::stmt::Stmt;
 use trust_runtime::io::{IoAddress, IoDriver};
 use trust_runtime::task::{ProgramDef, TaskConfig};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 #[derive(Default)]
 struct IoState {
@@ -39,13 +39,47 @@ impl IoDriver for TestDriver {
 
 #[test]
 fn io_driver_reads_and_writes_at_cycle_bounds() {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(1, 1, 0);
-    runtime.storage_mut().set_global("in", Value::Bool(false));
-    runtime.storage_mut().set_global("out", Value::Bool(false));
     runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "in".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "trigger".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
 
     let program = ProgramDef {
         name: "P".into(),
@@ -58,7 +92,7 @@ fn io_driver_reads_and_writes_at_cycle_bounds() {
             location: None,
         }],
     };
-    runtime.register_program(program).unwrap();
+    runtime.register_program(program);
 
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.0").unwrap();
@@ -80,6 +114,7 @@ fn io_driver_reads_and_writes_at_cycle_bounds() {
         reads: 0,
         writes: 0,
     }));
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver(
         "test",
         Box::new(TestDriver {
@@ -88,8 +123,8 @@ fn io_driver_reads_and_writes_at_cycle_bounds() {
     );
 
     runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+        .write_global("trigger", Value::Bool(true))
+        .expect("checked test write");
     runtime.execute_cycle().unwrap();
 
     let state = state.lock().expect("io state lock");
@@ -100,13 +135,47 @@ fn io_driver_reads_and_writes_at_cycle_bounds() {
 
 #[test]
 fn composed_drivers_are_invoked_in_order() {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(1, 1, 0);
-    runtime.storage_mut().set_global("in", Value::Bool(false));
-    runtime.storage_mut().set_global("out", Value::Bool(false));
     runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "in".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "trigger".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
 
     let program = ProgramDef {
         name: "P".into(),
@@ -119,7 +188,7 @@ fn composed_drivers_are_invoked_in_order() {
             location: None,
         }],
     };
-    runtime.register_program(program).unwrap();
+    runtime.register_program(program);
 
     let input_addr = IoAddress::parse("%IX0.0").unwrap();
     let output_addr = IoAddress::parse("%QX0.0").unwrap();
@@ -147,6 +216,7 @@ fn composed_drivers_are_invoked_in_order() {
         reads: 0,
         writes: 0,
     }));
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver(
         "first",
         Box::new(TestDriver {
@@ -161,8 +231,8 @@ fn composed_drivers_are_invoked_in_order() {
     );
 
     runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+        .write_global("trigger", Value::Bool(true))
+        .expect("checked test write");
     runtime.execute_cycle().unwrap();
 
     let state_a = state_a.lock().expect("io state lock");

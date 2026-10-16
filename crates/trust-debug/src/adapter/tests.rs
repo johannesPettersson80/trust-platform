@@ -28,6 +28,42 @@ use trust_runtime::value::Value as RuntimeValue;
 use trust_runtime::value::{ArrayValue, Duration, StructValue};
 use trust_runtime::Runtime;
 
+// These I/O-only presentation fixtures used to invent bindings on a live
+// Runtime. Declare their scalar destinations before consuming the builder.
+fn install_io_fixture(mut builder: trust_runtime::RuntimeBuilder) -> Runtime {
+    let bindings = builder.io().bindings().to_vec();
+    for binding in bindings {
+        let trust_runtime::io::IoTarget::Name(name) = binding.target else {
+            panic!("I/O presentation fixture requires a named declaration");
+        };
+        let type_id = if let trust_runtime::io::IoSize::Bytes(length) = binding.address.size {
+            builder.registry_mut().register_string_with_length(length)
+        } else {
+            binding
+                .value_type
+                .unwrap_or_else(|| super::io::io_type_id(&binding.address))
+        };
+        builder
+            .register_global(trust_runtime::program_model::VarDef {
+                name,
+                type_id,
+                initializer: None,
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    builder.build().unwrap()
+}
+
+#[path = "hosted_observation_frames_tests.rs"]
+mod hosted_observation_frames_tests;
+#[path = "installed_context_tests.rs"]
+mod installed_context_tests;
 #[path = "lifecycle_contract_tests.rs"]
 mod lifecycle_contract_tests;
 #[path = "tests_part_01.rs"]

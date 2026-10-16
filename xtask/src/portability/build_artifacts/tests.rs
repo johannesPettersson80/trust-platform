@@ -1,5 +1,7 @@
 use super::*;
 
+const BIN: &str = "trust-nucleo-f401re";
+
 fn record(fresh: bool, executable: Value) -> String {
     serde_json::json!({"reason":"compiler-artifact", "target":{"name":"trust-nucleo-f401re", "kind":["bin"]}, "fresh":fresh, "executable":executable}).to_string()
 }
@@ -8,15 +10,19 @@ fn record(fresh: bool, executable: Value) -> String {
 fn only_a_new_exact_firmware_binary_can_supply_the_executable() {
     let path = std::env::temp_dir().join("firmware with spaces");
     let current = record(false, serde_json::json!(path));
-    assert_eq!(executable(&current).unwrap(), path);
-    assert!(executable(&record(true, serde_json::json!(path))).is_err());
-    assert!(executable(&record(false, Value::Null)).is_err());
-    assert!(executable(&record(false, serde_json::json!("relative.elf"))).is_err());
-    assert!(executable(&format!("{current}\n{current}")).is_err());
-    assert!(executable("not cargo JSON").is_err());
-    assert!(executable("{\"reason\":\"build-finished\",\"success\":true}").is_err());
-    assert!(executable(&current.replace("trust-nucleo-f401re", "another-binary")).is_err());
-    assert!(executable(&current.replace("\"bin\"", "\"lib\"")).is_err());
+    assert_eq!(executable(&current, BIN).unwrap(), path);
+    assert!(executable(&record(true, serde_json::json!(path)), BIN).is_err());
+    assert!(executable(&record(false, Value::Null), BIN).is_err());
+    assert!(executable(&record(false, serde_json::json!("relative.elf")), BIN).is_err());
+    assert!(executable(&format!("{current}\n{current}"), BIN).is_err());
+    assert!(executable("not cargo JSON", BIN).is_err());
+    assert!(executable("{\"reason\":\"build-finished\",\"success\":true}", BIN).is_err());
+    assert!(executable(
+        &current.replace("trust-nucleo-f401re", "another-binary"),
+        BIN
+    )
+    .is_err());
+    assert!(executable(&current.replace("\"bin\"", "\"lib\""), BIN).is_err());
 }
 
 #[test]
@@ -68,11 +74,12 @@ fn existing_evidence_is_not_overwritten() {
             .as_nanos()
     ));
     let artifacts = Artifacts::prepare(&parent.join("build.json")).unwrap();
+    let board = BoardProfile::nucleo_f401re();
     assert!(artifacts
-        .retain(&record(
-            false,
-            serde_json::json!(parent.join("missing.elf"))
-        ))
+        .retain(
+            &record(false, serde_json::json!(parent.join("missing.elf"))),
+            &board
+        )
         .is_err());
     fs::write(&artifacts.map, b"original map").unwrap();
     assert!(Artifacts::prepare(&artifacts.report).is_err());
@@ -80,7 +87,7 @@ fn existing_evidence_is_not_overwritten() {
     let executable = parent.join("linked.elf");
     fs::write(&executable, b"linked executable").unwrap();
     let retained = artifacts
-        .retain(&record(false, serde_json::json!(executable)))
+        .retain(&record(false, serde_json::json!(executable)), &board)
         .unwrap();
     assert_eq!(fs::read(&artifacts.elf).unwrap(), b"linked executable");
     assert_eq!(
@@ -119,4 +126,18 @@ fn dangling_evidence_symlinks_are_occupied_destinations() {
         fs::remove_file(path).unwrap();
     }
     fs::remove_dir_all(parent).unwrap();
+}
+
+#[test]
+fn executable_is_selected_by_the_board_binary_name() {
+    let path = std::env::temp_dir().join("c6 firmware");
+    let c6 = serde_json::json!({
+        "reason": "compiler-artifact",
+        "target": {"name": "trust-esp32c6-reference", "kind": ["bin"]},
+        "fresh": false,
+        "executable": path
+    })
+    .to_string();
+    assert_eq!(executable(&c6, "trust-esp32c6-reference").unwrap(), path);
+    assert!(executable(&c6, BIN).is_err());
 }

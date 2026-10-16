@@ -5,7 +5,23 @@ use std::sync::{Arc, Mutex};
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
-use crate::io::{IoDriver, IoDriverHealth, IoDriverStatus, IoInterface, IoSafeState, IoSnapshot};
+#[cfg(feature = "debug")]
+use crate::io::IoSnapshot;
+use crate::io::{
+    InstalledIoView, IoDriver, IoDriverHealth, IoDriverStatus, IoInterface, IoSafeState,
+};
+use trust_runtime_core::vm::{CycleAccess, ExecutionServices, OwnedRuntimeState};
+
+/// Errors from an operation's own destination remain request-local. Failures
+/// consuming the enclosing cycle's bounded resources must reach fault policy.
+pub(super) fn is_cycle_operational_error(error: &RuntimeError) -> bool {
+    matches!(
+        error,
+        RuntimeError::WatchdogTimeout
+            | RuntimeError::ExecutionTimeout
+            | RuntimeError::ExecutionLimit { .. }
+    )
+}
 
 pub(super) struct IoSubsystem {
     interface: IoInterface,
@@ -29,6 +45,111 @@ impl IoSubsystem {
         }
     }
 
+    pub(super) fn validate_replacement_policy<S: ExecutionServices>(
+        &self,
+        state: &mut OwnedRuntimeState<S>,
+    ) -> Result<(), RuntimeError> {
+        for (address, value) in &self.safe_state.outputs {
+            state.validate_image_write(address, value.clone())?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn validate_resource_policy<S: ExecutionServices>(
+        &self,
+        plan: &mut trust_runtime_core::vm::ResourceReconfiguration<'_, S>,
+    ) -> Result<(), RuntimeError> {
+        for (address, value) in &self.safe_state.outputs {
+            plan.validate_image_write(address, value.clone())?;
+        }
+        Ok(())
+    }
+
+    /// Publish admitted binding metadata while retaining physical drivers and policy.
+    pub(super) fn replace_bindings_from(&mut self, candidate: &mut Self) {
+        std::mem::swap(&mut self.interface, &mut candidate.interface);
+    }
+
+    /// Discard authoring image storage after admission. Installed composition
+    /// retains only its immutable binding names/codecs/provenance here.
+    pub(super) fn freeze_bindings(&mut self) {
+        self.interface.clear_authoring_images();
+    }
+
+    pub(super) fn installed_view<'a, S: ExecutionServices>(
+        &'a self,
+        state: &'a OwnedRuntimeState<S>,
+    ) -> InstalledIoView<'a> {
+        InstalledIoView::new(&self.interface, state)
+    }
+
+    /// Render current bound images inside a cycle without reacquiring the owner
+    /// or cloning its images. Reads share this entry's cumulative allowance.
+    #[cfg(feature = "debug")]
+    pub(super) fn snapshot_with_cycle(
+        &self,
+        access: &mut CycleAccess<'_, '_>,
+    ) -> Result<IoSnapshot, RuntimeError> {
+        self.interface.snapshot_with_fallible(
+            |address| access.read_image(address),
+            is_cycle_operational_error,
+        )
+    }
+
+    /// Physical acquisition at the existing pre-sampling boundary, without a
+    /// second live image or PLC store. Normal acquisition stops at first error.
+    pub(super) fn sample_inputs_with_cycle(
+        &mut self,
+        access: &mut CycleAccess<'_, '_>,
+    ) -> Result<(), RuntimeError> {
+        for entry in &mut self.drivers {
+            entry.driver.read_inputs(access.inputs_mut()?)?;
+        }
+        Ok(())
+    }
+
+    /// Explicit owner-local physical acquisition between execution entries.
+    /// Mapped PLC input sampling remains in the shared cooperative cycle.
+    pub(super) fn sample_inputs<S: ExecutionServices>(
+        &mut self,
+        state: &mut OwnedRuntimeState<S>,
+    ) -> Result<(), RuntimeError> {
+        for entry in &mut self.drivers {
+            entry.driver.read_inputs(state.inputs_mut())?;
+        }
+        self.update_health();
+        Ok(())
+    }
+
+    /// Submit the shared provisional output image in driver order. The cycle
+    /// owner controls deadlines, rollback and safe-state after a failure.
+    pub(super) fn publish_outputs_with_cycle(
+        &mut self,
+        access: &CycleAccess<'_, '_>,
+    ) -> Result<(), RuntimeError> {
+        for entry in &mut self.drivers {
+            entry.driver.write_outputs(access.outputs())?;
+        }
+        Ok(())
+    }
+
+    /// Fault response outside an execution entry. Keep every driver attempt and
+    /// the first-failure report even when earlier devices already acted.
+    pub(super) fn apply_safe_state_installed<S: ExecutionServices>(
+        &mut self,
+        state: &mut OwnedRuntimeState<S>,
+    ) -> Result<(), RuntimeError> {
+        if self.safe_state.is_empty() {
+            self.update_health();
+            return Ok(());
+        }
+        for (address, value) in &self.safe_state.outputs {
+            state.write_image(address, value.clone())?;
+        }
+        self.drive_safe_outputs(state.outputs())
+    }
+
+    #[cfg(test)]
     pub(super) fn interface(&self) -> &IoInterface {
         &self.interface
     }
@@ -37,6 +158,7 @@ impl IoSubsystem {
         &mut self.interface
     }
 
+    #[cfg(test)]
     pub(super) fn interface_and_drivers_mut(&mut self) -> (&mut IoInterface, &mut [IoDriverEntry]) {
         let Self {
             interface, drivers, ..
@@ -44,6 +166,7 @@ impl IoSubsystem {
         (interface, drivers)
     }
 
+    #[cfg(test)]
     pub(super) fn try_resize(
         &mut self,
         inputs: usize,
@@ -68,18 +191,23 @@ impl IoSubsystem {
         self.health_sink = sink;
     }
 
+    /// Publish driver health without waiting for a reader (spec 34 HOST-05).
+    /// While a reader holds the sink this call publishes nothing; the next call
+    /// that acquires it publishes the health current at that time, so readers may
+    /// see a snapshot one cycle late.
     pub(super) fn update_health(&self) {
         let Some(sink) = &self.health_sink else {
             return;
         };
-        if let Ok(mut guard) = sink.lock() {
-            guard.clear();
-            for entry in &self.drivers {
-                guard.push(IoDriverStatus {
-                    name: entry.name.clone(),
-                    health: entry.driver.health(),
-                });
-            }
+        let Ok(mut guard) = sink.try_lock() else {
+            return;
+        };
+        guard.clear();
+        for entry in &self.drivers {
+            guard.push(IoDriverStatus {
+                name: entry.name.clone(),
+                health: entry.driver.health(),
+            });
         }
     }
 
@@ -87,48 +215,61 @@ impl IoSubsystem {
         self.safe_state = safe_state;
     }
 
+    #[cfg(test)]
     pub(super) fn apply_safe_state(&mut self) -> Result<(), RuntimeError> {
         if self.safe_state.is_empty() {
             self.update_health();
             return Ok(());
         }
         self.safe_state.apply(&mut self.interface)?;
-        let mut first_failure = None;
-        for entry in &mut self.drivers {
-            let failure = match entry.driver.write_outputs(self.interface.outputs()) {
-                Err(error) => Some(RuntimeError::IoDriver(
-                    format!(
-                        "safe-state output write failed for driver '{}': {error}",
-                        entry.name
-                    )
-                    .into(),
-                )),
-                Ok(()) => match entry.driver.health() {
-                    IoDriverHealth::Ok => None,
-                    IoDriverHealth::Degraded { error } | IoDriverHealth::Faulted { error } => {
-                        Some(RuntimeError::IoDriver(
-                            format!(
-                                "safe-state output unconfirmed for driver '{}': {error}",
-                                entry.name
-                            )
-                            .into(),
-                        ))
-                    }
-                },
-            };
-            if first_failure.is_none() {
-                first_failure = failure;
-            }
-        }
+        let result = write_safe_outputs(&mut self.drivers, self.interface.outputs());
         self.update_health();
-        match first_failure {
-            Some(error) => Err(error),
-            None => Ok(()),
-        }
+        result
     }
 
+    fn drive_safe_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+        let result = write_safe_outputs(&mut self.drivers, outputs);
+        self.update_health();
+        result
+    }
+
+    #[cfg(all(test, feature = "debug"))]
     pub(super) fn snapshot(&self) -> IoSnapshot {
         self.interface.snapshot()
+    }
+}
+
+fn write_safe_outputs(drivers: &mut [IoDriverEntry], outputs: &[u8]) -> Result<(), RuntimeError> {
+    let mut first_failure = None;
+    for entry in drivers {
+        let failure = match entry.driver.write_outputs(outputs) {
+            Err(error) => Some(RuntimeError::IoDriver(
+                format!(
+                    "safe-state output write failed for driver '{}': {error}",
+                    entry.name
+                )
+                .into(),
+            )),
+            Ok(()) => match entry.driver.output_health() {
+                IoDriverHealth::Ok => None,
+                IoDriverHealth::Degraded { error } | IoDriverHealth::Faulted { error } => {
+                    Some(RuntimeError::IoDriver(
+                        format!(
+                            "safe-state output unconfirmed for driver '{}': {error}",
+                            entry.name
+                        )
+                        .into(),
+                    ))
+                }
+            },
+        };
+        if first_failure.is_none() {
+            first_failure = failure;
+        }
+    }
+    match first_failure {
+        Some(error) => Err(error),
+        None => Ok(()),
     }
 }
 
@@ -237,6 +378,128 @@ mod tests {
         assert_eq!(sink.lock().unwrap().len(), 1);
     }
 
+    #[test]
+    fn safe_state_is_confirmed_by_output_path_health_when_reported_health_is_degraded() {
+        let mut io = IoSubsystem::new();
+        io.try_resize(0, 1, 0).unwrap();
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let sink: Arc<Mutex<Vec<IoDriverStatus>>> = Arc::new(Mutex::new(Vec::new()));
+        let overflow = IoDriverHealth::Degraded {
+            error: "incoming queue overflow: 1 messages dropped".into(),
+        };
+        io.add_driver(
+            "Mqtt",
+            Box::new(SplitHealthDriver {
+                health: overflow.clone(),
+                output_health: IoDriverHealth::Ok,
+                writes: writes.clone(),
+            }),
+        );
+        io.set_health_sink(Some(sink.clone()));
+        io.set_safe_state(IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.2").unwrap(),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        io.apply_safe_state()
+            .expect("output-path health is Ok, so the safe state is confirmed");
+
+        assert_eq!(writes.lock().unwrap().as_slice(), &[vec![4]]);
+        // Ordinary health reporting still shows the degraded driver.
+        assert_eq!(sink.lock().unwrap()[0].health, overflow);
+    }
+
+    #[test]
+    fn safe_state_is_unconfirmed_by_output_path_health_alone() {
+        let mut io = IoSubsystem::new();
+        io.try_resize(0, 1, 0).unwrap();
+        io.add_driver(
+            "Output",
+            Box::new(SplitHealthDriver {
+                health: IoDriverHealth::Ok,
+                output_health: IoDriverHealth::Degraded {
+                    error: "mqtt output handoff pending".into(),
+                },
+                writes: Arc::new(Mutex::new(Vec::new())),
+            }),
+        );
+        io.set_safe_state(IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.2").unwrap(),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        let error = io
+            .apply_safe_state()
+            .expect_err("a degraded output path leaves the safe state unconfirmed");
+
+        assert!(
+            error
+                .to_string()
+                .contains("unconfirmed for driver 'Output'"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn safe_state_stays_unconfirmed_when_reported_health_is_degraded_for_another_reason() {
+        let mut io = IoSubsystem::new();
+        io.try_resize(0, 1, 0).unwrap();
+        io.add_driver(
+            "Mqtt",
+            Box::new(FakeDriver::new(
+                IoDriverHealth::Degraded {
+                    error: "mqtt disconnected: broker closed".into(),
+                },
+                false,
+            )),
+        );
+        io.set_safe_state(IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.2").unwrap(),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        let error = io
+            .apply_safe_state()
+            .expect_err("a degraded connection leaves the safe state unconfirmed");
+
+        assert!(
+            error.to_string().contains("unconfirmed for driver 'Mqtt'"),
+            "{error}"
+        );
+    }
+
+    /// Reports ordinary and output-path health separately, as an MQTT driver does after overflow.
+    struct SplitHealthDriver {
+        health: IoDriverHealth,
+        output_health: IoDriverHealth,
+        writes: Arc<Mutex<Vec<Vec<u8>>>>,
+    }
+
+    impl IoDriver for SplitHealthDriver {
+        fn read_inputs(&mut self, _inputs: &mut [u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+            self.writes.lock().unwrap().push(outputs.to_vec());
+            Ok(())
+        }
+
+        fn health(&self) -> IoDriverHealth {
+            self.health.clone()
+        }
+
+        fn output_health(&self) -> IoDriverHealth {
+            self.output_health.clone()
+        }
+    }
+
     struct FakeDriver {
         health: IoDriverHealth,
         fail_write: bool,
@@ -272,3 +535,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "io_subsystem/installed_tests.rs"]
+mod installed_tests;

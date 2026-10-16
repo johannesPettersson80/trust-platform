@@ -5,7 +5,7 @@ VAR_GLOBAL
     Setpoint : REAL := 10.0;
     StatusWord : WORD := 16#1234;
 END_VAR
-RESOURCE CommRes ON PLC
+RESOURCE truST_ADS ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Main WITH MainTask : Main;
 END_RESOURCE

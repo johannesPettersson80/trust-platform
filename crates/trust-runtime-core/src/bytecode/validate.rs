@@ -193,6 +193,7 @@ mod tests {
                         fields: vec![Field {
                             name_idx: 0,
                             type_id: 0,
+                            bit_offset: None,
                         }],
                     },
                 },

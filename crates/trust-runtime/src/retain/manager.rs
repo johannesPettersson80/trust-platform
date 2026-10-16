@@ -54,6 +54,12 @@ impl RetainManager {
         self.save_interval = interval;
     }
 
+    /// The configured checkpoint interval, read back for inspection.
+    #[must_use]
+    pub fn save_interval(&self) -> Option<Duration> {
+        self.save_interval
+    }
+
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
     }
@@ -91,7 +97,11 @@ impl RetainManager {
         let Some(store) = self.store.as_ref() else {
             return Ok(());
         };
-        if self.last_snapshot.as_ref() == Some(&snapshot) {
+        if self
+            .last_snapshot
+            .as_ref()
+            .is_some_and(|previous| retained_storage_eq(previous, &snapshot))
+        {
             self.dirty = false;
             self.last_save = now;
             return Ok(());
@@ -101,5 +111,52 @@ impl RetainManager {
         self.dirty = false;
         self.last_save = now;
         Ok(())
+    }
+}
+
+/// Logical `Value` equality intentionally ignores opaque physical storage. A
+/// retention owner must additionally notice physical-only changes, without
+/// allocating a serialized checkpoint just to decide whether to write one.
+fn retained_storage_eq(left: &RetainSnapshot, right: &RetainSnapshot) -> bool {
+    if left.values().len() != right.values().len() {
+        return false;
+    }
+    left.values().iter().zip(right.values().iter()).all(
+        |((left_name, left_value), (right_name, right_value))| {
+            left_name == right_name && retained_value_storage_eq(left_value, right_value, 0)
+        },
+    )
+}
+
+fn retained_value_storage_eq(left: &Value, right: &Value, depth: usize) -> bool {
+    if depth > trust_runtime_core::bytecode::BYTECODE_MAX_TYPE_NESTING {
+        // Do not make an unbounded recursive comparison a save-time hazard.
+        return false;
+    }
+    match (left, right) {
+        (Value::Real(left), Value::Real(right)) => left.to_bits() == right.to_bits(),
+        (Value::LReal(left), Value::LReal(right)) => left.to_bits() == right.to_bits(),
+        (Value::Array(left), Value::Array(right)) => {
+            left.dimensions() == right.dimensions()
+                && left.elements().len() == right.elements().len()
+                && left
+                    .elements()
+                    .iter()
+                    .zip(right.elements())
+                    .all(|(left, right)| retained_value_storage_eq(left, right, depth + 1))
+        }
+        (Value::Struct(left), Value::Struct(right)) => {
+            std::sync::Arc::ptr_eq(left, right)
+                || (left.physical_checkpoint_eq(right)
+                    && left.type_name() == right.type_name()
+                    && left.fields().len() == right.fields().len()
+                    && left.fields().iter().zip(right.fields().iter()).all(
+                        |((left_name, left_value), (right_name, right_value))| {
+                            left_name == right_name
+                                && retained_value_storage_eq(left_value, right_value, depth + 1)
+                        },
+                    ))
+        }
+        _ => left == right,
     }
 }

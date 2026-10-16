@@ -106,6 +106,30 @@ fn config_handler_contract_type_error_rejects_without_partial_settings_mutation(
 }
 
 #[test]
+fn config_handler_contract_refuses_durations_beyond_the_signed_nanosecond_range() {
+    let state = state();
+    let before = settings_snapshot(&state);
+    let watchdog = rejected_error(set(&state, json!({ "watchdog.timeout_ms": i64::MAX })));
+    assert_eq!(
+        watchdog,
+        "invalid config value for 'watchdog.timeout_ms': must be <= 9223372036854"
+    );
+    let save_interval = rejected_error(set(&state, json!({ "retain.save_interval_ms": i64::MAX })));
+    assert_eq!(
+        save_interval,
+        "invalid config value for 'retain.save_interval_ms': must be <= 9223372036854"
+    );
+    let unsigned = rejected_error(set(&state, json!({ "watchdog.timeout_ms": u64::MAX })));
+    assert_eq!(
+        unsigned,
+        "invalid config value for 'watchdog.timeout_ms': expected integer >= 1"
+    );
+    let after = settings_snapshot(&state);
+    assert_eq!(after.watchdog, before.watchdog);
+    assert_eq!(after.retain_save_interval, before.retain_save_interval);
+}
+
+#[test]
 fn config_handler_contract_startup_only_error_rolls_back_live_fields() {
     let state = state();
     let before = settings_snapshot(&state);
@@ -591,6 +615,7 @@ fn config_handler_contract_config_get_contains_complete_stable_key_set() {
             "simulation.warning",
             "watchdog.action",
             "watchdog.enabled",
+            "watchdog.hang_action",
             "watchdog.timeout_ms",
             "web.auth",
             "web.enabled",

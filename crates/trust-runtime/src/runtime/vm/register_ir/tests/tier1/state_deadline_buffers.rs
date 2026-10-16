@@ -89,6 +89,8 @@ fn register_executor_tier1_state_reset_clears_cache_and_counters() {
     runtime.vm_tier1_specialized_executor.set_enabled(true);
     runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -126,12 +128,9 @@ fn register_deadline_stride_carries_remaining_work_between_blocks() {
 
 #[test]
 fn register_execution_buffers_reuse_clears_frames_and_register_files() {
-    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow_mut().clear());
-
+    let mut buffers =
+        super::RegisterExecutionBuffers::reserve(3, 0).expect("reserve owned scratch");
     {
-        let mut buffers = super::RegisterExecutionBuffers::acquire(3);
         let (frames, registers, remaining_reads, _) = buffers.buffers_mut();
         frames
             .push(super::super::frames::VmFrame {
@@ -152,7 +151,7 @@ fn register_execution_buffers_reuse_clears_frames_and_register_files() {
         remaining_reads[0] = 11;
     }
 
-    let mut buffers = super::RegisterExecutionBuffers::acquire(3);
+    buffers.select(3).expect("reuse admitted scratch");
     let (frames, registers, remaining_reads, _) = buffers.buffers_mut();
     assert!(frames.is_empty());
     assert!(registers.iter().all(|value| matches!(value, Value::Null)));

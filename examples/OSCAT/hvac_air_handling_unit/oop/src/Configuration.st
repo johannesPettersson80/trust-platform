@@ -1,5 +1,5 @@
 CONFIGURATION AhuOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE AhuOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Ahu WITH MainTask : Main;
 END_RESOURCE

@@ -177,9 +177,10 @@ impl<'a> BytecodeEncoder<'a> {
                         Some(expr),
                         ParamDirection::In | ParamDirection::Out,
                     ) => {
-                        let value = crate::harness::initializer::evaluate_initializer(
+                        let value = crate::harness::initializer::evaluate_initializer_with_abi(
                             self.runtime.storage(),
                             self.runtime.registry(),
+                            self.runtime.storage_abi(),
                             self.runtime.initializer_catalog(),
                             &self.runtime.profile(),
                             None,
@@ -195,16 +196,20 @@ impl<'a> BytecodeEncoder<'a> {
                         None,
                         ParamDirection::In | ParamDirection::Out,
                     ) if self.call_local_implicit_default_is_portable(param.type_id, 0)? => {
-                        let value = crate::harness::initializer::default_value_for_type_id(
-                            self.runtime.storage(),
-                            self.runtime.registry(),
-                            self.runtime.initializer_catalog(),
-                            &self.runtime.profile(),
-                            None,
-                            self.runtime.stdlib(),
-                            param.type_id,
-                        )
-                        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))?;
+                        let value =
+                            crate::harness::initializer::default_value_for_type_id_with_abi(
+                                self.runtime.storage(),
+                                self.runtime.registry(),
+                                self.runtime.storage_abi(),
+                                self.runtime.initializer_catalog(),
+                                &self.runtime.profile(),
+                                None,
+                                self.runtime.stdlib(),
+                                param.type_id,
+                            )
+                            .map_err(|error| {
+                                BytecodeError::InvalidSection(error.to_string().into())
+                            })?;
                         Some(self.const_index_for_type(&value, param.type_id)?)
                     }
                     _ => None,

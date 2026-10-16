@@ -62,7 +62,13 @@ END_PROGRAM
     );
     let result = response.result.expect("ads server status result");
 
-    assert_connector_fixture(&result, "phase0/ads/server_disabled.json");
+    if cfg!(feature = "ads-server") {
+        assert_connector_fixture(&result, "phase0/ads/server_disabled.json");
+    } else {
+        let mut expected = connector_fixture("phase0/ads/server_disabled.json");
+        expected["status"]["summary"] = json!("ADS server runtime status is unavailable.");
+        assert_eq!(result, expected);
+    }
 }
 
 #[test]
@@ -100,10 +106,26 @@ END_PROGRAM
         .cloned()
         .collect::<Vec<_>>();
 
-    assert_connector_fixture(
-        &serde_json::Value::Array(opcua),
-        "phase0/opcua/capabilities_not_configured.json",
-    );
+    if cfg!(feature = "opcua-wire") {
+        assert_connector_fixture(
+            &serde_json::Value::Array(opcua),
+            "phase0/opcua/capabilities_not_configured.json",
+        );
+    } else {
+        assert_eq!(
+            serde_json::Value::Array(opcua),
+            json!([
+                {"id": "opcua", "built": false, "configured": false,
+                 "operational": false, "health": "not_in_build",
+                 "detail": "This runtime was not built with OPC UA support.",
+                 "next_action": {"kind": "get_build_with_feature", "label": "Get a build with opcua-wire"}},
+                {"id": "opcua_client", "built": false, "configured": false,
+                 "operational": false, "health": "not_in_build",
+                 "detail": "This runtime was not built with OPC UA client support.",
+                 "next_action": {"kind": "get_build_with_feature", "label": "Get a build with opcua-wire"}}
+            ])
+        );
+    }
 }
 
 #[test]
@@ -275,19 +297,25 @@ END_PROGRAM
 
 #[test]
 fn phase0_discovery_matches_current_goldens() {
-    assert_connector_fixture(
-        &super::comm_handlers::discover_value(
-            json!({
-                "protocol": "ads",
-                "scope": { "cidr": "127.0.0.1/32", "timeout_ms": 1 },
-                "origin": "this_host",
-                "passive": true
-            }),
-            None,
-        )
-        .expect("ads client discovery no-target baseline"),
-        "phase0/discovery/ads_client_no_targets.json",
-    );
+    let ads = super::comm_handlers::discover_value(
+        json!({
+            "protocol": "ads",
+            "scope": { "cidr": "127.0.0.1/32", "timeout_ms": 1 },
+            "origin": "this_host",
+            "passive": true
+        }),
+        None,
+    )
+    .expect("ads client discovery no-target baseline");
+    if cfg!(feature = "ads-wire") {
+        assert_connector_fixture(&ads, "phase0/discovery/ads_client_no_targets.json");
+    } else {
+        assert_eq!(
+            ads,
+            json!({"candidates": [], "origin": "this_host", "protocol": "ads", "schema_version": 1,
+            "warnings": ["ADS discovery needs a runtime built with the ads-wire feature."]})
+        );
+    }
     assert_connector_fixture(
         &super::comm_handlers::discover_value(
             json!({

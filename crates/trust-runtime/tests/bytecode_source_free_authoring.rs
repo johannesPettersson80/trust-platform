@@ -12,7 +12,7 @@ fn source_free_authoring_preserves_a_faulting_initializer_without_running_it() {
     let session = CompileSession::from_source(source);
     assert!(
         session.build_runtime().is_err(),
-        "legacy startup evaluates division by zero"
+        "installation executes the admitted startup initializer"
     );
     let module = session
         .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
@@ -32,14 +32,35 @@ fn source_free_authoring_preserves_a_faulting_initializer_without_running_it() {
 }
 
 #[test]
-fn explicit_version_selection_keeps_the_legacy_default() {
+fn default_is_source_free_and_legacy_emission_is_explicit() {
     let session = CompileSession::from_source(
         "PROGRAM Main VAR counter : INT; END_VAR counter := counter + 1; END_PROGRAM",
     );
     assert_eq!(
         session.build_bytecode_module().unwrap().version,
+        BytecodeVersion::SOURCE_FREE
+    );
+    assert_eq!(
+        session
+            .build_bytecode_module_for_version(BytecodeVersion::LEGACY)
+            .unwrap()
+            .version,
         BytecodeVersion::LEGACY
     );
+    assert_eq!(
+        session.build_bytecode_module().unwrap().version,
+        BytecodeVersion::new(3, 0)
+    );
+    assert_eq!(
+        session
+            .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE_V2)
+            .unwrap()
+            .version,
+        BytecodeVersion::new(2, 0)
+    );
+    assert!(session
+        .build_bytecode_module_for_version(BytecodeVersion::new(3, 1))
+        .is_err());
     assert!(session
         .build_bytecode_module_for_version(BytecodeVersion::new(2, 1))
         .is_err());
@@ -203,7 +224,7 @@ fn saved_two_point_zero_fixture_matches_source_and_portable_reader() {
     let source = std::fs::read_to_string(root.join("main.st")).unwrap();
     let source_file = trust_runtime::harness::SourceFile::with_path("portability/main.st", source);
     let module = CompileSession::from_sources(vec![source_file])
-        .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE)
+        .build_bytecode_module_for_version(BytecodeVersion::SOURCE_FREE_V2)
         .unwrap();
     let saved = std::fs::read(root.join("program-v2.stbc"))
         .expect("generate the fixture before the consolidated test batch");
@@ -539,7 +560,7 @@ fn static_visibility_is_derived_from_the_owner_and_declaration_prefix() {
 }
 
 #[test]
-fn hosted_runtime_rejects_two_point_zero_without_replacing_legacy_execution() {
+fn hosted_runtime_accepts_current_source_free_and_rejects_invalid_replacement_atomically() {
     use trust_runtime::error::StableErrorCode;
     use trust_runtime::value::{Duration, Value};
 
@@ -548,13 +569,19 @@ fn hosted_runtime_rejects_two_point_zero_without_replacing_legacy_execution() {
         .unwrap();
     replacement.validate().unwrap();
     let bytes = replacement.encode().unwrap();
+    let mut invalid = replacement.clone();
+    invalid
+        .sections
+        .retain(|section| section.id != SectionId::Initializers.as_raw());
+    let invalid_bytes = invalid.encode().unwrap();
     for use_bytes in [false, true] {
         let session = CompileSession::from_source(
             "PROGRAM Main VAR count : INT; END_VAR count := count + 1; END_PROGRAM",
         );
-        let mut runtime = session.build_runtime().unwrap();
-        let legacy = session.build_bytecode_module().unwrap();
-        runtime.apply_bytecode_module(&legacy, None).unwrap();
+        let legacy = session
+            .build_bytecode_module_for_version(BytecodeVersion::LEGACY)
+            .unwrap();
+        let mut runtime = session.build_runtime_from_bytecode(&legacy, None).unwrap();
         runtime.set_current_time(Duration::from_millis(10));
         runtime.execute_cycle().unwrap();
         let Some(Value::Instance(instance)) = runtime.storage().get_global("Main") else {
@@ -566,24 +593,36 @@ fn hosted_runtime_rejects_two_point_zero_without_replacing_legacy_execution() {
             Some(&Value::Int(1))
         );
         let error = if use_bytes {
-            runtime.apply_bytecode_bytes(&bytes, None).unwrap_err()
-        } else {
             runtime
-                .apply_bytecode_module(&replacement, None)
+                .apply_bytecode_bytes(&invalid_bytes, None)
                 .unwrap_err()
+        } else {
+            runtime.apply_bytecode_module(&invalid, None).unwrap_err()
         };
-        assert_eq!(error.stable_code(), StableErrorCode::VmBytecodeDecode);
+        assert_eq!(error.stable_code(), StableErrorCode::BytecodeMissingSection);
         assert!(runtime.storage().get_global("Replacement").is_none());
         assert_eq!(
             runtime.storage().get_instance_var(instance, "count"),
             Some(&Value::Int(1))
         );
+        assert!(!runtime.faulted());
         runtime.set_current_time(Duration::from_millis(20));
         runtime.execute_cycle().unwrap();
         assert_eq!(
             runtime.storage().get_instance_var(instance, "count"),
             Some(&Value::Int(2))
         );
+        if use_bytes {
+            runtime.apply_bytecode_bytes(&bytes, None).unwrap();
+        } else {
+            runtime.apply_bytecode_module(&replacement, None).unwrap();
+        }
+        assert!(runtime.storage().get_global("Main").is_none());
+        assert!(matches!(
+            runtime.storage().get_global("Replacement"),
+            Some(Value::Instance(_))
+        ));
+        runtime.execute_cycle().unwrap();
     }
 }
 
@@ -592,7 +631,11 @@ fn source_free_authoring_preserves_iec_constant_initializer_diagnostics() {
     let session = CompileSession::from_source(
         "VAR_GLOBAL input : INT; initial : INT := input; END_VAR PROGRAM Main END_PROGRAM",
     );
-    for version in [BytecodeVersion::LEGACY, BytecodeVersion::SOURCE_FREE] {
+    for version in [
+        BytecodeVersion::LEGACY,
+        BytecodeVersion::SOURCE_FREE_V2,
+        BytecodeVersion::SOURCE_FREE,
+    ] {
         let error = session
             .build_bytecode_module_for_version(version)
             .unwrap_err()
@@ -946,3 +989,6 @@ fn portable_admission_rejects_invalid_canonical_action_links() {
         "different instance construction frontiers cannot share recipes"
     );
 }
+
+#[path = "bytecode_source_free_authoring/execution.rs"]
+mod execution;

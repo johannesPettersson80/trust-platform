@@ -9,6 +9,10 @@ use verification_cases::{
 };
 
 use super::*;
+use trust_runtime_core::vm::{
+    CycleAccess, CycleHooks, CyclePhase, LogicalExecutionServices, OwnedRuntimeState,
+    PreparationLimits, PreparedModule,
+};
 
 const TEST_ID: &str = "TEST_OPCUA_CLIENT_LIFECYCLE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/protocols/PROTO_OPCUA_001.toml";
@@ -85,18 +89,62 @@ fn run_lifecycle_case(
 }
 
 struct LifecycleFixture {
-    runtime: crate::Runtime,
+    runtime: OwnedRuntimeState<LogicalExecutionServices>,
     point: OpcUaClientPointConfig,
     bridge: OpcUaClientBridge,
     worker: OpcUaClientWorker<LifecycleTransport>,
 }
 
+/// Borrow the actual protocol adapter at its original input/output boundary.
+struct LifecycleCycle<'a> {
+    bridge: &'a mut OpcUaClientBridge,
+    phase: CyclePhase,
+    now_ms: u64,
+}
+
+impl CycleHooks for LifecycleCycle<'_> {
+    fn on_phase(
+        &mut self,
+        phase: CyclePhase,
+        access: &mut CycleAccess<'_, '_>,
+    ) -> Result<(), crate::error::RuntimeError> {
+        if phase != self.phase {
+            return Ok(());
+        }
+        let result = match phase {
+            CyclePhase::AfterInputSample => {
+                self.bridge.apply_inputs_with_cycle(access, self.now_ms)
+            }
+            CyclePhase::AfterOutputSample => {
+                self.bridge.capture_outputs_with_cycle(access, self.now_ms)
+            }
+            _ => return Err(crate::error::RuntimeError::InvalidExecutionState),
+        };
+        result.map_err(|error| {
+            error.execution_cause().cloned().unwrap_or_else(|| {
+                crate::error::RuntimeError::IoTransport(error.to_string().into())
+            })
+        })
+    }
+}
+
 impl LifecycleFixture {
     fn new(scenario: &str) -> Result<Self, String> {
-        let mut runtime = crate::Runtime::new();
-        runtime
-            .storage_mut()
-            .set_global(SmolStr::new("line1_value"), Value::Real(0.0));
+        // Lifecycle evidence uses the canonical admitted execution owner;
+        // bridge-only copyback tests use separate non-executable storage.
+        let module = crate::harness::CompileSession::from_source(
+            "VAR_GLOBAL line1_value : REAL := 0.0; END_VAR PROGRAM Main END_PROGRAM",
+        )
+        .build_bytecode_module()
+        .map_err(|error| error.to_string())?;
+        let prepared = PreparedModule::from_bytes(
+            &module.encode().map_err(|error| error.to_string())?,
+            PreparationLimits::default(),
+        )
+        .map_err(|error| error.to_string())?;
+        let runtime = std::sync::Arc::new(prepared)
+            .instantiate_owned(0)
+            .map_err(|error| error.to_string())?;
         let point = OpcUaClientPointConfig {
             var: SmolStr::new("line1_value"),
             node_id: "ns=2;i=2".to_string(),
@@ -163,8 +211,19 @@ impl LifecycleFixture {
                 self.worker
                     .tick(now_ms)
                     .map_err(|error| error.to_string())?;
-                self.bridge
-                    .apply_inputs(self.runtime.storage_mut(), now_ms.saturating_add(1))
+                let sampled_at = now_ms.saturating_add(1);
+                self.runtime
+                    .execute_cycle_with_hooks(
+                        crate::value::Duration::from_millis(
+                            i64::try_from(sampled_at)
+                                .map_err(|_| "sample time exceeds the runtime clock range")?,
+                        ),
+                        &mut LifecycleCycle {
+                            bridge: &mut self.bridge,
+                            phase: CyclePhase::AfterInputSample,
+                            now_ms: sampled_at,
+                        },
+                    )
                     .map_err(|error| error.to_string())?;
             }
             "disconnect" => {
@@ -184,15 +243,24 @@ impl LifecycleFixture {
                     .storage()
                     .ref_for_global("line1_value")
                     .ok_or_else(|| "line1_value global reference is missing".to_string())?;
-                if !self
-                    .runtime
-                    .storage_mut()
-                    .write_by_ref(reference, Value::Real(value_milli as f32 / 1_000.0))
-                {
-                    return Err("line1_value write failed".to_string());
-                }
-                self.bridge
-                    .capture_outputs(self.runtime.storage_mut(), now_ms)
+                self.runtime
+                    .write_reference(
+                        reference.as_view(),
+                        Value::Real(value_milli as f32 / 1_000.0),
+                    )
+                    .map_err(|error| format!("line1_value write failed: {error}"))?;
+                self.runtime
+                    .execute_cycle_with_hooks(
+                        crate::value::Duration::from_millis(
+                            i64::try_from(now_ms)
+                                .map_err(|_| "write time exceeds the runtime clock range")?,
+                        ),
+                        &mut LifecycleCycle {
+                            bridge: &mut self.bridge,
+                            phase: CyclePhase::AfterOutputSample,
+                            now_ms,
+                        },
+                    )
                     .map_err(|error| error.to_string())?;
                 self.worker
                     .tick(now_ms)

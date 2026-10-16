@@ -11,10 +11,10 @@ use crate::value::{DateTimeProfile, Value};
 /// Register the shared numeric functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 19] = [
     super::registration::descriptor!("ABS", IN, abs),
     super::registration::descriptor!("ACOS", IN, acos),
     super::registration::descriptor!("ADD", VAR_IN_1_2, add),

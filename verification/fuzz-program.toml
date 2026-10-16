@@ -194,6 +194,52 @@ strength = "direct"
 rationale = "The target sends bounded arbitrary bytes through the production bytecode container decoder and validator."
 
 [[targets]]
+id = "FUZZ_TARGET_BYTECODE_ADMISSION"
+target_kind = "cargo_fuzz"
+name = "bytecode_admission"
+path = "fuzz/fuzz_targets/bytecode_admission.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run bytecode_admission"
+owner = "trust-runtime"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/bytecode_admission"
+artifact_path = "fuzz/artifacts/bytecode_admission"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-10-15"
+
+[[targets.surface_associations]]
+surface_id = "bytecode_container_instructions"
+strength = "direct"
+rationale = "The target repairs the CRC32 so mutated containers reach the full validator, preparation under explicit limits and instantiation, and requires the register and stack executors to agree for three cycles."
+
+[[targets]]
+id = "FUZZ_TARGET_BYTECODE_REPREPARE"
+target_kind = "cargo_fuzz"
+name = "bytecode_reprepare"
+path = "fuzz/fuzz_targets/bytecode_reprepare.rs"
+manifest_path = "fuzz/Cargo.toml"
+command = "cd fuzz && cargo fuzz run bytecode_reprepare"
+owner = "trust-runtime"
+primary_tier = "manual_extended"
+additional_tiers = []
+enforcement_status = "manual_only"
+execution_basis_ids = []
+corpus_path = "fuzz/corpus/bytecode_reprepare"
+artifact_path = "fuzz/artifacts/bytecode_reprepare"
+corpus_storage = "machine_local_ignored"
+artifact_storage = "machine_local_ignored"
+last_reviewed = "2026-10-15"
+
+[[targets.surface_associations]]
+surface_id = "bytecode_container_instructions"
+strength = "direct"
+rationale = "The target requires repeated preparation of the same bytes to agree, and an admitted module to round-trip through decode and encode to identical bytes."
+
+[[targets]]
 id = "FUZZ_TARGET_RUNTIME_CONFIG"
 target_kind = "cargo_fuzz"
 name = "runtime_config"

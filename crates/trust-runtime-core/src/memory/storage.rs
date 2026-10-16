@@ -83,9 +83,13 @@ impl VariableStorage {
         bytes = bytes.checked_add(
             self.execution_frames
                 .capacity()
-                .checked_mul(core::mem::size_of::<(FrameId, Option<Vec<Value>>)>() * 4)?,
+                .checked_mul(core::mem::size_of::<(FrameId, ExecutionActivation)>() * 4)?,
         )?;
-        for values in self.execution_frames.values().flatten() {
+        for values in self
+            .execution_frames
+            .values()
+            .flat_map(|activation| activation.locals.as_ref())
+        {
             bytes = bytes.checked_add(values.len().checked_mul(core::mem::size_of::<Value>())?)?;
         }
         #[cfg(not(feature = "std"))]

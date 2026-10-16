@@ -111,6 +111,7 @@ fn saved_artifacts_report_actual_preparation_instantiation_and_scan_allocations(
         max_construction_bytes: 128 * 1024,
         max_process_image_bytes: 64,
         max_work: 50_000,
+        max_construction_work: 50_000,
         max_call_depth: 4,
     };
     for (name, bytes) in [
@@ -214,4 +215,119 @@ fn portable_diagnostic_construction_clone_and_equality_do_not_render_or_allocate
     assert!(!sample.invalid_accounting);
     assert_eq!(sample.allocations, 0);
     assert_eq!(sample.live, 0);
+}
+
+#[cfg(feature = "hir")]
+#[test]
+fn native_payload_transfer_allocates_only_the_final_argument_vector() {
+    use trust_runtime_core::value::Value;
+    use trust_runtime_core::vm::hosted::{
+        call::bindings::{unpack_native_call_payload, VmNativeArg, VmNativeArgValue},
+        module::VmNativeArgSpec,
+        OperandStack,
+    };
+
+    let mut stack = OperandStack::default();
+    stack.push(Value::DInt(17)).unwrap();
+    stack.push(Value::DInt(23)).unwrap();
+    let specs = [
+        VmNativeArgSpec {
+            name: None,
+            is_target: false,
+        },
+        VmNativeArgSpec {
+            name: None,
+            is_target: false,
+        },
+    ];
+    let capture = Capture::begin();
+    let (receiver, args) = unpack_native_call_payload(&mut stack, &specs, 0).unwrap();
+    let transfer = Capture::phase();
+    drop(capture);
+
+    assert_eq!(receiver, None);
+    assert_eq!(args.len(), 2);
+    assert!(matches!(
+        args[0].value,
+        VmNativeArgValue::Expr(Value::DInt(17))
+    ));
+    assert!(matches!(
+        args[1].value,
+        VmNativeArgValue::Expr(Value::DInt(23))
+    ));
+    assert!(!transfer.invalid_accounting);
+    assert_eq!(
+        transfer.allocations, 1,
+        "unexpected staging allocation: {transfer:?}"
+    );
+    assert_eq!(transfer.peak, 2 * core::mem::size_of::<VmNativeArg>());
+    assert_eq!(transfer.live, transfer.peak);
+}
+
+#[test]
+fn refused_preparation_retires_every_tracked_allocation() {
+    use trust_runtime_core::{
+        bytecode::{BytecodeError, BytecodeModule, RejectionReason},
+        error::{RuntimeError, StableErrorCode},
+    };
+    let bytes: &[u8] =
+        include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
+    // Measured before the counted window: the logical preparation demand and the
+    // validator's peak analysis storage for the same admitted bytes.
+    let measured_bytes = PreparedModule::from_bytes(bytes, PreparationLimits::default())
+        .unwrap()
+        .preparation_usage()
+        .bytes;
+    let raw = BytecodeModule::decode(bytes).unwrap();
+    let measured_scratch = raw
+        .validated_with_limits(ValidationLimits::default())
+        .unwrap()
+        .stats()
+        .peak_scratch_bytes;
+    drop(raw);
+    assert!(measured_bytes > 0 && measured_scratch > 0);
+    // Built before the window, so comparing against it allocates nothing counted.
+    let scratch_refusal =
+        RuntimeError::from(BytecodeError::from(RejectionReason::ValidationStorageLimit));
+
+    let capture = Capture::begin();
+    // Logical demand one byte below the measured total (budget.rs:43-46).
+    let logical = PreparedModule::from_bytes(
+        bytes,
+        PreparationLimits {
+            max_preparation_bytes: measured_bytes - 1,
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(logical, RuntimeError::PreparationLimit);
+    drop(logical);
+    let logical_sample = Capture::phase();
+    // Validation scratch one byte below its measured peak (validate/budget.rs:35-37).
+    let scratch = PreparedModule::from_bytes(
+        bytes,
+        PreparationLimits {
+            validation: ValidationLimits {
+                max_scratch_bytes: measured_scratch - 1,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(scratch, scratch_refusal);
+    assert_eq!(
+        scratch.stable_code(),
+        StableErrorCode::BytecodeInvalidSection
+    );
+    drop(scratch);
+    let scratch_sample = Capture::phase();
+    drop(capture);
+    for sample in [logical_sample, scratch_sample] {
+        assert!(!sample.invalid_accounting);
+        assert_eq!(
+            sample.live, 0,
+            "refused preparation must retire every tracked allocation"
+        );
+    }
 }

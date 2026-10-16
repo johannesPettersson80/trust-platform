@@ -5,6 +5,7 @@ pub use crate::numeric::{
     numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128, wider_numeric,
     NumericKind,
 };
+use crate::program_model::BinaryOp;
 use crate::value::{Duration, Value};
 use alloc::string::ToString;
 use smol_str::SmolStr;
@@ -353,34 +354,19 @@ pub fn mask_for(width: u32) -> u64 {
     }
 }
 
-/// Scale a duration using shared numeric conversion and truncation policy.
+/// Scale a duration by `*` (`multiply`) or `/`. The named MUL_TIME/DIV_TIME
+/// family computes exactly as the duration operators do (spec 07 section 9).
 pub fn scale_time(
     duration: Duration,
     factor: &Value,
     multiply: bool,
 ) -> Result<Duration, RuntimeError> {
-    let factor = to_f64(factor)?;
-    if !factor.is_finite() {
-        return Err(RuntimeError::Overflow);
-    }
-    if !multiply && factor == 0.0 {
-        return Err(RuntimeError::DivisionByZero);
-    }
-    let nanos = duration.as_nanos() as f64;
-    let result = if multiply {
-        nanos * factor
+    let op = if multiply {
+        BinaryOp::Mul
     } else {
-        nanos / factor
+        BinaryOp::Div
     };
-    let result = round_ties_to_even(result);
-    if !result.is_finite() {
-        return Err(RuntimeError::Overflow);
-    }
-    // f64 rounds i64::MAX to 2^63, so the upper bound must be exclusive.
-    if !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&result) {
-        return Err(RuntimeError::Overflow);
-    }
-    Ok(Duration::from_nanos(result as i64))
+    crate::program_model::ops::scale_duration(duration, factor, op)
 }
 
 /// Round a real value to the nearest integer, resolving ties to even.
@@ -388,7 +374,10 @@ pub fn round_ties_to_even(value: f64) -> f64 {
     let truncated = crate::numeric::math::trunc(value);
     let frac = value - truncated;
     if frac.abs() == 0.5 {
-        let is_even = truncated % 2.0 == 0.0;
+        // A binary64 half-integer has magnitude below 2^52, so its truncated
+        // part is exactly representable in i64. Test parity without pulling a
+        // general floating-point remainder implementation into the runtime.
+        let is_even = (truncated as i64) & 1 == 0;
         if is_even {
             truncated
         } else {
@@ -402,15 +391,101 @@ pub fn round_ties_to_even(value: f64) -> f64 {
 #[cfg(test)]
 mod width_tests {
     use super::*;
+
+    #[test]
+    fn ties_to_even_matches_remainder_reference_at_boundaries() {
+        fn reference(value: f64) -> f64 {
+            let truncated = crate::numeric::math::trunc(value);
+            let frac = value - truncated;
+            if frac.abs() == 0.5 {
+                if truncated % 2.0 == 0.0 {
+                    truncated
+                } else {
+                    truncated + frac.signum()
+                }
+            } else {
+                crate::numeric::math::round(value)
+            }
+        }
+        let check = |value: f64| {
+            assert_eq!(
+                round_ties_to_even(value).to_bits(),
+                reference(value).to_bits(),
+                "input bits {:016x}",
+                value.to_bits()
+            );
+        };
+        for value in [
+            0.0,
+            -0.0,
+            f64::MIN_POSITIVE,
+            f64::MAX,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::from_bits(1),
+            f64::from_bits(0x7ff8_0000_0000_0042),
+        ] {
+            check(value);
+            check(-value);
+        }
+        for exponent in 0..=53 {
+            let boundary = (1u64 << exponent) as f64;
+            for offset in [-2.5, -1.5, -0.5, 0.0, 0.5, 1.5, 2.5] {
+                let value = boundary + offset;
+                check(value);
+                check(-value);
+                check(f64::from_bits(value.to_bits() - 1));
+                check(f64::from_bits(value.to_bits() + 1));
+            }
+        }
+        let mut bits = 0x517c_c1b7_2722_0a95u64;
+        for _ in 0..10_000 {
+            bits = bits.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            check(f64::from_bits(bits));
+            // Sample exact ties throughout the range where binary64 can carry .5.
+            let integer = bits & ((1u64 << 51) - 1);
+            let tie = integer as f64 + 0.5;
+            check(tie);
+            check(-tie);
+        }
+    }
+
     use crate::value::{
         DateTimeValue, DateValue, LDateTimeValue, LDateValue, LTimeOfDayValue, TimeOfDayValue,
     };
 
+    // Reference for spec 07 section 9: integer factors scale exactly in i128;
+    // REAL factors scale in binary64 and truncate toward zero.
     fn wide_scale_time(
         duration: Duration,
         factor: &Value,
         multiply: bool,
     ) -> Result<Duration, RuntimeError> {
+        let nanos = duration.as_nanos();
+        let integer = match factor {
+            Value::SInt(value) => Some(i128::from(*value)),
+            Value::Int(value) => Some(i128::from(*value)),
+            Value::DInt(value) => Some(i128::from(*value)),
+            Value::LInt(value) => Some(i128::from(*value)),
+            Value::USInt(value) => Some(i128::from(*value)),
+            Value::UInt(value) => Some(i128::from(*value)),
+            Value::UDInt(value) => Some(i128::from(*value)),
+            Value::ULInt(value) => Some(i128::from(*value)),
+            _ => None,
+        };
+        if let Some(factor) = integer {
+            if !multiply && factor == 0 {
+                return Err(RuntimeError::DivisionByZero);
+            }
+            let exact = if multiply {
+                i128::from(nanos) * factor
+            } else {
+                i128::from(nanos) / factor
+            };
+            return i64::try_from(exact)
+                .map(Duration::from_nanos)
+                .map_err(|_| RuntimeError::Overflow);
+        }
         let factor = to_f64(factor)?;
         if !factor.is_finite() {
             return Err(RuntimeError::Overflow);
@@ -418,18 +493,16 @@ mod width_tests {
         if !multiply && factor == 0.0 {
             return Err(RuntimeError::DivisionByZero);
         }
-        let nanos = duration.as_nanos() as f64;
-        let result = round_ties_to_even(if multiply {
-            nanos * factor
+        let scaled = if multiply {
+            nanos as f64 * factor
         } else {
-            nanos / factor
-        });
-        if !result.is_finite() {
+            nanos as f64 / factor
+        };
+        let truncated = crate::numeric::math::trunc(scaled);
+        if !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&truncated) {
             return Err(RuntimeError::Overflow);
         }
-        i64::try_from(result as i128)
-            .map(Duration::from_nanos)
-            .map_err(|_| RuntimeError::Overflow)
+        Ok(Duration::from_nanos(truncated as i64))
     }
 
     #[test]

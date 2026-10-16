@@ -45,21 +45,23 @@ struct WorkerPollError {
 }
 
 impl WorkerPollError {
-    fn plain(error: AdsBridgeError) -> Self {
-        Self {
+    // This context is created only by the background connection worker on
+    // failure. Keep it out of successful polling results and PLC cycle hooks.
+    fn plain(error: AdsBridgeError) -> Box<Self> {
+        Box::new(Self {
             error,
             write_generation_baseline: None,
-        }
+        })
     }
 
     fn after_write(
         error: AdsBridgeError,
         write_generation_baseline: BTreeMap<String, u64>,
-    ) -> Self {
-        Self {
+    ) -> Box<Self> {
+        Box::new(Self {
             error,
             write_generation_baseline: Some(write_generation_baseline),
-        }
+        })
     }
 }
 
@@ -214,7 +216,7 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
             .map(|subscription| subscription.subscription_id)
     }
 
-    fn poll_connected(&mut self, now_ms: u64) -> Result<(), WorkerPollError> {
+    fn poll_connected(&mut self, now_ms: u64) -> Result<(), Box<WorkerPollError>> {
         self.refresh_handles_if_symbol_version_due(now_ms)
             .map_err(WorkerPollError::plain)?;
         self.drain_notifications(now_ms)
@@ -326,7 +328,7 @@ impl<T: AdsTransport> AdsConnectionWorker<T> {
         Ok(())
     }
 
-    fn publish_pending_writes(&mut self, now_ms: u64) -> Result<(), WorkerPollError> {
+    fn publish_pending_writes(&mut self, now_ms: u64) -> Result<(), Box<WorkerPollError>> {
         let (pending, write_generation_baseline) = self.shared.pending_write_batch();
         if pending.is_empty() {
             return Ok(());

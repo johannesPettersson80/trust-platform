@@ -121,12 +121,15 @@ Each task needs:
 | `enabled` | bool | yes | Enables scan watchdog enforcement. |
 | `timeout_ms` | integer | yes | Must be `>= 1`. |
 | `action` | string | yes | `halt`, `safe_halt`, or `restart`. |
+| `hang_action` | string | no | `fault` (default) or `abort`. Used when the watchdog is enabled and a scan thread does not return. A hang is recorded as a watchdog-timeout fault while the blocked call is still running; `fault` keeps the process serving the control plane, which then refuses `pause`, `resume`, `restart` and `bytecode reload` until the process is restarted. `abort` exits the process with status 70 right after the fault is recorded, so no destructors run and a service manager can restart it. With `enabled = false` there is no supervisor, so a hang is not detected. Changing it through `config.set` takes effect at the next start. |
 
 ### `[runtime.fault]` (fault policy)
 
 | Key | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `policy` | string | yes | `halt`, `safe_halt`, or `restart`. |
+
+A halting fault (`halt` or `safe_halt`, a watchdog `halt` or `safe_halt` action, or an exhausted restart budget) leaves the resource `Faulted`. The runtime process keeps serving the control plane. `ctl restart warm` or `ctl restart cold` recovers it, and the process exits with status 1 when it stops while faulted.
 
 ## Networked / Optional Interfaces
 

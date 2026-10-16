@@ -185,5 +185,6 @@ END_PROGRAM
         matches!(last_error, Some(RuntimeError::WatchdogTimeout)),
         "expected WatchdogTimeout, got {last_error:?}"
     );
+    handle.stop();
     handle.join().unwrap();
 }

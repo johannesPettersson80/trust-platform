@@ -13,3 +13,7 @@ include!("runtime/opcua_client.rs");
 include!("runtime/opcua.rs");
 include!("runtime/entry.rs");
 include!("runtime/util.rs");
+
+#[cfg(test)]
+#[path = "runtime/duration_tests.rs"]
+mod duration_tests;

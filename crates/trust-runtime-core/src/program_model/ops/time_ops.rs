@@ -239,7 +239,13 @@ fn time_scale(op: BinaryOp, left: &Value, right: &Value) -> Option<Result<Value,
     None
 }
 
-fn scale_duration(time: Duration, factor: &Value, op: BinaryOp) -> Result<Duration, RuntimeError> {
+/// Scale a duration by an integer or REAL factor. The `*` and `/` operators and
+/// the named MUL_TIME/DIV_TIME family share this one path (spec 07 section 9).
+pub(crate) fn scale_duration(
+    time: Duration,
+    factor: &Value,
+    op: BinaryOp,
+) -> Result<Duration, RuntimeError> {
     let factor = numeric_factor(factor)?;
     let nanos = time.as_nanos();
     let result = match factor {
@@ -281,6 +287,11 @@ fn scale_duration(time: Duration, factor: &Value, op: BinaryOp) -> Result<Durati
             }
         }
         NumericFactor::Real(value) => {
+            // Spec 07 section 9: a non-finite factor is Overflow, so an
+            // infinite divisor does not silently scale the duration to zero.
+            if !value.is_finite() {
+                return Err(RuntimeError::Overflow);
+            }
             if matches!(op, BinaryOp::Div) && value == 0.0 {
                 return Err(RuntimeError::DivisionByZero);
             }
@@ -384,7 +395,9 @@ mod width_tests {
                 2.0,
             ] {
                 for op in [BinaryOp::Mul, BinaryOp::Div] {
-                    let expected = if matches!(op, BinaryOp::Div) && factor == 0.0 {
+                    let expected = if !factor.is_finite() {
+                        Err(RuntimeError::Overflow)
+                    } else if matches!(op, BinaryOp::Div) && factor == 0.0 {
                         Err(RuntimeError::DivisionByZero)
                     } else {
                         let value = if matches!(op, BinaryOp::Mul) {

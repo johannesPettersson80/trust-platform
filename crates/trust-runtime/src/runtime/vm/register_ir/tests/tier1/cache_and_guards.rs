@@ -16,6 +16,8 @@ fn register_lowering_cache_hits_after_first_execution() {
     runtime.reset_vm_register_lowering_cache();
     runtime.storage_mut().set_global("g0", Value::DInt(1));
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let first = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("first execution");
     let second = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
@@ -27,7 +29,7 @@ fn register_lowering_cache_hits_after_first_execution() {
     assert!(snapshot.enabled);
     assert_eq!(snapshot.cached_entries, 1);
     assert_eq!(snapshot.misses, 1);
-    assert_eq!(snapshot.hits, 1);
+    assert_eq!(snapshot.hits, 2);
     assert_eq!(snapshot.build_errors, 0);
 }
 
@@ -43,6 +45,8 @@ fn register_lowering_cache_caches_lowering_errors() {
     runtime.set_vm_register_lowering_cache_enabled(true);
     runtime.reset_vm_register_lowering_cache();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let first = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("first fallback");
     let second = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
@@ -54,7 +58,7 @@ fn register_lowering_cache_caches_lowering_errors() {
     assert!(snapshot.enabled);
     assert_eq!(snapshot.cached_entries, 1);
     assert_eq!(snapshot.misses, 1);
-    assert_eq!(snapshot.hits, 1);
+    assert_eq!(snapshot.hits, 2);
     assert_eq!(snapshot.build_errors, 1);
 }
 
@@ -76,11 +80,16 @@ fn register_executor_tier1_specialized_executor_keeps_startup_path_cold_until_ho
     runtime.set_vm_tier1_specialized_executor_enabled(true);
     runtime.reset_vm_tier1_specialized_executor();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
     let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
-    assert_eq!(snapshot.compile_attempts, 0);
+    assert_eq!(
+        snapshot.compile_attempts, 1,
+        "compiled during fixture preparation"
+    );
     assert_eq!(snapshot.block_executions, 0);
 }
 
@@ -96,23 +105,16 @@ fn tier1_dint_binary_guard_returns_exact_arithmetic_results() {
 
     for (op, left, right, expected) in cases {
         assert_eq!(
-            super::apply_dint_binary_guard_borrowed(
-                op,
-                &Value::DInt(left),
-                &Value::DInt(right),
-            )
-            .expect("guard result"),
+            super::apply_dint_binary_guard_borrowed(op, &Value::DInt(left), &Value::DInt(right),)
+                .expect("guard result"),
             Some(expected),
             "unexpected guard result for {op:?}",
         );
     }
 
-    let div_zero = super::apply_dint_binary_guard_borrowed(
-        BinaryOp::Div,
-        &Value::DInt(8),
-        &Value::DInt(0),
-    )
-    .expect_err("division by zero should fail");
+    let div_zero =
+        super::apply_dint_binary_guard_borrowed(BinaryOp::Div, &Value::DInt(8), &Value::DInt(0))
+            .expect_err("division by zero should fail");
     assert!(matches!(div_zero, RuntimeError::DivisionByZero));
 }
 
@@ -131,12 +133,8 @@ fn tier1_dint_binary_guard_returns_exact_comparison_results() {
 
     for (op, left, right, expected) in cases {
         assert_eq!(
-            super::apply_dint_binary_guard_borrowed(
-                op,
-                &Value::DInt(left),
-                &Value::DInt(right),
-            )
-            .expect("guard result"),
+            super::apply_dint_binary_guard_borrowed(op, &Value::DInt(left), &Value::DInt(right),)
+                .expect("guard result"),
             Some(expected),
             "unexpected guard result for {op:?}",
         );
@@ -155,12 +153,8 @@ fn tier1_dint_binary_guard_declines_unsupported_inputs() {
         None
     );
     assert_eq!(
-        super::apply_dint_binary_guard_borrowed(
-            BinaryOp::And,
-            &Value::DInt(1),
-            &Value::DInt(1),
-        )
-        .expect("guard result"),
+        super::apply_dint_binary_guard_borrowed(BinaryOp::And, &Value::DInt(1), &Value::DInt(1),)
+            .expect("guard result"),
         None
     );
 }
@@ -204,15 +198,14 @@ fn tier1_compiler_accepts_cmp_ref_const_jump_only_for_comparisons() {
     })
     .expect("comparison branch should compile");
 
-    let err =
-        compile_single_tier1_instruction(RegisterInstr::CmpRefConstJumpIf {
-            op: BinaryOp::Add,
-            ref_idx: 0,
-            const_idx: 0,
-            jump_if_true: true,
-            target: BlockTarget::Exit,
-        })
-        .expect_err("non-comparison branch should be rejected");
+    let err = compile_single_tier1_instruction(RegisterInstr::CmpRefConstJumpIf {
+        op: BinaryOp::Add,
+        ref_idx: 0,
+        const_idx: 0,
+        jump_if_true: true,
+        target: BlockTarget::Exit,
+    })
+    .expect_err("non-comparison branch should be rejected");
     assert!(
         err.contains("unsupported_cmp_op:add"),
         "unexpected compile error: {err}",
@@ -220,7 +213,7 @@ fn tier1_compiler_accepts_cmp_ref_const_jump_only_for_comparisons() {
 }
 
 fn compile_single_tier1_instruction(instruction: RegisterInstr) -> Result<(), String> {
-    let (module, pou_id) = manual_vm_module(Vec::new(), vec![Value::DInt(1)], 3);
+    let (module, _) = manual_vm_module(Vec::new(), vec![Value::DInt(1)], 3);
     let block = RegisterBlock {
         id: 0,
         start_pc: 0,
@@ -228,8 +221,8 @@ fn compile_single_tier1_instruction(instruction: RegisterInstr) -> Result<(), St
         entry_stack_depth: 0,
         bytecode_instruction_count: 1,
         instruction_costs: vec![1],
+        instruction_cost_steps: vec![vec![1]],
         instructions: vec![instruction],
     };
-    let key = super::tier1_block_key(&module, pou_id, &block);
-    super::compile_tier1_block(&module, &block, key).map(|_| ())
+    super::compile_tier1_block(&module, &block).map(|_| ())
 }

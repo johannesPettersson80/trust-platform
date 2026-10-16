@@ -178,12 +178,12 @@ impl VmWriteTarget {
                 caller_frame
                     .locals
                     .get(*offset)
-                    .ok_or(VmTrap::Runtime(RuntimeError::NullReference))
+                    .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
             }
             Self::DirectStorage { location, offset } => runtime
                 .storage()
                 .read_direct_slot_by_location(*location, *offset)
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference)),
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference)),
             Self::Reference(reference) => peek_vm_reference(runtime, caller_frame, reference),
         }
     }
@@ -194,6 +194,14 @@ impl VmWriteTarget {
         runtime: &mut impl CallContext,
         caller_frame: &VmFrame,
     ) -> Result<Value, VmTrap> {
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _read = crate::vm::diagnostic_timing::attribution::read(match self {
+            Self::CallerLocalDirect { .. } => {
+                crate::vm::diagnostic_timing::CopyReadKind::CallerLocal
+            }
+            Self::DirectStorage { .. } => crate::vm::diagnostic_timing::CopyReadKind::DirectStorage,
+            Self::Reference(_) => crate::vm::diagnostic_timing::CopyReadKind::Reference,
+        });
         match self {
             Self::Reference(reference) => read_vm_reference(runtime, caller_frame, reference),
             Self::CallerLocalDirect { .. } | Self::DirectStorage { .. } => {
@@ -208,6 +216,38 @@ impl VmWriteTarget {
                 };
                 Ok(value)
             }
+        }
+    }
+
+    /// Materialize the private VAR_IN_OUT snapshot of the target. Its allocation is
+    /// admitted; its copy is call-transaction bookkeeping (spec 34 TIME-08).
+    pub fn snapshot(
+        &self,
+        runtime: &mut impl CallContext,
+        caller_frame: &VmFrame,
+    ) -> Result<Value, VmTrap> {
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _read = crate::vm::diagnostic_timing::attribution::read(match self {
+            Self::CallerLocalDirect { .. } => {
+                crate::vm::diagnostic_timing::CopyReadKind::CallerLocal
+            }
+            Self::DirectStorage { .. } => crate::vm::diagnostic_timing::CopyReadKind::DirectStorage,
+            Self::Reference(_) => crate::vm::diagnostic_timing::CopyReadKind::Reference,
+        });
+        match self.peek(runtime, caller_frame) {
+            Ok(value) => {
+                runtime
+                    .before_transaction_snapshot(value)
+                    .map_err(VmTrap::Runtime)?;
+                let (value, cloned) = materialize_borrowed_value(value);
+                if cloned {
+                    runtime.record_value_op(RegisterValueOpKind::ReadReference);
+                }
+                Ok(value)
+            }
+            // A string element synthesizes its character through the checked read.
+            Err(VmTrap::Runtime(RuntimeError::NullReference)) => self.read(runtime, caller_frame),
+            Err(error) => Err(error),
         }
     }
 
@@ -243,7 +283,7 @@ impl VmWriteTarget {
                 let slot = caller_frame
                     .locals
                     .get_mut(*offset)
-                    .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                    .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
                 *slot = value;
                 Ok(())
             }
@@ -251,7 +291,7 @@ impl VmWriteTarget {
                 .storage_mut()
                 .write_direct_slot_by_location(*location, *offset, value)
                 .then_some(())
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference)),
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference)),
             Self::Reference(reference) => {
                 write_vm_reference(runtime, caller_frame, reference, value)
             }
@@ -353,21 +393,37 @@ impl VmFbFieldBinding {
             .map_err(VmTrap::Runtime)
     }
 
-    /// Store a value through the bound target; the caller owns type normalization.
-    pub fn write(&self, runtime: &mut impl CallContext, value: Value) -> bool {
+    /// Store through the admitted engine writer, preserving typed physical faults.
+    /// The caller owns parameter normalization and native write-policy checks.
+    pub fn write_checked(
+        &self,
+        runtime: &mut impl CallContext,
+        value: Value,
+    ) -> Result<bool, VmTrap> {
         let value = match self.read(runtime) {
             Some(target) => normalize_assignment_for_target(target, value),
             None => value,
         };
-        match self {
+        let (location, offset, path) = match self {
             Self::Direct {
                 instance_id,
                 offset,
-            } => runtime
-                .storage_mut()
-                .write_instance_field_by_offset(*instance_id, *offset, value),
-            Self::Reference(reference) => runtime.storage_mut().write_by_ref_ref(reference, value),
-        }
+            } => (MemoryLocation::Instance(*instance_id), *offset, &[][..]),
+            Self::Reference(reference) => (
+                reference.location,
+                reference.offset,
+                reference.path.as_slice(),
+            ),
+        };
+        runtime
+            .write_typed_storage(location, offset, path, value)
+            .map_err(VmTrap::Runtime)
+    }
+
+    /// Compatibility wrapper for consumers whose API cannot expose a typed fault.
+    #[cfg(feature = "test-support")]
+    pub fn write(&self, runtime: &mut impl CallContext, value: Value) -> bool {
+        self.write_checked(runtime, value).unwrap_or(false)
     }
 
     /// Retain this binding as a function-block output source.

@@ -2,13 +2,14 @@ use super::super::core::Runtime;
 use super::errors::VmTrap;
 #[cfg(test)]
 use super::frames::FrameStack;
-use super::register_ir::{try_execute_pou_with_register_ir, RegisterExecutionOutcome};
+use super::register_ir::{
+    try_execute_pou_with_register_ir, LegacyRegisterFixtureContext, RegisterExecutionOutcome,
+};
 #[cfg(test)]
 use super::stack::OperandStack;
 use super::VmModule;
 use crate::error::RuntimeError;
 use crate::memory::InstanceId;
-use crate::task::ProgramDef;
 use crate::value::{Value, ValueRef};
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -55,13 +56,6 @@ impl Drop for VmExecutionBuffers {
             });
         }
     }
-}
-
-pub(super) fn execute_program(
-    runtime: &mut Runtime,
-    program: &ProgramDef,
-) -> Result<(), RuntimeError> {
-    execute_program_by_name(runtime, &program.name)
 }
 
 pub(super) fn execute_program_by_name(
@@ -130,10 +124,11 @@ fn execute_pou(
     let edge_transaction =
         super::edge::EdgeInputTransaction::begin(runtime, module, pou_id, entry_instance)?;
     let result = (|| -> Result<(), RuntimeError> {
-        match try_execute_pou_with_register_ir(runtime, module, pou_id, entry_instance)? {
+        let mut context = LegacyRegisterFixtureContext::new(runtime, module)?;
+        match try_execute_pou_with_register_ir(&mut context, module, pou_id, entry_instance)? {
             RegisterExecutionOutcome::Executed => Ok(()),
             RegisterExecutionOutcome::FallbackToStack => {
-                execute_pou_stack(runtime, module, pou_id, entry_instance)
+                execute_pou_stack(&mut context, module, pou_id, entry_instance)
             }
         }
     })();
@@ -144,7 +139,7 @@ fn execute_pou(
 }
 
 fn execute_pou_stack(
-    runtime: &mut Runtime,
+    runtime: &mut impl trust_runtime_core::vm::hosted::context::ExecutionContext,
     module: &VmModule,
     pou_id: u32,
     entry_instance: Option<InstanceId>,

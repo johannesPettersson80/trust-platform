@@ -1,5 +1,5 @@
 pub(super) fn apply_globals(
-    runtime: &mut Runtime,
+    runtime: &mut RuntimeBuilder,
     globals: &[GlobalInit],
 ) -> Result<Vec<WildcardRequirement>, CompileError> {
     let registry = runtime.registry().clone();
@@ -76,9 +76,10 @@ pub(super) fn apply_globals(
                 storage.set_global(init.name.clone(), Value::Null);
                 continue;
             }
-            let value = crate::harness::initializer::default_value_for_type_id(
+            let value = crate::harness::initializer::default_value_for_type_id_with_abi(
                 storage,
                 &registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 &initializer_catalog,
                 &profile,
                 None,
@@ -97,9 +98,10 @@ pub(super) fn apply_globals(
                 if super::class_type_name(init.type_id, &registry).is_some() {
                     continue;
                 }
-                let value = crate::harness::initializer::evaluate_initializer(
+                let value = crate::harness::initializer::evaluate_initializer_with_abi(
                     storage,
                     &registry,
+                    crate::value::StorageAbi::LegacyTemporal32,
                     &initializer_catalog,
                     &profile,
                     None,
@@ -154,22 +156,26 @@ pub(super) fn apply_globals(
                 &mut bindings,
             )?;
         }
-        if let Some(fb_name) = super::function_block_type_name(init.type_id, &registry) {
+        if let Some(_fb_name) = super::function_block_type_name(init.type_id, &registry) {
             runtime.register_global_meta(
                 init.name.clone(),
                 init.type_id,
                 init.retain,
-                crate::GlobalInitValue::FunctionBlock { type_name: fb_name },
+                crate::GlobalInitValue::FunctionBlock {
+                    #[cfg(test)]
+                    type_name: _fb_name,
+                },
             );
             continue;
         }
-        if let Some(class_name) = super::class_type_name(init.type_id, &registry) {
+        if let Some(_class_name) = super::class_type_name(init.type_id, &registry) {
             runtime.register_global_meta(
                 init.name.clone(),
                 init.type_id,
                 init.retain,
                 crate::GlobalInitValue::Class {
-                    type_name: class_name,
+                    #[cfg(test)]
+                    type_name: _class_name,
                 },
             );
             continue;

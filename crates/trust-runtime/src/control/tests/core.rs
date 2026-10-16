@@ -2742,10 +2742,17 @@ END_PROGRAM
         if !platform_matches {
             continue;
         }
+        let expected_built = match id {
+            "ethercat" => cfg!(all(unix, feature = "ethercat-wire")),
+            "ads" => cfg!(feature = "ads-wire"),
+            "ads_server" => cfg!(feature = "ads-server"),
+            "opcua" | "opcua_client" => cfg!(feature = "opcua-wire"),
+            _ => true,
+        };
         assert_eq!(
             capability.get("built").and_then(serde_json::Value::as_bool),
-            Some(true),
-            "default schema protocol {id} must be built in the official default runtime"
+            Some(expected_built),
+            "default schema protocol {id} must reflect the selected build features"
         );
     }
 }
@@ -4284,7 +4291,9 @@ fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
             .and_then(serde_json::Value::as_bool),
         Some(false)
     );
-    assert!(result.get("external_client_kind").is_some_and(serde_json::Value::is_null));
+    assert!(result
+        .get("external_client_kind")
+        .is_some_and(serde_json::Value::is_null));
     assert_eq!(
         result
             .get("production_ready")

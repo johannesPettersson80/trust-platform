@@ -67,6 +67,12 @@ Q1 := S1 OR (NOT R AND Q1)
 | 1 | 0 | 1 |
 | 1 | 1 | 1 (set dominant) |
 
+**Long input names**: IEC 61131-3 Ed.3 section 6.6.3.5.2, Table 43 row 1b, also
+names the inputs `SET1` (for `S1`) and `RESET` (for `R`), as in `SR(SET1 := ...,
+RESET := ...)`. truST accepts those names in calls, case-insensitively, and
+normalizes them to `S1` and `R` at compile time. The runtime binds only the
+canonical names.
+
 ### RS - Reset Dominant Bistable
 
 ```
@@ -101,6 +107,12 @@ Q1 := NOT R1 AND (S OR Q1)
 | 0 | 1 | 0 |
 | 1 | 0 | 1 |
 | 1 | 1 | 0 (reset dominant) |
+
+**Long input names**: IEC 61131-3 Ed.3 section 6.6.3.5.2, Table 43 row 2b, also
+names the inputs `SET` (for `S`) and `RESET1` (for `R1`), as in `RS(SET := ...,
+RESET1 := ...)`. truST accepts those names in calls, case-insensitively, and
+normalizes them to `S` and `R1` at compile time. The runtime binds only the
+canonical names.
 
 ### Initial State
 
@@ -374,6 +386,10 @@ The following requirements bind the runtime implementation of IEC
   publish new user-visible outputs.
 - Edge memory, current value, and outputs are isolated by function-block
   instance. A new instance starts with `CV = 0` and both edge memories false.
+- Edge memory follows the count input on every executed call, including a call
+  whose reset or load dominates the count: a `CU` held high through a reset is
+  not counted again when the reset is released (IEC 61131-3 Table 45 declares
+  `CU` and `CD` as `R_EDGE` inputs, evaluated on each execution).
 
 ## 5. Timer Function Blocks (Table 46, Figure 15)
 
@@ -429,12 +445,14 @@ TIME---|PT ET|---TIME
 
 - When IN goes TRUE, Q goes TRUE for duration PT
 - Q stays TRUE for full PT duration regardless of IN changes
-- ET counts up while Q is TRUE, stops at PT
-- After the pulse expires while an executed call still samples IN as TRUE, Q
-  remains FALSE and ET remains at PT. The first later executed call sampling IN
-  as FALSE resets ET to zero and rearms edge detection. A subsequent executed
-  FALSE-to-TRUE call starts a new pulse with Q TRUE and ET advanced by that
-  call's elapsed-time contribution.
+- ET counts up while Q is TRUE, stops at PT (IEC 61131-3 Ed.3 section 6.6.3.5.5,
+  Figure 15(a))
+- The executed call that completes the pulse returns Q FALSE and ET at PT,
+  whether it samples IN as TRUE or as FALSE. After expiry, while an executed call
+  still samples IN as TRUE, Q remains FALSE and ET remains at PT. The first later
+  executed call sampling IN as FALSE resets ET to zero and rearms edge detection.
+  A subsequent executed FALSE-to-TRUE call starts a new pulse with Q TRUE and ET
+  advanced by that call's elapsed-time contribution.
 
 **Timing Diagram**:
 ```
@@ -538,7 +556,8 @@ machine above and requires `PT` and `ET` to use its named TIME or LTIME family.
   `ET = 0`, no active interval, and a first-call elapsed contribution of zero.
 - `PT <= 0` is normalized to zero. A zero-preset `TON` completes on an
   executed call with `IN = TRUE`; a zero-preset `TP` has no positive-duration
-  pulse; and a zero-preset `TOF` expires on the falling-edge call.
+  pulse, so its `Q` stays `FALSE`; and a zero-preset `TOF` expires on the
+  falling-edge call.
 - Elapsed contributions are non-negative. A direct negative delta, a stationary
   runtime clock, or a backward runtime clock contributes zero and establishes
   the new baseline without reducing `ET`.

@@ -14,6 +14,8 @@ pub use crate::error_code::StableErrorCode;
 
 mod preparation;
 pub use preparation::PreparationDiagnostic;
+mod execution;
+pub use execution::ExecutionLimitKind;
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -78,6 +80,10 @@ pub enum RuntimeError {
     #[error("invalid storage alias use")]
     InvalidAlias,
 
+    /// Hosted context for a rejected read-only alias, sharing the alias fault code.
+    #[error("VAR_ACCESS '{0}' is read-only")]
+    ReadOnlyAlias(SmolStr),
+
     /// Preparation resource limit exceeded.
     #[error("preparation resource limit exceeded")]
     PreparationLimit,
@@ -93,6 +99,10 @@ pub enum RuntimeError {
     /// Type mismatch between values.
     #[error("type mismatch")]
     TypeMismatch,
+
+    /// A checked engineering boundary received a non-finite floating value.
+    #[error("non-finite floating-point value")]
+    NonFiniteValue,
 
     /// Invalid argument count for a function call.
     #[error("invalid argument count (expected {expected}, got {got})")]
@@ -255,6 +265,21 @@ pub enum RuntimeError {
     #[error("execution timed out")]
     ExecutionTimeout,
 
+    /// A logical execution allowance refused a charge before consuming it.
+    /// The stable timeout identity is retained; this context separates it from
+    /// physical deadline expiry without allocating a diagnostic string.
+    #[error("execution timed out: {kind} limit {limit}, used {used}, requested {requested}")]
+    ExecutionLimit {
+        /// Allowance exhausted by the first rejected operation.
+        kind: ExecutionLimitKind,
+        /// Accepted demand before the rejected operation.
+        used: usize,
+        /// Complete demand of the rejected operation.
+        requested: usize,
+        /// Admitted maximum for this operation entry.
+        limit: usize,
+    },
+
     /// Scripted simulation fault injection.
     #[error("simulation fault '{0}'")]
     SimulationFault(SmolStr),
@@ -278,6 +303,19 @@ pub enum RuntimeError {
     /// Retain schema migration failed or was applied explicitly.
     #[error("retain migration error '{0}'")]
     RetainMigration(SmolStr),
+
+    /// Retained data violates a destination subrange; keep both context and cause.
+    #[error("retain migration error 'invalid retained value for '{name}': value {value} outside declared subrange {lower}..{upper}'")]
+    RetainSubrangeViolation {
+        /// Logical checkpoint destination.
+        name: SmolStr,
+        /// Rejected numeric value.
+        value: i128,
+        /// Inclusive admitted lower bound.
+        lower: i128,
+        /// Inclusive admitted upper bound.
+        upper: i128,
+    },
 
     /// Control protocol error.
     #[error("control error '{0}'")]
@@ -311,11 +349,12 @@ impl RuntimeError {
             Self::VisibilityViolation => StableErrorCode::RuntimeVisibilityViolation,
             Self::ReferenceLifetime => StableErrorCode::RuntimeReferenceLifetime,
             Self::ProgramRootReplacement => StableErrorCode::RuntimeProgramRootReplacement,
-            Self::InvalidAlias => StableErrorCode::RuntimeInvalidAlias,
+            Self::InvalidAlias | Self::ReadOnlyAlias(_) => StableErrorCode::RuntimeInvalidAlias,
             Self::PreparationLimit => StableErrorCode::RuntimePreparationLimit,
             Self::InvalidExecutionState => StableErrorCode::RuntimeInvalidExecutionState,
             Self::ProfileUnsupported(_) => StableErrorCode::RuntimeProfileUnsupported,
             Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
+            Self::NonFiniteValue => StableErrorCode::RuntimeNonFiniteValue,
             Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
             Self::InvalidArgumentName(_) => StableErrorCode::RuntimeInvalidArgumentName,
             Self::AssertionFailed(_) => StableErrorCode::RuntimeAssertionFailed,
@@ -323,7 +362,9 @@ impl RuntimeError {
             Self::ModuloByZero => StableErrorCode::RuntimeModuloByZero,
             Self::Overflow => StableErrorCode::RuntimeOverflow,
             Self::IndexOutOfBounds { .. } => StableErrorCode::RuntimeIndexOutOfBounds,
-            Self::SubrangeViolation { .. } => StableErrorCode::RuntimeSubrangeViolation,
+            Self::SubrangeViolation { .. } | Self::RetainSubrangeViolation { .. } => {
+                StableErrorCode::RuntimeSubrangeViolation
+            }
             Self::NullReference => StableErrorCode::RuntimeNullReference,
             Self::InvalidControlFlow => StableErrorCode::RuntimeInvalidControlFlow,
             Self::ForStepZero => StableErrorCode::RuntimeForStepZero,
@@ -350,7 +391,9 @@ impl RuntimeError {
             Self::WatchdogTimeout => StableErrorCode::RuntimeWatchdogTimeout,
             Self::RestartLimitExceeded { .. } => StableErrorCode::RuntimeRestartLimitExceeded,
             Self::SafeStateFailed { .. } => StableErrorCode::RuntimeSafeStateFailed,
-            Self::ExecutionTimeout => StableErrorCode::RuntimeExecutionTimeout,
+            Self::ExecutionTimeout | Self::ExecutionLimit { .. } => {
+                StableErrorCode::RuntimeExecutionTimeout
+            }
             Self::SimulationFault(_) => StableErrorCode::RuntimeSimulationFault,
             Self::InvalidConfig(_) => StableErrorCode::RuntimeInvalidConfig,
             Self::InvalidBundle(_) => StableErrorCode::RuntimeInvalidBundle,
@@ -377,6 +420,23 @@ impl From<crate::bytecode::BytecodeError> for RuntimeError {
     }
 }
 
+impl From<crate::value::PartialAccessError> for RuntimeError {
+    fn from(error: crate::value::PartialAccessError) -> Self {
+        match error {
+            crate::value::PartialAccessError::IndexOutOfBounds {
+                index,
+                lower,
+                upper,
+            } => Self::IndexOutOfBounds {
+                index,
+                lower,
+                upper,
+            },
+            crate::value::PartialAccessError::TypeMismatch => Self::TypeMismatch,
+        }
+    }
+}
+
 impl From<DateTimeError> for RuntimeError {
     fn from(value: DateTimeError) -> Self {
         Self::DateTimeRange(value)
@@ -391,12 +451,106 @@ impl From<DateTimeCalcError> for RuntimeError {
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::ToString;
+    use alloc::{format, string::ToString};
 
-    use super::{RuntimeError, StableErrorCode};
+    use super::{ExecutionLimitKind, RuntimeError, StableErrorCode};
     use crate::bytecode::BytecodeError;
     use crate::datetime::DateTimeCalcError;
     use crate::value::DateTimeError;
+
+    #[test]
+    fn logical_allowance_context_is_distinct_from_physical_expiry_with_stable_timeout_code() {
+        let error = RuntimeError::ExecutionLimit {
+            kind: ExecutionLimitKind::AllocationBytes,
+            used: 40,
+            requested: 24,
+            limit: 60,
+        };
+        assert_eq!(
+            error.stable_code(),
+            RuntimeError::ExecutionTimeout.stable_code()
+        );
+        assert_eq!(
+            error.to_string(),
+            "execution timed out: allocation bytes limit 60, used 40, requested 24"
+        );
+        assert_ne!(error, RuntimeError::ExecutionTimeout);
+    }
+
+    #[test]
+    fn retained_subrange_context_preserves_the_range_code_and_operator_details() {
+        let error = RuntimeError::RetainSubrangeViolation {
+            name: "Plant.limit".into(),
+            value: i128::MIN,
+            lower: i128::MIN,
+            upper: i128::MAX,
+        };
+        assert_eq!(
+            error.stable_code(),
+            StableErrorCode::RuntimeSubrangeViolation
+        );
+        let message = error.to_string();
+        assert!(message.contains("Plant.limit"));
+        assert_eq!(
+            message,
+            format!(
+                "retain migration error 'invalid retained value for 'Plant.limit': value {} outside declared subrange {}..{}'",
+                i128::MIN,
+                i128::MIN,
+                i128::MAX
+            )
+        );
+        let upper_endpoint = RuntimeError::RetainSubrangeViolation {
+            name: "Plant.limit".into(),
+            value: i128::MAX,
+            lower: i128::MIN,
+            upper: i128::MAX,
+        };
+        assert!(upper_endpoint.to_string().contains(&format!(
+            "value {} outside declared subrange {}..{}",
+            i128::MAX,
+            i128::MIN,
+            i128::MAX
+        )));
+        assert_eq!(
+            RuntimeError::NonFiniteValue.stable_code(),
+            StableErrorCode::RuntimeNonFiniteValue
+        );
+    }
+
+    #[test]
+    fn read_only_alias_context_preserves_the_shared_fault_code() {
+        let contextual = RuntimeError::ReadOnlyAlias("Observed".into());
+        assert_eq!(
+            contextual.stable_code(),
+            RuntimeError::InvalidAlias.stable_code()
+        );
+        assert_eq!(contextual.to_string(), "VAR_ACCESS 'Observed' is read-only");
+    }
+
+    #[test]
+    fn partial_access_conversion_preserves_bounds_and_fault_identity() {
+        let bounds = RuntimeError::from(crate::value::PartialAccessError::IndexOutOfBounds {
+            index: 8,
+            lower: 0,
+            upper: 7,
+        });
+        assert_eq!(
+            bounds,
+            RuntimeError::IndexOutOfBounds {
+                index: 8,
+                lower: 0,
+                upper: 7
+            }
+        );
+        assert_eq!(
+            bounds.stable_code(),
+            StableErrorCode::RuntimeIndexOutOfBounds
+        );
+        let mismatch = RuntimeError::from(crate::value::PartialAccessError::TypeMismatch);
+        assert_eq!(mismatch, RuntimeError::TypeMismatch);
+        assert_eq!(mismatch.stable_code(), StableErrorCode::RuntimeTypeMismatch);
+    }
 
     #[test]
     fn protection_and_profile_faults_have_distinct_stable_codes() {
@@ -423,6 +577,10 @@ mod tests {
             ),
             (
                 RuntimeError::InvalidAlias,
+                StableErrorCode::RuntimeInvalidAlias,
+            ),
+            (
+                RuntimeError::ReadOnlyAlias("Observed".into()),
                 StableErrorCode::RuntimeInvalidAlias,
             ),
             (

@@ -7,6 +7,8 @@ use trust_ads_core::{
 use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::value::{Duration, Value};
 
+#[path = "tests/mqtt_install_tag_mapping.rs"]
+mod mqtt_install_tag_mapping;
 #[path = "tests/mqtt_tag_mapping.rs"]
 mod mqtt_tag_mapping;
 
@@ -31,6 +33,7 @@ fn bundle_with_backend(
             retain_path: None,
             retain_save_interval: trust_runtime::value::Duration::from_millis(1000),
             watchdog: trust_runtime::watchdog::WatchdogPolicy::default(),
+            watchdog_hang_action: trust_runtime::watchdog::HangAction::default(),
             fault_policy: trust_runtime::watchdog::FaultPolicy::SafeHalt,
             web: trust_runtime::config::WebConfig {
                 enabled: false,
@@ -382,7 +385,7 @@ END_PROGRAM
 
 #[test]
 fn bundle_version_is_rejected_before_runtime_policy_mutation() {
-    let mut runtime = trust_runtime::Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new().build().unwrap();
     let original_watchdog = runtime.watchdog_policy();
     let mut bundle =
         bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
@@ -393,7 +396,7 @@ fn bundle_version_is_rejected_before_runtime_policy_mutation() {
         action: trust_runtime::watchdog::WatchdogAction::SafeHalt,
     };
 
-    let error = super::apply_bundle_runtime_overrides(&mut runtime, &bundle)
+    let error = super::apply_bundle_runtime_services(&mut runtime, &bundle)
         .expect_err("unsupported bundle version must fail");
     assert!(error.to_string().contains("unsupported bundle version 2"));
     assert_eq!(runtime.watchdog_policy(), original_watchdog);
@@ -413,10 +416,15 @@ marker := marker + 1;
 END_PROGRAM
 "#,
     )]);
-    let mut runtime = session.build_runtime().expect("build runtime");
     let mut bundle =
         bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
     bundle.bytecode = session.build_bytecode_bytes().expect("build bytecode");
+    let mut runtime = session
+        .build_runtime_from_bytecode(
+            &trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode).unwrap(),
+            Some(&bundle.runtime.resource_name),
+        )
+        .expect("install supplied bundle bytecode before service policy");
     bundle.runtime.watchdog = trust_runtime::watchdog::WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(250),
@@ -424,7 +432,7 @@ END_PROGRAM
     };
     bundle.runtime.fault_policy = trust_runtime::watchdog::FaultPolicy::Restart;
 
-    super::apply_bundle_runtime_overrides(&mut runtime, &bundle)
+    super::apply_bundle_runtime_services(&mut runtime, &bundle)
         .expect("accepted bundle must apply");
 
     assert_eq!(runtime.watchdog_policy(), bundle.runtime.watchdog);
@@ -435,7 +443,7 @@ END_PROGRAM
 
 #[test]
 fn ads_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
-    let mut runtime = trust_runtime::Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new().build().unwrap();
     let mut bundle =
         bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
     let mut factory_calls = 0;
@@ -734,7 +742,7 @@ access = "read"
 #[cfg(feature = "opcua-wire")]
 #[test]
 fn opcua_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
-    let mut runtime = trust_runtime::Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new().build().unwrap();
     let mut bundle =
         bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
     let mut factory_calls = 0;
@@ -803,7 +811,12 @@ END_PROGRAM
 "#,
     )
     .expect("write project source");
-    std::fs::write(project.join("program.stbc"), []).expect("write placeholder bytecode");
+    let bytecode_sources =
+        trust_runtime::bundle_builder::collect_project_source_files(&project, None).unwrap();
+    let bytes = CompileSession::from_sources(bytecode_sources)
+        .build_bytecode_bytes()
+        .unwrap();
+    std::fs::write(project.join("program.stbc"), bytes).expect("write admitted project bytecode");
     std::fs::write(
         project.join("io.toml"),
         r#"[io]
@@ -1014,4 +1027,102 @@ fn assert_enum_variant(value: &Value, expected: &str) {
         panic!("expected enum value, got {value:?}");
     };
     assert_eq!(value.variant_name().as_str(), expected);
+}
+
+#[test]
+fn project_loader_uses_supplied_legacy_and_source_free_instructions() {
+    use trust_runtime::bytecode::BytecodeVersion;
+    let source =
+        "VAR_GLOBAL marker : INT := 7; END_VAR PROGRAM Main marker := marker + 1; END_PROGRAM";
+    for version in [
+        BytecodeVersion::LEGACY,
+        BytecodeVersion::SOURCE_FREE_V2,
+        BytecodeVersion::SOURCE_FREE,
+    ] {
+        let root = unique_temp_dir("supplied-artifact");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/main.st"), source).unwrap();
+        std::fs::write(
+            root.join("runtime.toml"),
+            trust_runtime::bundle_template::render_runtime_toml(&"RESOURCE".into(), 10),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("io.toml"),
+            "[io]\ndriver = \"simulated\"\nparams = {}\n",
+        )
+        .unwrap();
+        let supplied = CompileSession::from_source(source.replace("marker + 1", "marker + 2"))
+            .build_bytecode_module_for_version(version)
+            .unwrap();
+        std::fs::write(root.join("program.stbc"), supplied.encode().unwrap()).unwrap();
+        let mut loaded = super::load_runtime(Some(root.clone()), None, None).unwrap();
+        assert_eq!(
+            loaded.runtime.storage().get_global("marker"),
+            Some(&Value::Int(7))
+        );
+        super::apply_bundle_runtime_services(&mut loaded.runtime, loaded.bundle.as_ref().unwrap())
+            .unwrap();
+        loaded.runtime.execute_cycle().unwrap();
+        assert_eq!(
+            loaded.runtime.storage().get_global("marker"),
+            Some(&Value::Int(9))
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[test]
+fn project_loader_rejects_missing_legacy_context_but_loads_a_source_free_bundle() {
+    use trust_runtime::bytecode::BytecodeVersion;
+    let root = unique_temp_dir("source-free-bundle");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("runtime.toml"),
+        trust_runtime::bundle_template::render_runtime_toml(&"RESOURCE".into(), 10),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("io.toml"),
+        "[io]\ndriver = \"simulated\"\nparams = {}\n",
+    )
+    .unwrap();
+    let session = CompileSession::from_source("PROGRAM Main END_PROGRAM");
+    let legacy = session
+        .build_bytecode_module_for_version(BytecodeVersion::LEGACY)
+        .unwrap();
+    std::fs::write(root.join("program.stbc"), legacy.encode().unwrap()).unwrap();
+    let error = match super::load_runtime(Some(root.clone()), None, None) {
+        Ok(_) => panic!("missing context accepted"),
+        Err(error) => error,
+    };
+    assert!(error.to_string().contains("construction context"));
+    std::fs::write(
+        root.join("program.stbc"),
+        session.build_bytecode_bytes().unwrap(),
+    )
+    .unwrap();
+    let loaded = super::load_runtime(Some(root.clone()), None, None).unwrap();
+    assert!(loaded.sources.files().is_empty());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+fn write_rejected_event(index: usize) -> trust_runtime::debug::RuntimeEvent {
+    trust_runtime::debug::RuntimeEvent::WriteRejected {
+        target: format!("target{index}").into(),
+        error: "out of range".into(),
+        time: Duration::ZERO,
+    }
+}
+
+#[test]
+fn event_store_keeps_the_newest_1000_events_in_order() {
+    let mut store = std::collections::VecDeque::new();
+    for index in 0..=super::EVENT_STORE_CAPACITY {
+        super::store_event(&mut store, write_rejected_event(index));
+    }
+    let expected: Vec<_> = (1..=super::EVENT_STORE_CAPACITY)
+        .map(write_rejected_event)
+        .collect();
+    assert_eq!(Vec::from(store), expected);
 }

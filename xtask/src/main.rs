@@ -54,7 +54,7 @@ fn print_usage() {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-external-safety\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask browser-command <probe|render> <executable> [browser arguments...]\n  cargo xtask portability pack <gpio.stbc> <application.bin>\n  cargo xtask portability inspect <firmware.elf> <report.json>\n  cargo xtask portability footprint <current.map> <baseline.map> <report.json>\n  cargo xtask portability verify <uart.txt> <report.json>"
+    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-external-safety\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask browser-command <probe|render> <executable> [browser arguments...]\n  cargo xtask portability pack <gpio.stbc> <application.bin>\n  cargo xtask portability build-firmware <board> <report.json>\n  cargo xtask portability inspect <board> <firmware.elf> <report.json>\n  cargo xtask portability footprint <current.map> <baseline.map> <report.json>\n  cargo xtask portability verify <board> <uart.txt> <report.json>\n  boards: nucleo-f401re, esp32c6-devkitc-1"
 }
 
 fn workspace_root() -> Result<PathBuf> {

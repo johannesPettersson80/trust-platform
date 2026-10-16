@@ -119,10 +119,15 @@ fn hmi_test_state_with_status_reports(
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = crate::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };
-    debug.refresh_snapshot_from_storage(&snapshot.storage, snapshot.now);
+    debug.refresh_snapshot_from_storage_with_abi(
+        &snapshot.storage,
+        snapshot.now,
+        snapshot.storage_abi,
+    );
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {
@@ -150,9 +155,7 @@ fn hmi_test_state_with_status_reports(
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::Pause
                 | ResourceCommand::Resume
-                | ResourceCommand::UpdateWatchdog(_)
-                | ResourceCommand::UpdateFaultPolicy(_)
-                | ResourceCommand::UpdateRetainSaveInterval(_)
+                | ResourceCommand::UpdateSchedulerPolicies(_)
                 | ResourceCommand::UpdateIoSafeState(_) => {}
             }
         }

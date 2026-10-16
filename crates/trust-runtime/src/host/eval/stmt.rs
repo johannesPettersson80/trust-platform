@@ -28,6 +28,7 @@ pub(crate) fn exec_stmt(
     if let Some(hook) = ctx.debug.take() {
         {
             let mut debug_ctx = crate::debug::DebugRuntimeContext {
+                storage_abi: crate::value::StorageAbi::LegacyTemporal32,
                 storage: &mut *ctx.storage,
                 registry: ctx.registry,
                 stdlib: ctx.stdlib,

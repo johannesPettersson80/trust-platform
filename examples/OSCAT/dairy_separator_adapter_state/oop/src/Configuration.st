@@ -1,5 +1,5 @@
 CONFIGURATION DairySeparatorAdapterStateOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE DairySeparatorAdapterStateOop ON PLC
     TASK MainTask (INTERVAL := T#50ms, PRIORITY := 1);
     PROGRAM Separator WITH MainTask : Main;
 END_RESOURCE

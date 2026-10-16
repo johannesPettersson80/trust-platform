@@ -173,11 +173,11 @@ impl HarnessAutomation {
         dt_ms: i64,
         watch: &[String],
     ) -> Result<HarnessWatchSnapshot, HarnessAutomationError> {
-        let dt_ms = validate_non_negative(dt_ms, "dt_ms")?;
+        let dt = validate_duration_millis(dt_ms, "dt_ms")?;
         let harness = self.harness_mut()?;
         for _ in 0..count {
-            if dt_ms > 0 {
-                harness.advance_time(Duration::from_millis(dt_ms));
+            if dt > Duration::ZERO {
+                harness.advance_time(dt);
             }
             let cycle = harness.cycle();
             if !cycle.errors.is_empty() {
@@ -279,9 +279,9 @@ impl HarnessAutomation {
         &mut self,
         duration_ms: i64,
     ) -> Result<HarnessStateSummary, HarnessAutomationError> {
-        let duration_ms = validate_non_negative(duration_ms, "duration_ms")?;
+        let duration = validate_duration_millis(duration_ms, "duration_ms")?;
         let harness = self.harness_mut()?;
-        harness.advance_time(Duration::from_millis(duration_ms));
+        harness.advance_time(duration);
         Ok(HarnessStateSummary {
             cycle_count: harness.cycle_count(),
             elapsed_ms: harness.current_time().as_millis(),
@@ -319,7 +319,7 @@ impl HarnessAutomation {
         max_cycles: u64,
         watch: &[String],
     ) -> Result<HarnessRunUntilSummary, HarnessAutomationError> {
-        let dt_ms = validate_non_negative(dt_ms, "dt_ms")?;
+        let dt = validate_duration_millis(dt_ms, "dt_ms")?;
         let harness = self.harness_mut()?;
 
         let mut cycles_ran = 0_u64;
@@ -338,8 +338,8 @@ impl HarnessAutomation {
                     expected,
                 });
             }
-            if dt_ms > 0 {
-                harness.advance_time(Duration::from_millis(dt_ms));
+            if dt > Duration::ZERO {
+                harness.advance_time(dt);
             }
             let cycle = harness.cycle();
             if !cycle.errors.is_empty() {
@@ -791,18 +791,19 @@ fn validate_sources(source_texts: &[String]) -> Result<Vec<&str>, HarnessAutomat
     Ok(source_texts.iter().map(String::as_str).collect())
 }
 
-fn validate_non_negative(value: i64, field: &str) -> Result<i64, HarnessAutomationError> {
+/// Validate a millisecond protocol field and convert it to a logical duration. Negative values and
+/// values beyond the signed nanosecond range are refused as invalid arguments that name the field.
+fn validate_duration_millis(value: i64, field: &str) -> Result<Duration, HarnessAutomationError> {
     if value < 0 {
         return Err(HarnessAutomationError::InvalidArgument(format!(
             "{field} must be non-negative."
         )));
     }
-    if value > MAX_DURATION_MILLIS {
-        return Err(HarnessAutomationError::InvalidArgument(format!(
+    Duration::checked_from_millis(value).ok_or_else(|| {
+        HarnessAutomationError::InvalidArgument(format!(
             "{field} must be <= {MAX_DURATION_MILLIS}."
-        )));
-    }
-    Ok(value)
+        ))
+    })
 }
 
 fn render_runtime_errors(errors: &[RuntimeError]) -> Vec<String> {

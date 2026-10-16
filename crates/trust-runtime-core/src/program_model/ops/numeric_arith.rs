@@ -1,7 +1,7 @@
 fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, RuntimeError> {
-    let left_kind = numeric_kind(&left).ok_or(RuntimeError::TypeMismatch)?;
-    let right_kind = numeric_kind(&right).ok_or(RuntimeError::TypeMismatch)?;
-    let target = wider_numeric(left_kind, right_kind).ok_or(RuntimeError::TypeMismatch)?;
+    let left_kind = numeric_kind(&left).ok_or_else(|| RuntimeError::TypeMismatch)?;
+    let right_kind = numeric_kind(&right).ok_or_else(|| RuntimeError::TypeMismatch)?;
+    let target = wider_numeric(left_kind, right_kind).ok_or_else(|| RuntimeError::TypeMismatch)?;
     match target {
         NumericKind::Real | NumericKind::LReal => {
             if matches!(op, BinaryOp::Mod) {
@@ -39,33 +39,22 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
             let a = to_i64(&left)?;
             let b = to_i64(&right)?;
             let result = match op {
-                BinaryOp::Add => a.checked_add(b).ok_or(RuntimeError::Overflow)?,
-                BinaryOp::Sub => a.checked_sub(b).ok_or(RuntimeError::Overflow)?,
-                BinaryOp::Mul => a.checked_mul(b).ok_or(RuntimeError::Overflow)?,
+                BinaryOp::Add => a.checked_add(b).ok_or_else(|| RuntimeError::Overflow)?,
+                BinaryOp::Sub => a.checked_sub(b).ok_or_else(|| RuntimeError::Overflow)?,
+                BinaryOp::Mul => a.checked_mul(b).ok_or_else(|| RuntimeError::Overflow)?,
                 BinaryOp::Div => {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
                     }
-                    a.checked_div(b).ok_or(RuntimeError::Overflow)?
+                    a.checked_div(b).ok_or_else(|| RuntimeError::Overflow)?
                 }
-                BinaryOp::Mod => {
-                    if b == 0 {
-                        return Err(RuntimeError::ModuloByZero);
-                    }
-                    // Wide remainder returns zero for MIN % -1; signed native
-                    // remainder would overflow even though that result is valid.
-                    if b == -1 {
-                        0
-                    } else {
-                        a % b
-                    }
-                }
+                BinaryOp::Mod => checked_signed_remainder(a, b)?,
                 BinaryOp::Pow => {
                     if b < 0 {
                         return Err(RuntimeError::TypeMismatch);
                     }
                     let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-                    a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+                    a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
                 }
                 _ => return Err(RuntimeError::TypeMismatch),
             };
@@ -75,9 +64,9 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
             let a = to_u64(&left)?;
             let b = to_u64(&right)?;
             let result = match op {
-                BinaryOp::Add => a.checked_add(b).ok_or(RuntimeError::Overflow)?,
-                BinaryOp::Sub => a.checked_sub(b).ok_or(RuntimeError::Overflow)?,
-                BinaryOp::Mul => a.checked_mul(b).ok_or(RuntimeError::Overflow)?,
+                BinaryOp::Add => a.checked_add(b).ok_or_else(|| RuntimeError::Overflow)?,
+                BinaryOp::Sub => a.checked_sub(b).ok_or_else(|| RuntimeError::Overflow)?,
+                BinaryOp::Mul => a.checked_mul(b).ok_or_else(|| RuntimeError::Overflow)?,
                 BinaryOp::Div => {
                     if b == 0 {
                         return Err(RuntimeError::DivisionByZero);
@@ -92,7 +81,7 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
                 }
                 BinaryOp::Pow => {
                     let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-                    a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+                    a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
                 }
                 _ => return Err(RuntimeError::TypeMismatch),
             };
@@ -101,14 +90,27 @@ fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, Runti
     }
 }
 
+/// Signed IEC remainder shared by the general arithmetic path and optimized
+/// integer guards. Rust's checked remainder rejects MIN % -1 even though the
+/// IEC result is zero.
+pub(crate) fn checked_signed_remainder(a: i64, b: i64) -> Result<i64, RuntimeError> {
+    if b == 0 {
+        return Err(RuntimeError::ModuloByZero);
+    }
+    if b == -1 {
+        return Ok(0);
+    }
+    Ok(a % b)
+}
+
 #[cfg(test)]
 mod integer_width_tests {
     use super::*;
     use alloc::vec;
     fn wide_numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, RuntimeError> {
-        let left_kind = numeric_kind(&left).ok_or(RuntimeError::TypeMismatch)?;
-        let right_kind = numeric_kind(&right).ok_or(RuntimeError::TypeMismatch)?;
-        let target = wider_numeric(left_kind, right_kind).ok_or(RuntimeError::TypeMismatch)?;
+        let left_kind = numeric_kind(&left).ok_or_else(|| RuntimeError::TypeMismatch)?;
+        let right_kind = numeric_kind(&right).ok_or_else(|| RuntimeError::TypeMismatch)?;
+        let target = wider_numeric(left_kind, right_kind).ok_or_else(|| RuntimeError::TypeMismatch)?;
         match target {
             NumericKind::Real | NumericKind::LReal => {
                 if matches!(op, BinaryOp::Mod) {
@@ -166,7 +168,7 @@ mod integer_width_tests {
                             return Err(RuntimeError::TypeMismatch);
                         }
                         let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-                        a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+                        a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
                     }
                     _ => return Err(RuntimeError::TypeMismatch),
                 };
@@ -177,7 +179,7 @@ mod integer_width_tests {
                 let b = u128::from(to_u64(&right)?);
                 let result = match op {
                     BinaryOp::Add => a + b,
-                    BinaryOp::Sub => a.checked_sub(b).ok_or(RuntimeError::Overflow)?,
+                    BinaryOp::Sub => a.checked_sub(b).ok_or_else(|| RuntimeError::Overflow)?,
                     BinaryOp::Mul => a * b,
                     BinaryOp::Div => {
                         if b == 0 {
@@ -193,7 +195,7 @@ mod integer_width_tests {
                     }
                     BinaryOp::Pow => {
                         let exp = u32::try_from(b).map_err(|_| RuntimeError::Overflow)?;
-                        a.checked_pow(exp).ok_or(RuntimeError::Overflow)?
+                        a.checked_pow(exp).ok_or_else(|| RuntimeError::Overflow)?
                     }
                     _ => return Err(RuntimeError::TypeMismatch),
                 };

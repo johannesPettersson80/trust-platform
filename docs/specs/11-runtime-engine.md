@@ -185,6 +185,15 @@ profiles in specification 34, including fault/first-use paths. They are not a
 claim about every existing hosted execution path, and all PLC state is not
 required to reside inside the byte-oriented I/O image.
 
+Planned H optimized-tier migration (specification 34 HOST-04/MODEL-02) moves
+lowering and specialized compilation into candidate preparation. Their diagnostic
+attempt/result counts are preparation observations; installed plan hits, opcode
+counts and precomputed fallback reasons remain execution observations. Resetting
+telemetry does not invalidate installed executable plans. Existing hosted tuning
+controls select an explicit prepared policy, without permitting first-use or
+threshold-triggered compilation in bounded RUN. This planned diagnostic migration
+does not change IEC instruction results or assert that H is already verified.
+
 #### 6.2 Task Manager (Resource Scheduler)
 
 Implements IEC 61131-3 task scheduling and program organization unit (POU) associations (IEC 61131-3 Ed.3, §6.8.2; Tables 62–63).
@@ -639,10 +648,14 @@ state has a stronger success boundary:
   image and then attempts the resulting output image on every configured I/O
   driver.
 - A driver's safe-state attempt is confirmed only when `write_outputs` returns
-  successfully and the driver's immediately observed health is `Ok`.
-  `Degraded` or `Faulted` health means the physical handoff is unconfirmed,
-  even when `on_error = "warn"` or `"ignore"` made the ordinary driver call
-  return successfully.
+  successfully and the driver's immediately observed output-path health is `Ok`.
+  `Degraded` or `Faulted` output-path health means the physical handoff is
+  unconfirmed, even when `on_error = "warn"` or `"ignore"` made the ordinary
+  driver call return successfully. Output-path health is the driver's health,
+  except that input-path conditions degrade or fault the reported driver health
+  but not the output path, so they never unconfirm a safe-state handoff. For
+  MQTT these are stale or missing input and incoming-queue overflow
+  (specification 32 §8, specification 34 §11.1).
 - A worker-backed driver whose handoff is queued, reconnecting, timed out, or
   otherwise pending must therefore return a safe-state error at the runtime
   boundary. A later asynchronous delivery does not retroactively turn that
@@ -692,7 +705,10 @@ non-`None` mode. Configured authentication and certificate-trust rules are
 enforced by the wire server before a client may read a node.
 
 Server construction and listener startup do not depend on the first runtime
-snapshot. Before a snapshot exists, nodes have no fabricated ready value.
+snapshot. Startup fails with a stable error, and reports no running server, when
+the configured listen address is already in use or the server stops before it
+serves requests; another process answering on the same port never counts as
+this server being ready. Before a snapshot exists, nodes have no fabricated ready value.
 After a snapshot becomes available, a reference client may read every exported
 supported scalar with CurrentRead access. Loopback/reference-client proof
 establishes interoperability for the exercised profile only; it does not
@@ -718,6 +734,7 @@ following fail-closed product contract:
 | Runtime mesh subscription | Numeric conversion to the configured `REAL`/`LREAL` target is non-finite | Reject before queuing or applying the local update; retain the previous PLC value. |
 | `hmi.write` | Text or numeric input for a declared `REAL`/`LREAL` target is non-finite or overflows the declared width | Return a failed response with `error_code = "runtime_non_finite_value"` before queuing the write or changing PLC storage. |
 | Managed local debug write/force | Input for a declared `REAL`/`LREAL` address is non-finite or overflows the declared width | Return a failed DAP response and preserve both value and force state, as specified in 6.9.1. |
+| Checked embedding engineering writes (`write_global`, `write_instance`, `write_reference`, `write_access`) | A declared `REAL`/`LREAL` value, recursively through arrays/structures, is non-finite | Return `runtime_non_finite_value` before destination or process-image mutation; preserve the installed state. Internal IEC assignments remain governed by their arithmetic contract. |
 | File-backed retain save/load | A scalar, array element, or structure field is non-finite | Reject the complete save or load transaction, as specified in 6.7. |
 | `simulation.toml` coupling threshold | The configured threshold is non-finite | Reject the configuration before activation, as specified in 6.9.2. |
 
@@ -1332,6 +1349,57 @@ execution model, not an IEC deviation.
   from one millisecond through one second, later attempts increase
   exponentially, and the resulting delay never exceeds one second.
 
+**Faulted resource lifecycle (hosted runtime):**
+- A fault that halts the resource (policy `Halt` or `SafeHalt`, a watchdog
+  `halt` or `safe_halt` action, an exhausted automatic restart, or a failed
+  restart) leaves the resource in FAULT after the fault action has run. The
+  runtime process keeps running: the control plane, web UI, HMI and protocol
+  servers stay available, `status` reports the fault, and `last_error` keeps the
+  root fault.
+- The faulted resource executes no task and commits no outputs. It waits for a
+  recovery request: `restart` (warm or cold) runs the configured initialization
+  and retain policy and then resumes cyclic execution (specification 34
+  STATE-06); an online change prepares and commits as in section 6.7.1 and then
+  resumes; `stop` ends the resource. A failed recovery leaves the resource in
+  FAULT with the new error. `pause` and `resume` are rejected while faulted.
+- The runtime process ends only on a stop request or a termination signal. It
+  exits with status 0 when the resource ends Stopped and with status 1 when it
+  ends Faulted, so a service manager can tell a clean stop from a failure.
+
+**Hosted hang supervision (specification 34 TIME-03):**
+- The checks above run on the scan thread, so none of them can act while that
+  thread is inside a driver or native callback that does not return. With the
+  watchdog enabled, the hosted runtime therefore runs an independent supervisor
+  thread per resource.
+- The scan thread publishes the active-execution deadline of the cycle it is
+  running and withdraws it when the cycle ends. A debugger hold suspends the
+  deadline exactly as it suspends the watchdog, so operator dwell time never
+  counts.
+- The supervisor checks the published deadline at least every
+  `clamp(timeout / 4, 1 ms, 100 ms)`. A cycle still running one check interval
+  after its deadline is hung. The supervisor then sets the resource to Faulted,
+  records `WatchdogTimeout` as `last_error` with the detail that the scan did not
+  return, and applies `runtime.watchdog.hang_action`:
+  - `fault` (default): nothing more. The process keeps serving the control
+    plane, `status` reports the fault, and requests that need the scan thread
+    (`pause`, `resume`, `restart`, online change) are rejected with the stable
+    error that names the resource state, because only a new runtime process can
+    recover a thread that does not return.
+  - `abort`: after recording the fault, the process exits at once with status
+    70, so an external service manager can restart it.
+- truST cannot drive outputs while the scan thread is blocked, because that
+  thread owns the drivers and the process image. A hang therefore relies on the
+  I/O devices' own communication-loss behaviour, which installations must
+  configure; it does not claim a confirmed safe state.
+- If a call the supervisor declared hung returns later, the scan thread finds
+  its deadline expired and follows the configured watchdog action for an
+  overrun; the cycle's outputs are not committed.
+- The maximum time from a deadline to the recorded fault is two check
+  intervals. Detecting and faulting a hang is a protection result, not
+  completion of the missed control deadline.
+- With the watchdog disabled there is no supervisor and a hang is not detected;
+  the configuration documentation states this.
+
 **Per-cycle deadline lifecycle:**
 - Before executing a cycle with an enabled watchdog, the scheduler arms both
   the execution and output-commit deadlines from the same wall-clock start and
@@ -1358,6 +1426,13 @@ storage, prove that the underlying fault was repaired, or authorize a caller to
 recover production execution. Those actions remain owned by the host recovery
 and control boundaries. This is a truST runtime API contract, not an IEC
 deviation.
+
+The installed hosted runtime's `clear_fault` exposes this bookkeeping clear for
+tests and engineering tooling. A scan executed after it continues the existing
+program without any initialization, so it is not a recovery path. Product
+recovery, through control commands or the `Restart` fault policy, always runs
+the configured warm or cold restart before control resumes (specification 34
+STATE-06).
 
 ##### Fault-policy decision projection
 
@@ -1537,15 +1612,42 @@ but is not a readable retain file, or a parent path that cannot contain the
 file, returns the underlying retain operation as an error instead of silently
 substituting an empty snapshot.
 
-The current checksum-protected format is version 2. Version-1 `STRN` snapshots
-remain readable for the value tags supported by that format; a decoded value
-materializes with the same logical name and runtime value. Successful
+The current checksum-protected format is version 3. Version-1 and version-2
+`STRN` snapshots remain readable for the value tags supported by those formats;
+a decoded value materializes with the same logical name and runtime value.
+Those formats store structures as logical type/field values only. When an old
+snapshot is migrated to a declaration with relative physical storage, the
+runtime rebuilds backing from the admitted declaration and logical fields,
+zeroing unnamed gaps; old files never promised to preserve hidden physical
+bits. Successful
 replacement publishes one complete snapshot and leaves no retain temporary
 file. Parent-directory synchronization occurs after rename. If that final sync
 fails, `store` returns an error and does not claim durability, but a read in the
 same filesystem session may observe the already-renamed new snapshot. The
 manager keeps the snapshot dirty and permits the next due save to retry without
 another mutation notification.
+
+Version 3 adds an opaque physical checkpoint to a structure value when that
+value owns admitted relative-layout backing. The checkpoint carries the storage
+ABI, complete extent, leaf and child paths, scalar encodings and constraints,
+and backing bytes, including unnamed gaps. Values without relative physical
+backing retain the existing logical structure representation. The runtime
+validates checkpoint framing, counts against remaining input before allocation,
+path depth, UTF-8 names, extents, encoding widths, and every logical scalar leaf
+against the backing before the snapshot can be returned. Checkpoint lengths,
+counts, string lengths, and extents use their checked `u32` wire fields; the
+decoder also uses fallible reservations and rejects values not representable by
+the host. Invalid checkpoint data rejects the complete load.
+Retain save suppression compares physical checkpoints recursively in addition
+to ordinary logical value equality, so hidden-byte-only mutations are durable
+without changing the language-level equality of structure values. It also
+compares serialized floating-point bit patterns, including signed zero, before
+skipping a save.
+Warm migration attaches the checked checkpoint only to an equivalent admitted
+layout; incompatible ABI, field paths, offsets, scalar codecs, enum constraints,
+extent, or removal of physical semantics rejects the entire application
+without mutation. The checkpoint is internal persistence data and does not
+authorize caller-supplied physical layouts or raw installed-state writes.
 
 Before applying a loaded snapshot, the runtime resolves every retained name
 and stages all compatible migrations:
@@ -1618,12 +1720,21 @@ runtime's active resource identity so subsequent bytecode encoding cannot
 propagate the placeholder. The exception does not apply to multi-resource
 modules.
 
+A reload request waits up to five seconds for the resource to take it. If the
+resource has not started applying the request by then, the request is withdrawn
+and never applied, and the reply reports the timeout; once the resource has
+started applying it, the reply reports the commit or preparation result. A
+reload therefore never commits after its caller was told it timed out.
+
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state
 unchanged. The old program remains executable on the next scan.
 For the reviewed retained `INT(0..10)` value `100`, this rejection retains the
 cause-identifying diagnostic text `outside declared subrange 0..10`.
+The typed retain-subrange rejection carries the destination and value/bounds,
+with stable code `runtime_subrange_violation`; retain context must not erase the
+cause into a generic type mismatch or migration string.
 The reviewed malformed byte sequence `[00, 01, 02, 03]` fails preparation as
 the typed `RuntimeError::Bytecode`; no stable message text is implied.
 
@@ -1907,7 +2018,10 @@ no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
 authentication, enabled I/O-driver configurations, bytecode container, module,
-and selected-resource requirements used by startup. Its versioned JSON success
+and selected-resource requirements used by startup. The configured resource name
+resolves exactly as at launch (§6.7.1 named selection): a name the bytecode does
+not declare fails validation with the launch error, and validation never falls
+back to the primary resource. Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
 runtime drivers.
@@ -1980,6 +2094,11 @@ For status, health, and task summaries, a missing or wrong-typed required result
 field is a command failure; it is not rendered as raw JSON or replaced with an
 invented value.
 
+`ctl events` and `ctl faults` send `events.tail` and `faults`. An optional
+`--limit <n>` is sent as `limit`; without it the request carries no parameters,
+so the operation's default of 50 applies. Both print the raw response line, so a
+rejected write's `write_rejected` event is visible from the command line.
+
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is decoded exactly once. Malformed JSON
@@ -2049,6 +2168,13 @@ first selects only `RuntimeEvent::Fault` entries and then applies the limit, so
 intervening non-fault events cannot reduce the requested number of faults.
 `SafeStateFailed` remains its own event type and is not silently relabeled as
 the originating resource fault.
+
+The event store keeps the newest 1,000 events, the largest limit either
+operation accepts; a newer event displaces the oldest. A debug control with no
+event sender attached buffers events for callers that drain them directly, such
+as embedders and the debugger. That buffer keeps the newest 1,024 events, drops
+the oldest beyond that bound and counts every dropped event, so the caller can
+tell that it missed events (specification 34 §11.1).
 
 Historian query parameters are strict objects. `historian.query` permits only
 `variable`, `since_ms`, and `limit`; `historian.alerts` permits only `limit`.
@@ -2178,6 +2304,14 @@ its `kind:name` identity, increments its call count, and contributes its elapsed
 time to the per-cycle average. A profiling snapshot retains the reviewed call
 identities and ranks the reviewed program call ahead of the smaller
 function-block call by average cycle contribution.
+
+Hosted program-call instrumentation records each invoked program under its
+canonical configured instance name, including multiple programs in one task and
+unscheduled background programs. A program invocation that returns an execution
+fault is still recorded; later programs in the failed cycle are not invoked or
+counted. Observation does not change the original execution error. The shared
+engine supplies paired, read-only program observations to the hosted adapter;
+ordinary MCU execution does not acquire a hosted metrics clock or sink.
 
 Disabling profiling clears accumulated call entries and top contributors and
 ignores calls recorded while disabled. Re-enabling profiling starts a clean
@@ -2445,6 +2579,21 @@ text, and out-of-range integers reject as `unsupported value`. This admission
 grammar does not bypass target-width or declared-type checks when the queued
 mutation is applied at a scan boundary.
 
+An admitted integer is an untyped literal (IEC 61131-3 Ed.3 §6.3.2, Table 5): a
+literal without a type prefix takes its type from its destination, and a positive
+integer may serve as a bit-string literal. When an `io.write` or `io.force`
+mutation is applied, an integer destination (`SINT` to `ULINT`) takes the value
+in its declared type if
+the value lies in that type's range, and a bit-string destination (`BYTE` to
+`LWORD`) takes a non-negative value that fits its width. Any other value or
+destination type rejects that request alone: it reports a `write_rejected`
+event, changes neither the destination nor the force set, and does not fault
+the PLC (specification 34 §4.3.1). For example, `io-write %MW0 41` stores
+`INT` 41 into an `INT` binding, and `io-write %MW0 40000` is rejected. Variable
+mutations (`set`, `var.force`) apply the same rule to the declared type of their
+target variable: `set global:Counter 41` stores `INT` 41 into an `INT` global,
+and a value the declared type cannot take rejects that request alone, as above.
+
 An accepted `io.write` appends one one-shot request in arrival order. Multiple
 writes to the same address remain distinct ordered requests. An accepted
 `io.force` creates an active force; forcing the same exact address again
@@ -2452,11 +2601,46 @@ replaces its value in place without duplicating or reordering the force.
 `io.unforce` removes only the exact matching force and is idempotent when no
 such force exists.
 
+Pending one-shot `io.write` requests, pending variable writes, pending debugger
+expression writes (`setExpression`), active I/O forces and active variable forces
+are each bounded at 1,024 entries per runtime (specification 34 §4.3.1). A request that would add an entry beyond its bound is
+refused with the stable error `request queue full` and changes nothing.
+Re-forcing an already forced target replaces its value in place and is never
+refused by the bound.
+
 The bounded `eval` operation trims `expr`, rejects an empty name, and performs
 an exact snapshot lookup: global storage first, then retained storage. It is a
 name read, not general expression execution. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
 Successful values use the stable runtime debug representation.
+
+Installed retained targets are declaration-qualified views of ordinary PLC
+storage, not a second retain bank. The label for a retained global is its global
+name; a retained program member uses `@program/<instance>/<member>`, matching
+checkpoint labels. `retain:<label>` writes and forces resolve the installed
+retained declaration against the current live program root at the cycle boundary
+and use the common checked-write policy and cumulative cycle allowance. Missing,
+non-retained, retired or type-incompatible destinations report write rejection
+without creating storage or a PLC execution fault. Queue/force acceptance remains
+distinct from application: existing syntactically valid request acknowledgements,
+original target labels, deduplication and release behavior are unchanged. Retain
+list presentation remains in declaration order. Isolated detached inspection
+fixtures may still expose an explicit legacy retain bank; installed execution
+never falls back to that bank. Exact `eval` name lookup is preserved; DAP retained
+name matching remains ASCII case-insensitive through the same immutable index.
+Shared checkpoint capture also rejects duplicate serialized labels with a retain
+migration error before returning or saving a snapshot. A global name that equals
+a generated `@program/<root>/<member>` key shall never silently replace either
+retained value. This applies to the shared core on every platform; it does not
+change explicit insert-or-replace operations on already collected snapshot records.
+Shared snapshot application shall reject colliding destination labels under its
+existing ASCII-insensitive name matching before mutating PLC values. Distinct
+declared destinations must not silently replace each other in the restoration index.
+
+Hosted installation rejects ambiguous retained labels, including a global label
+colliding with a synthetic program-member label under ASCII case folding. The
+failed candidate must not replace the installed controller or its published state.
+
 
 Variable mutation targets use exact lowercase prefixes. `set` admits
 `global:<name>` and `retain:<name>` only. Force and release additionally admit
@@ -4210,6 +4394,29 @@ when enabled:
   rejected. The default is **disabled** in production mode (see `runtime.control.mode`).
 - `runtime.control.mode` defaults to `production` and can be set to `debug` for development
   workflows; `runtime.control.debug_enabled` overrides the mode when explicitly set.
+- `step_in`, `step_over` and `step_out` act only while the debugger holds the scan:
+  at a breakpoint, after a debug-mode `pause`, or after a completed step. Otherwise
+  they are rejected with a stable error and arm nothing. In production mode `pause`
+  and `resume` act on the resource scheduler, so a step after a production `pause`
+  is rejected; an attached debug adapter can still step from a breakpoint. In
+  either mode, `resume` also releases any debugger hold, so the scan returns to
+  cyclic execution. While a debugger holds the scan, `status` reports the hold
+  rather than `running`.
+- A `paused` or `running` reply means the resource accepted the request; the
+  scheduler acts on it at its next command boundary, and `status` reports the
+  state actually reached. On a resource that is faulted or stopped, or whose
+  scheduler no longer accepts commands, both requests are rejected with a stable
+  error that names the resource state, and they change nothing: a faulted
+  resource resumes only through `restart`, which runs the configured warm or
+  cold initialization first (specification 34 STATE-06).
+- Restart requests that arrive before the resource has taken the previous one
+  coalesce into a single restart, and a cold request takes precedence over a
+  warm one: a pending cold restart is never downgraded by a later warm request,
+  and a later cold request upgrades a pending warm one. Each accepted request is
+  answered once.
+- The resource command queue holds at most 1,024 commands. A request that finds
+  it full is rejected with the stable code `resource_busy` and is not queued, so
+  a burst of requests cannot grow the runtime's memory without bound.
 
 ##### 6.9.1 Managed debug floating-point ingress
 
@@ -4237,12 +4444,15 @@ execution, and a later authorized client must observe the existing force state.
 An authorization change governs subsequent write, force, and release requests;
 it does not silently mutate an already accepted force.
 
-Deliberate resource stop, fault handling, and every warm or cold restart are
-clearing boundaries. Before safe-state handling or restarted execution can
-proceed, the runtime clears queued debug writes and active variable and I/O
-forces. Safe-state output therefore has precedence over debug forcing, and a
-request accepted before a clearing boundary cannot be replayed into the next
-runtime lifecycle.
+Deliberate resource stop, fault handling, and the commit of every warm or cold
+restart or online change are clearing boundaries. Before safe-state handling or
+restarted execution can proceed, the runtime clears queued debug writes and
+active variable and I/O forces. Safe-state output therefore has precedence over
+debug forcing, and a request accepted before a clearing boundary cannot be
+replayed into the next runtime lifecycle. A restart or online change whose
+preparation fails never reaches its commit, so it is not a clearing boundary:
+queued writes and forces stay as they were (specification 10 §4.8 and the
+online-change preparation rule in section 6.7.1).
 
 ##### 6.9.3 Simulation coupling thresholds
 
@@ -5215,6 +5425,23 @@ The runtime emits structured events for debugging and testing:
 - Fault and overrun notifications
 
 These events are consumed by the debugger (`trust-debug`) and test harnesses to validate behavior deterministically.
+
+##### Hosted embedding mutation lifecycle (planned H migration)
+
+[Specification 34 §4.3.1](34-runtime-portability.md#431-construction-and-installed-state-mutation)
+defines H's construction and installed-state boundary. Raw mutable storage and
+authoring type-registry access belong to a non-executable construction object.
+Installed controllers, including paused or stopped ones, use checked live value
+writes; debug parsing uses separate scratch types. Code, layout and executable
+type changes use an isolated validated candidate and the existing hosted
+online-change/warm-restart boundary. Ordinary supported writes and forces retain
+their existing timing and do not require STOP or reinitialization.
+
+This is an explicit migration of Rust callers using live `storage_mut()` or
+`registry_mut()`, not a reduction in PLC functions or hosted debugging features.
+Until H implements and validates the migration, current hosted code still exposes
+those raw mutable references. This specification amendment does not claim that
+the new API or its regression tests already exist.
 
 ### 7. Build Configuration
 

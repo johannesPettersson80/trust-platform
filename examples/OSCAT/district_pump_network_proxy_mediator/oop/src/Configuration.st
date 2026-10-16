@@ -1,5 +1,5 @@
 CONFIGURATION DistrictPumpNetworkProxyMediatorOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE DistrictPumpNetworkProxyMediatorOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Network WITH MainTask : Main;
 END_RESOURCE

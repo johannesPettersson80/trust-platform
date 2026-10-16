@@ -46,7 +46,7 @@ fn vm_lowering_supports_exit_and_continue_in_loop_stmt_paths() {
     "#;
 
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x02),
         "expected JMP opcode in main loop body"
@@ -140,13 +140,61 @@ fn vm_enforces_instruction_budget() {
     let mut harness = vm_harness_from_module(source, &module);
     harness.runtime_mut().set_execution_deadline(None);
     let cycle = harness.cycle();
-    assert!(
-        cycle
-            .errors
-            .iter()
-            .any(|err| matches!(err, RuntimeError::ExecutionTimeout)),
-        "expected ExecutionTimeout from instruction budget, got {:?}",
-        cycle.errors
+    assert_eq!(cycle.errors.len(), 1, "{:?}", cycle.errors);
+    // TIME-08: the JMP loop charges one INSTR unit per iteration, so the scan
+    // allowance is exhausted exactly at VM_MAX_EXECUTED_INSTRUCTIONS.
+    assert_eq!(
+        cycle.errors[0],
+        RuntimeError::ExecutionLimit {
+            kind: trust_runtime_core::error::ExecutionLimitKind::Work,
+            used: trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+            requested: 1,
+            limit: trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+        }
+    );
+    assert_eq!(
+        cycle.errors[0].stable_code(),
+        RuntimeError::ExecutionTimeout.stable_code()
     );
 }
 
+#[test]
+fn vm_array_index_admits_the_upper_bound_and_refuses_one_past_it() {
+    let source = r#"
+        PROGRAM Main
+        VAR
+            arr : ARRAY[1..3] OF INT := [INT#10, INT#20, INT#30];
+            idx : INT := INT#3;
+            out : INT := INT#0;
+        END_VAR
+        out := arr[idx];
+        END_PROGRAM
+    "#;
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "the upper bound must be accepted: {:?}",
+        cycle.errors
+    );
+    harness.assert_eq("out", 30i16);
+
+    // dispatch.rs:591-595 routes REF_INDEX through dynamic_ref_index, whose upper check
+    // (dispatch_refs.rs:359-365) reports the index and both bounds.
+    let past_upper = source.replace("idx : INT := INT#3;", "idx : INT := INT#4;");
+    let mut harness = vm_harness(&past_upper);
+    let cycle = harness.cycle();
+    assert_eq!(
+        cycle.errors,
+        vec![RuntimeError::IndexOutOfBounds {
+            index: 4,
+            lower: 1,
+            upper: 3,
+        }]
+    );
+    assert_eq!(
+        cycle.errors[0].stable_code(),
+        trust_runtime::error::StableErrorCode::RuntimeIndexOutOfBounds
+    );
+    harness.assert_eq("out", 0i16);
+}

@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "EtherCAT demo"
+name = "EtherCAT_demo"
 cycle_interval_ms = 100
 
 [runtime.control]

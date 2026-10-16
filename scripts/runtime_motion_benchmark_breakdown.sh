@@ -181,20 +181,12 @@ for name in profile_names:
             f"compile_attempts={tier1.get('compile_attempts', 0)} "
             f"compile_successes={tier1.get('compile_successes', 0)} "
             f"compile_failures={tier1.get('compile_failures', 0)} "
-            f"executions={tier1.get('block_executions', 0)} "
-            f"deopts={tier1.get('deopt_count', 0)}\n"
+            f"executions={tier1.get('block_executions', 0)}\n"
         )
         compile_failure_reasons = tier1.get('compile_failure_reasons', [])
         if compile_failure_reasons:
             profile_lines.append('- tier1 compile failure reasons:\n')
             for reason in compile_failure_reasons[:8]:
-                profile_lines.append(
-                    f"  - {reason['reason']}: {reason['count']}\n"
-                )
-        deopt_reasons = tier1.get('deopt_reasons', [])
-        if deopt_reasons:
-            profile_lines.append('- tier1 deopt reasons:\n')
-            for reason in deopt_reasons[:8]:
                 profile_lines.append(
                     f"  - {reason['reason']}: {reason['count']}\n"
                 )

@@ -1,4 +1,5 @@
 //! Own the ELF/map evidence produced by one final firmware link.
+use super::board::BoardProfile;
 use anyhow::{ensure, Context, Result};
 use serde_json::Value;
 use std::{
@@ -62,8 +63,8 @@ impl Artifacts {
         Ok(vec!["-C".into(), format!("link-arg=-Map={map}")])
     }
 
-    pub fn retain(&self, cargo_output: &str) -> Result<Value> {
-        let executable = executable(cargo_output)?;
+    pub fn retain(&self, cargo_output: &str, board: &BoardProfile) -> Result<Value> {
+        let executable = executable(cargo_output, board.bin)?;
         let map = fs::read(&self.map).context("final link did not produce its map")?;
         ensure!(!map.is_empty(), "final link produced an empty map");
         let elf = fs::read(&executable).context("read linked executable reported by Cargo")?;
@@ -78,12 +79,12 @@ impl Artifacts {
     }
 }
 
-fn executable(output: &str) -> Result<PathBuf> {
+fn executable(output: &str, bin: &str) -> Result<PathBuf> {
     let mut executable = None;
     for line in output.lines().filter(|line| !line.trim().is_empty()) {
         let record: Value = serde_json::from_str(line).context("invalid Cargo JSON output")?;
         if record["reason"] != "compiler-artifact"
-            || record["target"]["name"] != "trust-nucleo-f401re"
+            || record["target"]["name"] != bin
             || !record["target"]["kind"]
                 .as_array()
                 .is_some_and(|kinds| kinds.iter().any(|kind| kind == "bin"))

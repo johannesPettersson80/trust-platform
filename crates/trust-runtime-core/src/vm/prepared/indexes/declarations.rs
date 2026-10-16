@@ -1,3 +1,4 @@
+use super::keys::DeclarationKey;
 use super::*;
 use crate::bytecode::StorageRole;
 
@@ -12,13 +13,9 @@ impl PreparedIndexes {
     ) -> Result<(), RuntimeError> {
         self.prepare_type_members(vm, budget)?;
         let count = layout.entries.len();
-        budget.records::<(u8, Option<u32>, u32, u32)>(count)?;
         budget.records::<(u32, u32, u32)>(count)?;
         budget.records::<(u32, u32)>(count)?;
         budget.records::<Option<usize>>(count)?;
-        self.slots
-            .try_reserve_exact(count)
-            .map_err(|_| RuntimeError::Overflow)?;
         self.members
             .try_reserve_exact(count)
             .map_err(|_| RuntimeError::Overflow)?;
@@ -48,9 +45,7 @@ impl PreparedIndexes {
             } else {
                 physical
             };
-            self.slots
-                .push((declaration.owner as u8, owner, declaration.slot, id));
-            let key = (declaration.owner as u8, owner);
+            let key = DeclarationKey::new(declaration.owner as u8, owner);
             push_group(&mut self.declarations, key, id, budget)?;
             if declaration.role == StorageRole::Variable && declaration.is_retained() {
                 // Snapshot serialization retains original declaration order, unlike
@@ -62,7 +57,7 @@ impl PreparedIndexes {
                 };
                 push_group(
                     &mut self.retained_declarations,
-                    (declaration.owner as u8, retained_owner),
+                    DeclarationKey::new(declaration.owner as u8, retained_owner),
                     id,
                     budget,
                 )?;
@@ -115,7 +110,6 @@ impl PreparedIndexes {
         self.retained_declarations.finish(budget)?;
         self.edge_declarations.finish(budget)?;
         self.edges.finish(budget)?;
-        sort::sort_by(&mut self.slots, budget, &mut |a, b, _| Ok(a.cmp(b)))?;
         sort::sort_by(&mut self.members, budget, &mut |a, b, budget| {
             let owner = a.0.cmp(&b.0);
             if owner.is_eq() {
@@ -174,8 +168,47 @@ impl PreparedIndexes {
             }
         }
         sort::sort_by(&mut self.root_owners, budget, &mut |a, b, _| Ok(a.cmp(b)))?;
+        self.prepare_root_owner_ordinals(roots.entries.len(), budget)?;
         self.root_candidates.finish(budget)?;
         self.program_roots.finish(budget)?;
+        Ok(())
+    }
+
+    pub(super) fn prepare_root_owner_ordinals(
+        &mut self,
+        root_count: usize,
+        budget: &mut PreparationBudget,
+    ) -> Result<(), RuntimeError> {
+        budget.charge(0, self.root_owners.len())?;
+        budget.records::<u32>(root_count)?;
+        self.root_owner_ordinals
+            .try_reserve_exact(root_count)
+            .map_err(|_| RuntimeError::Overflow)?;
+        self.root_owner_ordinals.resize(root_count, 0);
+        for (index, &(owner, _)) in self.root_owners.iter().enumerate() {
+            let Ok(owner_index) = usize::try_from(owner) else {
+                continue;
+            };
+            if self.root_owner_ordinals.get(owner_index).is_none() {
+                continue;
+            }
+            // Duplicate owner rows retain the old binary-search behavior rather
+            // than selecting an arbitrary duplicate through the direct table.
+            let is_duplicate = (index > 0
+                && self
+                    .root_owners
+                    .get(index - 1)
+                    .is_some_and(|previous| previous.0 == owner))
+                || self
+                    .root_owners
+                    .get(index + 1)
+                    .is_some_and(|next| next.0 == owner);
+            if !is_duplicate {
+                let ordinal = &mut self.root_owner_ordinals[owner_index];
+                *ordinal = u32::try_from(index.checked_add(1).ok_or(RuntimeError::Overflow)?)
+                    .map_err(|_| RuntimeError::Overflow)?;
+            }
+        }
         Ok(())
     }
 
@@ -195,7 +228,7 @@ impl PreparedIndexes {
                     .ok_or(RuntimeError::Overflow)?;
             }
         }
-        budget.records::<(u32, u32, u32)>(count)?;
+        budget.records::<(u32, u32, u32, u32)>(count)?;
         self.type_members
             .try_reserve_exact(count)
             .map_err(|_| RuntimeError::Overflow)?;
@@ -203,12 +236,16 @@ impl PreparedIndexes {
             if let crate::bytecode::TypeData::Struct { fields }
             | crate::bytecode::TypeData::Union { fields } = &entry.data
             {
-                for field in fields {
+                for (ordinal, field) in fields.iter().enumerate() {
                     self.max_name_bytes = self
                         .max_name_bytes
                         .max(vm.strings[field.name_idx as usize].len());
-                    self.type_members
-                        .push((id as u32, field.name_idx, field.type_id));
+                    self.type_members.push((
+                        id as u32,
+                        field.name_idx,
+                        field.type_id,
+                        ordinal as u32,
+                    ));
                 }
             }
         }

@@ -7,6 +7,7 @@ fn lower_program_var_blocks(
     let mut globals = Vec::new();
     let mut vars = Vec::new();
     let mut temps = Vec::new();
+    let mut external_names = Vec::new();
     for var_block in program
         .children()
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
@@ -36,7 +37,7 @@ fn lower_program_var_blocks(
                 .initializer
                 .as_ref()
                 .map(|expr| {
-                    lower_expr(expr, ctx).and_then(|lowered| {
+                    lower_expr_with_context(expr, ctx, Some(type_id)).and_then(|lowered| {
                         resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
                     })
                 })
@@ -94,7 +95,7 @@ fn lower_program_var_blocks(
                     }
                 }
                 VarBlockKind::External => {
-                    continue;
+                    external_names.extend(parts.names);
                 }
                 VarBlockKind::Global => {
                     for name in parts.names {
@@ -135,6 +136,7 @@ fn lower_program_var_blocks(
     }
     Ok(ProgramVars {
         globals,
+        external_names,
         vars,
         temps,
     })

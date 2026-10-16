@@ -118,6 +118,10 @@ impl<'a> BytecodeEncoder<'a> {
     }
 
     pub(super) fn emit_block_template(&self, name: &SmolStr) -> bool {
+        if self.legacy.is_some() && self.is_stdlib_fb(name) {
+            return self.pou_ids.function_block_id(name).is_some();
+        }
+
         self.authoring.is_none()
             || !self.is_stdlib_fb(name)
             || self
@@ -212,7 +216,7 @@ impl<'a> BytecodeEncoder<'a> {
         Ok(idx)
     }
 
-    fn encode_type_entry(
+    pub(super) fn encode_type_entry(
         &mut self,
         type_id: TypeId,
         ty: &Type,
@@ -444,16 +448,85 @@ impl<'a> BytecodeEncoder<'a> {
                 for field in fields {
                     let name_idx = self.strings.intern(field.name.clone());
                     let type_id = self.type_index(field.type_id)?;
-                    out_fields.push(Field { name_idx, type_id });
+                    // Explicit 1.1 preserves its historical plain-field wire
+                    // layout and requires matching source context at import.
+                    // Source-free 2.0 cannot carry this context: its validator
+                    // rejects the new layout kind instead of discarding it.
+                    let bit_offset = if self.authoring.is_some() {
+                        field
+                            .address
+                            .as_deref()
+                            .map(|address| {
+                                match crate::harness::parse_field_address(address) {
+                                    Ok(crate::harness::FieldAddress::Absolute(_)) => {
+                                        return Ok(None);
+                                    }
+                                    Ok(crate::harness::FieldAddress::Relative { .. }) => {}
+                                    Err(_) => {
+                                        return Err(BytecodeError::section_static(
+                                            "invalid relative structure address",
+                                        ));
+                                    }
+                                }
+                                let suffix = address.strip_prefix('%').ok_or_else(|| {
+                                    BytecodeError::section_static(
+                                        "invalid relative structure address",
+                                    )
+                                })?;
+                                let parsed = crate::io::IoAddress::parse(&format!("%M{suffix}"))
+                                    .map_err(|_| {
+                                        BytecodeError::section_static(
+                                            "invalid relative structure address",
+                                        )
+                                    })?;
+                                if parsed.wildcard || parsed.path.len() != 1 {
+                                    return Err(BytecodeError::section_static(
+                                        "relative structure address must be flat",
+                                    ));
+                                }
+                                parsed
+                                    .byte
+                                    .checked_mul(8)
+                                    .and_then(|offset| offset.checked_add(u32::from(parsed.bit)))
+                                    .map(Some)
+                                    .ok_or_else(|| {
+                                        BytecodeError::section_static(
+                                            "relative structure address overflow",
+                                        )
+                                    })
+                            })
+                            .transpose()?
+                            .flatten()
+                    } else {
+                        None
+                    };
+                    out_fields.push(Field {
+                        name_idx,
+                        type_id,
+                        bit_offset,
+                    });
                 }
-                (TypeKind::Struct, TypeData::Struct { fields: out_fields })
+                let kind = if out_fields.iter().any(|field| field.bit_offset.is_some()) {
+                    if self.runtime.registry().is_overlapping_struct_type(type_id) {
+                        TypeKind::OverlappingStruct
+                    } else {
+                        TypeKind::LocatedStruct
+                    }
+                } else {
+                    TypeKind::Struct
+                };
+                (kind, TypeData::Struct { fields: out_fields })
             }
             Type::Union { variants, .. } => {
                 let mut out_fields = Vec::with_capacity(variants.len());
                 for variant in variants {
                     let name_idx = self.strings.intern(variant.name.clone());
                     let type_id = self.type_index(variant.type_id)?;
-                    out_fields.push(Field { name_idx, type_id });
+                    out_fields.push(Field {
+                        name_idx,
+                        type_id,
+                        bit_offset: None,
+                    });
                 }
                 (TypeKind::Union, TypeData::Union { fields: out_fields })
             }
@@ -555,5 +628,77 @@ impl<'a> BytecodeEncoder<'a> {
             name_idx,
             data,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::BytecodeEncoder;
+    use crate::bytecode::{BytecodeError, TypeData, TypeKind};
+    use crate::RuntimeBuilder;
+    use smol_str::SmolStr;
+    use trust_hir::{types::StructField, TypeId};
+
+    fn encode_struct_field_address(
+        address: &str,
+    ) -> Result<crate::bytecode::TypeEntry, BytecodeError> {
+        let mut builder = RuntimeBuilder::new();
+        let type_id = builder.registry_mut().register_struct(
+            "Addressed",
+            vec![StructField {
+                name: SmolStr::new("Field"),
+                type_id: TypeId::INT,
+                address: Some(SmolStr::new(address)),
+                default_initializer: None,
+            }],
+        );
+        let ty = builder
+            .registry()
+            .get(type_id)
+            .expect("registered struct type")
+            .clone();
+        let input = crate::harness::LoweredApplication {
+            builder,
+            program_defs: indexmap::IndexMap::new(),
+            program_externals: indexmap::IndexMap::new(),
+            globals: Vec::new(),
+            program_access: Vec::new(),
+            configuration: None,
+            source_metadata: Vec::new(),
+        };
+        let sources: [&str; 0] = [];
+        let paths: [&str; 0] = [];
+        let mut encoder =
+            BytecodeEncoder::with_sources_and_paths_view((&input.builder).into(), &sources, &paths);
+        encoder.authoring = Some(&input);
+        encoder.encode_type_entry(type_id, &ty)
+    }
+
+    #[test]
+    fn invalid_struct_field_address_is_rejected_at_encoder_boundary() {
+        let error = encode_struct_field_address("%0")
+            .expect_err("an unclassified field address must not be encoded as relative");
+        assert!(matches!(
+            error,
+            BytecodeError::InvalidSection(message)
+                if message == "invalid relative structure address"
+        ));
+    }
+
+    #[test]
+    fn struct_field_address_classification_preserves_relative_and_absolute_layouts() {
+        let relative = encode_struct_field_address("%B0").expect("valid relative address");
+        assert_eq!(relative.kind, TypeKind::LocatedStruct);
+        let TypeData::Struct { fields } = relative.data else {
+            panic!("expected struct data");
+        };
+        assert_eq!(fields[0].bit_offset, Some(0));
+
+        let absolute = encode_struct_field_address("%IX0.0").expect("valid absolute address");
+        assert_eq!(absolute.kind, TypeKind::Struct);
+        let TypeData::Struct { fields } = absolute.data else {
+            panic!("expected struct data");
+        };
+        assert_eq!(fields[0].bit_offset, None);
     }
 }

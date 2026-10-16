@@ -4,11 +4,17 @@
 #[cfg(feature = "hir")]
 pub mod hosted;
 
+#[cfg(feature = "std")]
+mod boundary_compile_fail;
 mod budget;
 mod call;
 mod const_pool;
 mod construction;
 mod context;
+/// Native phase timing for diagnostic consumers, excluded from product compositions.
+#[cfg(all(feature = "std", feature = "test-support"))]
+#[doc(hidden)]
+pub mod diagnostic_timing;
 mod dispatch;
 mod dispatch_refs;
 mod edge;
@@ -16,7 +22,25 @@ mod engine;
 mod module;
 mod prepared;
 mod reference_attempt;
-pub use engine::{ExecutionServices, RuntimeState};
+#[cfg(feature = "register-ir")]
+pub mod register;
+#[cfg(feature = "register-ir")]
+pub(crate) mod register_ir;
+#[cfg(feature = "register-ir")]
+#[doc(hidden)]
+pub use register_ir::{
+    DeferredRegisterCall, RegisterActivation, RegisterActivationStep, RegisterPouExecutionResult,
+};
+#[cfg(feature = "test-support")]
+#[doc(hidden)]
+pub mod register_test_support;
+mod validated_source;
+pub use context::StatementFrame;
+pub use engine::{
+    CycleAccess, CycleHooks, CyclePhase, ExecutionServices, LogicalExecutionServices, RuntimeState,
+};
+#[cfg(feature = "std")]
+pub use engine::{OwnedRuntimeState, ResourceReconfiguration};
 pub use prepared::{PreparationLimits, PreparationUsage, PreparedModule};
 #[cfg(any(feature = "hir", test))]
 mod debug_map;
@@ -36,12 +60,17 @@ pub(crate) use const_pool::decode_const_pool_entries;
 #[cfg(test)]
 pub(crate) use dispatch_ops::{apply_jump, execute_binary, execute_unary, read_i32, read_u32};
 pub(crate) use dispatch_sizeof::sizeof_primitive_type;
-pub use dispatch_sizeof::{sizeof_type_from_table, sizeof_type_from_table_with};
+pub use dispatch_sizeof::{
+    sizeof_type_from_table, sizeof_type_from_table_with, sizeof_type_from_table_with_abi,
+};
 pub use errors::VmTrap;
 pub(crate) use frames::{ensure_global_call_depth, FrameStack, VmFrame};
 pub(crate) use helpers::{materialize_borrowed_value, opcode_operand_len};
 pub use limits::{VM_MAX_CALL_DEPTH, VM_MAX_EXECUTED_INSTRUCTIONS, VM_MAX_OPERAND_STACK};
 pub(crate) use stack::OperandStack;
+
+/// Atomic retained-value migration observations.
+pub use engine::RetainApplyEvent;
 
 #[cfg(test)]
 mod tests {
@@ -335,10 +364,12 @@ mod tests {
                             Field {
                                 name_idx: 1,
                                 type_id: 2,
+                                bit_offset: None,
                             },
                             Field {
                                 name_idx: 2,
                                 type_id: 1,
+                                bit_offset: None,
                             },
                         ],
                     },
@@ -351,10 +382,12 @@ mod tests {
                             Field {
                                 name_idx: 1,
                                 type_id: 2,
+                                bit_offset: None,
                             },
                             Field {
                                 name_idx: 2,
                                 type_id: 1,
+                                bit_offset: None,
                             },
                         ],
                     },
@@ -567,10 +600,12 @@ mod tests {
                             Field {
                                 name_idx: 0,
                                 type_id: 0,
+                                bit_offset: None,
                             },
                             Field {
                                 name_idx: 1,
                                 type_id: 1,
+                                bit_offset: None,
                             },
                         ],
                     },

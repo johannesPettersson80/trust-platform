@@ -11,10 +11,10 @@ use crate::value::Value;
 /// Register the shared selection functions in a hosted registry.
 #[cfg(feature = "hir")]
 pub fn register(lib: &mut StandardLibrary) {
-    lib.register_descriptors(FUNCTIONS);
+    lib.register_descriptors(&FUNCTIONS);
 }
 
-pub(super) static FUNCTIONS: &[(&str, super::StdFunctionRef<'static>)] = &[
+pub(super) static FUNCTIONS: [(&str, super::StdFunctionRef<'static>); 5] = [
     super::registration::descriptor!("LIMIT", MN_IN_MX, limit),
     super::registration::descriptor!("MAX", VAR_IN_1_2, max),
     super::registration::descriptor!("MIN", VAR_IN_1_2, min),
@@ -67,12 +67,17 @@ fn limit(args: &[Value]) -> Result<Value, RuntimeError> {
     let min = coerce_to_common(&args[0], &kind)?;
     let value = coerce_to_common(&args[1], &kind)?;
     let max = coerce_to_common(&args[2], &kind)?;
-    if compare_common(&value, &min, &kind, CmpOp::Lt)? {
-        Ok(min)
-    } else if compare_common(&value, &max, &kind, CmpOp::Gt)? {
+    // Spec 07 section 6.1: LIMIT is MIN(MAX(IN, MN), MX). With MN > MX every
+    // input resolves to MX, so the raise-then-cap order is part of the contract.
+    let raised = if compare_common(&value, &min, &kind, CmpOp::Lt)? {
+        min
+    } else {
+        value
+    };
+    if compare_common(&raised, &max, &kind, CmpOp::Gt)? {
         Ok(max)
     } else {
-        Ok(value)
+        Ok(raised)
     }
 }
 

@@ -12,6 +12,11 @@ pub struct BytecodeModule {
 }
 
 impl BytecodeModule {
+    /// Storage widths selected by this exact version and validated header flags.
+    pub fn storage_abi(&self) -> Result<crate::value::StorageAbi, BytecodeError> {
+        self.view().storage_abi()
+    }
+
     #[must_use]
     /// Construct an empty raw container with version-appropriate default flags.
     pub fn new(version: BytecodeVersion) -> Self {

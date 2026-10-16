@@ -6,7 +6,10 @@ use crate::value::{
 };
 use alloc::string::{String, ToString};
 
-pub(super) fn default(primitive: u16, profile: DateTimeProfile) -> Result<Value, RuntimeError> {
+pub(in crate::vm) fn default(
+    primitive: u16,
+    profile: DateTimeProfile,
+) -> Result<Value, RuntimeError> {
     Ok(match primitive {
         1 => Value::Bool(false),
         2 => Value::Byte(0),
@@ -40,7 +43,7 @@ pub(super) fn default(primitive: u16, profile: DateTimeProfile) -> Result<Value,
     })
 }
 
-pub(super) fn integer(value: &Value) -> Option<i128> {
+pub(in crate::vm) fn integer(value: &Value) -> Option<i128> {
     Some(match value {
         Value::SInt(v) => i128::from(*v),
         Value::Int(v) => i128::from(*v),

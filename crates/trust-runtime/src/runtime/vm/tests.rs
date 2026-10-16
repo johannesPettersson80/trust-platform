@@ -269,6 +269,7 @@ fn infer_primary_instance_owner_scans_partial_access_operands() {
     code.extend_from_slice(&0_u32.to_le_bytes());
 
     let entry = VmPouEntry {
+        kind: crate::bytecode::PouKind::Function,
         name: SmolStr::new("Main"),
         code_start: 0,
         code_end: code.len(),
@@ -293,6 +294,7 @@ fn infer_primary_instance_owner_returns_none_for_ambiguous_owners() {
     code.extend_from_slice(&1_u32.to_le_bytes());
 
     let entry = VmPouEntry {
+        kind: crate::bytecode::PouKind::Function,
         name: SmolStr::new("Main"),
         code_start: 0,
         code_end: code.len(),
@@ -356,6 +358,7 @@ fn reference(
 
 fn pou_entry(code_end: usize) -> VmPouEntry {
     VmPouEntry {
+        kind: crate::bytecode::PouKind::Function,
         name: "Main".into(),
         code_start: 0,
         code_end,

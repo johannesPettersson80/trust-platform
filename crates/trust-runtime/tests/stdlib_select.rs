@@ -1,3 +1,4 @@
+use trust_runtime::error::RuntimeError;
 use trust_runtime::stdlib::StandardLibrary;
 use trust_runtime::value::Value;
 
@@ -33,8 +34,9 @@ fn selection_numeric_common_type_does_not_invent_literal_context() {
         lib.call("MAX", &[Value::UInt(2), Value::UInt(1)]).unwrap(),
         Value::UInt(2)
     );
-    assert!(
-        lib.call("MAX", &[Value::UInt(2), Value::SInt(1)]).is_err(),
+    assert_eq!(
+        lib.call("MAX", &[Value::UInt(2), Value::SInt(1)]),
+        Err(RuntimeError::TypeMismatch),
         "runtime values no longer retain untyped-literal origin"
     );
 }

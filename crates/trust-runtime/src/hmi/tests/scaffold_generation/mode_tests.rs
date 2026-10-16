@@ -21,6 +21,7 @@ END_PROGRAM
         .expect("build runtime");
     let metadata = runtime.metadata_snapshot();
     let snapshot = crate::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
     };

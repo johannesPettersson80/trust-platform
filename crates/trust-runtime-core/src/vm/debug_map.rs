@@ -10,7 +10,7 @@ use smol_str::SmolStr;
 use crate::bytecode::{DebugMap, StringTable, VarMeta};
 
 /// Source position associated with an instruction.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VmSourceLocation {
     /// Source file label from the debug string table.
     pub file: SmolStr,
@@ -21,7 +21,7 @@ pub struct VmSourceLocation {
 }
 
 /// Immutable-by-borrow source and symbolic reference indexes.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VmDebugMap {
     /// Named symbols mapped to reference-table indices.
     pub symbol_to_ref: HashMap<SmolStr, u32>,

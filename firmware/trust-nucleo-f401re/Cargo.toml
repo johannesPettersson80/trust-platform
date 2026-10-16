@@ -10,11 +10,10 @@ license = "MIT OR Apache-2.0"
 resolver = "3"
 
 [dependencies]
-trust-runtime-core = { path = "../../crates/trust-runtime-core", default-features = false }
 trust-platform-stm32f4 = { path = "../../crates/trust-platform-stm32f4" }
+trust-board-fixture = { path = "../../crates/trust-board-fixture" }
 cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
 cortex-m-rt = { version = "=0.7.7", features = ["paint-stack", "set-sp", "set-vtor"] }
-embedded-alloc = { version = "=0.7.0", default-features = false, features = ["llff"] }
 
 [profile.release]
 opt-level = "z"

@@ -1,5 +1,8 @@
 use super::literals::string_literal_info;
-use super::literals::{is_untyped_int_literal_expr, is_untyped_real_literal_expr};
+use super::literals::{
+    exact_int_literal_value, integer_type_range_fits, is_untyped_int_literal_expr,
+    is_untyped_real_literal_expr,
+};
 use super::*;
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
 use crate::types::is_accuracy_preserving_implicit_conversion;
@@ -24,32 +27,65 @@ impl<'a> TypeChecker<'a> {
         None
     }
 
+    /// Whether an untyped integer literal takes the integer type `expected`, within the bounds of
+    /// a subrange. Assignment targets and FOR bounds use `is_contextual_base_int_literal`; their
+    /// subrange bounds come from `check_subrange_assignment` or `check_untyped_literal_range`.
     pub(super) fn is_contextual_int_literal(&self, expected: TypeId, expr: &SyntaxNode) -> bool {
+        self.is_contextual_int_value(expected, expr, true, true)
+    }
+
+    /// Like `is_contextual_int_literal`, but a subrange takes only its base type.
+    pub(super) fn is_contextual_base_int_literal(
+        &self,
+        expected: TypeId,
+        expr: &SyntaxNode,
+    ) -> bool {
+        self.is_contextual_int_value(expected, expr, true, false)
+    }
+
+    /// CASE labels are stored as 64-bit values, so their literals keep the 64-bit rule.
+    pub(super) fn is_contextual_case_int_literal(
+        &self,
+        expected: TypeId,
+        expr: &SyntaxNode,
+    ) -> bool {
+        self.is_contextual_int_value(expected, expr, false, false)
+    }
+
+    /// Whether an untyped integer literal takes the integer type `expected`. With `exact` set, the
+    /// literal's own value counts, up to the full u64 range. Other expressions are evaluated as
+    /// 64-bit constants. A subrange takes its base type; with `check_bounds`, the value must also
+    /// lie within the subrange's bounds.
+    fn is_contextual_int_value(
+        &self,
+        expected: TypeId,
+        expr: &SyntaxNode,
+        exact: bool,
+        check_bounds: bool,
+    ) -> bool {
         if !is_untyped_int_literal_expr(expr) {
             return false;
         }
-        let expected = self.resolve_subrange_base(expected);
-        let Some(ty) = self.symbols.type_by_id(expected) else {
+        let base = self.resolve_subrange_base(expected);
+        let Some(ty) = self.symbols.type_by_id(base) else {
             return false;
         };
-        let Ok(value) = self.try_eval_const_int_expr(expr) else {
+        let exact_value = if exact {
+            exact_int_literal_value(expr)
+        } else {
+            None
+        };
+        let fallback = || self.try_eval_const_int_expr(expr).ok().map(i128::from);
+        let Some(value) = exact_value.or_else(fallback) else {
             return false;
         };
-        if let Type::Subrange { lower, upper, .. } = ty {
-            return value >= *lower && value <= *upper;
+        if !integer_type_range_fits(self.normalize_subrange(ty), value) {
+            return false;
         }
-        let normalized = self.normalize_subrange(ty);
-        match normalized {
-            Type::SInt => i8::try_from(value).is_ok(),
-            Type::Int => i16::try_from(value).is_ok(),
-            Type::DInt => i32::try_from(value).is_ok(),
-            Type::LInt => true,
-            Type::USInt => u8::try_from(value).is_ok(),
-            Type::UInt => u16::try_from(value).is_ok(),
-            Type::UDInt => u32::try_from(value).is_ok(),
-            Type::ULInt => value >= 0,
-            _ => false,
+        if check_bounds && let Some((_, lower, upper)) = self.subrange_bounds(expected) {
+            return (i128::from(lower)..=i128::from(upper)).contains(&value);
         }
+        true
     }
 
     pub(super) fn is_contextual_real_literal(&self, expected: TypeId, expr: &SyntaxNode) -> bool {

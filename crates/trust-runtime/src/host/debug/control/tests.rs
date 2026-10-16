@@ -3,6 +3,7 @@ use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::time::Duration;
 
+mod event_buffer_bound;
 mod lifecycle_contract;
 mod mutation_contract;
 mod state_stream_contract;

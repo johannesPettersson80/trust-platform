@@ -13,10 +13,11 @@ impl EngineState<'_> {
             MemoryLocation::Global => (StorageOwner::Global, None),
             MemoryLocation::Instance(id) => (
                 StorageOwner::Instance,
-                self.construction.instance_templates.get(&id).copied(),
+                self.data.construction.instance_templates.get(&id).copied(),
             ),
             MemoryLocation::Local(id) => {
                 if self
+                    .data
                     .construction
                     .initializers
                     .iter()
@@ -26,13 +27,22 @@ impl EngineState<'_> {
                 }
                 (
                     StorageOwner::Frame,
-                    self.lifetimes.activation_pous.get(&id).copied(),
+                    self.data
+                        .storage
+                        .execution_frame_owner(id)
+                        .map(|owner| owner.pou_id),
                 )
             }
             _ => return Ok(()),
         };
-        self.charge_work_units(self.prepared.lookup_work())?;
-        let Some((_, declaration)) = self.prepared.declaration(owner, pou, reference.offset) else {
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let resolved = crate::vm::diagnostic_timing::observe_index_lookup_result(
+            crate::vm::diagnostic_timing::IndexLookupOperation::WritableDeclaration,
+            || Ok::<_, RuntimeError>(self.prepared.declaration(owner, pou, reference.offset)),
+        )?;
+        #[cfg(not(all(feature = "std", feature = "test-support")))]
+        let resolved = self.prepared.declaration(owner, pou, reference.offset);
+        let Some((_, declaration)) = resolved else {
             return Ok(()); // Compiler scratch has no individual record.
         };
         if declaration.is_constant() {
@@ -42,7 +52,9 @@ impl EngineState<'_> {
             let Some((RefSegment::Field(name), rest)) = reference.path.split_first() else {
                 return Err(RuntimeError::ProgramRootReplacement);
             };
-            let pou = declaration.owner_pou_id.ok_or(RuntimeError::TypeMismatch)?;
+            let pou = declaration
+                .owner_pou_id
+                .ok_or_else(|| RuntimeError::TypeMismatch)?;
             (self.writable_member_type(pou, name)?, rest)
         } else {
             let Some(ty) = declaration.type_id else {
@@ -51,16 +63,15 @@ impl EngineState<'_> {
             (ty, reference.path)
         };
         for segment in path {
-            self.charge_work_units(1)?;
             ty = super::super::type_policy::resolved_alias_type(&self.prepared.vm.types, ty, 0)
-                .ok_or(RuntimeError::TypeMismatch)?;
+                .ok_or_else(|| RuntimeError::TypeMismatch)?;
             let entry = self
                 .prepared
                 .vm
                 .types
                 .entries
                 .get(ty as usize)
-                .ok_or(RuntimeError::TypeMismatch)?;
+                .ok_or_else(|| RuntimeError::TypeMismatch)?;
             if let (TypeData::Pou { pou_id }, RefSegment::Field(name)) = (&entry.data, segment) {
                 ty = self.writable_member_type(*pou_id, name)?;
             } else if let (
@@ -68,18 +79,17 @@ impl EngineState<'_> {
                 RefSegment::Field(name),
             ) = (&entry.data, segment)
             {
-                self.charge_work_units(self.prepared.name_lookup_work(name))?;
                 ty = self
                     .prepared
                     .type_member(ty, name)
-                    .ok_or(RuntimeError::TypeMismatch)?;
+                    .ok_or_else(|| RuntimeError::TypeMismatch)?;
             } else {
                 ty = super::super::type_policy::vm_type_for_path(
                     &self.prepared.vm,
                     ty,
                     core::slice::from_ref(segment),
                 )
-                .ok_or(RuntimeError::TypeMismatch)?;
+                .ok_or_else(|| RuntimeError::TypeMismatch)?;
             }
         }
         Ok(())
@@ -88,11 +98,11 @@ impl EngineState<'_> {
     fn writable_member_type(&self, current: u32, name: &str) -> Result<u32, RuntimeError> {
         let member = self
             .pou_member_declaration(current, name)?
-            .ok_or(RuntimeError::NullReference)?;
+            .ok_or_else(|| RuntimeError::NullReference)?;
         if member.is_constant() {
             return Err(RuntimeError::ConstantWrite);
         }
-        member.type_id.ok_or(RuntimeError::TypeMismatch)
+        member.type_id.ok_or_else(|| RuntimeError::TypeMismatch)
     }
 }
 
@@ -133,9 +143,15 @@ mod tests {
             let prepared =
                 PreparedModule::from_decoded(&module, crate::vm::PreparationLimits::default())
                     .unwrap();
-            let state =
-                EngineState::new(&prepared, 0, &super::super::services::LOGICAL_ONLY).unwrap();
-            let mut reference = state.storage.ref_for_global("Plant").unwrap();
+            let mut state_data =
+                EngineState::construct_data(&prepared, 0, &super::super::services::LOGICAL_ONLY)
+                    .unwrap();
+            let state = EngineState::borrow(
+                &mut state_data,
+                &prepared,
+                &super::super::services::LOGICAL_ONLY,
+            );
+            let mut reference = state.data.storage.ref_for_global("Plant").unwrap();
             assert_eq!(
                 state.check_write(reference.as_view(), &Value::DInt(9)),
                 Err(RuntimeError::ProgramRootReplacement)

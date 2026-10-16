@@ -16,6 +16,7 @@ use defaults::{
 const MAX_INITIALIZER_DEPTH: u8 = 64;
 
 pub(super) struct InitContext<'a> {
+    pub(super) storage_abi: crate::value::StorageAbi,
     pub(super) storage: &'a VariableStorage,
     pub(super) registry: &'a TypeRegistry,
     pub(super) catalog: &'a InitializerCatalog,
@@ -25,6 +26,7 @@ pub(super) struct InitContext<'a> {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 pub(crate) fn evaluate_initializer(
     storage: &VariableStorage,
     registry: &TypeRegistry,
@@ -35,17 +37,44 @@ pub(crate) fn evaluate_initializer(
     expr: &Expr,
     type_id: TypeId,
 ) -> Result<Value, RuntimeError> {
-    let value = crate::helper_eval::eval_storage_expr_with_stdlib(
+    evaluate_initializer_with_abi(
         storage,
         registry,
+        crate::value::StorageAbi::default(),
+        catalog,
+        profile,
+        current_instance,
+        stdlib,
+        expr,
+        type_id,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn evaluate_initializer_with_abi(
+    storage: &VariableStorage,
+    registry: &TypeRegistry,
+    storage_abi: crate::value::StorageAbi,
+    catalog: &InitializerCatalog,
+    profile: &DateTimeProfile,
+    current_instance: Option<InstanceId>,
+    stdlib: &StandardLibrary,
+    expr: &Expr,
+    type_id: TypeId,
+) -> Result<Value, RuntimeError> {
+    let value = crate::helper_eval::eval_storage_expr_with_abi(
+        storage,
+        registry,
+        storage_abi,
         profile,
         current_instance,
         Some(stdlib),
         expr,
     )?;
-    apply_aggregate_overrides(
+    apply_aggregate_overrides_with_abi(
         storage,
         registry,
+        storage_abi,
         catalog,
         profile,
         current_instance,
@@ -56,6 +85,7 @@ pub(crate) fn evaluate_initializer(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 pub(crate) fn apply_aggregate_overrides(
     storage: &VariableStorage,
     registry: &TypeRegistry,
@@ -66,7 +96,33 @@ pub(crate) fn apply_aggregate_overrides(
     value: Value,
     type_id: TypeId,
 ) -> Result<Value, RuntimeError> {
+    apply_aggregate_overrides_with_abi(
+        storage,
+        registry,
+        crate::value::StorageAbi::default(),
+        catalog,
+        profile,
+        current_instance,
+        stdlib,
+        value,
+        type_id,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn apply_aggregate_overrides_with_abi(
+    storage: &VariableStorage,
+    registry: &TypeRegistry,
+    storage_abi: crate::value::StorageAbi,
+    catalog: &InitializerCatalog,
+    profile: &DateTimeProfile,
+    current_instance: Option<InstanceId>,
+    stdlib: &StandardLibrary,
+    value: Value,
+    type_id: TypeId,
+) -> Result<Value, RuntimeError> {
     let ctx = InitContext {
+        storage_abi,
         storage,
         registry,
         catalog,
@@ -101,6 +157,7 @@ fn merge_type_default_aggregate(
     )))
 }
 
+#[cfg(test)]
 pub(crate) fn default_value_for_type_id(
     storage: &VariableStorage,
     registry: &TypeRegistry,
@@ -110,7 +167,31 @@ pub(crate) fn default_value_for_type_id(
     stdlib: &StandardLibrary,
     type_id: TypeId,
 ) -> Result<Value, RuntimeError> {
+    default_value_for_type_id_with_abi(
+        storage,
+        registry,
+        crate::value::StorageAbi::default(),
+        catalog,
+        profile,
+        current_instance,
+        stdlib,
+        type_id,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn default_value_for_type_id_with_abi(
+    storage: &VariableStorage,
+    registry: &TypeRegistry,
+    storage_abi: crate::value::StorageAbi,
+    catalog: &InitializerCatalog,
+    profile: &DateTimeProfile,
+    current_instance: Option<InstanceId>,
+    stdlib: &StandardLibrary,
+    type_id: TypeId,
+) -> Result<Value, RuntimeError> {
     let ctx = InitContext {
+        storage_abi,
         storage,
         registry,
         catalog,

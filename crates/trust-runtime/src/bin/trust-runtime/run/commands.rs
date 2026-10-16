@@ -102,10 +102,8 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
     let module = BytecodeModule::decode(&bundle.bytecode)?;
     module.validate()?;
     let metadata = module.metadata()?;
-    let _resource = metadata
-        .resource(bundle.runtime.resource_name.as_str())
-        .or_else(|| metadata.primary_resource())
-        .ok_or_else(|| anyhow::anyhow!("bytecode metadata missing resource definitions"))?;
+    // Launch's own rule and error (spec 11 §6.7.1); never the primary resource.
+    trust_runtime::harness::configured_resource(&metadata, bundle.runtime.resource_name.as_str())?;
     let io_drivers = enabled_io_driver_names(&bundle);
     Ok(json!({
         "version": 1,

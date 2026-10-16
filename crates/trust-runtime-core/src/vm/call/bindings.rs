@@ -1,13 +1,13 @@
+#[cfg(all(feature = "std", feature = "test-support"))]
+use crate::vm::diagnostic_timing::attribution::{self, CopyConsumerKind, CopyReadKind};
 use alloc::{borrow::ToOwned, format, vec, vec::Vec};
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
-use crate::value::{
-    materialize_value_path, read_value_path_borrowed, write_value_path, RefSegment, Value, ValueRef,
-};
+use crate::value::{materialize_value_path, read_value_path_borrowed, RefSegment, Value, ValueRef};
 
-use super::super::dispatch_refs::dynamic_ref_type;
+use super::super::dispatch_refs::{charge_materialize_path_work, dynamic_ref_type};
 use super::super::errors::VmTrap;
 use super::super::frames::VmFrame;
 use super::super::materialize_borrowed_value;
@@ -84,13 +84,10 @@ pub fn unpack_native_call_payload(
     receiver_count: usize,
 ) -> Result<(Option<Value>, Vec<VmNativeArg>), VmTrap> {
     let total = arg_specs.len().saturating_add(receiver_count);
-    let mut payload = Vec::with_capacity(total);
-    for _ in 0..total {
-        payload.push(operand_stack.pop()?);
-    }
+    let mut payload = operand_stack.drain_top(total)?;
 
     let receiver_value = if receiver_count == 1 {
-        Some(payload.pop().ok_or_else(|| {
+        Some(payload.next().ok_or_else(|| {
             VmTrap::InvalidNativeCall("missing function-block/method receiver payload".into())
         })?)
     } else {
@@ -99,7 +96,7 @@ pub fn unpack_native_call_payload(
 
     let mut vm_args = Vec::with_capacity(arg_specs.len());
     for spec in arg_specs {
-        let value = payload.pop().ok_or_else(|| {
+        let value = payload.next().ok_or_else(|| {
             VmTrap::InvalidNativeCall("missing native call payload while decoding args".into())
         })?;
         let value = if spec.is_target {
@@ -124,6 +121,10 @@ pub fn unpack_native_call_payload(
 
     Ok((receiver_value, vm_args))
 }
+
+#[cfg(test)]
+#[path = "bindings_payload_tests.rs"]
+mod payload_tests;
 
 /// Find an unconsumed named argument while retaining source argument order.
 pub fn resolve_named_arg_index(
@@ -180,6 +181,10 @@ pub fn bind_builtin_function_block_arguments(
     let mut consumed = vec![false; args.len()];
     let mut out_bindings = Vec::new();
 
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let mut diagnostic_formals = 0..;
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _consumer = attribution::consumer(CopyConsumerKind::BuiltinFunctionBlock, None);
     for param in &params {
         runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
         let arg_index = if positional {
@@ -195,6 +200,16 @@ pub fn bind_builtin_function_block_arguments(
             consumed[index] = true;
         }
         let arg = arg_index.and_then(|index| args.get(index));
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter = attribution::parameter(
+            diagnostic_formals.next().unwrap_or(usize::MAX),
+            match param.direction {
+                BuiltinParamDirection::In => 0,
+                BuiltinParamDirection::Out => 1,
+                BuiltinParamDirection::InOut => 2,
+            },
+            arg.is_none(),
+        );
         if matches!(
             param.direction,
             BuiltinParamDirection::Out | BuiltinParamDirection::InOut
@@ -210,6 +225,8 @@ pub fn bind_builtin_function_block_arguments(
                     Some(arg) => resolve_vm_arg_value(runtime, caller_frame, arg)?,
                     None => {
                         if let Some(value) = field_binding.read_checked(runtime)? {
+                            #[cfg(all(feature = "std", feature = "test-support"))]
+                            let _read = attribution::read(CopyReadKind::RetainedField);
                             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
                             let (value, cloned) = materialize_borrowed_value(value);
                             if cloned {
@@ -222,7 +239,7 @@ pub fn bind_builtin_function_block_arguments(
                     }
                 };
                 field_binding.check_write(runtime, &value)?;
-                if !field_binding.write(runtime, value) {
+                if !field_binding.write_checked(runtime, value)? {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
             }
@@ -240,9 +257,9 @@ pub fn bind_builtin_function_block_arguments(
                     continue;
                 };
                 let target = require_output_target(arg)?;
-                let value = target.read(runtime, caller_frame)?;
+                let value = target.snapshot(runtime, caller_frame)?;
                 field_binding.check_write(runtime, &value)?;
-                if !field_binding.write(runtime, value) {
+                if !field_binding.write_checked(runtime, value)? {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
                 out_bindings.push(VmFbOutBinding {
@@ -292,6 +309,8 @@ pub fn bind_vm_function_block_arguments(
     instance_id: InstanceId,
     args: &[VmNativeArg],
 ) -> Result<Vec<VmFbOutBinding>, VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _consumer = attribution::consumer(CopyConsumerKind::FunctionBlock, Some(pou_id));
     let params = module.pou_params(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
@@ -320,6 +339,8 @@ pub fn bind_vm_function_block_arguments(
     for (param_index, (param, arg_index)) in params.iter().zip(arg_indices).enumerate() {
         runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
         let arg = arg_index.and_then(|index| args.get(index));
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter = attribution::parameter(param_index, param.direction, arg.is_none());
         if matches!(param.direction, 1 | 2) && arg.is_none() {
             continue;
         }
@@ -331,6 +352,8 @@ pub fn bind_vm_function_block_arguments(
                     Some(arg) => resolve_vm_arg_value(runtime, caller_frame, arg)?,
                     None => {
                         if let Some(value) = field_binding.read_checked(runtime)? {
+                            #[cfg(all(feature = "std", feature = "test-support"))]
+                            let _read = attribution::read(CopyReadKind::RetainedField);
                             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
                             let (value, cloned) = materialize_borrowed_value(value);
                             if cloned {
@@ -341,7 +364,7 @@ pub fn bind_vm_function_block_arguments(
                             let value = module
                                 .consts
                                 .get(default_const_idx as usize)
-                                .ok_or(VmTrap::InvalidConstIndex(default_const_idx))?;
+                                .ok_or_else(|| VmTrap::InvalidConstIndex(default_const_idx))?;
                             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
                             let (value, cloned) = materialize_borrowed_value(value);
                             if cloned {
@@ -357,7 +380,7 @@ pub fn bind_vm_function_block_arguments(
                     .normalize_assignment(module, param.type_id, value)
                     .map_err(VmTrap::Runtime)?;
                 field_binding.check_write(runtime, &value)?;
-                if !field_binding.write(runtime, value) {
+                if !field_binding.write_checked(runtime, value)? {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
             }
@@ -380,12 +403,12 @@ pub fn bind_vm_function_block_arguments(
                 let (target, target_type_idx) = prepared_targets[param_index]
                     .clone()
                     .expect("IN_OUT target preflight must produce a binding");
-                let value = target.read(runtime, caller_frame)?;
+                let value = target.snapshot(runtime, caller_frame)?;
                 let value = runtime
                     .normalize_assignment(module, param.type_id, value)
                     .map_err(VmTrap::Runtime)?;
                 field_binding.check_write(runtime, &value)?;
-                if !field_binding.write(runtime, value) {
+                if !field_binding.write_checked(runtime, value)? {
                     return Err(VmTrap::Runtime(RuntimeError::NullReference));
                 }
                 out_bindings.push(VmFbOutBinding {
@@ -416,7 +439,70 @@ pub struct BoundVmCall {
     pub present: Vec<bool>,
 }
 
+trait VmCallArgumentSource {
+    fn arguments(&self) -> &[VmNativeArg];
+
+    fn bind_input(
+        &mut self,
+        runtime: &mut impl CallContext,
+        caller_frame: &VmFrame,
+        arg_index: usize,
+    ) -> Result<Value, VmTrap>;
+}
+
+#[cfg(any(feature = "hir", test))]
+struct BorrowedVmCallArguments<'a>(&'a [VmNativeArg]);
+
+#[cfg(any(feature = "hir", test))]
+impl VmCallArgumentSource for BorrowedVmCallArguments<'_> {
+    fn arguments(&self) -> &[VmNativeArg] {
+        self.0
+    }
+
+    fn bind_input(
+        &mut self,
+        runtime: &mut impl CallContext,
+        caller_frame: &VmFrame,
+        arg_index: usize,
+    ) -> Result<Value, VmTrap> {
+        let arg = self.0.get(arg_index).ok_or_else(|| {
+            VmTrap::InvalidNativeCall(SmolStr::new_static(
+                "resolved argument index is out of range",
+            ))
+        })?;
+        resolve_vm_arg_value(runtime, caller_frame, arg)
+    }
+}
+
+struct OwnedVmCallArguments<'a>(&'a mut [VmNativeArg]);
+
+impl VmCallArgumentSource for OwnedVmCallArguments<'_> {
+    fn arguments(&self) -> &[VmNativeArg] {
+        self.0
+    }
+
+    fn bind_input(
+        &mut self,
+        runtime: &mut impl CallContext,
+        caller_frame: &VmFrame,
+        arg_index: usize,
+    ) -> Result<Value, VmTrap> {
+        let arg = self.0.get_mut(arg_index).ok_or_else(|| {
+            VmTrap::InvalidNativeCall(SmolStr::new_static(
+                "resolved argument index is out of range",
+            ))
+        })?;
+        match &mut arg.value {
+            VmNativeArgValue::Expr(value) => Ok(core::mem::replace(value, Value::Null)),
+            VmNativeArgValue::Target(reference) => {
+                read_vm_target_value(runtime, caller_frame, reference)
+            }
+        }
+    }
+}
+
 /// Construct a function call frame and output copy-back plan.
+#[cfg(any(feature = "hir", test))]
 pub fn bind_vm_call_arguments(
     runtime: &mut impl CallContext,
     module: &VmModule,
@@ -424,15 +510,54 @@ pub fn bind_vm_call_arguments(
     pou_id: u32,
     args: &[VmNativeArg],
 ) -> Result<BoundVmCall, VmTrap> {
-    let pou = module.pou(pou_id).ok_or(VmTrap::MissingPou(pou_id))?;
+    bind_vm_call_arguments_from_source(
+        runtime,
+        module,
+        caller_frame,
+        pou_id,
+        &mut BorrowedVmCallArguments(args),
+    )
+    .map(|(bound, _)| bound)
+}
+
+/// Consume private native-call expressions after unique parameter binding.
+pub(super) fn bind_vm_call_arguments_owned(
+    runtime: &mut impl CallContext,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    pou_id: u32,
+    args: &mut [VmNativeArg],
+) -> Result<(BoundVmCall, bool), VmTrap> {
+    bind_vm_call_arguments_from_source(
+        runtime,
+        module,
+        caller_frame,
+        pou_id,
+        &mut OwnedVmCallArguments(args),
+    )
+}
+
+fn bind_vm_call_arguments_from_source(
+    runtime: &mut impl CallContext,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    pou_id: u32,
+    args: &mut impl VmCallArgumentSource,
+) -> Result<(BoundVmCall, bool), VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _consumer = attribution::consumer(CopyConsumerKind::UserCall, Some(pou_id));
+    let pou = module
+        .pou(pou_id)
+        .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
     let params = module.pou_params(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
     let mut locals = vec![Value::Null; pou.local_ref_count as usize];
     let mut out_bindings = Vec::new();
     let mut present = vec![false; locals.len()];
-    let return_slots = usize::from(module.pou_has_return_slot(pou_id));
-    let arg_indices = resolve_vm_arg_indices(params, args)?;
+    let capture_return = module.pou_has_return_slot(pou_id);
+    let return_slots = usize::from(capture_return);
+    let arg_indices = resolve_vm_arg_indices(params, args.arguments())?;
 
     for (index, param) in params.iter().enumerate() {
         let slot = return_slots + index;
@@ -446,25 +571,15 @@ pub fn bind_vm_call_arguments(
             ));
         }
         let arg_index = arg_indices[index];
-        let arg = arg_index.and_then(|arg_index| args.get(arg_index));
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter = attribution::parameter(index, param.direction, arg_index.is_none());
 
         present[slot] =
-            param.default_const_idx.is_some() || (param.direction != 1 && arg.is_some());
+            param.default_const_idx.is_some() || (param.direction != 1 && arg_index.is_some());
         match param.direction {
             0 => {
-                let value = match arg {
-                    Some(VmNativeArg {
-                        value: VmNativeArgValue::Expr(value),
-                        ..
-                    }) => clone_value_with_profile(
-                        runtime,
-                        value,
-                        RegisterValueOpKind::BindExpression,
-                    )?,
-                    Some(VmNativeArg {
-                        value: VmNativeArgValue::Target(reference),
-                        ..
-                    }) => read_vm_target_value(runtime, caller_frame, reference)?,
+                let value = match arg_index {
+                    Some(arg_index) => args.bind_input(runtime, caller_frame, arg_index)?,
                     None => {
                         if let Some(default_const_idx) = param.default_const_idx {
                             module
@@ -477,13 +592,13 @@ pub fn bind_vm_call_arguments(
                                         RegisterValueOpKind::LoadConstant,
                                     )
                                 })
-                                .ok_or(VmTrap::InvalidConstIndex(default_const_idx))??
+                                .ok_or_else(|| VmTrap::InvalidConstIndex(default_const_idx))??
                         } else {
                             Value::Null
                         }
                     }
                 };
-                locals[slot] = if module.version.major == 2 && !present[slot] {
+                locals[slot] = if module.version.is_source_free() && !present[slot] {
                     value
                 } else {
                     runtime
@@ -503,11 +618,16 @@ pub fn bind_vm_call_arguments(
                                 RegisterValueOpKind::LoadConstant,
                             )
                         })
-                        .ok_or(VmTrap::InvalidConstIndex(default_const_idx))??
+                        .ok_or_else(|| VmTrap::InvalidConstIndex(default_const_idx))??
                 } else {
                     Value::Null
                 };
-                if let Some(arg) = arg {
+                if let Some(arg_index) = arg_index {
+                    let arg = args.arguments().get(arg_index).ok_or_else(|| {
+                        VmTrap::InvalidNativeCall(SmolStr::new_static(
+                            "resolved argument index is out of range",
+                        ))
+                    })?;
                     let (target, target_type_idx) =
                         bind_output_target(runtime, module, caller_frame, arg)?;
                     out_bindings.push(VmOutBinding {
@@ -518,15 +638,20 @@ pub fn bind_vm_call_arguments(
                 }
             }
             2 => {
-                let Some(arg) = arg else {
+                let Some(arg_index) = arg_index else {
                     return Err(VmTrap::InvalidNativeCall(
                         format!("missing IN_OUT argument '{}'", param.name).into(),
                     ));
                 };
+                let arg = args.arguments().get(arg_index).ok_or_else(|| {
+                    VmTrap::InvalidNativeCall(SmolStr::new_static(
+                        "resolved argument index is out of range",
+                    ))
+                })?;
                 let (target, target_type_idx) =
                     bind_output_target(runtime, module, caller_frame, arg)?;
                 require_in_out_type_compatibility(module, param.type_id, target_type_idx)?;
-                let value = target.read(runtime, caller_frame)?;
+                let value = target.snapshot(runtime, caller_frame)?;
                 locals[slot] = runtime
                     .normalize_assignment(module, param.type_id, value)
                     .map_err(VmTrap::Runtime)?;
@@ -544,11 +669,14 @@ pub fn bind_vm_call_arguments(
         }
     }
 
-    Ok(BoundVmCall {
-        locals,
-        out_bindings,
-        present,
-    })
+    Ok((
+        BoundVmCall {
+            locals,
+            out_bindings,
+            present,
+        },
+        capture_return,
+    ))
 }
 
 /// Require an argument to designate writable storage.
@@ -734,12 +862,12 @@ fn peek_vm_reference_path<'a>(
             )
         })?;
         return read_value_path_borrowed(root, path)
-            .ok_or(VmTrap::Runtime(RuntimeError::NullReference));
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference));
     }
     runtime
         .storage()
         .read_by_ref_parts(reference.location, reference.offset, path)
-        .ok_or(VmTrap::Runtime(RuntimeError::NullReference))
+        .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
 }
 
 /// Materialize a referenced value after read-policy and copy-budget checks.
@@ -748,6 +876,9 @@ pub fn read_vm_reference(
     caller_frame: &VmFrame,
     reference: &ValueRef,
 ) -> Result<Value, VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _timing =
+        crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::ReferenceRead);
     match peek_vm_reference(runtime, caller_frame, reference) {
         Ok(value) => {
             runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
@@ -762,13 +893,15 @@ pub fn read_vm_reference(
             let (last, prefix) = reference
                 .path
                 .split_last()
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             let parent = peek_vm_reference_path(runtime, caller_frame, reference, prefix)?;
             runtime
                 .before_value_clone(parent)
                 .map_err(VmTrap::Runtime)?;
+            charge_materialize_path_work(runtime, parent, core::slice::from_ref(last))
+                .map_err(VmTrap::Runtime)?;
             materialize_value_path(parent, core::slice::from_ref(last))
-                .ok_or(VmTrap::Runtime(RuntimeError::NullReference))
+                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
         }
         Err(error) => Err(error),
     }
@@ -781,6 +914,9 @@ pub fn write_vm_reference(
     reference: &ValueRef,
     value: Value,
 ) -> Result<(), VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _timing =
+        crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::ReferenceWrite);
     runtime
         .check_native_write(Some(caller_frame), reference, &value)
         .map_err(VmTrap::Runtime)?;
@@ -796,23 +932,47 @@ pub fn write_vm_reference(
             ));
         };
         runtime
-            .before_path_write(slot, &reference.path)
+            .before_path_write(slot, &reference.path, &value)
             .map_err(VmTrap::Runtime)?;
-        if write_value_path(slot, &reference.path, value) {
+        runtime.before_write_commit().map_err(VmTrap::Runtime)?;
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _storage_timing =
+            crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::StorageWrite);
+        if runtime
+            .write_typed_local_checked(slot, &reference.path, value)
+            .map_err(VmTrap::Runtime)?
+        {
             return Ok(());
         }
         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
     }
-    if !reference.path.is_empty() {
+    {
         let root = runtime
             .storage()
             .read_direct_slot_by_location(reference.location, reference.offset)
-            .ok_or(VmTrap::Runtime(RuntimeError::NullReference))?;
+            .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
         runtime
-            .before_path_write(root, &reference.path)
+            .before_path_write(root, &reference.path, &value)
             .map_err(VmTrap::Runtime)?;
     }
-    if runtime.storage_mut().write_by_ref_ref(reference, value) {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _storage_timing =
+        crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::StorageWrite);
+    let prepared = runtime
+        .storage()
+        .prepare_by_ref_parts_write(
+            reference.location,
+            reference.offset,
+            &reference.path,
+            &value,
+        )
+        .map_err(VmTrap::Runtime)?
+        .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
+    runtime.before_write_commit().map_err(VmTrap::Runtime)?;
+    if runtime
+        .storage_mut()
+        .commit_prepared_write(&reference.path, value, prepared)
+    {
         Ok(())
     } else {
         Err(VmTrap::Runtime(RuntimeError::NullReference))

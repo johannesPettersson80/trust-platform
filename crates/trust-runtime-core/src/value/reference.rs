@@ -180,6 +180,10 @@ use trust_hir::{Type, TypeId};
 
 #[inline]
 pub fn read_value_path_borrowed<'a>(value: &'a Value, path: &[RefSegment]) -> Option<&'a Value> {
+    let path = match value {
+        Value::Struct(value) => value.physical_canonical_path(path).unwrap_or(path),
+        _ => path,
+    };
     if path.is_empty() {
         return Some(value);
     }
@@ -206,6 +210,10 @@ pub fn read_value_path_borrowed<'a>(value: &'a Value, path: &[RefSegment]) -> Op
 
 #[inline]
 pub fn materialize_value_path(value: &Value, path: &[RefSegment]) -> Option<Value> {
+    let path = match value {
+        Value::Struct(value) => value.physical_canonical_path(path).unwrap_or(path),
+        _ => path,
+    };
     if path.is_empty() {
         return Some(value.clone());
     }
@@ -244,47 +252,188 @@ pub fn materialize_value_path(value: &Value, path: &[RefSegment]) -> Option<Valu
     }
 }
 
+/// Compatibility wrapper for callers whose API cannot expose a typed storage fault.
 #[inline]
 pub fn write_value_path(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
-    if path.is_empty() {
-        *target = normalize_assignment_for_target(target, value);
-        return true;
-    }
+    write_value_path_checked(target, path, value).unwrap_or(false)
+}
 
-    match &path[0] {
-        RefSegment::Field(name) => match target {
-            Value::Struct(struct_value) => alloc::sync::Arc::make_mut(struct_value)
-                .field_mut(name.as_str())
-                .map(|field| write_value_path(field, &path[1..], value))
-                .unwrap_or(false),
-            _ => false,
-        },
-        RefSegment::Index(indices) => match target {
-            Value::Array(array) => {
-                let offset = match array_offset_i64(array.dimensions(), indices) {
-                    Some(offset) => offset,
-                    None => return false,
-                };
-                array
-                    .elements_mut()
-                    .get_mut(offset)
-                    .map(|element| write_value_path(element, &path[1..], value))
-                    .unwrap_or(false)
+/// Checked shared assignment owner. A refused physical write leaves all backing and aliases intact.
+pub fn write_value_path_checked(
+    target: &mut Value,
+    path: &[RefSegment],
+    value: Value,
+) -> Result<bool, crate::error::RuntimeError> {
+    let value = match read_value_path_borrowed(target, path) {
+        Some(template) => normalize_assignment_for_target(template, value),
+        None => value,
+    };
+    let Some(prepared) = prepare_value_path_write(target, path, &value)? else {
+        return Ok(false);
+    };
+    Ok(commit_value_path_write(target, path, value, prepared))
+}
+
+/// Detached alias preflight shared by execution and finite engineering-write boundaries.
+pub(crate) enum PreparedValuePathWrite {
+    Direct,
+    Physical {
+        depth: usize,
+        layout: alloc::sync::Arc<super::overlap::PhysicalLayout>,
+        patch: super::overlap::PreparedPhysicalWrite,
+    },
+}
+
+impl PreparedValuePathWrite {
+    pub(crate) fn requires_final_deadline_check(&self) -> bool {
+        matches!(self, Self::Physical { .. })
+    }
+    pub(crate) fn validate_aliases(
+        &self,
+        check: &mut impl FnMut(&Value) -> Result<(), crate::error::RuntimeError>,
+    ) -> Result<(), crate::error::RuntimeError> {
+        match self {
+            Self::Direct => Ok(()),
+            Self::Physical { patch, .. } => patch.validate_aliases(check),
+        }
+    }
+}
+
+pub(crate) fn prepare_value_path_write(
+    mut target: &Value,
+    path: &[RefSegment],
+    input: &Value,
+) -> Result<Option<PreparedValuePathWrite>, crate::error::RuntimeError> {
+    for depth in 0..=path.len() {
+        let rest = &path[depth..];
+        if let Value::Struct(structure) = target {
+            if rest.is_empty() && structure.physical_whole_assignment_is_admitted(input) {
+                return Ok(Some(PreparedValuePathWrite::Direct));
             }
-            Value::String(text) => write_string_path(text, indices, value, false)
-                .map(|updated| {
-                    *target = Value::String(updated.into());
-                    true
-                })
-                .unwrap_or(false),
-            Value::WString(text) => write_string_path(text, indices, value, true)
-                .map(|updated| {
-                    *target = Value::WString(updated);
-                    true
-                })
-                .unwrap_or(false),
-            _ => false,
-        },
+            if let Some(layout) = structure.physical_layout() {
+                let canonical = layout.canonical_path(rest).unwrap_or(rest);
+                if let Some(patch) = structure.prepare_physical_write(canonical, input)? {
+                    return Ok(Some(PreparedValuePathWrite::Physical {
+                        depth,
+                        layout,
+                        patch,
+                    }));
+                }
+            }
+        }
+        let Some((segment, remaining)) = rest.split_first() else {
+            return Ok(Some(PreparedValuePathWrite::Direct));
+        };
+        target = match (target, segment) {
+            (Value::Struct(value), RefSegment::Field(name)) => match value.field(name) {
+                Some(value) => value,
+                None => return Ok(None),
+            },
+            (Value::Array(value), RefSegment::Index(indices)) => {
+                let Some(offset) = array_offset_i64(value.dimensions(), indices) else {
+                    return Ok(None);
+                };
+                let Some(value) = value.elements().get(offset) else {
+                    return Ok(None);
+                };
+                value
+            }
+            (Value::String(_) | Value::WString(_), RefSegment::Index(_))
+                if remaining.is_empty() =>
+            {
+                return Ok(Some(PreparedValuePathWrite::Direct))
+            }
+            _ => return Ok(None),
+        };
+    }
+    Ok(None)
+}
+
+pub(crate) fn commit_value_path_write(
+    target: &mut Value,
+    path: &[RefSegment],
+    value: Value,
+    prepared: PreparedValuePathWrite,
+) -> bool {
+    match prepared {
+        PreparedValuePathWrite::Direct => write_value_path_raw(target, path, value),
+        PreparedValuePathWrite::Physical {
+            depth,
+            layout,
+            patch,
+        } => {
+            let Some(prefix) = path.get(..depth) else {
+                return false;
+            };
+            let Some(suffix) = path.get(depth..) else {
+                return false;
+            };
+            let Some(root) = value_path_mut_raw(target, prefix) else {
+                return false;
+            };
+            let Value::Struct(structure) = root else {
+                return false;
+            };
+            let path = layout.canonical_path(suffix).unwrap_or(suffix);
+            alloc::sync::Arc::make_mut(structure).commit_physical_write(path, value, patch)
+        }
+    }
+}
+
+fn value_path_mut_raw<'a>(mut value: &'a mut Value, path: &[RefSegment]) -> Option<&'a mut Value> {
+    for segment in path {
+        value = match (value, segment) {
+            (Value::Struct(structure), RefSegment::Field(name)) => {
+                alloc::sync::Arc::make_mut(structure)
+                    .fields
+                    .get_mut(name.as_str())?
+            }
+            (Value::Array(array), RefSegment::Index(indices)) => {
+                let offset = array_offset_i64(array.dimensions(), indices)?;
+                array.elements_mut().get_mut(offset)?
+            }
+            _ => return None,
+        };
+    }
+    Some(value)
+}
+
+fn write_value_path_raw(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
+    let Some((segment, rest)) = path.split_first() else {
+        *target = value;
+        return true;
+    };
+    match (target, segment) {
+        (Value::Struct(structure), RefSegment::Field(name)) => {
+            alloc::sync::Arc::make_mut(structure)
+                .fields
+                .get_mut(name.as_str())
+                .is_some_and(|field| write_value_path_raw(field, rest, value))
+        }
+        (Value::Array(array), RefSegment::Index(indices)) => {
+            let Some(offset) = array_offset_i64(array.dimensions(), indices) else {
+                return false;
+            };
+            array
+                .elements_mut()
+                .get_mut(offset)
+                .is_some_and(|element| write_value_path_raw(element, rest, value))
+        }
+        (Value::String(text), RefSegment::Index(indices)) if rest.is_empty() => {
+            let Some(updated) = write_string_path(text, indices, value, false) else {
+                return false;
+            };
+            *text = updated.into();
+            true
+        }
+        (Value::WString(text), RefSegment::Index(indices)) if rest.is_empty() => {
+            let Some(updated) = write_string_path(text, indices, value, true) else {
+                return false;
+            };
+            *text = updated;
+            true
+        }
+        _ => false,
     }
 }
 
@@ -295,6 +444,9 @@ pub fn write_value_path_typed(
     value: Value,
     registry: &TypeRegistry,
 ) -> bool {
+    if matches!(target, Value::Struct(structure) if structure.physical.is_some()) {
+        return write_value_path(target, path, value);
+    }
     if path.is_empty() {
         *target = normalize_assignment_for_target(target, value);
         return true;
@@ -305,9 +457,10 @@ pub fn write_value_path_typed(
             Value::Struct(struct_value) => {
                 let struct_value = alloc::sync::Arc::make_mut(struct_value);
                 if path.len() == 1
-                    && synchronize_overlap_field(struct_value, name, value.clone(), registry)
+                    && let Some(result) =
+                        synchronize_overlap_field(struct_value, name, value.clone(), registry)
                 {
-                    return true;
+                    return result;
                 }
                 struct_value
                     .field_mut(name.as_str())
@@ -351,13 +504,28 @@ fn synchronize_overlap_field(
     selected_name: &smol_str::SmolStr,
     selected_value: Value,
     registry: &TypeRegistry,
-) -> bool {
-    let Some(type_id) = registry.lookup(value.type_name().as_str()) else {
-        return false;
-    };
+) -> Option<bool> {
+    let type_id = registry.lookup(value.type_name().as_str())?;
     if !registry.is_overlapping_struct_type(type_id) {
-        return false;
+        return None;
     }
+    Some(synchronize_legacy_overlap(
+        value,
+        selected_name,
+        selected_value,
+        registry,
+        type_id,
+    ))
+}
+
+#[cfg(feature = "hir")]
+fn synchronize_legacy_overlap(
+    value: &mut super::StructValue,
+    selected_name: &smol_str::SmolStr,
+    selected_value: Value,
+    registry: &TypeRegistry,
+    type_id: TypeId,
+) -> bool {
     let Some(Type::Struct { fields, .. }) = registry.get(type_id) else {
         return false;
     };
@@ -406,6 +574,7 @@ fn synchronize_overlap_field(
     }
     write_overlap_bits(&mut backing, selected_start, &selected_bits);
 
+    let mut updates = Vec::with_capacity(layouts.len());
     for (name, start, bits, template, field_type) in layouts {
         let end = match start.checked_add(bits.len()) {
             Some(end) => end,
@@ -416,8 +585,11 @@ fn synchronize_overlap_field(
         else {
             return false;
         };
-        if !value.set_existing_field(name, updated) {
-            return false;
+        updates.push((name, updated));
+    }
+    for (name, updated) in updates {
+        if let Some(slot) = value.fields.get_mut(name.as_str()) {
+            *slot = updated;
         }
     }
     true
@@ -426,7 +598,7 @@ fn synchronize_overlap_field(
 #[cfg(feature = "hir")]
 fn relative_address_start_bit(address: &str) -> Option<usize> {
     let address = address.strip_prefix('%')?;
-    let (unit, offset) = address.split_at(1);
+    let (unit, offset) = address.split_at_checked(1)?;
     if !matches!(unit, "X" | "B" | "W" | "D" | "L") {
         return None;
     }
@@ -460,13 +632,13 @@ fn overlap_value_bits(value: &Value) -> Option<Vec<bool>> {
         Value::ULInt(value) | Value::LWord(value) => (value.to_le_bytes().to_vec(), 64),
         Value::Real(value) => (value.to_bits().to_le_bytes().to_vec(), 32),
         Value::LReal(value) => (value.to_bits().to_le_bytes().to_vec(), 64),
-        Value::Time(value) => (value.as_nanos().to_le_bytes()[..4].to_vec(), 32),
+        Value::Time(value) => (value.as_nanos().to_le_bytes().to_vec(), 64),
         Value::LTime(value) => (value.as_nanos().to_le_bytes().to_vec(), 64),
-        Value::Date(value) => (value.ticks().to_le_bytes()[..4].to_vec(), 32),
+        Value::Date(value) => (value.ticks().to_le_bytes().to_vec(), 64),
         Value::LDate(value) => (value.nanos().to_le_bytes().to_vec(), 64),
-        Value::Tod(value) => (value.ticks().to_le_bytes()[..4].to_vec(), 32),
+        Value::Tod(value) => (value.ticks().to_le_bytes().to_vec(), 64),
         Value::LTod(value) => (value.nanos().to_le_bytes().to_vec(), 64),
-        Value::Dt(value) => (value.ticks().to_le_bytes()[..4].to_vec(), 32),
+        Value::Dt(value) => (value.ticks().to_le_bytes().to_vec(), 64),
         Value::Ldt(value) => (value.nanos().to_le_bytes().to_vec(), 64),
         Value::Enum(value) => (value.numeric_value().to_le_bytes().to_vec(), 64),
         _ => return None,
@@ -520,21 +692,13 @@ fn overlap_value_from_bits(
         Value::LReal(_) => Value::LReal(f64::from_bits(u64::from_le_bytes(bytes))),
         Value::Char(_) => Value::Char(bytes[0]),
         Value::WChar(_) => Value::WChar(u16::from_le_bytes(bytes[..2].try_into().ok()?)),
-        Value::Time(_) => Value::Time(super::Duration::from_nanos(i64::from(i32::from_le_bytes(
-            bytes[..4].try_into().ok()?,
-        )))),
+        Value::Time(_) => Value::Time(super::Duration::from_nanos(i64::from_le_bytes(bytes))),
         Value::LTime(_) => Value::LTime(super::Duration::from_nanos(i64::from_le_bytes(bytes))),
-        Value::Date(_) => Value::Date(super::DateValue::new(i64::from(i32::from_le_bytes(
-            bytes[..4].try_into().ok()?,
-        )))),
+        Value::Date(_) => Value::Date(super::DateValue::new(i64::from_le_bytes(bytes))),
         Value::LDate(_) => Value::LDate(super::LDateValue::new(i64::from_le_bytes(bytes))),
-        Value::Tod(_) => Value::Tod(super::TimeOfDayValue::new(i64::from(i32::from_le_bytes(
-            bytes[..4].try_into().ok()?,
-        )))),
+        Value::Tod(_) => Value::Tod(super::TimeOfDayValue::new(i64::from_le_bytes(bytes))),
         Value::LTod(_) => Value::LTod(super::LTimeOfDayValue::new(i64::from_le_bytes(bytes))),
-        Value::Dt(_) => Value::Dt(super::DateTimeValue::new(i64::from(i32::from_le_bytes(
-            bytes[..4].try_into().ok()?,
-        )))),
+        Value::Dt(_) => Value::Dt(super::DateTimeValue::new(i64::from_le_bytes(bytes))),
         Value::Ldt(_) => Value::Ldt(super::LDateTimeValue::new(i64::from_le_bytes(bytes))),
         Value::Enum(_) => {
             let Type::Enum { values, .. } = registry.get(field_type)? else {
@@ -572,6 +736,25 @@ mod tests {
     };
     use crate::error::RuntimeError;
     use alloc::vec;
+
+    #[test]
+    fn checked_string_path_write_keeps_option_rejection_and_original_text() {
+        let mut text = crate::value::Value::String("abc".into());
+        assert!(super::write_value_path_checked(
+            &mut text,
+            &[single_ref_index(2)],
+            crate::value::Value::Char(b'Z')
+        )
+        .unwrap());
+        assert_eq!(text, crate::value::Value::String("aZc".into()));
+        assert!(!super::write_value_path_checked(
+            &mut text,
+            &[single_ref_index(9)],
+            crate::value::Value::Char(b'Q')
+        )
+        .unwrap());
+        assert_eq!(text, crate::value::Value::String("aZc".into()));
+    }
 
     #[test]
     fn array_offset_handles_extreme_bounds_without_overflow() {
@@ -618,5 +801,16 @@ mod tests {
         assert_eq!(parse_partial_access("%D4"), Some(PartialAccess::DWord(4)));
         assert_eq!(parse_partial_access("1_0"), Some(PartialAccess::Bit(10)));
         assert_eq!(parse_partial_access("%Q1"), None);
+    }
+}
+
+#[cfg(all(test, feature = "hir"))]
+mod legacy_overlap_address_tests {
+    #[test]
+    fn malformed_relative_address_refuses_without_splitting_invalid_utf8_boundary() {
+        for address in ["%", "%é1", "%🦀1", ""] {
+            assert_eq!(super::relative_address_start_bit(address), None);
+        }
+        assert_eq!(super::relative_address_start_bit("%B2"), Some(16));
     }
 }

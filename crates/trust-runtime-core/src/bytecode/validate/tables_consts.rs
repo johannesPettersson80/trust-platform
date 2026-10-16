@@ -3,15 +3,28 @@ use super::*;
 pub(super) fn validate_type_table(
     strings: &StringTable,
     types: &TypeTable,
+    version: crate::bytecode::BytecodeVersion,
+    abi: crate::value::StorageAbi,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
     for entry in &types.entries {
         budget.work(1)?;
+        if matches!(
+            entry.kind,
+            TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+        ) && !version.has_relative_layouts()
+        {
+            return Err(RejectionReason::InvalidTypeKind.into());
+        }
         let matches = matches!(
             (&entry.kind, &entry.data),
             (TypeKind::Primitive, TypeData::Primitive { .. })
                 | (TypeKind::Array, TypeData::Array { .. })
                 | (TypeKind::Struct, TypeData::Struct { .. })
+                | (
+                    TypeKind::OverlappingStruct | TypeKind::LocatedStruct,
+                    TypeData::Struct { .. }
+                )
                 | (TypeKind::Union, TypeData::Union { .. })
                 | (TypeKind::Enum, TypeData::Enum { .. })
                 | (TypeKind::Alias, TypeData::Alias { .. })
@@ -44,6 +57,16 @@ pub(super) fn validate_type_table(
                     budget.work(1)?;
                     ensure_string_index(strings, field.name_idx)?;
                     ensure_type_index(types, field.type_id)?;
+                    if field.bit_offset.is_some()
+                        && !matches!(
+                            entry.kind,
+                            TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+                        )
+                    {
+                        return Err(BytecodeError::section_static(
+                            "relative field layout requires a located structure kind",
+                        ));
+                    }
                 }
             }
             TypeData::Enum {
@@ -73,6 +96,30 @@ pub(super) fn validate_type_table(
             }
             TypeData::Primitive { .. } => {}
         }
+    }
+    if types.entries.iter().any(|entry| {
+        matches!(
+            entry.kind,
+            TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+        )
+    }) {
+        let mut quota_error = None;
+        let result = crate::value::overlap::prepare_layouts(
+            types,
+            &strings.entries,
+            abi,
+            &mut |bytes, work| {
+                if let Err(error) = budget.storage(bytes).and_then(|()| budget.work(work)) {
+                    quota_error = Some(error);
+                    return Err(crate::error::RuntimeError::Overflow);
+                }
+                Ok(())
+            },
+        );
+        if let Some(error) = quota_error {
+            return Err(error);
+        }
+        result.map_err(|_| BytecodeError::section_static("invalid relative structure layout"))?;
     }
     Ok(())
 }
@@ -317,4 +364,121 @@ pub(super) fn validate_ref_table(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec;
+
+    fn primitive_int() -> TypeEntry {
+        TypeEntry {
+            kind: TypeKind::Primitive,
+            name_idx: None,
+            data: TypeData::Primitive {
+                prim_id: 7,
+                max_length: 0,
+            },
+        }
+    }
+
+    // Entry 0 is the primitive; entry `levels` is the outermost alias.
+    fn alias_chain(levels: usize) -> TypeTable {
+        let mut entries = vec![primitive_int()];
+        for target_type_id in 0..levels {
+            entries.push(TypeEntry {
+                kind: TypeKind::Alias,
+                name_idx: None,
+                data: TypeData::Alias {
+                    target_type_id: target_type_id as u32,
+                },
+            });
+        }
+        TypeTable {
+            offsets: Vec::new(),
+            entries,
+        }
+    }
+
+    // Entry 0 is the primitive; entry `levels` is a one-element array of the
+    // entry below it, so every array level adds one nesting edge.
+    fn array_chain(levels: usize) -> TypeTable {
+        let mut entries = vec![primitive_int()];
+        for elem_type_id in 0..levels {
+            entries.push(TypeEntry {
+                kind: TypeKind::Array,
+                name_idx: None,
+                data: TypeData::Array {
+                    elem_type_id: elem_type_id as u32,
+                    dims: vec![(0, 0)],
+                },
+            });
+        }
+        TypeTable {
+            offsets: Vec::new(),
+            entries,
+        }
+    }
+
+    // Each array level is an element count of one, then one length-prefixed child.
+    fn nested_array_payload(levels: usize) -> Vec<u8> {
+        let mut payload = 7_i16.to_le_bytes().to_vec();
+        for _ in 0..levels {
+            let mut outer = 1_u32.to_le_bytes().to_vec();
+            outer.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            outer.extend_from_slice(&payload);
+            payload = outer;
+        }
+        payload
+    }
+
+    #[test]
+    fn constant_alias_nesting_admits_64_edges_and_refuses_the_65th() {
+        // The root is depth zero; the primitive sits at depth 64 (admitted) or 65
+        // (refused at tables_consts.rs:180 with ConstTypeRecursionOverflow).
+        let limit = crate::bytecode::BYTECODE_MAX_CONST_NESTING as usize;
+        let admitted = ConstEntry {
+            type_id: limit as u32,
+            payload: 7_i16.to_le_bytes().to_vec(),
+        };
+        validate_const_payload(&alias_chain(limit), &admitted)
+            .expect("64 nested constant type references are admitted");
+
+        let refused = ConstEntry {
+            type_id: limit as u32 + 1,
+            payload: 7_i16.to_le_bytes().to_vec(),
+        };
+        assert_eq!(
+            validate_const_payload(&alias_chain(limit + 1), &refused),
+            Err(BytecodeError::from(
+                RejectionReason::ConstTypeRecursionOverflow
+            ))
+        );
+    }
+
+    #[test]
+    fn constant_array_nesting_uses_the_same_64_edge_boundary() {
+        let limit = crate::bytecode::BYTECODE_MAX_CONST_NESTING as usize;
+        validate_const_payload(
+            &array_chain(limit),
+            &ConstEntry {
+                type_id: limit as u32,
+                payload: nested_array_payload(limit),
+            },
+        )
+        .expect("64 nested constant array levels are admitted");
+
+        assert_eq!(
+            validate_const_payload(
+                &array_chain(limit + 1),
+                &ConstEntry {
+                    type_id: limit as u32 + 1,
+                    payload: nested_array_payload(limit + 1),
+                },
+            ),
+            Err(BytecodeError::from(
+                RejectionReason::ConstTypeRecursionOverflow
+            ))
+        );
+    }
 }

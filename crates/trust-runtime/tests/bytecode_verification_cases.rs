@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 use trust_runtime::bytecode::{BytecodeError, BytecodeModule, SectionData, SectionId};
+use trust_runtime::error::RuntimeError;
 use trust_runtime::Runtime;
 use verification_cases::{
     case_file_digest, run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe,
@@ -15,6 +16,8 @@ use verification_cases::{
 
 const TEST_ID: &str = "TEST_BYTECODE_VALIDATOR_CASES_001";
 const CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml";
+// The committed 1.1 bytes deliberately contain no source-free construction sections.
+const SEED_CONTEXT: &str = "PROGRAM Main END_PROGRAM CONFIGURATION C RESOURCE R ON CPU PROGRAM Main : Main; END_RESOURCE END_CONFIGURATION";
 
 fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -53,10 +56,10 @@ struct RuntimeProbe {
 
 impl RuntimeProbe {
     fn new() -> Self {
-        let mut runtime = Runtime::new();
-        runtime
-            .apply_bytecode_bytes(&committed_seed_bytes(), None)
-            .expect("apply valid baseline module");
+        let module = BytecodeModule::decode(&committed_seed_bytes()).expect("decode reviewed seed");
+        let runtime = trust_runtime::harness::CompileSession::from_source(SEED_CONTEXT)
+            .build_runtime_from_bytecode(&module, Some("R"))
+            .expect("admit unchanged 1.1 seed with its construction context");
         Self { runtime }
     }
 }
@@ -238,9 +241,16 @@ fn committed_transform_seed_is_a_complete_applicable_module() {
 
     let module = BytecodeModule::decode(&actual).expect("decode transform seed");
     module.validate().expect("validate transform seed");
-    Runtime::new()
-        .apply_bytecode_bytes(&actual, None)
-        .expect("apply transform seed through the product path");
+    let mut runtime = trust_runtime::harness::CompileSession::from_source(SEED_CONTEXT)
+        .build_runtime_from_bytecode(&module, Some("R"))
+        .expect("admit unchanged seed through contextual legacy product path");
+    // The historical seed is admissible bytecode, but ends with opcode 0x01,
+    // the zero-FOR-step trap. Contextual import must preserve that instruction,
+    // not turn an intentional runtime fault into successful completion.
+    assert_eq!(
+        runtime.execute_cycle().expect_err("seed ends in a trap"),
+        RuntimeError::ForStepZero
+    );
 }
 
 #[test]

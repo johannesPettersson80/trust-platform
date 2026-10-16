@@ -10,6 +10,8 @@ use crate::value::{
     LTimeOfDayValue, StructValue, TimeOfDayValue, Value,
 };
 
+mod physical;
+
 /// Decode every bytecode constant-pool entry into runtime core values.
 #[cfg(any(feature = "hir", test))]
 pub fn decode_const_pool_entries(
@@ -20,11 +22,22 @@ pub fn decode_const_pool_entries(
     decode_const_pool_entries_charged(const_pool, types, strings, &mut |_, _| Ok(()))
 }
 
+#[cfg(any(feature = "hir", test))]
 pub(crate) fn decode_const_pool_entries_charged(
     const_pool: &ConstPool,
     types: &TypeTable,
     strings: &StringTable,
-    charge: &mut impl FnMut(usize, usize) -> Result<(), RuntimeError>,
+    charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
+) -> Result<Vec<Value>, RuntimeError> {
+    decode_const_pool_entries_with_layouts(const_pool, types, strings, &[], charge)
+}
+
+pub(crate) fn decode_const_pool_entries_with_layouts(
+    const_pool: &ConstPool,
+    types: &TypeTable,
+    strings: &StringTable,
+    layouts: &[Option<Arc<crate::value::overlap::PhysicalLayout>>],
+    charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
 ) -> Result<Vec<Value>, RuntimeError> {
     charge(
         const_pool
@@ -36,14 +49,12 @@ pub(crate) fn decode_const_pool_entries_charged(
     )?;
     let mut out = Vec::with_capacity(const_pool.entries.len());
     for entry in &const_pool.entries {
-        out.push(decode_const_payload(
-            types,
-            strings,
-            entry.type_id,
-            &entry.payload,
-            0,
-            charge,
-        )?);
+        let mut value =
+            decode_const_payload(types, strings, entry.type_id, &entry.payload, 0, charge)?;
+        if !layouts.is_empty() {
+            physical::bind(&mut value, entry.type_id, types, layouts, charge, 0)?;
+        }
+        out.push(value);
     }
     Ok(out)
 }
@@ -64,7 +75,7 @@ fn decode_const_payload(
     type_id: u32,
     payload: &[u8],
     depth: u8,
-    charge: &mut impl FnMut(usize, usize) -> Result<(), RuntimeError>,
+    charge: &mut dyn FnMut(usize, usize) -> Result<(), RuntimeError>,
 ) -> Result<Value, RuntimeError> {
     charge(core::mem::size_of::<Value>(), 1)?;
     if depth > crate::bytecode::BYTECODE_MAX_CONST_NESTING {

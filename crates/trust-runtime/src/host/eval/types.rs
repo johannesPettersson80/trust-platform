@@ -5,6 +5,7 @@ pub(crate) struct EvalContext<'a> {
     pub initializer_catalog: Option<&'a crate::program_model::InitializerCatalog>,
     pub profile: DateTimeProfile,
     pub now: Duration,
+    #[cfg(feature = "debug")]
     pub debug: Option<&'a mut dyn crate::debug::DebugHook>,
     pub call_depth: u32,
     pub functions: Option<&'a IndexMap<SmolStr, FunctionDef>>,

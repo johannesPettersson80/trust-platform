@@ -64,9 +64,7 @@ pub(super) fn queue_hmi_runtime_write_port(
     let descriptor = hmi_descriptor_snapshot(state);
     let customization = descriptor.customization;
     if !customization.write_enabled() {
-        return Err(HmiWriteError::plain(
-            "hmi.write disabled in read-only mode",
-        ));
+        return Err(HmiWriteError::plain("hmi.write disabled in read-only mode"));
     }
     if customization.write_allowlist().is_empty() {
         return Err(HmiWriteError::plain("hmi.write allowlist is empty"));
@@ -78,23 +76,26 @@ pub(super) fn queue_hmi_runtime_write_port(
         .map_err(|_| HmiWriteError::plain("metadata unavailable"))?;
     let snapshot = load_runtime_snapshot(state)
         .ok_or_else(|| HmiWriteError::plain("runtime snapshot unavailable"))?;
-    let point =
-        crate::hmi::resolve_write_point(state.resource_name.as_str(), &metadata, Some(&snapshot), target)
-            .ok_or_else(|| HmiWriteError::plain(format!("unknown hmi target '{target}'")))?;
+    let point = crate::hmi::resolve_write_point(
+        state.resource_name.as_str(),
+        &metadata,
+        Some(&snapshot),
+        target,
+    )
+    .ok_or_else(|| HmiWriteError::plain(format!("unknown hmi target '{target}'")))?;
     let allowed = customization.write_target_allowed(point.id.as_str())
         || customization.write_target_allowed(point.path.as_str());
     if !allowed {
-        return Err(HmiWriteError::plain(
-            "hmi.write target is not in allowlist",
-        ));
+        return Err(HmiWriteError::plain("hmi.write target is not in allowlist"));
     }
 
-    let template = crate::hmi::resolve_write_value_template(&point, &snapshot).ok_or_else(|| {
-        HmiWriteError::plain(format!(
-            "hmi.write target '{}' is currently unavailable",
-            point.id
-        ))
-    })?;
+    let template =
+        crate::hmi::resolve_write_value_template(&point, &snapshot).ok_or_else(|| {
+            HmiWriteError::plain(format!(
+                "hmi.write target '{}' is currently unavailable",
+                point.id
+            ))
+        })?;
     let value = parse_hmi_write_value(
         requested_value,
         &template,
@@ -127,10 +128,14 @@ pub(super) fn queue_hmi_runtime_write_port(
             };
             state
                 .debug
-                .enqueue_instance_write(*instance_id, variable.clone(), value);
+                .try_enqueue_instance_write(*instance_id, variable.clone(), value)
+                .map_err(|error| HmiWriteError::plain(error.to_string()))?;
         }
         crate::hmi::HmiWriteBinding::Global { name } => {
-            state.debug.enqueue_global_write(name.clone(), value);
+            state
+                .debug
+                .try_enqueue_global_write(name.clone(), value)
+                .map_err(|error| HmiWriteError::plain(error.to_string()))?;
         }
     }
 

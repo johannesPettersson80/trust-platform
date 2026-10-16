@@ -6,15 +6,81 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.74`
+- Share compact, lossless floating-point text codecs across runtime platforms,
+  preserving both conversion directions and existing diagnostic spelling.
+
+- Count the work limit the way a PLC program sees it: one unit per executed
+  instruction, plus per-element work when arrays, references or text are copied.
+  Lookups, safety checks and other engine bookkeeping no longer count, and
+  passing an array as VAR_IN_OUT copies nothing, as IEC passes it by reference.
+  Each program or task function-block invocation in a scan has its own
+  1,000,000-unit allowance again, so the OpenOT telemetry and database examples,
+  OSCAT OOP and PLCopen Motion libraries run under the default limits. The stack
+  and register executors charge the same total. Program construction and restart
+  get their own allowance from the preparation profile (64 Mi units by default on
+  hosted runtimes).
+- Hosted execution prepares lookup indexes and frame plans once and moves owned
+  call values instead of copying them; lifetime checks, transactional outputs and
+  failure cleanup are unchanged.
+- Calls do less work. Literal and plain scalar defaults are written straight into
+  the new frame, and on hosted runtimes a function, function block or method that
+  calls no other user POU runs directly inside the calling instruction (not while
+  debugging). Results, faults and work-limit charges are unchanged; such calls no
+  longer reserve call-handler memory.
+
+
+Target release: `v0.24.75`
 
 ### Added
 
+- Hosted hang supervision. With the watchdog enabled, an independent supervisor
+  thread watches each cycle's deadline, so a driver or native call that never
+  returns now faults the resource (`WatchdogTimeout`) within two check intervals
+  of its deadline instead of stalling it silently. `runtime.watchdog.hang_action`
+  selects what follows: `fault` (default) keeps the process serving the control
+  plane, and `abort` exits the process with status 70 so a service manager can
+  restart it. truST cannot drive outputs while the scan thread is blocked, so a
+  hang relies on the I/O devices' communication-loss behaviour.
+
+- `trust-runtime ctl events` and `ctl faults` (optional `--limit N`) print recent
+  runtime events and faults, so a rejected write's `write_rejected` event is
+  visible from the command line.
+- Integration tests build and validate every runnable example project and check
+  that every example, including the OSCAT test projects, configures a resource its
+  sources declare. Compile-fail documentation tests now prove the exact compiler
+  error that rejects each forbidden API use (CI runs them with error-code checking).
+- `DebugRuntimeContext::new` builds a debugger evaluation context over storage the
+  caller owns.
+
+- Use the STBC 3.0 storage ABI for new applications: all temporal types occupy
+  eight bytes consistently on every platform, preserving signed temporal ranges.
+  Existing 1.1/2.0 artifacts keep their original sizes and offsets; explicit legacy
+  imports identify their ABI, and unrepresentable physical writes reject atomically.
+  The checked DWORD TIME millisecond transport encoding remains unchanged.
+
+- Add an owned shared-core controller facade for hosted compositions alongside
+  the borrowed MCU facade. Both use operation-scoped metadata/service borrows,
+  checked named value writes and transactional restart with one mutable state.
+- Prepare dynamic-reference candidate indexes without losing alias-conflict,
+  invocation-lifetime or budget checks. Shared static-reference reads and writes
+  reuse their checked target instead of resolving instance ownership twice.
+- Separate declaration lowering into a non-executable hosted builder. Debug
+  expression parsing keeps anonymous types in scratch registries, including
+  retained watch expressions, without extending installed executable types.
+- Project live VM callers and locals into detached debugger snapshots. Hosted
+  watch and breakpoint conditions receive the snapshot evaluation context;
+  observer failures follow shared frame cleanup and cycle fault handling.
+- Route ordinary hosted construction and test-harness execution through STBC 3.0
+  and the shared engine; keep legacy 1.1 production explicitly selected. Installed
+  hosted values and image writes use checked owner APIs. Rejected queued writes
+  report their application failure without turning an invalid request into a PLC fault.
+
 - Add the NUCLEO-F401RE reference composition for the shared runtime, with bounded memory, separately installed STBC artifacts, and remote GPIO/watchdog evidence tooling. The full-function F401 bring-up passes saved-artifact traces, numeric checks, GPIO safe outputs, depth-four calls and independent-watchdog reset; production qualification remains separate.
+- Add the ESP32-C6-DevKitC-1 reference composition (`firmware/trust-esp32c6-reference` on the new `trust-platform-esp32` adapter). It runs the same saved application bundle, oracle and trace grammar as the NUCLEO-F401RE on RISC-V with software floating point, and executes the interpreter's scan path from internal RAM: from flash, one task activation took 11.07 ms against the 10 ms period. On the owned board the bring-up passes the 101-row trace, numeric checks, GPIO safe outputs, depth-four calls and the MWDT0 watchdog reset, with a 1.97 ms slowest main scan and a 10,856-byte stack peak; production qualification remains separate.
 
 - Add explicit STBC 2.0 authoring and portable byte-level validation for declared
   storage, construction roots, compiled initializer recipes and access bindings.
-  Legacy 1.1 remains the default producer. The source-free core now prepares and
+  Legacy 1.1 remains available as an explicit compatibility producer. The source-free core now prepares and
   executes 2.0 through the shared bytecode dispatcher, including compiled initializers,
   typed storage, timers, process images and nominal-deadline task scheduling.
   Warm restart remaps retained objects transactionally; failed initialization or
@@ -51,6 +117,73 @@ Target release: `v0.24.74`
   directions.
 
 ### Changed
+
+- Move the M2E runner, trace records, bundle decoding and heap/stack measurement from the F401 firmware into the shared `trust-board-fixture` crate used by both board compositions; F401 code grows by 256 bytes. `xtask portability build-firmware`, `inspect` and `verify` now take the board name (`nucleo-f401re` or `esp32c6-devkitc-1`).
+- `trust-runtime validate` resolves the configured resource exactly as `play`
+  does, so a resource name the program does not declare now fails validation
+  instead of passing and then failing at start-up.
+- `ctl set` and `ctl var.force` take an integer in the target variable's declared
+  type, as `io-write` does: `set global:Counter 41` stores `INT` 41 into an `INT`
+  global; a value the type cannot take is rejected without a fault.
+- Pending I/O writes, variable writes, debugger expression writes and forces are
+  bounded at 1,024 each per runtime, for control, ADS and debugger requests alike;
+  a request beyond the bound is refused with `request queue full`. A force whose
+  value is rejected at the scan boundary is removed from the force set instead of
+  being retried each scan.
+- The MQTT driver reports dropped incoming messages: after its 256-message queue
+  overflows it stays `degraded` with `incoming queue overflow: <n> messages
+  dropped`. Safe-state confirmation uses the driver's output path, so an input
+  overflow does not unconfirm a safe stop.
+- MQTT input freshness no longer affects the output path. An input read checks
+  for new messages without waiting, stale input reports its condition under the
+  `on_error` policy without starting reconnect backoff, and outputs keep
+  publishing. The driver's reported health combines its input and output paths;
+  safe-state confirmation uses the output path only, so a stop caused by stale
+  input can still be confirmed.
+- The control server's event store keeps the newest 1,000 events, the largest
+  `events.tail`/`faults` limit (it kept 200). A debug control without an event
+  sender buffers at most 1,024 events and counts the ones it drops
+  (`runtime_events_dropped`).
+- `VariableStorage::create_instance`, which panics when instance identities run
+  out, is test support only; production construction uses
+  `try_create_instance`.
+- POUs that contain a FOR loop now run on the register path and Tier-1. The FOR
+  loop's zero-step guard was the one opcode the register path could not lower,
+  so every such POU fell back to the slower stack path.
+- `MUL_TIME`, `MUL_LTIME`, `DIV_TIME` and `DIV_LTIME` compute exactly as the
+  `*` and `/` duration operators they name (IEC 61131-3 Table 35): integer
+  factors scale exactly and a real result truncates toward zero. They used to
+  round ties to even in binary64, which also lost nanoseconds for integer
+  factors on durations above about 104 days. A non-finite factor is `Overflow`
+  on both paths.
+- `LIMIT` follows IEC 61131-3 Table 32, `MIN(MAX(IN, MN), MX)`: with inverted
+  limits (`MN > MX`) it returns `MX`.
+- Numeric text conversions accept `_` only between two digits, and a sign only
+  on the digits (`'1__0'`, `'_1'`, `'2#+-1'` and `'+2#1'` are rejected).
+- An untyped integer literal takes the type of its destination: an assignment,
+  a variable, array element or structure field initializer, a call argument,
+  `RETURN`, or the other operand of a comparison. Every integer type accepts its
+  whole range as a literal: `ULINT` up to 18446744073709551615, `UDINT` and
+  `LINT` values above 2147483647, and typed minimums such as
+  `LINT#-9223372036854775808`. A literal outside the destination's range or
+  subrange is an analysis error, and subrange bounds take the subrange's base
+  type, so a `LINT` subrange can have bounds beyond the `DINT` range.
+- Untyped literal arithmetic in a declaration's initializer takes the declared
+  type, as it already did in assignments: `x : LREAL := 5 / 2` is now 2.5
+  (it was 2.0).
+- `TIME` and `LTIME` literals are computed exactly, so the largest duration
+  (`T#9223372036s854ms775us807ns`) is accepted, and `REAL#` literals round once
+  to the nearest `REAL` instead of rounding through `LREAL`.
+- Tier-1 telemetry drops the deoptimization counters (Tier-1 never deoptimizes),
+  and the register profile counts interpreted block entries.
+- An oversized bytecode container is always reported as an invalid header, even
+  when the host raises the preparation work budget, and the decoder names
+  "REF_TABLE entries" in its resource-limit error.
+- `DebugRuntimeContext` keeps its PLC storage private.
+
+- Record the shared hosted runtime's accepted Linux call-workload performance
+  trade-off: a measured 16.4% median overhead against the modernization baseline,
+  with unchanged functions, safety checks and separate hardware timing requirements.
 
 - Modernize the supported build baseline to Rust 1.99 (edition 2024, resolver 3)
   and Node 24.21.0; refresh dependency families while retaining compatible LSP
@@ -126,8 +259,122 @@ Target release: `v0.24.74`
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
+### Removed
+
+- `Runtime::clear_debug_control`. It had no caller, and dropping the debug
+  handle released every active force although it claimed to leave the installed
+  state unchanged; detaching a debugger keeps forces (specification 11 §6.9).
+
 ### Fixed
 
+- OPC UA startup now waits until this process's own server has bound its listen address, so another process holding the port can no longer pass for a started server on platforms where the check before startup does not see it (seen on macOS). A bind that fails during startup reports the same "listen address … is unavailable" error as that check.
+- `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
+  `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.
+- `TP`: on the call where a pulse ends with `IN` FALSE, `ET` is `PT`; the next
+  call with `IN` FALSE resets it to zero. It used to reset on the same call,
+  unlike the timing diagram and `TOF`.
+- `SR` and `RS` accept the IEC 61131-3 long input names (`SET1`/`RESET` and
+  `SET`/`RESET1`, Table 43 rows 1b and 2b). Such calls compiled but faulted at
+  run time.
+
+- Restart requests that arrive before the resource has taken the previous one
+  coalesce into one restart, and a cold request takes precedence: a later warm
+  request no longer silently replaces a pending cold restart.
+- A bytecode reload that times out before the resource takes it is withdrawn
+  and never applied. Before, it could still commit after its caller had been
+  told it timed out.
+- The resource command queue holds at most 1,024 commands. Further requests,
+  including `pause`, `resume`, `bytecode.reload`, `ads.status` and scheduler
+  changes through `config.set`, are refused with `resource_busy` instead of
+  growing memory without bound, and `config.set` applies its scheduler policy
+  changes as one step, so a refused update changes nothing.
+
+- A fault that halts the resource no longer ends the runtime process. The
+  resource stays faulted with its safe state applied, `status`, the web UI, HMI
+  and protocol servers keep working, and `restart` (warm or cold) or an online
+  change recovers it after the configured initialization. Before, the resource
+  thread ended, a `restart` request was acknowledged but never applied, and the
+  process exited with status 0. The process now exits with status 1 when it
+  ends with the resource faulted.
+- Control `restart` and online change on a stopped resource, or on one whose
+  scan thread did not return, return `resource_not_running` instead of
+  reporting that a restart was queued.
+
+- 83 example projects named a resource in `runtime.toml` that their ST did not
+  declare; their RESOURCE declarations now match. For the seven communication
+  examples and `network_canvas_demo` this means `trust-runtime play` starts them
+  again; the other 75 are OSCAT test projects, run with `trust-runtime test`. The
+  ADS server example's resource is `truST_ADS` (a hyphen is not valid in an IEC
+  name) and the EtherCAT example's `EtherCAT_demo`. Five PLCopen motion examples
+  without an `io.toml` got a simulated driver so they validate and run.
+- Hosted instance creation reports `Overflow` instead of panicking when instance
+  identities are exhausted.
+- `CONCAT_TOD`, `CONCAT_LTOD`, `CONCAT_DT` and `CONCAT_LDT` reject a component
+  outside its range instead of carrying it into the next field
+  (`CONCAT_TOD(0, 75, 0, 0)` was 01:15:00).
+- `SHL`, `SHR`, `ROL` and `ROR` handle shift counts over the full 64-bit range:
+  a count of 2^32 or more no longer wraps (`SHL(BYTE#1, LINT#4294967296)` was
+  `BYTE#1`).
+- `MID`, `DELETE` and `REPLACE` with a length past the end clamp to the end
+  instead of overflowing (a panic in debug builds), and string positions above
+  2^32 give the same result on 32-bit targets as on 64-bit ones.
+- `TIME_TO_DWORD` and a `TIME` written to a `DWORD` process-image slot reject a
+  negative duration instead of storing 0.
+- `TON`, `TOF` and `TP` saturate their elapsed time at `PT` across a clock span
+  wider than the `TIME` range; such a span panicked in debug builds and added
+  nothing in release builds.
+- `LTIME`, `LDATE`, `LTOD` and `LDT` variables can be bound to long-word direct
+  addresses (`%IL`, `%QL`, `%ML`) and carry their exact 64-bit value. `DATE`, `TOD`
+  and `DT` are refused at direct addresses with an error that names the long
+  forms; the harness used to size them as `DWORD`.
+- Durations in the runtime configuration, `config.set`, simulation settings,
+  conformance cases and the test-harness protocol that exceed the representable
+  range (about 292 years) are refused; they used to wrap to negative durations
+  in release builds.
+- Control `pause` and `resume` on a faulted or stopped resource return the error
+  code `resource_not_running` and change nothing; they used to reply `paused` or
+  `running` although the resource was not scanning.
+- The OPC UA server refuses to start, with a clear error, when its listen address
+  is already in use. Before, its server thread failed silently while startup
+  reported success, because the readiness check reached whichever process held
+  the port.
+- The release-candidate CI watcher no longer reports a run as complete before
+  GitHub has registered any check for the new head.
+
+- `ctl io-write` and `io-force` of an integer no longer fault and halt the PLC
+  (issue #135). An integer value takes the declared type of its `INT`, `DINT`,
+  `WORD` or other integer or bit-string destination when it fits; a value that
+  does not fit is rejected with a `write_rejected` event and the PLC keeps running.
+- `ctl step-over`, `step-in` and `step-out` are rejected with a clear error
+  unless the debugger holds the scan (a breakpoint or a debug-mode pause), instead
+  of silently stalling the scan after a production `pause` (issue #136). An
+  attached debugger still steps from a breakpoint. `resume` always releases a
+  debugger hold, and `status` reports the hold instead of `running`.
+- Corrected `trust-runtime ctl` commands in the documentation: the operator guide
+  and the safety commissioning tutorial now use `restart cold` (the CLI has no
+  `--mode` flag), the cloud troubleshooting guide and profile cookbook use
+  `config-get`, the operator guide describes the actual `status` line and points
+  to `stats` for cycle timing, and the memory marker tutorial shows the `Int`
+  values that `io-read` prints. Tests now run these documented commands against
+  a real runtime.
+- Charge standard-library text work. CONCAT, REPLACE, MID and the other text and
+  conversion functions charge 1 work unit per UTF-8 byte of their text arguments
+  before they run, and their text result as a new value. A program that keeps
+  doubling an unbounded `STRING` now stops with the work or allocation limit
+  fault instead of growing until the host runs out of memory.
+- Charge reference growth independently of internal buffer sizes, and stop
+  counting a call's rollback journal against the allocation limit, as the work
+  cost model states.
+- The STBC 3.0 checksum covers the whole file, including the header. A file whose
+  version or flags were changed is rejected instead of being read with other
+  storage widths.
+- A stalled health reader can no longer hold up the control cycle: health
+  publication skips a cycle instead of waiting for the reader.
+- Debugger I/O views keep the declared enumeration type name for unresolved and
+  failed entries, and remote sessions no longer uppercase it.
+- Writing an unknown `VAR_ACCESS` name reports `runtime_undefined_variable`
+  instead of `runtime_invalid_alias`, as specification 10 states. A read-only
+  alias still reports `runtime_invalid_alias`.
 - Isolate the real OpenOT PLC scan-overhead regression from concurrent functional
   tests and compare paired scans with alternating order, preserving the existing
   threshold and checking that the real persistence worker commits and drains.
@@ -137,6 +384,22 @@ Target release: `v0.24.74`
 - Reject source-freeze manifests inside the source checkout, including symlink aliases, and preserve existing manifests rather than overwriting them. Source identity also checks working-tree file kinds, link targets and Unix executable bits; older byte-only snapshots remain historical evidence.
 
 - Bound rendered-test browser startup and lifetime with Rust-owned subprocess cleanup and visible browser/version diagnostics; install selected CI tools and locked frontend prerequisites before their gates.
+
+- Preserve contextual legacy imports whose POU index omits unused standard
+  function blocks, and keep absolute structure-field I/O addresses distinct from
+  relative storage offsets during source-free encoding.
+
+- Use the default compiler outlining pass count for F401 firmware; reject the extra
+  rerun that produced an invalid Thumb return sequence and a startup HardFault.
+
+- Preserve physical structure backing through constant defaults, initializer
+  coercion and STRN v3 durable RETAIN storage, retaining v1/v2 readers; reject
+  contradictory alias constants before installation. Keep optimized remainder
+  and partial-budget fault behavior aligned
+  with the shared bytecode executor, and reserve reusable register frame payloads.
+- Propagate shared-engine cycle limits through hosted management and I/O snapshots;
+  preserve legacy supplied program instances, installed I/O rebinding and anonymous
+  debugger expression types across the hosted compatibility adapters.
 
 - Make PostgreSQL and TimescaleDB release-runner TLS mounts accessible to the
   service UID under restrictive host umasks, while keeping server keys private.
@@ -197,6 +460,11 @@ Target release: `v0.24.74`
   remain dropped and counted. These describe the logical scheduling rule,
   not measured hosted wake timing.
 
+- Security: update `rustls` to 0.23.46 (RUSTSEC-2026-0346 to 0349: TLS secrets in client session
+  `Debug` output, data sent to the outer server after an ECH rejection, up to 1 GiB allocated for
+  certificate decompression before authentication, and a post-quantum key-exchange downgrade). The
+  `tiny_http` HTTPS server keeps `rustls` 0.20.9 under an owned exception until 18 November 2026:
+  the downgrade concerns TLS clients, and `rustls` 0.20 offers no post-quantum group.
 - Security: update `rustls` to 0.23.45 (RUSTSEC-2026-0285, TLS 1.3 handshake messages accepted
   across encryption levels) and `salsa` to 0.28.5 (RUSTSEC-2026-0308, use-after-free in interned
   values and cached query results). The two queries whose results salsa now returns by reference
@@ -890,6 +1158,18 @@ Target release: `v0.24.74`
   normalization contract: enabled non-positive timeouts floor to one
   millisecond, valid and disabled timeouts retain their values, and installing
   policy does not itself execute a watchdog action.
+
+### Security
+
+- The Unix control socket accepts connections only once it is owner-only (0600):
+  it is bound, restricted and only then made to listen, without changing the
+  process umask that every thread shares. It used to listen first and be
+  narrowed afterwards, so another local user connecting in that moment got the
+  token-less Unix Admin role. An existing file at the socket path that is not a
+  socket is refused instead of deleted.
+- trust-lsp inline runtime values send the editor's control token only to the
+  editor's own endpoint; an endpoint configured in the repository's
+  `trust-lsp.toml` receives only the token configured next to it.
 
 ### Added
 

@@ -7,7 +7,9 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 fn adapter() -> DebugAdapter {
-    DebugAdapter::new(DebugSession::new(Runtime::new()))
+    DebugAdapter::new(DebugSession::new(
+        trust_runtime::RuntimeBuilder::new().build().unwrap(),
+    ))
 }
 
 fn request(seq: u32, command: &str, arguments: Option<Value>) -> Request<Value> {

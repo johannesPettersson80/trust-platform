@@ -38,11 +38,18 @@ impl BytecodeEncoder<'_> {
             };
             let instance = InstanceId(instance);
             let mut declarations = Vec::new();
-            if let Some(program) = input
-                .program_defs
-                .values()
-                .find(|program| self.pou_ids.program_id(&program.name) == Some(template))
-            {
+            let program = input.configuration.as_ref().and_then(|config| {
+                config.programs.iter().find_map(|binding| {
+                    let owner = self
+                        .pou_ids
+                        .program_instance_id(&binding.name)
+                        .or_else(|| self.pou_ids.program_id(&binding.type_name));
+                    (owner == Some(template))
+                        .then(|| input.program_defs.get(&normalize_name(&binding.type_name)))
+                        .flatten()
+                })
+            });
+            if let Some(program) = program {
                 declarations.extend(
                     program
                         .vars

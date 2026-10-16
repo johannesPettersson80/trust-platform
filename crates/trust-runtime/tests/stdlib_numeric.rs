@@ -8,11 +8,11 @@ fn numeric_functions() {
 
     assert_eq!(lib.call("ABS", &[Value::Int(-5)]).unwrap(), Value::Int(5));
 
-    let sqrt = lib.call("SQRT", &[Value::Real(9.0)]).unwrap();
-    match sqrt {
-        Value::Real(value) => assert!((value - 3.0).abs() < 1e-6),
-        _ => panic!("expected REAL result"),
-    }
+    assert_eq!(
+        lib.call("SQRT", &[Value::Real(9.0)]),
+        Ok(Value::Real(3.0)),
+        "SQRT(9.0) is exactly 3.0"
+    );
 
     let sin = lib.call("SIN", &[Value::Real(0.0)]).unwrap();
     match sin {

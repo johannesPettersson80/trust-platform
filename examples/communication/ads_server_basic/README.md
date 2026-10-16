@@ -155,7 +155,7 @@ For the production gate, use TwinCAT from a Windows engineering station:
    the runtime audit logs an `ads.server.write` event.
 
 For a quick live-value check in TwinCAT XAE, open the Target Browser, select
-`truST-ADS -> 851 -> global.Setpoint`, and use the Target Browser value preview.
+`truST_ADS -> 851 -> global.Setpoint`, and use the Target Browser value preview.
 Scope View is not required for ADS server validation; it adds a separate Scope
 Server recording workflow and should be treated as optional interop, not the
 primary proof path.

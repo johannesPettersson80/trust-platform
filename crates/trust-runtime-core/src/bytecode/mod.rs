@@ -52,21 +52,45 @@ impl BytecodeVersion {
     }
     /// Legacy default producer format during the A3/A4 migration.
     pub const LEGACY: Self = Self::new(1, 1);
-    /// Complete source-free construction format; execution support is separate.
-    pub const SOURCE_FREE: Self = Self::new(2, 0);
+    /// Previous source-free construction format with legacy short temporal widths.
+    pub const SOURCE_FREE_V2: Self = Self::new(2, 0);
+    /// Current source-free format with uniform eight-byte temporal storage.
+    pub const SOURCE_FREE: Self = Self::new(3, 0);
 
-    /// Version support for the dual-major byte-oriented reader.
+    /// Explicit supported pairs; a known major does not admit an unknown minor ABI.
     pub const fn is_supported(self) -> bool {
-        self.major == 1 || (self.major == 2 && self.minor == 0)
+        matches!((self.major, self.minor), (1, 0 | 1) | (2 | 3, 0))
     }
 
-    /// All 2.0 common payloads retain the extended 1.1 layout.
+    /// Whether this pair contains complete source-free construction metadata.
+    pub const fn is_source_free(self) -> bool {
+        matches!((self.major, self.minor), (2 | 3, 0))
+    }
+
+    /// Common payloads of 2.0/3.0 retain the extended 1.1 record layout.
     pub const fn uses_extended_layout(self) -> bool {
-        self.major == 2 || self.minor >= 1
+        matches!((self.major, self.minor), (1, 1) | (2 | 3, 0))
+    }
+
+    /// Whether relative structure offsets may be serialized by this version.
+    pub const fn has_relative_layouts(self) -> bool {
+        matches!((self.major, self.minor), (3, 0))
+    }
+
+    /// Derive storage interpretation from an explicitly supported artifact pair.
+    pub const fn storage_abi(self) -> Result<crate::value::StorageAbi, BytecodeError> {
+        match (self.major, self.minor) {
+            (1, 0 | 1) | (2, 0) => Ok(crate::value::StorageAbi::LegacyTemporal32),
+            (3, 0) => Ok(crate::value::StorageAbi::UniformTemporal64),
+            _ => Err(BytecodeError::UnsupportedVersion {
+                major: self.major,
+                minor: self.minor,
+            }),
+        }
     }
 }
 
-/// Default legacy producer major; reader support also includes STBC 2.0.
+/// Default legacy producer major; current source-free producers use `SOURCE_FREE`.
 pub const SUPPORTED_MAJOR_VERSION: u16 = 1;
 /// Supported minor bytecode version.
 pub const SUPPORTED_MINOR_VERSION: u16 = 1;
@@ -196,51 +220,54 @@ impl<'a> BytecodeReader<'a> {
 
     /// Read a borrowed byte range of length `len`.
     pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], BytecodeError> {
-        if len > self.remaining() {
-            return Err(BytecodeError::UnexpectedEof);
-        }
-        let start = self.cursor;
-        self.cursor += len;
-        Ok(&self.data[start..start + len])
+        let end = self
+            .cursor
+            .checked_add(len)
+            .ok_or(BytecodeError::UnexpectedEof)?;
+        let bytes = self
+            .data
+            .get(self.cursor..end)
+            .ok_or(BytecodeError::UnexpectedEof)?;
+        self.cursor = end;
+        Ok(bytes)
+    }
+
+    // Convert the proved length once. Indexing an opaque returned slice one
+    // byte at a time otherwise emits a separate panic path for every byte.
+    fn read_array<const N: usize>(&mut self) -> Result<[u8; N], BytecodeError> {
+        self.read_bytes(N)?
+            .try_into()
+            .map_err(|_| BytecodeError::UnexpectedEof)
     }
 
     /// Read one unsigned byte.
     pub fn read_u8(&mut self) -> Result<u8, BytecodeError> {
-        Ok(self.read_bytes(1)?[0])
+        Ok(self.read_array::<1>()?[0])
     }
 
     /// Read a little-endian `u16`.
     pub fn read_u16(&mut self) -> Result<u16, BytecodeError> {
-        let bytes = self.read_bytes(2)?;
-        Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
+        Ok(u16::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `u32`.
     pub fn read_u32(&mut self) -> Result<u32, BytecodeError> {
-        let bytes = self.read_bytes(4)?;
-        Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        Ok(u32::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `u64`.
     pub fn read_u64(&mut self) -> Result<u64, BytecodeError> {
-        let bytes = self.read_bytes(8)?;
-        Ok(u64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]))
+        Ok(u64::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `i32`.
     pub fn read_i32(&mut self) -> Result<i32, BytecodeError> {
-        let bytes = self.read_bytes(4)?;
-        Ok(i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        Ok(i32::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `i64`.
     pub fn read_i64(&mut self) -> Result<i64, BytecodeError> {
-        let bytes = self.read_bytes(8)?;
-        Ok(i64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]))
+        Ok(i64::from_le_bytes(self.read_array()?))
     }
 }
 
@@ -486,3 +513,6 @@ mod tests {
         assert!(!super::PouKind::Function.is_class_like());
     }
 }
+
+#[cfg(test)]
+mod reader_tests;

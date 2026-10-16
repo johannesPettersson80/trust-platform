@@ -45,11 +45,11 @@ fn legacy_v1_count_snapshot_bytes(value: i32) -> Vec<u8> {
     bytes
 }
 
-fn rewrite_v2_payload_value(path: &std::path::Path, before: &[u8], after: &[u8]) {
+fn rewrite_v3_payload_value(path: &std::path::Path, before: &[u8], after: &[u8]) {
     assert_eq!(before.len(), after.len());
     let mut bytes = std::fs::read(path).expect("read retain image");
     assert_eq!(&bytes[..4], b"STRN");
-    assert_eq!(u16::from_le_bytes(bytes[4..6].try_into().unwrap()), 2);
+    assert_eq!(u16::from_le_bytes(bytes[4..6].try_into().unwrap()), 3);
     let payload_len = u64::from_le_bytes(bytes[6..14].try_into().unwrap()) as usize;
     let payload_start = 14;
     let payload_end = payload_start + payload_len;
@@ -287,7 +287,7 @@ END_PROGRAM
         store
             .store(&persisted)
             .expect("store structurally valid finite retain snapshot");
-        rewrite_v2_payload_value(&path, &case.before, &case.after);
+        rewrite_v3_payload_value(&path, &case.before, &case.after);
 
         harness
             .runtime_mut()
@@ -417,7 +417,17 @@ END_PROGRAM
         err.to_string().contains("outside declared subrange 0..10"),
         "expected subrange retain rejection, got {err}"
     );
+    assert!(matches!(&err,
+        trust_runtime::error::RuntimeError::RetainSubrangeViolation {
+            name, value: 100, lower: 0, upper: 10,
+        } if name.as_str() == "limited"
+    ));
+    assert_eq!(
+        err.stable_code(),
+        trust_runtime_core::error_code::StableErrorCode::RuntimeSubrangeViolation
+    );
     assert_eq!(harness.get_output("limited"), Some(Value::Int(0)));
+    assert!(!harness.runtime().faulted());
 }
 
 #[test]
@@ -447,6 +457,15 @@ END_PROGRAM
         err.to_string().contains("outside declared subrange 0..10"),
         "expected subrange retain rejection, got {err}"
     );
+    assert!(matches!(&err,
+        trust_runtime::error::RuntimeError::RetainSubrangeViolation {
+            name, value: 100, lower: 0, upper: 10,
+        } if name.as_str() == "rejected_later"
+    ));
+    assert_eq!(
+        err.stable_code(),
+        trust_runtime_core::error_code::StableErrorCode::RuntimeSubrangeViolation
+    );
     assert_eq!(
         harness.get_output("accepted_first"),
         Some(Value::DInt(70)),
@@ -457,6 +476,7 @@ END_PROGRAM
         Some(Value::Int(7)),
         "the invalid retained target must preserve its pre-load value"
     );
+    assert!(!harness.runtime().faulted());
 }
 
 #[test]

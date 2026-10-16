@@ -3,6 +3,16 @@
 mod consumer;
 mod contracts;
 mod factory;
+#[cfg(any(
+    test,
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-database-timescaledb",
+    feature = "openot-database-mysql",
+    feature = "openot-database-sqlserver",
+    feature = "openot-database-influxdb3",
+))]
+mod identity;
 #[cfg(feature = "openot-database-influxdb3")]
 mod influxdb3;
 #[cfg(feature = "openot-database-influxdb3")]
@@ -21,8 +31,32 @@ mod postgres_read_model;
     feature = "openot-database-timescaledb"
 ))]
 mod postgresql;
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-database-timescaledb",
+    feature = "openot-database-mysql",
+    feature = "openot-database-sqlserver",
+    feature = "openot-database-influxdb3",
+))]
 mod projection;
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-database-timescaledb",
+    feature = "openot-database-mysql",
+    feature = "openot-database-sqlserver",
+    feature = "openot-database-influxdb3",
+))]
 mod projection_domains;
+#[cfg(any(
+    feature = "openot-database-sqlite",
+    feature = "openot-database-postgresql",
+    feature = "openot-database-timescaledb",
+    feature = "openot-database-mysql",
+    feature = "openot-database-sqlserver",
+    feature = "openot-database-influxdb3",
+))]
 mod schema_contract;
 mod service;
 #[cfg(unix)]
