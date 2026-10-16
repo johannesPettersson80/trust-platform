@@ -7,6 +7,58 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**16 October: the remaining work to finish this checklist (owner: "we shall finish the checklist").
+Nothing is done while any item here or below is open.** Spec 34 defines these steps (M3, M4H, M4,
+M5); until now they existed only as one row each in the scope table. Order: the board product items
+first (QF1–QF3, QE1–QE3), so a user can run their own program on both boards, then the rest. The
+STM32 release is complete only when spec 34's "first MCU release is complete" paragraph holds; the
+ESP32 release only when the C6 separately meets the same gates.
+
+C — Bounded operation (M3), shared by both boards:
+- [ ] C1 Bounded compound storage: retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
+  compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the boards.
+- [ ] C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
+  online change; the two ignored tests (`checked_admission_stale_binding.rs`,
+  `restart_generation_stale_handles.rs`) run and pass. Closes the scope C deferral item below.
+- [ ] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
+- [ ] C4 Import and admission bounds, and capability and deployment records.
+- [ ] C5 Persistence: retain variables survive a power cut through stop checkpoints in the reserved
+  slots (F401 sectors 2 and 3, C6 `ckpt_a`/`ckpt_b`), with interrupted-write recovery.
+
+QF — STM32 (NUCLEO-F401RE) product and qualification (M4):
+- [ ] QF1 Product runner: the board boots into its controlled state with outputs safe, starts only
+  through the configured start policy (spec 34 §11.2 step 9), then runs the user's installed
+  application continuously (not the M2E fixture) with STOP/RUN, cycle timing, the watchdog and safe
+  outputs on a fault.
+- [ ] QF2 Real I/O: board pins mapped to `%I`/`%Q` through a board profile, digital inputs and
+  outputs first.
+- [ ] QF3 Deployment: one command runs the stopped installation workflow (spec 34 §11.2): read the
+  board's capability descriptor, build the user's project into the application bundle, check
+  compatibility (DEPLOY-04), stop the board, transfer, validate and prepare on the board, and mark
+  the installation complete so that an interruption or power cut never selects a partial
+  application (DEPLOY-03). Only an authorized application is accepted (DEPLOY-06).
+- [ ] QF4 Bounded serial management: status, start and stop, and online values over the board's
+  USB serial.
+- [ ] QF5 Retain on the board, using C5.
+- [ ] QF6 Disturbed and mixed-rate workloads and extended tests; section 14 acceptance within the
+  F401's flash, RAM and stack, with completion-level timing evidence.
+- [ ] QF7 Release: the F401 firmware and its flashing instructions attached to the GitHub release.
+
+QE — ESP32-C6-DevKitC-1 product and qualification (M5):
+- [ ] QE1 Product runner on the C6 adapter, as QF1.
+- [ ] QE2 Real I/O pin map for the DevKitC-1, as QF2.
+- [ ] QE3 Deployment into the `stbc` partition with one command, as QF3.
+- [ ] QE4 Serial management, as QF4, and retain in `ckpt_a`/`ckpt_b`, using C5.
+- [ ] QE5 Disturbances and the common corpus; section 14 acceptance on the named board. Also needs
+  the open C6 items above: the released bootloader, the QIO retest and supervision in a debug
+  halt.
+- [ ] QE6 Release: the C6 firmware attached to the GitHub release.
+
+QH — Hosted qualification (M4H):
+- [ ] QH1 Qualify the runtime-only, full and development builds on each claimed operating system
+  and architecture against section 14: timing classification, generation changes, wake and
+  overload behaviour, and baseline-relative performance.
+
 **16 October: findings after the combined push, and the open items to fix (owner: "add all this
 to the checklist to be fixed").** PR #137 is green on Linux, Windows and macOS at `d45acf1d1`.
 
@@ -28,7 +80,7 @@ Open, to be fixed:
   6 unviable, 1 timeout). It ran only `trust-runtime-core`'s own unit tests; rerun the uncaught
   mutants against the `trust-runtime` integration and journey suites, then add tests for the real
   gaps.
-- [ ] Miri: the x86_64 `lib-engine` and `int-budget` groups are still running. Every finished group
+- [x] (Closed 16 Oct: lib-engine (158 tests) and int-budget (18 tests) passed; every Miri group finished with 0 undefined behaviour.) Miri: the x86_64 `lib-engine` and `int-budget` groups are still running. Every finished group
   is clean, including the s390x reruns of `int-state`, `lib-rest` and `int-bytecode`.
 - [ ] C6: replace the second-stage bootloader that espflash 4.6.0 bundles (ESP-IDF
   v6.1-beta1-497-g14f663f003e) with a released one; M5 requires it.
@@ -86,7 +138,7 @@ Branch `feat/runtime-portability-c6`: the C6 commits on H's head plus the superv
     final head's): verify passed,
     101 rows, stack peak 10,856 B, slowest main scan 1,972 µs, numeric 2,277 µs (364,114 cycles),
     33 banner lines, checkpoint partitions byte-identical.
-- [ ] Open: QIO flash mode did not boot with espflash's bundled bootloader (the board stays on
+- [x] (Superseded 16 Oct: duplicate of the 16 Oct open items for the C6 bootloader, QIO, debug halt and canvas.) Open: QIO flash mode did not boot with espflash's bundled bootloader (the board stays on
   DIO); that bootloader is ESP-IDF v6.1-beta1 and M5 needs a released one; supervision during a
   debug halt is not evaluated; optical LED and manual button transitions stay unverified; board
   selection and USB discovery in the hardware canvas (owner request) is a separate slice.
@@ -153,7 +205,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   green: Test passes on Linux, macOS and Windows (the Windows examples run included), and the
   Release Gate Report passes; 23 checks succeeded and the 3 schedule-only jobs (capture refresh,
   Miri nightly, fuzz extended nightly) were skipped (`ci-fcf2499f2.log`).
-- [ ] A13/A27 audit (`A13/AUDIT-REPORT.md`, read-only, expected values computed independently
+- [x] (Closed 16 Oct: fixes in 59daab5a5; MOD by zero recorded as DEV-023.) A13/A27 audit (`A13/AUDIT-REPORT.md`, read-only, expected values computed independently
   from IEC 61131-3 and IEC 60559): 251 boundary rows across 13 standard-function families; 152
   covered, 7 covered weakly, 70 missing, 22 needing a decision. Decided on the merits (specs 07,
   08, 10, 34 and DEV-023):
@@ -172,21 +224,21 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     calls; `TP` with `PT <= 0` keeps `Q` false; `ASSERT_NEAR` documents its real tolerance;
     `INSERT`'s example in spec 07 was wrong; `FIND` of an empty pattern is 1.
   - Implementation and tests in progress (agents N1 for the changes, N2 for the oracle tests).
-- [ ] A03 finding: the FOR loop's zero-step guard (`HALT`, opcode `0x01`) had no register
+- [x] (Closed 16 Oct: lowered in b22d3aa65.) A03 finding: the FOR loop's zero-step guard (`HALT`, opcode `0x01`) had no register
   lowering, so every POU with a FOR loop fell back whole to the shared stack path (fallback
   reason `unsupported_opcode_0x01`). Register IR also leaves 23 more opcodes to the stack path
   (shifts and rotates, `EXPT`, partial access, method and virtual calls, debug marks). HOST-04
   now requires the HALT lowering (in progress); the other opcodes are optimization coverage,
   measured by A03 once it runs.
-- [ ] A03 (`property_executor_differential.rs`, proptest 1.12 with a fixed seed): generated
+- [x] (Closed 16 Oct: 48 cases pass in CI and the 3,000-case campaign passed.) A03 (`property_executor_differential.rs`, proptest 1.12 with a fixed seed): generated
   well-typed programs (BOOL/INT/DINT/LINT/REAL/LREAL, functions, IF/CASE/FOR/WHILE, arrays,
   division and overflow on purpose) run on the stack, register and Tier-1 arms with per-cycle
   comparison of results, faults, outputs and variables. 48 cases pass in CI; a 3,000-case campaign
   passed (`A03-campaign-1`). The first run found only a test defect (NaN/infinity written to a
   REAL input, which the runtime correctly refuses with `NonFiniteValue`).
-- [ ] A04 (`property_metamorphic.rs`): positional arguments, POU order, artifact round trip and
+- [x] (Closed 16 Oct: 48 cases each pass (81dd2c482).) A04 (`property_metamorphic.rs`): positional arguments, POU order, artifact round trip and
   repeated preparation preserve per-cycle behaviour; 48 cases each pass.
-- [ ] A10/A15/A11 audit (`A10/AUDIT-REPORT.md`): 72 requirements, 48 asserted exactly, 10
+- [x] (Closed 16 Oct: audit recorded; its tests and deferral are tracked by the items that follow.) A10/A15/A11 audit (`A10/AUDIT-REPORT.md`): 72 requirements, 48 asserted exactly, 10
   weakly, 14 missing. Decisions: generation tokens (MEM-07, UPDATE-04), RETAIN-01 identity and
   sequence, the installation journal and the bounded persistence worker stay in C, MCU or M3 as
   spec 34 §4.3.1 and §10 assign them. Non-returning callbacks (TIME-03): first taken to be covered
@@ -216,7 +268,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   - Spec gaps recorded for a spec pass: values after a scan that faults after the scan-boundary
     writes; two queued writes to one target; writes and forces while faulted; operations while
     the debugger holds the resource; direct-address initializers at restart.
-- [ ] A10/A15/A11 tests: retain checkpoint truncation at every length and corrupt headers, the
+- [x] (Closed 16 Oct: tests in 81dd2c482, validated by focused check 4.) A10/A15/A11 tests: retain checkpoint truncation at every length and corrupt headers, the
   deadline swept over every poll point, failed periodic save, candidate refusal on a live
   runtime, allocation refusal in retained apply and graph transfer, store faults in warm restart,
   read-side input failure, failed warm restart keeping live state; the RT_* trace runners now
@@ -224,7 +276,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   - TIME-03 is not met on hosted builds: the watchdog checks elapsed time only after the cycle
     returns, so a driver read that never returns stalls the resource with no fault (spec 34 R33
     already names the same-thread watchdog). Fixed in round 6 (below).
-- [ ] Round 6 — faulted resource lifecycle and hosted hang supervision (spec 11 §6.6, both blocks
+- [x] (Closed 16 Oct: validated at cf5ce62e5 (focused check 4, 19 of 19).) Round 6 — faulted resource lifecycle and hosted hang supervision (spec 11 §6.6, both blocks
   written 15 October). Found while reviewing A08/R4: after an ordinary halting fault the runner
   loop ended its thread, the binary then shut the servers down and exited with status 0, and a
   control `restart` was acknowledged ("restart queued") but never applied, so a faulted PLC could
@@ -244,7 +296,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   1.040–1.049, pooled p99 1.119; refs_sizeof 0.847–0.866; string_stdlib 0.967–0.984). F401 replay
   (`H-cost-model-board-9`): verifier passed, 101 trace samples, MSP peak 11,616 B (unchanged),
   maximum main scan 3,761 µs, 4,480 B firmware code free (256 B less than batch 8: stdlib growth).
-- [ ] Round 7 (A16 concurrency, A18 allocation and stack, A17 audit) and round 8 (A27 function-block
+- [x] (Closed 16 Oct: pushed; PR #137 green on Linux, Windows and macOS at d45acf1d1.) Round 7 (A16 concurrency, A18 allocation and stack, A17 audit) and round 8 (A27 function-block
   oracles, A28 bounded exhaustive checks, security fixes), to be validated together with one final
   batch, guard and push (owner, 15 October: "fix everything and then push"). Findings fixed:
   - A16: queued restarts coalesced and a later warm request replaced a pending cold one (cold now
@@ -281,7 +333,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     `scripts/run_fuzz_campaign.py` at the committed source) remains to be recorded.
   - A17 Miri campaign 1 over trust-runtime-core: no undefined behaviour; groups reaching libm's x86_64
     inline assembly are rerun on s390x.
-- [ ] Round 4 focused checks: check 1 stopped on its free-space guard (the assurance cargo target
+- [x] (Superseded 16 Oct: check 4 passed 19 of 19.) Round 4 focused checks: check 1 stopped on its free-space guard (the assurance cargo target
   had grown to 230 GB; removed). Check 2: 10 workspace tests failed from two causes (the new
   initializer range check passed a subrange type to a base-type test; an A08 atomicity check
   treated a faulting scan as a refusal) and Clippy found two `explicit_auto_deref` items. Check 3:
@@ -295,7 +347,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     failed preparation; the clearing boundary is the commit (wording fixed).
   - `RT_RELOAD_001` releases its force before any scan, so it never showed a force surviving a
     failed reload; `failure_injection_warm_restart_state.rs` now does.
-- [ ] A12 (`temporal_layout_*.rs`, 15 tests) and A14 (`scheduling_*.rs`, 19 tests). Defects:
+- [x] (Closed 16 Oct: fixes in faeeaa2ee, tests in 81dd2c482.) A12 (`temporal_layout_*.rs`, 15 tests) and A14 (`scheduling_*.rs`, 19 tests). Defects:
   - Timer elapsed spans wider than the TIME range panicked in debug builds and wrapped in release
     (spec 08 §5: saturates at PT).
   - LTIME, LDATE, LTOD and LDT were refused at `%IL`/`%QL` addresses although spec 10 maps 64-bit
@@ -410,14 +462,14 @@ branch, specifications first. Evidence: external `runtime-portability-h/fix-all/
     the shift is code placement, not added work.
 - [x] Guard 16 passed on `a446a0c91` (planner and catalog staleness advisory; test-all 14 min);
   pushed `3d9638ca5..a446a0c91` to PR #137.
-- [ ] Native CI on `a446a0c91`: 24 of 26 checks pass, including Test on Ubuntu and macOS. Test
+- [x] (Closed 16 Oct: fixed in fcf2499f2; CI green on three OS.) Native CI on `a446a0c91`: 24 of 26 checks pass, including Test on Ubuntu and macOS. Test
   (windows-latest) failed both attempts in `every_runnable_example_builds_and_validates`
   (Unix-socket control endpoints, recorded at the top of this checkpoint), and the Release Gate
   Report reports that failure. The next push carries the test's Windows endpoint handling.
 - [ ] Not done: the public-API baselines (`docs/internal/architecture/public-api/*.txt`) are not
   regenerated. `cargo public-api` 0.52 needs a nightly toolchain, which the builder lacks;
   installing one is the owner's decision. No gate compares them.
-- [ ] New open questions:
+- [x] (Superseded 16 Oct: each question was decided (MQTT stale input, bounded event store, test-only create_instance).) New open questions:
   - MQTT input-freshness states still count as degraded connection health, so they start
     reconnect backoff and unconfirm a safe-state handoff (spec 34 §11.1 keeps that behaviour);
     whether stale input should affect the output path is undecided.
@@ -551,7 +603,7 @@ Evidence: external `runtime-portability-h/` (`H-perf-diag/`, `A20/`, `guard-10.l
     and `ReferenceContext` is an unsealed public trait under `full` (`vm/context.rs:9`);
   - CI's `cargo test --all-targets` runs no doc tests, no gate builds the runtime-only
     composition, and the public-API baselines are stale and not compared by any gate.
-- [ ] Release guard on the A09 commit, the push to PR #137 and native CI. Guard 13
+- [x] (Closed 16 Oct: guard 16 passed on a446a0c91 and pushed.) Release guard on the A09 commit, the push to PR #137 and native CI. Guard 13
   (`aedf192b8`) failed FULLMAP-CHECK-10: A09 had grown `runtime_core_compiler_free_load.rs`
   past the 1,000-line module threshold. That file is restored, and its zero-allowance
   assertions live in core `preparation_profile.rs` (exact `ProfileUnsupported` for zero work
@@ -655,7 +707,7 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   unchanged, so the code moved; the failing round is that shift plus disturbance (H 5,904 ns).
   The repeats of rounds 3 and 5 were disturbed for U (about 7,700 ns) and still count as final
   under the disturbed-round rule, which skews those rounds in H's favour.
-- [ ] Follow-up (owner decision 14 October: rerun now and track the regression): find the 1.9%
+- [x] (Closed 16 Oct: root cause removed in ea0193246 (+0.016%).) Follow-up (owner decision 14 October: rerun now and track the regression): find the 1.9%
   `call_binding` slowdown between run 5 and batch 6 (A01 or #135/#136; the builder has no
   profiler, so bisect with rebuilt benchmark binaries) and remove it if it is avoidable.
 - [x] Owner-authorized rerun of the two failed checks on `561afed39` (`H-cost-model-6-rerun`,
@@ -663,7 +715,7 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   `call_binding` medians 1.042 to 1.060 in all five rounds and pooled p99 ratios 1.115
   (`call_binding`), 0.556 (`refs_sizeof`) and 0.894 (`string_stdlib`). Round 3's per-round
   `call_binding` p99 of 1.336 is recorded only, under the pooled rule.
-- [ ] Release guard, the push to PR #137 and native CI. Attempt 8 (`36a46fa33`) stopped at
+- [x] (Closed 16 Oct: guard 10 passed on 77fba46dc after the MP-001 fix.) Release guard, the push to PR #137 and native CI. Attempt 8 (`36a46fa33`) stopped at
   `remote_exact_head` because the lead had not staged the candidate on the builder. Attempt 9
   passed every step through `remote_test_all` (format, Clippy, cross-target warnings, supply
   chain, architecture safety, VS Code, test-all in 13.5 minutes) and failed
@@ -737,7 +789,7 @@ professional runtime"). The validated run-4 source is backed up externally
   ignored); core all-features 775, portable 633, register 687, i686 686; applications 91;
   runtime vertical 38; lint, architecture, diagrams, docs, supply chain, compositions, MCU
   lanes; real-database gate; browser captures 10; VS Code 1.109.0 and stable 519 each.
-- [ ] PERF-01 in run 5 (consumer `0f1b6996…`; quiet wait 0 s, load 1.41): medians pass every
+- [x] (Superseded 16 Oct: owner rule of a pooled p99; PERF-01 passes.) PERF-01 in run 5 (consumer `0f1b6996…`; quiet wait 0 s, load 1.41): medians pass every
   round (`call_binding` 1.028–1.051, `refs_sizeof` 0.597–0.835, `string_stdlib`
   0.950–0.990). The owner-approved disturbed-round rule (spec 34 PERF-01, harness installed
   11:22:36 UTC before any timing) re-measured `refs_sizeof` round 1 (U +48%, repeat disturbed
@@ -1006,7 +1058,7 @@ No current ELF inspection, board test or physical timing proof exists.
   zero diagnostic loss. The unchanged 1M limit still fails; this is not H acceptance.
 - [x] H-CURRENT-RECORDER-RECOVERY — Native compile, drain/retry, scope restoration
   and lint verified. The old failed ledgers are retained.
-- [ ] H-CURRENT-TYPED-ARRAY-DECISION — Owner question pending: bring forward the
+- [x] (Superseded 16 Oct: replaced by TIME-08/09.) H-CURRENT-TYPED-ARRAY-DECISION — Owner question pending: bring forward the
   planned MEM-06/MEM-11 primitive-array storage slice into H, using one shared typed
   storage/call interface and private snapshots while preserving full functions,
   whole-value copyback, rollback, aliases and both execution paths. Public Value
@@ -1015,7 +1067,7 @@ No current ELF inspection, board test or physical timing proof exists.
   SHA `1a7cb7d55c2495fcbf3cb38f995ded003ddff91aeeb136e3182053e8df6860da`.
   No storage implementation is authorized by this checklist entry; no gain or fit
   is promised. This is the architectural decision reserved by the user's H goal.
-- [ ] H-CURRENT-CONSTRUCTOR-PROOF — Design review requires actual canonical shell
+- [x] (Superseded 16 Oct: replaced by TIME-08/09.) H-CURRENT-CONSTRUCTOR-PROOF — Design review requires actual canonical shell
   naming and composed nesting-depth proof before removing parent walks. Successful
   clone-normalize-and-discard does not prove the original value canonical. No proof
   bypass is implemented; database/PLCopen deficits remain **713,843 / 138,605** units.
@@ -1093,12 +1145,12 @@ only attribution vectors while retaining coarse counts; the prepared drain fix a
 native regression cover all event families and failure counters together. Successful
 first-finish application captures remain recorded without claiming unit-test proof.
 
-- [ ] H-CURRENT-SPARSE-OWNER-CACHE — Implement and independently review the bounded
+- [x] (Closed 16 Oct: duplicate of the ticked H-CURRENT-SPARSE-OWNER-CACHE item.) H-CURRENT-SPARSE-OWNER-CACHE — Implement and independently review the bounded
   folded cache, preserving first-owner precedence, full identities, empty/collision/
   corruption fallback, actual work charges and admitted storage bounds. Test sparse
   identities and u32::MAX; replay the original changed-scan artifact before claiming
   savings. Combine this with the diagnostic unit/lint recovery in one focused batch.
-- [ ] H-CURRENT-INOUT-DESIGN — Compare the measured mutable-array copying with the
+- [x] (Superseded 16 Oct: TIME-08 makes IN_OUT snapshots bookkeeping.) H-CURRENT-INOUT-DESIGN — Compare the measured mutable-array copying with the
   written call transaction contract and prior code before selecting a representation
   change. No aliasing shortcut, check removal, work-limit increase or function loss.
 
@@ -1138,7 +1190,7 @@ inspection remain unrun because their respective prerequisites failed.
 - [x] H-CURRENT-MARKER-READ — Each necessary marker directory is searched once,
   after its own admitted bound; row access is charged separately. Missing-directory
   and each refusal-stage cases pass; insertion/publication safety stays unchanged.
-- [ ] H-CURRENT-CONSUMER-ATTRIBUTION — The remaining 541 target-array copies and
+- [x] (Closed 16 Oct: attribution recorded: 529 of 541 copies are IN_OUT.) H-CURRENT-CONSUMER-ATTRIBUTION — The remaining 541 target-array copies and
   13,287 owner fallbacks lack exact consumer/POU attribution. Add bounded numeric
   identities to existing test-support logging, retain the same artifact bytes for
   offline identity resolution, and verify zero drops and reconciliation to unchanged
@@ -1182,12 +1234,12 @@ The default F401 link occupies 468,096 bytes against 458,752 bytes in upper flas
   ordinals, active type-operation masks, and private owned-local transfer. The
   feature-lane native coverage and focused recovery above support these mechanisms;
   this item does not assert application acceptance or performance improvement.
-- [ ] H-CURRENT-METADATA-BORROW — Remove the measured repeated TYPE_TABLE metadata
+- [x] (Closed 16 Oct: duplicate of the ticked H-CURRENT-METADATA-BORROW item.) H-CURRENT-METADATA-BORROW — Remove the measured repeated TYPE_TABLE metadata
   clones by borrowing the admitted immutable tables across mutable construction
   callbacks. Preserve recursive recipes, type/lifetime checks, refusal order for
   remaining operations, and actual allocation/copy/hash charges. Update all
   construction and retain-migration callers and native assertions before review.
-- [ ] H-CURRENT-RESIDUAL-RCA — Inspect remaining owner fallback searches and array
+- [x] (Superseded 16 Oct: RCA recorded; it led to TIME-08 and the marker removal.) H-CURRENT-RESIDUAL-RCA — Inspect remaining owner fallback searches and array
   target reads against their consumers; select only source-grounded changes that
   preserve value, lifetime, alias and rollback semantics. Review current firmware
   symbol growth before selecting a size correction. No claimed savings before maps.
@@ -1217,7 +1269,7 @@ Vec parameter, a complex test-only capacity tuple, and an ignored test Result.
 The four small corrections are prepared, not yet tested. Architecture, diagram
 drift and frozen source/harness checks pass. No timing, firmware or hardware run.
 
-- [ ] H-CURRENT-REDUNDANT-WORK — Implementing four corrections from the complete
+- [x] (Closed 16 Oct: the four corrections are implemented (H-CURRENT-REUSE-REGRESSIONS).) H-CURRENT-REDUNDANT-WORK — Implementing four corrections from the complete
   records: retain marker insertion positions through admitted publication; direct
   owner/root indirection bounded by admitted record counts with sparse fallback;
   constant-time active `(type, operation)` membership; transfer private owned call
@@ -1271,11 +1323,11 @@ R4's original Work results and all 215 work/152 copy rows. PLCopen marker cost i
 The database constructor separately shifts 99,507 entries for first declarations;
 a sparse outer declaration map would retain that cause.
 
-- [ ] H-CURRENT-MARKER-PAGES — Sparse 64-declaration by 64-owner pages; preserve
+- [x] (Superseded 16 Oct: markers restored to the sorted-vector form.) H-CURRENT-MARKER-PAGES — Sparse 64-declaration by 64-owner pages; preserve
   keys/order, combined admission before publication, actual page/iteration demand,
   full-width identities, retain/rollback and allocation-failure guarantees. Measure
   sparse-case and F401 RAM; do not assume a memory saving.
-- [ ] H-CURRENT-INDEX-CHARGES — One entry unit plus the actual branch's index bounds
+- [x] (Superseded 16 Oct: bookkeeping is no longer charged (TIME-08).) H-CURRENT-INDEX-CHARGES — One entry unit plus the actual branch's index bounds
   before each search, preserving dense paths and sparse/missing fallback. Recorded
   change-scan prefix projects 61,826 fewer units; completion is not yet demonstrated.
 - [ ] H-CURRENT-STACK-ONLY — Keep native stack calls in the SAME opcode loop only
@@ -1379,19 +1431,19 @@ this is evidence recovery, not a new performance pass.
   work/copy records retained. All snapshots have zero dropped/busy records. Caller
   attribution isolates 390,413 of 1,000,000 constructor work units in lifecycle-mark
   sorted insertion; its 32 work rows reconcile exactly to the original total.
-- [ ] H-CURRENT-WORK — Implement admitted sparse lifecycle marks with unchanged
+- [x] (Superseded 16 Oct: markers restored to the sorted-vector form.) H-CURRENT-WORK — Implement admitted sparse lifecycle marks with unchanged
   identity/order, truthful binary-search/name comparison bounds, and transfer of
   completed function output payloads instead of cloning discarded originals.
   Preserve allocation/work admission, write/lifetime checks and transactional
   alias/copyback behavior. No allowance increase or function removal.
-- [ ] H-CURRENT-STACK — Replace synchronous register-call recursion with shared
+- [x] (Superseded 16 Oct: the admitted depth-33 tests pass.) H-CURRENT-STACK — Replace synchronous register-call recursion with shared
   suspended continuations, preserving nested distinct register execution, occupied
   recursion fallback, tier-1 and fault cleanup. The failing binary reserves 50,584
   bytes per register activation versus 39,240 in Run15; the admitted depth-33 test
   aborts. No stack-size workaround, depth reduction or disabling register execution.
 - [x] H-CURRENT-HARNESS — Formatting, consumer locks and retained evidence transfer
   corrected. Preserve prior failures and the zero-selection log.
-- [ ] H-CURRENT-PERFORMANCE — Current elapsed-time acceptance remains open.
+- [x] (Closed 16 Oct: PERF-01 passes in batches 8 to 10.) H-CURRENT-PERFORMANCE — Current elapsed-time acceptance remains open.
   Instruction counts or fewer charged work units do not waive timing limits.
 
 Next: complete these measured corrections, independent review, then one focused
@@ -2285,7 +2337,7 @@ external `H-root-correction-16/RESULTS.md`, `validation/`, `profile/`.
 - [x] H21-RCA-12: construct Overflow only on refused checked insertion-demand sum;
   preserve exact growth/search/move charges. Measured success-path temporary drop
   cost: 5,760 calls, 57,600 instructions, in frame initialization.
-- [ ] Independent review, then focused core/portable/32-bit/MCU, hosted service,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independent review, then focused core/portable/32-bit/MCU, hosted service,
   VM/vertical, lint/architecture and ordinary release comparison against U/C15.
   No full suite or commit while PERF-01 remains open.
 
@@ -2301,13 +2353,13 @@ C15 exact-binary Callgrind: 89,036,325 instructions. H21-RCA-8/9 are verified;
 overall H21 is not. External evidence: `H-root-correction-15/`.
 
 **C16 measured correction scope:**
-- [ ] H21-RCA-10: keep top-level shallow value-copy admission local to its caller,
+- [x] (Superseded 16 Oct: H21-RCA-10 was rejected.) H21-RCA-10: keep top-level shallow value-copy admission local to its caller,
   retaining one work/deadline charge followed by the exact allocation charge.
   C15 still executes 33,033 tier-1 estimator calls (1,420,419 self instructions)
   through an outlined `Result<usize, RuntimeError>` boundary for scalar success.
   Recursive owned-value accounting and depth limits remain unchanged. Diagnostic
   and ordinary builds must execute the same admission logic.
-- [ ] Independently review, freeze, then run focused native/portable/32-bit/MCU,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independently review, freeze, then run focused native/portable/32-bit/MCU,
   hosted VM/vertical, Clippy and architecture checks and conditional ordinary
   release comparison. No full suite, commit or push while PERF-01 is open.
 
@@ -2329,7 +2381,7 @@ No full suite, commit or push. Evidence: external `H-root-correction-14/`.
 - [x] H21-RCA-9: reset returned frame locals to NULL in place, retaining length,
   capacity, backing address and destruction order. C14 measures 9,216 generic
   NULL-clone calls from clear-plus-resize; change only this measured reset method.
-- [ ] Independent review, then focused native/portable/32-bit/MCU and hosted
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independent review, then focused native/portable/32-bit/MCU and hosted
   checks, lint/architecture, followed by conditional ordinary release comparison.
   Preserve the failures, original baseline and thresholds; no full suite or commit.
 
@@ -2342,7 +2394,7 @@ No full suite, commit or push. Evidence: external `H-root-correction-14/`.
 - [x] H21-RCA-7: reuse the immutable return-slot fact read during argument binding
   in private owned call continuation. Keep the public `BoundVmCall` struct and
   borrowed API unchanged, and retain missing-POU/parameter fault order.
-- [ ] Independently review complete code/tests, freeze, then run focused native,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Independently review complete code/tests, freeze, then run focused native,
   portable/32-bit/MCU, hosted VM/vertical, lint and architecture checks. Conditional
   ordinary-release U/C13/C14 comparison uses the same artifacts and thresholds.
   No full workspace suite, commit or push.
@@ -2401,7 +2453,7 @@ and `profile/`. Standing focused-retest authorization applies.
   instructions to the recursive lifetime helper across callers. Savings are not
   inferred from these totals; retained recursive behavior is tested against the
   original helper, including budget/deadline refusal and stale references.
-- [ ] Review completed implementation and tests, freeze, then run core native,
+- [x] (Superseded 16 Oct: the call-path plan replaced the C series; PERF-01 passes.) Review completed implementation and tests, freeze, then run core native,
   no-default/i686, MCU graph checks, hosted VM/vertical, lint and architecture.
   Only after correctness passes, compare ordinary release U/C11/C12 on the same
   saved traces. No full suite until PERF-01 passes. No commit or push.
@@ -2793,7 +2845,7 @@ before the required full acceptance suite. Preserve the full function set, all
 checks, phase/fault ordering, PERF-01 limits and the firmware margin. No H commit
 or push is authorized.
 
-- [ ] **H-P1 — Frame initialization:** review and implement the smallest safe
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P1 — Frame initialization:** review and implement the smallest safe
   reuse of the existing prepared action index. Preserve all four phase charge
   points, phase/trigger selection, supplied parameters/returns and action order.
   Run focused index/initialization/lifecycle regressions, then compare the
@@ -2808,7 +2860,7 @@ or push is authorized.
   unused test-oracle warning. Frame-initialization cost remains open; no larger
   initialization redesign is authorized by this result. Evidence:
   `/home/johannes/projects/.artifacts/runtime-portability-h/H-P1/RESULTS.md`.
-- [ ] **H-P2 — Copy accounting:** identify added/repeated calculations in
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P2 — Copy accounting:** identify added/repeated calculations in
   register read/materialization paths. Correct the owning duplication, preserving
   allocation/work limits and fault boundaries; run focused regressions and measure.
   **Draft archived and reverted; diagnosis pending:** Tier-1 clones register operands on every read
@@ -2819,12 +2871,12 @@ or push is authorized.
   accounting. This proposed change was not run and is not approved for continued
   implementation without the required diagnosis. Benefit is unmeasured. The separate owned-string-element copy
   candidate does not explain these workloads and is not part of this change.
-- [ ] **H-P3 — Function completion:** reassess the matched completion cost after
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P3 — Function completion:** reassess the matched completion cost after
   P1/P2, then correct demonstrated avoidable work with focused proof.
-- [ ] **H-P4 — Budget/deadline reassessment:** distinguish consequences of P1/P2
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P4 — Budget/deadline reassessment:** distinguish consequences of P1/P2
   from independent repeated work. Preserve required checks; do not reduce checks
   or change thresholds to pass performance.
-- [ ] **H-P5 — Final acceptance:** once focused correctness and uninstrumented
+- [x] (Superseded 16 Oct: the 14 Oct call-path plan replaced the H-P sequence; PERF-01 passes.) **H-P5 — Final acceptance:** once focused correctness and uninstrumented
   PERF-01 comparisons pass, obtain review of the complete final diff and run the
   required full H validation. Report any architectural decision blocker rather
   than silently changing the contract. Failed/unrun gates remain open.
@@ -3003,14 +3055,14 @@ review also separates structural type/value traversal from invocation depth,
 preserving the existing 64-edge admission bound and actual call-depth limit.
 No validation pass or H commit/push is claimed. No functions are removed from any composition.
 
-- [ ] H-TIME-01: Versioned 3.0 writer/reader/admission and preserved 1.1/2.0 ABI.
+- [x] (Closed 16 Oct: STBC 3.0 checksum decisions and temporal ABI tests landed.) H-TIME-01: Versioned 3.0 writer/reader/admission and preserved 1.1/2.0 ABI.
 - [ ] H-TIME-02: Uniform temporal SIZEOF, relative extents and array strides.
 - [ ] H-TIME-03: Exact negative/large temporal round trips, legacy atomic refusals,
   old-reader rejection, retain/update ABI compatibility and unchanged I/O codec.
   Preserve saved 2.0 corpora; the conditional H board replay uses a separate 3.0
   GPIO artifact whose existing GPIO/depth oracle depends on full-width physical
   temporal round trips. No binary generation or board execution is claimed yet.
-- [ ] H-TIME-04: Independent review and the consolidated H validation evidence.
+- [x] (Superseded 16 Oct: consolidated validation: PR #137 green on three OS.) H-TIME-04: Independent review and the consolidated H validation evidence.
 
 Independent correction review is closed by source inspection, with exact-path
 receipts outside git under `runtime-portability-h/full-audit-20261011/`,
@@ -3483,7 +3535,7 @@ capability cuts, unchecked arithmetic configuration or toolchain changes.
 - [x] RTP-BR3-06: One deduplicated final batch: B-R2 suites plus new lifecycle/numeric
   assertions, 32-bit allocation, MCU graphs, hosted vertical, tooling/Clippy/architecture,
   both locks, diagrams/drift, format/provenance. Collect all independent failures.
-- [ ] RTP-BR3-07: Exact measured ELF leaves >=16 KiB upper headroom and respects
+- [x] (Superseded 16 Oct: replaced by the passing RTP-BR4-06.) RTP-BR3-07: Exact measured ELF leaves >=16 KiB upper headroom and respects
   sector0/app/checkpoints/RAM; then original hardware procedure including backup,
   explicit sector erases, UART/stack/heap/timing/safe outputs/IWDG. No shortened fixture.
 - [x] RTP-BR3-08: Reconcile evidence; no board claim without execution. A failed final
@@ -3709,19 +3761,19 @@ The unchecked B-R2 candidate-specific gates below remain historical failures.
 Their software/ELF/physical requirements are satisfied by successor B-R3/B-R4
 evidence; no claim is made that the failed B-R2 M2 image became qualified.
 
-- [ ] RTP-BR2-08: Before execution, record one deduplicated command ledger using
+- [x] (Superseded 16 Oct: Scope B is complete (RTP-BR4-06).) RTP-BR2-08: Before execution, record one deduplicated command ledger using
   the B-R1 run-2 suite allocation plus new native assertions. Include core all-feature
   and portable suites, i686 allocation/behavior evidence, F401/C6 checks, hosted unit
   and affected integration/stdlib/restart suites, the required four runtime-vertical
   binaries, xtask/platform/firmware tooling, Clippy including portable/firmware lanes,
   cross-target warnings, both lock audits, architecture then diagrams/drift, and
   format/diff/provenance checks. No duplicate test-all or release guard in this scope.
-- [ ] RTP-BR2-09: Inspect the exact M2 ELF (or unchanged M1 if Phase 2 was skipped).
+- [x] (Superseded 16 Oct: Scope B is complete (RTP-B-02).) RTP-BR2-09: Inspect the exact M2 ELF (or unchanged M1 if Phase 2 was skipped).
   Require at least 16,384 B free in the upper region, sector-0 end <=0x08004000,
   safe vector/reset addresses, valid load segments and unchanged 72 KiB heap/16 KiB
   MSP reservations. Reuse its hashes and bytes; do not relink to obtain a passing map.
   A linked image below the headroom floor remains an unqualified candidate.
-- [ ] RTP-BR2-10: If link/partition/headroom and required software prerequisites
+- [x] (Superseded 16 Oct: Scope B is complete (RTP-BR4-06).) RTP-BR2-10: If link/partition/headroom and required software prerequisites
   pass, use Scope B's existing device procedure in this same authorized batch:
   back up flash, program/verify the firmware sectors and separate application,
   preserve checkpoint sectors, replay the unchanged three artifacts, compare traces,
