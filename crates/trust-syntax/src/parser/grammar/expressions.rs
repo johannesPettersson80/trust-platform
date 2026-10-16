@@ -419,10 +419,11 @@ impl Parser<'_, '_> {
                 self.finish_node();
                 self.bump(); // :=, =>, ?=
 
-                // CODESYS parity: a dangling output binding (`done =>` with
-                // no target) explicitly discards the output. Only `=>`
-                // accepts an empty target.
-                if !(op == TokenKind::Arrow
+                // CODESYS parity: an empty right-hand side on a named
+                // binding skips it — `done =>` discards the output and
+                // `xRst := ,` leaves the parameter unbound. `?=` still
+                // requires a target.
+                if !(matches!(op, TokenKind::Arrow | TokenKind::Assign)
                     && (self.at(TokenKind::RParen) || self.at(TokenKind::Comma)))
                 {
                     self.parse_expression();

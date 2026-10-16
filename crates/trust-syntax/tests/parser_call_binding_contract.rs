@@ -98,11 +98,6 @@ fn call_parser_accepts_dereferenced_in_out_target() {
 }
 
 #[test]
-fn call_parser_rejects_missing_input_expression() {
-    assert_call_rejected("PROGRAM P\nRun(value := );\nEND_PROGRAM");
-}
-
-#[test]
 fn call_parser_rejects_missing_comma_between_actuals() {
     assert_call_rejected("PROGRAM P\nRun(first := a second := b);\nEND_PROGRAM");
 }
@@ -139,6 +134,20 @@ fn call_parser_accepts_dangling_output_arrow_before_more_args() {
 }
 
 #[test]
-fn call_parser_rejects_dangling_assign_target() {
-    assert_call_rejected("PROGRAM P\nRun(value := );\nEND_PROGRAM");
+fn call_parser_rejects_empty_in_out_binding_target() {
+    // `?=` still requires a target: only `:=` and `=>` accept an empty
+    // right-hand side.
+    assert_call_rejected("PROGRAM P\nRun(pin ?= );\nEND_PROGRAM");
+}
+
+#[test]
+fn call_parser_accepts_empty_named_input_binding() {
+    // CODESYS parity (measured on s4): an empty right-hand side on a named
+    // binding skips the parameter — `xRst := ,` inside an argument list.
+    assert_call_parses("PROGRAM P\nRun(xIn := a, xRst := , xQ => );\nEND_PROGRAM");
+}
+
+#[test]
+fn call_parser_accepts_empty_named_output_binding_before_comma() {
+    assert_call_parses("PROGRAM P\nRun(OUT =>, xQ => b);\nEND_PROGRAM");
 }

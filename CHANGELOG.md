@@ -100,6 +100,10 @@ Target release: `v0.24.75`
 - Resolve CODESYS qualified enum member access (`EnumType.Member`, optionally
   namespace-qualified) in variable initializers and expressions, instead of
   reporting undefined-identifier or type-as-value errors.
+- Accept an empty right-hand side on named call bindings (`input :=` and
+  `output =>` with no target, at a comma or the closing parenthesis) as a
+  CODESYS vendor extension: the parameter is skipped instead of erroring.
+  `?=` still requires a target.
 - Make function-block and program `VAR_INPUT` members writable (CODESYS
   parity): the owning body and external POUs may assign them between calls.
   Function/method parameters stay call-local, and pointer/reference input
