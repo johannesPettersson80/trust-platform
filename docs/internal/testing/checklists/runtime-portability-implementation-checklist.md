@@ -7,6 +7,37 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**16 October: findings after the combined push, and the open items to fix (owner: "add all this
+to the checklist to be fixed").** PR #137 is green on Linux, Windows and macOS at `d45acf1d1`.
+
+Fixed after CI caught them:
+- [x] The Documentation job (`cargo doc --no-deps --all-features`, warnings denied) failed on one
+  public doc comment in the C6 adapter that linked a private constant (`81af8b2e4`).
+- [x] On macOS the OPC UA server could be reported as started while another process held its
+  port, which spec 11 forbids: readiness was a bare TCP connect. Startup now waits for opcua's own
+  Running state, set only after its own bind succeeds, and a failed bind reports the stable
+  "listen address … is unavailable" error (`d45acf1d1`).
+- [x] On macOS two OPC UA integration tests running in parallel could share one fixture directory
+  (the clock resolves to microseconds there); each test now gets its own (`d45acf1d1`).
+
+Open, to be fixed:
+- [ ] Release guard: run the workspace documentation build (`cargo doc --no-deps --all-features`
+  with `-D warnings`, as CI does), so a doc error cannot pass the guard and fail CI. This changes
+  the shared release-gate scripts and their canonical copies in the primary checkout.
+- [ ] Mutation testing (A05): stage 2 on the engine left 589 of 864 mutants uncaught (268 caught,
+  6 unviable, 1 timeout). It ran only `trust-runtime-core`'s own unit tests; rerun the uncaught
+  mutants against the `trust-runtime` integration and journey suites, then add tests for the real
+  gaps.
+- [ ] Miri: the x86_64 `lib-engine` and `int-budget` groups are still running. Every finished group
+  is clean, including the s390x reruns of `int-state`, `lib-rest` and `int-bytecode`.
+- [ ] C6: replace the second-stage bootloader that espflash 4.6.0 bundles (ESP-IDF
+  v6.1-beta1-497-g14f663f003e) with a released one; M5 requires it.
+- [ ] C6: quad-mode (QIO) flash did not boot with that bootloader, so the board runs DIO; retest
+  with the released bootloader.
+- [ ] C6: supervision during a debug halt is not evaluated (STATE-06).
+- [ ] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
+  in Rust (never resetting a board); specifications 25 and 34 first, then its own PR.
+
 **15 October, evening: ESP32-C6 M2E bring-up passes on the owned board (owner: "do it").**
 Branch `feat/runtime-portability-c6`: the C6 commits on H's head plus the supervisor test fix
 (`62bda0a2c`), for one push to PR #137 together with H (owner decision).
