@@ -187,3 +187,49 @@ END_PROGRAM
         DiagnosticCode::InvalidOperation,
     );
 }
+
+// s4 T10: a stub file's failed constant must be attributed to its own file,
+// not leak into every other file's diagnostics (agent-serve reported stub
+// spans under workspace src/ paths).
+#[test]
+fn const_eval_error_from_one_file_does_not_leak_into_another() {
+    let mut db = Database::new();
+    db.set_source_text(
+        FileId(0),
+        r#"
+PROGRAM Main
+VAR x : INT; END_VAR
+    x := 1;
+END_PROGRAM
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(1),
+        r#"
+VAR_GLOBAL CONSTANT
+    width : INT := MAX_UNDEFINED;
+END_VAR
+"#
+        .to_string(),
+    );
+
+    let file0: Vec<_> = db
+        .diagnostics(FileId(0))
+        .iter()
+        .filter(|d| d.code == DiagnosticCode::UndefinedVariable)
+        .map(|d| d.code)
+        .collect();
+    assert!(
+        file0.is_empty(),
+        "clean file must not inherit another file's constant failure: {file0:?}"
+    );
+    let file1_has_own = db
+        .diagnostics(FileId(1))
+        .iter()
+        .any(|d| d.code == DiagnosticCode::UndefinedVariable);
+    assert!(
+        file1_has_own,
+        "the owning file keeps its own constant failure"
+    );
+}

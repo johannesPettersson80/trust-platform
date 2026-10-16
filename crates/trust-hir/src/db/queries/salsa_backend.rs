@@ -313,9 +313,14 @@ pub(super) fn project_symbol_tables_query(
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = files
+    let const_roots: Vec<(FileId, SyntaxNode)> = files
         .iter()
-        .map(|(_, input)| SyntaxNode::new_root(parse_green(db, *input).clone()))
+        .map(|(file_id, input)| {
+            (
+                *file_id,
+                SyntaxNode::new_root(parse_green(db, *input).clone()),
+            )
+        })
         .collect();
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (file_id, input) in files.iter().copied() {
@@ -323,7 +328,7 @@ pub(super) fn project_symbol_tables_query(
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
             .with_temporal_storage(*input.temporal_storage(db))
-            .collect_with_project_const_roots(&root, &const_roots);
+            .collect_with_project_const_roots(&root, file_id, &const_roots);
         project_tables.insert(file_id, Arc::new(symbols));
     }
     Arc::new(project_tables)
@@ -396,22 +401,19 @@ pub(super) fn analyze_query(
         project_files: project_files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = project_roots_from_inputs(db, &project_source_inputs)
-        .into_iter()
-        .map(|(_, project_root)| project_root)
-        .collect();
-    let (mut symbols, mut diagnostics, pending_types) =
-        SymbolCollector::with_project_types(&provider)
-            .with_temporal_storage(*target_input.temporal_storage(db))
-            .collect_for_project_with_const_roots(&root, &const_roots);
+    let const_roots: Vec<(FileId, SyntaxNode)> = project_roots_from_inputs(db, &project_source_inputs);
+    let (mut symbols, mut diagnostics, pending_types) = SymbolCollector::with_project_types(&provider)
+        .with_temporal_storage(*target_input.temporal_storage(db))
+        .collect_for_project_with_const_roots(&root, file_id, &const_roots);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
-    let (checked_symbols, access_config_diagnostics) =
-        SymbolCollector::validate_project_after_merge(
-            symbols,
-            &root,
-            &const_roots,
-            *target_input.temporal_storage(db),
-        );
+    let project_roots: Vec<SyntaxNode> =
+        const_roots.iter().map(|(_, root)| root.clone()).collect();
+    let (checked_symbols, access_config_diagnostics) = SymbolCollector::validate_project_after_merge(
+        symbols,
+        &root,
+        &project_roots,
+        *target_input.temporal_storage(db),
+    );
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);
 

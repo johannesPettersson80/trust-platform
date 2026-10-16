@@ -67,6 +67,7 @@ impl SymbolCollector<'_> {
         node: &SyntaxNode,
         namespace: &[SmolStr],
         pou_stack: &[SmolStr],
+        origin: FileId,
     ) {
         let mut current_namespace: Vec<SmolStr> = namespace.to_vec();
         let mut current_pou_stack: Vec<SmolStr> = pou_stack.to_vec();
@@ -81,15 +82,20 @@ impl SymbolCollector<'_> {
 
         if node.kind() == SyntaxKind::VarBlock && const_block_is_precollectable(node) {
             let current_scope = const_scope_identity(&current_namespace, &current_pou_stack);
-            self.collect_const_block(node, &current_scope);
+            self.collect_const_block(node, &current_scope, origin);
         }
 
         for child in node.children() {
-            self.precollect_constants(&child, &current_namespace, &current_pou_stack);
+            self.precollect_constants(&child, &current_namespace, &current_pou_stack, origin);
         }
     }
 
-    pub(super) fn collect_const_block(&mut self, node: &SyntaxNode, scope: &Option<SmolStr>) {
+    pub(super) fn collect_const_block(
+        &mut self,
+        node: &SyntaxNode,
+        scope: &Option<SmolStr>,
+        origin: FileId,
+    ) {
         for var_decl in node.children().filter(|n| n.kind() == SyntaxKind::VarDecl) {
             let expr = var_decl
                 .children()
@@ -101,7 +107,7 @@ impl SymbolCollector<'_> {
             for name_node in var_decl.children().filter(|n| n.kind() == SyntaxKind::Name) {
                 if let Some((name, _)) = name_from_node(&name_node) {
                     let key = const_key(scope, name.as_str());
-                    self.const_exprs.entry(key).or_insert(expr.clone());
+                    self.const_exprs.entry(key).or_insert((origin, expr.clone()));
                 }
             }
         }

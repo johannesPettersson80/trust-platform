@@ -110,6 +110,10 @@ Target release: `v0.24.75`
   opt-in with `VAR_PROTECTED`/`VAR_PRIVATE`, and `VAR_IN_OUT`/`VAR_TEMP`/
   `VAR_EXTERNAL` members keep the restricted default. Assignment through
   an input-parameter slot (`fbInput.field := value`) stays rejected.
+- Attribute project constant-eval failures to the file that owns the
+  constant: a library/stub file's failed constant no longer surfaces as
+  a diagnostic under every other analyzed file's path (agent-serve
+  reported stub spans under workspace src/ paths).
 - Make function-block and program `VAR_INPUT` members writable (CODESYS
   parity): the owning body and external POUs may assign them between calls.
   Function/method parameters stay call-local, and pointer/reference input
