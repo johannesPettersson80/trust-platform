@@ -241,6 +241,6 @@ fn runtime_ethercat_discovery_reports_mock_bus_modules() {
             })
             .and_then(|candidate| candidate.get("source"))
             .and_then(Value::as_str),
-        Some("ethercat_bus")
+        Some("ethercat_mock")
     );
 }

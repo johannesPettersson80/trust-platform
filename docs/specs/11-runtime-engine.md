@@ -1377,7 +1377,7 @@ that the runtime does not keep answers `search_not_found`.
 | Modbus TCP (`modbus_tcp`) | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
 | MQTT (`mqtt`) | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
 | OPC UA (`opcua`) | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
-| EtherCAT (`ethercat`) | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity without bringing the bus to OP |
+| EtherCAT (`ethercat`) | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity in PRE-OP with the process data mapped, without bringing the bus to SAFE-OP or OP; without a named adapter it scans the computer's up, non-loopback network adapters |
 | GPIO (`gpio`) | Chips and lines of the runtime's computer | The Linux GPIO character device |
 | Serial (`serial`) | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
 | USB (`usb`) | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
@@ -1447,9 +1447,13 @@ serial port's `params` are `{"port": "<name>"}`, and those of a USB device that
 runs or may run truST are `{"control_endpoint": "usb://<serial number>"}`.
 
 **Safety.** A search only reads. It never writes a device value, never changes
-a device's state, and never resets a board. EtherCAT identification keeps the
-bus below OP, and it refuses an adapter that a running EtherCAT driver of the
-runtime owns; the driver's own live view of that bus is reported instead. A
+a device's state, and never resets a board. EtherCAT identification maps the
+process data in PRE-OP and never brings the bus to SAFE-OP or OP, so no output
+changes, and it refuses an adapter that a running EtherCAT driver of the
+runtime owns: nothing on that adapter is scanned, and the driver's own live view
+of that bus is reported instead. That refusal is complete: when the adapter of a
+running EtherCAT driver cannot be determined, no EtherCAT adapter is scanned and
+a warning says why. A
 Modbus RTU scan refuses a serial port that a configured driver owns. A fieldbus
 scan (EtherCAT, Modbus RTU) runs only when the request sets
 `confirm_fieldbus_scan = true`; tools ask the user first.
@@ -1478,8 +1482,9 @@ with its source and confidence, its identity, and its `last_seen` time.
   security policy and mode, including endpoints truST cannot use (marked
   unsupported), and the SHA-256 fingerprint of the server certificate;
 - EtherCAT: for each SubDevice its position, alias address, vendor ID, product
-  code, revision, and serial number, and the device of the project's ESI files
-  that matches it, when one does;
+  code, revision, and serial number, its name, and the bus's mapped input and
+  output byte counts, and the device of the project's ESI files that matches it,
+  when one does;
 - MQTT: the protocol version accepted, and whether login and TLS are needed;
 - GPIO: chip name and label, the line offset within its chip, the line name,
   and whether the line is in use;
@@ -1551,7 +1556,12 @@ for that driver instance: later reads and writes return the visible
 `ethercat hardware unavailable until driver rebuild` error without another
 allocation attempt or retry window. Recovery requires constructing a new
 driver instance. This terminal rule prevents an unavailable adapter from
-causing unbounded allocation, retry, or scan-cycle delay. `adapter = "mock"`
+causing unbounded allocation, retry, or scan-cycle delay. An identification
+opens at most one process-data storage per adapter for the whole process and
+reuses it for every later scan of that adapter, so repeated searches allocate no
+further storage. Every one of those scans re-enumerates the bus on that
+adapter's main device, so a device added after an earlier scan is found by the
+next. `adapter = "mock"`
 proves deterministic software behavior only and is not evidence that physical
 EtherCAT hardware is available or production-ready.
 

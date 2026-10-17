@@ -66,6 +66,9 @@ pub struct RuntimeFacts {
     pub discovery_enabled: bool,
     /// The network interfaces it may use (`discovery.interfaces`); empty for every interface.
     pub discovery_interfaces: Vec<SmolStr>,
+    /// The adapters of its running EtherCAT drivers (specification 11, "Safety"); a search never
+    /// scans one of these.
+    pub owned_adapters: Vec<SmolStr>,
 }
 
 /// What one source reads: the checked request's targets and where the search runs.

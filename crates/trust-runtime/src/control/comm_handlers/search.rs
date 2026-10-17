@@ -6,7 +6,11 @@
 use std::sync::PoisonError;
 
 use serde_json::{json, Value};
+use smol_str::SmolStr;
 
+use crate::search::sources::ethercat::{
+    is_ethercat_driver, MOCK_ETHERCAT_ADAPTER, UNKNOWN_ADAPTER_OWNER,
+};
 use crate::search::{
     CancelRequest, RuntimeFacts, SearchError, SearchHost, SearchRequest, StatusRequest,
 };
@@ -63,18 +67,98 @@ pub(super) fn handle_comm_search_cancel(
     }
 }
 
-/// What this runtime gives a search: its project folder and its own mDNS discovery.
+/// What this runtime gives a search: its project folder, its own mDNS discovery, and the adapters
+/// of its running EtherCAT drivers.
 fn runtime_facts(state: &ControlState) -> RuntimeFacts {
-    let settings = state
-        .settings
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
+    let (discovery_enabled, discovery_interfaces) = {
+        let settings = state
+            .settings
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        (
+            settings.discovery.enabled,
+            settings.discovery.interfaces.clone(),
+        )
+    };
     RuntimeFacts {
         project_root: state.project_root.clone(),
         discovery: state.discovery.clone(),
-        discovery_enabled: settings.discovery.enabled,
-        discovery_interfaces: settings.discovery.interfaces.clone(),
+        discovery_enabled,
+        discovery_interfaces,
+        owned_adapters: owned_ethercat_adapters(state),
     }
+}
+
+/// The adapters of this runtime's running EtherCAT drivers (specification 11, "Safety"): the
+/// adapter of each enabled EtherCAT driver of the project's `io.toml` while that driver runs. A
+/// driver without an adapter, or with the simulated bus, owns no hardware adapter.
+///
+/// The owner must be complete, because a search never disturbs a bus that a running driver owns.
+/// When no adapter can be attached to a running EtherCAT driver — there is no project, `io.toml`
+/// cannot be read, or it names no enabled EtherCAT driver — the result marks the owners as unknown,
+/// and a search then scans no EtherCAT adapter.
+fn owned_ethercat_adapters(state: &ControlState) -> Vec<SmolStr> {
+    let running_ethercat = state
+        .io_health
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .iter()
+        .any(|driver| is_ethercat_driver(driver.name.as_str()));
+    if !running_ethercat {
+        return Vec::new();
+    }
+    let Some(root) = state.project_root.as_deref() else {
+        tracing::warn!("search cannot place a running EtherCAT driver: the runtime has no project");
+        return unknown_owned_adapters();
+    };
+    let path = root.join("io.toml");
+    let config = match crate::config::IoConfig::load(path) {
+        Ok(config) => config,
+        Err(error) => {
+            tracing::warn!(
+                "search could not read io.toml to find owned EtherCAT adapters: {error}"
+            );
+            return unknown_owned_adapters();
+        }
+    };
+    let mut enabled = 0usize;
+    let mut owned = Vec::new();
+    for driver in &config.drivers {
+        if !driver.enabled || !is_ethercat_driver(driver.name.as_str()) {
+            continue;
+        }
+        enabled += 1;
+        if let Some(adapter) = driver_adapter(&driver.params) {
+            owned.push(adapter);
+        }
+    }
+    if enabled == 0 {
+        tracing::warn!(
+            "search could not match a running EtherCAT driver to an enabled io.toml entry"
+        );
+        return unknown_owned_adapters();
+    }
+    owned
+}
+
+/// The marker that a running EtherCAT driver owns an adapter that could not be determined: a search
+/// then scans no EtherCAT adapter (specification 11, "Safety").
+fn unknown_owned_adapters() -> Vec<SmolStr> {
+    vec![SmolStr::new(UNKNOWN_ADAPTER_OWNER)]
+}
+
+/// The hardware adapter that an EtherCAT driver owns: its `adapter` parameter. The simulated bus
+/// and an absent adapter own nothing.
+fn driver_adapter(params: &toml::Value) -> Option<SmolStr> {
+    let adapter = params
+        .get("adapter")
+        .and_then(toml::Value::as_str)
+        .map(str::trim)
+        .filter(|adapter| !adapter.is_empty())?;
+    if adapter.eq_ignore_ascii_case(MOCK_ETHERCAT_ADAPTER) {
+        return None;
+    }
+    Some(SmolStr::new(adapter))
 }
 
 fn refused(id: u64, kind: &str, error: &SearchError) -> ControlResponse {

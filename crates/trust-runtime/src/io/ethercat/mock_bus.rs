@@ -23,13 +23,36 @@ impl MockEthercatBus {
 
 impl EthercatBus for MockEthercatBus {
     fn discover(&mut self, _config: &EthercatConfig) -> Result<EthercatDiscovery, RuntimeError> {
+        // The simulated bus carries no hardware identity; its SubDevices are named by the
+        // configured module chain (specification 11, "Comm.discover"). It is never presented as
+        // hardware.
+        let subdevices = self
+            .modules
+            .iter()
+            .map(|module| {
+                let (input_bits, output_bits) = module_io_bits(module);
+                EthercatSubDevice {
+                    slot: module.slot,
+                    configured_address: module.slot,
+                    alias_address: 0,
+                    name: module.model.clone(),
+                    channels: module.channels,
+                    vendor_id: 0,
+                    product_id: 0,
+                    revision: 0,
+                    serial: 0,
+                    input_bytes: input_bits.div_ceil(8),
+                    output_bytes: output_bits.div_ceil(8),
+                }
+            })
+            .collect();
         let (input_bits, output_bits) =
             self.modules.iter().fold((0usize, 0usize), |acc, module| {
                 let (input, output) = module_io_bits(module);
                 (acc.0.saturating_add(input), acc.1.saturating_add(output))
             });
         Ok(EthercatDiscovery {
-            modules: self.modules.clone(),
+            subdevices,
             input_bytes: input_bits.div_ceil(8),
             output_bytes: output_bits.div_ceil(8),
         })

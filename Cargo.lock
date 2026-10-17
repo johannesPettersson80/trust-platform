@@ -6890,6 +6890,7 @@ dependencies = [
  "open-ot-document",
  "open-ot-shm",
  "owo-colors",
+ "pnet_datalink",
  "postgres",
  "postgres-native-tls",
  "proptest",
