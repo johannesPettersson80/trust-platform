@@ -42,6 +42,17 @@ pub fn resource_not_running(id: u64, resource: ResourceState) -> ControlResponse
     ControlResponse::error_with_code(id, message, RESOURCE_NOT_RUNNING)
 }
 
+/// Refuses a `restart` of a device without an installed program, naming why it has none
+/// (specification 34, STATE-08).
+#[must_use]
+pub fn no_installed_program(id: u64, reason: &str) -> ControlResponse {
+    ControlResponse::error_with_code(
+        id,
+        format!("no installed program: {reason}"),
+        RESOURCE_NOT_RUNNING,
+    )
+}
+
 /// The reply to a command the queue did not take.
 ///
 /// A full queue is `resource_busy`; a closed scheduler is the refusal that names the resource

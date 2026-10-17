@@ -1,4 +1,5 @@
 use alloc::string::{String, ToString};
+use core::fmt;
 
 use serde::Serialize;
 use smol_str::SmolStr;
@@ -113,5 +114,22 @@ impl ControlResponse {
             audit_id: self.audit_id.clone(),
             after_response: self.after_response,
         }
+    }
+
+    /// Writes the wire text of a successful response to request `id` up to its result:
+    /// `{"id":<id>,"ok":true,"result":`. With the result's JSON text after it and then
+    /// [`Self::write_ok_end`], it is exactly the text that serializing the response writes.
+    pub(crate) fn write_ok_start(out: &mut impl fmt::Write, id: u64) -> fmt::Result {
+        write!(out, r#"{{"id":{id},"ok":true,"result":"#)
+    }
+
+    /// Writes the wire text that follows the result of this successful response: its audit
+    /// record id, when it has one, and the closing brace.
+    pub(crate) fn write_ok_end(&self, out: &mut impl fmt::Write) -> fmt::Result {
+        if let Some(audit_id) = &self.audit_id {
+            let audit_id = serde_json::Value::from(audit_id.as_str());
+            write!(out, r#","audit_id":{audit_id}"#)?;
+        }
+        out.write_char('}')
     }
 }

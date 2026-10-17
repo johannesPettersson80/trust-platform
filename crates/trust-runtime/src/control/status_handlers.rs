@@ -1,11 +1,15 @@
 //! The host's status surface. The `status`, `health`, `tasks.stats`, `events.tail` and `faults`
 //! operations are shared runtime code (spec 34 ARCH-11, `trust_runtime_services::status`); this
 //! module projects the host-only blocks they report (the Linux realtime posture and the `OpenOT`
-//! persistence state) and answers the historian operations.
+//! persistence state) and answers the historian operations. Without a realtime profile or an
+//! `OpenOT` persistence status the host reports the shared blocks that every runtime reports
+//! then.
 
-use crate::linux_rt::LinuxRtRuntimeStatus;
+use crate::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
 use serde_json::{json, Value};
-use trust_runtime_services::status::{invalid_params, validate_object_fields};
+use trust_runtime_services::status::{
+    absent_realtime_profile, disabled_openot_persistence, invalid_params, validate_object_fields,
+};
 
 use super::types::{HistorianAlertsParams, HistorianQueryParams};
 use super::{ControlResponse, ControlState};
@@ -56,8 +60,18 @@ pub(super) fn handle_faults(
     trust_runtime_services::status::faults(id, params.as_ref(), state)
 }
 
-/// The `realtime` block of `status`: the requested and observed Linux realtime posture.
+/// The `realtime` block of `status`: the requested and observed Linux realtime posture. A host
+/// without a realtime profile has the default posture and reports the shared block of a runtime
+/// without one, which is the block `posture_json` builds for that posture.
 pub(super) fn realtime_status_json(realtime: &LinuxRtRuntimeStatus) -> Value {
+    if *realtime == LinuxRtRuntimeStatus::from_config(LinuxRtConfig::default()) {
+        return absent_realtime_profile();
+    }
+    posture_json(realtime)
+}
+
+/// The `realtime` block of a requested realtime posture and what was observed of it.
+fn posture_json(realtime: &LinuxRtRuntimeStatus) -> Value {
     json!({
         "profile": realtime.requested.profile_name(),
         "enabled": realtime.requested.enabled,
@@ -155,31 +169,7 @@ pub(super) fn openot_persistence_status_json(state: &ControlState) -> Result<Val
                 "warnings": warnings,
             })
         }
-        None => json!({
-            "state": "disabled",
-            "backend": null,
-            "schema_generation": null,
-            "documents_read": 0,
-            "documents_committed": 0,
-            "documents_duplicated": 0,
-            "remote_pending": 0,
-            "projection_rows_committed": 0,
-            "unclassified_event_count": 0,
-            "reconciled_part_count": 0,
-            "pending_part_count": 0,
-            "documents_retried": 0,
-            "pending": 0,
-            "rejected": 0,
-            "unresolved": 0,
-            "loss_range_count": 0,
-            "lost_record_count": 0,
-            "cursor_abs": 0,
-            "head_abs": 0,
-            "cursor_lag": 0,
-            "last_success_time_ns": null,
-            "last_error": null,
-            "warnings": [],
-        }),
+        None => disabled_openot_persistence(),
     })
 }
 

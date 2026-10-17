@@ -190,6 +190,36 @@ fn status_projects_recorded_cycle_fault_and_overrun_metrics() {
 }
 
 #[test]
+fn a_host_without_realtime_or_openot_persistence_reports_the_shared_blocks_byte_for_byte() {
+    // Spec 34 ARCH-11: a chip reports these blocks with the same shared functions; the host's
+    // own builder makes the same bytes for its default posture.
+    let default = crate::linux_rt::LinuxRtRuntimeStatus::from_config(
+        crate::linux_rt::LinuxRtConfig::default(),
+    );
+    assert_eq!(
+        posture_json(&default).to_string(),
+        trust_runtime_services::status::absent_realtime_profile().to_string()
+    );
+    let value = result(handle_status(30, &state()));
+    assert_eq!(
+        value["realtime"].to_string(),
+        trust_runtime_services::status::absent_realtime_profile().to_string()
+    );
+    assert_eq!(
+        value["openot_persistence"].to_string(),
+        trust_runtime_services::status::disabled_openot_persistence().to_string()
+    );
+
+    let mut configured = default;
+    configured.requested.priority = 50;
+    assert_eq!(
+        realtime_status_json(&configured)["requested"]["priority"],
+        json!(50),
+        "a configured posture is reported as configured"
+    );
+}
+
+#[test]
 fn status_preserves_realtime_warnings_and_errors() {
     let state = state();
     {

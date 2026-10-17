@@ -161,21 +161,53 @@ pub fn wall_time(utc_ms: Option<u64>) -> Option<Duration> {
     utc_ms.map(|ms| Duration::from_millis(i64::try_from(ms).unwrap_or(i64::MAX)))
 }
 
+/// Which events a read of the event store returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventSelection {
+    /// Every event, as `events.tail` returns them.
+    All,
+    /// Only `Fault` events, as `faults` returns them.
+    Faults,
+}
+
+impl EventSelection {
+    /// Whether `event` is one this selection returns.
+    #[must_use]
+    pub fn selects(self, event: &RuntimeEvent) -> bool {
+        match self {
+            Self::All => true,
+            Self::Faults => matches!(event, RuntimeEvent::Fault { .. }),
+        }
+    }
+}
+
+/// The newest `limit` events of `store` that `selection` returns, newest first, without copying
+/// them; events it does not return do not count toward `limit`.
+pub fn newest_selected(
+    store: &VecDeque<RuntimeEvent>,
+    selection: EventSelection,
+    limit: usize,
+) -> impl Iterator<Item = &RuntimeEvent> {
+    store
+        .iter()
+        .rev()
+        .filter(move |event| selection.selects(event))
+        .take(limit)
+}
+
 /// The newest `limit` events of `store`, newest first.
 #[must_use]
 pub fn newest_events(store: &VecDeque<RuntimeEvent>, limit: usize) -> Vec<RuntimeEvent> {
-    store.iter().rev().take(limit).cloned().collect()
+    newest_selected(store, EventSelection::All, limit)
+        .cloned()
+        .collect()
 }
 
 /// The newest `limit` fault events of `store`, newest first; other events do not count toward
 /// `limit`.
 #[must_use]
 pub fn newest_faults(store: &VecDeque<RuntimeEvent>, limit: usize) -> Vec<RuntimeEvent> {
-    store
-        .iter()
-        .rev()
-        .filter(|event| matches!(event, RuntimeEvent::Fault { .. }))
-        .take(limit)
+    newest_selected(store, EventSelection::Faults, limit)
         .cloned()
         .collect()
 }

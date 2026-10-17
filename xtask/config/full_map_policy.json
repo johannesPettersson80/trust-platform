@@ -2316,6 +2316,62 @@
         "review_date": "2026-10-15"
       },
       {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 66,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 67,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 70,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 73,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 76,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 79,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime/tests/device_link_heap.rs",
+        "line": 82,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
+        "review_date": "2026-10-17"
+      },
+      {
         "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
         "line": 62,
         "owner": "runtime portability",

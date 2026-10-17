@@ -8,8 +8,12 @@
 //! at the same points: the operations of [`crate::resource::operations`], the supervisor's
 //! decisions of [`crate::resource::supervisor`] and the command rules of
 //! [`crate::resource::commands`]. The platform adapter supplies the link, the wait and wake, the
-//! clock, the installed program ([`ResourceCycle`]) and its own values and watchdog
-//! ([`RunnerPlatform`]).
+//! clock, the installed program ([`ResourceCycle`]; [`engine`] runs it on the shared engine over
+//! the adapter's process I/O) and its own values and watchdog ([`RunnerPlatform`]).
+//!
+//! A device without an installed program runs the same loop without one ([`Runner::stopped`]):
+//! the resource is Stopped, the loop serves the link and feeds the hardware watchdog, and
+//! `restart` is refused with the reason until a program is installed.
 //!
 //! Requests take effect where trust-runtime's scan thread takes them. The loop answers each
 //! request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next
@@ -22,8 +26,10 @@
 //! ended takes effect at once and starts it as a new trust-runtime process would.
 
 mod cycle;
+pub mod engine;
 mod host;
 mod observer;
+mod program;
 mod state;
 mod supervision;
 
@@ -32,6 +38,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
+use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
@@ -47,6 +54,7 @@ use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
 use crate::protocol::ControlAfterResponse;
 use crate::resource::supervisor::AutomaticRestartLimiter;
 use host::RunnerHost;
+use program::Program;
 use state::{Records, ResourceCell};
 
 /// Requests the loop serves in one pass before it turns to the scan, so that a busy link cannot
@@ -54,7 +62,7 @@ use state::{Records, ResourceCell};
 /// the rest.
 pub const FRAMES_PER_PASS: usize = 8;
 
-/// The single-thread resource loop of one installed program.
+/// The single-thread resource loop of one installed program, or of a device without one.
 ///
 /// `L` is the control link, `W` the wait, `Y` the installed program, `P` the platform's values
 /// and watchdog, and `C` the monotonic clock, the one `W` waits on.
@@ -69,7 +77,7 @@ pub const FRAMES_PER_PASS: usize = 8;
 pub struct Runner<L, W, Y, P, C> {
     link: L,
     wait: W,
-    cycle: Y,
+    cycle: Program<Y>,
     platform: P,
     clock: C,
     resource: ResourceCell,
@@ -119,7 +127,7 @@ where
         Self {
             link,
             wait,
-            cycle,
+            cycle: Program::Installed(cycle),
             platform,
             clock,
             resource: ResourceCell::running(),
@@ -128,6 +136,37 @@ where
             frame,
             program_start: start,
             next_boundary: Some(start),
+            stop_requested: false,
+            cycle_count: 0,
+            program_time: value::Duration::ZERO,
+            restarts: AutomaticRestartLimiter::default(),
+        }
+    }
+
+    /// A loop for a device without an installed program (specification 34, STATE-08): its
+    /// application region holds none, or one that the device refused, for `reason`. The
+    /// resource is Stopped without a fault and has no boundary; the loop serves the link and
+    /// feeds the hardware watchdog, every request answers as while Stopped, and `restart` is
+    /// refused with `no installed program: <reason>` until a program is installed.
+    ///
+    /// The loop keeps its receive buffer and its records as [`Self::new`] does.
+    #[must_use]
+    pub fn stopped(link: L, wait: W, platform: P, clock: C, reason: SmolStr) -> Self {
+        let frame = vec![0; link.max_frame_len()];
+        let start = clock.now();
+        let records = Records::new(clock.clone(), start);
+        Self {
+            link,
+            wait,
+            cycle: Program::Missing(reason),
+            platform,
+            clock,
+            resource: ResourceCell::stopped(),
+            records,
+            tasks: Vec::new(),
+            frame,
+            program_start: start,
+            next_boundary: None,
             stop_requested: false,
             cycle_count: 0,
             program_time: value::Duration::ZERO,
@@ -222,6 +261,7 @@ where
         let client = client_label(peer);
         let host = RunnerHost {
             platform: &self.platform,
+            program: &self.cycle,
             resource: &self.resource,
             records: &self.records,
         };
@@ -283,6 +323,9 @@ mod link_contract_tests;
 
 #[cfg(test)]
 mod scan_contract_tests;
+
+#[cfg(test)]
+mod stopped_contract_tests;
 
 #[cfg(test)]
 mod timing_contract_tests;

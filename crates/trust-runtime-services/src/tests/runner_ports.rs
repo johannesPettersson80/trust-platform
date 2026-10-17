@@ -1,6 +1,7 @@
 //! Platform ports for the resource loop's contract tests: a control link, a wait and a clock that
-//! the test drives, and the board probe program (`portability/f401/gpio.stbc`) on the real engine
-//! behind the cycle port with the failures a test injects; the platform is in
+//! the test drives, a process I/O that the test reads and fails, and the board probe program
+//! (`portability/f401/gpio.stbc`) on the shared engine cycle ([`crate::runner::engine`]) behind
+//! the cycle port with the failures a test injects; the platform is in
 //! [`super::runner_platform`].
 
 use alloc::collections::VecDeque;
@@ -12,24 +13,35 @@ use core::time::Duration;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
     WakeReason, WakeToken,
 };
-use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
-use trust_runtime_core::value::{self, DateTimeValue};
+use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::value::{self, Value};
 use trust_runtime_core::vm::{
-    CycleHooks, ExecutionServices, PreparationLimits, PreparedModule, RetainApplyEvent,
-    RuntimeState,
+    CycleAccess, CycleHooks, CyclePhase, PreparedModule, RetainApplyEvent,
 };
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 pub(crate) use super::runner_platform::TestPlatform;
-use crate::runner::{resource_tasks, ResourceCycle, RetainSource, Runner, TaskDescriptor};
+use crate::runner::engine::{
+    device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle, ProcessIo,
+};
+use crate::runner::{ResourceCycle, RetainSource, Runner, TaskDescriptor};
+use crate::status::IoDriverStatus;
 
 /// The board probe: `led := button` in task `Scan` every 10 ms on resource `Controller`.
-const GPIO: &[u8] =
+pub(crate) const GPIO: &[u8] =
     include_bytes!("../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
+
+/// The application region and heap of today's chips (16 KiB and 72 KiB), whose admission limits
+/// the board fixture's runs proved on both.
+pub(crate) const CHIP_MEMORY: DeviceMemory = DeviceMemory {
+    region_bytes: 16 * 1024,
+    heap_bytes: 72 * 1024,
+};
 
 /// A span of `value` milliseconds.
 pub(crate) fn ms(value: u64) -> Duration {
@@ -209,6 +221,109 @@ impl ControlLink for TestLink {
     }
 }
 
+/// What the engine cycle asked of the process I/O, in order, among the engine phases that a
+/// [`PhaseRecorder`] saw.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum IoStep {
+    /// An engine phase.
+    Phase(CyclePhase),
+    /// The inputs were read.
+    ReadInputs,
+    /// The publication drove this output image.
+    WriteOutputs(Vec<u8>),
+    /// A stop or a fault drove this output image.
+    WriteSafeOutputs(Vec<u8>),
+}
+
+/// What the process I/O delivers and reports; the test sets it.
+#[derive(Default)]
+pub(crate) struct IoState {
+    steps: Vec<IoStep>,
+    /// The input image the reads deliver, from its first byte; empty leaves the image as it is.
+    pub(crate) inputs: Vec<u8>,
+    /// The next read fails with this error.
+    pub(crate) read_error: Option<RuntimeError>,
+    /// The next output write fails with this error.
+    pub(crate) write_error: Option<RuntimeError>,
+    /// The next safe-output write fails with this error.
+    pub(crate) safe_error: Option<RuntimeError>,
+    /// Time that every read takes on the test clock.
+    pub(crate) read_time: Duration,
+    /// The health the drivers report.
+    pub(crate) health: Vec<IoDriverStatus>,
+}
+
+/// The process I/O of the board probe's input and output.
+#[derive(Clone)]
+pub(crate) struct TestIo {
+    pub(crate) state: Rc<RefCell<IoState>>,
+    clock: TestClock,
+}
+
+impl TestIo {
+    pub(crate) fn new(clock: TestClock) -> Self {
+        Self {
+            state: Rc::new(RefCell::new(IoState::default())),
+            clock,
+        }
+    }
+
+    /// The steps since the last call.
+    pub(crate) fn take_steps(&self) -> Vec<IoStep> {
+        core::mem::take(&mut self.state.borrow_mut().steps)
+    }
+
+    /// A scan observer that records each engine phase among the process I/O's steps.
+    pub(crate) fn phases(&self) -> PhaseRecorder {
+        PhaseRecorder(Rc::clone(&self.state))
+    }
+}
+
+impl ProcessIo for TestIo {
+    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
+        let mut state = self.state.borrow_mut();
+        state.steps.push(IoStep::ReadInputs);
+        self.clock.advance(state.read_time);
+        if let Some(error) = state.read_error.take() {
+            return Err(error);
+        }
+        for (byte, value) in image.iter_mut().zip(&state.inputs) {
+            *byte = *value;
+        }
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
+        let mut state = self.state.borrow_mut();
+        state.steps.push(IoStep::WriteOutputs(image.to_vec()));
+        state.write_error.take().map_or(Ok(()), Err)
+    }
+
+    fn write_safe_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
+        let mut state = self.state.borrow_mut();
+        state.steps.push(IoStep::WriteSafeOutputs(image.to_vec()));
+        state.safe_error.take().map_or(Ok(()), Err)
+    }
+
+    fn driver_health(&self) -> Vec<IoDriverStatus> {
+        self.state.borrow().health.clone()
+    }
+}
+
+/// A scan observer that records the engine phases among the process I/O's steps.
+pub(crate) struct PhaseRecorder(Rc<RefCell<IoState>>);
+
+impl CycleHooks for PhaseRecorder {
+    fn on_phase(
+        &mut self,
+        phase: CyclePhase,
+        _access: &mut CycleAccess<'_, '_>,
+    ) -> Result<(), RuntimeError> {
+        self.0.borrow_mut().steps.push(IoStep::Phase(phase));
+        Ok(())
+    }
+}
+
 /// What the loop asked of the installed program, in order. Times are logical times.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum CycleCall {
@@ -227,7 +342,8 @@ pub(crate) enum CycleCall {
     TaskTiming(Duration),
 }
 
-/// The failures and timing a test gives the program, and what the loop asked of it.
+/// The settings and failures a test gives the program, and what the loop asked of it. The
+/// settings are those of the program's start.
 pub(crate) struct CycleScript {
     pub(crate) calls: Vec<CycleCall>,
     pub(crate) cycle_interval: value::Duration,
@@ -245,8 +361,8 @@ pub(crate) struct CycleScript {
     pub(crate) restart_events: Vec<RetainApplyEvent>,
     pub(crate) watchdog: WatchdogPolicy,
     pub(crate) fault_policy: FaultPolicy,
-    /// The durable retain checkpoint of the last save.
-    pub(crate) checkpoint: Option<RetainSnapshot>,
+    /// The safe value of each output, as `[[io.safe_state]]` gives it.
+    pub(crate) safe_outputs: Vec<(IoAddress, Value)>,
 }
 
 impl Default for CycleScript {
@@ -263,42 +379,24 @@ impl Default for CycleScript {
             restart_events: Vec::new(),
             watchdog: WatchdogPolicy::default(),
             fault_policy: FaultPolicy::Halt,
-            checkpoint: None,
+            safe_outputs: Vec::new(),
         }
     }
 }
 
-/// Execution services with a physical deadline on the test clock.
-pub(crate) struct TestServices {
-    clock: TestClock,
-    deadline: Cell<Option<MonotonicInstant>>,
-}
-
-impl ExecutionServices for TestServices {
-    fn deadline_exceeded(&self) -> bool {
-        self.deadline
-            .get()
-            .is_some_and(|deadline| self.clock.now() >= deadline)
-    }
-
-    fn has_wall_clock(&self) -> bool {
-        false
-    }
-
-    fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
-        Err(RuntimeError::ProfileUnsupported(SmolStr::new(
-            "no UTC clock in the loop tests",
-        )))
-    }
-}
-
-/// The board probe on the real engine, behind the cycle port.
-pub(crate) struct EngineCycle<'a> {
-    state: RuntimeState<'a>,
-    prepared: &'a PreparedModule,
-    services: &'a TestServices,
+/// The board probe on the shared engine cycle, behind the cycle port: it records what the loop
+/// asks and injects the script's failures in front of the engine cycle.
+pub(crate) struct ScriptedCycle<'a> {
+    engine: EngineCycle<'a, TestClock, TestIo>,
     clock: TestClock,
     script: Rc<RefCell<CycleScript>>,
+}
+
+impl<'a> ScriptedCycle<'a> {
+    /// The engine cycle behind the script, for a test that reads the program's values.
+    pub(crate) fn engine(&self) -> &EngineCycle<'a, TestClock, TestIo> {
+        &self.engine
+    }
 }
 
 /// The span of a logical time, for the calls the test compares.
@@ -306,21 +404,21 @@ fn since_start(time: value::Duration) -> Duration {
     Duration::from_nanos(u64::try_from(time.as_nanos()).expect("test times are not negative"))
 }
 
-impl ResourceCycle for EngineCycle<'_> {
+impl ResourceCycle for ScriptedCycle<'_> {
     fn tasks(&self) -> Vec<TaskDescriptor> {
-        resource_tasks(self.prepared, 0)
+        self.engine.tasks()
     }
 
     fn cycle_interval(&self) -> value::Duration {
-        self.script.borrow().cycle_interval
+        self.engine.cycle_interval()
     }
 
     fn watchdog(&self) -> WatchdogPolicy {
-        self.script.borrow().watchdog
+        self.engine.watchdog()
     }
 
     fn fault_policy(&self) -> FaultPolicy {
-        self.script.borrow().fault_policy
+        self.engine.fault_policy()
     }
 
     fn run_scan(
@@ -341,9 +439,7 @@ impl ResourceCycle for EngineCycle<'_> {
             (script.stall, script.scan_time)
         };
         self.clock.advance(stall);
-        self.services.deadline.set(deadline);
-        let result = self.state.execute_cycle_with_hooks(now, observer);
-        self.services.deadline.set(None);
+        let result = self.engine.run_scan(now, deadline, observer);
         self.clock.advance(scan_time);
         result
     }
@@ -353,23 +449,31 @@ impl ResourceCycle for EngineCycle<'_> {
             .borrow_mut()
             .calls
             .push(CycleCall::Latch(fault.to_string()));
-        self.state.latch_fault(fault);
+        self.engine.latch_fault(fault);
     }
 
     fn apply_safe_outputs(&mut self) -> Result<(), RuntimeError> {
-        let mut script = self.script.borrow_mut();
-        script.calls.push(CycleCall::SafeOutputs);
-        script.safe_outputs_error.clone().map_or(Ok(()), Err)
+        let injected = {
+            let mut script = self.script.borrow_mut();
+            script.calls.push(CycleCall::SafeOutputs);
+            script.safe_outputs_error.clone()
+        };
+        match injected {
+            Some(error) => Err(error),
+            None => self.engine.apply_safe_outputs(),
+        }
     }
 
     fn save_retain(&mut self) -> Result<(), RuntimeError> {
-        let mut script = self.script.borrow_mut();
-        script.calls.push(CycleCall::SaveRetain);
-        if let Some(error) = script.retain_error.clone() {
-            return Err(error);
+        let injected = {
+            let mut script = self.script.borrow_mut();
+            script.calls.push(CycleCall::SaveRetain);
+            script.retain_error.clone()
+        };
+        match injected {
+            Some(error) => Err(error),
+            None => self.engine.save_retain(),
         }
-        script.checkpoint = Some(self.state.retain_snapshot()?);
-        Ok(())
     }
 
     fn restart(
@@ -382,17 +486,7 @@ impl ResourceCycle for EngineCycle<'_> {
         if let Some(error) = script.failing_restarts.pop_front() {
             return Err(error);
         }
-        let mut events = match (source, mode) {
-            (RetainSource::Checkpoint, RestartMode::Warm) => {
-                let checkpoint = script.checkpoint.clone().unwrap_or_default();
-                self.state
-                    .restart_with_retain_snapshot(RestartMode::Warm, &checkpoint)?
-            }
-            (RetainSource::Memory | RetainSource::Checkpoint, mode) => {
-                self.state.restart(mode)?;
-                Vec::new()
-            }
-        };
+        let mut events = self.engine.restart(mode, source)?;
         events.append(&mut script.restart_events);
         Ok(events)
     }
@@ -402,44 +496,58 @@ impl ResourceCycle for EngineCycle<'_> {
             .borrow_mut()
             .calls
             .push(CycleCall::TaskTiming(since_start(now)));
-        self.state.reset_task_timing(now);
+        self.engine.reset_task_timing(now);
+    }
+
+    fn io_drivers(&self) -> Vec<IoDriverStatus> {
+        self.engine.io_drivers()
     }
 }
 
 /// The loop under test.
 pub(crate) type TestRunner<'a> =
-    Runner<TestLink, TestWait, EngineCycle<'a>, TestPlatform, TestClock>;
+    Runner<TestLink, TestWait, ScriptedCycle<'a>, TestPlatform, TestClock>;
 
-/// One loop's ports: the test drives the clock, the link and the wait, and scripts the program.
+/// One loop's ports: the test drives the clock, the link, the wait and the process I/O, and
+/// scripts the program.
 pub(crate) struct Fixture {
     pub(crate) clock: TestClock,
     pub(crate) wait: TestWait,
     pub(crate) link: TestLink,
+    pub(crate) io: TestIo,
     pub(crate) script: Rc<RefCell<CycleScript>>,
     prepared: PreparedModule,
-    services: TestServices,
+    services: DeviceServices<TestClock>,
 }
 
 impl Fixture {
-    /// The board probe, admitted and ready, at time zero; the link moves frames of up to 4,096
-    /// bytes.
+    /// The board probe, admitted as a chip admits it, at time zero; the link moves frames of up
+    /// to 4,096 bytes.
     pub(crate) fn board_probe() -> Self {
         Self::with_frames_of(4_096)
     }
 
     /// The board probe on a link that moves frames of up to `max_frame_len` bytes.
     pub(crate) fn with_frames_of(max_frame_len: usize) -> Self {
+        Self::installing(GPIO, max_frame_len)
+    }
+
+    /// The program `artifact`, admitted as a chip admits it, at time zero; the link moves
+    /// frames of up to 4,096 bytes.
+    pub(crate) fn with_program(artifact: &[u8]) -> Self {
+        Self::installing(artifact, 4_096)
+    }
+
+    fn installing(artifact: &[u8], max_frame_len: usize) -> Self {
         let clock = TestClock::default();
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default())
-            .expect("the board probe is admitted");
+        let prepared = PreparedModule::from_bytes(artifact, device_limits(CHIP_MEMORY))
+            .expect("the program is admitted");
         Self {
             wait: TestWait::new(clock.clone()),
             link: TestLink::new(max_frame_len),
+            io: TestIo::new(clock.clone()),
             script: Rc::new(RefCell::new(CycleScript::default())),
-            services: TestServices {
-                clock: clock.clone(),
-                deadline: Cell::new(None),
-            },
+            services: DeviceServices::new(clock.clone()),
             prepared,
             clock,
         }
@@ -459,17 +567,22 @@ impl Fixture {
         runner
     }
 
-    /// The program started, instantiated as the composition starts it at power-on, and the loop
-    /// built at the clock's current time.
+    /// The program started on the shared engine cycle with the script's settings, as the
+    /// composition starts it at power-on, and the loop built at the clock's current time.
     pub(crate) fn power_on(&self, platform: TestPlatform) -> TestRunner<'_> {
-        let state = self
-            .prepared
-            .instantiate_with_services(0, &self.services)
+        let settings = {
+            let script = self.script.borrow();
+            CycleSettings {
+                cycle_interval: script.cycle_interval,
+                watchdog: script.watchdog,
+                fault_policy: script.fault_policy,
+                safe_outputs: script.safe_outputs.clone(),
+            }
+        };
+        let engine = EngineCycle::start(&self.prepared, &self.services, self.io.clone(), settings)
             .expect("the board probe starts");
-        let cycle = EngineCycle {
-            state,
-            prepared: &self.prepared,
-            services: &self.services,
+        let cycle = ScriptedCycle {
+            engine,
             clock: self.clock.clone(),
             script: Rc::clone(&self.script),
         };
@@ -479,6 +592,17 @@ impl Fixture {
             cycle,
             platform,
             self.clock.clone(),
+        )
+    }
+
+    /// A loop of a device without an installed program, for `reason`, with the test platform.
+    pub(crate) fn without_program(&self, reason: &'static str) -> TestRunner<'_> {
+        Runner::stopped(
+            self.link.clone(),
+            self.wait.clone(),
+            TestPlatform::default(),
+            self.clock.clone(),
+            SmolStr::new_static(reason),
         )
     }
 

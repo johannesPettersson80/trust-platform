@@ -2396,7 +2396,9 @@ store is unavailable. `events.tail` applies the limit to all events. `faults`
 first selects only `RuntimeEvent::Fault` entries and then applies the limit, so
 intervening non-fault events cannot reduce the requested number of faults.
 `SafeStateFailed` remains its own event type and is not silently relabeled as
-the originating resource fault.
+the originating resource fault. On a link that bounds its frames, such as a
+chip's USB link, a reply longer than the frame is answered as specification 34
+PORT-05 says; a reply that fits is the same bytes as on any other link.
 
 The event store keeps the newest 1,000 events, the largest limit either
 operation accepts; a newer event displaces the oldest. A debug control with no

@@ -40,13 +40,22 @@ pub(super) struct ResourceCell {
 impl ResourceCell {
     /// A running resource without a fault.
     pub(super) fn running() -> Self {
+        Self::with(ResourceState::Running, false)
+    }
+
+    /// A resource without a program: Stopped without a fault, and ended, so it takes no command.
+    pub(super) fn stopped() -> Self {
+        Self::with(ResourceState::Stopped, true)
+    }
+
+    fn with(state: ResourceState, ended: bool) -> Self {
         Self {
-            state: Cell::new(ResourceState::Running),
+            state: Cell::new(state),
             last_error: Cell::new(None),
             pending_restart: Cell::new(None),
             queued: Cell::new(0),
             last_command: Cell::new(None),
-            ended: Cell::new(false),
+            ended: Cell::new(ended),
         }
     }
 

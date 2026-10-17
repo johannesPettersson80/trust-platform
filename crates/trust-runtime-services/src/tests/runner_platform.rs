@@ -18,7 +18,9 @@ use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::ports::{AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort};
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::RunnerPlatform;
-use crate::status::{IoDriverStatus, StatusSettings};
+use crate::status::{
+    absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
+};
 
 /// The longest wait between two feeds of the hardware watchdog, unless a test sets its own.
 pub(crate) const FEED_INTERVAL_MS: u64 = 1_000;
@@ -106,16 +108,18 @@ impl StatusPort for TestPlatform {
         Some(Vec::new())
     }
 
+    /// A device has no realtime profile, the block every runtime reports without one.
     fn realtime_status(&self) -> Option<serde_json::Value> {
-        Some(json!({"profile": "none"}))
+        Some(absent_realtime_profile())
     }
 
     fn realtime_has_errors(&self) -> Option<bool> {
         Some(false)
     }
 
+    /// A device has no `OpenOT` persistence, the block every runtime reports without it.
     fn openot_persistence(&self) -> Option<serde_json::Value> {
-        Some(json!({"enabled": false}))
+        Some(disabled_openot_persistence())
     }
 }
 

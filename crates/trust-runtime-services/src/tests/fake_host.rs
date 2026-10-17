@@ -79,6 +79,8 @@ pub(crate) struct FakeHost {
     pub(crate) utc_ms: Option<u64>,
     /// Whether `restart` starts a stopped resource (a device without an operating system).
     pub(crate) starts_when_stopped: bool,
+    /// Why a device has no installed program, when it has none.
+    pub(crate) missing_program: Option<&'static str>,
 }
 
 impl FakeHost {
@@ -107,6 +109,7 @@ impl FakeHost {
             extension_calls: RefCell::new(Vec::new()),
             utc_ms: Some(WALL_TIME_MS),
             starts_when_stopped: false,
+            missing_program: None,
         }
     }
 
@@ -230,6 +233,10 @@ impl ResourcePort for FakeHost {
 
     fn starts_when_stopped(&self) -> bool {
         self.starts_when_stopped
+    }
+
+    fn missing_program(&self) -> Option<&str> {
+        self.missing_program
     }
 }
 

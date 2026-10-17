@@ -1,7 +1,7 @@
 //! The installed program as the resource loop drives it: one scan at a time, its faults, its
-//! outputs at a stop, its retained values, its restarts and its task timing. A platform adapter
-//! implements [`ResourceCycle`] with `trust-runtime-core` and its I/O, retain storage and output
-//! drivers.
+//! outputs at a stop, its retained values, its restarts, its task timing and its I/O drivers'
+//! health. [`EngineCycle`](crate::runner::engine::EngineCycle) implements [`ResourceCycle`] on
+//! the shared engine with the platform's process I/O.
 
 use alloc::vec::Vec;
 
@@ -12,6 +12,8 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
+
+use crate::status::IoDriverStatus;
 
 /// Where a warm restart finds the retained values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,7 +84,7 @@ pub trait ResourceCycle {
     /// Runs one scan of the installed program at logical time `now` with
     /// `RuntimeState::execute_cycle_with_hooks`.
     ///
-    /// The adapter
+    /// The implementation
     /// - arms the engine's execution deadline at `deadline`, when there is one, so the engine
     ///   ends a scan still running then with `ExecutionTimeout`, and disarms it after the scan;
     /// - passes the engine hooks that sample the inputs and publish the outputs at their phases
@@ -90,7 +92,7 @@ pub trait ResourceCycle {
     ///   loop's record of the scan: `has_program_hooks`, `program_started`, `program_finished`
     ///   and `on_phase`. They answer `has_output_hooks` true, as `observer` does, so the engine
     ///   checks the deadline before it publishes and restores the outputs it staged when the
-    ///   publication fails, as trust-runtime's hosted cycle does. An adapter without I/O passes
+    ///   publication fails, as trust-runtime's hosted cycle does. One without I/O passes
     ///   `observer` itself.
     ///
     /// # Errors
@@ -140,4 +142,8 @@ pub trait ResourceCycle {
     /// does: every task counts its next activation from `now`, which becomes the program's
     /// current time.
     fn reset_task_timing(&mut self, now: Duration);
+
+    /// The health of the program's I/O drivers, in `io.toml` order, which `status` and `health`
+    /// report before the drivers the platform runs itself.
+    fn io_drivers(&self) -> Vec<IoDriverStatus>;
 }

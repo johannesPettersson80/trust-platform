@@ -6,9 +6,9 @@
 //! event sender wired as the product binary wires them (`run/runtime/entry.rs`).
 //!
 //! The device composition is the single-thread resource loop of `trust-runtime-services` on the
-//! board fixture's engine setup (its preparation limits and execution services), with an
-//! in-memory link, a clock that the test sets, and a hardware watchdog that only counts its
-//! feeds.
+//! chips' shared engine cycle (`runner::engine`: the chips' admission limits, their execution
+//! services and the cycle over the engine), with an in-memory link, a clock that the test sets,
+//! process I/O without drivers, and a hardware watchdog that only counts its feeds.
 
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -22,7 +22,6 @@ use std::time::{Duration as StdDuration, Instant};
 use indexmap::IndexMap;
 use serde_json::Value;
 use smol_str::SmolStr;
-use trust_board_fixture::services::{limits, Services};
 use trust_runtime::bytecode::BytecodeModule;
 use trust_runtime::config::{ControlMode, MeshRole};
 use trust_runtime::control::{
@@ -42,9 +41,8 @@ use trust_runtime_core::ports::{
     ControlLink, HardwareWatchdog, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass,
     PortError, RunnerWait, TimeSpan, WakeReason, WakeToken, WallClock,
 };
-use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent, RuntimeState};
+use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::dispatch::prepare_line;
 use trust_runtime_services::events::store_event;
@@ -52,10 +50,13 @@ use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
 };
 use trust_runtime_services::protocol::{ControlAfterResponse, ControlRequest, ControlResponse};
-use trust_runtime_services::runner::{
-    resource_tasks, ResourceCycle, RetainSource, Runner, RunnerPlatform, TaskDescriptor,
+use trust_runtime_services::runner::engine::{
+    device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle, ProcessIo,
 };
-use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
+use trust_runtime_services::runner::{Runner, RunnerPlatform};
+use trust_runtime_services::status::{
+    absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
+};
 
 /// The board probe: `led := button` in task `Scan` every 10 ms on resource `Controller`.
 pub const GPIO: &[u8] = include_bytes!("../fixtures/portability/f401/gpio.stbc");
@@ -360,25 +361,6 @@ impl MonotonicClock for ReplayClock {
     }
 }
 
-impl trust_board_fixture::board::Clock for ReplayClock {
-    fn micros(&self) -> u64 {
-        u64::try_from(self.0.get().as_micros()).unwrap_or(u64::MAX)
-    }
-
-    fn wait_until_us(&self, deadline_us: u64) {
-        self.0
-            .set(self.0.get().max(StdDuration::from_micros(deadline_us)));
-    }
-
-    fn cycle_count(&self) -> u32 {
-        0
-    }
-
-    fn irq_count(&self) -> u32 {
-        0
-    }
-}
-
 /// The loop's wait: the test owns the time, so a wait returns at once.
 #[derive(Clone, Default)]
 pub struct ReplayWait {
@@ -447,118 +429,71 @@ impl ControlLink for MemoryLink {
     }
 }
 
-/// The board probe on the board fixture's engine setup, behind the loop's cycle port.
-pub struct BoardCycle<'a> {
-    state: RuntimeState<'a>,
+/// The chips' application region and heap today, 16 KiB and 72 KiB, whose admission limits the
+/// device composition prepares the board probe with.
+const CHIP_MEMORY: DeviceMemory = DeviceMemory {
+    region_bytes: 16 * 1024,
+    heap_bytes: 72 * 1024,
+};
+
+/// The board probe, admitted as the chips admit programs.
+pub fn prepare_board_probe() -> PreparedModule {
+    PreparedModule::from_bytes(GPIO, device_limits(CHIP_MEMORY))
+        .expect("the chips admit the board probe")
+}
+
+/// The device's process I/O. The board probe's input and output are wired to nothing, as the host
+/// composition has no I/O driver; the I/O counts the scans by their input reads.
+pub struct ReplayIo {
+    scans: Rc<Cell<usize>>,
+}
+
+impl ProcessIo for ReplayIo {
+    fn read_inputs(&mut self, _image: &mut [u8]) -> Result<(), RuntimeError> {
+        self.scans.set(self.scans.get() + 1);
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, _image: &[u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn write_safe_outputs(&mut self, _image: &[u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn driver_health(&self) -> Vec<IoDriverStatus> {
+        Vec::new()
+    }
+}
+
+/// The board probe on the chips' shared engine cycle.
+pub type DeviceCycle<'a> = EngineCycle<'a, ReplayClock, ReplayIo>;
+
+/// The board probe of `prepared` started on `services`, with the host composition's policies
+/// and, as the host composition, no `[[io.safe_state]]`; `scans` counts its scans.
+pub fn start_device_cycle<'a>(
     prepared: &'a PreparedModule,
-    services: &'a Services<'a, ReplayClock>,
-    checkpoint: Option<RetainSnapshot>,
+    services: &'a DeviceServices<ReplayClock>,
     scans: Rc<Cell<usize>>,
     watchdog: WatchdogPolicy,
     fault_policy: FaultPolicy,
-}
-
-impl<'a> BoardCycle<'a> {
-    /// The program of `prepared`, started, with the host composition's policies.
-    pub fn start(
-        prepared: &'a PreparedModule,
-        services: &'a Services<'a, ReplayClock>,
-        scans: Rc<Cell<usize>>,
-        watchdog: WatchdogPolicy,
-        fault_policy: FaultPolicy,
-    ) -> Self {
-        let state = prepared
-            .instantiate_with_services(0, services)
-            .expect("the board probe starts on the board fixture's engine setup");
-        Self {
-            state,
-            prepared,
-            services,
-            checkpoint: None,
-            scans,
-            watchdog,
-            fault_policy,
-        }
-    }
-}
-
-/// The board fixture's preparation limits, which the chips admit programs with.
-pub fn prepare_board_probe() -> PreparedModule {
-    PreparedModule::from_bytes(GPIO, limits()).expect("the board fixture admits the board probe")
-}
-
-impl ResourceCycle for BoardCycle<'_> {
-    fn tasks(&self) -> Vec<TaskDescriptor> {
-        resource_tasks(self.prepared, 0)
-    }
-
-    fn cycle_interval(&self) -> Duration {
-        Duration::from_millis(CYCLE_INTERVAL_MS)
-    }
-
-    fn watchdog(&self) -> WatchdogPolicy {
-        self.watchdog
-    }
-
-    fn fault_policy(&self) -> FaultPolicy {
-        self.fault_policy
-    }
-
-    fn run_scan(
-        &mut self,
-        now: Duration,
-        deadline: Option<MonotonicInstant>,
-        observer: &mut dyn CycleHooks,
-    ) -> Result<(), RuntimeError> {
-        self.services.deadline.set(deadline.map(|deadline| {
-            u64::try_from(deadline.since_origin().as_micros()).unwrap_or(u64::MAX)
-        }));
-        let result = self.state.execute_cycle_with_hooks(now, observer);
-        self.services.deadline.set(None);
-        self.scans.set(self.scans.get() + 1);
-        result
-    }
-
-    fn latch_fault(&mut self, fault: RuntimeError) {
-        self.state.latch_fault(fault);
-    }
-
-    /// The board probe has no `[[io.safe_state]]`, as the host composition has none.
-    fn apply_safe_outputs(&mut self) -> Result<(), RuntimeError> {
-        Ok(())
-    }
-
-    fn save_retain(&mut self) -> Result<(), RuntimeError> {
-        self.checkpoint = Some(self.state.retain_snapshot()?);
-        Ok(())
-    }
-
-    fn restart(
-        &mut self,
-        mode: RestartMode,
-        source: RetainSource,
-    ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
-        match (source, mode) {
-            (RetainSource::Checkpoint, RestartMode::Warm) => {
-                let checkpoint = self.checkpoint.clone().unwrap_or_default();
-                self.state
-                    .restart_with_retain_snapshot(RestartMode::Warm, &checkpoint)
-            }
-            (RetainSource::Memory | RetainSource::Checkpoint, mode) => {
-                self.state.restart(mode)?;
-                Ok(Vec::new())
-            }
-        }
-    }
-
-    fn reset_task_timing(&mut self, now: Duration) {
-        self.state.reset_task_timing(now);
-    }
+) -> DeviceCycle<'a> {
+    let settings = CycleSettings {
+        cycle_interval: Duration::from_millis(CYCLE_INTERVAL_MS),
+        watchdog,
+        fault_policy,
+        safe_outputs: Vec::new(),
+    };
+    EngineCycle::start(prepared, services, ReplayIo { scans }, settings)
+        .expect("the board probe starts on the chips' engine cycle")
 }
 
 /// The device's platform. Its configuration is the host composition's, so the values the
-/// platform knows (settings, realtime posture, `OpenOT` state, I/O drivers, resource name,
-/// credentials) are the same in both compositions; it audits and dispatches on its own.
+/// platform knows (settings, I/O drivers, resource name, credentials) are the same in both
+/// compositions. Like a chip, it has no realtime profile and no `OpenOT` persistence and reports
+/// them with the shared blocks, which the host reports for its own; it audits and dispatches on
+/// its own.
 pub struct BoardPlatform {
     host: Arc<ControlState>,
     audits: Cell<u64>,
@@ -615,15 +550,15 @@ impl StatusPort for BoardPlatform {
     }
 
     fn realtime_status(&self) -> Option<Value> {
-        self.host.realtime_status()
+        Some(absent_realtime_profile())
     }
 
     fn realtime_has_errors(&self) -> Option<bool> {
-        self.host.realtime_has_errors()
+        Some(false)
     }
 
     fn openot_persistence(&self) -> Option<Value> {
-        self.host.openot_persistence()
+        Some(disabled_openot_persistence())
     }
 }
 
@@ -651,4 +586,4 @@ impl RunnerPlatform for BoardPlatform {}
 
 /// The single-thread loop of the device composition.
 pub type DeviceRunner<'a> =
-    Runner<MemoryLink, ReplayWait, BoardCycle<'a>, BoardPlatform, ReplayClock>;
+    Runner<MemoryLink, ReplayWait, DeviceCycle<'a>, BoardPlatform, ReplayClock>;

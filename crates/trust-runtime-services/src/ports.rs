@@ -120,6 +120,14 @@ pub trait ResourcePort {
     /// `shutdown` the device stays reachable and `restart` starts the installed program again. On
     /// a computer `shutdown` ends the trust-runtime process, so a stopped resource refuses it.
     fn starts_when_stopped(&self) -> bool;
+
+    /// Why the resource has no installed program, when it has none: a device whose application
+    /// region holds no program, or one that the device refused (specification 34, STATE-08).
+    /// `restart` is then refused with the reason. A runtime with a program has none, the
+    /// default.
+    fn missing_program(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// The values the platform knows that the status operations report: configuration, I/O driver

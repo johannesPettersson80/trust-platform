@@ -1,5 +1,5 @@
-//! The dispatcher's view of the resource loop: the platform's ports, and the resource state,
-//! metrics and events that the loop keeps itself.
+//! The dispatcher's view of the resource loop: the platform's ports, the installed program's
+//! I/O drivers, and the resource state, metrics and events that the loop keeps itself.
 
 use alloc::collections::VecDeque;
 use alloc::string::String;
@@ -11,6 +11,8 @@ use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, WallClock};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
+use super::cycle::ResourceCycle;
+use super::program::Program;
 use super::state::{Records, ResourceCell};
 use crate::access::{AccessRole, AuthFailure};
 use crate::events::RuntimeEvent;
@@ -41,13 +43,14 @@ pub trait RunnerPlatform:
 }
 
 /// The ports the dispatcher reads and acts through while the loop serves a request.
-pub(super) struct RunnerHost<'a, P, C> {
+pub(super) struct RunnerHost<'a, P, Y, C> {
     pub(super) platform: &'a P,
+    pub(super) program: &'a Program<Y>,
     pub(super) resource: &'a ResourceCell,
     pub(super) records: &'a Records<C>,
 }
 
-impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
+impl<P: RunnerPlatform, Y, C> AccessPort for RunnerHost<'_, P, Y, C> {
     fn request_role(
         &self,
         request: &ControlRequest,
@@ -61,19 +64,19 @@ impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
     }
 }
 
-impl<P: RunnerPlatform, C> AuditSink for RunnerHost<'_, P, C> {
+impl<P: RunnerPlatform, Y, C> AuditSink for RunnerHost<'_, P, Y, C> {
     fn record_audit(&self, record: AuditRecord<'_>) -> Option<SmolStr> {
         self.platform.record_audit(record)
     }
 }
 
-impl<P, C: MonotonicClock> EventSink for RunnerHost<'_, P, C> {
+impl<P, Y, C: MonotonicClock> EventSink for RunnerHost<'_, P, Y, C> {
     fn record_event(&self, event: RuntimeEvent) {
         self.records.push_event(event);
     }
 }
 
-impl<P: RunnerPlatform, C> WallClock for RunnerHost<'_, P, C> {
+impl<P: RunnerPlatform, Y, C> WallClock for RunnerHost<'_, P, Y, C> {
     fn utc_ms(&self) -> Option<u64> {
         self.platform.utc_ms()
     }
@@ -81,7 +84,7 @@ impl<P: RunnerPlatform, C> WallClock for RunnerHost<'_, P, C> {
 
 /// The loop runs in production control mode: a pause holds the scan between cycles. The debugger
 /// hold of specification 13 is not part of the loop yet.
-impl<P, C> ResourcePort for RunnerHost<'_, P, C> {
+impl<P, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
     fn resource_state(&self) -> ResourceState {
         self.resource.state()
     }
@@ -119,9 +122,13 @@ impl<P, C> ResourcePort for RunnerHost<'_, P, C> {
     fn starts_when_stopped(&self) -> bool {
         true
     }
+
+    fn missing_program(&self) -> Option<&str> {
+        self.program.missing()
+    }
 }
 
-impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
+impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y, C> {
     fn resource_name(&self) -> &str {
         self.platform.resource_name()
     }
@@ -130,8 +137,11 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
         self.platform.status_settings()
     }
 
+    /// The installed program's I/O drivers, then those the platform runs itself.
     fn io_drivers(&self) -> Option<Vec<IoDriverStatus>> {
-        self.platform.io_drivers()
+        let mut drivers = self.program.io_drivers();
+        drivers.extend(self.platform.io_drivers()?);
+        Some(drivers)
     }
 
     fn realtime_status(&self) -> Option<serde_json::Value> {
@@ -147,7 +157,7 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
     }
 }
 
-impl<P, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> {
+impl<P, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, Y, C> {
     fn debug_hold(&self) -> Option<&'static str> {
         None
     }
@@ -165,7 +175,7 @@ impl<P, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> {
     }
 }
 
-impl<P: RunnerPlatform, C> ExtensionDispatch for RunnerHost<'_, P, C> {
+impl<P: RunnerPlatform, Y, C> ExtensionDispatch for RunnerHost<'_, P, Y, C> {
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
         self.platform.dispatch_extension(request)
     }

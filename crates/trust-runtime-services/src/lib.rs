@@ -5,8 +5,9 @@
 //! access rights and [`dispatch`] the request pipeline. [`status`], [`events`], [`metrics`] and
 //! [`resource`] answer the status, event and resource operations and hold the supervisor's
 //! decisions. [`ports`] names what a platform supplies. [`runner`] is the single-thread resource
-//! loop of a device without an operating system. Transports, threads, files, clocks and host
-//! state stay in the platform that composes these services.
+//! loop of a device without an operating system, and [`link`] the framing and reply handling of
+//! its control link over a byte stream. Transports, threads, files, clocks and host state stay in
+//! the platform that composes these services.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -19,6 +20,7 @@ pub mod access;
 pub mod dispatch;
 pub mod events;
 pub mod execution_backend;
+pub mod link;
 pub mod metrics;
 pub mod ports;
 pub mod protocol;
