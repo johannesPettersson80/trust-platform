@@ -47,11 +47,17 @@ fn new_debug_control_has_a_clean_running_state() {
     assert!(state.stops.is_empty());
     assert!(state.last_stop.is_none());
     assert!(state.steps.is_empty());
-    assert!(state.io_writes.is_empty());
-    assert!(state.pending_var_writes.is_empty());
-    assert!(state.pending_lvalue_writes.is_empty());
-    assert!(state.forced_vars.is_empty());
-    assert!(state.forced_io.is_empty());
+    assert_eq!(
+        state.live_values.io_writes,
+        Vec::<(IoAddress, Value)>::new()
+    );
+    assert!(state.live_values.pending_var_writes.is_empty());
+    assert!(state.live_values.pending_lvalue_writes.is_empty());
+    assert!(state.live_values.forced_vars.is_empty());
+    assert_eq!(
+        state.live_values.forced_io,
+        Vec::<(IoAddress, Value)>::new()
+    );
     assert_eq!(control.watchdog_pause_elapsed(), Duration::ZERO);
 }
 

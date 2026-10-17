@@ -16,11 +16,7 @@ impl DebugControl {
     ) -> Result<(), RequestQueueFull> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        if state.io_writes.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        state.io_writes.push((address, value));
-        Ok(())
+        state.live_values.try_enqueue_io_write(address, value)
     }
 
     /// Withdraw the one-shot I/O write queued last for `address` and `value`. A caller uses it
@@ -28,13 +24,7 @@ impl DebugControl {
     pub fn withdraw_io_write(&self, address: &IoAddress, value: &Value) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        if let Some(index) = state
-            .io_writes
-            .iter()
-            .rposition(|(queued, queued_value)| queued == address && queued_value == value)
-        {
-            state.io_writes.remove(index);
-        }
+        state.live_values.withdraw_io_write(address, value);
     }
 
     /// Drain queued input writes.
@@ -42,7 +32,7 @@ impl DebugControl {
     pub fn drain_io_writes(&self) -> Vec<(IoAddress, Value)> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        std::mem::take(&mut state.io_writes)
+        state.live_values.drain_io_writes()
     }
 
     /// Queue a pending variable write to apply at the next cycle boundary. A refused write is
@@ -148,15 +138,13 @@ impl DebugControl {
     ) -> Result<Result<(), E>, RequestQueueFull> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        if state.pending_lvalue_writes.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
+        state.live_values.check_lvalue_write_capacity()?;
         if let Some(snapshot) = state.snapshot.as_mut()
             && let Err(error) = write_snapshot(snapshot)
         {
             return Ok(Err(error));
         }
-        state.pending_lvalue_writes.push(PendingLValueWrite {
+        state.live_values.enqueue_lvalue_write(PendingLValueWrite {
             frame_id,
             target,
             value,
@@ -169,22 +157,22 @@ impl DebugControl {
     pub(crate) fn drain_var_writes(&self) -> Vec<PendingVarWrite> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        std::mem::take(&mut state.pending_var_writes)
+        state.live_values.drain_var_writes()
     }
 
     /// Drain pending lvalue writes.
     #[must_use]
-    pub(crate) fn drain_lvalue_writes(&self) -> Vec<PendingLValueWrite> {
+    pub(crate) fn drain_lvalue_writes(&self) -> Vec<PendingLValueWrite<LValue>> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        std::mem::take(&mut state.pending_lvalue_writes)
+        state.live_values.drain_lvalue_writes()
     }
 
     /// Clear queued writes and active forces at a terminating runtime boundary.
     pub(crate) fn clear_runtime_mutations(&self) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.clear_runtime_mutations();
+        state.live_values.clear();
     }
 
     fn enqueue_var_write(&self, target: PendingVarTarget, value: Value) {
@@ -201,7 +189,7 @@ impl DebugControl {
     ) -> Result<(), RequestQueueFull> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.try_upsert_var_write(target, value)
+        state.live_values.try_upsert_var_write(target, value)
     }
 
     /// Force a global variable to the given value. A refused force is reported as
@@ -286,7 +274,7 @@ impl DebugControl {
     pub(crate) fn begin_lifecycle(&self, generation: Generation) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.clear_runtime_mutations();
+        state.live_values.clear();
         state.generation = generation;
     }
 
@@ -329,18 +317,14 @@ impl DebugControl {
     pub fn try_force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.try_upsert_forced_io(address, value)
+        state.live_values.try_upsert_forced_io(address, value)
     }
 
     /// The value of the active variable force on `target`, when the target is forced.
     pub fn forced_var_value(&self, target: &ForcedVarTarget) -> Option<Value> {
         let (lock, _) = &*self.state;
         let state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_vars
-            .iter()
-            .find(|entry| entry.target == *target)
-            .map(|entry| entry.value.clone())
+        state.live_values.forced_var_value(target)
     }
 
     /// Put back the variable force that a failed checked write had replaced: `previous` is the
@@ -348,21 +332,14 @@ impl DebugControl {
     pub fn restore_var_force(&self, target: &ForcedVarTarget, previous: Option<Value>) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        match previous {
-            Some(value) => state.upsert_forced_var(target.clone(), value),
-            None => state.forced_vars.retain(|entry| entry.target != *target),
-        }
+        state.live_values.restore_var_force(target, previous);
     }
 
     /// The value of the active I/O force on `address`, when the address is forced.
     pub fn forced_io_value(&self, address: &IoAddress) -> Option<Value> {
         let (lock, _) = &*self.state;
         let state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_io
-            .iter()
-            .find(|(current, _)| current == address)
-            .map(|(_, value)| value.clone())
+        state.live_values.forced_io_value(address)
     }
 
     /// Put back the I/O force that a failed checked write had replaced: `previous` is the value
@@ -370,26 +347,20 @@ impl DebugControl {
     pub fn restore_io_force(&self, address: &IoAddress, previous: Option<Value>) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        match previous {
-            Some(value) => state.upsert_forced_io(address.clone(), value),
-            None => state.forced_io.retain(|(current, _)| current != address),
-        }
+        state.live_values.restore_io_force(address, previous);
     }
 
     /// Release a forced I/O address.
     pub fn release_io(&self, address: &IoAddress) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.forced_io.retain(|(current, _)| current != address);
+        state.live_values.release_io(address);
     }
 
     pub(crate) fn forced_snapshot(&self) -> ForcedSnapshot {
         let (lock, _) = &*self.state;
         let state = lock.lock().expect("debug state poisoned");
-        ForcedSnapshot {
-            vars: state.forced_vars.clone(),
-            io: state.forced_io.clone(),
-        }
+        state.live_values.forced_snapshot()
     }
 
     /// Remove an I/O force whose application the scan boundary rejected, so the rejected value is
@@ -398,9 +369,7 @@ impl DebugControl {
     pub(crate) fn discard_rejected_io_force(&self, address: &IoAddress, value: &Value) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_io
-            .retain(|(current, current_value)| !(current == address && current_value == value));
+        state.live_values.discard_rejected_io_force(address, value);
     }
 
     /// Remove a variable force whose application the scan boundary rejected. As for I/O forces,
@@ -408,9 +377,7 @@ impl DebugControl {
     pub(crate) fn discard_rejected_var_force(&self, target: &ForcedVarTarget, value: &Value) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state
-            .forced_vars
-            .retain(|entry| !(entry.target == *target && entry.value == *value));
+        state.live_values.discard_rejected_var_force(target, value);
     }
 
     fn set_forced_var(&self, target: ForcedVarTarget, value: Value) {
@@ -427,13 +394,13 @@ impl DebugControl {
     ) -> Result<(), RequestQueueFull> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.try_upsert_forced_var(target, value)
+        state.live_values.try_upsert_forced_var(target, value)
     }
 
     fn clear_forced_var(&self, predicate: impl Fn(&ForcedVarTarget) -> bool) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.forced_vars.retain(|entry| !predicate(&entry.target));
+        state.live_values.clear_forced_vars(predicate);
     }
 
     /// Report a refused write from a caller with no error channel as `write_rejected`, stamped
@@ -469,105 +436,5 @@ fn forced_var_label(target: &ForcedVarTarget) -> SmolStr {
     match target {
         ForcedVarTarget::Global(name) | ForcedVarTarget::Retain(name) => name.clone(),
         ForcedVarTarget::Instance(_, id, name) => SmolStr::new(format!("{}.{name}", id.0)),
-    }
-}
-
-impl DebugState {
-    fn clear_runtime_mutations(&mut self) {
-        self.io_writes.clear();
-        self.pending_var_writes.clear();
-        self.pending_lvalue_writes.clear();
-        self.forced_vars.clear();
-        self.forced_io.clear();
-    }
-
-    /// Replace the pending write to `target` in place, or append it. Host-internal writers that
-    /// are not bounded requests reach this through the unbounded wrappers.
-    fn upsert_var_write(&mut self, target: PendingVarTarget, value: Value) {
-        if let Some(entry) = self
-            .pending_var_writes
-            .iter_mut()
-            .find(|entry| entry.target == target)
-        {
-            entry.value = value;
-        } else {
-            self.pending_var_writes
-                .push(PendingVarWrite { target, value });
-        }
-    }
-
-    /// `upsert_var_write` for a control or protocol request. Replacing a queued target is never
-    /// refused; a new target past the queue bound is.
-    fn try_upsert_var_write(
-        &mut self,
-        target: PendingVarTarget,
-        value: Value,
-    ) -> Result<(), RequestQueueFull> {
-        let is_new = self
-            .pending_var_writes
-            .iter()
-            .all(|entry| entry.target != target);
-        if is_new && self.pending_var_writes.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        self.upsert_var_write(target, value);
-        Ok(())
-    }
-
-    fn upsert_forced_var(&mut self, target: ForcedVarTarget, value: Value) {
-        if let Some(entry) = self
-            .forced_vars
-            .iter_mut()
-            .find(|entry| entry.target == target)
-        {
-            entry.value = value;
-        } else {
-            self.forced_vars.push(ForcedVar { target, value });
-        }
-    }
-
-    /// `upsert_forced_var` for a control or protocol request, with the same bound as
-    /// `try_upsert_var_write`.
-    fn try_upsert_forced_var(
-        &mut self,
-        target: ForcedVarTarget,
-        value: Value,
-    ) -> Result<(), RequestQueueFull> {
-        let is_new = self.forced_vars.iter().all(|entry| entry.target != target);
-        if is_new && self.forced_vars.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        self.upsert_forced_var(target, value);
-        Ok(())
-    }
-
-    fn upsert_forced_io(&mut self, address: IoAddress, value: Value) {
-        if let Some(entry) = self
-            .forced_io
-            .iter_mut()
-            .find(|(current, _)| *current == address)
-        {
-            entry.1 = value;
-        } else {
-            self.forced_io.push((address, value));
-        }
-    }
-
-    /// `upsert_forced_io` for a control or protocol request, with the same bound as
-    /// `try_upsert_var_write`.
-    fn try_upsert_forced_io(
-        &mut self,
-        address: IoAddress,
-        value: Value,
-    ) -> Result<(), RequestQueueFull> {
-        let is_new = self
-            .forced_io
-            .iter()
-            .all(|(current, _)| *current != address);
-        if is_new && self.forced_io.len() >= REQUEST_QUEUE_CAPACITY {
-            return Err(RequestQueueFull);
-        }
-        self.upsert_forced_io(address, value);
-        Ok(())
     }
 }

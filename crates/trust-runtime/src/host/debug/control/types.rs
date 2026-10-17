@@ -82,11 +82,9 @@ struct DebugState {
     stops: Vec<DebugStop>,
     last_stop: Option<DebugStop>,
     steps: HashMap<u32, StepState>,
-    io_writes: Vec<(IoAddress, Value)>,
-    pending_var_writes: Vec<PendingVarWrite>,
-    pending_lvalue_writes: Vec<PendingLValueWrite>,
-    forced_vars: Vec<ForcedVar>,
-    forced_io: Vec<(IoAddress, Value)>,
+    /// The queued writes and active forces, with their capacity and rules (spec 11 "Live Values";
+    /// spec 34 §4.3.1). Held here so every queue operation takes the one state lock.
+    live_values: LiveValueQueues<LValue>,
     /// The installation generation of the attached runtime, published when it attaches this
     /// control and at every restart or replacement commit (specification 34 §11.3).
     generation: Generation,
@@ -99,70 +97,11 @@ struct WatchEntry {
     last: Option<Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ForcedVarTarget {
-    Global(SmolStr),
-    Retain(SmolStr),
-    /// A field of the instance with this identity in this installation generation; the scan
-    /// boundary rejects the force once another generation is installed (spec 34 §4.3.1).
-    Instance(Generation, InstanceId, SmolStr),
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct ForcedVar {
-    pub target: ForcedVarTarget,
-    pub value: Value,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct ForcedSnapshot {
-    pub vars: Vec<ForcedVar>,
-    pub io: Vec<(IoAddress, Value)>,
-}
-
-/// Entries each bounded control queue holds before it refuses a new request: pending one-shot
-/// I/O writes, pending variable writes, active I/O forces and active variable forces
-/// (specification 34 section 4.3.1, specification 11 "request queue full").
-pub(crate) const REQUEST_QUEUE_CAPACITY: usize = 1_024;
-
 /// Runtime events a debug control with no event sender attached holds for callers that drain
 /// them directly. At the bound the oldest event is dropped and counted (specification 11, event
 /// store). The bound and the buffering are shared runtime code (spec 34 ARCH-11).
 #[cfg(test)]
 pub(crate) use trust_runtime_services::events::DEBUG_EVENT_BUFFER_CAPACITY as RUNTIME_EVENT_BUFFER_CAPACITY;
-
-/// A control request refused because its bounded queue is full. Its text is the stable control
-/// error `request queue full`, and the refused request changes nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RequestQueueFull;
-
-impl std::fmt::Display for RequestQueueFull {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("request queue full")
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum PendingVarTarget {
-    Global(SmolStr),
-    Retain(SmolStr),
-    /// A field of the instance with this identity in this installation generation.
-    Instance(Generation, InstanceId, SmolStr),
-    Local(FrameId, SmolStr),
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct PendingVarWrite {
-    pub target: PendingVarTarget,
-    pub value: Value,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct PendingLValueWrite {
-    pub frame_id: Option<FrameId>,
-    pub target: LValue,
-    pub value: Value,
-}
 
 /// Shared debug control and hook implementation.
 #[derive(Debug, Clone)]
