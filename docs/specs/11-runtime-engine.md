@@ -1770,7 +1770,10 @@ substituting an empty snapshot.
 
 The current checksum-protected format is version 3. Version-1 and version-2
 `STRN` snapshots remain readable for the value tags supported by those formats;
-a decoded value materializes with the same logical name and runtime value.
+a decoded value materializes with the same logical name and runtime value. The
+version-3 payload codec is shared by computers and chips: a chip's checkpoint
+records carry exactly these payload bytes (specification 34 §10.1), so both
+write and read the same snapshot with one codec.
 Those formats store structures as logical type/field values only. When an old
 snapshot is migrated to a declaration with relative physical storage, the
 runtime rebuilds backing from the admitted declaration and logical fields,

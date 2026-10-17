@@ -1,6 +1,7 @@
 //! Portable retain and restart policy records.
 
 pub mod checkpoint;
+pub mod codec;
 
 use crate::collections::OrderedMap as IndexMap;
 use smol_str::SmolStr;
