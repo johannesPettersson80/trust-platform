@@ -1,4 +1,4 @@
-use alloc::{format, vec::Vec};
+use alloc::format;
 
 use crate::bytecode::{TypeData, TypeKind, TypeTable};
 use crate::error::{RuntimeError, StableErrorCode};
@@ -28,12 +28,14 @@ pub fn sizeof_type_from_table_with_abi(
     abi: StorageAbi,
     visit: &mut impl FnMut(usize) -> Result<(), RuntimeError>,
 ) -> Result<u64, RuntimeError> {
-    let mut stack = Vec::new();
+    // The visited-type stack is bounded by `SIZEOF_TYPE_MAX_DEPTH`, so a fixed array replaces the
+    // per-call vector: every `SIZEOF(type)` walks without allocating (spec 34 MEM-09, census I11).
+    let mut stack = [0u32; SIZEOF_TYPE_MAX_DEPTH];
     // Portable callers share one recursive walk instead of emitting its body
     // for each budget owner. Hosted callers retain their specialized callback.
     #[cfg(not(feature = "std"))]
     let visit: &mut dyn FnMut(usize) -> Result<(), RuntimeError> = visit;
-    sizeof_type_from_table_inner(types, type_idx, abi, &mut stack, visit)
+    sizeof_type_from_table_inner(types, type_idx, abi, &mut stack, 0, visit)
 }
 
 #[cfg_attr(not(feature = "std"), inline(never))]
@@ -41,11 +43,12 @@ fn sizeof_type_from_table_inner(
     types: &TypeTable,
     type_idx: u32,
     abi: StorageAbi,
-    stack: &mut Vec<u32>,
+    stack: &mut [u32; SIZEOF_TYPE_MAX_DEPTH],
+    depth: usize,
     visit: &mut (impl FnMut(usize) -> Result<(), RuntimeError> + ?Sized),
 ) -> Result<u64, RuntimeError> {
-    visit(1 + stack.len())?;
-    if stack.len() >= SIZEOF_TYPE_MAX_DEPTH {
+    visit(1 + depth)?;
+    if depth >= SIZEOF_TYPE_MAX_DEPTH {
         return Err(RuntimeError::bytecode(
             StableErrorCode::VmBytecodeDecode,
             format!(
@@ -53,7 +56,7 @@ fn sizeof_type_from_table_inner(
             ),
         ));
     }
-    if stack.contains(&type_idx) {
+    if stack[..depth].contains(&type_idx) {
         return Err(RuntimeError::bytecode(
             StableErrorCode::VmBytecodeDecode,
             format!("SIZEOF type recursion at index {type_idx}"),
@@ -65,8 +68,8 @@ fn sizeof_type_from_table_inner(
             format!("invalid type index {type_idx} for SIZEOF"),
         )
     })?;
-    stack.push(type_idx);
-    let result = (|| match &entry.data {
+    stack[depth] = type_idx;
+    (|| match &entry.data {
         TypeData::Primitive {
             prim_id,
             max_length,
@@ -79,9 +82,10 @@ fn sizeof_type_from_table_inner(
             {
                 return Err(RuntimeError::TypeMismatch);
             }
-            let elem_size = sizeof_type_from_table_inner(types, *elem_type_id, abi, stack, visit)?;
-            let len = type_array_len(dims).ok_or(RuntimeError::TypeMismatch)?;
-            elem_size.checked_mul(len).ok_or(RuntimeError::Overflow)
+            let elem_size =
+                sizeof_type_from_table_inner(types, *elem_type_id, abi, stack, depth + 1, visit)?;
+            let count = type_array_len(dims).ok_or(RuntimeError::TypeMismatch)?;
+            elem_size.checked_mul(count).ok_or(RuntimeError::Overflow)
         }
         TypeData::Struct { fields } => {
             if abi == StorageAbi::UniformTemporal64
@@ -93,8 +97,14 @@ fn sizeof_type_from_table_inner(
                 let mut end = 0u64;
                 for field in fields {
                     let offset = field.bit_offset.ok_or(RuntimeError::TypeMismatch)?;
-                    let size =
-                        sizeof_type_from_table_inner(types, field.type_id, abi, stack, visit)?;
+                    let size = sizeof_type_from_table_inner(
+                        types,
+                        field.type_id,
+                        abi,
+                        stack,
+                        depth + 1,
+                        visit,
+                    )?;
                     let boolean = is_bool_type(types, field.type_id, visit)?;
                     if offset % 8 != 0 && !boolean {
                         return Err(RuntimeError::TypeMismatch);
@@ -114,7 +124,14 @@ fn sizeof_type_from_table_inner(
             }
             let mut total = 0u64;
             for field in fields {
-                let size = sizeof_type_from_table_inner(types, field.type_id, abi, stack, visit)?;
+                let size = sizeof_type_from_table_inner(
+                    types,
+                    field.type_id,
+                    abi,
+                    stack,
+                    depth + 1,
+                    visit,
+                )?;
                 total = total.checked_add(size).ok_or(RuntimeError::Overflow)?;
             }
             Ok(total)
@@ -122,25 +139,30 @@ fn sizeof_type_from_table_inner(
         TypeData::Union { fields } => {
             let mut max_size = 0u64;
             for field in fields {
-                let size = sizeof_type_from_table_inner(types, field.type_id, abi, stack, visit)?;
+                let size = sizeof_type_from_table_inner(
+                    types,
+                    field.type_id,
+                    abi,
+                    stack,
+                    depth + 1,
+                    visit,
+                )?;
                 max_size = max_size.max(size);
             }
             Ok(max_size)
         }
         TypeData::Enum { base_type_id, .. } => {
-            sizeof_type_from_table_inner(types, *base_type_id, abi, stack, visit)
+            sizeof_type_from_table_inner(types, *base_type_id, abi, stack, depth + 1, visit)
         }
         TypeData::Alias { target_type_id } => {
-            sizeof_type_from_table_inner(types, *target_type_id, abi, stack, visit)
+            sizeof_type_from_table_inner(types, *target_type_id, abi, stack, depth + 1, visit)
         }
         TypeData::Subrange { base_type_id, .. } => {
-            sizeof_type_from_table_inner(types, *base_type_id, abi, stack, visit)
+            sizeof_type_from_table_inner(types, *base_type_id, abi, stack, depth + 1, visit)
         }
         TypeData::Reference { .. } => Ok(POINTER_REFERENCE_HANDLE_SIZE_BYTES),
         TypeData::Pou { .. } | TypeData::Interface { .. } => Err(RuntimeError::TypeMismatch),
-    })();
-    let _ = stack.pop();
-    result
+    })()
 }
 
 fn is_bool_type(

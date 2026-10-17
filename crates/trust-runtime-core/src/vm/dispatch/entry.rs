@@ -275,9 +275,28 @@ pub fn execute_initializer_body(
     depth: u32,
 ) -> Result<(), RuntimeError> {
     let mut buffers = runtime.take_execution_buffers();
-    let locals = core::mem::take(&mut frame.locals);
-    let mut staged_frame = frame.clone();
-    staged_frame.locals = locals;
+    // Move the caller's locals into the staged initializer frame instead of cloning the frame:
+    // the clone reallocated `parameter_values_present` (census N4). The locals come back below.
+    // The completion does not hand the presence back, so a non-empty presence is still cloned,
+    // as before, and the caller keeps it; every engine caller passes an empty one today.
+    let parameter_values_present = if frame.parameter_values_present.is_empty() {
+        Vec::new()
+    } else {
+        frame.parameter_values_present.clone()
+    };
+    let staged_frame = crate::vm::VmFrame {
+        parameter_values_present,
+        activation: frame.activation,
+        pou_id: frame.pou_id,
+        return_pc: frame.return_pc,
+        code_start: frame.code_start,
+        code_end: frame.code_end,
+        local_ref_start: frame.local_ref_start,
+        local_ref_count: frame.local_ref_count,
+        locals: core::mem::take(&mut frame.locals),
+        runtime_instance: frame.runtime_instance,
+        instance_owner: frame.instance_owner,
+    };
     let mut staged_frame = Some(staged_frame);
     let result = execute_with_buffers(
         runtime,

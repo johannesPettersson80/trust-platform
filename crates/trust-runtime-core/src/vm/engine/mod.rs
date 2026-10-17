@@ -105,6 +105,8 @@ struct ProcessImages {
 struct ExecutionResources {
     buffers: Vec<ExecutionBuffers>,
     frame_locals: scratch::FrameLocals,
+    /// Reserved initializer, frame and lifetime-check bookkeeping (spec 34 MEM-09).
+    bookkeeping: scratch::BookkeepingScratch,
     ready_tasks: Vec<crate::cycle::ReadyTask>,
     constructed_values: usize,
     work_budget: crate::vm::budget::ExecutionBudget,
@@ -210,6 +212,7 @@ impl<'a> EngineState<'a> {
             resources: ExecutionResources {
                 buffers: Vec::new(),
                 frame_locals: scratch::FrameLocals::default(),
+                bookkeeping: scratch::BookkeepingScratch::default(),
                 ready_tasks: Vec::new(),
                 constructed_values: 0,
                 // TIME-09: construction is one entry under its own allowance.

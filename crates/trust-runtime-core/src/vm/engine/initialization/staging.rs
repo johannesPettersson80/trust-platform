@@ -94,93 +94,126 @@ impl EngineState<'_> {
         }
         // Discover ownership from the declared type, never through references or
         // interface handles. Charge the staged value before cloning its payload.
-        let mut pending = Vec::new();
-        self.owned_value_instances(type_id, value, &mut pending, 0)?;
-        self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
-        let value = value.clone();
-        let mut visited = InstanceSet::default();
-        let mut backups = Vec::new();
-        while let Some(raw_id) = pending.pop() {
-            let id = InstanceId(raw_id);
-            self.charge_sorted_growth(visited.insertion_demand(id))?;
-            if !visited.insert(id)? {
-                continue;
-            }
-            let data = self
-                .data
-                .storage
-                .get_instance(id)
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            if let Some(parent) = data.parent {
-                self.push_owned_instance(&mut pending, parent.0)?;
-            }
-            let template = self
-                .data
-                .construction
-                .instance_templates
-                .get(&id)
-                .copied()
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            for &declaration_id in self
-                .prepared
-                .declarations(StorageOwner::Instance, Some(template))
-            {
-                let declaration = &self.prepared.layout.entries[declaration_id as usize];
-                if let (Some(type_id), Some((_, value))) = (
-                    declaration.type_id,
-                    data.variables.get_index(declaration.slot as usize),
-                ) {
-                    self.owned_value_instances(type_id, value, &mut pending, 0)?;
-                }
-            }
-            let mut charge = data
-                .variables
-                .len()
-                .checked_mul(core::mem::size_of::<(smol_str::SmolStr, Value)>() * 4)
-                .ok_or(RuntimeError::Overflow)?;
-            for value in data.variables.values() {
-                charge = charge
-                    .checked_add(self.value_clone_charge(value, 0)?)
-                    .ok_or(RuntimeError::Overflow)?;
-            }
-            self.charge_allocation_bytes(charge)?;
-            if backups.len() == backups.capacity() {
-                let capacity = backups
-                    .capacity()
-                    .max(4)
-                    .checked_mul(2)
-                    .ok_or(RuntimeError::Overflow)?;
-                self.charge_allocation_bytes(
+        let mut pending = PendingInstances::new(self.data.resources.bookkeeping.take_pending());
+        let mut visited = self.data.resources.bookkeeping.take_visited();
+        let mut backups = self.data.resources.bookkeeping.take_backups();
+        let mut visited_charged = 0usize;
+        let mut visited_count = 0usize;
+        let mut backups_charged = 0usize;
+        let value = (|| -> Result<Value, RuntimeError> {
+            self.owned_value_instances(type_id, value, &mut pending, 0)?;
+            self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
+            let value = value.clone();
+            while let Some(raw_id) = pending.pop() {
+                let id = InstanceId(raw_id);
+                // Charge the sorted growth a set growing on demand would make, so the reused
+                // reserved set changes no charge (spec 34 TIME-08, census N3).
+                let bytes = if visited.contains(&id) || visited_count < visited_charged {
+                    0
+                } else {
+                    let capacity = visited_charged
+                        .checked_mul(2)
+                        .ok_or(RuntimeError::Overflow)?
+                        .max(4);
+                    visited_charged = capacity;
                     capacity
-                        .checked_mul(core::mem::size_of::<(InstanceId, InstanceData)>())
-                        .ok_or(RuntimeError::Overflow)?,
-                )?;
-                backups
-                    .try_reserve_exact(capacity - backups.len())
-                    .map_err(|_| {
-                        super::super::super::VmTrap::BudgetExceeded.into_runtime_error()
-                    })?;
-            }
-            backups.push((
-                id,
-                self.data
+                        .checked_mul(core::mem::size_of::<u32>())
+                        .ok_or(RuntimeError::Overflow)?
+                };
+                self.charge_sorted_growth(Ok((bytes, 0)))?;
+                if !visited.insert(id)? {
+                    continue;
+                }
+                visited_count += 1;
+                let data = self
+                    .data
                     .storage
                     .get_instance(id)
-                    .ok_or(RuntimeError::InvalidExecutionState)?
-                    .clone(),
-            ));
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                if let Some(parent) = data.parent {
+                    self.push_owned_instance(&mut pending, parent.0)?;
+                }
+                let template = self
+                    .data
+                    .construction
+                    .instance_templates
+                    .get(&id)
+                    .copied()
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                for &declaration_id in self
+                    .prepared
+                    .declarations(StorageOwner::Instance, Some(template))
+                {
+                    let declaration = &self.prepared.layout.entries[declaration_id as usize];
+                    if let (Some(type_id), Some((_, value))) = (
+                        declaration.type_id,
+                        data.variables.get_index(declaration.slot as usize),
+                    ) {
+                        self.owned_value_instances(type_id, value, &mut pending, 0)?;
+                    }
+                }
+                let mut charge = data
+                    .variables
+                    .len()
+                    .checked_mul(core::mem::size_of::<(smol_str::SmolStr, Value)>() * 4)
+                    .ok_or(RuntimeError::Overflow)?;
+                for value in data.variables.values() {
+                    charge = charge
+                        .checked_add(self.value_clone_charge(value, 0)?)
+                        .ok_or(RuntimeError::Overflow)?;
+                }
+                self.charge_allocation_bytes(charge)?;
+                if backups.len() == backups_charged {
+                    let capacity = backups_charged
+                        .max(4)
+                        .checked_mul(2)
+                        .ok_or(RuntimeError::Overflow)?;
+                    self.charge_allocation_bytes(
+                        capacity
+                            .checked_mul(core::mem::size_of::<(InstanceId, InstanceData)>())
+                            .ok_or(RuntimeError::Overflow)?,
+                    )?;
+                    backups
+                        .try_reserve_exact(capacity - backups.len())
+                        .map_err(|_| {
+                            super::super::super::VmTrap::BudgetExceeded.into_runtime_error()
+                        })?;
+                    backups_charged = capacity;
+                }
+                backups.push((
+                    id,
+                    self.data
+                        .storage
+                        .get_instance(id)
+                        .ok_or(RuntimeError::InvalidExecutionState)?
+                        .clone(),
+                ));
+            }
+            Ok(value)
+        })();
+        self.data.resources.bookkeeping.return_pending(pending.ids);
+        match value {
+            Ok(value) => Ok(InitializerSeed {
+                value,
+                backups,
+                writable_instances: visited,
+            }),
+            Err(error) => {
+                self.data.resources.bookkeeping.return_visited(visited);
+                self.data.resources.bookkeeping.return_backups(backups);
+                Err(error)
+            }
         }
-        Ok(InitializerSeed {
-            value,
-            backups,
-            writable_instances: visited,
-        })
     }
 
-    fn push_owned_instance(&self, output: &mut Vec<u32>, id: u32) -> Result<(), RuntimeError> {
-        if output.len() == output.capacity() {
-            let capacity = output
-                .capacity()
+    fn push_owned_instance(
+        &self,
+        pending: &mut PendingInstances,
+        id: u32,
+    ) -> Result<(), RuntimeError> {
+        if pending.ids.len() == pending.charged_capacity {
+            let capacity = pending
+                .charged_capacity
                 .max(4)
                 .checked_mul(2)
                 .ok_or(RuntimeError::Overflow)?;
@@ -189,11 +222,13 @@ impl EngineState<'_> {
                     .checked_mul(core::mem::size_of::<u32>())
                     .ok_or(RuntimeError::Overflow)?,
             )?;
-            output
-                .try_reserve_exact(capacity - output.len())
+            pending
+                .ids
+                .try_reserve_exact(capacity - pending.ids.len())
                 .map_err(|_| super::super::super::VmTrap::BudgetExceeded.into_runtime_error())?;
+            pending.charged_capacity = capacity;
         }
-        output.push(id);
+        pending.ids.push(id);
         Ok(())
     }
 
@@ -201,7 +236,7 @@ impl EngineState<'_> {
         &self,
         type_id: u32,
         value: &Value,
-        output: &mut Vec<u32>,
+        output: &mut PendingInstances,
         depth: usize,
     ) -> Result<(), RuntimeError> {
         if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
@@ -247,13 +282,33 @@ impl EngineState<'_> {
 
     pub(in crate::vm::engine) fn restore_initializer_instances(
         &mut self,
-        backups: Vec<(InstanceId, InstanceData)>,
+        backups: &mut Vec<(InstanceId, InstanceData)>,
     ) {
-        for (id, data) in backups {
+        for (id, data) in backups.drain(..) {
             if let Some(instance) = self.data.storage.get_instance_mut(id) {
                 *instance = data;
             }
         }
+    }
+}
+
+/// The seed's pending instance identities. Growth is charged as a list growing on demand would
+/// be, so taking the reserved list changes no charge (spec 34 TIME-08, census N3).
+struct PendingInstances {
+    ids: Vec<u32>,
+    charged_capacity: usize,
+}
+
+impl PendingInstances {
+    fn new(ids: Vec<u32>) -> Self {
+        Self {
+            ids,
+            charged_capacity: 0,
+        }
+    }
+
+    fn pop(&mut self) -> Option<u32> {
+        self.ids.pop()
     }
 }
 
@@ -424,7 +479,7 @@ mod tests {
         let mut entry = prepared.initializers.entries[0].clone();
         entry.stage = InitializationStage::Explicit;
         entry.declaration_idx = Some(declaration as u32);
-        let seed = state.initializer_seed(&entry, Some(program), None).unwrap();
+        let mut seed = state.initializer_seed(&entry, Some(program), None).unwrap();
         let Value::Array(array) = &seed.value else {
             panic!("staged array")
         };
@@ -435,7 +490,7 @@ mod tests {
             .data
             .storage
             .set_instance_var(counter, member.as_str(), Value::Null);
-        state.restore_initializer_instances(seed.backups);
+        state.restore_initializer_instances(&mut seed.backups);
         assert_eq!(
             state.data.storage.get_instance(counter).unwrap().variables,
             original

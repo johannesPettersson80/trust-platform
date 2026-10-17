@@ -116,12 +116,20 @@ impl EngineState<'_> {
             backups,
             writable_instances,
         } = self.initializer_seed(&entry, instance, lexical.as_deref())?;
-        let result = self.reserve_activation_identity()?;
-        let mut slot = vec![seed];
-        self.data
-            .storage
-            .suspend_execution_frame(result, &mut slot)?;
-        self.data.storage.activate_execution_frame(result)?;
+        let result = match self.reserve_activation_identity() {
+            Ok(result) => result,
+            Err(error) => return Err(self.abandon_seed(backups, writable_instances, error)),
+        };
+        let mut slot = self.data.resources.bookkeeping.take_slot();
+        slot.push(seed);
+        let suspended = self.data.storage.suspend_execution_frame(result, &mut slot);
+        self.data.resources.bookkeeping.return_slot(slot);
+        if let Err(error) = suspended {
+            return Err(self.abandon_seed(backups, writable_instances, error));
+        }
+        if let Err(error) = self.data.storage.activate_execution_frame(result) {
+            return Err(self.abandon_seed(backups, writable_instances, error));
+        }
         let lexical_frame = lexical.as_ref().and_then(|frame| frame.activation);
         self.data.construction.initializers.push(ActiveInitializer {
             id,
@@ -197,6 +205,22 @@ impl EngineState<'_> {
         self.finish_initializer(outcome, result, lexical_frame, instance, backups)
     }
 
+    /// Give a seed's reserved lists back to the scratch when staging fails after the seed and
+    /// before the initializer entry is pushed, and return the original error (spec 34 MEM-09).
+    fn abandon_seed(
+        &mut self,
+        backups: Vec<(InstanceId, crate::memory::InstanceData)>,
+        writable_instances: InstanceSet,
+        error: RuntimeError,
+    ) -> RuntimeError {
+        self.data.resources.bookkeeping.return_backups(backups);
+        self.data
+            .resources
+            .bookkeeping
+            .return_visited(writable_instances);
+        error
+    }
+
     // Keep finalization's temporaries out of the evaluator frame that remains
     // live across synchronous initializer/default-recipe dispatcher entries.
     #[inline(never)]
@@ -206,10 +230,10 @@ impl EngineState<'_> {
         result: FrameId,
         lexical_frame: Option<FrameId>,
         instance: Option<InstanceId>,
-        backups: Vec<(InstanceId, crate::memory::InstanceData)>,
+        mut backups: Vec<(InstanceId, crate::memory::InstanceData)>,
     ) -> Result<Value, RuntimeError> {
+        let mut values = self.data.resources.bookkeeping.take_slot();
         let value = outcome.and_then(|()| {
-            let mut values = Vec::new();
             self.data
                 .storage
                 .resume_execution_frame(result, &mut values)?;
@@ -217,6 +241,14 @@ impl EngineState<'_> {
                 .pop()
                 .ok_or_else(|| RuntimeError::InvalidExecutionState)
         });
+        if value.is_err() {
+            // A trap leaves the staged slot suspended; reclaim it for the next evaluation.
+            let _ = self
+                .data
+                .storage
+                .resume_execution_frame(result, &mut values);
+        }
+        self.data.resources.bookkeeping.return_slot(values);
         let destination = self
             .data
             .construction
@@ -229,50 +261,61 @@ impl EngineState<'_> {
             .or_else(|| {
                 instance.and_then(|id| self.data.lifetimes.instance_lifetimes.get(&id).flatten())
             });
-        let mut originally_owned = Vec::new();
+        let mut snapshot = self.data.resources.bookkeeping.take_snapshot();
         let value = value.and_then(|value| {
-            originally_owned = self.snapshot_owned_instances(result)?;
+            self.snapshot_owned_instances(result, &mut snapshot)?;
             self.promote_constructed_instances(&value, result, destination)?;
             self.check_value_lifetime(&value, destination)?;
             Ok(value)
         });
         if value.is_err() {
-            self.restore_initializer_instances(backups);
-            for instance in originally_owned {
+            self.restore_initializer_instances(&mut backups);
+            for instance in &snapshot {
                 if self
                     .data
                     .lifetimes
                     .instance_lifetimes
-                    .contains_key(&instance)
+                    .contains_key(instance)
                 {
                     self.data
                         .lifetimes
                         .instance_lifetimes
-                        .restore(instance, Some(result));
+                        .restore(*instance, Some(result));
                 }
             }
         }
-        self.data.construction.initializers.pop();
+        if let Some(active) = self.data.construction.initializers.pop() {
+            self.data
+                .resources
+                .bookkeeping
+                .return_visited(active.writable_instances);
+        }
         self.data.storage.release_execution_frame(result);
         self.remove_owned_instances_unchecked(result);
+        self.data.resources.bookkeeping.return_snapshot(snapshot);
+        self.data.resources.bookkeeping.return_backups(backups);
         value
     }
 
-    fn snapshot_owned_instances(&self, owner: FrameId) -> Result<Vec<InstanceId>, RuntimeError> {
+    fn snapshot_owned_instances(
+        &self,
+        owner: FrameId,
+        snapshot: &mut Vec<InstanceId>,
+    ) -> Result<(), RuntimeError> {
+        snapshot.clear();
         let count = self.data.lifetimes.owned_instances.count(owner);
         let bytes = count
             .checked_mul(core::mem::size_of::<InstanceId>())
             .ok_or_else(|| RuntimeError::Overflow)?;
         self.charge_allocation_bytes(bytes)?;
-        let mut snapshot = Vec::new();
         snapshot
             .try_reserve_exact(count)
             .map_err(|_| RuntimeError::PreparationLimit)?;
         self.data
             .lifetimes
             .owned_instances
-            .copy_snapshot(owner, &mut snapshot);
-        Ok(snapshot)
+            .copy_snapshot(owner, snapshot);
+        Ok(())
     }
 
     pub(in crate::vm::engine) fn with_construction_frame<T>(
@@ -280,13 +323,27 @@ impl EngineState<'_> {
         frame: &mut VmFrame,
         action: impl FnOnce(&mut Self) -> Result<T, RuntimeError>,
     ) -> Result<T, RuntimeError> {
-        let locals = core::mem::take(&mut frame.locals);
-        let mut context = frame.clone();
-        context.locals = locals;
+        // Move the frame's payload into the construction frame instead of cloning it: the clone
+        // reallocated `parameter_values_present` (census N4). Both vectors are restored after the
+        // action, exactly as the clone left the caller's frame untouched (spec 34 MEM-09).
+        let context = VmFrame {
+            parameter_values_present: core::mem::take(&mut frame.parameter_values_present),
+            activation: frame.activation,
+            pou_id: frame.pou_id,
+            return_pc: frame.return_pc,
+            code_start: frame.code_start,
+            code_end: frame.code_end,
+            local_ref_start: frame.local_ref_start,
+            local_ref_count: frame.local_ref_count,
+            locals: core::mem::take(&mut frame.locals),
+            runtime_instance: frame.runtime_instance,
+            instance_owner: frame.instance_owner,
+        };
         self.data.construction.frames.push(context);
         let result = action(self);
-        if let Some(context) = self.data.construction.frames.pop() {
-            frame.locals = context.locals;
+        if let Some(mut context) = self.data.construction.frames.pop() {
+            frame.locals = core::mem::take(&mut context.locals);
+            frame.parameter_values_present = core::mem::take(&mut context.parameter_values_present);
         }
         result
     }
@@ -358,6 +415,8 @@ fn context_store_result(state: &mut EngineState<'_>, frame: FrameId, value: Valu
         .write_by_ref_parts(MemoryLocation::Local(frame), 0, &[], value)
 }
 
+#[cfg(test)]
+mod bookkeeping_tests;
 #[cfg(test)]
 mod call_path_literal_default_tests;
 #[cfg(test)]

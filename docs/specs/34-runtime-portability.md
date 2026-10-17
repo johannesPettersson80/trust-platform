@@ -1175,6 +1175,13 @@ A scan takes this storage and gives it back empty. RUN charges and refusals do n
 activation is charged the frame and pending-call growth that storage growing on demand would
 need, and staging, snapshots and journals are charged as before (TIME-08).
 
+Initializer evaluation, construction and the lifetime check reuse the same reserved bookkeeping:
+an evaluated initializer's result slot, its seed's pending, visited and backup lists and its
+owned-instance snapshot are taken per call depth and returned on every path, a construction frame
+is moved rather than cloned, the lifetime check's visited set is reserved for the live instance
+count and cleared per check, and each type's `SIZEOF` walks a fixed-depth stack; every result,
+charge and refusal is unchanged (TIME-08).
+
 Construction sizes these call levels to the program's static call depth, not to `max_call_depth`.
 The validator walks every call target from every entry and, conservatively, of every POU in the
 module, so a target reached only by method or interface dispatch still counts: a `CALL` to a

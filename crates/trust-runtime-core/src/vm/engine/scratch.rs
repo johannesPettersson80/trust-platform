@@ -7,6 +7,128 @@ use super::*;
 use crate::vm::construction::values::ValueOperation;
 use crate::vm::VmTrap;
 
+/// Initializer, construction-frame and lifetime-check bookkeeping that construction reserves and
+/// every scan reuses (spec 34 MEM-03, MEM-09, census N1-N4 and I10): one staged result slot, one
+/// pending-identity list, one seed visited set, one seed backup list and one owned-instance
+/// snapshot per callback level, plus the lifetime check's visited set. Every buffer is taken from
+/// its list and returned, so no evaluation or check allocates it again; growth is still charged at
+/// the call site against the capacity a buffer growing on demand would have (spec 34 TIME-08).
+#[derive(Default)]
+pub(super) struct BookkeepingScratch {
+    slots: Vec<Vec<Value>>,
+    pending: Vec<Vec<u32>>,
+    visited: Vec<InstanceSet>,
+    backups: Vec<Vec<(InstanceId, crate::memory::InstanceData)>>,
+    snapshots: Vec<Vec<InstanceId>>,
+    /// The lifetime check's visited set, reserved for the live instance count and cleared per
+    /// check (spec 34 MEM-09, census I10).
+    pub(super) lifetime_visited: core::cell::RefCell<super::policy::LifetimeVisited>,
+    /// The number of call levels reserved. A buffer returned above it is dropped.
+    levels: usize,
+}
+
+impl BookkeepingScratch {
+    /// The bytes this scratch reserves for `levels` callback levels.
+    fn reservation_bytes(levels: usize) -> Option<usize> {
+        let per_level = core::mem::size_of::<Vec<Value>>()
+            .checked_add(core::mem::size_of::<Value>())?
+            .checked_add(core::mem::size_of::<Vec<u32>>())?
+            .checked_add(core::mem::size_of::<InstanceSet>())?
+            .checked_add(core::mem::size_of::<
+                Vec<(InstanceId, crate::memory::InstanceData)>,
+            >())?
+            .checked_add(core::mem::size_of::<Vec<InstanceId>>())?;
+        levels
+            .checked_mul(per_level)?
+            .checked_add(core::mem::size_of::<Self>())
+    }
+
+    /// Reserve the per-level lists and the fixed one-element result slots (spec 34 MEM-09).
+    fn reserve(&mut self, levels: usize) -> Result<(), RuntimeError> {
+        let refused = |_| VmTrap::BudgetExceeded.into_runtime_error();
+        self.levels = levels;
+        self.slots.try_reserve_exact(levels).map_err(refused)?;
+        self.pending.try_reserve_exact(levels).map_err(refused)?;
+        self.visited.try_reserve_exact(levels).map_err(refused)?;
+        self.backups.try_reserve_exact(levels).map_err(refused)?;
+        self.snapshots.try_reserve_exact(levels).map_err(refused)?;
+        for _ in 0..levels {
+            let mut slot = Vec::new();
+            slot.try_reserve_exact(1).map_err(refused)?;
+            self.slots.push(slot);
+            self.pending.push(Vec::new());
+            self.visited.push(InstanceSet::default());
+            self.backups.push(Vec::new());
+            self.snapshots.push(Vec::new());
+        }
+        Ok(())
+    }
+
+    /// Reserve the lifetime check's visited set for `instances` live identities. Called when the
+    /// live instance count grows, never during a scan of an unchanged program (spec 34 MEM-09).
+    pub(super) fn reserve_lifetime_visited(&self, instances: usize) -> Result<(), RuntimeError> {
+        self.lifetime_visited.borrow_mut().reserve(instances)
+    }
+
+    pub(super) fn take_slot(&mut self) -> Vec<Value> {
+        self.slots.pop().unwrap_or_default()
+    }
+    pub(super) fn return_slot(&mut self, mut slot: Vec<Value>) {
+        slot.clear();
+        if self.slots.len() < self.levels {
+            self.slots.push(slot);
+        }
+    }
+    pub(super) fn take_pending(&mut self) -> Vec<u32> {
+        self.pending.pop().unwrap_or_default()
+    }
+    pub(super) fn return_pending(&mut self, mut pending: Vec<u32>) {
+        pending.clear();
+        if self.pending.len() < self.levels {
+            self.pending.push(pending);
+        }
+    }
+    pub(super) fn take_visited(&mut self) -> InstanceSet {
+        self.visited.pop().unwrap_or_default()
+    }
+    pub(super) fn return_visited(&mut self, visited: InstanceSet) {
+        if self.visited.len() < self.levels {
+            self.visited.push(visited);
+        }
+    }
+    pub(super) fn take_backups(&mut self) -> Vec<(InstanceId, crate::memory::InstanceData)> {
+        self.backups.pop().unwrap_or_default()
+    }
+    pub(super) fn return_backups(
+        &mut self,
+        mut backups: Vec<(InstanceId, crate::memory::InstanceData)>,
+    ) {
+        backups.clear();
+        if self.backups.len() < self.levels {
+            self.backups.push(backups);
+        }
+    }
+    pub(super) fn take_snapshot(&mut self) -> Vec<InstanceId> {
+        self.snapshots.pop().unwrap_or_default()
+    }
+    pub(super) fn return_snapshot(&mut self, mut snapshot: Vec<InstanceId>) {
+        snapshot.clear();
+        if self.snapshots.len() < self.levels {
+            self.snapshots.push(snapshot);
+        }
+    }
+
+    /// Whether every reserved buffer has been returned to its list (spec 34 MEM-09; test support).
+    #[cfg(test)]
+    pub(super) fn all_buffers_returned(&self) -> bool {
+        self.slots.len() == self.levels
+            && self.pending.len() == self.levels
+            && self.visited.len() == self.levels
+            && self.backups.len() == self.levels
+            && self.snapshots.len() == self.levels
+    }
+}
+
 /// Local-slot vectors for stack activations. Each has room for the largest POU's locals, so
 /// handing one out never allocates.
 #[derive(Debug, Default)]
@@ -127,11 +249,13 @@ impl ScratchPlan {
             .types
             .checked_mul(core::mem::size_of::<(u32, ValueOperation)>())?;
         let journal = SavedDestinations::allocation_bytes(self.journal).ok()?;
+        let bookkeeping = BookkeepingScratch::reservation_bytes(self.initializers)?;
         buffer
             .checked_add(frame_locals)?
             .checked_add(initializers)?
             .checked_add(types)?
             .checked_add(journal)?
+            .checked_add(bookkeeping)?
             .checked_add(self.staging.reservation_bytes()?)
     }
 }
@@ -166,7 +290,8 @@ impl EngineState<'_> {
         construction
             .types
             .try_reserve_exact(plan.types)
-            .map_err(refused)
+            .map_err(refused)?;
+        self.data.resources.bookkeeping.reserve(plan.initializers)
     }
 }
 
