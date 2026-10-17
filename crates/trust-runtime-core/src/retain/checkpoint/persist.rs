@@ -14,6 +14,9 @@
 //! while the capture refills its staging buffer in place with a newer image, and it lets the
 //! unchanged-image skip compare the newest staged image with the one last written, without touching
 //! the capture's buffers. Starting, advancing and finishing a checkpoint therefore allocate nothing.
+//! [`recover`](CheckpointPersister::recover) leaves the payload of a recovered checkpoint written
+//! for the persister's identity in that buffer, so a warm start does not write the checkpoint it
+//! has just restored (specification 11 §6.7).
 
 use alloc::vec::Vec;
 
@@ -82,13 +85,33 @@ impl<F: CheckpointFlash> CheckpointPersister<F> {
     /// `payload` and return the record, which carries its identity and payload length, or `None`
     /// for an empty log (specification 34 §10.1).
     ///
+    /// A record written for this persister's identity becomes the image last written: the payload
+    /// it holds is kept as that image, so a due save of an unchanged image writes nothing, also on
+    /// the first due save after a warm start (specification 11 §6.7). A record of another identity
+    /// is not kept, so the first due save writes the image once under this persister's identity.
+    ///
     /// # Errors
     ///
     /// [`RuntimeError::RetainCorruption`] when the newest committed checkpoint fails its checks,
     /// which fails the warm start as a damaged retain file does (specification 11 §6.7);
     /// [`RuntimeError::RetainStore`] when the flash cannot be read or `payload` is too short.
     pub fn recover(&mut self, payload: &mut [u8]) -> Result<Option<RecordInfo>, RuntimeError> {
-        self.log.recover(payload).map_err(RuntimeError::from)
+        let record = self.log.recover(payload).map_err(RuntimeError::from)?;
+        let Some(record) = record else {
+            return Ok(None);
+        };
+        if record.identity == self.identity {
+            let len = record.payload_len as usize;
+            let Some(image) = payload.get(..len) else {
+                return Err(CheckpointError::BufferTooSmall {
+                    needed: record.payload_len,
+                }
+                .into());
+            };
+            self.payload.clear();
+            self.payload.extend_from_slice(image);
+        }
+        Ok(Some(record))
     }
 
     /// Start a checkpoint of the capture's staged image when the shared save rule says a save is due

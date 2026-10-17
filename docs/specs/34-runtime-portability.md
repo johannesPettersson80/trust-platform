@@ -1,7 +1,7 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.29 — the control link on a byte stream (§7.4), after 0.28's per-depth frame payloads, bookkeeping scratch and checkpoint persister
-- **Date:** 17 October 2026
+- **Version:** 0.30 — the device runner's use of the checkpoint persister (§10), after 0.29's control link on a byte stream
+- **Date:** 18 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
 - **Baseline commit date:** 3 September 2026
@@ -1704,6 +1704,16 @@ committed checkpoint stays readable. A stop or shutdown completes the pending ch
 writes the newest staged image if it was not written, all steps at once, so the save completes before
 the runtime is Stopped.
 
+**The device runner.** The installed program's cycle holds this persister over the checkpoint store
+its platform supplies: at each scan's pre-output-sample checkpoint it captures the retained values
+and offers them, the resource loop advances one step between scans with the store's per-step program
+budget, and a stop or shutdown completes the pending checkpoint and the newest image before the
+resource reports Stopped. No step runs inside a scan, and a failure a step or a start latched fails
+the next scan with `RuntimeError::RetainStore` before physical outputs, as a computer's failed retain
+save does. A warm start decodes the newest committed checkpoint with the shared codec and applies it
+by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts the retained values
+with their declared initial values.
+
 ### 10.1 Checkpoint log in flash
 
 A chip keeps its retain checkpoints in the two checkpoint slots of its chip file, `checkpoint_a`
@@ -2778,6 +2788,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.30 | 18 October 2026 | §10, "The device runner": the chip's installed program holds the checkpoint persister over the checkpoint store its platform supplies; it captures the retained values and offers them at each scan's pre-output-sample checkpoint, the resource loop advances one step between scans with the store's per-step program budget so no step runs inside a scan, a stop or shutdown completes the save before the resource reports Stopped, and a latched failure fails the next scan with `RuntimeError::RetainStore` before physical outputs. A warm start decodes the newest committed checkpoint with the shared codec and applies it by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts with the declared initial values. |
 | 0.29 | 17 October 2026 | §7.4 (PORT-05): the control link on a byte stream, such as a chip's USB serial port: line framing as trust-runtime's socket, frames of up to 8,192 bytes on every chip's USB link, an oversized request dropped to its line feed and answered once with `request longer than <frame> bytes`, a reply longer than the frame replaced by `reply longer than <frame> bytes` until requests and replies travel in parts with program loading's transfer, `events.tail` and `faults` written event by event within the frame, one reply in flight, a reply without progress for 1 second dropped with the line-feed repair, a new host session, and the link's counters. STATE-08: a chip without an installed program, or with one it refused, serves the control connection in the Stopped state and refuses `restart` with `no installed program: <reason>` until a program is installed; a warm start after `shutdown` gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 §6.5.6.1). |
 | 0.28 | 18 October 2026 | §6.3, after MEM-09: construction reserves one frame payload per call depth (that depth's local slots and parameter-presence bits, sized for the largest POU) and one edge-input list and restore list, and a user or method call takes the locals of its frame from the reserved payloads; an activation binds its arguments into the payload, reads edge inputs and their restores from the reserved lists and returns the payload when its frame is popped on every path, and a scan allocates no locals, presence, edge-input or restore vector. Construction also reserves the bookkeeping scratch: initializer result slots, seed lists and owned-instance snapshots, the lifetime check's visited set, and `SIZEOF(type)` walks a fixed stack. Every result, charge and refusal is unchanged (TIME-08). §10, "Between scans": a chip's checkpoint persister starts a checkpoint when the save is due and the image changed, advances it one log step at a time between scans, completes it at a stop, and latches a failure as `RuntimeError::RetainStore`. |
 | 0.27 | 17 October 2026 | §6.3, after MEM-09: preparation resolves every `CALL_NATIVE` site once into a call plan (each actual's formal index, the presence pattern, the output descriptors, and the callee: a function's prepared POU, a function block's POU, a method through the prepared owner and method table, a built-in function block's kind and parameters); a scan resolves no argument names and builds no uppercase type-name key, and an interface attempt compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every result, charge and refusal is unchanged (TIME-08). |

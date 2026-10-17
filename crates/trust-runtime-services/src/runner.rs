@@ -30,6 +30,7 @@ pub mod engine;
 mod host;
 mod observer;
 mod program;
+mod retain;
 mod state;
 mod supervision;
 
@@ -49,6 +50,7 @@ use trust_runtime_core::value;
 
 pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use host::RunnerPlatform;
+pub use retain::RetainConfig;
 
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
 use crate::protocol::ControlAfterResponse;
@@ -196,8 +198,9 @@ where
     }
 
     /// One pass of the loop: it reads the wake token, serves the requests that have arrived,
-    /// takes the program's boundary when it is due, does the platform's idle work, feeds the
-    /// hardware watchdog and waits until the next boundary or a wake (PORT-03).
+    /// takes the program's boundary when it is due, advances a pending retained checkpoint by one
+    /// step, does the platform's idle work, feeds the hardware watchdog and waits until the next
+    /// boundary or a wake (PORT-03).
     ///
     /// The wait never outlasts the watchdog's feed interval, so the loop feeds it in every state,
     /// also while the program is stopped, paused or faulted (TIME-04). A pass that served
@@ -210,6 +213,7 @@ where
         let token = self.wait.wake_token();
         let more_frames = self.serve_link();
         self.supervise();
+        self.step_retain();
         self.platform.idle();
         self.platform.feed();
         if more_frames {
@@ -223,6 +227,20 @@ where
             .next_boundary
             .map_or(liveness, |boundary| boundary.min(liveness));
         self.wait.wait_until(deadline, token)
+    }
+
+    /// Advances a pending retained checkpoint by one persister step, between scans and while the
+    /// loop otherwise waits for the next release (specification 34 §10). The step never runs
+    /// inside a scan, so an erase that outlasts the time before the next release only makes that
+    /// scan late; a failed step latches a retain-store failure that the next scan fails with
+    /// before physical outputs.
+    fn step_retain(&mut self) {
+        // The installed program steps its own checkpoint store. The wrapping `Program` forwards
+        // the operations the loop asks of the cycle; the step is taken from the installed cycle
+        // directly so no dispatch of the wrapper is needed for it.
+        if let Program::Installed(cycle) = &mut self.cycle {
+            cycle.step_retain();
+        }
     }
 
     /// Serves up to [`FRAMES_PER_PASS`] requests; true when the bound was reached.
@@ -320,6 +338,9 @@ mod contract_tests;
 
 #[cfg(test)]
 mod link_contract_tests;
+
+#[cfg(test)]
+mod retain_contract_tests;
 
 #[cfg(test)]
 mod scan_contract_tests;

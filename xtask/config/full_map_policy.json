@@ -1634,6 +1634,15 @@
         "rationale": "Runtime Cloud remains a transport-neutral topology, policy, HA, and projection domain with many focused child modules",
         "review_date": "2026-08-21",
         "split_plan": "Split only if a child gains an independently versioned external contract; preserve the transport-neutral domain boundary."
+      },
+      {
+        "crate_name": "trust-runtime-services",
+        "module_name": "runner",
+        "path": "crates/trust-runtime-services/src/runner",
+        "owner": "runtime portability (device runner)",
+        "rationale": "The device runner namespace is the resource loop and one contract test file per port: the loop and its link/wait boundary, the cycle port, the shared-engine cycle with its limits, process I/O and services, the program wrapper, the platform host, the supervisor, the records and the retain store. Slice C5-3b added the chip retention contract tests (runner/retain_contract_tests.rs) beside the loop they exercise, which takes the aggregate past 5000 lines; the boundary is the sum of focused files, not one implementation file or a mixed owner.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one responsibility per child file: the loop, the cycle port, the shared-engine cycle, the platform host, the supervisor, the records and the retain store stay separate, and each port's contract tests stay beside the loop they exercise. Split any individual file approaching 1000 lines by the same responsibility rather than growing runner.rs."
       }
     ],
     "function_size_allowlist": [
