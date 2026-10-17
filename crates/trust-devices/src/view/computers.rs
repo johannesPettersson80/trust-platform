@@ -120,7 +120,7 @@ fn computer(host: &Host, this_computer: Option<&str>, facts: &Facts, now_ms: u64
             breadcrumb: texts::breadcrumb(kind_word),
             kind: kind_word.to_owned(),
             title: heading.clone(),
-            health: Some(reachability.tone),
+            health: Some(reachability.clone()),
             primary: Vec::new(),
             secondary: vec![focus(&id)],
             sections: vec![Section {

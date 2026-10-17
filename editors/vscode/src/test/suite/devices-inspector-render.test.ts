@@ -20,7 +20,7 @@ const { buildSync } = require("esbuild") as {
 type WebviewComponent = React.ComponentType<Record<string, unknown>>;
 
 /** Bundles one webview entry point and returns its named export, as the extension ships it. */
-function loadComponent(component: "Inspector" | "App"): WebviewComponent {
+function loadComponent(component: "Inspector" | "App" | "Toolbar"): WebviewComponent {
   const extensionRoot = path.resolve(__dirname, "..", "..", "..");
   const temp = fs.mkdtempSync(
     path.join(extensionRoot, "node_modules", `.trust-devices-${component}-test-`),
@@ -110,7 +110,7 @@ function inspector(overrides: Record<string, unknown>): Record<string, unknown> 
     breadcrumb: "Devices & Connections / Runtime",
     kind: "Runtime",
     title: "Line runtime",
-    health: "ok",
+    health: { word: "Running", tone: "ok" },
     primary: [],
     secondary: [],
     sections: [],
@@ -118,7 +118,7 @@ function inspector(overrides: Record<string, unknown>): Record<string, unknown> 
   };
 }
 
-/** The toolbar's three actions, as Rust declares them. */
+/** The toolbar's three actions and the switch's two words, as Rust declares them. */
 function toolbar(): Record<string, unknown> {
   return {
     add: {
@@ -142,6 +142,7 @@ function toolbar(): Record<string, unknown> {
       emphasis: "secondary",
       op: { kind: "ui", ui: { kind: "open", pane: { kind: "add" } } },
     },
+    view_switch: { topology: "Topology", list: "List" },
   };
 }
 
@@ -223,7 +224,7 @@ function computerInspector(): Record<string, unknown> {
     breadcrumb: "Devices & Connections / Computer",
     kind: "Computer",
     title: "This computer",
-    health: "ok",
+    health: { word: "Reachable", tone: "ok" },
     primary: [],
     secondary: [
       action({ id: "focus", label: "Focus", emphasis: "secondary" }),
@@ -246,7 +247,7 @@ function runtimeFacts(): Record<string, unknown> {
     breadcrumb: "Devices & Connections / Runtime",
     kind: "Runtime",
     title: "Line runtime",
-    health: "warning",
+    health: { word: "Degraded", tone: "warning" },
     primary: [
       action({ id: "connect", label: "Connect", emphasis: "primary" }),
       action({
@@ -281,7 +282,7 @@ function connectionInspector(): Record<string, unknown> {
     breadcrumb: "Devices & Connections / Client · device",
     kind: "Client · device",
     title: "Modbus meter",
-    health: "ok",
+    health: { word: "Connected", tone: "ok" },
     primary: [action({ id: "edit", label: "Edit settings", emphasis: "primary" })],
     secondary: [action({ id: "test", label: "Test", emphasis: "secondary" })],
     sections: [
@@ -301,7 +302,7 @@ function deviceInspector(): Record<string, unknown> {
     breadcrumb: "Devices & Connections / Shared system",
     kind: "Shared system",
     title: "MQTT broker",
-    health: "neutral",
+    health: { word: "Connected", tone: "neutral" },
     primary: [],
     secondary: [action({ id: "focus", label: "Focus", emphasis: "secondary" })],
     sections: [
@@ -388,10 +389,16 @@ suite("Devices & Connections panel inspector", () => {
           item.inspector.title,
           `${item.kind}: the title is drawn as the view gives it`,
         );
+        const health = item.inspector.health as { word: string; tone: string };
         assert.strictEqual(
           root.querySelector('[data-role="inspector-health"]').getAttribute("data-tone"),
-          item.inspector.health,
-          `${item.kind}: the health is drawn in its own tone`,
+          health.tone,
+          `${item.kind}: the health dot is drawn in the health's own tone`,
+        );
+        assert.strictEqual(
+          root.querySelector('[data-role="inspector-health-word"]').textContent,
+          health.word,
+          `${item.kind}: the health word is drawn as the view gives it`,
         );
 
         const labels: string[] = [...root.querySelectorAll('[data-role="row-label"]')].map(
@@ -448,6 +455,51 @@ suite("Devices & Connections panel inspector", () => {
           );
         }
       }
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("the_view_switch_draws_its_words_from_the_toolbar", async () => {
+    const Toolbar = loadComponent("Toolbar");
+    const selected: string[] = [];
+    const rendered = await render(Toolbar, {
+      toolbar: toolbar(),
+      view: "list",
+      onSelectView: (view: string) => {
+        selected.push(view);
+      },
+      onAction: () => undefined,
+    });
+    try {
+      const buttons = [...rendered.container.querySelectorAll('[data-role="view-switch"] button')];
+      assert.deepStrictEqual(
+        buttons.map((button) => button.textContent),
+        ["Topology", "List"],
+        "the switch draws the two words the toolbar gives, never a label of its own",
+      );
+      assert.deepStrictEqual(
+        buttons.map((button) => button.getAttribute("data-view")),
+        ["topology", "list"],
+        "each choice keeps its own view",
+      );
+      assert.strictEqual(
+        buttons[1].getAttribute("data-selected"),
+        "true",
+        "the shown view is the selected one",
+      );
+      const actions = [...rendered.container.querySelectorAll("[data-toolbar-item]")].map(
+        (item) => item.textContent,
+      );
+      assert.deepStrictEqual(
+        actions,
+        ["+ Add", "Discover", "Add host"],
+        "the switch adds no button of its own to the toolbar's actions",
+      );
+      await act(async () => {
+        buttons[0].click();
+      });
+      assert.deepStrictEqual(selected, ["topology"], "choosing a view hands it back to the shell");
     } finally {
       await rendered.unmount();
     }

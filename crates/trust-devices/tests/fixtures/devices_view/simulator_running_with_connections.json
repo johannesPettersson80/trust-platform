@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -98,6 +102,8 @@
           {
             "id": "fleet:trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6bGluZS1wYyIsbnVsbCwiUkVTT1VSQ0UiLCJlbmRwb2ludDpSRVNPVVJDRTptb2RidXNfdGNwIiwidW5peDovLy90bXAvdHJ1c3QtZGVidWctYWIxMmNkMzQuc29jayJd",
             "severity": "warning",
+            "severity_word": "Warning",
+            "severity_tone": "warning",
             "text": "Modbus meter: Driver is healthy.",
             "show": {
               "id": "show",
@@ -216,7 +222,11 @@
                 "breadcrumb": "Devices & Connections / I/O · endpoint",
                 "kind": "I/O · endpoint",
                 "title": "Simulated I/O",
-                "health": "ok",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
                 "primary": [
                   {
                     "id": "test",
@@ -338,7 +348,11 @@
                 "breadcrumb": "Devices & Connections / Client · endpoint",
                 "kind": "Client · endpoint",
                 "title": "Modbus meter",
-                "health": "warning",
+                "health": {
+                  "word": "Degraded",
+                  "tone": "warning",
+                  "live": false
+                },
                 "primary": [
                   {
                     "id": "test",
@@ -438,7 +452,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "warning",
+            "health": {
+              "word": "Degraded",
+              "tone": "warning",
+              "live": false
+            },
             "primary": [
               {
                 "id": "stop",
@@ -719,7 +737,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {

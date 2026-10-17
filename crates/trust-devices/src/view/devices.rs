@@ -361,7 +361,7 @@ impl Systems<'_> {
                 breadcrumb: graph::breadcrumb(kind),
                 kind: kind.to_owned(),
                 title: name.clone(),
-                health: status.as_ref().map(|status| status.tone),
+                health: status.clone(),
                 primary: Vec::new(),
                 secondary: vec![focus(&id)],
                 sections: vec![Section {
@@ -504,7 +504,7 @@ fn subdevice(child: &FleetEndpointChild, endpoint: &Endpoint, connection: &Conne
             breadcrumb: graph::breadcrumb(graph::KIND_DEVICE),
             kind: graph::KIND_DEVICE.to_owned(),
             title: name.clone(),
-            health: Some(status.tone),
+            health: Some(status.clone()),
             primary: Vec::new(),
             secondary: vec![focus(&id)],
             sections: vec![Section {

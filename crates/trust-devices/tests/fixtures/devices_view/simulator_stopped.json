@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -185,7 +189,11 @@
                 "breadcrumb": "Devices & Connections / I/O · endpoint",
                 "kind": "I/O · endpoint",
                 "title": "Simulated I/O",
-                "health": "neutral",
+                "health": {
+                  "word": "Configured",
+                  "tone": "neutral",
+                  "live": false
+                },
                 "primary": [],
                 "secondary": [
                   {
@@ -264,7 +272,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "neutral",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -521,7 +533,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {

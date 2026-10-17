@@ -17,6 +17,10 @@ fn counted(count: usize, noun: &str) -> String {
 pub const NO_ISSUES: &str = "No issues";
 /// The group of the issues that belong to no item of the canvas.
 pub const GENERAL: &str = "General";
+/// The word of an issue whose severity is a warning (`Fault` comes from the graph's texts).
+pub const WARNING: &str = "Warning";
+/// The word of an issue whose severity is information.
+pub const INFO: &str = "Info";
 /// Zooms to the item of an issue.
 pub const SHOW: &str = "Show";
 /// Starts the simulator again after a failed start.

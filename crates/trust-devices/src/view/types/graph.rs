@@ -61,6 +61,18 @@ pub struct Toolbar {
     pub discover: Action,
     /// The Edit slot after the computers: `Add host`.
     pub add_host_slot: Action,
+    /// The `Topology`/`List` switch: the word of each view (specification 25 §5.11).
+    pub view_switch: ViewSwitch,
+}
+
+/// The `Topology`/`List` switch (specification 25 §5.11): the word of each view, so the webview
+/// decides no label. Which view is shown stays the webview's own state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ViewSwitch {
+    /// `Topology`.
+    pub topology: String,
+    /// `List`.
+    pub list: String,
 }
 
 /// The project name and the projects to choose from (specification 25 §5.11).
@@ -158,6 +170,10 @@ pub struct Issue {
     pub id: String,
     /// How severe it is.
     pub severity: Severity,
+    /// Its severity's word: `Fault`, `Warning` or `Info` (specification 25 §5.11).
+    pub severity_word: String,
+    /// Its severity's colour role.
+    pub severity_tone: Tone,
     /// The text.
     pub text: String,
     /// `Show`.
@@ -542,9 +558,9 @@ pub struct Inspector {
     pub kind: String,
     /// The item's name.
     pub title: String,
-    /// The tone of its state.
+    /// The word of its state with the tone of its dot (specification 25 §5.11).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub health: Option<Tone>,
+    pub health: Option<Pill>,
     /// The larger buttons.
     pub primary: Vec<Action>,
     /// The smaller buttons.

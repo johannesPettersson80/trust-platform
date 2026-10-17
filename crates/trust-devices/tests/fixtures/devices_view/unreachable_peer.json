@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -193,7 +197,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "neutral",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -440,7 +448,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -563,7 +575,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "cell1",
-            "health": "neutral",
+            "health": {
+              "word": "Unknown",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "connect",
@@ -805,7 +821,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "cell1",
-        "health": "warning",
+        "health": {
+          "word": "Unreachable",
+          "tone": "warning",
+          "live": false
+        },
         "primary": [],
         "secondary": [
           {

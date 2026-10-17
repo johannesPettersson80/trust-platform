@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -202,7 +206,11 @@
                 "breadcrumb": "Devices & Connections / I/O · endpoint",
                 "kind": "I/O · endpoint",
                 "title": "Simulated I/O",
-                "health": "ok",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
                 "primary": [
                   {
                     "id": "test",
@@ -302,7 +310,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Line controller",
-            "health": "ok",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
             "primary": [
               {
                 "id": "connect",
@@ -585,7 +597,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Packaging",
-            "health": "ok",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
             "primary": [
               {
                 "id": "connect",
@@ -856,7 +872,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -1018,7 +1038,11 @@
                 "breadcrumb": "Devices & Connections / Client · endpoint",
                 "kind": "Client · endpoint",
                 "title": "Drive A",
-                "health": "ok",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
                 "primary": [
                   {
                     "id": "test",
@@ -1118,7 +1142,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Conveyor node",
-            "health": "ok",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
             "primary": [
               {
                 "id": "connect",
@@ -1410,7 +1438,11 @@
         "breadcrumb": "Devices & Connections / Chip",
         "kind": "Chip",
         "title": "STM32F407 192.168.10.31",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {

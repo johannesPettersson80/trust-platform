@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -110,6 +114,8 @@
           {
             "id": "runtime:trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6dGNwOi8vMTkyLjE2OC4xMC40NDo1NjgwIixudWxsLCJmbGVldDp0Y3A6Ly8xOTIuMTY4LjEwLjQ0OjU2ODA6cnVudGltZSJd",
             "severity": "error",
+            "severity_word": "Fault",
+            "severity_tone": "error",
             "text": "Sensor hub: Auth token rejected — check it and try again.",
             "show": {
               "id": "show",
@@ -231,7 +237,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "neutral",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -478,7 +488,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -601,7 +615,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Sensor hub",
-            "health": "error",
+            "health": {
+              "word": "Authentication failed",
+              "tone": "error",
+              "live": false
+            },
             "primary": [
               {
                 "id": "set_auth_token",
@@ -856,7 +874,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "Sensor hub",
-        "health": "warning",
+        "health": {
+          "word": "Unreachable",
+          "tone": "warning",
+          "live": false
+        },
         "primary": [],
         "secondary": [
           {

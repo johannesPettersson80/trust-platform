@@ -50,6 +50,7 @@ export function RuntimeCard({
       data-item-id={runtime.id}
       data-role="runtime-card"
       data-dimmed={runtime.dimmed === true ? "true" : "false"}
+      tabIndex={0}
       style={{ ...cardStyle(selected), ...positionedStyle(rect, runtime.dimmed === true) }}
       onClick={() => onSelect(runtime.id)}
     >

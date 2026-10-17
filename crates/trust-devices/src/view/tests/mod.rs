@@ -16,3 +16,4 @@ mod peers;
 mod runtimes;
 mod scenarios;
 mod search;
+mod toolbar;

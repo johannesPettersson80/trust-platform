@@ -1,8 +1,8 @@
 // The toolbar: one button per action the view gives, in the view's own order, with the action's
 // label and enabled state exactly as Rust sent them (design §2.2 and §4.5 D1). Before them it draws
 // the issues button, whose text and tone come from `Issues.button`, and, while the view has a list,
-// the `Topology`/`List` switch, which is the panel's own view state (specification 25 §5.11, design
-// §3.4).
+// the `Topology`/`List` switch, whose two words come from `Toolbar.view_switch`; which view is shown
+// stays the panel's own state (specification 25 §5.11, design §3.4).
 
 import React from "react";
 import {
@@ -59,7 +59,7 @@ export function Toolbar({
             onClick={() => onSelectView?.("topology")}
             style={viewSwitchButtonStyle(view === "topology")}
           >
-            Topology
+            {toolbar.view_switch?.topology}
           </button>
           <button
             type="button"
@@ -68,11 +68,11 @@ export function Toolbar({
             onClick={() => onSelectView?.("list")}
             style={viewSwitchButtonStyle(view === "list")}
           >
-            List
+            {toolbar.view_switch?.list}
           </button>
         </div>
       )}
-      {Object.values(toolbar).map((action) => (
+      {[toolbar.add, toolbar.discover, toolbar.add_host_slot].map((action) => (
         <button
           key={action.id}
           type="button"

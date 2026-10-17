@@ -87,7 +87,8 @@ pub const CONNECTOR_STARTING: &str = "Starting";
 pub const CONNECTOR_RECONNECTING: &str = "Reconnecting";
 /// A degraded, stale or not ready connector.
 pub const NEEDS_ATTENTION: &str = "Needs attention";
-/// A faulted connector, or a faulted connector health.
+/// A faulted connector, or a faulted connector health, and the word of an issue that is an error
+/// (specification 25 §5.5 and §5.11).
 pub const FAULT: &str = "Fault";
 /// A disabled connector.
 pub const CONNECTOR_DISABLED: &str = "Disabled";
@@ -460,6 +461,10 @@ pub const ADD: &str = "+ Add";
 pub const DISCOVER: &str = "Discover";
 /// Opens the issues list from the summary strip.
 pub const OPEN_ISSUES: &str = "Issues";
+/// The word of the canvas view in the toolbar's switch (specification 25 §5.11).
+pub const VIEW_TOPOLOGY: &str = "Topology";
+/// The word of the table view in the toolbar's switch (specification 25 §5.14).
+pub const VIEW_LIST: &str = "List";
 
 /// Deploy stays disabled until a real backend exists (specification 25 §6.1).
 pub const DEPLOY_UNAVAILABLE: &str = "Deploy is not available for this target yet.";

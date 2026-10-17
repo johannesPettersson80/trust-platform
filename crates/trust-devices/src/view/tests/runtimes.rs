@@ -5,8 +5,8 @@ use serde_json::{json, Value};
 use trust_runtime_client::{AuthFailure, TargetProbe};
 
 use super::fixtures::{
-    action, answered, attached, configured_project, gathered, host, keeps_control, managed,
-    no_project, probed, project, report, request, row, runtime, runtime_named, status,
+    action, answered, attached, computer_headed, configured_project, gathered, host, keeps_control,
+    managed, no_project, probed, project, report, request, row, runtime, runtime_named, status,
     with_simulator, NOW_MS, SIMULATOR,
 };
 use crate::gather::ManagedState;
@@ -14,7 +14,7 @@ use crate::request::{HostFacts, RunMode};
 use crate::targets::TargetOrigin;
 use crate::view::project as project_view;
 use crate::view::types::{
-    Action, DevicesView, Emphasis, HostEffect, ItemId, Op, Pane, Runtime, UiOp,
+    Action, DevicesView, Emphasis, HostEffect, ItemId, Op, Pane, Runtime, Tone, UiOp,
 };
 
 const CELL: &str = "tcp://192.168.10.31:5680";
@@ -371,6 +371,57 @@ fn managed_status_unavailable_keeps_start_disabled() {
         start.emphasis,
         Emphasis::Quiet,
         "a disabled action is neutral"
+    );
+}
+
+#[test]
+fn inspector_health_has_the_cards_word_and_tone() {
+    // A runtime that runs: its card says `Running`, and its inspector's health is the same word
+    // in the same tone (specification 25 §5.11).
+    let running = remote(status("running", "admin"), host(RunMode::Online, ""));
+    let cell = runtime_named(&running, "cell");
+    assert_eq!(cell.state.word, "Running");
+    let health = cell
+        .inspector
+        .health
+        .as_ref()
+        .expect("a runtime has a health");
+    assert_eq!((health.word.as_str(), health.tone), ("Running", Tone::Ok));
+
+    // A runtime whose program faulted: `Faulted` in the error tone.
+    let faulted = remote(status("faulted", "admin"), host(RunMode::Online, ""));
+    let cell = runtime_named(&faulted, "cell");
+    assert_eq!(cell.state.word, "Faulted");
+    let health = cell
+        .inspector
+        .health
+        .as_ref()
+        .expect("a runtime has a health");
+    assert_eq!(
+        (health.word.as_str(), health.tone),
+        ("Faulted", Tone::Error)
+    );
+
+    // A computer that does not answer: `Unreachable`, the word of its card's pill, as a warning.
+    let unreachable = view(
+        vec![probed(
+            TargetOrigin::Configured,
+            "10.0.0.9:5510",
+            Some("cell1"),
+            TargetProbe::Unreachable,
+        )],
+        host(RunMode::Simulate, ""),
+    );
+    let computer = computer_headed(&unreachable, "cell1");
+    assert_eq!(computer.reachability.word, "Unreachable");
+    let health = computer
+        .inspector
+        .health
+        .as_ref()
+        .expect("a computer has a health");
+    assert_eq!(
+        (health.word.as_str(), health.tone),
+        ("Unreachable", Tone::Warning)
     );
 }
 

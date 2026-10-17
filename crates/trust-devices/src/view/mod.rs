@@ -38,7 +38,7 @@ use crate::texts::graph as texts;
 use crate::topology::{self, Topology};
 use types::{
     Action, AddDialog, AddGroup, DevicesView, Emphasis, Op, Pane, ProjectBar, ProjectChoice,
-    Toolbar, UiOp, UsbTray, SCHEMA_VERSION,
+    Toolbar, UiOp, UsbTray, ViewSwitch, SCHEMA_VERSION,
 };
 
 /// The whole panel for one gather (design §2.1). `this_computer` is the host ID that this
@@ -92,6 +92,10 @@ fn render(
             add,
             discover,
             add_host_slot,
+            view_switch: ViewSwitch {
+                topology: texts::VIEW_TOPOLOGY.to_owned(),
+                list: texts::VIEW_LIST.to_owned(),
+            },
         },
         project: project_bar(&gathered.project),
         summary: issues::summary(&computers, running, &issues),

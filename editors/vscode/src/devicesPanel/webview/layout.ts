@@ -2,6 +2,7 @@
 // reads only identities and grouping from the view model — never a state, an enabled flag, a look
 // or a rule: Rust decides what is shown and how it is drawn, and this module only places it
 // (design §3.4). All sizes are constants, so a route is deterministic without measuring the DOM.
+// A dragged device position, given in, replaces the laid-out one and the routes follow it.
 
 /** A rectangle on the canvas. */
 export interface Rect {
@@ -148,8 +149,12 @@ export function dropRouteId(bus: string, item: string): string {
   return `${bus}:${item}`;
 }
 
-/** Places every frame, runtime, connection, device and mesh bus, and routes every link and drop. */
-export function layoutCanvas(scene: LayoutScene): CanvasLayout {
+/** Places every frame, runtime, connection, device and mesh bus, and routes every link and drop.
+ * A `dragged` position replaces the laid-out one of the device it names (design §4.5 D2). */
+export function layoutCanvas(
+  scene: LayoutScene,
+  dragged: Record<string, Point> = {},
+): CanvasLayout {
   const frames: Record<string, Rect> = {};
   const runtimes: Record<string, Rect> = {};
   const connections: Record<string, Rect> = {};
@@ -218,7 +223,9 @@ export function layoutCanvas(scene: LayoutScene): CanvasLayout {
   const devices: Record<string, Rect> = {};
   let deviceY = MARGIN;
   for (const device of scene.devices) {
-    const rect: Rect = { x: devicesX, y: deviceY, width: DEVICE_WIDTH, height: DEVICE_HEIGHT };
+    const laidOut: Rect = { x: devicesX, y: deviceY, width: DEVICE_WIDTH, height: DEVICE_HEIGHT };
+    const moved = dragged[device];
+    const rect: Rect = moved === undefined ? laidOut : { ...laidOut, x: moved.x, y: moved.y };
     devices[device] = rect;
     origins[device] = rect;
     deviceY += DEVICE_HEIGHT + DEVICE_GAP;

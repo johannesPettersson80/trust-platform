@@ -41,6 +41,16 @@ fn severity_of(health: &str) -> Option<Severity> {
     }
 }
 
+/// The word and tone of an issue's severity (specification 25 §5.11): `Fault` for a fault,
+/// `Warning` for a warning, `Info` for information.
+fn severity_label(severity: Severity) -> (&'static str, Tone) {
+    match severity {
+        Severity::Error => (graph::FAULT, Tone::Error),
+        Severity::Warning => (texts::WARNING, Tone::Warning),
+        Severity::Info => (texts::INFO, Tone::Neutral),
+    }
+}
+
 fn action(id: &str, label: &str, emphasis: Emphasis, op: Op) -> Action {
     Action {
         id: id.to_owned(),
@@ -86,12 +96,15 @@ fn raised(
     text: String,
     recovery: Option<Action>,
 ) -> Raised {
+    let (word, tone) = severity_label(severity);
     Raised {
         item: item.cloned(),
         name: name.to_owned(),
         issue: Issue {
             id,
             severity,
+            severity_word: word.to_owned(),
+            severity_tone: tone,
             text,
             show: item.map(show),
             recovery,

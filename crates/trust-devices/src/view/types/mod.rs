@@ -399,7 +399,7 @@ pub use graph::{
     ArrowAt, Banner, Column, Computer, ComputerKind, Connection, Container, Device, DeviceKind,
     DevicesView, EmptyHint, FilterLine, FilterProtocol, FilterReport, Inspector, Issue, IssueGroup,
     Issues, IssuesButton, Link, ListCells, ListView, Mark, MeshBus, MeshDrop, Network, ProjectBar,
-    ProjectChoice, Runtime, RuntimeIcon, SearchEcho, Summary, Toolbar,
+    ProjectChoice, Runtime, RuntimeIcon, SearchEcho, Summary, Toolbar, ViewSwitch,
 };
 pub use panes::ListProperty;
 pub use panes::{

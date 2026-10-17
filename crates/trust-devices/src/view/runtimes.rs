@@ -81,7 +81,11 @@ pub(crate) fn runtime(runtime: &topology::Runtime, place: Place<'_>, facts: &Fac
             breadcrumb: texts::breadcrumb(texts::KIND_RUNTIME),
             kind: texts::KIND_RUNTIME.to_owned(),
             title: name.clone(),
-            health: Some(state.tone),
+            health: Some(Pill {
+                word: state.word.clone(),
+                tone: state.tone,
+                live: state.live,
+            }),
             primary: lifecycle::primary_actions(&subject),
             secondary: lifecycle::secondary_actions(&subject),
             sections: vec![Section {

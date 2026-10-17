@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -122,6 +126,8 @@
           {
             "id": "runtime:runtime:local",
             "severity": "error",
+            "severity_word": "Fault",
+            "severity_tone": "error",
             "text": "Simulator: The runtime port is already in use.",
             "show": {
               "id": "show",
@@ -158,6 +164,8 @@
           {
             "id": "fleet:trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTptb2RidXNfdGNwIiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0",
             "severity": "error",
+            "severity_word": "Fault",
+            "severity_tone": "error",
             "text": "Modbus meter: Unit 1 does not answer.",
             "show": {
               "id": "show",
@@ -182,6 +190,8 @@
           {
             "id": "fleet:trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTptcXR0IiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0",
             "severity": "warning",
+            "severity_word": "Warning",
+            "severity_tone": "warning",
             "text": "MQTT broker: Broker connection refused.",
             "show": {
               "id": "show",
@@ -206,6 +216,8 @@
           {
             "id": "fleet:trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6dHJ1c3QtcGkiLG51bGwsInJ1bnRpbWUtYSIsImVuZHBvaW50OnJ1bnRpbWUtYTptZXNoIiwidGNwOi8vMTkyLjE2OC43Ny4xMDo1NjgwIl0",
             "severity": "warning",
+            "severity_word": "Warning",
+            "severity_tone": "warning",
             "text": "Mesh / Zenoh: One configured peer.",
             "show": {
               "id": "show",
@@ -329,7 +341,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "error",
+            "health": {
+              "word": "Error",
+              "tone": "error",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -576,7 +592,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -712,7 +732,11 @@
                 "breadcrumb": "Devices & Connections / Client · device",
                 "kind": "Client · device",
                 "title": "Modbus meter",
-                "health": "error",
+                "health": {
+                  "word": "Error",
+                  "tone": "error",
+                  "live": false
+                },
                 "primary": [
                   {
                     "id": "edit",
@@ -864,7 +888,11 @@
                 "breadcrumb": "Devices & Connections / Pub/Sub · device",
                 "kind": "Pub/Sub · device",
                 "title": "MQTT broker",
-                "health": "warning",
+                "health": {
+                  "word": "Degraded",
+                  "tone": "warning",
+                  "live": false
+                },
                 "primary": [
                   {
                     "id": "edit",
@@ -1036,7 +1064,11 @@
                 "breadcrumb": "Devices & Connections / Peer · endpoint",
                 "kind": "Peer · endpoint",
                 "title": "Mesh / Zenoh",
-                "health": "warning",
+                "health": {
+                  "word": "Degraded",
+                  "tone": "warning",
+                  "live": false
+                },
                 "primary": [
                   {
                     "id": "edit",
@@ -1187,7 +1219,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Line runtime",
-            "health": "error",
+            "health": {
+              "word": "Error",
+              "tone": "error",
+              "live": false
+            },
             "primary": [
               {
                 "id": "connect",
@@ -1463,7 +1499,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "Computer 192.168.77.10",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -1588,7 +1628,11 @@
         "breadcrumb": "Devices & Connections / Shared system",
         "kind": "Shared system",
         "title": "MQTT broker",
-        "health": "neutral",
+        "health": {
+          "word": "Configured",
+          "tone": "neutral",
+          "live": false
+        },
         "primary": [],
         "secondary": [
           {
@@ -1688,7 +1732,11 @@
         "breadcrumb": "Devices & Connections / External system",
         "kind": "External system",
         "title": "tcp/192.168.77.11:7447",
-        "health": "warning",
+        "health": {
+          "word": "Degraded",
+          "tone": "warning",
+          "live": false
+        },
         "primary": [],
         "secondary": [
           {

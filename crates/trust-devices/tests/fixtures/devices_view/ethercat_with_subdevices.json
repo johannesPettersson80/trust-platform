@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -110,6 +114,8 @@
           {
             "id": "device:trust-fleet-v1:WyJzdWJkZXZpY2UiLCJ0cnVzdC1mbGVldC12MTpXeUpsYm1Sd2IybHVkQ0lzSW1odmMzUTZjR3hqTFdkaGRHVjNZWGtpTEc1MWJHd3NJbWx2SWl3aVpXNWtjRzlwYm5RNmFXODZaWFJvWlhKallYUWlMQ0owWTNBNkx5OHhPVEl1TVRZNExqRXdMakl3T2pVMk9EQWlYUSIsInNsYXZlOjIiXQ",
             "severity": "warning",
+            "severity_word": "Warning",
+            "severity_tone": "warning",
             "text": "Servo drive: Following error.",
             "show": {
               "id": "show",
@@ -221,7 +227,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "neutral",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -468,7 +478,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -608,7 +622,11 @@
                 "breadcrumb": "Devices & Connections / Master · endpoint",
                 "kind": "Master · endpoint",
                 "title": "EtherCAT bus",
-                "health": "ok",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
                 "primary": [
                   {
                     "id": "test",
@@ -708,7 +726,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Servo cell",
-            "health": "ok",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
             "primary": [
               {
                 "id": "connect",
@@ -979,7 +1001,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "Computer 192.168.10.20",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -1111,7 +1137,11 @@
         "breadcrumb": "Devices & Connections / Device",
         "kind": "Device",
         "title": "EK1100",
-        "health": "ok",
+        "health": {
+          "word": "Connected",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -1222,7 +1252,11 @@
         "breadcrumb": "Devices & Connections / Device",
         "kind": "Device",
         "title": "Servo drive",
-        "health": "warning",
+        "health": {
+          "word": "Degraded",
+          "tone": "warning",
+          "live": false
+        },
         "primary": [],
         "secondary": [
           {

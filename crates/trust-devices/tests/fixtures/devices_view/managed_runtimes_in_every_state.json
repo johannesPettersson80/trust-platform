@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -98,6 +102,8 @@
           {
             "id": "runtime:managed:cell5",
             "severity": "error",
+            "severity_word": "Fault",
+            "severity_tone": "error",
             "text": "cell5: Status unavailable — refresh before starting.",
             "show": {
               "id": "show",
@@ -210,7 +216,11 @@
                 "breadcrumb": "Devices & Connections / I/O · endpoint",
                 "kind": "I/O · endpoint",
                 "title": "Simulated I/O",
-                "health": "neutral",
+                "health": {
+                  "word": "Configured",
+                  "tone": "neutral",
+                  "live": false
+                },
                 "primary": [],
                 "secondary": [
                   {
@@ -289,7 +299,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "neutral",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -558,7 +572,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "cell1",
-            "health": "ok",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
             "primary": [
               {
                 "id": "stop",
@@ -854,7 +872,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "cell2",
-            "health": "neutral",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -1136,7 +1158,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "cell3",
-            "health": "neutral",
+            "health": {
+              "word": "Starting",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -1419,7 +1445,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "cell4",
-            "health": "neutral",
+            "health": {
+              "word": "Stopping",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "stop",
@@ -1702,7 +1732,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "cell5",
-            "health": "error",
+            "health": {
+              "word": "Status unavailable",
+              "tone": "error",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -1973,7 +2007,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {

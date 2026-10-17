@@ -5,6 +5,8 @@
 // TypeScript. Only the fields the panel reads are mirrored here (design §4.5 D1 and D2); fields that
 // the small test views omit are optional.
 
+import type { Point } from "./layout";
+
 /** The whole panel, as far as the shell mirrors it. */
 export interface DevicesView {
   /** The toolbar's actions. */
@@ -18,8 +20,9 @@ export interface DevicesView {
 }
 
 /**
- * The toolbar's actions, in the order Rust declares them: `add`, `discover`, `add_host_slot`. The
- * keys are Rust field names, so `Object.values(toolbar)` keeps that order.
+ * The toolbar's actions, in the order Rust declares them: `add`, `discover`, `add_host_slot`, and
+ * the `Topology`/`List` switch's two words. The keys are Rust field names, so the panel draws the
+ * three actions in that order and the switch beside them.
  */
 export interface Toolbar {
   /** `+ Add`. */
@@ -28,6 +31,16 @@ export interface Toolbar {
   discover: Action;
   /** The Edit slot after the computers: `Add host`. */
   add_host_slot: Action;
+  /** The `Topology`/`List` switch's two words (specification 25 §5.11). */
+  view_switch?: ViewSwitch;
+}
+
+/** The `Topology`/`List` switch: the word of each view. */
+export interface ViewSwitch {
+  /** `Topology`. */
+  topology: string;
+  /** `List`. */
+  list: string;
 }
 
 /**
@@ -92,8 +105,8 @@ export interface Inspector {
   kind: string;
   /** The item's name. */
   title: string;
-  /** The tone of its state. */
-  health?: Tone;
+  /** The word of its state with the tone of its dot (specification 25 §5.11). */
+  health?: Pill;
   /** The larger buttons. */
   primary: Action[];
   /** The smaller buttons. */
@@ -323,8 +336,10 @@ export interface IssueGroup {
 export interface Issue {
   /** Its identity. */
   id: string;
-  /** How severe it is. */
-  severity: Severity;
+  /** Its severity's word: `Fault`, `Warning` or `Info` (specification 25 §5.11). */
+  severity_word: string;
+  /** Its severity's tone. */
+  severity_tone: Tone;
   /** The text. */
   text: string;
   /** `Show`. */
@@ -332,9 +347,6 @@ export interface Issue {
   /** The recovery action. */
   recovery?: Action;
 }
-
-/** How severe an issue is. */
-export type Severity = "error" | "warning" | "info";
 
 /** The list's columns (specification 25 §5.14). */
 export interface ListView {
@@ -360,3 +372,15 @@ export interface ListCells {
 
 /** Which of the canvas and the list the toolbar's switch shows (specification 25 §5.11). */
 export type PanelView = "topology" | "list";
+
+/**
+ * The positions message the panel posts when a drag ends and applies when the host sends it back,
+ * such as after the panel opens again (design §4.5 D2). The keys are item identities; storing them
+ * per project is the host's job, so the webview keeps nothing itself.
+ */
+export interface PositionsMessage {
+  /** The message's kind. */
+  type: "positions";
+  /** Each dragged item's position, by its identity. */
+  positions: Record<string, Point>;
+}

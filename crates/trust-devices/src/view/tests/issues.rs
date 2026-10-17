@@ -116,6 +116,61 @@ fn issues_list_every_fault_once_grouped_by_item() {
 }
 
 #[test]
+fn issue_severity_has_its_word_and_tone() {
+    // A runtime whose Modbus meter does not answer and whose MQTT broker connection is degraded,
+    // with the simulator's failed start: a fault and a warning, each with the word and tone of
+    // its severity (specification 25 §5.11).
+    let mut topology = fleet_topology();
+    let modbus = &mut topology["hosts"][0]["runtimes"][0]["endpoints"][0];
+    modbus["health"] = json!("error");
+    modbus["detail"] = json!("Unit 1 does not answer.");
+    let view = view_of(
+        vec![peer(PEER, "running", topology, None)],
+        with_failed_start(host(RunMode::Simulate, ""), "port_conflict", PORT_IN_USE),
+        plain(),
+    );
+    let listed: Vec<(&str, &str, Tone)> = view
+        .issues
+        .groups
+        .iter()
+        .flat_map(|group| &group.issues)
+        .map(|issue| {
+            (
+                issue.text.as_str(),
+                issue.severity_word.as_str(),
+                issue.severity_tone,
+            )
+        })
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            (
+                "Simulator: The runtime port is already in use.",
+                "Fault",
+                Tone::Error
+            ),
+            (
+                "Modbus meter: Unit 1 does not answer.",
+                "Fault",
+                Tone::Error
+            ),
+            (
+                "MQTT broker: Broker connection refused.",
+                "Warning",
+                Tone::Warning
+            ),
+            (
+                "Mesh / Zenoh: One configured peer.",
+                "Warning",
+                Tone::Warning
+            ),
+        ],
+        "each issue carries the word and tone of its own severity"
+    );
+}
+
+#[test]
 fn summary_counts_running_faults_and_warnings() {
     let packer = report(
         "host:packer",

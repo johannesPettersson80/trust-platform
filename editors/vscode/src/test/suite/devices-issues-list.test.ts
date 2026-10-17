@@ -90,7 +90,7 @@ function action(overrides: Record<string, unknown>): Record<string, unknown> {
   return { id: "show", label: "Show", enabled: true, emphasis: "secondary", ...overrides };
 }
 
-/** The toolbar's three actions, as Rust declares them. */
+/** The toolbar's three actions and the switch's two words, as Rust declares them. */
 function toolbar(): Record<string, unknown> {
   return {
     add: {
@@ -114,6 +114,7 @@ function toolbar(): Record<string, unknown> {
       emphasis: "secondary",
       op: { kind: "ui", ui: { kind: "open", pane: { kind: "add" } } },
     },
+    view_switch: { topology: "Topology", list: "List" },
   };
 }
 
@@ -121,7 +122,8 @@ function toolbar(): Record<string, unknown> {
 function issue(overrides: Record<string, unknown>): Record<string, unknown> {
   return {
     id: "issue-1",
-    severity: "error",
+    severity_word: "Fault",
+    severity_tone: "error",
     text: "Simulator: The runtime port is already in use.",
     ...overrides,
   };
@@ -214,7 +216,8 @@ suite("Devices & Connections panel issues list", () => {
             issue({ id: "sim-1", text: "Simulator: The runtime port is already in use." }),
             issue({
               id: "sim-2",
-              severity: "warning",
+              severity_word: "Warning",
+              severity_tone: "warning",
               text: "Simulator: the debug log is unavailable.",
             }),
           ],
@@ -229,7 +232,8 @@ suite("Devices & Connections panel issues list", () => {
           issues: [
             issue({
               id: "general-1",
-              severity: "warning",
+              severity_word: "Warning",
+              severity_tone: "warning",
               text: "The fleet topology could not be read.",
             }),
           ],
@@ -264,11 +268,19 @@ suite("Devices & Connections panel issues list", () => {
       );
       const severities = [
         ...rendered.container.querySelectorAll('[data-role="issue-severity"]'),
-      ].map((severity) => severity.textContent);
+      ].map((severity) => ({
+        word: severity.textContent,
+        tone: severity.getAttribute("data-tone"),
+      }));
       assert.deepStrictEqual(
         severities,
-        ["error", "warning", "error", "warning"],
-        "each issue draws its own severity",
+        [
+          { word: "Fault", tone: "error" },
+          { word: "Warning", tone: "warning" },
+          { word: "Fault", tone: "error" },
+          { word: "Warning", tone: "warning" },
+        ],
+        "each issue draws the word and tone the view gives for its severity",
       );
     } finally {
       await rendered.unmount();

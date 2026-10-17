@@ -68,6 +68,8 @@ export function run(): Promise<void> {
   require("./devices-inspector-render.test");
   require("./devices-issues-list.test");
   require("./devices-list-view.test");
+  require("./devices-keyboard.test");
+  require("./devices-readability.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {

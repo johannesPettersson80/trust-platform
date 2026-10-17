@@ -46,6 +46,10 @@
           }
         }
       }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
     }
   },
   "project": {
@@ -208,7 +212,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Simulator",
-            "health": "neutral",
+            "health": {
+              "word": "Stopped",
+              "tone": "neutral",
+              "live": false
+            },
             "primary": [
               {
                 "id": "start",
@@ -455,7 +463,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "This computer",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {
@@ -592,7 +604,11 @@
                 "breadcrumb": "Devices & Connections / Server · endpoint",
                 "kind": "Server · endpoint",
                 "title": "OPC UA server",
-                "health": "ok",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
                 "primary": [
                   {
                     "id": "edit",
@@ -744,7 +760,11 @@
                 "breadcrumb": "Devices & Connections / Server · endpoint",
                 "kind": "Server · endpoint",
                 "title": "ADS server",
-                "health": "ok",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
                 "primary": [
                   {
                     "id": "edit",
@@ -927,7 +947,11 @@
                 "breadcrumb": "Devices & Connections / ADS connection",
                 "kind": "ADS connection",
                 "title": "ADS client",
-                "health": "ok",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
                 "primary": [
                   {
                     "id": "edit",
@@ -1088,7 +1112,11 @@
             "breadcrumb": "Devices & Connections / Runtime",
             "kind": "Runtime",
             "title": "Line runtime",
-            "health": "ok",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
             "primary": [
               {
                 "id": "connect",
@@ -1359,7 +1387,11 @@
         "breadcrumb": "Devices & Connections / Computer",
         "kind": "Computer",
         "title": "Computer 192.168.77.10",
-        "health": "ok",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
         "primary": [],
         "secondary": [
           {

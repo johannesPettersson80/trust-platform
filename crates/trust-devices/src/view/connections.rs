@@ -28,8 +28,8 @@ use super::lifecycle::Owner;
 use super::list;
 use super::runtimes;
 use super::types::{
-    Action, Computer, Connection, Emphasis, HoverCard, Inspector, ItemId, Look, Op, Row, Section,
-    Tone, UiOp,
+    Action, Computer, Connection, Emphasis, HoverCard, Inspector, ItemId, Look, Op, Pill, Row,
+    Section, Tone, UiOp,
 };
 use crate::gather::Gathered;
 use crate::inputs::Facts;
@@ -222,6 +222,8 @@ struct Shown {
     state_word: String,
     /// Its dot's tone.
     dot: Tone,
+    /// Whether its dot pulses: only while it is connected.
+    live: bool,
 }
 
 /// The pill of `endpoint` on the runtime `owning`, whose catalog is `catalog`.
@@ -235,6 +237,7 @@ fn connection(
     let role = endpoint.role.as_deref().unwrap_or_default().trim();
     let health = endpoint.health.trim();
     let draft = health::draft_like(protocol, role, health);
+    let live_dot = !draft && is_connected(health);
     let shown = Shown {
         id: ItemId(endpoint.id.clone()),
         name: display_name(endpoint),
@@ -246,6 +249,7 @@ fn connection(
         } else {
             health::tone_of(health)
         },
+        live: live_dot,
     };
     let schema = catalog.and_then(|catalog| catalog.protocol(protocol));
     let io_values: &[IoValue] =
@@ -280,7 +284,7 @@ fn connection(
         },
         inspector: inspector(endpoint, owning, schema, &shown, &connector, &live),
         protocol: protocol.to_owned(),
-        live: !draft && is_connected(health),
+        live: shown.live,
         marks: health::connection_marks(protocol, role, health),
         look: if draft {
             Look::Draft
@@ -379,7 +383,11 @@ fn inspector(
         breadcrumb: graph::breadcrumb(&kind),
         kind,
         title: shown.name.clone(),
-        health: Some(shown.dot),
+        health: Some(Pill {
+            word: shown.state_word.clone(),
+            tone: shown.dot,
+            live: shown.live,
+        }),
         primary: actions(endpoint, owning, schema, &shown.id, form.as_ref()),
         secondary: vec![focus(&shown.id)],
         sections,

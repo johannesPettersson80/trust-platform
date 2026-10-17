@@ -23,6 +23,7 @@ import {
   inspectorKindStyle,
   inspectorStyle,
   inspectorTitleStyle,
+  pillStyle,
   rowLabelStyle,
   rowStyle,
   rowValueStyle,
@@ -171,11 +172,20 @@ export function Inspector({
           </span>
         </div>
         {inspector.health !== undefined && (
-          <span
-            data-role="inspector-health"
-            data-tone={inspector.health}
-            style={inspectorHealthStyle(inspector.health)}
-          />
+          <>
+            <span
+              data-role="inspector-health"
+              data-tone={inspector.health.tone}
+              style={inspectorHealthStyle(inspector.health.tone)}
+            />
+            <span
+              data-role="inspector-health-word"
+              data-tone={inspector.health.tone}
+              style={pillStyle(inspector.health.tone)}
+            >
+              {inspector.health.word}
+            </span>
+          </>
         )}
         <button
           type="button"

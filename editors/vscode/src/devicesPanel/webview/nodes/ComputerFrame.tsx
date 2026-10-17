@@ -41,6 +41,7 @@ export function ComputerFrame({
       data-item-id={computer.id}
       data-role="computer-frame"
       data-dimmed={computer.dimmed === true ? "true" : "false"}
+      tabIndex={0}
       style={{ ...frameStyle, ...positionedStyle(frame, computer.dimmed === true) }}
     >
       <header style={frameHeaderStyle}>

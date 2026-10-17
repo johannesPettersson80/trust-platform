@@ -31,6 +31,7 @@ export function ConnectionPill({
       data-role="connection-pill"
       data-look={connection.look}
       data-dimmed={connection.dimmed === true ? "true" : "false"}
+      tabIndex={0}
       style={{ ...connectionPillStyle(connection.look), ...positionedStyle(rect, connection.dimmed === true) }}
     >
       <span

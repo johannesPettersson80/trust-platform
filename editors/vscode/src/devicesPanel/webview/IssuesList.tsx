@@ -18,6 +18,7 @@ import {
   issueSeverityStyle,
   issueStyle,
   issueTextStyle,
+  toneColour,
 } from "./styles";
 import type { Action, Issues } from "./types";
 
@@ -65,13 +66,13 @@ export function IssuesList({
             {group.item_name}
           </h3>
           {group.issues.map((issue) => (
-            <div key={issue.id} data-role="issue" data-severity={issue.severity} style={issueStyle}>
+            <div key={issue.id} data-role="issue" data-tone={issue.severity_tone} style={issueStyle}>
               <span
                 data-role="issue-severity"
-                data-severity={issue.severity}
-                style={issueSeverityStyle}
+                data-tone={issue.severity_tone}
+                style={{ ...issueSeverityStyle, color: toneColour(issue.severity_tone) }}
               >
-                {issue.severity}
+                {issue.severity_word}
               </span>
               <span data-role="issue-text" style={issueTextStyle}>
                 {issue.text}

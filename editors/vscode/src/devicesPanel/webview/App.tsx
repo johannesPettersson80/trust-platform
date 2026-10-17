@@ -3,7 +3,8 @@
 // §4.5 D1 and D2). `App` holds only view state — the open right-hand pane and whether the canvas or
 // the list is shown — and computes no label, state, enabled flag or count: every one of those is a
 // field of the view, drawn as given. Only one right-hand pane is open at a time, and Escape closes
-// it (specification 25 §5.11).
+// it (specification 25 §5.11). It passes the host's saved item positions to the canvas and posts the
+// positions a drag produces, so the host keeps them for the project (specification 25 §5.11, D2).
 
 import React from "react";
 
@@ -12,6 +13,7 @@ import { ContextMenu } from "./ContextMenu";
 import { Inspector } from "./Inspector";
 import { IssuesList } from "./IssuesList";
 import { ListView } from "./ListView";
+import type { Point } from "./layout";
 import { appStyle, bodyStyle } from "./styles";
 import { Toolbar } from "./Toolbar";
 import type {
@@ -83,17 +85,26 @@ function runtimeFor(view: ShellView, id: string): Runtime | undefined {
 export function App({
   view,
   post,
+  positions,
 }: {
   /** The view model, as Rust returned it. */
   view: ShellView;
   /** Posts a message to the extension host; the host owns the transport (design §1.4.1). */
   post: (message: unknown) => void;
+  /** The item positions the host kept for the project, drawn over the layout (design §4.5 D2). */
+  positions?: Record<string, Point>;
 }) {
   const [pane, setPane] = React.useState<OpenPane | undefined>(undefined);
   const [panelView, setPanelView] = React.useState<PanelView>("topology");
   const onAction = React.useCallback(
     (action: Action) => {
       post({ type: "action", action });
+    },
+    [post],
+  );
+  const onPositions = React.useCallback(
+    (dragged: Record<string, Point>) => {
+      post({ type: "positions", positions: dragged });
     },
     [post],
   );
@@ -164,6 +175,8 @@ export function App({
             devices={view.devices}
             links={view.links}
             mesh={view.mesh}
+            savedPositions={positions}
+            onPositions={onPositions}
             hideSlots={pane !== undefined}
             selectedRuntime={inspectorId}
             onSelectRuntime={openInspector}
