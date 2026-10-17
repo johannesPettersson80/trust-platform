@@ -1160,6 +1160,28 @@ connect/read-only operations and returns the stable warning that active write
 probes are unsupported. Timeout defaults to 150 ms and is clamped to the
 closed 1 through 2,000 ms range; malformed timeout types are request errors.
 
+ADS discovery takes an ordered list of ADS ports in `scope.ads_ports` for
+`comm.discover` and in the `ads_ports` member of a search request. Without it
+the ports are 301, 501, 851, 852, 853, and 854; duplicates are merged and the
+list is sorted in ascending order. A port that is not an integer from 1 through
+65,535 is a request error that names the value; the list never drops a value
+silently. Every ADS find is probed on those ports with the symbol browse that
+`comm.browse_symbols` runs, and the ports of one device are probed one after
+the other, because they share the device's route; different devices are probed
+at the same time. A port answers when its symbol tree is not empty, when its
+route status is `ok`, or when its error code is `symbol_upload_unsupported` or
+`empty_symbol_table`; any other error, or no answer, does not answer. An ADS
+result carries the answering ports in ascending order as `responding_ads_ports`
+and their browse results as `ads_port_browse_results`, each entry naming
+`port`, `tree`, `routeMissing`, and, when present, `routePlan` and `error`. Its
+`ams_port` is its own port when that port answered, otherwise the first
+answering port, otherwise its own port, otherwise 851. A find without an
+answering port is kept with a warning that no ADS port answered, instead of
+being hidden. Probing starts no new port once the search deadline has passed.
+An identified ADS target keeps its OS version and its fingerprint and the port
+that answered, not always 851. The ADS identify round is bounded by the
+requested timeout, and in a search by the search deadline.
+
 Protocol aliases are deterministic: Modbus hyphen/underscore forms select
 `modbus_tcp`; OPC UA server and client aliases remain distinct; MQTT broker
 selects `mqtt`; ADS client and TwinCAT select `ads`; and truST/runtime/mDNS

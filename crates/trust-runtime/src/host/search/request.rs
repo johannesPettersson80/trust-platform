@@ -44,6 +44,10 @@ pub struct SearchRequest {
     /// The Modbus TCP unit IDs to probe.
     #[serde(default)]
     pub modbus: ModbusTargets,
+    /// The ADS ports to probe, each from 1 to 65,535; the default set when absent
+    /// (specification 11, "Communication discovery scope and symbol browsing").
+    #[serde(default)]
+    pub ads_ports: Option<Value>,
 }
 
 /// The Modbus TCP unit IDs a search probes (specification 11, "Requests").
@@ -155,6 +159,8 @@ pub(crate) struct ValidSearch {
     pub(crate) ethercat_adapters: Vec<Option<String>>,
     /// The Modbus TCP unit IDs to probe; unit ID 1 when the request names none.
     pub(crate) modbus_unit_ids: Vec<u8>,
+    /// The ADS ports to probe; the default set when the request names none.
+    pub(crate) ads_ports: Vec<u16>,
 }
 
 impl SearchRequest {
@@ -220,6 +226,8 @@ impl SearchRequest {
             fieldbus_confirmed: self.confirm_fieldbus_scan,
             ethercat_adapters: ethercat_adapters(self.fieldbus)?,
             modbus_unit_ids: modbus_unit_ids(self.modbus.unit_ids)?,
+            ads_ports: super::sources::ads_ports::checked_ports(self.ads_ports.as_ref())
+                .map_err(SearchError::Invalid)?,
         })
     }
 }

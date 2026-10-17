@@ -3564,16 +3564,5 @@
       "evidence"
     ]
   },
-  "unbuilt_source_allowlist": [
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    },
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity/windows_native.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    }
-  ]
+  "unbuilt_source_allowlist": []
 }

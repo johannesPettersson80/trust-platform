@@ -2,18 +2,17 @@
 //! identify, directed at a known address and at this computer, or broadcast to a subnet or to the
 //! subnets of this computer's interfaces. `discover` runs one identify round for `comm.discover`
 //! or for a search; `search` identifies each known address of a search once and repeats broadcast
-//! rounds until the search ends. Without the `ads-wire` feature there is no ADS search.
+//! rounds until the search ends. Every find is probed on its ADS ports. Without the `ads-wire`
+//! feature there is no ADS search.
 
 use std::time::Duration;
 
-#[cfg(feature = "ads-wire")]
-use serde_json::json;
-
 use super::super::model::{AdsIdentity, DeviceKey, Identity, ProtocolFind, SourceId};
 use super::super::runner::SourceSink;
+use super::ads_ports;
 use super::find::{address_key, find, host_part, text, FindSink};
 #[cfg(feature = "ads-wire")]
-use super::report::sanitize_id;
+use super::report::{millis, sanitize_id};
 use super::report::{CandidateSink, Deadline, DiscoverCandidate};
 #[cfg(feature = "ads-wire")]
 use super::scope::parse_ipv4_cidr;
@@ -27,18 +26,29 @@ mod ads_discovery_target;
 /// The pause between two ADS broadcast rounds of a search.
 const ADS_ROUND_PAUSE: Duration = Duration::from_millis(1_000);
 
-/// One identify round: the known address of `scope` and this computer, or, without a known
-/// address or with a subnet, a broadcast.
-#[cfg(feature = "ads-wire")]
+/// One identify round with the default ADS ports, for the callers that name none.
 pub(crate) fn discover(
     scope: &DiscoverScope,
     deadline: Deadline,
     sink: &mut dyn CandidateSink,
 ) -> Result<(), String> {
-    use crate::ads::onboarding::runtime_address_candidates_from_interfaces;
+    discover_with_ports(scope, &ads_ports::DEFAULT_PORTS, deadline, sink)
+}
+
+/// One identify round: the known address of `scope` and this computer, or, without a known
+/// address or with a subnet, a broadcast. The round is bounded by the request's timeout, and in a
+/// search by the search deadline. Every find is probed on `ports`, the ports of one device one
+/// after the other and different devices at the same time.
+#[cfg(feature = "ads-wire")]
+pub(crate) fn discover_with_ports(
+    scope: &DiscoverScope,
+    ports: &[u16],
+    deadline: Deadline,
+    sink: &mut dyn CandidateSink,
+) -> Result<(), String> {
+    use crate::ads::onboarding::discover::interface_targets_for_request;
     use crate::ads::onboarding::{
-        directed_broadcast_targets_from_candidates, discover_targets, interface_directed_targets,
-        AdsRsOnboardingWire, DiscoveryRequest, DiscoverySource,
+        discover_targets, AdsRsOnboardingWire, DiscoveryRequest, DiscoverySource,
     };
 
     if deadline.passed() {
@@ -52,17 +62,13 @@ pub(crate) fn discover(
         target_name: None,
         include_broadcast: scope.host.is_none(),
         broadcast_targets: Vec::new(),
-        timeout_ms: scope.timeout_ms,
+        timeout_ms: Some(millis(deadline.bound(super::scope::timeout(scope)))),
     };
     if let Some(cidr) = scope.cidr.as_deref() {
         request.include_broadcast = true;
         request.broadcast_targets = vec![broadcast_target_for_cidr(cidr)?];
     } else if request.include_broadcast {
-        let candidates = runtime_address_candidates_from_interfaces()
-            .map_err(|error| format!("enumerate interfaces for ADS broadcast: {error}"))?;
-        request.directed_targets =
-            interface_directed_targets(candidates.iter().map(|candidate| candidate.ip.as_str()));
-        request.broadcast_targets = directed_broadcast_targets_from_candidates(&candidates);
+        interface_targets_for_request(&mut request)?;
     }
     let without_broadcast_target =
         request.include_broadcast && request.broadcast_targets.is_empty();
@@ -74,7 +80,7 @@ pub(crate) fn discover(
     if without_broadcast_target {
         sink.warn("No non-loopback IPv4 broadcast target was available for ADS discovery.".into());
     }
-    for result in results {
+    for (result, params, warnings) in probe_devices(results, ports, deadline) {
         let source = match result.source {
             DiscoverySource::Manual => "manual",
             DiscoverySource::DirectedIdentify => "ads_identify",
@@ -94,14 +100,8 @@ pub(crate) fn discover(
             label,
             source,
             confidence: "observed",
-            params: json!({
-                "ams_net_id": target.ams_net_id,
-                "host": target.ip,
-                "name": target.name,
-                "ams_port": target.ams_port,
-                "tc_version": target.tc_version,
-            }),
-            warnings: Vec::new(),
+            params,
+            warnings,
         });
     }
     Ok(())
@@ -109,13 +109,49 @@ pub(crate) fn discover(
 
 /// Without the `ads-wire` feature: a warning instead of a round.
 #[cfg(not(feature = "ads-wire"))]
-pub(crate) fn discover(
+pub(crate) fn discover_with_ports(
     _scope: &DiscoverScope,
+    _ports: &[u16],
     _deadline: Deadline,
     sink: &mut dyn CandidateSink,
 ) -> Result<(), String> {
     sink.warn("ADS discovery needs a runtime built with the ads-wire feature.".to_string());
     Ok(())
+}
+
+/// Probes every found device on `ports`: different devices at the same time, the ports of one
+/// device one after the other.
+#[cfg(feature = "ads-wire")]
+fn probe_devices(
+    results: Vec<crate::ads::onboarding::DiscoveryResult>,
+    ports: &[u16],
+    deadline: Deadline,
+) -> Vec<(
+    crate::ads::onboarding::DiscoveryResult,
+    serde_json::Value,
+    Vec<String>,
+)> {
+    let probe = ads_ports::LiveAdsPortProbe;
+    let probe = &probe;
+    std::thread::scope(|scope| {
+        let handles = results
+            .into_iter()
+            .map(|result| {
+                scope.spawn(move || {
+                    let (params, warnings) =
+                        ads_ports::probe_candidate(&result.target, ports, deadline, probe);
+                    (result, params, warnings)
+                })
+            })
+            .collect::<Vec<_>>();
+        handles
+            .into_iter()
+            .map(|handle| match handle.join() {
+                Ok(value) => value,
+                Err(payload) => std::panic::resume_unwind(payload),
+            })
+            .collect()
+    })
 }
 
 #[cfg(feature = "ads-wire")]
@@ -130,6 +166,7 @@ fn broadcast_target_for_cidr(cidr: &str) -> Result<String, String> {
 /// ADS in a search. Each known address is identified once. Without one, or with a subnet,
 /// broadcast rounds listen until the search ends.
 pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
+    let ports = context.ads_ports.as_slice();
     for host in &context.hosts {
         if sink.ended() {
             return;
@@ -140,7 +177,7 @@ pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
             ..DiscoverScope::default()
         };
         let mut found = FindSink::new(sink, Some(host), ads_find);
-        if let Err(error) = discover(&scope, found.deadline(), &mut found) {
+        if let Err(error) = discover_with_ports(&scope, ports, found.deadline(), &mut found) {
             sink.warn(format!("{host}: {error}"));
         }
     }
@@ -153,7 +190,7 @@ pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
     };
     while !sink.ended() {
         let mut found = FindSink::new(sink, None, ads_find);
-        if let Err(error) = discover(&scope, found.deadline(), &mut found) {
+        if let Err(error) = discover_with_ports(&scope, ports, found.deadline(), &mut found) {
             sink.warn(error);
         }
         sink.wait(ADS_ROUND_PAUSE);

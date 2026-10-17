@@ -847,6 +847,8 @@ mod tests {
 
     fn target(net_id: &str, ip: &str) -> TargetIdentity {
         TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: Some("CX".to_string()),
             ip: ip.to_string(),
             ams_net_id: net_id.to_string(),

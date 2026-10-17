@@ -28,6 +28,7 @@ pub(crate) fn plan(search: &ValidSearch, host: &SearchHost) -> Vec<(SourceId, So
         cidr: search.cidr.clone(),
         ethercat_adapters: search.ethercat_adapters.clone(),
         modbus_unit_ids: search.modbus_unit_ids.clone(),
+        ads_ports: search.ads_ports.clone(),
         runtime: match host {
             SearchHost::ThisHost => None,
             SearchHost::Runtime(facts) => Some(facts.clone()),

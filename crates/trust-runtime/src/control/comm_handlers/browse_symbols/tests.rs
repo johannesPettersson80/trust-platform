@@ -213,6 +213,8 @@ fn ads_symbol_upload_timeout_returns_route_missing_response() {
         role: crate::ads::onboarding::RoutePlanRole::Client,
         route_name: "line1".to_string(),
         target: TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: Some("TwinCAT".to_string()),
             ip: "192.168.77.11".to_string(),
             ams_net_id: "100.67.6.217.1.1".to_string(),

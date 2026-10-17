@@ -126,6 +126,8 @@ fn local_router_identity_at(
         .write_all(&close_port)
         .map_err(|error| local_router_error(target_ip, format!("close identity port: {error}")))?;
     Ok(TargetIdentity {
+        os_version: None,
+        fingerprint: None,
         name: None,
         ip: target_ip.to_string(),
         ams_net_id: ams_net_id_text(&reply[6..12]),
@@ -142,6 +144,14 @@ fn udp_identity(target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> 
         )
     })?;
     Ok(TargetIdentity {
+        os_version: Some(super::os_version_text(
+            info.os_version.0,
+            info.os_version.1,
+            info.os_version.2,
+            info.os_version.3,
+            info.os_version.4.as_str(),
+        )),
+        fingerprint: super::non_empty(info.fingerprint.as_str()),
         name: Some(info.hostname),
         ip: target_ip.to_string(),
         ams_net_id: info.netid.to_string(),
@@ -184,6 +194,8 @@ mod tests {
 
     fn target_identity() -> TargetIdentity {
         TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: None,
             ip: "127.0.0.1".to_string(),
             ams_net_id: "100.67.6.217.1.1".to_string(),
@@ -193,7 +205,7 @@ mod tests {
     }
 
     #[test]
-    fn loopback_identity_prefers_local_router_before_udp() {
+    fn loopback_target_uses_the_local_router_identity() {
         let expected = target_identity();
         let result = identify_target_with(
             "127.0.0.1",

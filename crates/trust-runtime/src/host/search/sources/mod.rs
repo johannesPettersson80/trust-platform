@@ -6,6 +6,7 @@
 //! decides which requested sources run and why the others are skipped.
 
 pub(crate) mod ads;
+pub(crate) mod ads_ports;
 mod catalog;
 pub(crate) mod ethercat;
 mod find;
@@ -76,6 +77,8 @@ pub(crate) struct SourceContext {
     pub(crate) ethercat_adapters: Vec<Option<String>>,
     /// The Modbus TCP unit IDs to probe; unit ID 1 when the request names none.
     pub(crate) modbus_unit_ids: Vec<u8>,
+    /// The ADS ports to probe; the default set when the request names none.
+    pub(crate) ads_ports: Vec<u16>,
     /// The runtime the search runs in; `None` on the tool's computer.
     pub(crate) runtime: Option<RuntimeFacts>,
 }
