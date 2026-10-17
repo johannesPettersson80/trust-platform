@@ -679,6 +679,21 @@ The record shall identify the bytecode and configuration hashes; required instru
 
 Hardware pin mappings belong to board configuration, not the STBC instruction set. The same STBC bytes can be used on different devices only when both devices support the required features and the application's logical I/O contract. A board-specific firmware image or different peripheral mapping does not invalidate that bytecode portability.
 
+**The installed application container.** A device with an `application` region keeps the installed program and its record in that region as one container with magic `TRSTA001`, so a chip reads one bounded artifact at boot:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 8 | Magic `TRSTA001`, written last |
+| 8 | 4 | CRC-32 of bytes 12 to the end of the entry table |
+| 12 | 4 | The total length L of the container in bytes |
+| 16 | 4 | The entry count, 2 |
+| 20 | 16 each | The entries: for each, its kind (4: 1 `program.stbc`, 2 the deployment record), the payload's offset (4) from the start of the container, its length (4) and its payload's CRC-32 (4) |
+| 52 | L − 52 | The payloads: `program.stbc`, then the record |
+
+Integers are little-endian and CRC-32 is CRC-32/ISO-HDLC as in STBC. A reader (`trust-runtime-services::installation`, shared and without an operating system) exposes no payload before it has checked, in this order, the magic; the header CRC; the total length against the region; the entry count; that each kind appears once; that each entry's range lies inside the total length, outside the header and overlaps no other entry; and each payload's CRC. A region whose first eight bytes are not the magic, an erased region of `0xFF` in particular, holds no installed program.
+
+A writer writes the container in one order: the payloads, then the entry table and the header, and the magic last. A write that stops at any byte then reads as no installed program (DEPLOY-03), because the magic is absent until the container is whole. On the bench, `cargo xtask portability pack-project <program.stbc> <deployment-record.bin> <app.bin>` writes it, after checking that the record reads and describes exactly the program it packs.
+
 ### 5.1.1 The deployment record
 
 The record of §5.1 is one binary file, `deployment-record.bin`, next to `program.stbc`: a sidecar,

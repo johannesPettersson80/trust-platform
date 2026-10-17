@@ -43,6 +43,22 @@
       "rationale": "build-firmware builds each supported chip's firmware from its chips/<chip>.toml, and the bench profiles take their chip values from it; the reader depends on no firmware or adapter."
     },
     {
+      "from": "xtask",
+      "to": "trust-runtime-services",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1b-3b (application container)",
+      "rationale": "The bench packer builds the chip's TRSTA001 application container with the shared no_std installation writer, so the bench writes exactly the bytes a chip checks."
+    },
+    {
+      "from": "xtask",
+      "to": "trust-runtime-core",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1b-3b (application container)",
+      "rationale": "The bench packer reads the deployment record with the core's own DeploymentRecord decoder and its sha256, so the bench and a chip cannot disagree about the record it holds."
+    },
+    {
       "from": "trust-platform-stm32f4",
       "to": "trust-chips",
       "kind": "dev",

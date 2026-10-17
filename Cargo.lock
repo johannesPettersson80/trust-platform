@@ -7922,6 +7922,8 @@ dependencies = [
  "syn 3.0.7",
  "toml",
  "trust-chips",
+ "trust-runtime-core",
+ "trust-runtime-services",
 ]
 
 [[package]]

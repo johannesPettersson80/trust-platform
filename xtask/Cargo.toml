@@ -21,6 +21,11 @@ toml.workspace = true
 # The chip files: build-firmware builds each chip's firmware from its file, and the bench
 # profiles take their chip values from it.
 trust-chips.workspace = true
+# The application container and the deployment record: `pack-project` builds the container with
+# the chip's own writer and reads the record with the core's own decoder, so the bench writes
+# exactly the bytes a chip checks.
+trust-runtime-core.workspace = true
+trust-runtime-services.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 process-wrap = { version = "=10.0.1", default-features = false, features = ["std", "job-object"] }
