@@ -9,6 +9,8 @@ use trust_ads_core::{
 use crate::ads::diagnostics::{LocalIdentity, TargetIdentity};
 use crate::ads::{generate_ads_interface, parse_ads_toml, AdsInterfaceError};
 
+pub mod remove;
+
 /// Symbol browse/import request.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SymbolImportRequest {

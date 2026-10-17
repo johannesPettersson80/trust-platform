@@ -244,6 +244,14 @@ pub fn run_ads(action: AdsAction) -> anyhow::Result<()> {
             dry_run,
             json,
         ),
+        AdsAction::RemoveSymbols {
+            project,
+            host,
+            target_net_id,
+            ams_port,
+            paths,
+            json,
+        } => run_remove_symbols(project, host, target_net_id, ams_port, paths, json),
         AdsAction::Import {
             config,
             snapshots,
@@ -909,6 +917,40 @@ fn run_import_symbols(
         };
         emit_report(&report, json, render_import_symbols_report)
     }
+}
+
+fn run_remove_symbols(
+    project: PathBuf,
+    host: Option<String>,
+    target_net_id: Option<String>,
+    ams_port: u16,
+    paths: Vec<String>,
+    json: bool,
+) -> anyhow::Result<()> {
+    let mut params = serde_json::Map::new();
+    params.insert("ams_port".to_string(), json!(ams_port));
+    params.insert("paths".to_string(), json!(paths));
+    if let Some(host) = host {
+        params.insert("host".to_string(), json!(host));
+    }
+    if let Some(target_net_id) = target_net_id {
+        params.insert("target_net_id".to_string(), json!(target_net_id));
+    }
+    let value = trust_runtime::control::offline_ads_remove_symbols_json(
+        project.as_path(),
+        serde_json::Value::Object(params),
+    )
+    .map_err(anyhow::Error::msg)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&value)?);
+    } else {
+        let message = value
+            .get("message")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("ADS tag removal finished.");
+        println!("{}", style::success(message));
+    }
+    Ok(())
 }
 
 fn run_import(

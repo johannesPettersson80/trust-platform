@@ -53,6 +53,7 @@ const VIEWER: &[&str] = &[
 const OPERATOR: &[&str] = &["hmi.alarm.ack", "pair.claim", "pause", "restart", "resume"];
 
 const ENGINEER: &[&str] = &[
+    "ads.import_symbols.remove",
     "ads.server.doctor",
     "ads.server.doctor.start",
     "breakpoints.clear",

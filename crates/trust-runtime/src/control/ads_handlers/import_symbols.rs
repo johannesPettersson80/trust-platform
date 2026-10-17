@@ -401,7 +401,7 @@ fn import_access(readable: bool, writable: bool, write_acknowledged: bool) -> Po
     }
 }
 
-fn load_project_snapshots(project_root: &Path) -> Result<Vec<SymbolSnapshot>, String> {
+pub(super) fn load_project_snapshots(project_root: &Path) -> Result<Vec<SymbolSnapshot>, String> {
     let root = project_root.join("ads").join("snapshots");
     let entries = match fs::read_dir(&root) {
         Ok(entries) => entries,

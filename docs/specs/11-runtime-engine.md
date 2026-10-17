@@ -3046,6 +3046,9 @@ and emits that operation's JSON result:
 - `topology` reads the selected project and reports its offline fleet topology;
 - `apply` requires `--params` to decode as a JSON object, forwards the selected
   protocol and action, and includes `instance_id` only when one was supplied;
+- `test` requires `--params` to decode as a JSON object and runs the `comm.test`
+  request's code for the selected protocol against the selected project, printing
+  that request's answer;
 - `discover` forwards the selected protocol, origin, passive flag, and only the
   optional scope fields that were supplied by the caller;
 - `browse-symbols` accepts an optional JSON-object target, optional cached JSON
@@ -3629,6 +3632,12 @@ requires a snapshot and fails visibly for missing symbols, type mismatches, or
 generated-source drift. Live validation rejects cached snapshots and obtains
 fresh symbols from every configured connection before applying the same
 compatibility check.
+
+`ads remove-symbols` removes selected imported tag points from a project's
+`ads.toml` and regenerates the generated ST from the rewritten configuration and
+every cached snapshot, running the same function as the `ads.import_symbols.remove`
+request. It writes nothing when no point matched, and its answer reports the number
+of points removed, the files written, and whether anything matched.
 
 The ADS parser preserves every selected live-client action and its explicit
 target, target Net ID, connection, configuration, guarded-write, and JSON
@@ -4365,6 +4374,19 @@ comment, and section. The offline `ads import-symbols` command does the same
 after it writes its artifacts. Both answers report whether `runtime.toml`
 changed. A missing `runtime.toml` leaves the artifacts in place and reports that
 ADS could not be enabled automatically.
+
+The `ads.import_symbols.remove` request removes selected imported points from the
+project's `ads.toml` and regenerates the generated ST from the rewritten
+configuration and every canonical cached snapshot. Its parameters name the device
+`host`, `target_net_id`, and `ams_port`, and the `paths` to remove. In every
+connection whose host, target AMS Net ID, and AMS port equal the device's it
+removes the points whose `symbol` is one of `paths`; a connection left without
+points is removed, and every other line, blank line, and comment is kept. It
+answers schema version 1 with `applied`, `matched`, `removed_count`,
+`restart_required`, `files_written`, and `message`, writing nothing when no point
+matched and refusing without writing when no cached snapshot can regenerate the
+interface. It is always write-enabled and therefore always requires Engineer,
+like `ads.import_symbols.apply`.
 
 The generated ADS interface is one deterministic Structured Text source for
 all configured connections. It declares the shared `ADS_QUALITY` enum exactly
@@ -5207,7 +5229,8 @@ Parameter-sensitive operations retain these boundaries:
   request validation may still reject that ambiguous combination.
   `ads.import_symbols.apply` is always write-enabled and therefore always
   requires Engineer, including when its source symbols came from a cached
-  snapshot.
+  snapshot. `ads.import_symbols.remove` writes the project's `ads.toml` and
+  generated ST and therefore always requires Engineer too.
 - `comm.search.start` requires Engineer when its parameters set
   `confirm_fieldbus_scan` to the JSON value `true`, and Viewer otherwise. A
   request whose value is not a Boolean is refused by request validation and

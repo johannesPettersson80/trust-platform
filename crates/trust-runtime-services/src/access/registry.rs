@@ -248,6 +248,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         RolePolicy::AdsImportSymbols,
         false,
     ),
+    operation(
+        "ads.import_symbols.remove",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
     operation("comm.browse_symbols", RolePolicy::CommBrowseSymbols, false),
     operation("comm.search.start", RolePolicy::CommSearchStart, false),
     operation("config.set", RolePolicy::ConfigSet, false),

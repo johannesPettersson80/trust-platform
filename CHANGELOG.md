@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- `ads.import_symbols.remove` removes imported ADS tag points from a project's `ads.toml`
+  and regenerates the generated ST, and `trust-runtime ads remove-symbols` runs the same
+  function from the command line. `trust-runtime comm test` runs the `comm.test` request's
+  code from the command line.
 - `comm.apply` answers the `instance_id` of the connection it wrote for `add`, `upsert`
   and `edit`, and an ADS tag import enables `[runtime.ads]` in the project's
   `runtime.toml` itself, live and through `trust-runtime ads import-symbols`, keeping

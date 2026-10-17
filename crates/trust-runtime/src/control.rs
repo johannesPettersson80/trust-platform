@@ -104,6 +104,29 @@ pub fn offline_ads_ensure_runtime_enabled(
     comm_handlers::ensure_ads_runtime_enabled(project_root, config_path)
 }
 
+/// Remove imported ADS tag points from a project's `ads.toml` and regenerate its ST.
+///
+/// The same function backs the `ads.import_symbols.remove` control request and
+/// `trust-runtime ads remove-symbols` (design §4.3 B7).
+pub fn offline_ads_remove_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::remove_symbols_from_project(project_root, params)
+}
+
+/// Run a communication `comm.test` request from this host without a running runtime.
+///
+/// `project_root` is accepted so the command has the same shape as the runtime request;
+/// `comm.test` probes its explicit parameters and reads no project file.
+pub fn offline_comm_test_json(
+    _project_root: &Path,
+    protocol: &str,
+    params: serde_json::Value,
+) -> serde_json::Value {
+    comm_handlers::comm_test_probe_value(protocol, params)
+}
+
 /// Discover communication targets from the current host without a running runtime.
 pub fn offline_comm_discover_json(params: serde_json::Value) -> Result<serde_json::Value, String> {
     comm_handlers::discover_value(params, None)
