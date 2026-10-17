@@ -149,6 +149,7 @@ pub(in crate::vm) const fn native_call_may_yield(kind: u32) -> bool {
 
 /// Dispatch an encoded call, resolving every binding at the call (spec 34 MEM-09;
 /// the compatibility entry for hosts that keep no prepared plans).
+#[cfg(any(feature = "hir", feature = "register-ir", test))]
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_native_call(
     runtime: &mut impl ExecutionContext,
