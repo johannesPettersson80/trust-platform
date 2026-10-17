@@ -143,6 +143,10 @@ pub mod runtime_cloud;
 /// Resource scheduling helpers and clocks.
 #[cfg(feature = "full")]
 pub mod scheduler;
+/// The one search for everything truST can talk to: sources, devices and presence.
+#[cfg(feature = "full")]
+#[path = "host/search/mod.rs"]
+pub mod search;
 /// Security roles and authorization helpers.
 #[cfg(feature = "full")]
 #[path = "host/security/mod.rs"]

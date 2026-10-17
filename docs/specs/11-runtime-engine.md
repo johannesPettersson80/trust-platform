@@ -1289,20 +1289,87 @@ computer. The command line runs the same search as `trust-runtime discover`,
 printing results as they are found (`--json` prints one JSON object per line),
 and `--only <source>,…` limits it to named sources.
 
+A listening source (mDNS, Bluetooth, an ADS broadcast) listens until the search
+ends, at its deadline or on cancel, and reports each result as it arrives. The
+150 ms window above applies only to a single `comm.discover` request.
+`comm.search.status`, `comm.search.cancel`, and a `comm.search.start` without a
+confirmed fieldbus scan need the Viewer role; a `comm.search.start` with
+`confirm_fieldbus_scan = true` needs Engineer (§6.9.5).
+
+**Requests.** `comm.search.start` takes an object whose members are all
+optional; an unknown member, at any level, is a request error, as for
+`comm.discover`:
+
+- `origin`: where the search runs. A search started over a runtime's control
+  connection runs inside that runtime, so its origin is `runtime`; another value
+  is a request error. A tool that runs the search itself uses `this_host`.
+- `only`: the IDs of the sources to run (the table below). Without it every
+  source runs. An empty list or an unknown ID is a request error.
+- `targets`: `hosts`, a list of at most 256 known addresses, each a host name or
+  IP address with an optional port and nothing else; and `cidr`, one IPv4
+  subnet of at most `/24`, read by the CIDR rules of `comm.discover`.
+- `deadline_ms`: from 1 to 60,000, and 10,000 when absent; another value is a
+  request error.
+- `confirm_fieldbus_scan`: `true` runs the fieldbus sources; absent or `false`
+  skips them.
+- `fieldbus`: the buses to scan, each `{"bus": "ethercat"}` with an optional
+  `"adapter": "<name>"`. A bus named without an adapter, and a confirmed scan
+  without entries, use the adapter of the project's EtherCAT driver, as
+  `comm.discover` does.
+
+It answers `{"search_id": "s-<n>"}`. `comm.search.status` takes `search_id` and
+an optional `since` cursor. It answers schema version 1 with `search_id`,
+`origin`, `state` (`running`, `done` or `cancelled`), `deadline_ms`,
+`elapsed_ms`, `cursor`, `sources`, `devices`, and `warnings`. Each source
+reports its `id` and `state`: `searching`, `found`, `timed_out`, `cancelled` or
+`skipped`. A source that ran also reports `count`, the results it has, and the
+`warnings` of what it could not search; a skipped source reports `reason`
+instead. A device reports its `id`, `addresses`, `ams_net_ids`, `usb_serials`,
+`runtime_ids`, `last_seen_ms`, and `finds`; each find reports its `protocol`
+(a source ID), `source`, `confidence`, `simulated`, `identity` (its `kind` names
+the protocol), the `params` that `comm.discover` reports for a connection to it,
+its `warnings`, and `last_seen_ms`. Empty `ams_net_ids`, `usb_serials` and
+`runtime_ids` lists, and empty source and find `warnings`, are left out.
+Without `since` every device is listed. With
+`since` only the devices that changed after that cursor are listed, and
+`merged` lists `{"id", "into"}` for each device that joined another after it, so
+a tool that polls with the last `cursor` keeps a complete list.
+`comm.search.cancel` takes `search_id` and answers `{"search_id", "state"}`:
+`cancelled`, or `done` when the search had already ended. A runtime keeps its
+last eight searches, each for five minutes after it ends. A ninth search
+replaces the oldest search that has ended; while eight searches are still
+running, `comm.search.start` answers the error code `search_busy`. A search ID
+that the runtime does not keep answers `search_not_found`.
+
 **Sources.** A search uses every source that its origin can run:
 
-| Source | Finds | How |
+| Source (ID) | Finds | How |
 |---|---|---|
-| truST runtimes | Runtimes on the local network and in the mesh | mDNS `_trust._plc._tcp.local.` (§6.12), queries to mesh peers, runtime cloud presence |
-| ADS | TwinCAT and ADS devices, their responding ADS ports, and their routes | UDP identify, unicast and broadcast; a probe of the configured ADS ports; the target's route list |
-| Modbus TCP | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
-| MQTT | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
-| OPC UA | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
-| EtherCAT | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity without bringing the bus to OP |
-| GPIO | Chips and lines of the runtime's computer | The Linux GPIO character device |
-| Serial | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
-| USB | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
-| Bluetooth | Bluetooth LE devices, where the origin computer has Bluetooth | A passive advertisement scan |
+| truST runtimes (`trust_runtime`) | Runtimes on the local network and in the mesh | mDNS `_trust._plc._tcp.local.` (§6.12), queries to mesh peers, runtime cloud presence |
+| ADS (`ads`) | TwinCAT and ADS devices, their responding ADS ports, and their routes | UDP identify, unicast and broadcast; a probe of the configured ADS ports; the target's route list |
+| Modbus TCP (`modbus_tcp`) | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
+| MQTT (`mqtt`) | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
+| OPC UA (`opcua`) | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
+| EtherCAT (`ethercat`) | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity without bringing the bus to OP |
+| GPIO (`gpio`) | Chips and lines of the runtime's computer | The Linux GPIO character device |
+| Serial (`serial`) | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
+| USB (`usb`) | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
+| Bluetooth (`bluetooth`) | Bluetooth LE devices, where the origin computer has Bluetooth | A passive advertisement scan |
+
+EtherCAT and GPIO run only at origin `runtime`. A source that does not run
+reports `skipped` with its reason in words, for example that its origin cannot
+run it, that its fieldbus scan was not confirmed, that the search names nothing
+it can probe, or that this build of truST does not include it. At origin
+`runtime` the truST runtimes source reads the runtime's own mDNS discovery
+(§6.12), so it is skipped while `[runtime.discovery] enabled = false`.
+
+A known address is probed at each protocol's own port. An explicit port is used
+by Modbus TCP, MQTT and OPC UA; ADS identifies the host alone. Without a known
+address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
+(RFC 1918) of the origin computer's network interfaces that
+`discovery.interfaces` allows, or of every interface when that list is empty or
+the search runs on the tool's computer. `comm.discover` keeps its rule of the
+first such interface.
 
 **Safety.** A search only reads. It never writes a device value, never changes
 a device's state, and never resets a board. EtherCAT identification keeps the
@@ -1315,8 +1382,11 @@ scan (EtherCAT, Modbus RTU) runs only when the request sets
 **Devices.** Results that belong to the same device are reported as one device
 listing every protocol found on it. Results belong to the same device when they
 share a network address, an AMS Net ID, a USB serial number, or a truST runtime
-ID. Each device carries its addresses, every protocol result with its source and
-confidence, its identity, and its `last_seen` time.
+ID. A result with none of these forms its own device: an EtherCAT SubDevice by
+its adapter and position, and the lines of one GPIO chip together by their chip.
+When a result links two devices, they become one, and the device found first
+keeps its ID. Each device carries its addresses, every protocol result with its
+source and confidence, its identity, and its `last_seen` time.
 
 **Identity.** Each protocol reports the identity it can read:
 
@@ -1345,9 +1415,9 @@ confidence, its identity, and its `last_seen` time.
 **Confidence.** Every result uses the closed confidence vocabulary of this
 section. A valid protocol exchange is `confirmed`: an ADS identify reply, an
 OPC UA GetEndpoints answer, an EtherCAT identity read, an mDNS answer from a
-truST runtime, or a USB descriptor. No other value, such as `observed`, is
-reported. A simulated (mock) result carries `simulated = true` and is never
-presented as hardware.
+truST runtime, or a USB descriptor. A GPIO line that the operating system lists
+is `confirmed` too. No other value, such as `observed`, is reported. A simulated
+(mock) result carries `simulated = true` and is never presented as hardware.
 
 **Compare with the project.** `comm.compare` compares a search result with the
 project's configuration. It lists each configured device that was not found,
@@ -1364,9 +1434,24 @@ output; a project that uses it is refused when it is loaded. Without the
 setting the request answers `identify_not_configured`. The command line runs it
 as `trust-runtime identify`.
 
-**Presence.** A found device keeps its `last_seen` time. A configured device
-that a running runtime stops seeing for longer than its protocol's freshness
-window reports connector state `stale`, with the time it was last seen.
+**Presence.** A found device keeps its `last_seen` time. A result seen again in
+the same search is not listed twice: it moves its `last_seen` time forward and
+keeps the stronger of its two confidences. A configured device that a running
+runtime stops seeing for longer than its protocol's freshness window reports
+connector state `stale`, with the time it was last seen.
+
+**Command line.** `trust-runtime discover` runs the search on this computer, or
+inside the runtime named by `--endpoint`, with `--token` or else
+`TRUST_CTL_TOKEN` as its control token. `--only` (comma-separated),
+`--host` (repeatable, `targets.hosts`), `--cidr` (`targets.cidr`), and
+`--deadline-ms` fill the request; `--confirm-fieldbus ethercat[:<adapter>]`
+(repeatable) sets `confirm_fieldbus_scan` and adds the bus to `fieldbus`. The
+command prints each source's progress and each device when it is found or
+changes, and it ends when the search ends. With `--json` each line is one JSON
+object whose `event` member names it: `source` (a source's progress), `device`
+(the device), `merged` (`id` and `into`), and last `end` (`search_id`, `origin`,
+`state`, `elapsed_ms`, the number of `devices`, and `warnings`). A refused
+request is a command failure.
 
 ##### EtherCAT unavailable-resource contract
 
@@ -4631,6 +4716,11 @@ when enabled:
   error that names the resource state, and they change nothing: a faulted
   resource resumes only through `restart`, which runs the configured warm or
   cold initialization first (specification 34 STATE-06).
+- `restart` takes the mode `cold` or `warm`. A new trust-runtime process starts
+  `cold` unless it is launched with `--restart warm` (`trust-runtime run` and
+  `trust-runtime play`), so a tool that starts a stopped program with `restart`
+  sends `cold`, the mode of a new process; Devices & Connections does so for a
+  runtime that keeps control after `shutdown` (specification 25 §5.1).
 - Restart requests that arrive before the resource has taken the previous one
   coalesce into a single restart, and a cold request takes precedence over a
   warm one: a pending cold restart is never downgraded by a later warm request,
@@ -4919,9 +5009,9 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
+| Viewer | `status`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
 | Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
-| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, ADS server doctor actions |
+| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
@@ -4933,6 +5023,10 @@ Parameter-sensitive operations retain these boundaries:
   `ads.import_symbols.apply` is always write-enabled and therefore always
   requires Engineer, including when its source symbols came from a cached
   snapshot.
+- `comm.search.start` requires Engineer when its parameters set
+  `confirm_fieldbus_scan` to the JSON value `true`, and Viewer otherwise. A
+  request whose value is not a Boolean is refused by request validation and
+  runs no source.
 - `config.set` requires Admin if any request key is `control.auth_token`,
   `control.mode`, `control.debug_enabled`, `web.auth`, `mesh.auth_token`,
   `mesh.role`, `mesh.zenohd_version`, `mesh.plugin_versions`,

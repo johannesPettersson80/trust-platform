@@ -87,6 +87,7 @@ impl DebugControlServer {
             hmi_descriptor,
             historian: None,
             pairing: None,
+            search: Default::default(),
             ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
             ads_client_config: Arc::new(Mutex::new(None)),
             opcua_client_config: Arc::new(Mutex::new(None)),

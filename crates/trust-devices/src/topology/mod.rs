@@ -17,12 +17,16 @@ mod merge;
 mod synthetic;
 mod wire;
 
+pub(crate) use identity::encode;
+
 use serde_json::Value;
 use trust_runtime::connectors::{
     ConnectorHealth, ConnectorPointCounts, ConnectorState, DiscoveryConfidence,
 };
 use trust_runtime::fleet_topology::{FleetEndpointChild, FleetExternal, FleetLink, FleetShared};
 use trust_runtime_client::{AuthFailure, ControlError, TargetProbe};
+
+use crate::texts::graph as texts;
 
 /// Everything one round of the topology is built from. The panel engine fills it from what it
 /// gathered; nothing here reads a file, a socket or a clock.
@@ -97,6 +101,10 @@ pub struct Simulator {
     /// The connections that the catalog lists for the project, drawn on the simulator while
     /// nothing reports the project's runtime.
     pub devices: Vec<ConfiguredDevice>,
+    /// Whether the project runs in the simulator (the `simulate` run mode). The project's
+    /// configured runtime then stands for the simulator while the simulator does not report it:
+    /// it shows the simulator's lifecycle and carries its session and run-target marks.
+    pub runs_project: bool,
 }
 
 /// The lifecycle of the local simulator.
@@ -135,19 +143,34 @@ pub struct ManagedRuntime {
     pub state: ManagedState,
 }
 
-/// The lifecycle state of a managed runtime (specification 25 §6.5).
+/// The lifecycle state of a managed runtime (specification 25 §6.5). The gather reads it, and
+/// the topology and the view show it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ManagedState {
-    /// Running.
+    /// Its control endpoint answers.
     Running,
-    /// Stopped.
+    /// Nothing accepts a connection at its control endpoint.
     Stopped,
-    /// Starting.
+    /// A start has not reached `running` yet.
     Starting,
-    /// Stopping.
+    /// A stop has not reached `stopped` yet.
     Stopping,
-    /// The status could not be read: never shown as stopped.
+    /// Its status is unknown: `Status unavailable`, never shown as stopped.
     Unavailable,
+}
+
+impl ManagedState {
+    /// The state that a fleet status names. A missing or unknown one is `Unavailable`.
+    #[must_use]
+    pub fn from_status(status: Option<&str>) -> Self {
+        match status {
+            Some("running") => Self::Running,
+            Some("stopped") => Self::Stopped,
+            Some("starting") => Self::Starting,
+            Some("stopping") => Self::Stopping,
+            _ => Self::Unavailable,
+        }
+    }
 }
 
 /// The extension's session, as it reports it.
@@ -176,6 +199,11 @@ pub struct Topology {
     pub external: Vec<FleetExternal>,
     /// What the operator must be told about this round's reports.
     pub issues: Vec<TopologyIssue>,
+    /// The host that stands for this computer: the one with the ID that this computer's runtimes
+    /// report, else the host of the project's configuration, else the host of the simulator's
+    /// own report. `None` when no report gives it; a host drawn for this computer then stands
+    /// for it.
+    pub this_computer: Option<String>,
 }
 
 /// A computer: its facts as the first report that names it gives them (see
@@ -414,7 +442,7 @@ pub fn merge(inputs: &TopologyInputs) -> Topology {
             Err(error) => issues.push(TopologyIssue {
                 item: None,
                 project: true,
-                text: format!("Fleet topology unavailable: {error}"),
+                text: texts::topology_unavailable(&error.to_string()),
             }),
         }
     }
@@ -446,10 +474,12 @@ pub fn merge(inputs: &TopologyInputs) -> Topology {
     if nothing_local {
         synthetic::add_simulator(&mut topology, &inputs.simulator, this_computer);
     }
+    synthetic::stand_in_for_simulator(&mut topology, &inputs.simulator);
     synthetic::inject_managed(&mut topology, &inputs.managed, this_computer);
     synthetic::remove_runtime_twins(&mut topology, &inputs.managed);
     synthetic::mark_session(&mut topology, &inputs.session, &inputs.simulator);
     topology.issues = issues;
+    topology.this_computer = this_computer.map(str::to_owned);
     topology
 }
 
@@ -539,4 +569,4 @@ impl Runtime {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

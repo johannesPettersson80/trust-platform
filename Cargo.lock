@@ -6667,6 +6667,7 @@ dependencies = [
  "base64 0.23.1",
  "serde",
  "serde_json",
+ "trust-chips",
  "trust-runtime",
  "trust-runtime-client",
 ]
@@ -6834,6 +6835,7 @@ dependencies = [
  "trust-hir",
  "trust-ide",
  "trust-plcopen",
+ "trust-runtime-client",
  "trust-runtime-core",
  "trust-runtime-services",
  "trust-syntax",

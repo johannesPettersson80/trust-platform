@@ -135,7 +135,7 @@ fn legacy_id_part(value: &str) -> String {
 /// `fleetTopology()` of `network-canvas.test.ts`, at schema version 4: one runtime with a healthy
 /// Modbus meter, a degraded MQTT endpoint linked to a shared broker, and a mesh endpoint linked
 /// to one configured peer.
-pub(super) fn fleet_topology() -> Value {
+pub(crate) fn fleet_topology() -> Value {
     json!({
         "schema_version": 4,
         "hosts": [{

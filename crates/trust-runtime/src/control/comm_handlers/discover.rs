@@ -1,4 +1,5 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::path::Path;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,7 @@ use super::super::{ControlResponse, ControlState};
 use super::discovery_probe::{
     probe_modbus_tcp, probe_mqtt, ModbusDiscoveryProbe, ModbusSafeReadProbe,
 };
+use crate::discovery::DiscoveryState;
 
 #[cfg(feature = "ads-wire")]
 mod ads_discovery_target;
@@ -52,6 +54,24 @@ enum DiscoverOrigin {
     Runtime,
 }
 
+/// What a `comm.discover` request reads from the runtime that answers it: the project folder,
+/// which names the EtherCAT driver, and the runtime's own mDNS discovery. A request answered
+/// without a runtime has neither.
+#[derive(Debug, Clone, Copy, Default)]
+pub(super) struct DiscoverHost<'a> {
+    pub(super) project_root: Option<&'a Path>,
+    pub(super) discovery: Option<&'a DiscoveryState>,
+}
+
+impl<'a> DiscoverHost<'a> {
+    fn of(state: Option<&'a ControlState>) -> Self {
+        Self {
+            project_root: state.and_then(|state| state.project_root.as_deref()),
+            discovery: state.map(|state| state.discovery.as_ref()),
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct CommDiscoverResponse {
     schema_version: u32,
@@ -88,6 +108,11 @@ pub(super) fn handle_comm_discover(
 }
 
 pub(super) fn discover_value(params: Value, state: Option<&ControlState>) -> Result<Value, String> {
+    discover_value_on(params, DiscoverHost::of(state))
+}
+
+/// Answers one `comm.discover` request with what `host` gives it.
+pub(super) fn discover_value_on(params: Value, host: DiscoverHost<'_>) -> Result<Value, String> {
     let request: CommDiscoverRequest = serde_json::from_value(params)
         .map_err(|error| format!("invalid comm.discover payload: {error}"))?;
     let protocol = canonical_protocol(request.protocol.as_str());
@@ -106,10 +131,10 @@ pub(super) fn discover_value(params: Value, state: Option<&ControlState>) -> Res
         }
         "opcua_client" => discover_opcua_client(&request.scope, &mut warnings)?,
         "mqtt" => discover_mqtt(&request.scope, &mut warnings)?,
-        "ethercat" => discover_ethercat(&request, state, &mut warnings)?,
+        "ethercat" => discover_ethercat(&request, host, &mut warnings)?,
         "gpio" => discover_gpio(&request, &mut warnings),
         "ads" => discover_ads(&request.scope, &mut warnings)?,
-        "discovery" => discover_trust_runtimes(&request, state, &mut warnings)?,
+        "discovery" => discover_trust_runtimes(&request, host, &mut warnings)?,
         other if known_protocol_without_discovery(other) => {
             warnings.push(format!(
                 "{} discovery is not available yet.",
@@ -304,7 +329,7 @@ fn discover_opcua_client(
 
 fn discover_ethercat(
     request: &CommDiscoverRequest,
-    state: Option<&ControlState>,
+    host: DiscoverHost<'_>,
     warnings: &mut Vec<String>,
 ) -> Result<Vec<DiscoverCandidate>, String> {
     if request.origin != DiscoverOrigin::Runtime {
@@ -314,7 +339,7 @@ fn discover_ethercat(
         );
         return Ok(Vec::new());
     }
-    let Some(params) = ethercat_discovery_params(&request.scope, state)? else {
+    let Some(params) = ethercat_discovery_params(&request.scope, host)? else {
         warnings.push(
             "EtherCAT discovery needs scope.adapter/scope.host or a configured EtherCAT driver in the runtime project."
                 .to_string(),
@@ -348,7 +373,7 @@ fn discover_ethercat(
 
 fn ethercat_discovery_params(
     scope: &DiscoverScope,
-    state: Option<&ControlState>,
+    host: DiscoverHost<'_>,
 ) -> Result<Option<toml::Value>, String> {
     if let Some(adapter) = scope
         .adapter
@@ -364,7 +389,7 @@ fn ethercat_discovery_params(
         );
         return Ok(Some(toml::Value::Table(table)));
     }
-    let Some(root) = state.and_then(|state| state.project_root.as_ref()) else {
+    let Some(root) = host.project_root else {
         return Ok(None);
     };
     let path = root.join("io.toml");
@@ -537,12 +562,12 @@ fn discover_ads(
 
 fn discover_trust_runtimes(
     request: &CommDiscoverRequest,
-    state: Option<&ControlState>,
+    host: DiscoverHost<'_>,
     warnings: &mut Vec<String>,
 ) -> Result<Vec<DiscoverCandidate>, String> {
     let entries = if request.origin == DiscoverOrigin::Runtime {
-        match state {
-            Some(state) => state.discovery.snapshot(),
+        match host.discovery {
+            Some(discovery) => discovery.snapshot(),
             None => browse_trust_mdns(timeout(&request.scope), warnings)?,
         }
     } else {
@@ -784,7 +809,7 @@ fn default_ipv4_cidr() -> Option<String> {
     Some(format!("{a}.{b}.{c}.0/24"))
 }
 
-fn ipv4_targets_for_cidr(cidr: &str) -> Result<Vec<Ipv4Addr>, String> {
+pub(super) fn ipv4_targets_for_cidr(cidr: &str) -> Result<Vec<Ipv4Addr>, String> {
     let (base, prefix) = parse_ipv4_cidr(cidr)?;
     if prefix < 24 {
         return Err("Discovery CIDR must be /24 or tighter for safety.".to_string());

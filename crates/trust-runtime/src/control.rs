@@ -192,6 +192,8 @@ pub struct ControlState {
         Option<Arc<Mutex<crate::openot_persistence::OpenOtPersistenceStatus>>>,
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
+    /// The searches that `comm.search.*` started in this runtime.
+    pub search: Arc<crate::search::SearchRegistry>,
     pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,
     pub opcua_client_config: Arc<Mutex<Option<crate::opcua::OpcUaClientConfig>>>,
     pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
@@ -478,6 +480,22 @@ pub(crate) fn communication_probe_value_port(
     params: serde_json::Value,
 ) -> serde_json::Value {
     comm_handlers::comm_test_probe_value(protocol, params)
+}
+
+/// Answers one `comm.discover` request for a source of the one search (`crate::search`), reading
+/// the project at `project_root` as the runtime that runs the search does. The sources wrap these
+/// per-protocol searches until they move into the search engine (V7 slice C1b).
+pub(crate) fn comm_discover_port(
+    params: serde_json::Value,
+    project_root: Option<&Path>,
+) -> Result<serde_json::Value, String> {
+    comm_handlers::discover_for_search(params, project_root)
+}
+
+/// The hosts that a `comm.discover` CIDR scan probes, by its rules; an error for a malformed CIDR
+/// or one broader than `/24`.
+pub(crate) fn comm_discover_cidr_hosts_port(cidr: &str) -> Result<Vec<std::net::Ipv4Addr>, String> {
+    comm_handlers::discover_cidr_hosts(cidr)
 }
 
 pub(crate) fn dispatch_web_control_request_port(

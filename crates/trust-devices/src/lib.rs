@@ -5,10 +5,13 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod gather;
+mod inputs;
 pub mod request;
 pub mod session;
 pub mod targets;
+pub mod texts;
 pub mod topology;
+pub mod view;
 
 #[cfg(test)]
 mod fake_runtime;

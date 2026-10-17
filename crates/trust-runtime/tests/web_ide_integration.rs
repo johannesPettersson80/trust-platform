@@ -154,6 +154,7 @@ fn control_state(source: &str, mode: ControlMode, auth_token: Option<&str>) -> A
         historian: None,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),

@@ -25,8 +25,24 @@ pub fn required_role_for_control_request(
         Some(RolePolicy::AdsDoctor) => required_role_for_ads_doctor(params),
         Some(RolePolicy::AdsImportSymbols) => required_role_for_ads_import_symbols(params),
         Some(RolePolicy::CommBrowseSymbols) => required_role_for_comm_browse_symbols(params),
+        Some(RolePolicy::CommSearchStart) => required_role_for_comm_search_start(params),
         Some(RolePolicy::ConfigSet) => required_role_for_config_set(params),
         None => AccessRole::Admin,
+    }
+}
+
+/// A search that confirms a fieldbus scan needs `Engineer`; every other search only reads and
+/// needs `Viewer` (specification 11, "One search").
+fn required_role_for_comm_search_start(params: Option<&serde_json::Value>) -> AccessRole {
+    let confirms_fieldbus_scan = params
+        .and_then(serde_json::Value::as_object)
+        .and_then(|object| object.get("confirm_fieldbus_scan"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    if confirms_fieldbus_scan {
+        AccessRole::Engineer
+    } else {
+        AccessRole::Viewer
     }
 }
 
@@ -155,6 +171,43 @@ mod tests {
             required_role_for_control_request("comm.browse_symbols", Some(&live)),
             AccessRole::Engineer
         );
+    }
+
+    #[test]
+    fn search_requests_have_their_roles() {
+        for params in [
+            None,
+            Some(json!({})),
+            Some(json!({ "only": ["modbus_tcp"], "deadline_ms": 5000 })),
+            Some(json!({ "confirm_fieldbus_scan": false })),
+            Some(json!({ "confirm_fieldbus_scan": "true" })),
+            Some(json!({ "fieldbus": [{ "bus": "ethercat", "adapter": "eth1" }] })),
+        ] {
+            assert_eq!(
+                required_role_for_control_request("comm.search.start", params.as_ref()),
+                AccessRole::Viewer,
+                "params={params:?}"
+            );
+        }
+        assert_eq!(
+            required_role_for_control_request(
+                "comm.search.start",
+                Some(&json!({
+                    "confirm_fieldbus_scan": true,
+                    "fieldbus": [{ "bus": "ethercat", "adapter": "eth1" }]
+                }))
+            ),
+            AccessRole::Engineer
+        );
+        for kind in ["comm.search.status", "comm.search.cancel"] {
+            assert_eq!(
+                required_role_for_control_request(kind, Some(&json!({ "search_id": "s-1" }))),
+                AccessRole::Viewer,
+                "kind={kind}"
+            );
+            assert!(!is_debug_request(kind), "kind={kind}");
+        }
+        assert!(!is_debug_request("comm.search.start"));
     }
 
     #[test]

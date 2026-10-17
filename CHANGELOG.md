@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- `trust-runtime discover` runs one search for truST runtimes, ADS, Modbus TCP, MQTT and
+  OPC UA from this computer or inside a runtime, and for EtherCAT (after you confirm the
+  scan) and GPIO inside a runtime. It shows one device per thing found, with every
+  protocol on it, while the search runs. Runtimes serve the same search as
+  `comm.search.start`, `comm.search.status` and `comm.search.cancel`.
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 

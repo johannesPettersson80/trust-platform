@@ -19,6 +19,8 @@ trust-tcads-native = { workspace = true, optional = true }
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, default-features = false, features = ["std"] }
 trust-runtime-services = { workspace = true, optional = true }
+# The one control client of the command line's runtime requests (`trust-runtime discover`).
+trust-runtime-client = { workspace = true, optional = true }
 trust-wasm-analysis = { workspace = true, optional = true }
 smol_str = { workspace = true, features = ["std"] , optional = true }
 rustc-hash = { workspace = true, features = ["std"] , optional = true }
@@ -164,6 +166,7 @@ full = [
     "dep:trust-ads-core",
     "dep:trust-tcads-native",
     "dep:trust-runtime-services",
+    "dep:trust-runtime-client",
     "dep:trust-wasm-analysis",
     "dep:smol_str",
     "dep:rustc-hash",

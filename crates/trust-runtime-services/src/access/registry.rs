@@ -10,6 +10,7 @@ pub(super) enum RolePolicy {
     AdsDoctor,
     AdsImportSymbols,
     CommBrowseSymbols,
+    CommSearchStart,
     ConfigSet,
 }
 
@@ -82,6 +83,16 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("comm.schema", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation(
         "comm.discover",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "comm.search.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "comm.search.cancel",
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
     ),
@@ -238,6 +249,7 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation("comm.browse_symbols", RolePolicy::CommBrowseSymbols, false),
+    operation("comm.search.start", RolePolicy::CommSearchStart, false),
     operation("config.set", RolePolicy::ConfigSet, false),
 ];
 

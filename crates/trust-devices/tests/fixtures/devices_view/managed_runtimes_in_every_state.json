@@ -1,0 +1,2015 @@
+{
+  "schema_version": 1,
+  "generated_ms": 1760692130112,
+  "toolbar": {
+    "add": {
+      "id": "add",
+      "label": "+ Add",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    },
+    "discover": {
+      "id": "discover",
+      "label": "Discover",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "add_host_slot": {
+      "id": "add_host",
+      "label": "Add host",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    }
+  },
+  "project": {
+    "name": "line1",
+    "root": "/home/u/plant/line1",
+    "choices": [
+      {
+        "name": "line1",
+        "root": "/home/u/plant/line1",
+        "selected": true
+      }
+    ]
+  },
+  "summary": {
+    "text": "",
+    "computers": 0,
+    "runtimes": 0,
+    "connections": 0,
+    "running": 0,
+    "faults": 0,
+    "warnings": 0,
+    "open_issues": {
+      "id": "open_issues",
+      "label": "Issues",
+      "enabled": true,
+      "emphasis": "quiet",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "issues"
+          }
+        }
+      }
+    }
+  },
+  "issues": {
+    "button": {
+      "text": "",
+      "tone": "neutral",
+      "faults": 0,
+      "warnings": 0
+    },
+    "groups": []
+  },
+  "filter": {
+    "protocols": [],
+    "lines": [],
+    "hidden_connections": 0,
+    "hidden_attention": 0,
+    "hidden_errors": 0,
+    "hidden_warnings": 0
+  },
+  "search": {
+    "query": "",
+    "placeholder": "Search devices, connections, signals, issues",
+    "matches": 0
+  },
+  "networks": [],
+  "computers": [
+    {
+      "id": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpsaW5lLXBjIl0",
+      "kind": "computer",
+      "heading": "This computer",
+      "platform": "Linux x86_64",
+      "reachability": {
+        "word": "Reachable",
+        "tone": "ok",
+        "live": true
+      },
+      "look": "normal",
+      "containers": [],
+      "runtimes": [
+        {
+          "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJSRVNPVVJDRSJd",
+          "name": "Simulator",
+          "icon": "simulator",
+          "state": {
+            "word": "Stopped",
+            "tone": "neutral",
+            "live": false
+          },
+          "run_target": true,
+          "look": "normal",
+          "connections": [],
+          "hover": {
+            "title": "Simulator",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Stopped",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Stopped — start the simulator to run it.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "Simulator",
+            "health": "neutral",
+            "primary": [
+              {
+                "id": "start",
+                "label": "Start",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "start_simulator"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start the simulator to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJSRVNPVVJDRSJd"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "simulator"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_debug_log"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJSRVNPVVJDRSJd"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Stopped · Stopped — start the simulator to run it.",
+                    "tone": "neutral",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "Local control socket",
+                    "wide": false
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "1",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJSRVNPVVJDRSJd"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "simulator"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJSRVNPVVJDRSJd"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJSRVNPVVJDRSJd"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "belongs_to": "This computer",
+              "detail": "Stopped — start the simulator to run it.",
+              "kind": "Runtime",
+              "name": "Simulator",
+              "state": "Stopped",
+              "type": "Simulator"
+            }
+          }
+        },
+        {
+          "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0",
+          "name": "cell1",
+          "icon": "computer",
+          "state": {
+            "word": "Running",
+            "tone": "ok",
+            "live": true
+          },
+          "cycle": "4.2 ms",
+          "address": "127.0.0.1:9902",
+          "run_target": false,
+          "look": "normal",
+          "empty_hint": {
+            "title": "No devices yet",
+            "text": "Use + Add to add one, or Discover to scan the network."
+          },
+          "connections": [],
+          "hover": {
+            "title": "cell1",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Running",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "127.0.0.1:9902",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Running (managed local runtime).",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "cell1",
+            "health": "ok",
+            "primary": [
+              {
+                "id": "stop",
+                "label": "Stop",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_stop",
+                  "payload": {
+                    "name": "cell1",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://127.0.0.1:9902"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "cell1"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_logs",
+                  "payload": {
+                    "name": "cell1",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Running · Running (managed local runtime).",
+                    "tone": "ok",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Cycle",
+                    "value": "4.2 ms · max 4.9 ms",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "127.0.0.1:9902",
+                    "wide": false,
+                    "copy": "127.0.0.1:9902"
+                  },
+                  {
+                    "label": "Up for",
+                    "value": "6 h 14 min",
+                    "wide": false
+                  },
+                  {
+                    "label": "Faults",
+                    "value": "0 faults",
+                    "wide": false
+                  },
+                  {
+                    "label": "Access",
+                    "value": "Admin · may write and force",
+                    "wide": false
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "cell1"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJjZWxsMSIsInRjcDovLzEyNy4wLjAuMTo5OTAyIl0"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "127.0.0.1:9902",
+              "belongs_to": "This computer",
+              "detail": "Running (managed local runtime).",
+              "kind": "Runtime",
+              "name": "cell1",
+              "state": "Running",
+              "type": "Runtime on a computer"
+            }
+          }
+        },
+        {
+          "id": "managed:cell2",
+          "name": "cell2",
+          "icon": "computer",
+          "state": {
+            "word": "Stopped",
+            "tone": "neutral",
+            "live": false
+          },
+          "address": "127.0.0.1:9903",
+          "run_target": false,
+          "look": "normal",
+          "connections": [],
+          "hover": {
+            "title": "cell2",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Stopped",
+                "wide": false
+              },
+              {
+                "label": "Mode",
+                "value": "Managed",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "127.0.0.1:9903",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Stopped — Start it from this node.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "cell2",
+            "health": "neutral",
+            "primary": [
+              {
+                "id": "start",
+                "label": "Start",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_start",
+                  "payload": {
+                    "name": "cell2",
+                    "runtime": "managed:cell2"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": false,
+                "reason": "Debug is unavailable until the target is reachable.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://127.0.0.1:9903"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "managed:cell2"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "cell2"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_logs",
+                  "payload": {
+                    "name": "cell2",
+                    "runtime": "managed:cell2"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "managed:cell2"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Stopped · Stopped — Start it from this node.",
+                    "tone": "neutral",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Managed",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "127.0.0.1:9903",
+                    "wide": false,
+                    "copy": "127.0.0.1:9903"
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell2"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "cell2"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "managed:cell2"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell2"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "127.0.0.1:9903",
+              "belongs_to": "This computer",
+              "detail": "Stopped — Start it from this node.",
+              "kind": "Runtime",
+              "name": "cell2",
+              "state": "Stopped",
+              "type": "Runtime on a computer"
+            }
+          }
+        },
+        {
+          "id": "managed:cell3",
+          "name": "cell3",
+          "icon": "computer",
+          "state": {
+            "word": "Starting",
+            "tone": "neutral",
+            "live": false
+          },
+          "address": "127.0.0.1:9904",
+          "run_target": false,
+          "look": "pending",
+          "connections": [],
+          "hover": {
+            "title": "cell3",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Starting",
+                "wide": false
+              },
+              {
+                "label": "Mode",
+                "value": "Managed",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "127.0.0.1:9904",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Starting managed local runtime…",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "cell3",
+            "health": "neutral",
+            "primary": [
+              {
+                "id": "start",
+                "label": "Updating…",
+                "enabled": false,
+                "reason": "Wait until the runtime has started or stopped.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_start",
+                  "payload": {
+                    "name": "cell3",
+                    "runtime": "managed:cell3"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": false,
+                "reason": "Debug is unavailable until the target is reachable.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://127.0.0.1:9904"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "managed:cell3"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "cell3"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_logs",
+                  "payload": {
+                    "name": "cell3",
+                    "runtime": "managed:cell3"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "managed:cell3"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Starting · Starting managed local runtime…",
+                    "tone": "neutral",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Managed",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "127.0.0.1:9904",
+                    "wide": false,
+                    "copy": "127.0.0.1:9904"
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell3"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "cell3"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "managed:cell3"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell3"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "127.0.0.1:9904",
+              "belongs_to": "This computer",
+              "detail": "Starting managed local runtime…",
+              "kind": "Runtime",
+              "name": "cell3",
+              "state": "Starting",
+              "type": "Runtime on a computer"
+            }
+          }
+        },
+        {
+          "id": "managed:cell4",
+          "name": "cell4",
+          "icon": "computer",
+          "state": {
+            "word": "Stopping",
+            "tone": "neutral",
+            "live": false
+          },
+          "address": "127.0.0.1:9905",
+          "run_target": false,
+          "look": "pending",
+          "connections": [],
+          "hover": {
+            "title": "cell4",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Stopping",
+                "wide": false
+              },
+              {
+                "label": "Mode",
+                "value": "Managed",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "127.0.0.1:9905",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Stopping managed local runtime…",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "cell4",
+            "health": "neutral",
+            "primary": [
+              {
+                "id": "stop",
+                "label": "Updating…",
+                "enabled": false,
+                "reason": "Wait until the runtime has started or stopped.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_stop",
+                  "payload": {
+                    "name": "cell4",
+                    "runtime": "managed:cell4"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": false,
+                "reason": "Debug is unavailable until the target is reachable.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://127.0.0.1:9905"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "managed:cell4"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "cell4"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_logs",
+                  "payload": {
+                    "name": "cell4",
+                    "runtime": "managed:cell4"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "managed:cell4"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Stopping · Stopping managed local runtime…",
+                    "tone": "neutral",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Managed",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "127.0.0.1:9905",
+                    "wide": false,
+                    "copy": "127.0.0.1:9905"
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell4"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "cell4"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "managed:cell4"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell4"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "127.0.0.1:9905",
+              "belongs_to": "This computer",
+              "detail": "Stopping managed local runtime…",
+              "kind": "Runtime",
+              "name": "cell4",
+              "state": "Stopping",
+              "type": "Runtime on a computer"
+            }
+          }
+        },
+        {
+          "id": "managed:cell5",
+          "name": "cell5",
+          "icon": "computer",
+          "state": {
+            "word": "Status unavailable",
+            "tone": "error",
+            "live": false
+          },
+          "address": "127.0.0.1:9906",
+          "run_target": false,
+          "look": "normal",
+          "connections": [],
+          "hover": {
+            "title": "cell5",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Status unavailable",
+                "wide": false
+              },
+              {
+                "label": "Mode",
+                "value": "Managed",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "127.0.0.1:9906",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Status unavailable — refresh before starting.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "cell5",
+            "health": "error",
+            "primary": [
+              {
+                "id": "start",
+                "label": "Start",
+                "enabled": false,
+                "reason": "Status unavailable — refresh before starting.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_start",
+                  "payload": {
+                    "name": "cell5",
+                    "runtime": "managed:cell5"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": false,
+                "reason": "Debug is unavailable until the target is reachable.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://127.0.0.1:9906"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "managed:cell5"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "cell5"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.managed_logs",
+                  "payload": {
+                    "name": "cell5",
+                    "runtime": "managed:cell5"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "managed:cell5"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Status unavailable · Status unavailable — refresh before starting.",
+                    "tone": "error",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Managed",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "127.0.0.1:9906",
+                    "wide": false,
+                    "copy": "127.0.0.1:9906"
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell5"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "cell5"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "managed:cell5"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "managed:cell5"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "127.0.0.1:9906",
+              "belongs_to": "This computer",
+              "detail": "Status unavailable — refresh before starting.",
+              "kind": "Runtime",
+              "name": "cell5",
+              "state": "Status unavailable",
+              "type": "Runtime on a computer"
+            }
+          }
+        }
+      ],
+      "hover": {
+        "title": "This computer",
+        "rows": [
+          {
+            "label": "Host name",
+            "value": "line-pc",
+            "wide": false
+          },
+          {
+            "label": "System",
+            "value": "Linux x86_64",
+            "wide": false
+          },
+          {
+            "label": "State",
+            "value": "Reachable",
+            "wide": false
+          },
+          {
+            "label": "Runtimes",
+            "value": "6",
+            "wide": false
+          },
+          {
+            "label": "Connections",
+            "value": "1",
+            "wide": false
+          }
+        ]
+      },
+      "inspector": {
+        "breadcrumb": "Devices & Connections / Computer",
+        "kind": "Computer",
+        "title": "This computer",
+        "health": "ok",
+        "primary": [],
+        "secondary": [
+          {
+            "id": "focus",
+            "label": "Focus",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "ui",
+              "ui": {
+                "kind": "focus",
+                "item": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpsaW5lLXBjIl0"
+              }
+            }
+          }
+        ],
+        "sections": [
+          {
+            "rows": [
+              {
+                "label": "Address",
+                "value": "127.0.0.1",
+                "wide": false
+              },
+              {
+                "label": "State",
+                "value": "Reachable",
+                "tone": "ok",
+                "wide": false
+              },
+              {
+                "label": "Runtimes",
+                "value": "6",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Host name",
+                "value": "line-pc",
+                "wide": false
+              },
+              {
+                "label": "System",
+                "value": "Linux x86_64",
+                "wide": false
+              }
+            ]
+          }
+        ]
+      },
+      "slots": [
+        {
+          "id": "set_up_runtime",
+          "label": "Set up runtime",
+          "enabled": true,
+          "emphasis": "secondary",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "add",
+                "host": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpsaW5lLXBjIl0"
+              }
+            }
+          }
+        }
+      ],
+      "dimmed": false,
+      "hidden": false,
+      "list": {
+        "kind": "computer",
+        "cells": {
+          "address": "127.0.0.1",
+          "identity": "line-pc",
+          "kind": "Computer",
+          "name": "This computer",
+          "state": "Reachable",
+          "type": "Linux x86_64"
+        }
+      }
+    }
+  ],
+  "devices": [],
+  "links": [],
+  "mesh": [],
+  "usb": {
+    "heading": "",
+    "items": []
+  },
+  "add": {
+    "title": "Add device or connection",
+    "runtime_choices": [],
+    "discover": {
+      "id": "discover",
+      "label": "Discover devices and runtimes",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "discover_help": "Scan first when hardware is already on the network.",
+    "found": [],
+    "runtimes": {
+      "label": "Runtimes",
+      "advanced": false,
+      "entries": []
+    },
+    "groups": [],
+    "quick_starts": []
+  },
+  "list": {
+    "columns": [
+      {
+        "id": "kind",
+        "label": "Kind"
+      },
+      {
+        "id": "name",
+        "label": "Name"
+      },
+      {
+        "id": "state",
+        "label": "State"
+      },
+      {
+        "id": "address",
+        "label": "Address"
+      },
+      {
+        "id": "type",
+        "label": "Type"
+      },
+      {
+        "id": "belongs_to",
+        "label": "Belongs to"
+      },
+      {
+        "id": "detail",
+        "label": "Detail"
+      },
+      {
+        "id": "values",
+        "label": "Live values"
+      },
+      {
+        "id": "last_seen",
+        "label": "Last seen"
+      },
+      {
+        "id": "response_time",
+        "label": "Response time"
+      },
+      {
+        "id": "identity",
+        "label": "Identity"
+      }
+    ]
+  },
+  "notices": []
+}

@@ -224,6 +224,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Communication Control Handlers\n(control/comm_handlers/*)" as commControlHandlers
     component "Fleet Topology Handlers\n(control/fleet_handlers/*)" as fleetControlHandlers
     component "ADS Control Handlers\n(control/ads_handlers/*)" as adsControlHandlers
+    component "Device Search Engine\n(host/search/*: requests, runner,\nsources, devices, presence)" as searchEngine
     component "Web UI Server\n(HTTP/HTTPS)" as webServer
     component "Bounded Web Request Dispatcher\n(read lane + body lane + 503 overload)" as webDispatcher
     component "ADS Setup Routes\n/api/ads/* + /setup/ads" as adsWebRoutes
@@ -325,6 +326,10 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> opcuaGateway : starts (if enabled)
     controlServer --> runtime : pause/step/io
     controlServer --> commControlHandlers : comm.capabilities/schema/apply/test
+    commControlHandlers --> searchEngine : comm.search.start/status/cancel\n(search inside this runtime)
+    searchEngine --> commControlHandlers : sources wrap the comm.discover\nprotocol searches (until V7 C1b)
+    searchEngine --> discovery : runtime mDNS state, or an mDNS\nbrowse until the search ends
+    launcher --> searchEngine : trust-runtime discover\n(search on this computer)
     commControlHandlers --> ioRegistry : validate I/O driver setup
     commControlHandlers --> runtimeConfig : report built/configured\ncapabilities
     controlServer --> adsControlHandlers : ADS identity/status/doctor/route
@@ -431,6 +436,7 @@ adsClient --> twincatPlc : ADS/AMS\nplain now, secure reserved
 adsOnboarding --> twincatPlc : ADS UDP identify/discover\nroute planning/add-route
 adsExternalClients --> adsServerCrate : ADS/AMS browse/read/write/notify\nplain now, secure reserved
 ctlClient --> controlServer : JSON IPC\nshutdown acknowledgement precedes stop signal
+launcher --> controlServer : trust-runtime discover --endpoint\n(comm.search.* through trust-runtime-client)
 browserUi --> webServer : HTTP/HTTPS (/hmi, /ide, /api/*)\nshutdown response write precedes stop signal
 discovery --> browserUi : mDNS advertise
 meshSync --> peerRuntime : peer link (token + optional TLS)
@@ -456,6 +462,11 @@ legend right
     **Fleet Display Path:**
     fleet.topology response → pure owner-scoped identity normalization →
     singleton/multi merge → Devices & Connections graph
+
+    **Device Search Path:**
+    comm.search.start or trust-runtime discover → search registry (8 kept) →
+    every source in parallel until the deadline → results merged into devices →
+    comm.search.status with a since cursor
 
     **Key Files:**
     • trust-lsp/src/main.rs - LSP server entry

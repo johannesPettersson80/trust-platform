@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+trust-chips.workspace = true
 trust-runtime.workspace = true
 trust-runtime-client.workspace = true
 serde.workspace = true

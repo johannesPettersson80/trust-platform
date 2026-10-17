@@ -262,14 +262,32 @@ package, or end-to-end evidence.
   webview or runtime-rendered strings.
 - Lifecycle ownership is exact: Simulator and managed-local targets use
   Start/Stop because the extension owns their processes; unowned remote targets
-  use Connect/Disconnect because the extension owns only their sessions. A chip
-  (specification 34 STATE-08) offers both: Connect/Disconnect for the session,
-  and Start/Stop for its program, sent as the `restart` and `shutdown`
-  requests.
+  use Connect/Disconnect because the extension owns only their sessions. Every
+  runtime reports in its `status` what `shutdown` does to it, as
+  `program_control`: `keeps_control` when it still answers after `shutdown`
+  and `restart` starts its program again, as the truST firmware of a chip does
+  (specification 34 STATE-08), and `process` when `shutdown` ends its process,
+  as it ends trust-runtime on a computer. A runtime that does not report the
+  field counts as `process`. This is a lifecycle fact of every runtime, not a
+  board flag. A runtime that the extension does not launch and that reports
+  `keeps_control` also offers Start/Stop for its program: Start, sent as
+  `restart`, while it answers with the state `stopped`, and Stop, sent as
+  `shutdown`, while it answers with another state. Start sends the mode
+  `cold`, the mode a new trust-runtime process starts with (specification 11);
+  Rust chooses it, never the extension. Start needs the Operator role and Stop
+  the Admin role, as the runtime's operation registry states (specification
+  11); below that role the action stays visible but disabled, and its reason
+  names the role needed and the role of the connection. A `process` runtime
+  keeps the rules above: one on another computer is never stopped from the
+  panel, because nothing in the panel could start it again, and the Simulator
+  and managed-local runtimes use their launchers.
   Transitional lifecycle state disables the primary action. An unreachable or
   endpoint-less remote keeps Connect visible but disabled with a recovery
   reason. A managed runtime whose status is unavailable keeps Start visible but
-  disabled and MUST NOT be represented as stopped.
+  disabled and MUST NOT be represented as stopped. The project's runtime and a
+  managed runtime that have not answered before the panel's gather deadline
+  are `Status unavailable` for that round, never unreachable or stopped; another
+  configured runtime is drawn again from its next answer.
 - An invalid saved selection falls back to Simulator. Remote labels retain the
   endpoint port so same-host targets remain distinguishable. Lifecycle success
   requires the requested terminal state (`running` after Start, `stopped` after
@@ -284,7 +302,9 @@ package, or end-to-end evidence.
   are durable fallbacks across real VS Code restart. Re-selecting an existing
   ID repairs missing fallback copies.
 - Successful Connect also selects the runtime. `Set as run target` selects
-  without connecting.
+  without connecting: the simulator as `simulator`, a managed runtime by its
+  name, and another runtime by its control endpoint; a runtime without a
+  control endpoint cannot be selected and says why.
 - Managed Start/Stop uses fleet lifecycle. Successful managed Start attaches
   through the shared helper with the reached endpoint and friendly label,
   selects the target, and makes Live Values usable. A static fake local-runtime
@@ -418,9 +438,13 @@ package, or end-to-end evidence.
   and combine degraded and unavailable points as `<N> need attention`, for
   example `1 good, 2 need attention`.
 - A reachable local host is headed `This computer`; a reachable remote host is
-  headed `Computer <IP>`. The raw hostname remains supporting detail. An
-  unreachable configured peer keeps its configured label and MUST NOT be
-  relabelled `This computer`.
+  headed `Computer <IP>`. The local host is the host whose ID this computer's
+  runtimes report (specification 11), else the host of the project's
+  configuration, which is read on this computer, else the host that the
+  simulator reports. A remote host is headed by its first address that is not
+  a loopback address, and `Computer <host name>` when it reports none. The raw
+  hostname remains supporting detail. An unreachable configured peer keeps its
+  configured label and MUST NOT be relabelled `This computer`.
 
 ### 5.6 Graph projection, merge, and fallback
 
@@ -509,8 +533,14 @@ package, or end-to-end evidence.
   local view stays visible.
 - A new project without a configured runtime shows one neutral local
   `Simulator` node. A stopped local control socket is a neutral stopped state,
-  leaks no socket path, and does not consume the fault channel. A running
-  local simulator is connected.
+  leaks no socket path, and does not consume the fault channel: a start failure
+  of kind `stale_runtime` whose message says that the local simulator or
+  runtime is stopped, or that a runtime at a local socket is not reachable, is
+  that state. A running local simulator is connected.
+- While the project runs in the simulator (the `simulate` run mode), the
+  project's configured runtime is the simulator's node until the simulator
+  reports itself: it is named `Simulator`, shows the simulator's lifecycle,
+  offers its Start and Stop, and carries its session and run-target marks.
 - Live local-simulator topology replaces the matching stopped project overlay
   rather than creating a twin. Configured endpoints waiting for restart remain
   visible, duplicate live endpoints are removed, and raw Structured Text
@@ -638,6 +668,12 @@ tomake sure we dont loose any information".
   computer as a frame holding its runtimes, and draws devices, links, the mesh
   bus, the summary strip, the banner, and the zoom controls. Below the network
   a tray lists the boards found on this computer's USB (§5.12).
+- A computer belongs to the network band of the IPv4 subnet of its first
+  address that is not a loopback address, from the addresses it reports or else
+  its runtimes' control endpoints, with the prefix its runtime reports or else
+  `/24`; the band is named `Network · <subnet>`, such as
+  `Network · 192.168.10.0/24`. A computer without such an address belongs to no
+  band.
 - One inspector panel, 380 px wide, fills the right while an item is selected.
   It holds every fact and every action of that item. Only one right-hand panel
   is open at a time; opening Add, Discover, Filter, a browse panel, or the
@@ -676,20 +712,42 @@ is specific to boards.
   system and architecture, or chip) and a `Reachable`/`Unreachable` pill. Its
   inspector shows the address, state, runtimes, connections, host name, board,
   operating system and architecture, temperature, up time, and load when the
-  runtime reports them.
+  runtime reports them. A host is a chip when one of its runtimes reports, as
+  the `platform` of its `status`, the name of a chip of truST's chip files
+  (specification 34 TARGET-03): the frame is then headed by the chip's model
+  and address, such as `STM32F407 192.168.10.31`, its platform reads
+  `STM32F407 chip`, and its runtimes have the chip icon.
+- A container that holds one runtime is drawn as a chip on that runtime's
+  card; only a container with several runtimes is drawn as a frame. Both keep
+  their inspector.
 - A runtime card shows its name, a kind icon (Simulator, computer, or chip), its
   state with the current cycle time, its link and control address (host and
   port, §5.1), the `Run target` badge when selected, and the pending or `DRAFT`
-  look of §5.3.
+  look of §5.3. The state is one title-case word of the runtime's lifecycle in
+  the tone of its rolled-up health (§5.5): `Running`, `Paused`, `Faulted`,
+  `Stopped`, `Ready`, `Starting`, `Stopping`, `Status unavailable`, `Unknown`
+  for a runtime that does not answer, or `Authentication failed`; a running
+  runtime whose connections report an error or degradation reads `Error` or
+  `Degraded`. Only a running runtime is green, and a state that nothing proves
+  yet is drawn dashed. A local control socket's path is never shown as its
+  address.
   A card without connections shows `No devices yet` with the `+ Add` and
-  `Discover` hint.
+  `Discover` hint, on the simulator and on a runtime that answers and runs; a
+  stopped runtime may have connections that it shows once it runs.
 - The runtime inspector starts with its actions: the lifecycle action of §5.1
-  (a chip offers `Connect`/`Disconnect` for the session and `Start`/`Stop` for
-  its program, as the owner's plan of 16 October 2026 states), `Live Values`,
-  `Debug`, and `Deploy` (disabled with the §6.1 text until the backend exists).
-  `Set as run target`, `Settings`, `Logs` (only with a log backend), and `Focus`
-  follow as smaller buttons. Credential recovery becomes the primary action
-  after an authentication failure.
+  (a runtime that the extension does not launch offers `Connect`/`Disconnect`
+  for the session and, when it reports `keeps_control`, `Start`/`Stop` for its
+  program, as the owner's plan of 16 October 2026 states for a chip),
+  `Live Values`, `Debug`, and `Deploy` (disabled with the §6.1 text until the
+  backend exists). `Live Values` opens the values of the runtime the extension
+  is connected to; for another runtime it is disabled and says to start the
+  simulator, start the managed runtime, or connect (§4.4). `Debug` launches the
+  simulator under the debugger and attaches to another runtime that answers
+  with its debugging on; otherwise it is disabled with its reason.
+  `Set as run target`, `Settings`, `Logs` (only with a log backend: the
+  simulator's debug log and a managed runtime's log), and `Focus` follow as
+  smaller buttons. Credential recovery becomes the primary action after an
+  authentication failure.
 - The runtime inspector then shows: state and detail; run target; mode; cycle
   time and its maximum; link and control address; truST version and the update
   it needs, if any (specification 34 TARGET-05); up time and fault count; the

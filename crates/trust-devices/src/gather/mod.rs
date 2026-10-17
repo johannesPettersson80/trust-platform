@@ -20,6 +20,9 @@ use crate::targets::{live_primary, panel_targets, Target, TargetKey, TargetOrigi
 
 pub use project::ProjectInputs;
 
+/// A managed runtime's lifecycle state, which the topology and the view show.
+pub use crate::topology::ManagedState;
+
 /// How long a gather and its requests wait (design §1.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Budget {
@@ -128,35 +131,6 @@ pub struct ManagedStatus {
     pub report: Option<FleetRuntimeLifecycleResponse>,
     /// Why the status could not be read.
     pub error: Option<String>,
-}
-
-/// A managed runtime's lifecycle state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ManagedState {
-    /// Its control endpoint answers.
-    Running,
-    /// Nothing accepts a connection at its control endpoint.
-    Stopped,
-    /// A start has not reached `running` yet.
-    Starting,
-    /// A stop has not reached `stopped` yet.
-    Stopping,
-    /// Its status is unknown: `Status unavailable`, never `Stopped`.
-    Unavailable,
-}
-
-impl ManagedState {
-    /// The state that a fleet status names. A missing or unknown one is `Unavailable`.
-    #[must_use]
-    pub fn from_status(status: Option<&str>) -> Self {
-        match status {
-            Some("running") => Self::Running,
-            Some("stopped") => Self::Stopped,
-            Some("starting") => Self::Starting,
-            Some("stopping") => Self::Stopping,
-            _ => Self::Unavailable,
-        }
-    }
 }
 
 /// What a reachable runtime answered after its status. A request that was not sent is `None`.

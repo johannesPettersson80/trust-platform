@@ -8,10 +8,7 @@ use super::wire::{self, ConnectorReport};
 use super::{
     identity, Endpoint, Host, Runtime, RuntimeOrigin, RuntimeReport, Topology, TopologyIssue,
 };
-
-/// The detail of a configured endpoint that a running runtime does not run yet.
-const RESTART_TO_APPLY: &str =
-    "Configured in project files; restart the runtime to apply this change.";
+use crate::texts::graph as texts;
 
 /// Protocols of which a runtime has at most one endpoint: a configured endpoint of one of them is
 /// the same endpoint as the live one of its runtime.
@@ -89,9 +86,9 @@ pub(super) fn answered_snapshot(
     });
     if let Some(Err(reason)) = &decoded {
         let text = if project {
-            format!("Fleet topology unavailable: {reason}")
+            texts::topology_unavailable(reason)
         } else {
-            format!("{source} topology: {reason}")
+            texts::peer_topology_failed(source, reason)
         };
         issues.push(TopologyIssue {
             item: None,
@@ -126,7 +123,7 @@ pub(super) fn answered_snapshot(
                     issues.push(TopologyIssue {
                         item: claim.or_else(|| own.clone()),
                         project,
-                        text: format!("{source} connector status: {reason}"),
+                        text: texts::connector_status_failed(source, reason),
                     });
                 }
             }
@@ -134,7 +131,7 @@ pub(super) fn answered_snapshot(
         (Some(Err(error)), _) => issues.push(TopologyIssue {
             item: own,
             project,
-            text: format!("{source} connector status: {error}"),
+            text: texts::connector_status_failed(source, &error.to_string()),
         }),
         _ => {}
     }
@@ -291,7 +288,7 @@ fn merge_endpoints(runtime: &mut Runtime, extra: Runtime) {
             fill(&mut runtime.endpoints[index], endpoint);
         } else {
             if waiting && endpoint.health == "configured_policy" {
-                RESTART_TO_APPLY.clone_into(&mut endpoint.detail);
+                texts::RESTART_TO_APPLY.clone_into(&mut endpoint.detail);
             }
             runtime.endpoints.push(endpoint);
         }

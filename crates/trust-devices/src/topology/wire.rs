@@ -13,6 +13,7 @@ use trust_runtime::fleet_topology::{
 use super::{
     ConnectorStatus, Container, Endpoint, Host, HostOrigin, Runtime, RuntimeOrigin, Topology,
 };
+use crate::texts::graph as texts;
 
 /// Reads a `fleet.topology` report of schema version 2, 3 or 4; every runtime in it gets
 /// `origin`.
@@ -32,6 +33,7 @@ pub(super) fn topology(
         shared: report.shared,
         external: report.external,
         issues: Vec::new(),
+        this_computer: None,
     })
 }
 
@@ -190,9 +192,9 @@ fn vocabulary<T: DeserializeOwned>(report: &Map<String, Value>, field: &str) -> 
         .and_then(Value::as_str)
         .and_then(|word| serde_json::from_value(Value::String(word.trim().to_owned())).ok())
         .ok_or_else(|| match value {
-            None => format!("missing connector {field}"),
-            Some(Value::String(word)) => format!("unknown connector {field}: {word}"),
-            Some(other) => format!("unknown connector {field}: {other}"),
+            None => texts::connector_value_missing(field),
+            Some(Value::String(word)) => texts::connector_value_unknown(field, word),
+            Some(other) => texts::connector_value_unknown(field, &other.to_string()),
         })
 }
 

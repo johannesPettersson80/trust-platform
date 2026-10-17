@@ -330,6 +330,7 @@ pub fn run_runtime(
             .as_ref()
             .map(OpenOtPersistenceService::status_handle),
         pairing: pairing.clone(),
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),

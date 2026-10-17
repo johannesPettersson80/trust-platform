@@ -3,7 +3,7 @@
 //! `connector-status-contract.test.ts` with their numbers and texts; what those tests assert of
 //! the drawing stays with the view.
 
-mod fixtures;
+pub(crate) mod fixtures;
 mod identity;
 mod merge;
 mod synthetic;

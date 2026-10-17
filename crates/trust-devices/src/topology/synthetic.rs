@@ -10,6 +10,7 @@ use super::{
     ConfiguredDevice, Endpoint, Host, HostOrigin, ManagedRuntime, ManagedState, Runtime,
     RuntimeOrigin, RuntimeReport, Session, Simulator, SimulatorState, Topology,
 };
+use crate::texts::graph as texts;
 
 /// The host drawn for this computer while no report gives it.
 const THIS_COMPUTER_HOST: &str = "host:this-computer";
@@ -37,8 +38,7 @@ pub(super) fn unanswered_peer(report: &RuntimeReport) -> Option<Topology> {
     let (state, detail, origin) = match &report.probe {
         TargetProbe::Unreachable => (
             "unknown",
-            "Configured endpoint not reachable — open it in Devices & Connections to connect or \
-             diagnose.",
+            texts::UNREACHABLE_PEER_DETAIL,
             RuntimeOrigin::Unreachable,
         ),
         TargetProbe::AuthFailed(failure) => (
@@ -54,7 +54,11 @@ pub(super) fn unanswered_peer(report: &RuntimeReport) -> Option<Topology> {
     }
     let label = report.label.trim();
     let host_id = format!("fleet:{endpoint}");
-    let name = if label.is_empty() { "runtime" } else { label };
+    let name = if label.is_empty() {
+        texts::UNNAMED_PEER
+    } else {
+        label
+    };
     let runtime = Runtime {
         control_endpoint: Some(endpoint.to_owned()),
         mode: state.to_owned(),
@@ -76,8 +80,8 @@ pub(super) fn unanswered_peer(report: &RuntimeReport) -> Option<Topology> {
 
 fn auth_failure_detail(failure: AuthFailure) -> &'static str {
     match failure {
-        AuthFailure::Missing => "No auth token provided — this runtime requires one.",
-        AuthFailure::Rejected => "Auth token rejected — check it and try again.",
+        AuthFailure::Missing => texts::AUTH_MISSING_DETAIL,
+        AuthFailure::Rejected => texts::AUTH_REJECTED_DETAIL,
     }
 }
 
@@ -90,14 +94,7 @@ pub(super) fn add_simulator(
     simulator: &Simulator,
     this_computer: Option<&str>,
 ) {
-    let (health, detail) = match (&simulator.failure, simulator.state) {
-        (Some(failure), _) => ("error", failure.as_str()),
-        (None, SimulatorState::Running) => ("connected", "● Running"),
-        (None, SimulatorState::Starting) => ("pending", "Starting Simulator…"),
-        (None, SimulatorState::NotStarted) => {
-            ("stopped", "Stopped — start the simulator to run it.")
-        }
-    };
+    let (health, detail) = simulator_health(simulator);
     let runtime = Runtime {
         mode: "simulate".to_owned(),
         health: health.to_owned(),
@@ -109,20 +106,48 @@ pub(super) fn add_simulator(
             .collect(),
         ..Runtime::drawn(
             SIMULATOR_FALLBACK_ID.to_owned(),
-            "Simulator".to_owned(),
+            texts::SIMULATOR.to_owned(),
             RuntimeOrigin::SimulatorFallback,
         )
     };
     let index = this_computer_host(topology, this_computer).unwrap_or_else(|| {
         let host = Host::drawn(
             THIS_COMPUTER_HOST,
-            "This computer",
+            texts::THIS_COMPUTER,
             HostOrigin::ThisComputer,
         );
         topology.hosts.insert(0, host);
         0
     });
     topology.hosts[index].runtimes.insert(0, runtime);
+}
+
+/// The simulator's health and detail: an error after a failed start, connected while it runs,
+/// pending while it starts, and stopped until the user starts it.
+fn simulator_health(simulator: &Simulator) -> (&'static str, &str) {
+    match (&simulator.failure, simulator.state) {
+        (Some(failure), _) => ("error", failure.as_str()),
+        (None, SimulatorState::Running) => ("connected", texts::SIMULATOR_RUNNING_DETAIL),
+        (None, SimulatorState::Starting) => ("pending", texts::SIMULATOR_STARTING_DETAIL),
+        (None, SimulatorState::NotStarted) => ("stopped", texts::SIMULATOR_STOPPED_DETAIL),
+    }
+}
+
+/// While the project runs in the simulator and the simulator does not report it, the project's
+/// configured runtime stands for the simulator and shows its lifecycle, as the drawn simulator
+/// does; its configured connections keep their own state.
+pub(super) fn stand_in_for_simulator(topology: &mut Topology, simulator: &Simulator) {
+    if !simulator.runs_project {
+        return;
+    }
+    let (health, detail) = simulator_health(simulator);
+    for runtime in topology
+        .runtimes_mut()
+        .filter(|runtime| runtime.origin == RuntimeOrigin::Configured)
+    {
+        health.clone_into(&mut runtime.health);
+        detail.clone_into(&mut runtime.detail);
+    }
 }
 
 /// A configured local I/O connection on the drawn simulator. It is connected only when the
@@ -137,12 +162,12 @@ fn local_connection(device: &ConfiguredDevice, simulator: &Simulator) -> Option<
     let evidence = simulator.io_values || !matches!(protocol, "simulated" | "loopback");
     let (health, detail) =
         if simulator.state == SimulatorState::Running && health == Some("connected") && evidence {
-            ("connected", "Connected")
+            ("connected", texts::CONNECTED)
         } else {
             match health {
-                Some("error") => ("error", "Error"),
-                Some("degraded") => ("degraded", "Degraded"),
-                _ => ("pending", "Pending proof"),
+                Some("error") => ("error", texts::ERROR),
+                Some("degraded") => ("degraded", texts::DEGRADED),
+                _ => ("pending", texts::PENDING_PROOF),
             }
         };
     Some(Endpoint {
@@ -223,7 +248,7 @@ pub(super) fn inject_managed(
         return;
     }
     let index = this_computer_host(topology, this_computer).unwrap_or_else(|| {
-        let host = Host::drawn(MANAGED_HOST, "This computer", HostOrigin::ThisComputer);
+        let host = Host::drawn(MANAGED_HOST, texts::THIS_COMPUTER, HostOrigin::ThisComputer);
         topology.hosts.push(host);
         topology.hosts.len() - 1
     });
@@ -232,11 +257,11 @@ pub(super) fn inject_managed(
 
 fn mark_managed(runtime: &mut Runtime, local: &ManagedRuntime) {
     let (health, detail) = match local.state {
-        ManagedState::Running => ("connected", "Running (managed local runtime)."),
-        ManagedState::Stopped => ("stopped", "Stopped — Start it from this node."),
-        ManagedState::Starting => ("pending", "Starting managed local runtime…"),
-        ManagedState::Stopping => ("pending", "Stopping managed local runtime…"),
-        ManagedState::Unavailable => ("error", "Status unavailable — refresh before starting."),
+        ManagedState::Running => ("connected", texts::MANAGED_RUNNING_DETAIL),
+        ManagedState::Stopped => ("stopped", texts::MANAGED_STOPPED_DETAIL),
+        ManagedState::Starting => ("pending", texts::MANAGED_STARTING_DETAIL),
+        ManagedState::Stopping => ("pending", texts::MANAGED_STOPPING_DETAIL),
+        ManagedState::Unavailable => ("error", texts::MANAGED_UNAVAILABLE),
     };
     health.clone_into(&mut runtime.health);
     detail.clone_into(&mut runtime.detail);
@@ -289,7 +314,8 @@ pub(super) fn remove_runtime_twins(topology: &mut Topology, managed: &[ManagedRu
 
 /// Marks each runtime with the session: whether the extension holds a session to it (the
 /// simulator's is its running debug session), and whether it is the selected run target, which
-/// is the simulator when nothing else is selected.
+/// is the simulator when nothing else is selected. The project's configured runtime counts as
+/// the simulator while the project runs in it.
 pub(super) fn mark_session(topology: &mut Topology, session: &Session, simulator: &Simulator) {
     let selected = session
         .run_target
@@ -299,10 +325,11 @@ pub(super) fn mark_session(topology: &mut Topology, session: &Session, simulator
         .unwrap_or(SIMULATOR_RUN_TARGET);
     let running = simulator.state == SimulatorState::Running && simulator.failure.is_none();
     for runtime in topology.runtimes_mut() {
-        let is_simulator = matches!(
-            runtime.origin,
-            RuntimeOrigin::Simulator | RuntimeOrigin::SimulatorFallback
-        );
+        let is_simulator = match runtime.origin {
+            RuntimeOrigin::Simulator | RuntimeOrigin::SimulatorFallback => true,
+            RuntimeOrigin::Configured => simulator.runs_project,
+            _ => false,
+        };
         let endpoint = runtime.control_endpoint.as_deref();
         runtime.attached = if is_simulator {
             running

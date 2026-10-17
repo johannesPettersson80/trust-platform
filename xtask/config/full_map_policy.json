@@ -409,6 +409,22 @@
       "status": "allowed",
       "owner": "VS Code Devices & Connections (V7)",
       "rationale": "The panel engine reaches runtimes through the one shared control client."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-chips",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel shows a runtime whose status names a chip of truST's chip files as that chip; the reader depends on no firmware or adapter."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "trust-runtime discover reaches the runtime that runs a search through the one shared control client; the client depends on no truST crate."
     }
   ],
   "forbidden_workspace_edges": [
@@ -592,6 +608,12 @@
       "rationale": "communication protocol configuration and apply command surface"
     },
     {
+      "name": "Discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search for devices, from this computer or inside a runtime (spec 11, One search)"
+    },
+    {
       "name": "Fleet",
       "class": "product",
       "owner": "runtime/fleet",
@@ -736,6 +758,12 @@
       "class": "product",
       "owner": "runtime/communication",
       "rationale": "communication protocol configuration command module"
+    },
+    {
+      "name": "discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search command module: request, progress and output of trust-runtime discover"
     },
     {
       "name": "fleet",
@@ -1655,6 +1683,15 @@
         "rationale": "Runtime Cloud remains a transport-neutral topology, policy, HA, and projection domain with many focused child modules",
         "review_date": "2026-08-21",
         "split_plan": "Split only if a child gains an independently versioned external contract; preserve the transport-neutral domain boundary."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "view",
+        "path": "crates/trust-devices/src/view",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The view namespace is the whole panel contract of specification 25 §5.15 in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, status reading and addresses, with their tests and golden scenarios beside them. No single file or mixed owner; about a third of the lines are tests.",
+        "review_date": "2026-10-17",
+        "split_plan": "Keep one child module per panel concern. B5 adds connections, devices, links, search and issues as their own files; when the namespace passes 8,000 lines, the panes (add dialog, forms, Discover, browse, USB tray) move into a sibling `panes` namespace beside `view`. Split any file approaching 1000 lines by its responsibility."
       }
     ],
     "function_size_allowlist": [

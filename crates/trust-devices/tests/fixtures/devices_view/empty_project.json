@@ -1,0 +1,562 @@
+{
+  "schema_version": 1,
+  "generated_ms": 1760692130112,
+  "toolbar": {
+    "add": {
+      "id": "add",
+      "label": "+ Add",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    },
+    "discover": {
+      "id": "discover",
+      "label": "Discover",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "add_host_slot": {
+      "id": "add_host",
+      "label": "Add host",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    }
+  },
+  "project": {
+    "name": "No truST project",
+    "root": "",
+    "choices": []
+  },
+  "summary": {
+    "text": "",
+    "computers": 0,
+    "runtimes": 0,
+    "connections": 0,
+    "running": 0,
+    "faults": 0,
+    "warnings": 0,
+    "open_issues": {
+      "id": "open_issues",
+      "label": "Issues",
+      "enabled": true,
+      "emphasis": "quiet",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "issues"
+          }
+        }
+      }
+    }
+  },
+  "issues": {
+    "button": {
+      "text": "",
+      "tone": "neutral",
+      "faults": 0,
+      "warnings": 0
+    },
+    "groups": []
+  },
+  "filter": {
+    "protocols": [],
+    "lines": [],
+    "hidden_connections": 0,
+    "hidden_attention": 0,
+    "hidden_errors": 0,
+    "hidden_warnings": 0
+  },
+  "search": {
+    "query": "",
+    "placeholder": "Search devices, connections, signals, issues",
+    "matches": 0
+  },
+  "networks": [],
+  "computers": [
+    {
+      "id": "trust-fleet-v1:WyJob3N0IiwiaG9zdDp0aGlzLWNvbXB1dGVyIl0",
+      "kind": "computer",
+      "heading": "This computer",
+      "reachability": {
+        "word": "Reachable",
+        "tone": "ok",
+        "live": true
+      },
+      "look": "normal",
+      "containers": [],
+      "runtimes": [
+        {
+          "id": "runtime:local",
+          "name": "Simulator",
+          "icon": "simulator",
+          "state": {
+            "word": "Stopped",
+            "tone": "neutral",
+            "live": false
+          },
+          "run_target": true,
+          "look": "normal",
+          "empty_hint": {
+            "title": "No devices yet",
+            "text": "Use + Add to add one, or Discover to scan the network."
+          },
+          "connections": [],
+          "hover": {
+            "title": "Simulator",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Stopped",
+                "wide": false
+              },
+              {
+                "label": "Mode",
+                "value": "Simulator",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Stopped — start the simulator to run it.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "Simulator",
+            "health": "neutral",
+            "primary": [
+              {
+                "id": "start",
+                "label": "Start",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "start_simulator"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Start the simulator to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "runtime:local"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "simulator"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "logs",
+                "label": "Logs",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_debug_log"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "runtime:local"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Stopped · Stopped — start the simulator to run it.",
+                    "tone": "neutral",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Mode",
+                    "value": "Simulator",
+                    "wide": false
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "runtime:local"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "simulator"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "runtime:local"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "runtime:local"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "belongs_to": "This computer",
+              "detail": "Stopped — start the simulator to run it.",
+              "kind": "Runtime",
+              "name": "Simulator",
+              "state": "Stopped",
+              "type": "Simulator"
+            }
+          }
+        }
+      ],
+      "hover": {
+        "title": "This computer",
+        "rows": [
+          {
+            "label": "State",
+            "value": "Reachable",
+            "wide": false
+          },
+          {
+            "label": "Runtimes",
+            "value": "1",
+            "wide": false
+          },
+          {
+            "label": "Connections",
+            "value": "0",
+            "wide": false
+          }
+        ]
+      },
+      "inspector": {
+        "breadcrumb": "Devices & Connections / Computer",
+        "kind": "Computer",
+        "title": "This computer",
+        "health": "ok",
+        "primary": [],
+        "secondary": [
+          {
+            "id": "focus",
+            "label": "Focus",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "ui",
+              "ui": {
+                "kind": "focus",
+                "item": "trust-fleet-v1:WyJob3N0IiwiaG9zdDp0aGlzLWNvbXB1dGVyIl0"
+              }
+            }
+          }
+        ],
+        "sections": [
+          {
+            "rows": [
+              {
+                "label": "State",
+                "value": "Reachable",
+                "tone": "ok",
+                "wide": false
+              },
+              {
+                "label": "Runtimes",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              }
+            ]
+          }
+        ]
+      },
+      "slots": [
+        {
+          "id": "set_up_runtime",
+          "label": "Set up runtime",
+          "enabled": true,
+          "emphasis": "secondary",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "add",
+                "host": "trust-fleet-v1:WyJob3N0IiwiaG9zdDp0aGlzLWNvbXB1dGVyIl0"
+              }
+            }
+          }
+        }
+      ],
+      "dimmed": false,
+      "hidden": false,
+      "list": {
+        "kind": "computer",
+        "cells": {
+          "kind": "Computer",
+          "name": "This computer",
+          "state": "Reachable"
+        }
+      }
+    }
+  ],
+  "devices": [],
+  "links": [],
+  "mesh": [],
+  "usb": {
+    "heading": "",
+    "items": []
+  },
+  "add": {
+    "title": "Add device or connection",
+    "runtime_choices": [],
+    "discover": {
+      "id": "discover",
+      "label": "Discover devices and runtimes",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "discover_help": "Scan first when hardware is already on the network.",
+    "found": [],
+    "runtimes": {
+      "label": "Runtimes",
+      "advanced": false,
+      "entries": []
+    },
+    "groups": [],
+    "quick_starts": []
+  },
+  "list": {
+    "columns": [
+      {
+        "id": "kind",
+        "label": "Kind"
+      },
+      {
+        "id": "name",
+        "label": "Name"
+      },
+      {
+        "id": "state",
+        "label": "State"
+      },
+      {
+        "id": "address",
+        "label": "Address"
+      },
+      {
+        "id": "type",
+        "label": "Type"
+      },
+      {
+        "id": "belongs_to",
+        "label": "Belongs to"
+      },
+      {
+        "id": "detail",
+        "label": "Detail"
+      },
+      {
+        "id": "values",
+        "label": "Live values"
+      },
+      {
+        "id": "last_seen",
+        "label": "Last seen"
+      },
+      {
+        "id": "response_time",
+        "label": "Response time"
+      },
+      {
+        "id": "identity",
+        "label": "Identity"
+      }
+    ]
+  },
+  "notices": []
+}

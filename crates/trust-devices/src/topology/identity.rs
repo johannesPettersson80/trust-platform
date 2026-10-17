@@ -20,7 +20,7 @@ use super::{Runtime, Topology};
 const PREFIX: &str = "trust-fleet-v1:";
 
 /// Encodes `parts` as an identity. The encoding is injective: [`decode`] gives the parts back.
-pub(super) fn encode(parts: &[Option<&str>]) -> String {
+pub(crate) fn encode(parts: &[Option<&str>]) -> String {
     let json = Value::Array(
         parts
             .iter()

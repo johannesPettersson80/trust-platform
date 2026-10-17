@@ -15,6 +15,7 @@ mod discover;
 mod discovery_probe;
 mod probe;
 mod schema;
+mod search;
 
 #[cfg(test)]
 #[path = "capability_contract_tests.rs"]
@@ -70,6 +71,30 @@ pub(super) fn handle_comm_browse_symbols(
     browse_symbols::handle_comm_browse_symbols(id, params, state)
 }
 
+pub(super) fn handle_comm_search_start(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    search::handle_comm_search_start(id, params, state)
+}
+
+pub(super) fn handle_comm_search_status(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    search::handle_comm_search_status(id, params, state)
+}
+
+pub(super) fn handle_comm_search_cancel(
+    id: u64,
+    params: Option<serde_json::Value>,
+    state: &ControlState,
+) -> ControlResponse {
+    search::handle_comm_search_cancel(id, params, state)
+}
+
 pub(super) fn handle_comm_test(id: u64, params: Option<serde_json::Value>) -> ControlResponse {
     probe::handle_comm_test(id, params)
 }
@@ -94,6 +119,26 @@ pub(super) fn discover_value(
     discover::discover_value(params, state)
 }
 
+/// Answers one `comm.discover` request for a source of the one search, reading the project at
+/// `project_root` as the runtime that runs the search does.
+pub(super) fn discover_for_search(
+    params: serde_json::Value,
+    project_root: Option<&std::path::Path>,
+) -> Result<serde_json::Value, String> {
+    discover::discover_value_on(
+        params,
+        discover::DiscoverHost {
+            project_root,
+            discovery: None,
+        },
+    )
+}
+
+/// The hosts of a `comm.discover` CIDR scan, by its rules.
+pub(super) fn discover_cidr_hosts(cidr: &str) -> Result<Vec<std::net::Ipv4Addr>, String> {
+    discover::ipv4_targets_for_cidr(cidr)
+}
+
 pub(super) fn browse_symbols_value(
     params: serde_json::Value,
     state: Option<&ControlState>,
@@ -115,7 +160,10 @@ pub(super) fn audit_details_for_comm_request(
 ) -> Option<serde_json::Value> {
     if matches!(kind, "comm.apply" | "comm.test") {
         params.map(apply::sanitized_apply_audit_details)
-    } else if matches!(kind, "comm.discover" | "comm.browse_symbols") {
+    } else if matches!(
+        kind,
+        "comm.discover" | "comm.browse_symbols" | "comm.search.start"
+    ) {
         params.map(sanitize_readonly_comm_audit_details)
     } else {
         None

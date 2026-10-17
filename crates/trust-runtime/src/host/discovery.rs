@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use indexmap::IndexMap;
 use mdns_sd::{ResolvedService, ServiceDaemon, ServiceEvent, ServiceInfo};
@@ -17,6 +17,8 @@ use crate::control::ControlEndpoint;
 use crate::error::RuntimeError;
 
 const SERVICE_TYPE: &str = "_trust._plc._tcp.local.";
+/// How often a browse looks whether it should stop.
+const BROWSE_STEP: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone)]
 pub struct DiscoveryEntry {
@@ -174,6 +176,35 @@ pub fn start_discovery_with_state(
     });
 
     Ok(DiscoveryHandle { daemon, state })
+}
+
+/// Browses `_trust._plc._tcp.local.` until `stop` answers true, and hands each runtime to `found`
+/// as it resolves. The one search's truST runtimes source listens this way until the search ends
+/// (specification 11, "One search, device identity, and presence").
+pub(crate) fn browse_runtimes(
+    stop: &dyn Fn() -> bool,
+    found: &mut dyn FnMut(DiscoveryEntry),
+) -> Result<(), String> {
+    let daemon = ServiceDaemon::new().map_err(|err| format!("mDNS could not start: {err}"))?;
+    let browsed = match daemon.browse(SERVICE_TYPE) {
+        Ok(receiver) => {
+            while !stop() {
+                match receiver.recv_timeout(BROWSE_STEP) {
+                    Ok(ServiceEvent::ServiceResolved(info)) => {
+                        found(resolved_to_entry(info.as_ref()));
+                    }
+                    Ok(_) => {}
+                    Err(_) if receiver.is_disconnected() => break,
+                    Err(_) => {}
+                }
+            }
+            Ok(())
+        }
+        Err(err) => Err(format!("mDNS could not browse: {err}")),
+    };
+    // The daemon's thread runs until it is told to stop.
+    let _ = daemon.shutdown();
+    browsed
 }
 
 fn resolved_to_entry(info: &ResolvedService) -> DiscoveryEntry {
