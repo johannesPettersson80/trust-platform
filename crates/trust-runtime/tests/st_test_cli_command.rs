@@ -191,6 +191,29 @@ fn timeout_budget_does_not_count_project_recompilation_per_case() {
 }
 
 #[test]
+fn oscat_core_suite_passes_every_case() {
+    let fixture = runtime_fixture_path("oscat/core");
+    let output = trust_dev_command()
+        .args(["test", "--project"])
+        .arg(&fixture)
+        .output()
+        .expect("run trust-dev test on the whole OSCAT core fixture");
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    // The OSCAT core project is a whole library suite: every case must run and
+    // pass, so a single refused call (a type mismatch) fails this assertion.
+    assert!(
+        output.status.success(),
+        "expected the OSCAT core suite to pass.\nstdout:\n{text}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        text.contains("126 passed, 0 failed, 0 errors"),
+        "expected 126 passed, 0 failed, 0 errors.\nstdout:\n{text}"
+    );
+}
+
+#[test]
 fn json_output_includes_duration_fields() {
     let tutorial = tutorial_project_path("10_unit_testing_101");
     let output = trust_dev_command()

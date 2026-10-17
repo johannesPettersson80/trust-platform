@@ -318,7 +318,10 @@ same-family target or NULL.
 Dereference reads and writes traverse the retained storage identity. A null
 dereference returns `RuntimeError::NullReference` before any load or store;
 the destination of a failed read and the target storage of a failed write
-remain unchanged.
+remain unchanged. A `POINTER TO ARRAY[*] OF T` target accepts the address of a
+concrete `ARRAY[a..b] OF T` of the same rank, a different element type or rank
+staying a type mismatch, and indexing through it is checked against those
+concrete bounds.
 
 #### 2.1.1 User-facing value presentation
 

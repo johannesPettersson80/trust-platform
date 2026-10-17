@@ -198,7 +198,7 @@ pub(crate) fn runtime_type_is_compatible(
                     dims: td,
                 },
             ) => {
-                if ad != td {
+                if !array_bounds_accept(ad, td) {
                     return Ok(false);
                 }
                 structural = true;
@@ -237,6 +237,20 @@ pub(crate) fn runtime_type_is_compatible(
         }
     }
     Ok(false)
+}
+
+/// `ARRAY[*]` keeps the sentinel bounds `(0, i64::MAX)` in `TYPE_TABLE` and accepts any concrete
+/// bounds of the same rank (spec 12 §6.3); every non-wildcard dimension must still match exactly.
+fn array_bounds_accept(actual: &[(i64, i64)], target: &[(i64, i64)]) -> bool {
+    actual.len() == target.len()
+        && actual
+            .iter()
+            .zip(target)
+            .all(|(a, t)| is_wildcard_dim(*a) || is_wildcard_dim(*t) || a == t)
+}
+
+fn is_wildcard_dim(dim: (i64, i64)) -> bool {
+    dim == (0, i64::MAX)
 }
 
 fn resolved_type_idx(
