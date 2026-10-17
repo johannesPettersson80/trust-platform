@@ -514,17 +514,25 @@ emit_findings \
   "crates/trust-runtime/src/retain" \
   'bincode|postcard|serde_json::to_(vec|string)|serde_json::from_(slice|str)'
 
+# The STRN v3 codec lives in trust-runtime-core since C5-2 (17 Oct 2026), shared by computers and
+# chips; its checksum, trailer and trailing-data checks are proven there.
+emit_findings \
+  "RUNTIMESAFE-RETAIN-NO-CHECKSUM" \
+  "runtime/retain" \
+  "crates/trust-runtime-core/src/retain" \
+  'bincode|postcard|serde_json::to_(vec|string)|serde_json::from_(slice|str)'
+
 emit_absence_if_missing \
   "RUNTIMESAFE-RETAIN-NO-CHECKSUM" \
   "runtime/retain" \
-  "crates/trust-runtime/src/retain.rs" \
+  "crates/trust-runtime-core/src/retain/codec.rs" \
   'crc|checksum|trailer|TRAILER|crc32fast' \
   "retain codec checksum/trailer validation"
 
 emit_absence_if_missing \
   "RUNTIMESAFE-RETAIN-NO-CHECKSUM" \
   "runtime/retain" \
-  "crates/trust-runtime/src/retain/codec.rs" \
+  "crates/trust-runtime-core/src/retain/codec/reader.rs" \
   'is_finished|expect_finished|remaining|trailing|offset == .*len|len\(\) == .*offset' \
   "retain decoder trailing-data rejection"
 
