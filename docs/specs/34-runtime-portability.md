@@ -1620,6 +1620,22 @@ For hosted bounded operation, capture a coherent checkpoint in admitted prealloc
 
 The reviewed hosted cycle can call `maybe_save_retain_store()` before normal output writes. The initial extraction preserves this behavior in hosted compatibility compositions. The bounded profile above deliberately changes failure/acknowledgment timing and needs its own release notes and tests; it is not a behavior-preserving file move. A compatibility build retaining unbounded persistence shall not claim bounded-profile compliance. [R12]
 
+**Between scans.** A chip drives the shared capture and the checkpoint log through a persister,
+`retain::checkpoint::CheckpointPersister` in `trust-runtime-core`. At the pre-output-sample capture
+checkpoint it starts a checkpoint when the shared save rule says a save is due (specification 11
+§6.7) and the staged image differs from the image it last wrote; the capture's reserved staging
+buffer is refilled in place and the persister copies the staged image into a payload buffer reserved
+once for the admitted retain image, so starting a save allocates nothing. A checkpoint that is still
+being written is never started twice: a newer due image waits until the pending checkpoint commits
+and is then offered again, so no save is lost. The persister advances a checkpoint by one log step
+at a time — one erase unit, or at most the number of program bytes the caller's idle time allows —
+between scans, at most one step per call, so persisting never delays a scan. A step that fails ends
+that checkpoint without committing it and latches the failure; the caller takes it once as
+`RuntimeError::RetainStore` and fails its next scan with it before physical outputs, while the newest
+committed checkpoint stays readable. A stop or shutdown completes the pending checkpoint and then
+writes the newest staged image if it was not written, all steps at once, so the save completes before
+the runtime is Stopped.
+
 ### 10.1 Checkpoint log in flash
 
 A chip keeps its retain checkpoints in the two checkpoint slots of its chip file, `checkpoint_a`

@@ -18,6 +18,7 @@
 
 mod format;
 mod log;
+mod persist;
 mod scan;
 mod write;
 
@@ -30,6 +31,7 @@ pub use self::format::{
     COMMIT_MARKER, FORMAT_VERSION, RECORD_HEADER_LEN, RECORD_MAGIC, SLOT_HEADER_LEN, SLOT_MAGIC,
 };
 pub use self::log::CheckpointLog;
+pub use self::persist::{CheckpointPersister, Step};
 
 /// One of the two checkpoint slots.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

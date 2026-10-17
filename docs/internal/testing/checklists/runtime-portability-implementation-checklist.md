@@ -20,7 +20,8 @@ owner tests and approves, and only then is anything released. Nothing is done wh
 below is open.
 
 C — Bounded operation (M3), shared by both chips:
-- [ ] C1 Bounded compound storage (17 Oct, night: C1-3a, reservations sized to the static call depth with the depth check kept at `max_call_depth`, and C1-3b, call plans resolved at preparation, are committed in `7271a23b3` on `feat/engine-calls`, focused check engine/c13 green; calls 81, blocks 28, methods 23 allocations per scan remain for C1-3c. C1-3c1, per-depth frame payloads, runs in `trust-platform-engine`; C1-4, the bookkeeping scratch, runs in `trust-platform-engine-init` (`feat/engine-init`). Both merge into this branch after C5-2b. 17 Oct evening: C1-2, the scan scratch reservation, and STRING 80 with byte capacity and the character-write cut are committed in `0cb9710b9`, validated by focused check c6/wave1. C1-3a, reservations sized to the static call depth, runs in `~/projects/trust-platform-engine` (`feat/engine-calls`). 17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
+- [ ] C1 Bounded compound storage (18 Oct: C1-3a and C1-3b are merged into this branch in
+  `d07154f10`, checked by c6/merge1 with its rerun. 17 Oct, night: C1-3a, reservations sized to the static call depth with the depth check kept at `max_call_depth`, and C1-3b, call plans resolved at preparation, are committed in `7271a23b3` on `feat/engine-calls`, focused check engine/c13 green; calls 81, blocks 28, methods 23 allocations per scan remain for C1-3c. C1-3c1, per-depth frame payloads, runs in `trust-platform-engine`; C1-4, the bookkeeping scratch, runs in `trust-platform-engine-init` (`feat/engine-init`). Both merge into this branch after C5-2b. 17 Oct evening: C1-2, the scan scratch reservation, and STRING 80 with byte capacity and the character-write cut are committed in `0cb9710b9`, validated by focused check c6/wave1. C1-3a, reservations sized to the static call depth, runs in `~/projects/trust-platform-engine` (`feat/engine-calls`). 17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
   compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the chips.
 - [x] (Closed 17 Oct by C2-0 and C2-1. Builder batches c1-1 to c1-3: `checked_admission_stale_binding` and `restart_generation_stale_handles` run un-ignored and pass with `restart_generation_queued_write` and `restart_generation_online_change`; `generation_handles` passes on the std, no-std and i686 lanes; workspace Clippy with all features is clean.) C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
   online change; the two ignored tests (`checked_admission_stale_binding.rs`,
@@ -45,7 +46,10 @@ C — Bounded operation (M3), shared by both chips:
 - [ ] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
 - [ ] C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-1 deployment record, C4-3 demand, C4-4 descriptor), and capability and deployment records (including the
   HOST-02 deployment-level limit record).
-- [ ] C5 Persistence (17 Oct, night: the retain checksum gate points at the codec's new place, `276b16a9f`; C5-2b's follow-up runs. 17 Oct evening: C5-2a, the STRN v3 codec shared in the core, is committed in `c56bc3a86`; C5-2b, the shared due rule and allocation-free capture, is running. 17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
+- [ ] C5 Persistence (18 Oct: C5-2b, the shared due rule and the allocation-free capture of STRN v3
+  payload bytes, is committed in `fb37c3324` (focused check c6/c52b green); C5-3a, the checkpoint
+  persister in the core, runs in this worktree; C5-3b, its wiring into the device runner, follows
+  in s1b. 17 Oct, night: the retain checksum gate points at the codec's new place, `276b16a9f`; C5-2b's follow-up runs. 17 Oct evening: C5-2a, the STRN v3 codec shared in the core, is committed in `c56bc3a86`; C5-2b, the shared due rule and allocation-free capture, is running. 17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
   reserved flash, with interrupted-write recovery.
 
 S — Shared runtime services (ARCH-11, ARCH-14): the same code on every target, built with and
@@ -196,7 +200,7 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
         in C1-3 and C1-4.
     - [ ] S1b-3, the installed application: it extends C4-1's record (R6). Split in three:
       S1b-3a1, the record's section 7 (the configuration a chip needs from `runtime.toml` and
-      `io.toml`), runs since 17 Oct night; S1b-3a2, `trust-runtime build` fills it from the
+      `io.toml`), is committed in s1b `930adc9b9` (focused check s1b3a1 and its rerun green); S1b-3a2, `trust-runtime build` fills it from the
       project with the existing parsers; S1b-3b, the `TRSTA001` container, the chip's admission
       of section 7 and `xtask portability pack-project`.
     - [ ] S1b-4, the C6 adapter. S1b-4a (`trust-platform-memory`, moved byte for byte) and S1b-4b1
@@ -219,6 +223,11 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     - Left for the final full run: the test-catalog denominator rows of the S1b tests.
 - [ ] S2 Live Values: read, write, force and release, as in trust-runtime. Includes a test seam
   for snapshot projection failures (from the A01 leftovers).
+  - 18 Oct: the gap analysis `~/projects/.artifacts/s-services/gap-2026-10-18.md` maps every control
+    operation: chips answer 10 of 78 today. S2 moves `live_values/*` (about 1,470 lines) into
+    trust-runtime-services in three parts, then the device runner answers `io.*`, `var.*` and
+    `set`. S2a, the queues, runs in `~/projects/trust-platform-live-values` (`feat/live-values`,
+    from `106420bb1`). Owner question O6 (the C6's RAM) stays open; the move is needed either way.
 - [ ] S3 Debugging (includes from the A01 leftovers: the defect that debugger scratch slots read
   Null at a stop inside a `FOR` body, to be reproduced with a probe and fixed, and a test seam for
   capture failures): breakpoints, pause, continue, stepping, call stack, variables and evaluation
@@ -432,6 +441,12 @@ etc."):
       rule says, not in parallel as the design said); `trust-platform-devices-actions`
       (`feat/devices-actions`) has B7a, the `act` path and the runtime actions, done, with its
       Add host follow-up running.
+    - 18 Oct: B7a with its Add host follow-up is committed in `b132c20e1` (devices-actions/b7a
+      green, trust-devices 109 passed); B7c1 (`comm.apply` returns the written ID, the ADS import
+      turns `[runtime.ads]` on) runs there. C3b-1 is committed in `3fa080ca6` (devices-search/c3b1
+      green); C3b-2 (EtherCAT) runs there. D2a (inspector, context menu) is written; its
+      correction (the runtime's own context menu, edit slots hidden while a pane is open) runs.
+      Review gaps are listed in `~/projects/.artifacts/devices-v7/followups.md`.
     - 17 Oct evening: B5, B6, C1b, C5a, the panes move, C3a and C2a are committed in `9e04a75f0`
       (local, validated by focused check devices/wave4 and its rerun). Running: C2b
       (announcement, stable runtime ID) and D1b (canvas). D1a (bundle, toolbar, frames) is
@@ -509,7 +524,9 @@ Open, to be fixed:
   header that the ROM cannot read before the quad-enable bit is set (`ets_loader.c 67`).) C6:
   quad-mode (QIO) flash did not boot with that bootloader, so the board runs DIO; retest
   with the released bootloader.
-- [ ] OSCAT on the shared engine: four OSCAT core cases (the 06_arrays mutation, ordering and
+- [x] (Closed 18 Oct: merged into this branch in `76c8c4338`; the merged state's focused check
+  c6/merge1 and its rerun after the volume filled are green, `st_test_cli_command` 9 passed with
+  the whole OSCAT core suite.) OSCAT on the shared engine: four OSCAT core cases (the 06_arrays mutation, ordering and
   statistics helpers and CRC_GEN) failed with a type mismatch since `d3a3508ba` (scope H, 14
   Oct), found by bisect on 17 Oct: the shared engine's pointer check required identical array
   bounds, where a `POINTER TO ARRAY[*]` accepts any bounds. Fixed on `fix/oscat-pointer-arrays`
