@@ -381,6 +381,22 @@ fn mdns_result(result: mdns_sd::Result<()>, what: &str) -> Result<(), RuntimeErr
     result.map_err(|err| RuntimeError::ControlError(format!("mdns {what}: {err}").into()))
 }
 
+/// The addresses of every network interface of this computer, which the host IP projection uses
+/// in place of an unspecified wildcard listen address (specification 11, "Configured host IP
+/// projection"). The projection itself drops the loopback and unspecified addresses. An interface
+/// listing that fails yields an empty list, which leaves the projection's `127.0.0.1` fallback.
+#[must_use]
+pub fn interface_addresses() -> Vec<IpAddr> {
+    if_addrs::get_if_addrs()
+        .map(|interfaces| {
+            interfaces
+                .into_iter()
+                .map(|interface| interface.ip())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// The identity and endpoints one announcement carries, as its TXT properties.
 struct Announcement<'a> {
     runtime_name: &'a str,

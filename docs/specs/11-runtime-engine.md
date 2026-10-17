@@ -3239,6 +3239,17 @@ configuration state, and operational evidence are distinct. Every protocol
 shown by default on the current platform must have a built backend; an unknown
 platform marker fails closed instead of silently removing that requirement.
 
+Two capability entries carry live health beside their version-4 shape, and no
+other entry does. The `discovery` entry reports `enabled`, whether runtime
+discovery is enabled, `announcing`, whether it announces itself, and
+`visible_runtimes`, how many other runtimes it currently sees. The
+`mesh` entry reports `peers`, one object for each configured peer in
+configuration order, with `peer`, the configured target, `connected`, whether
+the mesh's liveliness reports that peer now, and `last_seen_ms`, the
+millisecond timestamp when the mesh last heard from it, `null` while it never
+did. A runtime without mesh evidence reports every peer as not connected and
+without a last-seen timestamp.
+
 A communication Test request may succeed at the control-envelope level while
 returning `result.ok = false` for a completed negative protocol test.
 Unsupported Test operations return `supported = false` and must not appear as
@@ -3461,8 +3472,11 @@ characters. Short, non-hexadecimal, and empty components do not become
 container IDs.
 
 Configured host IP projection parses valid listen values as hosts, removes
-unspecified wildcard addresses, sorts and deduplicates the result, and falls
-back to `127.0.0.1` only when no concrete host remains. Bracketed IPv6 is
+unspecified wildcard addresses, sorts and deduplicates the result. When no
+concrete host remains but a listen value was an unspecified wildcard address,
+the projection reports the computer's real non-loopback interface addresses in
+their place, sorted and deduplicated. It falls back to `127.0.0.1` only when
+neither a concrete host nor an interface address remains. Bracketed IPv6 is
 unbracketed in the host inventory. Whenever an IP address is combined with a
 port for an endpoint, IPv6 is bracketed so the result is an unambiguous socket
 authority; IPv4 and hostnames use `host:port`.
@@ -5614,8 +5628,10 @@ Rules:
   as a running runtime. `trust-runtime ide serve` without a project browses
   only, because it has no runtime to announce.
 - `/api/discovery` and `/api/probe` require the same web authentication as the
-  other routes. `/api/probe` takes credentials in the request body, never in
-  the URL.
+  other routes. `/api/probe` accepts exactly `POST /api/probe`, whose JSON body
+  carries `url`, `username` and `password`; credentials never travel in the URL,
+  and every other request on that path, a GET or any request that carries a
+  query string, is refused with `405`.
 - A resolved service replaces the entry with the same runtime ID and receives a
   fresh observation timestamp. A removal event matches the exact entry ID or
   runtime name, or an mDNS instance name whose final `-<runtime-name>` suffix

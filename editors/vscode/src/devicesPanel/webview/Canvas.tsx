@@ -17,6 +17,7 @@ import {
   canvasStyle,
   graphStyle,
   summaryBarStyle,
+  summaryIssuesButtonStyle,
   summaryTextStyle,
   svgStyle,
 } from "./styles";
@@ -36,21 +37,31 @@ import type {
  */
 export function Canvas({
   computers,
+  hideSlots,
   selectedRuntime,
   onSelectRuntime,
+  onSelect,
+  onContextMenu,
   summary,
   banner,
   devices,
   links,
   mesh,
+  onOpenIssues,
   onAction,
 }: {
   /** The computers and chips to draw. */
   computers: Computer[];
+  /** Whether an open right-hand pane hides the Edit slots (specification 25 §5.11). */
+  hideSlots?: boolean;
   /** The identity of the selected runtime, if any. */
   selectedRuntime: string | undefined;
   /** Called with a runtime's identity when its card is chosen. */
   onSelectRuntime: (id: string) => void;
+  /** Called with the identity of the clicked item, or `undefined` for the empty canvas. */
+  onSelect?: (id: string | undefined) => void;
+  /** Called with the identity of a right-clicked item and the pointer's position. */
+  onContextMenu?: (id: string, x: number, y: number) => void;
   /** The summary strip, when the view gives one. */
   summary?: Summary;
   /** The banner, when the view shows one. */
@@ -61,6 +72,8 @@ export function Canvas({
   links?: Link[];
   /** The mesh buses. */
   mesh?: MeshBusModel[];
+  /** Called when the summary strip's issues action is chosen (specification 25 §5.14). */
+  onOpenIssues?: () => void;
   /** Called with the action a banner button or a slot carries, exactly as the view gave it. */
   onAction?: (action: Action) => void;
 }) {
@@ -69,8 +82,19 @@ export function Canvas({
   const visibleLinks = (links ?? []).filter((link) => link.hidden !== true);
   const visibleMesh = mesh ?? [];
 
+  // While a right-hand pane is open the Edit slots are not drawn, and the layout gives their space
+  // back to the items (specification 25 §5.11). They return when the pane closes.
+  const drawnComputers: Computer[] =
+    hideSlots === true
+      ? visibleComputers.map((computer) => ({
+          ...computer,
+          slots: [],
+          runtimes: computer.runtimes.map((runtime) => ({ ...runtime, slots: [] })),
+        }))
+      : visibleComputers;
+
   const scene: LayoutScene = {
-    frames: visibleComputers.map((computer) => ({
+    frames: drawnComputers.map((computer) => ({
       id: computer.id,
       slots: (computer.slots ?? []).length,
       runtimes: computer.runtimes
@@ -89,6 +113,24 @@ export function Canvas({
   };
   const layout = layoutCanvas(scene);
 
+  /** The identity of the item a click landed on, or `undefined` for the empty canvas. */
+  const itemIdAt = (target: EventTarget | null): string | undefined => {
+    const element = target as Element | null;
+    const item = element?.closest?.("[data-item-id]");
+    return item?.getAttribute("data-item-id") ?? undefined;
+  };
+  const handleGraphClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    onSelect?.(itemIdAt(event.target));
+  };
+  const handleGraphContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    const id = itemIdAt(event.target);
+    if (id === undefined) {
+      return;
+    }
+    event.preventDefault();
+    onContextMenu?.(id, event.clientX, event.clientY);
+  };
+
   return (
     <div style={canvasStyle}>
       {summary !== undefined && (
@@ -96,6 +138,19 @@ export function Canvas({
           <span data-role="summary-text" style={summaryTextStyle}>
             {summary.text}
           </span>
+          {summary.open_issues !== undefined && (
+            <button
+              type="button"
+              data-role="summary-issues"
+              data-action={summary.open_issues.id}
+              disabled={!summary.open_issues.enabled}
+              title={summary.open_issues.label}
+              onClick={() => onOpenIssues?.()}
+              style={summaryIssuesButtonStyle(summary.open_issues.enabled)}
+            >
+              {summary.open_issues.label}
+            </button>
+          )}
         </div>
       )}
       {banner !== undefined && (
@@ -122,7 +177,12 @@ export function Canvas({
           ))}
         </div>
       )}
-      <div data-role="graph" style={{ ...graphStyle, width: layout.width, height: layout.height }}>
+      <div
+        data-role="graph"
+        style={{ ...graphStyle, width: layout.width, height: layout.height }}
+        onClick={handleGraphClick}
+        onContextMenu={handleGraphContextMenu}
+      >
         <svg data-role="edges" width={layout.width} height={layout.height} style={svgStyle}>
           <defs>
             <marker
@@ -152,7 +212,7 @@ export function Canvas({
             }),
           )}
         </svg>
-        {visibleComputers.map((computer) => (
+        {drawnComputers.map((computer) => (
           <ComputerFrame
             key={computer.id}
             computer={computer}

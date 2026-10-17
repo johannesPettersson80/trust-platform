@@ -1,4 +1,5 @@
 use super::*;
+use std::net::IpAddr;
 
 pub(super) fn discovery_health(entry: &DiscoveryEntry) -> String {
     if discovery_is_stale(entry) {
@@ -99,21 +100,50 @@ pub(super) fn shared_mqtt_id(broker: &str) -> String {
 }
 
 pub(super) fn configured_host_ips(settings: &RuntimeSettings) -> Vec<String> {
-    let mut values = [
-        settings.web.listen.as_str(),
-        settings.opcua.listen.as_str(),
-        settings.mesh.listen.as_str(),
-    ]
-    .iter()
-    .filter_map(|value| host_from_listen(value))
-    .filter(|host| host != "0.0.0.0" && host != "::" && host != "[::]")
-    .collect::<Vec<_>>();
-    values.sort();
-    values.dedup();
-    if values.is_empty() {
-        values.push("127.0.0.1".to_string());
+    configured_host_ips_from(
+        &[
+            settings.web.listen.as_str(),
+            settings.opcua.listen.as_str(),
+            settings.mesh.listen.as_str(),
+        ],
+        crate::discovery::interface_addresses().as_slice(),
+    )
+}
+
+/// The host IPs one runtime reports for its configured listens (specification 11, "Configured
+/// host IP projection"): the concrete listen hosts, sorted and deduplicated; when no concrete host
+/// remains but a listen value was an unspecified wildcard address, the computer's real
+/// non-loopback interface addresses in their place; and `127.0.0.1` only when neither remains.
+pub(super) fn configured_host_ips_from(
+    listen_values: &[&str],
+    interface_addresses: &[IpAddr],
+) -> Vec<String> {
+    let mut hosts = listen_values
+        .iter()
+        .copied()
+        .filter_map(host_from_listen)
+        .collect::<Vec<_>>();
+    let wildcard_named = hosts.iter().any(|host| is_wildcard_host(host));
+    hosts.retain(|host| !is_wildcard_host(host));
+    if hosts.is_empty() && wildcard_named {
+        hosts = interface_addresses
+            .iter()
+            .filter(|address| !address.is_loopback() && !address.is_unspecified())
+            .map(ToString::to_string)
+            .collect();
     }
-    values
+    hosts.sort();
+    hosts.dedup();
+    if hosts.is_empty() {
+        hosts.push("127.0.0.1".to_string());
+    }
+    hosts
+}
+
+/// Whether one listen host is an unspecified wildcard address, which names every interface of the
+/// computer rather than one address.
+fn is_wildcard_host(host: &str) -> bool {
+    matches!(host, "0.0.0.0" | "::" | "[::]")
 }
 
 pub(super) fn host_from_listen(value: &str) -> Option<String> {

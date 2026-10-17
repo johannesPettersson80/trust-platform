@@ -10,6 +10,7 @@ use super::{ControlResponse, ControlState};
 
 mod apply;
 mod browse_symbols;
+mod capabilities_discovery;
 mod contract;
 mod discover;
 mod probe;
@@ -28,7 +29,8 @@ use contract::{
 };
 
 pub(super) fn handle_comm_capabilities(id: u64, state: &ControlState) -> ControlResponse {
-    let response = build_capabilities_response(state);
+    let mut response = build_capabilities_response(state);
+    capabilities_discovery::apply_live_health(&mut response, state);
     match serde_json::to_value(response) {
         Ok(value) => ControlResponse::ok(id, value),
         Err(error) => ControlResponse::error(
@@ -603,7 +605,7 @@ fn discovery_capability(
             false,
             None,
             CommHealth::Degraded,
-            "Discovery is configured; dedicated live health is not reported yet.",
+            "Runtime discovery is configured; its live health is reported in this entry.",
             action(CommNextActionKind::Setup, "Review discovery setup"),
         )
     } else {
@@ -634,7 +636,7 @@ fn mesh_capability(settings: Option<&crate::settings::RuntimeSettings>) -> Runti
             false,
             None,
             CommHealth::Degraded,
-            "Mesh/Zenoh is configured; dedicated live health is not reported yet.",
+            "Mesh/Zenoh is configured; its live peer health is reported in this entry.",
             action(CommNextActionKind::Setup, "Review mesh setup"),
         )
     } else {
@@ -775,6 +777,8 @@ fn capability(
         health,
         detail: detail.into(),
         next_action,
+        discovery: None,
+        mesh: None,
     }
 }
 

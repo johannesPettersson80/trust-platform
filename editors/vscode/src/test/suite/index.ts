@@ -65,6 +65,9 @@ export function run(): Promise<void> {
   require("./mocha-selection.test");
   require("./devices-toolbar-render.test");
   require("./devices-canvas-render.test");
+  require("./devices-inspector-render.test");
+  require("./devices-issues-list.test");
+  require("./devices-list-view.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {

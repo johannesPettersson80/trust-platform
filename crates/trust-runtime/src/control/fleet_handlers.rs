@@ -88,6 +88,7 @@ use io::*;
 mod links;
 use links::*;
 mod protocols;
+pub(crate) use protocols::mesh_peer_matches_target;
 use protocols::*;
 mod runtime;
 use runtime::*;

@@ -1,8 +1,9 @@
-// The slice of the Rust view-model contract (design §2.1) that the new panel's canvas draws: the
-// toolbar, the frames, the connection pills, the devices, the links and the mesh buses. The names
-// and the enum spellings are Rust's (`crates/trust-devices/src/view/types/`); every value is drawn
-// as given and never recomputed in TypeScript. Only the fields the canvas reads are mirrored here
-// (design §4.5 D1); fields that D1a's small test views omit are optional.
+// The slice of the Rust view-model contract (design §2.1) that the new panel draws: the toolbar,
+// the frames, the connection pills, the devices, the links, the mesh buses, the inspector and the
+// runtime's context menu. The names and the enum spellings are Rust's
+// (`crates/trust-devices/src/view/types/`); every value is drawn as given and never recomputed in
+// TypeScript. Only the fields the panel reads are mirrored here (design §4.5 D1 and D2); fields that
+// the small test views omit are optional.
 
 /** The whole panel, as far as the shell mirrors it. */
 export interface DevicesView {
@@ -10,6 +11,10 @@ export interface DevicesView {
   toolbar: Toolbar;
   /** The computers and chips, each with its runtimes. */
   computers: Computer[];
+  /** The issues button and list. */
+  issues?: Issues;
+  /** The list's columns. */
+  list?: ListView;
 }
 
 /**
@@ -26,8 +31,8 @@ export interface Toolbar {
 }
 
 /**
- * An action that an item offers. Only the fields the canvas draws are mirrored; the rest of the
- * action (`op`, `reason`, `confirm`, …) travels back to the extension untouched.
+ * An action that an item offers. Only the fields the panel draws are mirrored; the action's `op`
+ * travels back to the extension untouched.
  */
 export interface Action {
   /** Stable within the item, such as `add`. */
@@ -36,12 +41,68 @@ export interface Action {
   label: string;
   /** Whether it can be chosen. */
   enabled: boolean;
+  /** Why it cannot; always present when `enabled` is false (specification 25 §5.1 and §5.4). */
+  reason?: string;
   /** How strongly it is drawn. */
   emphasis: Emphasis;
+  /** The confirmation of a two-step action. */
+  confirm?: Confirm;
 }
 
 /** How strongly an action is drawn. */
 export type Emphasis = "primary" | "secondary" | "danger" | "quiet";
+
+/** The second step of a two-step action. */
+export interface Confirm {
+  /** What happens. */
+  text: string;
+  /** The confirming button. */
+  confirm: string;
+  /** The cancelling button. */
+  cancel: string;
+}
+
+/** One line of an inspector section. */
+export interface Row {
+  /** What the line is about. */
+  label: string;
+  /** Its value. */
+  value: string;
+  /** The value's tone, when it carries one. */
+  tone?: Tone;
+  /** Whether the value takes the whole width. */
+  wide: boolean;
+  /** The text that the copy button copies, when the line has one. */
+  copy?: string;
+}
+
+/** A group of rows. */
+export interface Section {
+  /** The group's heading; the first section has none. */
+  heading?: string;
+  /** The rows. */
+  rows: Row[];
+}
+
+/** The inspector of an item: every fact and every action of it (design §2.1). */
+export interface Inspector {
+  /** `Devices & Connections / <kind>`. */
+  breadcrumb: string;
+  /** The item's kind. */
+  kind: string;
+  /** The item's name. */
+  title: string;
+  /** The tone of its state. */
+  health?: Tone;
+  /** The larger buttons. */
+  primary: Action[];
+  /** The smaller buttons. */
+  secondary: Action[];
+  /** The facts. */
+  sections: Section[];
+  /** The form of `Edit settings`. */
+  edit?: string;
+}
 
 /** A computer or a chip, drawn as a frame holding its runtimes. */
 export interface Computer {
@@ -55,12 +116,16 @@ export interface Computer {
   reachability: Pill;
   /** Every runtime on it. */
   runtimes: Runtime[];
+  /** Its inspector: every fact and every action of the computer. */
+  inspector: Inspector;
   /** Its Edit slots: `Set up runtime`. */
   slots?: Action[];
   /** Whether the search dims it. */
   dimmed?: boolean;
   /** Whether the filter hides it. */
   hidden?: boolean;
+  /** Its row of the list. */
+  list?: ListCells;
 }
 
 /** A runtime card. */
@@ -73,12 +138,18 @@ export interface Runtime {
   state: Pill;
   /** Its connections, drawn as pills. */
   connections?: Connection[];
+  /** Its inspector: every fact and every action of the runtime. */
+  inspector: Inspector;
+  /** Its right-click menu: `Add device or connection…`, `Set as run target`, `Settings` and `Focus`. */
+  context_menu?: Action[];
   /** Its Edit slots: `Add connection`. */
   slots?: Action[];
   /** Whether the search dims it. */
   dimmed?: boolean;
   /** Whether the filter hides it. */
   hidden?: boolean;
+  /** Its row of the list. */
+  list?: ListCells;
 }
 
 /** A status word with its tone. */
@@ -111,10 +182,14 @@ export interface Connection {
   marks: Mark[];
   /** How the pill is drawn. */
   look: Look;
+  /** Its inspector: every fact and every action of the connection. */
+  inspector: Inspector;
   /** Whether the search dims it. */
   dimmed?: boolean;
   /** Whether the filter hides it. */
   hidden?: boolean;
+  /** Its row of the list. */
+  list?: ListCells;
 }
 
 /** A mark on a connection pill. */
@@ -132,10 +207,14 @@ export interface Device {
   presents: string;
   /** Its status. */
   status?: Pill;
+  /** Its inspector: every fact and every action of the device. */
+  inspector: Inspector;
   /** Whether the search dims it. */
   dimmed?: boolean;
   /** Whether the filter hides it. */
   hidden?: boolean;
+  /** Its row of the list. */
+  list?: ListCells;
 }
 
 /** What a device card shows. */
@@ -196,6 +275,8 @@ export interface MeshDrop {
 export interface Summary {
   /** The line, such as `1 computer · 2 runtimes · 3 connections · 2 running`. */
   text: string;
+  /** Opens the issues list (specification 25 §5.14). */
+  open_issues?: Action;
 }
 
 /** The banner. */
@@ -207,3 +288,75 @@ export interface Banner {
   /** Its actions, such as `Retry` and `Open logs`. */
   actions: Action[];
 }
+
+/** The issues button and the list of every fault and warning (graph.rs `Issues`). */
+export interface Issues {
+  /** The button. */
+  button: IssuesButton;
+  /** The issues, grouped by item. */
+  groups: IssueGroup[];
+}
+
+/** The issues button (specification 25 §5.11). */
+export interface IssuesButton {
+  /** Its text, such as `4 issues`. */
+  text: string;
+  /** Its tone. */
+  tone: Tone;
+  /** The faults. */
+  faults: number;
+  /** The warnings. */
+  warnings: number;
+}
+
+/** The issues of one item. */
+export interface IssueGroup {
+  /** The item; absent for an issue of no shown item. */
+  item?: string;
+  /** The item's name. */
+  item_name: string;
+  /** Its issues. */
+  issues: Issue[];
+}
+
+/** One fault or warning. */
+export interface Issue {
+  /** Its identity. */
+  id: string;
+  /** How severe it is. */
+  severity: Severity;
+  /** The text. */
+  text: string;
+  /** `Show`. */
+  show?: Action;
+  /** The recovery action. */
+  recovery?: Action;
+}
+
+/** How severe an issue is. */
+export type Severity = "error" | "warning" | "info";
+
+/** The list's columns (specification 25 §5.14). */
+export interface ListView {
+  /** The columns, in their order. */
+  columns: Column[];
+}
+
+/** A column of the list. */
+export interface Column {
+  /** The key of its cells. */
+  id: string;
+  /** Its heading. */
+  label: string;
+}
+
+/** An item's row of the list, by column key. */
+export interface ListCells {
+  /** The item's kind: `computer`, `chip`, `runtime`, `connection` or `device`. */
+  kind: string;
+  /** The text of each column that the item fills, by column key. */
+  cells: Record<string, string>;
+}
+
+/** Which of the canvas and the list the toolbar's switch shows (specification 25 §5.11). */
+export type PanelView = "topology" | "list";

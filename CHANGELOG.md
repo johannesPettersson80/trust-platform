@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Every runtime has a stable runtime ID: generated once, kept in the project's
+  `.trust-runtime/runtime_id`, the same after every restart and different for two
+  runtimes on one computer. `status` reports it as `runtime_id`, and the mDNS
+  announcement carries it with the truST version, the platform and whether control
+  needs a token. Announcing and browsing follow `discovery.interfaces`, use the
+  computer's real host name, and never announce a local socket or a web server that
+  is off. `trust-runtime ide serve` and setup mode announce themselves too, and setup
+  prints its page under the computer's own `.local` name.
+- The web IDE's `/api/discovery` and `/api/probe` need the same web login as the other
+  routes, and `/api/probe` takes its target and credentials in a POST body instead of
+  the URL. `config.get` and `config.set` cover `discovery.host_group`;
+  `comm.capabilities` reports discovery and mesh peer health; a runtime listening on a
+  wildcard address reports its real network addresses instead of `127.0.0.1`.
 - `trust-runtime discover` runs one search for truST runtimes, ADS, Modbus TCP, MQTT and
   OPC UA from this computer or inside a runtime, and for EtherCAT (after you confirm the
   scan) and GPIO inside a runtime. It shows one device per thing found, with every
