@@ -1,4 +1,6 @@
-//! Host-side packaging and evidence checks for the reference compositions: F401 and ESP32-C6.
+//! Host-side packaging and evidence checks for the reference compositions: F401, STM32F407 and
+//! ESP32-C6. Firmware is built per chip, from the chip's file (specification 34, TARGET-03);
+//! inspection and verification take the bench board.
 mod benchmark;
 mod board;
 mod build;
@@ -6,6 +8,7 @@ mod build_artifacts;
 mod bundle;
 mod database_runner;
 mod elf;
+mod firmware;
 mod map;
 mod source_identity;
 #[cfg(all(test, unix))]
@@ -38,7 +41,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             Ok(())
         }
         [action, name, output] if action == "build-firmware" => {
-            build::firmware(root, &Board::parse(name)?.profile(), output)
+            build::firmware(root, &firmware::Firmware::parse(name)?, output)
         }
         [action, gpio, output] if action == "pack" => {
             let main = fs::read(root.join(FIXTURES).join("program-v2.stbc"))?;
@@ -51,7 +54,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             Ok(())
         }
         [action, name, input, output] if action == "inspect" => {
-            let board = Board::parse(name)?.profile();
+            let board = Board::parse(name)?.profile()?;
             let bytes = fs::read(input).context("read linked firmware")?;
             write_report(output, elf::inspect(&board, &bytes)?)
         }
@@ -61,7 +64,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             write_report(output, map::compare(&current, &baseline)?)
         }
         [action, name, input, output] if action == "verify" => {
-            let board = Board::parse(name)?.profile();
+            let board = Board::parse(name)?.profile()?;
             let raw = fs::read(input).context("read physical UART capture")?;
             anyhow::ensure!(raw.len() <= 256 * 1024, "UART capture exceeds reference bound");
             let text = std::str::from_utf8(&raw).context("UART capture is not UTF-8")?;
@@ -70,7 +73,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             report["uart_sha256"] = digest(&raw).into();
             write_report(output, report)
         }
-        _ => bail!("expected portability build-firmware <board> <report.json>, pack <gpio.stbc> <application.bin>, inspect <board> <firmware.elf> <report.json>, verify <board> <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
+        _ => bail!("expected portability build-firmware <chip> <report.json>, pack <gpio.stbc> <application.bin>, inspect <board> <firmware.elf> <report.json>, verify <board> <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
     }
 }
 

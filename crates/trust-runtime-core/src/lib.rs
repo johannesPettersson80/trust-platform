@@ -44,6 +44,8 @@ pub mod io_image;
 pub mod memory;
 /// Portable numeric conversion helpers.
 pub mod numeric;
+/// Small platform contracts: clocks, the resource loop's wait and wake, and the control link.
+pub mod ports;
 /// Portable runtime program model helpers.
 pub mod program_model;
 /// Portable retain and restart policy records.

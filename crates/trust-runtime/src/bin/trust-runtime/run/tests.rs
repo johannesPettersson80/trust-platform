@@ -1106,23 +1106,3 @@ fn project_loader_rejects_missing_legacy_context_but_loads_a_source_free_bundle(
     assert!(loaded.sources.files().is_empty());
     std::fs::remove_dir_all(root).unwrap();
 }
-
-fn write_rejected_event(index: usize) -> trust_runtime::debug::RuntimeEvent {
-    trust_runtime::debug::RuntimeEvent::WriteRejected {
-        target: format!("target{index}").into(),
-        error: "out of range".into(),
-        time: Duration::ZERO,
-    }
-}
-
-#[test]
-fn event_store_keeps_the_newest_1000_events_in_order() {
-    let mut store = std::collections::VecDeque::new();
-    for index in 0..=super::EVENT_STORE_CAPACITY {
-        super::store_event(&mut store, write_rejected_event(index));
-    }
-    let expected: Vec<_> = (1..=super::EVENT_STORE_CAPACITY)
-        .map(write_rejected_event)
-        .collect();
-    assert_eq!(Vec::from(store), expected);
-}

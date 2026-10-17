@@ -43,6 +43,9 @@ impl VariableStorage {
         if reset_instance_sequence {
             self.next_instance_id = 0;
         }
+        // No instance is live. A kept sequence is never reissued below its reset point.
+        self.entry_instance_floor = self.next_instance_id;
+        self.entry_instances_live = 0;
         #[cfg(feature = "std")]
         {
             cache::exclusive(&mut self.instance_field_offsets).clear();

@@ -282,7 +282,15 @@ impl EngineState<'_> {
                     }
                 }
             }
-            self.check_entry_deadline()
+            self.check_entry_deadline()?;
+            if journal.is_empty() {
+                // No retained value was applied, so no marker variable changed either.
+                return Ok(());
+            }
+            // A retained variable located at %M keeps the restored value, so the marker image the
+            // first scan loads must hold it. The publication refuses before it changes an image,
+            // so a refusal here still rolls back through the journal (specification 11 6.7).
+            self.publish_marker_image()
         })();
         if let Err(error) = outcome {
             for (instance, name, value) in journal.into_iter().rev() {

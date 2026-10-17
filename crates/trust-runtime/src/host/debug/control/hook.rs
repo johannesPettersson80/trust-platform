@@ -40,6 +40,11 @@ impl DebugControl {
     ) {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
+        // A resource stop released the hold and no new one may start (`release_for_stop`): the
+        // scan that was suspended runs to its end, and the ordinary stop path follows it.
+        if state.stop_requested {
+            return;
+        }
         trace_debug(&format!(
             "hook.entry location={} depth={} mode={:?} current_thread={:?} target_thread={:?} pending_stop={:?} steps={} breakpoints={}",
             format_location_ref(location),
@@ -188,6 +193,16 @@ impl DebugControl {
             snapshot.publish(&mut state, eval_ctx);
         }
         loop {
+            // A stop that arrives while the scan waits ends the wait even if a client pauses
+            // again before this thread wakes.
+            if state.stop_requested {
+                trace_debug(&format!(
+                    "hook.exit reason=stop_requested location={} thread={:?}",
+                    format_location_ref(location),
+                    state.current_thread
+                ));
+                return;
+            }
             let is_target_thread =
                 state.target_thread.is_none() || state.target_thread == state.current_thread;
             if matches!(state.mode, DebugMode::Paused)

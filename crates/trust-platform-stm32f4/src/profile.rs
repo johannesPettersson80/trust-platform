@@ -1,7 +1,9 @@
 //! Fixed board profile and persistent reset-test marker encoding.
 
-/// F401 HSI/PLL system frequency; HSI accuracy remains an oscillator tolerance.
-pub const SYSCLK_HZ: u32 = 84_000_000;
+/// System frequency of the selected chip ([`crate::chip::CHIP`]): 84 MHz from the HSI through the
+/// PLL on the F401, 168 MHz on the F407 (from the crystal, or from the HSI when there is none).
+/// The oscillator's tolerance remains the physical accuracy of the clock.
+pub const SYSCLK_HZ: u32 = crate::chip::CHIP.sysclk_hz;
 /// Fixture sampling period; shared runtime scheduling remains engine-owned.
 pub const SCAN_PERIOD_US: u64 = 10_000;
 

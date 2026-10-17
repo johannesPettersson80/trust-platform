@@ -132,6 +132,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
+        let debug = debug_for_new_thread(&runner.runtime);
 
         let stop_thread = stop.clone();
         let state_thread = state.clone();
@@ -179,6 +180,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             clock,
             join: Some(join),
             cmd_tx: cmd_tx.clone(),
+            debug,
         })
     }
 
@@ -200,6 +202,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
+        let debug = debug_for_new_thread(&runner.runtime);
 
         let stop_thread = stop.clone();
         let state_thread = state.clone();
@@ -249,8 +252,22 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             clock,
             join: Some(join),
             cmd_tx: cmd_tx.clone(),
+            debug,
         })
     }
+}
+
+/// The debugger of `runtime`, ready for a resource thread that is about to start. A stop that
+/// ended an earlier thread no longer keeps the debugger from holding the scan, so a control that
+/// outlives its resource is not left inert. This runs on the spawning thread, before any stop
+/// request can reach the new thread (specification 11 section 6.9, "Operations while the debugger
+/// holds the scan").
+fn debug_for_new_thread(runtime: &Runtime) -> Option<DebugControl> {
+    let debug = runtime.debug_control();
+    if let Some(debug) = &debug {
+        debug.rearm_after_stop();
+    }
+    debug
 }
 
 fn run_guarded_resource_thread(

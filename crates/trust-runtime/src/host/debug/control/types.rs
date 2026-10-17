@@ -62,6 +62,10 @@ struct DebugState {
     /// and cleared under the same lock as the watchdog pause total, so hosted hang supervision
     /// never sees a hold half-recorded.
     watchdog_hold_started: Option<std::time::Instant>,
+    /// Set by a resource stop (`DebugControl::release_for_stop`). The stop ended the hold, and the
+    /// debugger holds the scan no more until the next resource thread starts, so no pause, step
+    /// or breakpoint can delay the stop (specification 11 section 6.9, specification 13 "Pause").
+    stop_requested: bool,
     breakpoint_stops_this_cycle: HashSet<BreakpointCycleKey>,
     frame_locations: HashMap<FrameId, SourceLocation>,
     logs: Vec<DebugLog>,
@@ -118,8 +122,9 @@ pub(crate) const REQUEST_QUEUE_CAPACITY: usize = 1_024;
 
 /// Runtime events a debug control with no event sender attached holds for callers that drain
 /// them directly. At the bound the oldest event is dropped and counted (specification 11, event
-/// store).
-pub(crate) const RUNTIME_EVENT_BUFFER_CAPACITY: usize = 1_024;
+/// store). The bound and the buffering are shared runtime code (spec 34 ARCH-11).
+#[cfg(test)]
+pub(crate) use trust_runtime_services::events::DEBUG_EVENT_BUFFER_CAPACITY as RUNTIME_EVENT_BUFFER_CAPACITY;
 
 /// A control request refused because its bounded queue is full. Its text is the stable control
 /// error `request queue full`, and the refused request changes nothing.

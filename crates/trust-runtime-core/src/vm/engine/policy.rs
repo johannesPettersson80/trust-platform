@@ -194,7 +194,8 @@ impl EngineState<'_> {
         else {
             return Err(RuntimeError::ReferenceLifetime);
         };
-        // Activated IDs are monotonic, so identity order is ancestry order.
+        // Identities increase within a top-level entry and no activation outlives its
+        // entry, so among live activations identity order is ancestry order.
         if source.0 > destination.0 {
             return Err(RuntimeError::ReferenceLifetime);
         }

@@ -67,7 +67,7 @@ impl EngineState<'_> {
         {
             return Err(super::super::VmTrap::CallStackOverflow.into_runtime_error());
         }
-        let scope = self.data.storage.reserve_execution_frame()?;
+        let scope = self.reserve_activation_identity()?;
         self.data.storage.activate_execution_frame(scope)?;
         let result = (|| {
             let instance = self.construct_typed_instance(pou, false)?;

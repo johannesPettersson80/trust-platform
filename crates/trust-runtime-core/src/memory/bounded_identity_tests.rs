@@ -5,33 +5,34 @@
 //!
 //! Specification: `docs/specs/34-runtime-portability.md`, HOST-02 (instance identities are 32-bit;
 //! creating an instance beyond that space fails with `Overflow` and never wraps an identity or
-//! panics), the lifecycle-marker rule (every `u32` instance identity, including `u32::MAX`, is
-//! representable), and the Scope B-R3 lifetime rules (frame and instance identities keep their
-//! monotonic u32 domain; removed identities stay invalid; capacity follows live entries; identity
-//! exhaustion stays a checked fault).
+//! panics; a later top-level entry issues again only identities released inside the entry before
+//! it), §4.3.1 (activation and instance identities per top-level entry), the lifecycle-marker
+//! rule (every `u32` instance identity, including `u32::MAX`, is representable), and the Scope B-R3
+//! lifetime rules (capacity follows live entries; identity exhaustion stays a checked fault).
 //!
-//! Production under test: `VariableStorage::try_create_instance` (`memory/instances.rs:6`),
-//! `remove_instance` (`memory/instances.rs:49`) and `reset_runtime_values` (`memory/storage.rs:37`).
+//! Production under test: `VariableStorage::try_create_instance`, `remove_instance`,
+//! `begin_execution_entry` and `reset_runtime_values`.
 //!
-//! Model. A monotonic counter issues identities. `create` takes the counter value and advances it.
-//! `remove` frees a live identity, and while the counter runs a freed identity is never issued
-//! again. `reset(restart = true)` clears every live instance and sets the counter to zero, as
-//! `reset_runtime_values(true)` does; `reset(restart = false)` clears the instances and keeps the
-//! counter. The oracle is the counter plus the set of live identities.
+//! Model. A counter issues identities. `create` takes the counter value and advances it. `remove`
+//! frees a live identity. A floor marks where the current top-level entry started. `begin entry`
+//! moves the counter back to the floor when no live identity is at or above it, so the identities
+//! the finished entry released are issued again; otherwise the floor moves up to the counter and
+//! every live identity stays below it. `reset(restart = true)` clears every live instance and sets
+//! the counter to zero, as `reset_runtime_values(true)` does; `reset(restart = false)` clears the
+//! instances and keeps the counter. Both resets put the floor at the counter. The oracle is the
+//! counter, the floor and the set of live identities.
 //!
-//! Bounds. Six operations: create; remove identity 0, 1 or 2 (live, freed or never issued); reset
-//! keeping the counter; reset restarting it. Every sequence of length six from an empty storage is
-//! run: 6^6 = 46,656 sequences. Identities stay far below u32::MAX, so no exhaustion happens here.
+//! Bounds. Seven operations: create; remove identity 0, 1 or 2 (live, freed or never issued); begin
+//! an entry; reset keeping the counter; reset restarting it. Every sequence of length six from an
+//! empty storage is run: 7^6 = 117,649 sequences. Identities stay far below u32::MAX, so no
+//! exhaustion happens here.
 //!
-//! Invariants after every operation: a creation issues the counter value and never a live identity;
-//! a removal reports an instance exactly when its identity is live; the live set equals the oracle;
-//! a reset empties the live set.
+//! Invariants after every operation: a creation issues the oracle's counter value and never a live
+//! identity; a removal reports an instance exactly when its identity is live; the live set equals
+//! the oracle; a reset empties the live set.
 //!
-//! The boundary test at the end follows HOST-02 and the lifecycle-marker rule: identity `u32::MAX`
-//! is issuable, and the creation after it fails with `Overflow`. The product fails one identity
-//! early, at `u32::MAX` (`memory/instances.rs:11-14`), and `memory/live_tests.rs` pins that behaviour.
-//! The two disagree; the boundary test keeps the specification's expectation and the report records
-//! the contradiction.
+//! The boundary test at the end follows HOST-02: identities up to `u32::MAX - 1` are issued, and
+//! the creation after the last one fails with `Overflow` without wrapping or replacing an instance.
 
 use super::*;
 use crate::error::RuntimeError;
@@ -42,22 +43,25 @@ use alloc::collections::BTreeSet;
 enum Op {
     Create,
     Remove(u32),
+    BeginEntry,
     Reset { restart: bool },
 }
 
-const OPS: [Op; 6] = [
+const OPS: [Op; 7] = [
     Op::Create,
     Op::Remove(0),
     Op::Remove(1),
     Op::Remove(2),
+    Op::BeginEntry,
     Op::Reset { restart: false },
     Op::Reset { restart: true },
 ];
 
-/// The counter and the live identities that the production must match.
+/// The counter, the entry floor and the live identities that the production must match.
 #[derive(Default)]
 struct Model {
     next: u32,
+    floor: u32,
     live: BTreeSet<u32>,
 }
 
@@ -79,12 +83,23 @@ fn apply(storage: &mut VariableStorage, model: &mut Model, op: Op) {
             let removed = storage.remove_instance(InstanceId(id)).is_some();
             assert_eq!(removed, model.live.remove(&id), "remove identity {id}");
         }
+        Op::BeginEntry => {
+            storage
+                .begin_execution_entry()
+                .expect("no activation is reserved in this model");
+            if model.live.range(model.floor..).next().is_none() {
+                model.next = model.floor;
+            } else {
+                model.floor = model.next;
+            }
+        }
         Op::Reset { restart } => {
             storage.reset_runtime_values(restart);
             model.live.clear();
             if restart {
                 model.next = 0;
             }
+            model.floor = model.next;
         }
     }
     for id in 0..=5 {
@@ -102,7 +117,7 @@ fn apply(storage: &mut VariableStorage, model: &mut Model, op: Op) {
 }
 
 #[test]
-fn identity_allocation_matches_a_monotonic_counter_on_every_bounded_sequence() {
+fn identity_allocation_matches_the_entry_counter_model_on_every_bounded_sequence() {
     const LENGTH: u32 = 6;
     let mut sequences = 0_u32;
     for code in 0..OPS.len().pow(LENGTH) {
@@ -115,7 +130,7 @@ fn identity_allocation_matches_a_monotonic_counter_on_every_bounded_sequence() {
         }
         sequences += 1;
     }
-    assert_eq!(sequences, 46_656);
+    assert_eq!(sequences, 117_649);
 }
 
 #[test]

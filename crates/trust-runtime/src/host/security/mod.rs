@@ -9,10 +9,12 @@ use std::sync::{Arc, OnceLock};
 
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use serde::{Deserialize, Serialize};
 
 use crate::config::{TlsConfig, TlsMode};
 use crate::error::RuntimeError;
+
+// Roles and the secret comparison are shared runtime code (spec 34 ARCH-11).
+pub use trust_runtime_services::access::{constant_time_eq, AccessRole};
 
 /// Whether a configuration key names a secret value: a credential that read surfaces never return
 /// (specification 11, §6.9.7). Matched ASCII-case-insensitively.
@@ -28,53 +30,6 @@ pub fn is_secret_param_key(key: &str) -> bool {
             | "client_secret"
             | "private_key"
     )
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum AccessRole {
-    Viewer,
-    Operator,
-    Engineer,
-    Admin,
-}
-
-impl AccessRole {
-    pub fn parse(text: &str) -> Option<Self> {
-        match text.trim().to_ascii_lowercase().as_str() {
-            "viewer" => Some(Self::Viewer),
-            "operator" => Some(Self::Operator),
-            "engineer" => Some(Self::Engineer),
-            "admin" => Some(Self::Admin),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Viewer => "viewer",
-            Self::Operator => "operator",
-            Self::Engineer => "engineer",
-            Self::Admin => "admin",
-        }
-    }
-
-    pub fn allows(self, required: Self) -> bool {
-        self >= required
-    }
-}
-
-/// Compare two secrets in constant time with respect to `expected` length.
-#[must_use]
-pub fn constant_time_eq(expected: &str, provided: &str) -> bool {
-    let expected_bytes = expected.as_bytes();
-    let provided_bytes = provided.as_bytes();
-    let mut diff = expected_bytes.len() ^ provided_bytes.len();
-    for (idx, expected_byte) in expected_bytes.iter().enumerate() {
-        let provided_byte = provided_bytes.get(idx).copied().unwrap_or_default();
-        diff |= (*expected_byte ^ provided_byte) as usize;
-    }
-    diff == 0
 }
 
 #[derive(Debug, Clone)]

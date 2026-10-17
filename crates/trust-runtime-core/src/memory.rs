@@ -138,6 +138,10 @@ pub struct VariableStorage {
     declared_instance_field_offsets: RwLock<FxHashMap<(SmolStr, SmolStr), usize>>,
     next_frame_id: u32,
     next_instance_id: u32,
+    /// The instance identity the current top-level execution entry started from.
+    entry_instance_floor: u32,
+    /// Live instances whose identity is `entry_instance_floor` or above.
+    entry_instances_live: usize,
 }
 
 /// One reserved activation identity, with locals and engine metadata sharing
@@ -178,6 +182,8 @@ impl Clone for VariableStorage {
             ),
             next_frame_id: self.next_frame_id,
             next_instance_id: self.next_instance_id,
+            entry_instance_floor: self.entry_instance_floor,
+            entry_instances_live: self.entry_instances_live,
         }
     }
 }

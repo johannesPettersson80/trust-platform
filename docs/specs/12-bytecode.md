@@ -1514,7 +1514,8 @@ The stack and register executors acquire reusable buffers only as an
 allocation optimization. Acquisition returns empty logical stacks, frames,
 registers, and temporary values. Release clears all contents and retains no
 more than the documented pool limit; reuse must not expose a prior execution's
-values or frame identities.
+values or frames. Specification 34 §4.3.1 states when a later top-level entry
+issues the activation identities of an earlier one again.
 
 The top-level instruction budget is shared by nested VM calls. Charging exactly
 the remaining budget succeeds and leaves zero; the next charge rejects with

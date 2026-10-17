@@ -11,7 +11,10 @@ use std::sync::Arc;
 
 impl Runtime {
     /// Bind a declared live destination. Image growth is admitted together with
-    /// the binding; no PLC values or pending management requests are reset.
+    /// the binding; no PLC values or pending management requests are reset. A variable
+    /// bound to `%M` keeps its value: the same commit publishes it into exactly the
+    /// marker bytes or bit the binding covers, before the next scan loads that image
+    /// (specification 11 6.7).
     pub(crate) fn bind_checked_io(
         &mut self,
         reference: ValueRef,
@@ -36,7 +39,9 @@ impl Runtime {
 
     /// One atomic binding/image transaction for an entire protocol mapping set.
     /// Existing exact reference/address records keep their order and receive the
-    /// admitted codec, including enum labels and bounded-string capacity.
+    /// admitted codec, including enum labels and bounded-string capacity. The
+    /// commit publishes the current value of each `%M` binding that the set adds or
+    /// changes, and no other marker byte, bit or key.
     pub(crate) fn configure_io_bindings(
         &mut self,
         changes: &[(ValueRef, IoAddress, SmolStr)],

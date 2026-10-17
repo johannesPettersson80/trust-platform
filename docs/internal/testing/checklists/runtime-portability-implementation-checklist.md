@@ -7,52 +7,366 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**16 October: the remaining work to finish this checklist (owner: "we shall finish the checklist").
-Nothing is done while any item here or below is open.** Spec 34 defines these steps (M3, M4H, M4,
-M5); until now they existed only as one row each in the scope table. Order: the board product items
-first (QF1–QF3, QE1–QE3), so a user can run their own program on both boards, then the rest. The
-STM32 release is complete only when spec 34's "first MCU release is complete" paragraph holds; the
-ESP32 release only when the C6 separately meets the same gates.
+**16 October, evening: the owner's corrections (spec 34 v0.21, approved by the owner).** The boards
+are complete truST runtimes that work exactly like trust-runtime on Linux, macOS and Windows: spec 34
+"Owner requirements", ARCH-11 to ARCH-13, STATE-07 and §11.4 (TARGET-01 to TARGET-09). The separate
+board design built on 16 October (a board-only serial protocol and `trust-runtime board` commands,
+installation confirmed by the board's button, read-only Live Values, a commissioning mode) was
+deleted with its commits `5b91655fb`, `9668fca80` and `2f1034d17`; a copy is in
+`~/projects/.artifacts/deleted-board-design-2026-10-16` and is not restored without the owner. The
+STM32 target is now the STM32F407, first on the owner's STM32F407G-DISC1 (spec 34 Appendix D.4).
+Release is the last step: Claude tests everything end to end from VS Code on both chips, then the
+owner tests and approves, and only then is anything released. Nothing is done while any item here or
+below is open.
 
-C — Bounded operation (M3), shared by both boards:
+C — Bounded operation (M3), shared by both chips:
 - [ ] C1 Bounded compound storage: retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
-  compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the boards.
+  compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the chips.
 - [ ] C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
   online change; the two ignored tests (`checked_admission_stale_binding.rs`,
   `restart_generation_stale_handles.rs`) run and pass. Closes the scope C deferral item below.
+  - [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder). `activation_identity_reuse` passed after its fixture stopped naming a variable `step`, an IEC keyword.) C2-0, a defect found by the C1–C5 design (`~/projects/.artifacts/bounded-c/design.md`
+    §1.11), fixed 17 Oct, awaiting the combined batch.
+    - The defect: every activation took a new `FrameId` from a `u32` counter that only a restart
+      resets, and per-call FB instances consumed `InstanceId`s the same way. At the limit the
+      runtime faulted with `Overflow`; a host with a 1 ms task and 50 calls got there in about a
+      day.
+    - The fix: identities are reused per top-level entry and stay monotonic within it, so identity
+      order is still ancestry order. An instance identity is reissued only when everything issued
+      since the entry's start is gone. Construction keeps one increasing sequence.
+    - Spec 34 HOST-02, §4.3.1, §6.2.1 and §17 A4 and spec 12 §7.12 state the rule.
+    - `ValueRef`, `Value` and the frame record keep their sizes on both chips.
+    - Tests: the rewritten exhaustion test, the bounded entry-counter model (117,649 sequences),
+      scans past the identity limit on both executors, and stale local references that stay
+      refused after their identities are reissued.
+    - Follow-up: clear the debugger's frame and variable handles on resume, so a client that
+      reuses handles from an earlier pause gets an error rather than the current pause's activation
+      with that number.
 - [ ] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
-- [ ] C4 Import and admission bounds, and capability and deployment records.
-- [ ] C5 Persistence: retain variables survive a power cut through stop checkpoints in the reserved
-  slots (F401 sectors 2 and 3, C6 `ckpt_a`/`ckpt_b`), with interrupted-write recovery.
+- [ ] C4 Import and admission bounds, and capability and deployment records (including the
+  HOST-02 deployment-level limit record).
+- [ ] C5 Persistence: retain variables survive a power cut through checkpoints in each chip's
+  reserved flash, with interrupted-write recovery.
 
-QF — STM32 (NUCLEO-F401RE) product and qualification (M4):
-- [ ] QF1 Product runner: the board boots into its controlled state with outputs safe, starts only
-  through the configured start policy (spec 34 §11.2 step 9), then runs the user's installed
-  application continuously (not the M2E fixture) with STOP/RUN, cycle timing, the watchdog and safe
-  outputs on a fault.
-- [ ] QF2 Real I/O: board pins mapped to `%I`/`%Q` through a board profile, digital inputs and
-  outputs first.
-- [ ] QF3 Deployment: one command runs the stopped installation workflow (spec 34 §11.2): read the
-  board's capability descriptor, build the user's project into the application bundle, check
-  compatibility (DEPLOY-04), stop the board, transfer, validate and prepare on the board, and mark
-  the installation complete so that an interruption or power cut never selects a partial
-  application (DEPLOY-03). Only an authorized application is accepted (DEPLOY-06).
-- [ ] QF4 Bounded serial management: status, start and stop, and online values over the board's
-  USB serial.
-- [ ] QF5 Retain on the board, using C5.
-- [ ] QF6 Disturbed and mixed-rate workloads and extended tests; section 14 acceptance within the
-  F401's flash, RAM and stack, with completion-level timing evidence.
-- [ ] QF7 Release: the F401 firmware and its flashing instructions attached to the GitHub release.
+S — Shared runtime services (ARCH-11, ARCH-14): the same code on every target, built with and
+without an operating system, in the new crate `trust-runtime-services`; Linux, macOS and Windows
+switch to each component with their behavior unchanged (their existing tests stay green), and the
+F407 flash and RAM are measured after each component. Decided for S1–S4: VS Code maps source lines
+to program positions, so no device needs the sources; values read while running are those at the
+end of a cycle; a USB client counts as local; on a chip Stop and Start are `shutdown` and `restart`.
+Whether the chips run their services as embassy tasks is measured in S1: Includes the RETAIN-01 checkpoint sequence and completion fields.
+- [ ] S1 The control connection: the runtime control protocol of specification 11 (status, start,
+  stop, restart, states and faults, events and log) served by shared code; the operating system or
+  the chip supplies only the link. Design: `~/projects/.artifacts/s1-control-services-map.md`
+  (section 8). Slices: S1a-1 the request/answer envelope and the access rights move into
+  `trust-runtime-services`, trust-runtime re-exports them; S1a-2 dispatch, status, events, metrics
+  and the resource supervisor rules with host ports; S1a-3 the single-thread runner and a
+  transcript test comparing it with the threaded host; S1b the F407 and C6 over USB. Validation of
+  each slice, one batch on the builder copy (`~/projects/.artifacts/services/builder/batch.sh`):
+  `cargo fmt --all -- --check`; `cargo test -p trust-runtime-services` with and without
+  `serde_json/arbitrary_precision`; the crate built for `thumbv7em-none-eabihf` and
+  `riscv32imac-unknown-none-elf`; clippy `-D warnings` on the crate and on trust-runtime with all
+  features; `cargo test -p trust-runtime --lib`; the runtime vertical (`api_smoke`, `debug_control`,
+  `complete_program`, `runtime_reliability`); `cargo test -p trust-debug`; `cargo check -p
+  trust-dev --all-targets`; `cargo run -p xtask -- architecture-doctor --full-map`.
+  - [x] S1a-1 (16 Oct, uncommitted in this worktree): `crates/trust-runtime-services` holds the
+    request/answer envelope (`protocol`) and the access rights (`access`: roles, registry, policy,
+    role resolution); trust-runtime re-exports them at the old paths, the role decision is
+    unchanged branch for branch. Builder run `s1a1-1`: fmt; crate tests 35/35 with and without
+    `arbitrary_precision`; thumbv7em and riscv32imac builds; clippy `-D warnings` on the crate and
+    on trust-runtime with all features; trust-runtime lib tests 4,048 passed; the runtime vertical,
+    `trust-debug` tests and the `trust-dev` check pass; architecture-doctor fails only
+    FULLMAP-RUNTIMEBOUND and FULLMAP-RUNTIMESAFE (they need the git history, absent in the builder
+    copy; rerun with git before commit) with RUNTIMEVM-MUT partial as before; diagram render and
+    drift pass; Cargo.lock unchanged by cargo. Before commit: the moved tests' rows in
+    `verification/test-catalog-denominator.toml` and `verification/runtime-anomaly-denominator.toml`
+    name the old paths.
+  - [x] S1a-2 (16 Oct, uncommitted in this worktree): dispatch, status, events, metrics with a
+    clock port, and the resource command and supervisor rules moved into
+    `trust-runtime-services`; `control/host_ports.rs` implements the ports on `ControlState`.
+    Independent review `~/projects/.artifacts/services/review-s1a2.md`: no blocker; every one of
+    the 79 moved tests has a counterpart with the same assertions; behaviour equal apart from the
+    declared differences. Fixed before the batch: H1 (the runtime safety gate now checks the
+    shared dispatcher and event taxonomy and fails closed when it cannot find them), L1 (the
+    boundary gate scans `dispatch.rs`), M2, M3 (12 `json!` functions marked non-panicking with a
+    reason), L2 (a test of the host's uptime clock), L6, L8, L9 and M1 (the batch refreshes the
+    diagram manifest). Batch `s1a2-1` on the builder also runs the runtime-only composition, the
+    documentation examples, and `xtask`'s tests (FULLMAP-UNBUILT). Left for commit time: M4 (82
+    catalog rows and `TEST_CONTROL_AUTHORIZATION_FAILSAFE_001`, new ids in the review's §6), M5
+    (`verification/matrix.toml` areas), L3 (invariant `source_refs`), L7 (public-API baseline
+    needs nightly), L10 (the review's §2 list of undeclared differences goes into this record).
+    For S1a-3, before S1b: L4 (the clock ports belong in `trust-runtime-core::ports` as spec 34
+    §3.2 says, with a "time not set" state, TARGET-06) and L5 (one reload-claim transition).
+    Batch `s1a2-1` (builder, 16 Oct): passed fmt; services tests 131/131 with and without
+    `arbitrary_precision`; thumbv7em and riscv32imac builds; trust-runtime clippy with all
+    features; trust-runtime lib tests 3,999; the runtime vertical; trust-debug tests; the
+    runtime-only composition tests; the documentation examples; the trust-dev check; diagram
+    render, manifest and drift (SVGs and manifest copied back); architecture-doctor with every
+    check passing except the two that need git history (FULLMAP-RUNTIMEBOUND, FULLMAP-RUNTIMESAFE:
+    exit 128, "not a git repository"), the known CHECK-09 finding and RUNTIMEVM-MUT partial;
+    FULLMAP-UNBUILT passed (2,481 Rust files in 23 packages, only the two listed identity files
+    outside the build). Failed: `services-clippy` (2 × `clippy::assert_is_empty`, new in 1.99, in
+    `events/contract_tests.rs:288` and `resource/operations/contract_tests.rs:134`); `xtask-tests`
+    and `xtask-clippy` (E0063: the test policy literal `base_policy` in `xtask/src/full_map.rs`
+    lacked `unbuilt_source_allowlist`, so the five FULLMAP-UNBUILT tests did not compile or run).
+    Fixes prepared after the batch, unvalidated: `assert_eq!` with an empty `Vec`, and the field in
+    `base_policy`. Unrun: both gate scripts (they need git). A second run needs the owner's
+    authorization.
+    Second run `s1a2-2` (owner: "yes", 16 Oct): on the Pi with git, both gate scripts passed with
+    no findings (`runtime_safety_fail_closed_ast_grep_gate.sh`, whose FeatureDisabled checks now
+    read the shared dispatcher and events, and `runtime_boundary_fail_closed_ast_grep_gate.sh`,
+    which now scans `dispatch.rs`). On the builder: fmt passed; `xtask` tests 147 passed, among
+    them the five FULLMAP-UNBUILT tests; `xtask` clippy passed. Failed: services tests and services
+    clippy, E0433 at `resource/operations/contract_tests.rs:134`, because the lint fix used `Vec`,
+    which that no_std test module does not import (Claude's mistake). Fix prepared, unvalidated:
+    `assert_eq!(host.actions(), [] as [Action; 0])`, clippy's own suggestion. A third run needs the
+    owner's authorization.
+    Third run `s1a2-3` (owner: "yes, dont ask again, finish the checklist"): fmt, services tests
+    131/131 and services clippy `-D warnings`, `xtask` tests and clippy all passed. S1a-2 is
+    validated by s1a2-1 (every other step) together with s1a2-2 and s1a2-3. Still before commit:
+    the architecture doctor's git-dependent checks from a checkout with git, and M4, M5, L3, L7,
+    L10 above.
+  - [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder). The batches covered:
+    - the services tests with `arbitrary_precision`, the thumbv7em and riscv32imac builds and Clippy;
+    - workspace Clippy with all features, and the core tests on the register and no-std paths;
+    - `just test-all`: 471 test binaries, including `runner_transcript_parity`;
+    - the docs with warnings denied, the doc tests, all three reviewed firmware builds with their inspections, the architecture doctor with both git gates, and the diagrams.
+    Fixed on the way: two lint findings in the runner tests.) S1a-3 (17 Oct, uncommitted, written, reviewed, fixes written, not yet validated):
+    `trust-runtime-core::ports` (monotonic clock with `MonotonicInstant` and `TimeSpan`, wall clock
+    with `utc_ms() -> Option<u64>`, runner wait and wake, hardware watchdog, control link with
+    frames bounded both ways, peer class; review L4) and the single-thread runner
+    `trust-runtime-services::runner` for devices without an operating system (STATE-08), reusing
+    the shared supervisor, operation and command rules; L5 (one reload-claim transition). Tests:
+    runner unit tests on the real engine with `gpio.stbc` (`runner/contract_tests.rs`,
+    `link_contract_tests.rs`, `scan_contract_tests.rs`, `timing_contract_tests.rs`), and
+    `runner_transcript_parity`, which sends the same request sequence through trust-runtime's
+    threaded host and the runner and requires equal JSON (only times, ids and durations
+    normalised), also for `status`, `events.tail` and `tasks.stats` after pause, resume, each
+    restart and the stop. Review `~/projects/.artifacts/services/review-s1a3.md` (BLOCKER 0,
+    HIGH 1, MEDIUM 8, LOW 7), all fixed in the worktree with the lead's decisions (17 Oct): H1
+    the safety gate reads the shared `retain_apply_event` and its two publishers and fails
+    closed; restart from Stopped starts with empty records and logical time from zero, as a new
+    process; requests take effect at the program's next boundary in the host's order (STATE-08
+    now states the rules and the remaining differences); logical time from the program start;
+    the loop feeds the hardware watchdog in every state; no per-scan key formatting, the event
+    store allocated at start, `has_output_hooks` kept true for the host's fault points (recorded
+    in `runner/observer.rs`); a reply longer than the frame becomes `reply longer than N bytes`;
+    the events test split; why a device reports no `audit_dropped` (TARGET-06). For the owner
+    after the S1b measurements: a chip's fixed RAM cannot hold an unbounded request or reply (for
+    example the full event history), so it answers with a clear error above its frame size until
+    S4's transfers in parts. No debugger on the device until S3: until then the loop runs
+    production control mode only (`control_mode: production`, pause between cycles).
+    Operations a device does not answer yet (`unsupported request` until their slice): S2
+    `io.list`, `io.read`, `io.write`, `io.force`, `io.unforce`, `set`, `var.force`, `var.forced`,
+    `var.unforce`, `hmi.values.get`, `hmi.write`; S3 `breakpoints.*`, `debug.*`, `step_in`,
+    `step_out`, `step_over`, `eval`; S4 `bytecode.reload`; S5 `pair.start`, `pair.claim`,
+    `pair.list`, `pair.revoke`; S6 `fleet.topology`; S7 `comm.*`, `ads.*`, `connectors.status`;
+    S8 `hmi.alarm.ack`, `hmi.alarms.get`, `hmi.descriptor.get`, `hmi.descriptor.update`,
+    `hmi.schema.get`, `hmi.scaffold.reset`, `hmi.trends.get`; to place: `config.get`,
+    `config.set`, `historian.query`, `historian.alerts`. For S1b: merge the board fixture's
+    `board::Clock` into `trust_runtime_core::ports`, and measure RAM and stack with the runner (the
+    event store, the 4 KiB scan window, the staged-output journal). The batch adds, besides
+    `batch.sh`: `cargo test -p trust-runtime --test runner_transcript_parity` on its own (also
+    checks the dev-dependency link), the core's `ports` tests and clippy, the CI board-adapter
+    checks for both targets, the firmware link builds once the F407 port is frozen, `--locked`,
+    both gate scripts and the doctor's git-dependent checks from a checkout with git, and the
+    denominator checks. Left for commit time with S1a-1 and S1a-2's: the denominator rows of the
+    S1a-1 and S1a-2 tests and the 82 stale rows (S1a-2 M4), and the catalog mapping of the runner's
+    deadline and pause tests to `RT_SAFE_DEADLINE_001` and `DEBUG_PAUSE_001` (their source
+    references name the runner now); the 47 S1a-3 rows are written. Found while writing them: both
+    denominator files already break the canonical `discovery_id` order at HEAD (rows appended by
+    d3a3508ba, scope H: from `DISC_636CB8D8E6B5C60C383F` in the catalog denominator and from
+    `DISC_251A2BD74865B4BDB6A6` in the anomaly denominator), so both checkers refuse them until
+    those rows are moved into place.
+- [ ] S2 Live Values: read, write, force and release, as in trust-runtime. Includes a test seam
+  for snapshot projection failures (from the A01 leftovers).
+- [ ] S3 Debugging (includes from the A01 leftovers: the defect that debugger scratch slots read
+  Null at a stop inside a `FOR` body, to be reproduced with a probe and fixed, and a test seam for
+  capture failures): breakpoints, pause, continue, stepping, call stack, variables and evaluation
+  (specification 13), as in trust-runtime (STATE-07).
+- [ ] S4 Program loading: deployment and online change over the control connection (DEPLOY-02,
+  §11.3), safe against interruption (DEPLOY-03).
+- [ ] S5 Access rights: tokens and roles, TLS and signed deployment, as in trust-runtime.
+- [ ] S6 Discovery and mesh: a runtime on the network, a board included, is found and can be used at
+  once (ARCH-12).
+- [ ] S7 Communication services: the `io.toml` drivers (Modbus TCP, MQTT and the others) and
+  Bluetooth devices where the chip has Bluetooth.
+- [ ] S8 Web pages and HMI.
+- [ ] S9 Modbus RTU (owner, 16 October 2026): the `modbus-rtu` driver of specification 11, built-in
+  driver 6, on Linux, macOS and Windows serial ports and on the chips' UARTs, sharing the Modbus
+  application layer with `modbus-tcp`.
+- [ ] S10 EtherCAT on chips with an Ethernet controller (owner, 16 October 2026): the `ethercat`
+  driver of specification 11 with EtherCrab's `no_std` build on the STM32F407, after L2. Needs an
+  F407 board with an Ethernet PHY. Test device: the owner's STEPPERONLINE A6-EC400H2B1-M17 servo
+  (CiA 402, a rebranded Inovance SV660N; ESI `~/Downloads/A6_doc/STEPPERONLINE_A6_Servo_V0.04.xml`),
+  in cyclic synchronous torque with distributed clocks as the earlier Linux probe ran it
+  (`~/projects/trust-platform-cia402-sv660n`, `xtask/src/cia402_probe.rs`; saved 16 Oct as local
+  branch `archive/cia402-sv660n`, commit `9f618ea71`, ignored evidence in
+  `~/projects/.artifacts/cia402-sv660n-internal-evidence.tgz`). Tested device to device
+  (owner, 16 October 2026): the chip as EtherCAT master wired straight to the A6, with no terminals.
+- [ ] S11 OPC UA (owner, 16 October 2026, spec 34 SERVICE-03): one shared OPC UA server and client
+  in Rust for every target, replacing the `opcua` library on Linux, macOS and Windows with today's
+  behavior kept; on the chips over their network links. After S1–S6 and the network links.
+- [ ] S12 ADS: the Beckhoff ADS client and server (`[runtime.ads]`, `[runtime.ads_server]`,
+  `ads.toml`), as in trust-runtime.
+- [ ] S13 Runtime cloud, fleet and pairing (`[runtime.cloud]`, `pair.*`, fleet topology).
+- [ ] S14 Observability: the historian with its alerts and the Prometheus metrics
+  (`[runtime.observability]`); on a chip the history is kept in flash.
+- [ ] S15 OpenOT telemetry (spec 34 SERVICE-04): the same records; on a chip over the network.
+- [ ] S16 Simulation on the chips too (spec 34 SERVICE-05): `simulation.toml` as in trust-runtime.
+- [ ] S17 Several RESOURCEs in one configuration run on a chip exactly as they run in
+  trust-runtime (first: record how trust-runtime runs them).
+- [ ] S18 Several runtimes on one chip (owner, 17 October 2026: "every host shall be able to have
+  several runtimes"; spec 34 ARCH-15): each with its own project, state, control connection,
+  retain and diagnostics; one runtime's stop or fault leaves the others running; each I/O point
+  belongs to one runtime; how many fit is measured per chip and reported.
 
-QE — ESP32-C6-DevKitC-1 product and qualification (M5):
-- [ ] QE1 Product runner on the C6 adapter, as QF1.
-- [ ] QE2 Real I/O pin map for the DevKitC-1, as QF2.
-- [ ] QE3 Deployment into the `stbc` partition with one command, as QF3.
-- [ ] QE4 Serial management, as QF4, and retain in `ckpt_a`/`ckpt_b`, using C5.
-- [ ] QE5 Disturbances and the common corpus; section 14 acceptance on the named board. Also needs
-  the open C6 items above: the released bootloader, the QIO retest and supervision in a debug
-  halt.
-- [ ] QE6 Release: the C6 firmware attached to the GitHub release.
+D — Documentation and build:
+- [ ] D1 Public documentation: getting started on a chip, installing and updating truST, the
+  `device.toml` reference, and the list of supported chips; written to the rendered pages.
+- [ ] D2 CI builds the firmware of every chip on every change, and the Pi bench runs the tests on
+  the real chips.
+
+H — Hardware the owner provides:
+- [ ] H1 A NUCLEO-F429ZI (owner, 16 October 2026: the plan with it agreed): the same STM32F4 family
+  as the F407, with Ethernet on the board, 2 MiB flash and 256 KiB RAM, for L2 and the EtherCAT test
+  with the A6 servo (S10). An STM32H7 board for every component on one STM32 is decided after the
+  measurements.
+- [ ] H2 For Modbus RTU (S9): an RS-485 transceiver module for the chip and a USB-to-RS-485 adapter
+  for the Pi.
+
+L — Links (ARCH-12): the same control protocol on every link:
+- [ ] L1 USB: the STM32F407's USB OTG FS and the ESP32-C6's USB serial on the chips, and USB as a way
+  to reach a runtime in `trust-runtime`, `trust-debug` and VS Code.
+- [ ] L2 Ethernet on the STM32F407. The DISC1 has no Ethernet PHY, so Ethernet needs a board or
+  add-on with one (owner's decision).
+- [ ] L3 Wi-Fi on the ESP32-C6.
+- [ ] L4 Bluetooth on the ESP32-C6.
+
+T — Targets (spec 34 §11.4):
+- [ ] T1 The same project on a chip: `runtime.toml` and `io.toml` with the same keys and meaning;
+  the `gpio` driver's `line` names a pin of the chip; analog, PWM, counters and CAN as `io.toml`
+  drivers (TARGET-01).
+- [ ] T2 `device.toml` on the device: name, network interfaces, Wi-Fi, Bluetooth and time server;
+  the crystal frequency and the Ethernet PHY detected (TARGET-02).
+- [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder).
+  - `chips/stm32f407.toml` and `chips/esp32c6.toml` follow spec 34 Appendix H, read by the `trust-chips` crate.
+  - The adapters' tables are checked against the chip files, and `xtask portability build-firmware stm32f407|esp32c6` builds each firmware from its chip file; both built and passed inspection.
+  - The values not confirmed from the repository are listed in each file's `sources.unchecked`, for the qualification items QS and QE. Components: `engine` only, until the S items land.) T3 Chip files and one firmware per chip: `chips/` entries for the STM32F407 and the ESP32-C6
+  (TARGET-03).
+  - 17 Oct, F407 port written (uncommitted, not yet built; spec 34 D.4):
+    - What it adds:
+      - Cargo features `stm32f401` (the default, unchanged) and `stm32f407` in
+        `trust-platform-stm32f4`.
+      - The chip table in `chip.rs`: clock, sectors, RAM, device ID, ports and kept pins.
+      - Pins by name in `pins.rs`, with the wiring checked when the firmware is built (T1).
+      - The crystal measured through TIM11 in `crystal.rs`, with the record `B1,CLOCK` (T2).
+      - `firmware/trust-stm32f407` on the shared fixture.
+    - 43 host tests.
+    - CI checks the F407 build; the supply-chain gate and the safety register include it.
+    - The `xtask portability` F407 profile is being written.
+    - Still open for T3:
+      - the `chips/` files;
+      - the bench run on the DISC1. The DISC1's ST-LINK virtual COM port may not reach USART2;
+        the first bench step checks this.
+      - CI building every firmware (D2).
+- [ ] T4 Installing truST on a chip and updating it, from `trust-runtime` and from the hardware
+  canvas (TARGET-04).
+- [ ] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
+- [ ] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
+- [ ] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
+- [ ] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
+  (TARGET-08).
+
+QS — STM32F407 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE):
+- [ ] QS1 The STM32F407 boots into its controlled state and runs the installed project with every
+  item of S, L1 (and L2 on a board with an Ethernet PHY) and T.
+- [ ] QS2 Retain on the F407, using C5.
+- [ ] QS3 Disturbed and mixed-rate workloads and extended tests; section 14 acceptance within the
+  F407's flash, RAM and stack, with completion-level timing evidence.
+- [ ] QS4 Release: the F407 firmware in the GitHub release (TARGET-09), last.
+
+QE — ESP32-C6 product and qualification (M5):
+- [ ] QE1 The C6 boots into its controlled state and runs the installed project with every item of
+  S, L1, L3, L4 and T.
+- [ ] QE2 Retain on the C6, using C5.
+- [ ] QE3 Disturbances and the common corpus; section 14 acceptance; the released bootloader and
+  the QIO retest.
+- [ ] QE4 Release: the C6 firmware in the GitHub release (TARGET-09), last.
+
+V — From VS Code, exactly as for trust-runtime (owner: "you shall be able to debug from vs code
+etc."):
+- [ ] V1 Both chips appear in Devices & Connections as runtimes, found over USB and on the network,
+  and connect like any trust-runtime; nothing in the extension is specific to boards.
+- [ ] V2 Live Values with write, force and release on both chips.
+- [ ] V3 Debugging on both chips with VS Code's debugger.
+- [ ] V4 Deployment and online change on both chips; installing and updating truST from the
+  hardware canvas.
+- [ ] V6 The simulator in VS Code applies a chip's memory and timing limits, so that a program is
+  known to fit before it is deployed (spec 34 DEPLOY-05).
+- [ ] V7 The new Devices & Connections (owner, 16 October 2026, approved the mockup
+  https://claude.ai/artifact/C29t3fGBmguexB9pgQzxUR: "im happy with it, but you need tomake sure we
+  dont loose any information"): specification 25 first, with a table that gives every piece of
+  information and every action of today's panel its place in the new one; then build it. The
+  extension only presents; the catalog, the USB scan, installing truST and every rule stay in Rust.
+  The panel's existing TypeScript logic moves into Rust as part of this item (owner, 16 October
+  2026: "yes, make the typescript logic in rust instead"): the inventories in
+  `~/projects/.artifacts/canvas-review/inventory-*.md` list about 200 places (topology merge and
+  identity, health and status rules, lifecycle button rules, form validation, discovery and browse
+  rules, and the extension's own edits of `runtime.toml` and `ads.toml`). Discovery (owner, 16
+  October 2026: "we need to support everything and make it better", then "agree" to all eight
+  proposals): one parallel search for everything from this computer or any runtime, one card per
+  device with all its protocols; full identity of each find (truST version, platform, chip and
+  login; Modbus maker, product and version; TwinCAT version; OPC UA product, security modes and
+  certificate; EtherCAT identity matched to ESI); new searches (USB chips and probes, serial ports
+  with a Modbus RTU scan, Bluetooth, OPC UA discovery servers, mDNS services, mesh peers, TwinCAT
+  routes); compare with the project; Identify (blink); presence and last seen; the verified faults
+  in `inventory-4-discovery.md` section E fixed (among them the same-computer TwinCAT check
+  dropped from the build in `dd476a78f`, the unused `discovery.interfaces` setting, and an
+  EtherCAT search that switches the bus to OP); the same functions from the command line. Claude
+  reviews every screenshot before the owner sees it. Steps, in order:
+  - Owner decisions of 16 October 2026 ("yes to all"): (1) `Create route` really creates the
+    TwinCAT route with the TwinCAT computer's administrator login, entered once and not stored;
+    (2) Identify blinks the output named in `[runtime.identify] output`, which the program may not
+    use; (3) a search ends after 10 s by default (60 s at most) and fieldbus scans run only after
+    a confirmation per bus; (4) the mDNS announcement carries version, platform and whether login
+    is needed; (5) the archived Windows default-endpoint work is shown to the owner and restored;
+    (6) stale MQTT input keeps counting as a connection problem, as today; (7) the pinned nightly
+    on the builder may produce the public-API snapshots; (8) the A6 servo work in
+    `~/projects/trust-platform-cia402-sv660n` is saved on its own branch.
+  - [x] V7a Specifications, shown to the owner before code: specification 25 (layout, chips as
+    runtimes, the install flow, the Issues and List views, and the table that gives every item of
+    `inventory-1..4` its place, built in `~/projects/.artifacts/canvas-review/preservation-table.md`);
+    specification 11 (one search, identity per protocol, new searches, compare with the project,
+    Identify, the announcement fields, the confidence vocabulary, authentication of the two web
+    routes); specification 34 for chips found over USB and the network.
+    Done 16 Oct (uncommitted): spec 25 §2 (one search), §5.1, §5.2, §5.4, §5.9, §5.11–§5.16 (the
+    family table; the item-by-item table of 1,403 items with its 39 decision points resolved);
+    spec 11 "One search, device identity, and presence" and §6.12; spec 34 STATE-08 and
+    TARGET-04. The owner approved the open decisions ("yes to all").
+  - Design, 17 Oct: `~/projects/.artifacts/devices-v7/design.md`.
+    - 26 slices: B1–B9 (view model and edits), C1a–C7 (search engine and CLI), D1–D7 (new panel and
+      the switch), plus D8 (the sidebar's lifecycle rules into Rust, lead decision O23).
+    - Every TypeScript logic place of the inventories maps to a Rust function. All 42 faults of
+      section E have a slice and a test, except E4 (S6/L2/L3), E39 (A19) and E42 (no such drivers).
+    - The 33 open points are decided in `~/projects/.artifacts/devices-v7/decisions.md`.
+    - Work happens in `~/projects/trust-platform-devices` (branch `feat/devices-connections` from
+      `a3b47bd47`). Wave 1: B1 is being written. C1a starts once S1a's registry move, validated
+      by batch `s1a3-1`, is copied over.
+  - [ ] V7b The panel's view model and rules in Rust (a trust-lsp or trust-runtime command answers
+    the whole graph, its labels, states, allowed actions and faults); the extension's edits of
+    `runtime.toml` and `ads.toml` move into Rust commands; Save writes to the runtime chosen in the
+    form.
+  - [ ] V7c The discovery engine in Rust: one parallel, time-bounded search with progress, from
+    this computer or a runtime; the identity fields; USB, serial with Modbus RTU, Bluetooth, OPC UA
+    discovery servers, mDNS services, mesh peers, TwinCAT routes; ADS port probing moved from
+    TypeScript; the verified faults of `inventory-4-discovery.md` section E; the CLI commands.
+  - [ ] V7d The new panel drawn from the Rust view model, with every item of the preservation
+    table, the faults found in today's panel fixed, and the VS Code tests.
+  - [ ] V7e Rendered review: Claude's screenshots of every screen and state in dark, light and
+    high-contrast themes, reviewed before the owner sees them.
+- [ ] V5 End to end: Claude runs every journey on both chips with the screenshots reviewed, then the
+  owner tests and approves; release last.
 
 QH — Hosted qualification (M4H):
 - [ ] QH1 Qualify the runtime-only, full and development builds on each claimed operating system
@@ -73,22 +387,46 @@ Fixed after CI caught them:
   (the clock resolves to microseconds there); each test now gets its own (`d45acf1d1`).
 
 Open, to be fixed:
-- [ ] Release guard: run the workspace documentation build (`cargo doc --no-deps --all-features`
+- [x] Release guard: run the workspace documentation build (`cargo doc --no-deps --all-features`
   with `-D warnings`, as CI does), so a doc error cannot pass the guard and fail CI. This changes
-  the shared release-gate scripts and their canonical copies in the primary checkout.
+  the shared release-gate scripts and their canonical copies in the primary checkout. (Done 16 Oct,
+  uncommitted: `release_candidate_prepare.py` runs `remote_docs` after Clippy and before the
+  space recheck, `release_candidate_guard.py` requires it, a new test compares it with CI's
+  Documentation job, and the skill names it; 45/45 guard tests pass in this worktree; the
+  canonical copies in the primary checkout are updated and copied here.)
 - [ ] Mutation testing (A05): stage 2 on the engine left 589 of 864 mutants uncaught (268 caught,
   6 unviable, 1 timeout). It ran only `trust-runtime-core`'s own unit tests; rerun the uncaught
   mutants against the `trust-runtime` integration and journey suites, then add tests for the real
   gaps.
 - [x] (Closed 16 Oct: lib-engine (158 tests) and int-budget (18 tests) passed; every Miri group finished with 0 undefined behaviour.) Miri: the x86_64 `lib-engine` and `int-budget` groups are still running. Every finished group
   is clean, including the s390x reruns of `int-state`, `lib-rest` and `int-bytecode`.
-- [ ] C6: replace the second-stage bootloader that espflash 4.6.0 bundles (ESP-IDF
+- [x] (Closed 17 Oct: the ESP-IDF v5.5.1 release-tag bootloader, DIO build sha256 `d04ac6be...`
+  and QIO build sha256 `f5c08198...`, runs the passing M2E firmware `c6-board-4` with the same
+  records apart from timing values; evidence `~/projects/.artifacts/runtime-portability-c6/
+  c6-bootloader-v5.5.1-dio/` and `-qio/`; spec 34 C6 bootloader paragraph updated.) C6: replace
+  the second-stage bootloader that espflash 4.6.0 bundles (ESP-IDF
   v6.1-beta1-497-g14f663f003e) with a released one; M5 requires it.
-- [ ] C6: quad-mode (QIO) flash did not boot with that bootloader, so the board runs DIO; retest
+  16 Oct finding: no espflash release bundles a C6 bootloader built from an ESP-IDF release tag
+  (4.3.0-4.5.0: `v5.5.1-838-gd66ebb86d2e`, sha256 402c2c64...; 4.0.1-4.2.0: `v5.4.1-426-g3ad36321ea`,
+  sha256 1c3afc49...; 4.6.0: the v6.1 beta). Plan: build the bootloader from the ESP-IDF v5.5.1 tag
+  on the builder with the board's flash settings (8 MB; QIO and DIO variants), record its hash,
+  and use it for the QIO retest below (QE3).
+  17 Oct: built from the ESP-IDF v5.5.1 release tag (`git describe --exact-match` = v5.5.1) on the
+  builder (`/mnt/HC_Volume_107089260/builder-storage/cold-tools/esp`): bootloader.bin sha256
+  `d04ac6be5eb4c6acc78323a07c63d774d3d9e629574021700ec36ff850845e2a`, version string `v5.5.1`,
+  default settings (DIO, 80 MHz, 2 MB header, log level 3; espflash rewrites mode and size at
+  flash time). Copy with its sdkconfig in `~/projects/.artifacts/c6-bootloader/`. Open: flash it
+  on the C6 (the board must be on the Pi's USB) with DIO and with QIO, and record the boots.
+- [x] (Closed 17 Oct: QIO boots and runs with the QIO-configured release bootloader, whose header
+  stays DIO as ESP-IDF builds it, flashed with `--flash-mode dio`; "SPI Mode : QIO", 101 cycles,
+  the watchdog test and `B1,DONE`. Root cause of the old failure: `--flash-mode qio` writes a QIO
+  header that the ROM cannot read before the quad-enable bit is set (`ets_loader.c 67`).) C6:
+  quad-mode (QIO) flash did not boot with that bootloader, so the board runs DIO; retest
   with the released bootloader.
 - [ ] C6: supervision during a debug halt is not evaluated (STATE-06).
-- [ ] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
-  in Rust (never resetting a board); specifications 25 and 34 first, then its own PR.
+- [x] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
+  in Rust (never resetting a board); specifications 25 and 34 first, then its own PR. (Merged 16 Oct into V1 and V7: specified in spec 25 §5.12 and spec 34 TARGET-04 (V7a, done);
+  the passive USB scan is V7c and the panel V7d.)
 
 **15 October, evening: ESP32-C6 M2E bring-up passes on the owned board (owner: "do it").**
 Branch `feat/runtime-portability-c6`: the C6 commits on H's head plus the supervisor test fix
@@ -173,7 +511,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
     2025-11 to 2026-03, rustc 1.95), while the workspace requires rustc 1.99, whose rustdoc
     emits format 61. A nightly install cannot close that gap; the reason-checked compile-fail
     tests guard the critical boundaries meanwhile.
-- [ ] Found by native Windows CI on `a446a0c91` (Test windows-latest failed both attempts on
+- [x] (Closed 17 Oct: PR #138 green on Linux, macOS and Windows at `99745a223`; merge waits for the release step.) Found by native Windows CI on `a446a0c91` (Test windows-latest failed both attempts on
   `every_runnable_example_builds_and_validates`): the project template
   (`bundle_template::render_runtime_toml`) and all 35 runnable examples name `unix://` control
   endpoints, which Windows rejects ("unsupported endpoint"), so a generated project or a shipped
@@ -194,6 +532,29 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   per-start token written only to the owner-only discovery file; (3) the template and the examples
   omit `endpoint` and `auth_token`, so every platform uses its default and no token is committed.
   Spec 11 is updated first.
+  17 Oct: implemented in `~/projects/trust-platform-endpoint` (branch
+  `feat/control-endpoint-default` from `origin/main` `161992b59`, uncommitted). It restores the
+  archived work without board content and adds the fixes from its review. Spec 11 §6.8.0a,
+  §6.8, §6.8.1 and §6.12, spec 13 and spec 25 §3.2 are updated.
+  - Builder batch `e1` (Linux) passed:
+    - fmt, 4 s; clippy with all features, 175 s; docs with warnings denied, 39 s;
+    - `just test-all`, 1,032 s;
+    - VS Code test registration and `npm test` under Xvfb, 165 s;
+    - diagram render, manifest and drift.
+  - The architecture doctor's only failures were the two checks that need git, because the
+    builder copy has none: `runtime_boundary_fail_closed_ast_grep_gate.sh` and
+    `runtime_safety_fail_closed_ast_grep_gate.sh`. Both pass in the worktree on the Pi.
+  - Committed with the owner's permission ("commit and push if it make sence now", 17 Oct) as
+    `e1e31d060` (the rules and the guard's documentation step) and `6dc90dbc2` (the endpoint
+    feature).
+  - Pushed as draft PR #138 for the Windows and macOS CI runs.
+  - The first run caught the public-docs search check: a search for "control endpoint" no longer
+    found the operation guide in the top three. Fixed in the guide at `99745a223`; the docs
+    checks were run on the builder before the push.
+  - At `99745a223`, 23 checks pass, among them Test on ubuntu-latest, macos-latest and
+    windows-latest, and 3 schedule-only jobs skip.
+  - Eleven examples keep the Unix socket their own instructions name and run on Linux and macOS
+    only, as the changelog says.
 - [x] Guard 17 on `59b2f90ea` failed `remote_test_all` in
   `opcua_interop_reads_exposed_scalars_with_reference_client`: two OPC UA fixture servers in
   parallel were handed the same released port, one server thread panicked on bind, and
@@ -253,7 +614,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   (`verification/fuzz-program.toml` and its closed contract); its campaign record still needs a
   run at the committed source. The `ci.yml` execution-source digests had drifted on this branch
   (19f3b6787, 0f066c9fb, 887b84fd2 only added commands) and are re-pinned.
-- [ ] A08 (`stateful_lifecycle_sequences.rs`, model in `support/lifecycle_model.rs`): 1–24-step
+- [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder). All A08 tests passed in `just test-all`; a trust-debug test that seeded `%M` bytes now writes its value after the build, as the new `%M` rule requires.) A08 (`stateful_lifecycle_sequences.rs`, model in `support/lifecycle_model.rs`): 1–24-step
   sequences of scan, checked and queued writes, forces, pause/resume, warm/cold restart, retain
   save and online change (accepted, malformed, incompatible) against an explicit spec model,
   comparing every observable after each step. Findings:
@@ -265,9 +626,133 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   - Defect (found reviewing A08): control `pause`/`resume` replied `paused`/`running` on a faulted
     or stopped resource whose scheduler thread had exited; spec 11 §6.9 now requires a stable
     error naming the state, and recovery only through `restart`.
-  - Spec gaps recorded for a spec pass: values after a scan that faults after the scan-boundary
-    writes; two queued writes to one target; writes and forces while faulted; operations while
-    the debugger holds the resource; direct-address initializers at restart.
+  - The five spec gaps of the first version are specified in spec 11 and pinned by native tests
+    (written 17 October). The two defects that closing gaps 4 and 5 found (a stop during a debugger
+    hold, and `%M` variables never initialized) are fixed in the product and pinned by the tests
+    named in the two items after this one. The item closes after the next validation batch; none
+    of the tests below or of those two items has run yet. The model now defines every operation
+    in every state except a scan under a debugger hold, a pause of a faulted resource and a
+    retain save of a faulted resource (`Model::allows`), and the fixtures declare
+    `lamp AT %QX0.1 : BOOL := TRUE`, a located output that no program assigns. Names are tests in
+    `stateful_lifecycle_sequences.rs` unless a file is given:
+    1. Values after a scan that faults after the scan-boundary writes: spec 11 §6.6 "State after a
+       faulting scan" (pointer in §6.2). `scan_that_faults_after_a_queued_write_keeps_the_write`,
+       `scan_that_faults_after_a_force_keeps_the_forced_value_and_removes_the_force`,
+       `queued_write_that_causes_the_fault_stays_applied`,
+       `refused_queued_write_leaves_the_fault_condition_in_place`,
+       `faulting_scan_does_not_publish_a_located_variable`; in `faulting_scan_state.rs`
+       `faulting_scan_keeps_what_it_completed_and_commits_no_output` and
+       `recovery_after_a_faulting_scan_does_not_replay_the_boundary_writes` (the statement before
+       the failing one, which the model program cannot show). Existing:
+       `installed_cycle_contract_tests.rs` `failed_driver_submission_restores_flat_q_without_reverting_plc_task_effects`.
+    2. Two queued writes to one target: spec 11 §6.9.2, second paragraph (with §6.8.1).
+       `second_queued_write_to_one_target_replaces_the_first`,
+       `replaced_queued_write_does_not_return_when_the_later_one_is_refused`,
+       `force_wins_over_a_queued_write_to_the_same_target`. Existing queue tests:
+       `mutation_contract.rs` `pending_global_write_replaces_same_target_in_place`,
+       `request_queue_bounds.rs` `set_queue_refuses_a_new_target_past_1024_and_replaces_a_queued_one`.
+    3. Writes and forces while faulted: spec 11 §6.9.2, last paragraph.
+       `writes_and_forces_accepted_while_faulted_are_cleared_by_the_recovery_commit`,
+       `online_change_recovery_clears_what_was_accepted_while_faulted`,
+       `failed_recovery_leaves_what_was_accepted_while_faulted_pending`,
+       `checked_write_while_faulted_changes_only_its_destination`. Existing:
+       `failure_injection_warm_restart_state.rs` `failed_warm_restart_keeps_a_latched_fault_and_its_cause`
+       (accepted while faulted, a refused scan leaves them pending, `clear_fault` does not clear
+       them), `faulted_resource_lifecycle.rs` `mesh_writes_are_dropped_while_faulted`.
+    4. Operations while the debugger holds the resource: spec 11 §6.9, "Operations while the
+       debugger holds the scan". `restart_and_replacement_between_scans_leave_the_debugger_hold_in_place`,
+       `refused_candidates_under_a_hold_leave_the_hold_and_the_mutations_in_place`,
+       `writes_and_forces_under_a_hold_behave_as_without_a_hold`; in `debugger_hold_operations.rs`
+       (scan on a second thread) `scan_started_under_a_hold_applies_its_boundary_writes_then_waits_before_its_first_statement`
+       and `restart_request_waits_for_the_hold_and_is_taken_after_the_held_scan_completes`.
+       A stop request during a hold was not a gap but a defect, fixed and tracked in the second
+       item below.
+    5. Direct-address initializers at restart: spec 11 §6.7 "Directly represented variables at
+       restart". `restart_reinitializes_a_located_variable_and_carries_its_output_image_over`,
+       `faulting_scan_does_not_publish_a_located_variable`; in `located_variables_restart.rs`
+       `restart_gives_a_retained_located_output_its_value_by_mode_and_carries_its_image_over` and
+       `restart_gives_a_located_input_its_initial_value_until_the_next_scan_samples_the_image`.
+       Configuration actions with a direct target are pinned by spec 34 §10 and the core test
+       `restart_tests.rs` `warm_and_cold_restart_reapply_ordered_direct_actions_before_publishing_images`.
+       The `%M` part was not a gap but a defect, fixed and tracked in the first item below.
+- [x] (Closed 17 Oct with A08; Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder).) Defect found closing A08 gap 5, fixed 17 October (nothing has run; closes with the A08 item
+  after the next validation batch): a variable located at `%M` was not initialized at first
+  start, by a cold restart, or by a warm restart when it is `NON_RETAIN` or unqualified
+  (`IEC_DECISIONS.md`, 2026-07-05); the first scan copied the zeroed or carried marker image over
+  it. Spec 11 §6.7 and IEC 61131-3 Ed.3 §6.5.6.1–§6.5.6.2 (Figure 9) require the declared initial
+  value; only system inputs (`%I`) are exempt (note to §6.5.5.3). Root cause: every scan starts
+  with `sample_input_image` (`engine/cycle.rs:39`, `io/staging.rs`), which loads each `Input` and
+  `Memory` binding from its image into the variable (spec 11 §6.4: "`%M` process image -> bound
+  variables"; `vars_access.rs` `var_config_memory_binding_syncs_with_program_storage`), and no code
+  published an initialized `%M` variable into its image: the images start zeroed or are carried
+  over (`restart.rs` `copy_process_images`, spec 34 §10) and `bind_source_declaration` only binds.
+  So `VAR_GLOBAL m AT %MW0 : INT := INT#5; seen : INT; END_VAR PROGRAM Main seen := m; END_PROGRAM`
+  read `m` = 0 in its first scan, and after `m := INT#100;`, one scan and a cold restart it read
+  100 again. Fix, in `trust-runtime-core` `vm/engine`: `io/staging.rs` `publish_marker_image` is
+  the `%M` half of the end-of-cycle publication (`publish_images(.., markers_only)`; all or
+  nothing, and a no-op without `%M` bindings). It runs at the end of `build` (`mod.rs`: first
+  start, cold and warm restart and online change, the retained globals already imported), at the
+  end of `restore_retained_program_values` (`restart.rs`: a retained program variable restored
+  after the build) and inside the journaled `apply_retained_inner` (`retain_apply.rs`, when it
+  applied a value: a checkpoint from the store, an online change with a durable snapshot, and a
+  standalone `apply_retain_snapshot` such as the startup `load_retain_store`). Deviation from
+  the proposal that stood here, found while writing the fix: the publication runs after the
+  configuration actions, not before them. A seeded image (`RuntimeBuilder::build`,
+  `runtime/builder/seeds/images.rs`) records an action for the last byte of every non-empty
+  area, with value zero when nothing was seeded there, so a publication before the actions would
+  let that zero clear the high byte of an initialized marker word. The actions still set exactly
+  their bytes where no variable is bound; a located variable's value wins on the bytes it
+  covers (stated in spec 11 §6.7). `%I` and `%Q` are unchanged. Tests, in
+  `located_variables_restart.rs`:
+  `marker_variable_has_its_initial_value_in_the_image_and_the_first_scan_after_first_start`,
+  `marker_variable_is_reinitialized_by_a_cold_restart_and_a_warm_restart_without_retain`,
+  `marker_variable_keeps_its_retained_value_in_the_image_through_a_warm_restart`,
+  `marker_variable_restarted_from_the_store_has_the_checkpoint_value_in_the_image`,
+  `retained_program_marker_variable_has_its_retained_value_in_the_image_after_a_warm_restart`
+  and `online_change_publishes_the_initial_or_retained_value_of_a_marker_variable`.
+  Same root cause, a fourth caller, fixed the same day: a `%M` binding added or changed after
+  admission (`bind_checked_io`, `configure_io_bindings`, through `reconfigure_resource_module`)
+  ran no initializer and published nothing, so the next scan loaded the grown or existing marker
+  bytes over the variable's current value. `ResourceReconfiguration::commit`
+  (`vm/engine/reconfiguration.rs`) now stages, before anything is installed, the patches of the
+  marker bindings that the candidate adds or changes relative to the installed module
+  (`io/staging.rs` `stage_marker_patches`, built from the same `stage_patches` and
+  `binding_patch` as the end-of-cycle publication, against the grown image length), then installs
+  the images and applies them. Unchanged bindings, other marker bytes and `%I`/`%Q` are not
+  touched; a refusal leaves the old bindings and images. Tests, in `located_variables_restart.rs`:
+  `binding_a_variable_to_a_marker_word_publishes_its_value_into_the_grown_image`,
+  `binding_a_variable_to_markers_leaves_every_other_marker_byte_as_a_driver_wrote_it`,
+  `binding_a_variable_again_to_the_same_marker_address_publishes_nothing`,
+  `binding_a_variable_to_an_input_or_an_output_publishes_nothing` and
+  `binding_a_variable_to_a_hierarchical_marker_publishes_its_value`.
+- [x] (Closed 17 Oct with A08; Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder).) Defect found closing A08 gap 4, fixed 17 October (nothing has run; closes with the A08 item
+  after the next validation batch): a stop request did not end the resource while the debugger
+  held the scan. Root cause: `ResourceControl::stop` and `ResourceHandle::stop` only set the stop
+  flag and woke the clock, the scan thread waited on the debugger's condition variable without a
+  timeout and without looking at that flag (`host/debug/control/hook.rs`), and the loop reads the
+  flag only at its top (`scheduler/runner_loop.rs:129`). The control `shutdown` and the
+  SIGINT/SIGTERM handler end in the same `stop` (`bin/trust-runtime/run/runtime/signals.rs:23-27`),
+  and the only path that released a hold was the control `resume`
+  (`trust-runtime-services/src/resource/operations.rs:90`), so a runtime held at a breakpoint or by
+  a debug-mode pause applied no stop outputs, saved no retained values and did not exit (the
+  process joins the scan thread, `bin/trust-runtime/run/runtime/entry.rs:562`) until someone
+  resumed; a service manager's SIGTERM timed out. Spec 13 ("Pause") says an independent stop
+  retains its normal runtime semantics. Fix: the spawned `ResourceHandle` and its
+  `ResourceControl` hold the runtime's `DebugControl` (`scheduler/runner_api.rs`,
+  `scheduler/handle_shared.rs`), and both `stop` calls go through `request_stop`: set the flag,
+  `DebugControl::release_for_stop` (`host/debug/control/api/lifecycle_actions.rs`: mode back to
+  running, steps, pending stop and snapshot cleared, `stop_requested` set, condition variable
+  notified), wake the clock. While `stop_requested` is set the hook returns at once, at its entry
+  and at the top of its wait loop (`hook.rs`), so the suspended scan completes without a further
+  pause, step or breakpoint (also when a client pauses again before the thread wakes) and the
+  loop then runs the normal stop path: stop outputs, retain save, exit. `spawn` clears the state
+  for a new resource thread (`rearm_after_stop`). The held scan is completed, not abandoned: a
+  scan abort that is not a fault does not exist (the hook returns no result, and any error from it
+  latches the engine fault). Tests, in `debugger_hold_operations.rs`:
+  `stop_request_during_a_hold_ends_the_resource_through_the_normal_stop_path`,
+  `stop_through_the_control_handle_is_not_held_again_by_a_pause_that_follows` and
+  `resource_thread_started_after_a_stop_is_held_by_the_debugger_again`. Spec 11 §6.9 states the
+  rule.
 - [x] (Closed 16 Oct: tests in 81dd2c482, validated by focused check 4.) A10/A15/A11 tests: retain checkpoint truncation at every length and corrupt headers, the
   deadline swept over every poll point, failed periodic save, candidate refusal on a live
   runtime, allocation refusal in retained apply and graph transfer, store faults in warm restart,
@@ -466,13 +951,14 @@ branch, specifications first. Evidence: external `runtime-portability-h/fix-all/
   (windows-latest) failed both attempts in `every_runnable_example_builds_and_validates`
   (Unix-socket control endpoints, recorded at the top of this checkpoint), and the Release Gate
   Report reports that failure. The next push carries the test's Windows endpoint handling.
-- [ ] Not done: the public-API baselines (`docs/internal/architecture/public-api/*.txt`) are not
+- [x] (Closed 17 Oct: regenerated by batch `s1a3-2` with the pinned `nightly-2026-10-14` (owner decision 7) and cargo-public-api 0.51.0, in a target of their own; `trust-runtime-core.txt` and `trust-runtime.txt` changed, `trust-plcopen.txt` is unchanged. Still no gate compares them.) Not done: the public-API baselines (`docs/internal/architecture/public-api/*.txt`) are not
   regenerated. `cargo public-api` 0.52 needs a nightly toolchain, which the builder lacks;
   installing one is the owner's decision. No gate compares them.
 - [x] (Superseded 16 Oct: each question was decided (MQTT stale input, bounded event store, test-only create_instance).) New open questions:
   - MQTT input-freshness states still count as degraded connection health, so they start
     reconnect backoff and unconfirm a safe-state handoff (spec 34 §11.1 keeps that behaviour);
-    whether stale input should affect the output path is undecided.
+    decided by the owner on 16 October 2026: stale input keeps counting as a connection problem,
+    as today.
   - The runtime event buffer is unbounded while no event sender is attached, and a refused
     request from a caller without an error channel adds a `write_rejected` event to it.
   - `VariableStorage::create_instance` (panicking) remains public for tests; production
@@ -676,14 +1162,20 @@ first native runs. Evidence: external `runtime-portability-h/A01-audit/`.
   - #134 (HMI modules served from the build machine's path) is fixed on the HMI branch.
   - Focused check 7 with both fixes (not acceptance): workspace 9,555 passed, 0 failed, 30
     ignored; core lanes, doc tests, compositions, Clippy and format pass.
-- [ ] Deferred to scope C (ignored with reason): a handle taken before a warm restart or body
+- [x] (Merged 17 Oct into C2, which owns this work and names this item.) Deferred to scope C
+  (ignored with reason): a handle taken before a warm restart or body
   replacement can resolve into the new generation (MEM-07, UPDATE-04). `ValueRef` carries no
   generation in U or H; spec 34 assigns generation tokens to UPDATE-03 to UPDATE-08.
-- [ ] Open, not blocking A01: debugger scratch slots read Null at a `FOR` body stop (needs a
-  probe); HOST-02 deployment-level limit record (spec: proposed); the M0 feature matrix (A19);
-  RETAIN-01 checkpoint sequence and completion fields (C); test seams for projection and capture
-  failures (the debugger write queues are bounded since 15 October);
-  the F401 profile limits are not host-testable.
+- [x] (Split 17 Oct into the items that own each part, so each is tracked once: the `FOR` scratch
+  slot defect and the capture-failure test seams into S3, the projection-failure test seam into
+  S2, the HOST-02 deployment limit record into C4, RETAIN-01 checkpoint fields into C5, the M0
+  feature matrix into A19 (the Windows default-endpoint work, see the Windows item above); the
+  F401 profile limits are obsolete because the STM32F407 replaced the F401.) Open, not blocking
+  A01: debugger scratch slots read Null at a `FOR` body stop (needs a probe); HOST-02
+  deployment-level limit record (spec: proposed); the M0 feature matrix (A19); RETAIN-01
+  checkpoint sequence and completion fields (C); test seams for projection and capture failures
+  (the debugger write queues are bounded since 15 October); the F401 profile limits are not
+  host-testable.
 - [x] A01 batch 6 on `482503bfe` (builder, `H-cost-model-6`, the trimmed run-5 harness
   `batch-a01.sh`): 50 of 54 steps pass, including core lanes, i686, firmware link and
   inspection, compositions, applications, real databases, VS Code 1.109.0 and stable, rustdoc
@@ -3056,8 +3548,22 @@ preserving the existing 64-edge admission bound and actual call-depth limit.
 No validation pass or H commit/push is claimed. No functions are removed from any composition.
 
 - [x] (Closed 16 Oct: STBC 3.0 checksum decisions and temporal ABI tests landed.) H-TIME-01: Versioned 3.0 writer/reader/admission and preserved 1.1/2.0 ABI.
-- [ ] H-TIME-02: Uniform temporal SIZEOF, relative extents and array strides.
-- [ ] H-TIME-03: Exact negative/large temporal round trips, legacy atomic refusals,
+- [x] (Closed 17 Oct with evidence in v0.24.75, PR #137 CI green on Linux, Windows and macOS:
+  `crates/trust-runtime-core/tests/temporal_storage_abi.rs`
+  `all_temporal_types_and_array_strides_use_the_artifact_abi` and
+  `relative_layout_size_includes_gaps_and_aliases_only_in_the_current_abi`;
+  `trust-hir/src/db/temporal_storage/tests.rs` SIZEOF tests; register IR
+  `stack_and_register_sizeof_use_the_installed_temporal_abi`.) H-TIME-02: Uniform temporal
+  SIZEOF, relative extents and array strides.
+- [x] (Closed 17 Oct with evidence in v0.24.75, PR #137 CI green on three OS:
+  `uniform_temporal_storage_roundtrips_negative_and_large_time_and_dt`,
+  `legacy_temporal_narrowing_refuses_before_aliases_or_backing_change`,
+  `legacy_physical_write_and_cross_abi_retained_replacement_reject_atomically`,
+  `relative_wire_records_cannot_be_encoded_or_decoded_as_an_older_format`,
+  `toggling_the_legacy_temporal_flag_fails_the_checksum`, the three retained-overlay ABI tests,
+  `uniform_temporal_storage_keeps_the_explicit_time_dword_millisecond_codec` and
+  `saved_two_point_zero_bytes_keep_their_abi_and_round_trip_unchanged`.) H-TIME-03: Exact
+  negative/large temporal round trips, legacy atomic refusals,
   old-reader rejection, retain/update ABI compatibility and unchanged I/O codec.
   Preserve saved 2.0 corpora; the conditional H board replay uses a separate 3.0
   GPIO artifact whose existing GPIO/depth oracle depends on full-width physical

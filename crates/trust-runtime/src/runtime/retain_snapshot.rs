@@ -1,4 +1,6 @@
-//! Host presentation of committed common-engine retain migration events.
+//! Retain key helpers of the host tests. The text of committed retain migration events is shared
+//! runtime code (`trust_runtime_services::events::retain_apply_event`).
+#[cfg(test)]
 use crate::value::Value;
 #[cfg(test)]
 use trust_runtime_core::retain::{retain_on_warm, value_is_retainable};
@@ -6,76 +8,6 @@ use trust_runtime_core::retain::{retain_on_warm, value_is_retainable};
 use {crate::RetainPolicy, indexmap::IndexMap, smol_str::SmolStr};
 #[cfg(test)]
 const PROGRAM_RETAIN_KEY_PREFIX: &str = "@program/";
-fn retain_value_kind(value: &Value) -> &'static str {
-    match value {
-        Value::Bool(_) => "BOOL",
-        Value::SInt(_) => "SINT",
-        Value::Int(_) => "INT",
-        Value::DInt(_) => "DINT",
-        Value::LInt(_) => "LINT",
-        Value::USInt(_) => "USINT",
-        Value::UInt(_) => "UINT",
-        Value::UDInt(_) => "UDINT",
-        Value::ULInt(_) => "ULINT",
-        Value::Real(_) => "REAL",
-        Value::LReal(_) => "LREAL",
-        Value::Byte(_) => "BYTE",
-        Value::Word(_) => "WORD",
-        Value::DWord(_) => "DWORD",
-        Value::LWord(_) => "LWORD",
-        Value::Time(_) => "TIME",
-        Value::LTime(_) => "LTIME",
-        Value::Date(_) => "DATE",
-        Value::LDate(_) => "LDATE",
-        Value::Tod(_) => "TOD",
-        Value::LTod(_) => "LTOD",
-        Value::Dt(_) => "DT",
-        Value::Ldt(_) => "LDT",
-        Value::String(_) => "STRING",
-        Value::WString(_) => "WSTRING",
-        Value::Char(_) => "CHAR",
-        Value::WChar(_) => "WCHAR",
-        Value::Array(_) => "ARRAY",
-        Value::Struct(_) => "STRUCT",
-        Value::Enum(_) => "ENUM",
-        Value::Reference(_) => "REFERENCE",
-        Value::Instance(_) => "INSTANCE",
-        Value::Null => "NULL",
-    }
-}
-
-pub(super) fn retain_migration_detail(before: &Value, after: &Value) -> String {
-    if let (Value::Struct(before), Value::Struct(after)) = (before, after) {
-        let mut changes = Vec::new();
-        for name in before.fields().keys() {
-            if !after
-                .fields()
-                .keys()
-                .any(|after_name| after_name.eq_ignore_ascii_case(name.as_str()))
-            {
-                changes.push(format!("dropped field {name}"));
-            }
-        }
-        for name in after.fields().keys() {
-            if !before
-                .fields()
-                .keys()
-                .any(|before_name| before_name.eq_ignore_ascii_case(name.as_str()))
-            {
-                changes.push(format!("added field {name}"));
-            }
-        }
-        if !changes.is_empty() {
-            return changes.join(", ");
-        }
-    }
-    format!(
-        "migrated retained value from {} to {}",
-        retain_value_kind(before),
-        retain_value_kind(after)
-    )
-}
-
 #[cfg(test)]
 fn program_retain_key(program: &str, variable: &str) -> SmolStr {
     SmolStr::new(format!("{PROGRAM_RETAIN_KEY_PREFIX}{program}/{variable}"))

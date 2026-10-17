@@ -2,8 +2,6 @@
 
 #![allow(missing_docs)]
 
-use smol_str::SmolStr;
-
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, VariableStorage};
 use crate::program_model::{Expr, LValue};
@@ -235,113 +233,8 @@ impl DebugSnapshot {
     }
 }
 
-/// Runtime scheduling and diagnostic events.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RuntimeEvent {
-    /// A queued/forced engineering value was rejected by the installed owner.
-    /// Queue acceptance is not evidence that a value reached PLC storage.
-    WriteRejected {
-        /// Requested destination, for operator/debugger reporting.
-        target: SmolStr,
-        /// The checked application error; this is not a PLC execution fault.
-        error: String,
-        /// Cycle-boundary logical time of the attempted application.
-        time: Duration,
-    },
-    /// Cycle start event.
-    CycleStart {
-        /// Cycle counter value.
-        cycle: u64,
-        /// Time at cycle start.
-        time: Duration,
-    },
-    /// Cycle end event.
-    CycleEnd {
-        /// Cycle counter value.
-        cycle: u64,
-        /// Time at cycle end.
-        time: Duration,
-    },
-    /// Task execution start.
-    TaskStart {
-        /// Task name.
-        name: SmolStr,
-        /// Task priority (0 is highest).
-        priority: u32,
-        /// Time at task start.
-        time: Duration,
-    },
-    /// Task execution end.
-    TaskEnd {
-        /// Task name.
-        name: SmolStr,
-        /// Task priority (0 is highest).
-        priority: u32,
-        /// Time at task end.
-        time: Duration,
-    },
-    /// Task missed one or more periodic activations.
-    TaskOverrun {
-        /// Task name.
-        name: SmolStr,
-        /// Missed activation count.
-        missed: u64,
-        /// Time when the overrun was detected.
-        time: Duration,
-    },
-    /// Resource fault event.
-    Fault {
-        /// Fault message.
-        error: String,
-        /// Time when the fault was recorded.
-        time: Duration,
-    },
-    /// Safe-state application failed while handling a resource fault.
-    SafeStateFailed {
-        /// Original fault message.
-        root: String,
-        /// Safe-state failure message.
-        error: String,
-        /// Time when the safe-state failure was recorded.
-        time: Duration,
-    },
-    /// A retained value no longer has a matching retained global and was dropped.
-    RetainOrphanDropped {
-        /// Retained variable name.
-        name: SmolStr,
-        /// Time when the orphan was dropped.
-        time: Duration,
-    },
-    /// A retained value was explicitly migrated to the current declared type.
-    RetainMigrationApplied {
-        /// Retained variable name.
-        name: SmolStr,
-        /// Migration detail.
-        detail: String,
-        /// Time when the migration was applied.
-        time: Duration,
-    },
-    /// A control audit event could not be delivered to the configured audit sink.
-    AuditDropped {
-        /// Control request id associated with the dropped audit event.
-        request_id: u64,
-        /// Control request type associated with the dropped audit event.
-        request_type: SmolStr,
-        /// Send/write failure detail.
-        error: String,
-        /// Time when the audit drop was observed.
-        time: Duration,
-    },
-    /// A request reached a surface that is disabled by feature/configuration.
-    FeatureDisabled {
-        /// Disabled feature name.
-        feature: SmolStr,
-        /// Optional request type that attempted to use the feature.
-        request_type: Option<SmolStr>,
-        /// Time when the disabled feature request was observed.
-        time: Duration,
-    },
-}
+// Runtime events are shared runtime code (spec 34 ARCH-11).
+pub use trust_runtime_services::events::RuntimeEvent;
 
 /// Stop reason for debugger events.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,0 +1,20 @@
+[package]
+name = "trust-runtime-services"
+description = "Shared truST runtime services that build without an operating system"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Declared directly: the workspace serde and serde_json entries enable std.
+serde = { version = "1.0.229", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
+smol_str = { workspace = true }
+# The engine's records: resource state, restart mode, watchdog and fault policies, durations and
+# runtime errors. The workspace entry builds the core without std.
+trust-runtime-core = { workspace = true }
+
+[lints]
+workspace = true

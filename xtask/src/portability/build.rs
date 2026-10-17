@@ -1,11 +1,11 @@
 //! The reference firmware's single build configuration, with local paths normalized.
-use super::board::BoardProfile;
+use super::firmware::Firmware;
 use anyhow::{ensure, Context, Result};
 use std::{env, fs, path::Path, process::Command};
 
-pub(super) fn firmware(root: &Path, board: &BoardProfile, report: &str) -> Result<()> {
+pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result<()> {
     let root = root.canonicalize()?;
-    let directory = root.join(board.firmware_dir);
+    let directory = root.join(&firmware.firmware_dir);
     let config = fs::read_to_string(directory.join(".cargo/config.toml"))?;
     let cargo_home = env::var_os("CARGO_HOME")
         .map(std::path::PathBuf::from)
@@ -37,7 +37,7 @@ pub(super) fn firmware(root: &Path, board: &BoardProfile, report: &str) -> Resul
     }
     registry_sources.sort();
     let mut flags = flags(
-        board,
+        firmware,
         &config,
         &root,
         &cargo_home,
@@ -47,7 +47,7 @@ pub(super) fn firmware(root: &Path, board: &BoardProfile, report: &str) -> Resul
     let binary_flags = artifacts.map_flags(&mut flags)?;
     let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
     let mut configuration = serde_json::json!({
-        "board": board.name, "target": board.target, "profile": "release", "rustflags": flags,
+        "firmware": firmware.name, "target": firmware.target, "profile": "release", "rustflags": flags,
         "binary_rustflags": binary_flags, "manifest": directory.join("Cargo.toml"),
         "status": "started",
         "note": "Path normalization does not claim cross-checkout binary reproducibility."
@@ -61,9 +61,9 @@ pub(super) fn firmware(root: &Path, board: &BoardProfile, report: &str) -> Resul
             "--locked",
             "--release",
             "--target",
-            board.target,
+            firmware.target.as_str(),
             "--bin",
-            board.bin,
+            firmware.bin.as_str(),
             "--message-format=json-render-diagnostics",
             "--",
         ])
@@ -89,13 +89,14 @@ pub(super) fn firmware(root: &Path, board: &BoardProfile, report: &str) -> Resul
         "reference firmware build failed: {}",
         output.status
     );
-    configuration["artifacts"] = artifacts.retain(std::str::from_utf8(&output.stdout)?, board)?;
+    configuration["artifacts"] =
+        artifacts.retain(std::str::from_utf8(&output.stdout)?, &firmware.bin)?;
     configuration["status"] = "linked".into();
     super::write_report(report, configuration)
 }
 
 fn flags(
-    board: &BoardProfile,
+    firmware: &Firmware,
     config: &str,
     root: &Path,
     cargo_home: &Path,
@@ -105,7 +106,7 @@ fn flags(
     let config: toml::Value = toml::from_str(config)?;
     let mut flags = config
         .get("target")
-        .and_then(|targets| targets.get(board.target))
+        .and_then(|targets| targets.get(firmware.target.as_str()))
         .and_then(|target| target.get("rustflags"))
         .and_then(toml::Value::as_array)
         .context("firmware target rustflags must be an array")?
@@ -122,7 +123,7 @@ fn flags(
             .any(|flag| flag.contains("machine-outliner-reruns")),
         "reference firmware requires the compiler's default outliner pass count"
     );
-    for pair in board.required_rustflags {
+    for pair in firmware.required_rustflags {
         ensure!(
             flags
                 .windows(2)
@@ -197,7 +198,7 @@ mod tests {
             ],
         );
         let flags = flags(
-            &BoardProfile::nucleo_f401re(),
+            &Firmware::nucleo_f401re(),
             config,
             Path::new(root),
             Path::new(cargo_home),
@@ -220,16 +221,16 @@ mod tests {
 
     #[test]
     fn extra_outliner_pass_is_rejected_before_building_firmware() {
-        let board = BoardProfile::nucleo_f401re();
+        let firmware = Firmware::nucleo_f401re();
         let config = include_str!("../../../firmware/trust-nucleo-f401re/.cargo/config.toml");
         let mut config: toml::Value = toml::from_str(config).unwrap();
-        let target_flags = config["target"][board.target]["rustflags"]
+        let target_flags = config["target"][firmware.target.as_str()]["rustflags"]
             .as_array_mut()
             .unwrap();
         target_flags.push("-C".into());
         target_flags.push("llvm-args=-machine-outliner-reruns=1".into());
         let error = flags(
-            &board,
+            &firmware,
             &toml::to_string(&config).unwrap(),
             Path::new("task"),
             Path::new("cargo"),
@@ -250,7 +251,7 @@ mod tests {
             cargo_home.join("registry/src/second"),
         ];
         let flags = flags(
-            &BoardProfile::nucleo_f401re(),
+            &Firmware::nucleo_f401re(),
             config,
             root,
             cargo_home,
@@ -281,11 +282,48 @@ mod tests {
     }
 
     #[test]
+    fn f407_profile_accepts_its_firmware_config_and_requires_the_profile_script() {
+        let firmware = Firmware::parse("stm32f407").unwrap();
+        let config = include_str!("../../../firmware/trust-stm32f407/.cargo/config.toml");
+        let build = |config: &str| {
+            flags(
+                &firmware,
+                config,
+                Path::new("task"),
+                Path::new("cargo"),
+                Path::new("library"),
+                &[],
+            )
+        };
+        let accepted = build(config).unwrap();
+        for expected in [
+            ["-C", "link-arg=-Tlink.x"],
+            ["-C", "link-arg=-Tprofile.x"],
+            ["-C", "link-arg=--icf=safe"],
+        ] {
+            assert!(
+                accepted.windows(2).any(|pair| pair == expected),
+                "missing {expected:?}"
+            );
+        }
+        // The map flag, which the artifacts step replaces, is there exactly once.
+        let maps = accepted
+            .windows(2)
+            .filter(|pair| pair[0] == "-C" && pair[1].starts_with("link-arg=-Map="))
+            .count();
+        assert_eq!(maps, 1);
+        // Without profile.x the linker assertions and `__firmware_load_end` would be missing.
+        let without_profile = config.replace("link-arg=-Tprofile.x", "link-arg=-Tother.x");
+        let error = build(&without_profile).unwrap_err().to_string();
+        assert!(error.contains("omit"), "{error}");
+    }
+
+    #[test]
     fn c6_profile_requires_its_linker_script() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let firmware = Firmware::parse("esp32c6").unwrap();
         let config = "[target.riscv32imac-unknown-none-elf]\nrustflags = [\"-C\", \"link-arg=-Tlinkall.x\", \"-C\", \"link-arg=-Map=trust-esp32c6-reference.map\"]\n";
         let accepted = flags(
-            &board,
+            &firmware,
             config,
             Path::new("task"),
             Path::new("cargo"),
@@ -298,7 +336,7 @@ mod tests {
             .any(|pair| pair == ["-C", "link-arg=-Tlinkall.x"]));
         let without_linker_script = config.replace("link-arg=-Tlinkall.x", "link-arg=-Tother.x");
         assert!(flags(
-            &board,
+            &firmware,
             &without_linker_script,
             Path::new("task"),
             Path::new("cargo"),

@@ -1,0 +1,30 @@
+//! Shared truST runtime services (specification 34, ARCH-11 and ARCH-14): the runtime components
+//! above the engine that every target runs, built without an operating system.
+//!
+//! [`protocol`] holds the control connection's request and response envelope, [`access`] its
+//! access rights and [`dispatch`] the request pipeline. [`status`], [`events`], [`metrics`] and
+//! [`resource`] answer the status, event and resource operations and hold the supervisor's
+//! decisions. [`ports`] names what a platform supplies. [`runner`] is the single-thread resource
+//! loop of a device without an operating system. Transports, threads, files, clocks and host
+//! state stay in the platform that composes these services.
+
+#![no_std]
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![allow(clippy::module_name_repetitions)]
+
+extern crate alloc;
+
+pub mod access;
+pub mod dispatch;
+pub mod events;
+pub mod execution_backend;
+pub mod metrics;
+pub mod ports;
+pub mod protocol;
+pub mod resource;
+pub mod runner;
+pub mod status;
+
+#[cfg(test)]
+mod tests;

@@ -1,7 +1,6 @@
 //! Independent watchdog and reset-phase evidence; not a retain store.
 use super::BoardError;
-use crate::{ResetCookie, ResetReason};
-use stm32f4::stm32f401 as pac;
+use crate::{pac, ResetCookie, ResetReason};
 use stm32f4xx_hal::{prelude::*, rcc::Rcc, watchdog::IndependentWatchdog};
 
 /// Independent hardware watchdog using the uncalibrated nominal 32kHz LSI.

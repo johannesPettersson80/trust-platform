@@ -14,6 +14,7 @@ impl DebugControl {
                     breakpoints: Vec::new(),
                     breakpoint_generation: HashMap::new(),
                     watchdog_hold_started: None,
+                    stop_requested: false,
                     breakpoint_stops_this_cycle: HashSet::new(),
                     frame_locations: HashMap::new(),
                     logs: Vec::new(),
@@ -61,6 +62,39 @@ impl DebugControl {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         state.breakpoint_stops_this_cycle.clear();
+    }
+
+    /// End the debugger's hold on the scan for a resource stop, and keep the debugger from holding
+    /// the scan again until `rearm_after_stop`. A stop is independent of a pause
+    /// (specification 13, "Pause"): the scan thread that waits inside the hold wakes without a
+    /// `resume`, the scan it suspended runs to its end with no further pause, step or breakpoint,
+    /// and the scheduler then takes its ordinary stop path (specification 11 section 6.9,
+    /// "Operations while the debugger holds the scan").
+    ///
+    /// A stop request must not fail, so a poisoned lock is recovered here.
+    pub(crate) fn release_for_stop(&self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.stop_requested = true;
+        state.mode = DebugMode::Running;
+        state.steps.clear();
+        state.pending_stop = None;
+        state.snapshot = None;
+        state.target_thread = None;
+        trace_debug("stop.release hold");
+        cvar.notify_all();
+    }
+
+    /// Let the debugger hold the scan again. A new resource thread starts with it, so a control
+    /// that an earlier stop released is not left inert.
+    pub(crate) fn rearm_after_stop(&self) {
+        let (lock, _) = &*self.state;
+        let mut state = lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.stop_requested = false;
     }
 
     pub(super) fn record_watchdog_pause(&self, elapsed: std::time::Duration) {

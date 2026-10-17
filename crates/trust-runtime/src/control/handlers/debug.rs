@@ -1,9 +1,10 @@
 use super::{ControlRequest, ControlResponse, ControlState};
 
+// `pause` and `resume` are answered by the shared request pipeline
+// (`trust_runtime_services::resource::operations`).
+
 pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option<ControlResponse> {
     let response = match request.r#type.as_str() {
-        "pause" => super::super::program_handlers::handle_pause(request.id, state),
-        "resume" => super::super::program_handlers::handle_resume(request.id, state),
         "step_in" => super::super::program_handlers::handle_step(
             request.id,
             state,

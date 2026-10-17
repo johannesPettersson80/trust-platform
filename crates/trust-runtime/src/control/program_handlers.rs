@@ -1,87 +1,25 @@
-use crate::config::ControlMode;
 use crate::error::RuntimeError;
 use crate::scheduler::{ReloadClaim, ResourceCommand, ResourceState};
 use crate::security::AccessRole;
-use crate::RestartMode;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use serde_json::json;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
+use trust_runtime_services::resource::replies::hung_refusal;
 
 use super::resource_queue::{queue_refusal, resource_not_running, RESOURCE_NOT_RUNNING};
-use super::types::{BytecodeReloadParams, PairClaimParams, PairRevokeParams, RestartParams};
+use super::types::{BytecodeReloadParams, PairClaimParams, PairRevokeParams};
 use super::{ControlResponse, ControlState};
+
+// `pause`, `resume`, `restart` and `shutdown` follow the shared resource rules
+// (`trust_runtime_services::resource::operations`), which the shared request pipeline answers.
 
 #[derive(Debug, Clone, Copy)]
 pub(super) enum StepKind {
     In,
     Over,
     Out,
-}
-
-const HUNG_MESSAGE: &str =
-    "resource scan thread did not return; the runtime process must be restarted";
-
-/// Refuse a request that needs the scan thread while hosted hang supervision reports that the
-/// scan thread is inside a call that did not return. Only a new runtime process recovers it.
-fn hung_refusal(id: u64) -> ControlResponse {
-    ControlResponse::error_with_code(id, HUNG_MESSAGE.to_string(), RESOURCE_NOT_RUNNING)
-}
-
-fn control_mode(state: &ControlState) -> ControlMode {
-    state
-        .control_mode
-        .lock()
-        .map(|value| *value)
-        .unwrap_or(ControlMode::Production)
-}
-
-/// A faulted or stopped resource has no scheduler that takes pause or resume commands.
-fn accepts_pause_resume(resource: ResourceState) -> bool {
-    !matches!(resource, ResourceState::Faulted | ResourceState::Stopped)
-}
-
-/// The reply `paused` or `running` means the resource accepted the request (spec 11 section 6.9).
-/// A refusal changes nothing: no scheduler command and no debugger action is applied.
-pub(super) fn handle_pause(id: u64, state: &ControlState) -> ControlResponse {
-    if state.resource.is_hung() {
-        return hung_refusal(id);
-    }
-    let resource = state.resource.state();
-    if !accepts_pause_resume(resource) {
-        return resource_not_running(id, resource);
-    }
-    if matches!(control_mode(state), ControlMode::Debug) {
-        let _ = state
-            .debug
-            .apply_action(crate::debug::ControlAction::Pause(None));
-    } else if let Err(error) = state.resource.pause() {
-        return queue_refusal(id, error, state);
-    }
-    ControlResponse::ok(id, json!({"status": "paused"}))
-}
-
-pub(super) fn handle_resume(id: u64, state: &ControlState) -> ControlResponse {
-    if state.resource.is_hung() {
-        return hung_refusal(id);
-    }
-    let resource = state.resource.state();
-    if !accepts_pause_resume(resource) {
-        return resource_not_running(id, resource);
-    }
-    // The scheduler command is sent before the debugger hold is released, so a refused
-    // resume leaves the debugger state as it was.
-    if !matches!(control_mode(state), ControlMode::Debug)
-        && let Err(error) = state.resource.resume()
-    {
-        return queue_refusal(id, error, state);
-    }
-    // Either mode releases a debugger hold, so the scan returns to cyclic execution.
-    let _ = state
-        .debug
-        .apply_action(crate::debug::ControlAction::Continue);
-    ControlResponse::ok(id, json!({"status": "running"}))
 }
 
 const STEP_REQUIRES_HOLD_MESSAGE: &str =
@@ -102,46 +40,10 @@ pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> Cont
     ControlResponse::ok(id, json!({"status": "stepping"}))
 }
 
+/// The shared `shutdown` reply, for the in-crate tests that call it directly.
+#[cfg(test)]
 pub(super) fn handle_shutdown(id: u64, _state: &ControlState) -> ControlResponse {
-    ControlResponse::shutdown(id)
-}
-
-pub(super) fn handle_restart(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    let params: RestartParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
-    };
-    let mode = match params.mode.to_ascii_lowercase().as_str() {
-        "cold" => RestartMode::Cold,
-        "warm" => RestartMode::Warm,
-        _ => return ControlResponse::error(id, "invalid restart mode".into()),
-    };
-    if state.resource.is_hung() {
-        return hung_refusal(id);
-    }
-    // A live scan thread takes the request: a running or paused resource at its next scan
-    // boundary, a faulted one in the faulted wait. A stopped resource has no thread left.
-    let resource = state.resource.state();
-    if matches!(resource, ResourceState::Stopped) {
-        return resource_not_running(id, resource);
-    }
-    if let Ok(mut guard) = state.pending_restart.lock() {
-        // Requests that arrive before the scan thread takes the pending one coalesce into it. A
-        // pending cold restart keeps its precedence over a later warm one (spec 11 section 6.9).
-        let next = match *guard {
-            Some(RestartMode::Cold) => RestartMode::Cold,
-            _ => mode,
-        };
-        *guard = Some(next);
-    }
-    ControlResponse::ok(id, json!({"status": "restart queued"}))
+    trust_runtime_services::resource::operations::shutdown(id)
 }
 
 pub(super) fn handle_bytecode_reload(

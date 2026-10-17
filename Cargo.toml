@@ -13,9 +13,11 @@ members = [
     "crates/trust-ads-server",
     "crates/verification-cases",
     "crates/trust-runtime-core",
+    "crates/trust-runtime-services",
     "crates/trust-platform-stm32f4",
     "crates/trust-platform-esp32",
     "crates/trust-board-fixture",
+    "crates/trust-chips",
     "crates/trust-runtime",
     "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
@@ -23,6 +25,7 @@ members = [
 exclude = [
     "third_party/tiverse-mmap",
     "firmware/trust-nucleo-f401re",
+    "firmware/trust-stm32f407",
     "firmware/trust-esp32c6-reference",
 ]
 
@@ -113,6 +116,9 @@ trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
 verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core", default-features = false }
+trust-runtime-services = { path = "crates/trust-runtime-services" }
+trust-board-fixture = { path = "crates/trust-board-fixture" }
+trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }

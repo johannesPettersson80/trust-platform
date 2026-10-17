@@ -1,3 +1,16 @@
+/// Requests the stop of a resource thread: the stop flag, the end of a debugger hold, and the
+/// wake of a sleeping clock. A stop is independent of a debugger pause (specification 13,
+/// "Pause"), so the scan thread must not need a `resume` before it can end. The control
+/// `shutdown`, SIGINT and SIGTERM all end here (specification 11 section 6.9, "Operations while
+/// the debugger holds the scan").
+fn request_stop<C: Clock>(stop: &AtomicBool, debug: Option<&DebugControl>, clock: &C) {
+    stop.store(true, Ordering::SeqCst);
+    if let Some(debug) = debug {
+        debug.release_for_stop();
+    }
+    clock.wake();
+}
+
 /// Handle to a running resource thread.
 #[derive(Debug)]
 pub struct ResourceHandle<C: Clock + Clone> {
@@ -9,6 +22,8 @@ pub struct ResourceHandle<C: Clock + Clone> {
     clock: C,
     join: Option<thread::JoinHandle<()>>,
     cmd_tx: std::sync::mpsc::SyncSender<ResourceCommand>,
+    /// The debugger of the resource's runtime, which a stop releases from its hold.
+    debug: Option<DebugControl>,
 }
 
 impl<C: Clock + Clone> ResourceHandle<C> {
@@ -22,12 +37,13 @@ impl<C: Clock + Clone> ResourceHandle<C> {
             supervision: self.supervision.clone(),
             clock: self.clock.clone(),
             cmd_tx: self.cmd_tx.clone(),
+            debug: self.debug.clone(),
         }
     }
-    /// Signal the resource thread to stop.
+    /// Signal the resource thread to stop. A debugger hold on the scan ends with the request, so
+    /// the thread ends without a `resume`.
     pub fn stop(&self) {
-        self.stop.store(true, Ordering::SeqCst);
-        self.clock.wake();
+        request_stop(&self.stop, self.debug.as_ref(), &self.clock);
     }
 
     /// Retrieve the last error if the resource faulted.
@@ -75,6 +91,9 @@ pub struct ResourceControl<C: Clock + Clone> {
     supervision: Arc<supervisor::ScanSupervision>,
     clock: C,
     cmd_tx: std::sync::mpsc::SyncSender<ResourceCommand>,
+    /// The debugger of the resource's runtime, which a stop releases from its hold. A stub has no
+    /// scan thread and so no debugger.
+    debug: Option<DebugControl>,
 }
 
 impl<C: Clock + Clone> ResourceControl<C> {
@@ -98,6 +117,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 supervision,
                 clock,
                 cmd_tx,
+                debug: None,
             },
             cmd_rx,
         )
@@ -127,6 +147,7 @@ impl<C: Clock + Clone> ResourceControl<C> {
                 supervision,
                 clock,
                 cmd_tx,
+                debug: None,
             },
             cmd_rx,
         )
@@ -152,10 +173,11 @@ impl<C: Clock + Clone> ResourceControl<C> {
         Ok(())
     }
 
-    /// Signal the resource thread to stop.
+    /// Signal the resource thread to stop. The control `shutdown` and the termination signals
+    /// call this. A debugger hold on the scan ends with the request, so the thread ends without a
+    /// `resume`.
     pub fn stop(&self) {
-        self.stop.store(true, Ordering::SeqCst);
-        self.clock.wake();
+        request_stop(&self.stop, self.debug.as_ref(), &self.clock);
     }
 
     #[cfg(test)]

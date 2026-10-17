@@ -54,10 +54,6 @@ fn restore_cycle_deadlines(runtime: &mut Runtime, snapshot: CycleDeadlineSnapsho
     runtime.set_output_commit_deadline(snapshot.output_deadline);
 }
 
-const AUTOMATIC_RESTART_MAX_ATTEMPTS: u32 = 3;
-const AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS: i64 = 1_000_000;
-const AUTOMATIC_RESTART_BACKOFF_CAP_NANOS: i64 = 1_000_000_000;
-
 fn run_resource_loop<C: Clock + Clone>(
     runner: ResourceRunner<C>,
     stop: Arc<AtomicBool>,
@@ -273,8 +269,9 @@ fn next_after(wait: faulted::FaultedWait) -> Next {
     }
 }
 
-/// Follows the watchdog action for a timeout or limit error, the fault policy's automatic restart
-/// for other errors (never for a contained panic), and otherwise halts.
+/// Follows the shared decision for a cycle error: the watchdog action for a timeout or limit
+/// error, the fault policy's automatic restart for other errors (never for a contained panic),
+/// and otherwise a halt.
 fn handle_cycle_error<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     shared: &LoopShared<'_>,
@@ -282,32 +279,14 @@ fn handle_cycle_error<C: Clock + Clone>(
     watchdog: crate::watchdog::WatchdogPolicy,
     err: RuntimeError,
 ) -> Next {
-    if watchdog.enabled
-        && matches!(
-            err,
-            RuntimeError::WatchdogTimeout
-                | RuntimeError::ExecutionTimeout
-                | RuntimeError::ExecutionLimit { .. }
-        )
-    {
-        let watchdog_err = match err {
-            RuntimeError::ExecutionLimit { .. } => err,
-            _ => RuntimeError::WatchdogTimeout,
-        };
-        if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
-            return retry_or_wait(runner, shared, restarts, &watchdog_err);
+    match cycle_error_action(watchdog, runner.runtime.fault_policy(), err) {
+        CycleErrorAction::Restart(reason) => retry_or_wait(runner, shared, restarts, &reason),
+        CycleErrorAction::WatchdogHalt(watchdog_err) => {
+            let err = runner.runtime.watchdog_fault(watchdog_err);
+            halt(runner, shared, restarts, err)
         }
-        let err = runner.runtime.watchdog_fault(watchdog_err);
-        return halt(runner, shared, restarts, err);
+        CycleErrorAction::Halt(err) => halt(runner, shared, restarts, err),
     }
-    if matches!(
-        runner.runtime.fault_policy(),
-        crate::watchdog::FaultPolicy::Restart
-    ) && !matches!(err, RuntimeError::ResourcePanic(_))
-    {
-        return retry_or_wait(runner, shared, restarts, &err);
-    }
-    halt(runner, shared, restarts, err)
 }
 
 /// Applies the watchdog action when a cycle that returned still overran its active-execution
@@ -319,47 +298,34 @@ fn handle_watchdog_overrun<C: Clock + Clone>(
     watchdog: crate::watchdog::WatchdogPolicy,
     active_elapsed: std::time::Duration,
 ) -> Option<Next> {
-    if !watchdog.enabled {
-        return None;
-    }
-    let elapsed = i64::try_from(active_elapsed.as_nanos()).unwrap_or(i64::MAX);
-    if elapsed <= watchdog.timeout.as_nanos() {
-        return None;
-    }
-    if matches!(watchdog.action, crate::watchdog::WatchdogAction::Restart) {
-        return Some(retry_or_wait(
+    match watchdog_overrun_action(watchdog, active_elapsed)? {
+        OverrunAction::Restart => Some(retry_or_wait(
             runner,
             shared,
             restarts,
             &RuntimeError::WatchdogTimeout,
-        ));
+        )),
+        OverrunAction::Halt => {
+            let err = runner.runtime.watchdog_timeout();
+            Some(halt(runner, shared, restarts, err))
+        }
     }
-    let err = runner.runtime.watchdog_timeout();
-    Some(halt(runner, shared, restarts, err))
 }
 
 /// Applies the safe state and saves the retain store for a stop request. A stop request ends the
 /// thread at once, so a stop-time failure is recorded without entering the faulted wait.
 fn stop_resource<C: Clock + Clone>(runner: &mut ResourceRunner<C>, shared: &LoopShared<'_>) {
-    let mut stop_error = None;
-    if let Err(err) = runner.runtime.apply_io_safe_state() {
-        stop_error = Some(err);
-    }
-    if let Err(err) = runner.runtime.save_retain_store()
-        && stop_error.is_none()
-    {
-        stop_error = Some(err);
-    }
+    let safe_state = runner.runtime.apply_io_safe_state();
+    let retain_save = runner.runtime.save_retain_store();
+    let (next, stop_error) = stop_outcome(safe_state, retain_save);
     if let Some(err) = stop_error {
         set_last_error(shared.last_error, err);
-        set_resource_state(shared.state, ResourceState::Faulted);
-    } else {
-        set_resource_state(shared.state, ResourceState::Stopped);
     }
+    set_resource_state(shared.state, next);
 }
 
 /// Serves every queued command: pause and resume change the loop's state, the others act on the
-/// runtime.
+/// runtime (the shared running-command rules).
 fn drain_commands<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     state: &Arc<Mutex<ResourceState>>,
@@ -369,16 +335,16 @@ fn drain_commands<C: Clock + Clone>(
         return;
     };
     while let Ok(command) = commands.try_recv() {
-        match command {
-            ResourceCommand::Pause => {
+        match running_command_effect(command_class(&command)) {
+            RunningCommandEffect::Pause => {
                 *paused = true;
                 set_resource_state(state, ResourceState::Paused);
             }
-            ResourceCommand::Resume => {
+            RunningCommandEffect::Resume => {
                 *paused = false;
                 set_resource_state(state, ResourceState::Running);
             }
-            other => apply_resource_command(&mut runner.runtime, other),
+            RunningCommandEffect::Apply => apply_resource_command(&mut runner.runtime, command),
         }
     }
 }
@@ -393,28 +359,6 @@ fn sleep_one_interval<C: Clock + Clone>(runner: &ResourceRunner<C>, from: Durati
     let sleep_interval = scaled_sleep_interval(runner.cycle_interval, runner.time_scale);
     let deadline = Duration::from_nanos(from.as_nanos().saturating_add(sleep_interval.as_nanos()));
     runner.clock.sleep_until(deadline);
-}
-
-#[derive(Debug, Default)]
-struct AutomaticRestartLimiter {
-    attempts: u32,
-}
-
-impl AutomaticRestartLimiter {
-    fn reset(&mut self) {
-        self.attempts = 0;
-    }
-
-    fn next_attempt(&mut self, reason: &RuntimeError) -> Result<u32, RuntimeError> {
-        if self.attempts >= AUTOMATIC_RESTART_MAX_ATTEMPTS {
-            return Err(RuntimeError::RestartLimitExceeded {
-                attempts: self.attempts,
-                reason: SmolStr::new(reason.to_string()),
-            });
-        }
-        self.attempts += 1;
-        Ok(self.attempts)
-    }
 }
 
 fn try_automatic_restart<C: Clock + Clone>(
@@ -459,18 +403,6 @@ fn apply_automatic_restart_backoff<C: Clock + Clone>(runner: &ResourceRunner<C>,
             .saturating_add(backoff.as_nanos()),
     );
     runner.clock.sleep_until(deadline);
-}
-
-fn automatic_restart_backoff(cycle_interval: Duration, attempt: u32) -> Duration {
-    let base = cycle_interval.as_nanos().clamp(
-        AUTOMATIC_RESTART_BACKOFF_FLOOR_NANOS,
-        AUTOMATIC_RESTART_BACKOFF_CAP_NANOS,
-    );
-    let multiplier = 1_i64 << attempt.saturating_sub(1).min(8);
-    Duration::from_nanos(
-        base.saturating_mul(multiplier)
-            .min(AUTOMATIC_RESTART_BACKOFF_CAP_NANOS),
-    )
 }
 
 #[derive(Debug)]
@@ -560,10 +492,6 @@ fn set_last_error(last_error: &Arc<Mutex<Option<RuntimeError>>>, err: RuntimeErr
 #[cfg(test)]
 #[path = "runner_loop/restart_storage_trace_cases.rs"]
 mod restart_storage_trace_cases;
-
-#[cfg(test)]
-#[path = "runner_loop/restart_generation_backoff_tests.rs"]
-mod restart_generation_backoff_tests;
 
 #[cfg(test)]
 mod runner_loop_poison_tests {
@@ -905,35 +833,6 @@ END_PROGRAM
             policy.timeout.as_nanos() > 0,
             "enabled watchdog timeout must not remain zero"
         );
-    }
-
-    #[test]
-    fn automatic_restart_limiter_escalates_after_retry_budget() {
-        let mut limiter = AutomaticRestartLimiter::default();
-        let reason = RuntimeError::IoTransport("persistent failure".into());
-
-        assert_eq!(limiter.next_attempt(&reason).unwrap(), 1);
-        assert_eq!(limiter.next_attempt(&reason).unwrap(), 2);
-        assert_eq!(limiter.next_attempt(&reason).unwrap(), 3);
-        let err = limiter
-            .next_attempt(&reason)
-            .expect_err("fourth persistent failure should escalate");
-
-        assert!(matches!(
-            err,
-            RuntimeError::RestartLimitExceeded { attempts: 3, .. }
-        ));
-    }
-
-    #[test]
-    fn automatic_restart_backoff_is_bounded_and_monotonic() {
-        let first = automatic_restart_backoff(Duration::from_millis(1), 1);
-        let second = automatic_restart_backoff(Duration::from_millis(1), 2);
-        let capped = automatic_restart_backoff(Duration::from_secs(60), 10);
-
-        assert!(first.as_nanos() > 0);
-        assert!(second >= first);
-        assert_eq!(capped.as_nanos(), AUTOMATIC_RESTART_BACKOFF_CAP_NANOS);
     }
 }
 

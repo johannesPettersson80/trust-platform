@@ -81,7 +81,9 @@ impl EngineState<'_> {
                 }
             }
         }
-        Ok(())
+        // A retained program variable located at %M keeps its retained value, so the marker image
+        // the first scan loads must hold it (specification 11 6.7).
+        self.publish_marker_image()
     }
 
     pub(in crate::vm::engine) fn copy_process_images(

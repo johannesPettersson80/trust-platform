@@ -4,6 +4,8 @@ use object::read::elf::ProgramHeader;
 use object::{Object, ObjectSection, ObjectSymbol};
 use serde_json::{json, Value};
 
+mod stm32f407;
+
 const VECTOR: std::ops::Range<u64> = 0x0800_0000..0x0800_4000;
 const CODE: std::ops::Range<u64> = 0x0801_0000..0x0808_0000;
 const RAM: std::ops::Range<u64> = 0x2000_0000..0x2001_4000;
@@ -70,6 +72,7 @@ fn meets_flash_growth_target(free_bytes: u64) -> bool {
 pub(super) fn inspect(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
     let mut report = match board.board {
         Board::NucleoF401re => inspect_stm32f401(bytes)?,
+        Board::Stm32f407gDisc1 => stm32f407::inspect(board, bytes)?,
         Board::Esp32c6Devkitc1 => inspect_esp32c6(board, bytes)?,
     };
     report["board"] = board.name.into();
@@ -610,7 +613,7 @@ mod tests {
 
     #[test]
     fn c6_requires_the_fixed_stack_top_the_composition_measures() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut image = c6_image();
         image.stack_start = Some(C6_STACK_TOP + 0x100);
         let error = check_esp32c6(&board, &image).unwrap_err().to_string();
@@ -619,7 +622,7 @@ mod tests {
 
     #[test]
     fn c6_requires_the_dispatch_loop_in_hp_sram() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut image = c6_image();
         image.dispatch_addresses = vec![0x4080_0100, 0x4201_0400];
         let error = check_esp32c6(&board, &image).unwrap_err().to_string();
@@ -634,7 +637,7 @@ mod tests {
 
     #[test]
     fn c6_accepts_the_measured_layout_and_reports_each_region() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let report = check_esp32c6(&board, &c6_image()).unwrap();
         assert_eq!(report["image_load_bytes"], 27_186);
         assert_eq!(report["flash_mapped_bytes"], 23_470);
@@ -648,7 +651,7 @@ mod tests {
 
     #[test]
     fn c6_rejects_a_section_or_load_outside_every_window() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut stray = c6_image();
         stray.sections.push((".stray".into(), 0x3000_0000, 4));
         assert!(check_esp32c6(&board, &stray).is_err());
@@ -673,7 +676,7 @@ mod tests {
 
     #[test]
     fn c6_rejects_an_arm_image_and_hard_float_or_rve_flags() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut arm = c6_image();
         arm.riscv32 = false;
         assert!(check_esp32c6(&board, &arm).is_err());
@@ -691,7 +694,7 @@ mod tests {
 
     #[test]
     fn c6_requires_the_stack_region_to_hold_the_window_and_headroom() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut short = c6_image();
         short.stack_end = Some(0x4086_e610 - (18 * 1024 - 1));
         assert!(check_esp32c6(&board, &short).is_err());
@@ -705,7 +708,7 @@ mod tests {
 
     #[test]
     fn c6_rejects_an_image_larger_than_the_factory_partition() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut too_large = c6_image();
         too_large.loads.push((0x4240_0000, 0x1F0000));
         assert!(check_esp32c6(&board, &too_large).is_err());
@@ -716,10 +719,24 @@ mod tests {
 
     #[test]
     fn c6_reports_the_heap_arena_when_the_firmware_exports_one() {
-        let board = BoardProfile::esp32c6_devkitc_1();
+        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
         let mut image = c6_image();
         image.heap_arena_bytes = Some(72 * 1024);
         let report = check_esp32c6(&board, &image).unwrap();
         assert_eq!(report["heap_arena_bytes"], 73_728);
+    }
+
+    #[test]
+    fn c6_ram_windows_are_the_ram_regions_of_the_chip_file() {
+        // HP SRAM and the RTC fast memory (LP SRAM), as chips/esp32c6.toml records them.
+        let chip = crate::portability::board::chip("esp32c6").unwrap();
+        let regions: Vec<_> = chip
+            .memory
+            .ram
+            .iter()
+            .map(|region| u64::from(region.start)..region.end())
+            .collect();
+        assert_eq!(regions, [C6_HP_SRAM, C6_RTC_FAST]);
+        assert!(contained(C6_STACK_TOP, 0, &C6_HP_SRAM));
     }
 }

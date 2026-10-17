@@ -479,7 +479,7 @@ impl ExecutionContext for EngineState<'_> {
         if depth as usize >= self.prepared.limits.max_call_depth {
             return Err(VmTrap::CallStackOverflow.into_runtime_error());
         }
-        let id = self.data.storage.reserve_execution_frame()?;
+        let id = self.reserve_activation_identity()?;
         frame.activation = Some(id);
         self.data.storage.activate_execution_frame(id)?;
         self.data.storage.set_execution_frame_owner(

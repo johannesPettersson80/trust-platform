@@ -79,6 +79,13 @@ impl RuntimeState<'_> {
     pub fn in_place_call_count(&self) -> u64 {
         self.data.resources.register.in_place_call_count()
     }
+    /// Test support: move the next activation and instance identities, so tests reach the
+    /// identity limits without issuing 2^32 identities (specification 34 §4.3.1).
+    #[cfg(feature = "test-support")]
+    pub fn set_next_identities_for_test(&mut self, frame: u32, instance: u32) {
+        self.data.storage.set_next_frame_id_for_test(frame);
+        self.data.storage.set_next_instance_id_for_test(instance);
+    }
 
     /// Enable execution telemetry using keys already reserved during installation.
     #[cfg(feature = "register-ir")]

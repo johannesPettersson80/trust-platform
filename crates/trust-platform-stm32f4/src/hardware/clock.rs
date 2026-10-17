@@ -1,11 +1,10 @@
 //! TIM2 polling clock and independent IRQ/cycle measurement.
-use crate::{CounterExtension, SYSCLK_HZ};
+use crate::{pac, CounterExtension, SYSCLK_HZ};
 use core::{
     cell::Cell,
     sync::atomic::{AtomicU32, Ordering},
 };
 use cortex_m::peripheral::{syst::SystClkSource, DWT, SYST};
-use stm32f4::stm32f401 as pac;
 use stm32f4xx_hal::{rcc::Rcc, timer::FTimer};
 
 static IRQ_COUNT: AtomicU32 = AtomicU32::new(0);
@@ -60,7 +59,7 @@ impl Monotonic {
     }
 
     /// Wrapping hardware cycle counter. Compare intervals with `wrapping_sub`;
-    /// one interval must be shorter than 2^32 cycles (about 51 seconds at 84MHz).
+    /// one interval must be shorter than 2^32 cycles (51 s at 84MHz, 25 s at 168MHz).
     pub fn cycle_count(&self) -> u32 {
         DWT::cycle_count()
     }

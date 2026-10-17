@@ -305,6 +305,11 @@ impl<'a> EngineState<'a> {
         }
         state.reserve_type_operations()?;
         state.construct_resource(retained)?;
+        // A variable located at %M starts with its initial value (or, after a warm restart, its
+        // retained one). The first scan loads the marker image into the bound variables, so the
+        // image must hold that value rather than zero or the carried-over image. Restoration
+        // that follows construction publishes again (IEC 61131-3 Ed.3 6.5.6; specification 11 6.7).
+        state.publish_marker_image()?;
         state.check_entry_deadline()?;
         state.data.construction_complete = true;
         Ok(data)
@@ -409,5 +414,5 @@ mod activation_registry_tests;
 mod bounded_identity_sets_tests;
 #[cfg(test)]
 mod call_path_activation_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "register-ir"))]
 mod work_allowance_continuation_tests;

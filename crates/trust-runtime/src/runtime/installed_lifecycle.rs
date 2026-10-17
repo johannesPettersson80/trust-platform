@@ -49,24 +49,12 @@ impl Runtime {
         let Some(debug) = self.debug_control() else {
             return;
         };
+        // The event text is shared runtime code (spec 34 ARCH-11).
         for event in events {
-            debug.push_runtime_event(match event {
-                trust_runtime_core::vm::RetainApplyEvent::Orphan { name } => {
-                    crate::debug::RuntimeEvent::RetainOrphanDropped {
-                        name,
-                        time: self.current_time(),
-                    }
-                }
-                trust_runtime_core::vm::RetainApplyEvent::Migrated {
-                    name,
-                    before,
-                    after,
-                } => crate::debug::RuntimeEvent::RetainMigrationApplied {
-                    name,
-                    detail: super::retain_snapshot::retain_migration_detail(&before, &after),
-                    time: self.current_time(),
-                },
-            });
+            debug.push_runtime_event(trust_runtime_services::events::retain_apply_event(
+                event,
+                self.current_time(),
+            ));
         }
     }
 

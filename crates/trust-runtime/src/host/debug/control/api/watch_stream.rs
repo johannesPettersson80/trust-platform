@@ -186,12 +186,12 @@ impl DebugControl {
     }
 }
 
-/// Buffer a runtime event for direct draining. At the bound the oldest buffered event is dropped
-/// and counted, so the caller can tell that it missed events.
+/// Buffer a runtime event for direct draining. At the shared bound the oldest buffered event is
+/// dropped and counted, so the caller can tell that it missed events.
 fn buffer_runtime_event(state: &mut DebugState, event: RuntimeEvent) {
-    while state.runtime_events.len() >= RUNTIME_EVENT_BUFFER_CAPACITY {
-        state.runtime_events.pop_front();
-        state.runtime_events_dropped = state.runtime_events_dropped.saturating_add(1);
-    }
-    state.runtime_events.push_back(event);
+    trust_runtime_services::events::buffer_event(
+        &mut state.runtime_events,
+        &mut state.runtime_events_dropped,
+        event,
+    );
 }

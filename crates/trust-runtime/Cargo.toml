@@ -18,6 +18,7 @@ trust-ads-core = { workspace = true, optional = true }
 trust-tcads-native = { workspace = true, optional = true }
 trust-ads-server = { workspace = true, optional = true }
 trust-runtime-core = { workspace = true, default-features = false, features = ["std"] }
+trust-runtime-services = { workspace = true, optional = true }
 trust-wasm-analysis = { workspace = true, optional = true }
 smol_str = { workspace = true, features = ["std"] , optional = true }
 rustc-hash = { workspace = true, features = ["std"] , optional = true }
@@ -88,6 +89,12 @@ rustix = { version = "1.1.5", features = ["fs", "mm", "net", "thread"], optional
 proptest.workspace = true
 verification-cases.workspace = true
 trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
+# The transcript parity test runs the single-thread resource loop on the board fixture's engine
+# setup beside the threaded host composition (spec 34 STATE-08).
+trust-board-fixture.workspace = true
+# The fixture's allocator needs a critical section; on a computer it is the `std` one, as in the
+# fixture's own tests, so every test build links the same way.
+critical-section = { version = "1.2.0", features = ["std"] }
 
 [target.'cfg(unix)'.dev-dependencies]
 open-ot-conformance = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" }
@@ -151,6 +158,7 @@ full = [
     "dep:trust-plcopen",
     "dep:trust-ads-core",
     "dep:trust-tcads-native",
+    "dep:trust-runtime-services",
     "dep:trust-wasm-analysis",
     "dep:smol_str",
     "dep:rustc-hash",

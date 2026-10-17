@@ -5,10 +5,13 @@
 !/Cargo.lock
 !/firmware/trust-nucleo-f401re/Cargo.lock
 !/firmware/trust-esp32c6-reference/Cargo.lock
+!/firmware/trust-stm32f407/Cargo.lock
 !/fuzz/Cargo.lock
 !/crates/trust-ads-server/fuzz/Cargo.lock
 /firmware/trust-nucleo-f401re/target/
 /firmware/trust-nucleo-f401re/*.map
+/firmware/trust-stm32f407/target/
+/firmware/trust-stm32f407/*.map
 /.mapping-transaction.lock
 /site/
 /.venv-docs/

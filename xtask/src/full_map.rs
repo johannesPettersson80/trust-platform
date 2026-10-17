@@ -17,7 +17,9 @@ use crate::software_map::{
 };
 
 mod external_safety;
+mod unbuilt_sources;
 pub use external_safety::external_safety_gate;
+use unbuilt_sources::{check_unbuilt_sources, UnbuiltSourceAllowance};
 
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
     let policy = FullMapPolicy::load(root)?;
@@ -82,6 +84,8 @@ struct FullMapPolicy {
     dependency_hygiene: DependencyHygienePolicy,
     unsafe_concurrency: UnsafeConcurrencyPolicy,
     diagram_policy: DiagramPolicy,
+    #[serde(default)]
+    unbuilt_source_allowlist: Vec<UnbuiltSourceAllowance>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -770,6 +774,7 @@ fn run_policy_checks(root: &Path, map: &SoftwareMap, policy: &FullMapPolicy) -> 
         check_runtime_safety_fail_closed_doctor(root),
         check_runtime_vm_mutation_evidence(root),
         check_diagram_claims(map, policy),
+        check_unbuilt_sources(root, &map.packages, &policy.unbuilt_source_allowlist),
     ]
 }
 
@@ -3334,7 +3339,9 @@ fn is_panic_like_scan_path(path: &str) -> bool {
     path.starts_with("crates/trust-runtime/src/")
         || path.starts_with("crates/trust-platform-stm32f4/src/")
         || path.starts_with("firmware/trust-nucleo-f401re/src/")
+        || path.starts_with("firmware/trust-stm32f407/src/")
         || path.starts_with("crates/trust-board-fixture/src/")
+        || path.starts_with("crates/trust-runtime-services/src/")
         || path.starts_with("crates/trust-platform-esp32/src/")
         || path.starts_with("firmware/trust-esp32c6-reference/src/")
         || path.starts_with("crates/trust-hir/src/")
@@ -5815,6 +5822,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
                 ],
                 allowed_aliases: Vec::new(),
             },
+            unbuilt_source_allowlist: Vec::new(),
         }
     }
 }

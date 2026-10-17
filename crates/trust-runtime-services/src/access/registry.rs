@@ -1,4 +1,8 @@
-use crate::security::AccessRole;
+//! The operation registry: the single classification of every control operation by its minimum
+//! role and by whether it belongs to the debug surface. An operation missing from the registry
+//! requires `Admin` (fail-safe).
+
+use super::role::AccessRole;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum RolePolicy {
@@ -249,7 +253,7 @@ mod contract_tests;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
+    use alloc::collections::BTreeSet;
 
     use super::*;
 

@@ -1,14 +1,27 @@
 [package]
 name = "trust-platform-stm32f4"
-description = "Thin NUCLEO-F401RE hardware adapter for the shared truST engine"
+description = "Thin STM32F4 chip adapter (STM32F401 and STM32F407) for the shared truST engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+# Exactly one chip per build; bare-metal builds fail with a message otherwise. The F401 stays the
+# default so that the NUCLEO-F401RE firmware and the workspace target check build as before. The
+# F407 firmware selects its chip with default features off.
+default = ["stm32f401"]
+stm32f401 = ["stm32f4xx-hal/stm32f401", "stm32f4/stm32f401"]
+stm32f407 = ["stm32f4xx-hal/stm32f407", "stm32f4/stm32f407"]
+
 [target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
-stm32f4xx-hal = { version = "=0.23.0", default-features = false, features = ["stm32f401"] }
-stm32f4 = { version = "=0.16.0", default-features = false, features = ["stm32f401", "critical-section", "rt"] }
+stm32f4xx-hal = { version = "=0.23.0", default-features = false }
+stm32f4 = { version = "=0.16.0", default-features = false, features = ["critical-section", "rt"] }
 cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
 embedded-hal-nb = "=1.0.0"
 nb = "=1.1.0"
+
+# The host test tests/chip_file.rs compares the chip table with chips/stm32f407.toml. A
+# dev-dependency is resolved only for this workspace's own tests, never for a firmware build.
+[dev-dependencies]
+trust-chips.workspace = true

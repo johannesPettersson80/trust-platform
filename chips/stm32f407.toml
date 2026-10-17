@@ -1,0 +1,137 @@
+# The STM32F407, the STM32 chip of truST (specification 34, TARGET-03; the format is Appendix H).
+# Values from the chip table crates/trust-platform-stm32f4/src/chip.rs, the firmware's linker
+# scripts firmware/trust-stm32f407/memory.x and profile.x, and specification 34 D.4. The host
+# test crates/trust-platform-stm32f4/tests/chip_file.rs compares them with chip.rs.
+
+[identity]
+name = "stm32f407"
+model = "STM32F407"
+family = "stm32f4"
+# DEV_ID of DBGMCU_IDCODE, shared by the F405, F407, F415 and F417 (RM0090); the firmware also
+# checks that the flash size register reads memory.flash.kib.
+device_id = 0x413
+# The system boot loader's USB DFU device (AN2606).
+usb_bootloader = { vid = 0x0483, pid = 0xDF11 }
+
+[processor]
+core = "Cortex-M4"
+isa = "ARMv7E-M"
+rust_target = "thumbv7em-none-eabihf"
+fpu = "single"
+
+[clock]
+max_hz = 168_000_000
+# SYSCLK and HCLK from the PLL; APB1 42 MHz, APB2 84 MHz (D.4).
+firmware_hz = 168_000_000
+# DS8626: 4 to 26 MHz. The firmware measures the crystal against the 16 MHz HSI (TARGET-02).
+crystal_min_hz = 4_000_000
+crystal_max_hz = 26_000_000
+
+# The 1 MiB of the STM32F407xG (RM0090 flash organization).
+[memory.flash]
+start = 0x0800_0000
+kib = 1024
+sectors = [
+    { count = 4, kib = 16 },
+    { count = 1, kib = 64 },
+    { count = 7, kib = 128 },
+]
+
+# SRAM1 and SRAM2 form one block of 128 KiB at 0x2000_0000.
+[[memory.ram]]
+name = "SRAM1"
+start = 0x2000_0000
+kib = 112
+dma = true
+
+[[memory.ram]]
+name = "SRAM2"
+start = 0x2001_C000
+kib = 16
+dma = true
+
+# Core-coupled memory: for the CPU only, not reached by DMA.
+[[memory.ram]]
+name = "CCM"
+start = 0x1000_0000
+kib = 64
+dma = false
+
+# The first four sectors as on the F401: vectors in sector 0, the application bundle in sector 1,
+# the checkpoint slots in sectors 2 and 3, the firmware in sectors 4 to 11.
+[layout]
+vectors = { start = 0x0800_0000, kib = 16 }
+application = { start = 0x0800_4000, kib = 16 }
+checkpoint_a = { start = 0x0800_8000, kib = 16 }
+checkpoint_b = { start = 0x0800_C000, kib = 16 }
+firmware = { start = 0x0801_0000, kib = 960 }
+
+[interfaces]
+usb = ["OTG_FS", "OTG_HS"]
+ethernet = ["ETH"]
+wifi = []
+bluetooth = []
+uart = ["USART1", "USART2", "USART3", "UART4", "UART5", "USART6"]
+can = ["CAN1", "CAN2"]
+spi = ["SPI1", "SPI2", "SPI3"]
+i2c = ["I2C1", "I2C2", "I2C3"]
+adc = ["ADC1", "ADC2", "ADC3"]
+dac = ["DAC"]
+timers = [
+    "TIM1", "TIM2", "TIM3", "TIM4", "TIM5", "TIM6", "TIM7",
+    "TIM8", "TIM9", "TIM10", "TIM11", "TIM12", "TIM13", "TIM14",
+]
+pwm = [
+    "TIM1", "TIM2", "TIM3", "TIM4", "TIM5",
+    "TIM8", "TIM9", "TIM10", "TIM11", "TIM12", "TIM13", "TIM14",
+]
+
+# Ports A to I of the largest package: 140 pins, port I with PI0 to PI11.
+[gpio]
+ports = [
+    { port = "A", pins = 16 },
+    { port = "B", pins = 16 },
+    { port = "C", pins = 16 },
+    { port = "D", pins = 16 },
+    { port = "E", pins = 16 },
+    { port = "F", pins = 16 },
+    { port = "G", pins = 16 },
+    { port = "H", pins = 16 },
+    { port = "I", pins = 12 },
+]
+reserved = [
+    { pin = "PA2", reason = "console" },
+    { pin = "PA3", reason = "console" },
+    { pin = "PA13", reason = "debug" },
+    { pin = "PA14", reason = "debug" },
+    { pin = "PH0", reason = "oscillator" },
+    { pin = "PH1", reason = "oscillator" },
+]
+
+[firmware]
+crate = "firmware/trust-stm32f407"
+bin = "trust-stm32f407"
+components = ["engine"]
+
+[sources]
+documents = [
+    "RM0090 reference manual",
+    "DS8626 data sheet",
+    "AN2606 system memory boot mode",
+]
+measured = ["identity.device_id", "processor.core", "memory.flash.kib"]
+measured_on = "the owner's STM32F407G-DISC1 over SWD, 16 October 2026: DBGMCU_IDCODE 0x100F6413, CPUID 0x410FC241, flash size register 1024 KiB (specification 34, D.4)"
+unchecked = [
+    "identity.usb_bootloader",
+    "processor.isa",
+    "interfaces.wifi",
+    "interfaces.bluetooth",
+    "interfaces.uart",
+    "interfaces.can",
+    "interfaces.spi",
+    "interfaces.i2c",
+    "interfaces.adc",
+    "interfaces.dac",
+    "interfaces.timers",
+    "interfaces.pwm",
+]

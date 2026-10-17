@@ -17,7 +17,7 @@ use alloc::format;
 use core::mem::size_of;
 
 mod admission;
-mod staging;
+pub(super) mod staging;
 
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn set_hierarchical_input(

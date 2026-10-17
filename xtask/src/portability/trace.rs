@@ -52,10 +52,12 @@ fn hex(text: &str) -> Result<u64> {
 fn numbers(fields: &[&str]) -> Result<Vec<u64>> {
     fields.iter().map(|v| dec(v)).collect()
 }
-fn polarity(raw: u64, pressed: u64) -> Result<()> {
+/// The button's pin level against its pressed flag: `pressed` is set exactly when the pin reads
+/// the level the board's button drives it to.
+fn polarity(board: &BoardProfile, raw: u64, pressed: u64) -> Result<()> {
     ensure!(
-        raw <= 1 && pressed <= 1 && raw + pressed == 1,
-        "PC13 polarity mismatch"
+        raw <= 1 && pressed <= 1 && (pressed == 1) == (raw == u64::from(board.button_pressed_high)),
+        "button polarity mismatch"
     );
     Ok(())
 }
@@ -71,7 +73,7 @@ fn stack(board: &BoardProfile, used: u64, remaining: u64) -> Result<()> {
     Ok(())
 }
 
-fn record_order() -> Vec<String> {
+fn record_order(board: &BoardProfile) -> Vec<String> {
     let mut order: Vec<String> = [
         "IDENTITY",
         "IO:BOOT",
@@ -136,7 +138,20 @@ fn record_order() -> Vec<String> {
         .into_iter()
         .map(str::to_owned),
     );
-    order
+    if !trace_profile::reports_clock(board) {
+        return order;
+    }
+    // The firmware prints the clock it started with right after each IDENTITY: the first
+    // boot's and the watchdog boot's.
+    let mut with_clock = Vec::with_capacity(order.len() + 2);
+    for key in order {
+        let identity = key == "IDENTITY";
+        with_clock.push(key);
+        if identity {
+            with_clock.push("CLOCK".to_owned());
+        }
+    }
+    with_clock
 }
 
 pub(super) fn verify(board: &BoardProfile, text: &str, oracle: &str) -> Result<Value> {
@@ -149,8 +164,9 @@ pub(super) fn verify(board: &BoardProfile, text: &str, oracle: &str) -> Result<V
         .filter(|line| !line.starts_with('#') && !line.starts_with("time_ms") && !line.is_empty())
         .collect();
     ensure!(expected.len() == 101, "oracle must contain 101 samples");
-    let order = record_order();
+    let order = record_order(board);
     let mut identities = Vec::new();
+    let mut clocks = Vec::new();
     let mut rows = 0usize;
     let mut numeric = BTreeMap::new();
     let mut numeric_state = None;
@@ -223,6 +239,10 @@ pub(super) fn verify(board: &BoardProfile, text: &str, oracle: &str) -> Result<V
                 }
                 identities.push(id);
             }
+            Some("CLOCK") => clocks.push(
+                trace_profile::clock(board, &f)
+                    .with_context(|| format!("UART line {}", line_index + 1))?,
+            ),
             Some("TRACE") => {
                 ensure!(
                     f.len() == 13
@@ -306,7 +326,7 @@ pub(super) fn verify(board: &BoardProfile, text: &str, oracle: &str) -> Result<V
                     "malformed or extra IO record"
                 );
                 let n = numbers(&f[3..])?;
-                polarity(n[0], n[1])?;
+                polarity(board, n[0], n[1])?;
                 let (phase, output) = IO_PHASES[io_index];
                 ensure!(
                     f[2] == phase && n[2] == output && n[3] == output,
@@ -320,7 +340,7 @@ pub(super) fn verify(board: &BoardProfile, text: &str, oracle: &str) -> Result<V
                     "malformed or extra GPIO record"
                 );
                 let n = numbers(&f[3..])?;
-                polarity(n[1], n[2])?;
+                polarity(board, n[1], n[2])?;
                 ensure!(
                     n[0] == (gpio.len() as u64 + 1) * 10
                         && n[3] <= 1
@@ -440,11 +460,15 @@ pub(super) fn verify(board: &BoardProfile, text: &str, oracle: &str) -> Result<V
             "exact numeric mismatch: {name}"
         );
     }
-    Ok(
-        json!({"status":"passed", "board":board.name, "boot_banner_lines":banner_lines, "identity":identities, "trace_samples":rows, "max_main_scan_us":max_scan_us,
+    let mut report = json!({"status":"passed", "board":board.name, "boot_banner_lines":banner_lines, "identity":identities, "trace_samples":rows, "max_main_scan_us":max_scan_us,
         "numeric_state":numeric_state, "numeric_bits":numeric, "memory":memories, "gpio":gpio, "stack_depths":depths,
-        "stack_peak":stack_peak, "manual_button_transition":"unverified", "physical_markings":"unverified", "optical_led":"unverified"}),
-    )
+        "stack_peak":stack_peak, "manual_button_transition":"unverified", "physical_markings":"unverified", "optical_led":"unverified"});
+    // One entry per boot, in capture order, like `identity`. Only a board that prints the record
+    // has the key, so the other boards' reports are what they were.
+    if trace_profile::reports_clock(board) {
+        report["clock"] = Value::Array(clocks);
+    }
+    Ok(report)
 }
 
 #[cfg(test)]
@@ -489,7 +513,7 @@ mod tests {
         out.push_str("B1,STACK_PEAK,4096\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-STOP-high,1,0,0,0\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-FAULT,1,0,0,0\nB1,STATE,WATCHDOG_ARM\nB1,IDENTITY,10016433,00410016,30395119,35363638,512,84000000,00000000,20000000\nB1,IO,watchdog-BOOT,1,0,0,0\nB1,STATE,WATCHDOG_RESET\nB1,DONE\n");
         let mut lines: Vec<_> = out.lines().map(str::to_owned).collect();
         let mut sorted = String::new();
-        for key in record_order() {
+        for key in record_order(&nucleo()) {
             let index = lines
                 .iter()
                 .position(|line| {
@@ -568,7 +592,7 @@ mod tests {
     }
 
     fn c6() -> BoardProfile {
-        BoardProfile::esp32c6_devkitc_1()
+        BoardProfile::esp32c6_devkitc_1().unwrap()
     }
 
     fn banner(lines: usize) -> String {
@@ -661,5 +685,280 @@ mod tests {
         assert!(verify(&c6(), &state_at_bound, ORACLE).is_err());
         let f401_at_bound = synthetic().replacen(",0,100,8400,", ",0,100,840000,", 1);
         assert!(verify(&nucleo(), &f401_at_bound, ORACLE).is_err());
+    }
+
+    const F407_FIRST: &str =
+        "B1,IDENTITY,100f6413,0034002d,34314715,35363630,1024,168000000,00000000,00000000";
+    const F407_SECOND: &str =
+        "B1,IDENTITY,100f6413,0034002d,34314715,35363630,1024,168000000,00000000,20000000";
+    const F407_CLOCK: &str = "B1,CLOCK,HSE,7998123,8000000,168000000,measured";
+
+    fn disc1() -> BoardProfile {
+        BoardProfile::stm32f407g_disc1().unwrap()
+    }
+
+    /// The records as a board whose button reads high while pressed prints them. The F401's and
+    /// the C6's buttons read high while released, so the pin level of every IO and GPIO record is
+    /// inverted here: a released button reads low.
+    fn button_high_when_pressed(records: &str) -> String {
+        records
+            .lines()
+            .map(|line| {
+                let mut fields: Vec<&str> = line.split(',').collect();
+                let kind = fields[1];
+                match kind {
+                    "IO" => fields[3] = "0",
+                    "GPIO" => fields[4] = "0",
+                    _ => {}
+                }
+                fields.join(",") + "\n"
+            })
+            .collect()
+    }
+
+    /// The synthetic protocol as the DISC1 firmware prints it: the F407's IDENTITY words with a
+    /// CLOCK record right after each, and a released button reading low.
+    fn f407_synthetic() -> String {
+        button_high_when_pressed(&synthetic())
+            .replace(F401_FIRST, &format!("{F407_FIRST}\n{F407_CLOCK}"))
+            .replace(F401_SECOND, &format!("{F407_SECOND}\n{F407_CLOCK}"))
+    }
+
+    #[test]
+    fn f407_capture_with_a_clock_record_after_each_identity_is_accepted_and_reported() {
+        let report = verify(&disc1(), &f407_synthetic(), ORACLE).unwrap();
+        assert_eq!(report["status"], "passed");
+        assert_eq!(report["board"], "stm32f407g-disc1");
+        assert_eq!(report["trace_samples"], 101);
+        assert_eq!(report["boot_banner_lines"], 0);
+        assert_eq!(report["identity"].as_array().unwrap().len(), 2);
+        assert_eq!(report["identity"][0][0], 0x100f_6413_u64);
+        assert_eq!(report["identity"][1][7], 0x2000_0000_u64);
+        let clock = serde_json::json!({"source": "HSE", "measured_hz": 7_998_123,
+            "crystal_hz": 8_000_000, "sysclk_hz": 168_000_000, "note": "measured"});
+        assert_eq!(report["clock"], serde_json::json!([clock, clock]));
+        // The F407 admits no boot banner and no foreign line.
+        let with_banner = format!("ESP-ROM boot line 0\n{}", f407_synthetic());
+        assert!(verify(&disc1(), &with_banner, ORACLE).is_err());
+    }
+
+    #[test]
+    fn f407_falls_back_to_the_hsi_without_failing_the_capture() {
+        let hsi = "B1,CLOCK,HSI,0,0,168000000,no-capture";
+        let both = f407_synthetic().replace(F407_CLOCK, hsi);
+        let report = verify(&disc1(), &both, ORACLE).unwrap();
+        assert_eq!(report["clock"][0]["source"], "HSI");
+        assert_eq!(report["clock"][1]["note"], "no-capture");
+        // The two boots measure on their own and need not agree.
+        let mixed = f407_synthetic().replacen(F407_CLOCK, hsi, 1);
+        let report = verify(&disc1(), &mixed, ORACLE).unwrap();
+        assert_eq!(report["clock"][0]["source"], "HSI");
+        assert_eq!(report["clock"][1]["source"], "HSE");
+    }
+
+    #[test]
+    fn f407_needs_one_clock_record_right_after_each_identity() {
+        let good = f407_synthetic();
+        let first = format!("{F407_FIRST}\n{F407_CLOCK}\n");
+        let second = format!("{F407_SECOND}\n{F407_CLOCK}\n");
+        let io_boot = "B1,IO,BOOT,0,0,0,0\n";
+        let cases = [
+            // None at all, and the record of one boot missing.
+            good.replace(&format!("{F407_CLOCK}\n"), ""),
+            good.replace(&first, &format!("{F407_FIRST}\n")),
+            good.replace(&second, &format!("{F407_SECOND}\n")),
+            // Twice after the same IDENTITY.
+            good.replace(&first, &format!("{first}{F407_CLOCK}\n")),
+            good.replace(&second, &format!("{second}{F407_CLOCK}\n")),
+            // Before the IDENTITY, and after the record that follows it.
+            good.replace(&first, &format!("{F407_CLOCK}\n{F407_FIRST}\n")),
+            good.replace(
+                &format!("{first}{io_boot}"),
+                &format!("{F407_FIRST}\n{io_boot}{F407_CLOCK}\n"),
+            ),
+        ];
+        for capture in cases {
+            assert_ne!(capture, good);
+            let error = verify(&disc1(), &capture, ORACLE).unwrap_err().to_string();
+            assert!(error.contains("record order mismatch"), "{error}");
+        }
+    }
+
+    #[test]
+    fn f407_clock_values_are_checked_in_the_capture() {
+        let good = f407_synthetic();
+        for (clock, expected) in [
+            (
+                "B1,CLOCK,HSE,7998123,8000000,84000000,measured",
+                "differs from the profile",
+            ),
+            (
+                "B1,CLOCK,HSE,7998123,0,168000000,measured",
+                "outside 4 to 26 MHz",
+            ),
+            (
+                "B1,CLOCK,HSE,7998123,27000000,168000000,measured",
+                "outside 4 to 26 MHz",
+            ),
+            (
+                "B1,CLOCK,PLL,7998123,8000000,168000000,measured",
+                "unknown clock source",
+            ),
+            (
+                "B1,CLOCK,HSE,7998123,8000000,168000000",
+                "malformed clock record",
+            ),
+            (
+                "B1,CLOCK,HSI,0,8000000,168000000,no-capture",
+                "no crystal figure",
+            ),
+        ] {
+            let capture = good.replace(F407_CLOCK, clock);
+            let error = format!("{:#}", verify(&disc1(), &capture, ORACLE).unwrap_err());
+            assert!(error.contains(expected), "{clock}: {error}");
+            // The error names the capture line of the record.
+            assert!(error.contains("UART line 2"), "{clock}: {error}");
+        }
+    }
+
+    #[test]
+    fn f407_identity_is_pinned_to_the_owners_chip() {
+        let good = f407_synthetic();
+        let mutations = [
+            good.replace("100f6413", "10016433"),
+            good.replace("0034002d", "0034002e"),
+            good.replace("34314715", "34314716"),
+            good.replace("35363630", "35363631"),
+            good.replace(",1024,", ",512,"),
+            good.replace(",168000000,00000000,", ",84000000,00000000,"),
+            good.replace(
+                F407_FIRST,
+                &F407_FIRST.replace(",00000000,00000000", ",00400000,00000000"),
+            ),
+            good.replace(F407_SECOND, &F407_SECOND.replace(",20000000", ",00000000")),
+        ];
+        for mutated in mutations {
+            assert_ne!(mutated, good);
+            assert!(verify(&disc1(), &mutated, ORACLE).is_err());
+        }
+        // No board's capture is accepted by another board's profile.
+        assert!(verify(&disc1(), &synthetic(), ORACLE).is_err());
+        assert!(verify(&disc1(), &c6_synthetic(30, 30), ORACLE).is_err());
+        assert!(verify(&nucleo(), &good, ORACLE).is_err());
+        assert!(verify(&c6(), &good, ORACLE).is_err());
+    }
+
+    #[test]
+    fn button_polarity_is_a_board_value() {
+        let good = f407_synthetic();
+        // The DISC1's B1 reads high while pressed: the pin level and the pressed flag agree.
+        let io_pressed = good.replace("B1,IO,STOP,0,0,0,0", "B1,IO,STOP,1,1,0,0");
+        assert_ne!(io_pressed, good);
+        assert!(verify(&disc1(), &io_pressed, ORACLE).is_ok());
+        let gpio_pressed = good.replace(
+            "B1,GPIO,physical,10,0,0,0,0,0",
+            "B1,GPIO,physical,10,1,1,1,1,1",
+        );
+        assert_ne!(gpio_pressed, good);
+        assert!(verify(&disc1(), &gpio_pressed, ORACLE).is_ok());
+        // The F401's and the C6's convention, high while released, is refused on the DISC1.
+        for wrong in [
+            good.replace("B1,IO,STOP,0,0,0,0", "B1,IO,STOP,1,0,0,0"),
+            good.replace("B1,IO,STOP,0,0,0,0", "B1,IO,STOP,0,1,0,0"),
+            good.replace(
+                "B1,GPIO,physical,10,0,0,0,0,0",
+                "B1,GPIO,physical,10,1,0,0,0,0",
+            ),
+            good.replace(
+                "B1,GPIO,injected,20,0,0,0,0,0",
+                "B1,GPIO,injected,20,0,1,0,0,0",
+            ),
+        ] {
+            assert_ne!(wrong, good);
+            let error = verify(&disc1(), &wrong, ORACLE).unwrap_err().to_string();
+            assert!(error.contains("polarity"), "{error}");
+        }
+        // The DISC1's convention is refused on the F401 and the C6, whose buttons read low while
+        // pressed, and theirs is still accepted.
+        let f401 = synthetic();
+        for refused in ["B1,IO,STOP,1,1,0,0", "B1,IO,STOP,0,0,0,0"] {
+            let capture = f401.replace("B1,IO,STOP,1,0,0,0", refused);
+            assert!(verify(&nucleo(), &capture, ORACLE).is_err(), "{refused}");
+        }
+        let pressed = f401.replace("B1,IO,STOP,1,0,0,0", "B1,IO,STOP,0,1,0,0");
+        assert!(verify(&nucleo(), &pressed, ORACLE).is_ok());
+        let c6_capture = c6_synthetic(30, 30);
+        let released_low = c6_capture.replace("B1,IO,STOP,1,0,0,0", "B1,IO,STOP,0,0,0,0");
+        assert_ne!(released_low, c6_capture);
+        assert!(verify(&c6(), &released_low, ORACLE).is_err());
+        let pressed = c6_capture.replace("B1,IO,STOP,1,0,0,0", "B1,IO,STOP,0,1,0,0");
+        assert!(verify(&c6(), &pressed, ORACLE).is_ok());
+    }
+
+    #[test]
+    fn f401_and_c6_captures_still_refuse_a_clock_record() {
+        let f401 = synthetic().replace(F401_FIRST, &format!("{F401_FIRST}\n{F407_CLOCK}"));
+        let error = verify(&nucleo(), &f401, ORACLE).unwrap_err().to_string();
+        assert!(
+            error.contains("record order mismatch") && error.contains("CLOCK"),
+            "{error}"
+        );
+        let c6_capture =
+            c6_synthetic(30, 30).replace(C6_FIRST, &format!("{C6_FIRST}\n{F407_CLOCK}"));
+        let error = verify(&c6(), &c6_capture, ORACLE).unwrap_err().to_string();
+        assert!(
+            error.contains("record order mismatch") && error.contains("CLOCK"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn reports_keep_their_keys_and_only_the_f407_adds_a_clock_entry() {
+        let keys = |report: &Value| -> BTreeSet<String> {
+            report.as_object().unwrap().keys().cloned().collect()
+        };
+        let expected: BTreeSet<String> = [
+            "status",
+            "board",
+            "boot_banner_lines",
+            "identity",
+            "trace_samples",
+            "max_main_scan_us",
+            "numeric_state",
+            "numeric_bits",
+            "memory",
+            "gpio",
+            "stack_depths",
+            "stack_peak",
+            "manual_button_transition",
+            "physical_markings",
+            "optical_led",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        let f401 = verify(&nucleo(), &synthetic(), ORACLE).unwrap();
+        assert_eq!(keys(&f401), expected);
+        let c6_report = verify(&c6(), &c6_synthetic(30, 30), ORACLE).unwrap();
+        assert_eq!(keys(&c6_report), expected);
+        let mut with_clock = expected;
+        with_clock.insert("clock".to_owned());
+        let f407 = verify(&disc1(), &f407_synthetic(), ORACLE).unwrap();
+        assert_eq!(keys(&f407), with_clock);
+    }
+
+    #[test]
+    fn f407_scan_cycle_bound_is_ten_milliseconds_at_168_mhz() {
+        let good = f407_synthetic();
+        let inside = good.replacen(",0,100,8400,", ",0,100,1679999,", 1);
+        assert_ne!(inside, good);
+        assert!(verify(&disc1(), &inside, ORACLE).is_ok());
+        let at_bound = good.replacen(",0,100,8400,", ",0,100,1680000,", 1);
+        assert!(verify(&disc1(), &at_bound, ORACLE).is_err());
+        let state_inside = good.replace(",16800,1000000000,", ",1679999,1000000000,");
+        assert_ne!(state_inside, good);
+        assert!(verify(&disc1(), &state_inside, ORACLE).is_ok());
+        let state_at_bound = good.replace(",16800,1000000000,", ",1680000,1000000000,");
+        assert!(verify(&disc1(), &state_at_bound, ORACLE).is_err());
     }
 }
