@@ -685,6 +685,58 @@ impl SymbolTable {
         matched.map_or(EnumValueResolution::NotFound, EnumValueResolution::Resolved)
     }
 
+    /// Resolves `EnumType.Member` (CODESYS qualified access) to the enum's
+    /// type id. The base resolves through the scope chain, then the global
+    /// map, then — for namespace-nested types reached from outside their
+    /// namespace — a unique suffix match on the registered type names
+    /// (`App.eChar` matches bare `eChar`). A variable or non-enum type with
+    /// the same name shadows the member.
+    pub fn qualified_enum_member_type(
+        &self,
+        type_name: &str,
+        member: &str,
+        scope: ScopeId,
+    ) -> Option<TypeId> {
+        let enum_member_type = |type_id: TypeId| -> Option<TypeId> {
+            let resolved = self.resolve_alias_type(type_id);
+            match self.type_by_id(resolved) {
+                Some(Type::Enum { values, .. })
+                    if values
+                        .iter()
+                        .any(|(value_name, _)| value_name.eq_ignore_ascii_case(member)) =>
+                {
+                    Some(resolved)
+                }
+                _ => None,
+            }
+        };
+
+        if let Some(symbol_id) = self
+            .resolve(type_name, scope)
+            .or_else(|| self.resolve_global_or_qualified_name(type_name))
+        {
+            let symbol = self.get(symbol_id)?;
+            if !matches!(symbol.kind, SymbolKind::Type) {
+                // A variable or other value with the same spelling shadows
+                // the qualified member (scope-resolution order).
+                return None;
+            }
+            return enum_member_type(symbol.type_id);
+        }
+
+        let suffix = format!(".{}", normalize_name(type_name));
+        let candidates: Vec<TypeId> = self
+            .type_names
+            .iter()
+            .filter(|(key, _)| key.ends_with(&suffix))
+            .map(|(_, type_id)| *type_id)
+            .collect();
+        if candidates.len() != 1 {
+            return None;
+        }
+        enum_member_type(candidates[0])
+    }
+
     /// Returns the type symbol when `type_parts` resolve — through the given
     /// scope chain first, then globally — to an enum type declaring a value
     /// named `member` (CODESYS `EnumType.Member` qualified access).

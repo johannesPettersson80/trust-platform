@@ -171,18 +171,14 @@ impl<'a> TypeChecker<'a> {
                 }
                 let member = parts.last().unwrap().clone();
                 let type_name = parts[..parts.len() - 1].join(".");
-                let type_symbol = self
+                let resolved = self
                     .symbols
-                    .resolve(type_name.as_str(), self.current_scope)
-                    .or_else(|| {
-                        self.symbols
-                            .resolve_global_or_qualified_name(type_name.as_str())
-                    })
+                    .qualified_enum_member_type(
+                        type_name.as_str(),
+                        member.as_str(),
+                        self.current_scope,
+                    )
                     .ok_or(ConstEvalError::NotConstant)?;
-                let Some(type_symbol_data) = self.symbols.get(type_symbol) else {
-                    return Err(ConstEvalError::NotConstant);
-                };
-                let resolved = self.symbols.resolve_alias_type(type_symbol_data.type_id);
                 let Some(Type::Enum { values, .. }) = self.symbols.type_by_id(resolved) else {
                     return Err(ConstEvalError::NotConstant);
                 };

@@ -320,7 +320,11 @@ impl SymbolCollector<'_> {
         if parts.len() >= 2
             && self
                 .table
-                .enum_type_member_symbol(&parts[..parts.len() - 1], name.as_str(), scope)
+                .qualified_enum_member_type(
+                    &parts[..parts.len() - 1].join("."),
+                    name.as_str(),
+                    scope,
+                )
                 .is_some()
         {
             return None;
