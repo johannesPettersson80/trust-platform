@@ -18,7 +18,7 @@ pub use ethercat::{
 mod gpio;
 mod loopback;
 mod registry;
-pub use gpio::{discover_gpio_lines, GpioDriver, GpioLineInfo};
+pub use gpio::{discover_gpio_lines, GpioDriver, GpioLine, GpioLineInfo};
 pub use loopback::LoopbackIoDriver;
 pub use registry::IoDriverRegistry;
 

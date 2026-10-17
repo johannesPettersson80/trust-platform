@@ -128,7 +128,7 @@ fn candidate(entry: &DiscoveryEntry) -> DiscoverCandidate {
         id: format!("trust:{}", sanitize_id(entry.id.as_str())),
         label: entry.name.to_string(),
         source: "mdns",
-        confidence: "observed",
+        confidence: "confirmed",
         params: json!({
             "control_endpoint": control_endpoint,
             "name": entry.name.as_str(),

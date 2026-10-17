@@ -1400,6 +1400,15 @@ address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
 the search runs on the tool's computer. `comm.discover` keeps its rule of the
 first such interface.
 
+**GPIO.** The GPIO source lists the lines of every GPIO chip of the runtime's
+computer through the Linux GPIO character devices (`/dev/gpiochip*`). Each line
+is reported by its chip, the chip's label, its offset within that chip, its
+name, its consumer, whether it is in use, and its direction. On a kernel
+without GPIO character devices it falls back to the sysfs interface
+(`/sys/bus/gpio/devices`, then `/sys/class/gpio`), which reports the chip, the
+chip's label, the line and its direction where the kernel gives them, and every
+line from that fallback carries a warning that says so.
+
 **USB and serial.** The USB source lists the USB devices from the descriptors
 that the operating system already holds: sysfs on Linux, IOKit on macOS, and on
 Windows the device manager and the hub's cached connection information. It
@@ -1487,7 +1496,7 @@ with its source and confidence, its identity, and its `last_seen` time.
   when one does;
 - MQTT: the protocol version accepted, and whether login and TLS are needed;
 - GPIO: chip name and label, the line offset within its chip, the line name,
-  and whether the line is in use;
+  its consumer, whether the line is in use, and its direction;
 - USB: vendor and product ID, maker, product name, serial number, what the
   device is (a supported chip's boot loader or USB controller, a debug probe, a
   USB-serial adapter or device, or a truST runtime) and its name, such as
@@ -5529,9 +5538,11 @@ The web setup surface uses the explicitly selected bundle root, otherwise the
 current directory. A derived default resource name is the final path component
 with every non-ASCII-alphanumeric character replaced by `_`; a missing
 component uses `trust-plc`. Existing valid `runtime.toml` and project
-`io.toml` values take precedence over platform defaults. Setup need remains
-true while runtime configuration is absent or neither project nor system I/O
-configuration exists.
+`io.toml` values take precedence over platform defaults. Where setup chooses
+the I/O driver itself, the platform default is `gpio` on a Raspberry Pi and on
+the supported chips (specification 34, TARGET-01), and `loopback` on every other
+computer (owner decision O26). Setup need remains true while runtime
+configuration is absent or neither project nor system I/O configuration exists.
 
 I/O mutation accepts either a nonempty ordered `drivers` list or the legacy
 single `driver`, with the list taking precedence when present. Driver names are
