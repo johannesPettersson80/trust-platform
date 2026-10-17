@@ -18,16 +18,16 @@ use crate::targets::{ManagedTarget, Target, TargetOrigin};
 use crate::view::types::{Action, Computer, DevicesView, Runtime};
 
 /// The time of every view in the tests.
-pub(super) const NOW_MS: u64 = 1_760_692_130_112;
+pub(crate) const NOW_MS: u64 = 1_760_692_130_112;
 
 /// The simulator's control endpoint.
-pub(super) const SIMULATOR: &str = "unix:///tmp/trust-debug-ab12cd34.sock";
+pub(crate) const SIMULATOR: &str = "unix:///tmp/trust-debug-ab12cd34.sock";
 
 /// The project folder of the tests.
 pub(super) const PROJECT: &str = "/home/u/plant/line1";
 
 /// A view request with the extension's facts `host`.
-pub(super) fn request(host: HostFacts) -> ViewRequest {
+pub(crate) fn request(host: HostFacts) -> ViewRequest {
     ViewRequest {
         session: "dc-test".to_owned(),
         seq: 1,
@@ -40,7 +40,7 @@ pub(super) fn request(host: HostFacts) -> ViewRequest {
 }
 
 /// The extension's facts in `mode`, with the project's control endpoint `endpoint`.
-pub(super) fn host(mode: RunMode, endpoint: &str) -> HostFacts {
+pub(crate) fn host(mode: RunMode, endpoint: &str) -> HostFacts {
     HostFacts {
         settings: HostSettings {
             mode,
@@ -52,7 +52,7 @@ pub(super) fn host(mode: RunMode, endpoint: &str) -> HostFacts {
 }
 
 /// `host` with the simulator's debug session launched and `starting` or running.
-pub(super) fn with_simulator(mut host: HostFacts, starting: bool) -> HostFacts {
+pub(crate) fn with_simulator(mut host: HostFacts, starting: bool) -> HostFacts {
     host.debug_session = Some(DebugSessionFacts {
         kind: DebugSessionKind::Launch,
         endpoint: Some(SIMULATOR.to_owned()),
@@ -95,7 +95,7 @@ pub(super) fn attached(mut host: HostFacts, endpoint: &str) -> HostFacts {
 }
 
 /// A workspace without a truST project.
-pub(super) fn no_project() -> ProjectInputs {
+pub(crate) fn no_project() -> ProjectInputs {
     ProjectInputs {
         projects: Vec::new(),
         chosen: None,
@@ -116,7 +116,7 @@ pub(super) fn project(topology: Value) -> ProjectInputs {
 }
 
 /// A gather of `project` and `targets`.
-pub(super) fn gathered(project: ProjectInputs, targets: Vec<TargetReport>) -> Gathered {
+pub(crate) fn gathered(project: ProjectInputs, targets: Vec<TargetReport>) -> Gathered {
     Gathered { project, targets }
 }
 
@@ -147,7 +147,7 @@ pub(super) fn probed(
 }
 
 /// A target that answered `status` with `status` and `fleet.topology` with `topology`.
-pub(super) fn answered(
+pub(crate) fn answered(
     origin: TargetOrigin,
     endpoint: &str,
     label: Option<&str>,
@@ -175,7 +175,7 @@ pub(super) fn unanswered(origin: TargetOrigin, endpoint: &str) -> TargetReport {
 
 /// A runtime of the project's `fleet.toml` in `state`; a running one answered `status` with
 /// `status` and `fleet.topology` with `topology`.
-pub(super) fn managed(
+pub(crate) fn managed(
     name: &str,
     endpoint: &str,
     state: ManagedState,
@@ -223,7 +223,7 @@ pub(super) fn managed(
 }
 
 /// A `status` answer: the program's `state` and the connection's `role`.
-pub(super) fn status(state: &str, role: &str) -> Value {
+pub(crate) fn status(state: &str, role: &str) -> Value {
     let engineer = matches!(role, "engineer" | "admin");
     let reason = if engineer {
         Value::Null
@@ -254,7 +254,7 @@ pub(super) fn keeps_control(mut status: Value) -> Value {
 }
 
 /// A `fleet.topology` answer of one host with its runtimes.
-pub(super) fn report(host_id: &str, hostname: &str, ips: &[&str], runtimes: Vec<Value>) -> Value {
+pub(crate) fn report(host_id: &str, hostname: &str, ips: &[&str], runtimes: Vec<Value>) -> Value {
     json!({
         "schema_version": 4,
         "hosts": [{
@@ -267,7 +267,7 @@ pub(super) fn report(host_id: &str, hostname: &str, ips: &[&str], runtimes: Vec<
 }
 
 /// A runtime of a `fleet.topology` answer with `endpoints`.
-pub(super) fn runtime(id: &str, name: &str, health: &str, endpoints: Vec<Value>) -> Value {
+pub(crate) fn runtime(id: &str, name: &str, health: &str, endpoints: Vec<Value>) -> Value {
     json!({
         "runtime_id": id, "name": name, "mode": "online", "cycle_ms": 10,
         "health": health, "detail": "Runtime answered fleet.topology from its control channel.",
@@ -276,7 +276,7 @@ pub(super) fn runtime(id: &str, name: &str, health: &str, endpoints: Vec<Value>)
 }
 
 /// An endpoint of runtime `runtime` of a `fleet.topology` answer.
-pub(super) fn endpoint(runtime: &str, protocol: &str, name: &str, health: &str) -> Value {
+pub(crate) fn endpoint(runtime: &str, protocol: &str, name: &str, health: &str) -> Value {
     json!({
         "id": format!("endpoint:{runtime}:{protocol}"), "kind": "field", "protocol": protocol,
         "name": name, "role": "owned_driver", "health": health, "detail": "Driver is healthy.",

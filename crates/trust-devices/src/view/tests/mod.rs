@@ -4,9 +4,15 @@
 //! byte-compares the views that the webview's render tests read.
 
 mod computers;
-mod fixtures;
+mod connections;
+mod devices;
+pub(crate) mod fixtures;
 mod golden;
+mod graph_scenarios;
 mod health;
 mod inputs;
+mod issues;
+mod peers;
 mod runtimes;
 mod scenarios;
+mod search;

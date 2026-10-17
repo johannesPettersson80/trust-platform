@@ -12,7 +12,6 @@ mod apply;
 mod browse_symbols;
 mod contract;
 mod discover;
-mod discovery_probe;
 mod probe;
 mod schema;
 mod search;
@@ -117,26 +116,6 @@ pub(super) fn discover_value(
     state: Option<&ControlState>,
 ) -> Result<serde_json::Value, String> {
     discover::discover_value(params, state)
-}
-
-/// Answers one `comm.discover` request for a source of the one search, reading the project at
-/// `project_root` as the runtime that runs the search does.
-pub(super) fn discover_for_search(
-    params: serde_json::Value,
-    project_root: Option<&std::path::Path>,
-) -> Result<serde_json::Value, String> {
-    discover::discover_value_on(
-        params,
-        discover::DiscoverHost {
-            project_root,
-            discovery: None,
-        },
-    )
-}
-
-/// The hosts of a `comm.discover` CIDR scan, by its rules.
-pub(super) fn discover_cidr_hosts(cidr: &str) -> Result<Vec<std::net::Ipv4Addr>, String> {
-    discover::ipv4_targets_for_cidr(cidr)
 }
 
 pub(super) fn browse_symbols_value(

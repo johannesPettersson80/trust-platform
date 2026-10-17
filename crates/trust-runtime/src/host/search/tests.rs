@@ -15,7 +15,12 @@ fn result(key: &str, addresses: &[&str]) -> ProtocolFind {
         SourceId::ModbusTcp,
         "tcp_connect",
         DiscoveryConfidence::PortReachable,
-        Identity::Modbus(ModbusIdentity { unit_id: 1 }),
+        Identity::Modbus(ModbusIdentity {
+            unit_id: 1,
+            vendor_name: None,
+            product_code: None,
+            revision: None,
+        }),
         json!({ "address": addresses.first() }),
         1,
     )
@@ -40,9 +45,11 @@ fn until_the_end(exited: Option<mpsc::Sender<SourceId>>, source: SourceId) -> So
     }))
 }
 
+/// A search that ends at once on the tool's computer: GPIO runs only inside a runtime, so it is
+/// skipped there.
 fn quick_request() -> SearchRequest {
     SearchRequest {
-        only: Some(vec![SourceId::Usb]),
+        only: Some(vec![SourceId::Gpio]),
         ..SearchRequest::default()
     }
 }

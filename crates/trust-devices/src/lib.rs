@@ -6,6 +6,8 @@
 
 pub mod gather;
 mod inputs;
+/// The panes of the panel: the add dialog, the forms and the USB tray.
+pub mod panes;
 pub mod request;
 pub mod session;
 pub mod targets;

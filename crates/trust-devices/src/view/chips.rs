@@ -4,7 +4,7 @@
 
 use std::sync::OnceLock;
 
-use trust_chips::Catalog;
+use trust_chips::{Catalog, ChipFile};
 
 /// The chip files that this build embeds, read once.
 fn catalog() -> Option<&'static Catalog> {
@@ -18,4 +18,10 @@ pub(crate) fn model(platform: &str) -> Option<String> {
     catalog()?
         .chip(platform.trim())
         .map(|chip| chip.identity.model.clone())
+}
+
+/// Every chip of the chip files, in the catalog's order: the `Runtimes` group of `+ Add` offers
+/// truST for each (specification 25 §5.14).
+pub(crate) fn all() -> &'static [ChipFile] {
+    catalog().map(Catalog::chips).unwrap_or_default()
 }

@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::model::{SearchOrigin, SourceId};
+use super::sources::scope::ipv4_targets_for_cidr;
 
 /// The deadline of a search that names none.
 pub const DEFAULT_DEADLINE_MS: u64 = 10_000;
@@ -40,6 +41,18 @@ pub struct SearchRequest {
     /// The buses that a confirmed fieldbus scan scans.
     #[serde(default)]
     pub fieldbus: Vec<FieldbusTarget>,
+    /// The Modbus TCP unit IDs to probe.
+    #[serde(default)]
+    pub modbus: ModbusTargets,
+}
+
+/// The Modbus TCP unit IDs a search probes (specification 11, "Requests").
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModbusTargets {
+    /// The unit IDs to probe, each from 1 to 247 and without repeats; unit ID 1 when absent.
+    #[serde(default)]
+    pub unit_ids: Vec<u8>,
 }
 
 /// What a search probes besides what it finds by itself.
@@ -140,6 +153,8 @@ pub(crate) struct ValidSearch {
     pub(crate) fieldbus_confirmed: bool,
     /// The EtherCAT adapters to scan; `None` is the adapter of the project's EtherCAT driver.
     pub(crate) ethercat_adapters: Vec<Option<String>>,
+    /// The Modbus TCP unit IDs to probe; unit ID 1 when the request names none.
+    pub(crate) modbus_unit_ids: Vec<u8>,
 }
 
 impl SearchRequest {
@@ -193,8 +208,7 @@ impl SearchRequest {
         let cidr = match self.targets.cidr.as_deref().map(str::trim) {
             None => None,
             Some(cidr) => {
-                crate::control::comm_discover_cidr_hosts_port(cidr)
-                    .map_err(SearchError::Invalid)?;
+                ipv4_targets_for_cidr(cidr).map_err(SearchError::Invalid)?;
                 Some(cidr.to_string())
             }
         };
@@ -205,6 +219,7 @@ impl SearchRequest {
             deadline: Duration::from_millis(deadline_ms),
             fieldbus_confirmed: self.confirm_fieldbus_scan,
             ethercat_adapters: ethercat_adapters(self.fieldbus)?,
+            modbus_unit_ids: modbus_unit_ids(self.modbus.unit_ids)?,
         })
     }
 }
@@ -262,6 +277,26 @@ fn known_addresses(hosts: Vec<String>) -> Result<Vec<String>, SearchError> {
         if !checked.iter().any(|known| known == host) {
             checked.push(host.to_string());
         }
+    }
+    Ok(checked)
+}
+
+/// The Modbus TCP unit IDs that a search probes, each from 1 to 247 and without repeats;
+/// unit ID 1 when the request names none.
+fn modbus_unit_ids(unit_ids: Vec<u8>) -> Result<Vec<u8>, SearchError> {
+    let mut checked = Vec::with_capacity(unit_ids.len());
+    for unit_id in unit_ids {
+        if !(1..=247).contains(&unit_id) {
+            return Err(SearchError::Invalid(format!(
+                "modbus.unit_ids must each be between 1 and 247, not {unit_id}"
+            )));
+        }
+        if !checked.contains(&unit_id) {
+            checked.push(unit_id);
+        }
+    }
+    if checked.is_empty() {
+        checked.push(1);
     }
     Ok(checked)
 }

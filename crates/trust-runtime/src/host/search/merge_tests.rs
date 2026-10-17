@@ -9,7 +9,12 @@ fn result(key: &str, keys: Vec<DeviceKey>, seen_ms: u64) -> ProtocolFind {
         SourceId::ModbusTcp,
         "tcp_connect",
         DiscoveryConfidence::PortReachable,
-        Identity::Modbus(ModbusIdentity { unit_id: 1 }),
+        Identity::Modbus(ModbusIdentity {
+            unit_id: 1,
+            vendor_name: None,
+            product_code: None,
+            revision: None,
+        }),
         json!({ "key": key }),
         seen_ms,
     )

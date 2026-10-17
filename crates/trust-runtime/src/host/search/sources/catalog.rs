@@ -10,7 +10,10 @@ use crate::ads::onboarding::{runtime_address_candidates_from_interfaces, Runtime
 use super::super::model::SourceId;
 use super::super::request::ValidSearch;
 use super::super::runner::{SourcePlan, SourceSink};
-use super::adapters::{self, ModbusTarget};
+use super::modbus_tcp::{self, ModbusTarget};
+use super::scope::ipv4_targets_for_cidr;
+use super::{ads, ethercat, gpio, mqtt, opcua, trust_runtimes};
+use super::{serial, usb};
 use super::{SearchHost, SourceContext};
 
 /// A probe of a known address waits this long for an answer.
@@ -24,6 +27,7 @@ pub(crate) fn plan(search: &ValidSearch, host: &SearchHost) -> Vec<(SourceId, So
         hosts: search.hosts.clone(),
         cidr: search.cidr.clone(),
         ethercat_adapters: search.ethercat_adapters.clone(),
+        modbus_unit_ids: search.modbus_unit_ids.clone(),
         runtime: match host {
             SearchHost::ThisHost => None,
             SearchHost::Runtime(facts) => Some(facts.clone()),
@@ -45,45 +49,45 @@ fn plan_source(source: SourceId, fieldbus_confirmed: bool, context: &SourceConte
             Some(runtime) if !runtime.discovery_enabled => skip(
                 "Discovery is switched off on this runtime ([runtime.discovery] enabled = false).",
             ),
-            _ => run(context, adapters::trust_runtimes),
+            _ => run(context, trust_runtimes::search),
         },
         SourceId::Ads if !cfg!(feature = "ads-wire") => {
             skip("This build of truST does not include ADS.")
         }
-        SourceId::Ads => run(context, adapters::ads),
+        SourceId::Ads => run(context, ads::search),
         SourceId::ModbusTcp => match modbus_targets(context) {
-            Ok(targets) => {
-                let context = context.clone();
-                SourcePlan::Run(Box::new(move |sink: &SourceSink| {
-                    adapters::modbus_tcp(&context, &targets, sink);
-                }))
-            }
+            Ok(targets) => SourcePlan::Run(Box::new(move |sink: &SourceSink| {
+                modbus_tcp::search(&targets, sink);
+            })),
             Err(reason) => SourcePlan::Skip(reason),
         },
         SourceId::Mqtt if context.hosts.is_empty() => {
             skip("MQTT brokers are searched at known addresses, and this search has none.")
         }
-        SourceId::Mqtt => run(context, adapters::mqtt),
+        SourceId::Mqtt => run(context, mqtt::search),
         SourceId::Opcua if !cfg!(feature = "opcua-wire") => {
             skip("This build of truST does not include OPC UA.")
         }
         SourceId::Opcua if context.hosts.is_empty() => {
             skip("OPC UA servers are searched at known addresses, and this search has none.")
         }
-        SourceId::Opcua => run(context, adapters::opcua),
+        SourceId::Opcua => run(context, opcua::search),
         SourceId::Ethercat if context.runtime.is_none() => {
             skip("EtherCAT is searched inside a runtime, on the computer with the bus adapter.")
         }
         SourceId::Ethercat if !fieldbus_confirmed => {
             skip("An EtherCAT scan runs only when the search confirms it (confirm_fieldbus_scan).")
         }
-        SourceId::Ethercat => run(context, adapters::ethercat),
+        SourceId::Ethercat => run(context, ethercat::search),
         SourceId::Gpio if context.runtime.is_none() => {
             skip("GPIO is searched inside a runtime, on the computer with the GPIO lines.")
         }
-        SourceId::Gpio => run(context, adapters::gpio),
-        SourceId::Serial => skip("Serial search is not available in this truST version yet."),
-        SourceId::Usb => skip("USB search is not available in this truST version yet."),
+        SourceId::Gpio => SourcePlan::Run(Box::new(gpio::search)),
+        SourceId::Serial => match serial::unavailable() {
+            Some(reason) => SourcePlan::Skip(reason),
+            None => SourcePlan::Run(Box::new(serial::search)),
+        },
+        SourceId::Usb => SourcePlan::Run(Box::new(usb::search)),
         SourceId::Bluetooth => skip("Bluetooth search is not available in this truST version yet."),
     }
 }
@@ -98,20 +102,17 @@ fn skip(reason: &str) -> SourcePlan {
 }
 
 /// What Modbus TCP probes: the known addresses and the hosts of the subnet, or without either the
-/// private `/24` subnets of the origin computer's interfaces. The reason it has nothing to probe
-/// is the error.
+/// private `/24` subnets of the origin computer's interfaces, each at every requested unit ID. The
+/// reason it has nothing to probe is the error.
 fn modbus_targets(context: &SourceContext) -> Result<Vec<ModbusTarget>, String> {
-    let mut targets: Vec<ModbusTarget> = context
+    let mut hosts: Vec<(String, Duration)> = context
         .hosts
         .iter()
-        .map(|host| ModbusTarget {
-            host: host.clone(),
-            timeout: KNOWN_ADDRESS_PROBE,
-        })
+        .map(|host| (host.clone(), KNOWN_ADDRESS_PROBE))
         .collect();
     let subnets = match &context.cidr {
         Some(cidr) => vec![cidr.clone()],
-        None if targets.is_empty() => {
+        None if hosts.is_empty() => {
             let candidates = runtime_address_candidates_from_interfaces()
                 .map_err(|error| format!("The network interfaces could not be read: {error}."))?;
             let allowed = context
@@ -131,10 +132,17 @@ fn modbus_targets(context: &SourceContext) -> Result<Vec<ModbusTarget>, String> 
         None => Vec::new(),
     };
     for subnet in subnets {
-        for address in crate::control::comm_discover_cidr_hosts_port(&subnet)? {
+        for address in ipv4_targets_for_cidr(&subnet)? {
+            hosts.push((address.to_string(), SUBNET_PROBE));
+        }
+    }
+    let mut targets = Vec::with_capacity(hosts.len() * context.modbus_unit_ids.len());
+    for (host, timeout) in hosts {
+        for &unit_id in &context.modbus_unit_ids {
             targets.push(ModbusTarget {
-                host: address.to_string(),
-                timeout: SUBNET_PROBE,
+                host: host.clone(),
+                unit_id,
+                timeout,
             });
         }
     }

@@ -11,6 +11,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   scan) and GPIO inside a runtime. It shows one device per thing found, with every
   protocol on it, while the search runs. Runtimes serve the same search as
   `comm.search.start`, `comm.search.status` and `comm.search.cancel`.
+- The search also lists the USB devices and serial ports of the computer it runs on,
+  without opening or writing any of them: an STM32 on its boot loader, the ESP32-C6,
+  ST-LINK probes, USB-serial adapters and truST runtimes on USB, each with the serial
+  ports behind it, and every serial port with the USB device behind it
+  (`trust-runtime discover --only usb,serial`).
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 

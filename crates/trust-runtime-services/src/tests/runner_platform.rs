@@ -15,7 +15,9 @@ use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan, WallClock};
 
 use super::runner_ports::{ms, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
-use crate::ports::{AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort};
+use crate::ports::{
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
+};
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::RunnerPlatform;
 use crate::status::{IoDriverStatus, StatusSettings};
@@ -89,6 +91,16 @@ impl WallClock for TestPlatform {
 impl StatusPort for TestPlatform {
     fn resource_name(&self) -> &'static str {
         "Controller"
+    }
+
+    /// The test platform stands for the board fixture, not for the computer the tests run on.
+    fn platform(&self) -> &'static str {
+        "stm32f407"
+    }
+
+    /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

@@ -12,9 +12,9 @@ use verification_cases::{
     TraceStep,
 };
 
-use super::{
-    probe_modbus_tcp, probe_mqtt, DiscoveryProbeOutcome, ModbusDiscoveryProbe, ModbusSafeReadProbe,
-};
+use super::super::modbus_tcp::{probe_modbus_tcp, ModbusDiscoveryProbe, ModbusSafeReadProbe};
+use super::super::mqtt::probe_mqtt;
+use super::DiscoveryProbeOutcome;
 
 const TEST_ID: &str = "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/protocols/PROTO_DISCOVERY_TRUTH_001.toml";
@@ -102,7 +102,7 @@ fn execute_probe(scenario: &str) -> Result<JsonValue, String> {
             )
             .ok_or_else(|| "Modbus device-id probe returned no outcome".to_string())?;
             join_server(handle)?;
-            Ok(outcome_json(outcome, false, false))
+            Ok(outcome_json(outcome.outcome, false, false))
         }
         "MODBUS_SAFE_READ_CONFIRMED" => {
             let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
@@ -141,7 +141,7 @@ fn execute_probe(scenario: &str) -> Result<JsonValue, String> {
             )
             .ok_or_else(|| "Modbus safe-read probe returned no outcome".to_string())?;
             join_server(handle)?;
-            Ok(outcome_json(outcome, false, false))
+            Ok(outcome_json(outcome.outcome, false, false))
         }
         "MODBUS_TCP_ONLY" => {
             let (addr, handle) = tcp_only_server()?;
@@ -155,7 +155,7 @@ fn execute_probe(scenario: &str) -> Result<JsonValue, String> {
             )
             .ok_or_else(|| "Modbus TCP-only probe returned no outcome".to_string())?;
             join_server(handle)?;
-            Ok(outcome_json(outcome, false, false))
+            Ok(outcome_json(outcome.outcome, false, false))
         }
         "MQTT_ACCEPTED_CONNACK" => mqtt_probe_scenario(0),
         "MQTT_AUTH_REJECTED" => mqtt_probe_scenario(5),

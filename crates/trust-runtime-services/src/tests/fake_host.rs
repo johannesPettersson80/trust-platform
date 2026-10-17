@@ -18,8 +18,8 @@ use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::events::RuntimeEvent;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
+    ResourcePort, StatusPort,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
@@ -53,6 +53,8 @@ pub(crate) enum Action {
 #[allow(clippy::struct_excessive_bools)] // one flag per platform condition under test
 pub(crate) struct FakeHost {
     pub(crate) resource_name: &'static str,
+    /// The platform the fake host reports, standing for the computer the tests run on.
+    pub(crate) platform: &'static str,
     pub(crate) control_token: Option<&'static str>,
     pub(crate) requires_auth: bool,
     pub(crate) pairing: Option<(&'static str, AccessRole)>,
@@ -79,6 +81,8 @@ pub(crate) struct FakeHost {
     pub(crate) utc_ms: Option<u64>,
     /// Whether `restart` starts a stopped resource (a device without an operating system).
     pub(crate) starts_when_stopped: bool,
+    /// The program-control posture the fake host reports.
+    pub(crate) program_control: ProgramControl,
 }
 
 impl FakeHost {
@@ -86,6 +90,7 @@ impl FakeHost {
     pub(crate) fn running() -> Self {
         Self {
             resource_name: "RESOURCE",
+            platform: "test-platform",
             control_token: None,
             requires_auth: false,
             pairing: None,
@@ -107,6 +112,7 @@ impl FakeHost {
             extension_calls: RefCell::new(Vec::new()),
             utc_ms: Some(WALL_TIME_MS),
             starts_when_stopped: false,
+            program_control: ProgramControl::Process,
         }
     }
 
@@ -236,6 +242,14 @@ impl ResourcePort for FakeHost {
 impl StatusPort for FakeHost {
     fn resource_name(&self) -> &str {
         self.resource_name
+    }
+
+    fn platform(&self) -> &str {
+        self.platform
+    }
+
+    fn program_control(&self) -> ProgramControl {
+        self.program_control
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

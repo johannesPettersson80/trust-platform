@@ -31,6 +31,22 @@ pub(super) fn all() -> Vec<(&'static str, DevicesView)> {
         ("ads_server", ads_server()),
         ("ethercat_with_subdevices", ethercat()),
         ("unreachable_peer", unreachable_peer()),
+        (
+            "connections_and_connector_status",
+            super::graph_scenarios::connections_and_connector_status(),
+        ),
+        (
+            "search_and_filter",
+            super::graph_scenarios::search_and_filter(),
+        ),
+        (
+            "faults_and_warnings",
+            super::graph_scenarios::faults_and_warnings(),
+        ),
+        (
+            "servers_and_ads_client",
+            super::graph_scenarios::servers_and_ads_client(),
+        ),
     ]
 }
 

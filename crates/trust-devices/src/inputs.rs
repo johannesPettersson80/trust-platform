@@ -47,6 +47,8 @@ pub(crate) struct Facts {
     pub(crate) simulator: SimulatorState,
     /// Whether the last start of the simulator failed.
     pub(crate) simulator_failed: bool,
+    /// The message of the simulator's failed start, which the banner and the issues list show.
+    pub(crate) simulator_failure: Option<String>,
     /// In online mode, the target of the project's control endpoint and how it answered.
     pub(crate) project_target: Option<ProjectTarget>,
     /// Each runtime's `status` answer, by the control endpoint it answered on.
@@ -115,6 +117,7 @@ pub(crate) fn read(gathered: &Gathered, host: &HostFacts, this_computer: Option<
         mode: host.settings.mode,
         simulator: topology.simulator.state,
         simulator_failed: topology.simulator.failure.is_some(),
+        simulator_failure: topology.simulator.failure.clone(),
         project_target: gathered
             .targets
             .iter()

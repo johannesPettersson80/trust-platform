@@ -25,9 +25,11 @@ pub struct UsbItem {
     pub id: String,
     /// Its name.
     pub title: String,
-    /// Its flash and RAM.
+    /// The line under its name: a chip's flash and RAM, what a probe or adapter is with its serial
+    /// ports, or which runtime it is.
     pub detail: String,
-    /// Its truST version.
+    /// Its truST state: its truST version, `No truST yet` or `truST not confirmed`; absent for a
+    /// probe or adapter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     /// `Install truST`, `Update truST`, `Connect` or `Show`.
@@ -204,8 +206,9 @@ pub struct Form {
     /// The protocol's purpose.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,
-    /// The runtime that `Save` writes to.
-    pub runtime: RuntimeRef,
+    /// The runtime that `Save` writes to; absent for a form that adds a runtime.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<RuntimeRef>,
     /// The runtimes to choose from.
     pub runtime_choices: Vec<RuntimeRef>,
     /// Its sections: the first without a heading, then `Advanced`.
@@ -256,6 +259,9 @@ pub struct FormField {
     /// Its list editor.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list: Option<ListEditor>,
+    /// The example shown while it is empty.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placeholder: Option<String>,
 }
 
 /// What a field holds.
@@ -301,6 +307,8 @@ pub struct VisibleWhen {
 pub struct ListEditor {
     /// What one item is called.
     pub item_noun: String,
+    /// The heading of an item, before its number, such as `Peer address` in `Peer address 1`.
+    pub item_title: String,
     /// The button that adds one.
     pub add_label: String,
     /// What shows without items.
@@ -311,6 +319,26 @@ pub struct ListEditor {
     pub item_kind: FieldKind,
     /// A new item.
     pub item_template: Value,
+    /// The properties of the items that are objects, in their order.
+    pub properties: Vec<ListProperty>,
+}
+
+/// A property of the object items of a list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ListProperty {
+    /// Its key in an item.
+    pub key: String,
+    /// Its label.
+    pub label: String,
+    /// What it holds.
+    pub kind: FieldKind,
+    /// Whether an item needs it.
+    pub required: bool,
+    /// Its choices.
+    pub options: Vec<FieldOption>,
+    /// The properties that an item can set instead of this one, of which it sets exactly one,
+    /// such as `source_cidr` for `source_ip`.
+    pub alternatives: Vec<String>,
 }
 
 /// The draft tile drawn while a form is open.

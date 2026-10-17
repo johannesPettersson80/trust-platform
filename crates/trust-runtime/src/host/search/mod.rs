@@ -7,15 +7,15 @@
 //! ends. `request` reads and checks the requests, `model` is what a status reports, `runner`
 //! runs the sources of one search, `merge` and `presence` group the results into devices, and
 //! `sources` decides which sources run and runs them. A runtime serves the search through
-//! `comm.search.*`, the command line through `trust-runtime discover`. The model, merge and
-//! presence do no I/O.
+//! `comm.search.*`, the command line through `trust-runtime discover`, and `comm.discover` asks
+//! one protocol's source at a time. The model, merge and presence do no I/O.
 
 mod merge;
 mod model;
 mod presence;
 mod request;
 mod runner;
-mod sources;
+pub(crate) mod sources;
 
 use std::collections::VecDeque;
 use std::fmt;
@@ -24,8 +24,9 @@ use std::time::{Duration, Instant};
 
 pub use model::{
     AdsIdentity, EthercatIdentity, FoundDevice, GpioIdentity, Identity, MergedDevice,
-    ModbusIdentity, MqttIdentity, OpcuaIdentity, ProtocolFind, RuntimeIdentity, SearchOrigin,
-    SearchState, SearchStatus, SourceId, SourceProgress, SourceState, SEARCH_SCHEMA_VERSION,
+    ModbusIdentity, MqttIdentity, OpcuaIdentity, PortUsbDevice, ProtocolFind, RuntimeIdentity,
+    SearchOrigin, SearchState, SearchStatus, SerialBus, SerialIdentity, SourceId, SourceProgress,
+    SourceState, UsbIdentity, UsbRole, SEARCH_SCHEMA_VERSION,
 };
 pub use request::{
     CancelRequest, FieldbusBus, FieldbusTarget, SearchError, SearchRequest, SearchTargets,

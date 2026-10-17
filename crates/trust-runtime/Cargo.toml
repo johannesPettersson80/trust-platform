@@ -48,6 +48,9 @@ rumqttc = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 time = { workspace = true, optional = true }
 rapier3d = { workspace = true, optional = true }
+# The USB and serial sources of the one search list devices without opening them.
+nusb = { workspace = true, optional = true }
+serialport = { workspace = true, optional = true }
 notify = { version = "8.2.0", optional = true }
 tiny_http = { version = "0.12.0", features = ["ssl-rustls"] , optional = true }
 tungstenite = { version = "0.30.0", optional = true }
@@ -194,6 +197,8 @@ full = [
     "dep:native-tls",
     "dep:time",
     "dep:rapier3d",
+    "dep:nusb",
+    "dep:serialport",
     "dep:notify",
     "dep:tiny_http",
     "dep:tungstenite",

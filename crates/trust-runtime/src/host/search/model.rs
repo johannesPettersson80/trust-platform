@@ -266,13 +266,12 @@ pub(crate) enum DeviceKey {
     Address(String),
     /// An AMS Net ID.
     AmsNetId(String),
-    /// A USB serial number. Only the merge tests build it until the USB source of V7 slice C5a
-    /// does; that slice removes the `allow`.
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// A USB serial number.
     UsbSerial(String),
     /// A truST runtime ID.
     RuntimeId(String),
-    /// A bus-local identity: an EtherCAT adapter and position, or a GPIO chip.
+    /// A bus-local identity: an EtherCAT adapter and position, a GPIO chip, a serial port, or the
+    /// bus and port of a USB device without a serial number.
     Local(String),
 }
 
@@ -307,6 +306,10 @@ pub enum Identity {
     Ethercat(EthercatIdentity),
     /// A GPIO line.
     Gpio(GpioIdentity),
+    /// A USB device.
+    Usb(UsbIdentity),
+    /// A serial port.
+    Serial(SerialIdentity),
 }
 
 /// A truST runtime's identity.
@@ -348,6 +351,15 @@ pub struct AdsIdentity {
 pub struct ModbusIdentity {
     /// The unit ID that answered.
     pub unit_id: u8,
+    /// The vendor name from the FC43/14 basic objects, when the device answers them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vendor_name: Option<String>,
+    /// The product code from the FC43/14 basic objects, when the device answers them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product_code: Option<String>,
+    /// The revision from the FC43/14 basic objects, when the device answers them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revision: Option<String>,
 }
 
 /// An MQTT broker's identity.
@@ -365,13 +377,26 @@ pub struct MqttIdentity {
 pub struct OpcuaIdentity {
     /// The endpoint URL.
     pub endpoint_url: String,
-    /// Its security policy.
-    pub security_policy: String,
-    /// Its security mode.
-    pub security_mode: String,
+    /// Its security policy; absent when the server announced one truST does not use.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_policy: Option<String>,
+    /// Its security mode; absent when the server announced one truST does not use.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_mode: Option<String>,
     /// The server's application name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub application_name: Option<String>,
+    /// The server's application URI.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub application_uri: Option<String>,
+    /// The server's product URI.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product_uri: Option<String>,
+    /// Whether the endpoint uses a security policy or mode truST cannot use.
+    pub unsupported: bool,
+    /// The SHA-256 fingerprint of the server certificate announced for the endpoint.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_sha256: Option<String>,
 }
 
 /// An EtherCAT SubDevice's identity.
@@ -400,4 +425,103 @@ pub struct GpioIdentity {
     /// The line's direction, when it is in use.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub direction: Option<String>,
+}
+
+/// What a USB device is, as truST recognizes it (specification 11, "USB and serial").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UsbRole {
+    /// A supported chip's own boot loader, through which truST is installed: the chip has no
+    /// truST yet.
+    BootLoader,
+    /// A supported chip's own USB controller, which shows the same descriptors with or without
+    /// truST: truST is not confirmed until a connection confirms it.
+    ChipController,
+    /// A truST runtime, by truST's own USB identity.
+    TrustRuntime,
+    /// A debug probe.
+    DebugProbe,
+    /// A USB-serial adapter that truST knows.
+    SerialAdapter,
+    /// Another device that has a serial port.
+    SerialDevice,
+}
+
+/// A USB device's identity: what the descriptors that the operating system keeps say, and what
+/// truST recognizes in them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UsbIdentity {
+    /// The vendor ID.
+    pub vid: u16,
+    /// The product ID.
+    pub pid: u16,
+    /// The maker.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    /// The product name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    /// The serial number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serial_number: Option<String>,
+    /// What the device is.
+    pub role: UsbRole,
+    /// What truST calls it, such as `ST-LINK/V2-1` or `STM32 boot loader (DFU)`; for a device
+    /// truST does not know, its product name. The search names no chip: the chip files say which
+    /// chips show the IDs of a boot loader or a chip's USB controller.
+    pub model: String,
+    /// The truST version that a truST runtime's descriptor carries: its major and minor version.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// Where a connection reaches the truST runtime that the device runs or may run: `usb://` and
+    /// its serial number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub control: Option<String>,
+    /// The serial ports behind it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<String>,
+}
+
+/// How a serial port is attached.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SerialBus {
+    /// Through a USB device.
+    Usb,
+    /// On a PCI card.
+    Pci,
+    /// Over Bluetooth.
+    Bluetooth,
+    /// Another way, such as a UART of the computer's own chip.
+    Other,
+}
+
+/// A serial port's identity.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SerialIdentity {
+    /// The port's name, such as `/dev/ttyUSB0` or `COM3`.
+    pub port: String,
+    /// How it is attached.
+    pub bus: SerialBus,
+    /// The USB device behind it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usb: Option<PortUsbDevice>,
+}
+
+/// The USB device behind a serial port, as the port listing describes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PortUsbDevice {
+    /// The vendor ID.
+    pub vid: u16,
+    /// The product ID.
+    pub pid: u16,
+    /// The maker.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    /// The product name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    /// The serial number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serial_number: Option<String>,
 }

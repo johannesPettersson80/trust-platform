@@ -16,8 +16,8 @@ use crate::access::{AccessRole, AuthFailure};
 use crate::events::RuntimeEvent;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
+    ResourcePort, StatusPort,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
@@ -124,6 +124,17 @@ impl<P, C> ResourcePort for RunnerHost<'_, P, C> {
 impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
     fn resource_name(&self) -> &str {
         self.platform.resource_name()
+    }
+
+    fn platform(&self) -> &str {
+        self.platform.platform()
+    }
+
+    /// A device without an operating system keeps control after `shutdown`: its program takes the
+    /// place of the process, so it still answers and `restart` starts the program again
+    /// (spec 34 STATE-08). The device never asks the platform, which cannot answer otherwise.
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

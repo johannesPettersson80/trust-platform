@@ -1689,9 +1689,9 @@
         "module_name": "view",
         "path": "crates/trust-devices/src/view",
         "owner": "VS Code Devices & Connections (V7)",
-        "rationale": "The view namespace is the whole panel contract of specification 25 §5.15 in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, status reading and addresses, with their tests and golden scenarios beside them. No single file or mixed owner; about a third of the lines are tests.",
+        "rationale": "The view namespace is the panel contract of specification 25 §5.15 and its projection, in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, connections, devices and links, the filter and search, issues, status reading and addresses, with their tests and golden scenarios beside them. The pane builders (add dialog, forms, USB tray) live in the sibling `panes` namespace and answer the pane types of this contract. No single file or mixed owner; about a third of the lines are tests.",
         "review_date": "2026-10-17",
-        "split_plan": "Keep one child module per panel concern. B5 adds connections, devices, links, search and issues as their own files; when the namespace passes 8,000 lines, the panes (add dialog, forms, Discover, browse, USB tray) move into a sibling `panes` namespace beside `view`. Split any file approaching 1000 lines by its responsibility."
+        "split_plan": "Keep one child module per panel concern; B5 added connections, devices, links, search and issues as their own files. The panes now live in the sibling `panes` namespace beside `view` (add dialog, forms, USB tray; later Discover and browse), and new panes go there; their contract types stay in `view/types/panes.rs`. Split any file approaching 1000 lines by its responsibility."
       }
     ],
     "function_size_allowlist": [
@@ -2311,14 +2311,6 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 97,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
         "line": 98,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
@@ -2327,7 +2319,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 101,
+        "line": 99,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2335,7 +2327,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 104,
+        "line": 102,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2343,7 +2335,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 107,
+        "line": 105,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2351,7 +2343,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 110,
+        "line": 108,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2359,7 +2351,15 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 113,
+        "line": 111,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 114,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",

@@ -224,7 +224,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "Communication Control Handlers\n(control/comm_handlers/*)" as commControlHandlers
     component "Fleet Topology Handlers\n(control/fleet_handlers/*)" as fleetControlHandlers
     component "ADS Control Handlers\n(control/ads_handlers/*)" as adsControlHandlers
-    component "Device Search Engine\n(host/search/*: requests, runner,\nsources, devices, presence)" as searchEngine
+    component "Device Search Engine\n(host/search/*: requests, runner,\nprotocol sources, devices, presence)" as searchEngine
     component "Web UI Server\n(HTTP/HTTPS)" as webServer
     component "Bounded Web Request Dispatcher\n(read lane + body lane + 503 overload)" as webDispatcher
     component "ADS Setup Routes\n/api/ads/* + /setup/ads" as adsWebRoutes
@@ -327,7 +327,7 @@ package "trust-runtime crate" as struntime #LightYellow {
     controlServer --> runtime : pause/step/io
     controlServer --> commControlHandlers : comm.capabilities/schema/apply/test
     commControlHandlers --> searchEngine : comm.search.start/status/cancel\n(search inside this runtime)
-    searchEngine --> commControlHandlers : sources wrap the comm.discover\nprotocol searches (until V7 C1b)
+    commControlHandlers --> searchEngine : comm.discover asks one protocol\nsource once, without a deadline
     searchEngine --> discovery : runtime mDNS state, or an mDNS\nbrowse until the search ends
     launcher --> searchEngine : trust-runtime discover\n(search on this computer)
     commControlHandlers --> ioRegistry : validate I/O driver setup

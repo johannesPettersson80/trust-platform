@@ -5,8 +5,9 @@ fn search_request(id: u64, kind: &str, params: serde_json::Value) -> serde_json:
 #[test]
 fn search_requests_answer_through_the_control_connection() {
     let state = hmi_test_state("PROGRAM Main END_PROGRAM");
+    // An EtherCAT search without a confirmed fieldbus scan is skipped, so it ends at once.
     let started = handle_request_value(
-        search_request(1, "comm.search.start", json!({ "only": ["usb"] })),
+        search_request(1, "comm.search.start", json!({ "only": ["ethercat"] })),
         &state,
         None,
     );
@@ -27,9 +28,9 @@ fn search_requests_answer_through_the_control_connection() {
     assert_eq!(
         result["sources"],
         json!([{
-            "id": "usb",
+            "id": "ethercat",
             "state": "skipped",
-            "reason": "USB search is not available in this truST version yet."
+            "reason": "An EtherCAT scan runs only when the search confirms it (confirm_fieldbus_scan)."
         }])
     );
     assert_eq!(result["devices"], json!([]));
@@ -74,7 +75,7 @@ fn search_requests_answer_through_the_control_connection() {
         );
     }
     let next = handle_request_value(
-        search_request(8, "comm.search.start", json!({ "only": ["usb"] })),
+        search_request(8, "comm.search.start", json!({ "only": ["ethercat"] })),
         &state,
         None,
     );

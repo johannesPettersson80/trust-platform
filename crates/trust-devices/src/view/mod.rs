@@ -8,16 +8,24 @@
 //! - `status`, `address` and `chips`: what a `status` answer says, how addresses are shown, and
 //!   which platform names a chip.
 //!
-//! The connections, devices, links, mesh buses, search, filter, issues and summary have their
-//! own modules; until they exist, their parts of the view are empty.
+//! - `connections`: the connection pills and their inspectors; `devices`: the devices and
+//!   systems at their other ends, the links and the mesh bus; `search`: the protocol filter and
+//!   the search; `issues`: the issues list, the banner and the summary strip.
+//!
+//! The add dialog, the forms it and the inspectors open, and the USB tray are built in
+//! [the `panes` namespace](crate::panes), which answers the pane types of `types`.
 
-mod address;
-mod chips;
+pub(crate) mod address;
+pub(crate) mod chips;
 mod computers;
+mod connections;
+mod devices;
 pub mod health;
-mod lifecycle;
+mod issues;
+pub(crate) mod lifecycle;
 mod list;
-mod runtimes;
+pub(crate) mod runtimes;
+mod search;
 pub(crate) mod status;
 pub mod types;
 
@@ -29,9 +37,8 @@ use crate::request::ViewRequest;
 use crate::texts::graph as texts;
 use crate::topology::{self, Topology};
 use types::{
-    Action, AddDialog, AddGroup, DevicesView, Emphasis, FilterReport, Issues, IssuesButton, Op,
-    Pane, ProjectBar, ProjectChoice, SearchEcho, Summary, Tone, Toolbar, UiOp, UsbTray,
-    SCHEMA_VERSION,
+    Action, AddDialog, AddGroup, DevicesView, Emphasis, Op, Pane, ProjectBar, ProjectChoice,
+    Toolbar, UiOp, UsbTray, SCHEMA_VERSION,
 };
 
 /// The whole panel for one gather (design §2.1). `this_computer` is the host ID that this
@@ -57,7 +64,26 @@ fn render(
     request: &ViewRequest,
     now_ms: u64,
 ) -> DevicesView {
-    let computers = computers::computers(topology, facts, now_ms);
+    let mut computers = computers::computers(topology, facts, now_ms);
+    connections::fill(
+        &mut computers,
+        topology,
+        &connections::Context::new(facts, gathered, &request.host.io_state, now_ms),
+    );
+    let mut graph = devices::graph(topology, &computers, now_ms);
+    let issues = issues::issues(topology, facts, &computers, &graph.devices);
+    let filter = search::apply_filter(
+        topology,
+        &mut computers,
+        &mut graph,
+        &issues,
+        &request.view.hidden_protocols,
+    );
+    let search = search::apply_search(&mut computers, &mut graph, &issues, &request.view.search);
+    let running = topology
+        .runtimes()
+        .filter(|runtime| runtimes::runs(runtime, facts))
+        .count();
     let [add, discover, add_host_slot] = lifecycle::toolbar_actions();
     DevicesView {
         schema_version: SCHEMA_VERSION,
@@ -68,41 +94,22 @@ fn render(
             add_host_slot,
         },
         project: project_bar(&gathered.project),
-        summary: empty_summary(),
-        banner: None,
-        issues: Issues {
-            button: IssuesButton {
-                text: String::new(),
-                tone: Tone::Neutral,
-                faults: 0,
-                warnings: 0,
-            },
-            groups: Vec::new(),
-        },
-        filter: FilterReport {
-            protocols: Vec::new(),
-            lines: Vec::new(),
-            hidden_connections: 0,
-            hidden_attention: 0,
-            hidden_errors: 0,
-            hidden_warnings: 0,
-        },
-        search: SearchEcho {
-            query: request.view.search.clone(),
-            placeholder: texts::SEARCH_PLACEHOLDER.to_owned(),
-            matches: 0,
-        },
+        summary: issues::summary(&computers, running, &issues),
+        banner: issues::banner(topology, facts),
+        issues,
+        filter,
+        search,
         networks: computers::networks(topology, &computers),
         computers,
-        devices: Vec::new(),
-        links: Vec::new(),
-        mesh: Vec::new(),
+        devices: graph.devices,
+        links: graph.links,
+        mesh: graph.mesh,
         usb: UsbTray {
             heading: String::new(),
             items: Vec::new(),
             empty_text: None,
         },
-        add: empty_add_dialog(),
+        add: crate::panes::add::add_dialog(topology, facts, gathered, request),
         list: list::list_view(),
         notices: Vec::new(),
     }
@@ -114,30 +121,8 @@ fn open(pane: Pane) -> Op {
     }
 }
 
-/// The summary strip before its counts are made.
-fn empty_summary() -> Summary {
-    Summary {
-        text: String::new(),
-        computers: 0,
-        runtimes: 0,
-        connections: 0,
-        running: 0,
-        faults: 0,
-        warnings: 0,
-        open_issues: Action {
-            id: "open_issues".to_owned(),
-            label: texts::OPEN_ISSUES.to_owned(),
-            enabled: true,
-            reason: None,
-            emphasis: Emphasis::Quiet,
-            confirm: None,
-            op: open(Pane::Issues),
-        },
-    }
-}
-
 /// The add dialog before its catalog is read: its title and its search entry.
-fn empty_add_dialog() -> AddDialog {
+pub(crate) fn empty_add_dialog() -> AddDialog {
     AddDialog {
         title: texts::ADD_DIALOG_TITLE.to_owned(),
         target: None,
@@ -196,4 +181,4 @@ fn project_bar(project: &ProjectInputs) -> ProjectBar {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

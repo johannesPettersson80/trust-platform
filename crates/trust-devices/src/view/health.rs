@@ -5,7 +5,7 @@
 
 use trust_runtime::connectors::{ConnectorHealth, ConnectorState, DiscoveryConfidence};
 
-use super::types::{Look, Pill, Tone};
+use super::types::{Look, Mark, Pill, Tone};
 use crate::texts::graph as texts;
 use crate::topology::{Host, HostOrigin};
 
@@ -228,4 +228,53 @@ pub fn confidence_word(confidence: DiscoveryConfidence) -> &'static str {
         DiscoveryConfidence::PortReachable => texts::CONFIDENCE_PORT_REACHABLE,
         DiscoveryConfidence::Unavailable => texts::CONFIDENCE_UNAVAILABLE,
     }
+}
+
+/// The protocols of the advanced integrations: a connection of one is a draft until evidence
+/// arrives.
+const ADVANCED_PROTOCOLS: [&str; 6] = [
+    "mesh",
+    "openot",
+    "realtime",
+    "realtime_t0",
+    "runtime_cloud",
+    "federation",
+];
+
+/// The health words of an advanced integration without evidence.
+const NO_EVIDENCE: [&str; 4] = ["pending", "configured_policy", "not_configured", "unknown"];
+
+/// Whether a connection is drawn as a draft (specification 25 §5.3 and §5.13): one of the add
+/// flow, whose role is `draft`, or an advanced integration (`mesh`, `openot`, `realtime`,
+/// `runtime_cloud`) whose health word shows no evidence yet.
+#[must_use]
+pub fn draft_like(protocol: &str, role: &str, health: &str) -> bool {
+    normalized(role) == "draft"
+        || (ADVANCED_PROTOCOLS.contains(&normalized(protocol).as_str())
+            && NO_EVIDENCE.contains(&normalized(health).as_str()))
+}
+
+/// The marks of a connection pill (specification 25 §5.13): `DRAFT` while it is a draft, and
+/// `Disabled` while its health word is `disabled`.
+#[must_use]
+pub fn connection_marks(protocol: &str, role: &str, health: &str) -> Vec<Mark> {
+    let mut marks = Vec::new();
+    if draft_like(protocol, role, health) {
+        marks.push(Mark::Draft);
+    }
+    if normalized(health) == "disabled" {
+        marks.push(Mark::Disabled);
+    }
+    marks
+}
+
+/// The statuses that prove a link or a mesh peer.
+const PROVEN: [&str; 3] = ["connected", "degraded", "error"];
+
+/// Whether a link or a mesh peer is proven and drawn solid (specification 25 §5.7): only an
+/// established `connected`, `degraded` or `error` status proves it; every other status, an
+/// unknown future one included, fails closed and is drawn dashed.
+#[must_use]
+pub fn link_proven(status: &str) -> bool {
+    PROVEN.contains(&normalized(status).as_str())
 }

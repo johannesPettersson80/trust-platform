@@ -1,11 +1,178 @@
 use std::io::{Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+use super::super::probe::{CONFIRMED, LIKELY, PORT_REACHABLE};
+use super::super::scope::resolve_authority_all;
 use super::*;
+
+fn scope() -> DiscoverScope {
+    DiscoverScope::default()
+}
+
+#[test]
+fn mqtt_missing_host_returns_none_and_one_stable_warning() {
+    for host in [None, Some(""), Some(" \t ")] {
+        let mut warnings = Vec::new();
+        let targets = mqtt_targets(
+            &DiscoverScope {
+                host: host.map(str::to_string),
+                ..scope()
+            },
+            &mut warnings,
+        )
+        .expect("missing MQTT host");
+        assert_eq!(targets, None);
+        assert_eq!(
+            warnings,
+            vec![
+                "MQTT discovery needs a broker host; broad network scans are not run for MQTT."
+                    .to_string()
+            ]
+        );
+    }
+}
+
+#[test]
+fn mqtt_explicit_socket_produces_one_target() {
+    for (host, expected) in [
+        (
+            "127.0.0.1:1884",
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1884),
+        ),
+        (
+            "[::1]:8883",
+            SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8883),
+        ),
+    ] {
+        let mut warnings = Vec::new();
+        let targets = mqtt_targets(
+            &DiscoverScope {
+                host: Some(host.to_string()),
+                ..scope()
+            },
+            &mut warnings,
+        )
+        .expect("MQTT target")
+        .expect("directed targets");
+        assert_eq!(targets, vec![expected]);
+        assert!(warnings.is_empty());
+    }
+}
+
+#[test]
+fn mqtt_omitted_port_probes_cleartext_then_tls_without_duplicates() {
+    let mut warnings = Vec::new();
+    let targets = mqtt_targets(
+        &DiscoverScope {
+            host: Some("127.0.0.1".to_string()),
+            ..scope()
+        },
+        &mut warnings,
+    )
+    .expect("MQTT targets")
+    .expect("directed targets");
+    assert_eq!(
+        targets,
+        vec![
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), MQTT_PORT),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), MQTTS_PORT),
+        ]
+    );
+    let unique: std::collections::BTreeSet<_> = targets.iter().copied().collect();
+    assert_eq!(unique.len(), targets.len());
+}
+
+#[test]
+fn mqtt_target_rejects_malformed_authorities_before_probe() {
+    for host in [
+        "127.0.0.1:0",
+        "mqtt://127.0.0.1",
+        "mqtts://127.0.0.1",
+        "user@127.0.0.1:1883",
+        "127.0.0.1:1883/path",
+        "127.0.0.1:1883?query",
+        "127.0.0.1:1883#fragment",
+        "127.0.0.1:notaport",
+        "::1",
+    ] {
+        let mut warnings = Vec::new();
+        assert!(
+            mqtt_targets(
+                &DiscoverScope {
+                    host: Some(host.to_string()),
+                    ..scope()
+                },
+                &mut warnings
+            )
+            .is_err(),
+            "invalid MQTT authority accepted: {host}"
+        );
+    }
+}
+
+#[test]
+fn mqtt_probe_uses_clean_session_and_disconnects_after_connack() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+    let addr = listener.local_addr().expect("addr");
+    let (tx, rx) = mpsc::channel();
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let mut fixed = [0u8; 2];
+        stream.read_exact(&mut fixed).expect("connect fixed header");
+        assert_eq!(fixed[0], 0x10);
+        let mut body = vec![0u8; fixed[1] as usize];
+        stream.read_exact(&mut body).expect("connect body");
+        assert_eq!(&body[0..6], &[0x00, 0x04, b'M', b'Q', b'T', b'T']);
+        assert_eq!(body[6], 0x04);
+        assert_eq!(body[7], 0x02, "clean_session must be set");
+        stream
+            .write_all(&[0x20, 0x02, 0x00, 0x00])
+            .expect("connack");
+        let mut disconnect = [0u8; 2];
+        stream.read_exact(&mut disconnect).expect("disconnect");
+        tx.send(disconnect).expect("send disconnect");
+    });
+
+    let outcome = probe_mqtt(addr, Duration::from_millis(250)).expect("outcome");
+
+    assert_eq!(outcome.confidence, CONFIRMED);
+    assert_eq!(outcome.source, "mqtt_connack");
+    assert_eq!(rx.recv().expect("disconnect"), [0xe0, 0x00]);
+    handle.join().expect("join");
+}
+
+#[test]
+fn mqtt_probe_classifies_auth_rejected_connack_separately() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+    let addr = listener.local_addr().expect("addr");
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let mut fixed = [0u8; 2];
+        stream.read_exact(&mut fixed).expect("connect fixed header");
+        let mut body = vec![0u8; fixed[1] as usize];
+        stream.read_exact(&mut body).expect("connect body");
+        stream
+            .write_all(&[0x20, 0x02, 0x00, 0x05])
+            .expect("auth rejected connack");
+        let mut disconnect = [0u8; 2];
+        stream.read_exact(&mut disconnect).expect("disconnect");
+        assert_eq!(disconnect, [0xe0, 0x00]);
+    });
+
+    let outcome = probe_mqtt(addr, Duration::from_millis(250)).expect("outcome");
+
+    assert_eq!(outcome.confidence, LIKELY);
+    assert_eq!(outcome.source, "mqtt_connack_auth_rejected");
+    assert!(outcome.auth_required);
+    assert!(outcome
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("requires credentials")));
+    handle.join().expect("join");
+}
 
 fn stream_with_server_bytes(bytes: Vec<u8>) -> (TcpStream, thread::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind byte server");
@@ -44,57 +211,6 @@ fn capture_client_write(
     (result, bytes)
 }
 
-fn modbus_exchange(
-    unit_id: u8,
-    pdu: Vec<u8>,
-    transaction_id: u16,
-    response: Vec<u8>,
-) -> (Result<ModbusProbeResponse, std::io::Error>, Vec<u8>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind Modbus server");
-    let address = listener.local_addr().expect("Modbus address");
-    let expected_request_len = 7 + pdu.len();
-    let (tx, rx) = mpsc::channel();
-    let server = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept Modbus client");
-        let mut request = Vec::with_capacity(expected_request_len);
-        while request.len() < expected_request_len {
-            let mut chunk = [0u8; 256];
-            let wanted = (expected_request_len - request.len()).min(chunk.len());
-            match stream.read(&mut chunk[..wanted]) {
-                Ok(0) => break,
-                Ok(read) => request.extend_from_slice(&chunk[..read]),
-                Err(error) => panic!("read Modbus request: {error}"),
-            }
-        }
-        let complete = request.len() == expected_request_len;
-        tx.send(request).expect("send Modbus request");
-        if complete {
-            stream.write_all(&response).expect("write Modbus response");
-        }
-    });
-    let mut stream = TcpStream::connect(address).expect("connect Modbus server");
-    let result = send_modbus_request(&mut stream, unit_id, &pdu, transaction_id);
-    if result
-        .as_ref()
-        .is_err_and(|error| error.kind() == std::io::ErrorKind::InvalidInput)
-    {
-        let _ = stream.shutdown(Shutdown::Write);
-    }
-    let request = rx.recv().expect("receive Modbus request");
-    server.join().expect("join Modbus server");
-    (result, request)
-}
-
-fn modbus_response(transaction_id: u16, protocol_id: u16, unit_id: u8, pdu: &[u8]) -> Vec<u8> {
-    let mut response = Vec::new();
-    response.extend_from_slice(&transaction_id.to_be_bytes());
-    response.extend_from_slice(&protocol_id.to_be_bytes());
-    response.extend_from_slice(&((pdu.len() + 1) as u16).to_be_bytes());
-    response.push(unit_id);
-    response.extend_from_slice(pdu);
-    response
-}
-
 fn connack(bytes: &[u8]) -> Result<u8, std::io::Error> {
     let (mut stream, handle) = stream_with_server_bytes(bytes.to_vec());
     let result = read_mqtt_connack(&mut stream);
@@ -107,219 +223,6 @@ fn remaining_length(bytes: &[u8]) -> Result<usize, std::io::Error> {
     let result = read_remaining_length(&mut stream);
     handle.join().expect("join remaining-length server");
     result
-}
-
-fn modbus_error(result: Result<ModbusProbeResponse, std::io::Error>) -> std::io::Error {
-    match result {
-        Ok(_) => panic!("malformed Modbus exchange was accepted"),
-        Err(error) => error,
-    }
-}
-
-#[test]
-fn outcome_constructors_use_closed_confidence_and_default_flags() {
-    let confirmed = DiscoveryProbeOutcome::confirmed("wire", "confirmed");
-    assert_eq!(confirmed.confidence, CONFIRMED);
-    assert_eq!(confirmed.source, "wire");
-    assert_eq!(confirmed.detail, "confirmed");
-    assert!(confirmed.warnings.is_empty());
-    assert!(!confirmed.auth_required);
-
-    let likely = DiscoveryProbeOutcome::likely("wire", "likely");
-    assert_eq!(likely.confidence, LIKELY);
-    assert!(!likely.auth_required);
-
-    let reachable = DiscoveryProbeOutcome::port_reachable("tcp", "reachable");
-    assert_eq!(reachable.confidence, PORT_REACHABLE);
-    assert!(!reachable.auth_required);
-}
-
-#[test]
-fn outcome_modifiers_preserve_warning_order_and_auth_flag() {
-    let outcome = DiscoveryProbeOutcome::likely("mqtt", "rejected")
-        .with_warning("first")
-        .with_warning("second")
-        .with_auth_required();
-    assert_eq!(outcome.warnings, vec!["first", "second"]);
-    assert!(outcome.auth_required);
-    assert_eq!(outcome.confidence, LIKELY);
-}
-
-#[test]
-fn modbus_device_id_request_has_exact_mbap_and_pdu() {
-    let response = modbus_response(1, 0, 17, &[0x2b, 0x0e]);
-    let (result, request) = modbus_exchange(17, vec![0x2b, 0x0e, 0x01, 0x00], 1, response);
-    assert!(matches!(result, Ok(ModbusProbeResponse::Normal)));
-    assert_eq!(
-        request,
-        vec![0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x11, 0x2b, 0x0e, 0x01, 0x00]
-    );
-}
-
-#[test]
-fn modbus_safe_read_request_has_exact_transaction_unit_address_and_quantity() {
-    let response = modbus_response(2, 0, 255, &[0x03, 0x02, 0x00, 0x00]);
-    let (result, request) = modbus_exchange(255, vec![0x03, 0x12, 0x34, 0x00, 0x7d], 2, response);
-    assert!(matches!(result, Ok(ModbusProbeResponse::Normal)));
-    assert_eq!(
-        request,
-        vec![0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0xff, 0x03, 0x12, 0x34, 0x00, 0x7d]
-    );
-}
-
-#[test]
-fn modbus_normal_and_explicit_exception_responses_are_distinct() {
-    let normal = modbus_exchange(
-        1,
-        vec![0x03, 0, 0, 0, 1],
-        7,
-        modbus_response(7, 0, 1, &[0x03, 0x02, 0, 0]),
-    )
-    .0;
-    assert!(matches!(normal, Ok(ModbusProbeResponse::Normal)));
-
-    let exception = modbus_exchange(
-        1,
-        vec![0x03, 0, 0, 0, 1],
-        8,
-        modbus_response(8, 0, 1, &[0x83, 0x02]),
-    )
-    .0;
-    assert!(matches!(exception, Ok(ModbusProbeResponse::Exception(2))));
-}
-
-#[test]
-fn modbus_response_must_match_transaction_id() {
-    let result = modbus_exchange(
-        1,
-        vec![0x03, 0, 0, 0, 1],
-        7,
-        modbus_response(8, 0, 1, &[0x03, 0x02, 0, 0]),
-    )
-    .0;
-    assert_eq!(modbus_error(result).kind(), std::io::ErrorKind::InvalidData);
-}
-
-#[test]
-fn modbus_response_must_use_protocol_id_zero() {
-    let result = modbus_exchange(
-        1,
-        vec![0x03, 0, 0, 0, 1],
-        7,
-        modbus_response(7, 1, 1, &[0x03, 0x02, 0, 0]),
-    )
-    .0;
-    assert_eq!(modbus_error(result).kind(), std::io::ErrorKind::InvalidData);
-}
-
-#[test]
-fn modbus_response_must_match_requested_unit_id() {
-    let result = modbus_exchange(
-        17,
-        vec![0x03, 0, 0, 0, 1],
-        7,
-        modbus_response(7, 0, 18, &[0x03, 0x02, 0, 0]),
-    )
-    .0;
-    assert_eq!(modbus_error(result).kind(), std::io::ErrorKind::InvalidData);
-}
-
-#[test]
-fn modbus_response_length_has_closed_two_through_260_domain() {
-    for length in [0u16, 1, 261, u16::MAX] {
-        let mut response = Vec::new();
-        response.extend_from_slice(&7u16.to_be_bytes());
-        response.extend_from_slice(&0u16.to_be_bytes());
-        response.extend_from_slice(&length.to_be_bytes());
-        let result = modbus_exchange(1, vec![0x03], 7, response).0;
-        assert_eq!(
-            modbus_error(result).kind(),
-            std::io::ErrorKind::InvalidData,
-            "length {length}"
-        );
-    }
-}
-
-#[test]
-fn modbus_partial_response_body_is_rejected() {
-    let mut response = Vec::new();
-    response.extend_from_slice(&7u16.to_be_bytes());
-    response.extend_from_slice(&0u16.to_be_bytes());
-    response.extend_from_slice(&5u16.to_be_bytes());
-    response.extend_from_slice(&[1, 0x03]);
-    let result = modbus_exchange(1, vec![0x03], 7, response).0;
-    assert_eq!(
-        modbus_error(result).kind(),
-        std::io::ErrorKind::UnexpectedEof
-    );
-}
-
-#[test]
-fn modbus_unexpected_function_is_rejected() {
-    let result = modbus_exchange(
-        1,
-        vec![0x03, 0, 0, 0, 1],
-        7,
-        modbus_response(7, 0, 1, &[0x04, 0x02, 0, 0]),
-    )
-    .0;
-    assert_eq!(modbus_error(result).kind(), std::io::ErrorKind::InvalidData);
-}
-
-#[test]
-fn modbus_exception_requires_explicit_exception_code() {
-    let result = modbus_exchange(
-        1,
-        vec![0x03, 0, 0, 0, 1],
-        7,
-        modbus_response(7, 0, 1, &[0x83]),
-    )
-    .0;
-    assert_eq!(
-        modbus_error(result).kind(),
-        std::io::ErrorKind::UnexpectedEof
-    );
-}
-
-#[test]
-fn modbus_empty_request_pdu_returns_error_without_panicking() {
-    let response = modbus_response(7, 0, 1, &[0x03]);
-    let observed = catch_unwind(AssertUnwindSafe(|| {
-        modbus_exchange(1, Vec::new(), 7, response).0
-    }));
-    assert!(observed.is_ok(), "empty PDU panicked");
-    assert_eq!(
-        modbus_error(observed.expect("no panic")).kind(),
-        std::io::ErrorKind::InvalidInput
-    );
-}
-
-#[test]
-fn modbus_request_pdu_above_253_bytes_is_rejected_before_use() {
-    let pdu = vec![0x03; 254];
-    let response = modbus_response(7, 0, 1, &[0x03]);
-    let result = modbus_exchange(1, pdu, 7, response).0;
-    assert_eq!(
-        modbus_error(result).kind(),
-        std::io::ErrorKind::InvalidInput
-    );
-}
-
-#[test]
-fn unreachable_modbus_and_mqtt_targets_return_no_observation() {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind unused socket");
-    let address = listener.local_addr().expect("unused address");
-    drop(listener);
-    assert!(probe_modbus_tcp(
-        address,
-        Duration::from_millis(25),
-        ModbusDiscoveryProbe {
-            unit_id: 1,
-            safe_read: None
-        }
-    )
-    .is_none());
-    assert!(probe_mqtt(address, Duration::from_millis(25)).is_none());
 }
 
 #[test]
@@ -546,26 +449,88 @@ fn mqtt_probe_classifies_all_valid_rejection_codes_without_confirmation() {
 }
 
 #[test]
-fn mqtts_port_reports_only_tcp_reachability_and_writes_nothing() {
+fn mqtt_probes_every_resolved_address() {
+    // The old fault probed only the first resolved address; `localhost` and a literal address
+    // must expand to every resolved address, each at 1883 and then 8883.
+    for host in ["localhost", "127.0.0.1"] {
+        let mut warnings = Vec::new();
+        let targets = mqtt_targets(
+            &DiscoverScope {
+                host: Some(host.to_string()),
+                ..scope()
+            },
+            &mut warnings,
+        )
+        .expect("MQTT targets")
+        .expect("directed targets");
+        assert!(warnings.is_empty());
+
+        let resolved = resolve_authority_all(host, MQTT_PORT, "MQTT").expect("resolve MQTT host");
+        let expected: Vec<SocketAddr> = resolved
+            .iter()
+            .flat_map(|address| {
+                [
+                    SocketAddr::new(address.ip(), MQTT_PORT),
+                    SocketAddr::new(address.ip(), MQTTS_PORT),
+                ]
+            })
+            .collect();
+        assert_eq!(targets, expected, "{host}");
+    }
+}
+
+#[test]
+fn mqtts_tls_handshake_result() {
+    let cert = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/tls/server-cert.pem"
+    ))
+    .expect("read TLS test certificate");
+    let key = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/tls/server-key.pem"
+    ))
+    .expect("read TLS test key");
+    let identity = native_tls::Identity::from_pkcs8(&cert, &key).expect("build TLS identity");
+    let acceptor = native_tls::TlsAcceptor::new(identity).expect("build TLS acceptor");
+
+    // A completed TLS handshake on 8883 proves reachability, never an MQTT broker.
     let listener = TcpListener::bind("127.0.0.1:8883").expect("bind MQTTS test port");
     let address = listener.local_addr().expect("MQTTS address");
     let (tx, rx) = mpsc::channel();
     let server = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept MQTTS client");
-        stream
-            .set_read_timeout(Some(Duration::from_millis(100)))
-            .expect("set read timeout");
-        let mut byte = [0];
-        tx.send(stream.read(&mut byte)).expect("send read outcome");
+        let (stream, _) = listener.accept().expect("accept MQTTS client");
+        tx.send(acceptor.accept(stream).is_ok())
+            .expect("send TLS outcome");
     });
-    let outcome = probe_mqtt(address, Duration::from_millis(250)).expect("MQTTS outcome");
+    let outcome = probe_mqtt(address, Duration::from_millis(1_000)).expect("MQTTS outcome");
+    assert_eq!(outcome.confidence, PORT_REACHABLE);
+    assert_eq!(outcome.source, "tls_handshake");
+    assert!(outcome
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("TLS handshake succeeded")));
+    assert!(
+        rx.recv_timeout(Duration::from_secs(5))
+            .expect("TLS outcome"),
+        "the server TLS handshake failed"
+    );
+    server.join().expect("join MQTTS server");
+
+    // A plaintext listener on 8883 fails the handshake: only the port is proven.
+    let listener = TcpListener::bind("127.0.0.1:8883").expect("rebind MQTTS test port");
+    let address = listener.local_addr().expect("MQTTS address");
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept MQTTS client");
+        let mut byte = [0u8; 1];
+        let _ = stream.read(&mut byte);
+    });
+    let outcome = probe_mqtt(address, Duration::from_millis(1_000)).expect("MQTTS outcome");
     assert_eq!(outcome.confidence, PORT_REACHABLE);
     assert_eq!(outcome.source, "tcp_connect");
-    assert!(!outcome.warnings.is_empty());
-    let read = rx.recv().expect("read outcome");
-    match read {
-        Ok(0) | Err(_) => {}
-        Ok(count) => panic!("MQTTS discovery wrote {count} unexpected plaintext bytes"),
-    }
-    server.join().expect("join MQTTS server");
+    assert!(outcome
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("TLS handshake failed")));
+    server.join().expect("join plaintext server");
 }

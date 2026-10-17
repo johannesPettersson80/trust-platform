@@ -44,25 +44,16 @@ pub(crate) fn runtime(runtime: &topology::Runtime, place: Place<'_>, facts: &Fac
     let owner = owner(runtime, facts);
     let name = display_name(runtime, owner);
     let (contact, endpoint) = contact(runtime, owner, facts);
-    let subject = Subject {
-        id: &id,
-        name: &name,
+    let subject = subject_of(
+        runtime,
+        &id,
+        &name,
         owner,
         contact,
-        endpoint: endpoint.as_deref(),
-        run_target_endpoint: trimmed(runtime.control_endpoint.as_deref()),
-        attached: runtime.attached,
-        simulator: facts.simulator,
-        simulator_failed: facts.simulator_failed,
-        simulator_answered: runtime.origin == RuntimeOrigin::Simulator,
-    };
-    let health = runtime_rollup(
-        &runtime.health,
-        runtime
-            .endpoints
-            .iter()
-            .map(|endpoint| endpoint.health.as_str()),
+        endpoint.as_deref(),
+        facts,
     );
+    let health = rollup(runtime);
     let state = state(&subject, health);
     let status = match contact {
         Contact::Answered(status) => Some(status),
@@ -125,6 +116,69 @@ pub(crate) fn runtime(runtime: &topology::Runtime, place: Place<'_>, facts: &Fac
         dimmed: false,
         hidden: false,
     }
+}
+
+/// What the actions and the state of `runtime` are decided from.
+fn subject_of<'a>(
+    runtime: &'a topology::Runtime,
+    id: &'a ItemId,
+    name: &'a str,
+    owner: Owner<'a>,
+    contact: Contact<'a>,
+    endpoint: Option<&'a str>,
+    facts: &Facts,
+) -> Subject<'a> {
+    Subject {
+        id,
+        name,
+        owner,
+        contact,
+        endpoint,
+        run_target_endpoint: trimmed(runtime.control_endpoint.as_deref()),
+        attached: runtime.attached,
+        simulator: facts.simulator,
+        simulator_failed: facts.simulator_failed,
+        simulator_answered: runtime.origin == RuntimeOrigin::Simulator,
+    }
+}
+
+/// The runtime's health, rolled up from its own and its connections' health words.
+fn rollup(runtime: &topology::Runtime) -> Health {
+    runtime_rollup(
+        &runtime.health,
+        runtime
+            .endpoints
+            .iter()
+            .map(|endpoint| endpoint.health.as_str()),
+    )
+}
+
+/// Whether the runtime's program runs, as its card's state shows it: the summary strip counts
+/// it (specification 25 §5.11).
+pub(crate) fn runs(runtime: &topology::Runtime, facts: &Facts) -> bool {
+    let id = ItemId(runtime.id.clone());
+    let owner = owner(runtime, facts);
+    let name = display_name(runtime, owner);
+    let (contact, endpoint) = contact(runtime, owner, facts);
+    let subject = subject_of(
+        runtime,
+        &id,
+        &name,
+        owner,
+        contact,
+        endpoint.as_deref(),
+        facts,
+    );
+    state(&subject, rollup(runtime)).running
+}
+
+/// Whether the runtime answered `status` this round, so that its connections can be tested
+/// (specification 25 §5.13).
+pub(crate) fn answers(runtime: &topology::Runtime, facts: &Facts) -> bool {
+    matches!(
+        contact(runtime, owner(runtime, facts), facts).0,
+        Contact::Answered(_)
+    )
 }
 
 /// The kind icon: the simulator, the truST firmware of a chip when the runtime reports a chip as
@@ -241,6 +295,8 @@ pub(crate) struct State {
     pub(crate) live: bool,
     /// Dashed while the state is not proven.
     pub(crate) look: Look,
+    /// Whether the program runs, also while a connection reports an error or is degraded.
+    pub(crate) running: bool,
 }
 
 impl State {
@@ -250,6 +306,7 @@ impl State {
             tone,
             live: false,
             look: Look::Normal,
+            running: false,
         }
     }
 
@@ -263,13 +320,17 @@ impl State {
 
     /// A running runtime, unless a connection reports an error or is degraded.
     fn running(health: Health) -> Self {
-        match health {
+        let state = match health {
             Health::Error => Self::fixed(texts::ERROR, Tone::Error),
             Health::Degraded => Self::fixed(texts::DEGRADED, Tone::Warning),
             _ => Self {
                 live: true,
                 ..Self::fixed(texts::RUNNING, Tone::Ok)
             },
+        };
+        Self {
+            running: true,
+            ..state
         }
     }
 
@@ -331,7 +392,7 @@ pub(crate) fn state(subject: &Subject<'_>, health: Health) -> State {
 
 /// A runtime's detail without the prefix that says where its configuration comes from:
 /// `Configured in …;` or `Loaded from project files;`.
-fn clean_detail(detail: &str) -> String {
+pub(crate) fn clean_detail(detail: &str) -> String {
     const LOADED: &str = "loaded from project files;";
     let detail = detail.trim();
     let lower = detail.to_ascii_lowercase();
@@ -346,7 +407,7 @@ fn clean_detail(detail: &str) -> String {
 }
 
 /// The `State` row: the state word and, when it says more, the detail (specification 25 §5.2).
-fn state_row(word: &str, health: &str, detail: &str) -> String {
+pub(crate) fn state_row(word: &str, health: &str, detail: &str) -> String {
     if detail.is_empty()
         || detail.eq_ignore_ascii_case(word)
         || detail.eq_ignore_ascii_case(health.trim())

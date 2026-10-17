@@ -107,6 +107,10 @@ rumqttc = { version = "0.25.1", default-features = false, features = ["use-nativ
 native-tls = { version = "0.2.18", features = ["alpn", "vendored"] }
 time = "0.3.55"
 rapier3d = { version = "0.36.1", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
+# The USB and serial listings of the one search (specification 11): they read what the operating
+# system lists and never open a device. No libudev: Linux reads sysfs.
+nusb = "0.2.8"
+serialport = { version = "4.10.1", default-features = false }
 
 # Internal crates
 trust-syntax = { path = "crates/trust-syntax" }

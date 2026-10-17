@@ -1,10 +1,24 @@
-//! The sources of a search and where it runs (specification 11, "Sources"). `catalog` decides
-//! which requested sources run and why the others are skipped; `adapters` runs each source over
-//! today's per-protocol searches of `comm.discover`, until V7 slice C1b moves those searches into
-//! this folder.
+//! The sources of a search and where it runs (specification 11, "Sources"). Each protocol has its
+//! module: `discover` searches once, within a deadline and through a result sink, and answers a
+//! `comm.discover` request or one target of a search; `search` is the protocol's source in the one
+//! search. `scope` reads what a protocol search probes, `report` is what it reports, `probe` is
+//! what a TCP probe proves, `find` turns candidates into a search's results, and `catalog`
+//! decides which requested sources run and why the others are skipped.
 
-mod adapters;
+pub(crate) mod ads;
 mod catalog;
+pub(crate) mod ethercat;
+mod find;
+pub(crate) mod gpio;
+pub(crate) mod modbus_tcp;
+pub(crate) mod mqtt;
+pub(crate) mod opcua;
+mod probe;
+pub(crate) mod report;
+pub(crate) mod scope;
+mod serial;
+pub(crate) mod trust_runtimes;
+mod usb;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -60,6 +74,8 @@ pub(crate) struct SourceContext {
     pub(crate) cidr: Option<String>,
     /// The EtherCAT adapters to scan; `None` is the adapter of the project's EtherCAT driver.
     pub(crate) ethercat_adapters: Vec<Option<String>>,
+    /// The Modbus TCP unit IDs to probe; unit ID 1 when the request names none.
+    pub(crate) modbus_unit_ids: Vec<u8>,
     /// The runtime the search runs in; `None` on the tool's computer.
     pub(crate) runtime: Option<RuntimeFacts>,
 }

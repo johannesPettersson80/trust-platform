@@ -2,6 +2,8 @@ use std::io::Read;
 use std::net::TcpListener;
 use std::thread;
 
+use serde_json::json;
+
 use super::*;
 
 #[test]

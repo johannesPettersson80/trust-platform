@@ -7,6 +7,7 @@
 
 use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
+use std::sync::OnceLock;
 
 use smol_str::SmolStr;
 use trust_runtime_core::ports::WallClock;
@@ -14,8 +15,8 @@ use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::events::RuntimeEvent;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
+    ResourcePort, StatusPort,
 };
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
@@ -123,6 +124,21 @@ impl ResourcePort for ControlState {
 impl StatusPort for ControlState {
     fn resource_name(&self) -> &str {
         self.resource_name.as_str()
+    }
+
+    /// The operating system and CPU architecture this binary is built for, for example
+    /// `linux-x86_64`.
+    fn platform(&self) -> &str {
+        static PLATFORM: OnceLock<String> = OnceLock::new();
+        PLATFORM
+            .get_or_init(|| format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH))
+            .as_str()
+    }
+
+    /// `shutdown` ends the trust-runtime process, so a stopped runtime has no scan loop to take a
+    /// `restart` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::Process
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

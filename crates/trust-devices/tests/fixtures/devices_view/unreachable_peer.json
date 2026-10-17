@@ -54,9 +54,9 @@
     "choices": []
   },
   "summary": {
-    "text": "",
-    "computers": 0,
-    "runtimes": 0,
+    "text": "2 computers · 2 runtimes · 0 connections · 0 running · 0 faults · 0 warnings",
+    "computers": 2,
+    "runtimes": 2,
     "connections": 0,
     "running": 0,
     "faults": 0,
@@ -77,9 +77,27 @@
       }
     }
   },
+  "banner": {
+    "tone": "neutral",
+    "text": "Simulator is stopped.",
+    "actions": [
+      {
+        "id": "start_simulator",
+        "label": "Start simulator",
+        "enabled": true,
+        "emphasis": "primary",
+        "op": {
+          "kind": "host",
+          "effect": {
+            "kind": "start_simulator"
+          }
+        }
+      }
+    ]
+  },
   "issues": {
     "button": {
-      "text": "",
+      "text": "No issues",
       "tone": "neutral",
       "faults": 0,
       "warnings": 0
@@ -88,7 +106,16 @@
   },
   "filter": {
     "protocols": [],
-    "lines": [],
+    "lines": [
+      {
+        "text": "All protocols are visible.",
+        "tone": "neutral"
+      },
+      {
+        "text": "No connections.",
+        "tone": "muted"
+      }
+    ],
     "hidden_connections": 0,
     "hidden_attention": 0,
     "hidden_errors": 0,
@@ -864,7 +891,20 @@
   },
   "add": {
     "title": "Add device or connection",
-    "runtime_choices": [],
+    "target": {
+      "id": "runtime:local",
+      "name": "Simulator"
+    },
+    "runtime_choices": [
+      {
+        "id": "runtime:local",
+        "name": "Simulator"
+      },
+      {
+        "id": "trust-fleet-v1:WyJydW50aW1lIiwiZmxlZXQ6MTAuMC4wLjk6NTUxMCIsbnVsbCwiZmxlZXQ6MTAuMC4wLjk6NTUxMDpydW50aW1lIl0",
+        "name": "cell1"
+      }
+    ],
     "discover": {
       "id": "discover",
       "label": "Discover devices and runtimes",
@@ -885,10 +925,124 @@
     "runtimes": {
       "label": "Runtimes",
       "advanced": false,
-      "entries": []
+      "entries": [
+        {
+          "protocol": "runtime.connect",
+          "title": "Connect existing runtime",
+          "badge": "Computer",
+          "purpose": "Use a runtime already running on another computer or controller.",
+          "action": {
+            "id": "runtime.connect",
+            "label": "Connect existing runtime",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "form.open",
+              "payload": {
+                "setup": "connect"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "runtime.local",
+          "title": "Run a runtime on this computer",
+          "badge": "Computer",
+          "purpose": "Create a managed runtime project here, then select it as the Target and click Start.",
+          "action": {
+            "id": "runtime.local",
+            "label": "Run a runtime on this computer",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "form.open",
+              "payload": {
+                "setup": "local"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "chip.stm32f407",
+          "title": "STM32F407",
+          "badge": "Chip",
+          "purpose": "truST firmware · Ethernet, USB",
+          "action": {
+            "id": "chip.stm32f407",
+            "label": "STM32F407",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "stm32f407"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "chip.esp32c6",
+          "title": "ESP32-C6",
+          "badge": "Chip",
+          "purpose": "truST firmware · Wi-Fi, Bluetooth, USB",
+          "action": {
+            "id": "chip.esp32c6",
+            "label": "ESP32-C6",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "esp32c6"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "runtime.ssh",
+          "title": "Install over SSH",
+          "badge": "Computer",
+          "purpose": "Install on another computer over SSH.",
+          "action": {
+            "id": "runtime.ssh",
+            "label": "Install over SSH",
+            "enabled": false,
+            "reason": "Available in a later release.",
+            "emphasis": "quiet",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_ssh",
+              "payload": {}
+            }
+          }
+        },
+        {
+          "protocol": "runtime.docker",
+          "title": "Run in Docker",
+          "badge": "Computer",
+          "purpose": "Run the runtime as a container.",
+          "action": {
+            "id": "runtime.docker",
+            "label": "Run in Docker",
+            "enabled": false,
+            "reason": "Available in a later release.",
+            "emphasis": "quiet",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.run_docker",
+              "payload": {}
+            }
+          }
+        }
+      ]
     },
     "groups": [],
-    "quick_starts": []
+    "quick_starts": [],
+    "catalog_state": "No device or connection types are available."
   },
   "list": {
     "columns": [

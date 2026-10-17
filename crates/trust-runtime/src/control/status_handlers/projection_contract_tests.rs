@@ -147,6 +147,25 @@ fn openot_status_projects_every_applicable_operator_warning() {
 }
 
 #[test]
+fn host_status_reports_the_os_and_architecture_as_platform() {
+    let value = result(handle_status(24, &state()));
+    assert_eq!(
+        value.get("platform"),
+        Some(&json!(format!(
+            "{}-{}",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        )))
+    );
+}
+
+#[test]
+fn host_status_reports_process_program_control() {
+    let value = result(handle_status(25, &state()));
+    assert_eq!(value.get("program_control"), Some(&json!("process")));
+}
+
+#[test]
 fn status_preserves_io_driver_registration_order() {
     let state = state();
     state.io_health.lock().expect("io health").extend([

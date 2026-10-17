@@ -429,7 +429,11 @@ package, or end-to-end evidence.
   counterparts, and their wires are dimmed for presentation while their raw
   health and warnings remain in the runtime rollup. Protocol filtering MAY
   remove nodes from the visible count, but MUST report hidden endpoint,
-  attention, fault, warning, and error counts.
+  attention, fault, warning, and error counts. The filter hides the
+  connections of the protocols it names, the devices on their buses, the links
+  that reach a hidden item, the mesh bus without a shown connection, and the
+  systems that only hidden links or a hidden mesh bus reach; it never removes
+  an issue from the issues list (§5.11).
 - Connector state, health, confidence, and point counts MUST survive topology
   projection into endpoint-node data. Product labels include `Ready`,
   `Needs attention`, `OK`, `Degraded`, `Port reachable only`, and
@@ -593,7 +597,21 @@ package, or end-to-end evidence.
 - Editing a rejected add form hides only its stale apply fault; unrelated
   live faults remain visible.
 - A conditional schema field is rendered, required, validated, and serialized
-  only while its `visible_when` predicate matches the selected backend.
+  only while its `visible_when` predicate matches the selected backend. Rust
+  declares the predicate with the field; the panel uses it only to show or
+  hide the field while the user types, and on submit Rust evaluates it again
+  and ignores the values of hidden fields.
+- Rust converts each submitted value by its field's schema type. A value that
+  does not fit the type, such as text in a number field or a list that is not
+  valid JSON, is a field error of that field; it is never sent as text. The
+  items of a list that the catalog describes (specification 11) are checked
+  the same way: a required property left empty, a value outside a choice's
+  options, an item that sets none or more than one of the properties of which
+  it must set exactly one, and an entry of a number list that is not a whole
+  number of 0 or more are field errors of the list. An empty property that is
+  not required is left out of the item. The list editor offers each such
+  property beside the one the item starts with, as `Source CIDR` beside
+  `Source IP` for an allowed ADS client.
 - Runtime discovery is a separate action, not a protocol card. Empty picker
   groups are omitted. Unknown protocols are never dropped and appear last in
   an advanced `Other choices` group.
@@ -624,6 +642,11 @@ package, or end-to-end evidence.
 - Runtime start failure preserves the graph, marks the runtime node as error,
   and exposes an inline retry action rather than replacing the surface with a
   failure screen.
+- The banner shows the simulator's failed start with `Retry` and `Open logs`;
+  else the reports that cannot be read, those of the other runtimes after
+  `Peer topology degraded:`; else, while the panel draws the simulator for the
+  project, `Simulator is stopped.` with `Start simulator`, or
+  `Simulator running.` with `Stop simulator`.
 - Failure or malformed output from managed-runtime status discovery is
   `Status unavailable`, never `Stopped`. Sidebar and graph lifecycle actions
   remain disabled until an authoritative status refresh succeeds.
@@ -658,9 +681,20 @@ tomake sure we dont loose any information".
   writes under the chosen project, not under the first workspace folder.
 - Search covers computers, runtimes, connections, links, devices, signals, and
   issues, with one dimming rule decided in Rust (§5.5); its placeholder is
-  `Search devices, connections, signals, issues`.
+  `Search devices, connections, signals, issues`. Ignoring case, an item
+  matches when its cells in `List` (§5.14) other than its kind, the texts of
+  its issues, or, for a connection or a device, its inspector rows (its
+  settings and signals) contain the search; a connection also matches by its
+  protocol identifier. A runtime matches when its computer matches, a
+  connection when its runtime matches, and a device on a bus when its
+  connection matches. A link is lit when it or one of its ends matches; an
+  item is lit when it matches or a lit link reaches it; a computer or a
+  runtime is lit when something it holds is lit. Every item that is not lit
+  is dimmed, and the search reports how many lit items the filter shows.
 - The summary strip on the canvas keeps the computer, runtime, and connection
-  counts and adds the running, fault, and warning counts.
+  counts and adds the running, fault, and warning counts. It counts the
+  connections that the filter shows, the runtimes whose program runs (also
+  with a failing connection), and the faults and warnings of the issues list.
 - Right-click on a runtime opens a small menu: `Add device or connection…`,
   `Set as run target`, `Settings`, and `Focus`. Edit slots hide while the
   inspector or another panel is open, as today (§5.3).
@@ -686,7 +720,14 @@ tomake sure we dont loose any information".
   button shows the number of faults and warnings and opens a list of all of
   them, grouped by item, each with `Show` and its recovery action; it never
   shows only the first fault. Lifecycle failures also keep their banner with
-  `Retry` and `Open logs` (§5.10).
+  `Retry` and `Open logs` (§5.10). A connection or a device on a fieldbus whose
+  health is `error` is a fault, and one whose health is `degraded` a warning,
+  reading `<name>: <detail>`. A runtime's own failure is a fault: a failed
+  start (with `Retry`), a refused or missing token (with `Set auth token`), a
+  status that cannot be read, a faulted program, or an error that the runtime
+  reports itself; a running runtime whose connection fails raises no issue of
+  its own. A report that cannot be read is a fault of the item it names, or of
+  the group `General` for no item, which comes first.
 - `Show` and `Focus` zoom to the item. Tab reaches every item, Enter opens its
   inspector, and Escape closes the open panel. A click on the empty canvas
   closes the inspector. Dragged positions are kept for the project when the
@@ -756,11 +797,34 @@ is specific to boards.
   components of its firmware from its chip file and greys out a component the
   chip does not hold, naming it (specification 34 ARCH-14). Recent events come
   from the runtime's event log (TARGET-07).
-- The USB tray lists the chips, debug probes, and USB-serial adapters found on
-  this computer's USB (specification 11, one search). A chip shows its name,
-  flash and RAM, and either its truST version or `No truST yet`, with
-  `Install truST`, `Update truST`, `Connect`, or `Show` as fits. Nothing is
-  written to a board until the user starts an installation.
+- The USB tray, headed `Found on this computer (USB)`, lists the chips, debug
+  probes, and USB-serial adapters that the USB and serial sources find on this
+  computer (specification 11, one search); nothing else on USB is listed. A
+  boot loader or a chip's USB controller is named as such, such as
+  `STM32 boot loader (DFU)`, and lists the supported chips whose chip files
+  name its IDs, with the note that the chip is confirmed when connecting and
+  before any installation; a boot loader shows `No truST yet`. While only one
+  chip file names a controller's IDs, the item is that chip, with its name and
+  its flash and RAM from its chip file: the ESP32-C6 shows
+  `ESP32-C6, truST not confirmed` until a connection confirms it. A runtime
+  shows its truST version, and a probe or adapter shows what it is and its
+  serial ports. Without an item the tray reads
+  `No chips, debug probes, or USB-serial adapters on this computer's USB.`
+  Nothing is written to a board until the user starts an installation.
+- Rust decides each tray item's actions. A debug probe offers `Install truST`,
+  and so does a chip's boot loader while a chip file names its IDs. A truST
+  runtime that the panel does not show offers
+  `Connect`, and a chip whose truST is not confirmed offers `Connect` and
+  `Install truST`; `Connect` connects at `usb://<serial number>`, and it stays
+  disabled, with its reason, for a device without a serial number and while
+  this version of truST cannot connect over USB. A runtime that the panel
+  shows offers `Show`: the runtime the panel reaches at that `usb://`
+  endpoint, or the one whose runtime ID the device carries. The item then
+  names that runtime and the network address where it is also reachable: the
+  address of its network find (a device of the search with the runtime's ID),
+  or the address the panel reaches it at. It offers `Update truST` first when
+  the runtime's truST version differs from this tool's (specification 34
+  TARGET-05). A USB-serial adapter offers nothing.
 - `Install truST` opens the installation in the inspector (specification 34
   TARGET-02, TARGET-04, TARGET-05, TARGET-09), in four steps: the chip found,
   with its identity; installing the release firmware, with progress and the
@@ -776,19 +840,35 @@ is specific to boards.
 - A connection (an endpoint of §5.5) is a pill on its runtime that shows the
   protocol and the connection's own name, a status dot, the role word of today's
   tiles (`CLIENT`, `SERVER`, `MASTER`, `PUB/SUB`, `PEER`, `ADVERTISE`,
-  `SAME-HOST`, `POLICY`, `I/O`), and the `DRAFT` and `Disabled` marks.
+  `SAME-HOST`, `POLICY`, `I/O`), and the `DRAFT` and `Disabled` marks. A
+  connection is marked `DRAFT` while it is a draft of the add flow, or while an
+  advanced integration (Mesh, OpenOT, Realtime, Runtime cloud) has no evidence
+  yet (`pending`, `configured_policy`, `not_configured`, or `unknown`), and
+  `Disabled` while its health is `disabled`.
 - Devices and systems at the other end (external and shared systems, and
   EtherCAT SubDevices) are cards that show their name, what they present (for
   example `MQTT broker`), their status, and, when the runtime reports them, the
-  last time they were seen and their response time. They can be dragged.
+  last time they were seen and their response time. They can be dragged. A
+  system's status is that of the link that names what it presents, and its
+  last time seen and response time are those that the connection at the
+  link's other end reports; a SubDevice shows its own health.
 - Links keep §5.7: dashed means not yet proven, a proven link is solid with the
   tone of its status, and an arrow shows the direction. A secure link shows a
   lock. Each link is labelled with its protocol, and its status and detail show
-  on hover and keyboard focus.
+  on hover and keyboard focus. The arrow points at the counterpart for
+  `outbound` traffic and at the runtime's end for `inbound` traffic; a link of
+  another direction, such as `publish_subscribe`, `observed`, or `policy`, has
+  none.
 - The connection inspector is titled with the connection's name and keeps the
   summaries of §5.4 and §5.8. It adds the connector rows `Connection`,
   `Health`, `Verification`, and `Signals` (§5.5) and, when reported, live
-  values, last seen, and response time.
+  values, last seen, and response time. Its live values are those its runtime
+  reports, and for the simulator's simulated and loopback I/O the first twelve
+  I/O values of the simulator. Summaries show a switch as `On` or `Off`, omit a
+  field that its `visible_when` hides (§5.9), and show of a secret only whether
+  it is set. `Test` stays visible but disabled, with its reason, while the
+  connection's runtime does not answer; an OPC UA client with several
+  connections offers one `Test` for each, naming it.
 - The edit view keeps §5.4 and §5.9, shows advanced fields under an `Advanced`
   heading (not collapsed), and keeps an edit in progress through live refreshes
   (§5.3).
@@ -812,10 +892,15 @@ is specific to boards.
 
 ### 5.14 Add, Discover, issues, and the list
 
-- `+ Add` opens one dialog. Its catalog always comes from Rust, from the runtime
-  when one serves it and otherwise from `trust-runtime comm schema`, so it
-  works before anything runs; `Catalog unavailable` is reserved for a missing
-  `trust-runtime`. The groups are §5.9's, preceded by `Runtimes`: `Computer`
+- `+ Add` opens one dialog. It adds to the selected runtime, else to the
+  Simulator, else to the first runtime shown; opened from a runtime's menu or
+  its `Add connection` slot, it adds to that runtime. Its catalog always comes
+  from Rust, from the runtime when one serves it and otherwise from
+  `trust-runtime comm schema`, so it works before anything runs; a runtime
+  whose catalog predates the picker words of specification 11 gets the words
+  of the same protocol from the tool's own catalog. `Catalog unavailable` is
+  reserved for a missing `trust-runtime`. The groups are §5.9's, preceded by
+  `Runtimes`: `Computer`
   with `Connect existing runtime` and `Run a runtime on this computer`
   (`Install over SSH` and `Run in Docker` stay visible as later, §5.2), and one
   entry per chip of truST's chip files, which leads to `Install truST`. Results

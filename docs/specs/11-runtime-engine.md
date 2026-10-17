@@ -1145,8 +1145,10 @@ rules above earn stronger evidence. A CIDR scan broader than `/24` is rejected
 before enumeration. EtherCAT discovery is available only from the runtime host;
 another origin receives an empty candidate set and an explicit runtime-origin
 warning. Runtime-origin mock discovery may project the configured/discovered
-module chain, but it remains mock evidence. OPC UA generic discovery currently
-returns an explicit server-setup warning and no candidates. A registered
+module chain, but it remains mock evidence. Generic OPC UA discovery returns
+the servers that the local discovery servers (FindServers), mDNS
+`_opcua-tcp._tcp.local.` and GetEndpoints find, and lists every endpoint each
+server announces, including the endpoints truST cannot use. A registered
 protocol whose discovery is deferred returns an empty candidate set and a
 stable unavailable warning; an unknown protocol is a request error.
 
@@ -1316,6 +1318,9 @@ optional; an unknown member, at any level, is a request error, as for
   `"adapter": "<name>"`. A bus named without an adapter, and a confirmed scan
   without entries, use the adapter of the project's EtherCAT driver, as
   `comm.discover` does.
+- `modbus`: `unit_ids`, the Modbus TCP unit IDs to probe, each from 1 to 247
+  and without repeats; without it, unit ID 1. A unit ID outside 1–247 is a
+  request error.
 
 It answers `{"search_id": "s-<n>"}`. `comm.search.status` takes `search_id` and
 an optional `since` cursor. It answers schema version 1 with `search_id`,
@@ -1356,8 +1361,10 @@ that the runtime does not keep answers `search_not_found`.
 | USB (`usb`) | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
 | Bluetooth (`bluetooth`) | Bluetooth LE devices, where the origin computer has Bluetooth | A passive advertisement scan |
 
-EtherCAT and GPIO run only at origin `runtime`. A source that does not run
-reports `skipped` with its reason in words, for example that its origin cannot
+EtherCAT and GPIO run only at origin `runtime`; USB and serial run at either
+origin and list the devices of the computer where the search runs. A source
+that does not run reports `skipped` with its reason in words, for example that
+its origin cannot
 run it, that its fieldbus scan was not confirmed, that the search names nothing
 it can probe, or that this build of truST does not include it. At origin
 `runtime` the truST runtimes source reads the runtime's own mDNS discovery
@@ -1371,6 +1378,52 @@ address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
 the search runs on the tool's computer. `comm.discover` keeps its rule of the
 first such interface.
 
+**USB and serial.** The USB source lists the USB devices from the descriptors
+that the operating system already holds: sysfs on Linux, IOKit on macOS, and on
+Windows the device manager and the hub's cached connection information. It
+never opens, claims, resets or writes a device, and it reads only the strings
+that the operating system keeps, never one that it would have to ask the device
+for (owner, 15 October 2026; specification 34 TARGET-04). It reports the
+devices that it recognizes by their vendor and product ID, and every other
+device that has a serial port; a phone, a keyboard or a storage device without
+one is not reported:
+
+- a supported chip's boot loader, named as such: `0483:DF11` is the
+  `STM32 boot loader (DFU)`, which every STM32 with a USB DFU boot loader
+  shows. The chip has no truST yet;
+- a supported chip's USB controller, named as such: `303A:1001` is the
+  `Espressif USB-Serial/JTAG` controller of the ESP32-C6. It shows the same
+  descriptors with or without truST, in its ROM download mode, and on other
+  Espressif chips, so its result says that neither the chip nor truST is
+  confirmed; connecting confirms them;
+- a debug probe: the ST-LINK/V2, ST-LINK/V2-1 and STLINK-V3;
+- a USB-serial adapter: FTDI, Silicon Labs CP210x, WCH CH34x and Prolific
+  PL2303;
+- a truST runtime: truST's own ID `1209:7472` (requested from pid.codes), and
+  during development the pid.codes test ID `1209:0001` when its maker is
+  `truST` or its product `truST runtime`. Its version is the major and minor
+  version that its `bcdDevice` carries, and its control endpoint is `usb://`
+  followed by its serial number;
+- any other device that has a serial port, as a USB-serial device.
+
+A result names no chip for a boot loader or a USB controller. The supported
+chips that show its IDs are those whose chip files name the IDs as their
+`usb_bootloader` (specification 34, Appendix H.2); several chip files may name
+one ID, and the tools list them all from the chip files. The chip is confirmed
+when connecting and before any installation.
+
+The serial ports behind a USB device are the ports whose USB device has its
+vendor ID, product ID and serial number; for a device without a serial number,
+the ports with its vendor and product ID, when no other listed device without a
+serial number has the same pair. The serial source lists every serial port that
+the operating system reports, with the USB device behind it when there is one,
+and never opens a port. A port whose UART the operating system reports as
+absent (type 0 on Linux) is left out. Where the operating system offers no
+port listing, as on a Linux computer without `/sys/class/tty`, the serial
+source is skipped with that reason. Both sources list once and finish. A
+serial port's `params` are `{"port": "<name>"}`, and those of a USB device that
+runs or may run truST are `{"control_endpoint": "usb://<serial number>"}`.
+
 **Safety.** A search only reads. It never writes a device value, never changes
 a device's state, and never resets a board. EtherCAT identification keeps the
 bus below OP, and it refuses an adapter that a running EtherCAT driver of the
@@ -1383,10 +1436,12 @@ scan (EtherCAT, Modbus RTU) runs only when the request sets
 listing every protocol found on it. Results belong to the same device when they
 share a network address, an AMS Net ID, a USB serial number, or a truST runtime
 ID. A result with none of these forms its own device: an EtherCAT SubDevice by
-its adapter and position, and the lines of one GPIO chip together by their chip.
-When a result links two devices, they become one, and the device found first
-keeps its ID. Each device carries its addresses, every protocol result with its
-source and confidence, its identity, and its `last_seen` time.
+its adapter and position, the lines of one GPIO chip together by their chip, a
+serial port by its name, and a USB device without a serial number or a serial
+port by its bus and port. A USB device and the serial ports behind it are one
+device. When a result links two devices, they become one, and the device found
+first keeps its ID. Each device carries its addresses, every protocol result
+with its source and confidence, its identity, and its `last_seen` time.
 
 **Identity.** Each protocol reports the identity it can read:
 
@@ -1406,17 +1461,23 @@ source and confidence, its identity, and its `last_seen` time.
 - MQTT: the protocol version accepted, and whether login and TLS are needed;
 - GPIO: chip name and label, the line offset within its chip, the line name,
   and whether the line is in use;
-- USB: vendor and product ID, maker, product name, serial number, and the chip
-  when the device is a supported chip's boot loader, a debug probe, or a truST
-  runtime;
-- serial: the port name and, when there is one, the USB device behind it;
+- USB: vendor and product ID, maker, product name, serial number, what the
+  device is (a supported chip's boot loader or USB controller, a debug probe, a
+  USB-serial adapter or device, or a truST runtime) and its name, such as
+  `STM32 boot loader (DFU)`, the serial ports behind it, a truST runtime's
+  version, and the control endpoint of a device that runs or may run truST.
+  It names no chip: the chip files say which supported chips show the IDs of a
+  boot loader or a USB controller;
+- serial: the port name, whether it is a USB, PCI, Bluetooth or other port,
+  and, when there is one, the USB device behind it with its vendor and product
+  ID, maker, product name, and serial number;
 - Bluetooth: name, address, and signal strength.
 
 **Confidence.** Every result uses the closed confidence vocabulary of this
 section. A valid protocol exchange is `confirmed`: an ADS identify reply, an
 OPC UA GetEndpoints answer, an EtherCAT identity read, an mDNS answer from a
-truST runtime, or a USB descriptor. A GPIO line that the operating system lists
-is `confirmed` too. No other value, such as `observed`, is reported. A simulated
+truST runtime, or a USB descriptor. A GPIO line or a serial port that the
+operating system lists is `confirmed` too. No other value, such as `observed`, is reported. A simulated
 (mock) result carries `simulated = true` and is never presented as hardware.
 
 **Compare with the project.** `comm.compare` compares a search result with the
@@ -2435,6 +2496,14 @@ The status and configuration surfaces project one effective runtime state:
   profiling metrics, realtime requested and observed state, warnings, errors,
   and every I/O-driver health entry. The default realtime projection is
   disabled with scheduler `other` in both status and `config.get`.
+- Status reports the truST version in `version`, the platform the runtime runs
+  on in `platform` as `<os>-<arch>` on a computer, for example `linux-x86_64`
+  or `windows-x86_64`, and as the board name on a device, for example
+  `stm32f407` or `esp32c6`, and its program-control posture in
+  `program_control`: `keeps_control` when the runtime still answers after
+  `shutdown` and can be started again with `restart` (specification 34,
+  STATE-08), which a chip does, and `process` when `shutdown` ends the
+  runtime's process, which trust-runtime on a computer does.
 - Aggregate health is false when any I/O driver is faulted and retains the
   faulted driver's stable error detail; runtime readiness alone cannot hide
   that fault.
@@ -3039,6 +3108,107 @@ the default. Number validation uses a complete integer range with `min <= max`
 and a default within that range. Endpoint validation is either `host_port` or
 `socket_addr`. A visibility predicate references another field in the same
 protocol and its comparison value is valid for that controlling field.
+
+The schema also carries the words of the add picker and of the setup forms
+(specification 25 §5.4 and §5.9), so that the tools show the words the catalog
+gives instead of keeping a copy of them. These keys are an additive part of
+version 4: a client ignores a key it does not know, and a runtime that
+predates them omits them. `picker_groups` lists the picker's groups in their
+canonical order; each group has a stable `id`, its `label`, whether it is
+`advanced`, and the `protocols` it holds, in their order:
+
+| `id` | `label` | `advanced` | `protocols` |
+|---|---|---|---|
+| `devices_io` | `Devices and I/O` | false | `modbus_tcp`, `ethercat`, `gpio`, `simulated`, `loopback` |
+| `read_tags` | `Read tags from another PLC or server` | false | `opcua_client`, `ads` |
+| `share_values` | `Share truST values` | false | `opcua`, `ads_server` |
+| `messages` | `Send and receive messages` | false | `mqtt` |
+| `advanced` | `Advanced integrations` | true | `mesh`, `openot`, `realtime_t0`, `runtime_cloud` |
+
+Every protocol of a group carries `picker`, its entry in the picker, with a
+`title`, a `badge`, and a `purpose`. These are the picker's words; the
+protocol's own `title` and `purpose` remain the words of its form.
+
+| Protocol | `title` | `badge` | `purpose` |
+|---|---|---|---|
+| `modbus_tcp` | `Modbus` | `MB` | `Connect PLCs, drives, meters, and remote I/O.` |
+| `ethercat` | `EtherCAT` | `EC` | `Connect EtherCAT drives, terminals, or remote I/O.` |
+| `gpio` | `GPIO` | `IO` | `Use Raspberry Pi or Linux controller pins.` |
+| `simulated` | `Simulated I/O` | `SIM` | `Practice and test without hardware.` |
+| `loopback` | `Loopback I/O` | `LOOP` | `Echo outputs back into inputs for quick checks.` |
+| `opcua_client` | `OPC UA client` | `UA IN` | `Read selected tags from another OPC UA server.` |
+| `ads` | `ADS client` | `ADS IN` | `Read tags from a TwinCAT or ADS PLC.` |
+| `opcua` | `OPC UA server` | `UA OUT` | `Share truST values with SCADA, HMI, or historians.` |
+| `ads_server` | `ADS server` | `ADS OUT` | `Share truST values with TwinCAT or ADS clients.` |
+| `mqtt` | `MQTT broker` | `MQTT` | `Send and receive process values through MQTT topics.` |
+| `mesh` | `Mesh / Zenoh` | `MESH` | `Configure a peer network; no live link is active until a runtime reports one.` |
+| `openot` | `OpenOT` | `OT` | `Configure OpenOT evidence output; no evidence is published until a runtime reports one.` |
+| `realtime_t0` | `Realtime T0` | `RT` | `Configure deterministic same-host exchange; no live exchange runs until a runtime reports one.` |
+| `runtime_cloud` | `Runtime cloud` | `CLOUD` | `Configure federation policy; no live link is active until a runtime reports one.` |
+
+`discovery` belongs to no group and carries no `picker`: the runtime discovery
+settings are edited from the runtime's `Runtime discovery` connection, not
+added as a protocol card (specification 25 §5.9 and §5.13).
+
+Every `enum` field carries `option_labels`, an object that gives each of its
+options the label that a form shows. The options of `on_error` read
+`Stop with fault` (`fault`), `Warn and continue` (`warn`), and `Ignore`
+(`ignore`); `scheduler` reads `FIFO` (`fifo`), `Round robin` (`rr`), and
+`Default` (`other`); `source` reads `Heartbeat` (`heartbeat`) and `ST producer`
+(`st-fb`); `fence_mode` reads `Fenced` (`fenced`) and `Unfenced` (`unfenced`);
+and `profile` reads `Development` (`dev`), `Plant` (`plant`), and `WAN`
+(`wan`). Every other option is labelled with its value.
+
+Every `json_array` field carries `list`, the words and the seed of its list
+editor: the `item_noun` that names one item, the `empty_text` shown while the
+list is empty, and the `item_template` that adding an item appends when the
+list holds no item to copy. The nouns of `connect`, `producer_instances`,
+`wan_allow_write`, `link_transports`, `cpu_affinity`, `expose`, `modules`,
+`mock_inputs`, and `selected_channels` are `peer address`,
+`ST producer block`, `WAN write rule`, `link transport`, `CPU index`,
+`global`, `module`, `mock frame`, and `channel`. Any other noun is the field's
+label in the singular, with its acronyms kept in capitals and its other words
+in lower case, such as `allowed client` for `Allowed clients` and `TLS ALPN`
+for `TLS ALPN`. The `connections` lists of `opcua_client` and `ads` read
+`No connections yet. Use Discover or Browse to add one instead of typing JSON.`,
+`expose` reads
+`No globals selected yet. Use Choose globals to pick project variables, or add a pattern manually.`,
+and every other list reads `No <label> yet. Add an item below.`, with the
+label's first letter in lower case unless its first word is an acronym. A list
+whose items the catalog describes (below) starts a new item from that
+description. Any other list's template is the first item of the field's
+default, an empty string when that default is empty, and null for the
+`connections` lists, whose items come only from Discover or Browse.
+
+The items of four lists are described, so that adding an item gives one that
+the runtime's configuration accepts once it is filled in. A list of numbers
+carries `item_type` `unsigned`: each item is a whole number of 0 or more, and a
+new item is an empty string, which is not a number yet. A list of objects
+carries `item_fields`, the properties of an item in their order, each with its
+`id`, `label`, `type` (`string` or `enum`), whether it is `required`, and the
+`options` of an `enum`; none of them has a default, so a new item holds each
+property as an empty string. `item_one_of` names the groups of properties of
+which an item sets exactly one, each with its `fields`, of which a new item
+holds only the first, and `unless`, the protocol's boolean field that, while
+on, lets an item set none of them. The descriptions follow the runtime's
+configuration parser:
+
+- `realtime_t0` `cpu_affinity` (`runtime.realtime.cpu_affinity`): `item_type`
+  `unsigned`; the parser reads a list of unsigned integers whose entries are
+  unique.
+- `ads_server` `clients` (`[[runtime.ads_server.clients]]`): `ams_net_id`
+  (`AMS Net ID`, required), `source_ip` (`Source IP`), and `source_cidr`
+  (`Source CIDR`), with the group `source_ip`, `source_cidr` unless
+  `allow_unpinned_clients`; the parser requires one of the two, refuses both,
+  and accepts neither only with `allow_unpinned_clients = true`.
+- `runtime_cloud` `wan_allow_write` (`runtime.cloud.wan.allow_write`):
+  `action` (`Action`) and `target` (`Target`), both required; the parser
+  refuses an empty one.
+- `runtime_cloud` `link_transports` (`runtime.cloud.links.transports`):
+  `source` (`Source`) and `target` (`Target`), both required, and `transport`
+  (`Transport`), a required `enum` of `realtime`, `zenoh`, `mesh`, `mqtt`,
+  `modbus-tcp`, `opcua`, `discovery`, and `web`, the transports the parser
+  accepts.
 
 Schema defaults and apply validation are one contract, not separate sources of
 truth. Every directly applicable default set is accepted by its owning

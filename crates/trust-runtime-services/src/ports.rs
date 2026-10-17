@@ -122,6 +122,31 @@ pub trait ResourcePort {
     fn starts_when_stopped(&self) -> bool;
 }
 
+/// How the runtime's program control behaves across `shutdown`: whether the runtime still answers
+/// once its program is stopped, and what `restart` then does (specification 11, `status`;
+/// specification 34, STATE-08).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramControl {
+    /// The runtime still answers after `shutdown`, and `restart` starts the program again: the
+    /// program takes the place of the process, as on a device without an operating system
+    /// (spec 34 STATE-08).
+    KeepsControl,
+    /// `shutdown` ends the runtime's process, so a stopped runtime has no scan loop to take a
+    /// `restart` (spec 34 STATE-08).
+    Process,
+}
+
+impl ProgramControl {
+    /// The wire name of the posture that `status` reports.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::KeepsControl => "keeps_control",
+            Self::Process => "process",
+        }
+    }
+}
+
 /// The values the platform knows that the status operations report: configuration, I/O driver
 /// health and the platform's posture.
 ///
@@ -130,6 +155,13 @@ pub trait ResourcePort {
 pub trait StatusPort {
     /// Name of the resource.
     fn resource_name(&self) -> &str;
+
+    /// The platform the runtime runs on: `<os>-<arch>` on a computer, for example `linux-x86_64`,
+    /// and the board name on a device, for example `stm32f407`.
+    fn platform(&self) -> &str;
+
+    /// Whether the runtime's program control survives `shutdown` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl;
 
     /// The runtime settings that `status` reports.
     fn status_settings(&self) -> Option<StatusSettings>;
