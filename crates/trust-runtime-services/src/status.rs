@@ -87,8 +87,8 @@ pub fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
     }
 }
 
-/// `status`: the runtime's identity, version, platform, program-control posture, state, modes,
-/// settings, metrics, realtime posture, persistence and I/O driver health.
+/// `status`: the runtime's identity, stable runtime ID, version, platform, program-control
+/// posture, state, modes, settings, metrics, realtime posture, persistence and I/O driver health.
 ///
 /// A debugger hold reports `paused` unless the resource is faulted or stopped. A value that
 /// cannot be read answers `<value> unavailable`; the values are read in a fixed order, so the
@@ -138,6 +138,7 @@ where
             "fault": fault,
             "resource": host.resource_name(),
             "plc_name": host.resource_name(),
+            "runtime_id": host.runtime_id(),
             "version": env!("CARGO_PKG_VERSION"),
             "platform": host.platform(),
             "program_control": host.program_control().as_str(),

@@ -131,7 +131,7 @@ pub(super) fn host_from_listen(value: &str) -> Option<String> {
         .or_else(|| Some(trimmed.to_string()))
 }
 
-pub(super) fn host_name() -> String {
+pub(crate) fn host_name() -> String {
     let env_hostname = std::env::var("HOSTNAME").ok();
     let computer_name = std::env::var("COMPUTERNAME").ok();
     let os_hostname = os_host_name();
@@ -142,7 +142,7 @@ pub(super) fn host_name() -> String {
     )
 }
 
-pub(super) fn host_name_from_sources(
+pub(crate) fn host_name_from_sources(
     env_hostname: Option<&str>,
     computer_name: Option<&str>,
     os_hostname: Option<&str>,

@@ -98,6 +98,12 @@ impl StatusPort for TestPlatform {
         "stm32f407"
     }
 
+    /// A device without an operating system has no project ID; the runner reports its platform's
+    /// value (specification 11, `status`).
+    fn runtime_id(&self) -> &'static str {
+        "stm32f407"
+    }
+
     /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).
     fn program_control(&self) -> ProgramControl {
         ProgramControl::KeepsControl

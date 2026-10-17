@@ -81,7 +81,7 @@ pub(super) fn build_project_fleet_topology_value(
 
 mod endpoints;
 use endpoints::*;
-mod host;
+pub(crate) mod host;
 use host::*;
 mod io;
 use io::*;

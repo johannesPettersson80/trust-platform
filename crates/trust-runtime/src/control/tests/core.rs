@@ -5856,3 +5856,48 @@ setpoint := setpoint;
 END_PROGRAM
 "#
 }
+
+/// R1: the runtime ID belongs to the state, not to the process. Two states in one process report
+/// their own IDs, and reading `status` creates no file (specification 11, `status`: the runtime's
+/// stable runtime ID, and the read-only-status precedent of `bin/trust-runtime/lifecycle.rs`).
+/// The fault kept one process-wide `OnceLock`, so the second state reported the first state's ID
+/// and the first read created `<project>/.trust-runtime/runtime_id`.
+#[test]
+fn status_runtime_id_is_the_states_and_reading_it_writes_no_file() {
+    let first_root = temp_dir("status-runtime-id-a");
+    let second_root = temp_dir("status-runtime-id-b");
+
+    let mut first = hmi_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    first.runtime_id = SmolStr::new("rt-a");
+    set_hmi_project_root(&mut first, &first_root);
+    let mut second = hmi_test_state("PROGRAM Main\nEND_PROGRAM\n");
+    second.runtime_id = SmolStr::new("rt-b");
+    set_hmi_project_root(&mut second, &second_root);
+
+    let first_status = handle_request_value(json!({"id": 601, "type": "status"}), &first, None);
+    let second_status = handle_request_value(json!({"id": 602, "type": "status"}), &second, None);
+    assert_eq!(
+        first_status
+            .result
+            .as_ref()
+            .and_then(|result| result.get("runtime_id")),
+        Some(&json!("rt-a")),
+        "the first state reports its own runtime ID"
+    );
+    assert_eq!(
+        second_status
+            .result
+            .as_ref()
+            .and_then(|result| result.get("runtime_id")),
+        Some(&json!("rt-b")),
+        "the second state in the same process reports its own runtime ID"
+    );
+    assert!(
+        !first_root.join(".trust-runtime").exists(),
+        "reading status must not create runtime state"
+    );
+    assert!(
+        !second_root.join(".trust-runtime").exists(),
+        "reading status must not create runtime state"
+    );
+}

@@ -140,6 +140,7 @@ pub(super) fn control_state_named_with_audit(
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
         resource_name: SmolStr::new(resource_name),
+        runtime_id: SmolStr::new(resource_name),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),

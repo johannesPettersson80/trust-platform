@@ -157,6 +157,11 @@ pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
     match &context.runtime {
         Some(runtime) => loop {
             for entry in runtime.discovery.snapshot() {
+                // A runtime's search never reports the runtime itself (specification 11, "One
+                // search, device identity, and presence").
+                if entry.id == runtime.runtime_id {
+                    continue;
+                }
                 sink.found(runtime_find(&entry));
             }
             if sink.ended() {
@@ -239,3 +244,7 @@ fn web_address(entry: &DiscoveryEntry) -> Option<String> {
         IpAddr::V6(address) => format!("{scheme}://[{address}]:{port}"),
     })
 }
+
+#[cfg(test)]
+#[path = "trust_runtimes_tests.rs"]
+mod trust_runtimes_tests;

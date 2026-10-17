@@ -9,12 +9,14 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use indexmap::IndexMap;
-use mdns_sd::{ResolvedService, ServiceDaemon, ServiceEvent, ServiceInfo};
+use mdns_sd::{IfKind, ResolvedService, ServiceDaemon, ServiceEvent, ServiceInfo};
 use smol_str::SmolStr;
 
 use crate::config::DiscoveryConfig;
+use crate::control::fleet_handlers::host::host_name;
 use crate::control::ControlEndpoint;
 use crate::error::RuntimeError;
+use crate::runtime_id::platform;
 
 const SERVICE_TYPE: &str = "_trust._plc._tcp.local.";
 /// How often a browse looks whether it should stop.
@@ -81,10 +83,18 @@ impl DiscoveryHandle {
     }
 }
 
+/// The operating system's host name, which an announcement's mDNS host name is built from
+/// (specification 11: "The host name is the operating system's host name").
+#[must_use]
+pub fn mdns_host_name() -> String {
+    host_name()
+}
+
 pub fn start_discovery(
     config: &DiscoveryConfig,
     runtime_name: &SmolStr,
-    control_endpoint: &ControlEndpoint,
+    runtime_id: &str,
+    control_endpoint: Option<&ControlEndpoint>,
     web_listen: Option<&str>,
     web_tls: bool,
     mesh_listen: Option<&str>,
@@ -92,6 +102,7 @@ pub fn start_discovery(
     start_discovery_with_state(
         config,
         runtime_name,
+        runtime_id,
         control_endpoint,
         web_listen,
         web_tls,
@@ -100,10 +111,15 @@ pub fn start_discovery(
     )
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the announcement's identity, endpoints and shared discovery state are one start, as the product's run_runtime has them"
+)]
 pub fn start_discovery_with_state(
     config: &DiscoveryConfig,
     runtime_name: &SmolStr,
-    control_endpoint: &ControlEndpoint,
+    runtime_id: &str,
+    control_endpoint: Option<&ControlEndpoint>,
     web_listen: Option<&str>,
     web_tls: bool,
     mesh_listen: Option<&str>,
@@ -120,28 +136,22 @@ pub fn start_discovery_with_state(
 
     let daemon = ServiceDaemon::new()
         .map_err(|err| RuntimeError::ControlError(format!("mdns start: {err}").into()))?;
-    let instance_name = format!("{}-{}", config.service_name, runtime_name);
-    let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| "trust".into());
-    let host = format!("{hostname}.local.");
-    let port = parse_port(web_listen).unwrap_or(8080);
-    let mesh_port = parse_port(mesh_listen);
+    apply_interface_selection(&daemon, &interface_selection(config.interfaces.as_slice()))?;
 
-    let id = format!("{}-{}", runtime_name, std::process::id());
-    let mut props = HashMap::new();
-    props.insert("id".to_string(), id.clone());
-    props.insert("name".to_string(), runtime_name.to_string());
-    props.insert("web_port".to_string(), port.to_string());
-    props.insert("web_tls".to_string(), web_tls.to_string());
-    if let Some(mesh_port) = mesh_port {
-        props.insert("mesh_port".to_string(), mesh_port.to_string());
-    }
-    props.insert("control".to_string(), format_endpoint(control_endpoint));
-    if let Some(host_group) = config.host_group.as_deref() {
-        let host_group = host_group.trim();
-        if !host_group.is_empty() {
-            props.insert("host_group".to_string(), host_group.to_string());
-        }
-    }
+    let instance_name = format!("{}-{}", config.service_name, runtime_name);
+    let host = format!("{}.local.", host_name());
+    let port = parse_port(web_listen).unwrap_or(8080);
+    let props = announcement_properties(&Announcement {
+        runtime_name: runtime_name.as_str(),
+        runtime_id,
+        version: env!("CARGO_PKG_VERSION"),
+        platform: platform(),
+        control_endpoint,
+        web_listen,
+        web_tls,
+        mesh_listen,
+        host_group: config.host_group.as_deref(),
+    });
 
     let info = build_service_info(&instance_name, &host, port, props)?;
     if config.advertise {
@@ -317,11 +327,129 @@ fn parse_port(listen: Option<&str>) -> Option<u16> {
         .and_then(|value| value.parse::<u16>().ok())
 }
 
-fn format_endpoint(endpoint: &ControlEndpoint) -> String {
+/// The network interfaces an announcement and its browse use (specification 11, runtime discovery).
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum InterfaceSelection {
+    /// Only the interfaces the configuration names, in the order it names them.
+    Named(Vec<String>),
+    /// Every interface except the loopback ones.
+    AllNonLoopback,
+}
+
+/// The interfaces `config_interfaces` names, or every non-loopback interface when it names none
+/// (specification 11: "`interfaces` limits announcing and browsing to the named network
+/// interfaces; an empty list uses every interface").
+fn interface_selection(config_interfaces: &[SmolStr]) -> InterfaceSelection {
+    if config_interfaces.is_empty() {
+        InterfaceSelection::AllNonLoopback
+    } else {
+        InterfaceSelection::Named(config_interfaces.iter().map(ToString::to_string).collect())
+    }
+}
+
+/// Limits `daemon` to `selection`: only the named interfaces, or every interface but the loopback
+/// ones.
+fn apply_interface_selection(
+    daemon: &ServiceDaemon,
+    selection: &InterfaceSelection,
+) -> Result<(), RuntimeError> {
+    match selection {
+        InterfaceSelection::Named(names) => {
+            mdns_result(daemon.disable_interface(IfKind::All), "disable interfaces")?;
+            for name in names {
+                mdns_result(
+                    daemon.enable_interface(IfKind::Name(name.clone())),
+                    "enable interface",
+                )?;
+            }
+        }
+        InterfaceSelection::AllNonLoopback => {
+            mdns_result(
+                daemon.disable_interface(IfKind::LoopbackV4),
+                "disable loopback",
+            )?;
+            mdns_result(
+                daemon.disable_interface(IfKind::LoopbackV6),
+                "disable loopback",
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn mdns_result(result: mdns_sd::Result<()>, what: &str) -> Result<(), RuntimeError> {
+    result.map_err(|err| RuntimeError::ControlError(format!("mdns {what}: {err}").into()))
+}
+
+/// The identity and endpoints one announcement carries, as its TXT properties.
+struct Announcement<'a> {
+    runtime_name: &'a str,
+    runtime_id: &'a str,
+    version: &'a str,
+    platform: &'a str,
+    /// The control endpoint to announce; `None` when the process runs no control server, as
+    /// `trust-runtime ide serve` and setup mode do.
+    control_endpoint: Option<&'a ControlEndpoint>,
+    /// The web listen address while the web server is enabled, `None` while it is disabled.
+    web_listen: Option<&'a str>,
+    web_tls: bool,
+    mesh_listen: Option<&'a str>,
+    host_group: Option<&'a str>,
+}
+
+/// The TXT properties of one announcement (specification 11, runtime discovery): the stable
+/// runtime `id` and `name`, the `version`, `platform` and `auth` fields, the optional web port and
+/// TLS flag, mesh port and host group, and a `control` endpoint only while another computer can
+/// use it.
+fn announcement_properties(announcement: &Announcement<'_>) -> HashMap<String, String> {
+    let mut props = HashMap::new();
+    props.insert("id".to_string(), announcement.runtime_id.to_string());
+    props.insert("name".to_string(), announcement.runtime_name.to_string());
+    props.insert("version".to_string(), announcement.version.to_string());
+    props.insert("platform".to_string(), announcement.platform.to_string());
+    props.insert(
+        "auth".to_string(),
+        announcement
+            .control_endpoint
+            .map_or("none", auth_property)
+            .to_string(),
+    );
+    if let Some(port) = parse_port(announcement.web_listen) {
+        props.insert("web_port".to_string(), port.to_string());
+        props.insert("web_tls".to_string(), announcement.web_tls.to_string());
+    }
+    if let Some(mesh_port) = parse_port(announcement.mesh_listen) {
+        props.insert("mesh_port".to_string(), mesh_port.to_string());
+    }
+    if let Some(control) = announcement.control_endpoint.and_then(control_property) {
+        props.insert("control".to_string(), control);
+    }
+    if let Some(host_group) = announcement.host_group {
+        let host_group = host_group.trim();
+        if !host_group.is_empty() {
+            props.insert("host_group".to_string(), host_group.to_string());
+        }
+    }
+    props
+}
+
+/// The `control` endpoint another computer can use, or `None` for a local socket path that only
+/// works on this computer (specification 11, runtime discovery).
+fn control_property(endpoint: &ControlEndpoint) -> Option<String> {
     match endpoint {
-        ControlEndpoint::Tcp(addr) => format!("tcp://{addr}"),
+        ControlEndpoint::Tcp(addr) => Some(format!("tcp://{addr}")),
         #[cfg(unix)]
-        ControlEndpoint::Unix(path) => format!("unix://{}", path.display()),
+        ControlEndpoint::Unix(_) => None,
+    }
+}
+
+/// The `auth` field: `token` while the control endpoint needs a token (a TCP endpoint does), and
+/// `none` otherwise (specification 11, runtime discovery).
+fn auth_property(endpoint: &ControlEndpoint) -> &'static str {
+    match endpoint {
+        ControlEndpoint::Tcp(_) => "token",
+        #[cfg(unix)]
+        ControlEndpoint::Unix(_) => "none",
     }
 }
 
@@ -408,3 +536,7 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "discovery/announcement_tests.rs"]
+mod announcement_tests;

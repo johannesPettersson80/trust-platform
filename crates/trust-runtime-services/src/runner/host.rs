@@ -130,6 +130,12 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
         self.platform.platform()
     }
 
+    /// The runner's runtime ID is its platform's, which the device without an operating system
+    /// knows on its own (specification 11, `status`).
+    fn runtime_id(&self) -> &str {
+        self.platform.runtime_id()
+    }
+
     /// A device without an operating system keeps control after `shutdown`: its program takes the
     /// place of the process, so it still answers and `restart` starts the program again
     /// (spec 34 STATE-08). The device never asks the platform, which cannot answer otherwise.

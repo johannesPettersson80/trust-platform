@@ -63,6 +63,8 @@ export function run(): Promise<void> {
   require("./snippets.test");
   require("./st-tests.integration.test");
   require("./mocha-selection.test");
+  require("./devices-toolbar-render.test");
+  require("./devices-canvas-render.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {

@@ -74,6 +74,7 @@ fn runtime_facts(state: &ControlState) -> RuntimeFacts {
         discovery: state.discovery.clone(),
         discovery_enabled: settings.discovery.enabled,
         discovery_interfaces: settings.discovery.interfaces.clone(),
+        runtime_id: state.runtime_id.clone(),
     }
 }
 

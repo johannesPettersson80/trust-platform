@@ -65,6 +65,9 @@ pub struct RuntimeFacts {
     pub discovery_enabled: bool,
     /// The network interfaces it may use (`discovery.interfaces`); empty for every interface.
     pub discovery_interfaces: Vec<SmolStr>,
+    /// The runtime's own stable runtime ID; a search skips the runtime itself by it
+    /// (specification 11, "One search, device identity, and presence").
+    pub runtime_id: SmolStr,
 }
 
 /// What one source reads: the checked request's targets and where the search runs.

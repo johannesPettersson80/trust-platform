@@ -57,6 +57,10 @@ pub mod debug;
 #[cfg(feature = "full")]
 #[path = "host/discovery.rs"]
 pub mod discovery;
+/// The stable runtime ID and the platform a runtime runs on.
+#[cfg(feature = "full")]
+#[path = "host/runtime_id.rs"]
+pub mod runtime_id;
 /// Runtime errors and configuration.
 pub mod error {
     pub use trust_runtime_core::error::*;

@@ -10,7 +10,7 @@ mod comm_handlers;
 mod config_handlers;
 mod connectors_handlers;
 mod debug_handlers;
-mod fleet_handlers;
+pub(crate) mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
 mod host_ports;
@@ -181,6 +181,7 @@ pub struct ControlState {
     pub opcua_server_bound: Arc<AtomicBool>,
     pub project_root: Option<PathBuf>,
     pub resource_name: SmolStr,
+    pub runtime_id: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
     pub debug_variables: Arc<Mutex<DebugVariableHandles>>,

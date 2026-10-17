@@ -2503,7 +2503,13 @@ The status and configuration surfaces project one effective runtime state:
   `program_control`: `keeps_control` when the runtime still answers after
   `shutdown` and can be started again with `restart` (specification 34,
   STATE-08), which a chip does, and `process` when `shutdown` ends the
-  runtime's process, which trust-runtime on a computer does.
+  runtime's process, which trust-runtime on a computer does. It reports the
+  runtime's stable runtime ID in `runtime_id`: the same value the runtime
+  announces by mDNS and keeps across restarts, generated once with a random
+  part and kept in the project's `.trust-runtime/runtime_id` (the runtime
+  discovery rules below, and decision O36). A state without an installed
+  project (the VS Code simulator, `trust-runtime ide serve` without a project)
+  reports its resource name and writes no file.
 - Aggregate health is false when any I/O driver is faulted and retains the
   faulted driver's stable error detail; runtime readiness alone cannot hide
   that fault.
@@ -5591,17 +5597,22 @@ Rules:
   than fabricated.
 - The TXT record also carries `version` (the truST version), `platform` (the
   operating system and architecture, for example `linux-aarch64`, or the chip,
-  for example `stm32f407`), and `auth` (`token` when control needs a token,
-  otherwise `none`). The `id` stays the same across restarts: it is built from
-  the resource name and the host, never from a process ID. The host name is the
+  for example `stm32f407`), and `auth` (`token` when the control endpoint needs
+  a token, otherwise `none`). The `id` is the runtime's stable runtime ID: it is
+  generated once with a random part on first start and kept in the project's
+  `.trust-runtime/runtime_id`, read back on every start, so it stays the same
+  across restarts and differs between two runtimes on one host, and it is never
+  built from a process ID. A file that cannot be read or holds an invalid ID is
+  an error, never silently replaced with a fresh ID. The host name is the
   operating system's host name. `control` names only an endpoint that another
   computer can use (`tcp://` or `tls://`); a local socket path is not
   announced. Web port and TLS flag are announced only while the web server is
   enabled.
-- `interfaces` limits announcing and browsing to the named network
-  interfaces; an empty list uses every interface.
+- `interfaces` limits announcing and browsing to the named network interfaces;
+  an empty list uses every non-loopback interface.
 - `trust-runtime ide serve` and setup mode announce and browse in the same way
-  as a running runtime.
+  as a running runtime. `trust-runtime ide serve` without a project browses
+  only, because it has no runtime to announce.
 - `/api/discovery` and `/api/probe` require the same web authentication as the
   other routes. `/api/probe` takes credentials in the request body, never in
   the URL.

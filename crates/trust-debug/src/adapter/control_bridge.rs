@@ -75,6 +75,7 @@ impl DebugControlServer {
             web_listener_bound: Arc::new(AtomicBool::new(false)),
             opcua_server_bound: Arc::new(AtomicBool::new(false)),
             resource_name: SmolStr::new("RESOURCE"),
+            runtime_id: SmolStr::new("RESOURCE"),
             io_health: Arc::new(Mutex::new(Vec::<IoDriverStatus>::new())),
             realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
                 LinuxRtConfig::default(),

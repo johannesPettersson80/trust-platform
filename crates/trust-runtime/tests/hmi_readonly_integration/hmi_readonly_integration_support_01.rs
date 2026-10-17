@@ -126,6 +126,7 @@ pub(super) fn hmi_control_state_with_root(
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root,
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),

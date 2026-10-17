@@ -51,6 +51,9 @@ const NORMALISED: &[(&str, &str)] = &[
     // The platform each composition runs on: the test stands the device in for a chip, and the
     // host reports the computer it runs on. `version` is the same on both, so it stays compared.
     ("/result/platform", "platform"),
+    // The host's stable runtime ID comes from its project; the device reports its platform's value
+    // (specification 11, `status`).
+    ("/result/runtime_id", "runtime ID"),
     // Spec 34 STATE-08: the host's process ends at `shutdown`, and the device keeps control.
     ("/result/program_control", "program control"),
     // Process uptime on the host, the time since the program started on the device.

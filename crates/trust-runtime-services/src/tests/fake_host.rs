@@ -55,6 +55,8 @@ pub(crate) struct FakeHost {
     pub(crate) resource_name: &'static str,
     /// The platform the fake host reports, standing for the computer the tests run on.
     pub(crate) platform: &'static str,
+    /// The stable runtime ID the fake host reports.
+    pub(crate) runtime_id: &'static str,
     pub(crate) control_token: Option<&'static str>,
     pub(crate) requires_auth: bool,
     pub(crate) pairing: Option<(&'static str, AccessRole)>,
@@ -91,6 +93,7 @@ impl FakeHost {
         Self {
             resource_name: "RESOURCE",
             platform: "test-platform",
+            runtime_id: "test-runtime-id",
             control_token: None,
             requires_auth: false,
             pairing: None,
@@ -246,6 +249,10 @@ impl StatusPort for FakeHost {
 
     fn platform(&self) -> &str {
         self.platform
+    }
+
+    fn runtime_id(&self) -> &str {
+        self.runtime_id
     }
 
     fn program_control(&self) -> ProgramControl {

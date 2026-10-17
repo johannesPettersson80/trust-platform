@@ -139,6 +139,15 @@ fn status_reports_version_and_platform() {
 }
 
 #[test]
+fn status_reports_the_runtime_id() {
+    // Specification 11 `status`: the runtime's stable runtime ID. The fake host reports the
+    // literal `test-runtime-id` (tests/fake_host.rs).
+    let host = FakeHost::running();
+    let value = result(status(1, &host));
+    assert_eq!(value["runtime_id"], json!("test-runtime-id"));
+}
+
+#[test]
 fn runner_status_reports_that_it_keeps_control() {
     let fixture = Fixture::board_probe();
     let mut runner = fixture.runner();

@@ -197,6 +197,7 @@ impl HostComposition {
             opcua_server_bound: Arc::new(AtomicBool::new(false)),
             project_root: None::<PathBuf>,
             resource_name: SmolStr::new(RESOURCE),
+            runtime_id: SmolStr::new("test-runtime-id"),
             io_health,
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
@@ -612,6 +613,13 @@ impl StatusPort for BoardPlatform {
     /// The board the device composition stands for; the transcript parity test normalises it
     /// against the host's `<os>-<arch>`.
     fn platform(&self) -> &'static str {
+        BOARD_PLATFORM
+    }
+
+    /// A device without an operating system has no project ID; it reports its platform's value
+    /// (specification 11, `status`). The transcript parity test normalises it against the host's
+    /// stable runtime ID.
+    fn runtime_id(&self) -> &'static str {
         BOARD_PLATFORM
     }
 

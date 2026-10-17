@@ -160,6 +160,10 @@ pub trait StatusPort {
     /// and the board name on a device, for example `stm32f407`.
     fn platform(&self) -> &str;
 
+    /// The runtime's stable runtime ID (specification 11, `status` and runtime discovery): the
+    /// same value the runtime announces by mDNS, and the same across restarts.
+    fn runtime_id(&self) -> &str;
+
     /// Whether the runtime's program control survives `shutdown` (spec 34 STATE-08).
     fn program_control(&self) -> ProgramControl;
 
