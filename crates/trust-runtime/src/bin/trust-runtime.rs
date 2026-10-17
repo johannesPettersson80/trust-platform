@@ -38,6 +38,8 @@ mod fleet;
 mod git;
 #[path = "trust-runtime/hmi.rs"]
 mod hmi;
+#[path = "trust-runtime/new.rs"]
+mod new;
 #[path = "trust-runtime/plcopen.rs"]
 mod plcopen;
 #[path = "trust-runtime/prompt.rs"]
@@ -241,6 +243,7 @@ fn run() -> anyhow::Result<()> {
             }
         },
         Some(Command::Wizard { path, start }) => wizard::run_wizard(path, start),
+        Some(Command::New(args)) => new::run_new(args.parent, args.name, args.force, args.json),
         Some(Command::Commit {
             project,
             message,
@@ -307,6 +310,7 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "completions",
         "bench",
         "conformance",
+        "new",
     ];
     let mut best = None;
     let mut best_score = usize::MAX;

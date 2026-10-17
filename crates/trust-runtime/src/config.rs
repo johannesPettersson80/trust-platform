@@ -24,8 +24,10 @@ use crate::value::Duration;
 use crate::value::Value;
 use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogAction, WatchdogPolicy};
 
+mod key_removal;
 mod parser;
 
+pub use key_removal::remove_runtime_toml_key;
 pub use parser::ControlMode;
 
 #[cfg(unix)]

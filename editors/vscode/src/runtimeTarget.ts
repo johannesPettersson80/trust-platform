@@ -12,6 +12,7 @@ import {
   runtimeControlAuthErrorKind,
 } from "./runtimeControlClient";
 import { getControlAuthToken } from "./runtimeAuth";
+import { resolveRuntimeConnection } from "./runtimeConnection";
 
 export const RUNTIME_PANEL_COMMAND = "trust-lsp.debug.openIoPanel";
 
@@ -49,6 +50,8 @@ export interface RuntimeTargetSettings {
   endpointEnabled?: boolean;
   label?: string;
   setupUrl?: string;
+  /** trust-runtime's reason why the workspace runtime has no endpoint now (spec 11 §6.8.0a). */
+  unavailableReason?: string;
 }
 
 export interface RuntimeTargetDeps {
@@ -64,18 +67,33 @@ export async function resolveRuntimeTarget(
   deps: RuntimeTargetDeps = {}
 ): Promise<RuntimeTarget> {
   const config = getTrustConfiguration(resource);
-  const endpoint = config.get<string>("runtime.controlEndpoint", "");
+  const mode = config.get<RuntimeTargetMode>("runtime.mode", "simulate");
+  let endpoint: string;
+  let authToken: string | undefined;
+  let unavailableReason: string | undefined;
+  if (mode === "online") {
+    // Spec 11 §6.8.0a — the workspace runtime's endpoint and token are asked of trust-runtime at
+    // each resolution, so a runtime that restarted on another port is followed.
+    const connection = await resolveRuntimeConnection(resource);
+    endpoint = connection.endpoint ?? "";
+    authToken = connection.authToken;
+    unavailableReason = connection.problem?.message;
+  } else {
+    endpoint = config.get<string>("runtime.controlEndpoint", "");
+    // §0.6.8 — token from SecretStorage first, legacy plaintext setting only as fallback.
+    authToken = await getControlAuthToken(endpoint);
+  }
   return await resolveRuntimeTargetFromSettings(
     {
-      mode: config.get<RuntimeTargetMode>("runtime.mode", "simulate"),
+      mode,
       endpoint,
-      // §0.6.8 — token from SecretStorage first, legacy plaintext setting only as fallback.
-      authToken: await getControlAuthToken(endpoint),
+      authToken,
       endpointEnabled: config.get<boolean>(
         "runtime.controlEndpointEnabled",
         true
       ),
       setupUrl: config.get<string>("runtime.setupUrl", ""),
+      unavailableReason,
     },
     deps
   );
@@ -113,7 +131,8 @@ export async function resolveRuntimeTargetFromSettings(
       authToken,
       endpointEnabled,
       reachable: false,
-      status: "missing_endpoint",
+      // A project runtime that trust-runtime reports as not running is unreachable, not unset.
+      status: settings.unavailableReason ? "online_unreachable" : "missing_endpoint",
       label: settings.label ?? "Online runtime",
       setupUrl: normalizedOptional(settings.setupUrl),
       credentialChannel,

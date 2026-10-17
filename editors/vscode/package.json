@@ -2124,7 +2124,7 @@
         "canBeReferencedInPrompt": true,
         "icon": "$(debug-alt)",
         "userDescription": "Attach the debugger to a running runtime.",
-        "modelDescription": "Attaches the Structured Text debugger using runtime.toml (runtime.control.endpoint).",
+        "modelDescription": "Attaches the Structured Text debugger to the workspace project's running runtime. trust-runtime resolves the endpoint and token: the project's endpoint file, then runtime.control.endpoint in runtime.toml, then the platform default.",
         "inputSchema": {
           "type": "object",
           "properties": {}

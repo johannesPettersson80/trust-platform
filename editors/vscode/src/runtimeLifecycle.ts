@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
 import { debugChannel, DEBUG_TYPE } from "./debug/configuration";
 import { runtimeSourceOptionsForTarget } from "./runtimeSourceOptions";
-import { getControlAuthToken } from "./runtimeAuth";
+import { resolveRuntimeConnection } from "./runtimeConnection";
 import {
   classifyRuntimeStartFailure,
   type NetworkCanvasRuntimeFailure as RuntimeStartFailure,
@@ -366,13 +366,17 @@ class RuntimeLifecycleService {
   ): Promise<RuntimeLifecycleResult> {
     const target = this.runtimeConfigTarget();
     const config = getTrustConfiguration(target);
-    if (!status.endpointConfigured) {
+    // Spec 11 §6.8.0a — the endpoint and token are resolved again for this connection attempt, so
+    // a workspace runtime that restarted on another port is found. A configured endpoint keeps its
+    // token from SecretStorage (§0.6.8, legacy setting fallback, never plaintext-only).
+    const connection = await resolveRuntimeConnection(target);
+    const endpoint = connection.endpoint ?? (status.endpointConfigured ? status.endpoint : "");
+    if (!endpoint) {
       return {
         ok: false,
-        failure: {
-          kind: "failed_spawn",
-          message: "Runtime endpoint not set.",
-        },
+        failure: connection.problem
+          ? { kind: "stale_runtime", message: connection.problem.message }
+          : { kind: "failed_spawn", message: "Runtime endpoint not set." },
       };
     }
 
@@ -384,23 +388,22 @@ class RuntimeLifecycleService {
       );
     }
 
-    const reachable = await probeEndpointReachable(status.endpoint);
+    const authToken = connection.authToken ?? "";
+    const reachable = await probeEndpointReachable(endpoint);
     if (!reachable) {
       return {
         ok: false,
         failure: {
           kind: "stale_runtime",
-          message: runtimeNotReachableMessage(status.endpoint),
-          detail: status.endpoint,
+          message: runtimeNotReachableMessage(endpoint),
+          detail: endpoint,
         },
       };
     }
 
-    // §0.6.8 — token from SecretStorage first (legacy setting fallback), never plaintext-only.
-    const authToken = (await getControlAuthToken(status.endpoint)) ?? "";
     let runtimeInfo: unknown;
     try {
-      runtimeInfo = await requestRuntimeStatus(status.endpoint, authToken || undefined, {
+      runtimeInfo = await requestRuntimeStatus(endpoint, authToken || undefined, {
         timeoutMs: 1000,
       });
     } catch (err) {
@@ -442,8 +445,8 @@ class RuntimeLifecycleService {
     const debugConfig: vscode.DebugConfiguration = {
       type: DEBUG_TYPE,
       request: "attach",
-      name: remoteDebugSessionName(targetLabel, status.endpoint),
-      endpoint: status.endpoint,
+      name: remoteDebugSessionName(targetLabel, endpoint),
+      endpoint,
       authToken: authToken || undefined,
       targetLabel,
       internalConsoleOptions: "neverOpen",

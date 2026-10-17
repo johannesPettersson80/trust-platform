@@ -14,7 +14,13 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "resource.cycle_interval_ms must be >= 1".into(),
         ));
     }
-    if cfg.runtime.control.endpoint.trim().is_empty() {
+    if cfg
+        .runtime
+        .control
+        .endpoint
+        .as_deref()
+        .is_some_and(|endpoint| endpoint.trim().is_empty())
+    {
         return Err(RuntimeError::InvalidConfig(
             "runtime.control.endpoint must not be empty".into(),
         ));
@@ -113,7 +119,12 @@ fn parse_control(control: &ControlSection) -> Result<ParsedControl, RuntimeError
         Some(value) => value,
         None => matches!(mode, ControlMode::Debug),
     };
-    if control.endpoint.starts_with("tcp://") && auth_token.is_none() {
+    // An omitted endpoint is the platform default, which generates its own token when it is TCP.
+    let explicit_tcp = control
+        .endpoint
+        .as_deref()
+        .is_some_and(|endpoint| endpoint.starts_with("tcp://"));
+    if explicit_tcp && auth_token.is_none() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.control.auth_token required for tcp endpoint".into(),
         ));

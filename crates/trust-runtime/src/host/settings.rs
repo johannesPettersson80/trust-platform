@@ -33,6 +33,8 @@ pub struct RuntimeSettings {
     pub realtime: LinuxRtConfig,
     pub opcua: OpcUaSettings,
     pub simulation: SimulationSettings,
+    /// Whether the runtime published its endpoint file (spec 11, section 6.8.0a).
+    pub control_endpoint_file: EndpointFileState,
 }
 
 impl RuntimeSettings {
@@ -61,6 +63,7 @@ impl RuntimeSettings {
             realtime: LinuxRtConfig::default(),
             opcua: OpcUaSettings::default(),
             simulation,
+            control_endpoint_file: EndpointFileState::default(),
         }
     }
 
@@ -239,4 +242,38 @@ pub struct SimulationSettings {
     pub time_scale: u32,
     pub mode_label: SmolStr,
     pub warning: SmolStr,
+}
+
+/// What became of the runtime's endpoint file (spec 11, section 6.8.0a). A runtime that cannot
+/// write the file keeps running, and its status says why the file is unavailable.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum EndpointFileState {
+    /// The runtime runs without a project folder, so it publishes no endpoint file.
+    #[default]
+    NotUsed,
+    /// The runtime wrote the endpoint file after it bound its control endpoint.
+    Published,
+    /// The endpoint file could not be written; the text says why.
+    Unavailable(SmolStr),
+}
+
+impl EndpointFileState {
+    /// The state as status reports it: `not_used`, `published` or `unavailable`.
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotUsed => "not_used",
+            Self::Published => "published",
+            Self::Unavailable(_) => "unavailable",
+        }
+    }
+
+    /// Why the endpoint file is unavailable, when it is.
+    #[must_use]
+    pub fn error(&self) -> Option<&str> {
+        match self {
+            Self::Unavailable(reason) => Some(reason.as_str()),
+            Self::NotUsed | Self::Published => None,
+        }
+    }
 }

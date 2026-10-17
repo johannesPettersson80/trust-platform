@@ -289,6 +289,7 @@ const DEFAULT_GITIGNORE: &str = "\
 # Runtime data\n\
 /retain.bin\n\
 /retain.store\n\
+/.trust-runtime/\n\
 *.log\n\
 \n\
 # Editor/OS noise\n\
@@ -297,12 +298,10 @@ const DEFAULT_GITIGNORE: &str = "\
 *.swo\n\
 ";
 
+/// Writes the default `.gitignore`, or adds the endpoint folder to an existing one (spec 11,
+/// section 6.8.0a).
 fn ensure_gitignore(root: &Path) -> anyhow::Result<()> {
-    let path = root.join(".gitignore");
-    if path.exists() {
-        return Ok(());
-    }
-    fs::write(path, DEFAULT_GITIGNORE)?;
+    trust_runtime::control::endpoint::ensure_endpoint_dir_ignored(root, DEFAULT_GITIGNORE)?;
     Ok(())
 }
 

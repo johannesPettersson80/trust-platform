@@ -597,18 +597,15 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
     }
   });
 
-  test("new project scaffolding writes the same native debug configuration", () => {
+  test("new project scaffolding is written by trust-runtime new, not by the extension", () => {
     const source = readSrc("newProject.ts");
     assert.ok(
-      source.includes('const LAUNCH_JSON_SOURCE = `') &&
-        source.includes('"name": "truST Simulator"') &&
-        source.includes('"program": "\\${workspaceFolder}/src/config.st"') &&
-        source.includes('vscode.Uri.joinPath(targetUri, ".vscode")') &&
-        source.includes('vscode.Uri.joinPath(vscodeUri, "launch.json")') &&
-        source.includes('const VSCODE_SETTINGS_SOURCE = `') &&
-        source.includes('"debug.showInStatusBar": "never"') &&
-        source.includes('vscode.Uri.joinPath(vscodeUri, "settings.json")'),
-      "Create project must write launch.json plus settings.json so VS Code has a debugger but does not show a second debug status selector"
+      source.includes('"new",') && source.includes("`--parent=") && source.includes("`--name="),
+      "Create Project must run `trust-runtime new`, which writes launch.json and settings.json (spec 25)"
+    );
+    assert.ok(
+      !source.includes("LAUNCH_JSON_SOURCE") && !source.includes("writeFile("),
+      "the extension must not keep its own copy of the project files (AGENTS.md: logic is in Rust)"
     );
   });
 
@@ -2326,8 +2323,9 @@ suite("Phases 8–10 — honest backend gating (no fakes, no dead buttons)", () 
   test("managed runtime tokens are imported into SecretStorage before attach", () => {
     const src = readSrc("localRuntime.ts");
     assert.ok(
-      src.includes("parseRuntimeControlAuthToken"),
-      "managed runtime token must be read from that runtime project's runtime.toml"
+      src.includes("resolveProjectControlEndpoint") &&
+        !/parseRuntimeControlAuthToken|readManagedRuntimeAuthToken/.test(src),
+      "managed runtime token must come from trust-runtime's endpoint answer (spec 11 §6.8.0a), not from a TOML parse in the extension"
     );
     assert.ok(
       src.includes("setControlAuthToken"),
@@ -2404,11 +2402,22 @@ suite("R4 — runtime auth tokens in SecretStorage (security)", () => {
   });
 
   test("token read paths use the SecretStorage-backed store, not the raw plaintext setting", () => {
-    for (const file of ["runtimeTarget.ts", "runtimeLifecycle.ts", "io-panel/status.ts"]) {
+    // Spec 11 §6.8.0a: the workspace runtime's token comes from trust-runtime through
+    // runtimeConnection.ts, which falls back to the SecretStorage-backed store.
+    assert.ok(
+      readSrc("runtimeConnection.ts").includes("getControlAuthToken"),
+      "the runtime connection must read stored tokens via getControlAuthToken"
+    );
+    for (const file of [
+      "runtimeTarget.ts",
+      "runtimeLifecycle.ts",
+      "io-panel/status.ts",
+      "runtimeConnection.ts",
+    ]) {
       const src = readSrc(file);
       assert.ok(
-        src.includes("getControlAuthToken"),
-        `${file} must read tokens via getControlAuthToken`
+        src.includes("getControlAuthToken") || src.includes("resolveRuntimeConnection"),
+        `${file} must read tokens via getControlAuthToken or the runtime connection`
       );
       assert.ok(
         !/config\.get<[^>]*>\("runtime\.controlAuthToken"/.test(src),

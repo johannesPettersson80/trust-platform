@@ -81,9 +81,10 @@ ethercrab = { version = "0.7.1", optional = true }
 # checkout. scripts/checkout_openot_ref.sh is still used for OpenOT IEC example
 # sources and conformance fixtures that are not Cargo crates.
 open-ot-shm = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
-# Linux RT (mm, thread) and the control socket's bind-restrict-listen sequence (fs, net). The
-# socket sequence is needed on every Unix target, so rustix is not Linux-only.
-rustix = { version = "1.1.5", features = ["fs", "mm", "net", "thread"], optional = true }
+# Linux RT (mm, thread), the control socket's bind-restrict-listen sequence (fs, net) and the
+# owner check of the per-user runtime directory that holds a fallback control socket (process).
+# The socket sequence is needed on every Unix target, so rustix is not Linux-only.
+rustix = { version = "1.1.5", features = ["fs", "mm", "net", "process", "thread"], optional = true }
 [dev-dependencies]
 proptest.workspace = true
 verification-cases.workspace = true

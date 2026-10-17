@@ -83,6 +83,10 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
             "simulation_enabled": simulation.enabled,
             "simulation_time_scale": simulation.time_scale,
             "simulation_warning": simulation.warning.as_str(),
+            "endpoint_file": {
+                "state": settings.control_endpoint_file.as_str(),
+                "error": settings.control_endpoint_file.error(),
+            },
             "hmi_read_only": true,
             "openot_persistence": openot_persistence,
             "metrics": {

@@ -79,8 +79,9 @@ trust-runtime ctl --project . io-write %QX0.0 TRUE
 ```bash
 sudo systemctl status trust-plc.service
 sudo journalctl -u trust-plc.service --since "5 min ago"
-trust-runtime ctl --project /opt/trust/production status
-trust-runtime ctl --project /opt/trust/production config-get
+# The service runs as root, so its endpoint file and control socket belong to root.
+sudo trust-runtime ctl --project /opt/trust/production status
+sudo trust-runtime ctl --project /opt/trust/production config-get
 ```
 
 ### Real-time logs

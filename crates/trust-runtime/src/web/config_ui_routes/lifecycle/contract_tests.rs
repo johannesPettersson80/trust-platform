@@ -106,3 +106,41 @@ fn unix_control_socket_fixture_path_is_bounded_under_long_temp_root() {
         path.display()
     );
 }
+
+/// A killed runtime cannot remove its endpoint file, so the config UI does (spec 11, section
+/// 6.8.0a).
+#[cfg(unix)]
+#[test]
+fn stopping_a_managed_runtime_removes_the_endpoint_file_that_names_it() {
+    let root = std::env::temp_dir().join(format!(
+        "trust-config-ui-stop-{}-{}",
+        std::process::id(),
+        NEXT_SOCKET.fetch_add(1, Ordering::Relaxed)
+    ));
+    let endpoint_dir = root.join(crate::control::endpoint::ENDPOINT_DIR);
+    std::fs::create_dir_all(&endpoint_dir).expect("create endpoint folder");
+    let child = Command::new("sleep")
+        .arg("30")
+        .spawn()
+        .expect("start a stand-in runtime process");
+    let endpoint_file = endpoint_dir.join(crate::control::endpoint::ENDPOINT_FILE);
+    std::fs::write(
+        &endpoint_file,
+        format!(
+            r#"{{"schema_version":1,"endpoint":"tcp://127.0.0.1:9","pid":{}}}"#,
+            child.id()
+        ),
+    )
+    .expect("write the endpoint file of the stand-in runtime");
+    let mut process = ConfigUiManagedRuntimeProcess {
+        listen: "127.0.0.1:0".to_string(),
+        child,
+        started_at_ns: 0,
+        root: root.clone(),
+    };
+
+    stop_managed_runtime_process(&mut process).expect("stop the managed runtime");
+
+    assert!(!endpoint_file.exists());
+    let _ = std::fs::remove_dir_all(root);
+}

@@ -38,7 +38,7 @@ Expected result:
 
 ## Step 2: Configure unique runtime endpoints
 
-Why: each runtime needs unique control/web/mesh endpoints on one host.
+Why: two runtimes on one host need unique web and mesh ports. Each project gets its own control endpoint by default, so this step leaves the control endpoint to that default.
 
 Set PLC-A runtime config:
 
@@ -52,7 +52,6 @@ name = "PlcA"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-plc-a.sock"
 mode = "production"
 debug_enabled = false
 
@@ -103,7 +102,6 @@ name = "PlcB"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-plc-b.sock"
 mode = "production"
 debug_enabled = false
 

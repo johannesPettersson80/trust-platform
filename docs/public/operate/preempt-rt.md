@@ -171,11 +171,14 @@ taskset -pc "$pid"
 grep '^VmLck:' /proc/"$pid"/status
 ```
 
-Inspect the runtime control surface:
+Inspect the runtime control surface. The service runs as root, so its endpoint file and its
+default control socket belong to root: run `ctl` with `sudo`, or give the project a TCP
+`endpoint` and `auth_token` in `runtime.toml`, which `ctl` uses when it cannot read the endpoint
+file.
 
 ```bash
-trust-runtime ctl --project /opt/trust/current status
-trust-runtime ctl --project /opt/trust/current config-get | jq '.result | {
+sudo trust-runtime ctl --project /opt/trust/current status
+sudo trust-runtime ctl --project /opt/trust/current config-get | jq '.result | {
   realtime_profile: .["realtime.profile"],
   realtime_scheduler: .["realtime.scheduler"],
   realtime_affinity: .["realtime.cpu_affinity"],

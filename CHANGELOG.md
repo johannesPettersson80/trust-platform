@@ -6,6 +6,42 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Projects no longer share one control socket. When `[runtime.control]` omits
+  `endpoint`, the runtime listens on a socket of its own project, or on a
+  loopback port with a generated token on Windows, and writes where it listens
+  to `.trust-runtime/control.json`. On Windows the generated token goes into a
+  per-user file under `%LOCALAPPDATA%\trust\runtimes`, never into the project
+  folder. A runtime that cannot write the file still starts, logs a warning and
+  reports it in its status. Project templates and examples no longer use
+  `/tmp/trust-runtime.sock`, so new Windows projects, and every example that
+  does not name its own socket, start on Windows. Eleven examples keep the Unix
+  socket their instructions name and run on Linux and macOS only:
+  `ads_server_basic`, `mqtt_traffic_light`, `hardware_8do`,
+  `plcopen_motion_single_axis_demo`, the five `plcopen_motion_oop_*` examples,
+  and tutorials 09 and 12.
+- Find a project's runtime with `trust-runtime ctl --project <dir> endpoint
+  --json`; every failure is a JSON error with a stable code, and VS Code shows
+  its message. `ctl`, the `ui` console, debug attach and VS Code (Live Values,
+  the runtime target, Devices & Connections) ask again at each connection, so
+  they follow a runtime that restarted on another port. A runtime that does not
+  answer is reported as not running, and an endpoint file that you cannot read
+  is skipped for the configured endpoint. Changing `control.auth_token` while
+  the runtime runs withdraws the generated token. Ctrl+C on Windows and a
+  config UI stop remove the endpoint file. The web IDE settings offer no
+  endpoint by default. An empty value or Reset removes the endpoint and the
+  control and mesh tokens; Reset used to write empty tokens, which the runtime
+  refused. mDNS no longer announces a local socket path.
+
+- Create a project folder with `trust-runtime new --parent <folder> --name
+  <name>`. It writes the files of a new truST project, prints the project and
+  its `src/Main.st` with `--json`, and refuses a folder that is not empty unless
+  `--force` is given, which overwrites only the scaffold files and keeps an
+  existing `.gitignore`. Names that Windows cannot use as one folder name, such
+  as `C:x` or `CON`, are refused on every platform. New Project in VS Code uses
+  it, so the project it creates now validates: its `runtime.toml` no longer
+  carries an empty mesh token, which the runtime refused. Every way of creating
+  a project now lists `/.trust-runtime/` in its `.gitignore`.
+
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 

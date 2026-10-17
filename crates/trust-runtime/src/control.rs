@@ -10,6 +10,7 @@ mod comm_handlers;
 mod config_handlers;
 mod connectors_handlers;
 mod debug_handlers;
+pub mod endpoint;
 mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
@@ -331,14 +332,20 @@ pub struct ControlServer {
 }
 
 impl ControlServer {
+    /// Binds `endpoint` and starts serving it. The server then reports the endpoint that is
+    /// bound, so a TCP port of 0 is replaced by the port the operating system chose.
     pub fn start(
         endpoint: ControlEndpoint,
         state: Arc<ControlState>,
     ) -> Result<Self, RuntimeError> {
-        transport::spawn_control_server(&endpoint, state.clone())?;
-        Ok(Self { endpoint, state })
+        let bound = transport::spawn_control_server(&endpoint, state.clone())?;
+        Ok(Self {
+            endpoint: bound,
+            state,
+        })
     }
 
+    /// The endpoint that the server listens on, with the port that was bound.
     #[must_use]
     pub fn endpoint(&self) -> &ControlEndpoint {
         &self.endpoint

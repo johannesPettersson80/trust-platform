@@ -6,19 +6,17 @@ use std::time::Duration;
 
 use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
-use trust_runtime::config::RuntimeConfig;
+use trust_runtime::control::endpoint::{control_token_from_env, ControlTarget};
 use trust_runtime::control::ControlEndpoint;
 
 use crate::cli::ControlAction;
 
+#[path = "ctl/endpoint_command.rs"]
+mod endpoint_command;
+
 const CONTROL_CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
 const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(750);
 const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
-
-pub(crate) struct ResolvedControlTarget {
-    pub(crate) endpoint: ControlEndpoint,
-    pub(crate) auth_token: Option<String>,
-}
 
 pub fn run_control(
     bundle: Option<PathBuf>,
@@ -26,53 +24,68 @@ pub fn run_control(
     token: Option<String>,
     action: ControlAction,
 ) -> anyhow::Result<()> {
+    if let ControlAction::Endpoint { json } = &action {
+        return endpoint_command::print_control_endpoint(bundle, endpoint, token, *json);
+    }
     let target = resolve_control_target(bundle, endpoint, token)?;
     send_control_request(&target, &action)
 }
 
+/// Resolves the endpoint and token a request uses (spec 11, sections 6.8.0a and 6.8.1). The
+/// explicit or environment token is merged first, so that an explicit token needs no project.
 pub(crate) fn resolve_control_target(
     bundle: Option<PathBuf>,
     endpoint: Option<String>,
     token: Option<String>,
-) -> anyhow::Result<ResolvedControlTarget> {
-    let mut auth_token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
-    let project_runtime = if let Some(project) = bundle.as_ref() {
-        if endpoint.is_none() || auth_token.is_none() {
-            Some(RuntimeConfig::load(project.join("runtime.toml"))?)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    if auth_token.is_none() {
-        auth_token = project_runtime
-            .as_ref()
-            .and_then(|runtime| runtime.control_auth_token.as_ref())
-            .map(ToString::to_string);
-    }
-    let endpoint_text = if let Some(endpoint) = endpoint {
-        endpoint
-    } else if let Some(runtime) = project_runtime {
-        runtime.control_endpoint.to_string()
-    } else {
-        anyhow::bail!("--endpoint or --project required");
-    };
-    let endpoint = ControlEndpoint::parse(&endpoint_text)?;
-    Ok(ResolvedControlTarget {
-        endpoint,
-        auth_token,
-    })
+) -> anyhow::Result<ControlTarget> {
+    let token = token.or_else(control_token_from_env);
+    let explicit = endpoint
+        .as_deref()
+        .map(ControlEndpoint::parse)
+        .transpose()?;
+    Ok(trust_runtime::control::endpoint::resolve_control_target(
+        bundle.as_deref(),
+        explicit,
+        token.as_deref(),
+    )?)
 }
 
-fn send_control_request(
-    target: &ResolvedControlTarget,
-    action: &ControlAction,
-) -> anyhow::Result<()> {
+/// The connection step failed before any request was written. It keeps the operating-system
+/// error, so that the target can tell a runtime that is not running from another failure (spec
+/// 11, section 6.8.0a).
+#[derive(Debug)]
+struct ConnectFailed {
+    endpoint: String,
+    error: std::io::Error,
+}
+
+impl std::fmt::Display for ConnectFailed {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "connect control endpoint {}: {}",
+            self.endpoint, self.error
+        )
+    }
+}
+
+impl std::error::Error for ConnectFailed {}
+
+fn send_control_request(target: &ControlTarget, action: &ControlAction) -> anyhow::Result<()> {
     let request = build_request(action, target.auth_token.as_deref());
-    let response = send_control_request_value(&target.endpoint, &request)?;
+    let response = send_control_request_value(&target.endpoint, &request)
+        .map_err(|error| reported_through_target(target, error))?;
     ensure_control_response_ok(&response)?;
     print_control_response(action, &response)
+}
+
+/// A failed connection is reported through the target, which tells a runtime that is not running
+/// from another failure (spec 11, section 6.8.0a). Any other error is kept as it is.
+fn reported_through_target(target: &ControlTarget, error: anyhow::Error) -> anyhow::Error {
+    if let Some(failed) = error.downcast_ref::<ConnectFailed>() {
+        return anyhow::anyhow!(target.connect_error(&failed.error));
+    }
+    error
 }
 
 pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
@@ -99,7 +112,10 @@ pub(crate) fn send_control_request_value(
     match endpoint {
         ControlEndpoint::Tcp(addr) => {
             let mut stream = std::net::TcpStream::connect_timeout(addr, CONTROL_CONNECT_TIMEOUT)
-                .with_context(|| format!("connect control endpoint tcp://{addr}"))?;
+                .map_err(|error| ConnectFailed {
+                    endpoint: format!("tcp://{addr}"),
+                    error,
+                })?;
             stream
                 .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
                 .context("set control endpoint read timeout")?;
@@ -111,8 +127,11 @@ pub(crate) fn send_control_request_value(
         }
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
-            let mut stream = std::os::unix::net::UnixStream::connect(path)
-                .with_context(|| format!("connect control endpoint unix://{}", path.display()))?;
+            let mut stream =
+                std::os::unix::net::UnixStream::connect(path).map_err(|error| ConnectFailed {
+                    endpoint: format!("unix://{}", path.display()),
+                    error,
+                })?;
             stream
                 .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
                 .context("set control endpoint read timeout")?;
@@ -257,6 +276,9 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
 fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json::Value {
     let auth = auth_token.map(|value| value.to_string());
     match action {
+        ControlAction::Endpoint { .. } => {
+            unreachable!("ctl endpoint is printed without sending a request")
+        }
         ControlAction::Status => json!({"id": 1, "type": "status", "auth": auth}),
         ControlAction::Health => json!({"id": 1, "type": "health", "auth": auth}),
         ControlAction::Stats => json!({"id": 1, "type": "tasks.stats", "auth": auth}),
@@ -368,6 +390,7 @@ fn parse_config_value(value: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use trust_runtime::control::endpoint::EndpointSource;
 
     #[test]
     fn control_actions_map_to_the_registered_wire_contract() {
@@ -728,6 +751,52 @@ mod tests {
         assert!(
             elapsed >= Duration::from_millis(500) && elapsed < Duration::from_secs(2),
             "control read timeout elapsed {elapsed:?}: {error:#}"
+        );
+    }
+
+    #[test]
+    fn a_refused_endpoint_file_endpoint_reports_the_runtime_as_not_running() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let addr = listener.local_addr().expect("listener address");
+        drop(listener);
+        let target = ControlTarget {
+            endpoint: ControlEndpoint::Tcp(addr),
+            endpoint_text: format!("tcp://{addr}"),
+            source: EndpointSource::EndpointFile,
+            auth_token: None,
+            endpoint_file_skipped: None,
+        };
+
+        let error = send_control_request(&target, &ControlAction::Status)
+            .expect_err("a refused connection must fail");
+
+        assert!(
+            error.to_string().starts_with("runtime is not running"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn a_refused_configured_endpoint_reports_the_connection_error() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let addr = listener.local_addr().expect("listener address");
+        drop(listener);
+        let target = ControlTarget {
+            endpoint: ControlEndpoint::Tcp(addr),
+            endpoint_text: format!("tcp://{addr}"),
+            source: EndpointSource::Configured,
+            auth_token: None,
+            endpoint_file_skipped: None,
+        };
+
+        let error = send_control_request(&target, &ControlAction::Status)
+            .expect_err("a refused connection must fail");
+
+        assert!(
+            error
+                .to_string()
+                .starts_with(&format!("connect control endpoint tcp://{addr}")),
+            "{error:#}"
         );
     }
 }

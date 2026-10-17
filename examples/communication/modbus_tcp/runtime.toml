@@ -6,7 +6,6 @@ name = "CommModbusRes"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-modbus.sock"
 mode = "production"
 debug_enabled = false
 

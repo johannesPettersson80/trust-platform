@@ -26,7 +26,6 @@ import {
   isManagedLifecycleSuccess,
   managedRuntimeLabel,
   normalizeManagedState,
-  parseRuntimeControlAuthToken,
   toManagedRuntimes,
 } from "../../localRuntimeModel";
 
@@ -227,7 +226,8 @@ suite("truST sidebar — selected target model", () => {
 
   test("remote Connect verifies control auth before opening an attach session", () => {
     const source = loadSource("runtimeLifecycle.ts");
-    const authCheck = source.indexOf("requestRuntimeStatus(status.endpoint");
+    // The endpoint is resolved again for each attempt (spec 11 §6.8.0a), so it is a local here.
+    const authCheck = source.indexOf("requestRuntimeStatus(endpoint");
     const attach = source.indexOf("vscode.debug.startDebugging(folder, debugConfig)");
     assert.ok(authCheck >= 0, "remote Connect must request runtime status with the selected token");
     assert.ok(attach >= 0, "remote Connect still attaches after the preflight succeeds");
@@ -243,7 +243,7 @@ suite("truST sidebar — selected target model", () => {
       "missing and wrong tokens must be classified as distinct recovery prompts"
     );
     assert.ok(
-      source.includes("remoteDebugSessionName(targetLabel, status.endpoint)") &&
+      source.includes("remoteDebugSessionName(targetLabel, endpoint)") &&
         source.includes("truST Remote"),
       "remote Connect must name native debug sessions as remote targets, never as the Simulator"
     );
@@ -394,39 +394,6 @@ suite("Managed local runtime model (Phase 9)", () => {
     assert.strictEqual(unavailable.primary.action, "start");
     assert.strictEqual(unavailable.primary.enabled, false);
     assert.match(unavailable.primary.hint ?? "", /status|refresh/i);
-  });
-
-  test("managed local runtime auth token is parsed only from runtime.control", () => {
-    const token = parseRuntimeControlAuthToken(`
-[runtime.control]
-endpoint = "tcp://127.0.0.1:9910"
-auth_token = "managed-secret" # local runtime token
-
-[mesh]
-auth_token = "mesh-secret"
-`);
-    assert.strictEqual(token, "managed-secret");
-    assert.strictEqual(
-      parseRuntimeControlAuthToken(`[mesh]\nauth_token = "mesh-secret"\n`),
-      undefined,
-      "must not import unrelated protocol secrets as runtime control tokens"
-    );
-  });
-
-  test("managed local runtime auth token parser accepts top-level dotted runtime.control form", () => {
-    const token = parseRuntimeControlAuthToken(`
-runtime.control.endpoint = "tcp://127.0.0.1:9910"
-runtime.control.auth_token = "managed-dotted-secret" # local runtime token
-
-[mesh]
-auth_token = "mesh-secret"
-`);
-    assert.strictEqual(token, "managed-dotted-secret");
-    assert.strictEqual(
-      parseRuntimeControlAuthToken(`[mesh]\nruntime.control.auth_token = "wrong"\n`),
-      undefined,
-      "dotted runtime.control auth_token inside another table must not be imported"
-    );
   });
 
   test("managed runtime logs are formatted for humans instead of raw JSON", () => {
@@ -911,8 +878,10 @@ suite("truST sidebar — control surface contract", () => {
       );
     }
     assert.ok(
-      debugSource.includes("remoteAttachDebugSessionName(controlConfig.endpoint)") &&
-        lifecycleSource.includes("remoteDebugSessionName(targetLabel, status.endpoint)"),
+      // The session name comes from the remote-specific label helper, whatever the endpoint
+      // variable is called (the endpoint is now resolved by `trust-runtime ctl endpoint`).
+      debugSource.includes("name: remoteAttachDebugSessionName(") &&
+        lifecycleSource.includes("remoteDebugSessionName(targetLabel, endpoint)"),
       "native attach sessions must use remote-specific labels when VS Code surfaces the session"
     );
   });
@@ -920,13 +889,14 @@ suite("truST sidebar — control surface contract", () => {
   test("unreachable runtime messages are human-facing and do not expose local socket paths", () => {
     const lifecycleSource = loadSource("runtimeLifecycle.ts");
     assert.ok(
-      lifecycleSource.includes("runtimeNotReachableMessage(status.endpoint)") &&
+      lifecycleSource.includes("runtimeNotReachableMessage(endpoint)") &&
         lifecycleSource.includes("Local runtime is stopped. Start it to connect.") &&
         lifecycleSource.includes("shortRuntimeEndpointLabel(endpoint)"),
       "runtime lifecycle must humanize unreachable endpoints before surfacing them"
     );
     assert.ok(
-      !lifecycleSource.includes("message: `Runtime not reachable: ${status.endpoint}`"),
+      !lifecycleSource.includes("message: `Runtime not reachable: ${status.endpoint}`") &&
+        !lifecycleSource.includes("message: `Runtime not reachable: ${endpoint}`"),
       "user-facing runtime-unreachable messages must not expose raw socket paths"
     );
   });

@@ -45,9 +45,9 @@ fn write_signal_project(root: &Path, control_port: u16) {
 
     let mut runtime_toml = render_runtime_toml(&SmolStr::new("main"), 20);
     runtime_toml = runtime_toml.replace(
-        "endpoint = \"unix:///tmp/trust-runtime.sock\"",
+        "[runtime.control]\n",
         &format!(
-            "endpoint = \"tcp://127.0.0.1:{control_port}\"\nauth_token = \"signal-smoke-token\""
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:{control_port}\"\nauth_token = \"signal-smoke-token\"\n"
         ),
     );
     runtime_toml = runtime_toml.replace("mode = \"production\"", "mode = \"debug\"");

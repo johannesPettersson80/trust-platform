@@ -1996,7 +1996,9 @@ configured ADS and OPC UA client startup; execution-backend selection; control
 endpoint and TLS validation; and enabled control, protocol, discovery, mesh,
 historian, persistence, and web-service initialization. Failure in any of these
 steps aborts startup; the scan start gate is not opened and the launcher must
-not report the PLC as running. Warm startup loads and validates the configured
+not report the PLC as running. Writing the endpoint file and the per-user token
+file is not part of this preparation: a runtime that cannot write them starts
+and reports a warning (6.8.0a). Warm startup loads and validates the configured
 retain snapshot before execution. Cold startup does not read retained values.
 Bundle-version compatibility is checked before watchdog, fault, or other
 runtime policy is mutated; an unsupported version leaves the prior runtime
@@ -2056,13 +2058,142 @@ child terminates from signal `n`, the alias exits with the conventional shell
 status `128 + n` instead of flattening the failure to generic status 1. Spawn
 failures remain normal CLI errors with installation guidance.
 
+##### 6.8.0a Default control endpoint and the endpoint file
+
+`[runtime.control] endpoint` is optional. When it is omitted the runtime listens on a default that
+works on its platform and never collides with another project:
+
+- On Unix-like systems: the project-local socket `<project>/.trust-runtime/control.sock`, in a
+  `.trust-runtime` directory with mode 0700 and the socket with mode 0600. The runtime binds the
+  fallback socket `<runtime dir>/trust-<h>.sock` instead when the project-local path exceeds the
+  platform's socket path limit (108 bytes on Linux, 104 on macOS), or when it cannot create the
+  `.trust-runtime` directory or restrict it to its owner, for example in a read-only or foreign
+  project folder.
+- `<h>` is the first 16 hexadecimal digits of the SHA-256 of the canonical project path, taken over
+  the path's bytes (its UTF-8 text on Windows).
+- The runtime directory is a per-user directory: `$XDG_RUNTIME_DIR` when it is set and not empty,
+  else `trust-runtime-<uid>` in the system temporary directory, where `<uid>` is the effective user
+  ID. A missing runtime directory is created with mode 0700. It must be a directory and not a
+  symbolic link, belong to the user, and have no group or other permission bit set; otherwise, or
+  when the fallback path also exceeds the socket path limit, the default cannot be used and an
+  explicit `endpoint` is needed.
+- On Windows: `tcp://127.0.0.1:0`, a free loopback port chosen by the operating system. When
+  `auth_token` is omitted too, the runtime generates a token for each start, 32 bytes from the
+  operating-system secure random source encoded as unpadded base64url; it never falls back to a
+  predictable value.
+
+After it binds the control endpoint, the runtime writes `<project>/.trust-runtime/control.json`:
+`{"schema_version":1,"endpoint":"<bound endpoint>","pid":<process id>}`. On Unix-like systems a token
+that the runtime generated is added as `"auth_token"`, and the file has mode 0600. On Windows a
+generated token is never written into the project folder, because a project folder can be readable
+by other local users: it goes into the per-user token file
+`%LOCALAPPDATA%\trust\runtimes\<h>.json`, `{"schema_version":1,"endpoint":"<bound endpoint>",
+"pid":<process id>,"auth_token":"<token>"}`, in the local application data folder that Windows keeps
+private to its user, and `control.json` carries the endpoint without the token. The token file is
+written before `control.json`. Every file is written to a temporary name and renamed, so a reader
+never sees half of it. The runtime removes its files when it stops cleanly: after SIGINT or SIGTERM
+on Unix-like systems, after Ctrl+C on Windows, and after `shutdown`. A process that stops a runtime
+without a clean stop, such as the config UI when it stops or restarts its child, removes the
+endpoint file and the token file that name the stopped process.
+
+The runtime always starts when only its endpoint file or token file cannot be written. A tooling
+file never stops a PLC program (specification 34, ARCH-07: the controller operates independently of
+the development computer). The runtime then keeps running and:
+
+- logs the warning `control_endpoint_file_unavailable` with the bound endpoint and the reason;
+- records the runtime event `control_endpoint_file_unavailable` (`events.tail`) with `endpoint`,
+  `error` and `time_ns`;
+- reports `endpoint_file` in `status` as `{"state":"unavailable","error":"<reason>"}`. The state is
+  `published` when the file was written and `not_used` when the runtime runs without a project
+  folder, with `error` null.
+
+Clients then find the runtime through its configured endpoint, through the fallback socket on
+Unix-like systems (see the client default below), or through the endpoint that the warning names.
+
+A client (`ctl`, `ui`, the debug adapter's attach, `trust-dev` and the VS Code extension) resolves a
+project's endpoint in this order:
+
+1. an explicit endpoint;
+2. the endpoint file;
+3. the configured `[runtime.control] endpoint`;
+4. the platform default.
+
+An endpoint file that exists but cannot be read, for example because it belongs to another user, is
+skipped with its reason, and resolution continues with the configured endpoint and then the
+platform default. A file that does not parse, has another `schema_version`, or names an endpoint
+that does not parse is an error and is not skipped. Without an endpoint file, a client on a
+Unix-like system uses the project-local socket, or the fallback socket when only the fallback
+socket exists. The Windows default has a port only while the runtime runs, so without the endpoint
+file the client reports that the runtime is not running, or that the endpoint file cannot be read
+when one exists.
+
+A client that connects to the endpoint from the endpoint file, or to the platform default, and finds
+nothing listening there reports that the runtime is not running and does not fall back to another
+endpoint. Nothing listening means that the connection is refused or times out, or that the socket
+does not exist; these endpoints are loopback ports and local sockets, where a listening runtime
+answers at once. Any other connection failure, such as a socket that belongs to another user, is
+reported as it is. A failure message names a skipped endpoint file and its reason.
+
+Credentials keep the precedence of 6.8.1, with the endpoint file's token between
+`TRUST_CTL_TOKEN` and the configured `auth_token`. On Windows the endpoint file's token is the
+per-user token file's token, taken only when that file names the same process and endpoint as
+`control.json`. The `ui` console resolves its target again before every reconnection, so it
+follows a runtime that restarted on another port or with another token.
+
+The VS Code extension asks `trust-runtime` for the resolved endpoint and does not read the files
+itself. It asks at each connection attempt to the workspace's runtime: attach, the online runtime
+target, Live Values status and Devices & Connections. An endpoint named in its
+`runtime.controlEndpoint` setting is used as it is. `trust-runtime ctl --project <dir> endpoint
+--json` prints `{"endpoint":"<endpoint>","auth_token":<token or null>,"source":
+"endpoint_file"|"configured"|"default","endpoint_file_skipped":<reason or null>}`. It reports
+every failure as `{"error":{"code":"<code>","message":"<text>"}}` with a non-zero exit, and the
+extension shows the message. The codes are stable:
+
+| Code | Meaning |
+| --- | --- |
+| `no_project` | `--project` is missing, or the project folder does not exist |
+| `invalid_argument` | `--endpoint` was given; the command reports the project's own endpoint |
+| `invalid_config` | the project's `runtime.toml` cannot be loaded, or its endpoint does not parse |
+| `endpoint_file_invalid` | the endpoint file does not parse, has another schema version, or names an endpoint that does not parse |
+| `endpoint_file_unreadable` | the endpoint file cannot be read and nothing else names an endpoint (the Windows default) |
+| `not_running` | the Windows default has no endpoint file |
+| `default_unavailable` | the platform default cannot be used: the runtime directory is not private, or the fallback socket path does not fit |
+
+Debug output never shows a token: the types that carry one print `<redacted>` in its place.
+
+The project templates (`trust-runtime new`, `trust-runtime setup` and the web setup) and the
+shipped examples omit `endpoint` and `auth_token`, so every platform uses its default and no example
+commits a token. An example keeps an explicit Unix socket only where its own instructions name that
+socket (its `trust-lsp.toml` inline values, its README or its start script); such an example runs on
+Unix-like systems only. Managed-fleet scaffolding keeps its explicit loopback TCP endpoints (section
+6.8.3). The web IDE settings panel offers no endpoint by default: an empty Control Endpoint means
+the platform default, and emptying the field or Reset removes `[runtime.control] endpoint`, edited by
+the runtime, instead of writing a socket path. An empty control or mesh token field, or Reset,
+likewise removes `[runtime.control] auth_token` or `[runtime.mesh] auth_token`, because the runtime
+refuses an empty token.
+
+Every command that creates a project lists `/.trust-runtime/` in the project's `.gitignore`,
+because the endpoint file can hold a token. The commands are `trust-runtime new`, `trust-runtime
+setup` and its wizard, the web setup, a config UI workspace runtime and a web IDE project. A missing
+`.gitignore` is written. An existing `.gitignore` is kept, also under `new --force`, and gains the
+line when no line ignores the folder yet.
+
+When `config.set` replaces or clears `control.auth_token` while the runtime runs, the runtime
+withdraws the token it published, so no client is offered a token that no longer works. On
+Unix-like systems it rewrites the endpoint file without `auth_token`; on Windows it removes the
+per-user token file. Only files that name the runtime's own process are touched. A file that is
+missing, cannot be read or parsed, or names another process is left alone and is no error. A
+request that is refused after the token was withdrawn, for example by a full scheduler queue,
+puts the token back.
+
 ##### 6.8.1 Scriptable control client
 
 `trust-runtime ctl` exchanges one newline-delimited JSON request and response
 with the selected runtime control endpoint. `--endpoint` overrides the endpoint
 from the project runtime configuration. Credential resolution is independent
 of endpoint resolution and uses this precedence: explicit `--token`, then
-`TRUST_CTL_TOKEN`, then `runtime.control.auth_token` from `--project`. The
+`TRUST_CTL_TOKEN`, then the token in the project's endpoint file (6.8.0a), then
+`runtime.control.auth_token` from `--project`. The
 project token remains eligible when `--endpoint` overrides only the endpoint;
 an explicit or environment token does not require loading the project merely
 to resolve credentials.
@@ -5015,9 +5146,14 @@ Rules:
 - The advertised and browsed service type is
   `_trust._plc._tcp.local.`. Service construction enables automatic interface
   addresses. The TXT projection preserves stable runtime `id` and `name`,
-  web port and TLS flag, optional mesh port, control endpoint, and a trimmed
-  nonempty host group; a missing or malformed optional value is absent rather
-  than fabricated.
+  web port and TLS flag, optional mesh port, optional control endpoint, and a
+  trimmed nonempty host group; a missing or malformed optional value is absent
+  rather than fabricated.
+- `control` names only a control endpoint that another computer can use: a TCP
+  endpoint on an address that is neither loopback nor unspecified. A Unix
+  socket path or a loopback endpoint is of no use to a peer, and a socket path
+  would reveal user and project names on the network, so neither is
+  advertised (section 6.8.0a).
 - A resolved service replaces the entry with the same runtime ID and receives a
   fresh observation timestamp. A removal event matches the exact entry ID or
   runtime name, or an mDNS instance name whose final `-<runtime-name>` suffix

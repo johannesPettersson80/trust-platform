@@ -91,35 +91,6 @@ export function toManagedRuntimes(
     });
 }
 
-export function parseRuntimeControlAuthToken(text: string): string | undefined {
-  let section = "";
-  for (const raw of text.split(/\r?\n/)) {
-    const line = stripTomlInlineComment(raw).trim();
-    if (!line) {
-      continue;
-    }
-    if (line.startsWith("[") && line.endsWith("]")) {
-      section = line.slice(1, -1).trim();
-      continue;
-    }
-    if (section === "") {
-      const dotted = line.match(/^runtime\.control\.auth_token\s*=\s*(.+)$/);
-      if (dotted) {
-        return parseTomlString(dotted[1]);
-      }
-    }
-    if (section !== "runtime.control") {
-      continue;
-    }
-    const match = line.match(/^auth_token\s*=\s*(.+)$/);
-    if (!match) {
-      continue;
-    }
-    return parseTomlString(match[1]);
-  }
-  return undefined;
-}
-
 export function formatManagedRuntimeLogs(
   stdout: string,
   stderr: string,
@@ -174,31 +145,4 @@ function formatLogValue(value: unknown): string {
     return "null";
   }
   return JSON.stringify(value);
-}
-
-function stripTomlInlineComment(line: string): string {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    if (ch === "'" && !inDouble) {
-      inSingle = !inSingle;
-    } else if (ch === '"' && !inSingle) {
-      inDouble = !inDouble;
-    } else if (ch === "#" && !inSingle && !inDouble) {
-      return line.slice(0, i);
-    }
-  }
-  return line;
-}
-
-function parseTomlString(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1).trim() || undefined;
-  }
-  return undefined;
 }

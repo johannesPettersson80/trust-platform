@@ -1,5 +1,4 @@
 use super::simulation_warning_message;
-#[cfg(unix)]
 use std::sync::atomic::{AtomicBool, Ordering};
 use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointQuality, SymbolDescriptor, SymbolFlag,
@@ -7,6 +6,8 @@ use trust_ads_core::{
 use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
 use trust_runtime::value::{Duration, Value};
 
+#[path = "tests/console_stop.rs"]
+mod console_stop;
 #[path = "tests/mqtt_install_tag_mapping.rs"]
 mod mqtt_install_tag_mapping;
 #[path = "tests/mqtt_tag_mapping.rs"]
@@ -24,7 +25,7 @@ fn bundle_with_backend(
             execution_backend: backend,
             execution_backend_source:
                 trust_runtime::execution_backend::ExecutionBackendSource::Config,
-            control_endpoint: smol_str::SmolStr::new("tcp://127.0.0.1:9000"),
+            control_endpoint: Some(smol_str::SmolStr::new("tcp://127.0.0.1:9000")),
             control_auth_token: Some(smol_str::SmolStr::new("secret")),
             control_debug_enabled: true,
             control_mode: trust_runtime::config::ControlMode::Debug,
@@ -265,13 +266,11 @@ impl super::RuntimeSignalSource for FakeSignalSource {
     }
 }
 
-#[cfg(unix)]
 #[derive(Debug, Default)]
 struct RecordingShutdownTarget {
     called: AtomicBool,
 }
 
-#[cfg(unix)]
 impl super::RuntimeShutdownTarget for RecordingShutdownTarget {
     fn request_shutdown(&self) {
         self.called.store(true, Ordering::SeqCst);

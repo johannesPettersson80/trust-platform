@@ -81,7 +81,9 @@ Expected result:
 
 ## Step 4: Add runtime config (`runtime.toml`)
 
-Why: runtime needs resource timing and control/web endpoints.
+Why: runtime needs resource timing and a web endpoint. The control endpoint is
+left out, so the runtime uses its platform default and `trust-runtime ctl
+--project .` finds it through the project's endpoint file.
 
 ```bash
 cat > runtime.toml <<'TOML'
@@ -93,7 +95,6 @@ name = "Tutorial13Resource"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-tutorial-13.sock"
 mode = "production"
 debug_enabled = false
 
@@ -133,7 +134,8 @@ TOML
 ```
 
 Expected result:
-- runtime can start deterministically on known local ports/socket
+- runtime can start deterministically on known local ports, with its control
+  socket inside the project's `.trust-runtime` folder (a loopback port on Windows)
 
 ## Step 5: Add I/O driver config (`io.toml`)
 

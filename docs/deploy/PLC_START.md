@@ -97,5 +97,5 @@ systemctl restart systemd-journald
 Example startup log line (JSON):
 
 ```
-{"ts":1706265600000,"level":"info","event":"runtime_start","data":{"project":"/opt/trust/project","project_version":1,"resource":"Res","restart":"Warm","cycle_interval_ms":100,"io_driver":"simulated","retain_mode":"file","retain_path":"/opt/trust/retain.bin","retain_save_ms":1000,"watchdog_enabled":true,"watchdog_timeout_ms":5000,"watchdog_action":"SafeHalt","fault_policy":"Halt","control_endpoint":"unix:///tmp/trust-runtime.sock","control_auth_token_set":true,"control_auth_token_length":16}}
+{"ts":1706265600000,"level":"info","event":"runtime_start","data":{"project":"/opt/trust/project","project_version":1,"resource":"Res","restart":"Warm","cycle_interval_ms":100,"io_driver":"simulated","retain_mode":"file","retain_path":"/opt/trust/retain.bin","retain_save_ms":1000,"watchdog_enabled":true,"watchdog_timeout_ms":5000,"watchdog_action":"SafeHalt","fault_policy":"Halt","control_endpoint":"unix:///opt/trust/project/.trust-runtime/control.sock","control_auth_token_set":false}}
 ```

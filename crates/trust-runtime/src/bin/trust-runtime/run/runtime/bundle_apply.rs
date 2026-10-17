@@ -167,26 +167,32 @@ where
     Ok(())
 }
 
-fn parse_control_endpoint(bundle: Option<&RuntimeBundle>) -> anyhow::Result<ControlEndpoint> {
+/// The endpoint and token that the runtime binds (spec 11, section 6.8.0a). Without a project the
+/// runtime keeps its fallback TCP endpoint, which needs a configured token.
+fn parse_control_binding(bundle: Option<&RuntimeBundle>) -> anyhow::Result<ControlBinding> {
     if let Some(bundle) = bundle {
-        Ok(ControlEndpoint::parse(
-            bundle.runtime.control_endpoint.as_str(),
-        )?)
-    } else {
-        Ok(ControlEndpoint::parse("tcp://127.0.0.1:9000")?)
+        return Ok(control_binding(
+            &bundle.root,
+            bundle.runtime.control_endpoint.as_deref(),
+            bundle.runtime.control_auth_token.as_deref(),
+        )?);
     }
+    Ok(ControlBinding {
+        endpoint: ControlEndpoint::parse("tcp://127.0.0.1:9000")?,
+        auth_token: None,
+        generated_token: false,
+    })
 }
 
 fn ensure_control_auth_requirements(
-    control_endpoint: &ControlEndpoint,
-    bundle: Option<&RuntimeBundle>,
+    binding: &ControlBinding,
     ide_shell_mode: bool,
 ) -> anyhow::Result<()> {
-    if matches!(control_endpoint, ControlEndpoint::Tcp(_)) {
-        let token = bundle.and_then(|bundle| bundle.runtime.control_auth_token.as_ref());
-        if token.is_none() && !ide_shell_mode {
-            anyhow::bail!("tcp control endpoint requires runtime.control.auth_token");
-        }
+    if matches!(binding.endpoint, ControlEndpoint::Tcp(_))
+        && binding.auth_token.is_none()
+        && !ide_shell_mode
+    {
+        anyhow::bail!("tcp control endpoint requires runtime.control.auth_token");
     }
     Ok(())
 }

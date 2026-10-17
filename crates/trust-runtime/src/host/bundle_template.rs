@@ -156,7 +156,7 @@ pub fn build_io_config_auto(driver: &str) -> anyhow::Result<IoConfigTemplate> {
 #[must_use]
 pub fn render_runtime_toml(resource_name: &SmolStr, cycle_ms: u64) -> String {
     format!(
-        "[bundle]\nversion = 1\n\n[resource]\nname = \"{resource_name}\"\ncycle_interval_ms = {cycle_ms}\n\n[runtime]\nexecution_backend = \"vm\"\n\n[runtime.control]\nendpoint = \"unix:///tmp/trust-runtime.sock\"\nmode = \"production\"\ndebug_enabled = false\n\n[runtime.web]\nenabled = true\nlisten = \"0.0.0.0:8080\"\nauth = \"local\"\ntls = false\n\n[runtime.tls]\nmode = \"disabled\"\nrequire_remote = false\n\n[runtime.discovery]\nenabled = true\nservice_name = \"truST\"\nadvertise = true\ninterfaces = [\"eth0\", \"wlan0\"]\n\n[runtime.mesh]\nenabled = false\nrole = \"peer\"\nlisten = \"0.0.0.0:5200\"\nconnect = []\ntls = false\nzenohd_version = \"1.7.2\"\nplugin_versions = {{}}\npublish = []\n\n[runtime.cloud]\nprofile = \"dev\"\n\n[runtime.cloud.wan]\nallow_write = []\n\n[runtime.realtime]\nenabled = false\nrequire_preempt_rt_kernel = false\nlock_memory = false\nscheduler = \"other\"\npriority = 70\ncpu_affinity = []\nstrict = false\n\n[runtime.openot]\nenabled = false\npath = \"openot.shm\"\ncapacity = 4096\nfence_mode = \"fenced\"\nallow_unfenced_for_proof = false\nsource = \"heartbeat\"\n\n[runtime.opcua_client]\nenabled = false\nconfig_path = \"opcua_client.toml\"\npoll_interval_ms = 250\n\n[runtime.opcua]\nenabled = false\nlisten = \"0.0.0.0:4840\"\nendpoint_path = \"/\"\nnamespace_uri = \"urn:trust:runtime\"\npublish_interval_ms = 250\nmax_nodes = 128\nexpose = []\nsecurity_policy = \"basic256sha256\"\nsecurity_mode = \"sign_and_encrypt\"\nallow_anonymous = false\n\n[runtime.observability]\nenabled = false\nsample_interval_ms = 1000\nmode = \"all\"\ninclude = []\nhistory_path = \"history/historian.jsonl\"\nmax_entries = 20000\nprometheus_enabled = true\nprometheus_path = \"/metrics\"\n\n[runtime.log]\nlevel = \"info\"\n\n[runtime.retain]\nmode = \"none\"\nsave_interval_ms = 1000\n\n[runtime.watchdog]\nenabled = false\ntimeout_ms = 5000\naction = \"halt\"\n\n[runtime.fault]\npolicy = \"halt\"\n"
+        "[bundle]\nversion = 1\n\n[resource]\nname = \"{resource_name}\"\ncycle_interval_ms = {cycle_ms}\n\n[runtime]\nexecution_backend = \"vm\"\n\n[runtime.control]\nmode = \"production\"\ndebug_enabled = false\n\n[runtime.web]\nenabled = true\nlisten = \"0.0.0.0:8080\"\nauth = \"local\"\ntls = false\n\n[runtime.tls]\nmode = \"disabled\"\nrequire_remote = false\n\n[runtime.discovery]\nenabled = true\nservice_name = \"truST\"\nadvertise = true\ninterfaces = [\"eth0\", \"wlan0\"]\n\n[runtime.mesh]\nenabled = false\nrole = \"peer\"\nlisten = \"0.0.0.0:5200\"\nconnect = []\ntls = false\nzenohd_version = \"1.7.2\"\nplugin_versions = {{}}\npublish = []\n\n[runtime.cloud]\nprofile = \"dev\"\n\n[runtime.cloud.wan]\nallow_write = []\n\n[runtime.realtime]\nenabled = false\nrequire_preempt_rt_kernel = false\nlock_memory = false\nscheduler = \"other\"\npriority = 70\ncpu_affinity = []\nstrict = false\n\n[runtime.openot]\nenabled = false\npath = \"openot.shm\"\ncapacity = 4096\nfence_mode = \"fenced\"\nallow_unfenced_for_proof = false\nsource = \"heartbeat\"\n\n[runtime.opcua_client]\nenabled = false\nconfig_path = \"opcua_client.toml\"\npoll_interval_ms = 250\n\n[runtime.opcua]\nenabled = false\nlisten = \"0.0.0.0:4840\"\nendpoint_path = \"/\"\nnamespace_uri = \"urn:trust:runtime\"\npublish_interval_ms = 250\nmax_nodes = 128\nexpose = []\nsecurity_policy = \"basic256sha256\"\nsecurity_mode = \"sign_and_encrypt\"\nallow_anonymous = false\n\n[runtime.observability]\nenabled = false\nsample_interval_ms = 1000\nmode = \"all\"\ninclude = []\nhistory_path = \"history/historian.jsonl\"\nmax_entries = 20000\nprometheus_enabled = true\nprometheus_path = \"/metrics\"\n\n[runtime.log]\nlevel = \"info\"\n\n[runtime.retain]\nmode = \"none\"\nsave_interval_ms = 1000\n\n[runtime.watchdog]\nenabled = false\ntimeout_ms = 5000\naction = \"halt\"\n\n[runtime.fault]\npolicy = \"halt\"\n"
     )
 }
 
@@ -198,4 +198,26 @@ pub fn render_io_toml(config: &IoConfigTemplate) -> String {
     }
     root.insert("io".into(), toml::Value::Table(io));
     toml::to_string(&toml::Value::Table(root)).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The template that setup, the web setup and the wizard write names no control endpoint and
+    /// no token, so every platform uses its default and no project commits a token (spec 11,
+    /// section 6.8.0a).
+    #[test]
+    fn the_runtime_template_names_no_control_endpoint_or_token() {
+        let text = render_runtime_toml(&SmolStr::new("Line_A"), 20);
+        let value: toml::Value = toml::from_str(&text).expect("the template parses");
+        let control = value["runtime"]["control"]
+            .as_table()
+            .expect("the template has [runtime.control]");
+
+        assert!(!control.contains_key("endpoint"), "{text}");
+        assert!(!control.contains_key("auth_token"), "{text}");
+        crate::config::validate_runtime_toml_text(&text)
+            .expect("the template is a valid runtime.toml");
+    }
 }

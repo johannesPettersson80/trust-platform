@@ -6,8 +6,6 @@ name = "GreenhouseTemperatureClassic"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "tcp://127.0.0.1:0"
-auth_token = "trust-oscat-oop-example-token"
 
 [runtime.log]
 level = "info"

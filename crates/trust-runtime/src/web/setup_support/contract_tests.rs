@@ -441,6 +441,36 @@ fn setup_apply_writes_valid_runtime_and_project_io_without_system_mutation() {
     assert!(message.contains("Setup applied"));
     crate::config::RuntimeConfig::load(fixture.root.join("runtime.toml")).expect("runtime");
     crate::config::IoConfig::load(fixture.root.join("io.toml")).expect("I/O");
+    assert_eq!(
+        std::fs::read_to_string(fixture.root.join(".gitignore")).expect("gitignore"),
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+        "the project ignores its endpoint folder (spec 11, section 6.8.0a)"
+    );
+}
+
+#[test]
+fn setup_apply_keeps_an_existing_gitignore_and_adds_the_endpoint_folder() {
+    let fixture = TempProject::new("apply-gitignore");
+    fixture.write(".gitignore", "target/\n");
+    let payload = SetupApplyRequest {
+        project_path: Some(fixture.root.display().to_string()),
+        resource_name: Some("Line_A".to_string()),
+        cycle_ms: Some(20),
+        driver: Some("loopback".to_string()),
+        write_system_io: Some(false),
+        overwrite_system_io: Some(false),
+        use_system_io: Some(false),
+    };
+
+    apply_setup(&Some(fixture.root.clone()), payload).expect("apply setup");
+
+    assert_eq!(
+        std::fs::read_to_string(fixture.root.join(".gitignore")).expect("gitignore"),
+        format!(
+            "target/\n{}",
+            crate::control::endpoint::ENDPOINT_DIR_GITIGNORE
+        )
+    );
 }
 
 #[test]

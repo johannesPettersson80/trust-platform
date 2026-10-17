@@ -23,6 +23,8 @@ package "VS Code Extension" as vscode #LightBlue {
     component "Fleet Topology Identity\n(pure owner-scoped normalization)" as fleetTopologyIdentity <<networkCanvas/fleetTopologyIdentity.ts>>
     component "Runtime Target Resolver\n(single selected runtime context)" as runtimeTarget <<runtimeTarget.ts>>
     component "Runtime Control Client\n(shared JSON-line client)" as runtimeClient <<runtimeControlClient.ts>>
+    component "Project Control Endpoint\n(asks trust-runtime, never reads the file)" as projectEndpoint <<projectControlEndpoint.ts>>
+    component "Runtime Connection\n(workspace runtime endpoint + token\nat each connection attempt)" as runtimeConnection <<runtimeConnection.ts>>
 
     extMain --> langClient : creates
     extMain --> debugFactory : registers
@@ -36,6 +38,8 @@ package "VS Code Extension" as vscode #LightBlue {
     adsPanel --> runtimeTarget : reads selected runtime\n(no duplicate chooser)
     adsPanel --> runtimeClient : sends ADS control requests
     networkCanvas --> runtimeTarget : resolves selected + configured runtimes
+    runtimeTarget --> runtimeConnection : online target: settings endpoint,\nelse the workspace runtime
+    runtimeConnection --> projectEndpoint : asks trust-runtime for the\nendpoint and token
     networkCanvas --> fleetTopologyGateway : routes singleton, overlay,\nand peer snapshots through one ingress
     fleetTopologyGateway --> runtimeClient : fetches fleet.topology from\neach reachable target
     fleetTopologyGateway --> fleetTopologyIdentity : clones + normalizes each response\nbefore dedupe/merge
@@ -316,6 +320,8 @@ package "trust-runtime crate" as struntime #LightYellow {
     launcher --> linuxRt : thread init hook\nbefore scan loop
     linuxRt --> runtime : scheduler thread posture
     launcher --> controlServer : starts
+    artifact "Endpoint file\n<project>/.trust-runtime/control.json\n(owner-only, written atomically)" as endpointFile
+    launcher --> endpointFile : writes the bound endpoint after the\ncontrol server binds (generated token:\nin the file on Unix, in a per-user file\non Windows); a write failure is a warning;\nremoves it on a clean stop
     launcher --> webServer : starts (if enabled)
     launcher --> discovery : advertises (if enabled)
     launcher --> meshSync : starts (if enabled)
@@ -397,6 +403,8 @@ runtimePanel -down-> stdebug : custom DAP\n(I/O + source provenance + reload)
 communicationPanel -down-> controlServer : Communication comm.* requests\nthrough selected runtime endpoint
 adsPanel -down-> controlServer : ADS control requests\nthrough selected runtime endpoint
 runtimeClient -down-> controlServer : shared JSON-line control\n(comm.*, ADS, fleet.topology)
+projectEndpoint -down-> ctlClient : `trust-runtime ctl --project <dir>\nendpoint --json` at each connection attempt
+ctlClient --> endpointFile : reads (explicit, endpoint file,\nconfigured, platform default)
 
 ' Handlers to IDE
 featureHandler --> completion

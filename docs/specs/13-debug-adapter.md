@@ -108,8 +108,18 @@ This document is implementation-agnostic but aligns with the DAP definitions in
   explicitly requests termination.
 
 Attach arguments (adapter-specific):
-- `endpoint` (required): control endpoint, e.g. `unix:///tmp/trust-runtime.sock` or `tcp://127.0.0.1:9000`
-- `authToken` (optional): control auth token (same value used by `trust-runtime ctl`)
+- `endpoint` (optional): control endpoint, e.g. `unix:///run/plc/control.sock` or
+  `tcp://127.0.0.1:9000`. Without it the adapter resolves the endpoint of the project named by
+  `runtimeRoot` in the order of specification 11 §6.8.0a (endpoint file, configured endpoint,
+  platform default).
+- `runtimeRoot` (optional): the project folder, used for that resolution and for the project's
+  token.
+- `authToken` (optional): control auth token (same value used by `trust-runtime ctl`), with the
+  credential precedence of specification 11 §6.8.1.
+
+Without `endpoint` and `runtimeRoot`, attach fails with `attach requires endpoint or runtimeRoot`.
+When nothing listens at an endpoint that came from the endpoint file or the platform default,
+attach reports that the runtime is not running (specification 11 §6.8.0a).
 
 Attach requires `runtime.control.debug_enabled=true`. If disabled, the adapter must report an
 error and remain disconnected.

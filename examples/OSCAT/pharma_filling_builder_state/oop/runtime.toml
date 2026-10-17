@@ -6,8 +6,6 @@ name = "PharmaFillingBuilderStateOop"
 cycle_interval_ms = 50
 
 [runtime.control]
-endpoint = "tcp://127.0.0.1:0"
-auth_token = "trust-oscat-oop-example-token"
 
 [runtime.opcua]
 enabled = true

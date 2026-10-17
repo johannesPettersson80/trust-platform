@@ -23,6 +23,7 @@ import { registerLibraryCodeActions } from "./libraryCodeActions";
 import { registerLibraries } from "./libraries";
 import { initSelectedRuntimeStore } from "./selectedRuntime";
 import { registerRuntimeAuth } from "./runtimeAuth";
+import { registerRuntimeConnection } from "./runtimeConnection";
 import { registerLocalRuntime } from "./localRuntime";
 import { registerOpcuaTrust } from "./opcuaTrust";
 import { registerNewStatechartCommand } from "./statechart/newStatechart";
@@ -178,6 +179,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerRuntimeLifecycle(context);
   initSelectedRuntimeStore(context);
   registerRuntimeAuth(context);
+  registerRuntimeConnection(context);
   registerLocalRuntime(context);
   registerOpcuaTrust(context);
   registerRuntimeControls(context);

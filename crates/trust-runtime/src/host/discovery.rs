@@ -133,7 +133,9 @@ pub fn start_discovery_with_state(
     if let Some(mesh_port) = mesh_port {
         props.insert("mesh_port".to_string(), mesh_port.to_string());
     }
-    props.insert("control".to_string(), format_endpoint(control_endpoint));
+    if let Some(control) = advertised_control_endpoint(control_endpoint) {
+        props.insert("control".to_string(), control);
+    }
     if let Some(host_group) = config.host_group.as_deref() {
         let host_group = host_group.trim();
         if !host_group.is_empty() {
@@ -286,11 +288,16 @@ fn parse_port(listen: Option<&str>) -> Option<u16> {
         .and_then(|value| value.parse::<u16>().ok())
 }
 
-fn format_endpoint(endpoint: &ControlEndpoint) -> String {
+/// The control endpoint that the TXT record names, when another computer can use it: a TCP
+/// endpoint on an address that is neither loopback nor unspecified (spec 11, section 6.12). A
+/// Unix socket path or a loopback port is of no use to a peer, and a socket path would reveal the
+/// user and project names on the network, so neither is advertised.
+fn advertised_control_endpoint(endpoint: &ControlEndpoint) -> Option<String> {
     match endpoint {
-        ControlEndpoint::Tcp(addr) => format!("tcp://{addr}"),
-        #[cfg(unix)]
-        ControlEndpoint::Unix(path) => format!("unix://{}", path.display()),
+        ControlEndpoint::Tcp(addr) if !addr.ip().is_loopback() && !addr.ip().is_unspecified() => {
+            Some(format!("tcp://{addr}"))
+        }
+        _ => None,
     }
 }
 
@@ -344,6 +351,26 @@ mod tests {
         assert_eq!(entry.control.as_deref(), Some("unix:///tmp/test.sock"));
         assert_eq!(entry.host_group.as_deref(), Some("hq-vm-cluster"));
         assert!(entry.last_seen_ns > 0);
+    }
+
+    #[test]
+    fn only_a_control_endpoint_another_computer_can_use_is_advertised() {
+        let tcp = |text: &str| ControlEndpoint::Tcp(text.parse().expect("socket address"));
+
+        assert_eq!(
+            advertised_control_endpoint(&tcp("192.0.2.10:9900")).as_deref(),
+            Some("tcp://192.0.2.10:9900")
+        );
+        assert_eq!(advertised_control_endpoint(&tcp("127.0.0.1:9900")), None);
+        assert_eq!(advertised_control_endpoint(&tcp("[::1]:9900")), None);
+        assert_eq!(advertised_control_endpoint(&tcp("0.0.0.0:9900")), None);
+        #[cfg(unix)]
+        assert_eq!(
+            advertised_control_endpoint(&ControlEndpoint::Unix(std::path::PathBuf::from(
+                "/home/user/plant/.trust-runtime/control.sock"
+            ))),
+            None
+        );
     }
 
     #[test]

@@ -6,7 +6,6 @@ name = "EtherCAT_demo"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime-ethercat.sock"
 mode = "production"
 debug_enabled = false
 

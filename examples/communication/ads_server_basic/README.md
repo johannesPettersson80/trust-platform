@@ -77,7 +77,6 @@ python3 -m venv .venv-pyads
   --notification global.PumpRunning:BOOL \
   --write global.Setpoint:REAL:12.5 \
   --doctor-endpoint unix:///tmp/trust-runtime-ads-server-basic.sock \
-  --doctor-token ads-server-smoke-token \
   --trust-runtime target/debug/trust-runtime
 ```
 

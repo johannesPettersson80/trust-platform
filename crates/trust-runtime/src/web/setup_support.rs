@@ -535,6 +535,15 @@ pub(super) fn apply_setup(
     std::fs::write(&runtime_path, runtime_text).map_err(|err| {
         RuntimeError::InvalidConfig(format!("failed to write runtime.toml: {err}").into())
     })?;
+    // The runtime's endpoint file can hold a token, so the project ignores its folder (spec 11,
+    // section 6.8.0a). An existing .gitignore is kept and only gains that line.
+    crate::control::endpoint::ensure_endpoint_dir_ignored(
+        &bundle_root,
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+    )
+    .map_err(|err| {
+        RuntimeError::InvalidConfig(format!("failed to write .gitignore: {err}").into())
+    })?;
 
     let io_path = bundle_root.join("io.toml");
     if use_system_io {

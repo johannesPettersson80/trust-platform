@@ -45,6 +45,8 @@ __pycache__/
 .claude-plugin/
 .trust-lsp/
 **/.trust-lsp/
+# A runtime's endpoint file (spec 11 §6.8.0a), left behind in an example after an unclean stop.
+**/.trust-runtime/
 
 # Local debug/lsp binaries (too large for GitHub; built locally)
 editors/vscode/bin/trust-debug

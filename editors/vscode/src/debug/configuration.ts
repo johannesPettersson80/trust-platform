@@ -1,10 +1,14 @@
-import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
   runtimeSourceOptionsForTarget,
   type RuntimeSourceOptions,
 } from "../runtimeSourceOptions";
+import {
+  resolveProjectControlEndpoint,
+  type ProjectControlEndpointResult,
+} from "../projectControlEndpoint";
+import { workspaceProjectDir } from "../runtimeConnection";
 
 export const DEBUG_TYPE = "structured-text";
 const DEBUG_CHANNEL = "Structured Text Debugger";
@@ -12,11 +16,6 @@ const ST_GLOB = "**/*.{st,ST,pou,POU}";
 const ST_EXCLUDE_GLOB = "**/{node_modules,target,.git}/**";
 const PRAGMA_SCAN_LINES = 20;
 const LAST_CONFIG_KEY = "trust-lsp.lastConfigurationUri";
-
-type RuntimeControlConfig = {
-  endpoint?: string;
-  authToken?: string;
-};
 
 let output: vscode.OutputChannel | undefined;
 let workspaceState: vscode.Memento | undefined;
@@ -59,96 +58,21 @@ export function runtimeSourceOptions(target?: vscode.Uri): RuntimeSourceOptions 
   return runtimeSourceOptionsForTarget(target);
 }
 
-function findRuntimeToml(folder?: vscode.WorkspaceFolder): string | undefined {
-  if (!folder) {
-    return undefined;
-  }
-  const root = folder.uri.fsPath;
-  const direct = path.join(root, "runtime.toml");
-  if (fs.existsSync(direct)) {
-    return direct;
-  }
-  const bundle = path.join(root, "bundle", "runtime.toml");
-  if (fs.existsSync(bundle)) {
-    return bundle;
-  }
-  return undefined;
-}
-
-export function loadRuntimeControlConfig(
+// The endpoint and token of a project's runtime come from `trust-runtime ctl --project <dir> endpoint
+// --json` (spec 11 §6.8.0a); the extension does not read runtime.toml for them.
+export async function resolveRuntimeControlForFolder(
+  bin: string,
   folder?: vscode.WorkspaceFolder
-): RuntimeControlConfig | undefined {
-  const runtimeToml = findRuntimeToml(folder);
-  if (!runtimeToml) {
-    return undefined;
+): Promise<ProjectControlEndpointResult> {
+  const projectDir = workspaceProjectDir(folder);
+  if (!projectDir) {
+    return {
+      ok: false,
+      code: "no_project",
+      message: "Attach needs a project with runtime.toml in the workspace folder.",
+    };
   }
-  try {
-    const text = fs.readFileSync(runtimeToml, "utf8");
-    return parseRuntimeControl(text);
-  } catch {
-    return undefined;
-  }
-}
-
-function parseRuntimeControl(text: string): RuntimeControlConfig {
-  const config: RuntimeControlConfig = {};
-  let section = "";
-  const lines = text.split(/\r?\n/);
-  for (const raw of lines) {
-    const line = stripInlineComment(raw).trim();
-    if (!line) {
-      continue;
-    }
-    if (line.startsWith("[") && line.endsWith("]")) {
-      section = line.slice(1, -1).trim();
-      continue;
-    }
-    if (section !== "runtime.control") {
-      continue;
-    }
-    const match = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.+)$/);
-    if (!match) {
-      continue;
-    }
-    const key = match[1];
-    const value = parseTomlString(match[2]);
-    if (!value) {
-      continue;
-    }
-    if (key === "endpoint") {
-      config.endpoint = value;
-    } else if (key === "auth_token") {
-      config.authToken = value;
-    }
-  }
-  return config;
-}
-
-function stripInlineComment(line: string): string {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    if (ch === "'" && !inDouble) {
-      inSingle = !inSingle;
-    } else if (ch === '"' && !inSingle) {
-      inDouble = !inDouble;
-    } else if (ch === "#" && !inSingle && !inDouble) {
-      return line.slice(0, i);
-    }
-  }
-  return line;
-}
-
-function parseTomlString(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return undefined;
+  return resolveProjectControlEndpoint(bin, projectDir);
 }
 
 async function findStructuredTextUris(): Promise<vscode.Uri[]> {

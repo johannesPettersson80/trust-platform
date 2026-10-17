@@ -91,7 +91,7 @@ struct RuntimeSection {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ControlSection {
-    endpoint: String,
+    endpoint: Option<String>,
     auth_token: Option<String>,
     debug_enabled: Option<bool>,
     mode: Option<String>,
