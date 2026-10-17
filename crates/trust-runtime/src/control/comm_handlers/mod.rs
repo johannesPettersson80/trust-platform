@@ -16,6 +16,8 @@ mod probe;
 mod schema;
 mod search;
 
+pub(crate) use apply::ads_runtime::ensure_ads_runtime_enabled;
+
 #[cfg(test)]
 #[path = "capability_contract_tests.rs"]
 mod capability_contract_tests;

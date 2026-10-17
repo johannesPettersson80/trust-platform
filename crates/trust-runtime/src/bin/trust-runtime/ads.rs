@@ -123,6 +123,11 @@ struct AdsImportSymbolsReport {
     snapshot_bytes: usize,
     generated_bytes: usize,
     dry_run: bool,
+    /// Whether the import enabled `[runtime.ads]` in `runtime.toml` (spec 25 §5.8).
+    runtime_toml_changed: bool,
+    /// Why ADS could not be enabled automatically, when `runtime.toml` is missing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    runtime_toml_error: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     previews: Vec<AdsGeneratedFilePreview>,
 }
@@ -869,6 +874,24 @@ fn run_import_symbols(
             write_generated_output(&generated, artifacts.generated_st.as_str(), force)?;
         }
 
+        // Enabling `[runtime.ads]` is part of the import (spec 25 §5.8); the
+        // project root is the folder holding `ads.toml`.
+        let (runtime_toml_changed, runtime_toml_error) = if dry_run {
+            (false, None)
+        } else {
+            let project_root = out
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            match trust_runtime::control::offline_ads_ensure_runtime_enabled(
+                project_root,
+                "ads.toml",
+            ) {
+                Ok(changed) => (changed, None),
+                Err(message) => (false, Some(message)),
+            }
+        };
+
         let report = AdsImportSymbolsReport {
             ads_toml_path: out,
             snapshot_path,
@@ -880,6 +903,8 @@ fn run_import_symbols(
             snapshot_bytes: snapshot_json.len(),
             generated_bytes: artifacts.generated_st.len(),
             dry_run,
+            runtime_toml_changed,
+            runtime_toml_error,
             previews: if dry_run { previews } else { Vec::new() },
         };
         emit_report(&report, json, render_import_symbols_report)

@@ -93,6 +93,17 @@ pub fn offline_comm_apply_json(
     comm_handlers::apply_project_value(project_root, params)
 }
 
+/// Enable the ADS client in a project's `runtime.toml` after an ADS tag import.
+///
+/// Returns whether `runtime.toml` changed. A missing `runtime.toml` is refused with
+/// the message the VS Code port used (spec 25 §5.8; design §4.3 B7).
+pub fn offline_ads_ensure_runtime_enabled(
+    project_root: &Path,
+    config_path: &str,
+) -> Result<bool, String> {
+    comm_handlers::ensure_ads_runtime_enabled(project_root, config_path)
+}
+
 /// Discover communication targets from the current host without a running runtime.
 pub fn offline_comm_discover_json(params: serde_json::Value) -> Result<serde_json::Value, String> {
     comm_handlers::discover_value(params, None)

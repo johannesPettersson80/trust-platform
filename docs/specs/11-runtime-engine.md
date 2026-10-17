@@ -3405,6 +3405,12 @@ sections, comments, and ADS-server clients not supplied by an update remain
 intact. No failure response, audit entry, temporary-file name, or persisted
 document includes a secret value.
 
+A successful `io.toml` authoring reply for `add`, `upsert`, and `edit` reports
+`instance_id` as the project-local identifier of the connection it wrote,
+`{protocol}:{index}`, where `protocol` is the canonical protocol ID and `index`
+is that driver's zero-based position in the written `io.toml`. Validate, a dry
+run, and a refused request do not recompute the identifier and answer as before.
+
 ###### Offline communication operation and fleet-topology truth
 
 Offline schema, apply, and topology require no live runtime and must not invent
@@ -4350,6 +4356,15 @@ read, write, or read-write access are serialized without silently changing the
 selected capability. Malformed current configuration, missing selection,
 unacknowledged writes, invalid descriptor metadata, or generation mismatch
 fails before an artifact is returned.
+
+A successful apply then enables the ADS client in the selected project's
+`runtime.toml`: it sets `[runtime.ads]` `enabled = true`, `config_path =
+"ads.toml"`, and `worker_tick_interval_ms = 20` only when that key is absent,
+adds the section at the end when it is missing, and preserves every other line,
+comment, and section. The offline `ads import-symbols` command does the same
+after it writes its artifacts. Both answers report whether `runtime.toml`
+changed. A missing `runtime.toml` leaves the artifacts in place and reports that
+ADS could not be enabled automatically.
 
 The generated ADS interface is one deterministic Structured Text source for
 all configured connections. It declares the shared `ADS_QUALITY` enum exactly

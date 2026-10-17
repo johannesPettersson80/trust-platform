@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- `comm.apply` answers the `instance_id` of the connection it wrote for `add`, `upsert`
+  and `edit`, and an ADS tag import enables `[runtime.ads]` in the project's
+  `runtime.toml` itself, live and through `trust-runtime ads import-symbols`, keeping
+  every other line and comment.
 - `trust-runtime discover` runs one search for truST runtimes, ADS, Modbus TCP, MQTT and
   OPC UA from this computer or inside a runtime, and for EtherCAT (after you confirm the
   scan) and GPIO inside a runtime. It shows one device per thing found, with every
