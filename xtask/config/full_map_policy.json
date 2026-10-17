@@ -64,7 +64,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability S1b-4 (C6 adapter)",
-      "rationale": "The C6 adapter implements the engine's platform ports (MonotonicClock, RunnerWait, WakeSignal, HardwareWatchdog) and its process-image port over esp-hal; the target-gated chip build resolves the shared no_std crates and the host build does not."
+      "rationale": "The C6 adapter implements the engine's platform ports (MonotonicClock, RunnerWait, WakeSignal, HardwareWatchdog) and its process-image port over esp-hal; the shared no_std crate resolves for the chip build and for the host build of its USB FIFO servicing (usb_service, tests/usb_service.rs)."
     },
     {
       "from": "trust-platform-esp32",
@@ -72,7 +72,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability S1b-4 (C6 adapter)",
-      "rationale": "The C6 adapter implements the runner's ProcessIo port over esp-hal and reports its driver health through the shared status records; the target-gated chip build resolves the shared no_std crate and the host build does not."
+      "rationale": "The C6 adapter implements the runner's ProcessIo port over esp-hal, reports its driver health through the shared status records, and moves its USB control port's bytes through the shared line link; the shared no_std crate resolves for the chip build and for the host build of its USB FIFO servicing (usb_service, tests/usb_service.rs)."
     },
     {
       "from": "trust-esp32c6-reference",
@@ -2893,7 +2893,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 150,
+        "line": 152,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2914,6 +2914,14 @@
         "invariant": "Both loads stay inside the two-word RTC-fast COOKIE static; volatile, so the value comes from RTC memory.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/usb_link.rs",
+        "line": 105,
+        "owner": "runtime portability S1b",
+        "invariant": "Writes one byte into the USB-Serial/JTAG EP1 FIFO data field (every eight-bit value is valid there), after the pass has checked that the IN FIFO has room for it and only while the reply in flight has unsent bytes.",
+        "test_evidence": "cargo test -p trust-platform-esp32 (the fake-FIFO servicing tests, tests/usb_service.rs)",
+        "review_date": "2026-10-18"
       },
       {
         "path": "firmware/trust-esp32c6-reference/src/application.rs",
@@ -3362,6 +3370,15 @@
         "invariant": "A critical_section::Mutex owns the alarm on the single core; the handler clears its interrupt through it, and the loop arms and listens inside a critical section with interrupts masked between the check and the wait.",
         "test_evidence": "cargo test -p trust-platform-esp32",
         "review_date": "2026-10-17"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/usb_link.rs",
+        "primitive": "Mutex",
+        "owner": "runtime portability S1b",
+        "shared_state": "the USB-Serial/JTAG control link and its interrupt",
+        "invariant": "One critical_section::Mutex owns the line link on the single core: the peripheral's interrupt handler and the runner's poll_frame and send_frame enter it through the same critical section, so no byte of the link moves twice and no INT_ENA read-modify-write is interleaved; the interrupt is bound to that one handler.",
+        "test_evidence": "cargo test -p trust-platform-esp32",
+        "review_date": "2026-10-18"
       },
       {
         "path_prefix": "crates/trust-platform-esp32/src/hardware/mod.rs",

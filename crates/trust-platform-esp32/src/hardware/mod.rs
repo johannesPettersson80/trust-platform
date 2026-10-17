@@ -15,12 +15,14 @@ mod console;
 mod emergency;
 mod io;
 mod reset;
+mod usb_link;
 mod wait;
 pub use clock::Monotonic;
 pub use console::Console;
 pub use emergency::emergency_halt;
 pub use io::DigitalIo;
 pub use reset::{ResetControl, Watchdog};
+pub use usb_link::UsbLink;
 pub use wait::Wait;
 
 /// Set by the first `Board::take`. `esp_hal::init` panics when it runs twice, so this guard

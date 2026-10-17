@@ -10,9 +10,12 @@ rust-version.workspace = true
 esp-hal = { version = "=1.2.2", features = ["esp32c6", "unstable"] }
 esp-storage = { version = "=0.10.0", features = ["esp32c6"] }
 critical-section = "1.2.0"
+
+[dependencies]
 # The engine's platform contracts (`MonotonicClock`, `RunnerWait`, `WakeSignal`,
-# `HardwareWatchdog`) and the runner's `ProcessIo` port this adapter implements. Both build
-# without an operating system; the workspace entry builds the core without std.
+# `HardwareWatchdog`) and the runner's `ProcessIo` port this adapter implements, and the shared
+# line link of its USB control port. Both build without an operating system, so the chip build and
+# the host build of `usb_service` resolve them; the workspace entry builds the core without std.
 trust-runtime-core.workspace = true
 trust-runtime-services.workspace = true
 

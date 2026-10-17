@@ -20,12 +20,13 @@ pub mod process_io;
 pub mod profile;
 mod record;
 pub use record::{fail_record, FAIL_RECORD_MAX};
+pub mod usb_service;
 pub mod watchdog_rule;
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
 mod hardware;
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
 pub use hardware::{
-    emergency_halt, Board, BoardError, Console, DigitalIo, Identity, Monotonic, ResetControl, Wait,
-    Watchdog,
+    emergency_halt, Board, BoardError, Console, DigitalIo, Identity, Monotonic, ResetControl,
+    UsbLink, Wait, Watchdog,
 };

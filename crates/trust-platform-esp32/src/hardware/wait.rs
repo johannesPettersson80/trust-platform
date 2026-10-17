@@ -41,10 +41,26 @@ static WAKE_COUNT: AtomicU32 = AtomicU32::new(0);
 static ALARM: Mutex<RefCell<Option<OneShotTimer<'static, Blocking>>>> =
     Mutex::new(RefCell::new(None));
 
+/// Advances the wake counter, so the resource loop's wait ends at once (design §2.5). The deadline
+/// alarm, the control link and [`WakeSignal::wake`] all advance the one counter the wait reads.
+fn advance_wake() {
+    WAKE_COUNT.fetch_add(1, Ordering::Relaxed);
+}
+
+/// The control link's view of the wake counter: every event the link handles advances the counter,
+/// so the wait ends for it at once (design §2.5).
+pub(super) struct LinkWake;
+
+impl WakeSignal for LinkWake {
+    fn wake(&self) {
+        advance_wake();
+    }
+}
+
 /// The deadline alarm's handler: it advances the wake counter and clears the interrupt.
 #[handler]
 fn wait_alarm() {
-    WAKE_COUNT.fetch_add(1, Ordering::Relaxed);
+    advance_wake();
     critical_section::with(|cs| {
         if let Some(timer) = ALARM.borrow_ref_mut(cs).as_mut() {
             timer.clear_interrupt();
@@ -127,12 +143,13 @@ impl RunnerWait for Wait {
 
 impl WakeSignal for Wait {
     fn wake(&self) {
-        WAKE_COUNT.fetch_add(1, Ordering::Relaxed);
+        advance_wake();
     }
 }
 
-/// The monotonic clock's current reading, the same SYSTIMER epoch as [`Monotonic::micros`].
-fn now_instant() -> MonotonicInstant {
+/// The monotonic clock's current reading, the same SYSTIMER epoch as [`Monotonic::micros`] and the
+/// deadline the wait compares against.
+pub(super) fn now_instant() -> MonotonicInstant {
     MonotonicInstant::from_origin(Duration::from_micros(now_us()))
 }
 
