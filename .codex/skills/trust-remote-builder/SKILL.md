@@ -53,11 +53,15 @@ this skill does not authorize intermediate checks or retries.
 
   - It syncs the worktree to `~/projects/check/<worktree>` on the builder. It then runs
     `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` and
-    `cargo doc --no-deps` with `RUSTDOCFLAGS="-D warnings"`, using the target
+    `cargo doc --no-deps` with `RUSTDOCFLAGS="-D warnings"`, plus CI's two register gates (the
+    external unsafe register and the architecture doctor's full map, with the git stand-in), using
+    the target
     `cargo-targets/check-<worktree>` on the volume. It never touches a batch's copy or target.
   - `CHIPS=1` also runs CI's portable lane for both chip targets: `trust-runtime-core` without
     default features, plus the board adapter, `trust-board-fixture` and `trust-runtime-services`.
   - `UPDATE_LOCK=1` lets cargo add new dependencies to `Cargo.lock` and copies the lock back.
+  - `TEST="-p <crate> [--test <file>] [<name>]"` runs one `cargo test`, for a bug fix's
+    regression test only. The words are validated, and it is not the validation batch.
   - One check per worktree runs at a time; the others wait up to 30 minutes for the lock.
   - It prints only the diagnostics. Exit 0 means all passed, 1 a check failed, 75 the lock timed out.
 - **Verification evidence batches** (many audit or evidence reports): regenerate them in a clean,

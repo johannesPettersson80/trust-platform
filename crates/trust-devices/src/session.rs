@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::gather::Cache;
+use crate::view::types::OperationDone;
 
 /// How long a session may stay idle before it is closed.
 pub const IDLE_EXPIRY: Duration = Duration::from_mins(10);
@@ -15,6 +16,16 @@ pub struct Session {
     cache: Cache,
     newest_seq: Option<u64>,
     last_used: Instant,
+    operations: Operations,
+}
+
+/// The slow actions a session started, and the results that a later request delivers.
+#[derive(Debug, Default)]
+struct Operations {
+    /// How many operations the session has started.
+    started: u64,
+    /// The finished results not yet delivered, in the order they finished.
+    done: Vec<OperationDone>,
 }
 
 impl Session {
@@ -23,6 +34,7 @@ impl Session {
             cache: Cache::default(),
             newest_seq: None,
             last_used: now,
+            operations: Operations::default(),
         }
     }
 
@@ -39,6 +51,24 @@ impl Session {
     /// What the session gathered.
     pub fn cache_mut(&mut self) -> &mut Cache {
         &mut self.cache
+    }
+
+    /// Starts a slow action and returns its identity, such as `op-7`.
+    pub fn begin_operation(&mut self) -> String {
+        self.operations.started += 1;
+        format!("op-{}", self.operations.started)
+    }
+
+    /// Keeps the result of a finished operation until the next request delivers it.
+    pub fn complete_operation(&mut self, done: OperationDone) {
+        self.operations.done.push(done);
+    }
+
+    /// The finished operations, delivered exactly once: the caller shows each and it is
+    /// forgotten (design §1.5).
+    #[must_use]
+    pub fn take_operations_done(&mut self) -> Vec<OperationDone> {
+        std::mem::take(&mut self.operations.done)
     }
 }
 

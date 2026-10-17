@@ -18,6 +18,7 @@ mod synthetic;
 mod wire;
 
 pub(crate) use identity::encode;
+pub(crate) use synthetic::configured_runtime_id;
 
 use serde_json::Value;
 use trust_runtime::connectors::{

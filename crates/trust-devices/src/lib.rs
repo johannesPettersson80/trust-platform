@@ -4,6 +4,8 @@
 
 #![allow(clippy::module_name_repetitions)]
 
+/// The panel's action path: one action that a view offered, decoded and performed here.
+pub mod actions;
 pub mod gather;
 mod inputs;
 /// The panes of the panel: the add dialog, the forms and the USB tray.

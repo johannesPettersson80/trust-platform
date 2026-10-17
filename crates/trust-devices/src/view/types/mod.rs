@@ -395,6 +395,61 @@ pub struct FieldError {
     pub message: String,
 }
 
+/// The reply to one `trust-lsp.devicesAct` request (design §1.4.1): whether the action succeeded,
+/// the result it shows and what VS Code runs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ActReply {
+    /// Whether the action succeeded.
+    pub ok: bool,
+    /// The result, shown in the pane that started the action (specification 25 §5.13).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notice: Option<Notice>,
+    /// What VS Code runs.
+    pub effects: Vec<HostEffect>,
+    /// Whether the pane that started the action closes.
+    pub close_pane: bool,
+    /// When the panel gathers again.
+    pub refresh: Refresh,
+    /// What a slow action reports now; its result arrives in `operations_done`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending: Option<PendingAction>,
+}
+
+/// When the panel gathers again after an action (design §1.4.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Refresh {
+    /// At once, after an action that changed the panel.
+    Now,
+    /// Shortly, while a slow action or a transition is pending.
+    Soon,
+    /// Not because of this reply.
+    None,
+}
+
+/// What a slow action reports while it runs (design §1.4.1).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PendingAction {
+    /// The operation's identity, such as `op-7`.
+    pub operation: String,
+    /// The pane that started the action.
+    pub pane: String,
+    /// The text of the action while it runs, such as `Starting…`.
+    pub text: String,
+}
+
+/// The finished result of a slow action, delivered once in `operations_done`
+/// (specification 25 §5.13).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct OperationDone {
+    /// The operation's identity, as its pending reply named it.
+    pub operation: String,
+    /// The final result, shown in the pane that started the action.
+    pub notice: Notice,
+    /// What VS Code runs.
+    pub effects: Vec<HostEffect>,
+}
+
 pub use graph::{
     ArrowAt, Banner, Column, Computer, ComputerKind, Connection, Container, Device, DeviceKind,
     DevicesView, EmptyHint, FilterLine, FilterProtocol, FilterReport, Inspector, Issue, IssueGroup,

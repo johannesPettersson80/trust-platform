@@ -230,5 +230,35 @@ impl fmt::Debug for Token {
     }
 }
 
+/// One `trust-lsp.devicesAct` request (design §1.4.1): the action a view offered, the values the
+/// user typed, and the facts that only VS Code knows.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ActRequest {
+    /// The panel's session.
+    pub session: String,
+    /// The action that the view offered.
+    pub op: ActOp,
+    /// The form values that the user typed, by field.
+    #[serde(default)]
+    pub values: serde_json::Map<String, serde_json::Value>,
+    /// The chosen project, which is also the fleet root of the runtimes this computer manages
+    /// (specification 25 §5.11).
+    #[serde(default)]
+    pub project: Option<PathBuf>,
+    /// The facts that only VS Code knows.
+    #[serde(default)]
+    pub host: HostFacts,
+}
+
+/// The action of an [`ActRequest`]: the name and the payload that the view chose.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ActOp {
+    /// The action's name, such as `runtime.connect`.
+    pub action: String,
+    /// Its arguments, chosen by Rust.
+    #[serde(default)]
+    pub payload: serde_json::Value,
+}
+
 #[cfg(test)]
 mod tests;

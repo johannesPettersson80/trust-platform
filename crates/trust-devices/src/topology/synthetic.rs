@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use trust_runtime_client::{AuthFailure, TargetProbe};
 
 use super::{
-    ConfiguredDevice, Endpoint, Host, HostOrigin, ManagedRuntime, ManagedState, Runtime,
+    encode, ConfiguredDevice, Endpoint, Host, HostOrigin, ManagedRuntime, ManagedState, Runtime,
     RuntimeOrigin, RuntimeReport, Session, Simulator, SimulatorState, Topology,
 };
 use crate::texts::graph as texts;
@@ -29,6 +29,22 @@ const LOCAL_IO_PROTOCOLS: [&str; 6] = [
     "ethercat",
     "gpio",
 ];
+
+/// The host identity that the view draws for a configured endpoint while no report gives it
+/// (specification 25 §5.6).
+fn configured_host(endpoint: &str) -> String {
+    format!("fleet:{endpoint}")
+}
+
+/// The identity of the runtime that the view draws on that host: the runtime reached through a
+/// configured fleet endpoint, before any report gives its own. `Select` carries it to focus that
+/// runtime (specification 25 §5.6).
+#[must_use]
+pub(crate) fn configured_runtime_id(endpoint: &str) -> String {
+    let host = configured_host(endpoint);
+    let raw = format!("{host}:runtime");
+    encode(&[Some("runtime"), Some(&host), None, Some(&raw)])
+}
 
 /// The node of a configured runtime target that did not answer: `unknown` while nothing answers
 /// (it may be stopped or only unreachable, so it is never green and never `stopped`), an error
@@ -53,7 +69,7 @@ pub(super) fn unanswered_peer(report: &RuntimeReport) -> Option<Topology> {
         return None;
     }
     let label = report.label.trim();
-    let host_id = format!("fleet:{endpoint}");
+    let host_id = configured_host(endpoint);
     let name = if label.is_empty() {
         texts::UNNAMED_PEER
     } else {
@@ -64,7 +80,7 @@ pub(super) fn unanswered_peer(report: &RuntimeReport) -> Option<Topology> {
         mode: state.to_owned(),
         health: state.to_owned(),
         detail: detail.to_owned(),
-        ..Runtime::drawn(format!("{host_id}:runtime"), name.to_owned(), origin)
+        ..Runtime::drawn(configured_runtime_id(endpoint), name.to_owned(), origin)
     };
     let hostname = if label.is_empty() { endpoint } else { label };
     let host = Host {
