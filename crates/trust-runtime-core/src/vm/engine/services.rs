@@ -1,4 +1,5 @@
 //! Explicit platform services; physical deadlines never use PLC logical time.
+use crate::retain::capture::RetainCapture;
 use crate::{error::RuntimeError, value::DateTimeValue};
 
 /// Optional services supplied by the runtime's platform composition.
@@ -72,6 +73,25 @@ pub trait ExecutionServices {
     /// Whether the composition has explicitly configured a retain store.
     fn has_retain_store(&self) -> bool {
         false
+    }
+    /// The shared retain capture this composition persists through, when it persists retained values
+    /// at all (specification 11 §6.7, specification 34 §10).
+    ///
+    /// A composition that returns a capture captures its retained values into the capture's reserved
+    /// buffer at the pre-output-sample checkpoint, respecting the shared interval, dirty mark and
+    /// unchanged-image skip, so a steady-state capture allocates nothing (specification 34 MEM-04).
+    /// A composition without a capture that reports [`has_retain_store`](Self::has_retain_store)
+    /// keeps the per-snapshot save below.
+    fn retain_capture(&self) -> Option<&core::cell::RefCell<RetainCapture>> {
+        None
+    }
+    /// Save or durably enqueue a captured STRN v3 retain payload according to the platform policy.
+    /// Failure prevents output publication. A composition that supplies a
+    /// [`retain_capture`](Self::retain_capture) must implement this hook.
+    fn save_retain_payload(&self, _payload: &[u8]) -> Result<(), RuntimeError> {
+        Err(RuntimeError::RetainStore(
+            "retain store has no payload save implementation".into(),
+        ))
     }
     /// Save or durably enqueue this cycle's snapshot according to the platform policy.
     /// Failure prevents output publication. A configured store must implement this hook.

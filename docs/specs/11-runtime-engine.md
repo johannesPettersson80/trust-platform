@@ -1678,8 +1678,8 @@ Retain storage is provided via a pluggable backend:
 
 ```rust
 pub trait RetainStore: Send {
-    fn load(&self) -> Result<RetainImage, RuntimeError>;
-    fn store(&self, image: &RetainImage) -> Result<(), RuntimeError>;
+    fn load(&self) -> Result<RetainSnapshot, RuntimeError>;
+    fn store(&self, snapshot: &RetainSnapshot) -> Result<(), RuntimeError>;
 }
 ```
 

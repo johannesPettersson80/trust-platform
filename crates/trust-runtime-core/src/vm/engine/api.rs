@@ -254,6 +254,26 @@ impl RuntimeState<'_> {
     pub fn retain_snapshot(&mut self) -> Result<crate::retain::RetainSnapshot, RuntimeError> {
         self.engineering_operation(|state| state.cycle_retain_snapshot())
     }
+    /// Capture this resource's retained image into `capture`'s reserved buffer as the shared
+    /// codec's STRN v3 payload bytes at the platform's persistence checkpoint (specification 11
+    /// §6.7, specification 34 §10).
+    ///
+    /// The platform calls this at the established pre-output-sample checkpoint, so the payload holds
+    /// the finished scan. Once the capture has reserved its staging buffer, a later capture of the
+    /// same application allocates nothing (specification 34 MEM-04), which is what lets a chip
+    /// capture between scans.
+    ///
+    /// # Errors
+    ///
+    /// The fault or limit failure that refuses the operation, including an expired physical
+    /// deadline and an allocation-byte charge over the configured limit. The capture then holds no
+    /// staged payload.
+    pub fn capture_retain(
+        &mut self,
+        capture: &mut crate::retain::capture::RetainCapture,
+    ) -> Result<(), RuntimeError> {
+        self.engineering_operation(|state| state.capture_retained(capture))
+    }
     /// Inspect nominal deadlines and missed-period counters.
     pub fn task_states(&self) -> &[TaskState] {
         &self.data.tasks

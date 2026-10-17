@@ -124,7 +124,24 @@ impl CycleAccess<'_, '_> {
     pub fn task_states(&self) -> &[TaskState] {
         &self.engine.data.tasks
     }
-    /// Capture retained values at the established pre-output checkpoint, with
+    /// Capture this resource's retained image into `capture`'s reserved staging buffer at the
+    /// established pre-output checkpoint, charging its work to this cycle (specification 11 §6.7,
+    /// specification 34 §10). The staged STRN v3 payload then holds the finished scan.
+    ///
+    /// # Errors
+    ///
+    /// The fault or limit failure that refuses the operation. The capture then holds no staged
+    /// payload.
+    pub fn capture_retain(
+        &mut self,
+        capture: &mut crate::retain::capture::RetainCapture,
+    ) -> Result<(), RuntimeError> {
+        if self.phase != CyclePhase::BeforeOutputSample {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        self.engine.capture_retained(capture)
+    }
+    /// Capture retained values as a snapshot at the established pre-output checkpoint, with
     /// their allocation charged to this cycle. A host persistence adapter may save
     /// or enqueue the snapshot; it cannot mutate the installed schema.
     pub fn retain_snapshot(&mut self) -> Result<crate::retain::RetainSnapshot, RuntimeError> {

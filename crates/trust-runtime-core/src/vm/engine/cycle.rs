@@ -2,10 +2,11 @@
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
+use crate::retain::capture::RetainCapture;
+use crate::retain::codec::{decode_snapshot_payload_bytes, PayloadWriter};
 use crate::retain::RetainSnapshot;
 use crate::task::evaluate_task_readiness;
 use crate::vm::construction::values::ValueConstructionContext;
-use alloc::format;
 
 impl EngineState<'_> {
     pub(super) fn seed_task_inputs(&mut self) -> Result<(), RuntimeError> {
@@ -85,7 +86,21 @@ impl EngineState<'_> {
             self.cycle_hook(hooks, CyclePhase::BackgroundEnd(name))?;
         }
         self.cycle_hook(hooks, CyclePhase::BeforeOutputSample)?;
-        if self.services.has_retain_store() {
+        let services = self.services;
+        if let Some(retain) = services.retain_capture() {
+            let now = self.data.now;
+            let mut capture = retain.borrow_mut();
+            capture.mark_dirty();
+            if capture.should_save(now) {
+                capture.refill(|payload| self.fill_retained_payload(payload))?;
+                if capture.image_changed() {
+                    services.save_retain_payload(capture.staged_payload())?;
+                    capture.accept(now);
+                } else {
+                    capture.unchanged(now);
+                }
+            }
+        } else if self.services.has_retain_store() {
             let snapshot = self.cycle_retain_snapshot()?;
             self.services.save_retain_snapshot(&snapshot)?;
         }
@@ -135,9 +150,31 @@ impl EngineState<'_> {
         result
     }
 
+    /// Capture the retained image this resource would persist, in the registration and declaration
+    /// order of specification 11 §6.7, through the shared capture: its reserved staging buffer
+    /// holds the STRN v3 payload bytes the codec writes, so a steady-state capture allocates
+    /// nothing (specification 34 MEM-04).
+    pub(super) fn capture_retained(
+        &mut self,
+        capture: &mut RetainCapture,
+    ) -> Result<(), RuntimeError> {
+        capture.refill(|payload| self.fill_retained_payload(payload))
+    }
+
+    /// An explicitly requested retained checkpoint as a fresh snapshot, through the shared capture.
     pub(super) fn cycle_retain_snapshot(&mut self) -> Result<RetainSnapshot, RuntimeError> {
+        let mut capture = RetainCapture::new();
+        self.capture_retained(&mut capture)?;
+        decode_snapshot_payload_bytes(capture.staged_payload())
+    }
+
+    /// Append the retained values to `payload`: the resource's retained globals and then each root's
+    /// retained program variables, in registration and declaration order (specification 11 §6.7).
+    fn fill_retained_payload(
+        &mut self,
+        payload: &mut PayloadWriter<'_>,
+    ) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
-        let mut snapshot = RetainSnapshot::default();
         for &id in prepared.retained_declarations(StorageOwner::Global, None) {
             let declaration = &prepared.layout.entries[id as usize];
             let name = &prepared.vm.strings[declaration.name_idx as usize];
@@ -146,14 +183,12 @@ impl EngineState<'_> {
             {
                 let bytes = self.snapshot_entry_charge(value, name.len())?;
                 self.charge_allocation(bytes)?;
-                snapshot.insert(
-                    name.clone(),
-                    self.data
-                        .storage
-                        .get_global(name)
-                        .ok_or_else(|| RuntimeError::NullReference)?
-                        .clone(),
-                );
+                let value = self
+                    .data
+                    .storage
+                    .get_global(name)
+                    .ok_or(RuntimeError::NullReference)?;
+                payload.entry(name.as_str(), value)?;
             }
         }
         for (index, root) in prepared.roots.entries.iter().enumerate() {
@@ -162,7 +197,7 @@ impl EngineState<'_> {
                 continue;
             }
             let instance =
-                self.data.construction.roots[index].ok_or_else(|| RuntimeError::NullReference)?;
+                self.data.construction.roots[index].ok_or(RuntimeError::NullReference)?;
             let program_name = &prepared.vm.strings[root_declaration.name_idx as usize];
             for &id in prepared.retained_declarations(StorageOwner::Instance, root.template_pou_id)
             {
@@ -175,28 +210,55 @@ impl EngineState<'_> {
                         .len()
                         .checked_add(name.len())
                         .and_then(|length| length.checked_add(10))
-                        .ok_or_else(|| RuntimeError::Overflow)?;
+                        .ok_or(RuntimeError::Overflow)?;
                     let bytes = self.snapshot_entry_charge(value, key_len)?;
                     self.charge_allocation(bytes)?;
-                    let key = format!("@program/{program_name}/{name}");
-                    if snapshot.values().contains_key(key.as_str()) {
+                    if self.retained_program_key_conflicts(program_name.as_str(), name.as_str()) {
                         return Err(RuntimeError::RetainMigration(
                             "ambiguous retained checkpoint label".into(),
                         ));
                     }
-                    snapshot.insert(
-                        key,
-                        self.data
-                            .storage
-                            .get_instance_var(instance, name)
-                            .ok_or_else(|| RuntimeError::NullReference)?
-                            .clone(),
-                    );
+                    let value = self
+                        .data
+                        .storage
+                        .get_instance_var(instance, name)
+                        .ok_or(RuntimeError::NullReference)?;
+                    // The reserved `@program/<program-identity>/<variable-identity>` key is
+                    // appended as pieces, so an identity of any length builds no key string
+                    // (specification 11 §6.7).
+                    payload.entry_pieces(
+                        &["@program/", program_name.as_str(), "/", name.as_str()],
+                        value,
+                    )?;
                 }
             }
         }
-        Ok(snapshot)
+        Ok(())
     }
+
+    /// Whether a retained global's declared name is exactly the `@program/<program>/<name>` key of
+    /// the program value about to be appended (specification 11 §6.7).
+    ///
+    /// A program identity and variable identity pair is unique, so only a retained global's
+    /// declared name can collide with a program key. The `@program/` prefix cannot be an IEC
+    /// identifier, but a wire name is opaque, so the capture refuses a collision instead of writing
+    /// two entries under one name.
+    fn retained_program_key_conflicts(&self, program: &str, name: &str) -> bool {
+        let prepared = self.prepared;
+        prepared
+            .retained_declarations(StorageOwner::Global, None)
+            .iter()
+            .any(|&id| {
+                let declaration = &prepared.layout.entries[id as usize];
+                let global = &prepared.vm.strings[declaration.name_idx as usize];
+                global
+                    .as_str()
+                    .strip_prefix("@program/")
+                    .and_then(|rest| rest.rsplit_once('/'))
+                    == Some((program, name))
+            })
+    }
+
     fn snapshot_entry_charge(
         &self,
         value: &Value,

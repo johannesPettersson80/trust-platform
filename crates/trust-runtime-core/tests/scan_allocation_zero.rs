@@ -275,17 +275,25 @@ fn measure(state: &mut RuntimeState<'_>, at_ms: i64, probe: bool) -> Scan {
 }
 
 /// The chips' execution services (`crates/trust-board-fixture/src/services.rs`): no UTC clock
-/// and a deadline that a fault case can expire. A run may keep a retain store that saves nothing.
+/// and a deadline that a fault case can expire. A run may keep a retain store that persists
+/// through the shared capture.
 struct Services {
     expired: Cell<bool>,
     retain_store: bool,
+    retain: std::cell::RefCell<trust_runtime_core::retain::capture::RetainCapture>,
 }
 
 impl Services {
     fn new(retain_store: bool) -> Self {
+        let mut retain = trust_runtime_core::retain::capture::RetainCapture::new();
+        // The chips' policy: once the retained values are dirty, a scan is due to capture (census
+        // row S9). The capture refills its reserved payload buffer in place, so after the first
+        // scan a scan allocates nothing (spec 34 MEM-04).
+        retain.configure(Some(Duration::ZERO), Duration::ZERO);
         Self {
             expired: Cell::new(false),
             retain_store,
+            retain: std::cell::RefCell::new(retain),
         }
     }
 }
@@ -300,7 +308,12 @@ impl ExecutionServices for Services {
     fn has_retain_store(&self) -> bool {
         self.retain_store
     }
-    fn save_retain_snapshot(&self, _snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
+    fn retain_capture(
+        &self,
+    ) -> Option<&std::cell::RefCell<trust_runtime_core::retain::capture::RetainCapture>> {
+        self.retain_store.then_some(&self.retain)
+    }
+    fn save_retain_payload(&self, _payload: &[u8]) -> Result<(), RuntimeError> {
         Ok(())
     }
     fn current_dt(&self) -> Result<DateTimeValue, RuntimeError> {
@@ -847,4 +860,68 @@ fn the_meter_counts_armed_calls_exactly_and_in_the_phase_that_makes_them() {
         };
         assert_eq!(with, expected, "phase {}", phase.name());
     }
+}
+
+/// Spec 34 §10 and MEM-04 (C5-2, the capture): the corpus `retain` fixture's retained image is
+/// captured, as the STRN v3 payload bytes the shared codec writes, into a staging buffer reserved
+/// once. The first capture reserves it; every later capture of the same declarations reuses it and
+/// makes no allocator call, which is what lets a chip capture its retained values between scans. The
+/// staged bytes are the fixture's, not an empty fallback.
+#[test]
+fn the_retain_fixture_captures_without_allocating_after_the_first_capture() {
+    let bytes = corpus_artifact("retain").unwrap_or_else(|error| panic!("{error}"));
+    let prepared = PreparedModule::from_bytes(&bytes, run_limits())
+        .expect("the chips' admission accepts the retain fixture");
+    let services = Services::new(true);
+    let mut state = prepared
+        .instantiate_with_services(0, &services)
+        .expect("the retain fixture constructs");
+    for index in 0..4 {
+        let scan = measure(&mut state, 10 + 10 * index, false);
+        assert_eq!(scan.outcome, None, "scan {index} succeeds");
+    }
+
+    let mut capture = trust_runtime_core::retain::capture::RetainCapture::new();
+    let first = {
+        let _armed = Armed::new();
+        state
+            .capture_retain(&mut capture)
+            .expect("the first capture reads the retained image");
+        take_counted()
+    };
+    let later = {
+        let _armed = Armed::new();
+        state
+            .capture_retain(&mut capture)
+            .expect("a later capture reads the retained image");
+        take_counted()
+    };
+    eprintln!("scan-allocations-capture,retain,first={first},later={later}");
+    assert!(
+        first.count() >= 1,
+        "the first capture reserves the staging buffer; it made {first} allocator calls"
+    );
+    assert_eq!(
+        later,
+        Calls::ZERO,
+        "a steady-state capture must not allocate (spec 34 MEM-04)"
+    );
+
+    // Four scans advance every retained value once per scan: `counter` and `runs` reach 4 and
+    // `setpoint` reaches 20.0 + 4 × 0.5 = 22.0. The staged bytes must be exactly the payload the
+    // shared codec frames for those values, in registration and declaration order.
+    let mut expected = RetainSnapshot::default();
+    expected.insert("counter", Value::DInt(4));
+    expected.insert("setpoint", Value::Real(22.0));
+    expected.insert("@program/Plant/runs", Value::DInt(4));
+    expected.insert("@program/Plant/label", Value::String("boiler".into()));
+    let mut payload = Vec::new();
+    expected
+        .encode_snapshot_payload_into(&mut payload)
+        .expect("the expected retained payload encodes");
+    assert_eq!(
+        capture.staged_payload(),
+        payload.as_slice(),
+        "the capture stages the fixture's retained image as the codec's payload"
+    );
 }

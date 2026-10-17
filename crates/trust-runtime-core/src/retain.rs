@@ -1,5 +1,6 @@
 //! Portable retain and restart policy records.
 
+pub mod capture;
 pub mod checkpoint;
 pub mod codec;
 

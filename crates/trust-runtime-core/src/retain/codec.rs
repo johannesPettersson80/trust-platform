@@ -60,12 +60,90 @@ pub fn encode_snapshot(snapshot: &RetainSnapshot) -> Result<Vec<u8>, RuntimeErro
 
 fn encode_snapshot_payload(snapshot: &RetainSnapshot) -> Result<Vec<u8>, RuntimeError> {
     let mut out = Vec::new();
-    out.extend_from_slice(&(snapshot.values().len() as u32).to_le_bytes());
-    for (name, value) in snapshot.values() {
-        encode_string(&mut out, name.as_str());
-        encode_value(&mut out, value)?;
-    }
+    snapshot.encode_snapshot_payload_into(&mut out)?;
     Ok(out)
+}
+
+impl RetainSnapshot {
+    /// Append this snapshot's STRN v3 payload bytes to `out`, keeping `out`'s capacity.
+    ///
+    /// The bytes are exactly the payload [`encode_snapshot`] frames. A capture clears and refills
+    /// one reserved buffer through this and [`PayloadWriter`], so a steady-state capture allocates
+    /// nothing (specification 11 §6.7, specification 34 MEM-04).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::RetainStore`] when a value cannot be persisted: a non-finite `REAL` or
+    /// `LREAL`, a reference or instance value, or an oversized physical checkpoint.
+    pub fn encode_snapshot_payload_into(&self, out: &mut Vec<u8>) -> Result<(), RuntimeError> {
+        let mut writer = PayloadWriter::new(out);
+        for (name, value) in self.values() {
+            writer.entry(name.as_str(), value)?;
+        }
+        writer.finish();
+        Ok(())
+    }
+}
+
+/// Appends STRN v3 payload entries to a caller's buffer (specification 11 §6.7).
+///
+/// A writer starts at the buffer's current end, writes an entry-count placeholder, appends one
+/// name and tagged value per entry, and patches the count when it is
+/// [`finish`](Self::finish)ed. The buffer stays the caller's own, so a capture that clears and
+/// refills it allocates nothing in steady state (specification 34 MEM-04).
+pub struct PayloadWriter<'a> {
+    out: &'a mut Vec<u8>,
+    start: usize,
+    count: u32,
+}
+
+impl<'a> PayloadWriter<'a> {
+    /// Begin a payload at the current end of `out`.
+    #[must_use]
+    pub fn new(out: &'a mut Vec<u8>) -> Self {
+        let start = out.len();
+        out.extend_from_slice(&0_u32.to_le_bytes());
+        Self {
+            out,
+            start,
+            count: 0,
+        }
+    }
+
+    /// Append one named retained value.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::RetainStore`] when the value cannot be persisted: a non-finite `REAL` or
+    /// `LREAL`, a reference or instance value, or an oversized physical checkpoint.
+    pub fn entry(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
+        encode_string(self.out, name);
+        encode_value(self.out, value)?;
+        self.count += 1;
+        Ok(())
+    }
+
+    /// Append one retained value whose name is the concatenation of `pieces`, written as pieces
+    /// so the caller builds no key string (specification 11 §6.7).
+    ///
+    /// # Errors
+    ///
+    /// As [`entry`](Self::entry).
+    pub fn entry_pieces(&mut self, pieces: &[&str], value: &Value) -> Result<(), RuntimeError> {
+        let length: usize = pieces.iter().map(|piece| piece.len()).sum();
+        self.out.extend_from_slice(&(length as u32).to_le_bytes());
+        for piece in pieces {
+            self.out.extend_from_slice(piece.as_bytes());
+        }
+        encode_value(self.out, value)?;
+        self.count += 1;
+        Ok(())
+    }
+
+    /// Finish the payload, writing its entry count.
+    pub fn finish(self) {
+        self.out[self.start..self.start + 4].copy_from_slice(&self.count.to_le_bytes());
+    }
 }
 
 /// Decode a retain file of version 1, 2 or 3.
@@ -167,6 +245,19 @@ fn decode_snapshot_payload(
         values.insert(name, value);
     }
     Ok(RetainSnapshot::from_values(values))
+}
+
+/// Decode a bare STRN v3 payload, exactly the bytes a capture stages into its buffer.
+///
+/// # Errors
+///
+/// [`RuntimeError::RetainCorruption`] when the payload is malformed or has trailing data, or when
+/// a decoded value is not a valid runtime value.
+pub(crate) fn decode_snapshot_payload_bytes(bytes: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
+    let mut reader = RetainReader::new(bytes);
+    let snapshot = decode_snapshot_payload(&mut reader, true)?;
+    reader.expect_finished("retain v3 payload")?;
+    Ok(snapshot)
 }
 
 /// The one-byte wire tag that precedes every retained value.

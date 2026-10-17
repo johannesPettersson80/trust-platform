@@ -20,7 +20,7 @@ owner tests and approves, and only then is anything released. Nothing is done wh
 below is open.
 
 C — Bounded operation (M3), shared by both chips:
-- [ ] C1 Bounded compound storage (17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
+- [ ] C1 Bounded compound storage (17 Oct, night: C1-3a, reservations sized to the static call depth with the depth check kept at `max_call_depth`, and C1-3b, call plans resolved at preparation, are committed in `7271a23b3` on `feat/engine-calls`, focused check engine/c13 green; calls 81, blocks 28, methods 23 allocations per scan remain for C1-3c. C1-3c1, per-depth frame payloads, runs in `trust-platform-engine`; C1-4, the bookkeeping scratch, runs in `trust-platform-engine-init` (`feat/engine-init`). Both merge into this branch after C5-2b. 17 Oct evening: C1-2, the scan scratch reservation, and STRING 80 with byte capacity and the character-write cut are committed in `0cb9710b9`, validated by focused check c6/wave1. C1-3a, reservations sized to the static call depth, runs in `~/projects/trust-platform-engine` (`feat/engine-calls`). 17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
   compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the chips.
 - [x] (Closed 17 Oct by C2-0 and C2-1. Builder batches c1-1 to c1-3: `checked_admission_stale_binding` and `restart_generation_stale_handles` run un-ignored and pass with `restart_generation_queued_write` and `restart_generation_online_change`; `generation_handles` passes on the std, no-std and i686 lanes; workspace Clippy with all features is clean.) C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
   online change; the two ignored tests (`checked_admission_stale_binding.rs`,
@@ -43,9 +43,9 @@ C — Bounded operation (M3), shared by both chips:
       reuses handles from an earlier pause gets an error rather than the current pause's activation
       with that number.
 - [ ] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
-- [ ] C4 Import and admission bounds (17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-1 deployment record, C4-3 demand, C4-4 descriptor), and capability and deployment records (including the
+- [ ] C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-1 deployment record, C4-3 demand, C4-4 descriptor), and capability and deployment records (including the
   HOST-02 deployment-level limit record).
-- [ ] C5 Persistence (17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
+- [ ] C5 Persistence (17 Oct, night: the retain checksum gate points at the codec's new place, `276b16a9f`; C5-2b's follow-up runs. 17 Oct evening: C5-2a, the STRN v3 codec shared in the core, is committed in `c56bc3a86`; C5-2b, the shared due rule and allocation-free capture, is running. 17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
   reserved flash, with interrupted-write recovery.
 
 S — Shared runtime services (ARCH-11, ARCH-14): the same code on every target, built with and
@@ -180,7 +180,10 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     those rows are moved into place.
   - [ ] S1b, the chips as runtimes over USB. Design `~/projects/.artifacts/s1b/design.md`; decisions
     `~/projects/.artifacts/s1b/decisions.md` (O1–O14, R1–R9). Work happens in
-    `~/projects/trust-platform-s1b`, branch `feat/chip-control-link`, from `d309cfbd5`.
+    `~/projects/trust-platform-s1b`, branch `feat/chip-control-link`, rebased on 17 Oct (night) onto
+    this branch at `c56bc3a86`: S1b-1/2 are now `316b10b96`, S1b-4a/4b1 `165750a43`. The rebase
+    check `s1b-rebase` passed every step but the runtime-safety gate and the doctor, whose only
+    finding was the retain gate fixed here in `276b16a9f`.
     - [x] S1b-1, the device cycle `runner::engine`, and S1b-2, the line link and bounded event
       replies (spec 34 §7.4 PORT-05). Committed `87841222c` on 17 Oct, not pushed.
       - Validated by batch `s1b-runs/b1`: 42 steps green, among them `just test-all` (478 test
@@ -191,13 +194,28 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
       - Work limits on chips are now trust-runtime's (R8). A chip's call depth follows its heap,
         4 at 72 KiB. The engine fix that lets chips admit trust-runtime's 1,024 is R9 / D-C1-4,
         in C1-3 and C1-4.
-    - [ ] S1b-3, the installed application: it extends C4-1's record (R6) and starts after C4-1
-      is committed and this branch is rebased.
-    - [ ] S1b-4, the C6 adapter: written by an agent since 17 Oct evening.
+    - [ ] S1b-3, the installed application: it extends C4-1's record (R6). Split in three:
+      S1b-3a1, the record's section 7 (the configuration a chip needs from `runtime.toml` and
+      `io.toml`), runs since 17 Oct night; S1b-3a2, `trust-runtime build` fills it from the
+      project with the existing parsers; S1b-3b, the `TRSTA001` container, the chip's admission
+      of section 7 and `xtask portability pack-project`.
+    - [ ] S1b-4, the C6 adapter. S1b-4a (`trust-platform-memory`, moved byte for byte) and S1b-4b1
+      (wait and wake, process I/O by pin name, the watchdog rule) are committed, focused check
+      `s1b4b` green. Open, S1b-4b2: `hardware/usb_link.rs` (the USB-Serial/JTAG interrupt and
+      `ControlLink`, design §2.2), the identity and status values, the reset record in RTC
+      memory, the two heap regions, and the GPIO and watchdog read from the record after S1b-3.
     - [ ] S1b-5, the C6 firmware and bench; S1b-6, `usb://` and the relay (after the devices
       branch merges); S1b-7, every client through the shared transport.
-    - [ ] S1b-8u and S1b-9u, the STM32U5A9 track (owner's Riverdi, 17 Oct). Design being written
-      at `~/projects/.artifacts/u5a9/design.md`.
+    - [ ] S1b-8u and S1b-9u, the STM32U5A9 track (owner's Riverdi, 17 Oct).
+      - Design done 17 Oct: `~/projects/.artifacts/u5a9/design.md`, 1,225 lines, every fact
+        sourced (DS13543, RM0456, Riverdi `.ioc`).
+      - Lead decision on O-U2 (O7): the installed application gets all of flash bank 2, 2 MB
+        minus the checkpoint log.
+      - Owner questions for later: O-U3 TrustZone, O-U5 the F407 files, O-U6 the QSPI flash.
+    - 17 Oct evening, s1b: S1b-4a (`trust-platform-memory`, moved byte-identical) and S1b-4b1 (C6
+      wait and wake, watchdog rule, process I/O) are written. The focused check found moved
+      unsafe lines, unregistered concurrency boundaries, one failing pin test and the C6 firmware
+      lock; fixes are in progress.
     - Left for the final full run: the test-catalog denominator rows of the S1b tests.
 - [ ] S2 Live Values: read, write, force and release, as in trust-runtime. Includes a test seam
   for snapshot projection failures (from the A01 leftovers).
@@ -401,7 +419,24 @@ etc."):
         diagrams. The doctor passed once the batch script gave it its git helper.
       - The rebase onto `d309cfbd5` was clean. The next batch validates the five files that
         changed on both branches.
-    - 17 Oct, running: B5, B6, C1b and C5a (wave 4, plus C1b of wave 2 and C5a of wave 3).
+    - 17 Oct, night: C2b (the mDNS faults E6-E10 and the stable runtime ID), C2c (the ID held by
+      `ControlState`, no process-wide cache or silent fallback; a runtime's own announcement left
+      out of its finds; `ide serve` and setup mode announce) and D1 (D1a, D1b, the App wiring)
+      are committed in `06d8f47be` (focused check devices/wave5 and two reruns: the web IDE's
+      max-latency budget and the network canvas geometry check each missed once at load 9 and
+      passed on rerun; VS Code suite 531 passing). C2d (route authentication,
+      `discovery.host_group`, discovery and mesh health, host IPs per O32) and D2a (inspector,
+      context menu) run in this worktree. Two more worktrees from `9e04a75f0` keep crates
+      that depend on each other apart: `trust-platform-devices-search` (`feat/devices-search`)
+      runs C3b-1, the ADS port probing in Rust (one port at a time per device, as today's tested
+      rule says, not in parallel as the design said); `trust-platform-devices-actions`
+      (`feat/devices-actions`) has B7a, the `act` path and the runtime actions, done, with its
+      Add host follow-up running.
+    - 17 Oct evening: B5, B6, C1b, C5a, the panes move, C3a and C2a are committed in `9e04a75f0`
+      (local, validated by focused check devices/wave4 and its rerun). Running: C2b
+      (announcement, stable runtime ID) and D1b (canvas). D1a (bundle, toolbar, frames) is
+      written.
+    - 17 Oct, earlier: B5, B6, C1b and C5a ran (wave 4, plus C1b of wave 2 and C5a of wave 3).
       C5a adds `nusb` 0.2.8 and `serialport` 4.10 without default features. Both build without a
       system library, and `deny.toml` already allows their licenses.
   - [ ] V7b The panel's view model and rules in Rust (a trust-lsp or trust-runtime command answers
@@ -474,6 +509,13 @@ Open, to be fixed:
   header that the ROM cannot read before the quad-enable bit is set (`ets_loader.c 67`).) C6:
   quad-mode (QIO) flash did not boot with that bootloader, so the board runs DIO; retest
   with the released bootloader.
+- [ ] OSCAT on the shared engine: four OSCAT core cases (the 06_arrays mutation, ordering and
+  statistics helpers and CRC_GEN) failed with a type mismatch since `d3a3508ba` (scope H, 14
+  Oct), found by bisect on 17 Oct: the shared engine's pointer check required identical array
+  bounds, where a `POINTER TO ARRAY[*]` accepts any bounds. Fixed on `fix/oscat-pointer-arrays`
+  (`64adfb9e2`, from this branch's `276b16a9f`): `oscat_core_suite_passes_every_case` runs the
+  whole OSCAT core project (126 passed) and `pointer_to_open_array` pins the rule; focused check
+  green. Open: merge into this branch after C5-2b.
 - [ ] C6: supervision during a debug halt is not evaluated (STATE-06).
 - [x] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
   in Rust (never resetting a board); specifications 25 and 34 first, then its own PR. (Merged 16 Oct into V1 and V7: specified in spec 25 §5.12 and spec 34 TARGET-04 (V7a, done);
