@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.25 — execution scratch reserved at construction
+- **Version:** 0.27 — calls resolved at preparation, after 0.26's call reservations sized by the static call depth and 0.25's execution scratch reserved at construction
 - **Date:** 17 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
