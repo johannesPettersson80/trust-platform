@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.27 — calls resolved at preparation, after 0.26's call reservations sized by the static call depth and 0.25's execution scratch reserved at construction
+- **Version:** 0.28 — per-depth frame payloads, bookkeeping scratch and the checkpoint persister, after 0.27's calls resolved at preparation
 - **Date:** 17 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -1174,6 +1174,13 @@ allocation allowance before reserving any of it (TIME-09), as HOST-04 does for r
 A scan takes this storage and gives it back empty. RUN charges and refusals do not change: an
 activation is charged the frame and pending-call growth that storage growing on demand would
 need, and staging, snapshots and journals are charged as before (TIME-08).
+
+Initializer evaluation, construction and the lifetime check reuse the same reserved bookkeeping:
+an evaluated initializer's result slot, its seed's pending, visited and backup lists and its
+owned-instance snapshot are taken per call depth and returned on every path, a construction frame
+is moved rather than cloned, the lifetime check's visited set is reserved for the live instance
+count and cleared per check, and each type's `SIZEOF` walks a fixed-depth stack; every result,
+charge and refusal is unchanged (TIME-08).
 
 Construction sizes these call levels to the program's static call depth, not to `max_call_depth`.
 The validator walks every call target from every entry and, conservatively, of every POU in the
@@ -2717,7 +2724,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
-| 0.28 | 18 October 2026 | §6.3, after MEM-09: construction reserves one frame payload per call depth (that depth's local slots and parameter-presence bits, sized for the largest POU) and one edge-input list and restore list, and a user or method call takes the locals of its frame from the reserved payloads; an activation binds its arguments into the payload, reads edge inputs and their restores from the reserved lists and returns the payload when its frame is popped on every path, and a scan allocates no locals, presence, edge-input or restore vector. Every result, charge and refusal is unchanged (TIME-08). |
+| 0.28 | 18 October 2026 | §6.3, after MEM-09: construction reserves one frame payload per call depth (that depth's local slots and parameter-presence bits, sized for the largest POU) and one edge-input list and restore list, and a user or method call takes the locals of its frame from the reserved payloads; an activation binds its arguments into the payload, reads edge inputs and their restores from the reserved lists and returns the payload when its frame is popped on every path, and a scan allocates no locals, presence, edge-input or restore vector. Construction also reserves the bookkeeping scratch: initializer result slots, seed lists and owned-instance snapshots, the lifetime check's visited set, and `SIZEOF(type)` walks a fixed stack. Every result, charge and refusal is unchanged (TIME-08). §10, "Between scans": a chip's checkpoint persister starts a checkpoint when the save is due and the image changed, advances it one log step at a time between scans, completes it at a stop, and latches a failure as `RuntimeError::RetainStore`. |
 | 0.27 | 17 October 2026 | §6.3, after MEM-09: preparation resolves every `CALL_NATIVE` site once into a call plan (each actual's formal index, the presence pattern, the output descriptors, and the callee: a function's prepared POU, a function block's POU, a method through the prepared owner and method table, a built-in function block's kind and parameters); a scan resolves no argument names and builds no uppercase type-name key, and an interface attempt compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every result, charge and refusal is unchanged (TIME-08). |
 | 0.26 | 17 October 2026 | §6.3 (MEM-02, MEM-09): construction sizes the per-call reservations to the program's static call depth instead of `max_call_depth`, counting every call target from every entry, a method and interface call over every implementing POU, and a nested instance declaration as the initialization it runs; a recursive call graph has no static depth and reserves for `max_call_depth`. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged. |
 | 0.25 | 17 October 2026 | §6.3, after MEM-09: construction reserves the stack executor's operand, frame and pending-call storage from the operand demand that the validator records, the program activation's local slots, the initializer stacks, the output copy-back journal and the process-image staging, and charges them against the construction allocation allowance; RUN charges and refusals are unchanged (TIME-08). |

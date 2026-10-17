@@ -5,6 +5,104 @@ use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
 use crate::vm::context::ExecutionContext;
 
+/// The visited-instance set of one lifetime check. Its storage is reserved for the live instance
+/// count and cleared, not reallocated, per check (spec 34 MEM-09, census I10). Growth is charged
+/// against the capacity a set growing on demand would have, so reusing it changes no charge
+/// (spec 34 TIME-08).
+#[derive(Debug, Default)]
+pub(in crate::vm::engine) struct LifetimeVisited {
+    ids: Vec<u32>,
+    charged_capacity: usize,
+}
+
+impl LifetimeVisited {
+    /// Empty the set for the next check without releasing its reserved storage.
+    pub(in crate::vm::engine) fn reset(&mut self) {
+        self.ids.clear();
+        self.charged_capacity = 0;
+    }
+
+    /// Reserve room for `instances` visited identities. Called once when the live instance count
+    /// grows, never during a check of an unchanged program (spec 34 MEM-09).
+    pub(in crate::vm::engine) fn reserve(&mut self, instances: usize) -> Result<(), RuntimeError> {
+        if instances > self.ids.capacity() {
+            self.ids
+                .try_reserve_exact(instances - self.ids.len())
+                .map_err(|_| RuntimeError::PreparationLimit)?;
+        }
+        Ok(())
+    }
+}
+
+/// The two visited-instance sets a lifetime check may use: an `InstanceSet` that grows on demand,
+/// and the reserved [`LifetimeVisited`]. Both charge identical growth (spec 34 TIME-08).
+pub(in crate::vm::engine) trait VisitedInstances {
+    fn visited_demand(&self, id: InstanceId) -> Result<(usize, usize), RuntimeError>;
+    fn visited_insert(&mut self, id: InstanceId) -> Result<bool, RuntimeError>;
+}
+
+impl VisitedInstances for InstanceSet {
+    fn visited_demand(&self, id: InstanceId) -> Result<(usize, usize), RuntimeError> {
+        self.insertion_demand(id)
+    }
+    fn visited_insert(&mut self, id: InstanceId) -> Result<bool, RuntimeError> {
+        self.insert(id)
+    }
+}
+
+impl VisitedInstances for LifetimeVisited {
+    fn visited_demand(&self, id: InstanceId) -> Result<(usize, usize), RuntimeError> {
+        // Mirror `InstanceSet`'s sorted growth against the capacity a set growing on demand would
+        // have; the work component is bookkeeping and is never charged, so only bytes matter.
+        let count = self.ids.len();
+        let comparisons = if count <= 1 {
+            1
+        } else {
+            (count - 1).ilog2() as usize + 2
+        };
+        let search = 4 * comparisons;
+        let index = match self.ids.binary_search(&id.0) {
+            Ok(_) => return Ok((0, search)),
+            Err(index) => index,
+        };
+        let bytes = if count < self.charged_capacity {
+            0
+        } else {
+            self.charged_capacity
+                .checked_mul(2)
+                .ok_or(RuntimeError::Overflow)?
+                .max(4)
+                .checked_mul(core::mem::size_of::<u32>())
+                .ok_or(RuntimeError::Overflow)?
+        };
+        let work = search
+            .checked_add(count - index)
+            .ok_or(RuntimeError::Overflow)?;
+        Ok((bytes, work))
+    }
+
+    fn visited_insert(&mut self, id: InstanceId) -> Result<bool, RuntimeError> {
+        match self.ids.binary_search(&id.0) {
+            Ok(_) => Ok(false),
+            Err(index) => {
+                if self.ids.len() == self.charged_capacity {
+                    let capacity = self
+                        .charged_capacity
+                        .checked_mul(2)
+                        .ok_or(RuntimeError::Overflow)?
+                        .max(4);
+                    self.ids
+                        .try_reserve_exact(capacity - self.ids.len())
+                        .map_err(|_| RuntimeError::Overflow)?;
+                    self.charged_capacity = capacity;
+                }
+                self.ids.insert(index, id.0);
+                Ok(true)
+            }
+        }
+    }
+}
+
 /// Arrays are homogeneous: an empty array, or one whose first element is a primitive
 /// scalar, cannot hold a reference or instance, so its lifetime check visits nothing.
 fn array_holds_only_primitives(array: &crate::value::ArrayValue) -> bool {
@@ -88,7 +186,15 @@ impl EngineState<'_> {
         match value {
             Value::Array(array) if array_holds_only_primitives(array) => Ok(()),
             Value::Reference(Some(_)) | Value::Instance(_) | Value::Array(_) | Value::Struct(_) => {
-                self.check_value_lifetime_inner(value, destination, 0, &mut InstanceSet::default())
+                let visited = self
+                    .data
+                    .resources
+                    .bookkeeping
+                    .lifetime_visited
+                    .borrow_mut();
+                let mut visited = visited;
+                visited.reset();
+                self.check_value_lifetime_inner(value, destination, 0, &mut *visited)
             }
             Value::Bool(_)
             | Value::SInt(_)
@@ -124,12 +230,12 @@ impl EngineState<'_> {
     }
 
     #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
-    pub(in crate::vm::engine) fn check_value_lifetime_inner(
+    pub(in crate::vm::engine) fn check_value_lifetime_inner<V: VisitedInstances>(
         &self,
         value: &Value,
         destination: Option<FrameId>,
         depth: usize,
-        visited: &mut InstanceSet,
+        visited: &mut V,
     ) -> Result<(), RuntimeError> {
         self.charge_work_units(1)?;
         if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
@@ -149,8 +255,8 @@ impl EngineState<'_> {
             }
             Value::Instance(instance) => {
                 self.check_instance_lifetime(*instance, destination)?;
-                self.charge_sorted_growth(visited.insertion_demand(*instance))?;
-                if visited.insert(*instance)? {
+                self.charge_sorted_growth(visited.visited_demand(*instance))?;
+                if visited.visited_insert(*instance)? {
                     let data = self
                         .data
                         .storage

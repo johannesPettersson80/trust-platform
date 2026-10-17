@@ -514,12 +514,25 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// its depth from construction's reservation, takes a user function's or method's locals from those
 /// payloads and reads an edge-affected call's inputs and restores from reserved lists (census A3,
 /// A4, A5, C5). The call fixtures still allocate their argument and output vectors (census C1,
-/// C4, C7 to C11), which the call-scratch slice removes. The first scan is left out: with `std` it
-/// may still fill the storage field caches (spec 34 MEM-09 first-use growth).
-const CEILINGS: [(&str, usize, Calls); 6] = [
+/// C4, C7 to C11), which the call-scratch slice removes. C1-4 reserves initializer evaluation,
+/// construction frames, the lifetime check and `SIZEOF` at construction, so the `sizeof` fixture
+/// makes none from its first scan; the `initializers` fixture's own bookkeeping makes none, and its
+/// remaining calls per scan are the function and method call scratch. The first scan is left out:
+/// with `std` it may still fill the storage field caches (spec 34 MEM-09 first-use growth).
+const CEILINGS: [(&str, usize, Calls); 8] = [
     ("scalar", 1, Calls::ZERO),
     ("gpio", 1, Calls::ZERO),
     ("saved/gpio", 1, Calls::ZERO),
+    (
+        "initializers",
+        1,
+        Calls {
+            alloc: 30,
+            realloc: 0,
+            dealloc: 30,
+        },
+    ),
+    ("sizeof", 1, Calls::ZERO),
     (
         "calls",
         1,

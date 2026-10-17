@@ -136,6 +136,19 @@ impl EngineState<'_> {
             .instance_insertion_demand()
             .ok_or_else(|| RuntimeError::Overflow)?;
         self.charge_allocation_bytes(bytes)?;
+        // The lifetime check's visited set is reserved for the live instance count; it grows here,
+        // once per created instance, never during a scan of an unchanged program (spec 34 MEM-09).
+        let live_instances = self
+            .data
+            .storage
+            .instances()
+            .len()
+            .checked_add(1)
+            .ok_or(RuntimeError::Overflow)?;
+        self.data
+            .resources
+            .bookkeeping
+            .reserve_lifetime_visited(live_instances)?;
         let instance = self.data.storage.try_create_instance(name)?;
         // Each fallible metadata insertion is charged before mutation. If any
         // step fails, the newly issued instance is not exposed or stranded.
