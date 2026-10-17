@@ -545,7 +545,7 @@ fn read_runtime_summary(path: &Path) -> JsonValue {
             "available": true,
             "path": path.display().to_string(),
             "executionBackend": config.execution_backend.as_str(),
-            "controlEndpoint": config.control_endpoint.as_str(),
+            "controlEndpoint": config.control_endpoint.as_deref(),
             "hasControlToken": config.control_auth_token.is_some(),
             "controlDebugEnabled": config.control_debug_enabled,
             "web": {

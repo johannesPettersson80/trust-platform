@@ -28,23 +28,11 @@ fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     panic!("failed to allocate unique temp dir for '{prefix}'")
 }
 
-fn make_runtime_toml_portable(runtime_toml: String) -> String {
-    #[cfg(windows)]
-    {
-        return runtime_toml.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"",
-            1,
-        );
-    }
-    #[cfg(not(windows))]
-    runtime_toml
-}
-
 fn write_project_fixture(root: &std::path::Path, resource_name: &str) {
     std::fs::create_dir_all(root.join("src")).expect("create source directory");
-    let runtime_toml =
-        make_runtime_toml_portable(render_runtime_toml(&SmolStr::new(resource_name), 100));
+    // The template names no control endpoint, so every platform validates it with its default
+    // (spec 11, section 6.8.0a).
+    let runtime_toml = render_runtime_toml(&SmolStr::new(resource_name), 100);
     let io_template = build_io_config_auto("loopback").expect("build loopback io template");
     let io_toml = render_io_toml(&io_template);
     std::fs::write(root.join("runtime.toml"), runtime_toml).expect("write runtime.toml");

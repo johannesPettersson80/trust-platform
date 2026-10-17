@@ -71,8 +71,8 @@ fn write_project_with_control_token(root: &Path, token: &str) {
 
 fn write_project_with_control_target(root: &Path, endpoint: &str, token: &str) {
     let runtime = render_runtime_toml(&SmolStr::new("ctl-test"), 10).replacen(
-        "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-        &format!("endpoint = \"{endpoint}\"\nauth_token = \"{token}\""),
+        "[runtime.control]\n",
+        &format!("[runtime.control]\nendpoint = \"{endpoint}\"\nauth_token = \"{token}\"\n"),
         1,
     );
     std::fs::write(root.join("runtime.toml"), runtime).expect("write runtime config");

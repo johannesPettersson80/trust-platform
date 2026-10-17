@@ -107,7 +107,32 @@ package, or end-to-end evidence.
 - The settings file MUST set `debug.showInStatusBar` to `never`; the truST
   sidebar is the product's run-target surface.
 - Create Project MUST produce that native simulator launch/settings contract,
-  targeting `${workspaceFolder}/src/config.st`. The `network_canvas_demo`
+  targeting `${workspaceFolder}/src/config.st`. `trust-runtime new --parent
+  <folder> --name <name> [--force] --json` writes the project, and the
+  extension only prompts for the folder and the name, opens the folder and
+  focuses `src/Main.st`. The command trims the name and checks that it is one
+  plain folder name on every platform, so the project folder is always inside
+  the parent folder: not empty, not `.` or `..`, no path separator, no drive
+  prefix or other character that Windows refuses in a name (`: * ? " < > |`
+  and control characters, so `C:x` is refused), no final dot, and not a device
+  name that Windows reserves (`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`,
+  `LPT1` to `LPT9`, in any case and with or without an extension). It writes
+  `src/Main.st` (an empty `PROGRAM
+  Main`), `src/config.st` (`CONFIGURATION Config`, `RESOURCE MainRes ON PLC`,
+  `TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1)`, `PROGRAM MainInstance
+  WITH MainTask : Main`), `trust-lsp.toml` (`include_paths = ["src"]`),
+  `runtime.toml` (resource `Simulator`, 10 ms cycle, web, discovery, mesh and
+  observability disabled and the mesh without a token, retain `none`, watchdog
+  disabled, fault policy `halt`, and `[runtime.control]` without an endpoint,
+  specification 11 §6.8.0a), `io.toml` (the `simulated` driver), `.vscode/launch.json`,
+  `.vscode/settings.json` and a `.gitignore` that lists `/.trust-runtime/`.
+  With `--force` the other files are overwritten, but an existing
+  `.gitignore` is kept and only gains the `/.trust-runtime/` line when no line
+  ignores that folder yet.
+  It prints `{"project","focus"}`, or `{"error":{"code","message"}}` with a
+  non-zero exit, where `code` is `name`, `exists` (an existing non-empty
+  folder without `--force`; the extension asks before running again with
+  `--force`), `not-directory` or `io`. The `network_canvas_demo`
   acceptance fixture MUST provide the same native simulator launch target.
 - Each example `runtime.toml` MUST explicitly contain `[runtime.control]`,
   `[runtime.retain]`, `[runtime.watchdog]`, and `[runtime.fault]`.

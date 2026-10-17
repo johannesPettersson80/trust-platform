@@ -42,6 +42,7 @@ BASE_REQUIRED_COMMANDS = (
     "remote_supply_chain",
     "remote_architecture_safety",
     "remote_clippy",
+    "remote_docs",
     "remote_reclaim_before_test_all",
     "remote_test_all",
     "remote_mp001_parity",

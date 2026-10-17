@@ -1,6 +1,13 @@
 #[derive(Debug, Subcommand)]
 #[command(infer_subcommands = true)]
 pub enum ControlAction {
+    /// Print the project's control endpoint and the token a client uses with it. No request is
+    /// sent, so this works while the runtime is stopped.
+    Endpoint {
+        /// Print one JSON object: endpoint, auth_token and source.
+        #[arg(long)]
+        json: bool,
+    },
     Status,
     Health,
     Stats,

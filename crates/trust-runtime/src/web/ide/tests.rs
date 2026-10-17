@@ -390,6 +390,63 @@ fn format_source_endpoint_returns_formatted_content_without_write() {
     let _ = std::fs::remove_dir_all(project);
 }
 
+/// A project that the web IDE creates ignores its endpoint folder, because the endpoint file can
+/// hold a token (spec 11, section 6.8.0a).
+#[test]
+fn a_created_project_lists_the_endpoint_folder_in_its_gitignore() {
+    let root = project_dir("create-project-gitignore");
+    write_source(&root, "main.st", "PROGRAM Main\nEND_PROGRAM\n");
+    let state = WebIdeState::new(Some(root.clone()));
+    let session = state
+        .create_session(IdeRole::Editor)
+        .expect("create editor session");
+
+    state
+        .create_project(
+            &session.token,
+            "line-a",
+            root.to_string_lossy().as_ref(),
+            "blank",
+        )
+        .expect("create project");
+
+    assert_eq!(
+        std::fs::read_to_string(root.join("line-a").join(".gitignore")).expect("read .gitignore"),
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE
+    );
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// The settings panel returns an optional runtime.toml setting to its default by removing the key
+/// (spec 11, section 6.8.0a). The removal needs a session and writes nothing.
+#[test]
+fn runtime_toml_key_removal_needs_a_session_and_writes_nothing() {
+    let project = project_dir("runtime-toml-key");
+    let on_disk = "[runtime.control]\nendpoint = \"unix:///tmp/x.sock\"\nmode = \"production\"\n";
+    write_source(&project, "runtime.toml", on_disk);
+    let state = WebIdeState::new(Some(project.clone()));
+    let session = state
+        .create_session(IdeRole::Editor)
+        .expect("create editor session");
+
+    let removed = state
+        .remove_runtime_toml_key(&session.token, on_disk, "runtime.control", "endpoint")
+        .expect("remove the endpoint key");
+
+    assert_eq!(removed, "[runtime.control]\nmode = \"production\"\n");
+    assert_eq!(
+        std::fs::read_to_string(project.join("runtime.toml")).expect("read runtime.toml"),
+        on_disk,
+        "nothing is written"
+    );
+    assert!(state
+        .remove_runtime_toml_key("not-a-session", on_disk, "runtime.control", "endpoint")
+        .is_err());
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
 #[test]
 fn health_snapshot_reports_active_state() {
     let project = project_dir("health");

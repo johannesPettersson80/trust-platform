@@ -341,6 +341,16 @@ pub enum RuntimeEvent {
         /// Time when the disabled feature request was observed.
         time: Duration,
     },
+    /// The runtime could not write its endpoint file and runs on without it (spec 11, section
+    /// 6.8.0a). Clients that need the file cannot find the runtime by its project folder.
+    ControlEndpointFileUnavailable {
+        /// The control endpoint that the runtime bound.
+        endpoint: SmolStr,
+        /// Why the endpoint file could not be written.
+        error: String,
+        /// Time when the failure was observed.
+        time: Duration,
+    },
 }
 
 /// Stop reason for debugger events.

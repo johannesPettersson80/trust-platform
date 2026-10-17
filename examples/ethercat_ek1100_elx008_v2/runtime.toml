@@ -6,8 +6,6 @@ name = "EtherCatRes"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
-auth_token = "dev-token"
 mode = "production"
 debug_enabled = true
 

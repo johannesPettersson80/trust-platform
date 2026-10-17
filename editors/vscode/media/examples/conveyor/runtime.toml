@@ -4,7 +4,6 @@ version = 1
 name = "Simulator"
 cycle_interval_ms = 50
 [runtime.control]
-endpoint = "unix:///tmp/trust-conveyor.sock"
 mode = "production"
 debug_enabled = true
 [runtime.web]

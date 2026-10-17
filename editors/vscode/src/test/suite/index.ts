@@ -23,6 +23,8 @@ export function run(): Promise<void> {
   require("./runtime-default-settings.integration.test");
   require("./lm-tools-contract.test");
   require("./runtime-controls-contract.test");
+  require("./project-control-endpoint.test");
+  require("./runtime-connection.test");
   require("./ux-shell-contract.test");
   require("./opcua-client-model.test");
   require("./new-project.test");

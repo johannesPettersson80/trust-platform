@@ -307,3 +307,124 @@ fn unified_shell_settings_module_exposes_realtime_link_configuration_fields() {
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+/// An empty Control Endpoint, which Reset also writes, removes `[runtime.control] endpoint` so
+/// the platform default applies; the runtime edits the text in Rust (spec 11, section 6.8.0a).
+#[test]
+fn settings_control_endpoint_defaults_to_the_platform_default_and_reset_removes_the_key() {
+    let project = make_project("settings-control-endpoint");
+    let state = control_state(source_fixture(), ControlMode::Debug, None);
+    let base = start_test_server(state, project.clone(), WebAuthMode::Local);
+
+    let mut response = ureq::get(&format!("{base}/ide/modules/ide-settings.js"))
+        .call()
+        .expect("fetch ide-settings.js");
+    let body = response
+        .body_mut()
+        .read_to_string()
+        .expect("read ide-settings.js");
+    assert!(
+        !body.contains("unix:///tmp/trust-runtime.sock"),
+        "the settings panel no longer offers the shared socket"
+    );
+    assert!(
+        body.contains(
+            "\"control.endpoint\": { section: \"runtime.control\", key: \"endpoint\", removeWhenEmpty: true }"
+        ),
+        "an empty control endpoint removes the key"
+    );
+    assert!(body.contains("/api/ide/runtime-toml/remove-key"));
+
+    let (_, session) = request_json(
+        "POST",
+        &format!("{base}/api/ide/session"),
+        Some(json!({ "role": "editor" })),
+        &[],
+    );
+    let token = session
+        .get("result")
+        .and_then(|v| v.get("token"))
+        .and_then(Value::as_str)
+        .expect("session token");
+    let text =
+        "[runtime.control]\nendpoint = \"unix:///tmp/trust-runtime.sock\"\nmode = \"production\"\n";
+
+    let (status, removed) = request_json(
+        "POST",
+        &format!("{base}/api/ide/runtime-toml/remove-key"),
+        Some(json!({ "text": text, "section": "runtime.control", "key": "endpoint" })),
+        &[("X-Trust-Ide-Session", token)],
+    );
+    assert_eq!(status, 200, "{removed}");
+    assert_eq!(
+        removed["result"]["text"],
+        "[runtime.control]\nmode = \"production\"\n"
+    );
+
+    let (status, _) = request_json(
+        "POST",
+        &format!("{base}/api/ide/runtime-toml/remove-key"),
+        Some(json!({ "text": text, "section": "runtime.control", "key": "endpoint" })),
+        &[],
+    );
+    assert_eq!(status, 401, "the removal needs a session");
+
+    let _ = std::fs::remove_dir_all(project);
+}
+
+/// Reset writes an empty value for each token field. The runtime refuses an empty `auth_token`, so
+/// an empty control or mesh token removes the key through the same Rust edit as the endpoint.
+#[test]
+fn settings_reset_removes_empty_control_and_mesh_tokens() {
+    let project = make_project("settings-empty-tokens");
+    let state = control_state(source_fixture(), ControlMode::Debug, None);
+    let base = start_test_server(state, project.clone(), WebAuthMode::Local);
+
+    let mut response = ureq::get(&format!("{base}/ide/modules/ide-settings.js"))
+        .call()
+        .expect("fetch ide-settings.js");
+    let body = response
+        .body_mut()
+        .read_to_string()
+        .expect("read ide-settings.js");
+    for binding in [
+        "\"control.auth_token\": { section: \"runtime.control\", key: \"auth_token\", removeWhenEmpty: true }",
+        "\"mesh.auth_token\": { section: \"runtime.mesh\", key: \"auth_token\", removeWhenEmpty: true }",
+    ] {
+        assert!(body.contains(binding), "an empty token removes its key: {binding}");
+    }
+
+    let (_, session) = request_json(
+        "POST",
+        &format!("{base}/api/ide/session"),
+        Some(json!({ "role": "editor" })),
+        &[],
+    );
+    let token = session
+        .get("result")
+        .and_then(|v| v.get("token"))
+        .and_then(Value::as_str)
+        .expect("session token");
+    let mut text = "[runtime.control]\nauth_token = \"\"\nmode = \"production\"\n\n[runtime.mesh]\nauth_token = \"\"\nenabled = false\n".to_string();
+
+    for section in ["runtime.control", "runtime.mesh"] {
+        let (status, removed) = request_json(
+            "POST",
+            &format!("{base}/api/ide/runtime-toml/remove-key"),
+            Some(json!({ "text": text, "section": section, "key": "auth_token" })),
+            &[("X-Trust-Ide-Session", token)],
+        );
+        assert_eq!(status, 200, "{removed}");
+        text = removed["result"]["text"]
+            .as_str()
+            .expect("edited text")
+            .to_string();
+    }
+
+    assert_eq!(
+        text,
+        "[runtime.control]\nmode = \"production\"\n\n[runtime.mesh]\nenabled = false\n"
+    );
+
+    let _ = std::fs::remove_dir_all(project);
+}

@@ -8,8 +8,8 @@ release note.
 
 ![Top-level `trust-runtime --help`](../../assets/images/terminal/runtime-help.gif)
 
-*Figure:* The top-level `trust-runtime` command families exactly as the shipped
-binary reports them.
+*Figure:* The top-level `trust-runtime` command families as the binary reported
+them before `new` was added; the table below lists `new`.
 
 ## Top-level Command Families
 
@@ -18,6 +18,7 @@ binary reports them.
 | `run` / `play` | start a runtime instance |
 | `ui` | interactive terminal UI |
 | `ctl` | send control requests to a running runtime |
+| `new` | create a project folder with the files a new project starts from |
 | `check` | validate sources/config without writing `program.stbc` |
 | `build` | generate `program.stbc` |
 | `validate` | validate project config + bundle |
@@ -54,6 +55,44 @@ errors use the documented command-aware CI exit classes for configuration,
 build, test, timeout, and internal failures.
 
 ## Common Commands
+
+### New
+
+```text
+Usage: trust-runtime new --parent <FOLDER> --name <NAME> [--force] [--json]
+```
+
+`new` creates the project folder `<FOLDER>/<NAME>` with the files that a new
+truST project starts from: `src/Main.st`, `src/config.st`, `trust-lsp.toml`,
+`runtime.toml`, `io.toml`, `.vscode/launch.json`, `.vscode/settings.json` and
+`.gitignore`. The `runtime.toml` names no control endpoint, so the runtime uses
+the platform default, and `.gitignore` lists `/.trust-runtime/`, the folder that
+holds the endpoint file.
+
+The name is trimmed and must be one plain folder name on every platform. It must
+not be empty or `.` or `..`, and must not contain `/`, `\`, a drive prefix or
+another character that Windows refuses (`: * ? " < > |` and control characters).
+It must not end with a dot, and must not be a device name that Windows reserves
+(`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`, `LPT1` to `LPT9`, with or without an
+extension). An existing folder that is not empty is refused unless `--force` is
+given. With `--force`, the scaffold files are overwritten and every other file in
+the folder is kept. An existing `.gitignore` is always kept; it only gains the
+`/.trust-runtime/` line when no line ignores that folder yet.
+
+With `--json`, success prints
+`{"project":"<absolute folder>","focus":"<absolute folder>/src/Main.st"}`. A
+refused or failed request prints `{"error":{"code":"<code>","message":"<text>"}}`
+and exits 1. The codes are:
+
+| Code | Meaning |
+| --- | --- |
+| `name` | the name is not one plain folder name on every platform (see above) |
+| `exists` | the folder exists, is not empty, and `--force` is not given |
+| `not-directory` | the folder, or its parent, exists and is not a folder |
+| `io` | a folder or file could not be read or written |
+
+Without `--json`, success prints `Created project <absolute folder>`. A failure
+prints the message with the `Error:` prefix and exits 1.
 
 ### Check
 
@@ -339,6 +378,7 @@ Usage: trust-runtime ctl [OPTIONS] <COMMAND>
 
 Important control subcommands:
 
+- `endpoint [--json]`
 - `status`
 - `health`
 - `stats`
@@ -353,10 +393,19 @@ Important control subcommands:
 - `config-get`
 - `config-set`
 
+`ctl --project <dir> endpoint` prints the endpoint that a client of the project
+uses, and sends nothing to the runtime. With `--json` it prints
+`{"endpoint","auth_token","source","endpoint_file_skipped"}`, where `source` is
+`endpoint_file`, `configured` or `default`. Every failure prints
+`{"error":{"code":"<code>","message":"<text>"}}` and exits 1. The codes are
+`no_project`, `invalid_argument`, `invalid_config`, `endpoint_file_invalid`,
+`endpoint_file_unreadable`, `not_running` and `default_unavailable`; see
+[runtime.toml](../config/runtime-toml.md#default-control-endpoint-and-the-endpoint-file).
+
 ![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)
 
 *Figure:* The `ctl` command family and its subcommands for the scriptable
-control API.
+control API. The capture predates `ctl endpoint`.
 
 ## Common Flows
 

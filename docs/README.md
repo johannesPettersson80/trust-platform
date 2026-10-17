@@ -234,9 +234,10 @@ path = "vendor/siemens"
 version = "0.1.0"
 
 [runtime]
-# Required to surface live inline values from a running runtime/debug session.
-control_endpoint = "unix:///tmp/trust-runtime.sock"
-# Optional auth token (matches runtime control settings).
+# Required to surface live inline values from a running runtime/debug session. Copy the endpoint
+# that `trust-runtime ctl --project <dir> endpoint --json` reports for the project.
+control_endpoint = "unix:///path/to/project/.trust-runtime/control.sock"
+# Only for a tcp:// endpoint: the token that matches the runtime control settings.
 control_auth_token = "optional-token"
 ```
 

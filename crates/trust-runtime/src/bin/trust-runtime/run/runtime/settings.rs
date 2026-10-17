@@ -151,9 +151,3 @@ fn resolve_web_config(bundle: Option<&RuntimeBundle>, settings: &RuntimeSettings
         tls: settings.web.tls,
     }
 }
-
-fn control_auth_token_value(bundle: Option<&RuntimeBundle>) -> Option<String> {
-    bundle
-        .and_then(|bundle| bundle.runtime.control_auth_token.as_ref())
-        .map(|token| token.to_string())
-}

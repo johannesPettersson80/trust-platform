@@ -12,6 +12,7 @@ use super::{
     OFFLINE_CONFIGURED_DRIVER_DETAILS,
 };
 use crate::config::{IoConfig, IoDriverConfig, RuntimeConfig};
+use crate::control::endpoint::project_control_endpoint_text;
 use crate::settings::RuntimeSettings;
 
 #[cfg(test)]
@@ -61,7 +62,10 @@ pub(super) fn build_project_fleet_topology(
     host.runtimes.push(FleetRuntime {
         runtime_id: runtime_id.clone(),
         name: runtime.resource_name.to_string(),
-        control_endpoint: Some(runtime.control_endpoint.to_string()),
+        control_endpoint: project_control_endpoint_text(
+            project_root,
+            runtime.control_endpoint.as_deref(),
+        ),
         web_listen: settings
             .web
             .enabled

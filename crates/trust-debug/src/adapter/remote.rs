@@ -2,7 +2,6 @@
 
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-#[cfg(unix)]
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -12,6 +11,10 @@ use crate::protocol::{
     AttachArguments, Breakpoint, BreakpointLocation, BreakpointLocationsResponseBody,
     EvaluateResponseBody, IoStateEntry, IoStateEventBody, Scope, Source, StackFrame, Variable,
 };
+use trust_runtime::control::endpoint::{
+    control_token_from_env, resolve_control_target, ControlTarget, ControlTargetError,
+};
+use trust_runtime::control::ControlEndpoint;
 
 type RemoteResult<T> = std::result::Result<T, String>;
 
@@ -74,6 +77,19 @@ impl RemoteSession {
         Ok(Self {
             endpoint,
             token,
+            client,
+        })
+    }
+
+    /// Connects to a resolved target. Nothing listening at the endpoint file's endpoint or at the
+    /// platform default means that the runtime is not running (spec 11, section 6.8.0a).
+    fn connect_target(target: &ControlTarget) -> RemoteResult<Self> {
+        let endpoint = to_remote_endpoint(target.endpoint.clone());
+        let client =
+            ControlClient::open(endpoint.clone()).map_err(|error| target.connect_error(&error))?;
+        Ok(Self {
+            endpoint,
+            token: target.auth_token.clone(),
             client,
         })
     }
@@ -387,24 +403,75 @@ impl RemoteSession {
     }
 }
 
+/// Attaches to a running runtime (spec 13 attach arguments; spec 11, sections 6.8.0a and 6.8.1).
+/// The explicit `endpoint` argument is used as it is. Without one, the project folder named by
+/// `runtimeRoot` resolves the endpoint: the endpoint file, then the configured endpoint, then the
+/// platform default. The token is the explicit `authToken`, else `TRUST_CTL_TOKEN`, else the
+/// project's token.
 pub fn attach_from_args(
     args: &AttachArguments,
 ) -> RemoteResult<(RemoteSession, Option<RemoteDebugState>)> {
-    let endpoint = args
+    attach_with_env_token(args, control_token_from_env())
+}
+
+/// [`attach_from_args`] with the `TRUST_CTL_TOKEN` value given, so that tests do not depend on the
+/// environment.
+pub(super) fn attach_with_env_token(
+    args: &AttachArguments,
+    env_token: Option<String>,
+) -> RemoteResult<(RemoteSession, Option<RemoteDebugState>)> {
+    let target = resolve_attach_target(args, env_token)?;
+    let mut session = RemoteSession::connect_target(&target)?;
+    let state = session.debug_state().ok();
+    let _ = session.debug_stops();
+    Ok((session, state))
+}
+
+/// The endpoint and token that an attach request names (spec 13).
+pub(super) fn resolve_attach_target(
+    args: &AttachArguments,
+    env_token: Option<String>,
+) -> RemoteResult<ControlTarget> {
+    let explicit = args
         .additional
         .get("endpoint")
         .and_then(|value| value.as_str())
-        .ok_or_else(|| "attach requires endpoint".to_string())?;
+        .map(RemoteEndpoint::parse)
+        .transpose()?
+        .map(to_control_endpoint);
+    let project = args
+        .additional
+        .get("runtimeRoot")
+        .and_then(|value| value.as_str())
+        .map(PathBuf::from);
     let token = args
         .additional
         .get("authToken")
         .and_then(|value| value.as_str())
-        .map(|value| value.to_string());
-    let endpoint = RemoteEndpoint::parse(endpoint)?;
-    let mut session = RemoteSession::connect(endpoint, token)?;
-    let state = session.debug_state().ok();
-    let _ = session.debug_stops();
-    Ok((session, state))
+        .map(str::to_string)
+        .or(env_token);
+    resolve_control_target(project.as_deref(), explicit, token.as_deref()).map_err(|error| {
+        match error {
+            ControlTargetError::NoTarget => "attach requires endpoint or runtimeRoot".to_string(),
+            other => other.to_string(),
+        }
+    })
+}
+
+fn to_control_endpoint(endpoint: RemoteEndpoint) -> ControlEndpoint {
+    match endpoint {
+        RemoteEndpoint::Tcp(addr) => ControlEndpoint::Tcp(addr),
+        #[cfg(unix)]
+        RemoteEndpoint::Unix(path) => ControlEndpoint::Unix(path),
+    }
+}
+
+fn to_remote_endpoint(endpoint: ControlEndpoint) -> RemoteEndpoint {
+    match endpoint {
+        ControlEndpoint::Tcp(addr) => RemoteEndpoint::Tcp(addr),
+        #[cfg(unix)]
+        ControlEndpoint::Unix(path) => RemoteEndpoint::Unix(path),
+    }
 }
 
 #[derive(Debug)]
@@ -415,14 +482,18 @@ struct ControlClient {
 
 impl ControlClient {
     fn connect(endpoint: RemoteEndpoint, _token: Option<String>) -> RemoteResult<Self> {
+        Self::open(endpoint).map_err(|err| err.to_string())
+    }
+
+    /// Opens the connection, keeping the operating-system error so that a caller can tell a
+    /// runtime that is not running from another failure.
+    fn open(endpoint: RemoteEndpoint) -> io::Result<Self> {
         let stream = match endpoint {
-            RemoteEndpoint::Tcp(addr) => {
-                ControlStream::Tcp(TcpStream::connect(addr).map_err(|err| err.to_string())?)
-            }
+            RemoteEndpoint::Tcp(addr) => ControlStream::Tcp(TcpStream::connect(addr)?),
             #[cfg(unix)]
-            RemoteEndpoint::Unix(path) => ControlStream::Unix(
-                std::os::unix::net::UnixStream::connect(path).map_err(|err| err.to_string())?,
-            ),
+            RemoteEndpoint::Unix(path) => {
+                ControlStream::Unix(std::os::unix::net::UnixStream::connect(path)?)
+            }
         };
         Ok(Self {
             seq: 1,

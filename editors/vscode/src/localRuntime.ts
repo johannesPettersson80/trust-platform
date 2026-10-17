@@ -1,20 +1,19 @@
 import { execFile } from "child_process";
-import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
 import { getBinaryPath } from "./binary";
-import { setControlAuthToken } from "./runtimeAuth";
 import {
   formatManagedRuntimeLogs,
   isManagedLifecycleSuccess,
-  parseRuntimeControlAuthToken,
   toManagedRuntimes,
   type FleetListResponse,
   type FleetRuntimeStatusResponse,
   type ManagedLifecycleResult,
   type ManagedRuntime,
 } from "./localRuntimeModel";
+import { resolveProjectControlEndpoint } from "./projectControlEndpoint";
+import { setControlAuthToken } from "./runtimeAuth";
 
 // §0.6.1 / Phase 9 — managed local runtimes: fleet.toml runtime projects on THIS computer whose process
 // the extension owns. Shells `trust-runtime fleet …` (offline; no running runtime required to list/stop).
@@ -25,10 +24,6 @@ const changeEmitter = new vscode.EventEmitter<void>();
 export const onDidChangeManagedRuntimes = changeEmitter.event;
 
 let logChannel: vscode.OutputChannel | undefined;
-const runtimeAuthTokenCache = new Map<
-  string,
-  { readonly mtimeMs: number; readonly token?: string }
->();
 const importedRuntimeAuthTokens = new Map<string, string>();
 
 export function registerLocalRuntime(context: vscode.ExtensionContext): void {
@@ -118,7 +113,7 @@ export async function listManagedRuntimes(
     ...runtime,
     projectPath: resolveManagedProjectPath(root, runtime.projectPath),
   }));
-  await syncManagedRuntimeAuthTokens(managed);
+  await syncManagedRuntimeAuthTokens(binary(context), managed);
   return managed;
 }
 
@@ -148,11 +143,7 @@ async function lifecycle(
   const controlEndpoint = result.control_endpoint;
   const projectPath = resolveManagedProjectPath(root, result.path);
   if (controlEndpoint && projectPath) {
-    const token = readManagedRuntimeAuthToken(projectPath);
-    if (token && importedRuntimeAuthTokens.get(controlEndpoint) !== token) {
-      await setControlAuthToken(controlEndpoint, token);
-      importedRuntimeAuthTokens.set(controlEndpoint, token);
-    }
+    await importManagedRuntimeAuthToken(binary(context), projectPath);
   }
   return {
     ok: isManagedLifecycleSuccess(action, result.status),
@@ -215,7 +206,28 @@ function resolveManagedProjectPath(
     : path.join(fleetRoot, normalized);
 }
 
+// The token comes from `trust-runtime ctl --project <dir> endpoint --json` (spec 11 §6.8.0a), which
+// reads the project's endpoint file and runtime.toml; the extension never parses them. The token is
+// stored for the endpoint that the runtime reports, and imported again only when it changes.
+async function importManagedRuntimeAuthToken(
+  bin: string,
+  projectPath: string
+): Promise<void> {
+  const resolved = await resolveProjectControlEndpoint(bin, projectPath);
+  if (!resolved.ok) {
+    return;
+  }
+  const endpoint = resolved.value.endpoint;
+  const token = resolved.value.authToken;
+  if (!token || importedRuntimeAuthTokens.get(endpoint) === token) {
+    return;
+  }
+  await setControlAuthToken(endpoint, token);
+  importedRuntimeAuthTokens.set(endpoint, token);
+}
+
 async function syncManagedRuntimeAuthTokens(
+  bin: string,
   runtimes: ReadonlyArray<ManagedRuntime>
 ): Promise<void> {
   await Promise.all(
@@ -223,33 +235,7 @@ async function syncManagedRuntimeAuthTokens(
       if (!runtime.controlEndpoint || !runtime.projectPath) {
         return;
       }
-      const token = readManagedRuntimeAuthToken(runtime.projectPath);
-      if (!token) {
-        return;
-      }
-      if (importedRuntimeAuthTokens.get(runtime.controlEndpoint) === token) {
-        return;
-      }
-      await setControlAuthToken(runtime.controlEndpoint, token);
-      importedRuntimeAuthTokens.set(runtime.controlEndpoint, token);
+      await importManagedRuntimeAuthToken(bin, runtime.projectPath);
     })
   );
-}
-
-function readManagedRuntimeAuthToken(projectPath: string): string | undefined {
-  const runtimeToml = path.join(projectPath, "runtime.toml");
-  try {
-    const stat = fs.statSync(runtimeToml);
-    const cached = runtimeAuthTokenCache.get(projectPath);
-    if (cached && cached.mtimeMs === stat.mtimeMs) {
-      return cached.token;
-    }
-    const text = fs.readFileSync(runtimeToml, "utf8");
-    const token = parseRuntimeControlAuthToken(text);
-    runtimeAuthTokenCache.set(projectPath, { mtimeMs: stat.mtimeMs, token });
-    return token;
-  } catch {
-    runtimeAuthTokenCache.delete(projectPath);
-    return undefined;
-  }
 }

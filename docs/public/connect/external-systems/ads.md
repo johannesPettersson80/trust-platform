@@ -413,7 +413,6 @@ python3 scripts/ads_server_pyads_smoke.py \
   --notification global.PumpRunning:BOOL \
   --write global.Setpoint:REAL:12.5 \
   --doctor-endpoint unix:///tmp/trust-runtime-ads-server-basic.sock \
-  --doctor-token ads-server-smoke-token \
   --trust-runtime target/debug/trust-runtime
 ```
 

@@ -32,8 +32,8 @@ fn make_runtime_toml_portable(runtime_toml: String) -> String {
     #[cfg(windows)]
     {
         return runtime_toml.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"",
+            "[runtime.control]\n",
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-ci-token\"\n",
             1,
         );
     }

@@ -20,7 +20,6 @@ name = "main"
 cycle_interval_ms = 100
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "production"
 
 [runtime.log]
@@ -95,10 +94,56 @@ Each task needs:
 
 | Key | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `endpoint` | string | yes | none | `unix://...` or `tcp://...`. Must not be empty. |
-| `auth_token` | string | no | none | Required for `tcp://` endpoints. |
+| `endpoint` | string | no | platform default | `unix://...` or `tcp://...`. Omit it to use the default described below. Must not be empty when set. |
+| `auth_token` | string | no | none | Required for an explicit `tcp://` endpoint. Omit it with the default: on Windows the runtime then generates a token for each start. |
 | `mode` | string | no | `production` | `production` or `debug`. |
 | `debug_enabled` | bool | no | derived | Defaults to `true` in `debug` mode and `false` in `production`. |
+
+#### Default control endpoint and the endpoint file
+
+When `endpoint` is omitted, the runtime uses a default for its platform. The default never collides
+with another project:
+
+- On Unix-like systems it is `<project>/.trust-runtime/control.sock`. When that path is longer than
+  the platform allows (108 bytes on Linux, 104 on macOS), or when the runtime cannot create the
+  `.trust-runtime` folder (a read-only or foreign project folder), the socket is
+  `trust-<hash>.sock` in a per-user runtime directory: `$XDG_RUNTIME_DIR`, or
+  `trust-runtime-<uid>` in the system temporary directory when that is unset. That directory must
+  belong to you and be closed to other users (mode 0700). `<hash>` is the first 16 hexadecimal
+  digits of the SHA-256 of the canonical project path.
+- On Windows it is `tcp://127.0.0.1:0`: a free loopback port chosen at each start, with a token
+  generated for that start.
+
+After it binds the endpoint, the runtime writes `<project>/.trust-runtime/control.json` with the bound
+endpoint and its process ID. On Unix-like systems the file has mode 0600 and also holds a token that
+the runtime generated. On Windows a generated token never goes into the project folder: it is kept
+in `%LOCALAPPDATA%\trust\runtimes\<hash>.json`, which only your Windows user can read. The runtime
+removes its files when it stops cleanly, including after Ctrl+C.
+
+A runtime that cannot write the endpoint file still starts: the PLC program never depends on a
+tooling file. It logs the warning `control_endpoint_file_unavailable`, records an event of the same
+name, and `status` reports `endpoint_file` as `unavailable` with the reason.
+
+A client resolves the endpoint in this order: an explicit `--endpoint`, the endpoint file, the
+configured `endpoint`, then the platform default. An endpoint file that you cannot read, for
+example one that a runtime running as root wrote, is skipped with its reason, so a configured
+endpoint and token still work. If nothing listens at the endpoint from the file or at the platform
+default, the client reports that the runtime is not running; it does not fall back to another
+endpoint.
+
+`trust-runtime ctl --project <dir> endpoint --json` prints the resolved endpoint, its token and its
+source, so editors and scripts do not need to read the files. Every failure is printed as
+`{"error":{"code":"<code>","message":"<text>"}}` with a non-zero exit:
+
+| Code | Meaning |
+| --- | --- |
+| `no_project` | `--project` is missing, or the folder does not exist |
+| `invalid_argument` | `--endpoint` was given |
+| `invalid_config` | `runtime.toml` cannot be loaded |
+| `endpoint_file_invalid` | the endpoint file is damaged or from a newer version |
+| `endpoint_file_unreadable` | the endpoint file cannot be read and nothing else names an endpoint |
+| `not_running` | the Windows default has no endpoint file: the runtime is not running |
+| `default_unavailable` | the per-user runtime directory is not private, or the socket path is too long |
 
 ### `[runtime.log]`
 

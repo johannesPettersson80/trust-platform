@@ -1,9 +1,12 @@
 use super::*;
+use crate::control::endpoint::{project_control_endpoint_text, remove_endpoint_file_of};
 
 struct ConfigUiManagedRuntimeProcess {
     listen: String,
     child: Child,
     started_at_ns: u64,
+    /// The project folder, whose endpoint file the runtime cannot remove when it is killed.
+    root: PathBuf,
 }
 
 #[derive(Default)]
@@ -43,6 +46,13 @@ fn control_endpoint_online(endpoint: &str) -> bool {
     false
 }
 
+/// Whether the runtime's control endpoint answers. The endpoint is the one a client would use:
+/// the endpoint file, else the configured endpoint, else the platform default (spec 11, 6.8.0a).
+fn runtime_endpoint_online(runtime: &WorkspaceRuntime) -> bool {
+    project_control_endpoint_text(&runtime.root, runtime.runtime.control_endpoint.as_deref())
+        .is_some_and(|endpoint| control_endpoint_online(&endpoint))
+}
+
 fn prune_managed_runtime_processes(manager: &mut ConfigUiLifecycleManagerState) {
     manager
         .managed
@@ -68,7 +78,7 @@ fn runtime_lifecycle_item(
         .as_ref()
         .map(|value| value.to_string())
         .unwrap_or_default();
-    let externally_running = control_endpoint_online(runtime.runtime.control_endpoint.as_str());
+    let externally_running = runtime_endpoint_online(runtime);
     let (managed, managed_running, pid, started_at_ns, listen) = if let Some(process) = process {
         (
             true,
@@ -91,7 +101,7 @@ fn runtime_lifecycle_item(
         "runtime_id": runtime.runtime_id,
         "runtime_root": runtime.root.display().to_string(),
         "host_group": host_group,
-        "control_endpoint": runtime.runtime.control_endpoint.to_string(),
+        "control_endpoint": project_control_endpoint_text(&runtime.root, runtime.runtime.control_endpoint.as_deref()),
         "web_listen": listen,
         "managed": managed,
         "running": running,
@@ -147,6 +157,7 @@ fn launch_runtime_for_workspace_runtime(
         listen: runtime.runtime.web.listen.to_string(),
         child,
         started_at_ns: now_ns(),
+        root: runtime.root.clone(),
     })
 }
 
@@ -159,6 +170,9 @@ fn stop_managed_runtime_process(
         )
     })?;
     let _ = process.child.wait();
+    // A killed runtime cannot remove its endpoint file, so the file that names the killed process
+    // is removed here and no client finds a runtime that is gone (spec 11, section 6.8.0a).
+    remove_endpoint_file_of(&process.root, process.child.id());
     Ok(())
 }
 
@@ -178,7 +192,7 @@ pub(super) fn config_ui_runtime_lifecycle_apply(
     })?;
     prune_managed_runtime_processes(&mut guard);
 
-    let externally_running = control_endpoint_online(runtime.runtime.control_endpoint.as_str());
+    let externally_running = runtime_endpoint_online(runtime);
     let managed_present = guard.managed.contains_key(runtime_id.as_str());
     let result = match action.as_str() {
         "start" => {

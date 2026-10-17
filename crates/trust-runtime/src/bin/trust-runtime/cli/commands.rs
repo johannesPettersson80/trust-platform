@@ -275,6 +275,11 @@ pub enum Command {
         #[command(subcommand)]
         action: AgentAction,
     },
+    /// Create a project folder with the files that a new truST project starts from.
+    #[command(
+        after_help = "Examples:\n  trust-runtime new --parent ./projects --name my-plc\n  trust-runtime new --parent ./projects --name my-plc --json\n  trust-runtime new --parent ./projects --name my-plc --force --json"
+    )]
+    New(NewArgs),
     /// Guided wizard to create a new project folder.
     #[command(alias = "init")]
     Wizard {
@@ -371,4 +376,21 @@ pub enum ConfigUiAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ExecutionBackendArg {
     Vm,
+}
+
+/// The options of `trust-runtime new` (specification 25, Create Project).
+#[derive(Debug, Args)]
+pub struct NewArgs {
+    /// Folder that holds the new project folder.
+    #[arg(long)]
+    pub parent: PathBuf,
+    /// Name of the new project folder.
+    #[arg(long)]
+    pub name: String,
+    /// Overwrite the scaffold files of an existing project folder; other files are kept.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub force: bool,
+    /// Print the result, or the error, as JSON.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub json: bool,
 }

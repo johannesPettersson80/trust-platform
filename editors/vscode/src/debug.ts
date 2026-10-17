@@ -17,10 +17,10 @@ import {
   ensureConfigurationEntryAuto,
   initializeDebugConfigurationState,
   isConfigurationFile,
-  loadRuntimeControlConfig,
   markSessionProgram,
   maybeReloadForEditor,
   preferredStructuredTextUri,
+  resolveRuntimeControlForFolder,
   runtimeSourceOptions,
   selectWorkspaceFolderPathForMode,
   validateConfiguration,
@@ -452,7 +452,10 @@ class StructuredTextDebugAdapterFactory
 class StructuredTextDebugConfigurationProvider
   implements vscode.DebugConfigurationProvider
 {
-  constructor(private readonly allowTestControlEndpointOverride: boolean) {}
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly allowTestControlEndpointOverride: boolean
+  ) {}
 
   provideDebugConfigurations(
     _folder: vscode.WorkspaceFolder | undefined,
@@ -491,16 +494,17 @@ class StructuredTextDebugConfigurationProvider
 
     if (config.request === "attach") {
       if (!config.endpoint) {
-        const controlConfig = loadRuntimeControlConfig(folder);
-        if (!controlConfig?.endpoint) {
-          vscode.window.showErrorMessage(
-            "Attach requires runtime.control.endpoint in runtime.toml."
-          );
+        const control = await resolveRuntimeControlForFolder(
+          getBinaryPath(this.context, "trust-runtime", "runtime.cli.path"),
+          folder
+        );
+        if (!control.ok) {
+          vscode.window.showErrorMessage(control.message);
           return null;
         }
-        config.endpoint = controlConfig.endpoint;
-        if (controlConfig.authToken && !config.authToken) {
-          config.authToken = controlConfig.authToken;
+        config.endpoint = control.value.endpoint;
+        if (control.value.authToken && !config.authToken) {
+          config.authToken = control.value.authToken;
         }
       }
       const runtimeOptions = runtimeSourceOptions();
@@ -664,6 +668,7 @@ export function registerDebugAdapter(
   debugChannel().appendLine("Structured Text debug adapter factory registered.");
 
   const provider = new StructuredTextDebugConfigurationProvider(
+    context,
     context.extensionMode === vscode.ExtensionMode.Test
   );
   context.subscriptions.push(
@@ -841,20 +846,21 @@ export function registerDebugAdapter(
   context.subscriptions.push(
     vscode.commands.registerCommand("trust-lsp.debug.attach", async () => {
       const folder = vscode.workspace.workspaceFolders?.[0];
-      const controlConfig = loadRuntimeControlConfig(folder);
-      if (!controlConfig?.endpoint) {
-        vscode.window.showErrorMessage(
-          "Attach requires runtime.control.endpoint in runtime.toml."
-        );
+      const control = await resolveRuntimeControlForFolder(
+        getBinaryPath(context, "trust-runtime", "runtime.cli.path"),
+        folder
+      );
+      if (!control.ok) {
+        vscode.window.showErrorMessage(control.message);
         return false;
       }
       const runtimeOptions = runtimeSourceOptions();
       const config: vscode.DebugConfiguration = {
         type: DEBUG_TYPE,
         request: "attach",
-        name: remoteAttachDebugSessionName(controlConfig.endpoint),
-        endpoint: controlConfig.endpoint,
-        authToken: controlConfig.authToken,
+        name: remoteAttachDebugSessionName(control.value.endpoint),
+        endpoint: control.value.endpoint,
+        authToken: control.value.authToken,
         internalConsoleOptions: "neverOpen",
         ...runtimeOptions,
       };

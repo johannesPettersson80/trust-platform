@@ -135,13 +135,14 @@ pub fn run_runtime(
         realtime_config.clone(),
     )));
 
-    let control_endpoint = parse_control_endpoint(bundle.as_ref())?;
+    let control_binding = parse_control_binding(bundle.as_ref())?;
+    let control_endpoint = control_binding.endpoint.clone();
     let tls_materials = if let Some(bundle) = bundle.as_ref() {
         load_tls_materials(&bundle.runtime.tls, Some(bundle.root.as_path()))?.map(Arc::new)
     } else {
         None
     };
-    ensure_control_auth_requirements(&control_endpoint, bundle.as_ref(), ide_shell_mode)?;
+    ensure_control_auth_requirements(&control_binding, ide_shell_mode)?;
 
     let default_watchdog = runtime.watchdog_policy();
     let default_fault = runtime.fault_policy();
@@ -219,13 +220,16 @@ pub fn run_runtime(
         selected_execution_backend,
         selected_execution_backend_source,
     );
-    let auth_token_value = control_auth_token_value(bundle.as_ref());
+    let auth_token_value = control_binding.auth_token.as_ref().map(ToString::to_string);
+    // Only a token the runtime generated belongs in the endpoint file; a configured one is read
+    // from runtime.toml by the clients.
+    let generated_token = if control_binding.generated_token {
+        auth_token_value.clone()
+    } else {
+        None
+    };
     let web_config = resolve_web_config(bundle.as_ref(), &settings);
-    let auth_token = Arc::new(Mutex::new(
-        bundle
-            .as_ref()
-            .and_then(|bundle| bundle.runtime.control_auth_token.clone()),
-    ));
+    let auth_token = Arc::new(Mutex::new(control_binding.auth_token.clone()));
     let pairing = bundle
         .as_ref()
         .map(|bundle| Arc::new(PairingStore::load(bundle.root.join("pairings.json"))));
@@ -377,6 +381,19 @@ pub fn run_runtime(
     }
 
     let _server = ControlServer::start(control_endpoint.clone(), state.clone())?;
+    // From here on the endpoint is the bound one: a TCP port of 0 now has its real port.
+    let control_endpoint = _server.endpoint().clone();
+    // Clients find the bound endpoint in the endpoint file. It is removed again on a clean stop. A
+    // file that cannot be written is a warning, not a reason to stop.
+    let _endpoint_file = bundle.as_ref().and_then(|bundle| {
+        publish_endpoint_file(
+            &bundle.root,
+            &control_endpoint,
+            generated_token.as_deref(),
+            &debug,
+            &state.settings,
+        )
+    });
     let _mesh = if let Some(bundle) = &bundle {
         start_mesh(
             &bundle.runtime.mesh,
@@ -541,8 +558,8 @@ pub fn run_runtime(
                 "watchdog_action": format!("{:?}", bundle.runtime.watchdog.action),
                 "fault_policy": format!("{:?}", bundle.runtime.fault_policy),
                 "control_endpoint": format_endpoint(&control_endpoint),
-                "control_auth_token_set": bundle.runtime.control_auth_token.is_some(),
-                "control_auth_token_length": bundle.runtime.control_auth_token.as_ref().map(|t| t.len()),
+                "control_auth_token_set": auth_token_value.is_some(),
+                "control_auth_token_length": auth_token_value.as_ref().map(|t| t.len()),
                 "control_debug_enabled": bundle.runtime.control_debug_enabled,
                 "control_mode": format!("{:?}", bundle.runtime.control_mode),
                 "web_enabled": bundle.runtime.web.enabled,

@@ -6,7 +6,6 @@ name = "Simulator"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "production"
 debug_enabled = false
 

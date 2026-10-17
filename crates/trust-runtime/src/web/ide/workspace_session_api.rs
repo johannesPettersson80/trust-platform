@@ -178,6 +178,18 @@ impl WebIdeState {
                 format!("failed to write runtime.toml: {err}"),
             )
         })?;
+        // The runtime's endpoint file can hold a token, so the project ignores its folder (spec
+        // 11, section 6.8.0a).
+        crate::control::endpoint::ensure_endpoint_dir_ignored(
+            &project_dir,
+            crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+        )
+        .map_err(|err| {
+            IdeError::new(
+                IdeErrorKind::Internal,
+                format!("failed to write .gitignore: {err}"),
+            )
+        })?;
 
         let io_template = crate::bundle_template::build_io_config_auto("loopback")
             .map_err(|err| IdeError::new(IdeErrorKind::Internal, format!("io template: {err}")))?;

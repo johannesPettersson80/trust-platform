@@ -147,6 +147,113 @@ fn only_the_oscat_examples_declare_test_programs() {
     );
 }
 
+/// The shipped examples omit the control endpoint and token, so every platform uses its default
+/// and no example commits a token. An example keeps an explicit Unix socket only where its own
+/// instructions name that socket: its trust-lsp.toml, a Markdown file or a start script beside its
+/// runtime configuration (spec 11, section 6.8.0a).
+#[test]
+fn every_example_omits_the_control_endpoint_and_token_or_names_its_socket_in_its_instructions() {
+    let repo = repository_root();
+    let mut configs = Vec::new();
+    for root in [
+        repo.join("examples"),
+        repo.join("editors")
+            .join("vscode")
+            .join("media")
+            .join("examples"),
+    ] {
+        collect_runtime_configs(&root, &mut configs);
+    }
+    assert!(
+        !configs.is_empty(),
+        "no example runtime configuration found"
+    );
+
+    let mut failures = Vec::new();
+    for config in &configs {
+        let name = relative_to(&repo, config);
+        let text = fs::read_to_string(config)
+            .unwrap_or_else(|error| panic!("read {}: {error}", config.display()));
+        let value: toml::Value = match toml::from_str(&text) {
+            Ok(value) => value,
+            Err(error) => {
+                failures.push(format!("{name}: does not parse: {error}"));
+                continue;
+            }
+        };
+        let Some(control) = value
+            .get("runtime")
+            .and_then(|runtime| runtime.get("control"))
+            .and_then(toml::Value::as_table)
+        else {
+            continue;
+        };
+        if control.contains_key("auth_token") {
+            failures.push(format!("{name}: commits runtime.control.auth_token"));
+        }
+        let Some(endpoint) = control.get("endpoint") else {
+            continue;
+        };
+        let Some(socket) = endpoint
+            .as_str()
+            .and_then(|endpoint| endpoint.strip_prefix("unix://"))
+        else {
+            failures.push(format!(
+                "{name}: names the control endpoint {endpoint}, which is not an explicit Unix socket"
+            ));
+            continue;
+        };
+        let folder = config
+            .parent()
+            .expect("an example configuration has a folder");
+        if !instructions_name_socket(folder, socket) {
+            failures.push(format!(
+                "{name}: names the socket {socket}, which no trust-lsp.toml, Markdown file or start script beside it names"
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} of {} example runtime configurations break the control endpoint rule:\n{}",
+        failures.len(),
+        configs.len(),
+        failures.join("\n")
+    );
+}
+
+/// Collects every `runtime*.toml` below `folder`, leaving out [`SKIPPED_ENTRIES`].
+fn collect_runtime_configs(folder: &Path, configs: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if SKIPPED_ENTRIES.contains(&name.as_str()) {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            collect_runtime_configs(&path, configs);
+        } else if name.starts_with("runtime") && name.ends_with(".toml") {
+            configs.push(path);
+        }
+    }
+}
+
+/// Whether the example's own instructions in `folder` name `socket`: its trust-lsp.toml, a
+/// Markdown file or a shell script.
+fn instructions_name_socket(folder: &Path, socket: &str) -> bool {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let instructions =
+            name == "trust-lsp.toml" || name.ends_with(".md") || name.ends_with(".sh");
+        instructions && fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(socket))
+    })
+}
+
 #[test]
 fn validate_rejects_a_configured_resource_the_bytecode_does_not_declare() {
     let root = TempRoot::new("undeclared-resource");
@@ -453,10 +560,11 @@ fn build_and_validate_copy(repo: &Path, project: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// The shipped examples name Unix-socket control endpoints, which Windows lacks, so `validate`
-/// rejects them there. On Windows the copy gets a loopback TCP endpoint with a token, as
-/// `portable_runtime_toml` gives the generated projects; everything else is validated unchanged.
-/// It is compiled everywhere, so every platform type-checks it, and called only on Windows.
+/// Most examples name no control endpoint, so every platform validates them with its default.
+/// The few that keep an explicit Unix socket, because their own instructions name it (spec 11,
+/// section 6.8.0a), cannot be validated on Windows, which has no Unix sockets. On Windows such a
+/// copy gets a loopback TCP endpoint with a token; everything else is validated unchanged. It is
+/// compiled everywhere, so every platform type-checks it, and called only on Windows.
 #[cfg_attr(not(windows), allow(dead_code))]
 fn use_tcp_control_endpoint(runtime_toml: &Path) -> Result<(), String> {
     let text = fs::read_to_string(runtime_toml)
@@ -514,30 +622,13 @@ fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
 }
 
 /// Writes a project with `source`, a runtime.toml that names `resource`, and a loopback io.toml.
+/// The runtime.toml names no control endpoint, so every platform uses its own default.
 fn write_project(project: &Path, source: &str, resource: &str) {
     write_file(&project.join("src").join("main.st"), source);
     let runtime = render_runtime_toml(&resource.into(), 10);
-    write_file(
-        &project.join("runtime.toml"),
-        &portable_runtime_toml(runtime),
-    );
+    write_file(&project.join("runtime.toml"), &runtime);
     let io = build_io_config_auto("loopback").expect("build loopback io template");
     write_file(&project.join("io.toml"), &render_io_toml(&io));
-}
-
-/// The default control endpoint is a unix socket, which Windows lacks. Use TCP with a token there,
-/// as `config_schema_command.rs` does. `validate` only parses the endpoint.
-fn portable_runtime_toml(runtime: String) -> String {
-    #[cfg(windows)]
-    {
-        return runtime.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:0\"\nauth_token = \"trust-examples-token\"",
-            1,
-        );
-    }
-    #[cfg(not(windows))]
-    runtime
 }
 
 fn write_file(path: &Path, contents: &str) {

@@ -9,8 +9,6 @@ cycle_interval_ms = 100
 execution_backend = "vm"
 
 [runtime.control]
-endpoint = "tcp://127.0.0.1:0"
-auth_token = "openot-example-local-token"
 mode = "production"
 debug_enabled = false
 

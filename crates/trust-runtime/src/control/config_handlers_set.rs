@@ -338,6 +338,22 @@ pub(super) fn handle_config_set(
         );
     }
 
+    // The endpoint file must not offer a token that this request replaced or cleared (specification
+    // 11 section 6.8.0a). Only a token that this process published is withdrawn; a file of another
+    // process, or one that cannot be read, is left alone. The rewrite can fail, so it runs before
+    // the scheduler command and the commits: a failure changes no setting. A scheduler refusal
+    // afterwards puts the token back, so a refused request changes no file either.
+    let withdrawn = if auth_changed && let Some(root) = state.project_root.as_deref() {
+        match crate::control::endpoint::withdraw_auth_token(root) {
+            Ok(withdrawn) => withdrawn,
+            Err(error) => {
+                return ControlResponse::error(id, format!("endpoint file not updated: {error}"))
+            }
+        }
+    } else {
+        None
+    };
+
     // The scheduler takes its policy set as one command, so a full queue refuses all of it or none.
     // A request that changes no scheduler policy sends nothing, so a full queue cannot refuse it.
     let scheduler_changed = updated
@@ -356,6 +372,11 @@ pub(super) fn handle_config_set(
                     policies,
                 ))
         {
+            if let Some(withdrawn) = withdrawn {
+                // The old token stays valid, so the endpoint file offers it again. A failed
+                // restore leaves the file without a token, which offers nothing wrong.
+                let _ = withdrawn.restore();
+            }
             return super::resource_queue::queue_refusal(id, error, state);
         }
     }

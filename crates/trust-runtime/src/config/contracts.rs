@@ -5,7 +5,9 @@ pub struct RuntimeConfig {
     pub cycle_interval: Duration,
     pub execution_backend: ExecutionBackend,
     pub execution_backend_source: ExecutionBackendSource,
-    pub control_endpoint: SmolStr,
+    /// The configured `[runtime.control] endpoint`; `None` when it is omitted, so the platform
+    /// default applies (spec 11, section 6.8.0a).
+    pub control_endpoint: Option<SmolStr>,
     pub control_auth_token: Option<SmolStr>,
     pub control_debug_enabled: bool,
     pub control_mode: ControlMode,

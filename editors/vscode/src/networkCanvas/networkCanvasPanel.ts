@@ -489,6 +489,11 @@ async function resolveDiscoveryRuntimeTarget(
     return undefined;
   }
   const endpoint = envelope.request.originEndpoint?.trim();
+  if (endpoint && endpoint === activeRuntimeTarget?.endpoint) {
+    // The workspace runtime: its token came from trust-runtime with the endpoint (spec 11
+    // §6.8.0a), which SecretStorage, keyed by endpoint text, may not hold after a restart.
+    return activeRuntimeTarget;
+  }
   if (endpoint) {
     return resolveRuntimeTargetFromSettings({
       mode: "online",

@@ -588,6 +588,12 @@
       "class": "support",
       "owner": "CLI",
       "rationale": "shell completion support"
+    },
+    {
+      "name": "New",
+      "class": "product",
+      "owner": "runtime",
+      "rationale": "creates a project folder with the files of a new truST project (spec 25, Create Project)"
     }
   ],
   "runtime_bin_module_classes": [
@@ -770,6 +776,12 @@
       "class": "infrastructure",
       "owner": "CLI",
       "rationale": "completion generator"
+    },
+    {
+      "name": "new",
+      "class": "product",
+      "owner": "runtime",
+      "rationale": "trust-runtime new: project creation command module (spec 25, Create Project)"
     }
   ],
   "runtime_action_classes": [

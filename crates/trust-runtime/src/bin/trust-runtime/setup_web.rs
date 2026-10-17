@@ -648,6 +648,8 @@ mod tests {
     fn apply_setup_persists_runtime_artifacts() {
         let root = unique_temp_dir("setup-web-artifacts");
         std::fs::create_dir_all(&root).expect("create root");
+        // An existing .gitignore is kept and gains the endpoint folder (spec 11, section 6.8.0a).
+        std::fs::write(root.join(".gitignore"), "target/\n").expect("write .gitignore");
         let defaults = SetupDefaults::from_bundle(&root);
         let state = Arc::new(Mutex::new(SetupState {
             options: SetupWebOptions {
@@ -673,6 +675,12 @@ mod tests {
         };
         let message = apply_setup(&state, payload).expect("apply setup");
         assert!(message.contains("Setup complete"));
+        let gitignore = std::fs::read_to_string(root.join(".gitignore")).expect("read .gitignore");
+        assert!(gitignore.starts_with("target/\n"), "{gitignore}");
+        assert!(
+            gitignore.lines().any(|line| line == "/.trust-runtime/"),
+            "{gitignore}"
+        );
         assert!(root.join("runtime.toml").is_file());
         assert!(root.join("io.toml").is_file());
         assert!(root.join("program.stbc").is_file());

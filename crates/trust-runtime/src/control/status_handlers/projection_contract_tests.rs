@@ -486,3 +486,41 @@ fn status_and_task_stats_share_profiling_enabled_state() {
     );
     assert_eq!(tasks.get("profiling_enabled"), Some(&json!(false)));
 }
+
+/// A runtime that cannot write its endpoint file keeps running, and its status says why (spec 11,
+/// section 6.8.0a).
+#[test]
+fn status_reports_whether_the_endpoint_file_was_published() {
+    use crate::settings::EndpointFileState;
+
+    let state = state();
+    assert_eq!(
+        result(handle_status(1, &state)).get("endpoint_file"),
+        Some(&json!({"state": "not_used", "error": null}))
+    );
+
+    state
+        .settings
+        .lock()
+        .expect("settings")
+        .control_endpoint_file = EndpointFileState::Published;
+    assert_eq!(
+        result(handle_status(2, &state)).get("endpoint_file"),
+        Some(&json!({"state": "published", "error": null}))
+    );
+
+    state
+        .settings
+        .lock()
+        .expect("settings")
+        .control_endpoint_file = EndpointFileState::Unavailable(SmolStr::new(
+        "write /plc/.trust-runtime/control.json: Permission denied",
+    ));
+    assert_eq!(
+        result(handle_status(3, &state)).get("endpoint_file"),
+        Some(&json!({
+            "state": "unavailable",
+            "error": "write /plc/.trust-runtime/control.json: Permission denied",
+        }))
+    );
+}

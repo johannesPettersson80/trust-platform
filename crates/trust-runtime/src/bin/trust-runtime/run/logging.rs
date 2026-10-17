@@ -134,6 +134,22 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        trust_runtime::debug::RuntimeEvent::ControlEndpointFileUnavailable {
+            endpoint,
+            error,
+            time,
+        } => {
+            logger.log(
+                LogLevel::Warn,
+                "control_endpoint_file_unavailable",
+                json!({
+                    "event_id": "TRUST-RT-ENDPOINT-FILE-001",
+                    "endpoint": endpoint.as_str(),
+                    "error": error,
+                    "time_ms": time.as_millis(),
+                }),
+            );
+        }
         _ => {}
     }
 }

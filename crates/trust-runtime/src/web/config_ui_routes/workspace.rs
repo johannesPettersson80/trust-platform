@@ -144,7 +144,6 @@ name = "{runtime_id}"
 cycle_interval_ms = 20
 
 [runtime.control]
-endpoint = "unix:///tmp/{runtime_id}.sock"
 mode = "production"
 debug_enabled = false
 
@@ -237,6 +236,21 @@ pub(super) fn create_workspace_runtime(
     )?;
     atomic_write_text(runtime_root.join("io.toml").as_path(), io_text.as_str())?;
     atomic_write_text(runtime_root.join("src/main.st").as_path(), main_st_text)?;
+    // The runtime's endpoint file can hold a token, so the new project ignores its folder (spec 11,
+    // section 6.8.0a).
+    crate::control::endpoint::ensure_endpoint_dir_ignored(
+        &runtime_root,
+        crate::control::endpoint::ENDPOINT_DIR_GITIGNORE,
+    )
+    .map_err(|error| {
+        RuntimeError::InvalidConfig(
+            format!(
+                "failed to write {}: {error}",
+                runtime_root.join(".gitignore").display()
+            )
+            .into(),
+        )
+    })?;
 
     Ok(json!({
         "ok": true,

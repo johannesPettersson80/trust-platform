@@ -8,6 +8,7 @@ import {
 } from "../runtimeControl";
 import { sendRuntimeControlRequest } from "../runtimeControlClient";
 import { getControlAuthToken } from "../runtimeAuth";
+import { resolveRuntimeConnection } from "../runtimeConnection";
 import {
   summarizeAdsStatus,
   type AdsStatusReport,
@@ -160,8 +161,22 @@ export async function runtimeStatusPayload(
 ): Promise<RuntimeStatusPayload> {
   const target = deps.runtimeConfigTarget();
   const config = getTrustConfiguration(target);
-  let endpoint = (config.get<string>("runtime.controlEndpoint") ?? "").trim();
-  const authToken = await getControlAuthToken(endpoint);
+  const runtimeMode = config.get<"simulate" | "online">(
+    "runtime.mode",
+    "simulate"
+  );
+  let endpoint: string;
+  let authToken: string | undefined;
+  if (runtimeMode === "online") {
+    // Spec 11 §6.8.0a — the workspace runtime's endpoint and token are asked of trust-runtime at
+    // each refresh, so Live Values follows a runtime that restarted on another port.
+    const connection = await resolveRuntimeConnection(target);
+    endpoint = connection.endpoint ?? "";
+    authToken = connection.authToken;
+  } else {
+    endpoint = (config.get<string>("runtime.controlEndpoint") ?? "").trim();
+    authToken = await getControlAuthToken(endpoint);
+  }
   const endpointConfigured = endpoint.length > 0;
   const endpointEnabled = config.get<boolean>(
     "runtime.controlEndpointEnabled",
@@ -170,10 +185,6 @@ export async function runtimeStatusPayload(
   const inlineValuesEnabled = config.get<boolean>(
     "runtime.inlineValuesEnabled",
     true
-  );
-  const runtimeMode = config.get<"simulate" | "online">(
-    "runtime.mode",
-    "simulate"
   );
   const session = deps.getStructuredTextSession();
   const running = !!session;

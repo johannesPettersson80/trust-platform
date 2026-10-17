@@ -199,4 +199,36 @@ impl WebIdeState {
             changed,
         })
     }
+
+    /// `text` without `key` in the table `section`, for a valid session. The settings panel uses it
+    /// to return an optional runtime.toml setting to its default, such as an empty Control
+    /// Endpoint field, which leaves the platform default (spec 11, section 6.8.0a). Nothing is
+    /// written; the panel saves the text through its usual path.
+    pub fn remove_runtime_toml_key(
+        &self,
+        session_token: &str,
+        text: &str,
+        section: &str,
+        key: &str,
+    ) -> Result<String, IdeError> {
+        let now = (self.now)();
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| IdeError::new(IdeErrorKind::Internal, "session state lock poisoned"))?;
+        let _ = self.ensure_session(&mut guard, session_token, now)?;
+        drop(guard);
+        if text.len() > self.limits.max_file_bytes {
+            return Err(IdeError::new(
+                IdeErrorKind::TooLarge,
+                format!(
+                    "runtime.toml exceeds limit ({} > {} bytes)",
+                    text.len(),
+                    self.limits.max_file_bytes
+                ),
+            ));
+        }
+        crate::config::remove_runtime_toml_key(text, section, key)
+            .map_err(|error| IdeError::new(IdeErrorKind::InvalidInput, error.to_string()))
+    }
 }

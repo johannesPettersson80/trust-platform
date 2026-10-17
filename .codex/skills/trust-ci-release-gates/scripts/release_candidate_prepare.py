@@ -202,6 +202,15 @@ def remote_validation_commands(
                 ),
             ),
             (
+                # The same documentation build as CI's Documentation job, so a doc error cannot
+                # pass the guard and then fail CI (16 October 2026, PR #137).
+                "remote_docs",
+                leased(
+                    f"{target_env} RUSTDOCFLAGS='-D warnings' "
+                    "cargo doc --no-deps --all-features"
+                ),
+            ),
+            (
                 "remote_reclaim_before_test_all",
                 conditional_reclaim,
             ),

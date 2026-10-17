@@ -93,7 +93,7 @@ impl RuntimeToml {
             cycle_interval,
             execution_backend,
             execution_backend_source,
-            control_endpoint: SmolStr::new(control.endpoint),
+            control_endpoint: control.endpoint.map(SmolStr::new),
             control_auth_token: parsed_control.auth_token,
             control_debug_enabled: parsed_control.debug_enabled,
             control_mode: parsed_control.mode,

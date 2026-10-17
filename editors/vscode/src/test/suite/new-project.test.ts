@@ -151,29 +151,18 @@ suite("New project command (VS Code)", function () {
     );
     assert.strictEqual(created, true, "Expected project command to succeed.");
 
+    // `trust-runtime new` writes the project (spec 25 §3.2), so the program is src/Main.st.
     const mainUri = vscode.Uri.joinPath(targetUri, "src", "Main.st");
     const legacyMainUri = vscode.Uri.joinPath(targetUri, "sources", "Main.st");
-    const tomlUri = vscode.Uri.joinPath(targetUri, "trust-lsp.toml");
-    assert.strictEqual(await pathExists(mainUri), true, "Expected Main.st file.");
+    assert.strictEqual(await pathExists(mainUri), true, "Expected src/Main.st file.");
     assert.strictEqual(
       await pathExists(legacyMainUri),
       false,
       "Expected no legacy sources/ scaffold."
     );
-    assert.strictEqual(
-      await pathExists(tomlUri),
-      true,
-      "Expected trust-lsp.toml file."
-    );
 
     const source = await readText(mainUri);
     assert.ok(source.includes("PROGRAM Main"), "Expected PROGRAM scaffold.");
-    const projectToml = await readText(tomlUri);
-    assert.strictEqual(
-      projectToml.trim(),
-      'include_paths = ["src"]',
-      "Expected include path scaffold."
-    );
 
     // §0.5.15 — a RUNNABLE simulator project also writes runtime.toml + io.toml so Start works and
     // Devices & Connections can load the offline topology with zero manual TOML editing.
@@ -198,14 +187,51 @@ suite("New project command (VS Code)", function () {
       "Expected src/config.st in the scaffold."
     );
     const configSource = await readText(configUri);
+    const instance = /PROGRAM\s+(\w+)\s+WITH\s+\w+\s*:\s*Main\b/.exec(configSource);
     assert.ok(
-      /PROGRAM\s+MainInstance\s+WITH\s+\w+\s*:\s*Main/.test(configSource),
+      instance && instance[1] !== "Main",
       "config.st must instantiate Main with a distinct instance name so it is not flagged unused or duplicated (F-02)."
+    );
+    const projectToml = await readText(vscode.Uri.joinPath(targetUri, "trust-lsp.toml"));
+    assert.ok(
+      /include_paths\s*=\s*\[\s*"src"\s*\]/.test(projectToml),
+      "trust-lsp.toml must include the src folder (spec 25 §3.2)."
+    );
+    // The native simulator launch target and the status bar setting (spec 25 §3.2).
+    const launch = JSON.parse(
+      await readText(vscode.Uri.joinPath(targetUri, ".vscode", "launch.json"))
+    ) as { configurations?: Array<Record<string, unknown>> };
+    assert.ok(
+      launch.configurations?.some(
+        (config) =>
+          config.type === "structured-text" &&
+          config.request === "launch" &&
+          config.name === "truST Simulator" &&
+          config.program === "${workspaceFolder}/src/config.st"
+      ),
+      "launch.json must target ${workspaceFolder}/src/config.st with the truST Simulator configuration."
+    );
+    const settings = JSON.parse(
+      await readText(vscode.Uri.joinPath(targetUri, ".vscode", "settings.json"))
+    ) as Record<string, unknown>;
+    assert.strictEqual(
+      settings["debug.showInStatusBar"],
+      "never",
+      "settings.json must hide the debug status bar selector (spec 25 §3.2)."
+    );
+    const gitignore = await readText(vscode.Uri.joinPath(targetUri, ".gitignore"));
+    assert.ok(
+      gitignore.split(/\r?\n/).map((line) => line.trim()).includes("/.trust-runtime/"),
+      ".gitignore must list /.trust-runtime/ (spec 11 §6.8.0a)."
     );
     const runtimeToml = await readText(runtimeTomlUri);
     assert.ok(
       runtimeToml.includes("[runtime.control]"),
       "runtime.toml must declare [runtime.control]."
+    );
+    assert.ok(
+      !/^\s*endpoint\s*=/m.test(runtimeToml),
+      "runtime.toml must leave the control endpoint to the platform default (spec 11 §6.8.0a)."
     );
     // The runtime config parser REQUIRES these sections — a compact file is rejected (Codex review).
     for (const section of ["[runtime.retain]", "[runtime.watchdog]", "[runtime.fault]"]) {
@@ -217,7 +243,7 @@ suite("New project command (VS Code)", function () {
     const ioToml = await readText(ioTomlUri);
     assert.ok(
       /driver\s*=\s*"simulated"/.test(ioToml),
-      "io.toml must default to the simulated driver (runs with no hardware)."
+      "io.toml must use the simulated driver (spec 25 §3.2)."
     );
     await deleteTreeIfExists(targetUri);
   });

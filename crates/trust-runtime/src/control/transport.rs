@@ -9,14 +9,19 @@ use crate::error::RuntimeError;
 
 use super::{prepare_request_line, ControlEndpoint, ControlState};
 
+/// Binds `endpoint` and starts serving it. The returned endpoint is the one that is bound: a TCP
+/// endpoint with port 0 comes back with the port that the operating system chose.
 pub(crate) fn spawn_control_server(
     endpoint: &ControlEndpoint,
     state: Arc<ControlState>,
-) -> Result<(), RuntimeError> {
+) -> Result<ControlEndpoint, RuntimeError> {
     match endpoint {
         ControlEndpoint::Tcp(addr) => {
             let listener = TcpListener::bind(addr)
                 .map_err(|err| RuntimeError::ControlError(format!("bind {addr}: {err}").into()))?;
+            let bound = listener.local_addr().map_err(|err| {
+                RuntimeError::ControlError(format!("bound address of {addr}: {err}").into())
+            })?;
             let state = state.clone();
             thread::spawn(move || {
                 for stream in listener.incoming().map_while(Result::ok) {
@@ -25,6 +30,7 @@ pub(crate) fn spawn_control_server(
                     thread::spawn(move || handle_client(stream, state, client));
                 }
             });
+            Ok(ControlEndpoint::Tcp(bound))
         }
         #[cfg(unix)]
         ControlEndpoint::Unix(path) => {
@@ -36,9 +42,9 @@ pub(crate) fn spawn_control_server(
                     thread::spawn(move || handle_unix_client(stream, state));
                 }
             });
+            Ok(ControlEndpoint::Unix(path.clone()))
         }
     }
-    Ok(())
 }
 
 fn handle_client(stream: std::net::TcpStream, state: Arc<ControlState>, client: Option<String>) {

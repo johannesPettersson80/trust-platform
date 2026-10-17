@@ -435,6 +435,16 @@ pub(super) fn runtime_event_to_json(event: RuntimeEvent) -> serde_json::Value {
             "request_type": request_type.as_deref(),
             "time_ns": time.as_nanos(),
         }),
+        RuntimeEvent::ControlEndpointFileUnavailable {
+            endpoint,
+            error,
+            time,
+        } => json!({
+            "type": "control_endpoint_file_unavailable",
+            "endpoint": endpoint.as_str(),
+            "error": error,
+            "time_ns": time.as_nanos(),
+        }),
     }
 }
 
@@ -542,6 +552,26 @@ mod tests {
             unresolved_payload["outputs"][0]["valueType"].as_str(),
             Some("TrafficState"),
             "unresolved enum snapshots must retain the declared enum type"
+        );
+    }
+
+    /// The event of a runtime that runs on without its endpoint file (spec 11, section 6.8.0a).
+    #[test]
+    fn an_unavailable_endpoint_file_event_names_the_endpoint_and_the_reason() {
+        let event = RuntimeEvent::ControlEndpointFileUnavailable {
+            endpoint: SmolStr::new("unix:///run/user/1000/trust-0123456789abcdef.sock"),
+            error: "write /plc/.trust-runtime/control.json: Read-only file system".to_string(),
+            time: crate::value::Duration::from_millis(5),
+        };
+
+        assert_eq!(
+            runtime_event_to_json(event),
+            json!({
+                "type": "control_endpoint_file_unavailable",
+                "endpoint": "unix:///run/user/1000/trust-0123456789abcdef.sock",
+                "error": "write /plc/.trust-runtime/control.json: Read-only file system",
+                "time_ns": 5_000_000,
+            })
         );
     }
 }

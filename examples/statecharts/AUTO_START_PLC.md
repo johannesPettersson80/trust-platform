@@ -48,7 +48,6 @@ name = "MainResource"
 cycle_interval_ms = 10
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-runtime.sock"
 mode = "production"
 debug_enabled = false
 
@@ -164,12 +163,15 @@ sudo journalctl -u trust-plc.service --since "10 minutes ago"
 
 ### Runtime control commands
 
+The service runs as root, so its endpoint file and its default control socket belong to root:
+run `ctl` with `sudo`.
+
 ```bash
-trust-runtime ctl --project /opt/trust/production status
-trust-runtime ctl --project /opt/trust/production shutdown
+sudo trust-runtime ctl --project /opt/trust/production status
+sudo trust-runtime ctl --project /opt/trust/production shutdown
 sudo systemctl restart trust-plc.service
 sudo systemctl stop trust-plc.service
-trust-runtime ctl --project /opt/trust/production config-get
+sudo trust-runtime ctl --project /opt/trust/production config-get
 ```
 
 ## ST Integration Notes
@@ -213,7 +215,7 @@ END_PROGRAM
 ```bash
 sudo systemctl status trust-plc.service
 sudo journalctl -u trust-plc.service -n 100 --no-pager
-trust-runtime ctl --project /opt/trust/production status
+sudo trust-runtime ctl --project /opt/trust/production status
 ```
 
 ## Optional: Remote access over SSH tunnel

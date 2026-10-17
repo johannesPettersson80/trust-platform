@@ -29,8 +29,8 @@ fn portable_runtime_toml() -> String {
     #[cfg(windows)]
     {
         return runtime.replacen(
-            "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-            "endpoint = \"tcp://127.0.0.1:19091\"\nauth_token = \"deploy-test-token\"",
+            "[runtime.control]\n",
+            "[runtime.control]\nendpoint = \"tcp://127.0.0.1:19091\"\nauth_token = \"deploy-test-token\"\n",
             1,
         );
     }

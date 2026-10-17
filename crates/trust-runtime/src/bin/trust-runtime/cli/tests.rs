@@ -59,6 +59,29 @@ mod tests {
     }
 
     #[test]
+    fn parse_new_project_flags() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "new",
+            "--parent",
+            "projects",
+            "--name",
+            "my-plc",
+            "--force",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::New(args) => {
+                assert_eq!(args.parent, PathBuf::from("projects"));
+                assert_eq!(args.name, "my-plc");
+                assert!(args.force);
+                assert!(args.json);
+            }
+            other => panic!("expected new command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn runtime_help_names_trust_dev_workbench_commands_and_removal_window() {
         let mut help = Vec::new();
         Cli::command()

@@ -105,6 +105,10 @@ pub mod mesh;
 #[cfg(feature = "full")]
 #[path = "host/metrics.rs"]
 pub mod metrics;
+/// The files that `trust-runtime new` writes for a new project.
+#[cfg(feature = "full")]
+#[path = "host/new_project.rs"]
+pub mod new_project;
 /// OPC UA profile and IEC-to-OPC UA mapping helpers.
 #[cfg(feature = "full")]
 #[path = "host/opcua/mod.rs"]

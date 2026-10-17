@@ -4,9 +4,6 @@ use std::net::TcpListener;
 use std::path::Path;
 
 use anyhow::Context;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine;
-use rand::TryRng;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 use toml_edit::{value, DocumentMut, Item, Table};
@@ -415,20 +412,10 @@ fn resource_name_from_runtime_name(name: &str) -> String {
     }
 }
 
+/// A managed runtime's control token: the one generator of control tokens (spec 11, section
+/// 6.8.0a), 32 bytes from the operating-system secure random source as unpadded base64url.
 fn generate_control_token() -> anyhow::Result<String> {
-    let mut bytes = [0_u8; 32];
-    let mut rng = rand::rngs::SysRng;
-    generate_control_token_with_rng(&mut rng, &mut bytes)
-}
-
-fn generate_control_token_with_rng<R: TryRng>(
-    rng: &mut R,
-    bytes: &mut [u8; 32],
-) -> anyhow::Result<String> {
-    rng.try_fill_bytes(bytes).map_err(|error| {
-        anyhow::anyhow!("operating-system secure random source failed: {error}")
-    })?;
-    Ok(URL_SAFE_NO_PAD.encode(bytes))
+    trust_runtime::control::endpoint::generate_control_token().map_err(anyhow::Error::from)
 }
 
 fn render_main_source() -> &'static str {
@@ -894,41 +881,12 @@ web_port = 0
     }
 
     #[test]
-    fn control_token_generation_fails_closed_when_secure_randomness_fails() {
-        #[derive(Debug)]
-        struct FailingRng;
-
-        impl TryRng for FailingRng {
-            type Error = std::io::Error;
-
-            fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
-                Err(std::io::Error::other("entropy unavailable"))
-            }
-
-            fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
-                Err(std::io::Error::other("entropy unavailable"))
-            }
-
-            fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
-                Err(std::io::Error::other("entropy unavailable"))
-            }
-        }
-
-        let mut bytes = [0_u8; 32];
-        let error = generate_control_token_with_rng(&mut FailingRng, &mut bytes)
-            .expect_err("secure random failure must abort token generation");
-
-        assert!(
-            error
-                .to_string()
-                .contains("operating-system secure random source failed"),
-            "unexpected error: {error:#}"
-        );
-        assert_eq!(bytes, [0_u8; 32], "no fallback token may be synthesized");
-    }
-
-    #[test]
     fn generated_control_token_contains_32_random_bytes() {
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use base64::Engine;
+
+        // The generator, and its refusal of a failing random source, are tested in
+        // `control::endpoint`; this checks that fleet scaffolding uses it.
         let token = generate_control_token().expect("generate control token");
         assert!(
             !token.contains('='),
