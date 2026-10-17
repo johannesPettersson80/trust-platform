@@ -543,7 +543,16 @@ version = "0.24.75"
 dependencies = [
  "critical-section",
  "embedded-alloc",
+ "trust-platform-memory",
  "trust-runtime-core",
+]
+
+[[package]]
+name = "trust-platform-memory"
+version = "0.24.75"
+dependencies = [
+ "critical-section",
+ "embedded-alloc",
 ]
 
 [[package]]

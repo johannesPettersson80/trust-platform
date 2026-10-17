@@ -7,8 +7,8 @@ extern crate alloc;
 
 pub mod application;
 pub mod board;
-pub mod memory;
 pub mod records;
 pub mod runner;
 pub mod services;
-pub mod stack;
+
+pub use trust_platform_memory::{memory, stack};

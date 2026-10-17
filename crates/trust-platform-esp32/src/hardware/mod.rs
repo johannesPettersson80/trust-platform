@@ -15,11 +15,13 @@ mod console;
 mod emergency;
 mod io;
 mod reset;
+mod wait;
 pub use clock::Monotonic;
 pub use console::Console;
 pub use emergency::emergency_halt;
 pub use io::DigitalIo;
 pub use reset::{ResetControl, Watchdog};
+pub use wait::Wait;
 
 /// Set by the first `Board::take`. `esp_hal::init` panics when it runs twice, so this guard
 /// turns a second call into `PeripheralsTaken` before the HAL is touched.
@@ -71,7 +73,7 @@ pub struct Board {
     pub io: DigitalIo,
     /// Native USB-Serial/JTAG trace transmitter.
     pub console: Console,
-    /// MWDT0 supervisor: configured by `take`, enabled only by `start_ms`.
+    /// MWDT0 supervisor: configured by `take`, enabled only by `start`.
     pub watchdog: Watchdog,
     /// Boot reset reason and the RTC-memory reset cookie.
     pub reset: ResetControl,

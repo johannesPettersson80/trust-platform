@@ -1,0 +1,12 @@
+[package]
+name = "trust-platform-memory"
+description = "Bounded heap and stack measurement shared by the truST board compositions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+embedded-alloc = { version = "=0.7.0", default-features = false, features = ["llff"] }
+critical-section = "1.2.0"

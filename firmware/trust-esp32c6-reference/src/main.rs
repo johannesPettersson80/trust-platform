@@ -13,9 +13,7 @@ use core::fmt::Write;
 use trust_board_fixture::{board::Board as Fixture, records, runner};
 use trust_platform_esp32::{
     emergency_halt,
-    profile::{
-        boot_decision, numeric_profile_ok, BootDecision, CHIP_ID, CPU_HZ, FLASH_KIB, WATCHDOG_MS,
-    },
+    profile::{boot_decision, numeric_profile_ok, BootDecision, CHIP_ID, CPU_HZ, FLASH_KIB},
     Board, ResetCookie, RUNNING_PHASE, WATCHDOG_PHASE,
 };
 
@@ -139,7 +137,13 @@ fn run(board: &mut Board) -> Result<(), &'static str> {
                     phase: RUNNING_PHASE,
                 })
                 .map_err(|_| "reset-cookie")?;
-            dog.0.start_ms(WATCHDOG_MS).map_err(|_| "watchdog-start")
+            // No project cycle watchdog yet (S1b-5 reads it from the record), so MWDT0 runs at
+            // the rule's 4 s minimum.
+            dog.0
+                .set_cycle_timeout_ms(0)
+                .map_err(|_| "watchdog-start")?;
+            dog.0.start();
+            Ok(())
         },
     )
 }

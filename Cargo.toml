@@ -16,6 +16,7 @@ members = [
     "crates/trust-runtime-services",
     "crates/trust-platform-stm32f4",
     "crates/trust-platform-esp32",
+    "crates/trust-platform-memory",
     "crates/trust-board-fixture",
     "crates/trust-chips",
     "crates/trust-runtime",
@@ -117,6 +118,7 @@ verification-cases = { path = "crates/verification-cases" }
 trust-runtime-core = { path = "crates/trust-runtime-core", default-features = false }
 trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-board-fixture = { path = "crates/trust-board-fixture" }
+trust-platform-memory = { path = "crates/trust-platform-memory" }
 trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }

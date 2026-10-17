@@ -6613,6 +6613,7 @@ version = "0.24.75"
 dependencies = [
  "critical-section",
  "embedded-alloc",
+ "trust-platform-memory",
  "trust-runtime-core",
 ]
 
@@ -6730,6 +6731,16 @@ dependencies = [
  "esp-hal",
  "esp-storage",
  "trust-chips",
+ "trust-runtime-core",
+ "trust-runtime-services",
+]
+
+[[package]]
+name = "trust-platform-memory"
+version = "0.24.75"
+dependencies = [
+ "critical-section",
+ "embedded-alloc",
 ]
 
 [[package]]

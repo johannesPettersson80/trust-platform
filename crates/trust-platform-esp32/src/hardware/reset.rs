@@ -1,6 +1,9 @@
 //! MWDT0 supervision and the reset cookie in RTC fast memory, which survives MWDT0 and USB resets.
 use super::BoardError;
-use crate::{cookie::ResetCookie, profile::WATCHDOG_MS};
+use crate::{
+    cookie::ResetCookie,
+    watchdog_rule::{watchdog_timeout_ms, FEED_INTERVAL_MS},
+};
 use core::ptr::{read_volatile, write_volatile};
 use esp_hal::{
     peripherals::TIMG0,
@@ -8,6 +11,7 @@ use esp_hal::{
     time::Duration,
     timer::timg::{MwdtStage, MwdtStageAction, TimerGroup, Wdt},
 };
+use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan};
 
 /// Largest accepted MWDT0 stage-0 interval in milliseconds.
 const MAX_WATCHDOG_MS: u32 = 60_000;
@@ -20,34 +24,59 @@ pub struct Watchdog {
 }
 
 impl Watchdog {
-    /// Configure the stage-0 interval and action. The watchdog stays disabled until `start_ms`.
+    /// Configure the stage-0 interval and action. The watchdog stays disabled until `start`. The
+    /// interval starts at the 4 s minimum of [`crate::watchdog_rule::watchdog_timeout_ms`], which
+    /// a project without a cycle watchdog keeps.
     pub(super) fn new(timg0: TIMG0<'static>) -> Self {
         let mut inner = TimerGroup::new(timg0).wdt;
-        inner.set_timeout(
-            MwdtStage::Stage0,
-            Duration::from_millis(u64::from(WATCHDOG_MS)),
-        );
-        inner.set_stage_action(MwdtStage::Stage0, MwdtStageAction::ResetSystem);
+        configure(&mut inner, watchdog_timeout_ms(0));
         Self { inner }
     }
 
-    /// Enable MWDT0 with a stage-0 interval in 1..=60,000 ms. Only a reset stops it afterwards.
-    pub fn start_ms(&mut self, milliseconds: u32) -> Result<(), BoardError> {
+    /// Set MWDT0's stage-0 interval from the project's cycle watchdog timeout: the larger of 4 s
+    /// and the cycle timeout plus 2 s (design §2.5 and specification 34, TIME-04).
+    ///
+    /// # Errors
+    ///
+    /// [`BoardError::WatchdogInterval`] when the rule's interval is outside 1..=60,000 ms.
+    pub fn set_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> Result<(), BoardError> {
+        let milliseconds = watchdog_timeout_ms(cycle_timeout_ms);
         if !(1..=MAX_WATCHDOG_MS).contains(&milliseconds) {
             return Err(BoardError::WatchdogInterval);
         }
-        self.inner.set_timeout(
-            MwdtStage::Stage0,
-            Duration::from_millis(u64::from(milliseconds)),
-        );
-        self.inner
-            .set_stage_action(MwdtStage::Stage0, MwdtStageAction::ResetSystem);
-        self.inner.enable();
+        configure(&mut self.inner, milliseconds);
         Ok(())
+    }
+
+    /// Enable MWDT0 with the interval [`Self::new`] or [`Self::set_cycle_timeout_ms`] set. Only a
+    /// reset stops it afterwards.
+    pub fn start(&mut self) {
+        self.inner.enable();
     }
 
     /// Refresh the watchdog once the firmware supervisor has accepted the completed work.
     pub fn feed(&mut self) {
+        self.inner.feed();
+    }
+}
+
+/// Set MWDT0's stage-0 interval and action. The caller has checked `milliseconds`.
+fn configure(inner: &mut Wdt<TIMG0<'static>>, milliseconds: u32) {
+    inner.set_timeout(
+        MwdtStage::Stage0,
+        Duration::from_millis(u64::from(milliseconds)),
+    );
+    inner.set_stage_action(MwdtStage::Stage0, MwdtStageAction::ResetSystem);
+}
+
+impl HardwareWatchdog for Watchdog {
+    fn feed_interval(&self) -> TimeSpan {
+        TimeSpan::new(core::time::Duration::from_millis(u64::from(
+            FEED_INTERVAL_MS,
+        )))
+    }
+
+    fn feed(&mut self) {
         self.inner.feed();
     }
 }

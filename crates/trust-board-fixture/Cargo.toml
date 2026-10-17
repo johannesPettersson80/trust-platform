@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 trust-runtime-core = { path = "../trust-runtime-core", default-features = false }
+trust-platform-memory = { path = "../trust-platform-memory" }
 embedded-alloc = { version = "=0.7.0", default-features = false, features = ["llff"] }
 critical-section = "1.2.0"
 
