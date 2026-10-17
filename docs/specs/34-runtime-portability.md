@@ -739,7 +739,10 @@ its UTF-8 bytes, at most 255 bytes:
 An address is 7 bytes: the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the size (1: 1 X, 2 B, 3 W, 4 D, 5 L),
 the byte offset (4) and the bit (1, 0 unless the size is X). A line is a text exactly as `io.toml`
 writes it: a number's decimal digits, such as `17`, or a pin name, such as `PD12`. A driver whose
-name is not `gpio` carries no lines.
+name is not `gpio` carries no lines. `trust-runtime build` fills this section from the project's
+`runtime.toml` and `io.toml` with the runtime's own parsers and checks, so every value has the
+meaning and the defaults it has on a computer, and refuses a value the section cannot hold with the
+reason and without writing a record.
 
 The identities:
 

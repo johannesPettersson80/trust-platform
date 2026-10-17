@@ -550,8 +550,10 @@ GPIO parameters themselves follow these fail-closed rules:
 - the backend name is ASCII-case-insensitive: absent, `chardev`, and
   `libgpiod` select the character-device backend, while `sysfs` selects the
   compatibility backend; no other name is accepted;
-- every entry has a string `address` and a nonnegative `u32` physical `line`;
-  `pin` is a compatibility alias used only when `line` is absent;
+- every entry has a string `address` and a `line`: a nonnegative `u32` on a computer, while a
+  chip's `io.toml` names a pin of the chip (specification 34 TARGET-01), such as `PD12` or a GPIO
+  number, which a computer refuses when the driver starts because on this computer a line is a
+  number; `pin` is a compatibility alias used only when `line` is absent;
 - `invert` and output `initial` default to false and accept booleans, integer
   zero/nonzero, or strings `true`/`false`/`1`/`0`;
 - input `debounce_ms` defaults to zero and accepts a nonnegative integer or
