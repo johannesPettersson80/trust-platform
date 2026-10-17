@@ -698,7 +698,7 @@ new program, and `trust-runtime deploy` copies it with the program.
 | L − 4 | 4 | CRC-32 of bytes 0 to L − 5 |
 
 A section is a 2-byte identifier, 2 reserved bytes (0), a 4-byte payload length and the payload.
-Version 1 has these six sections, each once:
+Version 1 has these seven sections, each once:
 
 | Section | Payload |
 |---|---|
@@ -708,6 +708,38 @@ Version 1 has these six sections, each once:
 | 4 Process image | The input, output and marker image sizes in bytes and the number of I/O bindings (4 each) |
 | 5 Tasks | The task count (2) and 2 reserved bytes, then for each task in declaration order: its interval in nanoseconds (8, signed), its priority (4) and its flags (4), of which bit 0 marks an event task (`SINGLE`) and the others are 0 |
 | 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); the contract version (2, §5.2.1); the canonical uppercase name |
+| 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the task overrides, the I/O drivers and the safe state |
+
+Section 7 carries what a device without an operating system needs from the project's `runtime.toml`
+and `io.toml`: a computer reads those two files themselves at each start, and a chip never parses
+them. Its payload is, in this order, every integer little-endian and every text a 1-byte length and
+its UTF-8 bytes, at most 255 bytes:
+
+| Field | Bytes |
+|---|---|
+| Resource name | a text; empty in a record whose build did not fill this section |
+| Cycle interval | 8, unsigned, nanoseconds |
+| Control: debug enabled, then mode | 1 (0 or 1), then 1 (1 `production`, 2 `debug`) |
+| Log level | 1 (1 `error`, 2 `warn`, 3 `info`, 4 `debug`, 5 `trace`: the names the runtime's configuration parser accepts, where `warning` is `warn`) |
+| Retain: mode, then save interval | 1 (0 `none`, 1 `file`), then 8, nanoseconds |
+| Watchdog: enabled, timeout, action, hang action | 1 (0 or 1), then 8, nanoseconds, then 1 (1 `halt`, 2 `safe_halt`, 3 `restart`), then 1 (1 `fault`, 2 `abort`) |
+| Fault policy | 1 (1 `halt`, 2 `safe_halt`, 3 `restart`) |
+| Task overrides: presence | 1 (0 none, 1 present) |
+| The task overrides, when present: count | 2 |
+| Each task override: name, interval, priority, single input, program count, then its programs | a text, never empty; 8, nanoseconds; 1; a text, empty for none; 2; then each program name, a text never empty |
+| I/O drivers: count | 2 |
+| Each driver: name, enabled | a text, never empty; 1 (0 or 1) |
+| The `gpio` driver's inputs: count | 2 |
+| Each GPIO input: address, line, invert, debounce | 7; a text, never empty; 1 (0 or 1); 4, milliseconds |
+| The `gpio` driver's outputs: count | 2 |
+| Each GPIO output: address, line, invert, initial | 7; a text, never empty; 1 (0 or 1); 1 (0 or 1) |
+| Safe state: count | 2 |
+| Each entry: address, value type, then value | 7; 1 (1 `BOOL`, 2 `SINT`, 3 `INT`, 4 `DINT`, 5 `LINT`, 6 `USINT`, 7 `UINT`, 8 `UDINT`, 9 `ULINT`, 10 `BYTE`, 11 `WORD`, 12 `DWORD`, 13 `LWORD`, 14 `REAL`, 15 `LREAL`); 8, little-endian, zero-extended above the type's width |
+
+An address is 7 bytes: the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the size (1: 1 X, 2 B, 3 W, 4 D, 5 L),
+the byte offset (4) and the bit (1, 0 unless the size is X). A line is a text exactly as `io.toml`
+writes it: a number's decimal digits, such as `17`, or a pin name, such as `PD12`. A driver whose
+name is not `gpio` carries no lines.
 
 The identities:
 
@@ -728,14 +760,18 @@ admitted program with exactly the requested limits, so the program meets the sam
 target (ARCH-01).
 
 **Reading a record.** A runtime reads every record version it knows. A version-1 record has
-exactly sections 1 to 6, in that order, each payload exactly as long as its content. A runtime
+exactly sections 1 to 7, in that order, each payload exactly as long as its content. A runtime
 refuses with `RuntimeError::DeploymentRecordInvalid` and the stable code
 `runtime_deployment_record_invalid`, stating the reason, a record that is shorter than its
 lengths; that has another magic, an unknown version, a length other than the file's or above
 65,536 bytes, or a wrong CRC; that has an unknown, repeated, out-of-order or missing section, a
 section count other than its sections, or a payload of another length; that has a reserved field
 other than 0, an unknown import kind or task flag, an empty or non-UTF-8 name, or imports out of
-order or repeated; or that the device's memory cannot hold. A later version adds sections with new
+order or repeated; or that the device's memory cannot hold. Section 7 refuses in the same way: a
+code outside its list, a flag other than 0 or 1, a bit above 7 or a bit with a size other than X, an
+empty name where one is required, a text over 255 bytes or not UTF-8, a line under a driver that is
+not `gpio`, a count its payload does not hold, a payload of another length, and a safe-state value
+with a byte above its type's width that is not 0. A later version adds sections with new
 identifiers after those of version 1 and leaves the sections of version 1 as they are.
 
 **Admission (DEPLOY-04, LOAD-07, LOAD-09).** Before any state exists, a runtime checks the record
@@ -758,8 +794,8 @@ numbers involved; nothing is constructed:
 Preparation then validates the program under the requested limits (LOAD-03). Version 1 does not
 compare the configuration identity: a computer reads `runtime.toml` and `io.toml` at each start,
 so an edited configuration takes effect at the next start, as it does today, and a chip receives
-its configuration inside the record. Whether retained values fit a changed schema is decided at
-the warm start, by name (specification 11 §6.7).
+its configuration inside the record, in section 7. Whether retained values fit a changed schema is
+decided at the warm start, by name (specification 11 §6.7).
 
 **Device descriptor (COMPAT-02).** Admission reads from the device's descriptor the STBC versions
 it runs, its scheduling/I/O profiles, numeric contracts, timing-evidence class and capabilities,

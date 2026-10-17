@@ -433,6 +433,7 @@ fn admission_refuses_before_the_program_is_read() {
         process_image: ProcessImageSummary::default(),
         tasks: Vec::new(),
         imports: Vec::new(),
+        configuration: trust_runtime_core::deployment::Configuration::default(),
     };
     assert!(matches!(
         admit(&record, program, &DeviceDescriptor::hosted()),
