@@ -110,7 +110,7 @@ impl Runtime {
                     }
                     self.storage.set_retain(name, entry.value);
                 }
-                crate::debug::ForcedVarTarget::Instance(id, name) => {
+                crate::debug::ForcedVarTarget::Instance(_, id, name) => {
                     if self.storage.get_instance_var(id, name.as_str()).is_none() {
                         return Err(error::RuntimeError::UndefinedVariable(name));
                     }
@@ -139,7 +139,7 @@ impl Runtime {
                     }
                     self.storage.set_retain(name, write.value);
                 }
-                crate::debug::PendingVarTarget::Instance(id, name) => {
+                crate::debug::PendingVarTarget::Instance(_, id, name) => {
                     if self.storage.get_instance_var(id, name.as_str()).is_none() {
                         return Err(error::RuntimeError::UndefinedVariable(name));
                     }

@@ -94,6 +94,7 @@ mod tests {
         let local = ValueRef {
             location: MemoryLocation::Global,
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: Vec::new(),
         };
         context = CodegenContext::new(
@@ -124,6 +125,7 @@ mod tests {
         let local = ValueRef {
             location: MemoryLocation::Global,
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: Vec::new(),
         };
         let context = CodegenContext::new(

@@ -98,7 +98,7 @@ fn recursive_instance_field_cache_invalidates_when_child_adds_shadowing_field() 
             .copied(),
         Some(RecursiveInstanceFieldResolution {
             owner_depth: 1,
-            offset: inherited.offset,
+            offset: inherited.offset as usize,
         })
     );
 
@@ -249,31 +249,31 @@ fn direct_slot_helpers_cover_global_local_and_instance_locations() {
 
     assert_eq!(local_ref.location, MemoryLocation::Local(frame_id));
     assert!(matches!(
-        storage.read_direct_slot_by_location(MemoryLocation::Global, global_ref.offset),
+        storage.read_direct_slot_by_location(MemoryLocation::Global, global_ref.offset as usize),
         Some(&Value::DInt(1))
     ));
     assert!(matches!(
-        storage.read_direct_slot_by_location(local_ref.location, local_ref.offset),
+        storage.read_direct_slot_by_location(local_ref.location, local_ref.offset as usize),
         Some(&Value::DInt(2))
     ));
     assert!(matches!(
-        storage.read_direct_slot_by_location(instance_ref.location, instance_ref.offset),
+        storage.read_direct_slot_by_location(instance_ref.location, instance_ref.offset as usize),
         Some(&Value::DInt(3))
     ));
 
     assert!(storage.write_direct_slot_by_location(
         MemoryLocation::Global,
-        global_ref.offset,
+        global_ref.offset as usize,
         Value::DInt(11)
     ));
     assert!(storage.write_direct_slot_by_location(
         local_ref.location,
-        local_ref.offset,
+        local_ref.offset as usize,
         Value::DInt(12)
     ));
     assert!(storage.write_direct_slot_by_location(
         instance_ref.location,
-        instance_ref.offset,
+        instance_ref.offset as usize,
         Value::DInt(13)
     ));
 
@@ -305,10 +305,10 @@ fn direct_slot_helpers_match_empty_path_ref_helpers() {
 
     for reference in refs {
         let direct = storage
-            .read_direct_slot_by_location(reference.location, reference.offset)
+            .read_direct_slot_by_location(reference.location, reference.offset as usize)
             .expect("direct slot read");
         let generic = storage
-            .read_by_ref_parts(reference.location, reference.offset, &[])
+            .read_by_ref_parts(reference.location, reference.offset as usize, &[])
             .expect("generic empty-path read");
         assert_eq!(direct, generic);
     }

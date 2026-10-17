@@ -851,22 +851,25 @@ fn peek_vm_reference_path<'a>(
         .check_reference_read(reference.as_view())
         .map_err(VmTrap::Runtime)?;
     if is_current_location(reference.location, caller_frame) {
-        let root = caller_frame.locals.get(reference.offset).ok_or_else(|| {
-            VmTrap::InvalidNativeCall(
-                format!(
-                    "local reference offset {} out of range for VM frame (locals={})",
-                    reference.offset,
-                    caller_frame.locals.len()
+        let root = caller_frame
+            .locals
+            .get(reference.offset as usize)
+            .ok_or_else(|| {
+                VmTrap::InvalidNativeCall(
+                    format!(
+                        "local reference offset {} out of range for VM frame (locals={})",
+                        reference.offset,
+                        caller_frame.locals.len()
+                    )
+                    .into(),
                 )
-                .into(),
-            )
-        })?;
+            })?;
         return read_value_path_borrowed(root, path)
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference));
     }
     runtime
         .storage()
-        .read_by_ref_parts(reference.location, reference.offset, path)
+        .read_by_ref_parts(reference.location, reference.offset as usize, path)
         .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
 }
 
@@ -922,7 +925,7 @@ pub fn write_vm_reference(
         .map_err(VmTrap::Runtime)?;
     if is_current_location(reference.location, caller_frame) {
         let local_count = caller_frame.locals.len();
-        let Some(slot) = caller_frame.locals.get_mut(reference.offset) else {
+        let Some(slot) = caller_frame.locals.get_mut(reference.offset as usize) else {
             return Err(VmTrap::InvalidNativeCall(
                 format!(
                     "local reference offset {} out of range for VM frame (locals={local_count})",
@@ -949,7 +952,7 @@ pub fn write_vm_reference(
     {
         let root = runtime
             .storage()
-            .read_direct_slot_by_location(reference.location, reference.offset)
+            .read_direct_slot_by_location(reference.location, reference.offset as usize)
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
         runtime
             .before_path_write(root, &reference.path, &value)
@@ -962,7 +965,7 @@ pub fn write_vm_reference(
         .storage()
         .prepare_by_ref_parts_write(
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             &value,
         )

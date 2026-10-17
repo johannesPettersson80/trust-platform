@@ -152,6 +152,11 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         Arc::clone(&self.prepared)
     }
 
+    /// The index, in the admitted module, of the resource this controller executes.
+    pub fn resource_index(&self) -> usize {
+        self.data.resource_index
+    }
+
     /// Inspect variables without an unrestricted mutable storage escape.
     pub fn storage(&self) -> &VariableStorage {
         &self.data.storage
@@ -302,6 +307,9 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
         services: S,
         durable: Option<&crate::retain::RetainSnapshot>,
     ) -> Result<(Self, Vec<super::RetainApplyEvent>), RuntimeError> {
+        // The replacement continues this installation's lineage with the next
+        // generation, so no earlier reference names its state (spec 34 §11.3).
+        let generation = self.engine().next_generation()?;
         let congruent = super::restart::warm_graph_congruent(&self.prepared, &prepared);
         let snapshot = if congruent {
             None
@@ -319,6 +327,7 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
             &prepared,
             resource_index,
             &services,
+            generation,
             true,
             congruent.then_some(&source),
             Some(&source.data.images),

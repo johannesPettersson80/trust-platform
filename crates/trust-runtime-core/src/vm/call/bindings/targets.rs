@@ -7,7 +7,7 @@ use crate::vm::call::context::{CallContext, RegisterValueOpKind};
 use crate::vm::{materialize_borrowed_value, VmFrame, VmTrap};
 use crate::{
     error::RuntimeError,
-    memory::{InstanceId, MemoryLocation},
+    memory::{Generation, InstanceId, MemoryLocation},
     value::{normalize_assignment_for_target, Value, ValueRef},
 };
 use alloc::{format, vec::Vec};
@@ -40,6 +40,7 @@ impl VmFbOutSource {
             } => crate::value::ValueRefView {
                 location: MemoryLocation::Instance(*instance_id),
                 offset: *offset,
+                generation: runtime.storage().generation(),
                 path: &[],
             },
             Self::Reference(reference) => reference.as_view(),
@@ -88,7 +89,7 @@ impl VmWriteTarget {
     pub fn from_reference(reference: &ValueRef) -> Self {
         if is_vm_local_sentinel(reference) && reference.path.is_empty() {
             return Self::CallerLocalDirect {
-                offset: reference.offset,
+                offset: reference.offset as usize,
             };
         }
         if reference.path.is_empty() {
@@ -96,7 +97,7 @@ impl VmWriteTarget {
                 MemoryLocation::Global | MemoryLocation::Local(_) | MemoryLocation::Instance(_) => {
                     return Self::DirectStorage {
                         location: reference.location,
-                        offset: reference.offset,
+                        offset: reference.offset as usize,
                     };
                 }
                 MemoryLocation::Io(_) | MemoryLocation::Retain => {}
@@ -106,36 +107,53 @@ impl VmWriteTarget {
     }
 
     /// Borrow the resolved target path for policy checks and transaction planning.
-    pub fn reference_view(&self, caller_frame: &VmFrame) -> crate::value::ValueRefView<'_> {
+    /// A direct slot is a slot of the call's own storage, so it carries that
+    /// storage's `generation`; a reference keeps its own.
+    pub fn reference_view(
+        &self,
+        caller_frame: &VmFrame,
+        generation: Generation,
+    ) -> crate::value::ValueRefView<'_> {
         match self {
             Self::CallerLocalDirect { offset } => crate::value::ValueRefView {
                 location: MemoryLocation::Local(caller_frame.reference_frame_id()),
                 offset: *offset,
+                generation,
                 path: &[],
             },
             Self::DirectStorage { location, offset } => crate::value::ValueRefView {
                 location: *location,
                 offset: *offset,
+                generation,
                 path: &[],
             },
             Self::Reference(reference) => reference.as_view(),
         }
     }
 
-    fn reference(&self, caller_frame: &VmFrame) -> ValueRef {
-        match self {
+    fn reference(
+        &self,
+        caller_frame: &VmFrame,
+        generation: Generation,
+    ) -> Result<ValueRef, VmTrap> {
+        let slot = |offset: usize| {
+            u32::try_from(offset).map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))
+        };
+        Ok(match self {
             Self::CallerLocalDirect { offset } => ValueRef {
                 location: MemoryLocation::Local(caller_frame.reference_frame_id()),
-                offset: *offset,
+                offset: slot(*offset)?,
+                generation,
                 path: Vec::new(),
             },
             Self::DirectStorage { location, offset } => ValueRef {
                 location: *location,
-                offset: *offset,
+                offset: slot(*offset)?,
+                generation,
                 path: Vec::new(),
             },
             Self::Reference(reference) => reference.clone(),
-        }
+        })
     }
 
     /// Check destination visibility, lifetime and native-output policy.
@@ -145,8 +163,9 @@ impl VmWriteTarget {
         caller_frame: &VmFrame,
         value: &Value,
     ) -> Result<(), VmTrap> {
+        let reference = self.reference(caller_frame, runtime.storage().generation())?;
         runtime
-            .check_native_write(Some(caller_frame), &self.reference(caller_frame), value)
+            .check_native_write(Some(caller_frame), &reference, value)
             .map_err(VmTrap::Runtime)
     }
 
@@ -157,7 +176,7 @@ impl VmWriteTarget {
         caller_frame: &'a VmFrame,
     ) -> Result<&'a Value, VmTrap> {
         runtime
-            .check_reference_read(self.reference_view(caller_frame))
+            .check_reference_read(self.reference_view(caller_frame, runtime.storage().generation()))
             .map_err(VmTrap::Runtime)?;
         match self {
             Self::CallerLocalDirect { offset } => {
@@ -259,8 +278,9 @@ impl VmWriteTarget {
         value: Value,
     ) -> Result<(), VmTrap> {
         self.check_write(runtime, caller_frame, &value)?;
+        let generation = runtime.storage().generation();
         runtime
-            .before_output_write(caller_frame, self.reference_view(caller_frame))
+            .before_output_write(caller_frame, self.reference_view(caller_frame, generation))
             .map_err(VmTrap::Runtime)?;
         match self {
             Self::CallerLocalDirect { offset } => {
@@ -349,6 +369,7 @@ impl VmFbFieldBinding {
             } => crate::value::ValueRefView {
                 location: MemoryLocation::Instance(*instance_id),
                 offset: *offset,
+                generation: runtime.storage().generation(),
                 path: &[],
             },
             Self::Reference(reference) => reference.as_view(),
@@ -383,7 +404,9 @@ impl VmFbFieldBinding {
                 offset,
             } => ValueRef {
                 location: MemoryLocation::Instance(*instance_id),
-                offset: *offset,
+                offset: u32::try_from(*offset)
+                    .map_err(|_| VmTrap::Runtime(RuntimeError::Overflow))?,
+                generation: runtime.storage().generation(),
                 path: Vec::new(),
             },
             Self::Reference(reference) => reference.clone(),
@@ -411,7 +434,7 @@ impl VmFbFieldBinding {
             } => (MemoryLocation::Instance(*instance_id), *offset, &[][..]),
             Self::Reference(reference) => (
                 reference.location,
-                reference.offset,
+                reference.offset as usize,
                 reference.path.as_slice(),
             ),
         };

@@ -90,6 +90,7 @@ pub enum StableErrorCode {
     RuntimeControlError,
     RuntimeStringCapacityExceeded,
     RuntimeNonFiniteValue,
+    RuntimeImportUnsupported,
 }
 
 impl StableErrorCode {
@@ -180,6 +181,7 @@ impl StableErrorCode {
             Self::RuntimeControlError => "runtime_control_error",
             Self::RuntimeStringCapacityExceeded => "runtime_string_capacity_exceeded",
             Self::RuntimeNonFiniteValue => "runtime_non_finite_value",
+            Self::RuntimeImportUnsupported => "runtime_import_unsupported",
         }
     }
 }
@@ -311,9 +313,10 @@ mod tests {
             RuntimeControlError,
             RuntimeStringCapacityExceeded,
             RuntimeNonFiniteValue,
+            RuntimeImportUnsupported,
         ];
 
-        assert_eq!(codes.len(), 83);
+        assert_eq!(codes.len(), 84);
         for (index, code) in codes.iter().copied().enumerate() {
             assert!(
                 !codes[..index].contains(&code),
@@ -412,7 +415,8 @@ mod tests {
             | RuntimeRetainMigration
             | RuntimeControlError
             | RuntimeStringCapacityExceeded
-            | RuntimeNonFiniteValue => {}
+            | RuntimeNonFiniteValue
+            | RuntimeImportUnsupported => {}
         }
     }
 

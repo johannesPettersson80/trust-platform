@@ -18,8 +18,7 @@ impl BytecodeEncoder<'_> {
                 .allocate_global(&global.name, Some(global.type_id))?;
             let ref_idx = self.ref_index_for(&reference)?;
             let name_idx = self.strings.intern(global.name.clone());
-            let slot = u32::try_from(reference.offset)
-                .map_err(|_| BytecodeError::InvalidSection("global slot overflow".into()))?;
+            let slot = reference.offset;
             self.add_declaration(
                 StorageDeclaration {
                     owner: StorageOwner::Global,
@@ -55,8 +54,7 @@ impl BytecodeEncoder<'_> {
                 .allocate_global(&program.name, None)?;
             let ref_idx = self.ref_index_for(&reference)?;
             let name_idx = self.strings.intern(program.name.clone());
-            let slot = u32::try_from(reference.offset)
-                .map_err(|_| BytecodeError::InvalidSection("global slot overflow".into()))?;
+            let slot = reference.offset;
             self.add_declaration(
                 StorageDeclaration {
                     owner: StorageOwner::Global,
@@ -100,8 +98,7 @@ impl BytecodeEncoder<'_> {
                     .allocate_global(&name, Some(local.type_id))?;
                 let ref_idx = self.ref_index_for(&reference)?;
                 let name_idx = self.strings.intern(name);
-                let slot = u32::try_from(reference.offset)
-                    .map_err(|_| BytecodeError::InvalidSection("global slot overflow".into()))?;
+                let slot = reference.offset;
                 let source_name_idx = Some(self.strings.intern(local.name.clone()));
                 self.add_declaration(
                     StorageDeclaration {

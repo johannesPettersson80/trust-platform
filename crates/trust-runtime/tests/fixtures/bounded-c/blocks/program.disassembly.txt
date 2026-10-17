@@ -1,0 +1,266 @@
+STBC 3.0 flags=0x00000001
+SECTION 0x0001
+SECTION 0x0002
+SECTION 0x0003
+SECTION 0x0004
+SECTION 0x0005
+  POU 0 0
+    00000000: 20 00 00 00 00
+    00000005: 10 01 00 00 00
+    0000000A: 40
+    0000000B: 21 00 00 00 00
+    00000010: 23
+    00000011: 30 10 00 00 00
+    00000016: 32
+    00000017: 49
+    00000018: 23
+    00000019: 30 10 00 00 00
+    0000001E: 13
+    0000001F: 33
+    00000020: 23
+    00000021: 30 0C 00 00 00
+    00000026: 32
+    00000027: 23
+    00000028: 30 10 00 00 00
+    0000002D: 10 02 00 00 00
+    00000032: 23
+    00000033: 30 11 00 00 00
+    00000038: 23
+    00000039: 30 12 00 00 00
+    0000003E: 09 01 00 00 00 28 00 00 00 05 00 00 00
+    0000004B: 12
+    0000004C: 23
+    0000004D: 30 0C 00 00 00
+    00000052: 32
+    00000053: 23
+    00000054: 30 10 00 00 00
+    00000059: 23
+    0000005A: 30 14 00 00 00
+    0000005F: 23
+    00000060: 30 15 00 00 00
+    00000065: 32
+    00000066: 31
+    00000067: 09 01 00 00 00 29 00 00 00 03 00 00 00
+    00000074: 12
+    00000075: 23
+    00000076: 30 0D 00 00 00
+    0000007B: 32
+    0000007C: 23
+    0000007D: 30 10 00 00 00
+    00000082: 10 03 00 00 00
+    00000087: 09 01 00 00 00 2A 00 00 00 03 00 00 00
+    00000094: 12
+    00000095: 23
+    00000096: 30 0D 00 00 00
+    0000009B: 30 20 00 00 00
+    000000A0: 32
+    000000A1: 23
+    000000A2: 30 13 00 00 00
+    000000A7: 13
+    000000A8: 33
+    000000A9: 23
+    000000AA: 30 0E 00 00 00
+    000000AF: 32
+    000000B0: 23
+    000000B1: 30 10 00 00 00
+    000000B6: 10 04 00 00 00
+    000000BB: 10 05 00 00 00
+    000000C0: 09 01 00 00 00 2B 00 00 00 04 00 00 00
+    000000CD: 12
+    000000CE: 23
+    000000CF: 30 0F 00 00 00
+    000000D4: 32
+    000000D5: 23
+    000000D6: 30 10 00 00 00
+    000000DB: 09 01 00 00 00 2C 00 00 00 02 00 00 00
+    000000E8: 12
+    000000E9: 23
+    000000EA: 30 0F 00 00 00
+    000000EF: 30 17 00 00 00
+    000000F4: 32
+    000000F5: 11
+    000000F6: 03 0D 00 00 00
+    000000FB: 23
+    000000FC: 30 0E 00 00 00
+    00000101: 30 17 00 00 00
+    00000106: 32
+    00000107: 47
+    00000108: 11
+    00000109: 03 0D 00 00 00
+    0000010E: 23
+    0000010F: 30 0D 00 00 00
+    00000114: 30 17 00 00 00
+    00000119: 32
+    0000011A: 47
+    0000011B: 23
+    0000011C: 30 12 00 00 00
+    00000121: 13
+    00000122: 33
+  POU 3 1
+  POU 7 1
+  POU 26 1
+  POU 34 1
+    00000123: 23
+    00000124: 30 23 00 00 00
+    00000129: 32
+    0000012A: 04 17 00 00 00
+    0000012F: 23
+    00000130: 30 25 00 00 00
+    00000135: 32
+    00000136: 23
+    00000137: 30 24 00 00 00
+    0000013C: 32
+    0000013D: 40
+    0000013E: 23
+    0000013F: 30 25 00 00 00
+    00000144: 13
+    00000145: 33
+    00000146: 23
+    00000147: 30 23 00 00 00
+    0000014C: 32
+    0000014D: 23
+    0000014E: 30 26 00 00 00
+    00000153: 13
+    00000154: 33
+SECTION 0x0006
+SECTION 0x0007
+SECTION 0x0008
+SECTION 0x000B
+SECTION 0x000A
+SECTION 0x0009
+SECTION 0x000D
+  DECL 0 owner=Global role=Variable retain=0 flags=0 owner_pou_id=none name_idx=10 type_id=0 slot=0 ref_idx=0 default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 1 owner=Global role=ProgramRoot retain=0 flags=0 owner_pou_id=0 name_idx=11 type_id=none slot=1 ref_idx=1 default_const_idx=none construction_nodes=32 related_declaration_idx=none source_name_idx=none
+  DECL 2 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=12 type_id=1 slot=0 ref_idx=none default_const_idx=none construction_nodes=6 related_declaration_idx=none source_name_idx=none
+  DECL 3 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=13 type_id=2 slot=1 ref_idx=none default_const_idx=none construction_nodes=6 related_declaration_idx=none source_name_idx=none
+  DECL 4 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=14 type_id=3 slot=2 ref_idx=none default_const_idx=none construction_nodes=7 related_declaration_idx=none source_name_idx=none
+  DECL 5 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=15 type_id=4 slot=3 ref_idx=none default_const_idx=none construction_nodes=4 related_declaration_idx=none source_name_idx=none
+  DECL 6 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=16 type_id=5 slot=4 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 7 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=17 type_id=6 slot=5 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 8 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=18 type_id=5 slot=6 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 9 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=19 type_id=7 slot=7 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 10 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=20 type_id=8 slot=8 ref_idx=none default_const_idx=none construction_nodes=3 related_declaration_idx=none source_name_idx=none
+  DECL 11 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=21 type_id=6 slot=9 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 12 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=3 name_idx=22 type_id=5 slot=0 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 13 owner=Instance role=Parameter retain=0 flags=4 owner_pou_id=3 name_idx=23 type_id=5 slot=1 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 14 owner=Instance role=NativeState retain=0 flags=0 owner_pou_id=3 name_idx=24 type_id=5 slot=2 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 15 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=7 name_idx=25 type_id=5 slot=0 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 16 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=7 name_idx=26 type_id=5 slot=1 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 17 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=7 name_idx=27 type_id=9 slot=2 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 18 owner=Instance role=Parameter retain=0 flags=4 owner_pou_id=7 name_idx=23 type_id=5 slot=3 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 19 owner=Instance role=Parameter retain=0 flags=4 owner_pou_id=7 name_idx=28 type_id=9 slot=4 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 20 owner=Instance role=NativeState retain=0 flags=0 owner_pou_id=7 name_idx=29 type_id=5 slot=5 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 21 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=26 name_idx=30 type_id=5 slot=0 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 22 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=26 name_idx=31 type_id=7 slot=1 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 23 owner=Instance role=Parameter retain=0 flags=4 owner_pou_id=26 name_idx=23 type_id=5 slot=2 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 24 owner=Instance role=Parameter retain=0 flags=4 owner_pou_id=26 name_idx=32 type_id=7 slot=3 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 25 owner=Instance role=NativeState retain=0 flags=0 owner_pou_id=26 name_idx=33 type_id=10 slot=4 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 26 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=34 name_idx=35 type_id=5 slot=0 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 27 owner=Instance role=Parameter retain=0 flags=2 owner_pou_id=34 name_idx=36 type_id=6 slot=1 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 28 owner=Instance role=Parameter retain=0 flags=4 owner_pou_id=34 name_idx=37 type_id=6 slot=2 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 29 owner=Instance role=Parameter retain=0 flags=4 owner_pou_id=34 name_idx=38 type_id=5 slot=3 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 30 owner=Instance role=EdgePhase retain=0 flags=16 owner_pou_id=34 name_idx=39 type_id=5 slot=4 ref_idx=none default_const_idx=0 construction_nodes=1 related_declaration_idx=26 source_name_idx=none
+SECTION 0x000E
+  ROOT 0 declaration_idx=0 binding_ref_idx=0 instance_owner_id=none parent_root_idx=none template_pou_id=none flags=0
+  ROOT 1 declaration_idx=1 binding_ref_idx=1 instance_owner_id=0 parent_root_idx=none template_pou_id=0 flags=0
+  ROOT 2 declaration_idx=2 binding_ref_idx=2 instance_owner_id=1 parent_root_idx=1 template_pou_id=34 flags=0
+  ROOT 3 declaration_idx=3 binding_ref_idx=8 instance_owner_id=2 parent_root_idx=1 template_pou_id=26 flags=0
+  ROOT 4 declaration_idx=4 binding_ref_idx=14 instance_owner_id=3 parent_root_idx=1 template_pou_id=7 flags=0
+  ROOT 5 declaration_idx=5 binding_ref_idx=21 instance_owner_id=4 parent_root_idx=1 template_pou_id=3 flags=0
+SECTION 0x000F
+  INIT 0 declaration_idx=0 owner_pou_id=none result_ref_idx=31 code_offset=341 code_length=10 visible_local_count=0 visible_static_count=0 phase=Resource once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000155: 66 00 00 00 00
+    0000015A: 21 1F 00 00 00
+  INIT 1 declaration_idx=0 owner_pou_id=none result_ref_idx=32 code_offset=351 code_length=15 visible_local_count=0 visible_static_count=0 phase=Resource once=None stage=Explicit trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000015F: 10 06 00 00 00
+    00000164: 68 00 00 00 00
+    00000169: 21 20 00 00 00
+  INIT 2 declaration_idx=2 owner_pou_id=0 result_ref_idx=33 code_offset=366 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000016E: 66 01 00 00 00
+    00000173: 21 21 00 00 00
+  INIT 3 declaration_idx=3 owner_pou_id=0 result_ref_idx=34 code_offset=376 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000178: 66 02 00 00 00
+    0000017D: 21 22 00 00 00
+  INIT 4 declaration_idx=4 owner_pou_id=0 result_ref_idx=35 code_offset=386 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000182: 66 03 00 00 00
+    00000187: 21 23 00 00 00
+  INIT 5 declaration_idx=5 owner_pou_id=0 result_ref_idx=36 code_offset=396 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000018C: 66 04 00 00 00
+    00000191: 21 24 00 00 00
+  INIT 6 declaration_idx=6 owner_pou_id=0 result_ref_idx=37 code_offset=406 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000196: 66 05 00 00 00
+    0000019B: 21 25 00 00 00
+  INIT 7 declaration_idx=7 owner_pou_id=0 result_ref_idx=38 code_offset=416 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001A0: 66 06 00 00 00
+    000001A5: 21 26 00 00 00
+  INIT 8 declaration_idx=8 owner_pou_id=0 result_ref_idx=39 code_offset=426 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001AA: 66 05 00 00 00
+    000001AF: 21 27 00 00 00
+  INIT 9 declaration_idx=9 owner_pou_id=0 result_ref_idx=40 code_offset=436 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001B4: 66 07 00 00 00
+    000001B9: 21 28 00 00 00
+  INIT 10 declaration_idx=10 owner_pou_id=0 result_ref_idx=41 code_offset=446 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001BE: 66 08 00 00 00
+    000001C3: 21 29 00 00 00
+  INIT 11 declaration_idx=11 owner_pou_id=0 result_ref_idx=42 code_offset=456 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001C8: 66 06 00 00 00
+    000001CD: 21 2A 00 00 00
+  INIT 12 declaration_idx=6 owner_pou_id=0 result_ref_idx=43 code_offset=466 code_length=15 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Explicit trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001D2: 10 07 00 00 00
+    000001D7: 68 05 00 00 00
+    000001DC: 21 2B 00 00 00
+  INIT 13 declaration_idx=11 owner_pou_id=0 result_ref_idx=44 code_offset=481 code_length=15 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Explicit trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=12 recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001E1: 10 08 00 00 00
+    000001E6: 68 06 00 00 00
+    000001EB: 21 2C 00 00 00
+  INIT 14 declaration_idx=12 owner_pou_id=3 result_ref_idx=45 code_offset=496 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001F0: 66 05 00 00 00
+    000001F5: 21 2D 00 00 00
+  INIT 15 declaration_idx=13 owner_pou_id=3 result_ref_idx=46 code_offset=506 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    000001FA: 66 05 00 00 00
+    000001FF: 21 2E 00 00 00
+  INIT 16 declaration_idx=15 owner_pou_id=7 result_ref_idx=47 code_offset=516 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000204: 66 05 00 00 00
+    00000209: 21 2F 00 00 00
+  INIT 17 declaration_idx=16 owner_pou_id=7 result_ref_idx=48 code_offset=526 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000020E: 66 05 00 00 00
+    00000213: 21 30 00 00 00
+  INIT 18 declaration_idx=17 owner_pou_id=7 result_ref_idx=49 code_offset=536 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000218: 66 09 00 00 00
+    0000021D: 21 31 00 00 00
+  INIT 19 declaration_idx=18 owner_pou_id=7 result_ref_idx=50 code_offset=546 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000222: 66 05 00 00 00
+    00000227: 21 32 00 00 00
+  INIT 20 declaration_idx=19 owner_pou_id=7 result_ref_idx=51 code_offset=556 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000022C: 66 09 00 00 00
+    00000231: 21 33 00 00 00
+  INIT 21 declaration_idx=21 owner_pou_id=26 result_ref_idx=52 code_offset=566 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000236: 66 05 00 00 00
+    0000023B: 21 34 00 00 00
+  INIT 22 declaration_idx=22 owner_pou_id=26 result_ref_idx=53 code_offset=576 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000240: 66 07 00 00 00
+    00000245: 21 35 00 00 00
+  INIT 23 declaration_idx=23 owner_pou_id=26 result_ref_idx=54 code_offset=586 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000024A: 66 05 00 00 00
+    0000024F: 21 36 00 00 00
+  INIT 24 declaration_idx=24 owner_pou_id=26 result_ref_idx=55 code_offset=596 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000254: 66 07 00 00 00
+    00000259: 21 37 00 00 00
+  INIT 25 declaration_idx=26 owner_pou_id=34 result_ref_idx=56 code_offset=606 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000025E: 66 05 00 00 00
+    00000263: 21 38 00 00 00
+  INIT 26 declaration_idx=27 owner_pou_id=34 result_ref_idx=57 code_offset=616 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000268: 66 06 00 00 00
+    0000026D: 21 39 00 00 00
+  INIT 27 declaration_idx=28 owner_pou_id=34 result_ref_idx=58 code_offset=626 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000272: 66 06 00 00 00
+    00000277: 21 3A 00 00 00
+  INIT 28 declaration_idx=29 owner_pou_id=34 result_ref_idx=59 code_offset=636 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000027C: 66 05 00 00 00
+    00000281: 21 3B 00 00 00
+  INIT 29 declaration_idx=27 owner_pou_id=34 result_ref_idx=60 code_offset=646 code_length=15 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Explicit trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000286: 10 09 00 00 00
+    0000028B: 68 06 00 00 00
+    00000290: 21 3C 00 00 00
+  INIT 30 declaration_idx=30 owner_pou_id=34 result_ref_idx=61 code_offset=0 code_length=0 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+SECTION 0x0010

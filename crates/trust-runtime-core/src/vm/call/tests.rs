@@ -108,7 +108,7 @@ impl ReferenceContext for TestContext {
         reference: crate::value::ValueRefView<'_>,
         value: &Value,
     ) -> Result<(), RuntimeError> {
-        self.check_native_write(None, &reference.to_owned(), value)
+        self.check_native_write(None, &reference.to_owned()?, value)
     }
     fn initializer_reference<'a>(
         &self,
@@ -216,6 +216,7 @@ fn native_reference_read_charges_wide_string_unicode_scan() {
     let reference = ValueRef {
         location: MemoryLocation::Global,
         offset: 0,
+        generation: context.storage.generation(),
         path: vec![RefSegment::Index(vec![1])],
     };
     // TIME-08 TEXT: 64 two-byte characters = 128 bytes, charged at 2 per byte = 256.
@@ -338,6 +339,7 @@ fn reference(frame: &VmFrame) -> ValueRef {
     ValueRef {
         location: MemoryLocation::Local(frame.activation.unwrap()),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     }
 }

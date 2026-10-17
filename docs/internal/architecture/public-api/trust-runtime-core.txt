@@ -692,6 +692,15 @@ pub trust_runtime_core::error::ExecutionLimitKind::ConstructedValues
 pub trust_runtime_core::error::ExecutionLimitKind::Work
 impl core::fmt::Display for trust_runtime_core::error::ExecutionLimitKind
 pub fn trust_runtime_core::error::ExecutionLimitKind::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum trust_runtime_core::error::ImportRefusal
+pub trust_runtime_core::error::ImportRefusal::NoContract
+pub trust_runtime_core::error::ImportRefusal::OutputTarget
+pub trust_runtime_core::error::ImportRefusal::ParameterCount
+pub trust_runtime_core::error::ImportRefusal::ParameterName
+pub trust_runtime_core::error::ImportRefusal::ParameterType
+pub trust_runtime_core::error::ImportRefusal::StateLayout
+impl core::fmt::Display for trust_runtime_core::error::ImportRefusal
+pub fn trust_runtime_core::error::ImportRefusal::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime_core::error::PreparationDiagnostic
 pub trust_runtime_core::error::PreparationDiagnostic::ConstantCount
 pub trust_runtime_core::error::PreparationDiagnostic::ConstantCount::expected: usize
@@ -754,6 +763,9 @@ pub trust_runtime_core::error::RuntimeError::ExecutionLimit::requested: usize
 pub trust_runtime_core::error::RuntimeError::ExecutionLimit::used: usize
 pub trust_runtime_core::error::RuntimeError::ExecutionTimeout
 pub trust_runtime_core::error::RuntimeError::ForStepZero
+pub trust_runtime_core::error::RuntimeError::ImportUnsupported
+pub trust_runtime_core::error::RuntimeError::ImportUnsupported::import: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::ImportUnsupported::reason: trust_runtime_core::error::ImportRefusal
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::index: i64
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::lower: i64
@@ -835,6 +847,8 @@ impl core::convert::From<trust_runtime_core::datetime::DateTimeCalcError> for tr
 pub fn trust_runtime_core::error::RuntimeError::from(_: trust_runtime_core::datetime::DateTimeCalcError) -> Self
 impl core::convert::From<trust_runtime_core::error::RuntimeError> for trust_runtime_core::vm::VmTrap
 pub fn trust_runtime_core::vm::VmTrap::from(value: trust_runtime_core::error::RuntimeError) -> Self
+impl core::convert::From<trust_runtime_core::retain::checkpoint::CheckpointError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::retain::checkpoint::CheckpointError) -> Self
 impl core::convert::From<trust_runtime_core::value::DateTimeError> for trust_runtime_core::error::RuntimeError
 pub fn trust_runtime_core::error::RuntimeError::from(value: trust_runtime_core::value::DateTimeError) -> Self
 impl core::convert::From<trust_runtime_core::value::PartialAccessError> for trust_runtime_core::error::RuntimeError
@@ -868,6 +882,7 @@ pub trust_runtime_core::error::StableErrorCode::RuntimeDateTimeRange
 pub trust_runtime_core::error::StableErrorCode::RuntimeDivisionByZero
 pub trust_runtime_core::error::StableErrorCode::RuntimeExecutionTimeout
 pub trust_runtime_core::error::StableErrorCode::RuntimeForStepZero
+pub trust_runtime_core::error::StableErrorCode::RuntimeImportUnsupported
 pub trust_runtime_core::error::StableErrorCode::RuntimeIndexOutOfBounds
 pub trust_runtime_core::error::StableErrorCode::RuntimeInitFailed
 pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidAlias
@@ -957,6 +972,7 @@ pub trust_runtime_core::error_code::StableErrorCode::RuntimeDateTimeRange
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeDivisionByZero
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeExecutionTimeout
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeForStepZero
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeImportUnsupported
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeIndexOutOfBounds
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeInitFailed
 pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidAlias
@@ -1101,6 +1117,10 @@ pub fn trust_runtime_core::memory::AccessMap::bind_with_mode(&mut self, name: sm
 pub fn trust_runtime_core::memory::AccessMap::bindings(&self) -> impl core::iter::traits::iterator::Iterator<Item = &trust_runtime_core::memory::AccessBinding>
 pub fn trust_runtime_core::memory::AccessMap::get(&self, name: &str) -> core::option::Option<&trust_runtime_core::memory::AccessBinding>
 pub struct trust_runtime_core::memory::FrameId(pub u32)
+pub struct trust_runtime_core::memory::Generation(pub u32)
+impl trust_runtime_core::memory::Generation
+pub const trust_runtime_core::memory::Generation::FIRST: Self
+pub fn trust_runtime_core::memory::Generation::next(self) -> core::option::Option<Self>
 pub struct trust_runtime_core::memory::InstanceData
 pub trust_runtime_core::memory::InstanceData::parent: core::option::Option<trust_runtime_core::memory::InstanceId>
 pub trust_runtime_core::memory::InstanceData::type_name: smol_str::SmolStr
@@ -1159,6 +1179,7 @@ pub fn trust_runtime_core::memory::VariableStorage::resume_execution_frame(&mut 
 pub fn trust_runtime_core::memory::VariableStorage::suspend_execution_frame(&mut self, id: trust_runtime_core::memory::FrameId, locals: &mut alloc::vec::Vec<trust_runtime_core::value::Value>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::memory::VariableStorage::suspended_execution_values(&self) -> impl core::iter::traits::iterator::Iterator<Item = &trust_runtime_core::value::Value>
 impl trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::generation(&self) -> trust_runtime_core::memory::Generation
 pub fn trust_runtime_core::memory::VariableStorage::get_global(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
 pub fn trust_runtime_core::memory::VariableStorage::get_retain(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
 pub fn trust_runtime_core::memory::VariableStorage::globals(&self) -> &trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
@@ -1331,6 +1352,85 @@ pub fn trust_runtime_core::program_model::method_static_storage_owner(owner: &sm
 pub fn trust_runtime_core::program_model::property_setter_method_name(property: &smol_str::SmolStr) -> smol_str::SmolStr
 pub fn trust_runtime_core::program_model::static_storage_name(owner: &smol_str::SmolStr, name: &smol_str::SmolStr) -> smol_str::SmolStr
 pub mod trust_runtime_core::retain
+pub mod trust_runtime_core::retain::checkpoint
+pub enum trust_runtime_core::retain::checkpoint::CheckpointError
+pub trust_runtime_core::retain::checkpoint::CheckpointError::BufferTooSmall
+pub trust_runtime_core::retain::checkpoint::CheckpointError::BufferTooSmall::needed: u32
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Corrupt(trust_runtime_core::retain::checkpoint::Corruption)
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Exhausted
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Flash(trust_runtime_core::retain::checkpoint::FlashError)
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Geometry
+pub trust_runtime_core::retain::checkpoint::CheckpointError::NoWrite
+pub trust_runtime_core::retain::checkpoint::CheckpointError::NotErased
+pub trust_runtime_core::retain::checkpoint::CheckpointError::PayloadChanged
+pub trust_runtime_core::retain::checkpoint::CheckpointError::TooLarge
+pub trust_runtime_core::retain::checkpoint::CheckpointError::TooLarge::len: usize
+pub trust_runtime_core::retain::checkpoint::CheckpointError::TooLarge::max: u32
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Verify
+pub trust_runtime_core::retain::checkpoint::CheckpointError::WriteInProgress
+impl core::convert::From<trust_runtime_core::retain::checkpoint::CheckpointError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::retain::checkpoint::CheckpointError) -> Self
+pub enum trust_runtime_core::retain::checkpoint::Corruption
+pub trust_runtime_core::retain::checkpoint::Corruption::Payload
+pub trust_runtime_core::retain::checkpoint::Corruption::RecordHeader
+pub trust_runtime_core::retain::checkpoint::Corruption::SlotHeader
+impl core::fmt::Display for trust_runtime_core::retain::checkpoint::Corruption
+pub fn trust_runtime_core::retain::checkpoint::Corruption::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum trust_runtime_core::retain::checkpoint::FlashError
+pub trust_runtime_core::retain::checkpoint::FlashError::Erase
+pub trust_runtime_core::retain::checkpoint::FlashError::Program
+pub trust_runtime_core::retain::checkpoint::FlashError::Read
+pub enum trust_runtime_core::retain::checkpoint::Progress
+pub trust_runtime_core::retain::checkpoint::Progress::Committed(trust_runtime_core::retain::checkpoint::RecordInfo)
+pub trust_runtime_core::retain::checkpoint::Progress::Pending
+pub enum trust_runtime_core::retain::checkpoint::Slot
+pub trust_runtime_core::retain::checkpoint::Slot::A
+pub trust_runtime_core::retain::checkpoint::Slot::B
+impl trust_runtime_core::retain::checkpoint::Slot
+pub const fn trust_runtime_core::retain::checkpoint::Slot::other(self) -> Self
+pub struct trust_runtime_core::retain::checkpoint::CheckpointIdentity
+pub trust_runtime_core::retain::checkpoint::CheckpointIdentity::application: [u8; 16]
+pub trust_runtime_core::retain::checkpoint::CheckpointIdentity::schema: [u8; 16]
+pub struct trust_runtime_core::retain::checkpoint::CheckpointLog<F>
+impl<F: trust_runtime_core::retain::checkpoint::CheckpointFlash> trust_runtime_core::retain::checkpoint::CheckpointLog<F>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::append(&mut self, identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity, payload: &[u8]) -> core::result::Result<trust_runtime_core::retain::checkpoint::RecordInfo, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::begin(&mut self, identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity, payload: &[u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::geometry(&self) -> trust_runtime_core::retain::checkpoint::FlashGeometry
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::newest(&mut self) -> core::result::Result<core::option::Option<trust_runtime_core::retain::checkpoint::RecordInfo>, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::open(flash: F) -> core::result::Result<Self, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::recover(&mut self, payload: &mut [u8]) -> core::result::Result<core::option::Option<trust_runtime_core::retain::checkpoint::RecordInfo>, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::step(&mut self, payload: &[u8], max_program_bytes: usize) -> core::result::Result<trust_runtime_core::retain::checkpoint::Progress, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub struct trust_runtime_core::retain::checkpoint::FlashGeometry
+impl trust_runtime_core::retain::checkpoint::FlashGeometry
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::commit_len(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::erase_unit(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::erase_units(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::first_record_offset(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::max_payload_len(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::new(program_unit: u32, erase_unit: u32, slot_len: u32) -> core::result::Result<Self, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::program_unit(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::record_len(self, payload_len: u32) -> core::option::Option<u32>
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::slot_len(self) -> u32
+pub struct trust_runtime_core::retain::checkpoint::RecordInfo
+pub trust_runtime_core::retain::checkpoint::RecordInfo::identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity
+pub trust_runtime_core::retain::checkpoint::RecordInfo::payload_len: u32
+pub trust_runtime_core::retain::checkpoint::RecordInfo::sequence: u64
+pub const trust_runtime_core::retain::checkpoint::COMMIT_MARKER: [u8; 4]
+pub const trust_runtime_core::retain::checkpoint::FORMAT_VERSION: u16
+pub const trust_runtime_core::retain::checkpoint::RECORD_HEADER_LEN: u32
+pub const trust_runtime_core::retain::checkpoint::RECORD_MAGIC: [u8; 4]
+pub const trust_runtime_core::retain::checkpoint::SLOT_HEADER_LEN: u32
+pub const trust_runtime_core::retain::checkpoint::SLOT_MAGIC: [u8; 4]
+pub trait trust_runtime_core::retain::checkpoint::CheckpointFlash
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::erase(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::geometry(&self) -> trust_runtime_core::retain::checkpoint::FlashGeometry
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::program(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &[u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::read(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &mut [u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+impl<T: trust_runtime_core::retain::checkpoint::CheckpointFlash + ?core::marker::Sized> trust_runtime_core::retain::checkpoint::CheckpointFlash for &mut T
+pub fn &mut T::erase(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn &mut T::geometry(&self) -> trust_runtime_core::retain::checkpoint::FlashGeometry
+pub fn &mut T::program(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &[u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn &mut T::read(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &mut [u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
 pub enum trust_runtime_core::retain::RestartMode
 pub trust_runtime_core::retain::RestartMode::Cold
 pub trust_runtime_core::retain::RestartMode::Warm
@@ -1360,6 +1460,47 @@ pub trust_runtime_core::scheduler::ResourceState::Ready
 pub trust_runtime_core::scheduler::ResourceState::Running
 pub trust_runtime_core::scheduler::ResourceState::Stopped
 pub mod trust_runtime_core::stdlib
+pub mod trust_runtime_core::stdlib::contracts
+pub enum trust_runtime_core::stdlib::contracts::FbParameterType
+pub trust_runtime_core::stdlib::contracts::FbParameterType::Bool
+pub trust_runtime_core::stdlib::contracts::FbParameterType::Count
+pub trust_runtime_core::stdlib::contracts::FbParameterType::Duration
+pub enum trust_runtime_core::stdlib::contracts::FunctionSignature
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Clock
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Conversion
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Registered(&'static trust_runtime_core::stdlib::StdParams)
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Split(&'static [&'static str])
+pub enum trust_runtime_core::stdlib::contracts::ImportAllocation
+pub trust_runtime_core::stdlib::contracts::ImportAllocation::NoText
+pub trust_runtime_core::stdlib::contracts::ImportAllocation::TextResult
+pub enum trust_runtime_core::stdlib::contracts::ImportCapability
+pub trust_runtime_core::stdlib::contracts::ImportCapability::WallClock
+pub enum trust_runtime_core::stdlib::contracts::ImportWork
+pub trust_runtime_core::stdlib::contracts::ImportWork::Binding
+pub trust_runtime_core::stdlib::contracts::ImportWork::TextArguments
+pub struct trust_runtime_core::stdlib::contracts::FbParameter
+pub trust_runtime_core::stdlib::contracts::FbParameter::name: &'static str
+pub trust_runtime_core::stdlib::contracts::FbParameter::output: bool
+pub trust_runtime_core::stdlib::contracts::FbParameter::ty: trust_runtime_core::stdlib::contracts::FbParameterType
+pub struct trust_runtime_core::stdlib::contracts::FunctionBlockImport
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::contract: &'static trust_runtime_core::stdlib::contracts::ImportContract
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::kind: trust_runtime_core::stdlib::fbs::BuiltinFbKind
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::parameters: &'static [trust_runtime_core::stdlib::contracts::FbParameter]
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::state: &'static [(&'static str, u16)]
+impl trust_runtime_core::stdlib::contracts::FunctionBlockImport
+pub fn trust_runtime_core::stdlib::contracts::FunctionBlockImport::primitive(&self, ty: trust_runtime_core::stdlib::contracts::FbParameterType) -> u16
+pub struct trust_runtime_core::stdlib::contracts::FunctionImport
+pub trust_runtime_core::stdlib::contracts::FunctionImport::contract: &'static trust_runtime_core::stdlib::contracts::ImportContract
+pub trust_runtime_core::stdlib::contracts::FunctionImport::signature: trust_runtime_core::stdlib::contracts::FunctionSignature
+pub struct trust_runtime_core::stdlib::contracts::ImportContract
+pub trust_runtime_core::stdlib::contracts::ImportContract::allocation: trust_runtime_core::stdlib::contracts::ImportAllocation
+pub trust_runtime_core::stdlib::contracts::ImportContract::capability: core::option::Option<trust_runtime_core::stdlib::contracts::ImportCapability>
+pub trust_runtime_core::stdlib::contracts::ImportContract::failures: &'static [trust_runtime_core::error_code::StableErrorCode]
+pub trust_runtime_core::stdlib::contracts::ImportContract::version: u16
+pub trust_runtime_core::stdlib::contracts::ImportContract::work: trust_runtime_core::stdlib::contracts::ImportWork
+pub fn trust_runtime_core::stdlib::contracts::function(name: &str) -> core::option::Option<trust_runtime_core::stdlib::contracts::FunctionImport>
+pub fn trust_runtime_core::stdlib::contracts::function_block(name: &str) -> core::option::Option<trust_runtime_core::stdlib::contracts::FunctionBlockImport>
+pub fn trust_runtime_core::stdlib::contracts::registered() -> impl core::iter::traits::iterator::Iterator<Item = (&'static str, trust_runtime_core::stdlib::contracts::FunctionImport)>
 pub mod trust_runtime_core::stdlib::conversions
 pub enum trust_runtime_core::stdlib::conversions::ConversionSpec
 pub trust_runtime_core::stdlib::conversions::ConversionSpec::BcdTo
@@ -1912,17 +2053,19 @@ pub fn trust_runtime_core::value::TimeOfDayValue::ticks(self) -> i64
 impl trust_runtime_core::value::TimeOfDayValue
 pub fn trust_runtime_core::value::TimeOfDayValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
 pub struct trust_runtime_core::value::ValueRef
+pub trust_runtime_core::value::ValueRef::generation: trust_runtime_core::memory::Generation
 pub trust_runtime_core::value::ValueRef::location: trust_runtime_core::memory::MemoryLocation
-pub trust_runtime_core::value::ValueRef::offset: usize
+pub trust_runtime_core::value::ValueRef::offset: u32
 pub trust_runtime_core::value::ValueRef::path: trust_runtime_core::value::RefPath
 impl trust_runtime_core::value::ValueRef
 pub fn trust_runtime_core::value::ValueRef::as_view(&self) -> trust_runtime_core::value::ValueRefView<'_>
 pub struct trust_runtime_core::value::ValueRefView<'a>
+pub trust_runtime_core::value::ValueRefView::generation: trust_runtime_core::memory::Generation
 pub trust_runtime_core::value::ValueRefView::location: trust_runtime_core::memory::MemoryLocation
 pub trust_runtime_core::value::ValueRefView::offset: usize
 pub trust_runtime_core::value::ValueRefView::path: &'a [trust_runtime_core::value::RefSegment]
 impl trust_runtime_core::value::ValueRefView<'_>
-pub fn trust_runtime_core::value::ValueRefView<'_>::to_owned(self) -> trust_runtime_core::value::ValueRef
+pub fn trust_runtime_core::value::ValueRefView<'_>::to_owned(self) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::value::array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> core::option::Option<usize>
 pub fn trust_runtime_core::value::checked_array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::value::combine_date_and_tod(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
@@ -2068,6 +2211,7 @@ pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::read_reference(&mut self, r
 pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::reset_task_timing(&mut self, time: trust_runtime_core::value::Duration)
 pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::resolve_access_reference(&mut self, name: &str) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::resolve_persistent_reference(&mut self, index: u32) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::resource_index(&self) -> usize
 pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::restart(&mut self, mode: trust_runtime_core::retain::RestartMode) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::restart_with_retain_snapshot(&mut self, mode: trust_runtime_core::retain::RestartMode, snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::vm::RetainApplyEvent>, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::retain_snapshot(&mut self) -> core::result::Result<trust_runtime_core::retain::RetainSnapshot, trust_runtime_core::error::RuntimeError>

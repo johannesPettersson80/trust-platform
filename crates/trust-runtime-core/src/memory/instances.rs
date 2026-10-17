@@ -169,19 +169,30 @@ impl VariableStorage {
     }
 
     pub fn ref_for_global(&self, name: &str) -> Option<crate::value::ValueRef> {
-        ref_for_map(&self.globals, MemoryLocation::Global, name)
+        ref_for_map(&self.globals, MemoryLocation::Global, self.generation, name)
     }
 
     pub fn ref_for_local(&self, name: &str) -> Option<crate::value::ValueRef> {
         let frame = self.current_frame()?;
-        ref_for_map(&frame.variables, MemoryLocation::Local(frame.id), name)
+        ref_for_map(
+            &frame.variables,
+            MemoryLocation::Local(frame.id),
+            self.generation,
+            name,
+        )
     }
 
     pub fn ref_for_instance(&self, id: InstanceId, name: &str) -> Option<crate::value::ValueRef> {
         let offset = self.cached_instance_field_offset(id, name)?;
+        self.instance_field_ref(id, offset)
+    }
+
+    /// A reference of this generation to one instance slot.
+    fn instance_field_ref(&self, id: InstanceId, offset: usize) -> Option<crate::value::ValueRef> {
         Some(crate::value::ValueRef {
             location: MemoryLocation::Instance(id),
-            offset,
+            offset: u32::try_from(offset).ok()?,
+            generation: self.generation,
             path: RefPath::new(),
         })
     }
@@ -194,11 +205,7 @@ impl VariableStorage {
         let field_name = name;
         if let Some(resolution) = self.cached_recursive_instance_field_resolution(id, field_name) {
             let owner = self.resolve_ancestor_instance(id, resolution.owner_depth)?;
-            return Some(crate::value::ValueRef {
-                location: MemoryLocation::Instance(owner),
-                offset: resolution.offset,
-                path: RefPath::new(),
-            });
+            return self.instance_field_ref(owner, resolution.offset);
         }
 
         let mut current = Some(id);
@@ -210,11 +217,7 @@ impl VariableStorage {
                     offset,
                 };
                 self.cache_recursive_instance_field_resolution(id, field_name, resolution);
-                return Some(crate::value::ValueRef {
-                    location: MemoryLocation::Instance(instance_id),
-                    offset,
-                    path: RefPath::new(),
-                });
+                return self.instance_field_ref(instance_id, offset);
             }
             current = self
                 .instances
@@ -336,11 +339,7 @@ impl VariableStorage {
         name: &str,
     ) -> Option<crate::value::ValueRef> {
         let offset = self.declared_instance_field_offset(id, name)?;
-        Some(crate::value::ValueRef {
-            location: MemoryLocation::Instance(id),
-            offset,
-            path: RefPath::new(),
-        })
+        self.instance_field_ref(id, offset)
     }
 
     pub fn resolved_instance_field_ref(

@@ -38,7 +38,8 @@ mod tests {
         let instance = *instance;
         harness.runtime_mut().cycle_counter = 9;
         let debug = harness.runtime_mut().enable_debug();
-        debug.force_instance(instance, "count", Value::Int(99));
+        let generation = harness.runtime().storage().generation();
+        debug.force_instance(generation, instance, "count", Value::Int(99));
         harness
             .runtime_mut()
             .set_retain_store(Some(Box::new(FailedStore)), None);

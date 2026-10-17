@@ -196,11 +196,13 @@ fn rejected_management_requests_leave_the_owner_executable_and_destination_uncha
                     access.storage().get_global("probe_depth"),
                     Some(&Value::Int(1))
                 );
+                let generation = access.storage().generation();
                 assert!(access
                     .write_reference(
                         ValueRefView {
                             location: MemoryLocation::Global,
                             offset: usize::MAX,
+                            generation,
                             path: &[]
                         },
                         Value::Int(7)

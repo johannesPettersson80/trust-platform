@@ -7,14 +7,9 @@ const BODY_V1: &str = "FUNCTION_BLOCK CounterFb VAR count : DINT := DINT#3; END_
     marker := marker + DINT#1; END_PROGRAM";
 
 /// Spec 34 UPDATE-04 and §4.3.1: a checked write through an instance reference resolved before a supported code replacement is rejected with ReferenceLifetime, leaving the new generation unchanged.
-// EXPECTED-FAIL (spec 34 UPDATE-04): instance ids restart at 0 in every candidate storage
-// (crates/trust-runtime-core/src/memory/instances.rs:11-14; crates/trust-runtime-core/src/vm/engine/mod.rs:224
-// `VariableStorage::new()`; initialization/construction.rs:31-35 reserves roots first), and `ValueRef` carries no
-// generation (crates/trust-runtime-core/src/value/reference.rs:23-30). The old `block` id therefore names the
-// new generation's block, so the write is accepted. crates/trust-runtime-core/src/vm/engine/owned.rs:437-438
-// documents that callers must re-resolve bindings instead.
+/// The replacement storage gives its block the same instance id again; the reference's generation
+/// (spec 34 §11.3) is what refuses it.
 #[test]
-#[ignore = "MEM-07/UPDATE-04: references carry no generation before or after H; generation tokens belong to scope C (spec 34 §4.3.1, UPDATE-03 to UPDATE-08)"]
 fn stale_instance_reference_across_a_body_replacement_is_rejected_without_side_effects() {
     let mut installed = CompileSession::from_source(BODY_V1)
         .build_runtime()

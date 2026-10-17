@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.22 — several runtimes per host, chip files, and the rules found while building the shared services
+- **Version:** 0.23 — the checkpoint log in the chips' flash, and the built-in import contracts
 - **Date:** 17 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -443,7 +443,7 @@ deviation. It preserves the full PLC function set on every platform.
 | Installed controller, including RUN, debugger pause and STOP | Declared storage layout/schema, executable types and code remain admitted and immutable for that installation. Existing supported value and instance operations remain permitted under admitted capacities and lifetime rules. No public API or adapter-trait call may return unrestricted mutable storage or installed TYPE_TABLE access. STOP or a debugger pause alone does not turn installed state into an authoring object. Ordinary PLC value updates remain permitted through checked operations. |
 | Live value writes and forces | Use the single engine owner and existing cycle/debugger write boundaries. Preserve authorization, one-time write versus persistent-force behavior, and existing input/output image timing under CYCLE-05/06. Ordinary supported writes shall not require STOP, restart or re-admission. Synchronous owner-local calls may commit at an existing permitted boundary; remote requests use bounded staging/queues where the profile requires them. |
 | Code, declarations, types or storage layout changes | Build and validate an isolated candidate outside bounded RUN. Replace only through §11.3's hosted boundary and warm-restart/retain policy, or §11.2's stopped MCU installation. A failed candidate leaves the installed state executable and unchanged. No implicit first-use preparation or recompilation may repair a live mutation. |
-| Resource-only task, image extent or direct-I/O binding reconfiguration | Admit a candidate with unchanged executable code, constants, reference identities, types, declarations, construction/default recipes and access policy. Stage scheduler metadata, reset task readiness to the current logical time and sample each SINGLE input as its initial event baseline when replacing task/resource metadata (binding-only edits preserve readiness), and resize flat images with intersection preservation and zero-filled growth. Commit only after binding and safe-output validation. Keep the same PLC storage, instance IDs, non-retained and retained values, hierarchical images, fault, logical time, cycle counters, register observations, stable debugger thread identities and pending debugger requests. Do not rerun initializers, replace the PLC graph, or clone the full store. Failure preserves the installed resource and images. This is the existing hosted resource-update behavior, distinct from code/schema replacement. |
+| Resource-only task, image extent or direct-I/O binding reconfiguration | Admit a candidate with unchanged executable code, constants, reference identities, types, declarations, construction/default recipes and access policy. Stage scheduler metadata, reset task readiness to the current logical time and sample each SINGLE input as its initial event baseline when replacing task/resource metadata (binding-only edits preserve readiness), and resize flat images with intersection preservation and zero-filled growth. Commit only after binding and safe-output validation. Keep the same PLC storage and installation generation (§11.3), so every reference stays valid, the same instance IDs, non-retained and retained values, hierarchical images, fault, logical time, cycle counters, register observations, stable debugger thread identities and pending debugger requests. Do not rerun initializers, replace the PLC graph, or clone the full store. Failure preserves the installed resource and images. This is the existing hosted resource-update behavior, distinct from code/schema replacement. |
 | Debug expression parsing | Use separate authoring/scratch types and immutable installed metadata for lookup. Parsing an expression shall not extend or alter the installed executable type table. Any resulting write goes through the same checked live-write path. Compiler-dependent expression authoring remains in the selected development service, not the runtime-only graph. |
 
 Retained checkpoint capture is also a checked owner operation. The hosted
@@ -508,7 +508,13 @@ is distinguishable from deterministic resource exhaustion.
 Queue acceptance is distinct from application of a write. A staged request shall
 be checked against the active destination and binding again at its commit
 boundary; a request targeting a replaced or retired destination shall be rejected
-unless an existing supported checked rebinding operation applies. Queue exhaustion
+unless an existing supported checked rebinding operation applies. A request that
+names a destination by name is bound to that name at its boundary. A request that
+names an instance by its identity keeps the installation generation (§11.3) in
+which that identity was resolved, and its boundary rejects it with
+`ReferenceLifetime` when another generation is installed, so a restart or
+replacement in between cannot redirect it to the instance that now has that
+identity. Queue exhaustion
 shall return an explicit failure without applying the request; the hosted control
 surface bounds its pending writes and forces at 1,024 entries each and refuses
 further requests with `request queue full` (specification 11, runtime control I/O
@@ -743,9 +749,90 @@ conservative admission metrics, not allocator peak, RSS, elapsed time or WCET;
 allocator overhead, error diagnostics and native stack still require measured
 profile headroom in Scope B. Validation retains its independent scratch/work
 limits. Executable native imports must resolve to the shared standard-library or
-POU implementation; built-in FB signatures and hidden state must match the native
-contract. CURRENT_DT additionally requires an explicitly supplied wall-clock
+POU implementation, and every built-in import must match its contract (§5.2.1),
+a built-in FB's signature and hidden state included. CURRENT_DT additionally requires an explicitly supplied wall-clock
 service before instance construction; a logical-only composition rejects it.
+
+### 5.2.1 Built-in import contracts
+
+LOAD-06 and PORT-02 are met for the built-in imports by one contract table in
+`trust-runtime-core` (`stdlib::contracts`), the same on every target; no built-in
+import is host-only. The standard-library registration stays the one list of
+registered functions: each registered family names its contract there. Conversions,
+date/time splits, the runtime clocks and the standard function blocks keep their
+recognizers, and each kind they recognize has one contract. A native test compares
+the table with the registration entry by entry.
+
+Every contract in the table is version 1; a change to any rule of a contract issues
+a new version. A contract states:
+
+- **Signature.** A registered function takes the parameters of its registration: a
+  fixed list, or fixed parameters followed by a numbered variadic suffix with a
+  minimum count (specification 07). A conversion takes one input `IN`. A split takes
+  `IN` and then its outputs, each a writable target. A clock takes no parameter. A
+  standard function block declares its IEC parameters, each with its direction and
+  type, and the hidden native state of specification 12 §11.5.5.
+- **Work.** What TIME-08 charges beyond the call's instructions. A registered function
+  or a conversion charges its argument binding and 1 unit per byte of its STRING and
+  WSTRING arguments before the body runs; a clock, a split or a function block charges
+  its argument binding only. A call has at most 1,024 native arguments (specification
+  12 §4.6), and a text argument is bounded by its declared capacity or by the
+  allocation allowance.
+- **Allocation.** Whether the call can return a STRING or WSTRING result, which
+  TIME-08 charges as a new value: 1 unit and its bytes of allocation.
+- **Blocking.** None. Every built-in import returns without waiting for a device, a
+  lock or a service other than the clock it is given.
+- **Failure.** The stable codes its implementation can return for a call that matches
+  its signature. The engine's binding and reference checks (specification 12 §7.7 and
+  §7.8) apply to every call besides.
+- **Profile.** CURRENT_DT requires the platform wall clock (§5.2). No other built-in
+  import requires a capability.
+
+| Family | Imports | IEC 61131-3 Ed.3 | Text | Failures |
+|---|---|---|---|---|
+| Numeric | ABS, SQRT, LN, LOG, EXP, SIN, COS, TAN, ASIN, ACOS, ATAN, ATAN2, ADD, SUB, MUL, DIV, MOD, EXPT, MOVE | Tables 28 and 29; ADD, SUB, MUL and DIV of durations and dates: Table 35 | arguments charged; MOVE returns text | type mismatch, overflow, division by zero, modulo by zero, date/time range, argument count (ADD and MUL with a time operand take exactly two inputs) |
+| Bit | SHL, SHR, ROL, ROR, AND, OR, XOR, NOT | Tables 30 and 31 | arguments charged | type mismatch |
+| Selection | SEL, MAX, MIN, LIMIT, MUX | Table 32; enumerations: Table 38 | arguments charged; text results | type mismatch, overflow, index out of bounds |
+| Comparison | GT, GE, EQ, LE, LT, NE | Table 33; enumerations: Table 38 | arguments charged | type mismatch |
+| String | LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE, FIND; the assignment helper `__TRUST_LIMIT_STRING` (specification 07 §8.1) | Table 34 | arguments charged; text results | type mismatch, overflow |
+| Time | ADD_TIME, ADD_LTIME, ADD_TOD_TIME, ADD_LTOD_LTIME, ADD_DT_TIME, ADD_LDT_LTIME, the twelve SUB_ functions, MUL_TIME, MUL_LTIME, DIV_TIME, DIV_LTIME; CONCAT_DATE, CONCAT_DATE_TOD, CONCAT_DATE_LTOD, CONCAT_TOD, CONCAT_LTOD, CONCAT_DT, CONCAT_LDT, DAY_OF_WEEK | Tables 35 and 36 | arguments charged | type mismatch, overflow, division by zero, date/time range |
+| Validate | IS_VALID, IS_VALID_BCD | Table 39 | arguments charged | type mismatch |
+| Assertions | ASSERT_TRUE, ASSERT_FALSE, ASSERT_EQUAL, ASSERT_NOT_EQUAL, ASSERT_GREATER, ASSERT_LESS, ASSERT_GREATER_OR_EQUAL, ASSERT_LESS_OR_EQUAL, ASSERT_NEAR (specification 07, a truST test extension) | none | arguments charged | assertion failed, type mismatch, overflow |
+| Conversion | every name of a Table 22 conversion form | Tables 22 to 27 | arguments charged; text results | type mismatch, overflow |
+| Split | SPLIT_DATE, SPLIT_TOD, SPLIT_LTOD, SPLIT_DT, SPLIT_LDT | Table 36 | binding only | type mismatch, overflow |
+| Clock | TIME, CURRENT_DT (specification 07, truST clock sources) | none | binding only | none for TIME; overflow for CURRENT_DT |
+| Bistable | RS, SR | Table 43 | binding only | type mismatch |
+| Edge detection | R_TRIG, F_TRIG, and their other names DIFU and DIFD | Table 44 | binding only | type mismatch |
+| Counters | CTU, CTD, CTUD and their _INT, _DINT, _LINT, _UDINT and _ULINT variants | Table 45 | binding only | type mismatch |
+| Timers | TP, TON, TOF and their _TIME and _LTIME variants | Table 46 | binding only | type mismatch |
+
+The failures are the stable codes `runtime_type_mismatch`, `runtime_overflow`,
+`runtime_division_by_zero`, `runtime_modulo_by_zero`, `runtime_date_time_range`,
+`runtime_invalid_argument_count`, `runtime_index_out_of_bounds` and
+`runtime_assertion_failed`.
+
+**Admission.** A standard-library descriptor resolves in the order the call
+dispatcher runs it: a clock, a split, a conversion, then a registered function.
+Before any state exists, preparation refuses the artifact (LOAD-03, ARCH-06,
+DEPLOY-04) when:
+
+- a standard-library descriptor names no contract;
+- its argument count does not fit the signature (a fixed list takes exactly its
+  parameters, a variadic one at least its minimum), or its argument names do not fit
+  the parameters: an unknown or repeated name, a gap in a variadic suffix, or named
+  and positional arguments in one call (specification 12 §7.7);
+- a split output is not a writable target;
+- a function-block template that carries a standard function block's name declares
+  other parameters than its contract, in number, name, direction or type, or other
+  hidden native state.
+
+The refusal is `RuntimeError::ImportUnsupported` with the stable code
+`runtime_import_unsupported`. It names the import by its canonical uppercase name and
+states which part of the contract it fails, for example `unsupported import 'TON': a
+parameter's type or direction differs from the contract`. A call of the artifact's
+own function, function block or method resolves to that POU and has no built-in
+contract. When a deployment record (§5.1) names the contract version of a required
+import, admission refuses a version other than the runtime's.
 
 ### 5.3 Validated construction and admission evidence
 
@@ -1410,6 +1497,90 @@ For hosted bounded operation, capture a coherent checkpoint in admitted prealloc
 
 The reviewed hosted cycle can call `maybe_save_retain_store()` before normal output writes. The initial extraction preserves this behavior in hosted compatibility compositions. The bounded profile above deliberately changes failure/acknowledgment timing and needs its own release notes and tests; it is not a behavior-preserving file move. A compatibility build retaining unbounded persistence shall not claim bounded-profile compliance. [R12]
 
+### 10.1 Checkpoint log in flash
+
+A chip keeps its retain checkpoints in the two checkpoint slots of its chip file, `checkpoint_a`
+and `checkpoint_b` (Appendix H). This section defines how they are written and read: the chips'
+form of RETAIN-01 and RETAIN-02. Both are the same whichever persistence policy decides when a
+chip writes a checkpoint. The shared core implements them (`retain::checkpoint` in
+`trust-runtime-core`); the platform adapter only reads, programs and erases its flash.
+
+**Flash.** A slot is one or more whole erase units: one 16 KiB sector on the STM32F407 (sectors 2
+and 3) and four 4 KiB sectors on the ESP32-C6 (`memory.spi_flash.erase_kib`). Erasing sets every
+byte to 0xFF. A program writes whole program units at multiples of the unit, 4 bytes on both
+chips: the F407 programs 32-bit words, the parallelism of its 2.7 to 3.6 V supply (RM0090), and
+`esp-storage` 0.10.0 writes 4-byte words. A program only clears bits; it never sets a bit back
+to 1. The log programs only units that read as erased, so it programs each unit at most once
+between two erases.
+
+**Slot header.** A slot holds records only after its erase has completed and its header has been
+programmed. The header is the slot's first 16 bytes:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | Magic `TRCS` |
+| 4 | 2 | Format version, 1 |
+| 6 | 2 | Reserved, 0 |
+| 8 | 4 | Slot epoch: one more than the highest epoch of either slot when this one was formatted |
+| 12 | 4 | CRC-32 of bytes 0 to 11 |
+
+**Record.** The records follow the header, each starting at the next multiple of the program unit:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | Magic `TRCK` |
+| 4 | 2 | Format version, 1 |
+| 6 | 2 | Flags, 0 |
+| 8 | 8 | Checkpoint sequence: one more than the highest sequence in either slot |
+| 16 | 16 | Application identity: the first 16 bytes of the bytecode hash in the deployment record (§5.1) |
+| 32 | 16 | Retain-schema identity: the first 16 bytes of the retain-schema identity in the deployment record (§5.1) |
+| 48 | 4 | Payload length R, in bytes |
+| 52 | 4 | CRC-32 of the payload |
+| 56 | 4 | Reserved, 0 |
+| 60 | 4 | CRC-32 of bytes 0 to 59 |
+| 64 | C | Commit marker: `DONE`, repeated to fill C, the larger of 4 bytes and the program unit |
+| 64 + C | R | Payload: the retained values as the retain codec encodes them (specification 11 §6.7) |
+| 64 + C + R | | 0xFF up to the next multiple of the program unit |
+
+Integers are little-endian. CRC-32 is CRC-32/ISO-HDLC, as in STBC and the retain file on a
+computer. The commit marker has a fixed place after the header, so whether a record was committed
+can be read even when its header is damaged. With 4-byte units a record takes 68 + R bytes, R
+rounded up to a multiple of 4: a 16 KiB slot takes records of up to 16,300 payload bytes, and
+⌊16,368 / (68 + R)⌋ records before it is erased again. The sequence counts checkpoints; it is not
+an execution generation (RETAIN-01).
+
+**Writing.** A checkpoint is written in this order: the record header, the payload, a read-back of
+everything the write programmed, and the commit marker last. It goes after the last record of the
+slot with the highest epoch, when that slot's log is not ended by a failing header and the record
+fits in the erased space after it. Otherwise the log erases a slot unit by unit, programs its
+header with the next epoch and writes the record there. It erases the slot that does not hold the
+newest committed record; when neither slot holds one, the slot without the highest epoch, or
+`checkpoint_a` when neither slot has a header. The slot that holds the newest committed record is
+thus never erased, and no write programs over another record, so a write or an erase interrupted
+at any byte leaves the previous checkpoint readable. Each erase of a unit and each program is a
+step of its own, so a write can be spread over the time between cycles.
+
+**Recovery.** At start the log reads each slot's records in order, from the first:
+
+- A record is committed when its commit marker reads exactly as written, and valid when its header
+  and its payload also pass their checks.
+- A record whose header is valid but whose commit marker is not is absent: its write was
+  interrupted, and the slot's log continues after it.
+- A record whose header fails its check ends the slot's log.
+- The newest committed record is the last committed record of the slot with the highest epoch that
+  has one.
+
+A warm start loads the newest committed record when it is valid. When its header or its payload
+fails its check, the warm start fails, as it does for a damaged retain file on a computer
+(specification 11 §6.7); an older record is not loaded in its place. A slot whose header fails its
+check holds no log, but its records are read as well: when one of them is a valid committed record
+with a higher sequence than the newest committed record, or there is no newest committed record,
+the warm start fails too, because that slot's header is damaged. Otherwise, without a newest
+committed record, the store is empty, as a missing retain file is. A commit marker damaged after
+its write cannot be told from one whose write was interrupted, so its record is absent and the
+record before it is loaded. The sequence and the identities come back with the payload; the
+retained values are matched by name, as for the retain file (specification 11 §6.7).
+
 ## 11. Services and deployment
 
 ### 11.1 Non-control services
@@ -1510,6 +1681,8 @@ The boundary is the existing semantic transition point, not a claim that warm in
 **UPDATE-03.** Account for preparation, coherent state/retain snapshot or copying, restart, publication, and output transition separately. Timing and state-transfer costs at the switch shall fit the admitted maintenance/update window or use an explicitly approved pause/STOP workflow. Preserve existing hosted functionality in the compatibility profile while resolving any bounded-profile conflict; do not describe an unbounded switch as a bounded scan.
 
 **UPDATE-04.** PLC handles, debugger/export references, cached lookups, and service bindings shall carry or be validated against the applicable generation/lifetime. A stale reference shall fail explicitly unless a supported, checked rebinding operation intentionally replaces it. Define token wrap/reuse and restart/identity behavior; a repeated counter value shall not let an old handle alias an unrelated generation.
+
+**Installation generations (MEM-07, UPDATE-04).** Every value reference carries the installation generation of the storage it was taken in. Instantiating an application starts its first generation. Each committed warm or cold restart and each committed replacement of the installed application constructs the next generation, on every target. A resource-only reconfiguration (§4.3.1) keeps the storage, the generation and every reference. A refused restart or candidate changes no generation. The generation is a 32-bit counter of one installation that never wraps and is never reused: once it is exhausted, a further restart or replacement is refused with `Overflow` before anything changes, which takes 2^32 − 1 restarts and replacements of one installation. A reference of another generation names no state. A storage read through it returns nothing; a checked read, write or function-block execution refuses it with `ReferenceLifetime` before any change; and no checked write or PLC assignment stores it, so every reference the PLC holds belongs to the installed generation. The warm-restart transfer of a retained reference (§11.3 above) binds it to the new generation, which is the checked rebinding this requirement allows; a copy of the same reference held outside the PLC stays stale. A host binds the references it holds, such as engineering aliases, task function blocks, I/O binding records and protocol client points, to the same declarations again when a restart or replacement commits and before the next cycle. If a declaration of the restarted application no longer resolves, the controller faults (UPDATE-07). A staged request that names an instance by identity carries its generation (§4.3.1). The check is one 32-bit comparison, independent of pointer width.
 
 **UPDATE-05.** Retired module and state storage shall remain valid until all permitted execution, debugging, and export readers release it. Reclamation, last-owner destruction, and deallocation shall not run on a bounded control path. Use an appropriate ownership/pinning or snapshot mechanism; the design does not mandate a lock-free algorithm or a separate process.
 
@@ -2398,6 +2571,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.23 | 17 October 2026 | §10.1: the checkpoint log in the chips' two checkpoint slots: the slot header, the record with its commit marker, the order of a write, and recovery, in which a damaged newest committed record fails the warm start, as a damaged retain file does on a computer. Appendix H: the checkpoint slots refer to §10.1. §5.2.1: the version-1 contract of every built-in function and function block (LOAD-06, PORT-02), with its IEC table, TIME-08 charges, failures and capability; preparation refuses an import without a contract or one that does not match it with `runtime_import_unsupported`, naming the import. §4.3.1 and §11.3 (MEM-07, UPDATE-04): every reference carries the installation generation it was taken in; each committed restart and replacement installs the next one, a resource-only reconfiguration keeps it, and exhaustion refuses the restart with `Overflow`; a reference of another generation names no state, a staged request that names an instance by identity carries its generation, and the host binds its own references again at each restart. |
 | 0.22 | 17 October 2026 | ARCH-15: several runtimes on every host (owner, 17 October 2026). STATE-08 states the device runner's boundary rules: `restart` after `shutdown` starts the program as a new trust-runtime process would, a `restart` while running, paused or faulted restarts in place as trust-runtime does, and pause, resume, restart and shutdown take effect at the program's next boundary. TARGET-04: the USB source is a passive listing. TARGET-06: a wall-clock value is `null` while the device time is not set. §10: a variable located at `%M` publishes its initial or retained value over the bytes it covers after the configuration actions (specification 11 §6.7). HOST-02, §4.3.1, §6.2.1 and §17 A4: activation and per-call instance identities are reused per top-level execution entry, which removes the `Overflow` fault after 2^32 − 1 activations; they stay monotonic within an entry. Appendix D.2: the ESP-IDF v5.5.1 QIO bootloader. Appendix D.4: the STM32F407 adapter, the crystal measurement, the console and the evidence profile. Appendix H: the chip file format of TARGET-03. |
 | 0.21 | 16 October 2026 | Owner corrections: adds the owner's requirements; the boards run the same runtime services as trust-runtime (ARCH-11) over any link (ARCH-12) without limits of their own (ARCH-13); ARCH-14 makes the runtime a set of components and gives each chip one firmware with every component it can hold, development boards being examples only; STATE-07 replaces the board restriction on forcing and breakpoints; removes the stopped-only installation, the physical commissioning authorization, the disabled radios and the exclusion of online change and protocol parity, which the v0.3 draft carried without the owner's approval; ARCH-02 now requires shared service code instead of excluding it; the STM32 target becomes the STM32F407 chip, firmware is developed for chips rather than boards, and network runtimes are found by the common discovery (ARCH-10, ARCH-12, Appendix D.4); adds Bluetooth as a link and a service, and §11.4: the same project files as Linux, `device.toml` for the settings an operating system holds, chip description files (one firmware per chip, no board files), installation and update of truST, versions, time, diagnostics and safe outputs (TARGET-01 to TARGET-09); SERVICE-03 selects one shared OPC UA implementation for every target; SERVICE-04 and SERVICE-05 put OpenOT telemetry (over the network) and simulation on the chips; TARGET-10 records that chips get no read-out protection. |
 | 0.16 | 13 October 2026 | Owner-approved decision makes the 16 KiB F401 upper-flash growth target informational for hardware bring-up; the executable-region bound, sector reservations, and all other memory gates remain enforced. |
@@ -2846,7 +3020,7 @@ KiB.
 | | `bootloader`, `partition_table` | `esp32` only: the second-stage boot loader and the partition table. |
 | | `firmware` | The truST firmware. |
 | | `application` | The separately installed application (DEPLOY-01). |
-| | `checkpoint_a`, `checkpoint_b` | The two checkpoint slots of the retain store, so that an interrupted write keeps the last good checkpoint (RETAIN-02). |
+| | `checkpoint_a`, `checkpoint_b` | The two checkpoint slots of the retain store, so that an interrupted write keeps the last good checkpoint (RETAIN-02); §10.1 defines their contents. |
 | `[interfaces]` | `usb`, `ethernet`, `wifi`, `bluetooth`, `uart`, `can`, `spi`, `i2c`, `adc`, `dac`, `timers`, `pwm` | The chip's peripherals of each kind, by the manufacturer's names. An empty list means the chip has none. An Ethernet PHY and other wiring belong to the board. |
 | `[gpio]` | `ports` | `stm32f4` only: `{ port, pins }` for each GPIO port, its pins counted from 0; a pin is named like `PD12`. |
 | | `pins` | `esp32` only: the number of GPIOs, `GPIO0` upwards; a pin is named like `GPIO18`. |

@@ -27,7 +27,7 @@ impl EngineState<'_> {
             let parent = self
                 .data
                 .storage
-                .read_by_ref_parts(reference.location, reference.offset, prefix)
+                .read_by_ref_parts(reference.location, reference.offset as usize, prefix)
                 .ok_or(RuntimeError::NullReference)?;
             // Reading one character scans the text up to its index: TEXT (TIME-08).
             let text_length = match (parent, last) {
@@ -77,6 +77,9 @@ impl EngineState<'_> {
         &self,
         reference: ValueRefView<'_>,
     ) -> Result<(), RuntimeError> {
+        // A handle from before a restart or replacement is refused before any other
+        // check or charge (spec 34 §11.3, MEM-07, UPDATE-04).
+        self.check_generation(reference.generation)?;
         match reference.location {
             crate::memory::MemoryLocation::Local(id) => {
                 if !self.data.storage.execution_frame_is_live(id) {
@@ -159,7 +162,7 @@ impl EngineState<'_> {
         self.charge_storage_path_write(
             &self.data.storage,
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             &value,
         )?;
@@ -292,7 +295,7 @@ impl EngineState<'_> {
         self.charge_storage_path_write(
             &self.data.storage,
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             &value,
         )?;
@@ -546,7 +549,7 @@ mod tests {
             .charge_storage_path_write(
                 &state.data.storage,
                 reference.location,
-                reference.offset,
+                reference.offset as usize,
                 &reference.path,
                 &input,
             )

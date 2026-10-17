@@ -2,7 +2,10 @@ use alloc::{string::String, vec, vec::Vec};
 
 use smol_str::SmolStr;
 
-use crate::{error::RuntimeError, memory::MemoryLocation};
+use crate::{
+    error::RuntimeError,
+    memory::{Generation, MemoryLocation},
+};
 
 /// Reference path segment within composite values.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -19,12 +22,20 @@ pub type RefIndices = Vec<i64>;
 pub type RefPath = Vec<RefSegment>;
 
 /// Reference to a value in memory.
+///
+/// A reference belongs to the installation generation of the storage it was
+/// taken in (specification 34 §11.3). A reference of another generation names
+/// no state: storage reads through it return nothing and checked operations
+/// refuse it with [`RuntimeError::ReferenceLifetime`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ValueRef {
     /// Memory area that owns the referenced root value.
     pub location: MemoryLocation,
-    /// Slot offset within the owning memory area.
-    pub offset: usize,
+    /// Slot offset within the owning memory area. A slot index needs no more
+    /// than 32 bits on any target, which keeps the reference the same size.
+    pub offset: u32,
+    /// Installation generation of the storage the reference was taken in.
+    pub generation: Generation,
     /// Nested path from the root value to the referenced sub-value.
     pub path: RefPath,
 }
@@ -36,18 +47,22 @@ pub struct ValueRefView<'a> {
     pub location: MemoryLocation,
     /// Physical root slot.
     pub offset: usize,
+    /// Installation generation of the storage the reference was taken in.
+    pub generation: Generation,
     /// Borrowed compound path.
     pub path: &'a [RefSegment],
 }
 
 impl ValueRefView<'_> {
     /// Materialize an address when the program explicitly creates a reference.
-    pub fn to_owned(self) -> ValueRef {
-        ValueRef {
+    /// A slot beyond the 32-bit reference domain fails with `Overflow`.
+    pub fn to_owned(self) -> Result<ValueRef, RuntimeError> {
+        Ok(ValueRef {
             location: self.location,
-            offset: self.offset,
+            offset: u32::try_from(self.offset).map_err(|_| RuntimeError::Overflow)?,
+            generation: self.generation,
             path: self.path.into(),
-        }
+        })
     }
 }
 
@@ -56,7 +71,8 @@ impl ValueRef {
     pub fn as_view(&self) -> ValueRefView<'_> {
         ValueRefView {
             location: self.location,
-            offset: self.offset,
+            offset: self.offset as usize,
+            generation: self.generation,
             path: &self.path,
         }
     }

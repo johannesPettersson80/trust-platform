@@ -95,7 +95,7 @@ impl EngineState<'_> {
                 .charge_storage_path_write(
                     &self.data.storage,
                     reference.location,
-                    reference.offset,
+                    reference.offset as usize,
                     &reference.path,
                     &value,
                 )
@@ -105,7 +105,7 @@ impl EngineState<'_> {
                         .storage
                         .prepare_by_ref_parts_write(
                             reference.location,
-                            reference.offset,
+                            reference.offset as usize,
                             &reference.path,
                             &value,
                         )?

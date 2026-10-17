@@ -110,9 +110,13 @@ impl StructuralBindings {
                 format!("duplicate global binding '{name}'").into(),
             ));
         }
+        // An authoring reference names a declaration of the artifact under construction,
+        // which belongs to no installation; it uses the first generation.
         let reference = ValueRef {
             location: crate::memory::MemoryLocation::Global,
-            offset: self.globals.len(),
+            offset: u32::try_from(self.globals.len())
+                .map_err(|_| BytecodeError::InvalidSection("global slot overflow".into()))?,
+            generation: crate::memory::Generation::FIRST,
             path: Vec::new(),
         };
         self.globals.insert(key, reference.clone());
@@ -158,7 +162,10 @@ impl StructuralBindings {
         }
         let reference = ValueRef {
             location: crate::memory::MemoryLocation::Instance(owner),
-            offset: instance.fields.len(),
+            offset: u32::try_from(instance.fields.len()).map_err(|_| {
+                BytecodeError::InvalidSection("instance field slot overflow".into())
+            })?,
+            generation: crate::memory::Generation::FIRST,
             path: Vec::new(),
         };
         instance.fields.insert(key, reference.clone());

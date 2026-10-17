@@ -1284,6 +1284,15 @@ case-insensitively. Runtime clock functions accept exactly zero arguments.
 Integer output helpers preserve the target's declared integer width and reject
 a negative value for unsigned storage before writing.
 
+Source-free preparation applies these rules once, before any state exists: every
+standard-library descriptor and every function-block template that carries a
+standard function block's name is checked against its built-in import contract
+(specification 34 §5.2.1). A descriptor without a contract, an argument count or
+argument name these rules would not bind, a split output that is not a writable
+target, and a template whose parameters or hidden native state (§11.5.5) differ from
+the contract are refused with `runtime_import_unsupported`, naming the import. The
+execution-time binding checks remain.
+
 A native-call symbol descriptor contains the target followed by ordered `E`
 expression and `T` writable-target descriptors, each optionally carrying a
 formal name. Payload decoding preserves descriptor and argument order,
@@ -2143,6 +2152,8 @@ For source-free execution, runtime protection failures have distinct stable iden
 `runtime_program_root_replacement` and `runtime_invalid_alias`. Actual value-type
 mismatches and null dereferences retain their existing type/null codes. A valid
 artifact unsupported by the selected profile reports `runtime_profile_unsupported`;
+an import without a built-in contract, or one that does not match its contract
+(specification 34 §5.2.1), reports `runtime_import_unsupported` and names the import;
 preparation-limit exhaustion reports `runtime_preparation_limit`. Decoder allocation
 and work exhaustion report `bytecode_decode_memory_limit` and
 `bytecode_decode_work_limit`, rather than malformed-header errors. Defensive

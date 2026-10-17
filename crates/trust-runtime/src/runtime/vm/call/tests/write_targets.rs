@@ -194,6 +194,7 @@ fn vm_write_target_uses_caller_local_direct_for_empty_path_vm_locals() {
     let reference = ValueRef {
         location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: RefPath::new(),
     };
     let target = VmWriteTarget::from_reference(&reference);
@@ -235,6 +236,7 @@ fn vm_write_target_keeps_nested_path_targets_on_reference_fallback() {
     let reference = ValueRef {
         location: MemoryLocation::Global,
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: [RefSegment::Field(SmolStr::new("VALUE"))]
             .into_iter()
             .collect(),
@@ -272,6 +274,7 @@ fn read_vm_target_value_matches_generic_reference_path_across_reference_shapes()
     let nested_ref = ValueRef {
         location: struct_ref.location,
         offset: struct_ref.offset,
+        generation: struct_ref.generation,
         path: [RefSegment::Field(SmolStr::new("VALUE"))]
             .into_iter()
             .collect(),
@@ -297,6 +300,7 @@ fn read_vm_target_value_matches_generic_reference_path_across_reference_shapes()
     let local_ref = ValueRef {
         location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: RefPath::new(),
     };
 
@@ -385,6 +389,7 @@ fn write_vm_reference_updates_nested_vm_local_path() {
     let reference = ValueRef {
         location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: [RefSegment::Field(SmolStr::new("VALUE"))]
             .into_iter()
             .collect(),

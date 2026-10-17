@@ -475,6 +475,7 @@ fn typed_host_write_rejects_references_hidden_in_an_aggregate() {
         vec![Value::Reference(Some(ValueRef {
             location: MemoryLocation::Local(FrameId(u32::MAX)),
             offset: 0,
+            generation: state.storage().generation(),
             path: vec![],
         }))],
         vec![(1, 1)],

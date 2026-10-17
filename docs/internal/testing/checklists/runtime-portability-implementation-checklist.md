@@ -20,9 +20,9 @@ owner tests and approves, and only then is anything released. Nothing is done wh
 below is open.
 
 C — Bounded operation (M3), shared by both chips:
-- [ ] C1 Bounded compound storage: retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
+- [ ] C1 Bounded compound storage (17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
   compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the chips.
-- [ ] C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
+- [x] (Closed 17 Oct by C2-0 and C2-1. Builder batches c1-1 to c1-3: `checked_admission_stale_binding` and `restart_generation_stale_handles` run un-ignored and pass with `restart_generation_queued_write` and `restart_generation_online_change`; `generation_handles` passes on the std, no-std and i686 lanes; workspace Clippy with all features is clean.) C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
   online change; the two ignored tests (`checked_admission_stale_binding.rs`,
   `restart_generation_stale_handles.rs`) run and pass. Closes the scope C deferral item below.
   - [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder). `activation_identity_reuse` passed after its fixture stopped naming a variable `step`, an IEC keyword.) C2-0, a defect found by the C1–C5 design (`~/projects/.artifacts/bounded-c/design.md`
@@ -43,9 +43,9 @@ C — Bounded operation (M3), shared by both chips:
       reuses handles from an earlier pause gets an error rather than the current pause's activation
       with that number.
 - [ ] C3 Fixed diagnostics and fault records: bounded, allocation-free, readable after a fault.
-- [ ] C4 Import and admission bounds, and capability and deployment records (including the
+- [ ] C4 Import and admission bounds (17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-1 deployment record, C4-3 demand, C4-4 descriptor), and capability and deployment records (including the
   HOST-02 deployment-level limit record).
-- [ ] C5 Persistence: retain variables survive a power cut through checkpoints in each chip's
+- [ ] C5 Persistence (17 Oct: C5-1 done. The checkpoint log is specified in spec 34 §10.1, with a cut at every byte of every program and erase recovering the previous checkpoint. Open: C5-2 capture, C5-3 persist, C5-4 chip drivers and bench power cuts. Policy decided: D-C5-1 in `~/projects/.artifacts/bounded-c/decisions.md`): retain variables survive a power cut through checkpoints in each chip's
   reserved flash, with interrupted-write recovery.
 
 S — Shared runtime services (ARCH-11, ARCH-14): the same code on every target, built with and
@@ -278,7 +278,14 @@ T — Targets (spec 34 §11.4):
 - [ ] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
   (TARGET-08).
 
-QS — STM32F407 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE):
+QS — STM32F407 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE).
+Paused by the owner on 17 October 2026: "then we wait with stm32".
+- The estimates in `~/projects/.artifacts/s1b/design.md` §4 show the F407 (192 KiB RAM) holds the
+  engine and the control connection but not every component.
+- Paused until the owner resumes it: QS1–QS4, L2, S10, H1 and the F407 track of S1b (S1b-8, S1b-9).
+- The F407 port stays as written; CI checks its build.
+- The chip work continues on the ESP32-C6, and the shared services, bounded operation and
+  Devices & Connections work continue unchanged.
 - [ ] QS1 The STM32F407 boots into its controlled state and runs the installed project with every
   item of S, L1 (and L2 on a board with an Ethernet PHY) and T.
 - [ ] QS2 Retain on the F407, using C5.

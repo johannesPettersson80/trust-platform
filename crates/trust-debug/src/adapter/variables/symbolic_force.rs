@@ -42,7 +42,7 @@ impl DebugAdapter {
                 let Some(RuntimeValue::Instance(id)) = storage.get_global(name.as_ref()) else {
                     return None;
                 };
-                ForcedVarTarget::Instance(*id, field.clone())
+                ForcedVarTarget::Instance(storage.generation(), *id, field.clone())
             }
             _ => return None,
         };
@@ -100,6 +100,7 @@ impl DebugAdapter {
                         .session
                         .debug_control()
                         .try_force_instance(
+                            storage.generation(),
                             instance_id,
                             field.clone(),
                             value.ok_or("missing force value")?,

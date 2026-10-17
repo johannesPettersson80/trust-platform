@@ -5,7 +5,7 @@ use super::{
 };
 use crate::bytecode::{InitializationOnce, InitializerEntry, ResourceEntry};
 use crate::error::RuntimeError;
-use crate::memory::{FrameId, InstanceId, VariableStorage};
+use crate::memory::{FrameId, Generation, InstanceId, VariableStorage};
 use crate::task::TaskState;
 use crate::value::{DateTimeProfile, Duration, Value, ValueRef};
 use alloc::{
@@ -162,11 +162,22 @@ impl<'a> EngineState<'a> {
             prepared,
             resource_index,
             services,
+            Generation::FIRST,
             false,
             None,
             None,
             Duration::ZERO,
         )
+    }
+
+    /// The generation a restart or replacement of this state constructs. An
+    /// exhausted counter refuses it before anything changes (spec 34 §11.3).
+    fn next_generation(&self) -> Result<Generation, RuntimeError> {
+        self.data
+            .storage
+            .generation()
+            .next()
+            .ok_or(RuntimeError::Overflow)
     }
 
     // Construct the engine record in its own short frame. Building it in place in
@@ -178,11 +189,15 @@ impl<'a> EngineState<'a> {
         services: &dyn ExecutionServices,
         resource: ResourceEntry,
         resource_index: usize,
+        generation: Generation,
         after_restart: bool,
         now: Duration,
     ) -> Box<EngineData> {
         #[cfg(not(feature = "register-ir"))]
         let _ = services;
+        let mut storage = VariableStorage::new();
+        // Every reference construction creates belongs to this generation.
+        storage.set_generation(generation);
         Box::new(EngineData {
             construction_complete: false,
             resources: ExecutionResources {
@@ -222,7 +237,7 @@ impl<'a> EngineState<'a> {
                 instance_lifetimes: InstanceLifetimes::default(),
                 owned_instances: OwnedInstances::default(),
             },
-            storage: VariableStorage::new(),
+            storage,
             profile: DateTimeProfile::default(),
             now,
             tasks: vec![TaskState::new(now); resource.tasks.len()],
@@ -232,10 +247,12 @@ impl<'a> EngineState<'a> {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn build(
         prepared: &'a PreparedModule,
         resource_index: usize,
         services: &'a dyn ExecutionServices,
+        generation: Generation,
         after_restart: bool,
         retained: Option<&EngineState<'_>>,
         prior_images: Option<&ProcessImages>,
@@ -255,6 +272,7 @@ impl<'a> EngineState<'a> {
             services,
             resource,
             resource_index,
+            generation,
             after_restart,
             now,
         );
@@ -399,6 +417,8 @@ mod budget_tests;
 #[cfg(test)]
 mod continuation_tests;
 
+#[cfg(test)]
+mod generation_tests;
 #[cfg(test)]
 mod restart_tests;
 #[cfg(test)]

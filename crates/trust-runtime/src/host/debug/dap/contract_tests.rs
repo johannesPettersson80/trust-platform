@@ -263,6 +263,7 @@ fn nonnull_reference_allocates_reference_handle() {
     let value_ref = ValueRef {
         location: MemoryLocation::Global,
         offset: 3,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     };
     let variable = variable_from_value(

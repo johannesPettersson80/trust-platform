@@ -4,6 +4,8 @@ use alloc::borrow::Cow;
 pub(crate) mod assertions;
 pub(crate) mod bit;
 pub(crate) mod comparison;
+/// Versioned execution contracts of the built-in imports, checked at admission.
+pub mod contracts;
 /// Typed conversion recognition and execution.
 pub mod conversions;
 /// Portable standard function blocks with caller-owned time and storage.

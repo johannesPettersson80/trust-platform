@@ -311,6 +311,7 @@ pub(super) fn binding(point: AdsPointConfig) -> AdsBinding {
         reference: ValueRef {
             location: MemoryLocation::Global,
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: Vec::new(),
         },
         quality_reference: None,

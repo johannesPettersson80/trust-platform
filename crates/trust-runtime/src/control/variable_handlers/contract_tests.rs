@@ -596,7 +596,7 @@ fn var_force_accepts_each_target_kind_in_arrival_order() {
     assert_eq!(forced[1].value, Value::LInt(2));
     assert!(matches!(
         &forced[2].target,
-        ForcedVarTarget::Instance(InstanceId(7), name) if name == "c"
+        ForcedVarTarget::Instance(_, InstanceId(7), name) if name == "c"
     ));
     assert_eq!(forced[2].value, Value::LInt(-3));
 }
@@ -702,19 +702,25 @@ fn var_unforce_removes_only_the_exact_retain_target() {
 #[test]
 fn var_unforce_removes_only_the_exact_instance_target() {
     let state = state();
-    state
-        .debug
-        .force_instance(InstanceId(7), "a", Value::LInt(1));
-    state
-        .debug
-        .force_instance(InstanceId(8), "a", Value::LInt(2));
+    state.debug.force_instance(
+        crate::memory::Generation::FIRST,
+        InstanceId(7),
+        "a",
+        Value::LInt(1),
+    );
+    state.debug.force_instance(
+        crate::memory::Generation::FIRST,
+        InstanceId(8),
+        "a",
+        Value::LInt(2),
+    );
 
     assert!(handle_var_unforce(28, target_params("instance:7:a"), &state).ok);
     let forced = state.debug.forced_snapshot().vars;
     assert_eq!(forced.len(), 1);
     assert!(matches!(
         &forced[0].target,
-        ForcedVarTarget::Instance(InstanceId(8), name) if name == "a"
+        ForcedVarTarget::Instance(_, InstanceId(8), name) if name == "a"
     ));
 }
 
@@ -754,9 +760,12 @@ fn var_forced_projection_preserves_order_and_canonicalizes_targets() {
     let state = state();
     state.debug.force_global("a", Value::Bool(true));
     state.debug.force_retain("b", Value::LInt(-2));
-    state
-        .debug
-        .force_instance(InstanceId(7), "c:d", Value::LInt(3));
+    state.debug.force_instance(
+        crate::memory::Generation::FIRST,
+        InstanceId(7),
+        "c:d",
+        Value::LInt(3),
+    );
 
     assert_eq!(
         result(handle_var_forced(32, &state)),

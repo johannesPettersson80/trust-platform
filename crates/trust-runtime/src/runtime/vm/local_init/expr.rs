@@ -638,7 +638,8 @@ fn resolve_vm_local_name_reference(
             location: MemoryLocation::Local(FrameId(
                 super::super::call::VM_LOCAL_SENTINEL_FRAME_ID,
             )),
-            offset: slot,
+            offset: u32::try_from(slot).ok()?,
+            generation: ctx.runtime.storage().generation(),
             path: Vec::new(),
         });
     }
@@ -655,7 +656,7 @@ fn resolve_vm_local_name_reference(
 
 fn materialize_vm_local_ref(ctx: &VmLocalExprContext<'_>, reference: &ValueRef) -> Option<Value> {
     if is_vm_local_frame_ref(reference) {
-        let value = ctx.frame.locals.get(reference.offset)?;
+        let value = ctx.frame.locals.get(reference.offset as usize)?;
         if reference.path.is_empty() {
             return Some(value.clone());
         }

@@ -131,6 +131,7 @@ fn frame_commit_still_rejects_stale_references_before_publication() {
     let invalid = Value::Reference(Some(crate::value::ValueRef {
         location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
         offset: 0,
+        generation: state.data.storage.generation(),
         path: Vec::new(),
     }));
     let marks = state.data.construction.initialized_declarations.len();
@@ -809,6 +810,7 @@ fn lifetime_fault_still_precedes_once_marker_admission() {
     let invalid = Value::Reference(Some(crate::value::ValueRef {
         location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
         offset: 0,
+        generation: state.data.storage.generation(),
         path: Vec::new(),
     }));
     assert_eq!(

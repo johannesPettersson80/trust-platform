@@ -286,8 +286,9 @@ impl PreparedModule {
         let (registry_bytes, registry_work) = crate::stdlib::StandardLibrary::preparation_demand();
         preparation.charge(registry_bytes, registry_work)?;
         let stdlib = crate::stdlib::StandardLibrary::new();
+        // Every built-in import must match its contract (spec 34 §5.2.1).
         let requires_wall_clock =
-            admission::check_imports(&vm, &initializers, &layout, &stdlib, &mut preparation)?;
+            admission::check_imports(&vm, &initializers, &layout, &mut preparation)?;
         let mut method_owners = BTreeMap::new();
         if let Some(SectionData::PouIndex(index)) = token.section(SectionId::PouIndex) {
             for entry in &index.entries {

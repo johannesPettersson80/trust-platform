@@ -36,6 +36,7 @@ impl DebugControl {
                     pending_lvalue_writes: Vec::new(),
                     forced_vars: Vec::new(),
                     forced_io: Vec::new(),
+                    generation: Generation::FIRST,
                 }),
                 Condvar::new(),
             )),

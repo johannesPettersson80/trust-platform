@@ -13,9 +13,8 @@ fn artifact(body: &str) -> Vec<u8> {
         .expect("encode STBC")
 }
 
-/// Spec 34 §6.3 MEM-07: a stale handle shall not silently resolve to state in a replacement generation. MEM-08 shares this check, because a dynamic receiver after replacement is validated through the same handle identity. Expected to fail on the current code: the replacement storage restarts instance identities at zero, so a handle captured before the restart can name a replacement instance. Not run; predicted from reading the restart and storage construction.
+/// Spec 34 §6.3 MEM-07: a stale handle shall not silently resolve to state in a replacement generation. MEM-08 shares this check, because a dynamic receiver after replacement is validated through the same handle identity. The warm restart constructs the next installation generation (spec 34 §11.3), so the handle captured before it names no state.
 #[test]
-#[ignore = "MEM-07/UPDATE-04: references carry no generation before or after H; generation tokens belong to scope C (spec 34 §4.3.1, UPDATE-03 to UPDATE-08)"]
 fn handle_taken_before_warm_restart_does_not_resolve_into_the_replacement_generation() {
     let bytes = artifact(
         r#"
@@ -45,4 +44,49 @@ END_PROGRAM
     state.restart(RestartMode::Warm).unwrap();
 
     assert_eq!(state.storage().read_by_ref_ref(&stale), None);
+}
+
+/// Spec 34 §11.3: the warm-restart transfer binds a retained reference to the new generation, so
+/// the PLC's own copy keeps naming the retained target, while the same reference copied out
+/// before the restart names no state.
+#[test]
+fn a_retained_reference_is_rebound_inside_the_plc_while_an_outside_copy_goes_stale() {
+    let bytes = artifact(
+        r#"
+VAR_GLOBAL RETAIN level : INT := INT#4; held : REF_TO INT; END_VAR
+PROGRAM Main
+level := level + INT#1;
+held := REF(level);
+END_PROGRAM
+"#,
+    );
+    let prepared = PreparedModule::from_bytes(&bytes, PreparationLimits::default()).unwrap();
+    let mut state = prepared.instantiate(0).unwrap();
+    state.execute_cycle(Duration::from_millis(10)).unwrap();
+    let Some(Value::Reference(Some(outside))) = state.storage().get_global("held").cloned() else {
+        panic!("reference taken before the restart")
+    };
+    assert_eq!(
+        state.storage().read_by_ref_ref(&outside),
+        Some(&Value::Int(5))
+    );
+
+    state.restart(RestartMode::Warm).unwrap();
+
+    let Some(Value::Reference(Some(inside))) = state.storage().get_global("held").cloned() else {
+        panic!("retained reference after the restart")
+    };
+    assert_eq!(inside.generation, state.storage().generation());
+    assert_eq!(
+        state.storage().read_by_ref_ref(&inside),
+        Some(&Value::Int(5))
+    );
+    assert_eq!(state.storage().read_by_ref_ref(&outside), None);
+    state.execute_cycle(Duration::from_millis(20)).unwrap();
+    // A reference of the installed generation keeps working across scans.
+    assert_eq!(
+        state.storage().read_by_ref_ref(&inside),
+        Some(&Value::Int(6))
+    );
+    assert_eq!(state.storage().read_by_ref_ref(&outside), None);
 }

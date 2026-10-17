@@ -196,8 +196,7 @@ impl BytecodeEncoder<'_> {
                     .flatten()
                     .copied()
                     .find(|id| {
-                        self.construction.layout.entries[*id as usize].slot as usize
-                            == reference.offset
+                        self.construction.layout.entries[*id as usize].slot == reference.offset
                     })
             }
             MemoryLocation::Global | MemoryLocation::Retain => self
@@ -208,7 +207,7 @@ impl BytecodeEncoder<'_> {
                 .enumerate()
                 .find(|(_, declaration)| {
                     declaration.owner == crate::bytecode::StorageOwner::Global
-                        && declaration.slot as usize == reference.offset
+                        && declaration.slot == reference.offset
                 })
                 .map(|(id, _)| id as u32),
             _ => None,

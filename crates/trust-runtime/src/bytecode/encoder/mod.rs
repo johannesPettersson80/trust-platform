@@ -400,7 +400,7 @@ impl CodegenContext {
         let key = normalize_name(name);
         self.locals.get(&key).filter(|reference| {
             self.visible_locals
-                .is_none_or(|count| reference.offset < count)
+                .is_none_or(|count| (reference.offset as usize) < count)
         })
     }
 

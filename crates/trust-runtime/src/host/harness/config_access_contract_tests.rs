@@ -160,6 +160,7 @@ fn configuration_contract_runtime_wildcard_guard_sorts_and_deduplicates_names() 
     let reference = ValueRef {
         location: MemoryLocation::Global,
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     };
     let requirements = vec![

@@ -16,10 +16,11 @@ fn spec(name: &str, is_target: bool) -> VmNativeArgSpec {
     }
 }
 
-fn reference(offset: usize) -> ValueRef {
+fn reference(offset: u32) -> ValueRef {
     ValueRef {
         location: MemoryLocation::Global,
         offset,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     }
 }

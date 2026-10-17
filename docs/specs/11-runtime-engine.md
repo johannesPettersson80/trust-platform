@@ -4731,6 +4731,19 @@ preparation fails never reaches its commit, so it is not a clearing boundary:
 queued writes and forces stay as they were (specification 10 §4.8 and the
 online-change preparation rule in section 6.7.1).
 
+A write or force that names an instance by its identity, such as an HMI write to a
+program member or a debugger write to a function-block field, keeps the
+installation generation in which that identity was resolved (specification 34
+§11.3). An identity given as a number in a control request, as in
+`instance:<id>:<name>`, belongs to the generation installed when the request is
+accepted. A request accepted after a clearing boundary can still carry an
+identity resolved before it, for example from the observation of the previous
+lifecycle. Its boundary then rejects it as `ReferenceLifetime`
+(`runtime_reference_lifetime`) with a `write_rejected` event, does not fault the
+PLC, and leaves the instance that now has that identity unchanged; a rejected
+force is also removed. A request that names its target by name, such as
+`global:<name>`, is bound to that name at its boundary.
+
 While the resource is faulted no scan boundary occurs, so nothing applies a
 queued write or a force, and a scan request is refused before it touches either
 (specification 10 §4.7, step 1). The requests of this section are still accepted

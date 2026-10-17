@@ -28,7 +28,7 @@ fn forged_dynamic_initializer_store_cannot_modify_global_storage() {
         .unwrap();
     let reference = forged.vm.refs.len() as u32;
     forged.vm.refs.push(VmRef::Global {
-        offset: destination.offset,
+        offset: destination.offset as usize,
         path: Vec::new(),
     });
     forged.vm.ref_types.push(None);

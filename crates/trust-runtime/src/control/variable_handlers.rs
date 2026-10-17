@@ -100,11 +100,13 @@ pub(super) fn handle_var_force(
     let forced = match target {
         VarTarget::Global(name) => state.debug.try_force_global(name, value),
         VarTarget::Retain(name) => state.debug.try_force_retain(name, value),
-        VarTarget::Instance(id, name) => {
-            state
-                .debug
-                .try_force_instance(crate::memory::InstanceId(id), name, value)
-        }
+        // A bare identity belongs to the generation installed when the request is accepted.
+        VarTarget::Instance(id, name) => state.debug.try_force_instance(
+            state.debug.generation(),
+            crate::memory::InstanceId(id),
+            name,
+            value,
+        ),
     };
     if let Err(error) = forced {
         return ControlResponse::error(id, error.to_string());
@@ -151,7 +153,7 @@ pub(super) fn handle_var_forced(id: u64, state: &ControlState) -> ControlRespons
                 crate::debug::ForcedVarTarget::Retain(name) => {
                     format!("retain:{name}")
                 }
-                crate::debug::ForcedVarTarget::Instance(id, name) => {
+                crate::debug::ForcedVarTarget::Instance(_, id, name) => {
                     format!("instance:{}:{name}", id.0)
                 }
             };

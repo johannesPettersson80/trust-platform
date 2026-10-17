@@ -14,10 +14,14 @@ impl EngineState<'_> {
         mode: RestartMode,
         snapshot: Option<&crate::retain::RetainSnapshot>,
     ) -> Result<Vec<super::RetainApplyEvent>, RuntimeError> {
+        // A warm or cold restart constructs the next generation, so a reference taken
+        // before it names no state afterwards (spec 34 §11.3, MEM-07, UPDATE-04).
+        let generation = self.next_generation()?;
         let mut next_data = Self::build(
             self.prepared,
             self.data.resource_index,
             self.services,
+            generation,
             true,
             (mode == RestartMode::Warm).then_some(&*self),
             Some(&self.data.images),

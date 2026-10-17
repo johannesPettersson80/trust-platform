@@ -225,6 +225,7 @@ fn a_local_reference_from_a_finished_entry_never_resolves_after_its_identity_is_
     let stale = ValueRef {
         location: MemoryLocation::Local(advance),
         offset: 0,
+        generation: state.data.storage.generation(),
         path: Vec::new(),
     };
     assert_no_activation_state_outlives_its_entry(&state.data.storage);

@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use crate::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
+use crate::memory::{FrameId, Generation, InstanceId, IoArea, MemoryLocation};
 use crate::task::TaskConfig;
 use crate::value::{
     ref_indices_from_iter, Duration, RefPath, RefSegment as ValueRefSegment, ValueRef,
@@ -130,9 +130,12 @@ fn ref_entry_to_value_ref(
             }
         }
     }
+    // An artifact reference names a declaration of the module, not the state of an
+    // installation; hosts resolve it against the installed generation.
     Ok(ValueRef {
         location,
-        offset: entry.offset as usize,
+        offset: entry.offset,
+        generation: Generation::FIRST,
         path,
     })
 }

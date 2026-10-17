@@ -467,6 +467,7 @@ fn callback_cycles_budget_exhaustion_and_callback_reference_failure_unwind_conte
     ctx.responses.push(Value::Reference(Some(ValueRef {
         location: MemoryLocation::Local(FrameId(7)),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     })));
     assert_eq!(

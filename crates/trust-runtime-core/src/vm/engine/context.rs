@@ -208,6 +208,7 @@ impl ReferenceContext for EngineState<'_> {
         Ok(crate::value::ValueRefView {
             location: MemoryLocation::Local(active.result),
             offset: 0,
+            generation: self.data.storage.generation(),
             path,
         })
     }

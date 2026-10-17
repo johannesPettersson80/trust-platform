@@ -121,6 +121,7 @@ fn non_integer_counter_values() -> Vec<Value> {
         Value::Reference(Some(ValueRef {
             location: MemoryLocation::Global,
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: vec![],
         })),
         Value::Instance(InstanceId(0)),

@@ -133,6 +133,11 @@ name = "portability_temporal_fixture"
 path = "examples/portability_temporal_fixture.rs"
 required-features = ["full"]
 
+[[example]]
+name = "bounded_c_fixtures"
+path = "examples/bounded_c_fixtures.rs"
+required-features = ["full"]
+
 [features]
 default = [
     "development",

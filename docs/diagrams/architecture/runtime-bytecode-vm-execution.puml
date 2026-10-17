@@ -181,13 +181,13 @@ package "Common cooperative cycle" as cyclePkg #LightBlue {
 
 package "Checked lifecycle and observation" as lifecyclePkg #Lavender {
     component "ResourceReconfiguration\nstaged images/tasks + exclusive commit\nno initializer replay or storage clone" as resource
-    component "Prepared replacement / restart\nisolated construction + retain compatibility\natomic candidate publication" as replacement
+    component "Prepared replacement / restart\nisolated construction + retain compatibility\nnext installation generation\natomic candidate publication" as replacement
     component "Safe outputs\nseparate checked owner operation\nall drivers attempted; owning fault retained" as safe
     component "StatementFrame\ncurrent + suspended invocation views" as frames
     component "HostedExecutionServices / RuntimeMetadata\nsource lookup and detached DebugSnapshot" as debugger
     component "DAP expression scratch\nseparate authoring types and copied inspection values" as scratch
     host --> resource : resource / direct / MQTT binding updates
-    resource --> owner : preserve identities, live values, debug/IR/fault state
+    resource --> owner : preserve identities, generation, live values, debug/IR/fault state
     host --> replacement : code / schema / warm restart
     replacement --> owner : commit fully validated candidate
     host --> safe : STOP / watchdog / fault policy
@@ -199,6 +199,8 @@ package "Checked lifecycle and observation" as lifecyclePkg #Lavender {
     scratch --> host : checked writes / queued next-scan requests
     note bottom of replacement
         Failed candidate preparation leaves the installed generation unchanged.
+        A committed restart or replacement installs the next generation: references
+        taken before it are refused, and the host binds its own references again.
         Restart construction has no active debugger observations.
         Resource-only binding changes preserve task timing; explicit task changes
         reseed registration timing/SINGLE while thread identity history is retained.

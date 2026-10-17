@@ -73,6 +73,7 @@ fn call_path_reference_array_and_struct_literal_defaults_decline_the_direct_path
         Value::Reference(Some(crate::value::ValueRef {
             location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: alloc::vec::Vec::new(),
         })),
         Value::Array(alloc::boxed::Box::new(ArrayValue::from_canonical_parts(

@@ -96,8 +96,7 @@ impl BytecodeEncoder<'_> {
         let reference = scope.locals.get(&normalize_name(name)).ok_or_else(|| {
             BytecodeError::InvalidSection("frame declaration binding missing".into())
         })?;
-        let slot = u32::try_from(reference.offset)
-            .map_err(|_| BytecodeError::InvalidSection("frame slot overflow".into()))?;
+        let slot = reference.offset;
         let ref_idx = self.ref_index_for(reference)?;
         let name_idx = self.strings.intern(name.clone());
         self.add_declaration(

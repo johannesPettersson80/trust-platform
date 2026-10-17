@@ -72,7 +72,7 @@ fn repeated_output_keeps_first_snapshot_and_late_failure_rolls_back() {
         let journal = state.data.resources.output_journal.as_ref().unwrap();
         assert_eq!(journal.len(), 1);
         assert_eq!(
-            journal.get(&(reference.location, reference.offset)),
+            journal.get(&(reference.location, reference.offset as usize)),
             Some(&Value::DInt(7))
         );
         Err::<(), _>(VmTrap::Runtime(RuntimeError::DivisionByZero))
@@ -92,7 +92,7 @@ fn repeated_output_keeps_first_snapshot_and_late_failure_rolls_back() {
 fn invalid_snapshot_resolves_before_allocation_and_never_inserts() {
     let (mut prepared, mut data, frame, mut reference) = fixture();
     prepared.limits.max_construction_bytes = 0;
-    reference.offset = usize::MAX;
+    reference.offset = u32::MAX;
     let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
     state.data.resources.output_journal = Some(SavedDestinations::new());
     // Key resolution is bookkeeping (TIME-08): the refusal is the same with an

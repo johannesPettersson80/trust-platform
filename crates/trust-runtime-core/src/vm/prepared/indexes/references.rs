@@ -173,7 +173,8 @@ mod tests {
         };
         let reference = ValueRef {
             location: MemoryLocation::Instance(crate::memory::InstanceId(*owner_instance_id)),
-            offset: *offset,
+            offset: u32::try_from(*offset).unwrap(),
+            generation: crate::memory::Generation::FIRST,
             path: path.clone(),
         };
         let frame = VmFrame {

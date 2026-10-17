@@ -36,6 +36,7 @@ fn call_path_literal_default_refuses_a_reference_that_outlives_its_frame() {
         .push(Value::Reference(Some(crate::value::ValueRef {
             location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: alloc::vec::Vec::new(),
         })));
     prepared.layout.entries[declaration].default_const_idx = Some(constant);

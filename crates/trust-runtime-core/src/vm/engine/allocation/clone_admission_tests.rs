@@ -52,6 +52,7 @@ fn values() -> Vec<Value> {
         Value::Reference(Some(ValueRef {
             location: crate::memory::MemoryLocation::Global,
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: vec![RefSegment::Field("x".into()), RefSegment::Index(vec![1, 2])],
         })),
         Value::Array(Box::new(ArrayValue::from_canonical_parts(

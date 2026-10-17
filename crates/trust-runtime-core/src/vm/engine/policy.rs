@@ -137,6 +137,9 @@ impl EngineState<'_> {
         }
         match value {
             Value::Reference(Some(reference)) => {
+                // A reference of another generation is never stored, so every reference
+                // the PLC holds belongs to the installed generation (spec 34 §11.3).
+                self.check_generation(reference.generation)?;
                 if let MemoryLocation::Local(source) = reference.location {
                     self.check_local_lifetime(source, destination)?;
                 }
@@ -181,6 +184,18 @@ impl EngineState<'_> {
         Ok(())
     }
 
+    /// Refuse a reference taken in another installation generation: a restart or
+    /// replacement since then reconstructed the state it named (spec 34 §11.3).
+    pub(in crate::vm::engine) fn check_generation(
+        &self,
+        generation: crate::memory::Generation,
+    ) -> Result<(), RuntimeError> {
+        if generation != self.data.storage.generation() {
+            return Err(RuntimeError::ReferenceLifetime);
+        }
+        Ok(())
+    }
+
     pub(in crate::vm::engine) fn check_local_lifetime(
         &self,
         source: FrameId,
@@ -221,6 +236,7 @@ impl EngineState<'_> {
         reference: ValueRefView<'_>,
         value: &Value,
     ) -> Result<(), RuntimeError> {
+        self.check_generation(reference.generation)?;
         self.check_writable_declaration(reference)?;
         let destination = match reference.location {
             MemoryLocation::Local(id) => Some(id),
@@ -243,6 +259,7 @@ impl EngineState<'_> {
         &self,
         reference: ValueRefView<'_>,
     ) -> Result<(), RuntimeError> {
+        self.check_generation(reference.generation)?;
         if let MemoryLocation::Local(id) = reference.location
             && !self.data.storage.execution_frame_is_live(id)
         {

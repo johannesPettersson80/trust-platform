@@ -167,12 +167,14 @@ impl DebugAdapter {
                             let debug = self.session.debug_control();
                             let queued = if force_requested {
                                 debug.try_force_instance(
+                                    snapshot.storage.generation(),
                                     instance_id,
                                     args.name.clone(),
                                     coerced.clone(),
                                 )
                             } else {
                                 debug.try_enqueue_instance_write(
+                                    snapshot.storage.generation(),
                                     instance_id,
                                     args.name.clone(),
                                     coerced.clone(),
@@ -405,12 +407,14 @@ impl DebugAdapter {
                         let debug = self.session.debug_control();
                         let queued = if force_requested {
                             debug.try_force_instance(
+                                snapshot.storage.generation(),
                                 instance_id,
                                 args.name.clone(),
                                 coerced.clone(),
                             )
                         } else {
                             debug.try_enqueue_instance_write(
+                                snapshot.storage.generation(),
                                 instance_id,
                                 args.name.clone(),
                                 coerced.clone(),

@@ -56,6 +56,7 @@ macro_rules! reference_checks {
             let stale = ValueRef {
                 location,
                 offset: 0,
+                generation: state.storage().generation(),
                 path: Vec::new(),
             };
             assert_eq!(
@@ -74,7 +75,7 @@ macro_rules! reference_checks {
             .is_err());
         assert!(state.read_reference(&invalid).is_err());
         let mut invalid = reference.clone();
-        invalid.offset = usize::MAX;
+        invalid.offset = u32::MAX;
         assert!(state
             .write_reference(invalid.as_view(), Value::Int(9))
             .is_err());

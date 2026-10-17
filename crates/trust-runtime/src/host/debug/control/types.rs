@@ -87,6 +87,9 @@ struct DebugState {
     pending_lvalue_writes: Vec<PendingLValueWrite>,
     forced_vars: Vec<ForcedVar>,
     forced_io: Vec<(IoAddress, Value)>,
+    /// The installation generation of the attached runtime, published when it attaches this
+    /// control and at every restart or replacement commit (specification 34 §11.3).
+    generation: Generation,
 }
 
 #[derive(Debug, Clone)]
@@ -100,7 +103,9 @@ struct WatchEntry {
 pub enum ForcedVarTarget {
     Global(SmolStr),
     Retain(SmolStr),
-    Instance(InstanceId, SmolStr),
+    /// A field of the instance with this identity in this installation generation; the scan
+    /// boundary rejects the force once another generation is installed (spec 34 §4.3.1).
+    Instance(Generation, InstanceId, SmolStr),
 }
 
 #[derive(Debug, Clone)]
@@ -141,7 +146,8 @@ impl std::fmt::Display for RequestQueueFull {
 pub(crate) enum PendingVarTarget {
     Global(SmolStr),
     Retain(SmolStr),
-    Instance(InstanceId, SmolStr),
+    /// A field of the instance with this identity in this installation generation.
+    Instance(Generation, InstanceId, SmolStr),
     Local(FrameId, SmolStr),
 }
 

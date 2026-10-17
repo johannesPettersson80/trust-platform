@@ -28,6 +28,7 @@ mod installed_cycle_contract_tests;
 mod installed_debug;
 mod installed_entry;
 mod installed_lifecycle;
+mod installed_rebind;
 mod installed_register;
 mod installed_services;
 mod io_subsystem;

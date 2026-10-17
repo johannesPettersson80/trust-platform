@@ -19,6 +19,7 @@ fn suspended_ancestor_reference_mutates_the_original_local_vector() {
     let reference = ValueRef {
         location: MemoryLocation::Local(caller),
         offset: 0,
+        generation: storage.generation(),
         path: RefPath::new(),
     };
     assert!(storage.write_by_ref_ref(&reference, Value::Int(11)));

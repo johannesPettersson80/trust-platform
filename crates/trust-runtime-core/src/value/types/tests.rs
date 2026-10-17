@@ -239,6 +239,7 @@ fn dummy_ref() -> ValueRef {
     ValueRef {
         location: MemoryLocation::Global,
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     }
 }

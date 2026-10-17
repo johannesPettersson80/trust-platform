@@ -20,15 +20,16 @@ pub(in crate::adapter) fn references(
             .retain()
             .iter()
             .enumerate()
-            .map(|(offset, (name, _))| {
-                (
+            .filter_map(|(offset, (name, _))| {
+                Some((
                     name.clone(),
                     ValueRef {
                         location: MemoryLocation::Retain,
-                        offset,
+                        offset: u32::try_from(offset).ok()?,
+                        generation: storage.generation(),
                         path: Vec::new(),
                     },
-                )
+                ))
             }),
     );
     references
@@ -46,10 +47,13 @@ pub(in crate::adapter) fn reference(
             .iter()
             .enumerate()
             .find(|(_, (label, _))| label.eq_ignore_ascii_case(name))
-            .map(|(offset, _)| ValueRef {
-                location: MemoryLocation::Retain,
-                offset,
-                path: Vec::new(),
+            .and_then(|(offset, _)| {
+                Some(ValueRef {
+                    location: MemoryLocation::Retain,
+                    offset: u32::try_from(offset).ok()?,
+                    generation: storage.generation(),
+                    path: Vec::new(),
+                })
             })
     })
 }
@@ -73,7 +77,7 @@ fn destination_name<'a>(
         _ => return Err(RuntimeError::ReferenceLifetime),
     };
     values
-        .get_index(reference.offset)
+        .get_index(reference.offset as usize)
         .map(|(name, _)| name.as_str())
         .ok_or(RuntimeError::ReferenceLifetime)
 }
@@ -89,7 +93,9 @@ pub(in crate::adapter) fn queue_write(
     let name = destination_name(storage, reference).map_err(|error| error.to_string())?;
     let queued = match reference.location {
         MemoryLocation::Global => control.try_enqueue_global_write(name, value),
-        MemoryLocation::Instance(id) => control.try_enqueue_instance_write(id, name, value),
+        MemoryLocation::Instance(id) => {
+            control.try_enqueue_instance_write(reference.generation, id, name, value)
+        }
         MemoryLocation::Retain => control.try_enqueue_retain_write(name, value),
         _ => return Err(RuntimeError::ReferenceLifetime.to_string()),
     };
@@ -101,7 +107,9 @@ pub(in crate::adapter) fn queue_write(
 fn force_target(reference: &ValueRef, name: &str) -> Option<ForcedVarTarget> {
     Some(match reference.location {
         MemoryLocation::Global => ForcedVarTarget::Global(name.into()),
-        MemoryLocation::Instance(id) => ForcedVarTarget::Instance(id, name.into()),
+        MemoryLocation::Instance(id) => {
+            ForcedVarTarget::Instance(reference.generation, id, name.into())
+        }
         MemoryLocation::Retain => ForcedVarTarget::Retain(name.into()),
         _ => return None,
     })
@@ -126,7 +134,9 @@ pub(in crate::adapter) fn force(
             control.release_global(name);
             Ok(())
         }
-        (MemoryLocation::Instance(id), Some(value)) => control.try_force_instance(id, name, value),
+        (MemoryLocation::Instance(id), Some(value)) => {
+            control.try_force_instance(reference.generation, id, name, value)
+        }
         (MemoryLocation::Instance(id), None) => {
             control.release_instance(id, name);
             Ok(())

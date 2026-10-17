@@ -149,6 +149,7 @@ fn recursive_stale_references_and_overdeep_values_still_use_the_full_checker() {
     let stale_reference = Value::Reference(Some(crate::value::ValueRef {
         location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
         offset: 0,
+        generation: state.data.storage.generation(),
         path: Vec::new(),
     }));
 
@@ -268,7 +269,8 @@ fn initialized_marker_lookup_consumes_no_allowance_before_visibility_read() {
         state.check_read(
             crate::value::ValueRef {
                 location: MemoryLocation::Instance(instance),
-                offset: prepared.layout.entries[declaration as usize].slot as usize,
+                offset: prepared.layout.entries[declaration as usize].slot,
+                generation: state.data.storage.generation(),
                 path: Vec::new(),
             }
             .as_view()
@@ -315,6 +317,7 @@ fn array_with_a_leading_reference_is_traversed_and_refuses_a_dead_later_referenc
     let dead_reference = Value::Reference(Some(crate::value::ValueRef {
         location: crate::memory::MemoryLocation::Local(crate::memory::FrameId(u32::MAX)),
         offset: 0,
+        generation: state.data.storage.generation(),
         path: Vec::new(),
     }));
     let value = Value::Array(Box::new(ArrayValue::from_canonical_parts(

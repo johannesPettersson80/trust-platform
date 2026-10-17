@@ -81,6 +81,7 @@ pub(super) fn initializer_result_reference(id: u32) -> ValueRef {
     ValueRef {
         location: MemoryLocation::Local(FrameId(u32::MAX - id)),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     }
 }

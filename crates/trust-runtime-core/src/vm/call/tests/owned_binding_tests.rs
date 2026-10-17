@@ -122,10 +122,11 @@ fn caller(locals: Vec<Value>) -> VmFrame {
     }
 }
 
-fn local_target(offset: usize) -> ValueRef {
+fn local_target(offset: u32) -> ValueRef {
     ValueRef {
         location: MemoryLocation::Local(FrameId(crate::vm::context::VM_LOCAL_SENTINEL_FRAME_ID)),
         offset,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     }
 }
@@ -856,6 +857,7 @@ fn array_target_attribution_uses_resolved_formals_for_reordered_named_inputs() {
             value: VmNativeArgValue::Target(ValueRef {
                 location: MemoryLocation::Local(frame.reference_frame_id()),
                 offset,
+                generation: crate::memory::Generation::FIRST,
                 path: Vec::new(),
             }),
         };

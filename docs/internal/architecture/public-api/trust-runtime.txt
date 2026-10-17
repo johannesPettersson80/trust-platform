@@ -2712,7 +2712,7 @@ pub trust_runtime::debug::DebugStopReason::Pause
 pub trust_runtime::debug::DebugStopReason::Step
 pub enum trust_runtime::debug::ForcedVarTarget
 pub trust_runtime::debug::ForcedVarTarget::Global(smol_str::SmolStr)
-pub trust_runtime::debug::ForcedVarTarget::Instance(trust_runtime_core::memory::InstanceId, smol_str::SmolStr)
+pub trust_runtime::debug::ForcedVarTarget::Instance(trust_runtime_core::memory::Generation, trust_runtime_core::memory::InstanceId, smol_str::SmolStr)
 pub trust_runtime::debug::ForcedVarTarget::Retain(smol_str::SmolStr)
 pub enum trust_runtime::debug::HitCondition
 pub trust_runtime::debug::HitCondition::AtLeast(u64)
@@ -2808,17 +2808,18 @@ pub fn trust_runtime::debug::DebugControl::take_watch_changed(&self) -> bool
 impl trust_runtime::debug::DebugControl
 pub fn trust_runtime::debug::DebugControl::drain_io_writes(&self) -> alloc::vec::Vec<(trust_runtime_core::io_address::IoAddress, trust_runtime_core::value::types::Value)>
 pub fn trust_runtime::debug::DebugControl::enqueue_global_write(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
-pub fn trust_runtime::debug::DebugControl::enqueue_instance_write(&self, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
+pub fn trust_runtime::debug::DebugControl::enqueue_instance_write(&self, generation: trust_runtime_core::memory::Generation, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::enqueue_io_write(&self, address: trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::enqueue_local_write(&self, frame_id: trust_runtime_core::memory::FrameId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::enqueue_lvalue_write(&self, frame_id: core::option::Option<trust_runtime_core::memory::FrameId>, target: trust_runtime_core::program_model::expr::LValue, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::enqueue_retain_write(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::force_global(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
-pub fn trust_runtime::debug::DebugControl::force_instance(&self, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
+pub fn trust_runtime::debug::DebugControl::force_instance(&self, generation: trust_runtime_core::memory::Generation, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::force_io(&self, address: trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::force_retain(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value)
 pub fn trust_runtime::debug::DebugControl::forced_io_value(&self, address: &trust_runtime_core::io_address::IoAddress) -> core::option::Option<trust_runtime_core::value::types::Value>
 pub fn trust_runtime::debug::DebugControl::forced_var_value(&self, target: &trust_runtime::debug::ForcedVarTarget) -> core::option::Option<trust_runtime_core::value::types::Value>
+pub fn trust_runtime::debug::DebugControl::generation(&self) -> trust_runtime_core::memory::Generation
 pub fn trust_runtime::debug::DebugControl::release_global(&self, name: &str)
 pub fn trust_runtime::debug::DebugControl::release_instance(&self, instance_id: trust_runtime_core::memory::InstanceId, name: &str)
 pub fn trust_runtime::debug::DebugControl::release_io(&self, address: &trust_runtime_core::io_address::IoAddress)
@@ -2826,12 +2827,12 @@ pub fn trust_runtime::debug::DebugControl::release_retain(&self, name: &str)
 pub fn trust_runtime::debug::DebugControl::restore_io_force(&self, address: &trust_runtime_core::io_address::IoAddress, previous: core::option::Option<trust_runtime_core::value::types::Value>)
 pub fn trust_runtime::debug::DebugControl::restore_var_force(&self, target: &trust_runtime::debug::ForcedVarTarget, previous: core::option::Option<trust_runtime_core::value::types::Value>)
 pub fn trust_runtime::debug::DebugControl::try_enqueue_global_write(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
-pub fn trust_runtime::debug::DebugControl::try_enqueue_instance_write(&self, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
+pub fn trust_runtime::debug::DebugControl::try_enqueue_instance_write(&self, generation: trust_runtime_core::memory::Generation, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
 pub fn trust_runtime::debug::DebugControl::try_enqueue_io_write(&self, address: trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
 pub fn trust_runtime::debug::DebugControl::try_enqueue_local_write(&self, frame_id: trust_runtime_core::memory::FrameId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
 pub fn trust_runtime::debug::DebugControl::try_enqueue_retain_write(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
 pub fn trust_runtime::debug::DebugControl::try_force_global(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
-pub fn trust_runtime::debug::DebugControl::try_force_instance(&self, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
+pub fn trust_runtime::debug::DebugControl::try_force_instance(&self, generation: trust_runtime_core::memory::Generation, instance_id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
 pub fn trust_runtime::debug::DebugControl::try_force_io(&self, address: trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
 pub fn trust_runtime::debug::DebugControl::try_force_retain(&self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::types::Value) -> core::result::Result<(), trust_runtime::debug::RequestQueueFull>
 pub fn trust_runtime::debug::DebugControl::try_write_lvalue<E>(&self, frame_id: core::option::Option<trust_runtime_core::memory::FrameId>, target: trust_runtime_core::program_model::expr::LValue, value: trust_runtime_core::value::types::Value, write_snapshot: impl core::ops::function::FnOnce(&mut trust_runtime::debug::DebugSnapshot) -> core::result::Result<(), E>) -> core::result::Result<core::result::Result<(), E>, trust_runtime::debug::RequestQueueFull>
@@ -3861,6 +3862,7 @@ pub mod trust_runtime::memory
 pub use trust_runtime::memory::AccessBinding
 pub use trust_runtime::memory::AccessMap
 pub use trust_runtime::memory::FrameId
+pub use trust_runtime::memory::Generation
 pub use trust_runtime::memory::InstanceData
 pub use trust_runtime::memory::InstanceId
 pub use trust_runtime::memory::IoArea

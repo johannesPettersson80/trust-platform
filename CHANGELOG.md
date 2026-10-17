@@ -55,6 +55,21 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - A runtime no longer faults with `Overflow` after about four billion calls since its
   last restart (about a day at 50 calls a millisecond), nor after as many function-block
   or class instances declared inside functions and methods.
+- A reference taken before a warm or cold restart or an online change no longer reaches
+  the new program's variables: a write or read through it is refused with
+  `runtime_reference_lifetime`, and a queued debugger or HMI write that named an instance
+  before the change is reported as `write_rejected` instead of changing the instance that
+  now has that number. Engineering aliases, I/O bindings and ADS and OPC UA client points
+  follow the restart. For Rust embedders, `ValueRef` carries a `generation` and its
+  `offset` is a `u32`; see the embedding migration guide (specification 34 §11.3).
+- Every standard function and function block has a versioned contract that states the
+  work and allocation it charges, the faults it can raise and the capability it needs
+  (specification 34 §5.2.1). A program whose call or function-block declaration does
+  not match the contract is refused when it is loaded, with the code
+  `runtime_import_unsupported` and a message that names the function, for example
+  `unsupported import 'TON': a parameter's type or direction differs from the
+  contract`. Before, such a program was also refused, but the message did not say
+  which function.
 
 
 Target release: `v0.24.75`

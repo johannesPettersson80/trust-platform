@@ -270,11 +270,13 @@ fn references_held_from_a_finished_entry_stay_refused_after_their_identities_are
     let local = ValueRef {
         location: MemoryLocation::Local(call),
         offset: 0,
+        generation: state.storage().generation(),
         path: Vec::new(),
     };
     let owned = ValueRef {
         location: MemoryLocation::Instance(object),
         offset: 0,
+        generation: state.storage().generation(),
         path: Vec::new(),
     };
     assert_refused(&mut state, &local, &owned);

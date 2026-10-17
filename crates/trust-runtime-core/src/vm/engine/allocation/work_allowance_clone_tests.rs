@@ -66,6 +66,7 @@ fn copy_work_follows_the_time_08_table_for_each_listed_value_kind() {
     let reference = Value::Reference(Some(ValueRef {
         location: MemoryLocation::Global,
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: vec![RefSegment::Field("x".into()), RefSegment::Index(vec![1, 2])],
     }));
     let array = Value::Array(Box::new(ArrayValue::from_canonical_parts(
@@ -130,6 +131,7 @@ fn reference_path_of_three_fields_and_two_indices_costs_eight_units() {
     let reference = Value::Reference(Some(ValueRef {
         location: MemoryLocation::Global,
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path,
     }));
     // TIME-08 COPY: 1 unit, plus 1 per path segment (3 fields + 2 indices) and 1 per index.

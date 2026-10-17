@@ -331,7 +331,12 @@ fn schema_change_rejects_retained_program_object_without_dropping_graph_or_debug
     };
     let block = *block;
     let debug = installed.enable_debug();
-    debug.force_instance(block, "count", Value::Int(99));
+    debug.force_instance(
+        installed.storage().generation(),
+        block,
+        "count",
+        Value::Int(99),
+    );
     let changed = CompileSession::from_source(
         source.replace("count : INT := INT#3", "count : DINT := DINT#3"),
     )

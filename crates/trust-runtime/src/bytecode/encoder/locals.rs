@@ -133,7 +133,7 @@ impl<'a> BytecodeEncoder<'a> {
         let frame_id = self.alloc_local_frame_id();
         let mut locals = HashMap::new();
         let mut seen = HashSet::new();
-        let mut offset: usize = 0;
+        let mut offset: u32 = 0;
         for name in names {
             let key = normalize_name(&name);
             if seen.contains(&key) {
@@ -143,6 +143,7 @@ impl<'a> BytecodeEncoder<'a> {
             let value_ref = ValueRef {
                 location: MemoryLocation::Local(frame_id),
                 offset,
+                generation: crate::memory::Generation::FIRST,
                 path: RefPath::new(),
             };
             self.ref_index_for(&value_ref)?;

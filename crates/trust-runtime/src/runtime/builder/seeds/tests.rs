@@ -169,6 +169,7 @@ fn class_array_seed_preserves_owned_identity_alias_and_inherited_constant() {
     let reference = ValueRef {
         location: MemoryLocation::Instance(ids[1]),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Default::default(),
     };
     builder
