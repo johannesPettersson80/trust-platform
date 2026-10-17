@@ -80,7 +80,10 @@ pub fn clone_value_with_profile(
     Ok(value)
 }
 
-/// Decode argument descriptors from the native-call operand payload.
+/// Decode argument descriptors from the native-call operand payload into a new vector. The
+/// engine decodes into its reserved scratch instead; this form serves the hosted facade and the
+/// tests.
+#[cfg(any(feature = "hir", test))]
 pub fn unpack_native_call_payload(
     operand_stack: &mut OperandStack,
     arg_specs: &[VmNativeArgSpec],
