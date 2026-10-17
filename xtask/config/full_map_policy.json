@@ -393,6 +393,22 @@
       "status": "allowed",
       "owner": "wasm analysis",
       "rationale": "WASM analysis consumes syntax"
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-runtime",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reads trust-runtime's wire types, configuration, catalog and control glue; it is a host tool and no chip links it."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reaches runtimes through the one shared control client."
     }
   ],
   "forbidden_workspace_edges": [

@@ -4,26 +4,7 @@ pub(super) fn load_workspace_model(
     bundle_root: &Option<PathBuf>,
 ) -> Result<WorkspaceModel, RuntimeError> {
     let root = default_bundle_root(bundle_root);
-    let mut runtime_roots = Vec::<PathBuf>::new();
-    if root.join("runtime.toml").is_file() {
-        runtime_roots.push(root.clone());
-    }
-    if let Ok(entries) = fs::read_dir(&root) {
-        for entry in entries.flatten() {
-            let Ok(file_type) = entry.file_type() else {
-                continue;
-            };
-            if !file_type.is_dir() {
-                continue;
-            }
-            let candidate = entry.path();
-            if candidate.join("runtime.toml").is_file() {
-                runtime_roots.push(candidate);
-            }
-        }
-    }
-    runtime_roots.sort();
-    runtime_roots.dedup();
+    let runtime_roots = crate::config::workspace_projects::find_runtime_projects(&root);
     if runtime_roots.is_empty() {
         return Err(RuntimeError::InvalidConfig(
             format!(

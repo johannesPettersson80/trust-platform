@@ -434,9 +434,15 @@ package, or end-to-end evidence.
   several responses; adding or removing an overlay or peer MUST NOT change the
   identity scheme. Each container is scoped by `(host_id, container_id)`, and
   every runtime is scoped by its lossless owner tuple
-  `(host_id, optional container_id, runtime_id)`. That tuple scopes the
-  runtime's endpoints and its configured mesh externals. Each link endpoint is
-  resolved independently; the normalized link identity includes the raw link
+  `(host_id, optional container_id, runtime_id, optional instance)`. The
+  instance tells apart the runtimes of one host that report the same runtime ID
+  (specification 34 ARCH-15): it is the stable runtime ID that the runtime's
+  report or probe carries, and without one the control endpoint through which
+  the panel reached it; a runtime that no target reached, such as one that only
+  the project's configuration or another runtime's discovery reports, has none.
+  That tuple scopes the runtime's endpoints and its configured mesh externals.
+  Each link endpoint is resolved independently; the normalized link identity
+  includes the raw link
   identity and every uniquely resolved endpoint-owner tuple. Shared-system IDs
   remain global, while each `used_by` runtime reference is rewritten to its
   unique owner tuple. Tuple encoding MUST be injective; display sanitization,
@@ -457,17 +463,39 @@ package, or end-to-end evidence.
   multiple plausible owned targets where an owned target is required.
   Equal container names, resource names, endpoint IDs, link IDs, or
   configuration indexes under different hosts or containers MUST NOT collapse
-  nodes, redirect links, duplicate handles, or hide status/detail. Repeated
-  snapshots from the same complete owner deduplicate. If a runtime or endpoint
-  reference has more than one possible owner in one response, the extension
-  retains the unambiguous host/runtime projection but omits every affected link
+  nodes, redirect links, duplicate handles, or hide status/detail. The
+  complete owner of a runtime is its whole owner tuple, instance included.
+  Repeated snapshots from the same complete owner deduplicate; two runtimes of
+  one host that share a resource name but differ in stable runtime ID or in
+  reached endpoint are two runtimes. If a runtime or endpoint reference has
+  more than one possible owner in one response, the extension retains the
+  unambiguous host/runtime projection but omits every affected link
   instead of guessing. It also omits an affected configured-mesh external and
   removes an ambiguous runtime reference from shared-system `used_by`; unrelated
   links, external systems, and shared systems remain visible.
 - Merging fleet snapshots uses the highest input schema version, unions hosts
   and runtimes by identity, deduplicates links and external systems by
-  identity, and unions each shared system's `used_by` set. Configured and live
-  endpoints for the same runtime remain on that runtime.
+  identity, and unions each shared system's `used_by` set. A host keeps the
+  facts of the first snapshot that names it; the project's own runtime and its
+  configuration come before the other configured runtimes. Configured and live
+  endpoints for the same runtime remain on that runtime: the project's
+  configuration describes the project's own runtime when it answers under the
+  configured runtime ID, and the simulator while it runs the project.
+- Each runtime's connector reports attach to the endpoints of that runtime's
+  report with the same protocol; an ADS report of a supervisory server describes
+  `ads_server`, and an OPC UA report of a supervisory client describes
+  `opcua_client`. A report attaches to at most one endpoint, and a stronger
+  match comes first for every endpoint, so a weaker match never takes a report
+  that a stronger one claims: the report whose connection name (`display_name`)
+  equals the endpoint's name, then the report whose target equals, contains, or
+  is contained in the endpoint's address or its `endpoint_url`, `broker`,
+  `host`, `listen`, or `interface` parameter, then the first unused report of
+  the protocol. A disabled endpoint runs no connection and takes no report in
+  any of these steps, so a report goes to an enabled endpoint. A report with an
+  unknown or missing state, health, or confidence attaches nothing to the
+  endpoint it claims and is shown as an error on that endpoint, or on its
+  runtime when it claims none (specification 11, "Connector status and discovery
+  truth contract").
 - A configured endpoint overlaid on a running simulator retains the running
   runtime state and explains that restart is required; it MUST NOT report the
   runtime as stopped.
@@ -487,7 +515,10 @@ package, or end-to-end evidence.
   rather than creating a twin. Configured endpoints waiting for restart remain
   visible, duplicate live endpoints are removed, and raw Structured Text
   resource names do not replace the `Simulator` product identity even when
-  runtime mode is absent.
+  runtime mode is absent. A configured endpoint duplicates the live endpoint
+  that has its protocol and its place in the configuration, which both
+  topologies number in configuration order (specification 11, "Offline
+  communication operation and fleet-topology truth").
 - Managed local runtimes share the existing `This computer` host. Selection is
   projected as one run-target flag. A managed runtime already present in fleet
   topology is not duplicated and retains managed ownership, lifecycle, and
@@ -588,7 +619,13 @@ tomake sure we dont loose any information".
 - The project name lists the truST projects of the workspace; choosing one
   shows that project. Rust uses the chosen project for the topology, the
   configuration, and the runtimes this computer manages, so they can no longer
-  come from different folders.
+  come from different folders. The list holds the projects of every workspace
+  folder: the folder itself when it holds a `runtime.toml`, and each direct
+  subfolder that holds one; until a project is chosen, or when the chosen one
+  is no longer listed, the first is shown. The chosen project's folder is its
+  fleet root: its `fleet.toml`, when present, lists the runtimes this computer
+  manages, and otherwise the fleet is the project alone; `Add a runtime`
+  writes under the chosen project, not under the first workspace folder.
 - Search covers computers, runtimes, connections, links, devices, signals, and
   issues, with one dimming rule decided in Rust (§5.5); its placeholder is
   `Search devices, connections, signals, issues`.

@@ -6661,6 +6661,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-devices"
+version = "0.24.75"
+dependencies = [
+ "base64 0.23.1",
+ "serde",
+ "serde_json",
+ "trust-runtime",
+ "trust-runtime-client",
+]
+
+[[package]]
 name = "trust-hir"
 version = "0.24.75"
 dependencies = [
