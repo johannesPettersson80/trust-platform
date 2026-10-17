@@ -1,4 +1,4 @@
-use alloc::{format, vec, vec::Vec};
+use alloc::{format, vec::Vec};
 use smol_str::SmolStr;
 
 use crate::bytecode::{
@@ -38,7 +38,9 @@ use self::stdlib::dispatch_native_stdlib_call;
 
 pub use crate::vm::context::VM_LOCAL_SENTINEL_FRAME_ID;
 
-/// Push a frame with the declared local shape and caller return address.
+/// Push a frame with the declared local shape and caller return address. The frame takes
+/// the payload reserved for its call depth, so a scan allocates no locals or presence
+/// vector (spec 34 MEM-03, MEM-09; census A3, A4).
 pub fn push_call_frame(
     frame_stack: &mut FrameStack,
     module: &VmModule,
@@ -50,6 +52,11 @@ pub fn push_call_frame(
         .pou(pou_id)
         .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
     let local_count = super::materialization_limits::checked_local_count(pou.local_ref_count)?;
+    // Admit the push before taking the payload, so a refused activation never consumes the
+    // depth's reserved payload (spec 34 MEM-02).
+    frame_stack.reserve_for_push()?;
+    let (locals, parameter_values_present) =
+        frame_stack.take_frame_payload(frame_stack.len(), local_count);
     let frame = VmFrame {
         pou_id: Some(pou_id),
         activation: None,
@@ -58,8 +65,8 @@ pub fn push_call_frame(
         code_end: pou.code_end,
         local_ref_start: pou.local_ref_start,
         local_ref_count: pou.local_ref_count,
-        locals: vec![Value::Null; local_count],
-        parameter_values_present: Vec::new(),
+        locals,
+        parameter_values_present,
         runtime_instance,
         instance_owner: pou.primary_instance_owner,
     };

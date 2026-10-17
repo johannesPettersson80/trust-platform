@@ -13,6 +13,14 @@ const GPIO: &[u8] =
     include_bytes!("../../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
 const SCALAR: &[u8] =
     include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/scalar/program.stbc");
+const CALLS: &[u8] =
+    include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/calls/program.stbc");
+const BLOCKS: &[u8] =
+    include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/blocks/program.stbc");
+const METHODS: &[u8] =
+    include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/methods/program.stbc");
+const FAULTS: &[u8] =
+    include_bytes!("../../../../../trust-runtime/tests/fixtures/bounded-c/faults/program.stbc");
 
 /// The chips' call depth, with the hosted preparation allowances the register tier needs.
 fn prepared(bytes: &[u8]) -> PreparedModule {
@@ -183,5 +191,98 @@ fn the_program_activation_reuses_its_reserved_locals() {
             "scan {scan}"
         );
         assert_eq!(spares.capacity(), room, "scan {scan}");
+    }
+}
+
+/// Replace every reserved scratch with empty storage, as a run without the reservation
+/// holds, keeping the construction charge. This is the fresh-vector arm of the call-path
+/// differential: an engine that allocates its frame payloads, frame locals, edge lists and
+/// call locals on demand.
+fn grown_on_demand(data: &mut EngineData) {
+    let resources = &mut data.resources;
+    resources.buffers = resources
+        .buffers
+        .iter()
+        .map(ExecutionBuffers::grown_on_demand)
+        .collect();
+    resources.frame_locals = FrameLocals::default();
+    resources.edge_inputs = alloc::vec::Vec::new();
+    resources.edge_restores = alloc::vec::Vec::new();
+    resources.spare_journal = SavedDestinations::new();
+    resources.staging = Default::default();
+}
+
+/// Spec 34 MEM-03, MEM-09 and TIME-08 (census A3, A4, A5 and C5): the call fixtures run
+/// with the per-depth frame payloads, the bound call locals and the reserved edge lists
+/// exactly as they run with fresh vectors, field by field over 101 scans. Catches a changed
+/// result, charge, remaining work, image or refusal, and a payload reused without being
+/// cleared between activations.
+#[test]
+fn frame_payload_reuse_changes_no_result_or_charge_of_any_scan() {
+    for (name, bytes) in [("calls", CALLS), ("blocks", BLOCKS), ("methods", METHODS)] {
+        let prepared = prepared(bytes);
+        let services = &services::LOGICAL_ONLY;
+        let mut reserved = EngineState::construct_data(&prepared, 0, services).unwrap();
+        let mut fresh = EngineState::construct_data(&prepared, 0, services).unwrap();
+        grown_on_demand(&mut fresh);
+        for scan in 0..101 {
+            let now = Duration::from_millis(10 * scan);
+            let expected = EngineState::borrow(&mut fresh, &prepared, services).execute_cycle(now);
+            let actual = EngineState::borrow(&mut reserved, &prepared, services).execute_cycle(now);
+            assert_eq!(actual, expected, "{name} scan {scan}");
+            assert_eq!(
+                reserved.resources.construction_bytes.get(),
+                fresh.resources.construction_bytes.get(),
+                "{name} scan {scan}"
+            );
+            assert_eq!(
+                reserved.resources.work_budget.remaining(),
+                fresh.resources.work_budget.remaining(),
+                "{name} scan {scan}"
+            );
+            assert_eq!(reserved.images.outputs, fresh.images.outputs);
+            assert_eq!(reserved.images.memory, fresh.images.memory);
+            assert_eq!(
+                alloc::format!("{:?}", reserved.storage),
+                alloc::format!("{:?}", fresh.storage),
+                "{name} scan {scan}"
+            );
+        }
+    }
+}
+
+/// Spec 34 MEM-02 and MEM-09 (census A3, A4, A5 and C5): a call chain one level past the
+/// admitted depth is refused at `max_call_depth` with the same error whether the frames
+/// take reserved payloads or fresh vectors. The `faults` fixture's `fault_kind` 6 runs its
+/// four-deep chain one level past the chips' admitted depth; the corpus has no recursive
+/// program, and the refusal is the one a cyclic call graph reaches. Catches a reservation
+/// that moves the refusal depth or its error.
+#[test]
+fn recursion_beyond_the_static_depth_is_refused_as_today() {
+    let prepared = prepared(FAULTS);
+    assert_eq!(
+        prepared.limits.max_call_depth, 4,
+        "the chips' admitted depth"
+    );
+    for fresh in [false, true] {
+        let services = &services::LOGICAL_ONLY;
+        let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+        if fresh {
+            grown_on_demand(&mut data);
+        }
+        EngineState::borrow(&mut data, &prepared, services)
+            .execute_cycle(Duration::ZERO)
+            .expect("the healthy first scan");
+        EngineState::borrow(&mut data, &prepared, services)
+            .write_global("fault_kind", crate::value::Value::Int(6))
+            .expect("the fault_kind write");
+        let error = EngineState::borrow(&mut data, &prepared, services)
+            .execute_cycle(Duration::from_millis(10))
+            .expect_err("the depth refusal");
+        assert_eq!(
+            error.stable_code().as_str(),
+            "vm_call_stack_overflow",
+            "fresh={fresh}"
+        );
     }
 }

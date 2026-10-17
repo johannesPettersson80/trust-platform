@@ -55,6 +55,40 @@ pub trait CallContext: ReferenceContext {
         Ok(())
     }
 
+    /// Take the local slots of a call frame being bound, `count` NULL values. A composition
+    /// that reserved frame payloads at construction hands one out, so a scan allocates no
+    /// local vector (spec 34 MEM-09; census C5). The matching return is
+    /// [`CallContext::recycle_optimized_result_locals`].
+    fn take_optimized_call_locals(&mut self, count: usize) -> Vec<Value> {
+        alloc::vec![Value::Null; count]
+    }
+
+    /// Take the POU's edge-input plan into a reusable list (spec 34 MEM-09; census A5). A
+    /// composition that keeps the prepared index reserves the list at construction; the
+    /// default allocates it, as a composition without a prepared module does today.
+    fn take_edge_inputs_for_pou(
+        &mut self,
+        module: &VmModule,
+        pou_id: u32,
+        owner: &str,
+    ) -> Vec<VmEdgeInput> {
+        self.edge_inputs_for_pou(module, pou_id, owner)
+    }
+
+    /// Return the edge-input list of [`CallContext::take_edge_inputs_for_pou`] after the
+    /// call applied its transitions.
+    fn recycle_edge_inputs(&mut self, _inputs: Vec<VmEdgeInput>) {}
+
+    /// Take the reusable original-input list for edge restoration (spec 34 MEM-09;
+    /// census A5). A composition that reserved it at construction hands one out.
+    fn take_edge_restores(&mut self) -> Vec<(SmolStr, Value)> {
+        Vec::new()
+    }
+
+    /// Return the restore list of [`CallContext::take_edge_restores`] once the edges are
+    /// restored.
+    fn recycle_edge_restores(&mut self, _restores: Vec<(SmolStr, Value)>) {}
+
     /// Apply a native output group under the composition's copy-back policy.
     /// Legacy hosts preserve their existing writes; source-free state stages them.
     fn with_output_transaction<T>(

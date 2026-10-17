@@ -431,6 +431,41 @@ impl CallContext for EngineState<'_> {
             self.edge_inputs(owner)
         }
     }
+
+    fn take_edge_inputs_for_pou(
+        &mut self,
+        module: &super::super::module::VmModule,
+        pou_id: u32,
+        _owner: &str,
+    ) -> Vec<VmEdgeInput> {
+        // A scan reads the prepared module's own index and never falls back to an
+        // uppercase owner name; a module without the index is refused at preparation
+        // (spec 34 MEM-09; census A5, A6).
+        let mut inputs = core::mem::take(&mut self.data.resources.edge_inputs);
+        inputs.clear();
+        if core::ptr::eq(module, &self.prepared.vm) {
+            inputs.extend_from_slice(self.prepared.edge_inputs(pou_id));
+        }
+        inputs
+    }
+
+    fn recycle_edge_inputs(&mut self, inputs: Vec<VmEdgeInput>) {
+        self.data.resources.edge_inputs = inputs;
+    }
+
+    fn take_edge_restores(&mut self) -> Vec<(smol_str::SmolStr, Value)> {
+        core::mem::take(&mut self.data.resources.edge_restores)
+    }
+
+    fn recycle_edge_restores(&mut self, restores: Vec<(smol_str::SmolStr, Value)>) {
+        self.data.resources.edge_restores = restores;
+    }
+
+    /// A user function or method call takes the locals of its call frame from the frame
+    /// payloads reserved at construction (spec 34 MEM-09; census C5).
+    fn take_optimized_call_locals(&mut self, count: usize) -> Vec<Value> {
+        self.data.resources.frame_locals.take(count)
+    }
     fn call_plan(
         &self,
         code_offset: u32,
