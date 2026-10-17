@@ -9,8 +9,11 @@ use crate::error::RuntimeError;
 use crate::memory::InstanceId;
 use crate::stdlib::fbs;
 use crate::value::Value;
+use crate::vm::prepared::call_plans::{
+    class_pou_by_name, function_block_pou_by_name, CallCallee, CallPlan,
+};
 
-use self::context::{RegisterCallOpKind, RegisterValueOpKind};
+use self::context::{CallContext, RegisterCallOpKind, RegisterValueOpKind};
 use super::context::ExecutionContext;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
@@ -27,8 +30,9 @@ pub(super) mod stdlib;
 mod tests;
 
 use self::bindings::{
-    bind_builtin_function_block_arguments, bind_vm_function_block_arguments,
-    normalize_output_copyback_value, unpack_native_call_payload, VmNativeArg,
+    bind_builtin_function_block_arguments, bind_builtin_function_block_arguments_planned,
+    bind_vm_function_block_arguments, normalize_output_copyback_value, unpack_native_call_payload,
+    VmFbOutBinding, VmNativeArg,
 };
 use self::stdlib::dispatch_native_stdlib_call;
 
@@ -143,6 +147,8 @@ pub(in crate::vm) const fn native_call_may_yield(kind: u32) -> bool {
     kind != NATIVE_CALL_KIND_STDLIB
 }
 
+/// Dispatch an encoded call, resolving every binding at the call (spec 34 MEM-09;
+/// the compatibility entry for hosts that keep no prepared plans).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_native_call(
     runtime: &mut impl ExecutionContext,
@@ -153,6 +159,32 @@ pub(super) fn prepare_native_call(
     symbol_idx: u32,
     arg_count: u32,
 ) -> Result<NativeCall, VmTrap> {
+    prepare_native_call_planned(
+        runtime,
+        module,
+        frame,
+        operand_stack,
+        kind,
+        symbol_idx,
+        arg_count,
+        None,
+    )
+}
+
+/// Dispatch an encoded call through its prepared plan when the site has one (spec 34
+/// MEM-09). A site without a plan keeps the call-time resolution.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn prepare_native_call_planned(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    frame: &mut VmFrame,
+    operand_stack: &mut OperandStack,
+    kind: u32,
+    symbol_idx: u32,
+    arg_count: u32,
+    plan: Option<&CallPlan>,
+) -> Result<NativeCall, VmTrap> {
+    let plan = plan.filter(|plan| u32::from(plan.kind) == kind && plan.symbol_idx == symbol_idx);
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _timing =
         crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::CallPrepare);
@@ -247,6 +279,7 @@ pub(super) fn prepare_native_call(
                 resolved_function_pou_id,
                 receiver_value,
                 &mut vm_args,
+                plan,
             )
         }
         _ => Err(VmTrap::InvalidNativeCallKind(kind)),
@@ -264,18 +297,66 @@ fn dispatch_native_vm_call(
     resolved_function_pou_id: Option<u32>,
     receiver_value: Option<Value>,
     args: &mut [VmNativeArg],
+    plan: Option<&CallPlan>,
 ) -> Result<NativeCall, VmTrap> {
     match kind {
         NATIVE_CALL_KIND_FUNCTION => {
             let pou_id = resolved_function_pou_id.ok_or_else(|| {
                 VmTrap::Runtime(RuntimeError::UndefinedFunction(target_name.clone()))
             })?;
-            PreparedCall::function(runtime, module, frame, pou_id, None, args).map(NativeCall::User)
+            PreparedCall::function(
+                runtime,
+                module,
+                frame,
+                pou_id,
+                None,
+                args,
+                plan.map(|plan| &plan.arguments),
+            )
+            .map(NativeCall::User)
         }
         NATIVE_CALL_KIND_FUNCTION_BLOCK => {
             let Some(Value::Instance(instance_id)) = receiver_value else {
                 return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
             };
+            // A prepared plan dispatches by the instance's declared function-block POU and
+            // binds its arguments without a type-name key (spec 34 MEM-08, MEM-09).
+            if let Some(planned) = plan
+                && let CallCallee::FunctionBlock { pou, builtin } = planned.callee
+                && instance_function_block_pou(runtime, module, instance_id) == Some(pou)
+                && let Some(params) = module.pou_params(pou)
+            {
+                if let Some(builtin) = builtin {
+                    runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
+                    let out_bindings = bind_builtin_function_block_arguments_planned(
+                        runtime,
+                        frame,
+                        params,
+                        instance_id,
+                        args,
+                        &planned.arguments,
+                    )?;
+                    execute_native_builtin_function_block_call(
+                        runtime,
+                        frame,
+                        instance_id,
+                        builtin,
+                        out_bindings,
+                    )?;
+                } else {
+                    return PreparedCall::function_block(
+                        runtime,
+                        module,
+                        frame,
+                        pou,
+                        instance_id,
+                        args,
+                        Some(&planned.arguments),
+                    )
+                    .map(NativeCall::User);
+                }
+                return Ok(NativeCall::Immediate(Value::Null));
+            }
             let instance_type_name = runtime
                 .storage()
                 .get_instance(instance_id)
@@ -293,14 +374,21 @@ fn dispatch_native_vm_call(
                     ))
                 })?;
             if let Some(kind) = fbs::builtin_kind_uppercase(type_key.as_str()) {
+                runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
+                let out_bindings = bind_builtin_function_block_arguments(
+                    runtime,
+                    frame,
+                    &instance_type_name,
+                    type_key.as_str(),
+                    instance_id,
+                    args,
+                )?;
                 execute_native_builtin_function_block_call(
                     runtime,
                     frame,
                     instance_id,
-                    &instance_type_name,
-                    type_key.as_str(),
                     kind,
-                    args,
+                    out_bindings,
                 )?;
             } else {
                 return PreparedCall::function_block(
@@ -310,6 +398,7 @@ fn dispatch_native_vm_call(
                     pou_id,
                     instance_id,
                     args,
+                    None,
                 )
                 .map(NativeCall::User);
             }
@@ -319,6 +408,25 @@ fn dispatch_native_vm_call(
             let Some(Value::Instance(instance_id)) = receiver_value else {
                 return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
             };
+            // A prepared plan dispatches through the receiver's prepared class-like POU and
+            // the prepared owner/method table (spec 34 MEM-08, MEM-09).
+            if let Some(planned) = plan
+                && let CallCallee::Method { owner, pou } = planned.callee
+                && instance_owner_pou(runtime, module, instance_id) == Some(owner)
+                && module.resolve_method_pou_id_uppercase(owner, normalized_target_name.as_str())
+                    == Some(pou)
+            {
+                return PreparedCall::function(
+                    runtime,
+                    module,
+                    frame,
+                    pou,
+                    Some(instance_id),
+                    args,
+                    Some(&planned.arguments),
+                )
+                .map(NativeCall::User);
+            }
             let instance = runtime
                 .storage()
                 .get_instance(instance_id)
@@ -337,34 +445,52 @@ fn dispatch_native_vm_call(
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;
-            PreparedCall::function(runtime, module, frame, pou_id, Some(instance_id), args)
-                .map(NativeCall::User)
+            PreparedCall::function(
+                runtime,
+                module,
+                frame,
+                pou_id,
+                Some(instance_id),
+                args,
+                None,
+            )
+            .map(NativeCall::User)
         }
         _ => Err(VmTrap::InvalidNativeCallKind(kind)),
     }
+}
+
+/// The function-block POU of an instance's declared type, without a type-name key.
+fn instance_function_block_pou(
+    runtime: &impl CallContext,
+    module: &VmModule,
+    instance_id: InstanceId,
+) -> Option<u32> {
+    let instance = runtime.storage().get_instance(instance_id)?;
+    function_block_pou_by_name(module, instance.type_name.as_str())
+}
+
+/// The function-block or class POU of an instance's declared type.
+fn instance_owner_pou(
+    runtime: &impl CallContext,
+    module: &VmModule,
+    instance_id: InstanceId,
+) -> Option<u32> {
+    let instance = runtime.storage().get_instance(instance_id)?;
+    function_block_pou_by_name(module, instance.type_name.as_str())
+        .or_else(|| class_pou_by_name(module, instance.type_name.as_str()))
 }
 
 fn execute_native_builtin_function_block_call(
     runtime: &mut impl ExecutionContext,
     caller_frame: &mut VmFrame,
     instance_id: InstanceId,
-    fb_type_name: &SmolStr,
-    fb_type_key: &str,
     kind: fbs::BuiltinFbKind,
-    args: &[VmNativeArg],
+    out_bindings: Vec<VmFbOutBinding>,
 ) -> Result<(), VmTrap> {
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _timing =
         crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::BuiltinExecute);
-    runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
-    let out_bindings = bind_builtin_function_block_arguments(
-        runtime,
-        caller_frame,
-        fb_type_name,
-        fb_type_key,
-        instance_id,
-        args,
-    )?;
     runtime
         .check_builtin_call(instance_id)
         .map_err(VmTrap::Runtime)?;

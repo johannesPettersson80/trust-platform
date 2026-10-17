@@ -194,6 +194,10 @@ impl BytecodeModuleView<'_> {
                 &mut budget,
             )?;
         }
+        // The static call depth sizes construction's per-call reservations (MEM-09). It is
+        // computed last so it sees only a container that already passed every other check.
+        budget.stats.call_depth =
+            module_call_depth(&tables, construction_layout, pou_bodies, &mut budget)?;
         Ok(budget.stats)
     }
 }

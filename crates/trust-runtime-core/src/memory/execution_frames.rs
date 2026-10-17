@@ -3,13 +3,26 @@ use super::*;
 use crate::error::RuntimeError;
 
 impl VariableStorage {
-    /// Reserve activation metadata before RUN, including initializer result frames.
+    /// Reserve activation metadata before RUN, including initializer result frames, with the
+    /// runtime depth check at the reservation (spec 34 MEM-09).
     pub fn reserve_execution_frames(&mut self, capacity: usize) -> Result<(), RuntimeError> {
-        if capacity < self.execution_frames.len() {
+        self.reserve_execution_frames_with_depth_check(capacity, capacity)
+    }
+
+    /// Reserve `capacity` activation records and set the runtime activation-depth check to
+    /// `depth_check`. Admission reserves to the program's static call depth while the depth
+    /// check stays at the admitted ceiling, which the reservation may be smaller than
+    /// (spec 34 MEM-02: the runtime depth check is unchanged).
+    pub fn reserve_execution_frames_with_depth_check(
+        &mut self,
+        capacity: usize,
+        depth_check: usize,
+    ) -> Result<(), RuntimeError> {
+        if capacity < self.execution_frames.len() || depth_check < capacity {
             return Err(RuntimeError::InvalidExecutionState);
         }
         self.execution_frames.reserve_capacity(capacity)?;
-        self.execution_frame_limit = Some(capacity);
+        self.execution_frame_limit = Some(depth_check);
         Ok(())
     }
 

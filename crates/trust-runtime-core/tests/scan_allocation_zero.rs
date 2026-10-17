@@ -496,12 +496,42 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// down. C1-2 reserves the stack executor's buffer, the program activation's local slots and the
 /// process-image staging at construction, so the scalar program (one buffer per scan before, batch
 /// c1-2, 17 October 2026) and both GPIO artifacts (8 calls per scan in input and output staging)
-/// make none. The first scan is left out: with `std` it may still fill the storage field caches
-/// (spec 34 MEM-09 first-use growth).
-const CEILINGS: [(&str, usize, Calls); 3] = [
+/// make none. C1-3b resolves each native call once, at preparation, so a call no longer builds an
+/// uppercase type-name key or a named-argument index vector; the call fixtures still allocate their
+/// argument, output and frame-payload vectors, which C1-3c's per-depth call scratch removes. The
+/// first scan is left out: with `std` it may still fill the storage field caches (spec 34 MEM-09
+/// first-use growth).
+const CEILINGS: [(&str, usize, Calls); 6] = [
     ("scalar", 1, Calls::ZERO),
     ("gpio", 1, Calls::ZERO),
     ("saved/gpio", 1, Calls::ZERO),
+    (
+        "calls",
+        1,
+        Calls {
+            alloc: 81,
+            realloc: 0,
+            dealloc: 81,
+        },
+    ),
+    (
+        "blocks",
+        1,
+        Calls {
+            alloc: 28,
+            realloc: 0,
+            dealloc: 28,
+        },
+    ),
+    (
+        "methods",
+        1,
+        Calls {
+            alloc: 23,
+            realloc: 0,
+            dealloc: 23,
+        },
+    ),
 ];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.

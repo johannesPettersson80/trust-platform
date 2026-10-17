@@ -6,6 +6,24 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Preparation resolves every native call once, into a call plan: the formal index of each
+  actual (named and positional), the presence pattern, the output descriptors, and the callee
+  (a function's prepared POU, a function block's POU, a method through the prepared owner and
+  method table, a built-in function block's kind and parameters). A scan reads the plan and
+  resolves no argument names and builds no uppercase type-name key, and an interface attempt
+  compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every
+  result, charge and refusal is unchanged.
+
+- Construction sizes the engine's per-call reservations (the stack executor's operand,
+  frame and pending-call storage, the initializer stacks, the call-frame and instance
+  pre-reservation) to the program's static call depth instead of `max_call_depth`, so a
+  chip no longer has to reserve the whole ceiling. The validator walks every call target
+  from every entry, counts a method and interface call over every implementing POU, and
+  treats a nested instance declaration as the initialization it runs. A recursive
+  program has no static depth and reserves for `max_call_depth`, exactly as before, and
+  the admission ceiling and the runtime depth check are unchanged, so every result,
+  charge and refusal stays the same.
+
 - A `STRING` without a length is now `STRING[80]`, as in TwinCAT and CODESYS: it
   holds at most 80 bytes of UTF-8, and a `WSTRING` without a length at most 80 UTF-16
   code units. Before, it had no limit. A longer value is cut at assignment, never in

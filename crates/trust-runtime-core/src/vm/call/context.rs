@@ -89,6 +89,15 @@ pub trait CallContext: ReferenceContext {
     ) -> Vec<VmEdgeInput> {
         self.edge_inputs(owner)
     }
+    /// The prepared plan of the `CALL_NATIVE` site at `code_offset`, when the
+    /// composition keeps plans (spec 34 MEM-09). Older contexts resolve every call at
+    /// the call site.
+    fn call_plan(
+        &self,
+        _code_offset: u32,
+    ) -> Option<alloc::sync::Arc<crate::vm::prepared::CallPlan>> {
+        None
+    }
     /// Move caller locals into addressable suspended storage before a nested call.
     fn suspend_frame(&mut self, frame: &mut VmFrame) -> Result<(), RuntimeError>;
     /// Restore those same caller locals after the nested call.
