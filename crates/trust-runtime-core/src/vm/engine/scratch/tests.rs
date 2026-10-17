@@ -1,7 +1,10 @@
 use super::*;
 use crate::error::ExecutionLimitKind;
 use crate::value::Duration;
+use crate::vm::call::bindings::{bind_vm_call_arguments, VmNativeArg, VmNativeArgValue};
+use crate::vm::call::scratch::{KIND_COUNT, KIND_FLAGS, KIND_FUNCTION_OUTPUTS};
 use crate::vm::PreparationLimits;
+use crate::vm::VmTrap;
 
 const MAIN: &[u8] = include_bytes!(
     "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
@@ -208,6 +211,7 @@ fn grown_on_demand(data: &mut EngineData) {
     resources.frame_locals = FrameLocals::default();
     resources.edge_inputs = alloc::vec::Vec::new();
     resources.edge_restores = alloc::vec::Vec::new();
+    resources.call_scratch = crate::vm::call::scratch::CallScratch::default();
     resources.spare_journal = SavedDestinations::new();
     resources.staging = Default::default();
 }
@@ -285,4 +289,144 @@ fn recursion_beyond_the_static_depth_is_refused_as_today() {
             "fresh={fresh}"
         );
     }
+}
+
+/// Spec 34 MEM-09, MEM-03 and TIME-08 (census C1, C3, C4, C5 and C7): the call fixtures run
+/// with the per-depth reserved call scratch exactly as they run with fresh binding vectors,
+/// field by field over 101 scans. Catches a changed result, charge, remaining work, image or
+/// refusal, and a scratch reused without being cleared between calls.
+#[test]
+fn call_scratch_reuse_changes_no_result_or_charge_of_any_scan() {
+    for (name, bytes) in [("calls", CALLS), ("blocks", BLOCKS), ("methods", METHODS)] {
+        let prepared = prepared(bytes);
+        let services = &services::LOGICAL_ONLY;
+        let mut reserved = EngineState::construct_data(&prepared, 0, services).unwrap();
+        let mut fresh = EngineState::construct_data(&prepared, 0, services).unwrap();
+        grown_on_demand(&mut fresh);
+        for scan in 0..101 {
+            let now = Duration::from_millis(10 * scan);
+            let expected = EngineState::borrow(&mut fresh, &prepared, services).execute_cycle(now);
+            let actual = EngineState::borrow(&mut reserved, &prepared, services).execute_cycle(now);
+            assert_eq!(actual, expected, "{name} scan {scan}");
+            assert_eq!(
+                reserved.resources.construction_bytes.get(),
+                fresh.resources.construction_bytes.get(),
+                "{name} scan {scan}"
+            );
+            assert_eq!(
+                reserved.resources.work_budget.remaining(),
+                fresh.resources.work_budget.remaining(),
+                "{name} scan {scan}"
+            );
+            assert_eq!(reserved.images.outputs, fresh.images.outputs);
+            assert_eq!(reserved.images.memory, fresh.images.memory);
+            assert_eq!(
+                alloc::format!("{:?}", reserved.storage),
+                alloc::format!("{:?}", fresh.storage),
+                "{name} scan {scan}"
+            );
+        }
+    }
+}
+
+/// Spec 34 MEM-09 (§6.3 call scratch): a call refused by a type check returns its reserved
+/// scratch, and the next call takes the same reserved vectors. The `calls` fixture's `Digits`
+/// declares two outputs; supplying them as expressions instead of references makes the output
+/// preflight refuse the call with a type mismatch. Catches a refusal path that drops a taken
+/// scratch.
+#[test]
+fn a_refused_call_returns_its_scratch() {
+    let prepared = prepared(CALLS);
+    let services = &services::LOGICAL_ONLY;
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    let reserved = data.resources.call_scratch.held_counts();
+    let digits = prepared
+        .vm
+        .pou_by_id
+        .iter()
+        .find_map(|(id, _)| {
+            prepared
+                .vm
+                .pou_name(*id)
+                .is_some_and(|name| name.eq_ignore_ascii_case("Digits"))
+                .then_some(*id)
+        })
+        .expect("the calls fixture declares the Digits function");
+
+    // `Digits(value, low, high)`: the two outputs are supplied as expressions, which the output
+    // preflight refuses as a type mismatch before any caller mutation.
+    let args = [
+        VmNativeArg {
+            name: None,
+            value: VmNativeArgValue::Expr(Value::DInt(5)),
+        },
+        VmNativeArg {
+            name: None,
+            value: VmNativeArgValue::Expr(Value::DInt(0)),
+        },
+        VmNativeArg {
+            name: None,
+            value: VmNativeArgValue::Expr(Value::DInt(0)),
+        },
+    ];
+    let frame = VmFrame {
+        activation: None,
+        pou_id: Some(0),
+        return_pc: 0,
+        code_start: 0,
+        code_end: 0,
+        local_ref_start: 0,
+        local_ref_count: 0,
+        locals: Vec::new(),
+        parameter_values_present: Vec::new(),
+        runtime_instance: None,
+        instance_owner: None,
+    };
+    let error = bind_vm_call_arguments(
+        &mut EngineState::borrow(&mut data, &prepared, services),
+        &prepared.vm,
+        &frame,
+        digits,
+        &args,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(error, VmTrap::Runtime(RuntimeError::TypeMismatch)),
+        "the output preflight refuses with a type mismatch, got {error:?}"
+    );
+
+    assert_eq!(
+        data.resources.call_scratch.held_counts(),
+        reserved,
+        "a refused call returns every scratch vector it took"
+    );
+}
+
+/// Spec 34 MEM-09 (§6.3 call scratch): nested calls take their own depth's scratch, so the
+/// `calls` fixture's `Twice` holds its scratch while the `Scale` it calls takes another. Catches
+/// a scratch that a nested call shares with its caller, which would corrupt one of them.
+#[test]
+fn nested_calls_use_their_own_depths_scratch() {
+    let prepared = prepared(CALLS);
+    let services = &services::LOGICAL_ONLY;
+    let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
+    EngineState::borrow(&mut data, &prepared, services)
+        .execute_cycle(Duration::from_millis(10))
+        .expect("the nested-calls scan");
+
+    let most = data.resources.call_scratch.most_outstanding();
+    assert!(
+        most[KIND_FUNCTION_OUTPUTS] >= 2,
+        "Twice holds a scratch while Scale takes another, got {:?}",
+        most
+    );
+    assert!(
+        most[KIND_FLAGS] >= 2,
+        "the presence bits of a caller and a callee are held at once, got {most:?}"
+    );
+    assert_eq!(
+        data.resources.call_scratch.held_counts(),
+        [prepared.reserved_call_levels(); KIND_COUNT],
+        "every nested call returns its scratch"
+    );
 }

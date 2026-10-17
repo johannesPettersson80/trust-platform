@@ -1,4 +1,5 @@
 //! Artifact-backed services for the shared dispatcher and native call path.
+use super::super::call::bindings::{VmFbOutBinding, VmNativeArg, VmOutBinding, VmWriteTarget};
 use super::super::call::context::{
     BuiltinParam, BuiltinParamDirection, CallContext, RegisterCallOpKind, RegisterValueOpKind,
     VmEdgeInput,
@@ -465,6 +466,69 @@ impl CallContext for EngineState<'_> {
     /// payloads reserved at construction (spec 34 MEM-09; census C5).
     fn take_optimized_call_locals(&mut self, count: usize) -> Vec<Value> {
         self.data.resources.frame_locals.take(count)
+    }
+
+    /// The evaluated argument list of a call comes from the call scratch reserved at
+    /// construction, and every other binding vector does too (spec 34 MEM-09; census C1, C3,
+    /// C4, C5, C7).
+    fn take_call_args(&mut self) -> Vec<VmNativeArg> {
+        self.data.resources.call_scratch.take_args()
+    }
+
+    fn recycle_call_args(&mut self, args: Vec<VmNativeArg>) {
+        self.data.resources.call_scratch.recycle_args(args);
+    }
+
+    fn take_call_flags(&mut self, count: usize) -> Vec<bool> {
+        self.data.resources.call_scratch.take_flags(count)
+    }
+
+    fn recycle_call_flags(&mut self, flags: Vec<bool>) {
+        self.data.resources.call_scratch.recycle_flags(flags);
+    }
+
+    fn take_call_function_outputs(&mut self) -> Vec<VmOutBinding> {
+        self.data.resources.call_scratch.take_function_outputs()
+    }
+
+    fn recycle_call_function_outputs(&mut self, outputs: Vec<VmOutBinding>) {
+        self.data
+            .resources
+            .call_scratch
+            .recycle_function_outputs(outputs);
+    }
+
+    fn take_call_fb_outputs(&mut self) -> Vec<VmFbOutBinding> {
+        self.data.resources.call_scratch.take_fb_outputs()
+    }
+
+    fn recycle_call_fb_outputs(&mut self, outputs: Vec<VmFbOutBinding>) {
+        self.data.resources.call_scratch.recycle_fb_outputs(outputs);
+    }
+
+    fn take_call_prepared_targets(&mut self) -> Vec<Option<(VmWriteTarget, Option<u32>)>> {
+        self.data.resources.call_scratch.take_prepared_targets()
+    }
+
+    fn recycle_call_prepared_targets(
+        &mut self,
+        targets: Vec<Option<(VmWriteTarget, Option<u32>)>>,
+    ) {
+        self.data
+            .resources
+            .call_scratch
+            .recycle_prepared_targets(targets);
+    }
+
+    fn take_call_prepared_outputs(&mut self) -> Vec<(VmWriteTarget, Value)> {
+        self.data.resources.call_scratch.take_prepared_outputs()
+    }
+
+    fn recycle_call_prepared_outputs(&mut self, outputs: Vec<(VmWriteTarget, Value)>) {
+        self.data
+            .resources
+            .call_scratch
+            .recycle_prepared_outputs(outputs);
     }
     fn call_plan(
         &self,

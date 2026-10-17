@@ -5,6 +5,7 @@ use super::io::staging::StagingDemand;
 use super::output_transaction::SavedDestinations;
 use super::*;
 use crate::vm::construction::values::ValueOperation;
+use crate::vm::module::VmNativeSymbolSpec;
 use crate::vm::VmTrap;
 
 /// Local-slot vectors for stack activations. Each has room for the largest POU's locals, so
@@ -74,6 +75,8 @@ struct ScratchPlan {
     journal: usize,
     /// The most edge inputs of any POU: one edge-input list and one restore list.
     edges: usize,
+    /// Reusable per-depth call-binding scratch (spec 34 MEM-09; census C1, C3, C4, C5, C7).
+    call_scratch: crate::vm::call::scratch::CallScratchSizes,
     staging: StagingDemand,
 }
 
@@ -103,6 +106,18 @@ impl ScratchPlan {
             .map(Vec::len)
             .max()
             .unwrap_or(0);
+        // The most actual arguments of any call site sizes the argument and flag vectors
+        // (spec 34 MEM-09; census C1, C3).
+        let call_args = prepared
+            .vm
+            .native_symbol_specs
+            .iter()
+            .map(|spec| match spec {
+                VmNativeSymbolSpec::Parsed { arg_specs, .. } => arg_specs.len(),
+                VmNativeSymbolSpec::ParseError(_) => 0,
+            })
+            .max()
+            .unwrap_or(0);
         // `PouMap::keys` exists only with the register feature, so iterate the identity and
         // payload pairs and ignore the payloads; clippy's `keys()` suggestion does not
         // compile on the chips.
@@ -124,6 +139,11 @@ impl ScratchPlan {
             initializers: levels,
             types: crate::bytecode::BYTECODE_MAX_TYPE_NESTING + 1,
             journal,
+            call_scratch: crate::vm::call::scratch::CallScratchSizes {
+                args: call_args,
+                params: journal,
+                slots,
+            },
             edges,
             staging: StagingDemand::of(&prepared.io_bindings).ok_or(RuntimeError::Overflow)?,
         })
@@ -154,6 +174,10 @@ impl ScratchPlan {
             .types
             .checked_mul(core::mem::size_of::<(u32, ValueOperation)>())?;
         let journal = SavedDestinations::allocation_bytes(self.journal).ok()?;
+        let call_scratch = crate::vm::call::scratch::CallScratch::reservation_bytes(
+            self.levels,
+            self.call_scratch,
+        )?;
         buffer
             .checked_add(frame_locals)?
             .checked_add(frame_payloads)?
@@ -161,6 +185,7 @@ impl ScratchPlan {
             .checked_add(initializers)?
             .checked_add(types)?
             .checked_add(journal)?
+            .checked_add(call_scratch)?
             .checked_add(self.staging.reservation_bytes()?)
     }
 }
@@ -197,6 +222,11 @@ impl EngineState<'_> {
             .try_reserve_exact(plan.edges)
             .map_err(refused)?;
         resources.spare_journal.reserve_storage(plan.journal)?;
+        // One reusable call-binding vector of each kind per call depth, so a call takes one
+        // instead of allocating (spec 34 MEM-09; census C1, C3, C4, C5, C7).
+        resources
+            .call_scratch
+            .reserve(plan.levels, plan.call_scratch)?;
         resources.staging.reserve(plan.staging)?;
         let construction = &mut self.data.construction;
         construction

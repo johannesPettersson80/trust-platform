@@ -500,9 +500,14 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// uppercase type-name key or a named-argument index vector; C1-3c gives a call frame the payload of
 /// its depth from construction's reservation, takes a user function's or method's locals from those
 /// payloads and reads an edge-affected call's inputs and restores from reserved lists (census A3,
-/// A4, A5, C5). The call fixtures still allocate their argument and output vectors (census C1,
-/// C4, C7 to C11), which the call-scratch slice removes. The first scan is left out: with `std` it
-/// may still fill the storage field caches (spec 34 MEM-09 first-use growth).
+/// A4, A5, C5). C1-3c2 reserves each call depth's binding scratch at construction, so a call takes
+/// its argument list, parameter flags, output bindings and prepared targets and outputs from that
+/// scratch (census C1, C3, C4, C5, C7). The call fixtures' later scans then allocate only what this
+/// slice leaves: the standard library's own argument vectors and split-function outputs (C9, C10),
+/// a reference output target's copied path (C8) and the output journal's destination root snapshots
+/// (C11), so their ceilings are 45, 13 and 12 allocator calls, measured on the builder. The first
+/// scan is left out: with `std` it may still fill the storage field caches (spec 34 MEM-09 first-use
+/// growth).
 const CEILINGS: [(&str, usize, Calls); 6] = [
     ("scalar", 1, Calls::ZERO),
     ("gpio", 1, Calls::ZERO),
@@ -511,27 +516,27 @@ const CEILINGS: [(&str, usize, Calls); 6] = [
         "calls",
         1,
         Calls {
-            alloc: 74,
+            alloc: 45,
             realloc: 0,
-            dealloc: 74,
+            dealloc: 45,
         },
     ),
     (
         "blocks",
         1,
         Calls {
-            alloc: 26,
+            alloc: 13,
             realloc: 0,
-            dealloc: 26,
+            dealloc: 13,
         },
     ),
     (
         "methods",
         1,
         Calls {
-            alloc: 19,
+            alloc: 12,
             realloc: 0,
-            dealloc: 19,
+            dealloc: 12,
         },
     ),
 ];

@@ -1,5 +1,6 @@
 //! Single-owner state executing a prepared source-free artifact.
 use super::call::context::VmEdgeInput;
+use super::call::scratch::CallScratch;
 use super::{
     dispatch::ExecutionBuffers, edge::EdgeInputTransaction, module::invalid_bytecode,
     PreparedModule, VmFrame,
@@ -111,6 +112,8 @@ struct ExecutionResources {
     edge_inputs: Vec<VmEdgeInput>,
     /// Reusable originals of one edge-affected call, empty between calls.
     edge_restores: Vec<(SmolStr, Value)>,
+    /// Reusable per-depth call-binding scratch (spec 34 MEM-09; census C1, C3, C4, C5, C7).
+    call_scratch: CallScratch,
     ready_tasks: Vec<crate::cycle::ReadyTask>,
     constructed_values: usize,
     work_budget: crate::vm::budget::ExecutionBudget,
@@ -218,6 +221,7 @@ impl<'a> EngineState<'a> {
                 frame_locals: scratch::FrameLocals::default(),
                 edge_inputs: Vec::new(),
                 edge_restores: Vec::new(),
+                call_scratch: CallScratch::default(),
                 ready_tasks: Vec::new(),
                 constructed_values: 0,
                 // TIME-09: construction is one entry under its own allowance.

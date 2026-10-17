@@ -11,6 +11,8 @@ use crate::{
 use alloc::vec::Vec;
 use smol_str::SmolStr;
 
+use super::bindings::{VmFbOutBinding, VmNativeArg, VmOutBinding, VmWriteTarget};
+
 /// Direction of one admitted native function-block parameter.
 /// Name and direction used by native function-block argument binding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,6 +64,70 @@ pub trait CallContext: ReferenceContext {
     fn take_optimized_call_locals(&mut self, count: usize) -> Vec<Value> {
         alloc::vec![Value::Null; count]
     }
+
+    /// Take the evaluated argument list of a call being bound, empty (spec 34 MEM-09; census
+    /// C1). A composition that reserved call scratch at construction hands one out, so a scan
+    /// allocates no argument vector. The matching return is [`CallContext::recycle_call_args`].
+    fn take_call_args(&mut self) -> Vec<VmNativeArg> {
+        Vec::new()
+    }
+
+    /// Return the argument list of [`CallContext::take_call_args`], emptied.
+    fn recycle_call_args(&mut self, _args: Vec<VmNativeArg>) {}
+
+    /// Take `count` false parameter flags — the built-in consumption bits or the user presence
+    /// bits (spec 34 MEM-09; census C3, C5). A composition that reserved call scratch hands one
+    /// out; the default allocates it, as a binding without the reservation does today.
+    fn take_call_flags(&mut self, count: usize) -> Vec<bool> {
+        alloc::vec![false; count]
+    }
+
+    /// Return the flag vector of [`CallContext::take_call_flags`], emptied.
+    fn recycle_call_flags(&mut self, _flags: Vec<bool>) {}
+
+    /// Take the output-binding list of a user function or method call, empty (spec 34 MEM-09;
+    /// census C5). A composition that reserved call scratch hands one out. The matching return
+    /// is [`CallContext::recycle_call_function_outputs`].
+    fn take_call_function_outputs(&mut self) -> Vec<VmOutBinding> {
+        Vec::new()
+    }
+
+    /// Return the output bindings of [`CallContext::take_call_function_outputs`], emptied.
+    fn recycle_call_function_outputs(&mut self, _outputs: Vec<VmOutBinding>) {}
+
+    /// Take the output-binding list of a function-block call, empty (spec 34 MEM-09; census C3,
+    /// C4). A composition that reserved call scratch hands one out. The matching return is
+    /// [`CallContext::recycle_call_fb_outputs`].
+    fn take_call_fb_outputs(&mut self) -> Vec<VmFbOutBinding> {
+        Vec::new()
+    }
+
+    /// Return the output bindings of [`CallContext::take_call_fb_outputs`], emptied.
+    fn recycle_call_fb_outputs(&mut self, _outputs: Vec<VmFbOutBinding>) {}
+
+    /// Take the preflighted output-target list of a user function-block call, empty (spec 34
+    /// MEM-09; census C4). A composition that reserved call scratch hands one out. The matching
+    /// return is [`CallContext::recycle_call_prepared_targets`].
+    fn take_call_prepared_targets(&mut self) -> Vec<Option<(VmWriteTarget, Option<u32>)>> {
+        Vec::new()
+    }
+
+    /// Return the prepared targets of [`CallContext::take_call_prepared_targets`], emptied.
+    fn recycle_call_prepared_targets(
+        &mut self,
+        _targets: Vec<Option<(VmWriteTarget, Option<u32>)>>,
+    ) {
+    }
+
+    /// Take the preflighted output-value list of a call's copy-back group, empty (spec 34
+    /// MEM-09; census C7). A composition that reserved call scratch hands one out. The matching
+    /// return is [`CallContext::recycle_call_prepared_outputs`].
+    fn take_call_prepared_outputs(&mut self) -> Vec<(VmWriteTarget, Value)> {
+        Vec::new()
+    }
+
+    /// Return the prepared outputs of [`CallContext::take_call_prepared_outputs`], emptied.
+    fn recycle_call_prepared_outputs(&mut self, _outputs: Vec<(VmWriteTarget, Value)>) {}
 
     /// Take the POU's edge-input plan into a reusable list (spec 34 MEM-09; census A5). A
     /// composition that keeps the prepared index reserves the list at construction; the

@@ -17,6 +17,8 @@ pub(in crate::vm) enum NativeCall {
 enum Outputs {
     Function(Vec<VmOutBinding>),
     FunctionBlock(Vec<VmFbOutBinding>),
+    /// A completed or abandoned call whose output bindings have gone back to the call scratch.
+    Empty,
 }
 
 #[derive(Debug)]
@@ -92,9 +94,22 @@ impl PreparedCall {
             edge,
         })
     }
+    /// Restore this call's edge inputs and return the reserved call scratch it still holds. It
+    /// runs on completion and on every path that abandons the call — a trap, a refusal or an
+    /// abort — so a scratch is never dropped (spec 34 MEM-09; census C1, C3, C4, C5, C7). The
+    /// completion path empties `present` and `outputs` first, so their copy-back still sees the
+    /// bindings and returns them itself.
     pub(in crate::vm) fn restore_edges(&mut self, runtime: &mut impl ExecutionContext) {
         if let Some(edge) = self.edge.take() {
             edge.restore(runtime);
+        }
+        if let Some(present) = self.present.take() {
+            runtime.recycle_call_flags(present);
+        }
+        match core::mem::replace(&mut self.outputs, Outputs::Empty) {
+            Outputs::Function(outputs) => runtime.recycle_call_function_outputs(outputs),
+            Outputs::FunctionBlock(outputs) => runtime.recycle_call_fb_outputs(outputs),
+            Outputs::Empty => {}
         }
     }
     #[cfg(any(feature = "hir", feature = "register-ir"))]
@@ -128,14 +143,29 @@ impl PreparedCall {
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _timing =
             crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::CallComplete);
+        // Empty `present` and `outputs` before restoring the edges, so this completion keeps the
+        // bindings for its copy-back group and returns them itself. An abandoned call reaches
+        // `restore_edges` with them still held, and it returns them there (spec 34 MEM-09; census
+        // C5).
+        let present = self.present.take();
+        let outputs = core::mem::replace(&mut self.outputs, Outputs::Empty);
         self.restore_edges(runtime);
-        let result = result?;
+        if let Some(present) = present {
+            runtime.recycle_call_flags(present);
+        }
+        let result = match result {
+            Ok(result) => result,
+            Err(error) => {
+                recycle_outputs(runtime, outputs);
+                return Err(error);
+            }
+        };
         let pou_id = self.pou_id;
         let VmPouStackResult {
             return_value,
             mut locals,
         } = result;
-        let completed = match self.outputs {
+        let completed = match outputs {
             Outputs::Function(out_bindings) => complete_function(
                 runtime,
                 module,
@@ -146,6 +176,12 @@ impl PreparedCall {
             ),
             Outputs::FunctionBlock(out_bindings) => {
                 complete_function_block(runtime, module, caller_frame, out_bindings)
+            }
+            Outputs::Empty => {
+                let recycled = runtime
+                    .recycle_optimized_result_locals(pou_id, locals)
+                    .map_err(VmTrap::Runtime);
+                return recycled.map(|()| return_value.unwrap_or(Value::Null));
             }
         };
         let recycled = runtime
@@ -158,6 +194,16 @@ impl PreparedCall {
     }
 }
 
+/// Return a completed call's output bindings to the reserved scratch (spec 34 MEM-09; census
+/// C3, C4, C5).
+fn recycle_outputs(runtime: &mut impl ExecutionContext, outputs: Outputs) {
+    match outputs {
+        Outputs::Function(outputs) => runtime.recycle_call_function_outputs(outputs),
+        Outputs::FunctionBlock(outputs) => runtime.recycle_call_fb_outputs(outputs),
+        Outputs::Empty => {}
+    }
+}
+
 fn complete_function(
     runtime: &mut impl ExecutionContext,
     module: &VmModule,
@@ -166,8 +212,36 @@ fn complete_function(
     locals: &mut [Value],
     out_bindings: Vec<VmOutBinding>,
 ) -> Result<Value, VmTrap> {
-    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
-    for binding in out_bindings {
+    // The output bindings and the copy-back group come from the call's reserved scratch and are
+    // returned on every path (spec 34 MEM-09; census C5, C7).
+    let mut out_bindings = out_bindings;
+    let mut prepared_outputs = runtime.take_call_prepared_outputs();
+    let result = prepare_function_outputs(
+        runtime,
+        module,
+        caller_frame,
+        locals,
+        &mut out_bindings,
+        &mut prepared_outputs,
+    );
+    runtime.recycle_call_function_outputs(out_bindings);
+    runtime.recycle_call_prepared_outputs(prepared_outputs);
+    result?;
+
+    Ok(return_value.unwrap_or(Value::Null))
+}
+
+/// Normalize a function call's outputs and commit them as one copy-back group (spec 34 MEM-09;
+/// census C7). The caller owns the scratch vectors and returns them.
+fn prepare_function_outputs(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    caller_frame: &mut VmFrame,
+    locals: &mut [Value],
+    out_bindings: &mut Vec<VmOutBinding>,
+    prepared_outputs: &mut Vec<(VmWriteTarget, Value)>,
+) -> Result<(), VmTrap> {
+    for binding in out_bindings.drain(..) {
         // Binding assigns one distinct local slot per parameter. Caller targets
         // may alias, but the completed callee payload is private and is recycled
         // after this group. Transfer it while retaining ordered preflight/commit.
@@ -190,14 +264,13 @@ fn complete_function(
     }
     if !prepared_outputs.is_empty() {
         runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
-            for (target, value) in prepared_outputs {
+            for (target, value) in prepared_outputs.drain(..) {
                 target.write(runtime, caller_frame, value)?;
             }
             Ok(())
         })?;
     }
-
-    Ok(return_value.unwrap_or(Value::Null))
+    Ok(())
 }
 
 fn complete_function_block(
@@ -206,8 +279,32 @@ fn complete_function_block(
     caller_frame: &mut VmFrame,
     out_bindings: Vec<VmFbOutBinding>,
 ) -> Result<Value, VmTrap> {
-    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
-    for binding in out_bindings {
+    let mut out_bindings = out_bindings;
+    let mut prepared_outputs = runtime.take_call_prepared_outputs();
+    let result = prepare_function_block_outputs(
+        runtime,
+        module,
+        caller_frame,
+        &mut out_bindings,
+        &mut prepared_outputs,
+    );
+    runtime.recycle_call_fb_outputs(out_bindings);
+    runtime.recycle_call_prepared_outputs(prepared_outputs);
+    result?;
+
+    Ok(Value::Null)
+}
+
+/// Normalize a function block's outputs and commit them as one copy-back group (spec 34
+/// MEM-09; census C7). The caller owns the scratch vectors and returns them.
+fn prepare_function_block_outputs(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    caller_frame: &mut VmFrame,
+    out_bindings: &mut Vec<VmFbOutBinding>,
+    prepared_outputs: &mut Vec<(VmWriteTarget, Value)>,
+) -> Result<(), VmTrap> {
+    for binding in out_bindings.drain(..) {
         runtime.record_call_op(RegisterCallOpKind::OutputCopyBack);
         let value = {
             let value = binding
@@ -234,12 +331,11 @@ fn complete_function_block(
     }
     if !prepared_outputs.is_empty() {
         runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
-            for (target, value) in prepared_outputs {
+            for (target, value) in prepared_outputs.drain(..) {
                 target.write(runtime, caller_frame, value)?;
             }
             Ok(())
         })?;
     }
-
-    Ok(Value::Null)
+    Ok(())
 }
