@@ -38,6 +38,8 @@ pub mod deployment;
 pub mod error;
 /// Stable machine-readable runtime error identifiers.
 pub mod error_code;
+/// Fixed-size fault records for the core control path.
+pub mod fault;
 /// Portable direct I/O address syntax.
 pub mod io_address;
 /// Shared process-image address and value codecs.

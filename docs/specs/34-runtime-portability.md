@@ -1005,7 +1005,7 @@ existing diagnostic spelling. No lossy mode, profile rejection or overflow-check
 change is permitted. The complete linked image, not table-size estimates,
 determines acceptance; conversion execution cost remains part of timing evidence.
 
-**MEM-05.** Core fault records shall be fixed-size codes with bounded context on hosted and MCU targets. Rich names and messages shall be rendered outside the core control path. Existing stable fault identities shall be preserved; compatibility wrappers may retain hosted messages without making fault capture allocate or block.
+**MEM-05.** Core fault records shall be fixed-size codes with bounded context on hosted and MCU targets. Rich names and messages shall be rendered outside the core control path. Existing stable fault identities shall be preserved; compatibility wrappers may retain hosted messages without making fault capture allocate or block. A VM fault raised during a scan shall be a structured, fixed-size value built without allocation, whose rendering is today's text and whose stable code is unchanged; a `FaultRecord` shall hold that fault with the first failing instruction's site, the task and the logical time.
 
 **MEM-06.** Compound data shall have known capacity and execution-cost bounds. The first implementation may use preallocated typed storage before a full packed representation, but bounded execution shall not rely on recursive heap-allocating Value clones. Array/string operations, nested initialization, and reference traversal shall be bounded even when implemented by one opcode. Replacing value copies with aliases is prohibited unless the existing language contract permits that aliasing; reference lifetimes and copy semantics shall be preserved.
 
@@ -1643,7 +1643,10 @@ once for the admitted retain image, so starting a save allocates nothing. A chec
 being written is never started twice: a newer due image waits until the pending checkpoint commits
 and is then offered again, so no save is lost. The persister advances a checkpoint by one log step
 at a time — one erase unit, or at most the number of program bytes the caller's idle time allows —
-between scans, at most one step per call, so persisting never delays a scan. A step that fails ends
+between scans, at most one step per call. A program step is sized to the idle time; an erase unit
+cannot be split, so on a flash whose erase takes longer than the time left before the next release
+(a C6's external flash erases a 4 KiB sector in up to about 0.4 s with interrupts off) the next scan
+starts late, and that lateness is reported like that of any late scan. A step that fails ends
 that checkpoint without committing it and latches the failure; the caller takes it once as
 `RuntimeError::RetainStore` and fails its next scan with it before physical outputs, while the newest
 committed checkpoint stays readable. A stop or shutdown completes the pending checkpoint and then

@@ -115,11 +115,15 @@ mod tests {
             VmTrap::MissingProgram(SmolStr::new("Main")).into_runtime_error(),
             RuntimeError::UndefinedProgram(name) if name == "Main"
         ));
-        assert!(matches!(
-            VmTrap::InvalidOpcode(0xFF).into_runtime_error(),
-            RuntimeError::Bytecode { code: StableErrorCode::BytecodeInvalidOpcode, detail }
-                if detail.contains("0xFF")
-        ));
+        let invalid_opcode = VmTrap::InvalidOpcode(0xFF).into_runtime_error();
+        assert_eq!(
+            invalid_opcode.stable_code(),
+            StableErrorCode::BytecodeInvalidOpcode
+        );
+        assert_eq!(
+            invalid_opcode.to_string(),
+            "invalid bytecode 'vm invalid opcode 0xFF'"
+        );
     }
 
     #[test]

@@ -18,6 +18,8 @@ mod execution;
 pub use execution::ExecutionLimitKind;
 mod import;
 pub use import::ImportRefusal;
+mod vm_fault;
+pub use vm_fault::VmFaultDetail;
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -252,6 +254,11 @@ pub enum RuntimeError {
         detail: SmolStr,
     },
 
+    /// A VM fault during a scan with bounded, allocation-free context (specification 34
+    /// MEM-05). Its text and stable code are unchanged from the bytecode fault it replaces.
+    #[error("invalid bytecode '{0}'")]
+    VmFault(VmFaultDetail),
+
     /// Structured portable decode/validation error, rendered only on request.
     #[error("invalid bytecode '{0}'")]
     BytecodeCause(crate::bytecode::BytecodeError),
@@ -414,6 +421,7 @@ impl RuntimeError {
             Self::InvalidBytecodeMetadata(_) => StableErrorCode::RuntimeInvalidBytecodeMetadata,
             Self::InvalidBytecode(_) => StableErrorCode::RuntimeInvalidBytecode,
             Self::Bytecode { code, .. } => *code,
+            Self::VmFault(fault) => fault.code,
             Self::BytecodeCause(cause) => cause.stable_code(),
             Self::PreparationDiagnostic(_) => StableErrorCode::VmBytecodeDecode,
             Self::ThreadSpawn(_) => StableErrorCode::RuntimeThreadSpawn,
@@ -482,9 +490,10 @@ impl From<DateTimeCalcError> for RuntimeError {
 mod tests {
     use alloc::{format, string::ToString};
 
-    use super::{ExecutionLimitKind, RuntimeError, StableErrorCode};
+    use super::{ExecutionLimitKind, RuntimeError, StableErrorCode, VmFaultDetail};
     use crate::bytecode::BytecodeError;
     use crate::datetime::DateTimeCalcError;
+    use crate::fault::FaultDetail;
     use crate::value::DateTimeError;
 
     #[test]
@@ -804,6 +813,13 @@ mod tests {
                     "invalid bytecode magic",
                 ),
                 StableErrorCode::BytecodeInvalidMagic,
+            ),
+            (
+                RuntimeError::VmFault(VmFaultDetail {
+                    code: StableErrorCode::VmStackUnderflow,
+                    detail: FaultDetail::Text("vm operand stack underflow"),
+                }),
+                StableErrorCode::VmStackUnderflow,
             ),
             (
                 RuntimeError::ThreadSpawn("spawn".into()),

@@ -2,7 +2,8 @@ use alloc::format;
 
 use smol_str::SmolStr;
 
-use crate::error::{RuntimeError, StableErrorCode};
+use crate::error::{RuntimeError, StableErrorCode, VmFaultDetail};
+use crate::fault::{FaultDetail, FaultStaticName, FaultTableIndex};
 
 /// Failure raised by the shared dispatcher or a hosted execution adapter.
 #[derive(Debug)]
@@ -99,6 +100,11 @@ impl VmTrap {
 
     /// Convert the VM trap into the public runtime error contract.
     /// Rendering and failure-only moves stay outside recursive execution frames.
+    ///
+    /// The traps that are a fixed-size bytecode fault become a [`RuntimeError::VmFault`] built
+    /// without allocating; the traps that map elsewhere keep their existing variant and text,
+    /// and the two traps whose message the caller already built keep today's `Bytecode` detail
+    /// (specification 34 MEM-05).
     #[cold]
     #[inline(never)]
     pub fn into_runtime_error(self) -> RuntimeError {
@@ -107,56 +113,102 @@ impl VmTrap {
             Self::ConditionNotBool => RuntimeError::ConditionNotBool,
             Self::NullReference => RuntimeError::NullReference,
             Self::ForStepZero => RuntimeError::ForStepZero,
-            Self::MissingPou(pou_id) => {
-                RuntimeError::bytecode(code, format!("vm missing pou id {pou_id}"))
-            }
             Self::MissingProgram(name) => RuntimeError::UndefinedProgram(name),
             Self::MissingFunctionBlock(name) => RuntimeError::UndefinedFunctionBlock(name),
             Self::DeadlineExceeded | Self::BudgetExceeded => RuntimeError::ExecutionTimeout,
-            Self::InvalidNativeCallKind(kind) => {
-                RuntimeError::bytecode(code, format!("vm invalid CALL_NATIVE kind {kind}"))
-            }
-            Self::InvalidNativeSymbolIndex(idx) => {
-                RuntimeError::bytecode(code, format!("vm invalid index {idx} for native symbol"))
-            }
+            Self::Runtime(err) => err,
+            // The caller already built this message; adding the fixed prefix still formats the
+            // caller's payload (census F1/F3), so it keeps today's `Bytecode` detail and text.
             Self::InvalidNativeCall(message) => {
                 RuntimeError::bytecode(code, format!("vm invalid CALL_NATIVE payload: {message}"))
             }
-            Self::Runtime(err) => err,
-            Self::InvalidOpcode(opcode) => {
-                RuntimeError::bytecode(code, format!("vm invalid opcode 0x{opcode:02X}"))
-            }
-            Self::InvalidJumpTarget(target) => {
-                RuntimeError::bytecode(code, format!("vm invalid jump target {target}"))
-            }
-            Self::InvalidRefIndex(idx) => {
-                RuntimeError::bytecode(code, format!("vm invalid ref index {idx}"))
-            }
-            Self::InvalidConstIndex(idx) => {
-                RuntimeError::bytecode(code, format!("vm invalid const index {idx}"))
-            }
+            // The message is already the whole detail text, so it moves without allocating.
+            Self::BytecodeDecode(message) => RuntimeError::bytecode(code, message),
+            Self::MissingPou(pou_id) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::TableIndex {
+                    kind: FaultTableIndex::MissingPou,
+                    index: pou_id,
+                },
+            }),
+            Self::InvalidNativeCallKind(kind) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::TableIndex {
+                    kind: FaultTableIndex::NativeCallKind,
+                    index: kind,
+                },
+            }),
+            Self::InvalidNativeSymbolIndex(idx) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::TableIndex {
+                    kind: FaultTableIndex::NativeSymbol,
+                    index: idx,
+                },
+            }),
+            Self::InvalidOpcode(opcode) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::Opcode(opcode),
+            }),
+            Self::InvalidJumpTarget(target) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::JumpTarget(target),
+            }),
+            Self::InvalidRefIndex(idx) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::TableIndex {
+                    kind: FaultTableIndex::Ref,
+                    index: idx,
+                },
+            }),
+            Self::InvalidConstIndex(idx) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::TableIndex {
+                    kind: FaultTableIndex::Const,
+                    index: idx,
+                },
+            }),
             Self::InvalidLocalRef {
                 ref_index,
                 start,
                 count,
-            } => RuntimeError::bytecode(
+            } => RuntimeError::VmFault(VmFaultDetail {
                 code,
-                format!(
-                    "vm invalid local ref {ref_index} (frame local range {start}..{})",
-                    start.saturating_add(count)
-                ),
-            ),
-            Self::StackUnderflow => RuntimeError::bytecode(code, "vm operand stack underflow"),
-            Self::StackOverflow => RuntimeError::bytecode(code, "vm operand stack overflow"),
-            Self::CallStackUnderflow => RuntimeError::bytecode(code, "vm call stack underflow"),
-            Self::CallStackOverflow => RuntimeError::bytecode(code, "vm call stack overflow"),
-            Self::UnsupportedOpcode(name) => {
-                RuntimeError::bytecode(code, format!("vm unsupported opcode {name}"))
-            }
-            Self::UnsupportedRefLocation(name) => {
-                RuntimeError::bytecode(code, format!("vm unsupported ref location {name}"))
-            }
-            Self::BytecodeDecode(message) => RuntimeError::bytecode(code, message),
+                detail: FaultDetail::LocalRef {
+                    index: ref_index,
+                    start,
+                    count,
+                },
+            }),
+            Self::StackUnderflow => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::Text("vm operand stack underflow"),
+            }),
+            Self::StackOverflow => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::Text("vm operand stack overflow"),
+            }),
+            Self::CallStackUnderflow => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::Text("vm call stack underflow"),
+            }),
+            Self::CallStackOverflow => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::Text("vm call stack overflow"),
+            }),
+            Self::UnsupportedOpcode(name) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::StaticName {
+                    kind: FaultStaticName::UnsupportedOpcode,
+                    name,
+                },
+            }),
+            Self::UnsupportedRefLocation(name) => RuntimeError::VmFault(VmFaultDetail {
+                code,
+                detail: FaultDetail::StaticName {
+                    kind: FaultStaticName::UnsupportedRefLocation,
+                    name,
+                },
+            }),
         }
     }
 }
@@ -165,7 +217,13 @@ impl VmTrap {
 #[cold]
 #[inline(never)]
 pub(super) fn invalid_field_string_index(index: u32) -> RuntimeError {
-    VmTrap::BytecodeDecode(format!("invalid index {index} for string").into()).into_runtime_error()
+    RuntimeError::VmFault(VmFaultDetail {
+        code: StableErrorCode::VmBytecodeDecode,
+        detail: FaultDetail::TableIndex {
+            kind: FaultTableIndex::String,
+            index,
+        },
+    })
 }
 
 impl From<RuntimeError> for VmTrap {

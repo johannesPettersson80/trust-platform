@@ -184,7 +184,12 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     those rows are moved into place.
   - [ ] S1b, the chips as runtimes over USB. Design `~/projects/.artifacts/s1b/design.md`; decisions
     `~/projects/.artifacts/s1b/decisions.md` (O1–O14, R1–R9). Work happens in
-    `~/projects/trust-platform-s1b`, branch `feat/chip-control-link`, rebased on 17 Oct (night) onto
+    `~/projects/trust-platform-s1b`, branch `feat/chip-control-link`. 18 Oct: rebased onto this branch's
+    `237a2025a` (C1-3c1, C1-4, C5-3a); the commits are now S1b-1/2 `041a6a083`, S1b-4a/4b1 `141f18480`,
+    S1b-3a1 `465170db2`, S1b-3a2 `03d78a774` (`trust-runtime build` fills section 7) and S1b-4b2a
+    `3a2217974` (the C6's USB-Serial/JTAG link); rebase check `rebase2` green. S1b-3b1 (the `TRSTA001`
+    container and the bench packer) runs there; C5-3b (the persister in the device runner) runs in
+    `~/projects/trust-platform-s1b-retain` (`feat/chip-retain`). Earlier: rebased on 17 Oct (night) onto
     this branch at `c56bc3a86`: S1b-1/2 are now `316b10b96`, S1b-4a/4b1 `165750a43`. The rebase
     check `s1b-rebase` passed every step but the runtime-safety gate and the doctor, whose only
     finding was the retain gate fixed here in `276b16a9f`.
@@ -447,6 +452,13 @@ etc."):
       green); C3b-2 (EtherCAT) runs there. D2a (inspector, context menu) is written; its
       correction (the runtime's own context menu, edit slots hidden while a pane is open) runs.
       Review gaps are listed in `~/projects/.artifacts/devices-v7/followups.md`.
+    - 18 Oct: devices wave 6 is committed in `f387ed109`: C2d (route authentication, the host
+      group setting, discovery and mesh health, host IPs per O32), D2a and D2b1 (inspector, context
+      menu, issues list, List view); VS Code suite 547 passing. C2 is complete. D2c (Rust gives the
+      inspector health, issue severity and view-switch words) runs; D2b2 (keyboard, dragging, saved
+      positions) follows. Known load-sensitive test for the final full run:
+      `web_ide_latency_and_resource_budget_contract` (250 ms max) missed at load 7 twice and passed
+      at load 2-6; run the final batch on a quiet builder.
     - 17 Oct evening: B5, B6, C1b, C5a, the panes move, C3a and C2a are committed in `9e04a75f0`
       (local, validated by focused check devices/wave4 and its rerun). Running: C2b
       (announcement, stable runtime ID) and D1b (canvas). D1a (bundle, toolbar, frames) is
