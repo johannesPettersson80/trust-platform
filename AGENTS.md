@@ -104,6 +104,15 @@ separately.
 
 ## How to work
 
+- **The owner's plan comes first.** A specification carries out what the owner asked for; it is not
+  a place to change the plan. Never add, keep or build a restriction, a reduced function, or a
+  separate way of working for one platform or product that the owner did not ask for, even when a
+  draft, an earlier assistant or a review put it in a specification. Before building a
+  specification section, check each product decision in it against the owner's own words. Show the
+  owner any decision they have not approved, in plain words, and wait for their answer. Never cut
+  functionality to fit hardware: report the limit, and the owner decides, for example on a bigger
+  board. (Owner, 16 October 2026, after a board-only design was built without approval: "you can
+  not just change the complete plan and spec".)
 - **Specification first.** `docs/specs` defines product behaviour. If the behaviour you need is
   missing, ambiguous or contradictory in the written specification, update it (or ask) before
   writing code.
@@ -211,7 +220,9 @@ guard rejects a candidate whose copies differ.
   skill.
 - **Architecture program**: start from the Current Board Pointer in
   `docs/internal/testing/checklists/architecture-workboard-index.md`.
-- **Runtime portability**: specification 34 owns behavior;
+- **Runtime portability**: the boards are truST runtimes and work exactly like trust-runtime on
+  Linux, macOS and Windows (owner, 16 October 2026): no board-only protocol, commands, states,
+  restrictions or VS Code panels. Specification 34 owns behavior;
   `docs/internal/testing/checklists/runtime-portability-implementation-checklist.md` owns the
   current scope, remaining work, and evidence. Read its current checkpoint on every resume and
   update it before handoff. A1–A4 are separate scopes with one final validation batch each;

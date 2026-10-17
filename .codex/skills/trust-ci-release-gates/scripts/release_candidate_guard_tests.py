@@ -250,7 +250,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             pinned_environment=True,
         ))
         for command_id in (
-            "remote_vscode", "remote_fmt", "remote_clippy", "remote_test_all",
+            "remote_vscode", "remote_fmt", "remote_clippy", "remote_docs", "remote_test_all",
             "remote_cross_target_warnings", "remote_supply_chain",
             "remote_architecture_safety",
         ):
@@ -337,6 +337,28 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
         self.assertIn('export PATH="$PATH:${CARGO_HOME:-$HOME/.cargo}/bin"', gate)
         self.assertLess(gate.index("export PATH="), gate.index("command -v ast-grep"))
 
+    def test_remote_validation_builds_documentation_as_ci_does(self) -> None:
+        commands = candidate_prepare.remote_validation_commands(
+            vscode_changed=False, remote_target="/tmp/trust-target"
+        )
+        command_ids = [command_id for command_id, _command in commands]
+        by_id = dict(commands)
+
+        self.assertIn("remote_docs", guard.BASE_REQUIRED_COMMANDS)
+        self.assertLess(command_ids.index("remote_clippy"), command_ids.index("remote_docs"))
+        self.assertLess(
+            command_ids.index("remote_docs"),
+            command_ids.index("remote_reclaim_before_test_all"),
+        )
+        self.assertIn("cargo doc --no-deps --all-features", by_id["remote_docs"])
+        self.assertIn("RUSTDOCFLAGS=", by_id["remote_docs"])
+        self.assertIn("-D warnings", by_id["remote_docs"])
+        workflow = (Path(__file__).parents[4] / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("cargo doc --no-deps --all-features", workflow)
+        self.assertIn("RUSTDOCFLAGS: -D warnings", workflow)
+
     def test_remote_validation_checks_target_space_before_test_all(self) -> None:
         commands = candidate_prepare.remote_validation_commands(
             vscode_changed=True, remote_target="/tmp/trust target"
@@ -365,6 +387,7 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "remote_supply_chain",
             "remote_architecture_safety",
             "remote_clippy",
+            "remote_docs",
             "remote_test_all",
             "remote_mp001_parity",
         )
