@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::ops::RangeInclusive;
 
 // STM32F4 identity: the chip's DBGMCU_IDCODE and UID words, and bit 29 of the reset word
-// (RCC_CSR.IWDGRSTF), which reports the independent watchdog reset on the F401 and the F407.
+// (RCC_CSR.IWDGRSTF), which reports the independent watchdog reset on the F407.
 const STM32_WATCHDOG_RESET: u64 = 1 << 29;
 
 /// The words of an STM32F4 IDENTITY record that name the connected chip.
@@ -18,11 +18,6 @@ struct Stm32Device {
     uid: [u64; 3],
 }
 
-// The owned NUCLEO-F401RE.
-const F401_DEVICE: Stm32Device = Stm32Device {
-    idcode: 0x10016433,
-    uid: [0x00410016, 0x30395119, 0x35363638],
-};
 // The owned STM32F407G-DISC1, from the M0 record of 16 October 2026 (spec 34, D.4).
 const F407_DEVICE: Stm32Device = Stm32Device {
     idcode: 0x100f6413,
@@ -47,7 +42,6 @@ const C6_WATCHDOG_RESET: u64 = 0x07;
 /// Checks one IDENTITY record. `boot` is 0 for the first boot and 1 for the watchdog boot.
 pub(super) fn identity(board: &BoardProfile, id: &[u64; 8], boot: usize) -> Result<()> {
     match board.board {
-        Board::NucleoF401re => stm32_identity(board, &F401_DEVICE, id, boot)?,
         Board::Stm32f407gDisc1 => stm32_identity(board, &F407_DEVICE, id, boot)?,
         Board::Esp32c6Devkitc1 => {
             ensure!(
@@ -220,10 +214,6 @@ pub(super) fn admit_banner(
 mod tests {
     use super::*;
 
-    fn nucleo() -> BoardProfile {
-        BoardProfile::nucleo_f401re()
-    }
-
     fn disc1() -> BoardProfile {
         BoardProfile::stm32f407g_disc1().unwrap()
     }
@@ -263,15 +253,12 @@ mod tests {
     #[test]
     fn only_the_f407_prints_a_clock_record() {
         assert!(reports_clock(&disc1()));
-        assert!(!reports_clock(&nucleo()));
         assert!(!reports_clock(&c6()));
         let record: Vec<&str> = "B1,CLOCK,HSE,8000000,8000000,168000000,measured"
             .split(',')
             .collect();
-        for board in [nucleo(), c6()] {
-            let error = clock(&board, &record).unwrap_err().to_string();
-            assert!(error.contains("prints no clock record"), "{error}");
-        }
+        let error = clock(&c6(), &record).unwrap_err().to_string();
+        assert!(error.contains("prints no clock record"), "{error}");
     }
 
     #[test]
@@ -434,7 +421,7 @@ mod tests {
     }
 
     #[test]
-    fn the_f401_and_the_f407_are_told_apart_by_their_chip_words() {
+    fn the_f407_is_told_apart_from_another_chip_by_its_chip_words() {
         let words = |idcode: &str, uid: [&str; 3], flash: &str, hz: &str| -> [u64; 8] {
             let hex = |text: &str| u64::from_str_radix(text, 16).unwrap();
             [
@@ -448,7 +435,8 @@ mod tests {
                 0,
             ]
         };
-        let f401 = words(
+        // Another chip's words: the STM32F401 of the retired NUCLEO-F401RE.
+        let other = words(
             "10016433",
             ["00410016", "30395119", "35363638"],
             "512",
@@ -460,16 +448,13 @@ mod tests {
             "1024",
             "168000000",
         );
-        identity(&nucleo(), &f401, 0).unwrap();
         identity(&disc1(), &f407, 0).unwrap();
-        for (board, other) in [(nucleo(), f407), (disc1(), f401)] {
-            let error = identity(&board, &other, 0).unwrap_err().to_string();
-            assert!(
-                error.contains("wrong connected reference device"),
-                "{error}"
-            );
-        }
-        // The watchdog boot needs the independent watchdog flag, on both chips.
+        let error = identity(&disc1(), &other, 0).unwrap_err().to_string();
+        assert!(
+            error.contains("wrong connected reference device"),
+            "{error}"
+        );
+        // The watchdog boot needs the independent watchdog flag.
         identity(
             &disc1(),
             &[
@@ -486,6 +471,5 @@ mod tests {
         )
         .unwrap();
         assert!(identity(&disc1(), &f407, 1).is_err());
-        assert!(identity(&nucleo(), &f401, 1).is_err());
     }
 }

@@ -3,7 +3,7 @@
 //! itself. Code reads the selected chip ([`CHIP`]); it does not branch on a chip name
 //! (specification 34, ARCH-10, TARGET-03 and Appendix D).
 //!
-//! Sources: RM0368 and DS10086 for the STM32F401, RM0090 and DS8626 for the STM32F407.
+//! Sources: RM0090 and DS8626 for the STM32F407.
 
 use crate::pins::{at, Pin, PinError, Port, Reserved, Wiring};
 
@@ -61,7 +61,7 @@ pub struct Reservation {
     pub reason: Reserved,
 }
 
-/// The pins of the console UART, USART2 with alternate function 7 on both chips.
+/// The pins of the console UART, USART2 with alternate function 7.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConsolePins {
     /// Transmit pin.
@@ -94,7 +94,7 @@ pub enum IdentityError {
 pub struct Chip {
     /// Name of the chip.
     pub name: &'static str,
-    /// DEV_ID, bits 11:0 of DBGMCU_IDCODE (RM0090 and RM0368, debug MCU).
+    /// DEV_ID, bits 11:0 of DBGMCU_IDCODE (RM0090, debug MCU).
     pub device_id: u16,
     /// Flash size in KiB, as the flash size register reports it.
     pub flash_kib: u16,
@@ -241,9 +241,9 @@ impl Chip {
     }
 }
 
-/// The three little-endian words of the 96-bit unique ID at 0x1FFF_7A10 (the same address on the
-/// F401 and the F407), rebuilt from the fields the HAL reads there: the X and Y wafer
-/// coordinates, the wafer number and the seven lot characters. Missing lot bytes read as zero.
+/// The three little-endian words of the 96-bit unique ID at 0x1FFF_7A10, rebuilt from the fields
+/// the HAL reads there: the X and Y wafer coordinates, the wafer number and the seven lot
+/// characters. Missing lot bytes read as zero.
 pub fn uid_words(x: u16, y: u16, wafer: u8, lot: &[u8]) -> [u32; 3] {
     let lot_byte = |index: usize| lot.get(index).copied().unwrap_or(0);
     [
@@ -256,81 +256,6 @@ pub fn uid_words(x: u16, y: u16, wafer: u8, lot: &[u8]) -> [u32; 3] {
 const PA2_PA3: ConsolePins = ConsolePins {
     tx: at(Port::A, 2),
     rx: at(Port::A, 3),
-};
-
-/// The STM32F401RE of the NUCLEO-F401RE: Cortex-M4F at up to 84 MHz, 512 KiB flash, 96 KiB SRAM.
-pub const STM32F401: Chip = Chip {
-    name: "STM32F401",
-    // RM0368: 0x433 is the F401xD/E; the F401xB/C is 0x423.
-    device_id: 0x433,
-    flash_kib: 512,
-    // RM0368 flash organization: four 16 KiB, one 64 KiB and three 128 KiB sectors.
-    sectors: &[
-        SectorRun { count: 4, kib: 16 },
-        SectorRun { count: 1, kib: 64 },
-        SectorRun { count: 3, kib: 128 },
-    ],
-    ram: &[RamRegion {
-        name: "SRAM",
-        start: 0x2000_0000,
-        kib: 96,
-        dma: true,
-    }],
-    // HSI through the PLL: the F401 reference composition runs without a crystal.
-    sysclk_hz: 84_000_000,
-    ports: &[
-        PortSpec {
-            port: Port::A,
-            pins: 16,
-        },
-        PortSpec {
-            port: Port::B,
-            pins: 16,
-        },
-        PortSpec {
-            port: Port::C,
-            pins: 16,
-        },
-        PortSpec {
-            port: Port::D,
-            pins: 16,
-        },
-        PortSpec {
-            port: Port::E,
-            pins: 16,
-        },
-        PortSpec {
-            port: Port::H,
-            pins: 2,
-        },
-    ],
-    reserved: &[
-        Reservation {
-            pin: at(Port::A, 2),
-            reason: Reserved::Console,
-        },
-        Reservation {
-            pin: at(Port::A, 3),
-            reason: Reserved::Console,
-        },
-        Reservation {
-            pin: at(Port::A, 13),
-            reason: Reserved::Debug,
-        },
-        Reservation {
-            pin: at(Port::A, 14),
-            reason: Reserved::Debug,
-        },
-        Reservation {
-            pin: at(Port::H, 0),
-            reason: Reserved::Oscillator,
-        },
-        Reservation {
-            pin: at(Port::H, 1),
-            reason: Reserved::Oscillator,
-        },
-    ],
-    console: PA2_PA3,
 };
 
 /// The STM32F407 (the VG on the STM32F407G-DISC1): Cortex-M4F at up to 168 MHz, 1 MiB flash,
@@ -435,14 +360,9 @@ pub const STM32F407: Chip = Chip {
     console: PA2_PA3,
 };
 
-/// The chip this build is for, selected by the `stm32f407` feature. With both chip features on
-/// (a host build of the whole workspace) this is the F407; bare-metal builds accept one feature.
-#[cfg(feature = "stm32f407")]
+/// The chip this build is for: the STM32F407, the one supported chip. Its `stm32f407` feature
+/// selects the chip's peripheral crates for a bare-metal build.
 pub const CHIP: Chip = STM32F407;
-
-/// The chip this build is for: the STM32F401, unless the `stm32f407` feature selects the F407.
-#[cfg(not(feature = "stm32f407"))]
-pub const CHIP: Chip = STM32F401;
 
 #[cfg(test)]
 mod tests {
@@ -466,18 +386,6 @@ mod tests {
         (0x080a_0000, 128 * KIB),
         (0x080c_0000, 128 * KIB),
         (0x080e_0000, 128 * KIB),
-    ];
-
-    /// RM0368 flash organization of the STM32F401xD/E: address and size of sectors 0 to 7.
-    const F401_SECTORS: [(u32, u32); 8] = [
-        (0x0800_0000, 16 * KIB),
-        (0x0800_4000, 16 * KIB),
-        (0x0800_8000, 16 * KIB),
-        (0x0800_c000, 16 * KIB),
-        (0x0801_0000, 64 * KIB),
-        (0x0802_0000, 128 * KIB),
-        (0x0804_0000, 128 * KIB),
-        (0x0806_0000, 128 * KIB),
     ];
 
     fn pin(chip: &Chip, name: &str) -> Result<Pin, PinError> {
@@ -523,27 +431,6 @@ mod tests {
     }
 
     #[test]
-    fn f401_sector_map_matches_the_reference_manual() {
-        assert_sector_table(&STM32F401, &F401_SECTORS);
-        assert_eq!(STM32F401.flash_end(), 0x0808_0000);
-    }
-
-    #[test]
-    fn both_chips_share_the_layout_of_the_first_four_sectors() {
-        // The application bundle (sector 1) and the checkpoint slots (sectors 2 and 3) sit at the
-        // same addresses on both chips; firmware starts at sector 4 (0x0801_0000).
-        for index in 0..5 {
-            assert_eq!(STM32F401.sector(index), STM32F407.sector(index));
-        }
-        let application = STM32F407.sector(1).unwrap();
-        assert_eq!(
-            (application.start, application.bytes),
-            (0x0800_4000, 16 * KIB)
-        );
-        assert_eq!(STM32F407.sector(4).unwrap().start, 0x0801_0000);
-    }
-
-    #[test]
     fn f407_ram_is_192_kib_and_the_core_coupled_part_is_cpu_only() {
         let ram = STM32F407.ram;
         assert_eq!(STM32F407.ram_kib(), 192);
@@ -556,22 +443,6 @@ mod tests {
             ("CCM", 0x1000_0000, 64)
         );
         assert!(!ram[2].dma);
-    }
-
-    #[test]
-    fn f401_ram_is_96_kib() {
-        assert_eq!(STM32F401.ram_kib(), 96);
-        assert_eq!(STM32F401.dma_ram_kib(), 96);
-        assert_eq!(STM32F401.ram[0].start, 0x2000_0000);
-    }
-
-    #[test]
-    fn f401_values_are_the_ones_the_reference_firmware_was_validated_with() {
-        assert_eq!(STM32F401.sysclk_hz, 84_000_000);
-        assert_eq!(STM32F401.flash_kib, 512);
-        assert_eq!(STM32F401.device_id, 0x433);
-        assert_eq!(STM32F401.name, "STM32F401");
-        assert_eq!(STM32F401.console, PA2_PA3);
     }
 
     #[test]
@@ -588,25 +459,16 @@ mod tests {
         assert_eq!(STM32F407.verify_identity(0x100f_6413, 1024), Ok(()));
         // Any revision of the same device passes; the revision is bits 31:16.
         assert_eq!(STM32F407.verify_identity(0x2000_6413, 1024), Ok(()));
-        // The recorded F401 identity (xtask trace test, NUCLEO-F401RE).
-        assert_eq!(STM32F401.verify_identity(0x1001_6433, 512), Ok(()));
     }
 
     #[test]
     fn identity_rejects_another_device_or_flash_size() {
-        // F407 firmware on an F401, and the reverse.
+        // F407 firmware on another chip: an STM32F401xD/E, device 0x433.
         assert_eq!(
             STM32F407.verify_identity(0x1001_6433, 512),
             Err(IdentityError::Device {
                 found: 0x433,
                 expected: 0x413
-            })
-        );
-        assert_eq!(
-            STM32F401.verify_identity(0x100f_6413, 1024),
-            Err(IdentityError::Device {
-                found: 0x413,
-                expected: 0x433
             })
         );
         // The right device with the wrong flash size (a 512 KiB F405 or F407 variant).
@@ -669,31 +531,6 @@ mod tests {
     }
 
     #[test]
-    fn f401_has_ports_a_to_e_and_two_pins_on_h() {
-        for name in ["PA0", "PB15", "PC13", "PD0", "PD15", "PE15", "PA5"] {
-            assert!(pin(&STM32F401, name).is_ok(), "{name}");
-        }
-        // PH0 and PH1 exist but belong to the oscillator.
-        assert_eq!(
-            pin(&STM32F401, "PH1"),
-            Err(PinError::Reserved(
-                Pin::parse("PH1").unwrap(),
-                Reserved::Oscillator
-            ))
-        );
-        assert_eq!(
-            pin(&STM32F401, "PH2"),
-            Err(PinError::NoSuchPin(Pin::parse("PH2").unwrap()))
-        );
-        for name in ["PF0", "PG0", "PI0", "PJ0", "PK0"] {
-            assert!(matches!(
-                pin(&STM32F401, name),
-                Err(PinError::NoSuchPort(_))
-            ));
-        }
-    }
-
-    #[test]
     fn the_bench_pins_of_the_disc1_are_ordinary_pins_of_the_chip() {
         // LEDs LD3 to LD6 on PD13, PD12, PD14, PD15 and the user button B1 on PA0 (UM1472).
         for name in ["PD12", "PD13", "PD14", "PD15", "PA0", "pd12"] {
@@ -711,17 +548,14 @@ mod tests {
             ("PH0", Reserved::Oscillator),
             ("PH1", Reserved::Oscillator),
         ];
-        for chip in [&STM32F401, &STM32F407] {
-            for (name, reason) in cases {
-                assert_eq!(
-                    chip.pin(name),
-                    Err(PinError::Reserved(Pin::parse(name).unwrap(), reason)),
-                    "{} {name}",
-                    chip.name
-                );
-            }
-            assert_eq!(chip.reserved.len(), cases.len());
+        for (name, reason) in cases {
+            assert_eq!(
+                STM32F407.pin(name),
+                Err(PinError::Reserved(Pin::parse(name).unwrap(), reason)),
+                "{name}"
+            );
         }
+        assert_eq!(STM32F407.reserved.len(), cases.len());
     }
 
     #[test]
@@ -776,7 +610,6 @@ mod tests {
         // As a constant, the way a firmware asserts its wiring at build time.
         const CHECKED: Result<(), PinError> = STM32F407.check_wiring(&DISC1);
         assert_eq!(CHECKED, Ok(()));
-        assert_eq!(STM32F401.check_wiring(&DISC1), Ok(()));
         let named = |line: &str| Pin::parse(line).unwrap();
         // One pin on both lines.
         let twice = Wiring {
@@ -826,38 +659,33 @@ mod tests {
 
     #[test]
     fn table_entries_print_the_pin_they_are_meant_to_name() {
-        for chip in [&STM32F401, &STM32F407] {
-            let names: std::vec::Vec<_> = chip
-                .reserved
+        let chip = &STM32F407;
+        let names: std::vec::Vec<_> = chip
+            .reserved
+            .iter()
+            .map(|entry| entry.pin.to_string())
+            .collect();
+        assert_eq!(names, ["PA2", "PA3", "PA13", "PA14", "PH0", "PH1"]);
+        assert_eq!(chip.console.tx.to_string(), "PA2");
+        assert_eq!(chip.console.rx.to_string(), "PA3");
+        // Every reserved pin and the console pins are pins the chip has.
+        for entry in chip.reserved {
+            let spec = chip
+                .ports
                 .iter()
-                .map(|entry| entry.pin.to_string())
-                .collect();
-            assert_eq!(names, ["PA2", "PA3", "PA13", "PA14", "PH0", "PH1"]);
-            assert_eq!(chip.console.tx.to_string(), "PA2");
-            assert_eq!(chip.console.rx.to_string(), "PA3");
-            // Every reserved pin and the console pins are pins the chip has.
-            for entry in chip.reserved {
-                let spec = chip
-                    .ports
-                    .iter()
-                    .find(|spec| spec.port == entry.pin.port())
-                    .unwrap();
-                assert!(entry.pin.number() < spec.pins);
-            }
+                .find(|spec| spec.port == entry.pin.port())
+                .unwrap();
+            assert!(entry.pin.number() < spec.pins);
         }
     }
 
     #[test]
     fn the_selected_chip_sets_the_profile_clock() {
         assert_eq!(SYSCLK_HZ, CHIP.sysclk_hz);
-        #[cfg(not(feature = "stm32f407"))]
-        assert_eq!((CHIP.name, SYSCLK_HZ), ("STM32F401", 84_000_000));
-        #[cfg(feature = "stm32f407")]
         assert_eq!((CHIP.name, SYSCLK_HZ), ("STM32F407", 168_000_000));
     }
 
-    // Data-sheet limits (F401: 84 MHz; F407: 168 MHz), checked when the tests are built.
-    const _: () = assert!(STM32F401.sysclk_hz <= 84_000_000);
+    // The data-sheet limit (F407: 168 MHz), checked when the tests are built.
     const _: () = assert!(STM32F407.sysclk_hz <= 168_000_000);
 
     #[test]
@@ -867,6 +695,5 @@ mod tests {
         assert_eq!(STM32F407.sysclk_hz / 2, 84_000_000);
         // Whole microseconds and milliseconds per cycle count: the fixture's clocks need them.
         assert_eq!(STM32F407.sysclk_hz % 1_000_000, 0);
-        assert_eq!(STM32F401.sysclk_hz % 1_000_000, 0);
     }
 }

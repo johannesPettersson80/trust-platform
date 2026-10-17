@@ -99,7 +99,13 @@ pub(super) fn queue_hmi_runtime_write_port(
     let value = parse_hmi_write_value(
         requested_value,
         &template,
-        bounded_string_capacity(point.data_type.as_str()),
+        bounded_string_capacity(
+            point.data_type.as_str(),
+            matches!(
+                point.binding,
+                crate::hmi::HmiWriteBinding::ProgramVar { .. }
+            ),
+        ),
         bounded_subrange(point.data_type.as_str()),
     )
     .map_err(|failure| {

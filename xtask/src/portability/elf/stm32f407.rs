@@ -2,10 +2,10 @@
 //!
 //! [`inspect`] reads the linked ELF into an [`Image`], and [`check`] applies the policy to it, so
 //! each rule is tested on a described image instead of a linked firmware. The layout is the
-//! F407's flash sector map (RM0090, specification 34 D.4): the first four sectors as on the F401,
-//! with the vector table alone in sector 0, and the firmware from sector 4 through sector 11. The
-//! F401's immutable data in sector 0 is a squeeze for its 448 KiB and is not used here. The 64 KiB
-//! of core-coupled memory is unassigned, so a section there fails.
+//! F407's flash sector map (RM0090, specification 34 D.4): the vector table alone in sector 0, the
+//! application bundle in sector 1, the checkpoint slots in sectors 2 and 3, and the firmware from
+//! sector 4 through sector 11. The 64 KiB of core-coupled memory is unassigned, so a section
+//! there fails.
 use super::{contained, meets_flash_growth_target, FLASH_GROWTH_TARGET};
 use crate::portability::board::BoardProfile;
 use anyhow::{ensure, Context, Result};
@@ -182,8 +182,8 @@ fn firmware_span(end: u64) -> Result<u64> {
     Ok(end - CODE.start)
 }
 
-/// Applies the policy to one image and reports what it holds. The checks run in the order of the
-/// F401's: the file, the vector table and stack, the code, the flash loads, then the sections.
+/// Applies the policy to one image and reports what it holds. The checks run in this order: the
+/// file, the vector table and stack, the code, the flash loads, then the sections.
 fn check(board: &BoardProfile, image: &Image) -> Result<Value> {
     ensure!(image.arm32, "firmware must be ARM32 little-endian ELF");
     ensure!(image.hard_float, "firmware lacks hard-float ABI flag");
@@ -423,11 +423,6 @@ mod tests {
         assert_eq!(APPLICATION.end - APPLICATION.start, board.application_bytes);
         assert_eq!(PERSISTENCE.end - PERSISTENCE.start, 32 * 1024);
         assert_eq!(CODE.end - FLASH_START, board.flash_kib * 1024);
-        // Sectors 0 to 4 have the addresses and sizes they have on the F401, whose 448 KiB of
-        // firmware are the first four firmware sectors here (sectors 4 to 7).
-        assert_eq!(VECTOR, super::super::VECTOR);
-        assert_eq!(CODE.start, super::super::CODE.start);
-        assert_eq!(super::super::CODE, CODE.start..sector_address(8));
         assert_eq!(SRAM.end - SRAM.start, 128 * 1024);
         assert_eq!(SRAM.end - STACK_END, board.stack_window_bytes);
         assert_eq!(INITIAL_SP, 0x2002_0000);
@@ -484,7 +479,7 @@ mod tests {
         }
         assert_eq!(VECTOR.end - VECTOR.start, 16 * 1024);
         assert_eq!(board().stack_window_bytes, 16 * 1024);
-        // The inspection does not look for the F401's data placement in sector 0.
+        // No firmware data in sector 0, where the retired F401 firmware placed its constants.
         assert!(!memory.contains(".firmware_rodata"));
         assert!(!profile.contains("__firmware_rodata"));
     }
@@ -685,7 +680,7 @@ mod tests {
                 "{address:#x}: {error}"
             );
         }
-        // Sector 0 holds the vector table alone; the F401 keeps its constants there.
+        // Sector 0 holds the vector table alone; the retired F401 kept its constants there.
         let error = rejected(|image| {
             image
                 .sections

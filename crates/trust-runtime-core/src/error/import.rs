@@ -17,11 +17,19 @@ pub enum ImportRefusal {
     ParameterType,
     /// The hidden native state of a function block differs from the contract.
     StateLayout,
+    /// A deployment record names another contract version than the runtime has (spec 34
+    /// §5.1.1).
+    ContractVersion {
+        /// The version the deployment record names.
+        record: u16,
+        /// The version of the runtime's contract.
+        runtime: u16,
+    },
 }
 
 impl fmt::Display for ImportRefusal {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
+        let text = match self {
             Self::NoContract => "no built-in contract has this name",
             Self::ParameterCount => {
                 "the number of arguments or parameters differs from the contract"
@@ -30,7 +38,15 @@ impl fmt::Display for ImportRefusal {
             Self::OutputTarget => "an output argument is not a writable target",
             Self::ParameterType => "a parameter's type or direction differs from the contract",
             Self::StateLayout => "the hidden native state differs from the contract",
-        })
+            Self::ContractVersion { record, runtime } => {
+                return write!(
+                    formatter,
+                    "the deployment record names contract version {record}, the runtime has \
+                     version {runtime}"
+                );
+            }
+        };
+        formatter.write_str(text)
     }
 }
 
@@ -60,6 +76,13 @@ mod tests {
             (
                 StateLayout,
                 "the hidden native state differs from the contract",
+            ),
+            (
+                ContractVersion {
+                    record: 2,
+                    runtime: 1,
+                },
+                "the deployment record names contract version 2, the runtime has version 1",
             ),
         ] {
             let error = RuntimeError::ImportUnsupported {

@@ -251,12 +251,15 @@ impl VariableStorage {
         }))
     }
 
-    /// Commit the already checked patch once; this never reruns alias preflight.
+    /// Commit the already checked patch once; this never reruns alias preflight. `capacity` is the
+    /// declared string capacity of the target element write, in UTF-8 bytes for `STRING` and
+    /// UTF-16 code units for `WSTRING`.
     pub(crate) fn commit_prepared_write(
         &mut self,
         path: &[RefSegment],
         value: Value,
         prepared: PreparedStorageWrite,
+        capacity: usize,
     ) -> bool {
         let Some(path) = path.get(prepared.path_offset..) else {
             return false;
@@ -276,7 +279,7 @@ impl VariableStorage {
             MemoryLocation::Io(_) | MemoryLocation::Retain => None,
         };
         let Some(slot) = slot else { return false };
-        crate::value::commit_value_path_write(slot, path, value, prepared.value)
+        crate::value::commit_value_path_write(slot, path, value, prepared.value, capacity)
     }
 
     #[cfg(feature = "hir")]
@@ -287,6 +290,7 @@ impl VariableStorage {
         offset: usize,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> bool {
         if path.is_empty() {
             return self.write_direct_slot_by_location(location, offset, value);
@@ -299,13 +303,25 @@ impl VariableStorage {
                 .globals
                 .get_index_mut(resolved.offset)
                 .map(|(_, slot)| {
-                    crate::value::write_value_path_typed(slot, resolved.path, value, registry)
+                    crate::value::write_value_path_typed(
+                        slot,
+                        resolved.path,
+                        value,
+                        registry,
+                        capacity,
+                    )
                 })
                 .unwrap_or(false),
             MemoryLocation::Local(frame_id) => self
                 .local_slot_mut(frame_id, resolved.offset)
                 .map(|slot| {
-                    crate::value::write_value_path_typed(slot, resolved.path, value, registry)
+                    crate::value::write_value_path_typed(
+                        slot,
+                        resolved.path,
+                        value,
+                        registry,
+                        capacity,
+                    )
                 })
                 .unwrap_or(false),
             MemoryLocation::Instance(instance_id) => self
@@ -313,7 +329,13 @@ impl VariableStorage {
                 .get_mut(&instance_id)
                 .and_then(|instance| instance.variables.get_index_mut(resolved.offset))
                 .map(|(_, slot)| {
-                    crate::value::write_value_path_typed(slot, resolved.path, value, registry)
+                    crate::value::write_value_path_typed(
+                        slot,
+                        resolved.path,
+                        value,
+                        registry,
+                        capacity,
+                    )
                 })
                 .unwrap_or(false),
             MemoryLocation::Io(_) | MemoryLocation::Retain => false,

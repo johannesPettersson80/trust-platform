@@ -159,7 +159,7 @@ impl Memory for TargetMemory {
 
     fn measure(&self) -> Measurement {
         // The composition paints the window before the runner starts (cortex-m-rt's
-        // paint-stack on F401, an explicit repaint on C6). Scan only this window.
+        // paint-stack on the F407, an explicit repaint on C6). Scan only this window.
         // Volatile reads observe interrupt stack use; this remains a measured
         // high-water, not a worst-case proof.
         let mut untouched = 0;

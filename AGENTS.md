@@ -89,7 +89,13 @@ separately.
   2. clean generated targets;
   3. rerun only with the user's explicit authorization for another validation run.
 - The builder has no GPU and no GitHub push credentials, so use it to fetch and validate only.
-- Never put keys, tokens or other credentials in the repo.
+- Never put keys, tokens or other credentials in the repo, and never print them. Filter config,
+  auth, service and server-log files before reading them, and keep a needed secret in a file
+  with mode 600.
+- Never edit a script while it may be running: bash reads a script as it executes. Write
+  `<script>.new`, check it with `bash -n`, and `mv` it over the old one.
+- Run anything that may take longer than about a minute in the background and say what it is.
+  When it is slower than expected, look at its process and log at once instead of waiting.
 
 ## Simplicity and clarity
 
@@ -131,6 +137,25 @@ separately.
   red/green loops, milestone reruns, or speculative extra checks. This order overrides conflicting
   cadence instructions in skills, plugins, checklists, and historical notes unless the user
   explicitly changes it.
+- **Compile check before reporting** (owner, 17 October 2026: "proposal a approved"). Before an
+  agent reports code as written, it runs a compile check on the crates it changed: format, Clippy
+  with `-D warnings` on all targets and features, and rustdoc with warnings denied. The check runs
+  on the builder, in the worktree's own check copy and target (`trust-remote-builder` skill), and
+  runs no tests. The agent fixes what the check finds in its own files. It reports, and does not
+  fix, errors in files that another agent is writing. The check is not the validation batch; the
+  one consolidated batch still follows.
+- **Implementation agents** (owner, 17 October 2026): implementation work runs through opencode
+  subagents on the free model DeepSeek V4.1 Flash, and the lead orchestrates
+  (`trust-agent-orchestration` skill). Each brief names:
+  - the files to read and the only files the agent may change;
+  - numbered requirements, each with a named test;
+  - the exact compile check.
+
+  The lead verifies the scope, the real check output and the tests itself, never the agent's
+  claims, and commits. A task that fails two rounds goes to a stronger agent.
+- **Tests prove the specification, not the code.** Every expected value comes from the
+  specification and is worked out by hand. Each test names the wrong behaviour it would catch. A
+  test that only repeats what the code returns proves nothing (`trust-test-authoring`).
 - **Failed validation**: retain the complete failure ledger and report failed or unrun checks as
   unverified. Fixes may be prepared within the authorized scope, but another validation run needs
   the user's explicit authorization. Do not weaken tests, bypass release guards, or relabel a retry
@@ -263,3 +288,4 @@ guard rejects a candidate whose copies differ.
 | `st-lsp-solid` | refactors, module boundaries, runtime/LSP/CLI structure, architecture tooling |
 | `trust-vscode-quality` | VS Code extension work, extension tests, screenshots, UI acceptance |
 | `trust-hmi-contracts` | HMI Builder, runtime HMI, bindings, commands, alarms, HMI tests |
+| `trust-agent-orchestration` | implementation subagents: briefs, launching, follow-ups, reviewing their work |

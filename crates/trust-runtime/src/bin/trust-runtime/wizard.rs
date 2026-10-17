@@ -114,7 +114,7 @@ pub fn create_bundle(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
         SourceFile::with_path("main.st", main_text),
     ]);
     let bytecode = session.build_bytecode_bytes()?;
-    fs::write(&program_path, bytecode)?;
+    write_program(&root, &bytecode)?;
 
     Ok(root)
 }
@@ -175,10 +175,18 @@ pub fn create_bundle_auto(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
         };
         let session = CompileSession::from_sources(sources);
         let bytecode = session.build_bytecode_bytes()?;
-        fs::write(&program_path, bytecode)?;
+        write_program(&root, &bytecode)?;
     }
 
     Ok(root)
+}
+
+/// Write `program.stbc` and its deployment record (specification 34 §5.1.1), after the project's
+/// configuration files, which the record identifies.
+fn write_program(root: &Path, bytecode: &[u8]) -> anyhow::Result<()> {
+    fs::write(root.join("program.stbc"), bytecode)?;
+    trust_runtime::deployment::write_record(root, bytecode)?;
+    Ok(())
 }
 
 pub(crate) fn default_resource_name(root: &Path) -> SmolStr {
@@ -239,8 +247,10 @@ pub(crate) fn write_runtime_toml(
 
     fs::create_dir_all(&src_dir)?;
     fs::write(&config_path, config_text)?;
-    fs::write(bundle_root.join("program.stbc"), bytecode)?;
+    fs::write(bundle_root.join("program.stbc"), &bytecode)?;
     fs::write(runtime_path, runtime_text)?;
+    // The record identifies the configuration, so it follows runtime.toml (spec 34 §5.1.1).
+    trust_runtime::deployment::write_record(bundle_root, &bytecode)?;
     Ok(())
 }
 
@@ -284,6 +294,7 @@ const DEFAULT_GITIGNORE: &str = "\
 # Build artifacts\n\
 /target/\n\
 /program.stbc\n\
+/deployment-record.bin\n\
 *.stbc\n\
 \n\
 # Runtime data\n\

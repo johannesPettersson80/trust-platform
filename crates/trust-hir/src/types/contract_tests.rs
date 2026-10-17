@@ -747,6 +747,29 @@ fn null_is_assignable_only_to_pointer_and_reference_families() {
 }
 
 #[test]
+fn a_string_without_a_length_is_the_string_of_length_80() {
+    // docs/IEC_DECISIONS.md 2026-10-17: STRING is STRING[80] and WSTRING is WSTRING[80].
+    let mut registry = TypeRegistry::new();
+    assert_eq!(
+        registry.get(TypeId::STRING),
+        Some(&Type::String { max_len: Some(80) })
+    );
+    assert_eq!(
+        registry.get(TypeId::WSTRING),
+        Some(&Type::WString { max_len: Some(80) })
+    );
+    assert_eq!(registry.register_string_with_length(80), TypeId::STRING);
+    assert_eq!(registry.register_wstring_with_length(80), TypeId::WSTRING);
+    assert_eq!(
+        registry.type_name(TypeId::STRING).as_deref(),
+        Some("STRING")
+    );
+    let longer = registry.register_string_with_length(81);
+    assert_ne!(longer, TypeId::STRING);
+    assert_eq!(registry.type_name(longer).as_deref(), Some("STRING[81]"));
+}
+
+#[test]
 fn string_lengths_do_not_change_family_compatibility_but_width_does() {
     let mut registry = TypeRegistry::new();
     let short = registry.register_string_with_length(3);

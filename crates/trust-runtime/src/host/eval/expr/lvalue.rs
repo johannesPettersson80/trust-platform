@@ -106,7 +106,15 @@ pub fn write_lvalue(
         LValue::Index { target, indices } => {
             let array_value = read_lvalue(ctx, target)?;
             let index_values = eval_indices(ctx, indices)?;
-            let updated = write_indices(array_value, &index_values, value)?;
+            // The legacy test evaluator carries no declaration-to-capacity map, so a string
+            // element write here keeps the implementer maximum. The stack VM and the engineering
+            // boundaries pass the declared capacity.
+            let updated = write_indices(
+                array_value,
+                &index_values,
+                value,
+                crate::value::MAX_STRING_CAPACITY,
+            )?;
             write_lvalue(ctx, target, updated)
         }
         LValue::Field { target, field } => {

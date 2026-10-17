@@ -61,6 +61,7 @@ pub(super) fn unwind_stack_frames(
         {
             *result = Err(error);
         }
+        runtime.recycle_frame_locals(frame.locals);
         if let Some(parent) = buffers.frames.current_mut()
             && let Err(error) = runtime.resume_frame(parent)
         {

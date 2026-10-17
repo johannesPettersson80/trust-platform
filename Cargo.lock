@@ -6737,8 +6737,6 @@ name = "trust-platform-stm32f4"
 version = "0.24.75"
 dependencies = [
  "cortex-m",
- "embedded-hal-nb",
- "nb 1.1.0",
  "stm32f4",
  "stm32f4xx-hal",
  "trust-chips",
@@ -6845,6 +6843,7 @@ dependencies = [
  "libm",
  "rustc-hash 2.1.3",
  "ryu",
+ "sha2 0.11.0",
  "smol_str",
  "thiserror 2.0.21",
  "trust-hir",

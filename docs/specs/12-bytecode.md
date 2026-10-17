@@ -399,9 +399,18 @@ Primitive payload:
 ```
 struct PrimitiveType {
   u16 prim_id;     // see PrimitiveId
-  u16 max_length;  // for STRING/WSTRING; 0 means default/unspecified
+  u16 max_length;  // STRING/WSTRING capacity; 0 for every other primitive
 }
 ```
+
+For STRING, `max_length` is the capacity in bytes of UTF-8; for WSTRING, in
+UTF-16 code units (`docs/IEC_DECISIONS.md` 2026-10-17). A producer writes the
+capacity of every STRING and WSTRING type, 1 to 65,535, including 80 for a
+declaration without a length; `STRING` and `STRING[80]` are one type and may
+share an entry. Earlier producers wrote 0 for a declaration without a length:
+a runtime reads a STRING or WSTRING `max_length` of 0 as the default capacity
+80 everywhere it uses a capacity (store normalization, canonical checks,
+`SIZEOF`, reference identity, overlapping layouts and process-image codecs).
 
 Array payload:
 ```
@@ -2293,11 +2302,14 @@ name. Initializer-result references are distinct from locals and do not use that
 reserved prefix.
 
 For STRING direct I/O, the hosted binding's normalized STRING tag and its
-`Bytes(n)` extent are separate facts. A 2.0 IO_MAP entry must select a bounded
+`Bytes(n)` extent are separate facts. A 2.0 IO_MAP entry must select a
 STRING TYPE_TABLE entry with capacity `n`, including aliases and nested aggregate
-leaves. Serializing `%QB<offset>` must not discard the capacity. The existing
-hosted normalized tag is preserved, and admission still rejects an unbounded
-string or an image smaller than the complete declared binding.
+leaves; a STRING declared without a length has capacity 80. Serializing
+`%QB<offset>` must not discard the capacity. The existing hosted normalized tag
+is preserved: an explicit 1.1 IO_MAP types a STRING binding with it (capacity 0
+from earlier producers, 80 from current ones), and the hosted importer replaces
+it with the declared capacity. Admission rejects an image smaller than the
+complete declared binding.
 
 #### 11.5.11 Compact construction metadata and stable tooling
 

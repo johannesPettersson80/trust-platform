@@ -30,6 +30,14 @@ impl OperandStack {
             .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::PreparationLimit))
     }
 
+    /// Reserve storage for `capacity` operands across the whole activation tree at
+    /// construction (spec 34 MEM-03). The per-activation limit and its refusal are unchanged.
+    pub(super) fn reserve_storage(&mut self, capacity: usize) -> Result<(), VmTrap> {
+        self.values
+            .try_reserve_exact(capacity.saturating_sub(self.values.len()))
+            .map_err(|_| VmTrap::BudgetExceeded)
+    }
+
     pub(super) fn enter_call(&mut self) -> (usize, usize) {
         let previous = self.floor;
         self.floor = self.values.len();

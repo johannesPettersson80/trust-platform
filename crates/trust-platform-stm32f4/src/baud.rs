@@ -1,7 +1,7 @@
-//! Baud-rate divisor of the console USART (RM0090 and RM0368, USART_BRR): pure arithmetic, so the
-//! host can test what the F407 console writes into the register.
+//! Baud-rate divisor of the console USART (RM0090, USART_BRR): pure arithmetic, so the host can
+//! test what the F407 console writes into the register.
 
-/// Console speed on both chips: 230400 baud, 8N1.
+/// Console speed: 230400 baud, 8N1.
 pub const CONSOLE_BAUD: u32 = 230_400;
 
 /// The divisor of USART_BRR, a 12.4 fixed-point number: USARTDIV = mantissa + fraction / 16.
@@ -51,8 +51,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_console_divisor_on_the_apb1_clock_of_both_chips() {
-        // F401 at 84 MHz and F407 at 168 MHz both run APB1 at 42 MHz.
+    fn the_console_divisor_on_the_apb1_clock_of_the_f407() {
+        // The F407 at 168 MHz runs APB1 at 42 MHz.
         let divisor = divisor(42_000_000, CONSOLE_BAUD).unwrap();
         assert_eq!(
             divisor,

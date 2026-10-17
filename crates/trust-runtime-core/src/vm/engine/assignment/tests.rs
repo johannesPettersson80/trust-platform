@@ -314,15 +314,17 @@ fn bounded_primitive_strings_normalize_before_same_family_fast_return() {
     data.resources.work_budget.reset(prepared.limits.max_work);
     let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
 
+    // STRING[2] holds two bytes of UTF-8 and WSTRING[2] two UTF-16 code units: "å", "β" and
+    // "γ" are two bytes but one code unit each (docs/IEC_DECISIONS.md 2026-10-17).
     assert_eq!(
         state
             .normalize_assignment_value(string, Value::String("åβγ".into()))
             .unwrap(),
-        Value::String("åβ".into())
+        Value::String("å".into())
     );
     assert_eq!(
         state.data.resources.construction_bytes.get(),
-        4,
+        2,
         "STRING truncation retains its charged UTF-8 result allocation"
     );
     assert_eq!(
@@ -333,7 +335,7 @@ fn bounded_primitive_strings_normalize_before_same_family_fast_return() {
     );
     assert_eq!(
         state.data.resources.construction_bytes.get(),
-        4,
+        2,
         "in-place WSTRING truncation adds no second text allocation"
     );
     assert_eq!(

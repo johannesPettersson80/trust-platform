@@ -664,7 +664,7 @@ inside CDATA. Names, kinds, source paths, and one-based physical declaration
 lines are reproduced in the embedded and sidecar source maps. Source-map
 entries follow the deterministic exported POU order.
 
-TYPE blocks export elementary, bounded and unbounded string, derived,
+TYPE blocks export elementary, string with and without a declared length, derived,
 multi-dimensional array, nonempty structure, nonempty enumeration, and
 subrange expressions through their matching PLCopen base-type representation.
 Field/element/dimension order and simple initial or explicit values are

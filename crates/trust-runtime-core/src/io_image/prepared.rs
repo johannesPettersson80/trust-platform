@@ -94,11 +94,10 @@ impl IoValueCodec {
                         19 => ConversionType::LDate,
                         21 => ConversionType::LTod,
                         23 => ConversionType::Ldt,
+                        // A STRING occupies its capacity in bytes; 80 without a length.
                         24 => {
-                            if *max_length == 0 {
-                                return Err(RuntimeError::TypeMismatch);
-                            }
-                            result.string_capacity = Some(*max_length);
+                            result.string_capacity =
+                                Some(crate::value::string_capacity(*max_length));
                             ConversionType::String
                         }
                         26 => ConversionType::Char,

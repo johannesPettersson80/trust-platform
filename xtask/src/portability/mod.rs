@@ -1,4 +1,4 @@
-//! Host-side packaging and evidence checks for the reference compositions: F401, STM32F407 and
+//! Host-side packaging and evidence checks for the reference compositions: STM32F407 and
 //! ESP32-C6. Firmware is built per chip, from the chip's file (specification 34, TARGET-03);
 //! inspection and verification take the bench board.
 mod benchmark;

@@ -1,15 +1,13 @@
 //! The bench boards that `xtask portability` inspects and verifies. A board's profile holds the
 //! bench's own values: its wiring, the reference firmware's memory budget, its boot banner and
 //! its module's flash. Its chip values come from the chip's file (specification 34, TARGET-03 and
-//! Appendix H), so they are written once. The NUCLEO-F401RE's STM32F401 is no longer a supported
-//! chip and has no file; its profile keeps the values its scope B evidence was taken with.
+//! Appendix H), so they are written once.
 use anyhow::{bail, Context, Result};
 use trust_chips::{Catalog, ChipFile};
 
 /// A bench board, named on the command line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Board {
-    NucleoF401re,
     Stm32f407gDisc1,
     Esp32c6Devkitc1,
 }
@@ -17,27 +15,24 @@ pub(super) enum Board {
 impl Board {
     pub(super) fn parse(name: &str) -> Result<Self> {
         match name {
-            "nucleo-f401re" => Ok(Self::NucleoF401re),
             "stm32f407g-disc1" => Ok(Self::Stm32f407gDisc1),
             "esp32c6-devkitc-1" => Ok(Self::Esp32c6Devkitc1),
-            other => bail!(
-                "unknown board {other:?}; expected nucleo-f401re, stm32f407g-disc1 or esp32c6-devkitc-1"
-            ),
+            other => {
+                bail!("unknown board {other:?}; expected stm32f407g-disc1 or esp32c6-devkitc-1")
+            }
         }
     }
 
     /// The supported chip on the board, whose file holds the board's chip values.
-    pub(super) fn chip(self) -> Option<&'static str> {
+    pub(super) fn chip(self) -> &'static str {
         match self {
-            Self::NucleoF401re => None,
-            Self::Stm32f407gDisc1 => Some("stm32f407"),
-            Self::Esp32c6Devkitc1 => Some("esp32c6"),
+            Self::Stm32f407gDisc1 => "stm32f407",
+            Self::Esp32c6Devkitc1 => "esp32c6",
         }
     }
 
     pub(super) fn profile(self) -> Result<BoardProfile> {
         match self {
-            Self::NucleoF401re => Ok(BoardProfile::nucleo_f401re()),
             Self::Stm32f407gDisc1 => BoardProfile::stm32f407g_disc1(),
             Self::Esp32c6Devkitc1 => BoardProfile::esp32c6_devkitc_1(),
         }
@@ -54,11 +49,7 @@ pub(super) fn chip(name: &str) -> Result<ChipFile> {
 
 /// The file of the board's chip.
 fn chip_of(board: Board) -> Result<ChipFile> {
-    chip(
-        board
-            .chip()
-            .with_context(|| format!("{board:?} has no supported chip"))?,
-    )
+    chip(board.chip())
 }
 
 /// CPU cycles in one 10 ms scan at `cpu_hz`.
@@ -66,10 +57,9 @@ const fn cycles_per_scan(cpu_hz: u64) -> u64 {
     cpu_hz / 100
 }
 
-/// The values one board's commands need. The F401 values are the constants the commands used
-/// before this profile existed. The F407 values are the DISC1 bench composition in spec 34, D.4,
-/// and the C6 values the reference composition in spec 34, D.2; their chip values are read from
-/// the chip files.
+/// The values one board's commands need. The F407 values are the DISC1 bench composition in spec
+/// 34, D.4, and the C6 values the reference composition in spec 34, D.2; their chip values are
+/// read from the chip files.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct BoardProfile {
     pub board: Board,
@@ -87,34 +77,17 @@ pub(super) struct BoardProfile {
     /// Non-record UART lines admitted in each boot; zero admits none.
     pub boot_banner_lines: u64,
     /// Whether the user button's pin reads high while the button is pressed. It does on the
-    /// DISC1, where B1 connects PA0 to VDD. It does not on the F401's PC13 or the C6's GPIO9,
-    /// which are pulled up and driven low by the button.
+    /// DISC1, where B1 connects PA0 to VDD. It does not on the C6's GPIO9, which is pulled up and
+    /// driven low by the button.
     pub button_pressed_high: bool,
-    /// Space the linked image must fit: the upper executable region on F401 (sectors 4 to 7), the
-    /// firmware sectors on F407 (4 to 11), the factory application partition on C6.
+    /// Space the linked image must fit: the firmware sectors on F407 (4 to 11), the factory
+    /// application partition on C6.
     pub image_capacity_bytes: u64,
     /// The separately installable application partition.
     pub application_bytes: u64,
 }
 
 impl BoardProfile {
-    pub(super) fn nucleo_f401re() -> Self {
-        Self {
-            board: Board::NucleoF401re,
-            name: "nucleo-f401re",
-            cpu_hz: 84_000_000,
-            flash_kib: 512,
-            scan_cycle_bound: 840_000,
-            heap_bytes: 72 * 1024,
-            stack_window_bytes: 16 * 1024,
-            stack_headroom_bytes: 2 * 1024,
-            boot_banner_lines: 0,
-            button_pressed_high: false,
-            image_capacity_bytes: 448 * 1024,
-            application_bytes: 16 * 1024,
-        }
-    }
-
     pub(super) fn stm32f407g_disc1() -> Result<Self> {
         let chip = chip_of(Board::Stm32f407gDisc1)?;
         let flash = chip
@@ -170,15 +143,10 @@ impl BoardProfile {
 mod tests {
     use super::*;
 
-    const BOARDS: [Board; 3] = [
-        Board::NucleoF401re,
-        Board::Stm32f407gDisc1,
-        Board::Esp32c6Devkitc1,
-    ];
+    const BOARDS: [Board; 2] = [Board::Stm32f407gDisc1, Board::Esp32c6Devkitc1];
 
     #[test]
     fn board_names_select_their_profiles_and_unknown_names_list_every_board() {
-        assert_eq!(Board::parse("nucleo-f401re").unwrap(), Board::NucleoF401re);
         assert_eq!(
             Board::parse("stm32f407g-disc1").unwrap(),
             Board::Stm32f407gDisc1
@@ -191,26 +159,22 @@ mod tests {
             assert_eq!(board.profile().unwrap().board, board);
         }
         let error = Board::parse("esp32c6").unwrap_err().to_string();
-        assert!(
-            error.contains("nucleo-f401re")
-                && error.contains("stm32f407g-disc1")
-                && error.contains("esp32c6-devkitc-1")
-        );
+        assert!(error.contains("stm32f407g-disc1") && error.contains("esp32c6-devkitc-1"));
+        // The NUCLEO-F401RE was retired on 17 October 2026; its name is an unknown board.
+        let error = Board::parse("nucleo-f401re").unwrap_err().to_string();
+        assert!(error.contains("unknown board"), "{error}");
         // The board name is the profile's name, so a report names what the command was given.
-        for name in ["nucleo-f401re", "stm32f407g-disc1", "esp32c6-devkitc-1"] {
+        for name in ["stm32f407g-disc1", "esp32c6-devkitc-1"] {
             assert_eq!(Board::parse(name).unwrap().profile().unwrap().name, name);
         }
     }
 
     #[test]
     fn each_bench_board_names_its_supported_chip() {
-        assert_eq!(Board::NucleoF401re.chip(), None);
-        assert_eq!(Board::Stm32f407gDisc1.chip(), Some("stm32f407"));
-        assert_eq!(Board::Esp32c6Devkitc1.chip(), Some("esp32c6"));
+        assert_eq!(Board::Stm32f407gDisc1.chip(), "stm32f407");
+        assert_eq!(Board::Esp32c6Devkitc1.chip(), "esp32c6");
         for board in BOARDS {
-            if let Some(name) = board.chip() {
-                assert_eq!(chip(name).unwrap().identity.name, name);
-            }
+            assert_eq!(chip(board.chip()).unwrap().identity.name, board.chip());
         }
         assert!(chip("stm32f401").is_err());
     }
@@ -263,7 +227,6 @@ mod tests {
 
     #[test]
     fn only_the_disc1_button_reads_high_while_pressed() {
-        assert!(!Board::NucleoF401re.profile().unwrap().button_pressed_high);
         assert!(
             !Board::Esp32c6Devkitc1
                 .profile()
@@ -333,17 +296,5 @@ mod tests {
         let c6 = Board::Esp32c6Devkitc1.profile().unwrap();
         assert_eq!(number(rows[0][4]), c6.image_capacity_bytes);
         assert_eq!(number(rows[1][4]), c6.application_bytes);
-    }
-
-    #[test]
-    fn f401_profile_keeps_the_values_the_commands_used() {
-        let f401 = Board::NucleoF401re.profile().unwrap();
-        assert_eq!(f401.cpu_hz, 84_000_000);
-        assert_eq!(f401.flash_kib, 512);
-        assert_eq!(f401.scan_cycle_bound, 840_000);
-        assert_eq!(f401.stack_peak_bound(), 14_336);
-        assert_eq!(f401.boot_banner_lines, 0);
-        assert_eq!(f401.image_capacity_bytes, 448 * 1024);
-        assert_eq!(f401.application_bytes, 16 * 1024);
     }
 }

@@ -2,6 +2,7 @@
 use super::call::context::RegisterCallOpKind;
 use super::call::push_call_frame;
 mod continuation;
+mod continuation_stack;
 mod entry;
 #[cfg(feature = "register-ir")]
 mod leaf_call;
@@ -24,6 +25,7 @@ use crate::value::{
 };
 use alloc::vec::Vec;
 use continuation::CallStart;
+use continuation_stack::ContinuationStack;
 pub use entry::execute_initializer_body;
 pub(crate) use entry::execute_pou_stack_for_engine_entry;
 #[cfg(any(feature = "hir", all(feature = "register-ir", test)))]
@@ -52,7 +54,7 @@ pub struct ExecutionBuffers {
     pub operand_stack: OperandStack,
     /// Reusable stack-frame storage, cleared between root entries.
     pub frames: FrameStack,
-    continuations: Vec<PumpContinuation>,
+    continuations: ContinuationStack,
 }
 
 impl ExecutionBuffers {
@@ -62,6 +64,73 @@ impl ExecutionBuffers {
         self.frames.clear();
         self.continuations.clear();
     }
+
+    /// Bytes that `reserve` takes for `operands` operand values and `levels`
+    /// call levels: a frame per level and a pending call per level below the first.
+    pub(crate) fn reservation_bytes(operands: usize, levels: usize) -> Option<usize> {
+        let operand_bytes = operands.checked_mul(core::mem::size_of::<Value>())?;
+        let frame_bytes = levels.checked_mul(core::mem::size_of::<super::VmFrame>())?;
+        let continuation_bytes = levels
+            .saturating_sub(1)
+            .checked_mul(core::mem::size_of::<PumpContinuation>())?;
+        operand_bytes
+            .checked_add(frame_bytes)?
+            .checked_add(continuation_bytes)
+    }
+
+    /// Reserve the operand, frame and pending-call storage of `levels` call levels at
+    /// construction (spec 34 MEM-03). Every charge and limit of a later activation is
+    /// unchanged; only the allocation goes.
+    pub(crate) fn reserve(&mut self, operands: usize, levels: usize) -> Result<(), VmTrap> {
+        self.operand_stack.reserve_storage(operands)?;
+        self.frames.reserve_storage(levels)?;
+        self.continuations.reserve_storage(levels.saturating_sub(1))
+    }
+
+    /// Empty buffers charged as these, with storage only for their charged capacities, as
+    /// buffers that grew on demand hold.
+    #[cfg(test)]
+    pub(crate) fn grown_on_demand(&self) -> Self {
+        Self {
+            operand_stack: OperandStack::default(),
+            frames: self.frames.grown_on_demand(),
+            continuations: self.continuations.grown_on_demand(),
+        }
+    }
+}
+
+/// Push the frame of a new activation of `pou_id`, with its locals taken from the
+/// execution context's reserved payloads. Errors keep the order of `push_call_frame`.
+fn push_activation_frame(
+    runtime: &mut impl ExecutionContext,
+    frames: &mut FrameStack,
+    module: &VmModule,
+    pou_id: u32,
+    return_pc: usize,
+    runtime_instance: Option<InstanceId>,
+) -> Result<usize, VmTrap> {
+    let pou = module
+        .pou(pou_id)
+        .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
+    let local_count = super::materialization_limits::checked_local_count(pou.local_ref_count)?;
+    // The push below cannot fail once its room exists, so the payload is never lost.
+    frames.reserve_for_push()?;
+    let frame = super::VmFrame {
+        pou_id: Some(pou_id),
+        activation: None,
+        return_pc,
+        code_start: pou.code_start,
+        code_end: pou.code_end,
+        local_ref_start: pou.local_ref_start,
+        local_ref_count: pou.local_ref_count,
+        locals: runtime.take_frame_locals(local_count),
+        parameter_values_present: Vec::new(),
+        runtime_instance,
+        instance_owner: pou.primary_instance_owner,
+    };
+    let entry_pc = frame.code_start;
+    frames.push(frame)?;
+    Ok(entry_pc)
 }
 
 // Root and deferred entries share one input-copy body. Keep its temporaries out
@@ -100,7 +169,7 @@ fn copy_call_inputs(
 // vectors transfer: legacy hooks may decline after changing the supplied shape,
 // and those payloads must retain the borrowed copy/error ordering.
 fn install_owned_call_inputs(
-    runtime: &impl ExecutionContext,
+    runtime: &mut impl ExecutionContext,
     frame: &mut super::VmFrame,
     initial_locals: &mut Option<Vec<Value>>,
     parameter_values_present: Option<&[bool]>,
@@ -113,9 +182,12 @@ fn install_owned_call_inputs(
     if can_transfer {
         // Admit the actual constant ownership transfer before consuming input.
         runtime.charge_call_storage(0, 1)?;
-        frame.locals = initial_locals
+        let owned = initial_locals
             .take()
             .ok_or(RuntimeError::InvalidExecutionState)?;
+        // The payload the frame was pushed with goes back to the reserved payloads.
+        let pushed = core::mem::replace(&mut frame.locals, owned);
+        runtime.recycle_frame_locals(pushed);
         copy_call_inputs(runtime, frame, None, parameter_values_present)
     } else {
         copy_call_inputs(
@@ -178,7 +250,8 @@ fn execute_with_buffers(
             frames.push(frame).map_err(VmTrap::into_runtime_error)?;
             start
         } else {
-            push_call_frame(
+            push_activation_frame(
+                runtime,
                 frames,
                 module,
                 pou_id.ok_or_else(|| super::module::invalid_bytecode("POU entry has no owner"))?,

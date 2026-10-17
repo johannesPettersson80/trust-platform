@@ -10,7 +10,7 @@ static mut BUNDLE: [u8; STBC_BYTES] = [0; STBC_BYTES];
 static READ: AtomicBool = AtomicBool::new(false);
 
 /// Copy the installed bundle into RAM. The outcome is returned rather than propagated, so that the
-/// runner's BOOT records come before any read failure, as on F401.
+/// runner's BOOT records come before any read failure, as on the STM32F407.
 pub fn read(board: &mut Board) -> Result<&'static [u8], &'static str> {
     if READ.swap(true, Ordering::AcqRel) {
         return Err("bundle-reread");

@@ -97,6 +97,22 @@ impl CompileSession {
         supplied: &crate::bytecode::BytecodeModule,
         resource_name: Option<&str>,
     ) -> Result<Runtime, CompileError> {
+        self.build_runtime_from_bytecode_with_limits(
+            supplied,
+            resource_name,
+            trust_runtime_core::vm::PreparationLimits::default(),
+        )
+    }
+
+    /// [`Self::build_runtime_from_bytecode`], prepared with `limits`: those of the
+    /// project's admitted deployment record (specification 34 HOST-02,
+    /// `RuntimeBundle::preparation_limits`).
+    pub fn build_runtime_from_bytecode_with_limits(
+        &self,
+        supplied: &crate::bytecode::BytecodeModule,
+        resource_name: Option<&str>,
+        limits: trust_runtime_core::vm::PreparationLimits,
+    ) -> Result<Runtime, CompileError> {
         self.ensure_instrumented()?;
         super::artifact::build_runtime(
             supplied,
@@ -104,6 +120,7 @@ impl CompileSession {
             &self.sources,
             self.label_errors,
             &self.extra_program_instances,
+            limits,
         )
     }
 

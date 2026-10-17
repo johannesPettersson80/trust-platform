@@ -168,6 +168,7 @@ fn execute_pou_with_pump(
                     entry,
                     &mut buffers,
                     owned_initial_locals,
+                    capture_result_locals,
                 ),
                 Err(error) => Err(error),
             }
@@ -184,12 +185,12 @@ fn execute_pou_with_pump(
                 entry,
                 &mut buffers,
                 owned_initial_locals,
+                capture_result_locals,
             )
         }
         #[cfg(not(feature = "register-ir"))]
         {
             let _ = optimize_root;
-            let _ = capture_result_locals;
             execute_stack_root(
                 runtime,
                 module,
@@ -202,6 +203,7 @@ fn execute_pou_with_pump(
                 entry,
                 &mut buffers,
                 owned_initial_locals,
+                capture_result_locals,
             )
         }
     };
@@ -233,6 +235,7 @@ fn execute_stack_root(
     entry: crate::vm::budget::ExecutionEntry,
     buffers: &mut ExecutionBuffers,
     owned_initial_locals: Option<&mut Option<Vec<Value>>>,
+    capture_result_locals: bool,
 ) -> Result<VmPouStackResult, RuntimeError> {
     let progress = execute_with_buffers(
         runtime,
@@ -250,15 +253,17 @@ fn execute_stack_root(
         owned_initial_locals,
     )?;
     #[cfg(feature = "register-ir")]
-    {
-        session::drive_stack_progress(runtime, module, buffers, progress)
-    }
+    let mut result = session::drive_stack_progress(runtime, module, buffers, progress);
     #[cfg(not(feature = "register-ir"))]
-    {
-        match progress {
-            StackProgress::Complete(result) => Ok(result),
-        }
+    let mut result = match progress {
+        StackProgress::Complete(result) => Ok(result),
+    };
+    // An engine entry's caller never reads the program activation's locals, so they go
+    // back to the payloads reserved at construction for the next activation.
+    if !capture_result_locals && let Ok(result) = &mut result {
+        runtime.recycle_frame_locals(core::mem::take(&mut result.locals));
     }
+    result
 }
 
 /// Execute an initializer range with the caller's lexical locals through the same loop.

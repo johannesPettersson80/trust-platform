@@ -676,8 +676,13 @@ impl LoweredApplication {
         let mut metadata = input.metadata_snapshot(&projected.module)?;
         metadata.artifact_types = projected.artifact_types;
         metadata.io_display_names = projected.io_display_names;
-        Runtime::from_module_with_metadata(projected.module, Some(std::sync::Arc::new(metadata)), 0)
-            .map_err(|error| CompileError::new(error.to_string()))
+        Runtime::from_module_with_metadata(
+            projected.module,
+            Some(std::sync::Arc::new(metadata)),
+            0,
+            trust_runtime_core::vm::PreparationLimits::default(),
+        )
+        .map_err(|error| CompileError::new(error.to_string()))
     }
 
     pub(crate) fn metadata_snapshot(

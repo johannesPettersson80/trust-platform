@@ -45,6 +45,21 @@ this skill does not authorize intermediate checks or retries.
   - `--delete` also removes files that exist only on the builder: formatted sources, built bundles
     and evidence. Copy those back before the next sync.
   - A file restored by rsync can keep an old mtime, so cargo may reuse a stale build. `touch` it.
+- **An agent's compile check** (AGENTS.md "Compile check before reporting"). Run it from the Pi:
+
+  ```bash
+  ~/projects/.artifacts/agent-check.sh <worktree> <crate> [<crate>...]
+  ```
+
+  - It syncs the worktree to `~/projects/check/<worktree>` on the builder. It then runs
+    `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` and
+    `cargo doc --no-deps` with `RUSTDOCFLAGS="-D warnings"`, using the target
+    `cargo-targets/check-<worktree>` on the volume. It never touches a batch's copy or target.
+  - `CHIPS=1` also runs CI's portable lane for both chip targets: `trust-runtime-core` without
+    default features, plus the board adapter, `trust-board-fixture` and `trust-runtime-services`.
+  - `UPDATE_LOCK=1` lets cargo add new dependencies to `Cargo.lock` and copies the lock back.
+  - One check per worktree runs at a time; the others wait up to 30 minutes for the lock.
+  - It prints only the diagnostics. Exit 0 means all passed, 1 a check failed, 75 the lock timed out.
 - **Verification evidence batches** (many audit or evidence reports): regenerate them in a clean,
   detached builder worktree. Validate every report there, then copy back only the validated reports.
 

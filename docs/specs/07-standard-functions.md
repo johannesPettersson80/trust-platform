@@ -255,6 +255,11 @@ The following requirements bind runtime execution of IEC 61131-3 Tables
 - Numeric and bit-string text output is decimal. Integral finite real output
   retains a `.0` suffix. Character conversion requires exactly one Unicode
   scalar for text input and checks the target `CHAR`/`WCHAR` code range.
+- A text result longer than the implementer maximum of 65,535 bytes
+  (`STRING`) or UTF-16 code units (`WSTRING`) raises
+  `RuntimeError::StringCapacityExceeded` (IEC 61131-3 Ed.3 §6.6.2.5.11), for
+  example a `WSTRING_TO_STRING` of 30,000 characters that each need three bytes
+  of UTF-8.
 - BCD encoding accepts unsigned integers only and fails with
   `RuntimeError::Overflow` when the decimal digits do not fit the destination
   bit string. BCD decoding rejects every nibble above nine with
@@ -529,10 +534,14 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 **Position Notes**:
 - Position 1 is the first character
 - FIND returns 0 if not found
-- Runtime positions and lengths count Unicode scalar values, not UTF-8 bytes.
-  Thus `LEN('ÄBC') = 3`, `LEFT('ÄBC', 1) = 'Ä'`, and
-  `FIND('ÄBC', 'B') = 2`. The same element-count rule applies to the reviewed
-  `WSTRING` length.
+- Runtime positions and lengths count Unicode scalar values (characters),
+  not UTF-8 bytes (DEV-017). Thus `LEN('ÄBC') = 3`, `LEFT('ÄBC', 1) = 'Ä'`,
+  and `FIND('ÄBC', 'B') = 2`. The same element-count rule applies to the
+  reviewed `WSTRING` length.
+- A declared capacity counts storage units instead: `STRING[n]` holds `n`
+  bytes of UTF-8 and `WSTRING[n]` `n` UTF-16 code units (`02-data-types.md`
+  §6). `'ÄBC'` is three characters in four bytes, so it fits `STRING[4]` but
+  not `STRING[3]`.
 
 ### 8.1 Runtime String Boundary Contract
 
@@ -554,9 +563,18 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 - `FIND` returns the one-based position of the first match and zero when no
   match exists. An empty `IN2` matches at position 1. A found position that cannot be represented as `INT` raises
   `RuntimeError::Overflow`.
-- The internal `__TRUST_LIMIT_STRING(IN, L)` assignment helper truncates by
-  Unicode scalar count, preserves the string family, and rejects a negative or
-  otherwise non-`u32` capacity with `RuntimeError::Overflow`.
+- A result longer than the implementer maximum of 65,535 bytes (`STRING`) or
+  UTF-16 code units (`WSTRING`) is an error (IEC 61131-3 Ed.3 §6.6.2.5.11,
+  Table 34): `CONCAT`, `INSERT`, `REPLACE`, `LEFT`, `RIGHT`, `MID` and
+  `DELETE` raise `RuntimeError::StringCapacityExceeded`
+  (`runtime_string_capacity_exceeded`) and return no value. The conversions to
+  `STRING` and `WSTRING` (§2) apply the same maximum; a `WSTRING` of 65,535 code
+  units can need up to 196,605 bytes as `STRING`.
+- The internal `__TRUST_LIMIT_STRING(IN, L)` assignment helper keeps the
+  longest prefix of whole characters within `L` bytes of UTF-8 (`STRING`) or
+  `L` UTF-16 code units (`WSTRING`), returns a value that fits unchanged,
+  preserves the string family, and rejects a negative or otherwise non-`u32`
+  capacity with `RuntimeError::Overflow`.
 
 ## 9. Date and Time Functions (Tables 35-36)
 

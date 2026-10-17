@@ -185,7 +185,15 @@ pub(crate) fn runtime_type_is_compatible(
                     prim_id: t,
                     max_length: tl,
                 },
-            ) => return Ok(a == t && al == tl),
+            ) => {
+                // STRING and STRING[80] are one type: an older producer wrote 0 for the default.
+                let same_length = if matches!(*a, 24 | 25) {
+                    crate::value::string_capacity(*al) == crate::value::string_capacity(*tl)
+                } else {
+                    al == tl
+                };
+                return Ok(a == t && same_length);
+            }
             (
                 TypeData::Array {
                     elem_type_id: a,
@@ -373,6 +381,45 @@ mod tests {
     }
 
     #[test]
+    fn a_string_without_a_length_is_the_string_of_capacity_80() {
+        // An earlier producer wrote 0 for STRING without a length; it is STRING[80].
+        let module = module(vec![
+            entry(TypeData::Primitive {
+                prim_id: 24,
+                max_length: 0,
+            }),
+            entry(TypeData::Primitive {
+                prim_id: 24,
+                max_length: 80,
+            }),
+            entry(TypeData::Primitive {
+                prim_id: 24,
+                max_length: 81,
+            }),
+            entry(TypeData::Primitive {
+                prim_id: 25,
+                max_length: 0,
+            }),
+            entry(TypeData::Primitive {
+                prim_id: 25,
+                max_length: 80,
+            }),
+        ]);
+        for (actual, target) in [(0, 1), (1, 0), (3, 4), (4, 3)] {
+            assert_eq!(
+                runtime_type_is_compatible(&module, actual, target),
+                Ok(true)
+            );
+        }
+        for (actual, target) in [(0, 2), (2, 1), (0, 3), (1, 4)] {
+            assert_eq!(
+                runtime_type_is_compatible(&module, actual, target),
+                Ok(false)
+            );
+        }
+    }
+
+    #[test]
     fn differently_named_structures_do_not_become_the_same_declared_target() {
         let mut first = entry(TypeData::Struct { fields: vec![] });
         first.name_idx = Some(0);
@@ -476,6 +523,7 @@ mod tests {
             offset: usize,
             path: &[RefSegment],
             value: Value,
+            _capacity: usize,
         ) -> Result<bool, RuntimeError> {
             Ok(self
                 .storage

@@ -13,8 +13,13 @@ fn load_runtime(
             SourceRegistry::new(Vec::new())
         };
         let module = BytecodeModule::decode(&bundle.bytecode)?;
+        // The limits of the project's deployment record, or the defaults (spec 34 HOST-02).
         let runtime = compile_session_from_sources(&sources)
-            .build_runtime_from_bytecode(&module, Some(&bundle.runtime.resource_name))?;
+            .build_runtime_from_bytecode_with_limits(
+                &module,
+                Some(&bundle.runtime.resource_name),
+                bundle.preparation_limits,
+            )?;
         return Ok(LoadedRuntime {
             bundle: Some(bundle),
             runtime,

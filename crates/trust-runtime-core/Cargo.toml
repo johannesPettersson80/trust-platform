@@ -22,6 +22,9 @@ libm.workspace = true
 lexical-parse-float.workspace = true
 ryu.workspace = true
 rustc-hash.workspace = true
+# The workspace's sha2 0.11.0 without its `alloc` and `oid` defaults: the deployment record's
+# identities on every target, chips included (spec 34 §5.1.1).
+sha2 = { version = "0.11.0", default-features = false }
 smol_str.workspace = true
 thiserror.workspace = true
 trust-hir = { workspace = true, optional = true }

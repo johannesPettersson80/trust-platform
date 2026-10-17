@@ -363,13 +363,15 @@ fn scalar_overrides_skip_alias_default_and_checked_shapes_keep_faults() {
         ),
         Err(RuntimeError::TypeMismatch)
     );
+    // STRING[2] holds two bytes of UTF-8: "å" is two bytes, so "β" no longer fits and is cut
+    // whole (docs/IEC_DECISIONS.md 2026-10-17).
     assert_eq!(
         construct_value(
             &mut ctx,
             3,
             ValueConstructionMode::Coerce(Value::String("åβc".into()))
         ),
-        Ok(Value::String("åβ".into()))
+        Ok(Value::String("å".into()))
     );
 }
 #[test]

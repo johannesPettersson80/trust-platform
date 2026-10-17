@@ -228,3 +228,60 @@ failed with `runtime_profile_unsupported` and a mismatched call or template with
 `vm_bytecode_decode`, neither naming the import. A `match` over `RuntimeError` or
 `StableErrorCode` without a wildcard arm needs the new variant. The contracts
 themselves are public in `trust_runtime_core::stdlib::contracts`.
+
+A deployment record (specification 34 §5.1.1) selects the preparation limits of
+one program. `trust_runtime_core::deployment` holds the record
+(`DeploymentRecord::for_program`, `encode`, `decode`), the device descriptor
+(`DeviceDescriptor::hosted()` for a computer) and `admit`, which checks a record
+against a descriptor before any state exists and returns the `PreparationLimits`
+to prepare the program with:
+
+```rust
+use trust_runtime::harness::CompileSession;
+use trust_runtime::runtime_core::deployment::{
+    admit, configuration_identity, DeploymentRecord, DeviceDescriptor,
+};
+use trust_runtime::runtime_core::vm::{PreparationLimits, PreparedModule};
+
+let program = CompileSession::from_source("PROGRAM Main END_PROGRAM").build_bytecode_bytes()?;
+let record = DeploymentRecord::for_program(
+    &program,
+    PreparationLimits::default(),
+    configuration_identity(None, None),
+)?;
+let bytes = record.encode()?;
+let limits = admit(&DeploymentRecord::decode(&bytes)?, &program, &DeviceDescriptor::hosted())?;
+let prepared = PreparedModule::from_bytes(&program, limits)?;
+assert_eq!(prepared.limits(), PreparationLimits::default());
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+This adds to the embedding API:
+
+| Addition | Use |
+|---|---|
+| `RuntimeError::DeploymentRecordInvalid`, `RuntimeError::DeploymentRefused`; `StableErrorCode::RuntimeDeploymentRecordInvalid`, `RuntimeDeploymentRefused` | A malformed record and a refused deployment. A `match` over `RuntimeError` or `StableErrorCode` without a wildcard arm needs the new variants. |
+| `ImportRefusal::ContractVersion { record, runtime }` | A record names another contract version of an import than the runtime has. |
+| `RuntimeBundle::preparation_limits` | The limits of the project's admitted record, or the defaults. A `RuntimeBundle { .. }` literal needs the field. |
+| `CompileSession::build_runtime_from_bytecode_with_limits` | Install bytecode with those limits; `build_runtime_from_bytecode` keeps the defaults. |
+| `BundleBuildReport::deployment_record`, `trust_runtime::deployment` | What the build wrote, and the hosted record file (`deployment-record.bin`). |
+
+A `STRING` or `WSTRING` without a length is `STRING[80]` or `WSTRING[80]`, and a
+declared length counts UTF-8 bytes or UTF-16 code units (`docs/IEC_DECISIONS.md`
+2026-10-17). In the HIR, `TypeId::STRING` is `Type::String { max_len: Some(80) }`,
+and `TypeRegistry::register_string_with_length(80)` returns `TypeId::STRING` itself.
+An STBC string type whose `max_length` is 0, as earlier producers wrote it, has the
+capacity 80. This changes the embedding API:
+
+| Previous | Replacement |
+|---|---|
+| `trust_runtime_core::value::truncate_string_elements(text, max_len)`, which kept `max_len` characters | `string_capacity_cut(text, wide, capacity)`: the byte length of the longest prefix of whole characters within `capacity` UTF-8 bytes, or UTF-16 code units when `wide`; `None` when the text fits. |
+| `size_of_value` counted the characters of a STRING and two bytes per character of a WSTRING | It counts the UTF-8 bytes of a STRING and two bytes per UTF-16 code unit of a WSTRING. `size_of_type(TypeId::STRING, ..)` is 80 and `size_of_type(TypeId::WSTRING, ..)` is 160. |
+
+This adds to the embedding API:
+
+| Addition | Use |
+|---|---|
+| `RuntimeError::StringCapacityExceeded` | A string function or conversion whose result would be longer than 65,535 bytes or code units. Its stable code is the existing `runtime_string_capacity_exceeded`. A `match` over `RuntimeError` without a wildcard arm needs the new variant. |
+| `trust_runtime_core::value::{string_capacity, check_string_result, DEFAULT_STRING_CAPACITY, MAX_STRING_CAPACITY}` | The capacity of an STBC string type (80 for 0), and the check of a text result against the maximum. |
+| `trust_hir::types::{checked_string_length, StringLengthError, DEFAULT_STRING_LENGTH, MAX_STRING_LENGTH}`, `SymbolTable::register_string_type` | Check a declared length, 1 to 65,535, and register the type of `STRING[n]` or `WSTRING[n]`, which is the built-in type for 80. |

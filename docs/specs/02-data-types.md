@@ -67,8 +67,8 @@ external I/O codecs retain their separately checked encoding.
 
 | No. | Keyword | Description | Default Value | Bits/Char | Notes |
 |-----|---------|-------------|---------------|-----------|-------|
-| 16a | `STRING` | Single-byte string | `''` (empty) | 8 | Variable length |
-| 16b | `WSTRING` | Double-byte string | `""` (empty) | 16 | Variable length |
+| 16a | `STRING` | Single-byte string | `''` (empty) | 8 | Variable length; at most 80 bytes of UTF-8 without a declared length (§6) |
+| 16b | `WSTRING` | Double-byte string | `""` (empty) | 16 | Variable length; at most 80 UTF-16 code units without a declared length (§6) |
 | 17a | `CHAR` | Single-byte character | `'$00'` | 8 | Single character |
 | 17b | `WCHAR` | Double-byte character | `"$0000"` | 16 | Single character |
 
@@ -198,8 +198,8 @@ ANY
 8. `BOOL` belongs to `ANY_BIT`, not `ANY_INT`. `ANY_CHARS` contains
    `ANY_STRING` and `ANY_CHAR`. `ANY_DATE` contains the short and long
    date/time-of-day/date-and-time families, but not `TIME` or `LTIME`.
-9. A bounded `STRING[n]` or `WSTRING[n]` retains the generic family of its
-   unbounded elementary type.
+9. A `STRING[n]` or `WSTRING[n]` retains the generic family of its elementary
+   type `STRING` or `WSTRING`.
 10. Generic membership authorizes a formal-parameter match; it does not itself
     authorize an implicit conversion between two concrete members of that
     family.
@@ -654,8 +654,9 @@ Use `<TYPE>_TO_<TYPE>` functions:
 
 ```
 VAR
-  s1: STRING[10] := 'ABCD';      // Max 10 chars, initial length 4
-  s2: STRING;                    // Implementer-specific max length
+  s1: STRING[10] := 'ABCD';      // At most 10 bytes, initial length 4
+  s2: STRING;                    // STRING[80]: at most 80 bytes
+  s3: WSTRING;                   // WSTRING[80]: at most 80 UTF-16 code units
 END_VAR
 ```
 
@@ -667,7 +668,7 @@ VAR_GLOBAL CONSTANT
 END_VAR
 
 VAR
-  s3: STRING[MaxLen + 2];
+  s4: STRING[MaxLen + 2];
 END_VAR
 ```
 
@@ -675,35 +676,49 @@ For vendor compatibility, truST also accepts a parenthesized spelling:
 
 ```
 VAR
-  s4: STRING(MaxLen + 2);
-  s5: WSTRING(MaxLen);
+  s5: STRING(MaxLen + 2);
+  s6: WSTRING(MaxLen);
 END_VAR
 ```
 
-**Rules**:
-- `STRING[n]`/`WSTRING[n]` declare a maximum length of `n` characters; `n` must be a positive integer constant expression. (IEC 61131-3 Ed.3, Table 10)
+**Rules** (`docs/IEC_DECISIONS.md` 2026-10-17):
+- `STRING[n]` holds at most `n` bytes of UTF-8 and `WSTRING[n]` at most `n`
+  UTF-16 code units; `n` must be an integer constant expression from 1 to
+  65,535, the implementer maximum of IEC 61131-3 Ed.3 §6.4.2.2 (Table 10 note
+  k). A larger length is rejected with `E304`.
+- `STRING` and `WSTRING` without a length are `STRING[80]` and `WSTRING[80]`,
+  as in TwinCAT 3 and CODESYS. They are one type with `STRING[80]` and
+  `WSTRING[80]` for assignment, `VAR_IN_OUT`, `REF_TO` and `SIZEOF`.
+- `LEN`, indexing and the string functions count characters (DEV-017), so a
+  text with characters outside ASCII holds fewer than `n` characters in
+  `STRING[n]` (each takes two to four bytes), and a text with characters
+  outside the Basic Multilingual Plane holds fewer than `n` in `WSTRING[n]`
+  (each takes two code units). For ASCII text, `n` bytes are `n` characters.
 - The capacity expression uses the declaration site's complete constant graph
   and namespace/`USING` context. Forward and cross-file constants are valid
   when visible; source order does not change the capacity.
 - A zero, negative, non-integer, undefined, mutable, ambiguous, cyclic, or
-  overflowing capacity is rejected before the bounded type is registered.
+  overflowing capacity, or one above 65,535, is rejected before the bounded type
+  is registered.
 - `STRING(n)`/`WSTRING(n)` are truST vendor-compatible aliases of the bracketed
   form. The parser preserves the enclosed expression and semantic validation
   applies the same constant-integer, positivity, and implementation-bound
   requirements as the bracketed form. IEC Table 10 defines the bracketed form;
   the parenthesized spelling is product behavior, not an IEC requirement.
 - Default initial value of `STRING`/`WSTRING` is the empty string (`''` / `""`). (IEC 61131-3 Ed.3, Table 10)
-- String literals used for initialization must be compatible with `ANY_STRING` and shall not exceed the declared maximum length. (IEC 61131-3 Ed.3, Figure 6)
+- String literals used for initialization must be compatible with `ANY_STRING` and shall not exceed the declared maximum length, counted in bytes of UTF-8 (`STRING`) or UTF-16 code units (`WSTRING`); a longer literal is rejected with `E304`. (IEC 61131-3 Ed.3, Figure 6)
 - Callable string-library functions (`LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND`) are specified in `07-standard-functions.md`.
 
 ### Assignment and parameter-binding bounds
 
 IEC 61131-3 Ed.3 section 6.6.1.2.2 permits an implementation-specific result
-when a source string is longer than its assignment target. For bounded
-`STRING[n]` and `WSTRING[n]`, truST applies the following rules:
+when a source string is longer than its assignment target. Every `STRING[n]` and
+`WSTRING[n]`, including `STRING` and `WSTRING` without a length (`STRING[80]` and
+`WSTRING[80]`), follows these rules:
 
 - Ordinary assignment truncates an overlong value to the target's declared
-  character capacity.
+  capacity: `n` bytes of UTF-8 for `STRING[n]`, `n` UTF-16 code units for
+  `WSTRING[n]`.
 - `VAR_INPUT` copy-in truncates to the formal parameter's declared capacity
   without modifying the caller.
 - A function result is first bounded by its declared return capacity. Ordinary
@@ -711,11 +726,12 @@ when a source string is longer than its assignment target. For bounded
   copy-back, truncate to the receiving target's declared capacity.
 - `VAR_IN_OUT` requires the actual and formal to have the same string family
   and the same effective capacity after alias and constant-expression
-  resolution. A width mismatch, including bounded-to-unbounded binding, is
-  rejected with invalid-argument diagnostic category `E205` instead of performing an
-  implicit truncating copy-in/copy-back conversion.
-- Literal bounds and truncation count Unicode scalar values and never split one
-  scalar value.
+  resolution; `STRING` and `STRING[80]` have the same capacity. A width
+  mismatch is rejected with invalid-argument diagnostic category `E205`
+  instead of performing an implicit truncating copy-in/copy-back conversion.
+- Literal bounds and truncation count bytes of UTF-8 (`STRING`) or UTF-16 code
+  units (`WSTRING`). Truncation keeps the longest prefix of whole characters
+  that fits, so it never splits a character.
 
 These rules apply at function and function-block call boundaries. They prevent
 call copy-back from storing a value longer than the receiving declaration and
@@ -755,7 +771,11 @@ str[3] := 'X';     // str = 'ABXD'
   string length fail with `runtime_index_out_of_bounds`; a failed write leaves
   the complete string and unrelated state unchanged.
 - A character write replaces exactly one existing element. It does not extend
-  the string, shrink it, or change its declared capacity.
+  the string or change its declared capacity. It is the `REPLACE` of IEC
+  61131-3 Ed.3 §6.4.2.2 Example 1 d) followed by an assignment, so when the new
+  character needs more bytes than the one it replaces (a `CHAR` outside ASCII
+  over an ASCII character) and the text no longer fits its capacity, the text is
+  cut at its capacity like any other store, losing its last character.
 - `STRING` indexing reads/writes `CHAR`; `WSTRING` indexing reads/writes
   `WCHAR`. Mixing the narrow and wide families is a compile-time type error.
 - Aliases retain the indexed family and declared capacity. Indexed lvalues
@@ -765,7 +785,9 @@ str[3] := 'X';     // str = 'ABXD'
 - Indexed `STRING` / `WSTRING` access follows the documented runtime element
   model in `DEV-017`; both VM reference access and the shipped string stdlib
   select Unicode scalar elements rather than raw UTF-8 bytes or raw 16-bit
-  code units.
+  code units. The capacity of §6 counts bytes or code units; a statically known
+  index above the declared length is still a range error, because no text of
+  `n` bytes or code units has more than `n` characters.
 
 ## 7. Parser acceptance and recovery boundaries
 

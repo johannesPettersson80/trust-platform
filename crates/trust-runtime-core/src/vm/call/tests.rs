@@ -136,6 +136,7 @@ impl ReferenceContext for TestContext {
         offset: usize,
         path: &[RefSegment],
         value: Value,
+        _capacity: usize,
     ) -> Result<bool, crate::error::RuntimeError> {
         Ok(self
             .storage

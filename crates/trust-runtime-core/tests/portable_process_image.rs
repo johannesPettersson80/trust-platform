@@ -106,6 +106,35 @@ fn preparation_restores_declared_string_window_and_overflow_is_nonmutating() {
     assert_eq!(image, before);
 }
 #[test]
+fn a_string_without_a_length_binds_its_default_80_byte_window() {
+    // docs/IEC_DECISIONS.md 2026-10-17: an earlier producer wrote capacity 0 for STRING without a
+    // length, which is STRING[80].
+    let strings = vec!["%IB4".into()];
+    let types = TypeTable {
+        offsets: vec![],
+        entries: vec![TypeEntry {
+            kind: TypeKind::Primitive,
+            name_idx: None,
+            data: TypeData::Primitive {
+                prim_id: 24,
+                max_length: 0,
+            },
+        }],
+    };
+    let binding = PreparedIoBinding::from_tables(
+        &IoBinding {
+            address_str_idx: 0,
+            ref_idx: 0,
+            type_id: Some(0),
+        },
+        &types,
+        &strings,
+    )
+    .unwrap();
+    assert_eq!(binding.address.size, IoSize::Bytes(80));
+}
+
+#[test]
 fn enum_codec_keeps_closed_identity_and_rejects_undeclared_image_values() {
     let codec = IoValueCodec {
         wire_type: Some(ConversionType::Int),

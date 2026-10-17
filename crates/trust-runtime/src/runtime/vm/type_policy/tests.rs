@@ -155,7 +155,12 @@ fn run_string_bound_case(
                 .get("string_value")
                 .and_then(toml::Value::as_str)
                 .ok_or_else(|| format!("{} requires string_value", case.id))?;
-            let expected = value.chars().take(5).collect::<String>();
+            // STRING[5] keeps the longest prefix of whole characters within 5 bytes of UTF-8.
+            let mut end = value.len().min(5);
+            while !value.is_char_boundary(end) {
+                end -= 1;
+            }
+            let expected = &value[..end];
             expect_result(
                 normalize_value_for_type_table(
                     &string,

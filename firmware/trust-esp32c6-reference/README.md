@@ -2,7 +2,7 @@
 
 This is a standalone Rust 1.99.0 / edition 2024 bare-metal firmware workspace for the
 ESP32-C6-DevKitC-1 (`riscv32imac-unknown-none-elf`, 8 MB flash, 160 MHz). It is M2E bring-up
-evidence: it runs the same fixture as the NUCLEO-F401RE composition on the C6 adapter. It is not
+evidence: it runs the same fixture as the STM32F407 firmware on the C6 adapter. It is not
 qualified product firmware, and it claims no allocation-free RUN, no durable RETAIN and no
 production controller qualification.
 
@@ -68,8 +68,8 @@ not in HP SRAM.
 
 The esp-hal stack region spans the HP SRAM left after static data and RAM code (about 51 KiB). The fixture
 measures and budgets only the top 16 KiB, below `0x4086E610`, the `_stack_start` of esp-hal 1.2.2's
-C6 memory map; the window is a constant, as on F401, and `xtask portability inspect` fails if the
-linked `_stack_start` differs. Exceeding that window fails the run, although the region
+C6 memory map; the window is a constant, as on the STM32F407, and `xtask portability inspect`
+fails if the linked `_stack_start` differs. Exceeding that window fails the run, although the region
 has room. Interrupts use the same stack on RISC-V, so the window includes them.
 
 esp-riscv-rt does not paint RAM the way cortex-m-rt's `paint-stack` does. `memory::initialize`
@@ -87,7 +87,7 @@ before that boot's first IDENTITY record, at most 64 per boot.
 `B1,IDENTITY` carries the chip ID (13), the chip revision as major·100 + minor (2), the base MAC
 (`0000206e` for the high bytes and `f11704c0` for the low four, as printed by espflash), the flash
 size in KiB (8192), the CPU clock in Hz, `misa` and the reset reason. The verifier pins this
-board's MAC, as the F401 profile pins its UID.
+board's MAC, as the STM32F407 profile pins its UID.
 
 ## Reset and supervision
 

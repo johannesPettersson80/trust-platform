@@ -613,9 +613,27 @@ fn sizeof_uses_registry_and_maps_unknown_or_unsized_types() {
         ),
         Ok(Value::DInt(2))
     );
-    for type_id in [TypeId(900_201), TypeId::STRING] {
+    assert_eq!(
+        evaluate(
+            &storage,
+            None,
+            &Expr::SizeOf(SizeOfTarget::Type(TypeId::STRING))
+        ),
+        Ok(Value::DInt(80)),
+        "a STRING without a length is STRING[80] (docs/IEC_DECISIONS.md 2026-10-17)"
+    );
+    // Only a hand-built string type has no length, and like an unknown type it has no size.
+    let mut registry = registry();
+    let no_length = registry.register("NoLength", trust_hir::Type::String { max_len: None });
+    for type_id in [TypeId(900_201), no_length] {
         assert_eq!(
-            evaluate(&storage, None, &Expr::SizeOf(SizeOfTarget::Type(type_id))),
+            eval_storage_expr(
+                &storage,
+                &registry,
+                &profile(),
+                None,
+                &Expr::SizeOf(SizeOfTarget::Type(type_id)),
+            ),
             Err(RuntimeError::TypeMismatch)
         );
     }

@@ -1375,6 +1375,7 @@ dependencies = [
  "libm",
  "rustc-hash",
  "ryu",
+ "sha2",
  "smol_str",
  "thiserror",
 ]

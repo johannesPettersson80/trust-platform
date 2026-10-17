@@ -39,13 +39,20 @@ impl Default for ValidationLimits {
     }
 }
 
-/// Deterministic analysis accounting, not a measurement of allocator overhead or WCET.
+/// Deterministic analysis accounting, not a measurement of allocator overhead or WCET, and the
+/// operand demand the stack-shape analysis found.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ValidationStats {
     /// Maximum simultaneously accounted analysis storage.
     pub peak_scratch_bytes: usize,
     /// Total charged analysis work units.
     pub work: usize,
+    /// The deepest operand stack that any POU body reaches.
+    pub max_operand_depth: usize,
+    /// The most operands that a POU body keeps below a call of a user function, function
+    /// block or method while the callee runs; `None` when no POU body makes such a call, so
+    /// no activation can nest inside another.
+    pub max_call_operand_residue: Option<usize>,
 }
 
 /// Maximum records in each STBC 2.0 construction/initializer table.

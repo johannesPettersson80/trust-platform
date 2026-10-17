@@ -39,17 +39,12 @@ run_cargo_audit() {
 # reachable result instead of allowing one graph failure to hide the other.
 status=0
 cargo deny --locked check advisories licenses bans sources || status=1
-cargo deny --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml \
-  --config "$ROOT_DIR/deny.toml" check advisories licenses bans sources || status=1
 cargo deny --locked --manifest-path firmware/trust-esp32c6-reference/Cargo.toml \
   --config "$ROOT_DIR/deny.toml" check advisories licenses bans sources || status=1
 cargo deny --locked --manifest-path firmware/trust-stm32f407/Cargo.toml \
   --config "$ROOT_DIR/deny.toml" check advisories licenses bans sources || status=1
 run_cargo_audit Cargo.lock "$@" | python3 scripts/check_cargo_audit_policy.py \
   --allowlist scripts/cargo-audit-yanked-allowlist.json || status=1
-run_cargo_audit firmware/trust-nucleo-f401re/Cargo.lock "$@" | \
-  python3 scripts/check_cargo_audit_policy.py \
-    --allowlist scripts/firmware-cargo-audit-yanked-allowlist.json || status=1
 run_cargo_audit firmware/trust-esp32c6-reference/Cargo.lock "$@" | \
   python3 scripts/check_cargo_audit_policy.py \
     --allowlist scripts/firmware-cargo-audit-yanked-allowlist.json || status=1

@@ -8,7 +8,7 @@ use crate::io_image::{
 use crate::memory::{IoArea, MemoryLocation};
 use crate::value::{
     size_of_value_with_abi_and_visitor, write_partial_access, PartialAccess, RefSegment,
-    SizeOfError,
+    SizeOfError, ValueRefView,
 };
 use crate::vm::{
     construction::values::ValueConstructionContext, module::VmRef, sizeof_type_from_table_with_abi,
@@ -18,6 +18,70 @@ use core::mem::size_of;
 
 mod admission;
 pub(super) mod staging;
+
+impl<'a> EngineState<'a> {
+    /// The slot that a persistent (global or instance) reference names, with its path
+    /// borrowed from the prepared module (census S2). Its path is charged as the copy that the
+    /// owned reference makes, so a borrowed view changes no charge (spec 34 TIME-08).
+    pub(in crate::vm::engine) fn persistent_io_view(
+        &self,
+        ref_idx: u32,
+    ) -> Result<ValueRefView<'a>, RuntimeError> {
+        let prepared: &'a PreparedModule = self.prepared;
+        let reference = prepared.vm.refs.get(ref_idx as usize).ok_or_else(|| {
+            invalid_bytecode(smol_str::SmolStr::new_static(
+                "invalid persistent reference",
+            ))
+        })?;
+        let (location, offset, path) = match reference {
+            VmRef::Global { offset, path } => (MemoryLocation::Global, *offset, path),
+            VmRef::Retain { offset, path } => (MemoryLocation::Retain, *offset, path),
+            VmRef::Instance {
+                owner_instance_id,
+                offset,
+                path,
+            } => {
+                let (index, _) = prepared
+                    .root_for_instance_owner(*owner_instance_id)
+                    .ok_or_else(|| RuntimeError::NullReference)?;
+                let instance = self
+                    .data
+                    .construction
+                    .roots
+                    .get(index)
+                    .copied()
+                    .flatten()
+                    .ok_or_else(|| RuntimeError::NullReference)?;
+                (MemoryLocation::Instance(instance), *offset, path)
+            }
+            _ => return Err(RuntimeError::TypeMismatch),
+        };
+        let mut bytes = path
+            .len()
+            .checked_mul(size_of::<RefSegment>())
+            .ok_or_else(|| RuntimeError::Overflow)?;
+        for segment in path {
+            let extra = match segment {
+                RefSegment::Field(name) => name.len(),
+                RefSegment::Index(indices) => indices
+                    .len()
+                    .checked_mul(size_of::<i64>())
+                    .ok_or_else(|| RuntimeError::Overflow)?,
+            };
+            bytes = bytes
+                .checked_add(extra)
+                .ok_or_else(|| RuntimeError::Overflow)?;
+        }
+        self.charge_allocation_bytes(bytes)?;
+        u32::try_from(offset).map_err(|_| RuntimeError::Overflow)?;
+        Ok(ValueRefView {
+            location,
+            offset,
+            generation: self.data.storage.generation(),
+            path,
+        })
+    }
+}
 
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn set_hierarchical_input(
@@ -82,9 +146,13 @@ impl EngineState<'_> {
         &mut self,
         ref_idx: u32,
     ) -> Result<(), RuntimeError> {
-        let reference = self.persistent_io_reference(ref_idx)?;
-        self.check_read(reference.as_view())?;
-        let instance = match self.data.storage.read_by_ref_ref(&reference) {
+        let reference = self.persistent_io_view(ref_idx)?;
+        self.check_read(reference)?;
+        let instance = match self.data.storage.read_by_ref_parts(
+            reference.location,
+            reference.offset,
+            reference.path,
+        ) {
             Some(Value::Instance(id)) => *id,
             Some(_) => return Err(RuntimeError::TypeMismatch),
             None => return Err(RuntimeError::NullReference),
@@ -98,65 +166,12 @@ impl EngineState<'_> {
         self.execute_pou(pou, Some(instance))
     }
 
+    /// An owned copy of a persistent reference, charged as `persistent_io_view` charges.
     pub(in crate::vm::engine) fn persistent_io_reference(
-        &mut self,
+        &self,
         ref_idx: u32,
     ) -> Result<ValueRef, RuntimeError> {
-        let prepared = self.prepared;
-        let reference = prepared.vm.refs.get(ref_idx as usize).ok_or_else(|| {
-            invalid_bytecode(smol_str::SmolStr::new_static(
-                "invalid persistent reference",
-            ))
-        })?;
-        let (location, offset, path) = match reference {
-            VmRef::Global { offset, path } => (MemoryLocation::Global, *offset, path),
-            VmRef::Retain { offset, path } => (MemoryLocation::Retain, *offset, path),
-            VmRef::Instance {
-                owner_instance_id,
-                offset,
-                path,
-            } => {
-                let (index, _) = self
-                    .prepared
-                    .root_for_instance_owner(*owner_instance_id)
-                    .ok_or_else(|| RuntimeError::NullReference)?;
-                let instance = self
-                    .data
-                    .construction
-                    .roots
-                    .get(index)
-                    .copied()
-                    .flatten()
-                    .ok_or_else(|| RuntimeError::NullReference)?;
-                (MemoryLocation::Instance(instance), *offset, path)
-            }
-            _ => return Err(RuntimeError::TypeMismatch),
-        };
-        let mut bytes = path
-            .len()
-            .checked_mul(size_of::<RefSegment>())
-            .ok_or_else(|| RuntimeError::Overflow)?;
-        for segment in path {
-            let extra = match segment {
-                RefSegment::Field(name) => name.len(),
-                RefSegment::Index(indices) => indices
-                    .len()
-                    .checked_mul(size_of::<i64>())
-                    .ok_or_else(|| RuntimeError::Overflow)?,
-            };
-            bytes = bytes
-                .checked_add(extra)
-                .ok_or_else(|| RuntimeError::Overflow)?;
-        }
-        self.charge_allocation(bytes)?;
-        let offset = u32::try_from(offset).map_err(|_| RuntimeError::Overflow)?;
-        let path = path.clone();
-        Ok(ValueRef {
-            location,
-            offset,
-            generation: self.data.storage.generation(),
-            path,
-        })
+        self.persistent_io_view(ref_idx)?.to_owned()
     }
 
     fn read_image_address(&mut self, address: &IoAddress) -> Result<Value, RuntimeError> {
@@ -264,11 +279,13 @@ impl EngineState<'_> {
                     )?
                     .ok_or_else(|| RuntimeError::NullReference)?;
                 self.check_entry_deadline()?;
-                if !self
-                    .data
-                    .storage
-                    .commit_prepared_write(&reference.path, value, prepared)
-                {
+                let capacity = self.declared_string_capacity(reference.as_view());
+                if !self.data.storage.commit_prepared_write(
+                    &reference.path,
+                    value,
+                    prepared,
+                    capacity,
+                ) {
                     return Err(RuntimeError::NullReference);
                 }
                 Ok(())

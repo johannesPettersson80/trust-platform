@@ -8,7 +8,7 @@
 use crate::bytecode::{
     AccessBindings, BytecodeError, BytecodeModule, BytecodeModuleView, ConstructionRoots,
     InitializerIndex, ResourceMeta, SectionData, SectionId, StorageLayout, StringTable, TypeTable,
-    ValidatedBytecode, ValidationLimits,
+    ValidatedBytecode, ValidationLimits, ValidationStats,
 };
 use alloc::vec::Vec;
 
@@ -20,6 +20,9 @@ mod private {
 pub(super) trait ValidatedSource: private::Sealed {
     /// Return the current read-only header and section view.
     fn view(&self) -> BytecodeModuleView<'_>;
+
+    /// The accounting and operand demand that validation found.
+    fn stats(&self) -> ValidationStats;
 
     /// Borrow a section by its checked wire identity.
     fn section(&self, id: SectionId) -> Option<&SectionData> {
@@ -93,6 +96,10 @@ impl ValidatedSource for ValidatedBytecode<'_> {
         ValidatedBytecode::view(self)
     }
 
+    fn stats(&self) -> ValidationStats {
+        ValidatedBytecode::stats(self)
+    }
+
     fn take_section(&mut self, id: SectionId) -> Option<SectionData> {
         self.section(id).cloned()
     }
@@ -102,6 +109,7 @@ impl ValidatedSource for ValidatedBytecode<'_> {
 #[derive(Debug)]
 pub(super) struct OwnedValidatedSource {
     raw: BytecodeModule,
+    stats: ValidationStats,
 }
 
 impl OwnedValidatedSource {
@@ -110,10 +118,8 @@ impl OwnedValidatedSource {
         raw: BytecodeModule,
         limits: ValidationLimits,
     ) -> Result<Self, BytecodeError> {
-        {
-            let _validated = raw.validated_with_limits(limits)?;
-        }
-        Ok(Self { raw })
+        let stats = raw.validated_with_limits(limits)?.stats();
+        Ok(Self { raw, stats })
     }
 }
 
@@ -122,6 +128,10 @@ impl private::Sealed for OwnedValidatedSource {}
 impl ValidatedSource for OwnedValidatedSource {
     fn view(&self) -> BytecodeModuleView<'_> {
         self.raw.view()
+    }
+
+    fn stats(&self) -> ValidationStats {
+        self.stats
     }
 
     fn take_section(&mut self, id: SectionId) -> Option<SectionData> {

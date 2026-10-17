@@ -5,8 +5,8 @@ use crate::stdlib::helpers::{require_arity, require_min, to_i64};
 #[cfg(feature = "hir")]
 use crate::stdlib::StandardLibrary;
 use crate::value::{
-    string_delete, string_element_count, string_find, string_insert, string_left, string_mid,
-    string_replace, string_right, truncate_string_elements, Value,
+    check_string_result, string_capacity_cut, string_delete, string_element_count, string_find,
+    string_insert, string_left, string_mid, string_replace, string_right, Value,
 };
 use alloc::string::String;
 use smol_str::SmolStr;
@@ -47,11 +47,8 @@ fn left(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 2)?;
     let count = to_i64(&args[1])?;
     match &args[0] {
-        Value::String(value) => Ok(Value::String(SmolStr::new(string_left(
-            value.as_str(),
-            count,
-        )))),
-        Value::WString(value) => Ok(Value::WString(string_left(value.as_str(), count))),
+        Value::String(value) => narrow_result(string_left(value.as_str(), count)),
+        Value::WString(value) => wide_result(string_left(value.as_str(), count)),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -60,11 +57,8 @@ fn right(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 2)?;
     let count = to_i64(&args[1])?;
     match &args[0] {
-        Value::String(value) => Ok(Value::String(SmolStr::new(string_right(
-            value.as_str(),
-            count,
-        )))),
-        Value::WString(value) => Ok(Value::WString(string_right(value.as_str(), count))),
+        Value::String(value) => narrow_result(string_right(value.as_str(), count)),
+        Value::WString(value) => wide_result(string_right(value.as_str(), count)),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -74,12 +68,8 @@ fn mid(args: &[Value]) -> Result<Value, RuntimeError> {
     let length = to_i64(&args[1])?;
     let position = to_i64(&args[2])?;
     match &args[0] {
-        Value::String(value) => Ok(Value::String(SmolStr::new(string_mid(
-            value.as_str(),
-            length,
-            position,
-        )))),
-        Value::WString(value) => Ok(Value::WString(string_mid(value.as_str(), length, position))),
+        Value::String(value) => narrow_result(string_mid(value.as_str(), length, position)),
+        Value::WString(value) => wide_result(string_mid(value.as_str(), length, position)),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -99,7 +89,7 @@ fn concat(args: &[Value]) -> Result<Value, RuntimeError> {
                 _ => return Err(RuntimeError::TypeMismatch),
             }
         }
-        Ok(Value::WString(result))
+        wide_result(result)
     } else {
         let mut result = String::new();
         for value in args {
@@ -108,19 +98,41 @@ fn concat(args: &[Value]) -> Result<Value, RuntimeError> {
                 _ => return Err(RuntimeError::TypeMismatch),
             }
         }
-        Ok(Value::String(SmolStr::new(result)))
+        narrow_result(result)
     }
 }
 
+/// A `STRING` result, refused above the implementer maximum (IEC 61131-3 Ed.3 §6.6.2.5.11).
+fn narrow_result(text: String) -> Result<Value, RuntimeError> {
+    check_string_result(&text, false)?;
+    Ok(Value::String(SmolStr::new(text)))
+}
+
+/// A `WSTRING` result, refused above the implementer maximum (IEC 61131-3 Ed.3 §6.6.2.5.11).
+fn wide_result(text: String) -> Result<Value, RuntimeError> {
+    check_string_result(&text, true)?;
+    Ok(Value::WString(text))
+}
+
+/// Cut a value to the capacity of its destination: UTF-8 bytes for `STRING`, UTF-16 code units
+/// for `WSTRING`, never splitting a character. A value that fits is returned unchanged.
 fn limit_string(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 2)?;
-    let max_len = u32::try_from(to_i64(&args[1])?).map_err(|_| RuntimeError::Overflow)?;
+    let capacity = u32::try_from(to_i64(&args[1])?).map_err(|_| RuntimeError::Overflow)?;
+    let capacity = usize::try_from(capacity).map_err(|_| RuntimeError::Overflow)?;
     match &args[0] {
-        Value::String(text) => Ok(Value::String(SmolStr::new(truncate_string_elements(
-            text.as_str(),
-            max_len,
-        )))),
-        Value::WString(text) => Ok(Value::WString(truncate_string_elements(text, max_len))),
+        Value::String(text) => Ok(Value::String(
+            match string_capacity_cut(text.as_str(), false, capacity) {
+                Some(end) => SmolStr::new(&text[..end]),
+                None => text.clone(),
+            },
+        )),
+        Value::WString(text) => Ok(Value::WString(
+            match string_capacity_cut(text, true, capacity) {
+                Some(end) => String::from(&text[..end]),
+                None => text.clone(),
+            },
+        )),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -129,16 +141,12 @@ fn insert(args: &[Value]) -> Result<Value, RuntimeError> {
     require_arity(args, 3)?;
     let position = to_i64(&args[2])?;
     match (&args[0], &args[1]) {
-        (Value::String(in1), Value::String(in2)) => Ok(Value::String(SmolStr::new(string_insert(
-            in1.as_str(),
-            in2.as_str(),
-            position,
-        )))),
-        (Value::WString(in1), Value::WString(in2)) => Ok(Value::WString(string_insert(
-            in1.as_str(),
-            in2.as_str(),
-            position,
-        ))),
+        (Value::String(in1), Value::String(in2)) => {
+            narrow_result(string_insert(in1.as_str(), in2.as_str(), position))
+        }
+        (Value::WString(in1), Value::WString(in2)) => {
+            wide_result(string_insert(in1.as_str(), in2.as_str(), position))
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -148,16 +156,8 @@ fn delete(args: &[Value]) -> Result<Value, RuntimeError> {
     let length = to_i64(&args[1])?;
     let position = to_i64(&args[2])?;
     match &args[0] {
-        Value::String(input) => Ok(Value::String(SmolStr::new(string_delete(
-            input.as_str(),
-            length,
-            position,
-        )))),
-        Value::WString(input) => Ok(Value::WString(string_delete(
-            input.as_str(),
-            length,
-            position,
-        ))),
+        Value::String(input) => narrow_result(string_delete(input.as_str(), length, position)),
+        Value::WString(input) => wide_result(string_delete(input.as_str(), length, position)),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -167,15 +167,18 @@ fn replace(args: &[Value]) -> Result<Value, RuntimeError> {
     let length = to_i64(&args[2])?;
     let position = to_i64(&args[3])?;
     match (&args[0], &args[1]) {
-        (Value::String(input), Value::String(repl)) => Ok(Value::String(SmolStr::new(
-            string_replace(input.as_str(), repl.as_str(), length, position),
-        ))),
-        (Value::WString(input), Value::WString(repl)) => Ok(Value::WString(string_replace(
+        (Value::String(input), Value::String(repl)) => narrow_result(string_replace(
             input.as_str(),
             repl.as_str(),
             length,
             position,
-        ))),
+        )),
+        (Value::WString(input), Value::WString(repl)) => wide_result(string_replace(
+            input.as_str(),
+            repl.as_str(),
+            length,
+            position,
+        )),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

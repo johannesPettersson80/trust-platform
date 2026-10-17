@@ -42,7 +42,7 @@ impl ResetControl {
         rcc.apb1enr().modify(|_, w| w.pwren().set_bit());
         let _ = rcc.apb1enr().read();
         pwr.cr().modify(|_, w| w.dbp().set_bit());
-        // RM0368 section 5.4.1: read back DBP before accessing backup registers.
+        // RM0090 section 5.4.1: read back DBP before accessing backup registers.
         let _ = pwr.cr().read();
         // Backup words are APB-accessible without running the RTC calendar.
         // Never reset the backup domain here: that would erase reset evidence.

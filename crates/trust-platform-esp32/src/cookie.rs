@@ -1,8 +1,8 @@
-//! Two-word reset cookie codec, identical to the F401 profile so both boards store one format.
+//! Two-word reset cookie codec, the STM32F4 adapter's, so that every board stores one format.
 
-/// Phase written before the deliberately withheld MWDT0 feed (the F401 value).
+/// Phase written before the deliberately withheld MWDT0 feed (the STM32 firmware's value).
 pub const WATCHDOG_PHASE: u16 = 0x5744;
-/// Phase written when a run starts (the F401 value).
+/// Phase written when a run starts (the STM32 firmware's value).
 pub const RUNNING_PHASE: u16 = 0x5255;
 
 /// Two-word cookie for the intentional reset phase only, kept in RTC fast memory.
@@ -56,7 +56,7 @@ mod tests {
     }
 
     #[test]
-    fn f401_phase_values_encode_with_the_shared_magic() {
+    fn the_stm32_phase_values_encode_with_the_shared_magic() {
         assert_eq!(
             ResetCookie {
                 phase: WATCHDOG_PHASE

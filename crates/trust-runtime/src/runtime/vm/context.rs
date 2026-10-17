@@ -39,13 +39,40 @@ impl ReferenceContext for Runtime {
         offset: usize,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> Result<bool, crate::error::RuntimeError> {
-        Ok(self
-            .storage
-            .write_by_ref_parts_typed(&self.registry, location, offset, path, value))
+        Ok(self.storage.write_by_ref_parts_typed(
+            &self.registry,
+            location,
+            offset,
+            path,
+            value,
+            capacity,
+        ))
     }
     fn write_typed_local(&self, root: &mut Value, path: &[RefSegment], value: Value) -> bool {
-        crate::value::write_value_path_typed(root, path, value, &self.registry)
+        crate::value::write_value_path_typed(
+            root,
+            path,
+            value,
+            &self.registry,
+            crate::value::MAX_STRING_CAPACITY,
+        )
+    }
+    fn write_typed_local_checked(
+        &self,
+        root: &mut Value,
+        path: &[RefSegment],
+        value: Value,
+        capacity: usize,
+    ) -> Result<bool, crate::error::RuntimeError> {
+        Ok(crate::value::write_value_path_typed(
+            root,
+            path,
+            value,
+            &self.registry,
+            capacity,
+        ))
     }
 }
 

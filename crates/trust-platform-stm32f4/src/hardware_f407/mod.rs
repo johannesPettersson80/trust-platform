@@ -1,8 +1,8 @@
 //! Bare-metal ownership and initialization of the STM32F407 peripherals. The chip is the unit of
 //! firmware (specification 34, ARCH-10): which pins a board wires comes in as a [`Wiring`], and
-//! nothing in this adapter names a board. The timer, the watchdog and the reset marker are the
-//! files the F401 composition uses; the clock tree, the pins, the console and the fault boundary
-//! are the F407's own.
+//! nothing in this adapter names a board. The timer, the watchdog and the reset marker are in
+//! `src/hardware/` (they were shared with the F401 composition, retired 17 October 2026); the
+//! clock tree, the pins, the console and the fault boundary are in this folder.
 use crate::{
     chip::uid_words,
     crystal::ClockReport,

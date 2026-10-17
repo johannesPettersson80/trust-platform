@@ -541,7 +541,11 @@ fn journal_growth_budget_failure_does_not_publish_snapshot_entries_or_writes() {
         .resources
         .construction_bytes
         .set(prepared.limits.max_construction_bytes);
-    let result = state.snapshot_destinations(None, core::iter::once(reference.as_view()));
+    let result = state.snapshot_destinations(
+        None,
+        core::iter::once(reference.as_view()),
+        &mut destinations::SavedDestinations::new(),
+    );
     assert!(matches!(
         result,
         Err(RuntimeError::ExecutionLimit {

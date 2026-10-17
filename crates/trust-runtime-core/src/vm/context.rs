@@ -125,13 +125,16 @@ pub trait ReferenceContext {
     /// Access internal storage after the shared policy checks.
     fn storage_mut(&mut self) -> &mut VariableStorage;
     /// Commit a value already normalized and lifetime-checked by the shared store path.
-    /// Preserve operational failures; false means only an invalid storage target.
+    /// Preserve operational failures; false means only an invalid storage target. `capacity` is
+    /// the declared string capacity of the target element write, in UTF-8 bytes for `STRING` and
+    /// UTF-16 code units for `WSTRING`.
     fn write_typed_storage(
         &mut self,
         location: MemoryLocation,
         offset: usize,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> Result<bool, crate::error::RuntimeError>;
     /// Write an already checked and normalized value into a local path.
     fn write_typed_local(&self, root: &mut Value, path: &[RefSegment], value: Value) -> bool;
@@ -141,8 +144,17 @@ pub trait ReferenceContext {
         root: &mut Value,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> Result<bool, crate::error::RuntimeError> {
+        let _ = capacity;
         Ok(self.write_typed_local(root, path, value))
+    }
+    /// The declared capacity in storage units of a bounded `STRING`/`WSTRING` that the reference's
+    /// path selects an element of, or the implementer maximum when the target is not such an
+    /// element. A character write is cut to this capacity (spec 02 §6). Compositions without
+    /// declared string metadata return [`crate::value::MAX_STRING_CAPACITY`].
+    fn reference_string_capacity(&self, _reference: crate::value::ValueRefView<'_>) -> usize {
+        crate::value::MAX_STRING_CAPACITY
     }
 }
 
@@ -440,6 +452,13 @@ pub trait ExecutionContext: super::call::context::CallContext {
     }
     /// Return cleared scratch buffers after entry cleanup.
     fn recycle_execution_buffers(&mut self, _buffers: super::dispatch::ExecutionBuffers) {}
+    /// The local slots of a new stack activation, `count` NULL values. A context with
+    /// payloads reserved at construction hands one out instead of allocating.
+    fn take_frame_locals(&mut self, count: usize) -> alloc::vec::Vec<Value> {
+        alloc::vec![Value::Null; count]
+    }
+    /// Take back the local slots of a finished stack activation once nothing reads them.
+    fn recycle_frame_locals(&mut self, _locals: alloc::vec::Vec<Value>) {}
 }
 
 #[cfg(test)]

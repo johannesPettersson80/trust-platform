@@ -1,18 +1,14 @@
 //! The firmware that `build-firmware` links: one per supported chip, read from the chip's file
-//! (specification 34, TARGET-03 and Appendix H), and the NUCLEO-F401RE composition of scope B,
-//! which has no chip file because its STM32F401 is no longer a supported chip. There is no
-//! firmware per board: a bench board's name is refused with its chip's.
+//! (specification 34, TARGET-03 and Appendix H). There is no firmware per board: a bench board's
+//! name is refused with its chip's.
 use super::board::Board;
 use anyhow::{bail, Result};
 use trust_chips::{Catalog, ChipFile, Family};
 
-/// The scope B composition, built under its bench name.
-const NUCLEO_F401RE: &str = "nucleo-f401re";
-
 /// What one `build-firmware` run builds.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Firmware {
-    /// What the command was given, written into the build report: a chip, or `nucleo-f401re`.
+    /// The chip the command was given, written into the build report.
     pub name: String,
     /// Firmware crate directory, relative to the repository root.
     pub firmware_dir: String,
@@ -23,20 +19,18 @@ pub(super) struct Firmware {
 }
 
 impl Firmware {
-    /// The firmware of a supported chip, or the F401 composition.
+    /// The firmware of a supported chip.
     pub(super) fn parse(name: &str) -> Result<Self> {
-        if name == NUCLEO_F401RE {
-            return Ok(Self::nucleo_f401re());
-        }
         let catalog = Catalog::embedded()?;
         if let Some(chip) = catalog.chip(name) {
             return Ok(Self::for_chip(chip));
         }
-        if let Some(chip) = Board::parse(name).ok().and_then(Board::chip) {
+        if let Ok(board) = Board::parse(name) {
+            let chip = board.chip();
             bail!("{name} is a bench board, and firmware is built for its chip: build-firmware {chip}");
         }
         bail!(
-            "unknown chip {name:?}; expected {}, or {NUCLEO_F401RE} for the scope B composition",
+            "unknown chip {name:?}; expected {}",
             catalog.names().join(", ")
         )
     }
@@ -49,17 +43,6 @@ impl Firmware {
             target: chip.processor.rust_target.clone(),
             bin: chip.firmware.bin.clone(),
             required_rustflags: required_rustflags(chip.identity.family),
-        }
-    }
-
-    /// The F401 composition, with the values the command used before chip files existed.
-    pub(super) fn nucleo_f401re() -> Self {
-        Self {
-            name: NUCLEO_F401RE.to_owned(),
-            firmware_dir: "firmware/trust-nucleo-f401re".to_owned(),
-            target: "thumbv7em-none-eabihf".to_owned(),
-            bin: "trust-nucleo-f401re".to_owned(),
-            required_rustflags: &[],
         }
     }
 }
@@ -105,16 +88,6 @@ mod tests {
     }
 
     #[test]
-    fn f401_firmware_keeps_the_values_the_command_used() {
-        let firmware = Firmware::parse("nucleo-f401re").unwrap();
-        assert_eq!(firmware, Firmware::nucleo_f401re());
-        assert_eq!(firmware.firmware_dir, "firmware/trust-nucleo-f401re");
-        assert_eq!(firmware.target, "thumbv7em-none-eabihf");
-        assert_eq!(firmware.bin, "trust-nucleo-f401re");
-        assert!(firmware.required_rustflags.is_empty());
-    }
-
-    #[test]
     fn every_supported_chip_has_a_firmware_crate_with_its_rust_target() {
         let catalog = Catalog::embedded().unwrap();
         for chip in catalog.chips() {
@@ -153,8 +126,11 @@ mod tests {
             .to_string();
         assert!(error.contains("build-firmware esp32c6"), "{error}");
         let error = Firmware::parse("stm32f401").unwrap_err().to_string();
+        assert!(error.contains("stm32f407, esp32c6"), "{error}");
+        // The NUCLEO-F401RE composition was retired on 17 October 2026; its name is unknown.
+        let error = Firmware::parse("nucleo-f401re").unwrap_err().to_string();
         assert!(
-            error.contains("stm32f407, esp32c6") && error.contains("nucleo-f401re"),
+            error.contains("unknown chip") && error.contains("stm32f407, esp32c6"),
             "{error}"
         );
     }

@@ -188,7 +188,10 @@ fn parse_access_index(text: &str) -> Option<u8> {
     u8::try_from(value).ok()
 }
 
-use super::{normalize_assignment_for_target, read_string_element, write_string_element, Value};
+use super::{
+    normalize_assignment_for_target, read_string_element, write_string_element, Value,
+    MAX_STRING_CAPACITY,
+};
 #[cfg(feature = "hir")]
 use trust_hir::types::TypeRegistry;
 #[cfg(feature = "hir")]
@@ -287,7 +290,13 @@ pub fn write_value_path_checked(
     let Some(prepared) = prepare_value_path_write(target, path, &value)? else {
         return Ok(false);
     };
-    Ok(commit_value_path_write(target, path, value, prepared))
+    Ok(commit_value_path_write(
+        target,
+        path,
+        value,
+        prepared,
+        MAX_STRING_CAPACITY,
+    ))
 }
 
 /// Detached alias preflight shared by execution and finite engineering-write boundaries.
@@ -370,9 +379,10 @@ pub(crate) fn commit_value_path_write(
     path: &[RefSegment],
     value: Value,
     prepared: PreparedValuePathWrite,
+    capacity: usize,
 ) -> bool {
     match prepared {
-        PreparedValuePathWrite::Direct => write_value_path_raw(target, path, value),
+        PreparedValuePathWrite::Direct => write_value_path_raw(target, path, value, capacity),
         PreparedValuePathWrite::Physical {
             depth,
             layout,
@@ -414,7 +424,12 @@ fn value_path_mut_raw<'a>(mut value: &'a mut Value, path: &[RefSegment]) -> Opti
     Some(value)
 }
 
-fn write_value_path_raw(target: &mut Value, path: &[RefSegment], value: Value) -> bool {
+fn write_value_path_raw(
+    target: &mut Value,
+    path: &[RefSegment],
+    value: Value,
+    capacity: usize,
+) -> bool {
     let Some((segment, rest)) = path.split_first() else {
         *target = value;
         return true;
@@ -424,7 +439,7 @@ fn write_value_path_raw(target: &mut Value, path: &[RefSegment], value: Value) -
             alloc::sync::Arc::make_mut(structure)
                 .fields
                 .get_mut(name.as_str())
-                .is_some_and(|field| write_value_path_raw(field, rest, value))
+                .is_some_and(|field| write_value_path_raw(field, rest, value, capacity))
         }
         (Value::Array(array), RefSegment::Index(indices)) => {
             let Some(offset) = array_offset_i64(array.dimensions(), indices) else {
@@ -433,17 +448,17 @@ fn write_value_path_raw(target: &mut Value, path: &[RefSegment], value: Value) -
             array
                 .elements_mut()
                 .get_mut(offset)
-                .is_some_and(|element| write_value_path_raw(element, rest, value))
+                .is_some_and(|element| write_value_path_raw(element, rest, value, capacity))
         }
         (Value::String(text), RefSegment::Index(indices)) if rest.is_empty() => {
-            let Some(updated) = write_string_path(text, indices, value, false) else {
+            let Some(updated) = write_string_path(text, indices, value, false, capacity) else {
                 return false;
             };
             *text = updated.into();
             true
         }
         (Value::WString(text), RefSegment::Index(indices)) if rest.is_empty() => {
-            let Some(updated) = write_string_path(text, indices, value, true) else {
+            let Some(updated) = write_string_path(text, indices, value, true, capacity) else {
                 return false;
             };
             *text = updated;
@@ -459,6 +474,7 @@ pub fn write_value_path_typed(
     path: &[RefSegment],
     value: Value,
     registry: &TypeRegistry,
+    capacity: usize,
 ) -> bool {
     if matches!(target, Value::Struct(structure) if structure.physical.is_some()) {
         return write_value_path(target, path, value);
@@ -480,7 +496,9 @@ pub fn write_value_path_typed(
                 }
                 struct_value
                     .field_mut(name.as_str())
-                    .map(|field| write_value_path_typed(field, &path[1..], value, registry))
+                    .map(|field| {
+                        write_value_path_typed(field, &path[1..], value, registry, capacity)
+                    })
                     .unwrap_or(false)
             }
             _ => false,
@@ -494,16 +512,18 @@ pub fn write_value_path_typed(
                 array
                     .elements_mut()
                     .get_mut(offset)
-                    .map(|element| write_value_path_typed(element, &path[1..], value, registry))
+                    .map(|element| {
+                        write_value_path_typed(element, &path[1..], value, registry, capacity)
+                    })
                     .unwrap_or(false)
             }
-            Value::String(text) => write_string_path(text, indices, value, false)
+            Value::String(text) => write_string_path(text, indices, value, false, capacity)
                 .map(|updated| {
                     *target = Value::String(updated.into());
                     true
                 })
                 .unwrap_or(false),
-            Value::WString(text) => write_string_path(text, indices, value, true)
+            Value::WString(text) => write_string_path(text, indices, value, true, capacity)
                 .map(|updated| {
                     *target = Value::WString(updated);
                     true
@@ -739,9 +759,15 @@ pub fn single_string_index(indices: &[i64]) -> Option<i64> {
 }
 
 #[inline]
-fn write_string_path(text: &str, indices: &[i64], value: Value, wide: bool) -> Option<String> {
+fn write_string_path(
+    text: &str,
+    indices: &[i64],
+    value: Value,
+    wide: bool,
+    capacity: usize,
+) -> Option<String> {
     let index = single_string_index(indices)?;
-    write_string_element(text, index, value, wide).ok()
+    write_string_element(text, index, value, wide, capacity).ok()
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 //! TIME-08 TEXT: the canonical pass of a structure charges 1 unit per UTF-8 byte of each
-//! bounded text field it checks, before it counts the characters.
+//! bounded text field it checks, before it compares the text with the field's capacity.
 use std::sync::Arc;
 
 use trust_runtime::bytecode::BytecodeVersion;
@@ -10,7 +10,7 @@ use trust_runtime_core::value::{StructValue, Value};
 use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
 // ST identifiers are case-insensitive, so the global must not share the type's name.
-const SOURCE: &str = "TYPE Caption : STRUCT text : STRING[5]; END_STRUCT; END_TYPE
+const SOURCE: &str = "TYPE Caption : STRUCT text : STRING[6]; END_STRUCT; END_TYPE
 VAR_GLOBAL shown : Caption; END_VAR
 PROGRAM Main END_PROGRAM
 ";
@@ -69,7 +69,8 @@ fn least_admitted_work(artifact: &[u8], value: &Value) -> usize {
 fn canonical_structure_pass_charges_one_unit_per_byte_of_bounded_text() {
     // Spec 34 TIME-08. An empty field is canonical and its check charges nothing, so the
     // least allowance for it is the lifetime-check cost alone. "åäö" is canonical in
-    // STRING[5] (3 characters ≤ 5) and its check charges its 6 UTF-8 bytes.
+    // STRING[6] (6 UTF-8 bytes ≤ 6, docs/IEC_DECISIONS.md 2026-10-17) and its check charges
+    // its 6 bytes.
     let artifact = artifact();
     let empty = least_admitted_work(&artifact, &caption(""));
     let text = least_admitted_work(&artifact, &caption("åäö"));

@@ -338,6 +338,7 @@ mod tests {
             reference.offset as usize,
             &reference.path,
             Value::Char(b'Z'),
+            crate::value::MAX_STRING_CAPACITY,
         )
         .unwrap_err();
         assert!(matches!(
@@ -424,6 +425,7 @@ mod tests {
             reference.offset as usize,
             &reference.path,
             Value::DWord(7),
+            crate::value::MAX_STRING_CAPACITY,
         )
         .unwrap());
         assert_eq!(
@@ -444,6 +446,7 @@ mod tests {
             reference.offset as usize,
             &reference.path,
             Value::DWord(9),
+            crate::value::MAX_STRING_CAPACITY,
         )
         .unwrap_err();
         assert!(matches!(
@@ -548,6 +551,7 @@ mod tests {
                 scalar.offset as usize,
                 &[],
                 Value::DWord(value),
+                crate::value::MAX_STRING_CAPACITY,
             )
             .unwrap());
         }
@@ -562,6 +566,7 @@ mod tests {
             reference.offset as usize,
             &reference.path,
             Value::DWord(9),
+            crate::value::MAX_STRING_CAPACITY,
         )
         .unwrap_err();
         assert_eq!(error, VmTrap::DeadlineExceeded.into_runtime_error());

@@ -4,7 +4,7 @@ const POINTER_REFERENCE_HANDLE_SIZE_BYTES: u64 = core::mem::size_of::<usize>() a
 #[cfg(feature = "hir")]
 use trust_hir::{Type, TypeId};
 
-use crate::value::{string_element_count, StorageAbi, Value};
+use crate::value::{StorageAbi, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeOfError {
@@ -219,13 +219,15 @@ fn size_of_value_inner<E: From<SizeOfError>>(
             abi.short_temporal_bytes()
         }
         Value::LTime(_) | Value::LDate(_) | Value::LTod(_) | Value::Ldt(_) => 8,
+        // A text occupies its UTF-8 bytes (STRING) or two bytes per UTF-16 code unit (WSTRING),
+        // the units of its capacity (docs/IEC_DECISIONS.md 2026-10-17).
         Value::String(value) => {
             visit(value.len())?;
-            string_element_count(value.as_str()) as u64
+            value.len() as u64
         }
         Value::WString(value) => {
             visit(value.len())?;
-            (string_element_count(value.as_str()) as u64) * 2
+            (value.encode_utf16().count() as u64) * 2
         }
         Value::Array(array) => {
             let element_size = match array.elements().first() {
@@ -292,14 +294,23 @@ mod tests {
     use trust_hir::{Type, TypeId};
 
     #[test]
-    fn string_value_size_counts_character_elements() {
+    fn string_value_size_counts_utf8_bytes_and_utf16_code_units() {
+        // "Ä" is two UTF-8 bytes and one UTF-16 code unit; "🙂" four bytes and two units.
         let registry = TypeRegistry::default();
         assert_eq!(
             size_of_value(&registry, &Value::String("ÄB".into())).unwrap(),
-            2
+            3
         );
         assert_eq!(
             size_of_value(&registry, &Value::WString("ÄB".into())).unwrap(),
+            4
+        );
+        assert_eq!(
+            size_of_value(&registry, &Value::String("🙂".into())).unwrap(),
+            4
+        );
+        assert_eq!(
+            size_of_value(&registry, &Value::WString("🙂".into())).unwrap(),
             4
         );
     }
@@ -440,8 +451,12 @@ mod tests {
         let wildcard = registry.register_array(TypeId::INT, vec![(0, i64::MAX)]);
         let reversed = registry.register_array(TypeId::INT, vec![(1, 0)]);
         let overflowing = registry.register_array(TypeId::LREAL, vec![(i64::MIN, 0)]);
+        // A STRING without a length is STRING[80]; only a hand-built type has none.
+        assert_eq!(size_of_type(TypeId::STRING, &registry), Ok(80));
+        assert_eq!(size_of_type(TypeId::WSTRING, &registry), Ok(160));
+        let no_length = registry.register("NoLength", Type::String { max_len: None });
         assert_eq!(
-            size_of_type(TypeId::STRING, &registry),
+            size_of_type(no_length, &registry),
             Err(SizeOfError::UnsupportedType)
         );
         assert_eq!(
@@ -482,7 +497,7 @@ mod tests {
             (Value::Bool(false), 1),
             (Value::DInt(1), 4),
             (Value::LReal(1.0), 8),
-            (Value::String("ÄB".into()), 2),
+            (Value::String("ÄB".into()), 3),
             (Value::WString("ÄB".into()), 4),
             (array_value, 4),
             (struct_value, 10),

@@ -626,11 +626,10 @@ impl BytecodeEncoder<'_> {
                 old_type.map(|entry| &entry.data),
                 new_type.map(|entry| &entry.data),
             ) {
+                // The supplied 1.1 map types a STRING binding with the normalized STRING tag:
+                // capacity 0 from earlier producers, the default 80 from this one.
                 (
-                    Some(TypeData::Primitive {
-                        prim_id: 24,
-                        max_length: 0,
-                    }),
+                    Some(TypeData::Primitive { prim_id: 24, .. }),
                     Some(TypeData::Primitive {
                         prim_id: 24,
                         max_length,

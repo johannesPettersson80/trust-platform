@@ -66,6 +66,7 @@ impl ReferenceContext for CandidateContext {
         _: usize,
         _: &[RefSegment],
         _: Value,
+        _: usize,
     ) -> Result<bool, RuntimeError> {
         Ok(false)
     }

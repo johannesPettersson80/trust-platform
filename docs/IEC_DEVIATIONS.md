@@ -164,22 +164,26 @@ re-check them against this rule when touched.
   character string using the ISO/IEC 10646 character model.
 - truST behavior and conflict:
   - truST stores both `STRING` and `WSTRING` as Rust `String` values.
-  - Indexed access and `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`,
-    `REPLACE`, and `FIND` operate on Unicode scalar elements rather than raw
-    single-byte or UTF-16 code units.
+  - Capacity counts storage units: `STRING[n]` holds at most n bytes of UTF-8
+    and `WSTRING[n]` at most n UTF-16 code units, and `SIZEOF(STRING[n])` and
+    `SIZEOF(WSTRING[n])` are `n` and `2n` (`docs/IEC_DECISIONS.md` 2026-10-17).
+  - Element operations count characters: indexed access and `LEN`, `LEFT`,
+    `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND` operate on
+    Unicode scalar elements rather than raw single bytes or UTF-16 code units.
   - Materializing a `STRING` element as `CHAR` still requires the selected
     scalar value to fit in `u8`; materializing a `WSTRING` element as `WCHAR`
     requires it to fit in `u16`.
-  - `SIZEOF(STRING[n])` and `SIZEOF(WSTRING[n])` remain storage-oriented (`n`
-    and `2n` respectively), while runtime value operations use scalar-element
-    counts.
-  - This scalar-element model conflicts with the standard's byte/code-unit
-    representation for non-ASCII text.
+  - This conflicts with the standard's single-byte and double-byte element
+    model for non-ASCII text: a `STRING` character outside ASCII is one element
+    but two to four bytes of capacity, and a `WSTRING` character outside the
+    Basic Multilingual Plane is one element but two code units of capacity.
 - Impact:
   - Non-ASCII text behaves consistently across VM reference indexing and the
     shipped string library, but it is not raw IEC byte/code-unit indexing.
+  - Such a text holds fewer characters than its declared length.
 - Mitigation:
-  - The runtime and specifications use one explicit element model end to end.
+  - The runtime and specifications use one explicit element model and one
+    explicit capacity unit end to end.
   - A raw-byte/raw-code-unit rewrite is a separate compatibility change because
     it requires changing the underlying runtime value representation.
 

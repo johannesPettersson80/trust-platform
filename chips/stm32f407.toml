@@ -57,8 +57,8 @@ start = 0x1000_0000
 kib = 64
 dma = false
 
-# The first four sectors as on the F401: vectors in sector 0, the application bundle in sector 1,
-# the checkpoint slots in sectors 2 and 3, the firmware in sectors 4 to 11.
+# The vectors in sector 0, the application bundle in sector 1, the checkpoint slots in sectors 2
+# and 3, the firmware in sectors 4 to 11.
 [layout]
 vectors = { start = 0x0800_0000, kib = 16 }
 application = { start = 0x0800_4000, kib = 16 }

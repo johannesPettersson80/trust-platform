@@ -104,6 +104,10 @@ impl VmFrame {
 #[derive(Debug, Default)]
 pub struct FrameStack {
     frames: Vec<VmFrame>,
+    /// The capacity the frame vector has when it grows only on demand. Growth is charged
+    /// against it rather than against the storage that construction reserved, so a
+    /// reservation changes no charge or refusal (spec 34 TIME-08).
+    charged_capacity: usize,
     #[cfg(feature = "register-ir")]
     reserved_locals: Vec<Value>,
     #[cfg(feature = "register-ir")]
@@ -154,7 +158,30 @@ impl FrameStack {
         }
         self.frames
             .try_reserve_exact(capacity.saturating_sub(self.frames.len()))
-            .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::PreparationLimit))
+            .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::PreparationLimit))?;
+        // The register scratch frame is admitted capacity: its first push grows nothing.
+        self.charged_capacity = self.charged_capacity.max(self.frames.capacity());
+        Ok(())
+    }
+
+    /// Reserve storage for `capacity` frames at construction (spec 34 MEM-03). The charged
+    /// capacity is unchanged, so an activation is charged the growth that a stack without the
+    /// reservation would need, and the reservation only removes the allocation.
+    pub(super) fn reserve_storage(&mut self, capacity: usize) -> Result<(), VmTrap> {
+        self.frames
+            .try_reserve_exact(capacity.saturating_sub(self.frames.len()))
+            .map_err(|_| VmTrap::BudgetExceeded)
+    }
+
+    /// An empty stack charged as this one, with storage only for its charged capacity, as a
+    /// stack that grew on demand holds.
+    #[cfg(test)]
+    pub(super) fn grown_on_demand(&self) -> Self {
+        Self {
+            frames: Vec::with_capacity(self.charged_capacity),
+            charged_capacity: self.charged_capacity,
+            ..Self::default()
+        }
     }
 
     /// Reserve one reusable register-entry frame payload during construction.
@@ -280,12 +307,11 @@ impl FrameStack {
     }
 
     pub(super) fn growth_demand(&self) -> Result<(usize, usize), VmTrap> {
-        if self.frames.len() < self.frames.capacity() {
+        if self.frames.len() < self.charged_capacity {
             return Ok((0, 0));
         }
         let capacity = self
-            .frames
-            .capacity()
+            .charged_capacity
             .checked_mul(2)
             .ok_or_else(|| VmTrap::Runtime(crate::error::RuntimeError::Overflow))?
             .clamp(1, VM_MAX_CALL_DEPTH);
@@ -302,13 +328,20 @@ impl FrameStack {
         if self.frames.len() >= VM_MAX_CALL_DEPTH {
             return Err(VmTrap::CallStackOverflow);
         }
-        if self.frames.len() == self.frames.capacity() {
+        let charged = if self.frames.len() == self.charged_capacity {
             let (bytes, _) = self.growth_demand()?;
-            let capacity = bytes / core::mem::size_of::<VmFrame>();
+            bytes / core::mem::size_of::<VmFrame>()
+        } else {
+            self.charged_capacity
+        };
+        // Storage reserved at construction already holds the frame. A stack without a
+        // reservation grows here, exactly to the charged capacity.
+        if self.frames.len() == self.frames.capacity() {
             self.frames
-                .try_reserve_exact(capacity - self.frames.len())
+                .try_reserve_exact(charged - self.frames.len())
                 .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::Overflow))?;
         }
+        self.charged_capacity = charged;
         Ok(())
     }
 
@@ -354,3 +387,6 @@ impl FrameStack {
 #[cfg(all(test, feature = "register-ir"))]
 #[path = "frames/recycling_tests.rs"]
 mod recycling_tests;
+#[cfg(test)]
+#[path = "frames/reservation_tests.rs"]
+mod reservation_tests;

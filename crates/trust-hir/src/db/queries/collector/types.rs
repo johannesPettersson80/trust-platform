@@ -3,7 +3,7 @@ use super::*;
 use crate::db::diagnostics::{is_expression_kind, resolve_pending_types_with_table};
 use crate::semantic::{QualifiedName, SemanticOutcome, SemanticRole, LEGACY_UNKNOWN_TYPE_ID};
 use crate::symbols::UsingResolution;
-use crate::types::{ArrayDimensionExt, StructField, UnionVariant};
+use crate::types::{checked_string_length, ArrayDimensionExt, StructField, UnionVariant};
 
 impl SymbolCollector<'_> {
     pub(super) fn collect_type_symbols(&mut self, node: &SyntaxNode) {
@@ -789,47 +789,18 @@ impl SymbolCollector<'_> {
             .filter_map(|e| e.into_token())
             .any(|t| t.kind() == SyntaxKind::KwWString);
 
-        // Look for length specification
+        // Look for length specification: 1 to 65,535 (IEC 61131-3 Ed.3 §6.4.2.2).
         if let Some(expr) = node.children().find(|n| is_expression_kind(n.kind())) {
             let scopes = scope_chain_for_node(node);
             match self.try_eval_optional_int_expr_in_scope(&expr, &scopes) {
-                Ok(Some(value)) => {
-                    if value <= 0 {
-                        self.diagnostics.error(
-                            DiagnosticCode::OutOfRange,
-                            expr.text_range(),
-                            "string length must be a positive integer",
-                        );
-                        return if is_wstring {
-                            TypeId::WSTRING
-                        } else {
-                            TypeId::STRING
-                        };
-                    }
-                    let Ok(len) = u32::try_from(value) else {
-                        self.diagnostics.error(
-                            DiagnosticCode::OutOfRange,
-                            expr.text_range(),
-                            "string length is out of range",
-                        );
-                        return if is_wstring {
-                            TypeId::WSTRING
-                        } else {
-                            TypeId::STRING
-                        };
-                    };
-                    let name = if is_wstring {
-                        format!("WSTRING[{}]", len)
-                    } else {
-                        format!("STRING[{}]", len)
-                    };
-                    let ty = if is_wstring {
-                        Type::WString { max_len: Some(len) }
-                    } else {
-                        Type::String { max_len: Some(len) }
-                    };
-                    return self.table.register_type(name, ty);
-                }
+                Ok(Some(value)) => match checked_string_length(value) {
+                    Ok(len) => return self.table.register_string_type(is_wstring, len),
+                    Err(error) => self.diagnostics.error(
+                        DiagnosticCode::OutOfRange,
+                        expr.text_range(),
+                        error.message(),
+                    ),
+                },
                 Ok(None) => self.diagnostics.error(
                     DiagnosticCode::TypeMismatch,
                     expr.text_range(),

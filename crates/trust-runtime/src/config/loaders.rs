@@ -50,6 +50,8 @@ impl RuntimeBundle {
         let bytecode = std::fs::read(&program_path).map_err(|err| {
             RuntimeError::InvalidBundle(format!("failed to read program.stbc: {err}").into())
         })?;
+        // The program's deployment record selects its limits (spec 34 HOST-02, §5.1.1).
+        let preparation_limits = crate::deployment::admitted_limits(&root, &bytecode)?;
         let simulation = SimulationConfig::load_optional(&simulation_path)?;
 
         Ok(Self {
@@ -62,6 +64,7 @@ impl RuntimeBundle {
             opcua_client_config_hash: opcua_client.map(|loaded| loaded.config_hash),
             simulation,
             bytecode,
+            preparation_limits,
         })
     }
 }

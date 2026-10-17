@@ -1,9 +1,9 @@
 use super::*;
 
-const BIN: &str = "trust-nucleo-f401re";
+const BIN: &str = "demo-firmware";
 
 fn record(fresh: bool, executable: Value) -> String {
-    serde_json::json!({"reason":"compiler-artifact", "target":{"name":"trust-nucleo-f401re", "kind":["bin"]}, "fresh":fresh, "executable":executable}).to_string()
+    serde_json::json!({"reason":"compiler-artifact", "target":{"name":"demo-firmware", "kind":["bin"]}, "fresh":fresh, "executable":executable}).to_string()
 }
 
 #[test]
@@ -17,11 +17,7 @@ fn only_a_new_exact_firmware_binary_can_supply_the_executable() {
     assert!(executable(&format!("{current}\n{current}"), BIN).is_err());
     assert!(executable("not cargo JSON", BIN).is_err());
     assert!(executable("{\"reason\":\"build-finished\",\"success\":true}", BIN).is_err());
-    assert!(executable(
-        &current.replace("trust-nucleo-f401re", "another-binary"),
-        BIN
-    )
-    .is_err());
+    assert!(executable(&current.replace("demo-firmware", "another-binary"), BIN).is_err());
     assert!(executable(&current.replace("\"bin\"", "\"lib\""), BIN).is_err());
 }
 

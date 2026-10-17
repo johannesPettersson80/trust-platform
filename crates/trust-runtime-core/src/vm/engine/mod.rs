@@ -52,6 +52,7 @@ mod restart;
 #[cfg(feature = "std")]
 pub use reconfiguration::ResourceReconfiguration;
 mod retained_graph;
+mod scratch;
 mod services;
 pub use api::RuntimeState;
 #[cfg(feature = "std")]
@@ -99,14 +100,20 @@ struct ProcessImages {
     hierarchical: crate::collections::OrderedMap<crate::io_image::IoAddressKey, Value>,
 }
 
-/// Reusable execution buffers and per-operation resource accounting.
+/// Reusable execution buffers and per-operation resource accounting. Construction reserves
+/// the buffers, frame locals, journal and staging that every scan reuses (spec 34 MEM-09).
 struct ExecutionResources {
     buffers: Vec<ExecutionBuffers>,
+    frame_locals: scratch::FrameLocals,
     ready_tasks: Vec<crate::cycle::ReadyTask>,
     constructed_values: usize,
     work_budget: crate::vm::budget::ExecutionBudget,
     construction_bytes: core::cell::Cell<usize>,
     output_journal: Option<output_transaction::SavedDestinations>,
+    /// The output copy-back journal kept between transactions.
+    spare_journal: output_transaction::SavedDestinations,
+    /// Process-image staging, empty between scans.
+    staging: io::staging::ImageStaging,
     #[cfg(feature = "register-ir")]
     register: register::RegisterExecutionState,
 }
@@ -202,6 +209,7 @@ impl<'a> EngineState<'a> {
             construction_complete: false,
             resources: ExecutionResources {
                 buffers: Vec::new(),
+                frame_locals: scratch::FrameLocals::default(),
                 ready_tasks: Vec::new(),
                 constructed_values: 0,
                 // TIME-09: construction is one entry under its own allowance.
@@ -210,6 +218,8 @@ impl<'a> EngineState<'a> {
                 ),
                 construction_bytes: core::cell::Cell::new(0),
                 output_journal: None,
+                spare_journal: output_transaction::SavedDestinations::new(),
+                staging: io::staging::ImageStaging::default(),
                 #[cfg(feature = "register-ir")]
                 register: register::RegisterExecutionState::new(services.register_configuration()),
             },
@@ -318,6 +328,7 @@ impl<'a> EngineState<'a> {
             .lifetimes
             .owned_instances
             .reserve_capacity(frame_capacity)?;
+        state.reserve_execution_scratch()?;
         if let Some(images) = prior_images {
             state.copy_process_images(images)?;
         }

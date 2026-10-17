@@ -1,6 +1,6 @@
 //! ESP32-C6-DevKitC-1 M2E reference composition: the shared fixture runner on the C6 adapter. It
-//! mirrors the F401 composition step by step. The trace grammar, record order and oracle belong to
-//! `trust_board_fixture`.
+//! mirrors the STM32F407 firmware step by step, without its CLOCK record. The trace grammar,
+//! record order and oracle belong to `trust_board_fixture`.
 #![no_std]
 #![no_main]
 
@@ -80,7 +80,7 @@ fn main() -> ! {
             }
         }
         // Do not silently rerun after a crash or an unexpected reset. The evidence of a failed run
-        // needs an explicit new boot, as on F401.
+        // needs an explicit new boot, as on the STM32F407.
         BootDecision::UnexpectedReset => emergency_halt("unexpected-reset-cookie"),
     }
     if identity.chip_id != CHIP_ID

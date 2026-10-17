@@ -1,9 +1,10 @@
-//! Exact section sizes and conservative, disjoint symbol attribution from LLD maps.
+//! Exact section sizes and conservative, disjoint symbol attribution from the LLD maps of STM32F4
+//! firmware: the vector table in flash sector 0, the code and its load images from the start of
+//! `.text`.
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
-const CODE_CAPACITY: u64 = 448 * 1024;
 const SECTOR0_ORIGIN: u64 = 0x0800_0000;
 const SECTOR0_CAPACITY: u64 = 16 * 1024;
 const FAMILIES: &[&str] = &[
@@ -43,21 +44,14 @@ pub(super) fn compare(current: &str, baseline: &str) -> Result<Value> {
         let baseline = baseline[key].as_u64().context("baseline numeric field")?;
         Ok(i64::try_from(current)? - i64::try_from(baseline)?)
     };
-    let section_delta: BTreeMap<_, _> = [
-        ".text",
-        ".rodata",
-        ".vector_table",
-        ".firmware_rodata",
-        ".data",
-        ".bss",
-    ]
-    .into_iter()
-    .map(|name| {
-        let now = current["sections"][name]["bytes"].as_u64().unwrap_or(0);
-        let old = baseline["sections"][name]["bytes"].as_u64().unwrap_or(0);
-        Ok((name, i64::try_from(now)? - i64::try_from(old)?))
-    })
-    .collect::<Result<_>>()?;
+    let section_delta: BTreeMap<_, _> = [".text", ".rodata", ".vector_table", ".data", ".bss"]
+        .into_iter()
+        .map(|name| {
+            let now = current["sections"][name]["bytes"].as_u64().unwrap_or(0);
+            let old = baseline["sections"][name]["bytes"].as_u64().unwrap_or(0);
+            Ok((name, i64::try_from(now)? - i64::try_from(old)?))
+        })
+        .collect::<Result<_>>()?;
     let family_delta: BTreeMap<_, _> = FAMILIES
         .iter()
         .map(|name| {
@@ -71,14 +65,13 @@ pub(super) fn compare(current: &str, baseline: &str) -> Result<Value> {
         })
         .collect::<Result<_>>()?;
     Ok(json!({
-        "schema": "trust-f401-map-comparison-v1",
-        "code_capacity_bytes": CODE_CAPACITY,
+        "schema": "trust-stm32f4-map-comparison-v1",
         "flash_load_delta_bytes": delta("flash_load_bytes")?,
         "code_span_delta_bytes": delta("code_span_bytes")?,
         "section_delta_bytes": section_delta,
         "approximate_text_family_delta_bytes": family_delta,
         "current": current, "baseline": baseline,
-        "limitations": "Section totals are exact map values; flash load excludes RAM-only and debug sections, and does not include gaps. Upper code and sector-0 spans include their placement gaps separately. Family ownership is approximate, disjoint symbol attribution, not isolated causal savings per edit. Upper overflow is estimated against L2's 448 KiB code capacity for both maps; sector-0 capacity is 16 KiB. Only ELF inspection establishes installability. Unnamed instructions, literal pools and alignment remain an explicit residual."
+        "limitations": "Section totals are exact map values; flash load excludes RAM-only and debug sections, and does not include gaps. Upper code and sector-0 spans include their placement gaps separately. Family ownership is approximate, disjoint symbol attribution, not isolated causal savings per edit. Sector-0 capacity is 16 KiB. Only ELF inspection establishes installability and fit. Unnamed instructions, literal pools and alignment remain an explicit residual."
     }))
 }
 
@@ -213,11 +206,11 @@ impl Map {
             flash_load = flash_load
                 .checked_add(section.bytes)
                 .context("flash sum overflow")?;
-            if matches!(name.as_str(), ".vector_table" | ".firmware_rodata") {
+            if name == ".vector_table" {
                 ensure!(
                     section.lma >= SECTOR0_ORIGIN
                         && section.lma < SECTOR0_ORIGIN + SECTOR0_CAPACITY,
-                    "vector/data section does not start in sector 0"
+                    "vector table does not start in sector 0"
                 );
                 sector0_end = sector0_end.max(end);
                 sector0_load = sector0_load
@@ -247,8 +240,6 @@ impl Map {
             "flash_load_bytes": flash_load,
             "code_origin": text.lma,
             "code_span_bytes": code_span,
-            "estimated_L2_overflow_bytes": code_span.saturating_sub(CODE_CAPACITY),
-            "code_free_bytes": CODE_CAPACITY.saturating_sub(code_span),
             "code_load_bytes": code_load,
             "code_padding_bytes": code_span - code_load,
             "sector0_span_bytes": sector0_span,
@@ -284,8 +275,8 @@ fn family(name: &str) -> &'static str {
         ("linked_list_allocator::", "allocator"),
         ("embedded_alloc::", "allocator"),
         ("__rustc::__rust_", "allocator"),
-        ("trust_nucleo_f401re::", "firmware"),
-        // The M2E runner moved from the F401 firmware into the shared fixture crate.
+        ("trust_stm32f407::", "firmware"),
+        // The firmware's M2E runner is in the shared fixture crate.
         ("trust_board_fixture::", "firmware"),
         ("trust_platform_stm32f4::", "adapter"),
     ] {
@@ -362,41 +353,41 @@ mod tests {
         assert_eq!(report["current"]["code_span_bytes"], 28);
     }
     #[test]
-    fn failed_link_map_still_reports_capacity_overflow() {
-        let report = compare(&fixture(448 * 1024), &fixture(16)).unwrap();
-        assert_eq!(report["current"]["estimated_L2_overflow_bytes"], 12);
-    }
-    #[test]
     fn zero_size_flash_alignment_reserves_span_without_load_bytes() {
         let baseline = fixture(448 * 1024);
         let aligned = baseline.clone() + &row(0x0808_0020, 0x0808_0020, 0, 0, ".gnu.sgstubs");
         let report = compare(&aligned, &baseline).unwrap();
         assert_eq!(report["flash_load_delta_bytes"], 0);
         assert_eq!(report["code_span_delta_bytes"], 20);
-        assert_eq!(report["current"]["estimated_L2_overflow_bytes"], 32);
     }
 
     #[test]
-    fn sector0_constants_are_reported_separately_from_upper_load_and_padding() {
-        let old = fixture(16);
-        let new = old.clone() + &row(0x0800_0010, 0x0800_0010, 12, 0, ".firmware_rodata");
-        let report = compare(&new, &old).unwrap();
-        assert_eq!(report["flash_load_delta_bytes"], 12);
-        assert_eq!(report["code_span_delta_bytes"], 0);
+    fn the_vector_table_is_reported_in_sector0_apart_from_the_upper_load() {
+        let map = fixture(16);
+        let report = compare(&map, &map).unwrap();
         assert_eq!(report["current"]["code_span_bytes"], 28);
         assert_eq!(report["current"]["code_load_bytes"], 28); // Includes RAM .data's load image.
-        assert_eq!(report["current"]["sector0_load_bytes"], 20);
-        assert_eq!(report["current"]["sector0_span_bytes"], 28);
-        assert_eq!(report["current"]["sector0_padding_bytes"], 8);
-        assert_eq!(report["current"]["sector0_free_bytes"], 16 * 1024 - 28);
-        let overflow =
-            old.clone() + &row(0x0800_0010, 0x0800_0010, 16 * 1024, 0, ".firmware_rodata");
+        assert_eq!(report["current"]["sector0_load_bytes"], 8);
+        assert_eq!(report["current"]["sector0_span_bytes"], 8);
+        assert_eq!(report["current"]["sector0_padding_bytes"], 0);
+        assert_eq!(report["current"]["sector0_free_bytes"], 16 * 1024 - 8);
+        let vectors = row(0x0800_0000, 0x0800_0000, 8, 0, ".vector_table");
+        let overflow = map.replace(
+            &vectors,
+            &row(0x0800_0000, 0x0800_0000, 16 * 1024 + 16, 0, ".vector_table"),
+        );
+        assert_ne!(overflow, map);
         assert_eq!(
-            compare(&overflow, &old).unwrap()["current"]["sector0_overflow_bytes"],
+            compare(&overflow, &map).unwrap()["current"]["sector0_overflow_bytes"],
             16
         );
-        let overlap = old.clone() + &row(0x0800_0004, 0x0800_0004, 12, 0, ".firmware_rodata");
-        assert!(compare(&overlap, &old).is_err());
+        // A vector table that does not start in sector 0.
+        let outside = map.replace(
+            &vectors,
+            &row(0x0800_4000, 0x0800_4000, 8, 0, ".vector_table"),
+        );
+        assert_ne!(outside, map);
+        assert!(compare(&outside, &map).is_err());
     }
 
     #[test]

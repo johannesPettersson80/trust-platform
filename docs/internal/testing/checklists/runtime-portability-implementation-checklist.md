@@ -178,6 +178,27 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     d3a3508ba, scope H: from `DISC_636CB8D8E6B5C60C383F` in the catalog denominator and from
     `DISC_251A2BD74865B4BDB6A6` in the anomaly denominator), so both checkers refuse them until
     those rows are moved into place.
+  - [ ] S1b, the chips as runtimes over USB. Design `~/projects/.artifacts/s1b/design.md`; decisions
+    `~/projects/.artifacts/s1b/decisions.md` (O1–O14, R1–R9). Work happens in
+    `~/projects/trust-platform-s1b`, branch `feat/chip-control-link`, from `d309cfbd5`.
+    - [x] S1b-1, the device cycle `runner::engine`, and S1b-2, the line link and bounded event
+      replies (spec 34 §7.4 PORT-05). Committed `87841222c` on 17 Oct, not pushed.
+      - Validated by batch `s1b-runs/b1`: 42 steps green, among them `just test-all` (478 test
+        binaries), workspace Clippy, both chip targets, docs, firmware builds, the architecture
+        doctor, the public-API baselines and the diagrams.
+      - The external unsafe gate failed only on the six inherited `scan_allocation_zero.rs`
+        lines. They were fixed and the gate rerun green.
+      - Work limits on chips are now trust-runtime's (R8). A chip's call depth follows its heap,
+        4 at 72 KiB. The engine fix that lets chips admit trust-runtime's 1,024 is R9 / D-C1-4,
+        in C1-3 and C1-4.
+    - [ ] S1b-3, the installed application: it extends C4-1's record (R6) and starts after C4-1
+      is committed and this branch is rebased.
+    - [ ] S1b-4, the C6 adapter: written by an agent since 17 Oct evening.
+    - [ ] S1b-5, the C6 firmware and bench; S1b-6, `usb://` and the relay (after the devices
+      branch merges); S1b-7, every client through the shared transport.
+    - [ ] S1b-8u and S1b-9u, the STM32U5A9 track (owner's Riverdi, 17 Oct). Design being written
+      at `~/projects/.artifacts/u5a9/design.md`.
+    - Left for the final full run: the test-catalog denominator rows of the S1b tests.
 - [ ] S2 Live Values: read, write, force and release, as in trust-runtime. Includes a test seam
   for snapshot projection failures (from the A01 leftovers).
 - [ ] S3 Debugging (includes from the A01 leftovers: the defect that debugger scratch slots read
@@ -278,20 +299,31 @@ T — Targets (spec 34 §11.4):
 - [ ] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
   (TARGET-08).
 
-QS — STM32F407 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE).
-Paused by the owner on 17 October 2026: "then we wait with stm32".
-- The estimates in `~/projects/.artifacts/s1b/design.md` §4 show the F407 (192 KiB RAM) holds the
-  engine and the control connection but not every component.
-- Paused until the owner resumes it: QS1–QS4, L2, S10, H1 and the F407 track of S1b (S1b-8, S1b-9).
-- The F407 port stays as written; CI checks its build.
-- The chip work continues on the ESP32-C6, and the shared services, bounded operation and
-  Devices & Connections work continue unchanged.
-- [ ] QS1 The STM32F407 boots into its controlled state and runs the installed project with every
-  item of S, L1 (and L2 on a board with an Ethernet PHY) and T.
-- [ ] QS2 Retain on the F407, using C5.
+QS — STM32 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE).
+- History: the owner paused the STM32 work on 17 October 2026 ("then we wait with stm32"). The
+  estimates in `~/projects/.artifacts/s1b/design.md` §4 show that the F407 (192 KiB RAM) holds the
+  engine and the control connection, but not every component.
+- The owner then chose the STM32 board on 17 October 2026, after turning down a NUCLEO-H753ZI as
+  too expensive and an Arduino Uno as far too small: "riverdi".
+- The STM32 chip is now the STM32U5A9NJH6Q on the owner's Riverdi RVT50HQSNWC00-B, a 5-inch
+  STM32 Embedded Display:
+  - Cortex-M33 at 160 MHz, 4 MB flash, 2.5 MB SRAM, 512 Mbit OCTOSPI flash;
+  - USB OTG HS on a 1.25 mm 5-pin connector (P6);
+  - RS-485 (P7) and CAN FD (P5);
+  - SWD on a 1.25 mm 6-pin connector (P3), with no debugger on the board;
+  - a 6–48 V supply (P10), and a CR1220 cell for the RTC and backup SRAM;
+  - the user button on PH3-BOOT0 and the user LED on PE5.
+  - Source: Riverdi datasheet DS_RVT50HQSNWC00-B Rev.1.1.
+- It has no Ethernet. L2 (Ethernet on an STM32), S10 (EtherCAT) and H1 (NUCLEO-F429ZI) stay paused.
+  The network services are tested on the C6 (Wi-Fi) until the owner chooses an STM32 with Ethernet.
+- The F407 port stays as written and CI checks its build. Its USB slices S1b-8 and S1b-9 become the
+  U5A9's.
+- [ ] QS1 The STM32U5A9 boots into its controlled state and runs the installed project with every
+  item of S, L1 and T.
+- [ ] QS2 Retain on the U5A9, using C5.
 - [ ] QS3 Disturbed and mixed-rate workloads and extended tests; section 14 acceptance within the
-  F407's flash, RAM and stack, with completion-level timing evidence.
-- [ ] QS4 Release: the F407 firmware in the GitHub release (TARGET-09), last.
+  U5A9's flash, RAM and stack, with completion-level timing evidence.
+- [ ] QS4 Release: the U5A9 firmware in the GitHub release (TARGET-09), last.
 
 QE — ESP32-C6 product and qualification (M5):
 - [ ] QE1 The C6 boots into its controlled state and runs the installed project with every item of
@@ -357,9 +389,21 @@ etc."):
     - Every TypeScript logic place of the inventories maps to a Rust function. All 42 faults of
       section E have a slice and a test, except E4 (S6/L2/L3), E39 (A19) and E42 (no such drivers).
     - The 33 open points are decided in `~/projects/.artifacts/devices-v7/decisions.md`.
-    - Work happens in `~/projects/trust-platform-devices` (branch `feat/devices-connections` from
-      `a3b47bd47`). Wave 1: B1 is being written. C1a starts once S1a's registry move, validated
-      by batch `s1a3-1`, is copied over.
+    - Work happens in `~/projects/trust-platform-devices` (branch `feat/devices-connections`,
+      pushed, no pull request; rebased onto `d309cfbd5` of `feat/board-runtime` on 17 Oct).
+    - 17 Oct, done:
+      - B1 (`d93d4465c`) and B2+B3 (`7a2a3997a`).
+      - C1a, the search engine `trust_runtime::host::search`, `comm.search.*` and
+        `trust-runtime discover`; and B4, the view contract `trust_devices::view` with ten golden
+        views (`b1894559c`).
+      - Batch d7 is green, at the pre-rebase head `732d56a49`: format, Clippy, `just test-all`,
+        docs, the architecture doctor, both runtime gates, VS Code (519 passing) and the
+        diagrams. The doctor passed once the batch script gave it its git helper.
+      - The rebase onto `d309cfbd5` was clean. The next batch validates the five files that
+        changed on both branches.
+    - 17 Oct, running: B5, B6, C1b and C5a (wave 4, plus C1b of wave 2 and C5a of wave 3).
+      C5a adds `nusb` 0.2.8 and `serialport` 4.10 without default features. Both build without a
+      system library, and `deny.toml` already allows their licenses.
   - [ ] V7b The panel's view model and rules in Rust (a trust-lsp or trust-runtime command answers
     the whole graph, its labels, states, allowed actions and faults); the extension's edits of
     `runtime.toml` and `ads.toml` move into Rust commands; Save writes to the runtime chosen in the

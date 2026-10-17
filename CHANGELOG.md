@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- A `STRING` without a length is now `STRING[80]`, as in TwinCAT and CODESYS: it
+  holds at most 80 bytes of UTF-8, and a `WSTRING` without a length at most 80 UTF-16
+  code units. Before, it had no limit. A longer value is cut at assignment, never in
+  the middle of a character, and an HMI write of a longer text to a program variable
+  is refused with `runtime_string_capacity_exceeded`. Declare `STRING[n]` for a longer
+  text; n is at most 65,535, and a larger length is a compile error. `STRING[n]` now
+  holds n bytes rather than n characters, so a text with letters outside ASCII (such
+  as `ä`, two bytes) holds fewer than n characters; `LEN` and indexing still count
+  characters. A string function or conversion whose result would be longer than
+  65,535 now fails with `runtime_string_capacity_exceeded`.
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 
@@ -39,8 +49,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   over the initialized variable. A variable that is bound to `%M` after the start (a
   checked binding update) now keeps its current value in the same way.
 - The STM32F407 is a supported chip, first on the STM32F407G-DISC1
-  (`firmware/trust-stm32f407`). The STM32F4 adapter selects the chip with a Cargo
-  feature (`stm32f401`, the default, or `stm32f407`). On the F407 it measures the
+  (`firmware/trust-stm32f407`). The STM32F4 adapter selects the chip with its
+  `stm32f407` Cargo feature, the default. On the F407 it measures the
   board's crystal before it starts the 168 MHz clock, and falls back to the
   internal oscillator when there is none. Pins are named like `PD12` and checked
   against the chip's pin table when the firmware is built.
@@ -50,8 +60,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   exist for the STM32F407 and the ESP32-C6. `cargo xtask portability build-firmware`
   now takes the chip name (`stm32f407`, `esp32c6`) and builds that chip's one
   firmware from its file; a bench board's name is refused with its chip's name.
-  `inspect` and `verify` still take the bench board, and the F401 composition stays
-  buildable as `nucleo-f401re`.
+  `inspect` and `verify` still take the bench board.
+- The NUCLEO-F401RE firmware is retired; the STM32 chip is the STM32F407. The STM32F4
+  adapter has no `stm32f401` feature, and `cargo xtask portability` no longer accepts
+  `nucleo-f401re`.
 - A runtime no longer faults with `Overflow` after about four billion calls since its
   last restart (about a day at 50 calls a millisecond), nor after as many function-block
   or class instances declared inside functions and methods.
@@ -70,6 +82,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `unsupported import 'TON': a parameter's type or direction differs from the
   contract`. Before, such a program was also refused, but the message did not say
   which function.
+- `trust-runtime build` also writes `deployment-record.bin` next to `program.stbc`:
+  the program's deployment record, with its identity, the limits it requests and the
+  built-in imports it needs (specification 34 §5.1.1). The runtime checks a project's
+  record when it loads it and runs the program with the record's limits; a project
+  without a record keeps the default limits. `--ci` reports the record's path as
+  `deployment_record`.
 
 
 Target release: `v0.24.75`

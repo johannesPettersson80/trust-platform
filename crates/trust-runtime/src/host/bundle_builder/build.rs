@@ -6,7 +6,17 @@ pub fn build_program_stbc(
     let compiled = compile_bundle_sources(bundle_root, sources_root)?;
     fs::create_dir_all(bundle_root)?;
     let program_path = bundle_root.join("program.stbc");
-    fs::write(&program_path, compiled.bytes)?;
+    fs::write(&program_path, &compiled.bytes)?;
+    // The program's deployment record goes next to it (spec 34 §5.1.1).
+    let deployment_record = crate::deployment::write_record(bundle_root, &compiled.bytes)
+        .with_context(|| {
+            format!(
+                "write {}",
+                bundle_root
+                    .join(crate::deployment::DEPLOYMENT_RECORD_FILE)
+                    .display()
+            )
+        })?;
     let openot_definition_path = if let Some(definition) = compiled.openot_definition {
         let path = bundle_root.join("openot-definition.json");
         let mut definition_bytes = serde_json::to_vec_pretty(&definition)
@@ -21,6 +31,7 @@ pub fn build_program_stbc(
 
     Ok(BundleBuildReport {
         program_path,
+        deployment_record,
         openot_definition_path,
         sources: compiled.sources,
         dependency_roots: compiled.dependency_roots,

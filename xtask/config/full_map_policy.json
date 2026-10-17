@@ -3,28 +3,12 @@
   "review_date": "2026-04-30",
   "allowed_workspace_edges": [
     {
-      "from": "trust-nucleo-f401re",
-      "to": "trust-platform-stm32f4",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability Scope B",
-      "rationale": "Separate firmware workspace composes the fixed board peripheral adapter; the root workspace platform crate has no runtime or compiler dependency."
-    },
-    {
       "from": "trust-board-fixture",
       "to": "trust-runtime-core",
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability M2E (shared fixture and C6)",
       "rationale": "The shared M2E fixture prepares and executes the source-free artifacts on the compiler-free core with default features disabled."
-    },
-    {
-      "from": "trust-nucleo-f401re",
-      "to": "trust-board-fixture",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability M2E (shared fixture and C6)",
-      "rationale": "The F401 composition runs the shared M2E fixture; it keeps identity, reset cookie and supervision."
     },
     {
       "from": "trust-stm32f407",
@@ -40,7 +24,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability STM32F407 (T3)",
-      "rationale": "The F407 composition runs the same shared M2E fixture as the F401 and the C6 until the services runner replaces it."
+      "rationale": "The F407 composition runs the same shared M2E fixture as the C6 until the services runner replaces it."
     },
     {
       "from": "xtask",
@@ -72,7 +56,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability M2E (shared fixture and C6)",
-      "rationale": "The C6 composition runs the same shared M2E fixture as F401."
+      "rationale": "The C6 composition runs the same shared M2E fixture as the F407."
     },
     {
       "from": "trust-esp32c6-reference",
@@ -409,11 +393,6 @@
     {
       "from": "trust-platform-stm32f4",
       "to": "trust-hir",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-nucleo-f401re",
-      "to": "trust-runtime",
       "kind": "normal"
     },
     {
@@ -1619,7 +1598,7 @@
         "module_name": "portability",
         "path": "xtask/src/portability",
         "owner": "runtime portability",
-        "rationale": "The portability evidence namespace holds one focused child module per concern: board profiles, the reviewed firmware build, the per-chip image inspections (STM32F401, STM32F407 and ESP32-C6, each its own file), trace verification and its profiles, benchmarks, the database runner, source identity, linker-map comparison and their tests. The aggregate crosses 5000 lines with the third chip; no single file or mixed owner.",
+        "rationale": "The portability evidence namespace holds one focused child module per concern: board profiles, the reviewed firmware build, the per-chip image inspections (STM32F407 in elf/stm32f407.rs, ESP32-C6 in elf.rs), trace verification and its profiles, benchmarks, the database runner, source identity, linker-map comparison and their tests. The aggregate is above 5000 lines; no single file or mixed owner.",
         "review_date": "2026-10-17",
         "split_plan": "Keep one image-inspection file per chip under elf/ and one trace profile per board; move the hosted benchmark and database runner into their own top-level xtask module if either grows; split any file approaching 1000 lines by its responsibility. Chip values come from chips/*.toml (T3) rather than being repeated here."
       },
@@ -2113,30 +2092,6 @@
     "status": "tracked_by_unsafe_concurrency_hardening_board",
     "unsafe_site_register": [
       {
-        "path": "crates/trust-platform-stm32f4/src/hardware/mod.rs",
-        "line": 132,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Fixed aligned STM32F401 UID words are read volatile only; no caller address or mutable alias is created.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-platform-stm32f4/src/hardware/io.rs",
-        "line": 36,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "DigitalIo owns PA5; a shared volatile GPIOA.IDR read cannot mutate pin configuration or claim optical actuator observation.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-platform-stm32f4/src/hardware/emergency.rs",
-        "line": 21,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Terminal single-core abort disables interrupts and never returns to HAL owners; fixed shared PAC views force PA5 low and emit bounded UART before watchdog-fed safe halt; no peripheral steal.",
-        "test_evidence": "Planned Scope B frozen thumbv7em build and device trace: safe GPIO, identity, deliberate IWDG reset, heap accounting and nested-call/IRQ MSP headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-10"
-      },
-      {
         "path": "crates/trust-platform-stm32f4/src/hardware_f407/crystal_timer.rs",
         "line": 47,
         "owner": "runtime portability STM32F407 (T3)",
@@ -2250,14 +2205,6 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 97,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
         "line": 98,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
@@ -2266,7 +2213,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 101,
+        "line": 99,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2274,7 +2221,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 104,
+        "line": 102,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2282,7 +2229,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 107,
+        "line": 105,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2290,7 +2237,7 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 110,
+        "line": 108,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2298,7 +2245,15 @@
       },
       {
         "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 113,
+        "line": 111,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 114,
         "owner": "runtime portability",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
         "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
@@ -2905,30 +2860,6 @@
         "review_date": "2026-10-15"
       },
       {
-        "path": "firmware/trust-nucleo-f401re/src/application.rs",
-        "line": 10,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "The exact 16 KiB flash sector-1 slice is linker-excluded from firmware and never mutated during RUN; bundle ranges and CRCs are validated by the shared decode before any payload is exposed.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/main.rs",
-        "line": 133,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Cortex-M exception ABI is required by cortex-m-rt; HardFault abandons execution permanently through the nonallocating terminal board safe-off path.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "firmware/trust-nucleo-f401re/src/memory.rs",
-        "line": 20,
-        "owner": "runtime portability Scope B board/firmware",
-        "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
         "path": "firmware/trust-stm32f407/src/application.rs",
         "line": 11,
         "owner": "runtime portability STM32F407 (T3)",
@@ -3115,24 +3046,6 @@
         "owner": "runtime portability Scope B",
         "shared_state": "SysTick event count",
         "invariant": "Only the IRQ increments AtomicU32; main reads relaxed counts for instrumentation, never as a memory-publication or PLC scheduler fence.",
-        "test_evidence": "Planned frozen Scope B native arithmetic tests plus real SysTick/watchdog/heap trace; no hardware result claimed before batch.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path_prefix": "crates/trust-platform-stm32f4/src/hardware/emergency.rs",
-        "primitive": "Atomic",
-        "owner": "runtime portability Scope B",
-        "shared_state": "UART-initialized flag",
-        "invariant": "Single-core initialization sets the flag; terminal interrupt-disabled code only reads it to avoid accessing unconfigured UART.",
-        "test_evidence": "Planned frozen Scope B native arithmetic tests plus real SysTick/watchdog/heap trace; no hardware result claimed before batch.",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path_prefix": "crates/trust-platform-stm32f4/src/hardware/emergency.rs",
-        "primitive": "Ordering::",
-        "owner": "runtime portability Scope B",
-        "shared_state": "UART-initialized flag",
-        "invariant": "Single-core initialization sets the flag; terminal interrupt-disabled code only reads it to avoid accessing unconfigured UART.",
         "test_evidence": "Planned frozen Scope B native arithmetic tests plus real SysTick/watchdog/heap trace; no hardware result claimed before batch.",
         "review_date": "2026-10-10"
       },

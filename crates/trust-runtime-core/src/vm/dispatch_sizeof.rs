@@ -176,22 +176,9 @@ fn sizeof_primitive_type_with_abi(
         5 | 9 | 13 | 15 => Ok(8),
         16 | 18 | 20 | 22 => Ok(abi.short_temporal_bytes()),
         17 | 19 | 21 | 23 => Ok(8),
-        24 => {
-            if max_length == 0 {
-                Err(RuntimeError::TypeMismatch)
-            } else {
-                Ok(u64::from(max_length))
-            }
-        }
-        25 => {
-            if max_length == 0 {
-                Err(RuntimeError::TypeMismatch)
-            } else {
-                u64::from(max_length)
-                    .checked_mul(2)
-                    .ok_or(RuntimeError::Overflow)
-            }
-        }
+        // STRING[n] is n bytes and WSTRING[n] 2n; a type without a length has 80.
+        24 => Ok(u64::from(crate::value::string_capacity(max_length))),
+        25 => Ok(u64::from(crate::value::string_capacity(max_length)) * 2),
         other => Err(RuntimeError::bytecode(
             StableErrorCode::VmBytecodeDecode,
             format!("unsupported primitive type id {other} for SIZEOF"),

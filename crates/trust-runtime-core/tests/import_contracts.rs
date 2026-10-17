@@ -676,6 +676,29 @@ fn conversion_split_clock_and_function_block_failures_stay_within_their_contract
     violations.assert_none("conversions, splits, clocks and function blocks");
 }
 
+#[test]
+fn a_string_result_above_the_implementer_maximum_is_a_contract_failure() {
+    // IEC 61131-3 Ed.3 §6.6.2.5.11 and docs/IEC_DECISIONS.md 2026-10-17: a text result longer
+    // than 65,535 bytes or code units is an error, which the String and Conversion contracts name.
+    let half = Value::String("x".repeat(40_000).into());
+    let concat = StandardLibrary::new()
+        .get("CONCAT")
+        .expect("registered")
+        .func;
+    let error = concat(&[half.clone(), half]).expect_err("80,000 bytes");
+    assert_eq!(error, RuntimeError::StringCapacityExceeded);
+    let strings = contracts::function("CONCAT").unwrap().contract;
+    assert!(strings.failures.contains(&error.stable_code()));
+
+    // 30,000 code units of "€" are 90,000 bytes of UTF-8.
+    let euros = [Value::WString("€".repeat(30_000))];
+    let spec = conversions::conversion_spec("WSTRING_TO_STRING").expect("a conversion");
+    let error = conversions::call_conversion_spec(spec, &euros).expect_err("90,000 bytes");
+    assert_eq!(error, RuntimeError::StringCapacityExceeded);
+    let conversion = contracts::function("WSTRING_TO_STRING").unwrap().contract;
+    assert!(conversion.failures.contains(&error.stable_code()));
+}
+
 fn decoded(bytes: &[u8]) -> BytecodeModule {
     BytecodeModule::decode(bytes).expect("saved artifact decodes")
 }

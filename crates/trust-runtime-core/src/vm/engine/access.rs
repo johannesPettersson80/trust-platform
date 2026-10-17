@@ -61,12 +61,13 @@ impl EngineState<'_> {
             reference.path,
             &value,
         )?;
+        let capacity = self.declared_string_capacity(reference);
         let prepared = self.prepare_engineering_storage_write(reference, &value)?;
         self.check_entry_deadline()?;
         if !self
             .data
             .storage
-            .commit_prepared_write(reference.path, value, prepared)
+            .commit_prepared_write(reference.path, value, prepared, capacity)
         {
             return Err(RuntimeError::NullReference);
         }
@@ -166,12 +167,13 @@ impl EngineState<'_> {
             &reference.path,
             &value,
         )?;
+        let capacity = self.declared_string_capacity(reference.as_view());
         let prepared = self.prepare_engineering_storage_write(reference.as_view(), &value)?;
         self.check_entry_deadline()?;
         if !self
             .data
             .storage
-            .commit_prepared_write(&reference.path, value, prepared)
+            .commit_prepared_write(&reference.path, value, prepared, capacity)
         {
             return Err(RuntimeError::NullReference);
         }
@@ -331,10 +333,11 @@ impl EngineState<'_> {
         prepared: crate::memory::PreparedStorageWrite,
     ) -> Result<(), RuntimeError> {
         self.check_entry_deadline()?;
+        let capacity = self.declared_string_capacity(reference.as_view());
         if !self
             .data
             .storage
-            .commit_prepared_write(&reference.path, value, prepared)
+            .commit_prepared_write(&reference.path, value, prepared, capacity)
         {
             return Err(RuntimeError::NullReference);
         }

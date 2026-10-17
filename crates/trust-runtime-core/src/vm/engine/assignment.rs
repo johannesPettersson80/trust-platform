@@ -60,7 +60,8 @@ impl EngineState<'_> {
                 prim_id,
                 max_length,
             } => {
-                if matches!(*prim_id, 24 | 25) && *max_length != 0 {
+                // Every STRING/WSTRING is bounded; a type without a length has 80 (TIME-08).
+                if matches!(*prim_id, 24 | 25) {
                     let text = match &value {
                         Value::String(text) => Some(text.as_str()),
                         Value::WString(text) => Some(text.as_str()),
@@ -72,9 +73,10 @@ impl EngineState<'_> {
                                 .checked_mul(2)
                                 .ok_or_else(|| RuntimeError::Overflow)?,
                         )?;
+                        let capacity = usize::from(crate::value::string_capacity(*max_length));
                         if matches!(value, Value::String(_))
-                            && let Some((end, _)) =
-                                text.char_indices().nth(usize::from(*max_length))
+                            && let Some(end) =
+                                crate::value::string_capacity_cut(text, *prim_id == 25, capacity)
                         {
                             self.charge_allocation_bytes(end)?;
                         }

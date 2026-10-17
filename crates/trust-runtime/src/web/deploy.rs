@@ -109,10 +109,20 @@ pub fn apply_deploy(
             RuntimeError::ControlError(format!("decode program.stbc: {err}").into())
         })?;
         let path = bundle_root.join("program.stbc");
-        fs::write(&path, bytes).map_err(|err| {
+        fs::write(&path, &bytes).map_err(|err| {
             RuntimeError::ControlError(format!("write program.stbc: {err}").into())
         })?;
         written.push("program.stbc".to_string());
+        // A new program brings its own deployment record, never the previous program's
+        // (spec 34 §5.1.1).
+        let record = crate::deployment::write_record(bundle_root, &bytes).map_err(|err| {
+            RuntimeError::ControlError(
+                format!("write {}: {err}", crate::deployment::DEPLOYMENT_RECORD_FILE).into(),
+            )
+        })?;
+        if let crate::deployment::RecordWrite::Written(_) = record {
+            written.push(crate::deployment::DEPLOYMENT_RECORD_FILE.to_string());
+        }
     }
     if let Some(sources) = request.sources {
         let sources_root = bundle_root.join("src");

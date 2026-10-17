@@ -91,6 +91,8 @@ pub enum StableErrorCode {
     RuntimeStringCapacityExceeded,
     RuntimeNonFiniteValue,
     RuntimeImportUnsupported,
+    RuntimeDeploymentRecordInvalid,
+    RuntimeDeploymentRefused,
 }
 
 impl StableErrorCode {
@@ -182,6 +184,8 @@ impl StableErrorCode {
             Self::RuntimeStringCapacityExceeded => "runtime_string_capacity_exceeded",
             Self::RuntimeNonFiniteValue => "runtime_non_finite_value",
             Self::RuntimeImportUnsupported => "runtime_import_unsupported",
+            Self::RuntimeDeploymentRecordInvalid => "runtime_deployment_record_invalid",
+            Self::RuntimeDeploymentRefused => "runtime_deployment_refused",
         }
     }
 }
@@ -314,9 +318,11 @@ mod tests {
             RuntimeStringCapacityExceeded,
             RuntimeNonFiniteValue,
             RuntimeImportUnsupported,
+            RuntimeDeploymentRecordInvalid,
+            RuntimeDeploymentRefused,
         ];
 
-        assert_eq!(codes.len(), 84);
+        assert_eq!(codes.len(), 86);
         for (index, code) in codes.iter().copied().enumerate() {
             assert!(
                 !codes[..index].contains(&code),
@@ -416,7 +422,9 @@ mod tests {
             | RuntimeControlError
             | RuntimeStringCapacityExceeded
             | RuntimeNonFiniteValue
-            | RuntimeImportUnsupported => {}
+            | RuntimeImportUnsupported
+            | RuntimeDeploymentRecordInvalid
+            | RuntimeDeploymentRefused => {}
         }
     }
 

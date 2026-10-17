@@ -176,9 +176,13 @@ fn primitive_policy_materializes_only_accuracy_preserving_float_widening() {
 }
 
 #[test]
-fn bounded_string_policy_truncates_by_scalar_and_rejects_wrong_family() {
-    let string = primitive_table_with_max(24, 2);
-    let wstring = primitive_table_with_max(25, 2);
+fn bounded_string_policy_truncates_by_byte_and_code_unit_and_rejects_wrong_family() {
+    // STRING[n] holds n bytes of UTF-8 and WSTRING[n] n UTF-16 code units; a cut never splits a
+    // character (docs/IEC_DECISIONS.md 2026-10-17). "Ä" and "Ö" are two bytes, "🙂" two units.
+    let string = primitive_table_with_max(24, 3);
+    let wstring = primitive_table_with_max(25, 3);
+    let short = primitive_table_with_max(24, 2);
+    let wide_short = primitive_table_with_max(25, 2);
 
     assert_eq!(
         normalize_value_for_type_table(&string, 0, Value::String("ÄB".into()), 0),
@@ -195,6 +199,14 @@ fn bounded_string_policy_truncates_by_scalar_and_rejects_wrong_family() {
     assert_eq!(
         normalize_value_for_type_table(&wstring, 0, Value::WString("🙂ΩX".into()), 0),
         Ok(Value::WString("🙂Ω".into()))
+    );
+    assert_eq!(
+        normalize_value_for_type_table(&short, 0, Value::String("AÖ".into()), 0),
+        Ok(Value::String("A".into()))
+    );
+    assert_eq!(
+        normalize_value_for_type_table(&wide_short, 0, Value::WString("A🙂".into()), 0),
+        Ok(Value::WString("A".into()))
     );
     for error in [
         normalize_value_for_type_table(&string, 0, Value::WString("AB".into()), 0),

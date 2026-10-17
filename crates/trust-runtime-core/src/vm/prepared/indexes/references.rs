@@ -100,6 +100,7 @@ mod tests {
             _: usize,
             _: &[RefSegment],
             _: Value,
+            _: usize,
         ) -> Result<bool, RuntimeError> {
             unreachable!("type discovery cannot mutate values")
         }

@@ -94,6 +94,7 @@ fn bundle_with_backend(
         opcua_client_config_hash: None,
         simulation: None,
         bytecode: Vec::new(),
+        preparation_limits: trust_runtime::runtime_core::vm::PreparationLimits::default(),
     }
 }
 

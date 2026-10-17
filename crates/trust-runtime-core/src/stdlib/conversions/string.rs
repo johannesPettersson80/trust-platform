@@ -1,6 +1,6 @@
 use super::ConversionType;
 use crate::error::RuntimeError;
-use crate::value::Value;
+use crate::value::{check_string_result, Value};
 use alloc::string::{String, ToString};
 
 pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Value, RuntimeError> {
@@ -29,11 +29,19 @@ pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Va
         _ => None,
     };
 
+    // A text result longer than the implementer maximum is an error (IEC 61131-3 Ed.3
+    // §6.6.2.5.11): a WSTRING of 65,535 code units can need up to 196,605 bytes as STRING.
     match dst {
-        ConversionType::String => text
-            .map(|value| Value::String(value.into()))
-            .ok_or(RuntimeError::TypeMismatch),
-        ConversionType::WString => text.map(Value::WString).ok_or(RuntimeError::TypeMismatch),
+        ConversionType::String => {
+            let text = text.ok_or(RuntimeError::TypeMismatch)?;
+            check_string_result(&text, false)?;
+            Ok(Value::String(text.into()))
+        }
+        ConversionType::WString => {
+            let text = text.ok_or(RuntimeError::TypeMismatch)?;
+            check_string_result(&text, true)?;
+            Ok(Value::WString(text))
+        }
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

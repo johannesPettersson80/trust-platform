@@ -107,6 +107,15 @@ pub enum RuntimeError {
         reason: ImportRefusal,
     },
 
+    /// A deployment record is not readable (spec 34 §5.1.1).
+    #[error("invalid deployment record: {0}")]
+    DeploymentRecordInvalid(crate::deployment::DeploymentRecordError),
+
+    /// A device refused a deployment before constructing any state (spec 34 §5.1.1,
+    /// DEPLOY-04).
+    #[error("deployment refused: {0}")]
+    DeploymentRefused(crate::deployment::AdmissionRefusal),
+
     /// Type mismatch between values.
     #[error("type mismatch")]
     TypeMismatch,
@@ -138,6 +147,11 @@ pub enum RuntimeError {
     /// Arithmetic overflow.
     #[error("arithmetic overflow")]
     Overflow,
+
+    /// A string function result is longer than the implementer maximum of 65,535 UTF-8 bytes
+    /// (`STRING`) or UTF-16 code units (`WSTRING`), IEC 61131-3 Ed.3 §6.6.2.5.11.
+    #[error("string result longer than the maximum of 65535")]
+    StringCapacityExceeded,
 
     /// Index out of bounds.
     #[error("array index {index} out of bounds [{lower}..{upper}]")]
@@ -365,6 +379,8 @@ impl RuntimeError {
             Self::InvalidExecutionState => StableErrorCode::RuntimeInvalidExecutionState,
             Self::ProfileUnsupported(_) => StableErrorCode::RuntimeProfileUnsupported,
             Self::ImportUnsupported { .. } => StableErrorCode::RuntimeImportUnsupported,
+            Self::DeploymentRecordInvalid(_) => StableErrorCode::RuntimeDeploymentRecordInvalid,
+            Self::DeploymentRefused(_) => StableErrorCode::RuntimeDeploymentRefused,
             Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
             Self::NonFiniteValue => StableErrorCode::RuntimeNonFiniteValue,
             Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
@@ -373,6 +389,7 @@ impl RuntimeError {
             Self::DivisionByZero => StableErrorCode::RuntimeDivisionByZero,
             Self::ModuloByZero => StableErrorCode::RuntimeModuloByZero,
             Self::Overflow => StableErrorCode::RuntimeOverflow,
+            Self::StringCapacityExceeded => StableErrorCode::RuntimeStringCapacityExceeded,
             Self::IndexOutOfBounds { .. } => StableErrorCode::RuntimeIndexOutOfBounds,
             Self::SubrangeViolation { .. } | Self::RetainSubrangeViolation { .. } => {
                 StableErrorCode::RuntimeSubrangeViolation
@@ -690,6 +707,10 @@ mod tests {
             ),
             (RuntimeError::Overflow, StableErrorCode::RuntimeOverflow),
             (
+                RuntimeError::StringCapacityExceeded,
+                StableErrorCode::RuntimeStringCapacityExceeded,
+            ),
+            (
                 RuntimeError::IndexOutOfBounds {
                     index: 2,
                     lower: 0,
@@ -844,6 +865,18 @@ mod tests {
                     reason: super::ImportRefusal::ParameterType,
                 },
                 StableErrorCode::RuntimeImportUnsupported,
+            ),
+            (
+                RuntimeError::DeploymentRecordInvalid(
+                    crate::deployment::DeploymentRecordError::Checksum,
+                ),
+                StableErrorCode::RuntimeDeploymentRecordInvalid,
+            ),
+            (
+                RuntimeError::DeploymentRefused(
+                    crate::deployment::AdmissionRefusal::ProgramMismatch,
+                ),
+                StableErrorCode::RuntimeDeploymentRefused,
             ),
         ];
 

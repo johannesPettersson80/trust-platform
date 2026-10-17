@@ -15,7 +15,7 @@ pub const CHIP_REVISION: u16 = 2;
 pub const BASE_MAC: [u8; 6] = [0x20, 0x6e, 0xf1, 0x17, 0x04, 0xc0];
 /// Flash size in KiB of the owned 8 MB DevKitC-1.
 pub const FLASH_KIB: u16 = 8192;
-/// Stage-0 MWDT0 interval, the same 4,000 ms as the F401 profile.
+/// Stage-0 MWDT0 interval, the same 4,000 ms as the STM32F407 firmware's watchdog.
 pub const WATCHDOG_MS: u32 = 4_000;
 
 /// Reset reason of an MWDT0 system reset (`CoreMwdt0`).

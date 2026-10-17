@@ -427,19 +427,25 @@ impl VmFbFieldBinding {
             Some(target) => normalize_assignment_for_target(target, value),
             None => value,
         };
-        let (location, offset, path) = match self {
+        let (location, offset, path, capacity) = match self {
             Self::Direct {
                 instance_id,
                 offset,
-            } => (MemoryLocation::Instance(*instance_id), *offset, &[][..]),
+            } => (
+                MemoryLocation::Instance(*instance_id),
+                *offset,
+                &[][..],
+                crate::value::MAX_STRING_CAPACITY,
+            ),
             Self::Reference(reference) => (
                 reference.location,
                 reference.offset as usize,
                 reference.path.as_slice(),
+                runtime.reference_string_capacity(reference.as_view()),
             ),
         };
         runtime
-            .write_typed_storage(location, offset, path, value)
+            .write_typed_storage(location, offset, path, value, capacity)
             .map_err(VmTrap::Runtime)
     }
 

@@ -673,8 +673,8 @@ allow = ["resource/RESOURCE/program/Main/field/label"]
 
 #[test]
 fn hmi_write_string_capacity_admits_the_declared_length_and_refuses_one_more() {
-    // hmi_handlers_parse.rs:12-14 and :113-122: a value fits when its element count is at
-    // most the declared STRING[n] capacity, so the boundary is n and n+1 elements.
+    // hmi_handlers_parse.rs: a value fits when its UTF-8 bytes are at most the declared
+    // STRING[n] capacity, so for ASCII text the boundary is n and n+1 characters.
     let source = r#"
 PROGRAM Main
 VAR

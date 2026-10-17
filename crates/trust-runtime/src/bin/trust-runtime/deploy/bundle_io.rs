@@ -17,7 +17,11 @@ fn validate_bundle(bundle: &RuntimeBundle) -> anyhow::Result<()> {
     };
     let module = trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode)?;
     trust_runtime::harness::CompileSession::from_sources(sources)
-        .build_runtime_from_bytecode(&module, Some(&bundle.runtime.resource_name))?;
+        .build_runtime_from_bytecode_with_limits(
+            &module,
+            Some(&bundle.runtime.resource_name),
+            bundle.preparation_limits,
+        )?;
     Ok(())
 }
 
@@ -29,6 +33,10 @@ fn copy_bundle(bundle: &RuntimeBundle, dest: &Path) -> anyhow::Result<()> {
         copy_optional_file(source.join("io.toml"), dest.join("io.toml"))?;
         copy_optional_file(source.join("simulation.toml"), dest.join("simulation.toml"))?;
         copy_file(source.join("program.stbc"), dest.join("program.stbc"))?;
+        copy_optional_file(
+            source.join(trust_runtime::deployment::DEPLOYMENT_RECORD_FILE),
+            dest.join(trust_runtime::deployment::DEPLOYMENT_RECORD_FILE),
+        )?;
 
         if bundle.runtime.ads.enabled {
             copy_bundle_relative_file(

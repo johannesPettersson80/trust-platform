@@ -479,8 +479,10 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../crates/trust-runtime/tests/fixtures/portability/stbc-2.0/expected-a4-trace.csv"
     ));
+    /// The complete record protocol as the C6 firmware prints it, without boot banners: the C6's
+    /// IDENTITY words and a released button reading high. The other captures are made from it.
     fn synthetic() -> String {
-        let mut out = String::from("B1,IDENTITY,10016433,00410016,30395119,35363638,512,84000000,00000000,00000000\nB1,IO,BOOT,1,0,0,0\n");
+        let mut out = format!("{C6_FIRST}\nB1,IO,BOOT,1,0,0,0\n");
         for (index, row) in ORACLE
             .lines()
             .filter(|l| !l.starts_with('#') && !l.starts_with("time_ms") && !l.is_empty())
@@ -510,10 +512,12 @@ mod tests {
         for depth in 1..=4 {
             writeln!(out, "B1,STACK,{depth},4096,12288,{}", 1100 + depth * 10).unwrap();
         }
-        out.push_str("B1,STACK_PEAK,4096\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-STOP-high,1,0,0,0\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-FAULT,1,0,0,0\nB1,STATE,WATCHDOG_ARM\nB1,IDENTITY,10016433,00410016,30395119,35363638,512,84000000,00000000,20000000\nB1,IO,watchdog-BOOT,1,0,0,0\nB1,STATE,WATCHDOG_RESET\nB1,DONE\n");
+        out.push_str("B1,STACK_PEAK,4096\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-STOP-high,1,0,0,0\nB1,IO,gpio-pre-safe,1,0,1,1\nB1,IO,gpio-FAULT,1,0,0,0\nB1,STATE,WATCHDOG_ARM\n");
+        writeln!(out, "{C6_SECOND}").unwrap();
+        out.push_str("B1,IO,watchdog-BOOT,1,0,0,0\nB1,STATE,WATCHDOG_RESET\nB1,DONE\n");
         let mut lines: Vec<_> = out.lines().map(str::to_owned).collect();
         let mut sorted = String::new();
-        for key in record_order(&nucleo()) {
+        for key in record_order(&c6()) {
             let index = lines
                 .iter()
                 .position(|line| {
@@ -534,7 +538,7 @@ mod tests {
     #[test]
     fn complete_synthetic_protocol_is_accepted_without_claiming_board_execution() {
         assert_eq!(
-            verify(&nucleo(), &synthetic(), ORACLE).unwrap()["trace_samples"],
+            verify(&c6(), &synthetic(), ORACLE).unwrap()["trace_samples"],
             101
         );
     }
@@ -543,7 +547,7 @@ mod tests {
         let good = synthetic();
         for (from, to) in [
             ("B1,DONE\n", ""),
-            ("20000000\nB1,IO,watchdog", "00000000\nB1,IO,watchdog"),
+            ("00000007\nB1,IO,watchdog", "00000000\nB1,IO,watchdog"),
             ("B1,TRACE,30,4,1,1,0,0,25,", "B1,TRACE,30,4,1,1,0,0,30,"),
             (
                 "B1,GPIO,injected,30,1,0,1,1,1",
@@ -558,7 +562,7 @@ mod tests {
         ] {
             assert!(good.contains(from));
             assert!(
-                verify(&nucleo(), &good.replace(from, to), ORACLE).is_err(),
+                verify(&c6(), &good.replace(from, to), ORACLE).is_err(),
                 "{from}"
             );
         }
@@ -568,28 +572,20 @@ mod tests {
             .position(|line| line.starts_with("B1,MEM,main-prepare"))
             .unwrap();
         reordered.swap(memory_index, memory_index + 1);
-        assert!(verify(&nucleo(), &(reordered.join("\n") + "\n"), ORACLE).is_err());
+        assert!(verify(&c6(), &(reordered.join("\n") + "\n"), ORACLE).is_err());
         let nan = good.replace(
             &format!("{:016x}", std::f64::consts::SQRT_2.to_bits()),
             "7ff8000000000000",
         );
-        assert!(verify(&nucleo(), &nan, ORACLE).is_err());
-        assert!(verify(&nucleo(), good.trim_end(), ORACLE).is_err());
-        assert!(verify(&nucleo(), &(good + "B1,DONE\n"), ORACLE).is_err());
+        assert!(verify(&c6(), &nan, ORACLE).is_err());
+        assert!(verify(&c6(), good.trim_end(), ORACLE).is_err());
+        assert!(verify(&c6(), &(good + "B1,DONE\n"), ORACLE).is_err());
     }
 
-    const F401_FIRST: &str =
-        "B1,IDENTITY,10016433,00410016,30395119,35363638,512,84000000,00000000,00000000";
-    const F401_SECOND: &str =
-        "B1,IDENTITY,10016433,00410016,30395119,35363638,512,84000000,00000000,20000000";
     const C6_FIRST: &str =
         "B1,IDENTITY,0000000d,00000002,0000206e,f11704c0,8192,160000000,40903105,00000015";
     const C6_SECOND: &str =
         "B1,IDENTITY,0000000d,00000002,0000206e,f11704c0,8192,160000000,40903105,00000007";
-
-    fn nucleo() -> BoardProfile {
-        BoardProfile::nucleo_f401re()
-    }
 
     fn c6() -> BoardProfile {
         BoardProfile::esp32c6_devkitc_1().unwrap()
@@ -601,12 +597,10 @@ mod tests {
             .collect()
     }
 
-    /// The synthetic protocol with C6 IDENTITY lines, `before_first` banner lines before the first
-    /// IDENTITY and `before_second` banner lines after `STATE,WATCHDOG_ARM`.
+    /// The synthetic protocol with `before_first` banner lines before the first IDENTITY and
+    /// `before_second` banner lines after `STATE,WATCHDOG_ARM`.
     fn c6_synthetic(before_first: usize, before_second: usize) -> String {
-        let records = synthetic()
-            .replace(F401_FIRST, C6_FIRST)
-            .replace(F401_SECOND, C6_SECOND);
+        let records = synthetic();
         let mut out = banner(before_first);
         for line in records.lines() {
             out.push_str(line);
@@ -628,21 +622,6 @@ mod tests {
         assert_eq!(full["boot_banner_lines"], 128);
         let power_on = c6_synthetic(30, 30).replace(",40903105,00000015", ",40903105,00000001");
         assert!(verify(&c6(), &power_on, ORACLE).is_ok());
-    }
-
-    #[test]
-    fn f401_capture_keeps_its_name_and_admits_no_banner_lines() {
-        let report = verify(&nucleo(), &synthetic(), ORACLE).unwrap();
-        assert_eq!(report["board"], "nucleo-f401re");
-        assert_eq!(report["boot_banner_lines"], 0);
-        let with_banner = format!("ESP-ROM boot line 0\n{}", synthetic());
-        assert!(verify(&nucleo(), &with_banner, ORACLE).is_err());
-    }
-
-    #[test]
-    fn each_board_rejects_the_other_boards_identity() {
-        assert!(verify(&nucleo(), &c6_synthetic(30, 30), ORACLE).is_err());
-        assert!(verify(&c6(), &synthetic(), ORACLE).is_err());
     }
 
     #[test]
@@ -683,8 +662,6 @@ mod tests {
         assert!(verify(&c6(), &at_bound, ORACLE).is_err());
         let state_at_bound = good.replace(",16800,1000000000,", ",1600000,1000000000,");
         assert!(verify(&c6(), &state_at_bound, ORACLE).is_err());
-        let f401_at_bound = synthetic().replacen(",0,100,8400,", ",0,100,840000,", 1);
-        assert!(verify(&nucleo(), &f401_at_bound, ORACLE).is_err());
     }
 
     const F407_FIRST: &str =
@@ -697,9 +674,9 @@ mod tests {
         BoardProfile::stm32f407g_disc1().unwrap()
     }
 
-    /// The records as a board whose button reads high while pressed prints them. The F401's and
-    /// the C6's buttons read high while released, so the pin level of every IO and GPIO record is
-    /// inverted here: a released button reads low.
+    /// The records as a board whose button reads high while pressed prints them. The C6's button
+    /// reads high while released, so the pin level of every IO and GPIO record is inverted here:
+    /// a released button reads low.
     fn button_high_when_pressed(records: &str) -> String {
         records
             .lines()
@@ -720,8 +697,8 @@ mod tests {
     /// CLOCK record right after each, and a released button reading low.
     fn f407_synthetic() -> String {
         button_high_when_pressed(&synthetic())
-            .replace(F401_FIRST, &format!("{F407_FIRST}\n{F407_CLOCK}"))
-            .replace(F401_SECOND, &format!("{F407_SECOND}\n{F407_CLOCK}"))
+            .replace(C6_FIRST, &format!("{F407_FIRST}\n{F407_CLOCK}"))
+            .replace(C6_SECOND, &format!("{F407_SECOND}\n{F407_CLOCK}"))
     }
 
     #[test]
@@ -844,7 +821,6 @@ mod tests {
         // No board's capture is accepted by another board's profile.
         assert!(verify(&disc1(), &synthetic(), ORACLE).is_err());
         assert!(verify(&disc1(), &c6_synthetic(30, 30), ORACLE).is_err());
-        assert!(verify(&nucleo(), &good, ORACLE).is_err());
         assert!(verify(&c6(), &good, ORACLE).is_err());
     }
 
@@ -861,7 +837,7 @@ mod tests {
         );
         assert_ne!(gpio_pressed, good);
         assert!(verify(&disc1(), &gpio_pressed, ORACLE).is_ok());
-        // The F401's and the C6's convention, high while released, is refused on the DISC1.
+        // The C6's convention, high while released, is refused on the DISC1.
         for wrong in [
             good.replace("B1,IO,STOP,0,0,0,0", "B1,IO,STOP,1,0,0,0"),
             good.replace("B1,IO,STOP,0,0,0,0", "B1,IO,STOP,0,1,0,0"),
@@ -878,31 +854,20 @@ mod tests {
             let error = verify(&disc1(), &wrong, ORACLE).unwrap_err().to_string();
             assert!(error.contains("polarity"), "{error}");
         }
-        // The DISC1's convention is refused on the F401 and the C6, whose buttons read low while
-        // pressed, and theirs is still accepted.
-        let f401 = synthetic();
-        for refused in ["B1,IO,STOP,1,1,0,0", "B1,IO,STOP,0,0,0,0"] {
-            let capture = f401.replace("B1,IO,STOP,1,0,0,0", refused);
-            assert!(verify(&nucleo(), &capture, ORACLE).is_err(), "{refused}");
-        }
-        let pressed = f401.replace("B1,IO,STOP,1,0,0,0", "B1,IO,STOP,0,1,0,0");
-        assert!(verify(&nucleo(), &pressed, ORACLE).is_ok());
+        // The DISC1's convention is refused on the C6, whose button reads low while pressed, and
+        // the C6's own is still accepted.
         let c6_capture = c6_synthetic(30, 30);
-        let released_low = c6_capture.replace("B1,IO,STOP,1,0,0,0", "B1,IO,STOP,0,0,0,0");
-        assert_ne!(released_low, c6_capture);
-        assert!(verify(&c6(), &released_low, ORACLE).is_err());
+        for refused in ["B1,IO,STOP,1,1,0,0", "B1,IO,STOP,0,0,0,0"] {
+            let capture = c6_capture.replace("B1,IO,STOP,1,0,0,0", refused);
+            assert_ne!(capture, c6_capture);
+            assert!(verify(&c6(), &capture, ORACLE).is_err(), "{refused}");
+        }
         let pressed = c6_capture.replace("B1,IO,STOP,1,0,0,0", "B1,IO,STOP,0,1,0,0");
         assert!(verify(&c6(), &pressed, ORACLE).is_ok());
     }
 
     #[test]
-    fn f401_and_c6_captures_still_refuse_a_clock_record() {
-        let f401 = synthetic().replace(F401_FIRST, &format!("{F401_FIRST}\n{F407_CLOCK}"));
-        let error = verify(&nucleo(), &f401, ORACLE).unwrap_err().to_string();
-        assert!(
-            error.contains("record order mismatch") && error.contains("CLOCK"),
-            "{error}"
-        );
+    fn a_c6_capture_still_refuses_a_clock_record() {
         let c6_capture =
             c6_synthetic(30, 30).replace(C6_FIRST, &format!("{C6_FIRST}\n{F407_CLOCK}"));
         let error = verify(&c6(), &c6_capture, ORACLE).unwrap_err().to_string();
@@ -937,8 +902,6 @@ mod tests {
         .into_iter()
         .map(str::to_owned)
         .collect();
-        let f401 = verify(&nucleo(), &synthetic(), ORACLE).unwrap();
-        assert_eq!(keys(&f401), expected);
         let c6_report = verify(&c6(), &c6_synthetic(30, 30), ORACLE).unwrap();
         assert_eq!(keys(&c6_report), expected);
         let mut with_clock = expected;

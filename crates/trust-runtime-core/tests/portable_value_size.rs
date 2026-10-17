@@ -9,9 +9,12 @@ fn size(value: &Value) -> Result<u64, SizeOfError> {
     )
 }
 #[test]
-fn runtime_size_preserves_character_count_and_first_array_element_rule() {
-    assert_eq!(size(&Value::String("åβ".into())), Ok(2));
+fn runtime_size_counts_capacity_units_and_keeps_the_first_array_element_rule() {
+    // A STRING value occupies its UTF-8 bytes and a WSTRING value two bytes per UTF-16 code
+    // unit (docs/IEC_DECISIONS.md 2026-10-17): "å" and "β" are two bytes and one unit each.
+    assert_eq!(size(&Value::String("åβ".into())), Ok(4));
     assert_eq!(size(&Value::WString("åβ".into())), Ok(4));
+    assert_eq!(size(&Value::WString("🙂".into())), Ok(4));
     let array = Value::Array(Box::new(ArrayValue::from_canonical_parts(
         vec![Value::String("a".into()), Value::String("longer".into())],
         vec![(5, 6)],

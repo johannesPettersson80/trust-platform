@@ -100,10 +100,10 @@ impl Runtime {
         module: crate::bytecode::BytecodeModule,
         metadata: Option<Arc<RuntimeMetadata>>,
         resource_index: usize,
+        limits: PreparationLimits,
     ) -> Result<Self, RuntimeError> {
         let bytes = module.encode().map_err(RuntimeError::from)?;
-        let (prepared, raw) =
-            PreparedModule::from_bytes_with_artifact(&bytes, PreparationLimits::default())?;
+        let (prepared, raw) = PreparedModule::from_bytes_with_artifact(&bytes, limits)?;
         let mut runtime =
             Self::from_prepared_with_metadata(Arc::new(prepared), metadata, resource_index)?;
         runtime.artifact = Some(Arc::new(raw.into()));

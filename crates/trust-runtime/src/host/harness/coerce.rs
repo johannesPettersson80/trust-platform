@@ -1,7 +1,7 @@
 use smol_str::SmolStr;
 
 use crate::value::{
-    default_value_for_type_id, truncate_string_elements, DateTimeProfile, StructValue, Value,
+    default_value_for_type_id, string_capacity_cut, DateTimeProfile, StructValue, Value,
 };
 use indexmap::IndexMap;
 use trust_hir::types::{StructField, TypeRegistry, UnionVariant};
@@ -59,20 +59,27 @@ fn coerce_initializer_value_to_runtime_type(
             };
             coerce_initializer_value_to_runtime_type(value, target_ty, *target, registry, profile)
         }
+        // UTF-8 bytes for STRING, UTF-16 code units for WSTRING, never splitting a character.
         Type::String { max_len } => {
             let value = coerce_string(value, TypeId::STRING)?;
             match (max_len, value) {
-                (Some(max_len), Value::String(text)) => Ok(Value::String(
-                    truncate_string_elements(text.as_str(), *max_len).into(),
-                )),
+                (Some(max_len), Value::String(text)) => {
+                    match string_capacity_cut(text.as_str(), false, capacity(*max_len)) {
+                        Some(end) => Ok(Value::String(SmolStr::new(&text[..end]))),
+                        None => Ok(Value::String(text)),
+                    }
+                }
                 (_, value) => Ok(value),
             }
         }
         Type::WString { max_len } => {
             let value = coerce_string(value, TypeId::WSTRING)?;
             match (max_len, value) {
-                (Some(max_len), Value::WString(text)) => {
-                    Ok(Value::WString(truncate_string_elements(&text, *max_len)))
+                (Some(max_len), Value::WString(mut text)) => {
+                    if let Some(end) = string_capacity_cut(&text, true, capacity(*max_len)) {
+                        text.truncate(end);
+                    }
+                    Ok(Value::WString(text))
                 }
                 (_, value) => Ok(value),
             }
@@ -124,6 +131,11 @@ fn coerce_initializer_value_to_runtime_type(
         }
         _ => coerce_value_to_type(value, type_id),
     }
+}
+
+/// A declared capacity as a byte or code-unit count.
+fn capacity(max_len: u32) -> usize {
+    usize::try_from(max_len).unwrap_or(usize::MAX)
 }
 
 fn coerce_struct_initializer(

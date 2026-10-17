@@ -39,6 +39,17 @@ pub fn vm_string_shape_for_type(module: &VmModule, type_idx: u32) -> Option<(u16
         .filter(|(prim_id, _)| matches!(prim_id, 24 | 25))
 }
 
+/// The declared capacity in storage units of a bounded `STRING`/`WSTRING` type, or the implementer
+/// maximum when the type is not a string. A character write is cut to this capacity (spec 02 §6):
+/// UTF-8 bytes for `STRING`, UTF-16 code units for `WSTRING`.
+#[must_use]
+pub fn vm_string_capacity_for_type(module: &VmModule, type_idx: u32) -> usize {
+    match vm_string_shape_for_type(module, type_idx) {
+        Some((_, max_length)) => usize::from(crate::value::string_capacity(max_length)),
+        None => crate::value::MAX_STRING_CAPACITY,
+    }
+}
+
 /// Resolve a declared type through array and aggregate selections.
 pub fn vm_type_for_path(module: &VmModule, type_idx: u32, path: &[RefSegment]) -> Option<u32> {
     let mut current = type_idx;
@@ -155,17 +166,19 @@ pub(crate) fn normalize_primitive_value(
     }
 }
 
+/// Cut a stored text to its capacity: UTF-8 bytes for STRING, UTF-16 code units for WSTRING,
+/// never splitting a character (`docs/IEC_DECISIONS.md` 2026-10-17).
 fn normalize_string_primitive(prim_id: u16, max_length: u16, value: Value) -> Value {
-    if max_length == 0 {
-        return value;
-    }
+    let capacity = usize::from(crate::value::string_capacity(max_length));
     match (prim_id, value) {
-        (24, Value::String(text)) => match text.char_indices().nth(usize::from(max_length)) {
-            Some((end, _)) => Value::String(text[..end].into()),
-            None => Value::String(text),
-        },
+        (24, Value::String(text)) => {
+            match crate::value::string_capacity_cut(&text, false, capacity) {
+                Some(end) => Value::String(text[..end].into()),
+                None => Value::String(text),
+            }
+        }
         (25, Value::WString(mut text)) => {
-            if let Some((end, _)) = text.char_indices().nth(usize::from(max_length)) {
+            if let Some(end) = crate::value::string_capacity_cut(&text, true, capacity) {
                 text.truncate(end);
             }
             Value::WString(text)

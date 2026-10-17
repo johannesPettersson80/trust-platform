@@ -395,9 +395,8 @@ pub(crate) fn lower_type_ref(
                 let length_expr = child.children().find(|n| is_expression_kind(n.kind()));
                 if let Some(expr) = length_expr {
                     let len = const_int_from_node(&expr, ctx)?;
-                    let len = u32::try_from(len).map_err(|_| {
-                        CompileError::new("STRING length must be a positive integer")
-                    })?;
+                    let len = trust_hir::types::checked_string_length(len)
+                        .map_err(|error| CompileError::new(error.message()))?;
                     if is_wide {
                         return Ok(ctx.registry.register_wstring_with_length(len));
                     }

@@ -61,7 +61,8 @@ impl ValueConstructionContext for Coercion {
 
 /// One primitive type per entry, with the bytecode primitive ids of the encoder
 /// (`crates/trust-runtime/src/bytecode/encoder/types.rs`): 0 INT (id 7; id 3 is WORD),
-/// 1 STRING (id 24, unbounded), 2 WSTRING (id 25, unbounded), 3 CHAR (id 26), 4 WCHAR (id 27).
+/// 1 STRING (id 24, no length: the default 80), 2 WSTRING (id 25, the default 80), 3 CHAR
+/// (id 26), 4 WCHAR (id 27).
 fn primitive_types() -> TypeTable {
     let primitive = |prim_id| TypeEntry {
         kind: TypeKind::Primitive,

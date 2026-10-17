@@ -160,7 +160,7 @@ impl SymbolCollector<'_> {
         match self.table.type_by_id(resolved) {
             Some(Type::String {
                 max_len: Some(max_len),
-            }) if !literal.is_wide && literal.len > *max_len => {
+            }) if !literal.is_wide && literal.units > *max_len => {
                 let type_name = self
                     .table
                     .type_name(resolved)
@@ -170,13 +170,13 @@ impl SymbolCollector<'_> {
                     expr.text_range(),
                     format!(
                         "STRING literal length {} exceeds {} capacity",
-                        literal.len, type_name
+                        literal.units, type_name
                     ),
                 );
             }
             Some(Type::WString {
                 max_len: Some(max_len),
-            }) if literal.is_wide && literal.len > *max_len => {
+            }) if literal.is_wide && literal.units > *max_len => {
                 let type_name = self
                     .table
                     .type_name(resolved)
@@ -186,7 +186,7 @@ impl SymbolCollector<'_> {
                     expr.text_range(),
                     format!(
                         "WSTRING literal length {} exceeds {} capacity",
-                        literal.len, type_name
+                        literal.units, type_name
                     ),
                 );
             }

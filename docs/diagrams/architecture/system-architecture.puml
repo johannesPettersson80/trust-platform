@@ -366,7 +366,7 @@ package "trust-debug crate" as stdebug #Lavender {
 ' DEPLOYMENT + IO
 ' ============================================================
 package "Deployment" as deploy #LightGray {
-    artifact "Project Folder\n(Runtime Bundle Format)\nprogram.stbc, runtime.toml, io.toml,\nads.toml when [runtime.ads] enabled" as bundle
+    artifact "Project Folder\n(Runtime Bundle Format)\nprogram.stbc, deployment-record.bin,\nruntime.toml, io.toml,\nads.toml when [runtime.ads] enabled" as bundle
     artifact "ADS Authoring Artifacts\nads.toml, ads/snapshots/*.symbols.json,\nsrc/generated/ads_generated.st" as adsArtifacts
     artifact "Package Registry Root\n(index.json, packages/*)" as packageRegistry
     artifact "Project Sources\n(sources/**/*.st)" as sourceFiles

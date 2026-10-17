@@ -923,6 +923,7 @@ pub fn write_vm_reference(
     runtime
         .check_native_write(Some(caller_frame), reference, &value)
         .map_err(VmTrap::Runtime)?;
+    let capacity = runtime.reference_string_capacity(reference.as_view());
     if is_current_location(reference.location, caller_frame) {
         let local_count = caller_frame.locals.len();
         let Some(slot) = caller_frame.locals.get_mut(reference.offset as usize) else {
@@ -942,7 +943,7 @@ pub fn write_vm_reference(
         let _storage_timing =
             crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::StorageWrite);
         if runtime
-            .write_typed_local_checked(slot, &reference.path, value)
+            .write_typed_local_checked(slot, &reference.path, value, capacity)
             .map_err(VmTrap::Runtime)?
         {
             return Ok(());
@@ -974,7 +975,7 @@ pub fn write_vm_reference(
     runtime.before_write_commit().map_err(VmTrap::Runtime)?;
     if runtime
         .storage_mut()
-        .commit_prepared_write(&reference.path, value, prepared)
+        .commit_prepared_write(&reference.path, value, prepared, capacity)
     {
         Ok(())
     } else {

@@ -12,13 +12,33 @@ pub(super) enum StackShape {
     Instance,
 }
 
+/// The operand stack one body needs: its deepest stack, and the most values it keeps below
+/// a call to a user function, function block or method while the callee runs.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct OperandDemand {
+    depth: usize,
+    call_residue: Option<usize>,
+}
+
+/// Check a POU body's stack shapes and record its operand demand in the statistics, which
+/// keep the deepest of all POU bodies. Construction reserves the operand stack from them.
 pub(super) fn validate_stack_shape(
     tables: &ValidationContext<'_>,
     instructions: &[Instruction],
     code_len: usize,
     budget: &mut ValidationBudget,
 ) -> Result<(), BytecodeError> {
-    validate_stack_shape_inner(tables, instructions, code_len, None, budget)
+    let demand = validate_stack_shape_inner(tables, instructions, code_len, None, budget)?;
+    let stats = &mut budget.stats;
+    stats.max_operand_depth = stats.max_operand_depth.max(demand.depth);
+    if let Some(residue) = demand.call_residue {
+        stats.max_call_operand_residue = Some(
+            stats
+                .max_call_operand_residue
+                .map_or(residue, |deepest| deepest.max(residue)),
+        );
+    }
+    Ok(())
 }
 
 pub(super) fn validate_initializer_stack_shape(
@@ -35,6 +55,7 @@ pub(super) fn validate_initializer_stack_shape(
         Some(result_is_local),
         budget,
     )
+    .map(|_| ())
 }
 
 fn validate_stack_shape_inner(
@@ -43,9 +64,10 @@ fn validate_stack_shape_inner(
     code_len: usize,
     result_is_local: Option<bool>,
     budget: &mut ValidationBudget,
-) -> Result<(), BytecodeError> {
+) -> Result<OperandDemand, BytecodeError> {
+    let mut demand = OperandDemand::default();
     if instructions.is_empty() {
-        return Ok(());
+        return Ok(demand);
     }
     let mut is_leader = Vec::new();
     budget.reserve(&mut is_leader, instructions.len())?;
@@ -95,7 +117,15 @@ fn validate_stack_shape_inner(
         loop {
             budget.work(1)?;
             let instruction = &instructions[index];
+            if instruction.opcode == 0x09
+                && instruction.operand(0) != crate::bytecode::NATIVE_CALL_KIND_STDLIB
+            {
+                // A user call drains its arguments; the rest stays below the callee.
+                let residue = stack.len().saturating_sub(instruction.operand(2) as usize);
+                demand.call_residue = Some(demand.call_residue.unwrap_or(0).max(residue));
+            }
             apply_stack_instruction(tables, instruction, &mut stack, result_is_local, budget)?;
+            demand.depth = demand.depth.max(stack.len());
             if matches!(instruction.opcode, 0x02..=0x04) {
                 // Target is queued before fallthrough; LIFO visits fallthrough first.
                 let target = instruction
@@ -131,7 +161,7 @@ fn validate_stack_shape_inner(
             }
         }
     }
-    Ok(())
+    Ok(demand)
 }
 
 fn instruction_index(
@@ -629,3 +659,5 @@ fn require_staging_destination(value: StackShape) -> Result<(), BytecodeError> {
 
 #[cfg(test)]
 mod initializer_tests;
+#[cfg(test)]
+mod operand_demand_tests;

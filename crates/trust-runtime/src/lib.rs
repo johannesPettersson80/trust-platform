@@ -53,6 +53,10 @@ pub(crate) mod datetime {
 #[cfg(feature = "full")]
 #[path = "host/debug/mod.rs"]
 pub mod debug;
+/// The deployment record next to `program.stbc`: written with each program, admitted on load.
+#[cfg(feature = "full")]
+#[path = "host/deployment.rs"]
+pub mod deployment;
 /// Local discovery (mDNS) for runtimes.
 #[cfg(feature = "full")]
 #[path = "host/discovery.rs"]

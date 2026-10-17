@@ -7,8 +7,7 @@ fn parse_hmi_write_value(
     if hmi_float_input_is_non_finite(value, template) {
         return Err(HmiWriteFailure::NonFiniteValue);
     }
-    let parsed = parse_hmi_write_unbounded(value, template)
-        .ok_or(HmiWriteFailure::TypeMismatch)?;
+    let parsed = parse_hmi_write_unbounded(value, template).ok_or(HmiWriteFailure::TypeMismatch)?;
     if !hmi_string_value_fits(&parsed, string_capacity) {
         return Err(HmiWriteFailure::StringCapacityExceeded);
     }
@@ -89,8 +88,15 @@ fn hmi_float_input_is_non_finite(value: &serde_json::Value, template: &Value) ->
     }
 }
 
-fn bounded_string_capacity(data_type: &str) -> Option<usize> {
+/// The capacity a point's data type names: `n` for `STRING[n]` or `WSTRING[n]`. A `declared`
+/// data type is the variable's declared type, where a bare `STRING` or `WSTRING` is
+/// `STRING[80]` or `WSTRING[80]`. A global point's data type comes from its value and names no
+/// capacity, so the store applies the declared capacity instead.
+fn bounded_string_capacity(data_type: &str, declared: bool) -> Option<usize> {
     let upper = data_type.trim().to_ascii_uppercase();
+    if declared && matches!(upper.as_str(), "STRING" | "WSTRING") {
+        return Some(usize::from(crate::value::DEFAULT_STRING_CAPACITY));
+    }
     let rest = upper
         .strip_prefix("STRING[")
         .or_else(|| upper.strip_prefix("WSTRING["))?;
@@ -114,9 +120,12 @@ fn hmi_string_value_fits(value: &Value, string_capacity: Option<usize>) -> bool 
     let Some(max_len) = string_capacity else {
         return true;
     };
+    // UTF-8 bytes for STRING, UTF-16 code units for WSTRING.
     match value {
-        Value::String(text) => crate::value::string_element_count(text.as_str()) <= max_len,
-        Value::WString(text) => crate::value::string_element_count(text) <= max_len,
+        Value::String(text) => {
+            crate::value::string_capacity_cut(text.as_str(), false, max_len).is_none()
+        }
+        Value::WString(text) => crate::value::string_capacity_cut(text, true, max_len).is_none(),
         _ => true,
     }
 }

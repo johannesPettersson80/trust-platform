@@ -81,10 +81,11 @@ require their exact runtime family and width.
 STRING and WSTRING accept their own tag, the other string tag, and the
 documented character inputs. CHAR and WCHAR accept their exact tag or an
 exactly one-scalar STRING/WSTRING input; CHAR additionally requires an ASCII
-scalar and WCHAR requires a scalar representable by `u16`. Bounded string
-initializers truncate by Unicode scalar count, not UTF-8 byte count. These are
-initializer-materialization rules and do not create additional source-level
-implicit conversion operators.
+scalar and WCHAR requires a scalar representable by `u16`. String
+initializers truncate to the declared capacity, counted in UTF-8 bytes for
+STRING and UTF-16 code units for WSTRING, and never split a character (section
+2.3.1). These are initializer-materialization rules and do not create
+additional source-level implicit conversion operators.
 
 Derived initializer coercion resolves aliases and subranges through their
 target/base type. A partial fixed-array initializer fills leading elements in
@@ -171,9 +172,10 @@ LWORD carries the signed 64-bit nanosecond value as its two's-complement bit
 pattern, in both directions (specification 12 §4.1). DATE, TOD and DT have an
 implementer-specific width in Table 10, so they are refused at direct addresses;
 the L forms or an explicit conversion are the supported paths.
-A bounded STRING occupies exactly its declared byte capacity. Unbounded
-STRING, WSTRING, function-block, class, interface, pointer, reference, and
-other non-materializable layouts are rejected.
+A STRING occupies exactly its declared byte capacity; a STRING without a
+length occupies 80 bytes (`STRING[80]`). WSTRING, function-block, class,
+interface, pointer, reference, and other non-materializable layouts are
+rejected.
 
 An absolute field address has an `%I`, `%Q`, or `%M` area. A relative
 structured-field address has `%X`, `%B`, `%W`, `%D`, or `%L` followed by a
@@ -474,11 +476,19 @@ storage and reports `runtime_type_mismatch`.
 
 #### 2.3.1 Bounded String Runtime Writes
 
-Every write into declared `STRING[n]` or `WSTRING[n]` storage applies the
-receiving declaration's capacity in Unicode scalar values. Initializers,
-ordinary assignment, function and function-block input copy-in, output
-copy-back, and function-result assignment truncate only the excess suffix and
-preserve the first `n` scalar values. An in-bound value is stored unchanged.
+Every STRING and WSTRING is bounded (`docs/IEC_DECISIONS.md` 2026-10-17): a
+declaration without a length is `STRING[80]` or `WSTRING[80]`. Every write into
+declared `STRING[n]` or `WSTRING[n]` storage applies the receiving
+declaration's capacity: `n` bytes of UTF-8 for `STRING[n]`, `n` UTF-16 code
+units for `WSTRING[n]`. Initializers, ordinary assignment, function and
+function-block input copy-in, output copy-back, function-result assignment,
+retained-value restore and sampled process-image input truncate only the excess
+suffix: they keep the longest prefix of whole characters that fits, so a cut
+never splits a character. An in-bound value is stored unchanged.
+
+In an STBC type table, a STRING or WSTRING `max_length` of 0, which earlier
+producers wrote for a declaration without a length, is the default capacity 80
+(specification 12 §6.2).
 
 `VAR_IN_OUT` does not convert or resize its actual argument: the string family
 and effective declared capacity must match exactly after alias resolution, and
@@ -514,7 +524,10 @@ element model:
   current scalar count reports lower bound 1 and that count as the upper
   bound; and
 - a successful indexed write replaces exactly one scalar and preserves all
-  other scalar values.
+  other scalar values. The result is bounded like any other store
+  (`02-data-types.md` §6, Character Access): a `CHAR` outside ASCII written
+  over an ASCII character of a `STRING` that already fills its capacity makes
+  the text one byte too long, and the text is then cut at its capacity.
 
 Indexed writes validate the index before validating replacement width or
 shape. An out-of-range write therefore returns `IndexOutOfBounds` even when
@@ -787,15 +800,17 @@ The portable runtime core SHALL preserve these value and program-model rules:
   enumerations to their storage type; sums ordinary structure fields and uses
   the complete relative extent, including gaps, for located/overlapping
   structures under the uniform ABI; selects the largest union variant; multiplies fixed inclusive array dimensions by the
-  element size; uses the declared bounded string capacity (twice that capacity
-  for `WSTRING`); and uses the runtime reference-handle width for references
-  and pointers. Unknown types, unbounded strings, wildcard or reversed array
-  dimensions, and unsupported types are rejected. Any representable dimension
+  element size; uses the declared string capacity (twice that capacity for
+  `WSTRING`; 80 and 160 for a `STRING` and `WSTRING` without a length); and uses
+  the runtime reference-handle width for references and pointers. Unknown
+  types, wildcard or reversed array dimensions, and unsupported types are
+  rejected. Any representable dimension
   product or byte-size overflow is rejected rather than wrapped. Legacy ABI
   calculations retain their historical structure field-sum rule; the selected
   ABI follows the artifact, not the target processor (section 2.5).
 - Portable runtime-value size calculation uses the exact elementary tag width,
-  counts string content in Unicode scalar elements (`WSTRING` twice), resolves
+  counts string content in the units of its capacity (UTF-8 bytes for
+  `STRING`, two bytes per UTF-16 code unit for `WSTRING`), resolves
   located structures through their admitted layout and otherwise sums structure
   fields, multiplies a validated array extent by its element size,
   resolves an enumeration through its declared base type, and uses the runtime
@@ -2369,8 +2384,9 @@ The runtime registry represents the following declaration contracts:
 - `REF_TO` retains its target type according to IEC Table 12;
 - the truST `POINTER TO` extension retains its target type under the separate
   pointer policy in `02-data-types.md`; and
-- bounded `STRING[n]` and `WSTRING[n]` retain their character capacity in the
-  resolved target type.
+- `STRING[n]` and `WSTRING[n]` retain their capacity in the resolved target
+  type, and a `STRING` or `WSTRING` without a length resolves to the built-in
+  type of capacity 80.
 
 Every integer constant operand that defines a subrange bound, array dimension,
 bounded-string capacity, or explicit enumeration value is imported from the
@@ -2380,7 +2396,7 @@ partial constant map. The selected value remains stable across source
 permutations and retains declaration-site namespace/`USING` resolution.
 
 Fixed bounds are inclusive and require `lower <= upper`. String capacities are
-positive. Enumeration explicit values and implicit successors fit the
+1 to 65,535. Enumeration explicit values and implicit successors fit the
 declared integer base; continuation uses checked arithmetic and never
 saturates or wraps. Undefined, mutable, ambiguous, cyclic, non-integer,
 out-of-domain, or otherwise invalid operands fail compilation before the type
@@ -2917,10 +2933,21 @@ Conversion boundaries preserve the committed error identity:
   `Overflow` normalizes to `RuntimeError::Overflow` and
   `runtime_overflow`.
 
+`RuntimeError::StringCapacityExceeded` maps to
+`runtime_string_capacity_exceeded`: a string function or conversion whose
+result would be longer than the implementer maximum of 65,535 UTF-8 bytes
+(`STRING`) or UTF-16 code units (`WSTRING`), IEC 61131-3 Ed.3 §6.6.2.5.11
+(specification 07 §8.1).
+
 The HMI admission boundary uses the same runtime codes for type and subrange
 failures. It additionally reports `runtime_string_capacity_exceeded` for a
-rejected bounded-string request and `runtime_non_finite_value` for a rejected
-NaN, infinity, or width-overflowing floating-point request. A failed control
+rejected bounded-string request, a text longer than the `STRING[n]` or
+`WSTRING[n]` capacity the point's data type names, counted in UTF-8 bytes or
+UTF-16 code units. A program variable's point names its declared type, where a
+bare `STRING` or `WSTRING` is `STRING[80]` or `WSTRING[80]`. A global point's
+data type comes from its value and names no capacity; the store cuts the text at
+the global's declared capacity. It reports `runtime_non_finite_value` for a
+rejected NaN, infinity, or width-overflowing floating-point request. A failed control
 response carries the stable identifier in `error_code` and retains the
 diagnostic message in `error`.
 

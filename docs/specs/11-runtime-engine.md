@@ -163,9 +163,9 @@ boundaries while retaining common IEC semantics and supported hosted behavior.
 
 Board adapters supply time, process-image I/O, persistence, watchdog, and startup
 mechanisms. A bare-metal or RTOS-backed clock is a composition choice; it does not
-change common PLC scheduling. The first reference board is NUCLEO-F401RE; the
-provisional second target is ESP32-C6. Neither is qualified by this specification
-update. Current hosted behavior remains authoritative until the corresponding
+change common PLC scheduling. The STM32 target is the STM32F407 (the first reference
+board, NUCLEO-F401RE, was retired 17 October 2026 by the owner); the provisional
+second target is ESP32-C6. Neither is qualified by this specification update. Current hosted behavior remains authoritative until the corresponding
 planned profile is implemented and validated.
 
 ### 6. Runtime Components
@@ -1810,8 +1810,10 @@ and stages all compatible migrations:
 
 - a safe declared numeric widening such as `INT` to `DINT` preserves the
   mathematical value;
-- a retained `STRING` longer than its current declared bound is canonicalized
-  to that bound using the ordinary scalar-preserving string rule;
+- a retained `STRING` or `WSTRING` longer than its current declared capacity is
+  cut to that capacity by the ordinary store rule of specification 10 §2.3.1
+  (UTF-8 bytes or UTF-16 code units, never splitting a character; 80 without a
+  declared length);
 - compatible enumeration values are rebuilt with the current declared enum
   type and variant identity, including the reviewed case-canonical spelling;
 - compatible structures recursively rebuild the current declared structure
@@ -1994,6 +1996,8 @@ Production runtimes are started via the CLI (`trust-runtime run`) using a **proj
 (runtime bundle format) directory. The launcher is responsible for:
 
 - Loading the bytecode program (`program.stbc`).
+- Admitting the program's deployment record (`deployment-record.bin`) when the project has one,
+  and preparing the program with its limits (specification 34 §5.1.1, HOST-02).
 - Loading runtime configuration (`runtime.toml`).
 - Initializing I/O drivers (`io.toml` or system IO config).
 - Initializing retain storage (if configured).
@@ -4210,11 +4214,18 @@ replaces bytes from an earlier successful build. A successful build writes the
 new bytecode and reports the exact collected source paths, including dependency
 sources.
 
+After `program.stbc`, a successful build writes the program's deployment record
+`<project>/deployment-record.bin` (specification 34 §5.1.1). It prepares the
+program as a runtime does, with the hosted default limits. A program that cannot
+be prepared gets no record: the build removes an older record, reports the reason
+on standard error and still succeeds.
+
 `--ci` emits response version 1 with command `build`, status `ok`, the selected
 project and output paths, `source_count`, the complete source list, dependency
-roots, and resolved dependency names. `source_count` equals the number of
-reported source paths. Human mode reports the written path and source count,
-shows at most the first five collected paths, and reports the number omitted.
+roots, resolved dependency names, and `deployment_record`, the record's path or
+`null` when none was written. `source_count` equals the number of reported
+source paths. Human mode reports the written paths and source count, shows at
+most the first five collected paths, and reports the number omitted.
 
 CI failures use stable process classes: invalid project or configuration input
 is 10, build or compile failure is 11, test assertion or runtime-test failure is

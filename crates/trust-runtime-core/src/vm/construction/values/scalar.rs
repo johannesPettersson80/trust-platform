@@ -1,8 +1,8 @@
 //! Scalar leaves of typed initialization, preserving hosted initializer coercion.
 use crate::error::RuntimeError;
 use crate::value::{
-    truncate_string_elements, DateTimeProfile, DateTimeValue, DateValue, Duration, LDateTimeValue,
-    LDateValue, LTimeOfDayValue, TimeOfDayValue, Value,
+    string_capacity, string_capacity_cut, DateTimeProfile, DateTimeValue, DateValue, Duration,
+    LDateTimeValue, LDateValue, LTimeOfDayValue, TimeOfDayValue, Value,
 };
 use alloc::string::{String, ToString};
 
@@ -152,15 +152,18 @@ pub(in crate::vm) fn coerce(
                 ),
                 _ => return Err(RuntimeError::TypeMismatch),
             };
-            if max_length == 0 {
-                return Ok(value);
-            }
+            // UTF-8 bytes for STRING, UTF-16 code units for WSTRING; 80 without a length.
+            let capacity = usize::from(string_capacity(max_length));
             Ok(match value {
-                Value::String(s) => {
-                    Value::String(truncate_string_elements(&s, u32::from(max_length)).into())
-                }
-                Value::WString(s) => {
-                    Value::WString(truncate_string_elements(&s, u32::from(max_length)))
+                Value::String(s) => match string_capacity_cut(&s, false, capacity) {
+                    Some(end) => Value::String(s[..end].into()),
+                    None => Value::String(s),
+                },
+                Value::WString(mut s) => {
+                    if let Some(end) = string_capacity_cut(&s, true, capacity) {
+                        s.truncate(end);
+                    }
+                    Value::WString(s)
                 }
                 _ => return Err(RuntimeError::TypeMismatch),
             })

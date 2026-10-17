@@ -134,7 +134,8 @@ fn extent(
             prim_id,
             max_length,
         } => match prim_id {
-            24 | 25 if *max_length != 0 => u32::from(*max_length)
+            // STRING[n] spans n bytes and WSTRING[n] 2n; a type without a length has 80.
+            24 | 25 => u32::from(crate::value::string_capacity(*max_length))
                 .checked_mul(if *prim_id == 24 { 8 } else { 16 })
                 .ok_or(RuntimeError::Overflow),
             _ => scalar::width(*prim_id, abi)

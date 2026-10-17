@@ -59,9 +59,13 @@ impl EngineState<'_> {
                     Value::WString(value) => Some(value.as_str()),
                     _ => None,
                 };
-                if let Some(text) = text.filter(|_| *max_length != 0) {
+                // Every STRING/WSTRING is bounded; a type without a length has 80.
+                if let Some(text) = text {
                     self.charge_work_units(text.len())?;
-                    return Ok(text.chars().nth(usize::from(*max_length)).is_none());
+                    let capacity = usize::from(crate::value::string_capacity(*max_length));
+                    return Ok(
+                        crate::value::string_capacity_cut(text, *prim_id == 25, capacity).is_none(),
+                    );
                 }
                 Ok(true)
             }

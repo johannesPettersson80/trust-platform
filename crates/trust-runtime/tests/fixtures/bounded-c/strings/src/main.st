@@ -1,7 +1,7 @@
-(* Bounded-C corpus, strings: bounded and unbounded STRING and a bounded WSTRING with every text
-   function, conversions to and from text, truncation on assignment, and character reads and
-   writes (census rows I1, I2, I8, I9, C9, C12 and C13). The unbounded line is longer than
-   23 bytes, so it lives on the heap. *)
+(* Bounded-C corpus, strings: STRING with and without a declared length (STRING[80]) and a
+   WSTRING[16] with every text function, conversions to and from text, truncation on
+   assignment, and character reads and writes (census rows I1, I2, I8, I9, C9, C12 and C13).
+   The line without a length is longer than 23 bytes, so it lives on the heap. *)
 VAR_GLOBAL
     ticks : DINT := DINT#0;
 END_VAR

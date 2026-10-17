@@ -3338,15 +3338,21 @@ fn is_test_like_source_path(path: &str) -> bool {
 fn is_panic_like_scan_path(path: &str) -> bool {
     path.starts_with("crates/trust-runtime/src/")
         || path.starts_with("crates/trust-platform-stm32f4/src/")
-        || path.starts_with("firmware/trust-nucleo-f401re/src/")
-        || path.starts_with("firmware/trust-stm32f407/src/")
+        || is_firmware_source_path(path)
         || path.starts_with("crates/trust-board-fixture/src/")
         || path.starts_with("crates/trust-runtime-services/src/")
         || path.starts_with("crates/trust-platform-esp32/src/")
-        || path.starts_with("firmware/trust-esp32c6-reference/src/")
         || path.starts_with("crates/trust-hir/src/")
         || path.starts_with("crates/trust-lsp/src/")
         || path.starts_with("crates/trust-ide/src/")
+}
+
+/// The sources of a firmware workspace, `firmware/<workspace>/src/`: every chip's firmware is
+/// scanned, whatever its folder is called.
+fn is_firmware_source_path(path: &str) -> bool {
+    path.strip_prefix("firmware/")
+        .and_then(|rest| rest.split_once('/'))
+        .is_some_and(|(_, inner)| inner.starts_with("src/"))
 }
 
 fn is_concurrency_scan_path(path: &str) -> bool {
@@ -5368,7 +5374,7 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
             "trust-firmware-safety-{}-{suffix}",
             std::process::id()
         ));
-        let firmware = root.join("firmware/trust-nucleo-f401re");
+        let firmware = root.join("firmware/demo");
         fs::create_dir_all(firmware.join("src"))?;
         fs::create_dir_all(firmware.join("target/debug"))?;
         fs::write(
@@ -5385,11 +5391,30 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         assert_eq!(summary.unregistered_unsafe_sites.len(), 1);
         assert_eq!(
             summary.production_unsafe_sites[0].path,
-            "firmware/trust-nucleo-f401re/src/main.rs"
+            "firmware/demo/src/main.rs"
         );
         assert_eq!(summary.production_unsafe_sites[0].line, 2);
         assert_eq!(summary.unregistered_concurrency_boundaries.len(), 1);
         Ok(())
+    }
+
+    #[test]
+    fn every_firmware_workspace_source_is_scanned_and_nothing_beside_it() {
+        for path in [
+            "firmware/demo/src/main.rs",
+            "firmware/trust-stm32f407/src/board.rs",
+            "firmware/trust-esp32c6-reference/src/main.rs",
+        ] {
+            assert!(is_panic_like_scan_path(path), "{path}");
+            assert!(is_concurrency_scan_path(path), "{path}");
+        }
+        for path in [
+            "firmware/demo/build.rs",
+            "firmware/src/main.rs",
+            "firmware-tools/demo/src/main.rs",
+        ] {
+            assert!(!is_panic_like_scan_path(path), "{path}");
+        }
     }
 
     #[test]

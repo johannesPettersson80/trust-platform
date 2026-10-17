@@ -121,10 +121,34 @@ fn lower_literal_with_context(
     } else if let Some(type_id) = expected_type
         && value != Value::Null
     {
-        value = coerce_evaluated_initializer_value(value, type_id, ctx.registry, &ctx.profile)?;
+        // A text literal keeps its whole text and takes only the destination's string family.
+        // The analysis refuses a literal longer than a declared destination and every store
+        // cuts at its capacity, so an operand or argument literal is never cut here.
+        let family = match value {
+            Value::String(_) | Value::WString(_) => string_family(ctx.registry, type_id),
+            _ => None,
+        };
+        value = match family {
+            Some(family) => coerce_value_to_type(value, family)?,
+            None => coerce_evaluated_initializer_value(value, type_id, ctx.registry, &ctx.profile)?,
+        };
     }
 
     Ok(Expr::Literal(value))
+}
+
+/// The string family a destination names, directly or through an alias chain.
+fn string_family(registry: &TypeRegistry, type_id: TypeId) -> Option<TypeId> {
+    let mut current = type_id;
+    for _ in 0..16 {
+        match registry.get(current)? {
+            Type::Alias { target, .. } => current = *target,
+            Type::String { .. } => return Some(TypeId::STRING),
+            Type::WString { .. } => return Some(TypeId::WSTRING),
+            _ => return None,
+        }
+    }
+    None
 }
 
 fn parse_real_literal(text: &str) -> Result<f64, CompileError> {

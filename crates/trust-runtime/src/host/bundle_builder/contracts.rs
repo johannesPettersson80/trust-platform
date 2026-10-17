@@ -9,6 +9,9 @@ const DEPENDENCY_MANIFEST_FILES: &[&str] = &[
 pub struct BundleBuildReport {
     /// Written bytecode path (program.stbc).
     pub program_path: PathBuf,
+    /// The program's deployment record: written next to it, or skipped with the reason when
+    /// the runtime cannot prepare the program (specification 34 §5.1.1).
+    pub deployment_record: crate::deployment::RecordWrite,
     /// Hash-bound OpenOT definition generated when the source set declares OpenOT data.
     pub openot_definition_path: Option<PathBuf>,
     /// Source files included in the build.

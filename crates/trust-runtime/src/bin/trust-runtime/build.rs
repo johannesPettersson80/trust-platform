@@ -6,16 +6,22 @@ use indicatif::{ProgressBar, ProgressStyle};
 use serde_json::{json, Value as JsonValue};
 use trust_runtime::bundle::detect_bundle_path;
 use trust_runtime::bundle_builder::{build_program_stbc, BundleBuildReport};
+use trust_runtime::deployment::RecordWrite;
 
 use crate::style;
 
 fn build_payload_from_report(bundle_root: &Path, report: BundleBuildReport) -> JsonValue {
+    let deployment_record = match &report.deployment_record {
+        RecordWrite::Written(path) => JsonValue::String(path.display().to_string()),
+        RecordWrite::Skipped(_) => JsonValue::Null,
+    };
     json!({
         "version": 1,
         "command": "build",
         "status": "ok",
         "project": bundle_root.display().to_string(),
         "program": report.program_path.display().to_string(),
+        "deployment_record": deployment_record,
         "source_count": report.sources.len(),
         "sources": report.sources.iter().map(|path| path.display().to_string()).collect::<Vec<_>>(),
         "dependency_roots": report.dependency_roots.iter().map(|path| path.display().to_string()).collect::<Vec<_>>(),
@@ -43,6 +49,10 @@ pub fn run_build(
         spinner.finish_and_clear();
         report
     };
+    // Standard output stays the CI payload; the reason for a missing record goes to stderr.
+    if let RecordWrite::Skipped(reason) = &report.deployment_record {
+        eprintln!("warning: no deployment record written: {reason}");
+    }
     if ci {
         let payload = build_payload_from_report(&bundle_root, report);
         println!("{}", serde_json::to_string_pretty(&payload)?);
@@ -52,6 +62,9 @@ pub fn run_build(
         "{}",
         style::success(format!("Wrote {}", report.program_path.display()))
     );
+    if let RecordWrite::Written(path) = &report.deployment_record {
+        println!("{}", style::success(format!("Wrote {}", path.display())));
+    }
     println!("Sources: {} file(s)", report.sources.len());
     for path in report.sources.iter().take(5) {
         println!(" - {}", path.display());

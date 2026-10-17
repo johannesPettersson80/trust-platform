@@ -279,11 +279,15 @@ pub(super) static SELECTION: ImportContract = version_1(
 pub(super) static COMPARISON: ImportContract =
     version_1(TextArguments, NoText, &[Code::RuntimeTypeMismatch]);
 /// IEC Table 34, with the bounded-assignment helper `__TRUST_LIMIT_STRING` (specification 07
-/// §8.1).
+/// §8.1). A result longer than the implementer maximum of 65,535 is an error (IEC §6.6.2.5.11).
 pub(super) static STRINGS: ImportContract = version_1(
     TextArguments,
     TextResult,
-    &[Code::RuntimeTypeMismatch, Code::RuntimeOverflow],
+    &[
+        Code::RuntimeTypeMismatch,
+        Code::RuntimeOverflow,
+        Code::RuntimeStringCapacityExceeded,
+    ],
 );
 /// IEC Tables 35 (named time arithmetic) and 36 (CONCAT and DAY_OF_WEEK).
 pub(super) static TIME_FUNCTIONS: ImportContract = version_1(
@@ -309,11 +313,16 @@ pub(super) static ASSERTIONS: ImportContract = version_1(
         Code::RuntimeOverflow,
     ],
 );
-/// IEC Tables 22 to 27: every name a Table 22 conversion form recognizes.
+/// IEC Tables 22 to 27: every name a Table 22 conversion form recognizes. A STRING or WSTRING
+/// result longer than the implementer maximum is an error, as for the Table 34 functions.
 static CONVERSIONS: ImportContract = version_1(
     TextArguments,
     TextResult,
-    &[Code::RuntimeTypeMismatch, Code::RuntimeOverflow],
+    &[
+        Code::RuntimeTypeMismatch,
+        Code::RuntimeOverflow,
+        Code::RuntimeStringCapacityExceeded,
+    ],
 );
 /// IEC Table 36 splits; each output is written once, in the target's declared width.
 static SPLITS: ImportContract = version_1(

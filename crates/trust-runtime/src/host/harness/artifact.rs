@@ -13,6 +13,7 @@ pub(super) fn build_runtime(
     sources: &[SourceFile],
     labels: bool,
     extras: &[SmolStr],
+    limits: trust_runtime_core::vm::PreparationLimits,
 ) -> Result<Runtime, CompileError> {
     let error = |error: crate::bytecode::BytecodeError| CompileError::new(error.to_string());
     supplied.validate().map_err(error)?;
@@ -124,7 +125,7 @@ pub(super) fn build_runtime(
         None => true,
     };
     let resource = select_resource(&mut module, resource_name)?;
-    let mut runtime = Runtime::from_module_with_metadata(module, metadata, resource)
+    let mut runtime = Runtime::from_module_with_metadata(module, metadata, resource, limits)
         .map_err(|err| CompileError::new(err.to_string()))?;
     if supplied.version == BytecodeVersion::LEGACY && original_resource_unchanged {
         runtime

@@ -1,29 +1,11 @@
-//! Fixed board profile and persistent reset-test marker encoding.
+//! Chip clock profile and persistent reset-test marker encoding.
 
-/// System frequency of the selected chip ([`crate::chip::CHIP`]): 84 MHz from the HSI through the
-/// PLL on the F401, 168 MHz on the F407 (from the crystal, or from the HSI when there is none).
-/// The oscillator's tolerance remains the physical accuracy of the clock.
+/// System frequency of the chip ([`crate::chip::CHIP`]): 168 MHz on the F407, from the crystal,
+/// or from the HSI when there is none. The oscillator's tolerance remains the physical accuracy
+/// of the clock.
 pub const SYSCLK_HZ: u32 = crate::chip::CHIP.sysclk_hz;
 /// Fixture sampling period; shared runtime scheduling remains engine-owned.
 pub const SCAN_PERIOD_US: u64 = 10_000;
-
-/// One physical PC13 observation, independent of any injected fixture input.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InputSnapshot {
-    /// Actual GPIO IDR level.
-    pub pc13_high: bool,
-    /// NUCLEO-F401RE B1 is active low: pressing connects PC13 to ground.
-    pub button_pressed: bool,
-}
-impl InputSnapshot {
-    /// Normalize the physical level; this does not debounce or invent a press.
-    pub const fn from_pc13(high: bool) -> Self {
-        Self {
-            pc13_high: high,
-            button_pressed: !high,
-        }
-    }
-}
 
 /// RCC_CSR reset flags captured before any clearing during board initialization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +14,7 @@ pub struct ResetReason {
     pub raw: u32,
 }
 impl ResetReason {
-    /// Independent-watchdog reset flag (RM0368 RCC_CSR IWDGRSTF).
+    /// Independent-watchdog reset flag (RM0090 RCC_CSR IWDGRSTF).
     pub const fn independent_watchdog(self) -> bool {
         self.raw & (1 << 29) != 0
     }
@@ -76,23 +58,6 @@ impl ResetCookie {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn physical_button_polarity_is_not_a_synthetic_input() {
-        assert_eq!(
-            InputSnapshot::from_pc13(true),
-            InputSnapshot {
-                pc13_high: true,
-                button_pressed: false
-            }
-        );
-        assert_eq!(
-            InputSnapshot::from_pc13(false),
-            InputSnapshot {
-                pc13_high: false,
-                button_pressed: true
-            }
-        );
-    }
     #[test]
     fn reset_marker_rejects_torn_and_uninitialized_pairs() {
         for phase in [1, 2, u16::MAX] {

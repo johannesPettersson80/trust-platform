@@ -134,8 +134,9 @@ impl ReferenceContext for LegacyRegisterFixtureContext<'_> {
         offset: usize,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> Result<bool, RuntimeError> {
-        ReferenceContext::write_typed_storage(self.runtime, location, offset, path, value)
+        ReferenceContext::write_typed_storage(self.runtime, location, offset, path, value, capacity)
     }
     fn write_typed_local(&self, root: &mut Value, path: &[RefSegment], value: Value) -> bool {
         ReferenceContext::write_typed_local(self.runtime, root, path, value)
@@ -145,8 +146,9 @@ impl ReferenceContext for LegacyRegisterFixtureContext<'_> {
         root: &mut Value,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> Result<bool, RuntimeError> {
-        ReferenceContext::write_typed_local_checked(self.runtime, root, path, value)
+        ReferenceContext::write_typed_local_checked(self.runtime, root, path, value, capacity)
     }
 }
 impl CallContext for LegacyRegisterFixtureContext<'_> {

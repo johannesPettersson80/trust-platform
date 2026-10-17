@@ -171,6 +171,7 @@ pub fn store_ref(
     runtime
         .check_reference_write(address, &value)
         .map_err(VmTrap::Runtime)?;
+    let capacity = runtime.reference_string_capacity(address);
 
     match reference {
         VmRef::InitializerResult {
@@ -179,7 +180,13 @@ pub fn store_ref(
         } => {
             let reference = runtime.initializer_reference(*initializer_id, path)?;
             if runtime
-                .write_typed_storage(reference.location, reference.offset, reference.path, value)
+                .write_typed_storage(
+                    reference.location,
+                    reference.offset,
+                    reference.path,
+                    value,
+                    capacity,
+                )
                 .map_err(VmTrap::Runtime)?
             {
                 Ok(())
@@ -200,7 +207,7 @@ pub fn store_ref(
         }
         VmRef::Global { offset, path } => {
             if runtime
-                .write_typed_storage(MemoryLocation::Global, *offset, path, value)
+                .write_typed_storage(MemoryLocation::Global, *offset, path, value, capacity)
                 .map_err(VmTrap::Runtime)?
             {
                 Ok(())
@@ -216,12 +223,18 @@ pub fn store_ref(
                 frame.store_local(ref_idx, value)
             } else {
                 let slot = *offset;
-                write_vm_local_ref(frame, slot, path, value, runtime)
+                write_vm_local_ref(frame, slot, path, value, runtime, capacity)
             }
         }
         _ => {
             if runtime
-                .write_typed_storage(address.location, address.offset, address.path, value)
+                .write_typed_storage(
+                    address.location,
+                    address.offset,
+                    address.path,
+                    value,
+                    capacity,
+                )
                 .map_err(VmTrap::Runtime)?
             {
                 Ok(())
@@ -522,6 +535,7 @@ pub fn dynamic_store_ref(
     runtime
         .check_reference_write(reference.as_view(), &value)
         .map_err(VmTrap::Runtime)?;
+    let capacity = runtime.reference_string_capacity(reference.as_view());
     let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
     let value = normalize_dynamic_store_value(runtime, module, frame, reference, value)?;
     if frames
@@ -537,6 +551,7 @@ pub fn dynamic_store_ref(
             &reference.path,
             value,
             runtime,
+            capacity,
         );
     }
     if runtime
@@ -545,6 +560,7 @@ pub fn dynamic_store_ref(
             reference.offset as usize,
             &reference.path,
             value,
+            capacity,
         )
         .map_err(VmTrap::Runtime)?
     {
@@ -572,6 +588,7 @@ fn write_vm_local_ref(
     path: &[RefSegment],
     value: Value,
     runtime: &impl ReferenceContext,
+    capacity: usize,
 ) -> Result<(), VmTrap> {
     let root = frame
         .locals
@@ -581,7 +598,7 @@ fn write_vm_local_ref(
         .before_path_write(root, path, &value)
         .map_err(VmTrap::Runtime)?;
     if runtime
-        .write_typed_local_checked(root, path, value)
+        .write_typed_local_checked(root, path, value, capacity)
         .map_err(VmTrap::Runtime)?
     {
         Ok(())

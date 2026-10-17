@@ -396,7 +396,7 @@ fn start_child(
         );
     }
 
-    if let Err(error) = reserve_continuation(runtime, &mut buffers.continuations) {
+    if let Err(error) = buffers.continuations.reserve(runtime) {
         call.restore_edges(runtime);
         return Err((Some(parent), error));
     }
@@ -512,7 +512,7 @@ pub(super) fn start_legacy_child(
     module: &VmModule,
     frames: &mut FrameStack,
     operand_stack: &mut OperandStack,
-    continuations: &mut Vec<PumpContinuation>,
+    continuations: &mut ContinuationStack,
     mut parent: ParentActivation,
     mut call: PreparedCall,
     child_depth: u32,
@@ -576,7 +576,7 @@ pub(super) fn start_legacy_child(
         }
         Ok(None) => {
             let stack_frame_depth = frames.len();
-            if let Err(error) = reserve_continuation(runtime, continuations) {
+            if let Err(error) = continuations.reserve(runtime) {
                 let error = resume_legacy_parent(runtime, frames, &mut parent, error);
                 call.restore_edges(runtime);
                 return Err((Some(parent), error));
@@ -644,7 +644,7 @@ fn restore_failed_child_start(
     runtime: &mut impl ExecutionContext,
     frames: &mut FrameStack,
     operand_stack: &mut OperandStack,
-    continuations: &mut Vec<PumpContinuation>,
+    continuations: &mut ContinuationStack,
     mut error: RuntimeError,
 ) -> (Option<ParentActivation>, RuntimeError) {
     let Some(mut continuation) = continuations.pop() else {
@@ -658,31 +658,6 @@ fn restore_failed_child_start(
     }
     continuation.call.restore_edges(runtime);
     (Some(continuation.parent), error)
-}
-
-fn reserve_continuation(
-    runtime: &impl ExecutionContext,
-    continuations: &mut Vec<PumpContinuation>,
-) -> Result<(), RuntimeError> {
-    if continuations.len() < continuations.capacity() {
-        return Ok(());
-    }
-    let capacity = continuations
-        .capacity()
-        .checked_mul(2)
-        .ok_or_else(|| RuntimeError::Overflow)?
-        .max(1)
-        .min(runtime.call_depth_limit());
-    if capacity <= continuations.len() {
-        return Err(VmTrap::CallStackOverflow.into_runtime_error());
-    }
-    let bytes = capacity
-        .checked_mul(core::mem::size_of::<PumpContinuation>())
-        .ok_or_else(|| RuntimeError::Overflow)?;
-    runtime.charge_call_storage(bytes, continuations.len())?;
-    continuations
-        .try_reserve_exact(capacity - continuations.len())
-        .map_err(|_| RuntimeError::Overflow)
 }
 
 fn start_stack_child(
@@ -704,7 +679,7 @@ fn start_stack_child(
         let pou_id = continuation.call.pou_id;
         let instance = continuation.call.instance;
         let capture_return = continuation.call.capture_return;
-        let pc = push_call_frame(frames, module, pou_id, 0, instance)
+        let pc = super::push_activation_frame(runtime, frames, module, pou_id, 0, instance)
             .map_err(VmTrap::into_runtime_error)?;
         runtime.record_call_op(RegisterCallOpKind::FramePush);
         let cursor = StackCursor {
@@ -730,11 +705,12 @@ fn start_stack_child(
         Ok(cursor)
     })();
     if result.is_err() {
+        // Only the child frame pushed above is above the base; its locals go back to the
+        // reserved payloads.
         while frames.len() > base_frames {
             let frame = frames.pop().map_err(VmTrap::into_runtime_error)?;
             let _ = runtime.retire_frame(&frame);
-            #[cfg(feature = "register-ir")]
-            frames.recycle_frame_payload(frame);
+            runtime.recycle_frame_locals(frame.locals);
         }
     }
     result
@@ -748,7 +724,7 @@ pub(super) fn complete_call(
     module: &VmModule,
     frames: &mut FrameStack,
     operand_stack: &mut OperandStack,
-    continuations: &mut Vec<PumpContinuation>,
+    continuations: &mut ContinuationStack,
     result: VmPouStackResult,
 ) -> Result<ParentActivation, (ParentActivation, RuntimeError)> {
     let Some(mut continuation) = continuations.pop() else {
@@ -921,8 +897,9 @@ fn abort_activation(
                     break;
                 };
                 let _ = runtime.retire_frame(&frame);
-                #[cfg(feature = "register-ir")]
-                buffers.frames.recycle_frame_payload(frame);
+                // Stack frames take their locals from the reserved payloads; register
+                // activations keep theirs in their own scratch.
+                runtime.recycle_frame_locals(frame.locals);
                 if buffers.frames.len() > cursor.base_frames
                     && let Some(parent) = buffers.frames.current_mut()
                     && let Err(error) = runtime.resume_frame(parent)
@@ -949,6 +926,7 @@ fn abort_activation(
                 break;
             };
             let _ = runtime.retire_frame(&frame);
+            runtime.recycle_frame_locals(frame.locals);
             if buffers.frames.len() > cursor.base_frames
                 && let Some(parent) = buffers.frames.current_mut()
                 && let Err(error) = runtime.resume_frame(parent)

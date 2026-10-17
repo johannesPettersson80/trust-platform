@@ -162,8 +162,10 @@ pub(super) fn lower(
             // will validate the actual declared destination and address together.
             let source = seeds.resolved_type(declared)?;
             let target = seeds.resolved_type(ty)?;
+            // The binding's normalized STRING tag carries no capacity; the declaration's
+            // capacity equals the byte window (a STRING without a length is STRING[80]).
             let bounded_string = matches!((source, target, binding.address.size),
-                (Type::String { max_len: None }, Type::String { max_len: Some(length) }, crate::io::IoSize::Bytes(width)) if *length == width);
+                (Type::String { .. }, Type::String { max_len: Some(length) }, crate::io::IoSize::Bytes(width)) if *length == width);
             if source != target && !bounded_string {
                 return Err(invalid("I/O binding type differs from declaration"));
             }

@@ -5880,6 +5880,7 @@ dependencies = [
  "libm",
  "rustc-hash 2.1.3",
  "ryu",
+ "sha2 0.11.0",
  "smol_str",
  "thiserror 2.0.21",
  "trust-hir",

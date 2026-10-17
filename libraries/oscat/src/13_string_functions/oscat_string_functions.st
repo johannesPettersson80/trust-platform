@@ -58,7 +58,9 @@ IF WDAY >= INT#1 AND WDAY <= INT#7 THEN
 END_IF;
 END_FUNCTION
 
-FUNCTION CHR_TO_STRING : STRING[1]
+(* A STRING[n] holds n bytes of UTF-8, and one character takes up to four, so the
+   one-character texts of this library are STRING[4]. *)
+FUNCTION CHR_TO_STRING : STRING[4]
 VAR_INPUT
     C : BYTE;
 END_VAR
@@ -73,7 +75,7 @@ VAR_INPUT
 END_VAR
 VAR
     I : INT;
-    FillChar : STRING[1];
+    FillChar : STRING[4];
     EffectiveLength : INT;
 END_VAR
 
@@ -129,7 +131,7 @@ FUNCTION REAL_TO_STRF : STRING[20]
 VAR_INPUT
     IN : REAL;
     N : INT;
-    DECIMAL : STRING[1];
+    DECIMAL : STRING[4];
 END_VAR
 VAR
     RoundedMagnitude : REAL;
@@ -248,8 +250,8 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
-    ConvertedChar : STRING[1];
+    CurrentChar : STRING[4];
+    ConvertedChar : STRING[4];
 END_VAR
 
 LOWERCASE := '';
@@ -295,8 +297,8 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
-    ConvertedChar : STRING[1];
+    CurrentChar : STRING[4];
+    ConvertedChar : STRING[4];
 END_VAR
 
 UPPERCASE := '';
@@ -392,7 +394,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 IS_ALNUM := LEN(STR) > INT#0;
@@ -415,7 +417,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 IS_ALPHA := LEN(STR) > INT#0;
@@ -481,7 +483,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 IS_HEX := LEN(STR) > INT#0;
@@ -501,7 +503,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 IS_LOWER := LEN(STR) > INT#0;
@@ -540,7 +542,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 IS_NUM := LEN(STR) > INT#0;
@@ -560,7 +562,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 IS_UPPER := LEN(STR) > INT#0;
@@ -582,7 +584,7 @@ END_VAR
 VAR
     I : INT;
     StartPos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 StartPos := POS;
@@ -608,7 +610,7 @@ END_VAR
 VAR
     I : INT;
     StartPos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 StartPos := POS;
@@ -634,7 +636,7 @@ END_VAR
 VAR
     I : INT;
     StartPos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 StartPos := POS;
@@ -660,7 +662,7 @@ END_VAR
 VAR
     I : INT;
     StartPos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 StartPos := POS;
@@ -705,7 +707,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 FINDB_NONUM := INT#0;
@@ -725,7 +727,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 FINDB_NUM := INT#0;
@@ -774,7 +776,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
     First : BOOL := TRUE;
 END_VAR
 
@@ -797,7 +799,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 CLEAN := '';
@@ -816,7 +818,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    SearchChar : STRING[1];
+    SearchChar : STRING[4];
 END_VAR
 
 SearchChar := CHR_TO_STRING(C := CHR);
@@ -1109,7 +1111,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 DEL_CHARS := '';
@@ -1192,7 +1194,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
     Digits : STRING[10];
     Sign : BOOL;
 END_VAR
@@ -1291,7 +1293,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 BIN_TO_BYTE := BYTE#0;
@@ -1311,7 +1313,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 BIN_TO_DWORD := DWORD#0;
@@ -1331,7 +1333,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
     DigitPos : INT;
 END_VAR
 
@@ -1351,7 +1353,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
     DigitPos : INT;
 END_VAR
 
@@ -1371,7 +1373,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
     DigitPos : INT;
 END_VAR
 
@@ -1391,7 +1393,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
     DigitPos : INT;
 END_VAR
 
@@ -1455,7 +1457,7 @@ VAR
     MapLength : INT;
     SrcMap : STRING[STRING_LENGTH];
     RepMap : STRING[STRING_LENGTH];
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
 END_VAR
 
 IF LEN(SRC) < LEN(REP) THEN
@@ -1501,7 +1503,7 @@ VAR_INPUT
 END_VAR
 VAR
     Pos : INT;
-    CurrentChar : STRING[1];
+    CurrentChar : STRING[4];
     DigitPos : INT;
     Mantissa : DINT;
     FractionExponent : INT;
@@ -1691,9 +1693,9 @@ END_VAR
 VAR
     RemainingInput : STRING[60];
     RemainingFormat : STRING[60];
-    Marker : STRING[1];
-    Token : STRING[1];
-    NextLiteral : STRING[1];
+    Marker : STRING[4];
+    Token : STRING[4];
+    NextLiteral : STRING[4];
     Chunk : STRING[20];
     SplitPos : INT;
     YearValue : INT := INT#1970;
@@ -1993,7 +1995,7 @@ VAR
     MillisecondValue : INT;
     DateValue : DATE;
     Pos : INT;
-    Token : STRING[1];
+    Token : STRING[4];
     Replacement : STRING[STRING_LENGTH];
     Hour12 : INT;
 END_VAR

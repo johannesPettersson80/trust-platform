@@ -3,7 +3,7 @@ use super::*;
 use crate::bytecode::{StorageDeclaration, StorageOwner, StorageRole, TypeData};
 use crate::memory::MemoryLocation;
 use crate::value::{RefSegment, ValueRefView};
-use crate::vm::type_policy::{resolved_alias_type, vm_type_for_path};
+use crate::vm::type_policy::{resolved_alias_type, vm_string_capacity_for_type, vm_type_for_path};
 
 impl EngineState<'_> {
     pub(super) fn reference_type(
@@ -91,6 +91,23 @@ impl EngineState<'_> {
             ty = selected;
         }
         Ok(resolved_alias_type(&self.prepared.vm.types, ty, 0))
+    }
+
+    /// The declared capacity in storage units of the string whose element `reference` selects, for
+    /// the character-write cut (spec 02 §6). A target that is not a bounded string element keeps
+    /// the implementer maximum.
+    pub(super) fn declared_string_capacity(&self, reference: ValueRefView<'_>) -> usize {
+        let Some((RefSegment::Index(_), parent)) = reference.path.split_last() else {
+            return crate::value::MAX_STRING_CAPACITY;
+        };
+        let parent = ValueRefView {
+            path: parent,
+            ..reference
+        };
+        match self.reference_type(parent) {
+            Ok(Some(ty)) => vm_string_capacity_for_type(&self.prepared.vm, ty),
+            _ => crate::value::MAX_STRING_CAPACITY,
+        }
     }
 
     /// Read/write type checks share the same physical, inherited member lookup.

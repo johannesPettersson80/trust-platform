@@ -2,6 +2,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use smol_str::SmolStr;
 
 use super::defs::{ArrayDimensionExt, StructField, Type, TypeId, UnionVariant};
+use super::strings::DEFAULT_STRING_LENGTH;
 use crate::symbols::EnumValueResolution;
 
 /// Type registry for managing all types.
@@ -163,8 +164,12 @@ impl TypeRegistry {
         )
     }
 
-    /// Registers a STRING type with a specific length.
+    /// Registers a STRING type with a specific length. The default length is the built-in
+    /// `STRING` itself, so `STRING[80]` and `STRING` are one type.
     pub fn register_string_with_length(&mut self, max_len: u32) -> TypeId {
+        if max_len == DEFAULT_STRING_LENGTH {
+            return TypeId::STRING;
+        }
         let name = format!("STRING[{}]", max_len);
         self.register(
             name,
@@ -174,8 +179,12 @@ impl TypeRegistry {
         )
     }
 
-    /// Registers a WSTRING type with a specific length.
+    /// Registers a WSTRING type with a specific length. The default length is the built-in
+    /// `WSTRING` itself, so `WSTRING[80]` and `WSTRING` are one type.
     pub fn register_wstring_with_length(&mut self, max_len: u32) -> TypeId {
+        if max_len == DEFAULT_STRING_LENGTH {
+            return TypeId::WSTRING;
+        }
         let name = format!("WSTRING[{}]", max_len);
         self.register(
             name,

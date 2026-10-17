@@ -221,6 +221,7 @@ impl ReferenceContext for EngineState<'_> {
         offset: usize,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> Result<bool, RuntimeError> {
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _timing =
@@ -245,7 +246,7 @@ impl ReferenceContext for EngineState<'_> {
         Ok(self
             .data
             .storage
-            .commit_prepared_write(path, value, prepared))
+            .commit_prepared_write(path, value, prepared, capacity))
     }
     fn write_typed_local(&self, root: &mut Value, path: &[RefSegment], value: Value) -> bool {
         write_value_path(root, path, value)
@@ -255,6 +256,7 @@ impl ReferenceContext for EngineState<'_> {
         root: &mut Value,
         path: &[RefSegment],
         value: Value,
+        capacity: usize,
     ) -> Result<bool, RuntimeError> {
         if path.is_empty() && !matches!(value, Value::Struct(_)) {
             *root = crate::value::normalize_assignment_for_target(root, value);
@@ -267,12 +269,27 @@ impl ReferenceContext for EngineState<'_> {
             self.check_entry_deadline()?;
         }
         Ok(crate::value::commit_value_path_write(
-            root, path, value, prepared,
+            root, path, value, prepared, capacity,
         ))
+    }
+    fn reference_string_capacity(&self, reference: crate::value::ValueRefView<'_>) -> usize {
+        self.declared_string_capacity(reference)
     }
 }
 
 impl CallContext for EngineState<'_> {
+    // Without the register tier every call result is a stack activation's locals, which go
+    // back to the payloads reserved at construction.
+    #[cfg(not(feature = "register-ir"))]
+    fn recycle_optimized_result_locals(
+        &mut self,
+        _pou_id: u32,
+        locals: Vec<Value>,
+    ) -> Result<(), RuntimeError> {
+        self.data.resources.frame_locals.recycle(locals);
+        Ok(())
+    }
+
     #[cfg(feature = "register-ir")]
     fn recycle_optimized_result_locals(
         &mut self,
@@ -626,6 +643,12 @@ impl ExecutionContext for EngineState<'_> {
     }
     fn recycle_execution_buffers(&mut self, buffers: ExecutionBuffers) {
         self.data.resources.buffers.push(buffers);
+    }
+    fn take_frame_locals(&mut self, count: usize) -> Vec<Value> {
+        self.data.resources.frame_locals.take(count)
+    }
+    fn recycle_frame_locals(&mut self, locals: Vec<Value>) {
+        self.data.resources.frame_locals.recycle(locals);
     }
 }
 

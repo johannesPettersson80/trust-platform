@@ -148,6 +148,7 @@ pub(super) fn write_indices(
     target: Value,
     indices: &[Value],
     value: Value,
+    capacity: usize,
 ) -> Result<Value, RuntimeError> {
     match target {
         Value::Array(mut array) => {
@@ -159,8 +160,8 @@ pub(super) fn write_indices(
                 Err(RuntimeError::TypeMismatch)
             }
         }
-        Value::String(text) => write_string_index(text.as_str(), indices, value, false),
-        Value::WString(text) => write_string_index(text.as_str(), indices, value, true),
+        Value::String(text) => write_string_index(text.as_str(), indices, value, false, capacity),
+        Value::WString(text) => write_string_index(text.as_str(), indices, value, true, capacity),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -261,11 +262,12 @@ fn write_string_index(
     indices: &[Value],
     value: Value,
     wide: bool,
+    capacity: usize,
 ) -> Result<Value, RuntimeError> {
     let Some(index) = single_string_index(indices)? else {
         return Err(RuntimeError::TypeMismatch);
     };
-    let updated = write_string_element(text, index, value, wide)?;
+    let updated = write_string_element(text, index, value, wide, capacity)?;
     if wide {
         Ok(Value::WString(updated))
     } else {
@@ -304,4 +306,36 @@ pub(super) fn eval_indices(
         values.push(super::eval::eval_expr(ctx, expr)?);
     }
     Ok(values)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_indices;
+    use crate::value::Value;
+
+    #[test]
+    fn a_host_evaluated_char_write_cuts_a_full_string() {
+        // Spec 02 §6 character access: a full STRING[3] = 'abc'. A CHAR outside ASCII over an
+        // ASCII character (here 0xC4, 'Ä', two UTF-8 bytes) makes 'Äbc' four bytes, so the host
+        // evaluator cuts it to 'Äb' (three whole bytes) at the declared capacity.
+        let narrow = write_indices(
+            Value::String("abc".into()),
+            &[Value::DInt(1)],
+            Value::Char(0xC4),
+            3,
+        )
+        .unwrap();
+        assert_eq!(narrow, Value::String("Äb".into()));
+
+        // The same capacity counts UTF-16 code units for a WSTRING[3]: 0xC4 is one code unit, so
+        // 'Äbc' is three units and stays whole.
+        let wide = write_indices(
+            Value::WString("abc".into()),
+            &[Value::DInt(1)],
+            Value::WChar(0x00C4),
+            3,
+        )
+        .unwrap();
+        assert_eq!(wide, Value::WString("Äbc".into()));
+    }
 }

@@ -493,19 +493,16 @@ static FAULT_CASES: [FaultCase; 8] = [
 
 /// Runs whose allocator calls in every scan, from the given scan on, stay within a ceiling, where
 /// 0 is the first scan after construction. Zero is the goal (spec 34 MEM-04): a ceiling only goes
-/// down. The scalar program still allocates and frees one buffer in the tasks phase of every scan
-/// (measured on the builder, batch c1-2, 17 October 2026); C1-2 reserves it at construction and
-/// lowers the ceiling to zero. Its first scan is left out: it may still grow the operand and frame
-/// stacks and, with `std`, the storage field caches (spec 34 MEM-09 first-use growth).
-const CEILINGS: [(&str, usize, Calls); 1] = [(
-    "scalar",
-    1,
-    Calls {
-        alloc: 1,
-        realloc: 0,
-        dealloc: 1,
-    },
-)];
+/// down. C1-2 reserves the stack executor's buffer, the program activation's local slots and the
+/// process-image staging at construction, so the scalar program (one buffer per scan before, batch
+/// c1-2, 17 October 2026) and both GPIO artifacts (8 calls per scan in input and output staging)
+/// make none. The first scan is left out: with `std` it may still fill the storage field caches
+/// (spec 34 MEM-09 first-use growth).
+const CEILINGS: [(&str, usize, Calls); 3] = [
+    ("scalar", 1, Calls::ZERO),
+    ("gpio", 1, Calls::ZERO),
+    ("saved/gpio", 1, Calls::ZERO),
+];
 
 /// The ceilings are asserted on the chips' stack executor and printed with the register tier.
 const CEILINGS_ASSERTED: bool = cfg!(not(feature = "register-ir"));

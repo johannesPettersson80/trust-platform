@@ -46,11 +46,6 @@ jobs:
         env:
           RUSTFLAGS: -D warnings
         run: cargo check --locked -p ${{ matrix.board_adapter }} -p trust-board-fixture -p trust-runtime-services --target ${{ matrix.target }}
-      - name: Check the STM32F407 build of the board adapter
-        if: ${{ matrix.target == 'thumbv7em-none-eabihf' }}
-        env:
-          RUSTFLAGS: -D warnings
-        run: cargo check --locked -p trust-platform-stm32f4 --no-default-features --features stm32f407 --target ${{ matrix.target }}
       - name: Mark gate success
         if: ${{ success() }}
         run: |

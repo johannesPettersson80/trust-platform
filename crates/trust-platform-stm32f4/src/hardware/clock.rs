@@ -59,7 +59,7 @@ impl Monotonic {
     }
 
     /// Wrapping hardware cycle counter. Compare intervals with `wrapping_sub`;
-    /// one interval must be shorter than 2^32 cycles (51 s at 84MHz, 25 s at 168MHz).
+    /// one interval must be shorter than 2^32 cycles (25 s at 168MHz).
     pub fn cycle_count(&self) -> u32 {
         DWT::cycle_count()
     }

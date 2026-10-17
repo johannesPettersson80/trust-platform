@@ -32,6 +32,8 @@ pub mod crc32;
 pub mod cycle;
 /// Portable date/time calculation helpers.
 pub mod datetime;
+/// Deployment records and their admission (specification 34 §5.1.1).
+pub mod deployment;
 /// Portable runtime errors.
 pub mod error;
 /// Stable machine-readable runtime error identifiers.

@@ -530,6 +530,9 @@ pub struct RuntimeBundle {
     pub opcua_client_config_hash: Option<String>,
     pub simulation: Option<SimulationConfig>,
     pub bytecode: Vec<u8>,
+    /// The limits to prepare `bytecode` with: those of the admitted deployment record next to
+    /// it, or the hosted defaults without one (specification 34 HOST-02).
+    pub preparation_limits: trust_runtime_core::vm::PreparationLimits,
 }
 
 #[derive(Debug, Clone)]

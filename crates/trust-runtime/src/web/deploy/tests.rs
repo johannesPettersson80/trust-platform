@@ -318,4 +318,73 @@ fn signature_errors_do_not_echo_key_secrets() {
     assert!(!text.contains(secret), "error leaked secret: {text}");
     let _ = fs::remove_dir_all(root);
 }
+
+/// Spec 34 §5.1.1: a deployed program comes with its own deployment record, and never keeps
+/// the record of the program it replaces.
+#[test]
+fn a_deployed_program_brings_its_own_deployment_record() {
+    use crate::deployment::DEPLOYMENT_RECORD_FILE;
+    use trust_runtime_core::deployment::{sha256, DeploymentRecord};
+
+    let mut root = std::env::temp_dir();
+    root.push(format!("trust-deploy-record-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    fs::write(
+        root.join(DEPLOYMENT_RECORD_FILE),
+        b"an older program's record",
+    )
+    .unwrap();
+    const RUNTIME_TOML: &str = r#"
+[bundle]
+version = 1
+
+[resource]
+name = "main"
+cycle_interval_ms = 100
+
+[runtime.control]
+endpoint = "unix:///tmp/trust-runtime.sock"
+mode = "production"
+debug_enabled = false
+
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 5000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+"#;
+    let request = |program: &[u8]| DeployRequest {
+        runtime_toml: Some(RUNTIME_TOML.to_string()),
+        io_toml: None,
+        program_stbc_b64: Some(STANDARD.encode(program)),
+        sources: None,
+        signature: None,
+        restart: None,
+    };
+    let program = crate::harness::CompileSession::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .build_bytecode_bytes()
+        .unwrap();
+    let result = apply_deploy(&root, request(&program)).unwrap();
+    assert!(result.written.contains(&DEPLOYMENT_RECORD_FILE.to_string()));
+    let record =
+        DeploymentRecord::decode(&fs::read(root.join(DEPLOYMENT_RECORD_FILE)).unwrap()).unwrap();
+    assert_eq!(record.application.program_sha256, sha256(&program));
+
+    // A program the runtime cannot prepare has no record, so the previous one is removed.
+    let result = apply_deploy(&root, request(&[1, 2, 3])).unwrap();
+    assert!(!result.written.contains(&DEPLOYMENT_RECORD_FILE.to_string()));
+    assert!(!root.join(DEPLOYMENT_RECORD_FILE).exists());
+    let _ = fs::remove_dir_all(root);
+}
+
 use super::*;

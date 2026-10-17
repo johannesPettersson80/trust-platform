@@ -262,6 +262,7 @@ Runtime text-conversion behavior:
 Runtime note:
 - The shipped VM/runtime applies the `DEV-017` element model consistently across `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND`.
 - Native runtime string tests assert these operations directly.
+- A result longer than the implementer maximum of 65,535 bytes (`STRING`) or UTF-16 code units (`WSTRING`) is the error `runtime_string_capacity_exceeded` (§6.6.2.5.11; `docs/IEC_DECISIONS.md` 2026-10-17), asserted for `CONCAT`, `INSERT` and `REPLACE` and for `WSTRING_TO_STRING` (Table 27). The assignment helper `__TRUST_LIMIT_STRING` cuts to a capacity in bytes or code units.
 
 ## Table 35 - Time/Duration Arithmetic Functions
 - [x] ADD (overloaded)

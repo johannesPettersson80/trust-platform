@@ -7,7 +7,7 @@ VAR_IN_OUT
     LIST : STRING[LIST_LENGTH];
 END_VAR
 VAR
-    SepText : STRING[1];
+    SepText : STRING[4];
     Candidate : STRING[LIST_LENGTH];
 END_VAR
 
@@ -97,7 +97,7 @@ VAR_IN_OUT
     LIST : STRING[LIST_LENGTH];
 END_VAR
 VAR
-    SepText : STRING[1];
+    SepText : STRING[4];
     InsertText : STRING[LIST_LENGTH];
     Prefix : STRING[LIST_LENGTH];
     Suffix : STRING[LIST_LENGTH];

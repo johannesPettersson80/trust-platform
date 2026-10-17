@@ -6,6 +6,61 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-17 - STRING and WSTRING default length, maximum and capacity unit
+
+- Area: STRING/WSTRING declarations, stores, literals and string functions
+- IEC context:
+  - IEC 61131-3 Ed.3 §6.4.2.2: "The supported maximum length of elements of type
+    STRING and WSTRING shall be Implementer specific values"; a declared maximum
+    length shall not exceed that value.
+  - Table 10 note k: "The maximum allowed length of STRING and WSTRING variables
+    is Implementer specific."
+  - §6.6.2.5.11 and Table 34: it shall be an error if a string function would
+    "produce a string longer than the Implementer specific maximum string
+    length".
+  - §6.6.1.2.2 leaves the result of assigning a longer string to the
+    implementer. The standard gives no length for a declaration without one and
+    no unit for a length stored as UTF-8 or UTF-16.
+- Decision:
+  - `STRING` and `WSTRING` declared without a length are `STRING[80]` and
+    `WSTRING[80]`, the same on every runtime. They are one type with
+    `STRING[80]` and `WSTRING[80]` for assignment, `VAR_IN_OUT` and `REF_TO`,
+    `SIZEOF` gives 80 and 160, and a `STRING` at a direct address occupies 80
+    bytes.
+  - The implementer maximum is 65,535. A declared length of zero or less, or
+    above 65,535, is a compile-time error (`E304`).
+  - `STRING[n]` holds at most n bytes of UTF-8 and `WSTRING[n]` at most n UTF-16
+    code units. A literal that needs more is a compile-time error; a longer value
+    is cut at assignment, as 2026-07-13 decides, and a cut never splits a
+    character.
+  - `LEN`, indexing, and the positions and lengths of `LEFT`, `RIGHT`, `MID`,
+    `INSERT`, `DELETE`, `REPLACE` and `FIND` still count characters (DEV-017). A
+    text with characters outside ASCII therefore holds fewer than n characters
+    in `STRING[n]`, and a text with characters outside the Basic Multilingual
+    Plane fewer than n in `WSTRING[n]`.
+  - A character write that leaves a text longer than its capacity (a `CHAR`
+    outside ASCII over an ASCII character of a full `STRING[n]`) cuts the text
+    at its capacity, as the `REPLACE` and assignment of §6.4.2.2 Example 1 d)
+    would.
+  - A string function, or a conversion to `STRING` or `WSTRING`, whose result
+    would be longer than 65,535 bytes (`STRING`) or code units (`WSTRING`) fails
+    with `runtime_string_capacity_exceeded` instead of returning it.
+  - This supersedes the unit of 2026-07-13 ("Literal bounds and truncation count
+    Unicode scalar values").
+- Reason:
+  - TwinCAT 3 and CODESYS, the IEC 61131-3 environments truST imports from, give
+    a `STRING` without a size 80 characters and count a string's size in bytes
+    (CODESYS also in its UTF-8 mode, where a character outside ASCII takes more
+    than one byte), and both cut a longer value. Imported programs keep their
+    capacities.
+  - A capacity in storage units is what the runtime stores and transfers:
+    specification 10's direct I/O layout ("A bounded STRING occupies exactly its
+    declared byte capacity") and `SIZEOF(STRING[n]) = n`,
+    `SIZEOF(WSTRING[n]) = 2n` already count it, and a `STRING[n]` needs exactly
+    n bytes of memory on every target.
+  - 65,535 is the largest capacity the 16-bit `max_length` of an STBC type
+    records (specification 12).
+
 ## 2026-07-30 - POU call evaluation, execution control, and output transfer
 
 - Area: Function, function-block, and method calls
@@ -340,6 +395,10 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
   - Literal bounds and truncation count Unicode scalar values. The same rules apply to bounded `STRING[n]` and `WSTRING[n]`.
   - `STRING` and `WSTRING` are separate families. Cross-family assignment or
     parameter transfer requires an explicit standard conversion function.
+  - Superseded in part by 2026-10-17: capacities, literal bounds and truncation
+    count UTF-8 bytes (`STRING`) and UTF-16 code units (`WSTRING`), not Unicode
+    scalar values, and a declaration without a length is `STRING[80]` or
+    `WSTRING[80]`, so no string is unbounded.
 - Reason:
   - Truncation preserves the product's established ordinary-assignment behavior while enforcing every receiving declaration's maximum.
   - Exact-capacity `VAR_IN_OUT` avoids an implicit round trip that can change a caller even when the called POU performs no write.

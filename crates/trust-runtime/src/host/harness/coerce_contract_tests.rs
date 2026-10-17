@@ -437,7 +437,9 @@ fn harness_coerce_contract_alias_and_subrange_delegate_to_storage_type() {
 }
 
 #[test]
-fn harness_coerce_contract_bounded_strings_truncate_by_unicode_scalar() {
+fn harness_coerce_contract_bounded_strings_truncate_by_byte_and_code_unit() {
+    // STRING[2] holds two bytes of UTF-8 ("å" is two) and WSTRING[2] two UTF-16 code units
+    // ("😀" is two); a cut never splits a character (docs/IEC_DECISIONS.md 2026-10-17).
     let mut registry = TypeRegistry::new();
     let string = registry.register_string_with_length(2);
     let wstring = registry.register_wstring_with_length(2);
@@ -451,7 +453,7 @@ fn harness_coerce_contract_bounded_strings_truncate_by_unicode_scalar() {
             &profile,
         )
         .unwrap(),
-        Value::String("aå".into())
+        Value::String("a".into())
     );
     assert_eq!(
         coerce_initializer_value_to_type(

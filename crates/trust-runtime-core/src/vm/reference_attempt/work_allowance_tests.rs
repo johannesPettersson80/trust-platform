@@ -88,6 +88,7 @@ impl ReferenceContext for AttemptContext {
         offset: usize,
         path: &[RefSegment],
         value: Value,
+        _capacity: usize,
     ) -> Result<bool, RuntimeError> {
         Ok(self
             .storage

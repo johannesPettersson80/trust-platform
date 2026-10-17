@@ -92,15 +92,20 @@ impl EngineState<'_> {
         .ok_or(RuntimeError::NullReference)
     }
 
-    /// Resolve input destinations in their original order, then copy each root once.
-    /// Sorting identities before copying avoids quadratic insertion shifts regardless
-    /// of binding order. This never reorders the staged writes themselves.
+    /// Resolve input destinations in their original order, then copy each root once into
+    /// `saved`, with `keys` as sorting scratch; both keep their storage. Sorting identities
+    /// before copying avoids quadratic insertion shifts regardless of binding order. This
+    /// never reorders the staged writes themselves. The charges are those of a new key list
+    /// and snapshot (spec 34 TIME-08).
     pub(super) fn snapshot_input_destinations<'r>(
         &self,
         references: impl ExactSizeIterator<Item = ValueRefView<'r>>,
-    ) -> Result<SavedDestinations, RuntimeError> {
+        keys: &mut Vec<Key>,
+        saved: &mut SavedDestinations,
+    ) -> Result<(), RuntimeError> {
         if references.len() <= 1 {
-            return self.snapshot_destinations(None, references);
+            saved.clear();
+            return self.snapshot_destinations(None, references, saved);
         }
         self.charge_allocation_bytes(
             references
@@ -108,7 +113,7 @@ impl EngineState<'_> {
                 .checked_mul(core::mem::size_of::<Key>())
                 .ok_or(RuntimeError::Overflow)?,
         )?;
-        let mut keys = Vec::new();
+        keys.clear();
         keys.try_reserve_exact(references.len())
             .map_err(|_| RuntimeError::Overflow)?;
         for reference in references {
@@ -130,21 +135,23 @@ impl EngineState<'_> {
         })?;
         keys.dedup();
         self.charge_allocation_bytes(SavedDestinations::allocation_bytes(keys.len())?)?;
-        let mut saved = SavedDestinations::with_capacity(keys.len())?;
-        for key in keys {
+        saved.reuse(keys.len())?;
+        for &key in keys.iter() {
             let root = self.snapshot_root(None, key)?;
             // Keys are unique and sorted; reserved capacity covers every append.
             saved.insert(key, root.clone())?;
         }
-        Ok(saved)
+        Ok(())
     }
 
+    /// Add the roots of `references` that neither `saved` nor the active output journal
+    /// holds yet.
     pub(super) fn snapshot_destinations<'r>(
         &self,
         frame: Option<&VmFrame>,
         references: impl Iterator<Item = ValueRefView<'r>>,
-    ) -> Result<SavedDestinations, RuntimeError> {
-        let mut saved = SavedDestinations::new();
+        saved: &mut SavedDestinations,
+    ) -> Result<(), RuntimeError> {
         for reference in references {
             let key = self.snapshot_key(frame, reference)?;
             let active = self.data.resources.output_journal.as_ref();
@@ -166,15 +173,16 @@ impl EngineState<'_> {
             )?;
             saved.insert(key, root.clone())?;
         }
-        Ok(saved)
+        Ok(())
     }
 
+    /// Write every saved root back, emptying `saved` but keeping its storage.
     pub(super) fn restore_destinations(
         &mut self,
         mut frame: Option<&mut VmFrame>,
-        saved: SavedDestinations,
+        saved: &mut SavedDestinations,
     ) {
-        for ((location, offset), value) in saved {
+        for ((location, offset), value) in saved.drain() {
             if let Some(frame) = frame
                 .as_deref_mut()
                 .filter(|frame| location == MemoryLocation::Local(frame.reference_frame_id()))
@@ -196,21 +204,23 @@ impl EngineState<'_> {
         if self.data.resources.output_journal.is_some() {
             return Err(VmTrap::Runtime(RuntimeError::InvalidExecutionState));
         }
-        self.data.resources.output_journal = Some(SavedDestinations::new());
+        // The journal kept from the last transaction starts out as a new one (census C11).
+        let mut journal = core::mem::take(&mut self.data.resources.spare_journal);
+        journal.clear();
+        self.data.resources.output_journal = Some(journal);
         let result = action(self, frame);
-        let saved = self
+        let mut saved = self
             .data
             .resources
             .output_journal
             .take()
             .unwrap_or_default();
-        match result {
-            Ok(value) => Ok(value),
-            Err(error) => {
-                self.restore_destinations(Some(frame), saved);
-                Err(error)
-            }
+        if result.is_err() {
+            self.restore_destinations(Some(frame), &mut saved);
         }
+        saved.clear();
+        self.data.resources.spare_journal = saved;
+        result
     }
 }
 
@@ -265,8 +275,13 @@ mod tests {
         second.path.push(crate::value::RefSegment::Index(vec![1]));
         let scalar = state.data.storage.ref_for_global("bulk_scalar").unwrap();
         let references = [&scalar, &second, &first, &second];
-        let saved = state
-            .snapshot_input_destinations(references.iter().map(|r| r.as_view()))
+        let (mut keys, mut saved) = (Vec::new(), SavedDestinations::new());
+        state
+            .snapshot_input_destinations(
+                references.iter().map(|r| r.as_view()),
+                &mut keys,
+                &mut saved,
+            )
             .unwrap();
         assert_eq!(saved.len(), 2);
         assert_eq!(
@@ -285,7 +300,8 @@ mod tests {
             .data
             .storage
             .write_by_ref_ref(&scalar, Value::DInt(110)));
-        state.restore_destinations(None, saved);
+        state.restore_destinations(None, &mut saved);
+        assert_eq!(saved.len(), 0);
         assert_eq!(state.data.storage.get_global("bulk_array"), Some(&original));
         assert_eq!(
             state.data.storage.get_global("bulk_scalar"),
@@ -316,10 +332,15 @@ mod tests {
         invalid.offset = u32::MAX;
         let references = [&valid, &invalid, &valid];
         let visits = core::cell::Cell::new(0);
-        let result = state.snapshot_input_destinations(references.iter().map(|reference| {
-            visits.set(visits.get() + 1);
-            reference.as_view()
-        }));
+        let (mut keys, mut saved) = (Vec::new(), SavedDestinations::new());
+        let result = state.snapshot_input_destinations(
+            references.iter().map(|reference| {
+                visits.set(visits.get() + 1);
+                reference.as_view()
+            }),
+            &mut keys,
+            &mut saved,
+        );
         assert!(matches!(result, Err(RuntimeError::NullReference)));
         assert_eq!(
             visits.get(),

@@ -397,12 +397,12 @@ PROGRAM Test
 VAR
     fb : Bind;
     text : STRING[20];
-    unbounded_text : STRING;
+    default_text : STRING;
     wide_text : WSTRING[20];
     wide_equal : WSTRING[5];
 END_VAR
 fb(narrow := text, wide_narrow := wide_text);
-fb(narrow := unbounded_text, wide_narrow := wide_equal);
+fb(narrow := default_text, wide_narrow := wide_equal);
 END_PROGRAM
 "#,
     );
@@ -412,7 +412,7 @@ END_PROGRAM
             .filter(|code| **code == DiagnosticCode::InvalidArgumentType)
             .count(),
         3,
-        "STRING/WSTRING width mismatches and bounded/unbounded binding must be rejected: {errors:?}"
+        "STRING/WSTRING width mismatches, including STRING (STRING[80]) to STRING[5], must be rejected: {errors:?}"
     );
 }
 

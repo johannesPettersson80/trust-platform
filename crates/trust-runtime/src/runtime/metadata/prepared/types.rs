@@ -39,7 +39,7 @@ impl<'a> Projection<'a> {
 
     fn populate_types(&mut self) -> Result<(), RuntimeError> {
         for (index, entry) in self.prepared.type_table().entries.iter().enumerate() {
-            if matches!(entry.data, TypeData::Primitive { max_length: 0, .. }) {
+            if builtin_primitive(&entry.data).is_some() {
                 continue;
             }
             let name = entry
@@ -167,11 +167,8 @@ fn reserve_wire_types(
     let mut registry = TypeRegistry::new();
     let mut wire_types = Vec::with_capacity(prepared.type_table().entries.len());
     for (index, entry) in prepared.type_table().entries.iter().enumerate() {
-        let id = match entry.data {
-            TypeData::Primitive {
-                prim_id,
-                max_length: 0,
-            } => {
+        let id = match builtin_primitive(&entry.data) {
+            Some(prim_id) => {
                 let builtin = primitive(prim_id)?;
                 let name = entry
                     .name_idx
@@ -196,7 +193,7 @@ fn reserve_wire_types(
                     _ => builtin,
                 }
             }
-            _ => {
+            None => {
                 let name = entry
                     .name_idx
                     .map(|id| {
@@ -222,6 +219,23 @@ fn reserve_wire_types(
         wire_types.push(id);
     }
     Ok((registry, wire_types))
+}
+
+/// The primitive id of a wire primitive that projects to its built-in type: any primitive
+/// without a capacity, and a STRING or WSTRING of the default capacity, which is the built-in
+/// `STRING` or `WSTRING` itself (`docs/IEC_DECISIONS.md` 2026-10-17).
+fn builtin_primitive(data: &TypeData) -> Option<u16> {
+    match *data {
+        TypeData::Primitive {
+            prim_id,
+            max_length: 0,
+        } => Some(prim_id),
+        TypeData::Primitive {
+            prim_id: prim_id @ (24 | 25),
+            max_length: crate::value::DEFAULT_STRING_CAPACITY,
+        } => Some(prim_id),
+        _ => None,
+    }
 }
 
 fn collect_owner_indexes<'a>(

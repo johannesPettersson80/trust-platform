@@ -24,7 +24,6 @@ members = [
 ]
 exclude = [
     "third_party/tiverse-mmap",
-    "firmware/trust-nucleo-f401re",
     "firmware/trust-stm32f407",
     "firmware/trust-esp32c6-reference",
 ]

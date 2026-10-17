@@ -1,10 +1,15 @@
 //! Stage bound values/windows, never the unused storage or process image.
 use super::super::cycle_port::{CycleAccess, CycleHooks, CyclePhase, OutputUndo};
+use super::super::destinations::{Key, SavedDestinations};
 use super::*;
 use crate::io_image::PreparedIoBinding;
+use crate::value::ValueRefView;
 
 /// One staged change of the process image: the bytes or the bit of a flat window, or one
-/// hierarchical key. Every check runs when a patch is built, so applying it cannot fail.
+/// hierarchical key. Every check runs when a patch is built, so applying it cannot fail. The
+/// scan stages into `ImageStaging`; a binding-only update takes the patches it staged as
+/// these owned values. Each staged patch is charged as one of these (spec 34 TIME-08).
+#[cfg_attr(not(feature = "std"), allow(dead_code))]
 pub(in crate::vm::engine) enum OutputPatch {
     Flat {
         area: IoArea,
@@ -17,6 +22,7 @@ pub(in crate::vm::engine) enum OutputPatch {
 
 /// Write a staged patch into the images. The window was checked against the length of the image
 /// it is applied to when the patch was built.
+#[cfg(feature = "std")]
 pub(in crate::vm::engine) fn apply_output_patch(images: &mut ProcessImages, patch: OutputPatch) {
     match patch {
         OutputPatch::Hierarchical(key, value) => {
@@ -27,18 +33,220 @@ pub(in crate::vm::engine) fn apply_output_patch(images: &mut ProcessImages, patc
             start,
             bytes,
             bit,
-        } => {
-            let image = match area {
-                IoArea::Output => &mut images.outputs,
-                _ => &mut images.memory,
-            };
-            if let Some(bit) = bit {
-                let mask = 1u8 << bit;
-                image[start] = (image[start] & !mask) | (bytes[0] & mask);
-            } else {
-                image[start..start + bytes.len()].copy_from_slice(&bytes);
+        } => write_window(images, area, start, &bytes, bit),
+    }
+}
+
+/// Write one checked flat window, or only its bit, into the output or marker image.
+fn write_window(
+    images: &mut ProcessImages,
+    area: IoArea,
+    start: usize,
+    bytes: &[u8],
+    bit: Option<u8>,
+) {
+    let image = match area {
+        IoArea::Output => &mut images.outputs,
+        _ => &mut images.memory,
+    };
+    if let Some(bit) = bit {
+        let mask = 1u8 << bit;
+        image[start] = (image[start] & !mask) | (bytes[0] & mask);
+    } else {
+        image[start..start + bytes.len()].copy_from_slice(bytes);
+    }
+}
+
+/// One sampled input value and the slot its binding's persistent reference names (census
+/// S1, S2). The reference's path stays in the prepared module.
+pub(in crate::vm::engine) struct StagedInput {
+    location: MemoryLocation,
+    offset: usize,
+    ref_idx: u32,
+    value: Value,
+}
+
+impl StagedInput {
+    fn path<'p>(&self, prepared: &'p PreparedModule) -> &'p [RefSegment] {
+        persistent_path(prepared, self.ref_idx)
+    }
+
+    fn view<'p>(
+        &self,
+        prepared: &'p PreparedModule,
+        generation: crate::memory::Generation,
+    ) -> ValueRefView<'p> {
+        ValueRefView {
+            location: self.location,
+            offset: self.offset,
+            generation,
+            path: self.path(prepared),
+        }
+    }
+}
+
+/// The path of a persistent reference; other references have none to stage.
+fn persistent_path(prepared: &PreparedModule, ref_idx: u32) -> &[RefSegment] {
+    match prepared.vm.refs.get(ref_idx as usize) {
+        Some(
+            VmRef::Global { path, .. } | VmRef::Retain { path, .. } | VmRef::Instance { path, .. },
+        ) => path,
+        _ => &[],
+    }
+}
+
+/// A staged patch whose flat bytes are in the byte buffer of `ImageStaging`.
+enum StagedPatch {
+    Flat {
+        area: IoArea,
+        start: usize,
+        offset: usize,
+        len: usize,
+        bit: Option<u8>,
+    },
+    Hierarchical(IoAddressKey, Value),
+}
+
+/// Process-image staging that construction reserves for the bindings and every scan reuses
+/// (spec 34 MEM-09; census S1 and S5 to S7): the sampled inputs, the snapshot of their
+/// destinations with its sorting keys, the staged output patches, one encoding window and the
+/// bytes of every staged window. A scan leaves it empty with its storage kept.
+#[derive(Default)]
+pub(in crate::vm::engine) struct ImageStaging {
+    inputs: Vec<StagedInput>,
+    keys: Vec<Key>,
+    saved: SavedDestinations,
+    patches: Vec<StagedPatch>,
+    window: Vec<u8>,
+    bytes: Vec<u8>,
+}
+
+/// The staging that the bindings of a prepared module use in one scan.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(in crate::vm::engine) struct StagingDemand {
+    /// `%I` and `%M` bindings, sampled at each scan start.
+    pub(in crate::vm::engine) inputs: usize,
+    /// `%Q` and `%M` bindings, published at each scan end.
+    pub(in crate::vm::engine) outputs: usize,
+    /// The widest flat `%Q` or `%M` window.
+    pub(in crate::vm::engine) window: usize,
+    /// The bytes of all flat `%Q` and `%M` windows together.
+    pub(in crate::vm::engine) bytes: usize,
+}
+
+impl StagingDemand {
+    /// Count the bindings and their flat windows. An address whose window is invalid stays
+    /// out of the sums; the scan refuses it exactly as before.
+    pub(in crate::vm::engine) fn of(bindings: &[PreparedIoBinding]) -> Option<Self> {
+        let mut demand = Self::default();
+        for binding in bindings {
+            let address = &binding.address;
+            if matches!(address.area, IoArea::Input | IoArea::Memory) {
+                demand.inputs = demand.inputs.checked_add(1)?;
+            }
+            if !matches!(address.area, IoArea::Output | IoArea::Memory) {
+                continue;
+            }
+            demand.outputs = demand.outputs.checked_add(1)?;
+            if let Ok(Some(end)) = address.flat_byte_end() {
+                let width = (end as usize).saturating_sub(address.byte as usize);
+                demand.window = demand.window.max(width);
+                demand.bytes = demand.bytes.checked_add(width)?;
             }
         }
+        Some(demand)
+    }
+
+    /// The bytes that `ImageStaging::reserve` takes for this demand.
+    pub(in crate::vm::engine) fn reservation_bytes(self) -> Option<usize> {
+        let inputs = self.inputs.checked_mul(
+            core::mem::size_of::<StagedInput>()
+                + core::mem::size_of::<Key>()
+                + core::mem::size_of::<(Key, Value)>(),
+        )?;
+        let outputs = self
+            .outputs
+            .checked_mul(core::mem::size_of::<StagedPatch>())?;
+        inputs
+            .checked_add(outputs)?
+            .checked_add(self.window)?
+            .checked_add(self.bytes)
+    }
+}
+
+impl ImageStaging {
+    /// Reserve the staging of `demand` at construction.
+    pub(in crate::vm::engine) fn reserve(
+        &mut self,
+        demand: StagingDemand,
+    ) -> Result<(), RuntimeError> {
+        let refused = |_| crate::vm::VmTrap::BudgetExceeded.into_runtime_error();
+        self.inputs
+            .try_reserve_exact(demand.inputs)
+            .map_err(refused)?;
+        self.keys
+            .try_reserve_exact(demand.inputs)
+            .map_err(refused)?;
+        self.saved.reserve_storage(demand.inputs)?;
+        self.patches
+            .try_reserve_exact(demand.outputs)
+            .map_err(refused)?;
+        self.window
+            .try_reserve_exact(demand.window)
+            .map_err(refused)?;
+        self.bytes.try_reserve_exact(demand.bytes).map_err(refused)
+    }
+
+    /// Empty every part, keeping its storage.
+    fn clear(&mut self) {
+        self.inputs.clear();
+        self.keys.clear();
+        self.saved.clear();
+        self.patches.clear();
+        self.window.clear();
+        self.bytes.clear();
+    }
+
+    /// Apply the staged patches in binding order.
+    fn apply(&mut self, images: &mut ProcessImages) {
+        for patch in self.patches.drain(..) {
+            match patch {
+                StagedPatch::Hierarchical(key, value) => {
+                    images.hierarchical.insert(key, value);
+                }
+                StagedPatch::Flat {
+                    area,
+                    start,
+                    offset,
+                    len,
+                    bit,
+                } => write_window(images, area, start, &self.bytes[offset..offset + len], bit),
+            }
+        }
+    }
+
+    /// The staged patches as owned values, for a binding-only update to apply at its commit.
+    #[cfg(feature = "std")]
+    fn take_patches(&mut self) -> Vec<OutputPatch> {
+        let bytes = &self.bytes;
+        self.patches
+            .drain(..)
+            .map(|patch| match patch {
+                StagedPatch::Hierarchical(key, value) => OutputPatch::Hierarchical(key, value),
+                StagedPatch::Flat {
+                    area,
+                    start,
+                    offset,
+                    len,
+                    bit,
+                } => OutputPatch::Flat {
+                    area,
+                    start,
+                    bytes: bytes[offset..offset + len].to_vec(),
+                    bit,
+                },
+            })
+            .collect()
     }
 }
 
@@ -56,69 +264,93 @@ impl EngineState<'_> {
     }
 
     pub(in crate::vm::engine) fn sample_input_image(&mut self) -> Result<(), RuntimeError> {
+        // The reserved staging is taken out for the scan and returned empty.
+        let mut staging = core::mem::take(&mut self.data.resources.staging);
+        let result = self.sample_inputs(&mut staging);
+        staging.clear();
+        self.data.resources.staging = staging;
+        result
+    }
+
+    fn sample_inputs(&mut self, staging: &mut ImageStaging) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
         let count = prepared
             .io_bindings
             .iter()
             .filter(|binding| matches!(binding.address.area, IoArea::Input | IoArea::Memory))
             .count();
+        // The staged values are charged as the owned reference/value pairs they replace.
         self.charge_allocation_bytes(
             count
                 .checked_mul(size_of::<(ValueRef, Value)>())
                 .ok_or_else(|| RuntimeError::Overflow)?,
         )?;
-        let mut writes = Vec::new();
-        writes
+        staging
+            .inputs
             .try_reserve_exact(count)
             .map_err(|_| RuntimeError::Overflow)?;
         for binding in &prepared.io_bindings {
             if !matches!(binding.address.area, IoArea::Input | IoArea::Memory) {
                 continue;
             }
-            let reference = self.persistent_io_reference(binding.ref_idx)?;
+            let reference = self.persistent_io_view(binding.ref_idx)?;
             let value = binding
                 .codec
                 .decode(self.read_image_address(&binding.address)?)?;
-            self.check_write(reference.as_view(), &value)?;
+            self.check_write(reference, &value)?;
             let value = match binding.type_id {
                 Some(ty) => self.normalize_assignment_value(ty, value)?,
                 None => value,
             };
-            writes.push((reference, value));
+            staging.inputs.push(StagedInput {
+                location: reference.location,
+                offset: reference.offset,
+                ref_idx: binding.ref_idx,
+                value,
+            });
         }
         // Admitted I/O codecs produce scalars or byte strings, never instance or
         // reference roots, so these physical destinations cannot redirect each other.
-        let saved = self
-            .snapshot_input_destinations(writes.iter().map(|(reference, _)| reference.as_view()))?;
-        for (reference, value) in writes {
+        let generation = self.data.storage.generation();
+        self.snapshot_input_destinations(
+            staging
+                .inputs
+                .iter()
+                .map(|input| input.view(prepared, generation)),
+            &mut staging.keys,
+            &mut staging.saved,
+        )?;
+        for input in staging.inputs.drain(..) {
+            let path = input.path(prepared);
+            let StagedInput {
+                location,
+                offset,
+                value,
+                ..
+            } = input;
+            let capacity = self.declared_string_capacity(crate::value::ValueRefView {
+                location,
+                offset,
+                generation: self.data.storage.generation(),
+                path,
+            });
             let result = self
-                .charge_storage_path_write(
-                    &self.data.storage,
-                    reference.location,
-                    reference.offset as usize,
-                    &reference.path,
-                    &value,
-                )
+                .charge_storage_path_write(&self.data.storage, location, offset, path, &value)
                 .and_then(|()| {
-                    let prepared = self
+                    let write = self
                         .data
                         .storage
-                        .prepare_by_ref_parts_write(
-                            reference.location,
-                            reference.offset as usize,
-                            &reference.path,
-                            &value,
-                        )?
+                        .prepare_by_ref_parts_write(location, offset, path, &value)?
                         .ok_or_else(|| RuntimeError::NullReference)?;
                     self.check_entry_deadline()?;
                     self.data
                         .storage
-                        .commit_prepared_write(&reference.path, value, prepared)
+                        .commit_prepared_write(path, value, write, capacity)
                         .then_some(())
                         .ok_or_else(|| RuntimeError::NullReference)
                 });
             if let Err(error) = result {
-                self.restore_destinations(None, saved);
+                self.restore_destinations(None, &mut staging.saved);
                 return Err(error);
             }
         }
@@ -158,6 +390,20 @@ impl EngineState<'_> {
         hooks: &mut dyn CycleHooks,
         markers_only: bool,
     ) -> Result<(), RuntimeError> {
+        // The reserved staging is taken out for the publication and returned empty.
+        let mut staging = core::mem::take(&mut self.data.resources.staging);
+        let result = self.publish_staged(&mut staging, hooks, markers_only);
+        staging.clear();
+        self.data.resources.staging = staging;
+        result
+    }
+
+    fn publish_staged(
+        &mut self,
+        staging: &mut ImageStaging,
+        hooks: &mut dyn CycleHooks,
+        markers_only: bool,
+    ) -> Result<(), RuntimeError> {
         let published = |binding: &PreparedIoBinding| {
             let area = binding.address.area;
             area == IoArea::Memory || (area == IoArea::Output && !markers_only)
@@ -166,18 +412,19 @@ impl EngineState<'_> {
             self.data.images.outputs.len(),
             self.data.images.memory.len(),
         ];
-        let patches = self.stage_patches(&published, windows)?;
+        self.stage_patches(staging, &published, windows)?;
         // The no-op composition retains its original publication checks/cost.
         self.check_entry_deadline()?;
         let output_hooks = hooks.has_output_hooks();
         let mut undo = Vec::new();
         if output_hooks {
-            let count = patches
+            let count = staging
+                .patches
                 .iter()
                 .filter(|patch| {
                     matches!(
                         patch,
-                        OutputPatch::Flat {
+                        StagedPatch::Flat {
                             area: IoArea::Output,
                             ..
                         }
@@ -191,14 +438,12 @@ impl EngineState<'_> {
             )?;
             undo.try_reserve_exact(count)
                 .map_err(|_| RuntimeError::PreparationLimit)?;
-            for patch in &patches {
+            for patch in &staging.patches {
                 self.save_output_patch(&mut undo, patch)?;
             }
         }
         // All fallible conversion/allocation/policy work precedes publication.
-        for patch in patches {
-            apply_output_patch(&mut self.data.images, patch);
-        }
+        staging.apply(&mut self.data.images);
         if output_hooks {
             // Provisional output views are callback-scoped. Preserve the hosted
             // rollback domain: flat Q only, not M/hierarchical state effects.
@@ -232,15 +477,16 @@ impl EngineState<'_> {
         Ok(())
     }
 
-    /// Stage, in binding order, the patches that publish the variables of the bindings that
-    /// `selected` accepts. Every fallible conversion, allocation and window check runs here and no
-    /// image changes. `windows` are the lengths of the flat output and marker images that the
-    /// patches will be applied to.
+    /// Stage into `staging`, in binding order, the patches that publish the variables of the
+    /// bindings that `selected` accepts. Every fallible conversion, allocation and window check
+    /// runs here and no image changes. `windows` are the lengths of the flat output and marker
+    /// images that the patches will be applied to.
     fn stage_patches(
         &mut self,
+        staging: &mut ImageStaging,
         selected: &dyn Fn(&PreparedIoBinding) -> bool,
         windows: [usize; 2],
-    ) -> Result<Vec<OutputPatch>, RuntimeError> {
+    ) -> Result<(), RuntimeError> {
         let prepared = self.prepared;
         let mut count = 0usize;
         for binding in &prepared.io_bindings {
@@ -253,8 +499,8 @@ impl EngineState<'_> {
                 .checked_mul(size_of::<OutputPatch>())
                 .ok_or_else(|| RuntimeError::Overflow)?,
         )?;
-        let mut patches = Vec::new();
-        patches
+        staging
+            .patches
             .try_reserve_exact(count)
             .map_err(|_| RuntimeError::Overflow)?;
         let mut hierarchical_count = 0usize;
@@ -267,52 +513,69 @@ impl EngineState<'_> {
             } else {
                 windows[1]
             };
-            let patch = self.binding_patch(binding, window)?;
-            if matches!(patch, OutputPatch::Hierarchical(..)) {
+            let patch = self.binding_patch(binding, window, staging)?;
+            if matches!(patch, StagedPatch::Hierarchical(..)) {
                 hierarchical_count += 1;
             }
-            patches.push(patch);
+            staging.patches.push(patch);
         }
         self.data
             .images
             .hierarchical
             .try_reserve(hierarchical_count)
             .map_err(|_| RuntimeError::Overflow)?;
-        Ok(patches)
+        Ok(())
     }
 
     /// The patch that publishes the current value of one binding's variable, encoded for the
     /// binding: it changes exactly the bytes, the bit or the hierarchical key that the binding
     /// covers. `window` is the length of the flat image of the binding's area that the patch will
-    /// be applied to.
+    /// be applied to; a flat patch's bytes go to the end of the staged bytes.
     fn binding_patch(
         &mut self,
         binding: &PreparedIoBinding,
         window: usize,
-    ) -> Result<OutputPatch, RuntimeError> {
-        let reference = self.persistent_io_reference(binding.ref_idx)?;
-        self.check_read(reference.as_view())?;
+        staging: &mut ImageStaging,
+    ) -> Result<StagedPatch, RuntimeError> {
+        let reference = self.persistent_io_view(binding.ref_idx)?;
+        self.check_read(reference)?;
         let source = self
             .data
             .storage
-            .read_by_ref_ref(&reference)
+            .read_by_ref_parts(reference.location, reference.offset, reference.path)
             .ok_or_else(|| RuntimeError::NullReference)?;
         self.charge_allocation_bytes(self.value_clone_charge(source, 0)?)?;
         let value = self
             .data
             .storage
-            .materialize_by_ref_ref(&reference)
+            .materialize_by_ref_parts(reference.location, reference.offset, reference.path)
             .ok_or_else(|| RuntimeError::NullReference)?;
         let value = binding.codec.encode(value, binding.address.size)?;
         if binding.address.path.len() > 1 {
             self.charge_hierarchical_entry(&binding.address)?;
-            Ok(OutputPatch::Hierarchical(
+            return Ok(StagedPatch::Hierarchical(
                 IoAddressKey::from(&binding.address),
                 value,
-            ))
-        } else {
-            self.encode_flat_patch(&binding.address, value, window)
+            ));
         }
+        let address = &binding.address;
+        if address.area == IoArea::Input {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        self.encode_flat_window(address, value, window, &mut staging.window)?;
+        let offset = staging.bytes.len();
+        staging
+            .bytes
+            .try_reserve(staging.window.len())
+            .map_err(|_| RuntimeError::Overflow)?;
+        staging.bytes.extend_from_slice(&staging.window);
+        Ok(StagedPatch::Flat {
+            area: address.area,
+            start: address.byte as usize,
+            offset,
+            len: staging.window.len(),
+            bit: matches!(address.size, crate::io_address::IoSize::Bit).then_some(address.bit),
+        })
     }
 
     /// Stage what a binding-only update owes the variables it binds to `%M`: the current value of
@@ -332,23 +595,28 @@ impl EngineState<'_> {
             binding.address.area == IoArea::Memory
                 && !previous.iter().any(|before| same_binding(before, binding))
         };
-        let patches = self.stage_patches(&added_or_changed, [0, memory_window])?;
-        self.check_entry_deadline()?;
-        Ok(patches)
+        let mut staging = core::mem::take(&mut self.data.resources.staging);
+        let result = self
+            .stage_patches(&mut staging, &added_or_changed, [0, memory_window])
+            .and_then(|()| self.check_entry_deadline())
+            .map(|()| staging.take_patches());
+        staging.clear();
+        self.data.resources.staging = staging;
+        result
     }
 
     fn save_output_patch(
         &self,
         undo: &mut Vec<OutputUndo>,
-        patch: &OutputPatch,
+        patch: &StagedPatch,
     ) -> Result<(), RuntimeError> {
         let saved = match patch {
-            OutputPatch::Flat {
+            StagedPatch::Flat {
                 area: IoArea::Output,
                 start,
-                bytes,
+                len,
                 ..
-            } => self.output_window_undo(*start, bytes.len())?,
+            } => self.output_window_undo(*start, *len)?,
             _ => return Ok(()),
         };
         self.push_output_undo(undo, saved)
@@ -438,7 +706,7 @@ impl EngineState<'_> {
                 IoArea::Output => self.data.images.outputs.len(),
                 IoArea::Memory => self.data.images.memory.len(),
             };
-            self.encode_flat_window(address, value, len)?;
+            self.encode_flat_window(address, value, len, &mut Vec::new())?;
         }
         self.check_entry_deadline()
     }
@@ -524,38 +792,23 @@ impl EngineState<'_> {
         }
         Ok(())
     }
-    /// The patch for a flat window of `len` bytes, the length of the image of the address's area.
-    fn encode_flat_patch(
-        &self,
-        address: &IoAddress,
-        value: Value,
-        len: usize,
-    ) -> Result<OutputPatch, RuntimeError> {
-        if address.area == IoArea::Input {
-            return Err(RuntimeError::TypeMismatch);
-        }
-        let bytes = self.encode_flat_window(address, value, len)?;
-        Ok(OutputPatch::Flat {
-            area: address.area,
-            start: address.byte as usize,
-            bytes,
-            bit: matches!(address.size, crate::io_address::IoSize::Bit).then_some(address.bit),
-        })
-    }
-
+    /// Encode the flat window of `address` into `bytes`, which keeps its storage, after
+    /// checking it against `len`, the length of the image of the address's area. The window's
+    /// bytes are charged as a new allocation (spec 34 TIME-08).
     fn encode_flat_window(
         &self,
         address: &IoAddress,
         value: Value,
         len: usize,
-    ) -> Result<Vec<u8>, RuntimeError> {
+        bytes: &mut Vec<u8>,
+    ) -> Result<(), RuntimeError> {
         self.check_image_window(address, len)?;
         let end = address
             .flat_byte_end()?
             .ok_or_else(|| RuntimeError::TypeMismatch)? as usize;
         let width = end - address.byte as usize;
         self.charge_allocation_bytes(width)?;
-        let mut bytes = Vec::new();
+        bytes.clear();
         bytes
             .try_reserve_exact(width)
             .map_err(|_| RuntimeError::Overflow)?;
@@ -568,8 +821,7 @@ impl EngineState<'_> {
             path: Vec::new(),
             wildcard: false,
         };
-        write_flat_image(&mut bytes, &local, value)?;
-        Ok(bytes)
+        write_flat_image(bytes, &local, value)
     }
 }
 

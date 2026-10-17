@@ -76,6 +76,10 @@ pub struct PreparedModule {
     pub(crate) io_bindings: Vec<crate::io_image::PreparedIoBinding>,
     pub(crate) limits: PreparationLimits,
     pub(crate) requires_wall_clock: bool,
+    /// The deepest operand stack of any POU body, and the most operands a body keeps below
+    /// a user call, from validation (construction reserves the operand stack from them).
+    pub(crate) max_operand_depth: usize,
+    pub(crate) max_call_operand_residue: Option<usize>,
     preparation_usage: PreparationUsage,
     indexes: indexes::PreparedIndexes,
     pub(crate) stdlib: crate::stdlib::StandardLibrary,
@@ -202,6 +206,7 @@ impl PreparedModule {
         limits: PreparationLimits,
         encoded_len: usize,
     ) -> Result<Self, RuntimeError> {
+        let stats = token.stats();
         preparation.metadata(token.view(), encoded_len)?;
         match (
             token.section(SectionId::StorageLayout),
@@ -348,6 +353,8 @@ impl PreparedModule {
             io_bindings,
             limits,
             requires_wall_clock,
+            max_operand_depth: stats.max_operand_depth,
+            max_call_operand_residue: stats.max_call_operand_residue,
             method_owners,
             recipes,
         })
