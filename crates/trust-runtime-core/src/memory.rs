@@ -228,6 +228,8 @@ mod access;
 mod execution_frames;
 mod frames;
 mod instances;
+/// Prepared cell layouts for the bounded value store (specification 34 §6.2).
+pub mod layout;
 mod references;
 pub(crate) use references::PreparedStorageWrite;
 mod storage;

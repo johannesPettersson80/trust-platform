@@ -1028,6 +1028,24 @@ A complete packed representation is not the first extraction step. First separat
 
 **MEM-10.** Use exclusive ownership of mutable execution state and an explicit borrow of immutable prepared metadata as the initial portable boundary. Prepare dense program/type/member/slot identities so bounded execution does not depend on lazy name-map insertion or OS `RwLock` caches. Host code may own or pin generations with `Arc` outside this boundary where its threading model requires it. Do not replace every host `Arc` with `Rc`, weaken host thread-safety, or duplicate instruction semantics to make one target compile. Audit transitive string/container ownership as well as direct core imports. [R22, R24]
 
+**Prepared cell layouts.** At preparation the shared engine computes, for every TYPE_TABLE entry, one
+layout of the cells that will hold its values: the cell count (a scalar is one cell), a structure's
+member ordinal to cell offset mapping with its nested compounds inline, an array's element stride and
+dimensions, its text leaves with their byte capacity, its reference and instance leaves, the length
+of a `STRUCT OVERLAP`'s byte backing, and whether the type can hold a reference or an instance so a
+later lifetime check skips scalar-only layouts. A `STRING[n]` leaf reserves `n` bytes and a
+`WSTRING[n]` leaf `2n` bytes of UTF-16 code units; a `STRING` or `WSTRING` declared without a length
+reserves 80 and 160 bytes (D-C1-1, D-C1-2), which supersedes the earlier `4 × n` unit. Globals, each
+instance template (a derived function block's template places its parent's cells first), each POU's
+locals and each initializer result map to a cell range of the persistent or the activation region,
+and a `REF_FIELD` member name resolves to a member ordinal at preparation. The prepared layout tables
+and the work of computing them are charged once at preparation, under the admitted profile's limits.
+A region's cells are only recorded at preparation, not charged: construction charges them when it
+reserves the region, so no storage is counted twice and the refusal points of large programs do not
+move. A program whose layout tables and other preparation demand exceed those limits is refused at
+preparation, never at run time. Nothing reads the layouts at run time yet, so stored values, outputs
+and faults are unchanged.
+
 **MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31]
 
 ### 6.2.1 B-R3 live storage and footprint refinement
