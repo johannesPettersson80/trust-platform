@@ -2,8 +2,9 @@
 //!
 //! Construction reserves one vector of each call-binding kind per call depth: the evaluated
 //! argument list, the parameter flags, the function and function-block output bindings, the
-//! prepared output targets and the prepared copy-back outputs. A binding takes the vector of its
-//! kind and call depth and returns it on every path, so a scan allocates none of them. Each kind
+//! prepared output targets, the prepared copy-back outputs and the standard-library values. A
+//! binding takes the vector of its kind and call depth and returns it on every path, so a scan
+//! allocates none of them. Each kind
 //! tracks its own outstanding count, so a nested call of the same kind takes the next depth's
 //! vector; a depth beyond the reservation falls back to a fresh vector, exactly as a binding
 //! without the reservation allocates today.
@@ -24,9 +25,12 @@ pub(crate) const KIND_FLAGS: usize = 1;
 /// The function output-binding kind index.
 #[cfg(test)]
 pub(crate) const KIND_FUNCTION_OUTPUTS: usize = 2;
+/// The standard-library values kind index.
+#[cfg(test)]
+pub(crate) const KIND_STDLIB_VALUES: usize = 6;
 /// The number of call-binding vector kinds.
 #[cfg(test)]
-pub(crate) const KIND_COUNT: usize = 6;
+pub(crate) const KIND_COUNT: usize = 7;
 
 /// The widest vector of each kind the reserved call scratch holds (spec 34 MEM-09).
 #[derive(Debug, Clone, Copy)]
@@ -106,6 +110,7 @@ pub struct CallScratch {
     fb_outputs: KindScratch<Vec<VmFbOutBinding>>,
     prepared_targets: KindScratch<PreparedTargets>,
     prepared_outputs: KindScratch<Vec<(VmWriteTarget, Value)>>,
+    stdlib_values: KindScratch<Vec<Value>>,
 }
 
 impl CallScratch {
@@ -130,6 +135,9 @@ impl CallScratch {
         })?;
         reserve_kind(&mut self.prepared_outputs.slots, levels, || {
             reserve_vec(sizes.params)
+        })?;
+        reserve_kind(&mut self.stdlib_values.slots, levels, || {
+            reserve_vec(sizes.args)
         })?;
         Ok(())
     }
@@ -208,6 +216,18 @@ impl CallScratch {
         self.prepared_outputs.recycle(outputs);
     }
 
+    /// Take the evaluated argument values of a standard-library call, empty (spec 34 MEM-09;
+    /// census C9). The engine binds the call's arguments into it and returns it on every path.
+    pub(crate) fn take_stdlib_values(&mut self) -> Vec<Value> {
+        self.stdlib_values.take()
+    }
+
+    /// Return the standard-library values of [`CallScratch::take_stdlib_values`], emptied.
+    pub(crate) fn recycle_stdlib_values(&mut self, mut values: Vec<Value>) {
+        values.clear();
+        self.stdlib_values.recycle(values);
+    }
+
     /// The reserved vectors still held per kind (test support).
     #[cfg(test)]
     pub(crate) fn held_counts(&self) -> [usize; KIND_COUNT] {
@@ -218,6 +238,7 @@ impl CallScratch {
             self.fb_outputs.held(),
             self.prepared_targets.held(),
             self.prepared_outputs.held(),
+            self.stdlib_values.held(),
         ]
     }
 
@@ -231,6 +252,7 @@ impl CallScratch {
             self.fb_outputs.peak,
             self.prepared_targets.peak,
             self.prepared_outputs.peak,
+            self.stdlib_values.peak,
         ]
     }
 
@@ -269,6 +291,11 @@ impl CallScratch {
                 core::mem::size_of::<Option<Vec<(VmWriteTarget, Value)>>>(),
                 sizes.params,
                 core::mem::size_of::<(VmWriteTarget, Value)>(),
+            ),
+            (
+                core::mem::size_of::<Option<Vec<Value>>>(),
+                sizes.args,
+                core::mem::size_of::<Value>(),
             ),
         ];
         let mut total = 0usize;

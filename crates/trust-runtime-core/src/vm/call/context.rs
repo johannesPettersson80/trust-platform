@@ -129,6 +129,17 @@ pub trait CallContext: ReferenceContext {
     /// Return the prepared outputs of [`CallContext::take_call_prepared_outputs`], emptied.
     fn recycle_call_prepared_outputs(&mut self, _outputs: Vec<(VmWriteTarget, Value)>) {}
 
+    /// Take the evaluated argument values of a standard-library call, empty (spec 34 MEM-09;
+    /// census C9). A composition that reserved call scratch hands one out, so a scan allocates
+    /// no standard-library value vector. The matching return is
+    /// [`CallContext::recycle_call_stdlib_values`].
+    fn take_call_stdlib_values(&mut self) -> Vec<Value> {
+        Vec::new()
+    }
+
+    /// Return the standard-library values of [`CallContext::take_call_stdlib_values`], emptied.
+    fn recycle_call_stdlib_values(&mut self, _values: Vec<Value>) {}
+
     /// Take the POU's edge-input plan into a reusable list (spec 34 MEM-09; census A5). A
     /// composition that keeps the prepared index reserves the list at construction; the
     /// default allocates it, as a composition without a prepared module does today.

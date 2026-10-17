@@ -51,6 +51,12 @@ fn reserved_call_scratch_serves_every_kind_from_its_reserved_storage() {
         SIZES.params,
         "prepared outputs"
     );
+    let stdlib_values = scratch.take_stdlib_values();
+    assert_eq!(
+        stdlib_values.capacity(),
+        SIZES.args,
+        "standard-library values"
+    );
 
     scratch.recycle_args(args);
     scratch.recycle_flags(flags);
@@ -58,6 +64,7 @@ fn reserved_call_scratch_serves_every_kind_from_its_reserved_storage() {
     scratch.recycle_fb_outputs(fb_outputs);
     scratch.recycle_prepared_targets(prepared_targets);
     scratch.recycle_prepared_outputs(prepared_outputs);
+    scratch.recycle_stdlib_values(stdlib_values);
     assert_eq!(scratch.held_counts(), [2; KIND_COUNT]);
 }
 
@@ -131,6 +138,49 @@ fn reservation_bytes_covers_the_depth_table_and_every_kind() {
     per_depth += SIZES.params * core::mem::size_of::<VmFbOutBinding>();
     per_depth += SIZES.params * core::mem::size_of::<Option<(VmWriteTarget, Option<u32>)>>();
     per_depth += SIZES.params * core::mem::size_of::<(VmWriteTarget, Value)>();
+    per_depth += SIZES.args * core::mem::size_of::<Value>();
     let table = KIND_COUNT * 2 * core::mem::size_of::<Vec<u8>>();
     assert_eq!(bytes, table + 2 * per_depth, "every kind is charged");
+}
+
+/// Spec 34 MEM-09 (§6.3 call scratch; census C9): the standard-library values come from the
+/// reserved scratch, sized for the most actual arguments of any call site, so a take within the
+/// reservation makes no allocation and the vector returns on recycle. Catches a kind that
+/// allocates on take, is sized below the call it must serve, or is dropped rather than pooled on
+/// return.
+#[test]
+fn standard_values_come_from_the_reserved_scratch() {
+    let mut scratch = CallScratch::default();
+    scratch.reserve(1, SIZES).unwrap();
+
+    let mut values = scratch.take_stdlib_values();
+    assert_eq!(values.capacity(), SIZES.args, "standard-library values");
+    let pointer = values.as_ptr();
+    for index in 0..SIZES.args {
+        values.push(Value::DInt(index as i32));
+    }
+    assert_eq!(
+        values.capacity(),
+        SIZES.args,
+        "the reservation holds the call"
+    );
+    assert!(
+        core::ptr::eq(values.as_ptr(), pointer),
+        "a take within the reservation makes no allocation"
+    );
+
+    scratch.recycle_stdlib_values(values);
+    assert_eq!(
+        scratch.held_counts()[KIND_STDLIB_VALUES],
+        1,
+        "the vector returns to the pool"
+    );
+    let reused = scratch.take_stdlib_values();
+    assert_eq!(
+        reused.capacity(),
+        SIZES.args,
+        "the reserved storage is reused"
+    );
+    assert_eq!(reused, Vec::<Value>::new(), "a returned vector is emptied");
+    assert_eq!(scratch.most_outstanding()[KIND_STDLIB_VALUES], 1);
 }

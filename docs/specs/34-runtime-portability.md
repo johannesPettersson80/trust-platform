@@ -1205,7 +1205,9 @@ its evaluated argument list, parameter flags, output bindings, preflighted targe
 outputs, sized for the largest call site — and a call takes its depth's scratch and returns it on
 every path (completion, trap, refusal and abort), so a scan allocates no argument, flag,
 output-binding, target or prepared-output vector, and every charge is unchanged (MEM-09;
-TIME-08).
+TIME-08). A standard function's arguments and a split function's outputs are bound into the call
+depth's reserved values, and a named argument is matched without building an uppercase name, with
+every result, count, charge and refusal unchanged (MEM-09; TIME-08).
 
 ### 6.4 Physical memory
 

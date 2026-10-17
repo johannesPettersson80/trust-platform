@@ -530,6 +530,17 @@ impl CallContext for EngineState<'_> {
             .call_scratch
             .recycle_prepared_outputs(outputs);
     }
+
+    fn take_call_stdlib_values(&mut self) -> Vec<Value> {
+        self.data.resources.call_scratch.take_stdlib_values()
+    }
+
+    fn recycle_call_stdlib_values(&mut self, values: Vec<Value>) {
+        self.data
+            .resources
+            .call_scratch
+            .recycle_stdlib_values(values);
+    }
     fn call_plan(
         &self,
         code_offset: u32,

@@ -502,10 +502,13 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// payloads and reads an edge-affected call's inputs and restores from reserved lists (census A3,
 /// A4, A5, C5). C1-3c2 reserves each call depth's binding scratch at construction, so a call takes
 /// its argument list, parameter flags, output bindings and prepared targets and outputs from that
-/// scratch (census C1, C3, C4, C5, C7). The call fixtures' later scans then allocate only what this
-/// slice leaves: the standard library's own argument vectors and split-function outputs (C9, C10),
-/// a reference output target's copied path (C8) and the output journal's destination root snapshots
-/// (C11), so their ceilings are 45, 13 and 12 allocator calls, measured on the builder. The first
+/// scratch (census C1, C3, C4, C5, C7). This slice gives the scratch a standard-library value kind,
+/// so a standard function's arguments and a split function's outputs bind into the call depth's
+/// reserved values and its named arguments match without building an uppercase name (census C9,
+/// C10), and the call fixtures' later scans allocate only what the later slices leave: a reference
+/// output target's copied path (C8) and the output journal's destination root snapshots (C11); the
+/// text functions' own results (C12, C13) do not appear, because the fixture calls no text
+/// function. Their ceilings are 34, 13 and 12 allocator calls, measured on the builder. The first
 /// scan is left out: with `std` it may still fill the storage field caches (spec 34 MEM-09 first-use
 /// growth).
 const CEILINGS: [(&str, usize, Calls); 6] = [
@@ -516,9 +519,9 @@ const CEILINGS: [(&str, usize, Calls); 6] = [
         "calls",
         1,
         Calls {
-            alloc: 45,
+            alloc: 34,
             realloc: 0,
-            dealloc: 45,
+            dealloc: 34,
         },
     ),
     (
