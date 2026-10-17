@@ -727,7 +727,7 @@ fn bind_vm_call_arguments_from_source(
     let params = module.pou_params(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
-    let mut locals = vec![Value::Null; pou.local_ref_count as usize];
+    let mut locals = runtime.take_optimized_call_locals(pou.local_ref_count as usize);
     let mut out_bindings = Vec::new();
     let mut present = vec![false; locals.len()];
     let capture_return = module.pou_has_return_slot(pou_id);

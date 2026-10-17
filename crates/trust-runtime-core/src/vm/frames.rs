@@ -1,7 +1,11 @@
 use alloc::vec::Vec;
 
+use crate::error::RuntimeError;
 use crate::memory::{FrameId, InstanceId};
 use crate::value::Value;
+
+pub(super) mod payloads;
+use payloads::FramePayloads;
 
 #[cfg(any(feature = "hir", test))]
 use super::materialize_borrowed_value;
@@ -108,6 +112,9 @@ pub struct FrameStack {
     /// against it rather than against the storage that construction reserved, so a
     /// reservation changes no charge or refusal (spec 34 TIME-08).
     charged_capacity: usize,
+    /// One reusable frame payload per call depth, reserved at construction (spec 34
+    /// MEM-03, MEM-09; census A3, A4).
+    payloads: FramePayloads,
     #[cfg(feature = "register-ir")]
     reserved_locals: Vec<Value>,
     #[cfg(feature = "register-ir")]
@@ -149,6 +156,7 @@ impl FrameStack {
                     .capacity()
                     .saturating_mul(core::mem::size_of::<bool>()),
             )
+            .saturating_add(self.payloads.storage_bytes())
     }
     /// Reserve invocation scratch during controller construction.
     #[cfg(feature = "register-ir")]
@@ -171,6 +179,33 @@ impl FrameStack {
         self.frames
             .try_reserve_exact(capacity.saturating_sub(self.frames.len()))
             .map_err(|_| VmTrap::BudgetExceeded)
+    }
+
+    /// Reserve one frame payload per call depth, each `slots` local slots wide (spec 34
+    /// MEM-09). Every later activation at a reserved depth takes its payload instead of
+    /// allocating.
+    pub(super) fn reserve_frame_payloads(
+        &mut self,
+        levels: usize,
+        slots: usize,
+    ) -> Result<(), RuntimeError> {
+        self.payloads.reserve(levels, slots)
+    }
+
+    /// Take the payload reserved for the next frame at `depth`, `count` local slots wide
+    /// (spec 34 MEM-03; census A3, A4). The frame returns it when it is popped.
+    pub(super) fn take_frame_payload(
+        &mut self,
+        depth: usize,
+        count: usize,
+    ) -> (Vec<Value>, Vec<bool>) {
+        self.payloads.take(depth, count)
+    }
+
+    /// The per-depth frame payload store, for tests of the reserved payloads.
+    #[cfg(test)]
+    pub(super) fn frame_payloads(&self) -> &payloads::FramePayloads {
+        &self.payloads
     }
 
     /// An empty stack charged as this one, with storage only for its charged capacity, as a
@@ -301,9 +336,17 @@ impl FrameStack {
         self.reserved_parameter_presence = frame.parameter_values_present;
     }
 
-    /// Remove every active frame.
+    /// Remove every active frame, returning each depth's payload (spec 34 MEM-03).
     pub fn clear(&mut self) {
-        self.frames.clear();
+        for (depth, mut frame) in self.frames.drain(..).enumerate() {
+            if self.payloads.is_out(depth) {
+                self.payloads.reclaim(
+                    depth,
+                    core::mem::take(&mut frame.locals),
+                    core::mem::take(&mut frame.parameter_values_present),
+                );
+            }
+        }
     }
 
     pub(super) fn growth_demand(&self) -> Result<(usize, usize), VmTrap> {
@@ -355,9 +398,24 @@ impl FrameStack {
         Ok(())
     }
 
-    /// Pop the current frame.
+    /// Pop the current frame, returning the reserved payload it took, if any, to its depth
+    /// (spec 34 MEM-03; census A3, A4). Return, trap, fault and abort all reach the frame
+    /// through here.
     pub fn pop(&mut self) -> Result<VmFrame, VmTrap> {
-        self.frames.pop().ok_or_else(|| VmTrap::CallStackUnderflow)
+        let depth = self
+            .frames
+            .len()
+            .checked_sub(1)
+            .ok_or(VmTrap::CallStackUnderflow)?;
+        let mut frame = self.frames.pop().ok_or(VmTrap::CallStackUnderflow)?;
+        if self.payloads.is_out(depth) {
+            self.payloads.reclaim(
+                depth,
+                core::mem::take(&mut frame.locals),
+                core::mem::take(&mut frame.parameter_values_present),
+            );
+        }
+        Ok(frame)
     }
 
     /// Borrow the current frame.

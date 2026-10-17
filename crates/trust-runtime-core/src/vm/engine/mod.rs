@@ -1,4 +1,5 @@
 //! Single-owner state executing a prepared source-free artifact.
+use super::call::context::VmEdgeInput;
 use super::{
     dispatch::ExecutionBuffers, edge::EdgeInputTransaction, module::invalid_bytecode,
     PreparedModule, VmFrame,
@@ -14,6 +15,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use smol_str::SmolStr;
 
 mod access;
 mod retain_apply;
@@ -105,6 +107,10 @@ struct ProcessImages {
 struct ExecutionResources {
     buffers: Vec<ExecutionBuffers>,
     frame_locals: scratch::FrameLocals,
+    /// Reusable edge-input plan of one call, empty between calls (spec 34 MEM-09).
+    edge_inputs: Vec<VmEdgeInput>,
+    /// Reusable originals of one edge-affected call, empty between calls.
+    edge_restores: Vec<(SmolStr, Value)>,
     ready_tasks: Vec<crate::cycle::ReadyTask>,
     constructed_values: usize,
     work_budget: crate::vm::budget::ExecutionBudget,
@@ -210,6 +216,8 @@ impl<'a> EngineState<'a> {
             resources: ExecutionResources {
                 buffers: Vec::new(),
                 frame_locals: scratch::FrameLocals::default(),
+                edge_inputs: Vec::new(),
+                edge_restores: Vec::new(),
                 ready_tasks: Vec::new(),
                 constructed_values: 0,
                 // TIME-09: construction is one entry under its own allowance.

@@ -16,7 +16,10 @@ pub struct EdgeInputTransaction {
 }
 
 impl EdgeInputTransaction {
-    /// Apply edge-input transitions while retaining values for restoration.
+    /// Apply edge-input transitions while retaining values for restoration. The edge-input
+    /// plan is read from the prepared index into the composition's reusable list, and the
+    /// saved originals go into its reusable restore list, so a scan allocates neither
+    /// (spec 34 MEM-09; census A5).
     pub fn begin(
         runtime: &mut impl CallContext,
         module: &VmModule,
@@ -29,15 +32,18 @@ impl EdgeInputTransaction {
         let Some(owner) = module.pou_name(pou_id) else {
             return Ok(None);
         };
-        let inputs = runtime.edge_inputs_for_pou(module, pou_id, owner);
+        let inputs = runtime.take_edge_inputs_for_pou(module, pou_id, owner);
         if inputs.is_empty() {
+            runtime.recycle_edge_inputs(inputs);
             return Ok(None);
         }
         // Edge qualification mutates both the visible input and hidden phase.
         runtime.check_builtin_call(instance_id)?;
 
-        let mut restores = Vec::with_capacity(inputs.len());
-        for input in inputs {
+        let mut restores = runtime.take_edge_restores();
+        restores.clear();
+        let mut mismatched = false;
+        for input in &inputs {
             let Some(raw) = runtime
                 .storage()
                 .get_instance_var(instance_id, input.name.as_str())
@@ -46,12 +52,12 @@ impl EdgeInputTransaction {
                 continue;
             };
             let Value::Bool(raw) = raw else {
-                return Err(RuntimeError::TypeMismatch);
+                mismatched = true;
+                break;
             };
-            let phase_name = input.phase_name;
             let previous = runtime
                 .storage()
-                .get_instance_var(instance_id, phase_name.as_str())
+                .get_instance_var(instance_id, input.phase_name.as_str())
                 .and_then(|value| match value {
                     Value::Bool(value) => Some(*value),
                     _ => None,
@@ -62,15 +68,21 @@ impl EdgeInputTransaction {
             } else {
                 !raw && previous
             };
-            runtime
-                .storage_mut()
-                .set_instance_var(instance_id, phase_name, Value::Bool(raw));
             runtime.storage_mut().set_instance_var(
                 instance_id,
-                input.name.clone(),
+                input.phase_name.as_str(),
+                Value::Bool(raw),
+            );
+            runtime.storage_mut().set_instance_var(
+                instance_id,
+                input.name.as_str(),
                 Value::Bool(pulse),
             );
-            restores.push((input.name, Value::Bool(raw)));
+            restores.push((input.name.clone(), Value::Bool(raw)));
+        }
+        runtime.recycle_edge_inputs(inputs);
+        if mismatched {
+            return Err(RuntimeError::TypeMismatch);
         }
 
         Ok(Some(Self {
@@ -79,12 +91,18 @@ impl EdgeInputTransaction {
         }))
     }
 
-    /// Restore original input values after the call while keeping updated edge phases.
+    /// Restore original input values after the call while keeping updated edge phases. The
+    /// reusable restore list goes back to the composition.
     pub fn restore(self, runtime: &mut impl CallContext) {
-        for (name, value) in self.restores {
+        let Self {
+            instance_id,
+            mut restores,
+        } = self;
+        for (name, value) in restores.drain(..) {
             runtime
                 .storage_mut()
-                .set_instance_var(self.instance_id, name, value);
+                .set_instance_var(instance_id, name, value);
         }
+        runtime.recycle_edge_restores(restores);
     }
 }

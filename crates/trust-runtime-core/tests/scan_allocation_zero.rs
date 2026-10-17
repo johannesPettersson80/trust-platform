@@ -510,10 +510,12 @@ static FAULT_CASES: [FaultCase; 8] = [
 /// process-image staging at construction, so the scalar program (one buffer per scan before, batch
 /// c1-2, 17 October 2026) and both GPIO artifacts (8 calls per scan in input and output staging)
 /// make none. C1-3b resolves each native call once, at preparation, so a call no longer builds an
-/// uppercase type-name key or a named-argument index vector; the call fixtures still allocate their
-/// argument, output and frame-payload vectors, which C1-3c's per-depth call scratch removes. The
-/// first scan is left out: with `std` it may still fill the storage field caches (spec 34 MEM-09
-/// first-use growth).
+/// uppercase type-name key or a named-argument index vector; C1-3c gives a call frame the payload of
+/// its depth from construction's reservation, takes a user function's or method's locals from those
+/// payloads and reads an edge-affected call's inputs and restores from reserved lists (census A3,
+/// A4, A5, C5). The call fixtures still allocate their argument and output vectors (census C1,
+/// C4, C7 to C11), which the call-scratch slice removes. The first scan is left out: with `std` it
+/// may still fill the storage field caches (spec 34 MEM-09 first-use growth).
 const CEILINGS: [(&str, usize, Calls); 6] = [
     ("scalar", 1, Calls::ZERO),
     ("gpio", 1, Calls::ZERO),
@@ -522,27 +524,27 @@ const CEILINGS: [(&str, usize, Calls); 6] = [
         "calls",
         1,
         Calls {
-            alloc: 81,
+            alloc: 74,
             realloc: 0,
-            dealloc: 81,
+            dealloc: 74,
         },
     ),
     (
         "blocks",
         1,
         Calls {
-            alloc: 28,
+            alloc: 26,
             realloc: 0,
-            dealloc: 28,
+            dealloc: 26,
         },
     ),
     (
         "methods",
         1,
         Calls {
-            alloc: 23,
+            alloc: 19,
             realloc: 0,
-            dealloc: 23,
+            dealloc: 19,
         },
     ),
 ];

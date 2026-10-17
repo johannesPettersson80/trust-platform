@@ -160,7 +160,11 @@ fn copy_call_inputs(
                 "parameter presence exceeds frame capacity",
             ));
         }
-        frame.parameter_values_present = present.to_vec();
+        // Write into the frame's own presence storage rather than replacing it, so an
+        // activation that took a reserved payload makes no allocation (spec 34 MEM-03;
+        // census A4). The bits are the same either way.
+        frame.parameter_values_present.clear();
+        frame.parameter_values_present.extend_from_slice(present);
     }
     Ok(())
 }

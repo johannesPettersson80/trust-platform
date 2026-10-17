@@ -72,6 +72,8 @@ struct ScratchPlan {
     types: usize,
     /// Destinations of one output copy-back group: the most parameters of any POU.
     journal: usize,
+    /// The most edge inputs of any POU: one edge-input list and one restore list.
+    edges: usize,
     staging: StagingDemand,
 }
 
@@ -101,6 +103,20 @@ impl ScratchPlan {
             .map(Vec::len)
             .max()
             .unwrap_or(0);
+        // `PouMap::keys` exists only with the register feature, so iterate the identity and
+        // payload pairs and ignore the payloads; clippy's `keys()` suggestion does not
+        // compile on the chips.
+        #[allow(
+            clippy::iter_kv_map,
+            reason = "PouMap::keys exists only with register-ir"
+        )]
+        let edges = prepared
+            .vm
+            .pou_by_id
+            .iter()
+            .map(|(pou, _)| prepared.edge_inputs(*pou).len())
+            .max()
+            .unwrap_or(0);
         Ok(Self {
             levels,
             operands,
@@ -108,6 +124,7 @@ impl ScratchPlan {
             initializers: levels,
             types: crate::bytecode::BYTECODE_MAX_TYPE_NESTING + 1,
             journal,
+            edges,
             staging: StagingDemand::of(&prepared.io_bindings).ok_or(RuntimeError::Overflow)?,
         })
     }
@@ -120,6 +137,16 @@ impl ScratchPlan {
             .levels
             .checked_mul(core::mem::size_of::<Vec<Value>>())?
             .checked_add(self.slots.checked_mul(core::mem::size_of::<Value>())?)?;
+        // One frame payload per call depth, `levels` local slots and presence bits wide.
+        let frame_payloads =
+            crate::vm::frames::payloads::FramePayloads::reservation_bytes(self.levels, self.slots)?;
+        // One edge-input list and one restore list, the most edge inputs of any POU.
+        let edge_input = core::mem::size_of::<crate::vm::call::context::VmEdgeInput>();
+        let edge_restore =
+            core::mem::size_of::<smol_str::SmolStr>().checked_add(core::mem::size_of::<Value>())?;
+        let edges = self
+            .edges
+            .checked_mul(edge_input.checked_add(edge_restore)?)?;
         let initializers = self.initializers.checked_mul(
             core::mem::size_of::<ActiveInitializer>() + core::mem::size_of::<VmFrame>(),
         )?;
@@ -129,6 +156,8 @@ impl ScratchPlan {
         let journal = SavedDestinations::allocation_bytes(self.journal).ok()?;
         buffer
             .checked_add(frame_locals)?
+            .checked_add(frame_payloads)?
+            .checked_add(edges)?
             .checked_add(initializers)?
             .checked_add(types)?
             .checked_add(journal)?
@@ -148,10 +177,25 @@ impl EngineState<'_> {
         buffers
             .reserve(plan.operands, plan.levels)
             .map_err(VmTrap::into_runtime_error)?;
+        // One frame payload per call depth, so a stack activation takes one instead of
+        // allocating (spec 34 MEM-03; census A3, A4).
+        buffers
+            .frames
+            .reserve_frame_payloads(plan.levels, plan.slots)?;
         let resources = &mut self.data.resources;
         resources.buffers.try_reserve_exact(1).map_err(refused)?;
         resources.buffers.push(buffers);
         resources.frame_locals.reserve(plan.levels, plan.slots)?;
+        // One edge-input list and one restore list, reused by every edge-affected call
+        // (spec 34 MEM-09; census A5).
+        resources
+            .edge_inputs
+            .try_reserve_exact(plan.edges)
+            .map_err(refused)?;
+        resources
+            .edge_restores
+            .try_reserve_exact(plan.edges)
+            .map_err(refused)?;
         resources.spare_journal.reserve_storage(plan.journal)?;
         resources.staging.reserve(plan.staging)?;
         let construction = &mut self.data.construction;
