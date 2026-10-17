@@ -52,8 +52,20 @@ package, or end-to-end evidence.
 
 ## 2. Discover
 
+- `Search` runs one search (specification 11, "One search, device identity,
+  and presence") over every source its origin can run. Each source shows
+  `searching`, `{n} found`, `timed out`, or `skipped` with its reason, using the
+  reason texts below. `Scan from` chooses this computer or a runtime. The
+  per-type checkboxes become an optional `Only search` list, which keeps the
+  remembered selection.
+- Fieldbus scans (EtherCAT, Modbus RTU) are not part of the automatic search.
+  Each runs only after the user confirms a scan of that bus, and the
+  confirmation names the bus, the adapter or port, and what the scan does.
+- Results appear while the search runs, one card per device with every protocol
+  found on it (§5.14).
 - Discover MUST offer separate Modbus operations for a known host/port and a
-  caller-supplied CIDR subnet.
+  caller-supplied CIDR subnet; they are optional targets of the search under
+  `Known address or subnet`.
 - A discovered runtime card MUST show one actionable host/port value, omit a
   visible `tcp://` prefix, and wrap long endpoints.
 - Other candidate cards MUST show human-readable protocol, discovery-source,
@@ -250,7 +262,10 @@ package, or end-to-end evidence.
   webview or runtime-rendered strings.
 - Lifecycle ownership is exact: Simulator and managed-local targets use
   Start/Stop because the extension owns their processes; unowned remote targets
-  use Connect/Disconnect because the extension owns only their sessions.
+  use Connect/Disconnect because the extension owns only their sessions. A chip
+  (specification 34 STATE-08) offers both: Connect/Disconnect for the session,
+  and Start/Stop for its program, sent as the `restart` and `shutdown`
+  requests.
   Transitional lifecycle state disables the primary action. An unreachable or
   endpoint-less remote keeps Connect visible but disabled with a recovery
   reason. A managed runtime whose status is unavailable keeps Start visible but
@@ -277,14 +292,17 @@ package, or end-to-end evidence.
 - Runtime-node controls retain the same ownership rules. They offer
   `Set as run target` and Settings, offer Logs only when a log backend exists,
   and make credential recovery primary after an authentication failure without
-  inventing remote process ownership. At most two secondary controls are
-  visible before the remainder moves behind `More actions`.
+  inventing remote process ownership. Their placement in the inspector is
+  §5.12.
 
 ### 5.2 Setup tasks and stable panes
 
-- The setup wizard offers Connect existing and local managed runtime in v1.
-  SSH install and Docker remain visible but unavailable with reasons. Wording
-  is generic to another computer/controller and avoids IPC-only jargon.
+- The setup wizard offers Connect existing and local managed runtime in v1,
+  and `Install truST on a chip` for every chip of truST's chip files (§5.12).
+  SSH install and Docker remain visible but unavailable with reasons, and show
+  their details `Install on another computer over SSH.` and
+  `Run the runtime as a container.`. Wording is generic to another
+  computer/controller and avoids IPC-only jargon.
 - Setup slots read `Set up runtime`, `Add connection`, and `Add host`. Add host
   occupies the host body row without overlapping header/setup slots.
 - Runtime setup uses shared inspector/header/section/button/help chrome and the
@@ -348,7 +366,12 @@ package, or end-to-end evidence.
   there is no valid selection or a browse/route error blocks the operation.
 - ADS route recovery stays inline in Browse, offers `Create route`, and
   explains TwinCAT administrator/manual PowerShell requirements without
-  referring to the retired ADS panel.
+  referring to the retired ADS panel. `Create route` creates the route (owner,
+  16 October 2026), as TwinCAT's own Add Route does: it asks once for the
+  TwinCAT computer's administrator login and sends it only to the guarded
+  `ads.route_add` operation of specification 11, which never stores or echoes
+  it; then Browse retries. The generated PowerShell route stays available as
+  the alternative.
 - OPC UA authentication failures offer `Edit credentials` and reopen the form
   with the failed target prefilled.
 - ADS and OPC UA browse each receive one configured client connection, not the
@@ -513,9 +536,12 @@ package, or end-to-end evidence.
 - Runtime discovery is a separate action, not a protocol card. Empty picker
   groups are omitted. Unknown protocols are never dropped and appear last in
   an advanced `Other choices` group.
-- The canonical nonempty group order is `Devices and I/O`,
+- The canonical nonempty group order is `Runtimes` (§5.14), `Devices and I/O`,
   `Read tags from another PLC or server`, `Share truST values`,
-  `Send and receive messages`, and `Advanced integrations`.
+  `Send and receive messages`, and `Advanced integrations`. Entry titles,
+  badges, and purposes stay as listed here; new entries (chips, `Modbus RTU`,
+  an EtherCAT device from its ESI file) are added beside them, never in their
+  place. Picker and form texts both come from the Rust catalog.
 - Within the tested canonical taxonomy, `Devices and I/O` orders Modbus TCP
   before GPIO; client choices belong to `Read tags from another PLC or
   server`, server choices belong to `Share truST values`, MQTT belongs to
@@ -547,6 +573,229 @@ package, or end-to-end evidence.
 - An unreachable OPC UA client test reports that the OPC UA server is not
   reachable and MUST NOT expose raw backend status tokens such as
   `BadNotConnected`.
+
+### 5.11 Layout of the redesigned panel
+
+The owner approved this design on 16 October 2026 from a mockup, with the
+condition that no information is lost (§5.16): "im happy with it, but you need
+tomake sure we dont loose any information".
+
+- The panel keeps its tab title `Devices & Connections`; Live Values chooses
+  its column by that title (§4.1).
+- A toolbar runs across the top: the project name; search with `Clear search`;
+  `Filter`; the issues button; a `Topology`/`List` switch; `Discover`;
+  `+ Add`; and `Edit`/`Done`. The `truST` wordmark is not repeated.
+- The project name lists the truST projects of the workspace; choosing one
+  shows that project. Rust uses the chosen project for the topology, the
+  configuration, and the runtimes this computer manages, so they can no longer
+  come from different folders.
+- Search covers computers, runtimes, connections, links, devices, signals, and
+  issues, with one dimming rule decided in Rust (§5.5); its placeholder is
+  `Search devices, connections, signals, issues`.
+- The summary strip on the canvas keeps the computer, runtime, and connection
+  counts and adds the running, fault, and warning counts.
+- Right-click on a runtime opens a small menu: `Add device or connection…`,
+  `Set as run target`, `Settings`, and `Focus`. Edit slots hide while the
+  inspector or another panel is open, as today (§5.3).
+- The canvas fills the left. It groups computers by network, draws each
+  computer as a frame holding its runtimes, and draws devices, links, the mesh
+  bus, the summary strip, the banner, and the zoom controls. Below the network
+  a tray lists the boards found on this computer's USB (§5.12).
+- One inspector panel, 380 px wide, fills the right while an item is selected.
+  It holds every fact and every action of that item. Only one right-hand panel
+  is open at a time; opening Add, Discover, Filter, a browse panel, or the
+  inspector closes the panel that was open, so panels never cover each other or
+  the canvas.
+- Colours come from the shared `--trust-*` roles and follow the VS Code dark,
+  light, and high-contrast themes. The dark rendering of the approved mockup is
+  the reference look. Every status colour comes with a word.
+- A fault appears once on its item and once in the issues list. The issues
+  button shows the number of faults and warnings and opens a list of all of
+  them, grouped by item, each with `Show` and its recovery action; it never
+  shows only the first fault. Lifecycle failures also keep their banner with
+  `Retry` and `Open logs` (§5.10).
+- `Show` and `Focus` zoom to the item. Tab reaches every item, Enter opens its
+  inspector, and Escape closes the open panel. A click on the empty canvas
+  closes the inspector. Dragged positions are kept for the project when the
+  panel is closed and opened again.
+- The canvas text and every inspector row stay readable at 100 % zoom in a
+  1280 × 800 window; long names wrap or end with an ellipsis and show the full
+  text on hover.
+
+### 5.12 Runtimes, computers, and chips
+
+Every runtime is drawn and handled the same way, whether it is the Simulator, a
+runtime this computer runs, a trust-runtime on another computer, or the truST
+firmware of a chip (specification 34 ARCH-11 and ARCH-14). Nothing in the panel
+is specific to boards.
+
+- Every host, a computer or a chip, can hold several runtimes (owner, 17
+  October 2026: "every host shall be able to have several runtimes"). Its
+  frame holds all of them side by side; nothing in the panel assumes one
+  runtime per host, and the `Runtimes` group of `+ Add` (§5.14) offers another
+  runtime on any host shown (specification 34 ARCH-15).
+- A computer frame is headed `This computer` or `Computer <IP>` (§5.5), or the
+  chip name and address for a chip, and shows the platform (board, operating
+  system and architecture, or chip) and a `Reachable`/`Unreachable` pill. Its
+  inspector shows the address, state, runtimes, connections, host name, board,
+  operating system and architecture, temperature, up time, and load when the
+  runtime reports them.
+- A runtime card shows its name, a kind icon (Simulator, computer, or chip), its
+  state with the current cycle time, its link and control address (host and
+  port, §5.1), the `Run target` badge when selected, and the pending or `DRAFT`
+  look of §5.3.
+  A card without connections shows `No devices yet` with the `+ Add` and
+  `Discover` hint.
+- The runtime inspector starts with its actions: the lifecycle action of §5.1
+  (a chip offers `Connect`/`Disconnect` for the session and `Start`/`Stop` for
+  its program, as the owner's plan of 16 October 2026 states), `Live Values`,
+  `Debug`, and `Deploy` (disabled with the §6.1 text until the backend exists).
+  `Set as run target`, `Settings`, `Logs` (only with a log backend), and `Focus`
+  follow as smaller buttons. Credential recovery becomes the primary action
+  after an authentication failure.
+- The runtime inspector then shows: state and detail; run target; mode; cycle
+  time and its maximum; link and control address; truST version and the update
+  it needs, if any (specification 34 TARGET-05); up time and fault count; the
+  access role with the write and force rights; and the connections count. A
+  chip adds its clock and its flash and RAM in use. `On this chip` lists the
+  components of its firmware from its chip file and greys out a component the
+  chip does not hold, naming it (specification 34 ARCH-14). Recent events come
+  from the runtime's event log (TARGET-07).
+- The USB tray lists the chips, debug probes, and USB-serial adapters found on
+  this computer's USB (specification 11, one search). A chip shows its name,
+  flash and RAM, and either its truST version or `No truST yet`, with
+  `Install truST`, `Update truST`, `Connect`, or `Show` as fits. Nothing is
+  written to a board until the user starts an installation.
+- `Install truST` opens the installation in the inspector (specification 34
+  TARGET-02, TARGET-04, TARGET-05, TARGET-09), in four steps: the chip found,
+  with its identity; installing the release firmware, with progress and the
+  checked SHA-256 sum; setting up the device settings of `device.toml` while it
+  installs (name, each network interface with DHCP or a fixed address, Wi-Fi
+  network and password where the chip has Wi-Fi, Bluetooth where it has it,
+  the time server, and the detected crystal and Ethernet PHY); and ready, after
+  which the chip appears as a runtime. Rust performs every step; the panel shows
+  progress and results.
+
+### 5.13 Connections and devices
+
+- A connection (an endpoint of §5.5) is a pill on its runtime that shows the
+  protocol and the connection's own name, a status dot, the role word of today's
+  tiles (`CLIENT`, `SERVER`, `MASTER`, `PUB/SUB`, `PEER`, `ADVERTISE`,
+  `SAME-HOST`, `POLICY`, `I/O`), and the `DRAFT` and `Disabled` marks.
+- Devices and systems at the other end (external and shared systems, and
+  EtherCAT SubDevices) are cards that show their name, what they present (for
+  example `MQTT broker`), their status, and, when the runtime reports them, the
+  last time they were seen and their response time. They can be dragged.
+- Links keep §5.7: dashed means not yet proven, a proven link is solid with the
+  tone of its status, and an arrow shows the direction. A secure link shows a
+  lock. Each link is labelled with its protocol, and its status and detail show
+  on hover and keyboard focus.
+- The connection inspector is titled with the connection's name and keeps the
+  summaries of §5.4 and §5.8. It adds the connector rows `Connection`,
+  `Health`, `Verification`, and `Signals` (§5.5) and, when reported, live
+  values, last seen, and response time.
+- The edit view keeps §5.4 and §5.9, shows advanced fields under an `Advanced`
+  heading (not collapsed), and keeps an edit in progress through live refreshes
+  (§5.3).
+- The runtime discovery settings (enable, service name, advertise, interfaces,
+  host group) are edited from the `Runtime discovery` connection of the
+  runtime, like any other connection.
+- An ADS connection offers `Test` and `Diagnose`; both run the ADS checks of
+  the ADS Doctor in Rust (UDP identify, TCP 48898, route, and read state). The
+  ADS browser shows the port suggestions (301 `I/O`, 501 `Motion`, 851
+  `PLC runtime 1`, 852 `PLC runtime 2`) and its help text under
+  `Advanced: browse another ADS port`, and the TwinCAT route help texts in the
+  card of a port whose route is missing (§5.4).
+- An OPC UA client connection is edited with all its fields, described by the
+  Rust schema: endpoint URL, security policy and mode, authentication, user
+  name, password, and certificate trust. `Edit credentials` opens this editor.
+- The EtherCAT bus keeps all its fields (adapter, timeout, cycle warning, on
+  error, modules, mock input frames, selected channels). A drive or terminal
+  is added to a configured bus from its ESI file.
+- Results of an action started in the panel appear in the pane that started
+  it; a failure may also raise a notification (§5.2).
+
+### 5.14 Add, Discover, issues, and the list
+
+- `+ Add` opens one dialog. Its catalog always comes from Rust, from the runtime
+  when one serves it and otherwise from `trust-runtime comm schema`, so it
+  works before anything runs; `Catalog unavailable` is reserved for a missing
+  `trust-runtime`. The groups are §5.9's, preceded by `Runtimes`: `Computer`
+  with `Connect existing runtime` and `Run a runtime on this computer`
+  (`Install over SSH` and `Run in Docker` stay visible as later, §5.2), and one
+  entry per chip of truST's chip files, which leads to `Install truST`. Results
+  of the last search appear at the top as `Found on the network`, each with its
+  protocol, source, and confidence labels (§2), its details (for example the
+  AMS Net ID and host), whether the project already uses it, its host and port,
+  and `Add`, or `Adopt` for a runtime. `Discover devices and runtimes` and its
+  help `Scan first when hardware is already on the network.` stay at the top.
+  When a runtime has no connections yet, the dialog also offers the quick
+  starts the extension already defines: `Local simulated counter`,
+  `Loopback sanity check`, `Modbus drive or meter`, and `MQTT broker`.
+- The form column keeps §5.4 and §5.9. `Save` writes to the runtime chosen in
+  the form, and `Test` and `Apply to running runtime` act on that runtime.
+- `Discover` runs one search (§2). Each device card shows every protocol found
+  on it, its identity, its source and confidence labels, and when it was last
+  seen, and offers what fits it: `Add`, `Adopt` for a runtime, `Browse tags`,
+  `Identify` for a runtime, `Copy address`, and `Ignore`. A card's warnings
+  from the search are shown on it. `Compare with project` lists configured
+  devices not found, found devices the project does not use, and devices whose
+  identity differs.
+- The issues list (§5.11) is also reachable from the summary strip.
+- `List` shows the same items as the canvas in one table: computers, runtimes,
+  connections, and devices, with every field the canvas and inspector show plus
+  the live values, last seen, response time, and identity. It is sortable and
+  searchable; selecting a row opens the same inspector.
+
+### 5.15 Where the panel's logic lives
+
+The panel only draws. Rust returns, in one request, the whole graph with its
+product labels, states, the actions each item allows with the reasons for the
+disabled ones, the faults, and the summaries; every action is a Rust command.
+The extension keeps no copy of these rules (AGENTS.md, "all logic is in Rust";
+the owner's decision of 16 October 2026). This includes today's TypeScript
+topology merging and identity (§5.6), health and status rules, the lifecycle
+button rules of §5.1, form validation, the discovery and browse rules, and the
+extension's own edits of `runtime.toml` and `ads.toml`.
+
+### 5.16 Nothing is lost
+
+Every piece of information and every action of the panel before this redesign
+keeps a place in it. The table below names each family and its new place; the
+item-by-item mapping of the four inventories of 16 October 2026 (1,403 items,
+with file and line evidence) is kept with the release evidence, and a VS Code
+test checks each family.
+
+| Before the redesign | In the redesigned panel |
+|---|---|
+| Panel title, loading texts, the open command, sidebar entry points | Unchanged (§1.1, §5.1) |
+| `truST` wordmark in the header | The project name and its project list (§5.11) |
+| Search and `Clear search` | Toolbar search over more kinds of items (§5.11) |
+| Filter panel: protocol choices, `Show all`, hidden counts and hidden issues | Toolbar `Filter`, unchanged contents |
+| Field-issue pill and fault pill (only the first fault's text) | Issues button and a list of every fault (§5.11) |
+| `+ Add`, `Discover`, `Edit`/`Done` and the Edit slots | Toolbar and canvas, unchanged (§5.11) |
+| Banner: `Start simulator`, `Stop simulator`, `Retry`, `Open logs`, topology errors | Unchanged (§5.10, §5.11) |
+| Summary chip with host, runtime and endpoint counts | Summary strip with these and the running, fault and warning counts |
+| Zoom, fit, pan, dragged positions | Unchanged; `Focus` zooms to the item; positions persist |
+| Host card: headline, reachability, hover card; host inspector | Computer frame and inspector, with the computer's facts (§5.12) |
+| Container frame or chip, and its inspector | Unchanged |
+| Runtime card: name, state, `Run target`, container chip, empty hint, hover card | Runtime card with cycle time and address (§5.12) |
+| Runtime inspector: state, run target, mode, connections, lifecycle and secondary actions | The same, with `Live Values`, `Debug`, `Deploy`, facts, chip, components, events (§5.12) |
+| Endpoint tile: protocol, status, role, `DRAFT`, `Disabled`, EtherCAT SubDevices, connector hover card | Connection pill with its own name; SubDevices as device cards; connector rows also in the inspector (§5.13) |
+| External system card and inspector | Device card with live information (§5.13) |
+| Mesh fabric bus | Unchanged |
+| Links: lanes, colours, dashed when unproven, arrows, hover detail | The same, with a protocol label and a lock when secure (§5.13) |
+| Endpoint inspector: summaries, server endpoint, clients, verification, fields, `Test`, browse, `Focus` | The same, titled with the connection's name (§5.13) |
+| ADS client view | The same, with `Test` and `Diagnose` (§5.13) |
+| Edit view: fields, `Save`/`Enable`, `Cancel`, `Test`, `Disable`, `Remove` with its confirmation, `Apply to running runtime` | The same; advanced fields under `Advanced` (§5.13) |
+| Add picker: groups, entries, badges, purposes, the advanced toggle | Add dialog with `Runtimes`, found devices and quick starts (§5.9, §5.14) |
+| Add form: protocol, purpose, fields, result, `Save`, `Cancel`, `Test`, `Apply to running runtime` | Form column; `Save` writes to the runtime chosen in it (§5.14) |
+| `Set up runtime`, `Connect existing runtime`, `Add a runtime`, `Add host` | `Runtimes` group, with `Install truST on a chip` (§5.2, §5.14) |
+| Discover: scan types, address or subnet, `Scan from`, ADS ports setting, progress, results and their actions | One search with progress per source (§2) and device cards (§5.14) |
+| Browse panes: OPC UA nodes, EtherCAT channels, `Choose globals`, ADS tags per port | Unchanged, with the ADS port suggestions and route help (§5.13) |
+| Notifications about actions started in the panel | Results in the pane that started the action (§5.13) |
+| Data that reached the extension but was never shown: cycle time, computer facts, live values, last seen, response time, the secure flag, access rights, service states, the quick-start templates | Shown (§5.12 to §5.14) |
+| Rules computed in the extension: topology merge and identity, health, button rules, validation, discovery rules, file edits | Rust (§5.15) |
 
 ## 6. Sidebar actions, Compile, update, and authentication
 

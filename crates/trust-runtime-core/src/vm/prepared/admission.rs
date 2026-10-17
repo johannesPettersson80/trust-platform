@@ -4,8 +4,13 @@ use crate::bytecode::{
     StorageRole, TypeData, NATIVE_CALL_KIND_FUNCTION, NATIVE_CALL_KIND_FUNCTION_BLOCK,
     NATIVE_CALL_KIND_METHOD, NATIVE_CALL_KIND_STDLIB,
 };
-use crate::stdlib::{fbs, time, StandardLibrary};
-use crate::vm::module::VmNativeSymbolSpec;
+use crate::error::ImportRefusal;
+use crate::stdlib::contracts::{
+    self, FunctionBlockImport, FunctionImport, FunctionSignature, ImportCapability,
+};
+use crate::stdlib::StdParams;
+use crate::vm::module::{VmNativeArgSpec, VmNativeSymbolSpec};
+use smol_str::SmolStr;
 
 pub(super) fn check_construction_demand(
     layout: &StorageLayout,
@@ -36,11 +41,12 @@ pub(super) fn check_construction_demand(
     Ok(())
 }
 
+/// Match every standard-library call and standard function-block template with its built-in
+/// contract (spec 34 §5.2.1). Returns whether the artifact needs the platform wall clock.
 pub(super) fn check_imports(
     vm: &VmModule,
     initializers: &InitializerIndex,
     layout: &StorageLayout,
-    registry: &StandardLibrary,
     budget: &mut PreparationBudget,
 ) -> Result<bool, RuntimeError> {
     let mut wall_clock = false;
@@ -107,48 +113,16 @@ pub(super) fn check_imports(
                 }
                 match kind {
                     NATIVE_CALL_KIND_STDLIB => {
-                        let name = normalized_target_name.as_str();
-                        if conversion_spec.is_none()
-                            && registry.get(name).is_none()
-                            && !time::is_runtime_clock_name(name)
-                            && !time::is_split_name(name)
-                        {
-                            return Err(RuntimeError::ProfileUnsupported(
-                                smol_str::SmolStr::new_static(
-                                    "unsupported native standard-function import",
-                                ),
-                            ));
-                        }
-                        if time::is_runtime_clock_name(name) {
-                            if !arg_specs.is_empty() {
-                                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-                                    "clock import takes no arguments",
-                                )));
-                            }
-                        } else if let Some(params) = time::split_parameter_names(name) {
-                            let params = crate::stdlib::StdParams::Fixed(
-                                params.iter().map(smol_str::SmolStr::new).collect(),
-                            );
-                            let positions = check_arguments(&params, arg_specs, budget)?;
-                            if positions
-                                .iter()
-                                .zip(arg_specs)
-                                .any(|(position, arg)| *position != 0 && !arg.is_target)
-                            {
-                                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-                                    "native output requires a writable target",
-                                )));
-                            }
-                        } else if conversion_spec.is_some() {
-                            check_arguments(
-                                &crate::stdlib::StdParams::Fixed(alloc::vec!["IN".into()].into()),
-                                arg_specs,
-                                budget,
-                            )?;
-                        } else if let Some(entry) = registry.get(name) {
-                            check_arguments(entry.params, arg_specs, budget)?;
-                        }
-                        wall_clock |= name == "CURRENT_DT";
+                        let import = contracts::resolve_function(
+                            normalized_target_name,
+                            conversion_spec.is_some(),
+                        )
+                        .ok_or_else(|| {
+                            refused(normalized_target_name, ImportRefusal::NoContract)
+                        })?;
+                        check_function_call(normalized_target_name, &import, arg_specs, budget)?;
+                        wall_clock |=
+                            import.contract.capability == Some(ImportCapability::WallClock);
                     }
                     NATIVE_CALL_KIND_FUNCTION => {
                         if resolved_function_pou_id.is_none() {
@@ -171,22 +145,72 @@ pub(super) fn check_imports(
         }
     }
     for (name, pou) in &vm.function_block_ids {
-        if let Some(kind) = fbs::builtin_kind_uppercase(name) {
-            check_builtin_state(vm, layout, *pou, kind, budget)?;
-            check_builtin_parameters(vm, *pou, name, kind, budget)?;
+        if let Some(import) = contracts::function_block(name) {
+            check_builtin_state(vm, layout, *pou, name, &import, budget)?;
+            check_builtin_parameters(vm, *pou, name, &import, budget)?;
         }
     }
     Ok(wall_clock)
+}
+
+/// The stable refusal of an import that has no contract or does not match it.
+fn refused(import: &SmolStr, reason: ImportRefusal) -> RuntimeError {
+    RuntimeError::ImportUnsupported {
+        import: import.clone(),
+        reason,
+    }
+}
+
+/// Match one standard-library call descriptor with the signature of its contract.
+fn check_function_call(
+    name: &SmolStr,
+    import: &FunctionImport,
+    args: &[VmNativeArgSpec],
+    budget: &mut PreparationBudget,
+) -> Result<(), RuntimeError> {
+    match import.signature {
+        FunctionSignature::Clock => {
+            if !args.is_empty() {
+                return Err(refused(name, ImportRefusal::ParameterCount));
+            }
+        }
+        FunctionSignature::Split(params) => {
+            let positions = check_arguments(name, params, None, args, budget)?;
+            if positions
+                .iter()
+                .zip(args)
+                .any(|(position, arg)| *position != 0 && !arg.is_target)
+            {
+                return Err(refused(name, ImportRefusal::OutputTarget));
+            }
+        }
+        FunctionSignature::Conversion => {
+            check_arguments(name, &["IN"], None, args, budget)?;
+        }
+        FunctionSignature::Registered(StdParams::Fixed(fixed)) => {
+            check_arguments(name, &fixed[..], None, args, budget)?;
+        }
+        FunctionSignature::Registered(StdParams::Variadic {
+            fixed,
+            prefix,
+            start,
+            min,
+        }) => {
+            check_arguments(name, &fixed[..], Some((prefix, *start, *min)), args, budget)?;
+        }
+    }
+    Ok(())
 }
 
 fn check_builtin_state(
     vm: &VmModule,
     layout: &StorageLayout,
     pou: u32,
-    kind: fbs::BuiltinFbKind,
+    name: &SmolStr,
+    import: &FunctionBlockImport,
     budget: &mut PreparationBudget,
 ) -> Result<(), RuntimeError> {
-    let expected = fbs::state::builtin_state_layout(kind);
+    let expected = import.state;
     budget.charge(
         0,
         layout
@@ -212,32 +236,20 @@ fn check_builtin_state(
         .filter(|entry| entry.owner_pou_id == Some(pou) && entry.role == StorageRole::NativeState)
         .collect();
     if actual.len() != expected.len() {
-        return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-            "native FB state layout mismatch",
-        )));
+        return Err(refused(name, ImportRefusal::StateLayout));
     }
-    for (name, primitive) in expected {
+    for (slot, primitive) in expected {
         let entry = actual
             .iter()
-            .find(|entry| vm.strings[entry.name_idx as usize].as_str() == *name)
-            .ok_or_else(|| {
-                invalid_bytecode(smol_str::SmolStr::new_static(
-                    "missing native FB state slot",
-                ))
-            })?;
+            .find(|entry| vm.strings[entry.name_idx as usize].as_str() == *slot)
+            .ok_or_else(|| refused(name, ImportRefusal::StateLayout))?;
         let ty = entry
             .type_id
             .and_then(|id| crate::vm::type_policy::resolved_alias_type(&vm.types, id, 0))
             .and_then(|id| vm.types.entries.get(id as usize))
-            .ok_or_else(|| {
-                invalid_bytecode(smol_str::SmolStr::new_static(
-                    "untyped native FB state slot",
-                ))
-            })?;
+            .ok_or_else(|| refused(name, ImportRefusal::StateLayout))?;
         if !matches!(&ty.data,TypeData::Primitive{prim_id,max_length:0} if *prim_id==*primitive) {
-            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-                "native FB state slot type mismatch",
-            )));
+            return Err(refused(name, ImportRefusal::StateLayout));
         }
     }
     Ok(())
@@ -254,131 +266,68 @@ fn primitive(vm: &VmModule, id: u32) -> Option<u16> {
 fn check_builtin_parameters(
     vm: &VmModule,
     pou: u32,
-    name: &str,
-    kind: fbs::BuiltinFbKind,
+    name: &SmolStr,
+    import: &FunctionBlockImport,
     budget: &mut PreparationBudget,
 ) -> Result<(), RuntimeError> {
-    use fbs::BuiltinFbKind::*;
     // Native algorithms address these fields by name and direction. The generic
     // counter width is bound dynamically; concrete variants keep their fixed width.
-    let number = if name.ends_with("_ULINT") {
-        13
-    } else if name.ends_with("_UDINT") {
-        12
-    } else if name.ends_with("_LINT") {
-        9
-    } else if name.ends_with("_DINT") {
-        8
-    } else if name.ends_with("_INT") {
-        7
-    } else {
-        0x100
-    };
-    let duration = if name.ends_with("_LTIME") { 17 } else { 16 };
-    let expected: &[(&str, u8, u16)] = match kind {
-        Rs => &[("S", 0, 1), ("R1", 0, 1), ("Q1", 1, 1)],
-        Sr => &[("S1", 0, 1), ("R", 0, 1), ("Q1", 1, 1)],
-        RTrig | FTrig => &[("CLK", 0, 1), ("Q", 1, 1)],
-        Ctu => &[
-            ("CU", 0, 1),
-            ("R", 0, 1),
-            ("PV", 0, number),
-            ("Q", 1, 1),
-            ("CV", 1, number),
-        ],
-        Ctd => &[
-            ("CD", 0, 1),
-            ("LD", 0, 1),
-            ("PV", 0, number),
-            ("Q", 1, 1),
-            ("CV", 1, number),
-        ],
-        Ctud => &[
-            ("CU", 0, 1),
-            ("CD", 0, 1),
-            ("R", 0, 1),
-            ("LD", 0, 1),
-            ("PV", 0, number),
-            ("QU", 1, 1),
-            ("QD", 1, 1),
-            ("CV", 1, number),
-        ],
-        Ton | Tof | Tp => &[
-            ("IN", 0, 1),
-            ("PT", 0, duration),
-            ("Q", 1, 1),
-            ("ET", 1, duration),
-        ],
-    };
     let params = vm.pou_params(pou).ok_or_else(|| {
         invalid_bytecode(smol_str::SmolStr::new_static("missing native FB signature"))
     })?;
-    if params.len() != expected.len() {
-        return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-            "native FB signature arity mismatch",
-        )));
+    if params.len() != import.parameters.len() {
+        return Err(refused(name, ImportRefusal::ParameterCount));
     }
-    for (name, direction, ty) in expected {
+    for expected in import.parameters {
         budget.charge(
             0,
             params
                 .len()
-                .checked_mul(name.len())
+                .checked_mul(expected.name.len())
                 .ok_or(RuntimeError::Overflow)?,
         )?;
         let param = params
             .iter()
-            .find(|param| param.name.eq_ignore_ascii_case(name))
-            .ok_or_else(|| {
-                invalid_bytecode(smol_str::SmolStr::new_static(
-                    "native FB signature name mismatch",
-                ))
-            })?;
-        if param.direction != *direction || primitive(vm, param.type_id) != Some(*ty) {
-            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-                "native FB signature type or direction mismatch",
-            )));
+            .find(|param| param.name.eq_ignore_ascii_case(expected.name))
+            .ok_or_else(|| refused(name, ImportRefusal::ParameterName))?;
+        if param.direction != u8::from(expected.output)
+            || primitive(vm, param.type_id) != Some(import.primitive(expected.ty))
+        {
+            return Err(refused(name, ImportRefusal::ParameterType));
         }
     }
     Ok(())
 }
 
+/// Bind call descriptors to parameter positions as execution binds them (specification 12
+/// §7.7): an exact or minimum count, then formal names without duplicates or gaps.
 fn check_arguments(
-    params: &crate::stdlib::StdParams,
-    args: &[crate::vm::module::VmNativeArgSpec],
+    import: &SmolStr,
+    fixed: &[impl AsRef<str>],
+    variadic: Option<(&SmolStr, usize, usize)>,
+    args: &[VmNativeArgSpec],
     budget: &mut PreparationBudget,
 ) -> Result<Vec<usize>, RuntimeError> {
-    use crate::stdlib::StdParams;
     budget.charge(
         args.len()
             .checked_mul(core::mem::size_of::<usize>())
             .ok_or(RuntimeError::Overflow)?,
         args.len(),
     )?;
-    let (fixed, minimum, variadic) = match params {
-        StdParams::Fixed(fixed) => (fixed, fixed.len(), None),
-        StdParams::Variadic {
-            fixed,
-            prefix,
-            start,
-            min,
-        } => (fixed, fixed.len() + *min, Some((prefix, *start))),
-    };
+    let minimum = fixed.len() + variadic.map_or(0, |(_, _, min)| min);
     if args.len() < minimum || (variadic.is_none() && args.len() != minimum) {
-        return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-            "native signature argument count mismatch",
-        )));
+        return Err(refused(import, ImportRefusal::ParameterCount));
     }
     if args.iter().all(|arg| arg.name.is_none()) {
         return Ok((0..args.len()).collect());
     }
     let mut positions = Vec::with_capacity(args.len());
     for arg in args {
-        let name = arg.name.as_ref().ok_or_else(|| {
-            invalid_bytecode(smol_str::SmolStr::new_static(
-                "mixed positional and named native arguments",
-            ))
-        })?;
+        // Named and positional arguments are never mixed in one call.
+        let name = arg
+            .name
+            .as_ref()
+            .ok_or_else(|| refused(import, ImportRefusal::ParameterName))?;
         budget.charge(
             0,
             fixed
@@ -389,37 +338,198 @@ fn check_arguments(
         )?;
         let position = if let Some(index) = fixed
             .iter()
-            .position(|parameter| parameter.eq_ignore_ascii_case(name))
+            .position(|parameter| parameter.as_ref().eq_ignore_ascii_case(name))
         {
             index
         } else {
-            let (prefix, start) = variadic.ok_or_else(|| {
-                invalid_bytecode(smol_str::SmolStr::new_static("unknown native parameter"))
-            })?;
+            let (prefix, start, _) =
+                variadic.ok_or_else(|| refused(import, ImportRefusal::ParameterName))?;
             if !name
                 .get(..prefix.len())
                 .is_some_and(|head| head.eq_ignore_ascii_case(prefix))
             {
-                return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-                    "unknown variadic parameter",
-                )));
+                return Err(refused(import, ImportRefusal::ParameterName));
             }
             name.get(prefix.len()..)
                 .and_then(|suffix| suffix.parse::<usize>().ok())
                 .and_then(|index| index.checked_sub(start))
                 .and_then(|index| index.checked_add(fixed.len()))
-                .ok_or_else(|| {
-                    invalid_bytecode(smol_str::SmolStr::new_static(
-                        "invalid variadic parameter index",
-                    ))
-                })?
+                .ok_or_else(|| refused(import, ImportRefusal::ParameterName))?
         };
+        // A position past the supplied count leaves a gap in the variadic suffix.
         if position >= args.len() || positions.contains(&position) {
-            return Err(invalid_bytecode(smol_str::SmolStr::new_static(
-                "sparse or duplicate native parameters",
-            )));
+            return Err(refused(import, ImportRefusal::ParameterName));
         }
         positions.push(position);
     }
     Ok(positions)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::RuntimeError;
+
+    fn arg(name: Option<&str>, is_target: bool) -> VmNativeArgSpec {
+        VmNativeArgSpec {
+            name: name.map(SmolStr::new),
+            is_target,
+        }
+    }
+
+    fn check(name: &str, args: &[VmNativeArgSpec]) -> Result<(), RuntimeError> {
+        let name = SmolStr::new(name);
+        let import = contracts::function(&name).expect("built-in import");
+        let mut budget = PreparationBudget::new(PreparationLimits::default());
+        check_function_call(&name, &import, args, &mut budget)
+    }
+
+    fn refusal(name: &str, reason: ImportRefusal) -> Result<(), RuntimeError> {
+        Err(RuntimeError::ImportUnsupported {
+            import: name.into(),
+            reason,
+        })
+    }
+
+    #[test]
+    fn split_outputs_must_be_writable_targets_by_position_or_name() {
+        let input = arg(None, false);
+        let target = arg(None, true);
+        assert_eq!(
+            check(
+                "SPLIT_DATE",
+                &[
+                    input.clone(),
+                    target.clone(),
+                    target.clone(),
+                    target.clone()
+                ]
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            check(
+                "SPLIT_DATE",
+                &[input.clone(), input.clone(), target.clone(), target.clone()]
+            ),
+            refusal("SPLIT_DATE", ImportRefusal::OutputTarget)
+        );
+        // Named outputs bind by formal name, case-insensitively, in any order.
+        assert_eq!(
+            check(
+                "SPLIT_TOD",
+                &[
+                    arg(Some("millisecond"), true),
+                    arg(Some("IN"), false),
+                    arg(Some("Hour"), true),
+                    arg(Some("SECOND"), true),
+                    arg(Some("MINUTE"), true),
+                ]
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            check(
+                "SPLIT_TOD",
+                &[
+                    arg(Some("MILLISECOND"), true),
+                    arg(Some("IN"), false),
+                    arg(Some("HOUR"), false),
+                    arg(Some("SECOND"), true),
+                    arg(Some("MINUTE"), true),
+                ]
+            ),
+            refusal("SPLIT_TOD", ImportRefusal::OutputTarget)
+        );
+        assert_eq!(
+            check("SPLIT_DT", &[input.clone(), target.clone()]),
+            refusal("SPLIT_DT", ImportRefusal::ParameterCount)
+        );
+    }
+
+    #[test]
+    fn call_shapes_that_execution_would_not_bind_are_refused_by_name() {
+        let value = arg(None, false);
+        assert_eq!(
+            check("TIME", std::slice::from_ref(&value)),
+            refusal("TIME", ImportRefusal::ParameterCount)
+        );
+        assert_eq!(check("CURRENT_DT", &[]), Ok(()));
+        assert_eq!(
+            check("ADD", std::slice::from_ref(&value)),
+            refusal("ADD", ImportRefusal::ParameterCount)
+        );
+        assert_eq!(
+            check("ADD", &[value.clone(), value.clone(), value.clone()]),
+            Ok(())
+        );
+        assert_eq!(
+            check("SUB", &[value.clone(), value.clone(), value.clone()]),
+            refusal("SUB", ImportRefusal::ParameterCount)
+        );
+        assert_eq!(
+            check("ADD", &[arg(Some("IN1"), false), arg(Some("IN3"), false)]),
+            refusal("ADD", ImportRefusal::ParameterName),
+            "a gap in the variadic suffix"
+        );
+        assert_eq!(
+            check("ADD", &[arg(Some("IN2"), false), arg(Some("in1"), false)]),
+            Ok(())
+        );
+        assert_eq!(
+            check("ADD", &[arg(Some("IN1"), false), arg(Some("IN1"), false)]),
+            refusal("ADD", ImportRefusal::ParameterName),
+            "a repeated name"
+        );
+        assert_eq!(
+            check("SUB", &[arg(Some("IN1"), false), value.clone()]),
+            refusal("SUB", ImportRefusal::ParameterName),
+            "named and positional arguments together"
+        );
+        assert_eq!(
+            check(
+                "MUX",
+                &[
+                    arg(Some("K"), false),
+                    arg(Some("IN0"), false),
+                    arg(Some("IN1"), false)
+                ]
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            check(
+                "MUX",
+                &[
+                    arg(Some("K"), false),
+                    arg(Some("X0"), false),
+                    arg(Some("IN1"), false)
+                ]
+            ),
+            refusal("MUX", ImportRefusal::ParameterName)
+        );
+        assert_eq!(check("INT_TO_DINT", &[arg(Some("in"), false)]), Ok(()));
+        assert_eq!(
+            check("INT_TO_DINT", &[arg(Some("OUT"), false)]),
+            refusal("INT_TO_DINT", ImportRefusal::ParameterName)
+        );
+        assert_eq!(
+            check("INT_TO_DINT", &[value.clone(), value]),
+            refusal("INT_TO_DINT", ImportRefusal::ParameterCount)
+        );
+    }
+
+    #[test]
+    fn exhausted_preparation_budget_is_not_reported_as_an_import_refusal() {
+        let name = SmolStr::new("SQRT");
+        let import = contracts::function(&name).unwrap();
+        let mut budget = PreparationBudget::new(PreparationLimits {
+            max_preparation_work: 0,
+            ..PreparationLimits::default()
+        });
+        assert_eq!(
+            check_function_call(&name, &import, &[arg(None, false)], &mut budget),
+            Err(RuntimeError::PreparationLimit)
+        );
+    }
 }

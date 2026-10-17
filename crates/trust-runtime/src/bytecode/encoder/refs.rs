@@ -6,7 +6,6 @@ use crate::value::{ref_indices_from_iter, RefSegment as ValueRefSegment, Value, 
 use crate::bytecode::{RefEntry, RefLocation, RefSegment};
 
 use super::util::normalize_name;
-use super::util::to_u32;
 use super::{BytecodeEncoder, BytecodeError, CodegenContext};
 
 impl<'a> BytecodeEncoder<'a> {
@@ -152,7 +151,7 @@ impl<'a> BytecodeEncoder<'a> {
                 (RefLocation::Io, owner)
             }
         };
-        let offset = to_u32(value_ref.offset, "ref offset")?;
+        let offset = value_ref.offset;
         let mut segments = Vec::new();
         for segment in &value_ref.path {
             match segment {

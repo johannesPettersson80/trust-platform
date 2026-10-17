@@ -340,7 +340,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     assert_eq!(writes.len(), 1);
     assert_eq!(writes[0].value, Value::Bool(false));
     match &writes[0].target {
-        PendingVarTarget::Instance(_, name) => assert_eq!(name.as_str(), "run"),
+        PendingVarTarget::Instance(_, _, name) => assert_eq!(name.as_str(), "run"),
         other => panic!("expected instance write, got {other:?}"),
     }
 
@@ -439,7 +439,7 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     );
     assert_eq!(writes[0].value, Value::Bool(true));
     match &writes[0].target {
-        PendingVarTarget::Instance(_, name) => assert_eq!(name.as_str(), "run"),
+        PendingVarTarget::Instance(_, _, name) => assert_eq!(name.as_str(), "run"),
         other => panic!("expected instance write, got {other:?}"),
     }
 

@@ -36,6 +36,28 @@ pub struct FrameId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InstanceId(pub u32);
 
+/// Installation generation of a storage and of every reference taken in it
+/// (specification 34 §11.3, MEM-07, UPDATE-04).
+///
+/// Instantiating an application starts the first generation. Each committed
+/// warm or cold restart and each committed replacement constructs the next one;
+/// a resource-only reconfiguration keeps it. The counter never wraps: once it
+/// is exhausted, a further restart or replacement is refused with `Overflow`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Generation(pub u32);
+
+impl Generation {
+    /// The generation of a newly instantiated application.
+    pub const FIRST: Self = Self(0);
+
+    /// The generation a restart or replacement of this one constructs, or
+    /// `None` once the 32-bit counter is exhausted.
+    #[must_use]
+    pub fn next(self) -> Option<Self> {
+        self.0.checked_add(1).map(Self)
+    }
+}
+
 /// VM owner metadata for a live execution activation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ExecutionFrameOwner {
@@ -138,6 +160,12 @@ pub struct VariableStorage {
     declared_instance_field_offsets: RwLock<FxHashMap<(SmolStr, SmolStr), usize>>,
     next_frame_id: u32,
     next_instance_id: u32,
+    /// The instance identity the current top-level execution entry started from.
+    entry_instance_floor: u32,
+    /// Live instances whose identity is `entry_instance_floor` or above.
+    entry_instances_live: usize,
+    /// The installation generation every reference into this storage carries.
+    generation: Generation,
 }
 
 /// One reserved activation identity, with locals and engine metadata sharing
@@ -178,6 +206,9 @@ impl Clone for VariableStorage {
             ),
             next_frame_id: self.next_frame_id,
             next_instance_id: self.next_instance_id,
+            entry_instance_floor: self.entry_instance_floor,
+            entry_instances_live: self.entry_instances_live,
+            generation: self.generation,
         }
     }
 }

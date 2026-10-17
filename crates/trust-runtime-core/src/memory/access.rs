@@ -48,11 +48,14 @@ impl AccessMap {
 pub(super) fn ref_for_map(
     map: &IndexMap<SmolStr, Value>,
     location: MemoryLocation,
+    generation: Generation,
     name: &str,
 ) -> Option<crate::value::ValueRef> {
-    map.get_index_of(name).map(|offset| crate::value::ValueRef {
+    let offset = u32::try_from(map.get_index_of(name)?).ok()?;
+    Some(crate::value::ValueRef {
         location,
         offset,
+        generation,
         path: RefPath::new(),
     })
 }

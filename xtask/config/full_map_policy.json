@@ -27,6 +27,46 @@
       "rationale": "The F401 composition runs the shared M2E fixture; it keeps identity, reset cookie and supervision."
     },
     {
+      "from": "trust-stm32f407",
+      "to": "trust-platform-stm32f4",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32F407 (T3)",
+      "rationale": "Separate firmware workspace composes the STM32F4 chip adapter with its stm32f407 feature; the adapter has no runtime or compiler dependency."
+    },
+    {
+      "from": "trust-stm32f407",
+      "to": "trust-board-fixture",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32F407 (T3)",
+      "rationale": "The F407 composition runs the same shared M2E fixture as the F401 and the C6 until the services runner replaces it."
+    },
+    {
+      "from": "xtask",
+      "to": "trust-chips",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability T3 (chip files)",
+      "rationale": "build-firmware builds each supported chip's firmware from its chips/<chip>.toml, and the bench profiles take their chip values from it; the reader depends on no firmware or adapter."
+    },
+    {
+      "from": "trust-platform-stm32f4",
+      "to": "trust-chips",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability T3 (chip files)",
+      "rationale": "A host test compares the STM32F407 chip table and crystal range with chips/stm32f407.toml; a dev edge only, so no firmware build resolves the reader."
+    },
+    {
+      "from": "trust-platform-esp32",
+      "to": "trust-chips",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability T3 (chip files)",
+      "rationale": "A host test compares the ESP32-C6 profile with chips/esp32c6.toml; a dev edge only, so no firmware build resolves the reader."
+    },
+    {
       "from": "trust-esp32c6-reference",
       "to": "trust-board-fixture",
       "kind": "normal",
@@ -236,6 +276,30 @@
     },
     {
       "from": "trust-runtime",
+      "to": "trust-runtime-services",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1 (shared runtime services)",
+      "rationale": "The hosted runtime composes the shared no_std runtime services (spec 34 ARCH-11, ARCH-14) and re-exports the control envelope and access rights at their existing paths; transports, threads and host state stay in trust-runtime."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-board-fixture",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability S1 (shared runtime services)",
+      "rationale": "The transcript parity test runs the shared single-thread resource loop on the board fixture's engine setup (the chips' preparation limits and execution services) beside trust-runtime's threaded composition (spec 34 STATE-08); production trust-runtime does not depend on the fixture."
+    },
+    {
+      "from": "trust-runtime-services",
+      "to": "trust-runtime-core",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1 (shared runtime services)",
+      "rationale": "The shared runtime services use the engine's records (resource state, restart mode, watchdog and fault policies, durations, runtime errors and the libm rounding primitive) through the core built without std; the core never depends on the services (forbidden edge)."
+    },
+    {
+      "from": "trust-runtime",
       "to": "verification-cases",
       "kind": "dev",
       "status": "allowed",
@@ -353,6 +417,11 @@
       "kind": "normal"
     },
     {
+      "from": "trust-stm32f407",
+      "to": "trust-runtime",
+      "kind": "normal"
+    },
+    {
       "from": "trust-runtime-core",
       "to": "trust-platform-esp32",
       "kind": "normal"
@@ -368,6 +437,16 @@
       "kind": "normal"
     },
     {
+      "from": "trust-platform-stm32f4",
+      "to": "trust-chips",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-platform-esp32",
+      "to": "trust-chips",
+      "kind": "normal"
+    },
+    {
       "from": "trust-platform-esp32",
       "to": "trust-hir",
       "kind": "normal"
@@ -379,6 +458,21 @@
     },
     {
       "from": "trust-board-fixture",
+      "to": "trust-hir",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-runtime-core",
+      "to": "trust-runtime-services",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-runtime-services",
+      "to": "trust-runtime",
+      "kind": "normal"
+    },
+    {
+      "from": "trust-runtime-services",
       "to": "trust-hir",
       "kind": "normal"
     },
@@ -1521,6 +1615,15 @@
         "split_plan": "Split policy models, source scanners, and check evaluators into child modules if full-map doctor work continues after program closeout."
       },
       {
+        "crate_name": "xtask",
+        "module_name": "portability",
+        "path": "xtask/src/portability",
+        "owner": "runtime portability",
+        "rationale": "The portability evidence namespace holds one focused child module per concern: board profiles, the reviewed firmware build, the per-chip image inspections (STM32F401, STM32F407 and ESP32-C6, each its own file), trace verification and its profiles, benchmarks, the database runner, source identity, linker-map comparison and their tests. The aggregate crosses 5000 lines with the third chip; no single file or mixed owner.",
+        "review_date": "2026-10-17",
+        "split_plan": "Keep one image-inspection file per chip under elf/ and one trace profile per board; move the hosted benchmark and database runner into their own top-level xtask module if either grows; split any file approaching 1000 lines by its responsibility. Chip values come from chips/*.toml (T3) rather than being repeated here."
+      },
+      {
         "crate_name": "trust-runtime",
         "module_name": "runtime_cloud",
         "path": "crates/trust-runtime/src/runtime_cloud",
@@ -2034,6 +2137,22 @@
         "review_date": "2026-10-10"
       },
       {
+        "path": "crates/trust-platform-stm32f4/src/hardware_f407/crystal_timer.rs",
+        "line": 47,
+        "owner": "runtime portability STM32F407 (T3)",
+        "invariant": "Writes only TIM11_OR TI1_RMP (bits 1:0) of the owned TIM11 to 0b10 (HSE_RTC, ST HAL TIM_TIM11_HSE / CMSIS TIM_OR_TI1_RMP_1) during the clock measurement before any other code runs; release resets the register. The PAC has no safe writer for this field.",
+        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-platform-stm32f4/src/hardware_f407/emergency.rs",
+        "line": 35,
+        "owner": "runtime portability STM32F407 (T3)",
+        "invariant": "Terminal single-core abort disables interrupts and never returns to HAL owners; fixed shared PAC views write only GPIO BSRR bits of the recorded outputs to their safe levels, feed the IWDG and emit bounded UART; no peripheral steal, no DMA.",
+        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
+        "review_date": "2026-10-17"
+      },
+      {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
         "line": 21,
         "owner": "runtime portability",
@@ -2128,6 +2247,62 @@
         "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
         "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
         "review_date": "2026-10-15"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 97,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 98,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 101,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 104,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 107,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 110,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
+        "line": 113,
+        "owner": "runtime portability",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind",
+        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
+        "review_date": "2026-10-17"
       },
       {
         "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
@@ -2752,6 +2927,30 @@
         "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-15"
+      },
+      {
+        "path": "firmware/trust-stm32f407/src/application.rs",
+        "line": 11,
+        "owner": "runtime portability STM32F407 (T3)",
+        "invariant": "The exact 16 KiB flash sector-1 slice is linker-excluded from firmware and never mutated during RUN; bundle ranges and CRCs are validated by the shared decode before any payload is exposed.",
+        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "firmware/trust-stm32f407/src/main.rs",
+        "line": 156,
+        "owner": "runtime portability STM32F407 (T3)",
+        "invariant": "Cortex-M exception ABI is required by cortex-m-rt; HardFault abandons execution permanently through the nonallocating terminal board safe-off path.",
+        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path": "firmware/trust-stm32f407/src/memory.rs",
+        "line": 21,
+        "owner": "runtime portability STM32F407 (T3)",
+        "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
+        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
+        "review_date": "2026-10-17"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -2936,6 +3135,24 @@
         "invariant": "Single-core initialization sets the flag; terminal interrupt-disabled code only reads it to avoid accessing unconfigured UART.",
         "test_evidence": "Planned frozen Scope B native arithmetic tests plus real SysTick/watchdog/heap trace; no hardware result claimed before batch.",
         "review_date": "2026-10-10"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32f4/src/hardware_f407/emergency.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability STM32F407 (T3)",
+        "shared_state": "UART-ready flag and the per-port record of configured outputs and their safe levels",
+        "invariant": "Single-core setup sets the flag and ORs output bits as each pin becomes an output; the terminal interrupt-disabled path only reads them to skip an unconfigured UART and to drive recorded outputs to their safe levels.",
+        "test_evidence": "Host tests of the output record words plus the planned DISC1 bench run; no hardware result claimed before the batch.",
+        "review_date": "2026-10-17"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32f4/src/hardware_f407/emergency.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability STM32F407 (T3)",
+        "shared_state": "UART-ready flag and the per-port record of configured outputs and their safe levels",
+        "invariant": "Single-core setup sets the flag and ORs output bits as each pin becomes an output; the terminal interrupt-disabled path only reads them to skip an unconfigured UART and to drive recorded outputs to their safe levels.",
+        "test_evidence": "Host tests of the output record words plus the planned DISC1 bench run; no hardware result claimed before the batch.",
+        "review_date": "2026-10-17"
       },
       {
         "path_prefix": "crates/trust-runtime/src/scheduler/",
@@ -3285,5 +3502,17 @@
       "risks",
       "evidence"
     ]
-  }
+  },
+  "unbuilt_source_allowlist": [
+    {
+      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs",
+      "owner": "runtime portability V7 (discovery)",
+      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
+    },
+    {
+      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity/windows_native.rs",
+      "owner": "runtime portability V7 (discovery)",
+      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
+    }
+  ]
 }

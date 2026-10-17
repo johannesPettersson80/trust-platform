@@ -116,12 +116,13 @@ fn stale_owner_candidate_is_skipped_without_lookup_charges() {
         runtime_instance: None,
         instance_owner: None,
     };
+    let context = CandidateContext::new();
     let reference = ValueRef {
         location: MemoryLocation::Instance(InstanceId(44)),
         offset: 0,
+        generation: context.storage.generation(),
         path: RefPath::new(),
     };
-    let context = CandidateContext::new();
 
     // TIME-08: owner and candidate lookups are bookkeeping. The stale owner is skipped and the
     // live candidate still resolves to the same type.

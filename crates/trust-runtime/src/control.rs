@@ -13,8 +13,8 @@ mod debug_handlers;
 mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
+mod host_ports;
 mod io_handlers;
-mod operation_registry;
 mod policy;
 mod program_handlers;
 mod resource_queue;
@@ -26,7 +26,7 @@ mod variable_handlers;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::mpsc::{RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -41,21 +41,23 @@ use crate::mesh::MeshTopologyEvidence;
 use crate::metrics::RuntimeMetrics;
 use crate::runtime::RuntimeMetadata;
 use crate::scheduler::ResourceControl;
-use crate::security::{pairing::PairingStore, AccessRole};
+use crate::security::pairing::PairingStore;
 use crate::settings::RuntimeSettings;
 use crate::value::Value;
 use crate::RestartMode;
 use notify::{Event, RecursiveMode, Watcher};
-use serde_json::json;
 use smol_str::SmolStr;
 use tracing::warn;
 
 pub use self::ads_handlers::AdsDoctorJobStore;
-use self::audit::{record_audit, ControlAuditRecord};
-use self::auth::resolve_request_role;
-use self::policy::{is_debug_request, required_role_for_control_request};
+use self::policy::required_role_for_control_request;
 pub(crate) use self::types::ControlResponse;
 use self::types::*;
+use trust_runtime_services::dispatch::{dispatch_value, prepare_line};
+
+// The in-crate control tests reach these through `use super::*`.
+#[cfg(test)]
+use std::sync::atomic::Ordering;
 
 const HMI_DESCRIPTOR_WATCH_DEBOUNCE: Duration = Duration::from_millis(250);
 
@@ -544,23 +546,12 @@ pub(crate) fn prepare_request_line(
     state: &ControlState,
     client: Option<&str>,
 ) -> Option<PreparedControlLine> {
-    let response = match serde_json::from_str::<serde_json::Value>(line) {
-        Ok(value) => prepare_request_value(value, state, client),
-        Err(err) => ControlResponse::error(0, format!("invalid request: {err}")),
-    };
-    let mut response = response;
-    let after_response = response.after_response.take();
-    let response = serde_json::to_string(&response).unwrap_or_else(|err| {
-        json!({
-            "id": 0_u64,
-            "ok": false,
-            "error": format!("response serialization failed: {err}"),
-        })
-        .to_string()
-    });
+    // The request pipeline is shared runtime code (spec 34 ARCH-11); `ControlState` supplies its
+    // ports (`control/host_ports.rs`).
+    let prepared = prepare_line(line, state, client);
     Some(PreparedControlLine {
-        response,
-        after_response,
+        response: prepared.response,
+        after_response: prepared.after_response,
     })
 }
 
@@ -581,201 +572,13 @@ fn prepare_request_value(
     state: &ControlState,
     client: Option<&str>,
 ) -> ControlResponse {
-    let mut request: ControlRequest = match serde_json::from_value(value) {
-        Ok(req) => req,
-        Err(err) => {
-            let response = ControlResponse::error(0, format!("invalid request: {err}"));
-            let audit_id = record_audit(
-                state,
-                ControlAuditRecord {
-                    request_id: 0,
-                    request_type: SmolStr::new("invalid"),
-                    correlation_id: None,
-                    ok: false,
-                    error: Some(SmolStr::new(format!("invalid request: {err}"))),
-                    auth_present: false,
-                    client,
-                    details: None,
-                },
-            );
-            return response.with_audit_id(audit_id);
-        }
-    };
-    stamp_comm_credential_channel(&mut request, client);
-    let audit_details = || {
-        comm_handlers::audit_details_for_comm_request(
-            request.r#type.as_str(),
-            request.params.as_ref(),
-        )
-    };
-    let request_role = match resolve_request_role(&request, state, client) {
-        Ok(role) => role,
-        Err(error) => {
-            let response = ControlResponse::error_with_code(
-                request.id,
-                error.message().to_string(),
-                error.code(),
-            );
-            let audit_id = record_audit(
-                state,
-                ControlAuditRecord {
-                    request_id: request.id,
-                    request_type: SmolStr::new(request.r#type.as_str()),
-                    correlation_id: request.request_id.as_deref(),
-                    ok: false,
-                    error: Some(SmolStr::new(error.message())),
-                    auth_present: request.auth.is_some(),
-                    client,
-                    details: audit_details(),
-                },
-            );
-            return response.with_audit_id(audit_id);
-        }
-    };
-    let required_role =
-        required_role_for_control_request(request.r#type.as_str(), request.params.as_ref());
-    if !request_role.allows(required_role) {
-        let error = format!("forbidden: requires role {}", required_role.as_str());
-        let response =
-            ControlResponse::error_with_code(request.id, error.clone(), "insufficient_role");
-        let audit_id = record_audit(
-            state,
-            ControlAuditRecord {
-                request_id: request.id,
-                request_type: SmolStr::new(request.r#type.as_str()),
-                correlation_id: request.request_id.as_deref(),
-                ok: false,
-                error: Some(SmolStr::new(error)),
-                auth_present: request.auth.is_some(),
-                client,
-                details: audit_details(),
-            },
-        );
-        return response.with_audit_id(audit_id);
-    }
-    if !state.debug_enabled.load(Ordering::Relaxed) && is_debug_request(request.r#type.as_str()) {
-        if let Ok(mut events) = state.events.lock() {
-            events.push_back(crate::debug::RuntimeEvent::FeatureDisabled {
-                feature: SmolStr::new("debug"),
-                request_type: Some(SmolStr::new(request.r#type.as_str())),
-                time: control_event_time_now(),
-            });
-        }
-        let response = ControlResponse::error_with_code(
-            request.id,
-            "debug disabled".into(),
-            "feature_disabled",
-        );
-        let audit_id = record_audit(
-            state,
-            ControlAuditRecord {
-                request_id: request.id,
-                request_type: SmolStr::new(request.r#type.as_str()),
-                correlation_id: request.request_id.as_deref(),
-                ok: false,
-                error: Some(SmolStr::new("debug disabled")),
-                auth_present: request.auth.is_some(),
-                client,
-                details: audit_details(),
-            },
-        );
-        return response.with_audit_id(audit_id);
-    }
-    let mut response = handlers::dispatch(&request, state)
-        .unwrap_or_else(|| ControlResponse::error(request.id, "unsupported request".into()));
-    if request.r#type == "status" && response.ok {
-        attach_access_capabilities(&mut response, request_role);
-    }
-    let audit_id = record_audit(
-        state,
-        ControlAuditRecord {
-            request_id: request.id,
-            request_type: SmolStr::new(request.r#type.as_str()),
-            correlation_id: request.request_id.as_deref(),
-            ok: response.ok,
-            error: response.error.as_ref().map(SmolStr::new),
-            auth_present: request.auth.is_some(),
-            client,
-            details: audit_details(),
-        },
-    );
-    response = response.with_audit_id(audit_id);
-    response
+    dispatch_value(value, state, client)
 }
 
 fn apply_after_response(action: Option<ControlAfterResponse>, state: &ControlState) {
     if matches!(action, Some(ControlAfterResponse::StopResource)) {
         state.resource.stop();
     }
-}
-
-fn attach_access_capabilities(response: &mut ControlResponse, role: AccessRole) {
-    let Some(result) = response.result.as_mut() else {
-        return;
-    };
-    let Some(object) = result.as_object_mut() else {
-        return;
-    };
-    object.insert("access".to_string(), access_capabilities_json(role));
-}
-
-fn access_capabilities_json(role: AccessRole) -> serde_json::Value {
-    let engineer = role.allows(AccessRole::Engineer);
-    let denied_reason = (!engineer).then(|| {
-        format!(
-            "{} role — connect with an engineer token to write or force.",
-            capitalize_role(role.as_str())
-        )
-    });
-    json!({
-        "role": role.as_str(),
-        "io": {
-            "write": engineer,
-            "force": engineer,
-            "release": engineer,
-        },
-        "hmi": {
-            "write": engineer,
-        },
-        "reason": denied_reason,
-    })
-}
-
-fn capitalize_role(role: &str) -> String {
-    let mut chars = role.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-        None => String::new(),
-    }
-}
-
-fn stamp_comm_credential_channel(request: &mut ControlRequest, client: Option<&str>) {
-    if !matches!(
-        request.r#type.as_str(),
-        "comm.apply" | "comm.test" | "comm.browse_symbols" | "ads.import_symbols.apply"
-    ) {
-        return;
-    }
-    let channel = classify_comm_credential_channel(client);
-    let params = request.params.get_or_insert_with(|| json!({}));
-    if let Some(object) = params.as_object_mut() {
-        object.insert("credential_channel".to_string(), json!(channel));
-    }
-}
-
-fn classify_comm_credential_channel(client: Option<&str>) -> &'static str {
-    let Some(client) = client else {
-        return "trusted_same_host";
-    };
-    if client == "unix" || client == "loopback" {
-        return "trusted_same_host";
-    }
-    if let Ok(addr) = client.parse::<SocketAddr>()
-        && addr.ip().is_loopback()
-    {
-        return "trusted_same_host";
-    }
-    "untrusted_remote_plain_tcp"
 }
 
 fn parse_value(text: &str) -> Result<Value, RuntimeError> {

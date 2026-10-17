@@ -10,7 +10,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use smol_str::SmolStr;
 
 use crate::io::{IoAddress, IoSnapshot};
-use crate::memory::{FrameId, InstanceId};
+use crate::memory::{FrameId, Generation, InstanceId};
 use crate::program_model::{Expr, LValue};
 use crate::value::Value;
 

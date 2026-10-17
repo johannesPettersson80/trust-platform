@@ -21,6 +21,7 @@ fn reference() -> ValueRef {
     ValueRef {
         location: MemoryLocation::Global,
         offset: 7,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     }
 }

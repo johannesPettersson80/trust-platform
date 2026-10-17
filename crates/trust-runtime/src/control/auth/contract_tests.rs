@@ -44,15 +44,6 @@ fn pairing_store(role: AccessRole) -> (Arc<PairingStore>, String, PathBuf) {
 }
 
 #[test]
-fn auth_failures_have_stable_distinct_messages_and_codes() {
-    assert_eq!(AuthFailure::MissingToken.message(), "missing auth token");
-    assert_eq!(AuthFailure::MissingToken.code(), "missing_auth_token");
-    assert_eq!(AuthFailure::InvalidToken.message(), "invalid auth token");
-    assert_eq!(AuthFailure::InvalidToken.code(), "invalid_auth_token");
-    assert_ne!(AuthFailure::MissingToken, AuthFailure::InvalidToken);
-}
-
-#[test]
 fn configured_primary_token_grants_admin_only_on_exact_match() {
     let mut state = state();
     state.auth_token = Arc::new(Mutex::new(Some(SmolStr::new("Admin-Token"))));
@@ -213,20 +204,6 @@ fn optional_auth_ignores_invalid_supplied_token_only_when_auth_is_not_required()
         resolve_request_role(&request(Some("unknown")), &state, Some("unix")),
         Ok(AccessRole::Admin)
     );
-}
-
-#[test]
-fn untrusted_transport_classifier_uses_exact_local_and_network_rules() {
-    assert!(!control_client_is_untrusted_transport(None));
-    assert!(!control_client_is_untrusted_transport(Some("unix")));
-    assert!(!control_client_is_untrusted_transport(Some("local")));
-    assert!(!control_client_is_untrusted_transport(Some("")));
-    assert!(control_client_is_untrusted_transport(Some("tcp:9000")));
-    assert!(control_client_is_untrusted_transport(Some(
-        "127.0.0.1:9000"
-    )));
-    assert!(control_client_is_untrusted_transport(Some("[::1]:9000")));
-    assert!(control_client_is_untrusted_transport(Some("unix:other")));
 }
 
 #[test]

@@ -67,7 +67,12 @@ fn force_after_mapped_output_does_not_resample_the_output_image() {
         panic!("admitted program root")
     };
     let plant = *plant;
-    debug.force_instance(plant, "led", Value::Bool(true));
+    debug.force_instance(
+        runtime.storage().generation(),
+        plant,
+        "led",
+        Value::Bool(true),
+    );
     runtime
         .write_io(&IoAddress::parse("%IX0.0").unwrap(), Value::Bool(false))
         .unwrap();

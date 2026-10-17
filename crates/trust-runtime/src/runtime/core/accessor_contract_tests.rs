@@ -555,7 +555,8 @@ fn accessors_var_access_partial_null_reference_is_atomic() {
         "Missing".into(),
         ValueRef {
             location: MemoryLocation::Global,
-            offset: usize::MAX,
+            offset: u32::MAX,
+            generation: crate::memory::Generation::FIRST,
             path: RefPath::new(),
         },
         Some(PartialAccess::Bit(0)),

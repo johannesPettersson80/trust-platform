@@ -1,5 +1,4 @@
 //! Own the ELF/map evidence produced by one final firmware link.
-use super::board::BoardProfile;
 use anyhow::{ensure, Context, Result};
 use serde_json::Value;
 use std::{
@@ -63,8 +62,8 @@ impl Artifacts {
         Ok(vec!["-C".into(), format!("link-arg=-Map={map}")])
     }
 
-    pub fn retain(&self, cargo_output: &str, board: &BoardProfile) -> Result<Value> {
-        let executable = executable(cargo_output, board.bin)?;
+    pub fn retain(&self, cargo_output: &str, bin: &str) -> Result<Value> {
+        let executable = executable(cargo_output, bin)?;
         let map = fs::read(&self.map).context("final link did not produce its map")?;
         ensure!(!map.is_empty(), "final link produced an empty map");
         let elf = fs::read(&executable).context("read linked executable reported by Cargo")?;

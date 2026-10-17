@@ -48,7 +48,7 @@ impl BytecodeEncoder<'_> {
             let retain = if let MemoryLocation::Instance(instance) = reference.location {
                 instances
                     .get(&instance.0)
-                    .and_then(|template| member_retain.get(&(*template, reference.offset)))
+                    .and_then(|template| member_retain.get(&(*template, reference.offset as usize)))
                     .copied()
                     .unwrap_or(0)
             } else {

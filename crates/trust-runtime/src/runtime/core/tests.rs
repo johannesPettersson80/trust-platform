@@ -307,7 +307,8 @@ fn runtime_core_var_access_failures_preserve_storage() {
         "MissingTarget".into(),
         ValueRef {
             location: MemoryLocation::Global,
-            offset: usize::MAX,
+            offset: u32::MAX,
+            generation: crate::memory::Generation::FIRST,
             path: RefPath::new(),
         },
         None,

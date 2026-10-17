@@ -1,6 +1,17 @@
 pub mod trust_runtime_core
 pub mod trust_runtime_core::bytecode
+pub mod trust_runtime_core::bytecode::opcodes
+pub const trust_runtime_core::bytecode::opcodes::APPLY_INIT_VALUE: u8
+pub const trust_runtime_core::bytecode::opcodes::ARRAY_NEW: u8
+pub const trust_runtime_core::bytecode::opcodes::ARRAY_SET: u8
+pub const trust_runtime_core::bytecode::opcodes::COERCE_INIT_VALUE: u8
+pub const trust_runtime_core::bytecode::opcodes::DEFAULT_TYPED: u8
+pub const trust_runtime_core::bytecode::opcodes::DEFAULT_VALUE: u8
+pub const trust_runtime_core::bytecode::opcodes::STRUCT_NEW: u8
+pub const trust_runtime_core::bytecode::opcodes::STRUCT_SET: u8
 pub enum trust_runtime_core::bytecode::BytecodeError
+pub trust_runtime_core::bytecode::BytecodeError::DecodeMemoryLimit
+pub trust_runtime_core::bytecode::BytecodeError::DecodeWorkLimit
 pub trust_runtime_core::bytecode::BytecodeError::InvalidChecksum
 pub trust_runtime_core::bytecode::BytecodeError::InvalidChecksum::actual: u32
 pub trust_runtime_core::bytecode::BytecodeError::InvalidChecksum::expected: u32
@@ -12,7 +23,7 @@ pub trust_runtime_core::bytecode::BytecodeError::InvalidJumpTarget(i32)
 pub trust_runtime_core::bytecode::BytecodeError::InvalidMagic
 pub trust_runtime_core::bytecode::BytecodeError::InvalidOpcode(u8)
 pub trust_runtime_core::bytecode::BytecodeError::InvalidPouId(u32)
-pub trust_runtime_core::bytecode::BytecodeError::InvalidSection(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::BytecodeError::InvalidSection(trust_runtime_core::bytecode::SectionDetail)
 pub trust_runtime_core::bytecode::BytecodeError::InvalidSectionTable(smol_str::SmolStr)
 pub trust_runtime_core::bytecode::BytecodeError::MissingSection(smol_str::SmolStr)
 pub trust_runtime_core::bytecode::BytecodeError::SectionAlignment
@@ -22,6 +33,54 @@ pub trust_runtime_core::bytecode::BytecodeError::UnexpectedEof
 pub trust_runtime_core::bytecode::BytecodeError::UnsupportedVersion
 pub trust_runtime_core::bytecode::BytecodeError::UnsupportedVersion::major: u16
 pub trust_runtime_core::bytecode::BytecodeError::UnsupportedVersion::minor: u16
+impl trust_runtime_core::bytecode::BytecodeError
+pub fn trust_runtime_core::bytecode::BytecodeError::section_diagnostic(detail: trust_runtime_core::bytecode::SectionDiagnostic) -> Self
+pub fn trust_runtime_core::bytecode::BytecodeError::section_static(message: &'static str) -> Self
+impl trust_runtime_core::bytecode::BytecodeError
+pub const fn trust_runtime_core::bytecode::BytecodeError::stable_code(&self) -> trust_runtime_core::error_code::StableErrorCode
+impl core::convert::From<trust_runtime_core::bytecode::BytecodeError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::bytecode::BytecodeError) -> Self
+impl core::convert::From<trust_runtime_core::bytecode::RejectionReason> for trust_runtime_core::bytecode::BytecodeError
+pub fn trust_runtime_core::bytecode::BytecodeError::from(reason: trust_runtime_core::bytecode::RejectionReason) -> Self
+#[repr(u8)] pub enum trust_runtime_core::bytecode::InitializationOnce
+pub trust_runtime_core::bytecode::InitializationOnce::Instance = 2
+pub trust_runtime_core::bytecode::InitializationOnce::Module = 1
+pub trust_runtime_core::bytecode::InitializationOnce::None = 0
+impl trust_runtime_core::bytecode::InitializationOnce
+pub fn trust_runtime_core::bytecode::InitializationOnce::from_raw(value: u8) -> core::option::Option<Self>
+#[repr(u8)] pub enum trust_runtime_core::bytecode::InitializationPhase
+pub trust_runtime_core::bytecode::InitializationPhase::Configuration = 5
+pub trust_runtime_core::bytecode::InitializationPhase::Frame = 2
+pub trust_runtime_core::bytecode::InitializationPhase::Instance = 1
+pub trust_runtime_core::bytecode::InitializationPhase::Parameter = 6
+pub trust_runtime_core::bytecode::InitializationPhase::Resource = 0
+pub trust_runtime_core::bytecode::InitializationPhase::Return = 4
+pub trust_runtime_core::bytecode::InitializationPhase::Static = 3
+pub trust_runtime_core::bytecode::InitializationPhase::ValueDefault = 7
+impl trust_runtime_core::bytecode::InitializationPhase
+pub fn trust_runtime_core::bytecode::InitializationPhase::from_raw(value: u8) -> core::option::Option<Self>
+#[repr(u8)] pub enum trust_runtime_core::bytecode::InitializationStage
+pub trust_runtime_core::bytecode::InitializationStage::Default = 0
+pub trust_runtime_core::bytecode::InitializationStage::Explicit = 1
+impl trust_runtime_core::bytecode::InitializationStage
+pub fn trust_runtime_core::bytecode::InitializationStage::from_raw(value: u8) -> core::option::Option<Self>
+#[repr(u8)] pub enum trust_runtime_core::bytecode::InitializationTarget
+pub trust_runtime_core::bytecode::InitializationTarget::Declaration = 0
+pub trust_runtime_core::bytecode::InitializationTarget::DirectIo = 2
+pub trust_runtime_core::bytecode::InitializationTarget::Reference = 1
+impl trust_runtime_core::bytecode::InitializationTarget
+pub fn trust_runtime_core::bytecode::InitializationTarget::from_raw(value: u8) -> core::option::Option<Self>
+#[repr(u8)] pub enum trust_runtime_core::bytecode::InitializationTrigger
+pub trust_runtime_core::bytecode::InitializationTrigger::AfterRestart = 1
+pub trust_runtime_core::bytecode::InitializationTrigger::Ordinary = 0
+impl trust_runtime_core::bytecode::InitializationTrigger
+pub fn trust_runtime_core::bytecode::InitializationTrigger::from_raw(value: u8) -> core::option::Option<Self>
+#[repr(u8)] pub enum trust_runtime_core::bytecode::InitializerBodyKind
+pub trust_runtime_core::bytecode::InitializerBodyKind::Action = 0
+pub trust_runtime_core::bytecode::InitializerBodyKind::MemberDefault = 2
+pub trust_runtime_core::bytecode::InitializerBodyKind::TypeDefault = 1
+impl trust_runtime_core::bytecode::InitializerBodyKind
+pub fn trust_runtime_core::bytecode::InitializerBodyKind::from_raw(value: u8) -> core::option::Option<Self>
 pub enum trust_runtime_core::bytecode::PouKind
 pub trust_runtime_core::bytecode::PouKind::Class = 3
 pub trust_runtime_core::bytecode::PouKind::Function = 2
@@ -33,6 +92,7 @@ pub fn trust_runtime_core::bytecode::PouKind::from_raw(value: u8) -> core::optio
 pub fn trust_runtime_core::bytecode::PouKind::is_class_like(self) -> bool
 pub enum trust_runtime_core::bytecode::RefLocation
 pub trust_runtime_core::bytecode::RefLocation::Global = 0
+pub trust_runtime_core::bytecode::RefLocation::InitializerResult = 5
 pub trust_runtime_core::bytecode::RefLocation::Instance = 2
 pub trust_runtime_core::bytecode::RefLocation::Io = 3
 pub trust_runtime_core::bytecode::RefLocation::Local = 1
@@ -43,10 +103,109 @@ pub enum trust_runtime_core::bytecode::RefSegment
 pub trust_runtime_core::bytecode::RefSegment::Field
 pub trust_runtime_core::bytecode::RefSegment::Field::name_idx: u32
 pub trust_runtime_core::bytecode::RefSegment::Index(alloc::vec::Vec<i64>)
+pub enum trust_runtime_core::bytecode::RejectionReason
+pub trust_runtime_core::bytecode::RejectionReason::ArithmeticOpcodeExpectsNumericOperands
+pub trust_runtime_core::bytecode::RejectionReason::ArrayConstantSizeOverflow
+pub trust_runtime_core::bytecode::RejectionReason::CallNativeArgCountOutOfRange
+pub trust_runtime_core::bytecode::RejectionReason::CallNativeKindOutOfRange
+pub trust_runtime_core::bytecode::RejectionReason::CodePositionOverflow
+pub trust_runtime_core::bytecode::RejectionReason::ConditionalJumpExpectsBoolOperand
+pub trust_runtime_core::bytecode::RejectionReason::ConstChildPayloadLength
+pub trust_runtime_core::bytecode::RejectionReason::ConstPayloadLength
+pub trust_runtime_core::bytecode::RejectionReason::ConstTypeRecursionOverflow
+pub trust_runtime_core::bytecode::RejectionReason::ConstantTypeIsIncompatibleWithStoreRefTarget
+pub trust_runtime_core::bytecode::RejectionReason::ConstructionDemandMismatch
+pub trust_runtime_core::bytecode::RejectionReason::ConstructionDemandOverflow
+pub trust_runtime_core::bytecode::RejectionReason::ConstructionSignatureMismatch
+pub trust_runtime_core::bytecode::RejectionReason::DebugMapCodeOffsetOutOfBounds
+pub trust_runtime_core::bytecode::RejectionReason::DecodedModuleInstructionCountOverflow
+pub trust_runtime_core::bytecode::RejectionReason::DuplicateVarMetaName
+pub trust_runtime_core::bytecode::RejectionReason::DynamicLoadExpectsReferenceOperand
+pub trust_runtime_core::bytecode::RejectionReason::DynamicStoreExpectsReferenceOperand
+pub trust_runtime_core::bytecode::RejectionReason::FieldReferenceExpectsReferenceOrInstanceOperand
+pub trust_runtime_core::bytecode::RejectionReason::FrameLocalReferenceCannotBeStoredThroughNonLocalReference
+pub trust_runtime_core::bytecode::RejectionReason::FrameLocalReferenceCannotBeStoredToLongerLivedStorage
+pub trust_runtime_core::bytecode::RejectionReason::IncompleteConstructionMetadata
+pub trust_runtime_core::bytecode::RejectionReason::InconsistentOperandStackDepthAtControlFlowMerge
+pub trust_runtime_core::bytecode::RejectionReason::IndexedReferenceExpectsNumericIndexOperand
+pub trust_runtime_core::bytecode::RejectionReason::IndexedReferenceExpectsReferenceOperand
+pub trust_runtime_core::bytecode::RejectionReason::InitializerCodeRange
+pub trust_runtime_core::bytecode::RejectionReason::InitializerReferenceEscape
+pub trust_runtime_core::bytecode::RejectionReason::InitializerReferenceScope
+pub trust_runtime_core::bytecode::RejectionReason::InitializerVisibility
+pub trust_runtime_core::bytecode::RejectionReason::InitializerWriteOutsideStaging
+pub trust_runtime_core::bytecode::RejectionReason::InterfaceMappingExpectsInterfaceType
+pub trust_runtime_core::bytecode::RejectionReason::InterfaceMappingSlotMismatch
+pub trust_runtime_core::bytecode::RejectionReason::InvalidArrayBounds
+pub trust_runtime_core::bytecode::RejectionReason::InvalidConstructionRecord
+pub trust_runtime_core::bytecode::RejectionReason::InvalidInitializerNativeArguments
+pub trust_runtime_core::bytecode::RejectionReason::InvalidInitializerRecord
+pub trust_runtime_core::bytecode::RejectionReason::InvalidIoArea
+pub trust_runtime_core::bytecode::RejectionReason::InvalidLocalVarMetaPouId
+pub trust_runtime_core::bytecode::RejectionReason::InvalidLocalVarMetaSlot
+pub trust_runtime_core::bytecode::RejectionReason::InvalidPouKind
+pub trust_runtime_core::bytecode::RejectionReason::InvalidRefLocation
+pub trust_runtime_core::bytecode::RejectionReason::InvalidRefSegment
+pub trust_runtime_core::bytecode::RejectionReason::InvalidRetainPolicy
+pub trust_runtime_core::bytecode::RejectionReason::InvalidTypeKind
+pub trust_runtime_core::bytecode::RejectionReason::InvalidUtf8
+pub trust_runtime_core::bytecode::RejectionReason::InvalidWstringConstPayloadLength
+pub trust_runtime_core::bytecode::RejectionReason::LegacyCall
+pub trust_runtime_core::bytecode::RejectionReason::LocalRefOutsidePouLocalRange
+pub trust_runtime_core::bytecode::RejectionReason::LocalVarMetaMustDescribeABaseLocalRef
+pub trust_runtime_core::bytecode::RejectionReason::LocalVarMetaNameIsMissingItsDisplayLabel
+pub trust_runtime_core::bytecode::RejectionReason::LocalVarMetaNameMustUseTheReservedLocalScope
+pub trust_runtime_core::bytecode::RejectionReason::LocalVarMetaScopeDoesNotMatchItsPouLocalRef
+pub trust_runtime_core::bytecode::RejectionReason::LocalVarMetaTypeDisagreesWithThePouSignature
+pub trust_runtime_core::bytecode::RejectionReason::MissingBlockEntryState
+pub trust_runtime_core::bytecode::RejectionReason::MultipleInstanceOwners
+pub trust_runtime_core::bytecode::RejectionReason::NonDenseStorageSlots
+pub trust_runtime_core::bytecode::RejectionReason::OperandStackUnderflowOnDup
+pub trust_runtime_core::bytecode::RejectionReason::OperandStackUnderflowOnSwap
+pub trust_runtime_core::bytecode::RejectionReason::PartialAccessIndexOutOfRange
+pub trust_runtime_core::bytecode::RejectionReason::PartialAccessOperandOutOfRange
+pub trust_runtime_core::bytecode::RejectionReason::PouBodyLeavesValuesOnOperandStack
+pub trust_runtime_core::bytecode::RejectionReason::PouCodeOutOfBounds
+pub trust_runtime_core::bytecode::RejectionReason::PouCodeRangeOverflow
+pub trust_runtime_core::bytecode::RejectionReason::PouIndexLocalReferenceCountExceedsFixedResourceLimit
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangeContainsMultipleFrameOwners
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangeContainsNonLocalRef
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangeContainsPathRef
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangeOutOfBounds
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangeOverflow
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangesOverlap
+pub trust_runtime_core::bytecode::RejectionReason::PouLocalRefRangesShareAFrameOwner
+pub trust_runtime_core::bytecode::RejectionReason::ReferenceAttemptExpectsReferenceInterfaceInstanceOrNullOperand
+pub trust_runtime_core::bytecode::RejectionReason::ReferenceAttemptExpectsReferenceOrInterfaceTargetType
+pub trust_runtime_core::bytecode::RejectionReason::ReferenceConstPayloadMustEncodeNull
+pub trust_runtime_core::bytecode::RejectionReason::ReservedConstructionSectionFlags
+pub trust_runtime_core::bytecode::RejectionReason::ReservedLocalVarMetaNameRequiresALocalRef
+pub trust_runtime_core::bytecode::RejectionReason::SectionPayloadMismatch
+pub trust_runtime_core::bytecode::RejectionReason::SourceFreeReceiverNotFunctionBlock
+pub trust_runtime_core::bytecode::RejectionReason::StructUnionConstantCountMismatch
+pub trust_runtime_core::bytecode::RejectionReason::TypeEntryLengthMismatch
+pub trust_runtime_core::bytecode::RejectionReason::TypePayloadMismatch
+pub trust_runtime_core::bytecode::RejectionReason::TypeReferenceRecursionOverflow
+pub trust_runtime_core::bytecode::RejectionReason::TypeTableOffsetOutOfBounds
+pub trust_runtime_core::bytecode::RejectionReason::TypeTableOffsetsNotSorted
+pub trust_runtime_core::bytecode::RejectionReason::UnknownPrimitive
+pub trust_runtime_core::bytecode::RejectionReason::UnsupportedConstType
+pub trust_runtime_core::bytecode::RejectionReason::ValidationStorageLimit
+pub trust_runtime_core::bytecode::RejectionReason::ValidationWorkLimit
+impl trust_runtime_core::bytecode::RejectionReason
+pub const fn trust_runtime_core::bytecode::RejectionReason::message(self) -> &'static str
+impl core::convert::From<trust_runtime_core::bytecode::RejectionReason> for trust_runtime_core::bytecode::BytecodeError
+pub fn trust_runtime_core::bytecode::BytecodeError::from(reason: trust_runtime_core::bytecode::RejectionReason) -> Self
+impl core::fmt::Display for trust_runtime_core::bytecode::RejectionReason
+pub fn trust_runtime_core::bytecode::RejectionReason::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime_core::bytecode::SectionData
+pub trust_runtime_core::bytecode::SectionData::AccessBindings(trust_runtime_core::bytecode::AccessBindings)
 pub trust_runtime_core::bytecode::SectionData::ConstPool(trust_runtime_core::bytecode::ConstPool)
+pub trust_runtime_core::bytecode::SectionData::ConstructionRoots(trust_runtime_core::bytecode::ConstructionRoots)
 pub trust_runtime_core::bytecode::SectionData::DebugMap(trust_runtime_core::bytecode::DebugMap)
 pub trust_runtime_core::bytecode::SectionData::DebugStringTable(trust_runtime_core::bytecode::StringTable)
+pub trust_runtime_core::bytecode::SectionData::Initializers(trust_runtime_core::bytecode::InitializerIndex)
 pub trust_runtime_core::bytecode::SectionData::IoMap(trust_runtime_core::bytecode::IoMap)
 pub trust_runtime_core::bytecode::SectionData::PouBodies(alloc::vec::Vec<u8>)
 pub trust_runtime_core::bytecode::SectionData::PouIndex(trust_runtime_core::bytecode::PouIndex)
@@ -54,25 +213,90 @@ pub trust_runtime_core::bytecode::SectionData::Raw(alloc::vec::Vec<u8>)
 pub trust_runtime_core::bytecode::SectionData::RefTable(trust_runtime_core::bytecode::RefTable)
 pub trust_runtime_core::bytecode::SectionData::ResourceMeta(trust_runtime_core::bytecode::ResourceMeta)
 pub trust_runtime_core::bytecode::SectionData::RetainInit(trust_runtime_core::bytecode::RetainInit)
+pub trust_runtime_core::bytecode::SectionData::StorageLayout(trust_runtime_core::bytecode::StorageLayout)
 pub trust_runtime_core::bytecode::SectionData::StringTable(trust_runtime_core::bytecode::StringTable)
 pub trust_runtime_core::bytecode::SectionData::TypeTable(trust_runtime_core::bytecode::TypeTable)
 pub trust_runtime_core::bytecode::SectionData::VarMeta(trust_runtime_core::bytecode::VarMeta)
+pub enum trust_runtime_core::bytecode::SectionDiagnostic
+pub trust_runtime_core::bytecode::SectionDiagnostic::ArrayCount
+pub trust_runtime_core::bytecode::SectionDiagnostic::ArrayCount::actual: usize
+pub trust_runtime_core::bytecode::SectionDiagnostic::ArrayCount::expected: usize
+pub trust_runtime_core::bytecode::SectionDiagnostic::CountBounds(&'static str)
+pub trust_runtime_core::bytecode::SectionDiagnostic::CountLimit(&'static str)
+pub trust_runtime_core::bytecode::SectionDiagnostic::DuplicatePou(u32)
+pub trust_runtime_core::bytecode::SectionDiagnostic::DuplicateSection(u16)
+pub trust_runtime_core::bytecode::SectionDiagnostic::DuplicateVariableReference(u32)
+pub trust_runtime_core::bytecode::SectionDiagnostic::LocalInitialization(u32)
+pub trust_runtime_core::bytecode::SectionDiagnostic::LocalRange(u32)
+pub trust_runtime_core::bytecode::SectionDiagnostic::ParameterDirection(u8)
+pub trust_runtime_core::bytecode::SectionDiagnostic::ParameterTarget(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::SectionDiagnostic::Reason(trust_runtime_core::bytecode::RejectionReason)
+pub trust_runtime_core::bytecode::SectionDiagnostic::ResourceLimit(&'static str)
+pub trust_runtime_core::bytecode::SectionDiagnostic::StackUnderflow(u8)
+pub trust_runtime_core::bytecode::SectionDiagnostic::StringUtf8(core::str::error::Utf8Error)
+pub trust_runtime_core::bytecode::SectionDiagnostic::Text(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::SectionDiagnostic::UnknownProgram(smol_str::SmolStr)
+pub trust_runtime_core::bytecode::SectionDiagnostic::UnsupportedOpcode
+pub trust_runtime_core::bytecode::SectionDiagnostic::UnsupportedOpcode::name: &'static str
+pub trust_runtime_core::bytecode::SectionDiagnostic::UnsupportedOpcode::opcode: u8
+impl trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::contains(&self, needle: &str) -> bool
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::message(&self) -> alloc::borrow::Cow<'_, str>
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::starts_with(&self, prefix: &str) -> bool
+impl core::cmp::PartialEq<&str> for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::eq(&self, other: &&str) -> bool
+impl core::cmp::PartialEq<alloc::string::String> for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::eq(&self, other: &alloc::string::String) -> bool
+impl core::cmp::PartialEq<smol_str::SmolStr> for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::eq(&self, other: &smol_str::SmolStr) -> bool
+impl core::cmp::PartialEq<str> for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::eq(&self, other: &str) -> bool
+impl core::convert::From<&str> for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::from(value: &str) -> Self
+impl core::convert::From<alloc::string::String> for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::from(value: alloc::string::String) -> Self
+impl core::convert::From<smol_str::SmolStr> for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::from(value: smol_str::SmolStr) -> Self
+impl core::fmt::Display for trust_runtime_core::bytecode::SectionDiagnostic
+pub fn trust_runtime_core::bytecode::SectionDiagnostic::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime_core::bytecode::SectionId
+pub trust_runtime_core::bytecode::SectionId::AccessBindings = 16
 pub trust_runtime_core::bytecode::SectionId::ConstPool = 3
+pub trust_runtime_core::bytecode::SectionId::ConstructionRoots = 14
 pub trust_runtime_core::bytecode::SectionId::DebugMap = 9
 pub trust_runtime_core::bytecode::SectionId::DebugStringTable = 10
+pub trust_runtime_core::bytecode::SectionId::Initializers = 15
 pub trust_runtime_core::bytecode::SectionId::IoMap = 8
 pub trust_runtime_core::bytecode::SectionId::PouBodies = 6
 pub trust_runtime_core::bytecode::SectionId::PouIndex = 5
 pub trust_runtime_core::bytecode::SectionId::RefTable = 4
 pub trust_runtime_core::bytecode::SectionId::ResourceMeta = 7
 pub trust_runtime_core::bytecode::SectionId::RetainInit = 12
+pub trust_runtime_core::bytecode::SectionId::StorageLayout = 13
 pub trust_runtime_core::bytecode::SectionId::StringTable = 1
 pub trust_runtime_core::bytecode::SectionId::TypeTable = 2
 pub trust_runtime_core::bytecode::SectionId::VarMeta = 11
 impl trust_runtime_core::bytecode::SectionId
 pub fn trust_runtime_core::bytecode::SectionId::as_raw(self) -> u16
 pub fn trust_runtime_core::bytecode::SectionId::from_raw(id: u16) -> core::option::Option<Self>
+#[repr(u8)] pub enum trust_runtime_core::bytecode::StorageOwner
+pub trust_runtime_core::bytecode::StorageOwner::Frame = 2
+pub trust_runtime_core::bytecode::StorageOwner::Global = 0
+pub trust_runtime_core::bytecode::StorageOwner::Instance = 1
+impl trust_runtime_core::bytecode::StorageOwner
+pub fn trust_runtime_core::bytecode::StorageOwner::from_raw(value: u8) -> core::option::Option<Self>
+#[repr(u8)] pub enum trust_runtime_core::bytecode::StorageRole
+pub trust_runtime_core::bytecode::StorageRole::EdgePhase = 7
+pub trust_runtime_core::bytecode::StorageRole::External = 5
+pub trust_runtime_core::bytecode::StorageRole::NativeState = 8
+pub trust_runtime_core::bytecode::StorageRole::Parameter = 3
+pub trust_runtime_core::bytecode::StorageRole::ProgramRoot = 1
+pub trust_runtime_core::bytecode::StorageRole::Return = 2
+pub trust_runtime_core::bytecode::StorageRole::Scratch = 6
+pub trust_runtime_core::bytecode::StorageRole::Static = 4
+pub trust_runtime_core::bytecode::StorageRole::Variable = 0
+impl trust_runtime_core::bytecode::StorageRole
+pub fn trust_runtime_core::bytecode::StorageRole::from_raw(value: u8) -> core::option::Option<Self>
 pub enum trust_runtime_core::bytecode::TypeData
 pub trust_runtime_core::bytecode::TypeData::Alias
 pub trust_runtime_core::bytecode::TypeData::Alias::target_type_id: u32
@@ -106,6 +330,8 @@ pub trust_runtime_core::bytecode::TypeKind::Class = 9
 pub trust_runtime_core::bytecode::TypeKind::Enum = 3
 pub trust_runtime_core::bytecode::TypeKind::FunctionBlock = 8
 pub trust_runtime_core::bytecode::TypeKind::Interface = 10
+pub trust_runtime_core::bytecode::TypeKind::LocatedStruct = 12
+pub trust_runtime_core::bytecode::TypeKind::OverlappingStruct = 11
 pub trust_runtime_core::bytecode::TypeKind::Primitive = 0
 pub trust_runtime_core::bytecode::TypeKind::Reference = 6
 pub trust_runtime_core::bytecode::TypeKind::Struct = 2
@@ -113,12 +339,69 @@ pub trust_runtime_core::bytecode::TypeKind::Subrange = 5
 pub trust_runtime_core::bytecode::TypeKind::Union = 7
 impl trust_runtime_core::bytecode::TypeKind
 pub fn trust_runtime_core::bytecode::TypeKind::from_raw(value: u8) -> core::option::Option<Self>
+pub struct trust_runtime_core::bytecode::AccessBindingEntry
+pub trust_runtime_core::bytecode::AccessBindingEntry::flags: u8
+pub trust_runtime_core::bytecode::AccessBindingEntry::name_idx: u32
+pub trust_runtime_core::bytecode::AccessBindingEntry::partial_index: u32
+pub trust_runtime_core::bytecode::AccessBindingEntry::partial_kind: u8
+pub trust_runtime_core::bytecode::AccessBindingEntry::ref_idx: u32
+pub trust_runtime_core::bytecode::AccessBindingEntry::reserved: u16
+pub trust_runtime_core::bytecode::AccessBindingEntry::type_id: u32
+impl trust_runtime_core::bytecode::AccessBindingEntry
+pub fn trust_runtime_core::bytecode::AccessBindingEntry::is_writable(&self) -> bool
+pub struct trust_runtime_core::bytecode::AccessBindings
+pub trust_runtime_core::bytecode::AccessBindings::entries: alloc::vec::Vec<trust_runtime_core::bytecode::AccessBindingEntry>
 pub struct trust_runtime_core::bytecode::BytecodeMetadata
 pub trust_runtime_core::bytecode::BytecodeMetadata::resources: alloc::vec::Vec<trust_runtime_core::bytecode::ResourceMetadata>
 pub trust_runtime_core::bytecode::BytecodeMetadata::version: trust_runtime_core::bytecode::BytecodeVersion
 impl trust_runtime_core::bytecode::BytecodeMetadata
 pub fn trust_runtime_core::bytecode::BytecodeMetadata::primary_resource(&self) -> core::option::Option<&trust_runtime_core::bytecode::ResourceMetadata>
 pub fn trust_runtime_core::bytecode::BytecodeMetadata::resource(&self, name: &str) -> core::option::Option<&trust_runtime_core::bytecode::ResourceMetadata>
+pub struct trust_runtime_core::bytecode::BytecodeModule
+pub trust_runtime_core::bytecode::BytecodeModule::flags: u32
+pub trust_runtime_core::bytecode::BytecodeModule::sections: alloc::vec::Vec<trust_runtime_core::bytecode::Section>
+pub trust_runtime_core::bytecode::BytecodeModule::version: trust_runtime_core::bytecode::BytecodeVersion
+impl trust_runtime_core::bytecode::BytecodeModule
+pub fn trust_runtime_core::bytecode::BytecodeModule::decode(bytes: &[u8]) -> core::result::Result<Self, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModule::decode_with_limits(bytes: &[u8], max_allocation_bytes: usize, max_work: usize) -> core::result::Result<(Self, trust_runtime_core::bytecode::DecodeStats), trust_runtime_core::bytecode::BytecodeError>
+impl trust_runtime_core::bytecode::BytecodeModule
+pub fn trust_runtime_core::bytecode::BytecodeModule::disassemble(&self) -> core::result::Result<alloc::string::String, trust_runtime_core::bytecode::BytecodeError>
+impl trust_runtime_core::bytecode::BytecodeModule
+pub fn trust_runtime_core::bytecode::BytecodeModule::encode(&self) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModule::encode_with_limit(&self, limit: usize) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModule::metadata(&self) -> core::result::Result<trust_runtime_core::bytecode::BytecodeMetadata, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModule::validate(&self) -> core::result::Result<(), trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModule::view(&self) -> trust_runtime_core::bytecode::BytecodeModuleView<'_>
+impl trust_runtime_core::bytecode::BytecodeModule
+pub fn trust_runtime_core::bytecode::BytecodeModule::new(version: trust_runtime_core::bytecode::BytecodeVersion) -> Self
+pub fn trust_runtime_core::bytecode::BytecodeModule::section(&self, id: trust_runtime_core::bytecode::SectionId) -> core::option::Option<&trust_runtime_core::bytecode::SectionData>
+pub fn trust_runtime_core::bytecode::BytecodeModule::section_mut(&mut self, id: trust_runtime_core::bytecode::SectionId) -> core::option::Option<&mut trust_runtime_core::bytecode::SectionData>
+pub fn trust_runtime_core::bytecode::BytecodeModule::storage_abi(&self) -> core::result::Result<trust_runtime_core::value::StorageAbi, trust_runtime_core::bytecode::BytecodeError>
+impl trust_runtime_core::bytecode::BytecodeModule
+pub fn trust_runtime_core::bytecode::BytecodeModule::validated(&self) -> core::result::Result<trust_runtime_core::bytecode::ValidatedBytecode<'_>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModule::validated_source_free(&self, limits: trust_runtime_core::bytecode::ValidationLimits) -> core::result::Result<trust_runtime_core::bytecode::ValidatedBytecode<'_>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModule::validated_with_limits(&self, limits: trust_runtime_core::bytecode::ValidationLimits) -> core::result::Result<trust_runtime_core::bytecode::ValidatedBytecode<'_>, trust_runtime_core::bytecode::BytecodeError>
+pub struct trust_runtime_core::bytecode::BytecodeModuleView<'a>
+pub trust_runtime_core::bytecode::BytecodeModuleView::flags: u32
+pub trust_runtime_core::bytecode::BytecodeModuleView::sections: &'a [trust_runtime_core::bytecode::Section]
+pub trust_runtime_core::bytecode::BytecodeModuleView::version: trust_runtime_core::bytecode::BytecodeVersion
+impl trust_runtime_core::bytecode::BytecodeModuleView<'_>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'_>::disassemble(&self) -> core::result::Result<alloc::string::String, trust_runtime_core::bytecode::BytecodeError>
+impl trust_runtime_core::bytecode::BytecodeModuleView<'_>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'_>::encode(&self) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'_>::encode_with_limit(&self, limit: usize) -> core::result::Result<alloc::vec::Vec<u8>, trust_runtime_core::bytecode::BytecodeError>
+impl trust_runtime_core::bytecode::BytecodeModuleView<'_>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'_>::metadata(&self) -> core::result::Result<trust_runtime_core::bytecode::BytecodeMetadata, trust_runtime_core::bytecode::BytecodeError>
+impl trust_runtime_core::bytecode::BytecodeModuleView<'_>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'_>::validate(&self) -> core::result::Result<(), trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'_>::validate_with_limits(&self, limits: trust_runtime_core::bytecode::ValidationLimits) -> core::result::Result<trust_runtime_core::bytecode::ValidationStats, trust_runtime_core::bytecode::BytecodeError>
+impl<'a> trust_runtime_core::bytecode::BytecodeModuleView<'a>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'a>::section(&self, id: trust_runtime_core::bytecode::SectionId) -> core::option::Option<&'a trust_runtime_core::bytecode::SectionData>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'a>::storage_abi(self) -> core::result::Result<trust_runtime_core::value::StorageAbi, trust_runtime_core::bytecode::BytecodeError>
+impl<'a> trust_runtime_core::bytecode::BytecodeModuleView<'a>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'a>::validated(self) -> core::result::Result<trust_runtime_core::bytecode::ValidatedBytecode<'a>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'a>::validated_source_free(self, limits: trust_runtime_core::bytecode::ValidationLimits) -> core::result::Result<trust_runtime_core::bytecode::ValidatedBytecode<'a>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::BytecodeModuleView<'a>::validated_with_limits(self, limits: trust_runtime_core::bytecode::ValidationLimits) -> core::result::Result<trust_runtime_core::bytecode::ValidatedBytecode<'a>, trust_runtime_core::bytecode::BytecodeError>
 pub struct trust_runtime_core::bytecode::BytecodeReader<'a>
 impl<'a> trust_runtime_core::bytecode::BytecodeReader<'a>
 pub const fn trust_runtime_core::bytecode::BytecodeReader<'a>::new(data: &'a [u8]) -> Self
@@ -135,12 +418,31 @@ pub struct trust_runtime_core::bytecode::BytecodeVersion
 pub trust_runtime_core::bytecode::BytecodeVersion::major: u16
 pub trust_runtime_core::bytecode::BytecodeVersion::minor: u16
 impl trust_runtime_core::bytecode::BytecodeVersion
+pub const trust_runtime_core::bytecode::BytecodeVersion::LEGACY: Self
+pub const trust_runtime_core::bytecode::BytecodeVersion::SOURCE_FREE: Self
+pub const trust_runtime_core::bytecode::BytecodeVersion::SOURCE_FREE_V2: Self
+pub const fn trust_runtime_core::bytecode::BytecodeVersion::has_relative_layouts(self) -> bool
+pub const fn trust_runtime_core::bytecode::BytecodeVersion::is_source_free(self) -> bool
+pub const fn trust_runtime_core::bytecode::BytecodeVersion::is_supported(self) -> bool
 pub const fn trust_runtime_core::bytecode::BytecodeVersion::new(major: u16, minor: u16) -> Self
+pub const fn trust_runtime_core::bytecode::BytecodeVersion::storage_abi(self) -> core::result::Result<trust_runtime_core::value::StorageAbi, trust_runtime_core::bytecode::BytecodeError>
+pub const fn trust_runtime_core::bytecode::BytecodeVersion::uses_extended_layout(self) -> bool
 pub struct trust_runtime_core::bytecode::ConstEntry
 pub trust_runtime_core::bytecode::ConstEntry::payload: alloc::vec::Vec<u8>
 pub trust_runtime_core::bytecode::ConstEntry::type_id: u32
 pub struct trust_runtime_core::bytecode::ConstPool
 pub trust_runtime_core::bytecode::ConstPool::entries: alloc::vec::Vec<trust_runtime_core::bytecode::ConstEntry>
+pub struct trust_runtime_core::bytecode::ConstructionRoot
+pub trust_runtime_core::bytecode::ConstructionRoot::binding_ref_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::ConstructionRoot::declaration_idx: u32
+pub trust_runtime_core::bytecode::ConstructionRoot::flags: u32
+pub trust_runtime_core::bytecode::ConstructionRoot::instance_owner_id: core::option::Option<u32>
+pub trust_runtime_core::bytecode::ConstructionRoot::parent_root_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::ConstructionRoot::template_pou_id: core::option::Option<u32>
+impl trust_runtime_core::bytecode::ConstructionRoot
+pub fn trust_runtime_core::bytecode::ConstructionRoot::is_inheritance_parent(&self) -> bool
+pub struct trust_runtime_core::bytecode::ConstructionRoots
+pub trust_runtime_core::bytecode::ConstructionRoots::entries: alloc::vec::Vec<trust_runtime_core::bytecode::ConstructionRoot>
 pub struct trust_runtime_core::bytecode::DebugEntry
 pub trust_runtime_core::bytecode::DebugEntry::code_offset: u32
 pub trust_runtime_core::bytecode::DebugEntry::column: u32
@@ -150,12 +452,44 @@ pub trust_runtime_core::bytecode::DebugEntry::line: u32
 pub trust_runtime_core::bytecode::DebugEntry::pou_id: u32
 pub struct trust_runtime_core::bytecode::DebugMap
 pub trust_runtime_core::bytecode::DebugMap::entries: alloc::vec::Vec<trust_runtime_core::bytecode::DebugEntry>
+pub struct trust_runtime_core::bytecode::DecodeStats
+pub trust_runtime_core::bytecode::DecodeStats::allocation_bytes: usize
+pub trust_runtime_core::bytecode::DecodeStats::work: usize
 pub struct trust_runtime_core::bytecode::EnumVariant
 pub trust_runtime_core::bytecode::EnumVariant::name_idx: u32
 pub trust_runtime_core::bytecode::EnumVariant::value: i64
 pub struct trust_runtime_core::bytecode::Field
+pub trust_runtime_core::bytecode::Field::bit_offset: core::option::Option<u32>
 pub trust_runtime_core::bytecode::Field::name_idx: u32
 pub trust_runtime_core::bytecode::Field::type_id: u32
+pub struct trust_runtime_core::bytecode::InitializerEntry
+pub trust_runtime_core::bytecode::InitializerEntry::body_kind: trust_runtime_core::bytecode::InitializerBodyKind
+pub trust_runtime_core::bytecode::InitializerEntry::code_length: u32
+pub trust_runtime_core::bytecode::InitializerEntry::code_offset: u32
+pub trust_runtime_core::bytecode::InitializerEntry::context_initializer_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::InitializerEntry::declaration_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::InitializerEntry::once: trust_runtime_core::bytecode::InitializationOnce
+pub trust_runtime_core::bytecode::InitializerEntry::owner_pou_id: core::option::Option<u32>
+pub trust_runtime_core::bytecode::InitializerEntry::partial_index: u32
+pub trust_runtime_core::bytecode::InitializerEntry::partial_kind: u8
+pub trust_runtime_core::bytecode::InitializerEntry::phase: trust_runtime_core::bytecode::InitializationPhase
+pub trust_runtime_core::bytecode::InitializerEntry::recipe_member_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::InitializerEntry::recipe_reserved: [u8; 3]
+pub trust_runtime_core::bytecode::InitializerEntry::recipe_type_id: core::option::Option<u32>
+pub trust_runtime_core::bytecode::InitializerEntry::result_ref_idx: u32
+pub trust_runtime_core::bytecode::InitializerEntry::stage: trust_runtime_core::bytecode::InitializationStage
+pub trust_runtime_core::bytecode::InitializerEntry::target_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::InitializerEntry::target_kind: trust_runtime_core::bytecode::InitializationTarget
+pub trust_runtime_core::bytecode::InitializerEntry::target_reserved: [u8; 2]
+pub trust_runtime_core::bytecode::InitializerEntry::trigger: trust_runtime_core::bytecode::InitializationTrigger
+pub trust_runtime_core::bytecode::InitializerEntry::visible_local_count: u32
+pub trust_runtime_core::bytecode::InitializerEntry::visible_static_count: u32
+impl trust_runtime_core::bytecode::InitializerEntry
+pub fn trust_runtime_core::bytecode::InitializerEntry::is_action(&self) -> bool
+impl trust_runtime_core::bytecode::InitializerEntry
+pub fn trust_runtime_core::bytecode::InitializerEntry::recipe_context_key(&self, layout: &trust_runtime_core::bytecode::StorageLayout) -> core::option::Option<[u32; 11]>
+pub struct trust_runtime_core::bytecode::InitializerIndex
+pub trust_runtime_core::bytecode::InitializerIndex::entries: alloc::vec::Vec<trust_runtime_core::bytecode::InitializerEntry>
 pub struct trust_runtime_core::bytecode::InterfaceImpl
 pub trust_runtime_core::bytecode::InterfaceImpl::interface_type_id: u32
 pub trust_runtime_core::bytecode::InterfaceImpl::vtable_slots: alloc::vec::Vec<u32>
@@ -179,6 +513,13 @@ pub trust_runtime_core::bytecode::ParamEntry::default_const_idx: core::option::O
 pub trust_runtime_core::bytecode::ParamEntry::direction: u8
 pub trust_runtime_core::bytecode::ParamEntry::name_idx: u32
 pub trust_runtime_core::bytecode::ParamEntry::type_id: u32
+pub struct trust_runtime_core::bytecode::PartialAccessSpec
+pub trust_runtime_core::bytecode::PartialAccessSpec::kind: u8
+pub trust_runtime_core::bytecode::PartialAccessSpec::result_primitive: u16
+pub trust_runtime_core::bytecode::PartialAccessSpec::width: u32
+impl trust_runtime_core::bytecode::PartialAccessSpec
+pub const fn trust_runtime_core::bytecode::PartialAccessSpec::from_access(access: trust_runtime_core::value::PartialAccess) -> (Self, u32)
+pub const fn trust_runtime_core::bytecode::PartialAccessSpec::from_raw(kind: u8) -> core::option::Option<Self>
 pub struct trust_runtime_core::bytecode::PouClassMeta
 pub trust_runtime_core::bytecode::PouClassMeta::interfaces: alloc::vec::Vec<trust_runtime_core::bytecode::InterfaceImpl>
 pub trust_runtime_core::bytecode::PouClassMeta::methods: alloc::vec::Vec<trust_runtime_core::bytecode::MethodEntry>
@@ -234,6 +575,27 @@ pub trust_runtime_core::bytecode::SectionEntry::flags: u16
 pub trust_runtime_core::bytecode::SectionEntry::id: u16
 pub trust_runtime_core::bytecode::SectionEntry::length: u32
 pub trust_runtime_core::bytecode::SectionEntry::offset: u32
+pub struct trust_runtime_core::bytecode::StorageDeclaration
+pub trust_runtime_core::bytecode::StorageDeclaration::construction_nodes: u32
+pub trust_runtime_core::bytecode::StorageDeclaration::default_const_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::StorageDeclaration::flags: u8
+pub trust_runtime_core::bytecode::StorageDeclaration::name_idx: u32
+pub trust_runtime_core::bytecode::StorageDeclaration::owner: trust_runtime_core::bytecode::StorageOwner
+pub trust_runtime_core::bytecode::StorageDeclaration::owner_pou_id: core::option::Option<u32>
+pub trust_runtime_core::bytecode::StorageDeclaration::ref_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::StorageDeclaration::related_declaration_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::StorageDeclaration::retain: u8
+pub trust_runtime_core::bytecode::StorageDeclaration::role: trust_runtime_core::bytecode::StorageRole
+pub trust_runtime_core::bytecode::StorageDeclaration::slot: u32
+pub trust_runtime_core::bytecode::StorageDeclaration::source_name_idx: core::option::Option<u32>
+pub trust_runtime_core::bytecode::StorageDeclaration::type_id: core::option::Option<u32>
+impl trust_runtime_core::bytecode::StorageDeclaration
+pub fn trust_runtime_core::bytecode::StorageDeclaration::is_constant(&self) -> bool
+pub fn trust_runtime_core::bytecode::StorageDeclaration::is_retained(&self) -> bool
+pub fn trust_runtime_core::bytecode::StorageDeclaration::is_rising_edge(&self) -> bool
+pub fn trust_runtime_core::bytecode::StorageDeclaration::owns_storage(&self) -> bool
+pub struct trust_runtime_core::bytecode::StorageLayout
+pub trust_runtime_core::bytecode::StorageLayout::entries: alloc::vec::Vec<trust_runtime_core::bytecode::StorageDeclaration>
 pub struct trust_runtime_core::bytecode::StringTable
 pub trust_runtime_core::bytecode::StringTable::entries: alloc::vec::Vec<smol_str::SmolStr>
 pub struct trust_runtime_core::bytecode::TaskEntry
@@ -250,6 +612,19 @@ pub trust_runtime_core::bytecode::TypeEntry::name_idx: core::option::Option<u32>
 pub struct trust_runtime_core::bytecode::TypeTable
 pub trust_runtime_core::bytecode::TypeTable::entries: alloc::vec::Vec<trust_runtime_core::bytecode::TypeEntry>
 pub trust_runtime_core::bytecode::TypeTable::offsets: alloc::vec::Vec<u32>
+pub struct trust_runtime_core::bytecode::ValidatedBytecode<'a>
+impl<'a> trust_runtime_core::bytecode::ValidatedBytecode<'a>
+pub fn trust_runtime_core::bytecode::ValidatedBytecode<'a>::section(&self, id: trust_runtime_core::bytecode::SectionId) -> core::option::Option<&'a trust_runtime_core::bytecode::SectionData>
+pub fn trust_runtime_core::bytecode::ValidatedBytecode<'a>::stats(&self) -> trust_runtime_core::bytecode::ValidationStats
+pub fn trust_runtime_core::bytecode::ValidatedBytecode<'a>::view(&self) -> trust_runtime_core::bytecode::BytecodeModuleView<'a>
+pub struct trust_runtime_core::bytecode::ValidationLimits
+pub trust_runtime_core::bytecode::ValidationLimits::max_scratch_bytes: usize
+pub trust_runtime_core::bytecode::ValidationLimits::max_work: usize
+impl core::default::Default for trust_runtime_core::bytecode::ValidationLimits
+pub fn trust_runtime_core::bytecode::ValidationLimits::default() -> Self
+pub struct trust_runtime_core::bytecode::ValidationStats
+pub trust_runtime_core::bytecode::ValidationStats::peak_scratch_bytes: usize
+pub trust_runtime_core::bytecode::ValidationStats::work: usize
 pub struct trust_runtime_core::bytecode::VarMeta
 pub trust_runtime_core::bytecode::VarMeta::entries: alloc::vec::Vec<trust_runtime_core::bytecode::VarMetaEntry>
 pub struct trust_runtime_core::bytecode::VarMetaEntry
@@ -258,7 +633,18 @@ pub trust_runtime_core::bytecode::VarMetaEntry::name_idx: u32
 pub trust_runtime_core::bytecode::VarMetaEntry::ref_idx: u32
 pub trust_runtime_core::bytecode::VarMetaEntry::retain: u8
 pub trust_runtime_core::bytecode::VarMetaEntry::type_id: u32
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES: u32
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_CONSTRUCTION_RECORDS: usize
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_CONST_NESTING: u8
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_CONTAINER_BYTES: usize
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_INSTRUCTIONS: usize
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_LOCALS_PER_POU: usize
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS: usize
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_PARAMETERS_PER_POU: usize
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_REFERENCES: usize
+pub const trust_runtime_core::bytecode::BYTECODE_MAX_TYPE_NESTING: usize
 pub const trust_runtime_core::bytecode::HEADER_FLAG_CRC32: u32
+pub const trust_runtime_core::bytecode::HEADER_FLAG_LEGACY_TEMPORAL32: u32
 pub const trust_runtime_core::bytecode::HEADER_SIZE: u16
 pub const trust_runtime_core::bytecode::MAGIC: [u8; 4]
 pub const trust_runtime_core::bytecode::NATIVE_CALL_KIND_FUNCTION: u32
@@ -268,8 +654,17 @@ pub const trust_runtime_core::bytecode::NATIVE_CALL_KIND_STDLIB: u32
 pub const trust_runtime_core::bytecode::SECTION_ENTRY_SIZE: usize
 pub const trust_runtime_core::bytecode::SUPPORTED_MAJOR_VERSION: u16
 pub const trust_runtime_core::bytecode::SUPPORTED_MINOR_VERSION: u16
-pub const fn trust_runtime_core::bytecode::align4(value: usize) -> usize
+pub const fn trust_runtime_core::bytecode::align4(value: usize) -> core::option::Option<usize>
+pub fn trust_runtime_core::bytecode::compute_type_offsets_for_entries(entries: &[trust_runtime_core::bytecode::TypeEntry]) -> core::result::Result<alloc::vec::Vec<u32>, trust_runtime_core::bytecode::BytecodeError>
+pub fn trust_runtime_core::bytecode::construction_demands(module: trust_runtime_core::bytecode::BytecodeModuleView<'_>, limits: trust_runtime_core::bytecode::ValidationLimits) -> core::result::Result<alloc::vec::Vec<u32>, trust_runtime_core::bytecode::BytecodeError>
 pub fn trust_runtime_core::bytecode::pad_to(bytes: &mut alloc::vec::Vec<u8>, target: usize)
+pub type trust_runtime_core::bytecode::SectionDetail = smol_str::SmolStr
+pub mod trust_runtime_core::collections
+pub type trust_runtime_core::collections::LookupMap<K, V> = rustc_hash::FxHashMap<K, V>
+pub type trust_runtime_core::collections::OrderedMap<K, V> = indexmap::map::IndexMap<K, V>
+pub mod trust_runtime_core::crc32
+pub fn trust_runtime_core::crc32::checksum(bytes: &[u8]) -> u32
+pub fn trust_runtime_core::crc32::checksum_parts(parts: &[&[u8]]) -> u32
 pub mod trust_runtime_core::cycle
 pub struct trust_runtime_core::cycle::ReadyTask
 pub trust_runtime_core::cycle::ReadyTask::due_at: trust_runtime_core::value::Duration
@@ -291,19 +686,95 @@ pub fn trust_runtime_core::datetime::days_to_ticks(days: i64, profile: trust_run
 pub fn trust_runtime_core::datetime::nanos_to_ticks(nanos: i64, profile: trust_runtime_core::value::DateTimeProfile, mode: trust_runtime_core::datetime::DivisionMode) -> core::result::Result<i64, trust_runtime_core::datetime::DateTimeCalcError>
 pub fn trust_runtime_core::datetime::ticks_per_day(profile: trust_runtime_core::value::DateTimeProfile) -> core::result::Result<i64, trust_runtime_core::datetime::DateTimeCalcError>
 pub mod trust_runtime_core::error
+pub enum trust_runtime_core::error::ExecutionLimitKind
+pub trust_runtime_core::error::ExecutionLimitKind::AllocationBytes
+pub trust_runtime_core::error::ExecutionLimitKind::ConstructedValues
+pub trust_runtime_core::error::ExecutionLimitKind::Work
+impl core::fmt::Display for trust_runtime_core::error::ExecutionLimitKind
+pub fn trust_runtime_core::error::ExecutionLimitKind::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum trust_runtime_core::error::ImportRefusal
+pub trust_runtime_core::error::ImportRefusal::NoContract
+pub trust_runtime_core::error::ImportRefusal::OutputTarget
+pub trust_runtime_core::error::ImportRefusal::ParameterCount
+pub trust_runtime_core::error::ImportRefusal::ParameterName
+pub trust_runtime_core::error::ImportRefusal::ParameterType
+pub trust_runtime_core::error::ImportRefusal::StateLayout
+impl core::fmt::Display for trust_runtime_core::error::ImportRefusal
+pub fn trust_runtime_core::error::ImportRefusal::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum trust_runtime_core::error::PreparationDiagnostic
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantCount
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantCount::expected: usize
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantCount::got: usize
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantCount::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantLength
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantLength::actual: usize
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantLength::expected: usize
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantLength::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTrailing
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTrailing::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTrailing::remaining: usize
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTruncated
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTruncated::have: usize
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTruncated::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTruncated::length: bool
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantTruncated::need: usize
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantUtf16
+pub trust_runtime_core::error::PreparationDiagnostic::ConstantUtf8(core::str::error::Utf8Error)
+pub trust_runtime_core::error::PreparationDiagnostic::DuplicateMethod
+pub trust_runtime_core::error::PreparationDiagnostic::DuplicateMethod::name: smol_str::SmolStr
+pub trust_runtime_core::error::PreparationDiagnostic::DuplicateMethod::owner: u32
+pub trust_runtime_core::error::PreparationDiagnostic::DuplicateName
+pub trust_runtime_core::error::PreparationDiagnostic::DuplicateName::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::DuplicateName::name: smol_str::SmolStr
+pub trust_runtime_core::error::PreparationDiagnostic::DuplicatePou(u32)
+pub trust_runtime_core::error::PreparationDiagnostic::InvalidIndex
+pub trust_runtime_core::error::PreparationDiagnostic::InvalidIndex::index: u32
+pub trust_runtime_core::error::PreparationDiagnostic::InvalidIndex::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::InvalidIoArea(u32)
+pub trust_runtime_core::error::PreparationDiagnostic::MissingDecodedPou(u32)
+pub trust_runtime_core::error::PreparationDiagnostic::MissingString
+pub trust_runtime_core::error::PreparationDiagnostic::MissingString::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::PouCodeRange(smol_str::SmolStr)
+pub trust_runtime_core::error::PreparationDiagnostic::StringIndexOutOfBounds
+pub trust_runtime_core::error::PreparationDiagnostic::StringIndexOutOfBounds::index: u32
+pub trust_runtime_core::error::PreparationDiagnostic::StringIndexOutOfBounds::kind: &'static str
+pub trust_runtime_core::error::PreparationDiagnostic::UnsupportedConstantType(u32)
+pub trust_runtime_core::error::PreparationDiagnostic::UnsupportedPrimitive(u16)
+impl trust_runtime_core::error::PreparationDiagnostic
+pub fn trust_runtime_core::error::PreparationDiagnostic::into_runtime_error(self) -> trust_runtime_core::error::RuntimeError
+impl core::fmt::Display for trust_runtime_core::error::PreparationDiagnostic
+pub fn trust_runtime_core::error::PreparationDiagnostic::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum trust_runtime_core::error::RuntimeError
 pub trust_runtime_core::error::RuntimeError::AssertionFailed(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::Bytecode
+pub trust_runtime_core::error::RuntimeError::Bytecode::code: trust_runtime_core::error_code::StableErrorCode
+pub trust_runtime_core::error::RuntimeError::Bytecode::detail: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::BytecodeCause(trust_runtime_core::bytecode::BytecodeError)
 pub trust_runtime_core::error::RuntimeError::CaseSelectorType
 pub trust_runtime_core::error::RuntimeError::ConditionNotBool
+pub trust_runtime_core::error::RuntimeError::ConstantWrite
 pub trust_runtime_core::error::RuntimeError::ControlError(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::DateTimeRange(trust_runtime_core::value::DateTimeError)
 pub trust_runtime_core::error::RuntimeError::DivisionByZero
+pub trust_runtime_core::error::RuntimeError::ExecutionLimit
+pub trust_runtime_core::error::RuntimeError::ExecutionLimit::kind: trust_runtime_core::error::ExecutionLimitKind
+pub trust_runtime_core::error::RuntimeError::ExecutionLimit::limit: usize
+pub trust_runtime_core::error::RuntimeError::ExecutionLimit::requested: usize
+pub trust_runtime_core::error::RuntimeError::ExecutionLimit::used: usize
 pub trust_runtime_core::error::RuntimeError::ExecutionTimeout
 pub trust_runtime_core::error::RuntimeError::ForStepZero
+pub trust_runtime_core::error::RuntimeError::ImportUnsupported
+pub trust_runtime_core::error::RuntimeError::ImportUnsupported::import: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::ImportUnsupported::reason: trust_runtime_core::error::ImportRefusal
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::index: i64
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::lower: i64
 pub trust_runtime_core::error::RuntimeError::IndexOutOfBounds::upper: i64
+pub trust_runtime_core::error::RuntimeError::InitFailed
+pub trust_runtime_core::error::RuntimeError::InitFailed::error: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::InitFailed::owner: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::InitFailed::variable: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::InvalidAlias
 pub trust_runtime_core::error::RuntimeError::InvalidArgumentCount
 pub trust_runtime_core::error::RuntimeError::InvalidArgumentCount::expected: usize
 pub trust_runtime_core::error::RuntimeError::InvalidArgumentCount::got: usize
@@ -313,16 +784,46 @@ pub trust_runtime_core::error::RuntimeError::InvalidBytecode(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::InvalidBytecodeMetadata(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::InvalidConfig(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::InvalidControlFlow
+pub trust_runtime_core::error::RuntimeError::InvalidExecutionState
 pub trust_runtime_core::error::RuntimeError::InvalidFrame(u32)
 pub trust_runtime_core::error::RuntimeError::InvalidIoAddress(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::InvalidTaskSingle(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::IoAddress(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::IoDriver(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::IoFreshness(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::IoTransport(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::ModuloByZero
+pub trust_runtime_core::error::RuntimeError::NonFiniteValue
 pub trust_runtime_core::error::RuntimeError::NullReference
 pub trust_runtime_core::error::RuntimeError::Overflow
+pub trust_runtime_core::error::RuntimeError::PreparationDiagnostic(trust_runtime_core::error::PreparationDiagnostic)
+pub trust_runtime_core::error::RuntimeError::PreparationLimit
+pub trust_runtime_core::error::RuntimeError::ProfileUnsupported(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::ProgramRootReplacement
+pub trust_runtime_core::error::RuntimeError::ReadOnlyAlias(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::ReferenceLifetime
 pub trust_runtime_core::error::RuntimeError::ResourceFaulted
+pub trust_runtime_core::error::RuntimeError::ResourcePanic(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::RestartLimitExceeded
+pub trust_runtime_core::error::RuntimeError::RestartLimitExceeded::attempts: u32
+pub trust_runtime_core::error::RuntimeError::RestartLimitExceeded::reason: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::RetainCorruption(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::RetainMigration(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::RetainStore(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::RetainSubrangeViolation
+pub trust_runtime_core::error::RuntimeError::RetainSubrangeViolation::lower: i128
+pub trust_runtime_core::error::RuntimeError::RetainSubrangeViolation::name: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::RetainSubrangeViolation::upper: i128
+pub trust_runtime_core::error::RuntimeError::RetainSubrangeViolation::value: i128
+pub trust_runtime_core::error::RuntimeError::SafeStateFailed
+pub trust_runtime_core::error::RuntimeError::SafeStateFailed::error: smol_str::SmolStr
+pub trust_runtime_core::error::RuntimeError::SafeStateFailed::root: smol_str::SmolStr
 pub trust_runtime_core::error::RuntimeError::SimulationFault(smol_str::SmolStr)
+pub trust_runtime_core::error::RuntimeError::StagingViolation
+pub trust_runtime_core::error::RuntimeError::SubrangeViolation
+pub trust_runtime_core::error::RuntimeError::SubrangeViolation::lower: i128
+pub trust_runtime_core::error::RuntimeError::SubrangeViolation::upper: i128
+pub trust_runtime_core::error::RuntimeError::SubrangeViolation::value: i128
 pub trust_runtime_core::error::RuntimeError::ThreadSpawn(smol_str::SmolStr)
 pub trust_runtime_core::error::RuntimeError::TypeMismatch
 pub trust_runtime_core::error::RuntimeError::UndefinedField(smol_str::SmolStr)
@@ -335,13 +836,264 @@ pub trust_runtime_core::error::RuntimeError::UndefinedVariable(smol_str::SmolStr
 pub trust_runtime_core::error::RuntimeError::UnsupportedBytecodeVersion
 pub trust_runtime_core::error::RuntimeError::UnsupportedBytecodeVersion::major: u16
 pub trust_runtime_core::error::RuntimeError::UnsupportedBytecodeVersion::minor: u16
+pub trust_runtime_core::error::RuntimeError::VisibilityViolation
 pub trust_runtime_core::error::RuntimeError::WatchdogTimeout
+impl trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::bytecode(code: trust_runtime_core::error_code::StableErrorCode, detail: impl core::convert::Into<smol_str::SmolStr>) -> Self
+pub const fn trust_runtime_core::error::RuntimeError::stable_code(&self) -> trust_runtime_core::error_code::StableErrorCode
+impl core::convert::From<trust_runtime_core::bytecode::BytecodeError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::bytecode::BytecodeError) -> Self
 impl core::convert::From<trust_runtime_core::datetime::DateTimeCalcError> for trust_runtime_core::error::RuntimeError
 pub fn trust_runtime_core::error::RuntimeError::from(_: trust_runtime_core::datetime::DateTimeCalcError) -> Self
 impl core::convert::From<trust_runtime_core::error::RuntimeError> for trust_runtime_core::vm::VmTrap
 pub fn trust_runtime_core::vm::VmTrap::from(value: trust_runtime_core::error::RuntimeError) -> Self
+impl core::convert::From<trust_runtime_core::retain::checkpoint::CheckpointError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::retain::checkpoint::CheckpointError) -> Self
 impl core::convert::From<trust_runtime_core::value::DateTimeError> for trust_runtime_core::error::RuntimeError
 pub fn trust_runtime_core::error::RuntimeError::from(value: trust_runtime_core::value::DateTimeError) -> Self
+impl core::convert::From<trust_runtime_core::value::PartialAccessError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::value::PartialAccessError) -> Self
+impl core::convert::From<trust_runtime_core::value::SizeOfError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::value::SizeOfError) -> Self
+pub enum trust_runtime_core::error::StableErrorCode
+pub trust_runtime_core::error::StableErrorCode::BytecodeDecodeMemoryLimit
+pub trust_runtime_core::error::StableErrorCode::BytecodeDecodeWorkLimit
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidChecksum
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidHeader
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidIndex
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidJumpTarget
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidMagic
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidOpcode
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidPouId
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidSection
+pub trust_runtime_core::error::StableErrorCode::BytecodeInvalidSectionTable
+pub trust_runtime_core::error::StableErrorCode::BytecodeMissingSection
+pub trust_runtime_core::error::StableErrorCode::BytecodeSectionAlignment
+pub trust_runtime_core::error::StableErrorCode::BytecodeSectionOutOfBounds
+pub trust_runtime_core::error::StableErrorCode::BytecodeSectionOverlap
+pub trust_runtime_core::error::StableErrorCode::BytecodeUnexpectedEof
+pub trust_runtime_core::error::StableErrorCode::BytecodeUnsupportedVersion
+pub trust_runtime_core::error::StableErrorCode::RuntimeAssertionFailed
+pub trust_runtime_core::error::StableErrorCode::RuntimeCaseSelectorType
+pub trust_runtime_core::error::StableErrorCode::RuntimeConditionNotBool
+pub trust_runtime_core::error::StableErrorCode::RuntimeConstantWrite
+pub trust_runtime_core::error::StableErrorCode::RuntimeControlError
+pub trust_runtime_core::error::StableErrorCode::RuntimeDateTimeRange
+pub trust_runtime_core::error::StableErrorCode::RuntimeDivisionByZero
+pub trust_runtime_core::error::StableErrorCode::RuntimeExecutionTimeout
+pub trust_runtime_core::error::StableErrorCode::RuntimeForStepZero
+pub trust_runtime_core::error::StableErrorCode::RuntimeImportUnsupported
+pub trust_runtime_core::error::StableErrorCode::RuntimeIndexOutOfBounds
+pub trust_runtime_core::error::StableErrorCode::RuntimeInitFailed
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidAlias
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidArgumentCount
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidArgumentName
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidBundle
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidBytecode
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidBytecodeMetadata
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidConfig
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidControlFlow
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidExecutionState
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidFrame
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidIoAddress
+pub trust_runtime_core::error::StableErrorCode::RuntimeInvalidTaskSingle
+pub trust_runtime_core::error::StableErrorCode::RuntimeIoAddress
+pub trust_runtime_core::error::StableErrorCode::RuntimeIoDriver
+pub trust_runtime_core::error::StableErrorCode::RuntimeIoFreshness
+pub trust_runtime_core::error::StableErrorCode::RuntimeIoTransport
+pub trust_runtime_core::error::StableErrorCode::RuntimeModuloByZero
+pub trust_runtime_core::error::StableErrorCode::RuntimeNonFiniteValue
+pub trust_runtime_core::error::StableErrorCode::RuntimeNullReference
+pub trust_runtime_core::error::StableErrorCode::RuntimeOverflow
+pub trust_runtime_core::error::StableErrorCode::RuntimePreparationLimit
+pub trust_runtime_core::error::StableErrorCode::RuntimeProfileUnsupported
+pub trust_runtime_core::error::StableErrorCode::RuntimeProgramRootReplacement
+pub trust_runtime_core::error::StableErrorCode::RuntimeReferenceLifetime
+pub trust_runtime_core::error::StableErrorCode::RuntimeResourceFaulted
+pub trust_runtime_core::error::StableErrorCode::RuntimeResourcePanic
+pub trust_runtime_core::error::StableErrorCode::RuntimeRestartLimitExceeded
+pub trust_runtime_core::error::StableErrorCode::RuntimeRetainCorruption
+pub trust_runtime_core::error::StableErrorCode::RuntimeRetainMigration
+pub trust_runtime_core::error::StableErrorCode::RuntimeRetainStore
+pub trust_runtime_core::error::StableErrorCode::RuntimeSafeStateFailed
+pub trust_runtime_core::error::StableErrorCode::RuntimeSimulationFault
+pub trust_runtime_core::error::StableErrorCode::RuntimeStagingViolation
+pub trust_runtime_core::error::StableErrorCode::RuntimeStringCapacityExceeded
+pub trust_runtime_core::error::StableErrorCode::RuntimeSubrangeViolation
+pub trust_runtime_core::error::StableErrorCode::RuntimeThreadSpawn
+pub trust_runtime_core::error::StableErrorCode::RuntimeTypeMismatch
+pub trust_runtime_core::error::StableErrorCode::RuntimeUndefinedField
+pub trust_runtime_core::error::StableErrorCode::RuntimeUndefinedFunction
+pub trust_runtime_core::error::StableErrorCode::RuntimeUndefinedFunctionBlock
+pub trust_runtime_core::error::StableErrorCode::RuntimeUndefinedLabel
+pub trust_runtime_core::error::StableErrorCode::RuntimeUndefinedProgram
+pub trust_runtime_core::error::StableErrorCode::RuntimeUndefinedTask
+pub trust_runtime_core::error::StableErrorCode::RuntimeUndefinedVariable
+pub trust_runtime_core::error::StableErrorCode::RuntimeUnsupportedBytecodeVersion
+pub trust_runtime_core::error::StableErrorCode::RuntimeVisibilityViolation
+pub trust_runtime_core::error::StableErrorCode::RuntimeWatchdogTimeout
+pub trust_runtime_core::error::StableErrorCode::VmBytecodeDecode
+pub trust_runtime_core::error::StableErrorCode::VmCallStackOverflow
+pub trust_runtime_core::error::StableErrorCode::VmCallStackUnderflow
+pub trust_runtime_core::error::StableErrorCode::VmInvalidNativeCall
+pub trust_runtime_core::error::StableErrorCode::VmStackOverflow
+pub trust_runtime_core::error::StableErrorCode::VmStackUnderflow
+pub trust_runtime_core::error::StableErrorCode::VmUnsupportedOpcode
+pub trust_runtime_core::error::StableErrorCode::VmUnsupportedReferenceLocation
+impl trust_runtime_core::error_code::StableErrorCode
+pub const fn trust_runtime_core::error_code::StableErrorCode::as_str(self) -> &'static str
+impl core::fmt::Display for trust_runtime_core::error_code::StableErrorCode
+pub fn trust_runtime_core::error_code::StableErrorCode::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub mod trust_runtime_core::error_code
+pub enum trust_runtime_core::error_code::StableErrorCode
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeDecodeMemoryLimit
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeDecodeWorkLimit
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidChecksum
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidHeader
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidIndex
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidJumpTarget
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidMagic
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidOpcode
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidPouId
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidSection
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeInvalidSectionTable
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeMissingSection
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeSectionAlignment
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeSectionOutOfBounds
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeSectionOverlap
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeUnexpectedEof
+pub trust_runtime_core::error_code::StableErrorCode::BytecodeUnsupportedVersion
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeAssertionFailed
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeCaseSelectorType
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeConditionNotBool
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeConstantWrite
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeControlError
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeDateTimeRange
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeDivisionByZero
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeExecutionTimeout
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeForStepZero
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeImportUnsupported
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeIndexOutOfBounds
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInitFailed
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidAlias
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidArgumentCount
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidArgumentName
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidBundle
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidBytecode
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidBytecodeMetadata
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidConfig
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidControlFlow
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidExecutionState
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidFrame
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidIoAddress
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeInvalidTaskSingle
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeIoAddress
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeIoDriver
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeIoFreshness
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeIoTransport
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeModuloByZero
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeNonFiniteValue
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeNullReference
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeOverflow
+pub trust_runtime_core::error_code::StableErrorCode::RuntimePreparationLimit
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeProfileUnsupported
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeProgramRootReplacement
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeReferenceLifetime
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeResourceFaulted
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeResourcePanic
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeRestartLimitExceeded
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeRetainCorruption
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeRetainMigration
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeRetainStore
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeSafeStateFailed
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeSimulationFault
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeStagingViolation
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeStringCapacityExceeded
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeSubrangeViolation
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeThreadSpawn
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeTypeMismatch
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUndefinedField
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUndefinedFunction
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUndefinedFunctionBlock
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUndefinedLabel
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUndefinedProgram
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUndefinedTask
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUndefinedVariable
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeUnsupportedBytecodeVersion
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeVisibilityViolation
+pub trust_runtime_core::error_code::StableErrorCode::RuntimeWatchdogTimeout
+pub trust_runtime_core::error_code::StableErrorCode::VmBytecodeDecode
+pub trust_runtime_core::error_code::StableErrorCode::VmCallStackOverflow
+pub trust_runtime_core::error_code::StableErrorCode::VmCallStackUnderflow
+pub trust_runtime_core::error_code::StableErrorCode::VmInvalidNativeCall
+pub trust_runtime_core::error_code::StableErrorCode::VmStackOverflow
+pub trust_runtime_core::error_code::StableErrorCode::VmStackUnderflow
+pub trust_runtime_core::error_code::StableErrorCode::VmUnsupportedOpcode
+pub trust_runtime_core::error_code::StableErrorCode::VmUnsupportedReferenceLocation
+impl trust_runtime_core::error_code::StableErrorCode
+pub const fn trust_runtime_core::error_code::StableErrorCode::as_str(self) -> &'static str
+impl core::fmt::Display for trust_runtime_core::error_code::StableErrorCode
+pub fn trust_runtime_core::error_code::StableErrorCode::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub mod trust_runtime_core::io_address
+pub enum trust_runtime_core::io_address::IoSize
+pub trust_runtime_core::io_address::IoSize::Bit
+pub trust_runtime_core::io_address::IoSize::Byte
+pub trust_runtime_core::io_address::IoSize::Bytes(u32)
+pub trust_runtime_core::io_address::IoSize::DWord
+pub trust_runtime_core::io_address::IoSize::LWord
+pub trust_runtime_core::io_address::IoSize::Word
+pub struct trust_runtime_core::io_address::IoAddress
+pub trust_runtime_core::io_address::IoAddress::area: trust_runtime_core::memory::IoArea
+pub trust_runtime_core::io_address::IoAddress::bit: u8
+pub trust_runtime_core::io_address::IoAddress::byte: u32
+pub trust_runtime_core::io_address::IoAddress::path: alloc::vec::Vec<u32>
+pub trust_runtime_core::io_address::IoAddress::size: trust_runtime_core::io_address::IoSize
+pub trust_runtime_core::io_address::IoAddress::wildcard: bool
+impl trust_runtime_core::io_address::IoAddress
+pub fn trust_runtime_core::io_address::IoAddress::flat_byte_end(&self) -> core::result::Result<core::option::Option<u32>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_address::IoAddress::parse(text: &str) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+impl core::convert::From<&trust_runtime_core::io_address::IoAddress> for trust_runtime_core::io_image::IoAddressKey
+pub fn trust_runtime_core::io_image::IoAddressKey::from(address: &trust_runtime_core::io_address::IoAddress) -> Self
+pub const trust_runtime_core::io_address::PROCESS_IMAGE_AREA_LIMIT: usize
+pub mod trust_runtime_core::io_image
+pub struct trust_runtime_core::io_image::IoAddressKey
+impl trust_runtime_core::io_image::IoAddressKey
+pub fn trust_runtime_core::io_image::IoAddressKey::address(&self) -> core::result::Result<trust_runtime_core::io_address::IoAddress, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::IoAddressKey::clone_allocation_bytes(&self) -> core::option::Option<usize>
+impl core::convert::From<&trust_runtime_core::io_address::IoAddress> for trust_runtime_core::io_image::IoAddressKey
+pub fn trust_runtime_core::io_image::IoAddressKey::from(address: &trust_runtime_core::io_address::IoAddress) -> Self
+pub struct trust_runtime_core::io_image::IoEnumBinding
+pub trust_runtime_core::io_image::IoEnumBinding::type_name: smol_str::SmolStr
+pub trust_runtime_core::io_image::IoEnumBinding::variants: alloc::vec::Vec<(smol_str::SmolStr, i64)>
+pub struct trust_runtime_core::io_image::IoValueCodec
+pub trust_runtime_core::io_image::IoValueCodec::enum_type: core::option::Option<trust_runtime_core::io_image::IoEnumBinding>
+pub trust_runtime_core::io_image::IoValueCodec::string_capacity: core::option::Option<u16>
+pub trust_runtime_core::io_image::IoValueCodec::wire_type: core::option::Option<trust_runtime_core::stdlib::conversions::ConversionType>
+impl trust_runtime_core::io_image::IoValueCodec
+pub fn trust_runtime_core::io_image::IoValueCodec::address(&self, address: trust_runtime_core::io_address::IoAddress) -> core::result::Result<trust_runtime_core::io_address::IoAddress, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::IoValueCodec::decode(&self, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::IoValueCodec::encode(&self, value: trust_runtime_core::value::Value, size: trust_runtime_core::io_address::IoSize) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::IoValueCodec::from_type(type_id: core::option::Option<u32>, types: &trust_runtime_core::bytecode::TypeTable, strings: &[smol_str::SmolStr]) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::io_image::PreparedIoBinding
+pub trust_runtime_core::io_image::PreparedIoBinding::address: trust_runtime_core::io_address::IoAddress
+pub trust_runtime_core::io_image::PreparedIoBinding::codec: trust_runtime_core::io_image::IoValueCodec
+pub trust_runtime_core::io_image::PreparedIoBinding::ref_idx: u32
+pub trust_runtime_core::io_image::PreparedIoBinding::type_id: core::option::Option<u32>
+impl trust_runtime_core::io_image::PreparedIoBinding
+pub fn trust_runtime_core::io_image::PreparedIoBinding::from_tables(binding: &trust_runtime_core::bytecode::IoBinding, types: &trust_runtime_core::bytecode::TypeTable, strings: &[smol_str::SmolStr]) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::coerce_binding_from_io(value: trust_runtime_core::value::Value, wire_type: core::option::Option<trust_runtime_core::stdlib::conversions::ConversionType>, enum_type: core::option::Option<&trust_runtime_core::io_image::IoEnumBinding>) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::coerce_binding_to_io(value: trust_runtime_core::value::Value, wire_type: core::option::Option<trust_runtime_core::stdlib::conversions::ConversionType>, enum_type: core::option::Option<&trust_runtime_core::io_image::IoEnumBinding>, size: trust_runtime_core::io_address::IoSize) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::coerce_from_io(value: trust_runtime_core::value::Value, target: trust_runtime_core::stdlib::conversions::ConversionType) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::coerce_scalar_to_io(value: trust_runtime_core::value::Value, target: trust_runtime_core::stdlib::conversions::ConversionType) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::coerce_to_io(value: trust_runtime_core::value::Value, target: trust_runtime_core::stdlib::conversions::ConversionType, size: trust_runtime_core::io_address::IoSize) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::ensure_len(buffer: &mut alloc::vec::Vec<u8>, index: usize) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::expected_size_for_type(value_type: trust_runtime_core::stdlib::conversions::ConversionType) -> core::option::Option<trust_runtime_core::io_address::IoSize>
+pub fn trust_runtime_core::io_image::io_value_type_name(value_type: trust_runtime_core::stdlib::conversions::ConversionType) -> core::option::Option<&'static str>
+pub fn trust_runtime_core::io_image::process_image_area_limit_error(area: &str) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::read_flat_image(buffer: &[u8], address: &trust_runtime_core::io_address::IoAddress) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::validate_process_image_address(address: &trust_runtime_core::io_address::IoAddress) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::validate_process_image_area_len(area: &str, len: usize) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::io_image::write_flat_image(buffer: &mut alloc::vec::Vec<u8>, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub mod trust_runtime_core::memory
 pub enum trust_runtime_core::memory::IoArea
 pub trust_runtime_core::memory::IoArea::Input
@@ -353,9 +1105,127 @@ pub trust_runtime_core::memory::MemoryLocation::Instance(trust_runtime_core::mem
 pub trust_runtime_core::memory::MemoryLocation::Io(trust_runtime_core::memory::IoArea)
 pub trust_runtime_core::memory::MemoryLocation::Local(trust_runtime_core::memory::FrameId)
 pub trust_runtime_core::memory::MemoryLocation::Retain
+pub struct trust_runtime_core::memory::AccessBinding
+pub trust_runtime_core::memory::AccessBinding::name: smol_str::SmolStr
+pub trust_runtime_core::memory::AccessBinding::partial: core::option::Option<trust_runtime_core::value::PartialAccess>
+pub trust_runtime_core::memory::AccessBinding::reference: trust_runtime_core::value::ValueRef
+pub trust_runtime_core::memory::AccessBinding::writable: bool
+pub struct trust_runtime_core::memory::AccessMap
+impl trust_runtime_core::memory::AccessMap
+pub fn trust_runtime_core::memory::AccessMap::bind(&mut self, name: smol_str::SmolStr, reference: trust_runtime_core::value::ValueRef, partial: core::option::Option<trust_runtime_core::value::PartialAccess>)
+pub fn trust_runtime_core::memory::AccessMap::bind_with_mode(&mut self, name: smol_str::SmolStr, reference: trust_runtime_core::value::ValueRef, partial: core::option::Option<trust_runtime_core::value::PartialAccess>, writable: bool)
+pub fn trust_runtime_core::memory::AccessMap::bindings(&self) -> impl core::iter::traits::iterator::Iterator<Item = &trust_runtime_core::memory::AccessBinding>
+pub fn trust_runtime_core::memory::AccessMap::get(&self, name: &str) -> core::option::Option<&trust_runtime_core::memory::AccessBinding>
 pub struct trust_runtime_core::memory::FrameId(pub u32)
+pub struct trust_runtime_core::memory::Generation(pub u32)
+impl trust_runtime_core::memory::Generation
+pub const trust_runtime_core::memory::Generation::FIRST: Self
+pub fn trust_runtime_core::memory::Generation::next(self) -> core::option::Option<Self>
+pub struct trust_runtime_core::memory::InstanceData
+pub trust_runtime_core::memory::InstanceData::parent: core::option::Option<trust_runtime_core::memory::InstanceId>
+pub trust_runtime_core::memory::InstanceData::type_name: smol_str::SmolStr
+pub trust_runtime_core::memory::InstanceData::variables: trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
 pub struct trust_runtime_core::memory::InstanceId(pub u32)
+pub struct trust_runtime_core::memory::LocalFrame
+pub trust_runtime_core::memory::LocalFrame::id: trust_runtime_core::memory::FrameId
+pub trust_runtime_core::memory::LocalFrame::instance_id: core::option::Option<trust_runtime_core::memory::InstanceId>
+pub trust_runtime_core::memory::LocalFrame::owner: smol_str::SmolStr
+pub trust_runtime_core::memory::LocalFrame::return_value: core::option::Option<trust_runtime_core::value::Value>
+pub trust_runtime_core::memory::LocalFrame::variables: trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub struct trust_runtime_core::memory::VariableStorage
+impl trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::clear_frames(&mut self)
+pub fn trust_runtime_core::memory::VariableStorage::clear_locals(&mut self)
+pub fn trust_runtime_core::memory::VariableStorage::current_frame(&self) -> core::option::Option<&trust_runtime_core::memory::LocalFrame>
+pub fn trust_runtime_core::memory::VariableStorage::current_frame_mut(&mut self) -> core::option::Option<&mut trust_runtime_core::memory::LocalFrame>
+pub fn trust_runtime_core::memory::VariableStorage::frames(&self) -> &[trust_runtime_core::memory::LocalFrame]
+pub fn trust_runtime_core::memory::VariableStorage::get_local(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::pop_frame(&mut self) -> core::option::Option<trust_runtime_core::memory::LocalFrame>
+pub fn trust_runtime_core::memory::VariableStorage::push_frame(&mut self, owner: impl core::convert::Into<smol_str::SmolStr>) -> trust_runtime_core::memory::FrameId
+pub fn trust_runtime_core::memory::VariableStorage::push_frame_with_instance(&mut self, owner: impl core::convert::Into<smol_str::SmolStr>, instance_id: trust_runtime_core::memory::InstanceId) -> trust_runtime_core::memory::FrameId
+pub fn trust_runtime_core::memory::VariableStorage::remove_frame(&mut self, frame_id: trust_runtime_core::memory::FrameId) -> core::option::Option<trust_runtime_core::memory::LocalFrame>
+pub fn trust_runtime_core::memory::VariableStorage::set_local(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::with_frame<T>(&mut self, frame_id: trust_runtime_core::memory::FrameId, f: impl core::ops::function::FnOnce(&mut Self) -> T) -> core::option::Option<T>
+impl trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::clone_container_charge(&self) -> core::option::Option<usize>
+impl trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::declared_instance_field_offset(&self, id: trust_runtime_core::memory::InstanceId, name: &str) -> core::option::Option<usize>
+pub fn trust_runtime_core::memory::VariableStorage::declared_instance_field_ref(&self, id: trust_runtime_core::memory::InstanceId, name: &str) -> core::option::Option<trust_runtime_core::value::ValueRef>
+pub fn trust_runtime_core::memory::VariableStorage::get_instance(&self, id: trust_runtime_core::memory::InstanceId) -> core::option::Option<&trust_runtime_core::memory::InstanceData>
+pub fn trust_runtime_core::memory::VariableStorage::get_instance_mut(&mut self, id: trust_runtime_core::memory::InstanceId) -> core::option::Option<&mut trust_runtime_core::memory::InstanceData>
+pub fn trust_runtime_core::memory::VariableStorage::get_instance_var(&self, id: trust_runtime_core::memory::InstanceId, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::get_instance_var_recursive(&self, id: trust_runtime_core::memory::InstanceId, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::instance_insertion_demand(&self) -> core::option::Option<(usize, usize)>
+pub fn trust_runtime_core::memory::VariableStorage::instances(&self) -> &trust_runtime_core::memory::InstanceMap
+pub fn trust_runtime_core::memory::VariableStorage::read_instance_field_by_offset(&self, id: trust_runtime_core::memory::InstanceId, offset: usize) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::ref_for_global(&self, name: &str) -> core::option::Option<trust_runtime_core::value::ValueRef>
+pub fn trust_runtime_core::memory::VariableStorage::ref_for_instance(&self, id: trust_runtime_core::memory::InstanceId, name: &str) -> core::option::Option<trust_runtime_core::value::ValueRef>
+pub fn trust_runtime_core::memory::VariableStorage::ref_for_instance_recursive(&self, id: trust_runtime_core::memory::InstanceId, name: &str) -> core::option::Option<trust_runtime_core::value::ValueRef>
+pub fn trust_runtime_core::memory::VariableStorage::ref_for_local(&self, name: &str) -> core::option::Option<trust_runtime_core::value::ValueRef>
+pub fn trust_runtime_core::memory::VariableStorage::remove_instance(&mut self, id: trust_runtime_core::memory::InstanceId) -> core::option::Option<trust_runtime_core::memory::InstanceData>
+pub fn trust_runtime_core::memory::VariableStorage::resolved_instance_field_ref(&self, id: trust_runtime_core::memory::InstanceId, name: &str) -> core::option::Option<trust_runtime_core::value::ValueRef>
+pub fn trust_runtime_core::memory::VariableStorage::retain_instances(&mut self, keep: impl core::ops::function::FnMut(trust_runtime_core::memory::InstanceId) -> bool) -> usize
+pub fn trust_runtime_core::memory::VariableStorage::set_instance_var(&mut self, id: trust_runtime_core::memory::InstanceId, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::try_create_instance(&mut self, type_name: impl core::convert::Into<smol_str::SmolStr>) -> core::result::Result<trust_runtime_core::memory::InstanceId, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::memory::VariableStorage::write_instance_field_by_offset(&mut self, id: trust_runtime_core::memory::InstanceId, offset: usize, value: trust_runtime_core::value::Value) -> bool
+impl trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::execution_frame_count(&self) -> usize
+pub fn trust_runtime_core::memory::VariableStorage::execution_frame_is_live(&self, id: trust_runtime_core::memory::FrameId) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::execution_frame_reservation_charge(capacity: usize) -> core::option::Option<usize>
+pub fn trust_runtime_core::memory::VariableStorage::release_execution_frame(&mut self, id: trust_runtime_core::memory::FrameId) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::reserve_execution_frame(&mut self) -> core::result::Result<trust_runtime_core::memory::FrameId, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::memory::VariableStorage::reserve_execution_frames(&mut self, capacity: usize) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::memory::VariableStorage::resume_execution_frame(&mut self, id: trust_runtime_core::memory::FrameId, locals: &mut alloc::vec::Vec<trust_runtime_core::value::Value>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::memory::VariableStorage::suspend_execution_frame(&mut self, id: trust_runtime_core::memory::FrameId, locals: &mut alloc::vec::Vec<trust_runtime_core::value::Value>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::memory::VariableStorage::suspended_execution_values(&self) -> impl core::iter::traits::iterator::Iterator<Item = &trust_runtime_core::value::Value>
+impl trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::generation(&self) -> trust_runtime_core::memory::Generation
+pub fn trust_runtime_core::memory::VariableStorage::get_global(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::get_retain(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::globals(&self) -> &trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::new() -> Self
+pub fn trust_runtime_core::memory::VariableStorage::reset_runtime_values(&mut self, reset_instance_sequence: bool)
+pub fn trust_runtime_core::memory::VariableStorage::retain(&self) -> &trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::set_global(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::Value)
+pub fn trust_runtime_core::memory::VariableStorage::set_retain(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::Value)
+impl trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::materialize_by_ref(&self, value_ref: trust_runtime_core::value::ValueRef) -> core::option::Option<trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::materialize_by_ref_parts(&self, location: trust_runtime_core::memory::MemoryLocation, offset: usize, path: &[trust_runtime_core::value::RefSegment]) -> core::option::Option<trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::materialize_by_ref_ref(&self, value_ref: &trust_runtime_core::value::ValueRef) -> core::option::Option<trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::read_by_ref(&self, value_ref: trust_runtime_core::value::ValueRef) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::read_by_ref_parts(&self, location: trust_runtime_core::memory::MemoryLocation, offset: usize, path: &[trust_runtime_core::value::RefSegment]) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::read_by_ref_ref(&self, value_ref: &trust_runtime_core::value::ValueRef) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::read_direct_slot_by_location(&self, location: trust_runtime_core::memory::MemoryLocation, offset: usize) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::read_global_slot_by_offset(&self, offset: usize) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::memory::VariableStorage::write_by_ref(&mut self, value_ref: trust_runtime_core::value::ValueRef, value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::write_by_ref_parts(&mut self, location: trust_runtime_core::memory::MemoryLocation, offset: usize, path: &[trust_runtime_core::value::RefSegment], value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::write_by_ref_parts_checked(&mut self, location: trust_runtime_core::memory::MemoryLocation, offset: usize, path: &[trust_runtime_core::value::RefSegment], value: trust_runtime_core::value::Value) -> core::result::Result<bool, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::memory::VariableStorage::write_by_ref_ref(&mut self, value_ref: &trust_runtime_core::value::ValueRef, value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::write_by_ref_ref_checked(&mut self, reference: &trust_runtime_core::value::ValueRef, value: trust_runtime_core::value::Value) -> core::result::Result<bool, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::memory::VariableStorage::write_direct_slot_by_location(&mut self, location: trust_runtime_core::memory::MemoryLocation, offset: usize, value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::memory::VariableStorage::write_global_slot_by_offset(&mut self, offset: usize, value: trust_runtime_core::value::Value) -> bool
+impl core::clone::Clone for trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::memory::VariableStorage::clone(&self) -> Self
+pub type trust_runtime_core::memory::InstanceMap = trust_runtime_core::collections::LookupMap<trust_runtime_core::memory::InstanceId, trust_runtime_core::memory::InstanceData>
 pub mod trust_runtime_core::numeric
+pub mod trust_runtime_core::numeric::math
+pub use trust_runtime_core::numeric::math::acos
+pub use trust_runtime_core::numeric::math::asin
+pub use trust_runtime_core::numeric::math::atan
+pub use trust_runtime_core::numeric::math::atan2
+pub use trust_runtime_core::numeric::math::atan2f
+pub use trust_runtime_core::numeric::math::cos
+pub use trust_runtime_core::numeric::math::exp
+pub use trust_runtime_core::numeric::math::fabs
+pub use trust_runtime_core::numeric::math::fabsf
+pub use trust_runtime_core::numeric::math::log
+pub use trust_runtime_core::numeric::math::log10
+pub use trust_runtime_core::numeric::math::pow
+pub use trust_runtime_core::numeric::math::round
+pub use trust_runtime_core::numeric::math::sin
+pub use trust_runtime_core::numeric::math::sqrt
+pub use trust_runtime_core::numeric::math::tan
+pub use trust_runtime_core::numeric::math::trunc
 pub enum trust_runtime_core::numeric::NumericKind
 pub trust_runtime_core::numeric::NumericKind::DInt
 pub trust_runtime_core::numeric::NumericKind::Int
@@ -373,12 +1243,63 @@ pub fn trust_runtime_core::numeric::to_f64(value: &trust_runtime_core::value::Va
 pub fn trust_runtime_core::numeric::to_i64(value: &trust_runtime_core::value::Value) -> core::result::Result<i64, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::numeric::to_u64(value: &trust_runtime_core::value::Value) -> core::result::Result<u64, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::numeric::unsigned_from_u128(target: trust_runtime_core::numeric::NumericKind, value: u128) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
-pub fn trust_runtime_core::numeric::wider_numeric(left: trust_runtime_core::numeric::NumericKind, right: trust_runtime_core::numeric::NumericKind) -> trust_runtime_core::numeric::NumericKind
+pub fn trust_runtime_core::numeric::wider_numeric(left: trust_runtime_core::numeric::NumericKind, right: trust_runtime_core::numeric::NumericKind) -> core::option::Option<trust_runtime_core::numeric::NumericKind>
+pub mod trust_runtime_core::ports
+pub enum trust_runtime_core::ports::LinkFrame
+pub trust_runtime_core::ports::LinkFrame::Frame
+pub trust_runtime_core::ports::LinkFrame::Frame::len: usize
+pub trust_runtime_core::ports::LinkFrame::Frame::peer: trust_runtime_core::ports::PeerClass
+pub trust_runtime_core::ports::LinkFrame::Oversized
+pub trust_runtime_core::ports::LinkFrame::Oversized::peer: trust_runtime_core::ports::PeerClass
+pub enum trust_runtime_core::ports::PeerClass
+pub trust_runtime_core::ports::PeerClass::Local
+pub trust_runtime_core::ports::PeerClass::Network(core::net::socket_addr::SocketAddr)
+pub enum trust_runtime_core::ports::WakeReason
+pub trust_runtime_core::ports::WakeReason::Deadline
+pub trust_runtime_core::ports::WakeReason::Event
+pub struct trust_runtime_core::ports::MonotonicInstant(_)
+impl trust_runtime_core::ports::MonotonicInstant
+pub const fn trust_runtime_core::ports::MonotonicInstant::from_origin(since_origin: core::time::Duration) -> Self
+pub fn trust_runtime_core::ports::MonotonicInstant::saturating_add(self, span: trust_runtime_core::ports::TimeSpan) -> Self
+pub fn trust_runtime_core::ports::MonotonicInstant::saturating_since(self, earlier: Self) -> trust_runtime_core::ports::TimeSpan
+pub const fn trust_runtime_core::ports::MonotonicInstant::since_origin(self) -> core::time::Duration
+pub struct trust_runtime_core::ports::PortError
+pub trust_runtime_core::ports::PortError::code: u16
+pub trust_runtime_core::ports::PortError::device: u16
+pub struct trust_runtime_core::ports::TimeSpan(_)
+impl trust_runtime_core::ports::TimeSpan
+pub const trust_runtime_core::ports::TimeSpan::ZERO: Self
+pub const fn trust_runtime_core::ports::TimeSpan::as_duration(self) -> core::time::Duration
+pub fn trust_runtime_core::ports::TimeSpan::from_time(time: trust_runtime_core::value::Duration) -> core::option::Option<Self>
+pub const fn trust_runtime_core::ports::TimeSpan::new(duration: core::time::Duration) -> Self
+pub struct trust_runtime_core::ports::WakeToken(_)
+impl trust_runtime_core::ports::WakeToken
+pub const fn trust_runtime_core::ports::WakeToken::count(self) -> u32
+pub const fn trust_runtime_core::ports::WakeToken::new(count: u32) -> Self
+pub trait trust_runtime_core::ports::ControlLink
+pub fn trust_runtime_core::ports::ControlLink::max_frame_len(&self) -> usize
+pub fn trust_runtime_core::ports::ControlLink::poll_frame(&mut self, buffer: &mut [u8]) -> core::option::Option<trust_runtime_core::ports::LinkFrame>
+pub fn trust_runtime_core::ports::ControlLink::send_frame(&mut self, frame: &[u8]) -> core::result::Result<(), trust_runtime_core::ports::PortError>
+pub trait trust_runtime_core::ports::HardwareWatchdog
+pub fn trust_runtime_core::ports::HardwareWatchdog::feed(&mut self)
+pub fn trust_runtime_core::ports::HardwareWatchdog::feed_interval(&self) -> trust_runtime_core::ports::TimeSpan
+pub trait trust_runtime_core::ports::MonotonicClock
+pub fn trust_runtime_core::ports::MonotonicClock::now(&self) -> trust_runtime_core::ports::MonotonicInstant
+impl<T: trust_runtime_core::ports::MonotonicClock + ?core::marker::Sized> trust_runtime_core::ports::MonotonicClock for &T
+pub fn &T::now(&self) -> trust_runtime_core::ports::MonotonicInstant
+pub trait trust_runtime_core::ports::RunnerWait
+pub fn trust_runtime_core::ports::RunnerWait::wait_until(&mut self, deadline: trust_runtime_core::ports::MonotonicInstant, observed: trust_runtime_core::ports::WakeToken) -> core::result::Result<trust_runtime_core::ports::WakeReason, trust_runtime_core::ports::PortError>
+pub fn trust_runtime_core::ports::RunnerWait::wake_token(&self) -> trust_runtime_core::ports::WakeToken
+pub trait trust_runtime_core::ports::WakeSignal
+pub fn trust_runtime_core::ports::WakeSignal::wake(&self)
+pub trait trust_runtime_core::ports::WallClock
+pub fn trust_runtime_core::ports::WallClock::utc_ms(&self) -> core::option::Option<u64>
 pub mod trust_runtime_core::program_model
 pub mod trust_runtime_core::program_model::ops
 pub enum trust_runtime_core::program_model::ops::BinaryOp
 pub trust_runtime_core::program_model::ops::BinaryOp::Add
 pub trust_runtime_core::program_model::ops::BinaryOp::And
+pub trust_runtime_core::program_model::ops::BinaryOp::AndThen
 pub trust_runtime_core::program_model::ops::BinaryOp::Div
 pub trust_runtime_core::program_model::ops::BinaryOp::Eq
 pub trust_runtime_core::program_model::ops::BinaryOp::Ge
@@ -389,6 +1310,7 @@ pub trust_runtime_core::program_model::ops::BinaryOp::Mod
 pub trust_runtime_core::program_model::ops::BinaryOp::Mul
 pub trust_runtime_core::program_model::ops::BinaryOp::Ne
 pub trust_runtime_core::program_model::ops::BinaryOp::Or
+pub trust_runtime_core::program_model::ops::BinaryOp::OrElse
 pub trust_runtime_core::program_model::ops::BinaryOp::Pow
 pub trust_runtime_core::program_model::ops::BinaryOp::Sub
 pub trust_runtime_core::program_model::ops::BinaryOp::Xor
@@ -405,6 +1327,7 @@ pub fn trust_runtime_core::program_model::util::static_storage_name(owner: &smol
 pub enum trust_runtime_core::program_model::BinaryOp
 pub trust_runtime_core::program_model::BinaryOp::Add
 pub trust_runtime_core::program_model::BinaryOp::And
+pub trust_runtime_core::program_model::BinaryOp::AndThen
 pub trust_runtime_core::program_model::BinaryOp::Div
 pub trust_runtime_core::program_model::BinaryOp::Eq
 pub trust_runtime_core::program_model::BinaryOp::Ge
@@ -415,6 +1338,7 @@ pub trust_runtime_core::program_model::BinaryOp::Mod
 pub trust_runtime_core::program_model::BinaryOp::Mul
 pub trust_runtime_core::program_model::BinaryOp::Ne
 pub trust_runtime_core::program_model::BinaryOp::Or
+pub trust_runtime_core::program_model::BinaryOp::OrElse
 pub trust_runtime_core::program_model::BinaryOp::Pow
 pub trust_runtime_core::program_model::BinaryOp::Sub
 pub trust_runtime_core::program_model::BinaryOp::Xor
@@ -428,6 +1352,85 @@ pub fn trust_runtime_core::program_model::method_static_storage_owner(owner: &sm
 pub fn trust_runtime_core::program_model::property_setter_method_name(property: &smol_str::SmolStr) -> smol_str::SmolStr
 pub fn trust_runtime_core::program_model::static_storage_name(owner: &smol_str::SmolStr, name: &smol_str::SmolStr) -> smol_str::SmolStr
 pub mod trust_runtime_core::retain
+pub mod trust_runtime_core::retain::checkpoint
+pub enum trust_runtime_core::retain::checkpoint::CheckpointError
+pub trust_runtime_core::retain::checkpoint::CheckpointError::BufferTooSmall
+pub trust_runtime_core::retain::checkpoint::CheckpointError::BufferTooSmall::needed: u32
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Corrupt(trust_runtime_core::retain::checkpoint::Corruption)
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Exhausted
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Flash(trust_runtime_core::retain::checkpoint::FlashError)
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Geometry
+pub trust_runtime_core::retain::checkpoint::CheckpointError::NoWrite
+pub trust_runtime_core::retain::checkpoint::CheckpointError::NotErased
+pub trust_runtime_core::retain::checkpoint::CheckpointError::PayloadChanged
+pub trust_runtime_core::retain::checkpoint::CheckpointError::TooLarge
+pub trust_runtime_core::retain::checkpoint::CheckpointError::TooLarge::len: usize
+pub trust_runtime_core::retain::checkpoint::CheckpointError::TooLarge::max: u32
+pub trust_runtime_core::retain::checkpoint::CheckpointError::Verify
+pub trust_runtime_core::retain::checkpoint::CheckpointError::WriteInProgress
+impl core::convert::From<trust_runtime_core::retain::checkpoint::CheckpointError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::retain::checkpoint::CheckpointError) -> Self
+pub enum trust_runtime_core::retain::checkpoint::Corruption
+pub trust_runtime_core::retain::checkpoint::Corruption::Payload
+pub trust_runtime_core::retain::checkpoint::Corruption::RecordHeader
+pub trust_runtime_core::retain::checkpoint::Corruption::SlotHeader
+impl core::fmt::Display for trust_runtime_core::retain::checkpoint::Corruption
+pub fn trust_runtime_core::retain::checkpoint::Corruption::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum trust_runtime_core::retain::checkpoint::FlashError
+pub trust_runtime_core::retain::checkpoint::FlashError::Erase
+pub trust_runtime_core::retain::checkpoint::FlashError::Program
+pub trust_runtime_core::retain::checkpoint::FlashError::Read
+pub enum trust_runtime_core::retain::checkpoint::Progress
+pub trust_runtime_core::retain::checkpoint::Progress::Committed(trust_runtime_core::retain::checkpoint::RecordInfo)
+pub trust_runtime_core::retain::checkpoint::Progress::Pending
+pub enum trust_runtime_core::retain::checkpoint::Slot
+pub trust_runtime_core::retain::checkpoint::Slot::A
+pub trust_runtime_core::retain::checkpoint::Slot::B
+impl trust_runtime_core::retain::checkpoint::Slot
+pub const fn trust_runtime_core::retain::checkpoint::Slot::other(self) -> Self
+pub struct trust_runtime_core::retain::checkpoint::CheckpointIdentity
+pub trust_runtime_core::retain::checkpoint::CheckpointIdentity::application: [u8; 16]
+pub trust_runtime_core::retain::checkpoint::CheckpointIdentity::schema: [u8; 16]
+pub struct trust_runtime_core::retain::checkpoint::CheckpointLog<F>
+impl<F: trust_runtime_core::retain::checkpoint::CheckpointFlash> trust_runtime_core::retain::checkpoint::CheckpointLog<F>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::append(&mut self, identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity, payload: &[u8]) -> core::result::Result<trust_runtime_core::retain::checkpoint::RecordInfo, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::begin(&mut self, identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity, payload: &[u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::geometry(&self) -> trust_runtime_core::retain::checkpoint::FlashGeometry
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::newest(&mut self) -> core::result::Result<core::option::Option<trust_runtime_core::retain::checkpoint::RecordInfo>, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::open(flash: F) -> core::result::Result<Self, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::recover(&mut self, payload: &mut [u8]) -> core::result::Result<core::option::Option<trust_runtime_core::retain::checkpoint::RecordInfo>, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::step(&mut self, payload: &[u8], max_program_bytes: usize) -> core::result::Result<trust_runtime_core::retain::checkpoint::Progress, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub struct trust_runtime_core::retain::checkpoint::FlashGeometry
+impl trust_runtime_core::retain::checkpoint::FlashGeometry
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::commit_len(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::erase_unit(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::erase_units(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::first_record_offset(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::max_payload_len(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::new(program_unit: u32, erase_unit: u32, slot_len: u32) -> core::result::Result<Self, trust_runtime_core::retain::checkpoint::CheckpointError>
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::program_unit(self) -> u32
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::record_len(self, payload_len: u32) -> core::option::Option<u32>
+pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::slot_len(self) -> u32
+pub struct trust_runtime_core::retain::checkpoint::RecordInfo
+pub trust_runtime_core::retain::checkpoint::RecordInfo::identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity
+pub trust_runtime_core::retain::checkpoint::RecordInfo::payload_len: u32
+pub trust_runtime_core::retain::checkpoint::RecordInfo::sequence: u64
+pub const trust_runtime_core::retain::checkpoint::COMMIT_MARKER: [u8; 4]
+pub const trust_runtime_core::retain::checkpoint::FORMAT_VERSION: u16
+pub const trust_runtime_core::retain::checkpoint::RECORD_HEADER_LEN: u32
+pub const trust_runtime_core::retain::checkpoint::RECORD_MAGIC: [u8; 4]
+pub const trust_runtime_core::retain::checkpoint::SLOT_HEADER_LEN: u32
+pub const trust_runtime_core::retain::checkpoint::SLOT_MAGIC: [u8; 4]
+pub trait trust_runtime_core::retain::checkpoint::CheckpointFlash
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::erase(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::geometry(&self) -> trust_runtime_core::retain::checkpoint::FlashGeometry
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::program(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &[u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointFlash::read(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &mut [u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+impl<T: trust_runtime_core::retain::checkpoint::CheckpointFlash + ?core::marker::Sized> trust_runtime_core::retain::checkpoint::CheckpointFlash for &mut T
+pub fn &mut T::erase(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn &mut T::geometry(&self) -> trust_runtime_core::retain::checkpoint::FlashGeometry
+pub fn &mut T::program(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &[u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
+pub fn &mut T::read(&mut self, slot: trust_runtime_core::retain::checkpoint::Slot, offset: u32, bytes: &mut [u8]) -> core::result::Result<(), trust_runtime_core::retain::checkpoint::FlashError>
 pub enum trust_runtime_core::retain::RestartMode
 pub trust_runtime_core::retain::RestartMode::Cold
 pub trust_runtime_core::retain::RestartMode::Warm
@@ -438,10 +1441,12 @@ pub trust_runtime_core::retain::RetainPolicy::Retain
 pub trust_runtime_core::retain::RetainPolicy::Unspecified
 pub struct trust_runtime_core::retain::RetainSnapshot
 impl trust_runtime_core::retain::RetainSnapshot
-pub fn trust_runtime_core::retain::RetainSnapshot::from_values(values: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::retain::RetainSnapshot::from_values(values: trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
 pub fn trust_runtime_core::retain::RetainSnapshot::insert(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, value: trust_runtime_core::value::Value)
-pub fn trust_runtime_core::retain::RetainSnapshot::into_values(self) -> indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
-pub fn trust_runtime_core::retain::RetainSnapshot::values(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::retain::RetainSnapshot::into_values(self) -> trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::retain::RetainSnapshot::values(&self) -> &trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::retain::retain_on_warm(policy: trust_runtime_core::retain::RetainPolicy) -> bool
+pub fn trust_runtime_core::retain::value_is_retainable(value: &trust_runtime_core::value::Value) -> bool
 pub mod trust_runtime_core::scaffold
 pub enum trust_runtime_core::scaffold::CoreScaffoldStage
 pub trust_runtime_core::scaffold::CoreScaffoldStage::PreMove
@@ -454,6 +1459,232 @@ pub trust_runtime_core::scheduler::ResourceState::Paused
 pub trust_runtime_core::scheduler::ResourceState::Ready
 pub trust_runtime_core::scheduler::ResourceState::Running
 pub trust_runtime_core::scheduler::ResourceState::Stopped
+pub mod trust_runtime_core::stdlib
+pub mod trust_runtime_core::stdlib::contracts
+pub enum trust_runtime_core::stdlib::contracts::FbParameterType
+pub trust_runtime_core::stdlib::contracts::FbParameterType::Bool
+pub trust_runtime_core::stdlib::contracts::FbParameterType::Count
+pub trust_runtime_core::stdlib::contracts::FbParameterType::Duration
+pub enum trust_runtime_core::stdlib::contracts::FunctionSignature
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Clock
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Conversion
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Registered(&'static trust_runtime_core::stdlib::StdParams)
+pub trust_runtime_core::stdlib::contracts::FunctionSignature::Split(&'static [&'static str])
+pub enum trust_runtime_core::stdlib::contracts::ImportAllocation
+pub trust_runtime_core::stdlib::contracts::ImportAllocation::NoText
+pub trust_runtime_core::stdlib::contracts::ImportAllocation::TextResult
+pub enum trust_runtime_core::stdlib::contracts::ImportCapability
+pub trust_runtime_core::stdlib::contracts::ImportCapability::WallClock
+pub enum trust_runtime_core::stdlib::contracts::ImportWork
+pub trust_runtime_core::stdlib::contracts::ImportWork::Binding
+pub trust_runtime_core::stdlib::contracts::ImportWork::TextArguments
+pub struct trust_runtime_core::stdlib::contracts::FbParameter
+pub trust_runtime_core::stdlib::contracts::FbParameter::name: &'static str
+pub trust_runtime_core::stdlib::contracts::FbParameter::output: bool
+pub trust_runtime_core::stdlib::contracts::FbParameter::ty: trust_runtime_core::stdlib::contracts::FbParameterType
+pub struct trust_runtime_core::stdlib::contracts::FunctionBlockImport
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::contract: &'static trust_runtime_core::stdlib::contracts::ImportContract
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::kind: trust_runtime_core::stdlib::fbs::BuiltinFbKind
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::parameters: &'static [trust_runtime_core::stdlib::contracts::FbParameter]
+pub trust_runtime_core::stdlib::contracts::FunctionBlockImport::state: &'static [(&'static str, u16)]
+impl trust_runtime_core::stdlib::contracts::FunctionBlockImport
+pub fn trust_runtime_core::stdlib::contracts::FunctionBlockImport::primitive(&self, ty: trust_runtime_core::stdlib::contracts::FbParameterType) -> u16
+pub struct trust_runtime_core::stdlib::contracts::FunctionImport
+pub trust_runtime_core::stdlib::contracts::FunctionImport::contract: &'static trust_runtime_core::stdlib::contracts::ImportContract
+pub trust_runtime_core::stdlib::contracts::FunctionImport::signature: trust_runtime_core::stdlib::contracts::FunctionSignature
+pub struct trust_runtime_core::stdlib::contracts::ImportContract
+pub trust_runtime_core::stdlib::contracts::ImportContract::allocation: trust_runtime_core::stdlib::contracts::ImportAllocation
+pub trust_runtime_core::stdlib::contracts::ImportContract::capability: core::option::Option<trust_runtime_core::stdlib::contracts::ImportCapability>
+pub trust_runtime_core::stdlib::contracts::ImportContract::failures: &'static [trust_runtime_core::error_code::StableErrorCode]
+pub trust_runtime_core::stdlib::contracts::ImportContract::version: u16
+pub trust_runtime_core::stdlib::contracts::ImportContract::work: trust_runtime_core::stdlib::contracts::ImportWork
+pub fn trust_runtime_core::stdlib::contracts::function(name: &str) -> core::option::Option<trust_runtime_core::stdlib::contracts::FunctionImport>
+pub fn trust_runtime_core::stdlib::contracts::function_block(name: &str) -> core::option::Option<trust_runtime_core::stdlib::contracts::FunctionBlockImport>
+pub fn trust_runtime_core::stdlib::contracts::registered() -> impl core::iter::traits::iterator::Iterator<Item = (&'static str, trust_runtime_core::stdlib::contracts::FunctionImport)>
+pub mod trust_runtime_core::stdlib::conversions
+pub enum trust_runtime_core::stdlib::conversions::ConversionSpec
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::BcdTo
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::BcdTo::dst: trust_runtime_core::stdlib::conversions::ConversionType
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::BcdTo::src: core::option::Option<trust_runtime_core::stdlib::conversions::ConversionType>
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::Convert
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::Convert::dst: trust_runtime_core::stdlib::conversions::ConversionType
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::Convert::src: core::option::Option<trust_runtime_core::stdlib::conversions::ConversionType>
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::ToBcd
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::ToBcd::dst: trust_runtime_core::stdlib::conversions::ConversionType
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::ToBcd::src: core::option::Option<trust_runtime_core::stdlib::conversions::ConversionType>
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::Trunc
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::Trunc::dst: trust_runtime_core::stdlib::conversions::ConversionType
+pub trust_runtime_core::stdlib::conversions::ConversionSpec::Trunc::src: core::option::Option<trust_runtime_core::stdlib::conversions::ConversionType>
+pub enum trust_runtime_core::stdlib::conversions::ConversionType
+pub trust_runtime_core::stdlib::conversions::ConversionType::Any
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyBit
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyChar
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyChars
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyDate
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyDerived
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyDuration
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyElementary
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyMagnitude
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyNum
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyReal
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnySigned
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyString
+pub trust_runtime_core::stdlib::conversions::ConversionType::AnyUnsigned
+pub trust_runtime_core::stdlib::conversions::ConversionType::Bool
+pub trust_runtime_core::stdlib::conversions::ConversionType::Byte
+pub trust_runtime_core::stdlib::conversions::ConversionType::Char
+pub trust_runtime_core::stdlib::conversions::ConversionType::DInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::DWord
+pub trust_runtime_core::stdlib::conversions::ConversionType::Date
+pub trust_runtime_core::stdlib::conversions::ConversionType::Dt
+pub trust_runtime_core::stdlib::conversions::ConversionType::Int
+pub trust_runtime_core::stdlib::conversions::ConversionType::LDate
+pub trust_runtime_core::stdlib::conversions::ConversionType::LInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::LReal
+pub trust_runtime_core::stdlib::conversions::ConversionType::LTime
+pub trust_runtime_core::stdlib::conversions::ConversionType::LTod
+pub trust_runtime_core::stdlib::conversions::ConversionType::LWord
+pub trust_runtime_core::stdlib::conversions::ConversionType::Ldt
+pub trust_runtime_core::stdlib::conversions::ConversionType::Real
+pub trust_runtime_core::stdlib::conversions::ConversionType::SInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::String
+pub trust_runtime_core::stdlib::conversions::ConversionType::Time
+pub trust_runtime_core::stdlib::conversions::ConversionType::Tod
+pub trust_runtime_core::stdlib::conversions::ConversionType::UDInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::UInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::ULInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::USInt
+pub trust_runtime_core::stdlib::conversions::ConversionType::WChar
+pub trust_runtime_core::stdlib::conversions::ConversionType::WString
+pub trust_runtime_core::stdlib::conversions::ConversionType::Word
+impl trust_runtime_core::stdlib::conversions::ConversionType
+pub fn trust_runtime_core::stdlib::conversions::ConversionType::from_builtin_name(name: &str) -> core::option::Option<Self>
+pub fn trust_runtime_core::stdlib::conversions::call_conversion(name: &str, args: &[trust_runtime_core::value::Value]) -> core::option::Option<core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>>
+pub fn trust_runtime_core::stdlib::conversions::call_conversion_spec(spec: trust_runtime_core::stdlib::conversions::ConversionSpec, args: &[trust_runtime_core::value::Value]) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::conversions::conversion_spec(name: &str) -> core::option::Option<trust_runtime_core::stdlib::conversions::ConversionSpec>
+pub fn trust_runtime_core::stdlib::conversions::is_conversion_name(name: &str) -> bool
+pub fn trust_runtime_core::stdlib::conversions::register(_lib: &mut trust_runtime_core::stdlib::StandardLibrary)
+pub mod trust_runtime_core::stdlib::fbs
+pub enum trust_runtime_core::stdlib::fbs::BuiltinFbKind
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Ctd
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Ctu
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Ctud
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::FTrig
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::RTrig
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Rs
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Sr
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Tof
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Ton
+pub trust_runtime_core::stdlib::fbs::BuiltinFbKind::Tp
+pub struct trust_runtime_core::stdlib::fbs::CounterOutput
+pub trust_runtime_core::stdlib::fbs::CounterOutput::cv: i16
+pub trust_runtime_core::stdlib::fbs::CounterOutput::q: bool
+pub struct trust_runtime_core::stdlib::fbs::CounterUpDownOutput
+pub trust_runtime_core::stdlib::fbs::CounterUpDownOutput::cv: i16
+pub trust_runtime_core::stdlib::fbs::CounterUpDownOutput::qd: bool
+pub trust_runtime_core::stdlib::fbs::CounterUpDownOutput::qu: bool
+pub struct trust_runtime_core::stdlib::fbs::Ctd
+impl trust_runtime_core::stdlib::fbs::Ctd
+pub fn trust_runtime_core::stdlib::fbs::Ctd::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Ctd::step(&mut self, cd: bool, load: bool, pv: i16) -> trust_runtime_core::stdlib::fbs::CounterOutput
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Ctd
+pub fn trust_runtime_core::stdlib::fbs::Ctd::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::Ctu
+impl trust_runtime_core::stdlib::fbs::Ctu
+pub fn trust_runtime_core::stdlib::fbs::Ctu::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Ctu::step(&mut self, cu: bool, reset: bool, pv: i16) -> trust_runtime_core::stdlib::fbs::CounterOutput
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Ctu
+pub fn trust_runtime_core::stdlib::fbs::Ctu::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::Ctud
+impl trust_runtime_core::stdlib::fbs::Ctud
+pub fn trust_runtime_core::stdlib::fbs::Ctud::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Ctud::step(&mut self, cu: bool, cd: bool, reset: bool, load: bool, pv: i16) -> trust_runtime_core::stdlib::fbs::CounterUpDownOutput
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Ctud
+pub fn trust_runtime_core::stdlib::fbs::Ctud::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::FTrig
+impl trust_runtime_core::stdlib::fbs::FTrig
+pub fn trust_runtime_core::stdlib::fbs::FTrig::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::FTrig::step(&mut self, clk: bool) -> bool
+impl core::default::Default for trust_runtime_core::stdlib::fbs::FTrig
+pub fn trust_runtime_core::stdlib::fbs::FTrig::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::RTrig
+impl trust_runtime_core::stdlib::fbs::RTrig
+pub fn trust_runtime_core::stdlib::fbs::RTrig::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::RTrig::step(&mut self, clk: bool) -> bool
+impl core::default::Default for trust_runtime_core::stdlib::fbs::RTrig
+pub fn trust_runtime_core::stdlib::fbs::RTrig::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::Rs
+impl trust_runtime_core::stdlib::fbs::Rs
+pub fn trust_runtime_core::stdlib::fbs::Rs::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Rs::step(&mut self, set: bool, reset: bool) -> bool
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Rs
+pub fn trust_runtime_core::stdlib::fbs::Rs::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::Sr
+impl trust_runtime_core::stdlib::fbs::Sr
+pub fn trust_runtime_core::stdlib::fbs::Sr::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Sr::step(&mut self, set: bool, reset: bool) -> bool
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Sr
+pub fn trust_runtime_core::stdlib::fbs::Sr::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::TimerOutput
+pub trust_runtime_core::stdlib::fbs::TimerOutput::et: trust_runtime_core::value::Duration
+pub trust_runtime_core::stdlib::fbs::TimerOutput::q: bool
+pub struct trust_runtime_core::stdlib::fbs::Tof
+impl trust_runtime_core::stdlib::fbs::Tof
+pub fn trust_runtime_core::stdlib::fbs::Tof::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Tof::step(&mut self, input: bool, pt: trust_runtime_core::value::Duration, delta: trust_runtime_core::value::Duration) -> trust_runtime_core::stdlib::fbs::TimerOutput
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Tof
+pub fn trust_runtime_core::stdlib::fbs::Tof::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::Ton
+impl trust_runtime_core::stdlib::fbs::Ton
+pub fn trust_runtime_core::stdlib::fbs::Ton::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Ton::step(&mut self, input: bool, pt: trust_runtime_core::value::Duration, delta: trust_runtime_core::value::Duration) -> trust_runtime_core::stdlib::fbs::TimerOutput
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Ton
+pub fn trust_runtime_core::stdlib::fbs::Ton::default() -> Self
+pub struct trust_runtime_core::stdlib::fbs::Tp
+impl trust_runtime_core::stdlib::fbs::Tp
+pub fn trust_runtime_core::stdlib::fbs::Tp::new() -> Self
+pub fn trust_runtime_core::stdlib::fbs::Tp::step(&mut self, input: bool, pt: trust_runtime_core::value::Duration, delta: trust_runtime_core::value::Duration) -> trust_runtime_core::stdlib::fbs::TimerOutput
+impl core::default::Default for trust_runtime_core::stdlib::fbs::Tp
+pub fn trust_runtime_core::stdlib::fbs::Tp::default() -> Self
+pub fn trust_runtime_core::stdlib::fbs::builtin_kind(name: &str) -> core::option::Option<trust_runtime_core::stdlib::fbs::BuiltinFbKind>
+pub fn trust_runtime_core::stdlib::fbs::builtin_kind_uppercase(name_upper: &str) -> core::option::Option<trust_runtime_core::stdlib::fbs::BuiltinFbKind>
+pub fn trust_runtime_core::stdlib::fbs::execute_builtin_in_storage(storage: &mut trust_runtime_core::memory::VariableStorage, now: trust_runtime_core::value::Duration, instance_id: trust_runtime_core::memory::InstanceId, kind: trust_runtime_core::stdlib::fbs::BuiltinFbKind) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub mod trust_runtime_core::stdlib::time
+pub fn trust_runtime_core::stdlib::time::current_dt_elapsed(elapsed: core::time::Duration) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::time::current_dt_from_epoch_elapsed(elapsed: core::option::Option<core::time::Duration>) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::time::is_runtime_clock_name(name: &str) -> bool
+pub fn trust_runtime_core::stdlib::time::is_split_name(name: &str) -> bool
+pub fn trust_runtime_core::stdlib::time::register(lib: &mut trust_runtime_core::stdlib::StandardLibrary)
+pub fn trust_runtime_core::stdlib::time::runtime_clock_value(name: &str, elapsed: trust_runtime_core::value::Duration, current_dt: impl core::ops::function::FnOnce() -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::error::RuntimeError>) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::time::split_date(value: &trust_runtime_core::value::Value, profile: trust_runtime_core::value::DateTimeProfile) -> core::result::Result<(i64, i64, i64), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::time::split_dt(value: &trust_runtime_core::value::Value, profile: trust_runtime_core::value::DateTimeProfile) -> core::result::Result<(i64, i64, i64, i64, i64, i64, i64), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::time::split_ldt(value: &trust_runtime_core::value::Value) -> core::result::Result<(i64, i64, i64, i64, i64, i64, i64), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::time::split_ltod(value: &trust_runtime_core::value::Value) -> core::result::Result<(i64, i64, i64, i64), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::time::split_parameter_names(name: &str) -> core::option::Option<&'static [&'static str]>
+pub fn trust_runtime_core::stdlib::time::split_tod(value: &trust_runtime_core::value::Value, profile: trust_runtime_core::value::DateTimeProfile) -> core::result::Result<(i64, i64, i64, i64), trust_runtime_core::error::RuntimeError>
+pub enum trust_runtime_core::stdlib::StdParams
+pub trust_runtime_core::stdlib::StdParams::Fixed(alloc::borrow::Cow<'static, [smol_str::SmolStr]>)
+pub trust_runtime_core::stdlib::StdParams::Variadic
+pub trust_runtime_core::stdlib::StdParams::Variadic::fixed: alloc::borrow::Cow<'static, [smol_str::SmolStr]>
+pub trust_runtime_core::stdlib::StdParams::Variadic::min: usize
+pub trust_runtime_core::stdlib::StdParams::Variadic::prefix: smol_str::SmolStr
+pub trust_runtime_core::stdlib::StdParams::Variadic::start: usize
+pub struct trust_runtime_core::stdlib::StandardLibrary
+impl trust_runtime_core::stdlib::StandardLibrary
+pub fn trust_runtime_core::stdlib::StandardLibrary::call(&self, name: &str, args: &[trust_runtime_core::value::Value]) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::stdlib::StandardLibrary::get(&self, name: &str) -> core::option::Option<trust_runtime_core::stdlib::StdFunctionRef<'_>>
+pub fn trust_runtime_core::stdlib::StandardLibrary::new() -> Self
+pub fn trust_runtime_core::stdlib::StandardLibrary::register(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, params: &[&str], func: trust_runtime_core::stdlib::StdFunc)
+pub fn trust_runtime_core::stdlib::StandardLibrary::register_variadic(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, prefix: &str, start: usize, min: usize, func: trust_runtime_core::stdlib::StdFunc)
+pub fn trust_runtime_core::stdlib::StandardLibrary::register_variadic_with_fixed(&mut self, name: impl core::convert::Into<smol_str::SmolStr>, fixed: &[&str], prefix: &str, start: usize, min: usize, func: trust_runtime_core::stdlib::StdFunc)
+pub struct trust_runtime_core::stdlib::StdFunction
+pub trust_runtime_core::stdlib::StdFunction::func: trust_runtime_core::stdlib::StdFunc
+pub trust_runtime_core::stdlib::StdFunction::params: trust_runtime_core::stdlib::StdParams
+pub struct trust_runtime_core::stdlib::StdFunctionRef<'a>
+pub trust_runtime_core::stdlib::StdFunctionRef::func: trust_runtime_core::stdlib::StdFunc
+pub trust_runtime_core::stdlib::StdFunctionRef::params: &'a trust_runtime_core::stdlib::StdParams
+pub type trust_runtime_core::stdlib::StdFunc = fn(&[trust_runtime_core::value::Value]) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
 pub mod trust_runtime_core::task
 pub struct trust_runtime_core::task::TaskConfig
 pub trust_runtime_core::task::TaskConfig::fb_instances: alloc::vec::Vec<trust_runtime_core::value::ValueRef>
@@ -501,6 +1732,9 @@ impl trust_runtime_core::value::Duration
 pub const trust_runtime_core::value::Duration::ZERO: Self
 pub fn trust_runtime_core::value::Duration::as_millis(self) -> i64
 pub fn trust_runtime_core::value::Duration::as_nanos(self) -> i64
+pub fn trust_runtime_core::value::Duration::checked_from_micros(micros: i64) -> core::option::Option<Self>
+pub fn trust_runtime_core::value::Duration::checked_from_millis(millis: i64) -> core::option::Option<Self>
+pub fn trust_runtime_core::value::Duration::checked_from_secs(secs: i64) -> core::option::Option<Self>
 pub fn trust_runtime_core::value::Duration::from_micros(micros: i64) -> Self
 pub fn trust_runtime_core::value::Duration::from_millis(millis: i64) -> Self
 pub fn trust_runtime_core::value::Duration::from_nanos(nanos: i64) -> Self
@@ -525,9 +1759,23 @@ impl trust_runtime_core::value::TimeOfDayValue
 pub fn trust_runtime_core::value::TimeOfDayValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
 pub fn trust_runtime_core::value::datetime::combine_date_and_tod(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
 pub fn trust_runtime_core::value::datetime::combine_date_and_tod_with_tz(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue, tz_offset_minutes: core::option::Option<i32>) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
+pub mod trust_runtime_core::value::display
+pub fn trust_runtime_core::value::display::format_user_value(value: &trust_runtime_core::value::Value) -> alloc::string::String
+pub mod trust_runtime_core::value::layout
+pub const trust_runtime_core::value::layout::VALUE_ALIGN_BYTES: usize
+pub const trust_runtime_core::value::layout::VALUE_SIZE_BYTES: usize
 pub mod trust_runtime_core::value::partial_access
 pub fn trust_runtime_core::value::partial_access::read_partial_access(target: &trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
 pub fn trust_runtime_core::value::partial_access::write_partial_access(target: trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
+pub mod trust_runtime_core::value::size
+pub enum trust_runtime_core::value::size::SizeOfError
+pub trust_runtime_core::value::size::SizeOfError::Overflow
+pub trust_runtime_core::value::size::SizeOfError::UnknownType
+pub trust_runtime_core::value::size::SizeOfError::UnsupportedType
+impl core::convert::From<trust_runtime_core::value::SizeOfError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::value::SizeOfError) -> Self
+pub fn trust_runtime_core::value::size::size_of_value_with<E: core::convert::From<trust_runtime_core::value::SizeOfError>>(value: &trust_runtime_core::value::Value, enum_size: &mut impl core::ops::function::FnMut(&str) -> core::result::Result<u64, E>, visit: &mut impl core::ops::function::FnMut(usize) -> core::result::Result<(), E>) -> core::result::Result<u64, E>
+pub fn trust_runtime_core::value::size::size_of_value_with_abi_and_visitor<E: core::convert::From<trust_runtime_core::value::SizeOfError>>(value: &trust_runtime_core::value::Value, abi: trust_runtime_core::value::StorageAbi, enum_size: &mut impl core::ops::function::FnMut(&str) -> core::result::Result<u64, E>, structure_size: &mut impl core::ops::function::FnMut(&str) -> core::result::Result<core::option::Option<u64>, E>, visit: &mut impl core::ops::function::FnMut(usize) -> core::result::Result<(), E>) -> core::result::Result<u64, E>
 pub mod trust_runtime_core::value::string_semantics
 pub fn trust_runtime_core::value::string_semantics::read_string_element(text: &str, index: i64, wide: bool) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::value::string_semantics::string_delete(input: &str, length: i64, position: i64) -> alloc::string::String
@@ -539,6 +1787,7 @@ pub fn trust_runtime_core::value::string_semantics::string_left(text: &str, coun
 pub fn trust_runtime_core::value::string_semantics::string_mid(text: &str, length: i64, position: i64) -> alloc::string::String
 pub fn trust_runtime_core::value::string_semantics::string_replace(input: &str, repl: &str, length: i64, position: i64) -> alloc::string::String
 pub fn trust_runtime_core::value::string_semantics::string_right(text: &str, count: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::string_semantics::truncate_string_elements(text: &str, max_len: u32) -> alloc::string::String
 pub fn trust_runtime_core::value::string_semantics::write_string_element(text: &str, index: i64, value: trust_runtime_core::value::Value, wide: bool) -> core::result::Result<alloc::string::String, trust_runtime_core::error::RuntimeError>
 pub mod trust_runtime_core::value::types
 pub enum trust_runtime_core::value::types::Value
@@ -565,7 +1814,7 @@ pub trust_runtime_core::value::types::Value::Real(f32)
 pub trust_runtime_core::value::types::Value::Reference(core::option::Option<trust_runtime_core::value::ValueRef>)
 pub trust_runtime_core::value::types::Value::SInt(i8)
 pub trust_runtime_core::value::types::Value::String(smol_str::SmolStr)
-pub trust_runtime_core::value::types::Value::Struct(alloc::sync::Arc<trust_runtime_core::value::StructValue>)
+pub trust_runtime_core::value::types::Value::Struct(alloc::rcs::arc::Arc<trust_runtime_core::value::StructValue>)
 pub trust_runtime_core::value::types::Value::Time(trust_runtime_core::value::Duration)
 pub trust_runtime_core::value::types::Value::Tod(trust_runtime_core::value::TimeOfDayValue)
 pub trust_runtime_core::value::types::Value::UDInt(u32)
@@ -618,11 +1867,19 @@ impl trust_runtime_core::value::StructValue
 pub fn trust_runtime_core::value::StructValue::contains_field(&self, name: &str) -> bool
 pub fn trust_runtime_core::value::StructValue::field(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
 pub fn trust_runtime_core::value::StructValue::field_mut(&mut self, name: &str) -> core::option::Option<&mut trust_runtime_core::value::Value>
-pub fn trust_runtime_core::value::StructValue::fields(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
-pub fn trust_runtime_core::value::StructValue::from_canonical_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
-pub fn trust_runtime_core::value::StructValue::from_untyped_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::fields(&self) -> &trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::from_canonical_parts(type_name: smol_str::SmolStr, fields: trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::from_untyped_parts(type_name: smol_str::SmolStr, fields: trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::into_canonical_parts(self) -> (smol_str::SmolStr, trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>)
 pub fn trust_runtime_core::value::StructValue::set_existing_field(&mut self, name: smol_str::SmolStr, value: trust_runtime_core::value::Value) -> bool
 pub fn trust_runtime_core::value::StructValue::type_name(&self) -> &smol_str::SmolStr
+impl trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::encode_physical_checkpoint(&self) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::StructValue::with_physical_checkpoint(self, checkpoint: &[u8]) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+impl trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::physical_checkpoint_eq(&self, other: &Self) -> bool
+impl core::cmp::PartialEq for trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::eq(&self, other: &Self) -> bool
 pub fn trust_runtime_core::value::types::normalize_assignment_for_target(target: &trust_runtime_core::value::Value, value: trust_runtime_core::value::Value) -> trust_runtime_core::value::Value
 pub enum trust_runtime_core::value::DateTimeError
 pub trust_runtime_core::value::DateTimeError::OutOfRange
@@ -634,15 +1891,30 @@ pub trust_runtime_core::value::PartialAccess::Bit(u8)
 pub trust_runtime_core::value::PartialAccess::Byte(u8)
 pub trust_runtime_core::value::PartialAccess::DWord(u8)
 pub trust_runtime_core::value::PartialAccess::Word(u8)
+impl trust_runtime_core::value::PartialAccess
+pub fn trust_runtime_core::value::PartialAccess::from_wire(kind: u8, index: u32) -> core::result::Result<core::option::Option<Self>, trust_runtime_core::value::PartialAccessError>
 pub enum trust_runtime_core::value::PartialAccessError
 pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds
 pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds::index: i64
 pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds::lower: i64
 pub trust_runtime_core::value::PartialAccessError::IndexOutOfBounds::upper: i64
 pub trust_runtime_core::value::PartialAccessError::TypeMismatch
+impl core::convert::From<trust_runtime_core::value::PartialAccessError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::value::PartialAccessError) -> Self
 pub enum trust_runtime_core::value::RefSegment
 pub trust_runtime_core::value::RefSegment::Field(smol_str::SmolStr)
 pub trust_runtime_core::value::RefSegment::Index(trust_runtime_core::value::RefIndices)
+pub enum trust_runtime_core::value::SizeOfError
+pub trust_runtime_core::value::SizeOfError::Overflow
+pub trust_runtime_core::value::SizeOfError::UnknownType
+pub trust_runtime_core::value::SizeOfError::UnsupportedType
+impl core::convert::From<trust_runtime_core::value::SizeOfError> for trust_runtime_core::error::RuntimeError
+pub fn trust_runtime_core::error::RuntimeError::from(error: trust_runtime_core::value::SizeOfError) -> Self
+pub enum trust_runtime_core::value::StorageAbi
+pub trust_runtime_core::value::StorageAbi::LegacyTemporal32
+pub trust_runtime_core::value::StorageAbi::UniformTemporal64
+impl trust_runtime_core::value::StorageAbi
+pub const fn trust_runtime_core::value::StorageAbi::short_temporal_bytes(self) -> u64
 pub enum trust_runtime_core::value::Value
 pub trust_runtime_core::value::Value::Array(alloc::boxed::Box<trust_runtime_core::value::ArrayValue>)
 pub trust_runtime_core::value::Value::Bool(bool)
@@ -667,7 +1939,7 @@ pub trust_runtime_core::value::Value::Real(f32)
 pub trust_runtime_core::value::Value::Reference(core::option::Option<trust_runtime_core::value::ValueRef>)
 pub trust_runtime_core::value::Value::SInt(i8)
 pub trust_runtime_core::value::Value::String(smol_str::SmolStr)
-pub trust_runtime_core::value::Value::Struct(alloc::sync::Arc<trust_runtime_core::value::StructValue>)
+pub trust_runtime_core::value::Value::Struct(alloc::rcs::arc::Arc<trust_runtime_core::value::StructValue>)
 pub trust_runtime_core::value::Value::Time(trust_runtime_core::value::Duration)
 pub trust_runtime_core::value::Value::Tod(trust_runtime_core::value::TimeOfDayValue)
 pub trust_runtime_core::value::Value::UDInt(u32)
@@ -728,6 +2000,9 @@ impl trust_runtime_core::value::Duration
 pub const trust_runtime_core::value::Duration::ZERO: Self
 pub fn trust_runtime_core::value::Duration::as_millis(self) -> i64
 pub fn trust_runtime_core::value::Duration::as_nanos(self) -> i64
+pub fn trust_runtime_core::value::Duration::checked_from_micros(micros: i64) -> core::option::Option<Self>
+pub fn trust_runtime_core::value::Duration::checked_from_millis(millis: i64) -> core::option::Option<Self>
+pub fn trust_runtime_core::value::Duration::checked_from_secs(secs: i64) -> core::option::Option<Self>
 pub fn trust_runtime_core::value::Duration::from_micros(micros: i64) -> Self
 pub fn trust_runtime_core::value::Duration::from_millis(millis: i64) -> Self
 pub fn trust_runtime_core::value::Duration::from_nanos(nanos: i64) -> Self
@@ -758,11 +2033,19 @@ impl trust_runtime_core::value::StructValue
 pub fn trust_runtime_core::value::StructValue::contains_field(&self, name: &str) -> bool
 pub fn trust_runtime_core::value::StructValue::field(&self, name: &str) -> core::option::Option<&trust_runtime_core::value::Value>
 pub fn trust_runtime_core::value::StructValue::field_mut(&mut self, name: &str) -> core::option::Option<&mut trust_runtime_core::value::Value>
-pub fn trust_runtime_core::value::StructValue::fields(&self) -> &indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>
-pub fn trust_runtime_core::value::StructValue::from_canonical_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
-pub fn trust_runtime_core::value::StructValue::from_untyped_parts(type_name: smol_str::SmolStr, fields: indexmap::map::IndexMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::fields(&self) -> &trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>
+pub fn trust_runtime_core::value::StructValue::from_canonical_parts(type_name: smol_str::SmolStr, fields: trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::from_untyped_parts(type_name: smol_str::SmolStr, fields: trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>) -> Self
+pub fn trust_runtime_core::value::StructValue::into_canonical_parts(self) -> (smol_str::SmolStr, trust_runtime_core::collections::OrderedMap<smol_str::SmolStr, trust_runtime_core::value::Value>)
 pub fn trust_runtime_core::value::StructValue::set_existing_field(&mut self, name: smol_str::SmolStr, value: trust_runtime_core::value::Value) -> bool
 pub fn trust_runtime_core::value::StructValue::type_name(&self) -> &smol_str::SmolStr
+impl trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::encode_physical_checkpoint(&self) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::StructValue::with_physical_checkpoint(self, checkpoint: &[u8]) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+impl trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::physical_checkpoint_eq(&self, other: &Self) -> bool
+impl core::cmp::PartialEq for trust_runtime_core::value::StructValue
+pub fn trust_runtime_core::value::StructValue::eq(&self, other: &Self) -> bool
 pub struct trust_runtime_core::value::TimeOfDayValue
 impl trust_runtime_core::value::TimeOfDayValue
 pub fn trust_runtime_core::value::TimeOfDayValue::new(ticks: i64) -> Self
@@ -770,19 +2053,35 @@ pub fn trust_runtime_core::value::TimeOfDayValue::ticks(self) -> i64
 impl trust_runtime_core::value::TimeOfDayValue
 pub fn trust_runtime_core::value::TimeOfDayValue::try_from_ticks(ticks: i128) -> core::result::Result<Self, trust_runtime_core::value::DateTimeError>
 pub struct trust_runtime_core::value::ValueRef
+pub trust_runtime_core::value::ValueRef::generation: trust_runtime_core::memory::Generation
 pub trust_runtime_core::value::ValueRef::location: trust_runtime_core::memory::MemoryLocation
-pub trust_runtime_core::value::ValueRef::offset: usize
+pub trust_runtime_core::value::ValueRef::offset: u32
 pub trust_runtime_core::value::ValueRef::path: trust_runtime_core::value::RefPath
+impl trust_runtime_core::value::ValueRef
+pub fn trust_runtime_core::value::ValueRef::as_view(&self) -> trust_runtime_core::value::ValueRefView<'_>
+pub struct trust_runtime_core::value::ValueRefView<'a>
+pub trust_runtime_core::value::ValueRefView::generation: trust_runtime_core::memory::Generation
+pub trust_runtime_core::value::ValueRefView::location: trust_runtime_core::memory::MemoryLocation
+pub trust_runtime_core::value::ValueRefView::offset: usize
+pub trust_runtime_core::value::ValueRefView::path: &'a [trust_runtime_core::value::RefSegment]
+impl trust_runtime_core::value::ValueRefView<'_>
+pub fn trust_runtime_core::value::ValueRefView<'_>::to_owned(self) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::value::array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> core::option::Option<usize>
 pub fn trust_runtime_core::value::checked_array_offset_i64(dimensions: &[(i64, i64)], indices: &[i64]) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::value::combine_date_and_tod(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
 pub fn trust_runtime_core::value::combine_date_and_tod_with_tz(date: trust_runtime_core::value::DateValue, tod: trust_runtime_core::value::TimeOfDayValue, tz_offset_minutes: core::option::Option<i32>) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::value::DateTimeError>
+pub fn trust_runtime_core::value::format_user_value(value: &trust_runtime_core::value::Value) -> alloc::string::String
+pub fn trust_runtime_core::value::materialize_value_path(value: &trust_runtime_core::value::Value, path: &[trust_runtime_core::value::RefSegment]) -> core::option::Option<trust_runtime_core::value::Value>
 pub fn trust_runtime_core::value::normalize_assignment_for_target(target: &trust_runtime_core::value::Value, value: trust_runtime_core::value::Value) -> trust_runtime_core::value::Value
 pub fn trust_runtime_core::value::parse_partial_access(text: &str) -> core::option::Option<trust_runtime_core::value::PartialAccess>
 pub fn trust_runtime_core::value::read_partial_access(target: &trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
 pub fn trust_runtime_core::value::read_string_element(text: &str, index: i64, wide: bool) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::read_value_path_borrowed<'a>(value: &'a trust_runtime_core::value::Value, path: &[trust_runtime_core::value::RefSegment]) -> core::option::Option<&'a trust_runtime_core::value::Value>
 pub fn trust_runtime_core::value::ref_indices_from_iter<I>(indices: I) -> trust_runtime_core::value::RefIndices where I: core::iter::traits::collect::IntoIterator<Item = i64>
 pub fn trust_runtime_core::value::single_ref_index(index: i64) -> trust_runtime_core::value::RefSegment
+pub fn trust_runtime_core::value::single_string_index(indices: &[i64]) -> core::option::Option<i64>
+pub fn trust_runtime_core::value::size_of_value_with<E: core::convert::From<trust_runtime_core::value::SizeOfError>>(value: &trust_runtime_core::value::Value, enum_size: &mut impl core::ops::function::FnMut(&str) -> core::result::Result<u64, E>, visit: &mut impl core::ops::function::FnMut(usize) -> core::result::Result<(), E>) -> core::result::Result<u64, E>
+pub fn trust_runtime_core::value::size_of_value_with_abi_and_visitor<E: core::convert::From<trust_runtime_core::value::SizeOfError>>(value: &trust_runtime_core::value::Value, abi: trust_runtime_core::value::StorageAbi, enum_size: &mut impl core::ops::function::FnMut(&str) -> core::result::Result<u64, E>, structure_size: &mut impl core::ops::function::FnMut(&str) -> core::result::Result<core::option::Option<u64>, E>, visit: &mut impl core::ops::function::FnMut(usize) -> core::result::Result<(), E>) -> core::result::Result<u64, E>
 pub fn trust_runtime_core::value::string_delete(input: &str, length: i64, position: i64) -> alloc::string::String
 pub fn trust_runtime_core::value::string_element_count(text: &str) -> usize
 pub fn trust_runtime_core::value::string_element_position(text: &str, index: i64) -> core::result::Result<usize, trust_runtime_core::error::RuntimeError>
@@ -792,11 +2091,35 @@ pub fn trust_runtime_core::value::string_left(text: &str, count: i64) -> alloc::
 pub fn trust_runtime_core::value::string_mid(text: &str, length: i64, position: i64) -> alloc::string::String
 pub fn trust_runtime_core::value::string_replace(input: &str, repl: &str, length: i64, position: i64) -> alloc::string::String
 pub fn trust_runtime_core::value::string_right(text: &str, count: i64) -> alloc::string::String
+pub fn trust_runtime_core::value::truncate_string_elements(text: &str, max_len: u32) -> alloc::string::String
 pub fn trust_runtime_core::value::write_partial_access(target: trust_runtime_core::value::Value, access: trust_runtime_core::value::PartialAccess, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::value::PartialAccessError>
 pub fn trust_runtime_core::value::write_string_element(text: &str, index: i64, value: trust_runtime_core::value::Value, wide: bool) -> core::result::Result<alloc::string::String, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::value::write_value_path(target: &mut trust_runtime_core::value::Value, path: &[trust_runtime_core::value::RefSegment], value: trust_runtime_core::value::Value) -> bool
+pub fn trust_runtime_core::value::write_value_path_checked(target: &mut trust_runtime_core::value::Value, path: &[trust_runtime_core::value::RefSegment], value: trust_runtime_core::value::Value) -> core::result::Result<bool, trust_runtime_core::error::RuntimeError>
 pub type trust_runtime_core::value::RefIndices = alloc::vec::Vec<i64>
 pub type trust_runtime_core::value::RefPath = alloc::vec::Vec<trust_runtime_core::value::RefSegment>
 pub mod trust_runtime_core::vm
+pub enum trust_runtime_core::vm::CyclePhase
+pub trust_runtime_core::vm::CyclePhase::AfterInputSample
+pub trust_runtime_core::vm::CyclePhase::AfterOutputSample
+pub trust_runtime_core::vm::CyclePhase::BackgroundEnd(u32)
+pub trust_runtime_core::vm::CyclePhase::BackgroundStart(u32)
+pub trust_runtime_core::vm::CyclePhase::BeforeInputSample
+pub trust_runtime_core::vm::CyclePhase::BeforeOutputSample
+pub trust_runtime_core::vm::CyclePhase::CycleEnd
+pub trust_runtime_core::vm::CyclePhase::CycleStart
+pub trust_runtime_core::vm::CyclePhase::TaskEnd(usize)
+pub trust_runtime_core::vm::CyclePhase::TaskOverrun
+pub trust_runtime_core::vm::CyclePhase::TaskOverrun::index: usize
+pub trust_runtime_core::vm::CyclePhase::TaskOverrun::missed: u64
+pub trust_runtime_core::vm::CyclePhase::TaskStart(usize)
+pub enum trust_runtime_core::vm::RetainApplyEvent
+pub trust_runtime_core::vm::RetainApplyEvent::Migrated
+pub trust_runtime_core::vm::RetainApplyEvent::Migrated::after: trust_runtime_core::value::Value
+pub trust_runtime_core::vm::RetainApplyEvent::Migrated::before: trust_runtime_core::value::Value
+pub trust_runtime_core::vm::RetainApplyEvent::Migrated::name: smol_str::SmolStr
+pub trust_runtime_core::vm::RetainApplyEvent::Orphan
+pub trust_runtime_core::vm::RetainApplyEvent::Orphan::name: smol_str::SmolStr
 pub enum trust_runtime_core::vm::VmTrap
 pub trust_runtime_core::vm::VmTrap::BudgetExceeded
 pub trust_runtime_core::vm::VmTrap::BytecodeDecode(smol_str::SmolStr)
@@ -827,50 +2150,223 @@ pub trust_runtime_core::vm::VmTrap::UnsupportedOpcode(&'static str)
 pub trust_runtime_core::vm::VmTrap::UnsupportedRefLocation(&'static str)
 impl trust_runtime_core::vm::VmTrap
 pub fn trust_runtime_core::vm::VmTrap::into_runtime_error(self) -> trust_runtime_core::error::RuntimeError
+pub const fn trust_runtime_core::vm::VmTrap::stable_code(&self) -> trust_runtime_core::error_code::StableErrorCode
 impl core::convert::From<trust_runtime_core::error::RuntimeError> for trust_runtime_core::vm::VmTrap
 pub fn trust_runtime_core::vm::VmTrap::from(value: trust_runtime_core::error::RuntimeError) -> Self
-pub struct trust_runtime_core::vm::FrameStack
-impl trust_runtime_core::vm::FrameStack
-pub fn trust_runtime_core::vm::FrameStack::clear(&mut self)
-pub fn trust_runtime_core::vm::FrameStack::current(&self) -> core::option::Option<&trust_runtime_core::vm::VmFrame>
-pub fn trust_runtime_core::vm::FrameStack::current_mut(&mut self) -> core::option::Option<&mut trust_runtime_core::vm::VmFrame>
-pub fn trust_runtime_core::vm::FrameStack::is_empty(&self) -> bool
-pub fn trust_runtime_core::vm::FrameStack::len(&self) -> usize
-pub fn trust_runtime_core::vm::FrameStack::pop(&mut self) -> core::result::Result<trust_runtime_core::vm::VmFrame, trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::FrameStack::push(&mut self, frame: trust_runtime_core::vm::VmFrame) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub struct trust_runtime_core::vm::OperandStack
-impl trust_runtime_core::vm::OperandStack
-pub fn trust_runtime_core::vm::OperandStack::clear(&mut self)
-pub fn trust_runtime_core::vm::OperandStack::duplicate_top(&mut self) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::OperandStack::pop(&mut self) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::OperandStack::pop_pair(&mut self) -> core::result::Result<(trust_runtime_core::value::Value, trust_runtime_core::value::Value), trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::OperandStack::push(&mut self, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::OperandStack::swap_top(&mut self) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub struct trust_runtime_core::vm::VmFrame
-pub trust_runtime_core::vm::VmFrame::code_end: usize
-pub trust_runtime_core::vm::VmFrame::code_start: usize
-pub trust_runtime_core::vm::VmFrame::instance_owner: core::option::Option<u32>
-pub trust_runtime_core::vm::VmFrame::local_ref_count: u32
-pub trust_runtime_core::vm::VmFrame::local_ref_start: u32
-pub trust_runtime_core::vm::VmFrame::locals: alloc::vec::Vec<trust_runtime_core::value::Value>
-pub trust_runtime_core::vm::VmFrame::pou_id: u32
-pub trust_runtime_core::vm::VmFrame::return_pc: usize
-pub trust_runtime_core::vm::VmFrame::runtime_instance: core::option::Option<trust_runtime_core::memory::InstanceId>
-impl trust_runtime_core::vm::VmFrame
-pub fn trust_runtime_core::vm::VmFrame::load_local(&self, ref_index: u32) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::VmFrame::local_slot_index(&self, ref_index: u32) -> core::result::Result<usize, trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::VmFrame::store_local(&mut self, ref_index: u32, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
+pub struct trust_runtime_core::vm::CycleAccess<'a, 'engine>
+impl trust_runtime_core::vm::CycleAccess<'_, '_>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::charge_management_name(&mut self, _name: &str) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::inputs_mut(&mut self) -> core::result::Result<&mut [u8], trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::logical_time(&self) -> trust_runtime_core::value::Duration
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::memory_image(&self) -> &[u8]
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::outputs(&self) -> &[u8]
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::read_image(&mut self, address: &trust_runtime_core::io_address::IoAddress) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::read_reference(&mut self, reference: &trust_runtime_core::value::ValueRef) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::retain_snapshot(&mut self) -> core::result::Result<trust_runtime_core::retain::RetainSnapshot, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::storage(&self) -> &trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::task_states(&self) -> &[trust_runtime_core::task::TaskState]
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::write_access(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::write_admitted_image(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::write_image(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::write_named_path(&mut self, name: &str, path: &[trust_runtime_core::value::RefSegment], value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::write_reference(&mut self, reference: trust_runtime_core::value::ValueRefView<'_>, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+impl trust_runtime_core::vm::CycleAccess<'_, '_>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::write_admitted_global(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleAccess<'_, '_>::write_admitted_reference(&mut self, reference: trust_runtime_core::value::ValueRefView<'_>, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::vm::LogicalExecutionServices
+impl trust_runtime_core::vm::ExecutionServices for trust_runtime_core::vm::LogicalExecutionServices
+pub fn trust_runtime_core::vm::LogicalExecutionServices::current_dt(&self) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::LogicalExecutionServices::deadline_exceeded(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::debug_active(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::has_retain_store(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::has_wall_clock(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::on_statement(&self, _pou_id: u32, _code_offset: usize, _depth: u32, _storage: &trust_runtime_core::memory::VariableStorage, _logical_time: trust_runtime_core::value::Duration)
+pub fn trust_runtime_core::vm::LogicalExecutionServices::on_statement_with_frame(&self, pou_id: u32, code_offset: usize, depth: u32, storage: &trust_runtime_core::memory::VariableStorage, logical_time: trust_runtime_core::value::Duration, _frame: trust_runtime_core::vm::StatementFrame<'_>)
+pub fn trust_runtime_core::vm::LogicalExecutionServices::on_statement_with_frame_checked(&self, pou_id: u32, code_offset: usize, depth: u32, storage: &trust_runtime_core::memory::VariableStorage, logical_time: trust_runtime_core::value::Duration, frame: trust_runtime_core::vm::StatementFrame<'_>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::LogicalExecutionServices::save_retain_snapshot(&self, _snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::vm::OwnedRuntimeState<S: trust_runtime_core::vm::ExecutionServices>
+impl<S: trust_runtime_core::vm::ExecutionServices> trust_runtime_core::vm::OwnedRuntimeState<S>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::apply_retain_snapshot(&mut self, snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::vm::RetainApplyEvent>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::clear_fault(&mut self)
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::current_time(&self) -> trust_runtime_core::value::Duration
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::execute_cycle(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::execute_cycle_with_hooks(&mut self, now: trust_runtime_core::value::Duration, hooks: &mut dyn trust_runtime_core::vm::CycleHooks) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::execute_function_block(&mut self, reference: &trust_runtime_core::value::ValueRef) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::execute_function_block_by_name(&mut self, name: &str) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::execute_program(&mut self, name: &str) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::fault(&self) -> core::option::Option<&trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::inputs(&self) -> &[u8]
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::inputs_mut(&mut self) -> &mut [u8]
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::latch_fault(&mut self, error: trust_runtime_core::error::RuntimeError)
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::memory_image(&self) -> &[u8]
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::outputs(&self) -> &[u8]
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::prepare_replacement(&mut self, prepared: alloc::rcs::arc::Arc<trust_runtime_core::vm::PreparedModule>, resource_index: usize, services: S, durable: core::option::Option<&trust_runtime_core::retain::RetainSnapshot>) -> core::result::Result<(Self, alloc::vec::Vec<trust_runtime_core::vm::RetainApplyEvent>), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::prepared(&self) -> &trust_runtime_core::vm::PreparedModule
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::profile(&self) -> &trust_runtime_core::value::DateTimeProfile
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::read_access(&mut self, name: &str) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::read_hierarchical_image_ref(&self, address: &trust_runtime_core::io_address::IoAddress) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::read_hierarchical_output(&self, address: &trust_runtime_core::io_address::IoAddress) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::read_image(&mut self, address: &trust_runtime_core::io_address::IoAddress) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::read_reference(&mut self, reference: &trust_runtime_core::value::ValueRef) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::reset_task_timing(&mut self, time: trust_runtime_core::value::Duration)
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::resolve_access_reference(&mut self, name: &str) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::resolve_persistent_reference(&mut self, index: u32) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::resource_index(&self) -> usize
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::restart(&mut self, mode: trust_runtime_core::retain::RestartMode) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::restart_with_retain_snapshot(&mut self, mode: trust_runtime_core::retain::RestartMode, snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::vm::RetainApplyEvent>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::retain_snapshot(&mut self) -> core::result::Result<trust_runtime_core::retain::RetainSnapshot, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::services(&self) -> &S
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::services_mut(&mut self) -> &mut S
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::set_current_time(&mut self, time: trust_runtime_core::value::Duration)
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::set_hierarchical_input(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::shared_prepared(&self) -> alloc::rcs::arc::Arc<trust_runtime_core::vm::PreparedModule>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::storage(&self) -> &trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::task_states(&self) -> &[trust_runtime_core::task::TaskState]
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::validate_global_write(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::validate_image_write(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::write_access(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::write_global(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::write_global_canonical(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::write_image(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::write_named_path(&mut self, name: &str, path: &[trust_runtime_core::value::RefSegment], value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::write_reference(&mut self, reference: trust_runtime_core::value::ValueRefView<'_>, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+impl<S: trust_runtime_core::vm::ExecutionServices> trust_runtime_core::vm::OwnedRuntimeState<S>
+pub fn trust_runtime_core::vm::OwnedRuntimeState<S>::prepare_resource_reconfiguration(&mut self, prepared: alloc::rcs::arc::Arc<trust_runtime_core::vm::PreparedModule>, resource_index: usize, reset_task_timing: bool) -> core::result::Result<trust_runtime_core::vm::ResourceReconfiguration<'_, S>, trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::vm::PreparationLimits
+pub trust_runtime_core::vm::PreparationLimits::max_artifact_bytes: usize
+pub trust_runtime_core::vm::PreparationLimits::max_call_depth: usize
+pub trust_runtime_core::vm::PreparationLimits::max_construction_bytes: usize
+pub trust_runtime_core::vm::PreparationLimits::max_construction_values: usize
+pub trust_runtime_core::vm::PreparationLimits::max_construction_work: usize
+pub trust_runtime_core::vm::PreparationLimits::max_preparation_bytes: usize
+pub trust_runtime_core::vm::PreparationLimits::max_preparation_work: usize
+pub trust_runtime_core::vm::PreparationLimits::max_process_image_bytes: usize
+pub trust_runtime_core::vm::PreparationLimits::max_work: usize
+pub trust_runtime_core::vm::PreparationLimits::validation: trust_runtime_core::bytecode::ValidationLimits
+impl core::default::Default for trust_runtime_core::vm::PreparationLimits
+pub fn trust_runtime_core::vm::PreparationLimits::default() -> Self
+pub struct trust_runtime_core::vm::PreparationUsage
+pub trust_runtime_core::vm::PreparationUsage::bytes: usize
+pub trust_runtime_core::vm::PreparationUsage::work: usize
+pub struct trust_runtime_core::vm::PreparedModule
+impl trust_runtime_core::vm::PreparedModule
+pub fn trust_runtime_core::vm::PreparedModule::access_bindings(&self) -> &[trust_runtime_core::bytecode::AccessBindingEntry]
+pub fn trust_runtime_core::vm::PreparedModule::constant(&self, index: u32) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::vm::PreparedModule::construction_roots(&self) -> &[trust_runtime_core::bytecode::ConstructionRoot]
+pub fn trust_runtime_core::vm::PreparedModule::frame_declarations(&self, pou: u32) -> impl core::iter::traits::iterator::Iterator<Item = &trust_runtime_core::bytecode::StorageDeclaration>
+pub fn trust_runtime_core::vm::PreparedModule::instance_declarations(&self, pou: u32) -> impl core::iter::traits::iterator::Iterator<Item = &trust_runtime_core::bytecode::StorageDeclaration>
+pub fn trust_runtime_core::vm::PreparedModule::io_bindings(&self) -> &[trust_runtime_core::io_image::PreparedIoBinding]
+pub fn trust_runtime_core::vm::PreparedModule::method_owner(&self, id: u32) -> core::option::Option<u32>
+pub fn trust_runtime_core::vm::PreparedModule::parent_pou(&self, id: u32) -> core::option::Option<u32>
+pub fn trust_runtime_core::vm::PreparedModule::pou_has_return(&self, id: u32) -> bool
+pub fn trust_runtime_core::vm::PreparedModule::pou_interfaces(&self, id: u32) -> &[u32]
+pub fn trust_runtime_core::vm::PreparedModule::pou_kind(&self, id: u32) -> core::option::Option<trust_runtime_core::bytecode::PouKind>
+pub fn trust_runtime_core::vm::PreparedModule::pou_name(&self, id: u32) -> core::option::Option<&str>
+pub fn trust_runtime_core::vm::PreparedModule::pou_parameters(&self, id: u32) -> core::option::Option<&[trust_runtime_core::vm::module::VmParamMeta]>
+pub fn trust_runtime_core::vm::PreparedModule::pous(&self) -> impl core::iter::traits::iterator::Iterator<Item = (u32, &trust_runtime_core::vm::module::VmPouEntry)>
+pub fn trust_runtime_core::vm::PreparedModule::reference_type(&self, index: u32) -> core::option::Option<u32>
+pub fn trust_runtime_core::vm::PreparedModule::resources(&self) -> &[trust_runtime_core::bytecode::ResourceEntry]
+pub fn trust_runtime_core::vm::PreparedModule::storage_abi(&self) -> trust_runtime_core::value::StorageAbi
+pub fn trust_runtime_core::vm::PreparedModule::storage_declarations(&self) -> &[trust_runtime_core::bytecode::StorageDeclaration]
+pub fn trust_runtime_core::vm::PreparedModule::strings(&self) -> &[smol_str::SmolStr]
+pub fn trust_runtime_core::vm::PreparedModule::type_table(&self) -> &trust_runtime_core::bytecode::TypeTable
+impl trust_runtime_core::vm::PreparedModule
+pub fn trust_runtime_core::vm::PreparedModule::from_bytes(bytes: &[u8], limits: trust_runtime_core::vm::PreparationLimits) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::PreparedModule::from_bytes_with_artifact(bytes: &[u8], limits: trust_runtime_core::vm::PreparationLimits) -> core::result::Result<(Self, trust_runtime_core::bytecode::BytecodeModule), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::PreparedModule::from_decoded(raw: &trust_runtime_core::bytecode::BytecodeModule, limits: trust_runtime_core::vm::PreparationLimits) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::PreparedModule::limits(&self) -> trust_runtime_core::vm::PreparationLimits
+pub fn trust_runtime_core::vm::PreparedModule::preparation_usage(&self) -> trust_runtime_core::vm::PreparationUsage
+impl trust_runtime_core::vm::PreparedModule
+pub fn trust_runtime_core::vm::PreparedModule::instantiate(&self, resource_index: usize) -> core::result::Result<trust_runtime_core::vm::RuntimeState<'_>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::PreparedModule::instantiate_with_services<'a>(&'a self, resource_index: usize, services: &'a dyn trust_runtime_core::vm::ExecutionServices) -> core::result::Result<trust_runtime_core::vm::RuntimeState<'a>, trust_runtime_core::error::RuntimeError>
+impl trust_runtime_core::vm::PreparedModule
+pub fn trust_runtime_core::vm::PreparedModule::instantiate_owned(self: alloc::rcs::arc::Arc<Self>, resource_index: usize) -> core::result::Result<trust_runtime_core::vm::OwnedRuntimeState<trust_runtime_core::vm::LogicalExecutionServices>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::PreparedModule::instantiate_owned_with_services<S: trust_runtime_core::vm::ExecutionServices>(self: alloc::rcs::arc::Arc<Self>, resource_index: usize, services: S) -> core::result::Result<trust_runtime_core::vm::OwnedRuntimeState<S>, trust_runtime_core::error::RuntimeError>
+impl trust_runtime_core::vm::PreparedModule
+pub fn trust_runtime_core::vm::PreparedModule::persistent_reference_name(&self, index: u32) -> core::result::Result<smol_str::SmolStr, trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::vm::ResourceReconfiguration<'a, S: trust_runtime_core::vm::ExecutionServices>
+impl<S: trust_runtime_core::vm::ExecutionServices> trust_runtime_core::vm::ResourceReconfiguration<'_, S>
+pub fn trust_runtime_core::vm::ResourceReconfiguration<'_, S>::commit(self) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::ResourceReconfiguration<'_, S>::validate_image_write(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::vm::RuntimeState<'a>
+impl trust_runtime_core::vm::RuntimeState<'_>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::apply_retain_snapshot(&mut self, snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::vm::RetainApplyEvent>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::clear_fault(&mut self)
+pub fn trust_runtime_core::vm::RuntimeState<'_>::current_time(&self) -> trust_runtime_core::value::Duration
+pub fn trust_runtime_core::vm::RuntimeState<'_>::execute_cycle(&mut self, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::execute_cycle_with_hooks(&mut self, now: trust_runtime_core::value::Duration, hooks: &mut dyn trust_runtime_core::vm::CycleHooks) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::execute_function_block(&mut self, reference: &trust_runtime_core::value::ValueRef) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::execute_function_block_by_name(&mut self, name: &str) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::execute_program(&mut self, name: &str) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::fault(&self) -> core::option::Option<&trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::inputs(&self) -> &[u8]
+pub fn trust_runtime_core::vm::RuntimeState<'_>::inputs_mut(&mut self) -> &mut [u8]
+pub fn trust_runtime_core::vm::RuntimeState<'_>::latch_fault(&mut self, error: trust_runtime_core::error::RuntimeError)
+pub fn trust_runtime_core::vm::RuntimeState<'_>::memory_image(&self) -> &[u8]
+pub fn trust_runtime_core::vm::RuntimeState<'_>::outputs(&self) -> &[u8]
+pub fn trust_runtime_core::vm::RuntimeState<'_>::profile(&self) -> &trust_runtime_core::value::DateTimeProfile
+pub fn trust_runtime_core::vm::RuntimeState<'_>::read_access(&mut self, name: &str) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::read_hierarchical_image_ref(&self, address: &trust_runtime_core::io_address::IoAddress) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::read_hierarchical_output(&self, address: &trust_runtime_core::io_address::IoAddress) -> core::option::Option<&trust_runtime_core::value::Value>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::read_image(&mut self, address: &trust_runtime_core::io_address::IoAddress) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::read_reference(&mut self, reference: &trust_runtime_core::value::ValueRef) -> core::result::Result<trust_runtime_core::value::Value, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::reset_task_timing(&mut self, time: trust_runtime_core::value::Duration)
+pub fn trust_runtime_core::vm::RuntimeState<'_>::resolve_access_reference(&mut self, name: &str) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::resolve_persistent_reference(&mut self, index: u32) -> core::result::Result<trust_runtime_core::value::ValueRef, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::restart(&mut self, mode: trust_runtime_core::retain::RestartMode) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::restart_with_retain_snapshot(&mut self, mode: trust_runtime_core::retain::RestartMode, snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::vm::RetainApplyEvent>, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::retain_snapshot(&mut self) -> core::result::Result<trust_runtime_core::retain::RetainSnapshot, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::set_current_time(&mut self, time: trust_runtime_core::value::Duration)
+pub fn trust_runtime_core::vm::RuntimeState<'_>::set_hierarchical_input(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::storage(&self) -> &trust_runtime_core::memory::VariableStorage
+pub fn trust_runtime_core::vm::RuntimeState<'_>::task_states(&self) -> &[trust_runtime_core::task::TaskState]
+pub fn trust_runtime_core::vm::RuntimeState<'_>::validate_global_write(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::validate_image_write(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::write_access(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::write_global(&mut self, name: &str, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::write_image(&mut self, address: &trust_runtime_core::io_address::IoAddress, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::write_named_path(&mut self, name: &str, path: &[trust_runtime_core::value::RefSegment], value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::RuntimeState<'_>::write_reference(&mut self, reference: trust_runtime_core::value::ValueRefView<'_>, value: trust_runtime_core::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub struct trust_runtime_core::vm::StatementFrame<'a>
+impl<'a> trust_runtime_core::vm::StatementFrame<'a>
+pub fn trust_runtime_core::vm::StatementFrame<'a>::activation(self) -> core::option::Option<trust_runtime_core::memory::FrameId>
+pub fn trust_runtime_core::vm::StatementFrame<'a>::call_stack(self) -> impl core::iter::traits::iterator::Iterator<Item = trust_runtime_core::vm::StatementFrame<'a>>
+pub fn trust_runtime_core::vm::StatementFrame<'a>::locals(self) -> &'a [trust_runtime_core::value::Value]
+pub fn trust_runtime_core::vm::StatementFrame<'a>::pou_id(self) -> core::option::Option<u32>
+pub fn trust_runtime_core::vm::StatementFrame<'a>::runtime_instance(self) -> core::option::Option<trust_runtime_core::memory::InstanceId>
 pub const trust_runtime_core::vm::VM_MAX_CALL_DEPTH: usize
-pub fn trust_runtime_core::vm::apply_jump(pc: &mut usize, offset: i32, frame: &trust_runtime_core::vm::VmFrame) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::decode_const_pool_entries(const_pool: &trust_runtime_core::bytecode::ConstPool, types: &trust_runtime_core::bytecode::TypeTable, strings: &trust_runtime_core::bytecode::StringTable) -> core::result::Result<alloc::vec::Vec<trust_runtime_core::value::Value>, trust_runtime_core::error::RuntimeError>
-pub fn trust_runtime_core::vm::ensure_global_call_depth(depth_offset: u32, local_depth: usize) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::execute_binary(profile: &trust_runtime_core::value::DateTimeProfile, stack: &mut trust_runtime_core::vm::OperandStack, op: trust_runtime_core::program_model::ops::BinaryOp) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::execute_unary(stack: &mut trust_runtime_core::vm::OperandStack, op: trust_runtime_core::program_model::ops::UnaryOp) -> core::result::Result<(), trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::materialize_borrowed_value(value: &trust_runtime_core::value::Value) -> (trust_runtime_core::value::Value, bool)
-pub const fn trust_runtime_core::vm::opcode_operand_len(opcode: u8) -> core::option::Option<usize>
-pub fn trust_runtime_core::vm::read_i32(code: &[u8], pc: &mut usize) -> core::result::Result<i32, trust_runtime_core::vm::VmTrap>
-pub fn trust_runtime_core::vm::read_u32(code: &[u8], pc: &mut usize) -> core::result::Result<u32, trust_runtime_core::vm::VmTrap>
+pub const trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS: usize
+pub const trust_runtime_core::vm::VM_MAX_OPERAND_STACK: usize
+pub trait trust_runtime_core::vm::CycleHooks
+pub fn trust_runtime_core::vm::CycleHooks::has_output_hooks(&self) -> bool
+pub fn trust_runtime_core::vm::CycleHooks::has_program_hooks(&self) -> bool
+pub fn trust_runtime_core::vm::CycleHooks::on_phase(&mut self, _phase: trust_runtime_core::vm::CyclePhase, _access: &mut trust_runtime_core::vm::CycleAccess<'_, '_>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::CycleHooks::program_finished(&mut self, _name: &smol_str::SmolStr)
+pub fn trust_runtime_core::vm::CycleHooks::program_started(&mut self, _name: &smol_str::SmolStr)
+pub fn trust_runtime_core::vm::CycleHooks::publish_outputs(&mut self, _access: &trust_runtime_core::vm::CycleAccess<'_, '_>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub trait trust_runtime_core::vm::ExecutionServices
+pub fn trust_runtime_core::vm::ExecutionServices::current_dt(&self) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::ExecutionServices::deadline_exceeded(&self) -> bool
+pub fn trust_runtime_core::vm::ExecutionServices::debug_active(&self) -> bool
+pub fn trust_runtime_core::vm::ExecutionServices::has_retain_store(&self) -> bool
+pub fn trust_runtime_core::vm::ExecutionServices::has_wall_clock(&self) -> bool
+pub fn trust_runtime_core::vm::ExecutionServices::on_statement(&self, _pou_id: u32, _code_offset: usize, _depth: u32, _storage: &trust_runtime_core::memory::VariableStorage, _logical_time: trust_runtime_core::value::Duration)
+pub fn trust_runtime_core::vm::ExecutionServices::on_statement_with_frame(&self, pou_id: u32, code_offset: usize, depth: u32, storage: &trust_runtime_core::memory::VariableStorage, logical_time: trust_runtime_core::value::Duration, _frame: trust_runtime_core::vm::StatementFrame<'_>)
+pub fn trust_runtime_core::vm::ExecutionServices::on_statement_with_frame_checked(&self, pou_id: u32, code_offset: usize, depth: u32, storage: &trust_runtime_core::memory::VariableStorage, logical_time: trust_runtime_core::value::Duration, frame: trust_runtime_core::vm::StatementFrame<'_>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::ExecutionServices::save_retain_snapshot(&self, _snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+impl trust_runtime_core::vm::ExecutionServices for trust_runtime_core::vm::LogicalExecutionServices
+pub fn trust_runtime_core::vm::LogicalExecutionServices::current_dt(&self) -> core::result::Result<trust_runtime_core::value::DateTimeValue, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::LogicalExecutionServices::deadline_exceeded(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::debug_active(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::has_retain_store(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::has_wall_clock(&self) -> bool
+pub fn trust_runtime_core::vm::LogicalExecutionServices::on_statement(&self, _pou_id: u32, _code_offset: usize, _depth: u32, _storage: &trust_runtime_core::memory::VariableStorage, _logical_time: trust_runtime_core::value::Duration)
+pub fn trust_runtime_core::vm::LogicalExecutionServices::on_statement_with_frame(&self, pou_id: u32, code_offset: usize, depth: u32, storage: &trust_runtime_core::memory::VariableStorage, logical_time: trust_runtime_core::value::Duration, _frame: trust_runtime_core::vm::StatementFrame<'_>)
+pub fn trust_runtime_core::vm::LogicalExecutionServices::on_statement_with_frame_checked(&self, pou_id: u32, code_offset: usize, depth: u32, storage: &trust_runtime_core::memory::VariableStorage, logical_time: trust_runtime_core::value::Duration, frame: trust_runtime_core::vm::StatementFrame<'_>) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::LogicalExecutionServices::save_retain_snapshot(&self, _snapshot: &trust_runtime_core::retain::RetainSnapshot) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::vm::sizeof_type_from_table(types: &trust_runtime_core::bytecode::TypeTable, type_idx: u32) -> core::result::Result<u64, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::sizeof_type_from_table_with(types: &trust_runtime_core::bytecode::TypeTable, type_idx: u32, visit: &mut impl core::ops::function::FnMut(usize) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>) -> core::result::Result<u64, trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::vm::sizeof_type_from_table_with_abi(types: &trust_runtime_core::bytecode::TypeTable, type_idx: u32, abi: trust_runtime_core::value::StorageAbi, visit: &mut impl core::ops::function::FnMut(usize) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>) -> core::result::Result<u64, trust_runtime_core::error::RuntimeError>
 pub mod trust_runtime_core::watchdog
 pub enum trust_runtime_core::watchdog::FaultAction
 pub trust_runtime_core::watchdog::FaultAction::Halt
@@ -917,6 +2413,8 @@ pub struct trust_runtime_core::watchdog::WatchdogPolicy
 pub trust_runtime_core::watchdog::WatchdogPolicy::action: trust_runtime_core::watchdog::WatchdogAction
 pub trust_runtime_core::watchdog::WatchdogPolicy::enabled: bool
 pub trust_runtime_core::watchdog::WatchdogPolicy::timeout: trust_runtime_core::value::Duration
+impl trust_runtime_core::watchdog::WatchdogPolicy
+pub fn trust_runtime_core::watchdog::WatchdogPolicy::normalized_for_runtime(self) -> Self
 impl core::default::Default for trust_runtime_core::watchdog::WatchdogPolicy
 pub fn trust_runtime_core::watchdog::WatchdogPolicy::default() -> Self
 pub struct trust_runtime_core::watchdog::WatchdogSubsystem

@@ -1,12 +1,6 @@
-/// The scheduler's copies of the watchdog, fault and retain-save policies, which `config.set`
-/// changes. They travel in one command, so a full queue refuses the whole set and the scan thread
-/// applies the whole set as one step (specification 11 section 6.8.1).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SchedulerPolicies {
-    pub watchdog: crate::watchdog::WatchdogPolicy,
-    pub fault_policy: crate::watchdog::FaultPolicy,
-    pub retain_save_interval: Option<Duration>,
-}
+// The scheduler's policy set, which `config.set` changes as one command, is shared runtime code
+// (spec 34 ARCH-11; specification 11 section 6.8.1).
+pub use trust_runtime_services::resource::commands::SchedulerPolicies;
 
 /// Commands applied to a running resource.
 #[derive(Debug, Clone)]
@@ -45,6 +39,24 @@ pub enum ResourceCommand {
         respond_to:
             std::sync::mpsc::Sender<Option<crate::ads::onboarding::ActiveAdsDeviceSnapshot>>,
     },
+}
+
+/// The kind of work `command` asks for; the shared supervisor rules decide what each kind does
+/// while running and while faulted.
+fn command_class(command: &ResourceCommand) -> CommandClass {
+    match command {
+        ResourceCommand::Pause => CommandClass::Pause,
+        ResourceCommand::Resume => CommandClass::Resume,
+        ResourceCommand::ReloadBytecode { .. } => CommandClass::Reload,
+        ResourceCommand::MeshApply { .. } => CommandClass::VariableWrite,
+        ResourceCommand::UpdateSchedulerPolicies(_)
+        | ResourceCommand::UpdateIoSafeState(_)
+        | ResourceCommand::MeshSnapshot { .. }
+        | ResourceCommand::Snapshot { .. }
+        | ResourceCommand::AdsStatus { .. }
+        | ResourceCommand::OpcUaClientStatus { .. }
+        | ResourceCommand::ActiveAdsDevice { .. } => CommandClass::Service,
+    }
 }
 
 /// Gate that blocks resource execution until opened.

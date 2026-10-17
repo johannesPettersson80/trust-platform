@@ -73,6 +73,7 @@ mod tests {
         let reference = ValueRef {
             location: MemoryLocation::Local(FrameId(VM_LOCAL_SENTINEL_FRAME_ID)),
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: [RefSegment::Field(SmolStr::new("ACC"))]
                 .into_iter()
                 .collect(),

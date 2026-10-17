@@ -181,13 +181,13 @@ package "Common cooperative cycle" as cyclePkg #LightBlue {
 
 package "Checked lifecycle and observation" as lifecyclePkg #Lavender {
     component "ResourceReconfiguration\nstaged images/tasks + exclusive commit\nno initializer replay or storage clone" as resource
-    component "Prepared replacement / restart\nisolated construction + retain compatibility\natomic candidate publication" as replacement
+    component "Prepared replacement / restart\nisolated construction + retain compatibility\nnext installation generation\natomic candidate publication" as replacement
     component "Safe outputs\nseparate checked owner operation\nall drivers attempted; owning fault retained" as safe
     component "StatementFrame\ncurrent + suspended invocation views" as frames
     component "HostedExecutionServices / RuntimeMetadata\nsource lookup and detached DebugSnapshot" as debugger
     component "DAP expression scratch\nseparate authoring types and copied inspection values" as scratch
     host --> resource : resource / direct / MQTT binding updates
-    resource --> owner : preserve identities, live values, debug/IR/fault state
+    resource --> owner : preserve identities, generation, live values, debug/IR/fault state
     host --> replacement : code / schema / warm restart
     replacement --> owner : commit fully validated candidate
     host --> safe : STOP / watchdog / fault policy
@@ -199,6 +199,8 @@ package "Checked lifecycle and observation" as lifecyclePkg #Lavender {
     scratch --> host : checked writes / queued next-scan requests
     note bottom of replacement
         Failed candidate preparation leaves the installed generation unchanged.
+        A committed restart or replacement installs the next generation: references
+        taken before it are refused, and the host binds its own references again.
         Restart construction has no active debugger observations.
         Resource-only binding changes preserve task timing; explicit task changes
         reseed registration timing/SINGLE while thread identity history is retained.
@@ -212,30 +214,38 @@ package "Checked lifecycle and observation" as lifecyclePkg #Lavender {
 }
 
 package "MCU compositions and evidence boundary" as mcuPkg #Wheat {
-    artifact "Independent application flash\nTRSTB002 main / numeric / GPIO artifacts\nsame bytes on both boards" as bundle
+    artifact "Independent application flash\nTRSTB002 main / numeric / GPIO artifacts\nsame bytes on every board" as bundle
     component "trust-board-fixture\nM2E runner + records + bundle decode\nmeasured heap / 16 KiB stack window" as fixture
     component "firmware/trust-nucleo-f401re\nF401 composition: identity, reset cookie, supervisor" as firmware
-    component "trust-platform-stm32f4::Board\nTIM2 / PC13 / PA5 / USART2 / IWDG" as board
+    component "firmware/trust-stm32f407\nF407 chip firmware: identity, measured crystal, reset cookie, supervisor\nthe board's wiring is its configuration" as f407firmware
+    component "trust-platform-stm32f4::Board\nfeature stm32f401: TIM2 / PC13 / PA5 / USART2 / IWDG\nfeature stm32f407: crystal measured against HSI, PLL 168 MHz / TIM2 / pins by name / USART2 / IWDG" as board
     node "NUCLEO-F401RE" as device
+    node "STM32F407G-DISC1\n(bench example of the chip)" as f407device
     component "firmware/trust-esp32c6-reference\nC6 composition: identity, reset cookie, supervisor" as c6firmware
     component "trust-platform-esp32::Board\nSYSTIMER / GPIO9 / GPIO18 / USB-Serial-JTAG / MWDT0" as c6board
     node "ESP32-C6-DevKitC-1" as c6device
     artifact --> bundle : stopped installation
     bundle --> firmware : sector 1
+    bundle --> f407firmware : sector 1
     bundle --> c6firmware : stbc partition
     firmware --> fixture
+    f407firmware --> fixture
     c6firmware --> fixture
     fixture --> prepared : same on-device admission
     fixture --> owner : borrowed facade; optional register tier omitted
     firmware --> board
+    f407firmware --> board
     c6firmware --> c6board
     board --> device
+    board --> f407device
     c6board --> c6device
     note bottom of fixture
         Core depends on no board adapter and not on the fixture; the adapters depend on no
         workspace crate; firmware has no host runtime dependency.
         F401: vectors and immutable firmware data share sector 0; application sector 1,
         checkpoint reserves 2/3 and upper code sectors 4-7 stay independently erasable.
+        F407: sectors 0-3 as on the F401, firmware in sectors 4-11 (960 KiB); one firmware for the
+        chip, and a board only names its pins.
         C6: factory application, 16 KiB stbc partition, reserved ckpt_a / ckpt_b;
         no flash write or erase during RUN.
         All PLC functions and overflow checks remain present.

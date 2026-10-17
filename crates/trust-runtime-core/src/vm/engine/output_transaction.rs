@@ -61,7 +61,11 @@ impl EngineState<'_> {
                     .ok_or(RuntimeError::NullReference)?;
                 self.data
                     .storage
-                    .resolve_reference_parts(field.location, field.offset, &reference.path[1..])
+                    .resolve_reference_parts(
+                        field.location,
+                        field.offset as usize,
+                        &reference.path[1..],
+                    )
                     .ok_or(RuntimeError::NullReference)?
             } else {
                 reference
@@ -268,8 +272,8 @@ mod tests {
         assert_eq!(
             saved.keys().copied().collect::<Vec<_>>(),
             vec![
-                (root.location, root.offset),
-                (scalar.location, scalar.offset)
+                (root.location, root.offset as usize),
+                (scalar.location, scalar.offset as usize)
             ]
         );
         assert!(state
@@ -309,7 +313,7 @@ mod tests {
         state.data.storage.set_global("bulk_probe", Value::DInt(7));
         let valid = state.data.storage.ref_for_global("bulk_probe").unwrap();
         let mut invalid = valid.clone();
-        invalid.offset = usize::MAX;
+        invalid.offset = u32::MAX;
         let references = [&valid, &invalid, &valid];
         let visits = core::cell::Cell::new(0);
         let result = state.snapshot_input_destinations(references.iter().map(|reference| {

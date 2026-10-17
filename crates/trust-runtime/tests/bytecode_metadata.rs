@@ -291,7 +291,7 @@ fn ref_entry_from_value_ref(
     RefEntry {
         location,
         owner_id,
-        offset: value_ref.offset as u32,
+        offset: value_ref.offset,
         segments,
     }
 }

@@ -18,6 +18,7 @@ fn qualified_live_write_commits_one_generation_and_preserves_readonly_rejection(
         reference: ValueRef {
             location: crate::memory::MemoryLocation::Global,
             offset: 0,
+            generation: crate::memory::Generation::FIRST,
             path: Vec::new(),
         },
         quality_reference: None,

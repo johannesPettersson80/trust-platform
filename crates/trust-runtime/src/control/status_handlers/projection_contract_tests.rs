@@ -53,48 +53,6 @@ fn driver(name: &str, health: IoDriverHealth) -> IoDriverStatus {
 }
 
 #[test]
-fn io_health_ok_has_exact_public_shape() {
-    assert_eq!(
-        io_health_to_json(&driver("simulated", IoDriverHealth::Ok)),
-        json!({"name": "simulated", "status": "ok"})
-    );
-}
-
-#[test]
-fn io_health_degraded_retains_error_detail() {
-    assert_eq!(
-        io_health_to_json(&driver(
-            "mqtt",
-            IoDriverHealth::Degraded {
-                error: SmolStr::new("broker reconnecting"),
-            },
-        )),
-        json!({
-            "name": "mqtt",
-            "status": "degraded",
-            "error": "broker reconnecting",
-        })
-    );
-}
-
-#[test]
-fn io_health_faulted_retains_error_detail() {
-    assert_eq!(
-        io_health_to_json(&driver(
-            "ethercat",
-            IoDriverHealth::Faulted {
-                error: SmolStr::new("bus lost"),
-            },
-        )),
-        json!({
-            "name": "ethercat",
-            "status": "faulted",
-            "error": "bus lost",
-        })
-    );
-}
-
-#[test]
 fn status_baseline_preserves_runtime_identity_and_modes() {
     let value = result(handle_status(1, &state()));
 

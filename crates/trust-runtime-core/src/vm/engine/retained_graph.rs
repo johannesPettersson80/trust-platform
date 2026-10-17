@@ -362,6 +362,10 @@ impl RetainedGraph<'_, '_> {
         depth: usize,
     ) -> Result<(), RuntimeError> {
         Self::step(depth)?;
+        // Only a reference of the source generation names source state.
+        if reference.generation != self.source.data.storage.generation() {
+            return Err(RuntimeError::ReferenceLifetime);
+        }
         match reference.location {
             MemoryLocation::Global => {
                 let (name, _) = self
@@ -369,7 +373,7 @@ impl RetainedGraph<'_, '_> {
                     .data
                     .storage
                     .globals()
-                    .get_index(reference.offset)
+                    .get_index(reference.offset as usize)
                     .ok_or(RuntimeError::NullReference)?;
                 reference.offset = target
                     .data
@@ -387,7 +391,7 @@ impl RetainedGraph<'_, '_> {
                     .ok_or(RuntimeError::NullReference)?;
                 let name = data
                     .variables
-                    .get_index(reference.offset)
+                    .get_index(reference.offset as usize)
                     .ok_or(RuntimeError::NullReference)?
                     .0
                     .clone();
@@ -405,6 +409,9 @@ impl RetainedGraph<'_, '_> {
                 return Err(RuntimeError::ReferenceLifetime)
             }
         }
+        // The transferred reference names the candidate's state: this is the checked
+        // rebinding of a retained reference into the new generation (spec 34 §11.3).
+        reference.generation = target.data.storage.generation();
         Ok(())
     }
 }

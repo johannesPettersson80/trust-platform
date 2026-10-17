@@ -77,24 +77,34 @@ impl DebugControl {
     }
 
     /// Queue a pending instance variable write to apply at the next cycle boundary.
+    /// `generation` is the installation generation in which `instance_id` was resolved: the
+    /// boundary rejects the write when another generation is installed (spec 34 §4.3.1).
     pub fn enqueue_instance_write(
         &self,
+        generation: Generation,
         instance_id: InstanceId,
         name: impl Into<SmolStr>,
         value: Value,
     ) {
-        self.enqueue_var_write(PendingVarTarget::Instance(instance_id, name.into()), value);
+        self.enqueue_var_write(
+            PendingVarTarget::Instance(generation, instance_id, name.into()),
+            value,
+        );
     }
 
     /// Queue an instance write from a control or protocol request. A new target past the queue
-    /// bound is refused.
+    /// bound is refused. `generation` is as for `enqueue_instance_write`.
     pub fn try_enqueue_instance_write(
         &self,
+        generation: Generation,
         instance_id: InstanceId,
         name: impl Into<SmolStr>,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        self.try_enqueue_var_write(PendingVarTarget::Instance(instance_id, name.into()), value)
+        self.try_enqueue_var_write(
+            PendingVarTarget::Instance(generation, instance_id, name.into()),
+            value,
+        )
     }
 
     /// Queue a pending local variable write to apply at the next cycle boundary.
@@ -225,20 +235,59 @@ impl DebugControl {
         self.try_set_forced_var(ForcedVarTarget::Retain(name.into()), value)
     }
 
-    /// Force an instance variable to the given value.
-    pub fn force_instance(&self, instance_id: InstanceId, name: impl Into<SmolStr>, value: Value) {
-        self.set_forced_var(ForcedVarTarget::Instance(instance_id, name.into()), value);
+    /// Force an instance variable to the given value. `generation` is the installation
+    /// generation in which `instance_id` was resolved: the scan boundary rejects and removes the
+    /// force once another generation is installed (spec 34 §4.3.1).
+    pub fn force_instance(
+        &self,
+        generation: Generation,
+        instance_id: InstanceId,
+        name: impl Into<SmolStr>,
+        value: Value,
+    ) {
+        self.set_forced_var(
+            ForcedVarTarget::Instance(generation, instance_id, name.into()),
+            value,
+        );
     }
 
     /// Force an instance variable from a control or protocol request. A new target past the queue
-    /// bound is refused.
+    /// bound is refused. `generation` is as for `force_instance`.
     pub fn try_force_instance(
         &self,
+        generation: Generation,
         instance_id: InstanceId,
         name: impl Into<SmolStr>,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        self.try_set_forced_var(ForcedVarTarget::Instance(instance_id, name.into()), value)
+        self.try_set_forced_var(
+            ForcedVarTarget::Instance(generation, instance_id, name.into()),
+            value,
+        )
+    }
+
+    /// The installation generation of the attached runtime. A request that names an instance by
+    /// a bare identity, as a control client does, belongs to the generation installed when the
+    /// request is accepted (specification 11, debug mutation lifecycle).
+    #[must_use]
+    pub fn generation(&self) -> Generation {
+        let (lock, _) = &*self.state;
+        lock.lock().expect("debug state poisoned").generation
+    }
+
+    /// Record the installation generation of the runtime this control is attached to.
+    pub(crate) fn set_generation(&self, generation: Generation) {
+        let (lock, _) = &*self.state;
+        lock.lock().expect("debug state poisoned").generation = generation;
+    }
+
+    /// A restart or replacement committed `generation`: clear the queued writes and active
+    /// forces of the previous lifecycle and record the new generation, under one lock.
+    pub(crate) fn begin_lifecycle(&self, generation: Generation) {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().expect("debug state poisoned");
+        state.clear_runtime_mutations();
+        state.generation = generation;
     }
 
     /// Release a forced global variable.
@@ -257,10 +306,10 @@ impl DebugControl {
         });
     }
 
-    /// Release a forced instance variable.
+    /// Release a forced instance variable, in whichever generation it was forced.
     pub fn release_instance(&self, instance_id: InstanceId, name: &str) {
         self.clear_forced_var(|target| match target {
-            ForcedVarTarget::Instance(current_id, current_name) => {
+            ForcedVarTarget::Instance(_, current_id, current_name) => {
                 *current_id == instance_id && current_name.as_str() == name
             }
             _ => false,
@@ -410,7 +459,7 @@ impl DebugControl {
 fn pending_var_label(target: &PendingVarTarget) -> SmolStr {
     match target {
         PendingVarTarget::Global(name) | PendingVarTarget::Retain(name) => name.clone(),
-        PendingVarTarget::Instance(id, name) => SmolStr::new(format!("{}.{name}", id.0)),
+        PendingVarTarget::Instance(_, id, name) => SmolStr::new(format!("{}.{name}", id.0)),
         PendingVarTarget::Local(id, name) => SmolStr::new(format!("{}.{name}", id.0)),
     }
 }
@@ -419,7 +468,7 @@ fn pending_var_label(target: &PendingVarTarget) -> SmolStr {
 fn forced_var_label(target: &ForcedVarTarget) -> SmolStr {
     match target {
         ForcedVarTarget::Global(name) | ForcedVarTarget::Retain(name) => name.clone(),
-        ForcedVarTarget::Instance(id, name) => SmolStr::new(format!("{}.{name}", id.0)),
+        ForcedVarTarget::Instance(_, id, name) => SmolStr::new(format!("{}.{name}", id.0)),
     }
 }
 

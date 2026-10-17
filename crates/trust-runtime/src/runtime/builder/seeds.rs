@@ -405,7 +405,7 @@ impl Seeds<'_> {
                 self.builder
                     .storage
                     .globals()
-                    .get_index(reference.offset)
+                    .get_index(reference.offset as usize)
                     .ok_or_else(|| invalid("stale global reference"))?
                     .0
                     .clone(),
@@ -420,7 +420,7 @@ impl Seeds<'_> {
                     .builder
                     .storage
                     .get_instance(id)
-                    .and_then(|instance| instance.variables.get_index(reference.offset))
+                    .and_then(|instance| instance.variables.get_index(reference.offset as usize))
                     .ok_or_else(|| invalid("stale member reference"))?
                     .0;
                 path.push(AccessPart::Name(name.clone()));

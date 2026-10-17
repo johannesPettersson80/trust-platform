@@ -6,6 +6,20 @@ impl VariableStorage {
         Self::default()
     }
 
+    /// The installation generation of this storage. Every reference it returns
+    /// carries it, and its reference reads and writes resolve only references of
+    /// this generation (specification 34 §11.3).
+    #[must_use]
+    pub fn generation(&self) -> Generation {
+        self.generation
+    }
+
+    /// Start an empty storage in `generation`, before construction creates any
+    /// reference into it. Unit tests also use it to reach the exhaustion path.
+    pub(crate) fn set_generation(&mut self, generation: Generation) {
+        self.generation = generation;
+    }
+
     pub fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
         self.globals.insert(name.into(), value);
     }
@@ -34,6 +48,8 @@ impl VariableStorage {
         self.retain.get(name)
     }
 
+    /// Clear values and identities in place. The generation is kept: this is the
+    /// historical hosted fixture's restart, whose references stay valid across it.
     pub fn reset_runtime_values(&mut self, reset_instance_sequence: bool) {
         self.globals.clear();
         self.frames.clear();
@@ -43,6 +59,9 @@ impl VariableStorage {
         if reset_instance_sequence {
             self.next_instance_id = 0;
         }
+        // No instance is live. A kept sequence is never reissued below its reset point.
+        self.entry_instance_floor = self.next_instance_id;
+        self.entry_instances_live = 0;
         #[cfg(feature = "std")]
         {
             cache::exclusive(&mut self.instance_field_offsets).clear();

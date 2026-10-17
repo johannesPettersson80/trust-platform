@@ -54,7 +54,36 @@ impl VariableStorage {
         }
     }
 
-    /// Reserve an identity without activating it or reusing a completed ID.
+    /// Begin a top-level execution entry (specification 34 §4.3.1). No activation is
+    /// reserved, so nothing of an earlier entry's activations is live: activation
+    /// identities start again at zero. The instance identities issued since the
+    /// previous entry began are issued again only when none of those instances is
+    /// still live; otherwise the next entry starts above them. A live instance's
+    /// identity is never issued again.
+    pub(crate) fn begin_execution_entry(&mut self) -> Result<(), RuntimeError> {
+        if self.execution_frame_count() != 0 {
+            return Err(RuntimeError::InvalidExecutionState);
+        }
+        self.next_frame_id = 0;
+        if self.entry_instances_live == 0 {
+            self.next_instance_id = self.entry_instance_floor;
+        } else {
+            self.entry_instance_floor = self.next_instance_id;
+            self.entry_instances_live = 0;
+        }
+        Ok(())
+    }
+
+    /// Test support only: moves the next activation identity so the identity limit is
+    /// reachable without reserving 2^32 activations.
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn set_next_frame_id_for_test(&mut self, next: u32) {
+        self.next_frame_id = next;
+    }
+
+    /// Reserve an identity without activating it. Identities only increase until the
+    /// next `begin_execution_entry`, so a completed identity is never issued again
+    /// within its entry, and exhaustion fails with `Overflow` instead of wrapping.
     pub fn reserve_execution_frame(&mut self) -> Result<FrameId, RuntimeError> {
         let Some(next) = self.next_frame_id.checked_add(1) else {
             return Err(RuntimeError::Overflow);

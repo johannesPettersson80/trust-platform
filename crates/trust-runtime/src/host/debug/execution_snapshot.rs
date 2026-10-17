@@ -207,7 +207,8 @@ END_CONFIGURATION
         let leaf_offset = leaf.variables.get_index_of("ProbeLeaf").unwrap();
         let reference = crate::value::ValueRef {
             location: crate::memory::MemoryLocation::Local(leaf_id),
-            offset: leaf_offset,
+            offset: u32::try_from(leaf_offset).unwrap(),
+            generation: snapshot.storage.generation(),
             path: Vec::new(),
         };
         assert_eq!(

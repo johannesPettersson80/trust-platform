@@ -325,14 +325,15 @@ fn fixed_seed_wire_mutations_reach_bounded_decode_validate_and_prepare() {
                     );
                 }
                 (Check::Passed, Check::Passed, Err(error)) => {
-                    // Admission additionally resolves imports, execution metadata,
-                    // profile capabilities and cumulative preparation demand.
-                    // An internal execution/lifetime fault is not an admission result.
+                    // Admission additionally resolves imports against their contracts,
+                    // execution metadata, profile capabilities and cumulative preparation
+                    // demand. An internal execution/lifetime fault is not an admission result.
                     assert!(
                         matches!(
                             error,
                             RuntimeError::PreparationLimit
                                 | RuntimeError::ProfileUnsupported(_)
+                                | RuntimeError::ImportUnsupported { .. }
                                 | RuntimeError::Overflow
                                 | RuntimeError::Bytecode { .. }
                                 | RuntimeError::PreparationDiagnostic(_)

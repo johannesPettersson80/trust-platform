@@ -103,7 +103,7 @@ package "Shared execution representations" as executionPkg #LightCyan {
 }
 
 package "Hosted cycle: borrowed adapters, common scheduler" as cyclePkg #LightBlue {
-    component "ResourceRunner\nlogical clock, supervision, STOP and simulation\n(scheduler + host/simulation.rs)" as runner
+    component "ResourceRunner\nlogical clock, supervision, STOP and simulation\n(scheduler + host/simulation.rs;\ncycle-error, overrun and restart-backoff decisions:\ntrust-runtime-services resource/supervisor.rs)" as runner
     card "Simulation pre-cycle\ndisturbances + delayed input effects" as simulationPre
     card "CycleStart\npending value/lvalue requests + debug event" as cycleStart
     card "BeforeInputSample\nphysical inputs; debug I/O writes and forces" as inputAcquire
@@ -136,6 +136,34 @@ package "Hosted cycle: borrowed adapters, common scheduler" as cyclePkg #LightBl
     end note
 }
 
+package "Device resource loop: one thread, no operating system (spec 34 STATE-08)" as deviceLoopPkg #Honeydew {
+    component "Runner\nserves the control link between scans and while Stopped;\ntakes pause / resume / restart / shutdown at the program's next boundary\n(next scan, paused interval, 10 ms faulted poll) as the host's scan thread does;\nscans when due, idle work, feeds the hardware watchdog,\nthen waits for the next boundary, the feed interval or a wake;\nRunning / Paused / Stopped / Faulted by the shared supervisor,\noperation and command rules\n(trust-runtime-services runner.rs + runner/supervision.rs + runner/state.rs)" as deviceRunner
+    component "ScanObserver\ncycle and task events, task / program / overrun metrics\n(runner/observer.rs)" as deviceObserver
+    component "Shared request pipeline\ndispatch.rs + status.rs + resource/operations.rs" as deviceDispatch
+    interface "trust-runtime-core::ports\nMonotonicClock (MonotonicInstant, TimeSpan), WallClock (None until set),\nRunnerWait + WakeSignal (PORT-03), HardwareWatchdog (TIME-04),\nControlLink + PeerClass (frames bounded both ways)" as corePorts
+    interface "ResourceCycle (runner/cycle.rs)\nscan, latch fault, safe outputs,\nretain save, restart cold / warm, task timing" as cyclePort
+    interface "RunnerPlatform (runner/host.rs)\naccess, audit, wall clock, status values,\nplatform operations, hardware watchdog" as platformPort
+    component "Platform adapter\nchip firmware, or the host's transcript parity test\n(link, timer, wait, engine setup)" as deviceAdapter
+    deviceRunner --> corePorts : poll frames, read the clock, feed, wait until
+    deviceRunner --> deviceDispatch : one frame at a time, between scans
+    deviceDispatch --> platformPort : platform values and operations
+    deviceRunner --> cyclePort : scan when due; stop; restart
+    cyclePort --> deviceObserver : engine cycle phases
+    cyclePort --> state : RuntimeState::execute_cycle_with_hooks
+    deviceAdapter ..> corePorts : implements
+    deviceAdapter ..> cyclePort : implements
+    deviceAdapter ..> platformPort : implements
+    note bottom of deviceRunner
+        shutdown stops the program (safe outputs, then the retain save) at its
+        next boundary and the device keeps serving the link; restart then starts
+        the installed program as a new trust-runtime process would, with empty
+        records and logical time from zero. trust-runtime on a computer keeps its
+        threads and calls the same shared rules; its scheduler keeps its own
+        scheduler::Clock (StdClock), and only its metrics uptime clock and its
+        ControlState wall clock implement the core port traits.
+    end note
+}
+
 package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
     component "ResourceReconfiguration\nstage admitted images/tasks; exclusive commit\n(core/engine/reconfiguration.rs)" as resourceChange
     component "Isolated code/schema candidate\nprepare_replacement + warm retain migration\n(runtime/installed_lifecycle.rs)" as codeChange
@@ -143,7 +171,7 @@ package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
     component "Retain checkpoint and restart\ncanonical global/program destinations\nSTRN v3: logical values + physical layout/backing\nchecked capture + transactional restoration" as retainOwner
     component "Startup composition\nselected transports / T0 SHM / Linux RT posture" as startup
     component "Launcher signals / ResourceControl\nSTOP, safe outputs, durable save" as shutdown
-    component "Faulted wait\nno tasks or outputs; serves reads and config;\nrestart / online change resume; STOP ends\n(scheduler/faulted.rs)" as faultedWait
+    component "Faulted wait\nno tasks or outputs; serves reads and config;\nrestart / online change resume; STOP ends\n(scheduler/faulted.rs; command rules:\ntrust-runtime-services resource/commands.rs)" as faultedWait
     component "Hang supervisor (watchdog enabled)\nindependent thread reads the published deadline;\nWatchdogTimeout + hang_action fault | abort (exit 70)\n(scheduler/supervisor.rs)" as hangSupervisor
     runtime --> resourceChange : metadata / direct / MQTT bindings
     resourceChange --> state : preserve values, live identities, debug/IR/fault state

@@ -39,6 +39,16 @@ suites cover this relocation. Clock access remains an explicit platform service.
 These source/test mappings do not establish a passed A4 batch, bounded RUN or
 hardware qualification; current evidence stays in the portability checklist.
 
+Spec 34 §5.2.1 gives every function and function block below a version-1 import
+contract (`trust-runtime-core::stdlib::contracts`) and lists each family with its IEC
+table: its TIME-08 charges, failure codes and capability. The registration stays the
+one list of registered functions; each family names its contract there. Source-free
+preparation refuses an import without a contract or one that does not match it with
+`runtime_import_unsupported`. `crates/trust-runtime-core/tests/import_contracts.rs`
+compares the table with the registration entry by entry, keeps each family's
+failures within its contract over a value corpus, and checks Tables 43–46's
+parameters and hidden state. No row below changes.
+
 ## Table 22 - Data Type Conversion Function Forms
 - [x] `SRC_TO_DST` typed conversion
 - [x] `TO_DST` overloaded conversion (deprecated)

@@ -1,5 +1,6 @@
 //! Exclusive owner operation changing resources without reconstructing PLC values.
-use super::{ExecutionServices, OwnedRuntimeState, PreparedModule};
+use super::io::staging::{apply_output_patch, OutputPatch};
+use super::{EngineState, ExecutionServices, OwnedRuntimeState, PreparedModule};
 use crate::{
     bytecode::ResourceEntry, error::RuntimeError, io_address::IoAddress, memory::IoArea,
     task::TaskState, value::Value, vm::prepared::PreparationBudget,
@@ -196,16 +197,40 @@ impl<S: ExecutionServices> ResourceReconfiguration<'_, S> {
         }
         Ok(())
     }
+
+    /// Stage the marker publication of this update against the staged marker image: the patches
+    /// for the `%M` bindings that the candidate adds or changes relative to the installed module.
+    /// It reads the live variables through the candidate's bindings and changes nothing. The
+    /// operation resets and uses the same bounded accounting as any engineering operation.
+    fn stage_marker_publication(&mut self) -> Result<Vec<OutputPatch>, RuntimeError> {
+        let memory_window = self.images[2].len();
+        let previous = self.owner.prepared.io_bindings();
+        let mut state =
+            EngineState::borrow(&mut self.owner.data, &self.prepared, &self.owner.services);
+        state.engineering_operation(|state| state.stage_marker_patches(previous, memory_window))
+    }
+
     /// Publish after all external schema work succeeds. The mutable borrow bars
     /// any intervening scan/image write, so staged image intersections stay current.
-    pub fn commit(self) -> Result<(), RuntimeError> {
+    ///
+    /// A variable that the update binds to `%M` keeps its value, so the marker image the next scan
+    /// loads must hold it: the commit gives each marker binding that it adds or changes the
+    /// current value of its variable, over exactly the bytes, bits or hierarchical key that the
+    /// binding covers, and touches no other marker bit or byte (specification 11 6.7). That
+    /// staging is the only fallible work besides the deadline and finishes before anything is
+    /// installed, so a refusal leaves the old bindings and images.
+    pub fn commit(mut self) -> Result<(), RuntimeError> {
         if self.owner.services.deadline_exceeded() {
             return Err(RuntimeError::ExecutionTimeout);
         }
+        let markers = self.stage_marker_publication()?;
         let [inputs, outputs, memory] = self.images;
         self.owner.data.images.inputs = inputs;
         self.owner.data.images.outputs = outputs;
         self.owner.data.images.memory = memory;
+        for patch in markers {
+            apply_output_patch(&mut self.owner.data.images, patch);
+        }
         if let Some(tasks) = self.tasks {
             self.owner.data.tasks = tasks;
         }

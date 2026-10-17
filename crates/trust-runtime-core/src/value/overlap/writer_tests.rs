@@ -682,7 +682,7 @@ fn staged_alias_policy_can_reject_nonfinite_without_changing_internal_ieee_rules
     let plan = storage
         .prepare_by_ref_parts_write(
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             &input,
         )

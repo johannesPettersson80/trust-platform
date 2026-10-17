@@ -27,6 +27,49 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   calls no other user POU runs directly inside the calling instruction (not while
   debugging). Results, faults and work-limit charges are unchanged; such calls no
   longer reserve call-handler memory.
+- A stop request (control `shutdown`, SIGINT, SIGTERM) now ends a runtime whose
+  scan the debugger holds, at a breakpoint or after a debug-mode pause. It releases
+  the hold, the suspended scan runs to its end, and the ordinary stop path follows:
+  stop outputs, retained-value save, exit. Before, the process waited for a `resume`
+  and a service manager's SIGTERM timed out.
+- A variable located at `%M` now starts with its declared initial value (IEC 61131-3
+  §6.5.6): at the first start, after a cold restart, after a warm restart when it is
+  `NON_RETAIN` or unqualified, and after an online change. A `RETAIN` one keeps its
+  retained value. Before, the first scan copied the zeroed or carried marker image
+  over the initialized variable. A variable that is bound to `%M` after the start (a
+  checked binding update) now keeps its current value in the same way.
+- The STM32F407 is a supported chip, first on the STM32F407G-DISC1
+  (`firmware/trust-stm32f407`). The STM32F4 adapter selects the chip with a Cargo
+  feature (`stm32f401`, the default, or `stm32f407`). On the F407 it measures the
+  board's crystal before it starts the 168 MHz clock, and falls back to the
+  internal oscillator when there is none. Pins are named like `PD12` and checked
+  against the chip's pin table when the firmware is built.
+- Each supported chip is described once, in `chips/<chip>.toml`: its identity,
+  processor, clock limits, flash and RAM with the firmware's layout, interfaces and
+  pins, and the runtime components its firmware holds (today the engine). The files
+  exist for the STM32F407 and the ESP32-C6. `cargo xtask portability build-firmware`
+  now takes the chip name (`stm32f407`, `esp32c6`) and builds that chip's one
+  firmware from its file; a bench board's name is refused with its chip's name.
+  `inspect` and `verify` still take the bench board, and the F401 composition stays
+  buildable as `nucleo-f401re`.
+- A runtime no longer faults with `Overflow` after about four billion calls since its
+  last restart (about a day at 50 calls a millisecond), nor after as many function-block
+  or class instances declared inside functions and methods.
+- A reference taken before a warm or cold restart or an online change no longer reaches
+  the new program's variables: a write or read through it is refused with
+  `runtime_reference_lifetime`, and a queued debugger or HMI write that named an instance
+  before the change is reported as `write_rejected` instead of changing the instance that
+  now has that number. Engineering aliases, I/O bindings and ADS and OPC UA client points
+  follow the restart. For Rust embedders, `ValueRef` carries a `generation` and its
+  `offset` is a `u32`; see the embedding migration guide (specification 34 §11.3).
+- Every standard function and function block has a versioned contract that states the
+  work and allocation it charges, the faults it can raise and the capability it needs
+  (specification 34 §5.2.1). A program whose call or function-block declaration does
+  not match the contract is refused when it is loaded, with the code
+  `runtime_import_unsupported` and a message that names the function, for example
+  `unsupported import 'TON': a parameter's type or direction differs from the
+  contract`. Before, such a program was also refused, but the message did not say
+  which function.
 
 
 Target release: `v0.24.75`

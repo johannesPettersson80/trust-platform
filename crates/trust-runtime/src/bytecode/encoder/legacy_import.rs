@@ -221,7 +221,8 @@ impl BytecodeEncoder<'_> {
             self.ref_map
                 .entry(ValueRef {
                     location,
-                    offset: reference.offset as usize,
+                    offset: reference.offset,
+                    generation: crate::memory::Generation::FIRST,
                     path,
                 })
                 .or_insert(u32::try_from(id).map_err(|_| invalid("reference identity exhausted"))?);
@@ -452,7 +453,8 @@ impl BytecodeEncoder<'_> {
                     normalize_name(&name),
                     ValueRef {
                         location: MemoryLocation::Local(FrameId(reference.owner_id)),
-                        offset,
+                        offset: reference.offset,
+                        generation: crate::memory::Generation::FIRST,
                         path: Default::default(),
                     },
                 )

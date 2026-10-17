@@ -18,8 +18,9 @@ This firmware keeps only its board composition:
 ## Build
 
 Build on the authorized builder from the repository root with
-`cargo xtask portability build-firmware esp32c6-devkitc-1 <build-report.json>`. The command uses
-this firmware's target, binary name and required link flags. A direct Cargo invocation is not the
+`cargo xtask portability build-firmware esp32c6 <build-report.json>`. The command reads this
+firmware's crate, binary name and target from the chip's file, `chips/esp32c6.toml`, and checks
+the required link flags. A direct Cargo invocation is not the
 qualified composition. The M2E batch owns lockfile resolution, review, the release link, map and
 section inspection (`cargo xtask portability inspect esp32c6-devkitc-1 <firmware.elf> <report.json>`),
 application packing (`cargo xtask portability pack <gpio.stbc> <application.bin>`), installation and

@@ -122,7 +122,7 @@ impl BytecodeEncoder<'_> {
                 .construction
                 .bindings
                 .allocate_field(instance, &name, ty)?;
-            if binding.offset != declaration.slot as usize {
+            if binding.offset != declaration.slot {
                 return Err(invalid("instance layout slot mismatch"));
             }
             self.ref_index_for(&binding)?;

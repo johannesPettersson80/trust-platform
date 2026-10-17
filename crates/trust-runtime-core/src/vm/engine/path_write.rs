@@ -335,7 +335,7 @@ mod tests {
         let error = crate::vm::context::ReferenceContext::write_typed_storage(
             &mut state,
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             Value::Char(b'Z'),
         )
@@ -421,7 +421,7 @@ mod tests {
         assert!(crate::vm::context::ReferenceContext::write_typed_storage(
             &mut state,
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             Value::DWord(7),
         )
@@ -441,7 +441,7 @@ mod tests {
         let error = crate::vm::context::ReferenceContext::write_typed_storage(
             &mut state,
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             Value::DWord(9),
         )
@@ -545,7 +545,7 @@ mod tests {
             assert!(crate::vm::context::ReferenceContext::write_typed_storage(
                 &mut state,
                 scalar.location,
-                scalar.offset,
+                scalar.offset as usize,
                 &[],
                 Value::DWord(value),
             )
@@ -559,7 +559,7 @@ mod tests {
         let error = crate::vm::context::ReferenceContext::write_typed_storage(
             &mut state,
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             Value::DWord(9),
         )

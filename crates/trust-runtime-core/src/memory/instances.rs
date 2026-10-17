@@ -3,6 +3,7 @@ use super::*;
 
 impl VariableStorage {
     /// Allocate an instance identity without wrapping the live reference namespace.
+    /// An identity that is still live is refused, never replaced, in every composition.
     pub fn try_create_instance(
         &mut self,
         type_name: impl Into<SmolStr>,
@@ -18,11 +19,27 @@ impl VariableStorage {
             parent: None,
         };
         #[cfg(feature = "std")]
-        self.instances.insert(id, value);
+        {
+            if self.instances.contains_key(&id) {
+                return Err(crate::error::RuntimeError::InvalidExecutionState);
+            }
+            self.instances.insert(id, value);
+        }
         #[cfg(not(feature = "std"))]
         self.instances.try_append(id, value)?;
         self.next_instance_id = next;
+        if id.0 >= self.entry_instance_floor {
+            self.entry_instances_live = self.entry_instances_live.saturating_add(1);
+        }
         Ok(id)
+    }
+
+    /// Record released instances whose identities are at or above the entry floor, so
+    /// `begin_execution_entry` reissues those identities only once none of them is live.
+    fn note_instances_released(&mut self, released_since_floor: usize) {
+        self.entry_instances_live = self
+            .entry_instances_live
+            .saturating_sub(released_since_floor);
     }
 
     /// Array growth bytes and moved entries to charge before creating an instance.
@@ -48,14 +65,27 @@ impl VariableStorage {
     /// Release an invocation-owned instance and invalidate its lookup caches.
     pub fn remove_instance(&mut self, id: InstanceId) -> Option<InstanceData> {
         self.invalidate_instance_field_caches(id);
-        self.instances.remove(&id)
+        let removed = self.instances.remove(&id);
+        if removed.is_some() && id.0 >= self.entry_instance_floor {
+            self.note_instances_released(1);
+        }
+        removed
     }
 
     /// Retire an owner batch in one pass. Callers charge the live entry count first.
     /// Cleanup itself cannot fail or consume additional execution fuel.
     pub fn retain_instances(&mut self, mut keep: impl FnMut(InstanceId) -> bool) -> usize {
         let before = self.instances.len();
-        self.instances.retain(|id, _| keep(*id));
+        let floor = self.entry_instance_floor;
+        let mut released_since_floor = 0usize;
+        self.instances.retain(|id, _| {
+            let kept = keep(*id);
+            if !kept && id.0 >= floor {
+                released_since_floor += 1;
+            }
+            kept
+        });
+        self.note_instances_released(released_since_floor);
         let removed = before - self.instances.len();
         #[cfg(feature = "std")]
         if removed != 0 {
@@ -139,19 +169,30 @@ impl VariableStorage {
     }
 
     pub fn ref_for_global(&self, name: &str) -> Option<crate::value::ValueRef> {
-        ref_for_map(&self.globals, MemoryLocation::Global, name)
+        ref_for_map(&self.globals, MemoryLocation::Global, self.generation, name)
     }
 
     pub fn ref_for_local(&self, name: &str) -> Option<crate::value::ValueRef> {
         let frame = self.current_frame()?;
-        ref_for_map(&frame.variables, MemoryLocation::Local(frame.id), name)
+        ref_for_map(
+            &frame.variables,
+            MemoryLocation::Local(frame.id),
+            self.generation,
+            name,
+        )
     }
 
     pub fn ref_for_instance(&self, id: InstanceId, name: &str) -> Option<crate::value::ValueRef> {
         let offset = self.cached_instance_field_offset(id, name)?;
+        self.instance_field_ref(id, offset)
+    }
+
+    /// A reference of this generation to one instance slot.
+    fn instance_field_ref(&self, id: InstanceId, offset: usize) -> Option<crate::value::ValueRef> {
         Some(crate::value::ValueRef {
             location: MemoryLocation::Instance(id),
-            offset,
+            offset: u32::try_from(offset).ok()?,
+            generation: self.generation,
             path: RefPath::new(),
         })
     }
@@ -164,11 +205,7 @@ impl VariableStorage {
         let field_name = name;
         if let Some(resolution) = self.cached_recursive_instance_field_resolution(id, field_name) {
             let owner = self.resolve_ancestor_instance(id, resolution.owner_depth)?;
-            return Some(crate::value::ValueRef {
-                location: MemoryLocation::Instance(owner),
-                offset: resolution.offset,
-                path: RefPath::new(),
-            });
+            return self.instance_field_ref(owner, resolution.offset);
         }
 
         let mut current = Some(id);
@@ -180,11 +217,7 @@ impl VariableStorage {
                     offset,
                 };
                 self.cache_recursive_instance_field_resolution(id, field_name, resolution);
-                return Some(crate::value::ValueRef {
-                    location: MemoryLocation::Instance(instance_id),
-                    offset,
-                    path: RefPath::new(),
-                });
+                return self.instance_field_ref(instance_id, offset);
             }
             current = self
                 .instances
@@ -306,11 +339,7 @@ impl VariableStorage {
         name: &str,
     ) -> Option<crate::value::ValueRef> {
         let offset = self.declared_instance_field_offset(id, name)?;
-        Some(crate::value::ValueRef {
-            location: MemoryLocation::Instance(id),
-            offset,
-            path: RefPath::new(),
-        })
+        self.instance_field_ref(id, offset)
     }
 
     pub fn resolved_instance_field_ref(

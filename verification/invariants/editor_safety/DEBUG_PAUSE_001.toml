@@ -12,6 +12,8 @@ contract_kind = "state_machine"
 source_refs = [
   "crates/trust-runtime/src/host/debug/control",
   "crates/trust-runtime/src/scheduler/runner_loop.rs",
+  "crates/trust-runtime-services/src/resource/supervisor.rs",
+  "crates/trust-runtime-services/src/runner",
 ]
 tests = [
   "TEST_DEBUG_PAUSE_WATCHDOG_001",

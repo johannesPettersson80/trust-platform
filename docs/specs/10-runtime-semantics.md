@@ -358,11 +358,15 @@ calendar values.
 #### 2.2 Compound Type Values
 
 ```rust
-/// Reference to a value in memory.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Reference to a value in memory. `generation` is the installation generation
+/// of the storage the reference was taken in (specification 34 §11.3); a
+/// reference of another generation names no state.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ValueRef {
     pub location: MemoryLocation,
-    pub offset: usize,
+    pub offset: u32,
+    pub generation: Generation,
+    pub path: RefPath,
 }
 
 /// Array value with bounds tracking.

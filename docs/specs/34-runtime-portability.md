@@ -1,16 +1,39 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.20 — A01 assurance corrections
-- **Date:** 14 October 2026
+- **Version:** 0.23 — the checkpoint log in the chips' flash, and the built-in import contracts
+- **Date:** 17 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
 - **Baseline commit date:** 3 September 2026
 - **Source recheck:** `main` at `9a15065725c17da2c912055f1509368d3fd01d6c`, 9 October 2026; the reviewed runtime/core sources, workspace manifests/lockfile, specifications, and native CI workflow are unchanged from the original baseline.
-- **Scope:** A shared Rust execution engine for Linux, Windows, macOS, the NUCLEO-F401RE reference board, and one required ESP32 target, with separately scoped dependency/toolchain modernization and target qualification.
+- **Scope:** One truST runtime for Linux, Windows, macOS, the STM32F407 and the ESP32-C6, with separately scoped dependency/toolchain modernization and target qualification.
 
 **Revision basis:** Retains the A3/A4 construction and shared-engine contracts, B-R1's uniform PLC function set and B-R2's sector-0 placement with a reported 16 KiB upper-region growth target. Selects H's construction-only raw mutation, checked installed-state writes and isolated candidate schema changes in §4.3.1. Adds the uniform eight-byte temporal storage contract and STBC 3.0 compatibility boundary in §4.3.1. Adds the TIME-08 work-unit cost model and the TIME-09 construction allowance, replacing H's per-structure charge rules, and HOST-04's in-place call guarantee. Hosted review corrections and temporal implementation are authored but remain unverified until their consolidated acceptance batch; this specification is not validation evidence. Current source, evidence and authorization remain in the portability checklist; the main-branch baselines above are historical. [D01–D07]
 
 **Requirement status:** This is the canonical implementation plan. “Shall” defines required behavior for the stated future profile, not behavior already implemented. Existing identifiers are retained. Specifications 11/12 distinguish the legacy STBC 1.1/2.0 contracts from the STBC 3.0 migration. Scope authorization and validation follow AGENTS.md; a milestone description is not authorization or evidence that it passed.
+
+## Owner requirements
+
+These are the owner's own words. Every section of this specification carries them out. A section
+that conflicts with them is wrong: raise it with the owner, never build it.
+
+- One runtime everywhere: "i would want a universal small runtime that can run on stm32 also, is
+  this possible? i dont want many different ports of truST" (5 October 2026).
+- No reduced functions: "i never want reduced functions, it will make it impossible with different
+  features for different platforms" and "we shall not make anything that reduce functionality of
+  the runtime." (10 October 2026).
+- The boards in the hardware canvas: "both the esp and stm shall be able to be selectable in the
+  hardware canvas" (15 October 2026).
+- Debugging from VS Code: "you shall be able to debug from vs code etc." (16 October 2026).
+- The same as trust-runtime: "it shall work exactly the same as for the trust runtime on linux, mac
+  and windows. thats the whole idea" (16 October 2026).
+- Any link: "we shall not only have usb to these boards, we shall be able to connect via wifi, eth
+  or whaever" (16 October 2026).
+- No limits: "i dont want limit" (16 October 2026).
+- Hardware is the owner's decision: "if the runtime does not fit the stm32 i will give you another
+  one" (16 October 2026).
+- The chip, not the board: "we shall develop for the chip, not for the pheripels. if we detect a
+  stm32 on ethernet we shall be able to use it." (16 October 2026).
 
 ## 1. Decision and scope
 
@@ -33,7 +56,7 @@ A HAL is necessary, but is not the whole migration. The reviewed code still conn
 | ID | Requirement |
 |---|---|
 | ARCH-01 | The same admitted STBC application shall satisfy its declared PLC semantic, scheduling, numeric, import, and logical I/O contract on every claimed target. Exact-trace claims apply only to operations and observations qualified for equality under Section 12; platform math is not assumed bit-identical, and tolerance-qualified numerics do not imply identical threshold decisions. |
-| ARCH-02 | MCU firmware shall not depend on `trust-runtime`, compiler/HIR/IDE crates, or hosted service implementations. |
+| ARCH-02 | MCU firmware shall not depend on compiler/HIR/IDE crates or on operating-system services. It uses the same runtime service code as the hosted product (ARCH-11): the parts of today's `trust-runtime` crate that those services need become shared code that builds without an operating system. |
 | ARCH-03 | `trust-runtime-core` shall retain its `forbid(unsafe_code)` boundary. Hardware-specific unsafe operations, where required, shall remain outside it and follow the repository's review policy. |
 | ARCH-04 | Platform adapters shall provide mechanisms; the common engine shall own IEC behavior, scheduling decisions, memory rules, and fault decisions. |
 | ARCH-05 | Supported bounded controller profiles, hosted and MCU, shall execute without general-purpose allocation, reallocation, or deallocation in their control-cycle paths, including fault paths. |
@@ -41,7 +64,12 @@ A HAL is necessary, but is not the whole migration. The reviewed code still conn
 | ARCH-07 | The controller shall operate independently of the development computer after a valid application has been installed and started. |
 | ARCH-08 | Hosted products shall retain their existing supported features and interfaces while adopting the shared core; MCU limits shall not become universal desktop limits. |
 | ARCH-09 | Hosted adoption shall be verified through native execution tests on Linux, Windows, and macOS, compiler-free loading tests, and baseline-relative resource and performance evidence. |
-| ARCH-10 | The planned platform-support outcome requires one named STM32 board and one named ESP32 board to qualify with the same engine. An STM32 release may be delivered first, but shall not close the ESP32 deliverable. A different MCU family shall not silently substitute for ESP32. |
+| ARCH-10 | The planned platform-support outcome requires one STM32 chip and one ESP32 chip to qualify with the same runtime: the STM32F407 (first on the STM32F407G-DISC1) and the ESP32-C6 (on the ESP32-C6-DevKitC-1). Firmware is developed for the chip and every interface of the chip that the runtime services use, for example the F407's Ethernet controller and USB and the C6's Wi-Fi and USB; a board's configuration only names which of them are wired, its pins and its Ethernet PHY, so any board with the chip runs the same firmware with its own configuration. An STM32 release may be delivered first, but shall not close the ESP32 deliverable. A different MCU family shall not silently substitute for ESP32. |
+| ARCH-11 | Every target runs the same runtime, not only the same engine. The runtime services of trust-runtime behave on a board as on Linux, macOS and Windows: the control connection and its protocol, status, start, stop and restart, the resource states and fault handling, Live Values with read, write, force and release, debugging with breakpoints, pause, continue, stepping, call stack and variables (specification 13), loading a program including online change, access rights, discovery, the communication services, including Bluetooth devices where the chip has Bluetooth, and the web pages and HMI. They are shared code, not a separate implementation per target. VS Code and the other tools reach a board exactly as they reach any trust-runtime; nothing in them is specific to boards. |
+| ARCH-12 | A runtime is reached over whatever link its hardware has: a local socket or TCP on a computer, TCP over Ethernet or Wi-Fi and Bluetooth on a board that has them, and USB on a board on a cable. The control protocol is the same on every link; the platform adapter supplies the link. A runtime on the network, a board included, is found by the same discovery as any trust-runtime and can be used at once. |
+| ARCH-13 | No target has limits of its own: functionality is never reduced to fit a board. When a board lacks the memory or the hardware for a service, for example a network port, this is reported, and the owner decides on the board. |
+| ARCH-15 | Several runtimes on every host (owner, 17 October 2026: "every host shall be able to have several runtimes"). A computer runs several trust-runtime instances, each with its own project, as today. A chip's firmware runs several runtimes in the same way: each has its own installed project, resource state, control connection, retain and diagnostics, and Stop, Start and faults of one do not change another; they share the chip's processor, memory and I/O, and each I/O point belongs to one runtime only. How many fit is measured per chip and reported (ARCH-13); the tools show each runtime of a host as its own runtime. |
+| ARCH-14 | Chips and components (owner, 16 October 2026). The truST runtime is a set of components: the engine (`trust-runtime-core`) and the runtime service components above it (ARCH-11), the same code on every target. Linux, macOS and Windows run every component. Each supported chip gets one firmware, released ready-made, that holds every component the chip can hold, as measured; its chip file lists those components (TARGET-03). The tools read the list, offer what the device has, and refuse a project that needs a component the device lacks, naming the chips that have it (ARCH-13). Development boards are examples, for the bench and the documentation; they are neither components nor files of truST. |
 
 The research supports this separation of responsibilities, not a universal claim that interpretation is smaller or faster than native compilation. The first implementation shall retain STBC and the existing Rust executor. Native compilation, replacing STBC with WebAssembly, or a generalized multi-backend framework shall require a separate, measurement-led decision; none is a prerequisite for this migration. Existing validated internal execution optimizations may remain within the shared semantic implementation. [D02, E05–E09]
 
@@ -49,11 +77,11 @@ The research supports this separation of responsibilities, not a universal claim
 
 This proposal starts a runtime-wide execution improvement workstream and a new embedded implementation phase. The existing closed core/host extraction checklist explicitly excluded STM32 bring-up, ESP32 support, and an embedded product promise. Its closure therefore does not mean that MCU support is already implemented. Those old exclusions remain accurate descriptions of that earlier work. [R13]
 
-The project's first MCU reference board is **NUCLEO-F401RE**. Its STM32F401RE provides a Cortex-M4 with single-precision FPU, a maximum CPU frequency of 84 MHz, 512 KiB flash, and 96 KiB SRAM. These are device capacities, not bytes available exclusively to truST. The board makes compactness an early constraint; complete-runtime fit and timing remain unmeasured. Record the physical board/MCU revision, memory reservations, pins, clock source, toolchain, and HAL before board implementation. [E24–E27]
+The STM32 target is the **STM32F407** (owner, 16 October 2026): a Cortex-M4 with single-precision FPU at up to 168 MHz, 1 MiB flash, 192 KiB SRAM including 64 KiB of core-coupled memory, an Ethernet controller and USB OTG. It is first used on the owner's **STM32F407G-DISC1**, whose board has USB to the chip but no Ethernet PHY; Ethernet needs a board, or an add-on, with a PHY (ARCH-10). The NUCLEO-F401RE was the first reference board, and its scope B evidence remains; it is no longer the release target. Its STM32F401RE provides a Cortex-M4 with single-precision FPU, a maximum CPU frequency of 84 MHz, 512 KiB flash, and 96 KiB SRAM. These are device capacities, not bytes available exclusively to truST. The board makes compactness an early constraint; complete-runtime fit and timing remain unmeasured. Record the physical board/MCU revision, memory reservations, pins, clock source, toolchain, and HAL before board implementation. [E24–E27]
 
-One **ESP32 target is required**. The revised provisional reference is **ESP32-C6-DevKitC-1**, using `riscv32imac-unknown-none-elf`, `esp-hal`, and initially disabled radios. No ESP32 board possession or purchase is asserted. C6 supplies the A extension needed by the existing atomic-reference-counted values during bring-up; it does not make those values bounded. M0 confirms board availability and freezes the build. M1 checks its isolated core graph, M2E executes the common fixture on actual hardware, and M5 qualifies the profile. C3/IMC becomes a later optional no-CAS profile after storage/atomic retirement, rather than contradicting the early-storage sequencing. RISC-V/Xtensa and bare-metal/ESP-IDF choices remain distinct. [E56, E57]
+One **ESP32 target is required**. The revised provisional reference is **ESP32-C6-DevKitC-1**, using `riscv32imac-unknown-none-elf` and `esp-hal`, with its Wi-Fi as a network link of the runtime (ARCH-12). No ESP32 board possession or purchase is asserted. C6 supplies the A extension needed by the existing atomic-reference-counted values during bring-up; it does not make those values bounded. M0 confirms board availability and freezes the build. M1 checks its isolated core graph, M2E executes the common fixture on actual hardware, and M5 qualifies the profile. C3/IMC becomes a later optional no-CAS profile after storage/atomic retirement, rather than contradicting the early-storage sequencing. RISC-V/Xtensa and bare-metal/ESP-IDF choices remain distinct. [E56, E57]
 
-An STM32H7 board remains an optional later target if measured resource needs justify it. It is not a prerequisite to start on the available F401. Failure to fit the F401 shall retain that failure and lead to an explicit storage/profile or target decision; a larger board shall not be reported as a passed F401 gate. Native ST compilation, an assembly rewrite, FPGA execution, embedded EtherCAT, new MCU support for online application changes while controlling live outputs, and complete MCU parity with every hosted protocol are outside this implementation. Existing supported hosted online-change workflows remain subject to the compatibility requirements.
+An STM32H7 board remains an optional later target. It is not a prerequisite to start on the available F401. When the runtime does not fit the F401, or the F401 lacks hardware that a service needs, for example a network port, that is reported and the owner selects the STM32 board (ARCH-13); a larger board shall not be reported as a passed F401 gate. Native ST compilation, an assembly rewrite and FPGA execution are outside this implementation. Every runtime service of trust-runtime, including online change and the communication protocols, is in scope on the boards (ARCH-11). Existing supported hosted online-change workflows remain subject to the compatibility requirements.
 
 This specification defines an operational control runtime. It does not establish a certified functional-safety runtime or replace independent machine safety measures.
 
@@ -94,7 +122,8 @@ Development computer
                     |
        program.stbc + deployment metadata
                     |
-          target admission / installation
+   control connection: the same protocol on every link
+   (local socket, TCP over Ethernet or Wi-Fi, USB)
                     |
       +-------------+--------------------+
       |                                  |
@@ -103,8 +132,17 @@ trust-runtime                       board entry point
 Linux / Windows / macOS                   |
       |                                  |
 OS-specific adapters                STM32 / ESP32 adapter
-      |                                  |
+(OS, files, network)                (pins, timer, flash,
+      |                              Wi-Fi/Ethernet, USB)
       +-----------+----------------------+
+                  |
+        shared runtime services (ARCH-11)
+        - control connection and protocol
+        - states, start/stop/restart, faults
+        - Live Values: read, write, force, release
+        - debugging: breakpoints, pause, step, variables
+        - program loading and online change
+        - access rights, discovery, communication, web/HMI
                   |
         trust-runtime-core
         - validated executable model
@@ -138,7 +176,8 @@ crates/
     src/host/platform/            proposed Linux/Windows/macOS adapters
     ...                           existing services, configuration and tooling
 
-  trust-platform-stm32f4/          NEW; F401 platform adapter implementation
+  trust-platform-stm32f4/          NEW; STM32F4 platform adapter, one Cargo feature
+                                  per chip (F401, F407); chip differences are data
     src/
       clock.rs
       io.rs
@@ -151,11 +190,29 @@ crates/
                                   compositions: runner, records, bundle decode,
                                   heap and stack measurement
 
+  trust-runtime-services/          NEW; the shared runtime components (ARCH-11,
+                                  ARCH-14), no_std + alloc: control connection
+                                  and access rights, start/stop, Live Values,
+                                  debugging, deployment, drivers, network
+                                  services; used by trust-runtime and firmware
+
+  trust-chips/                     NEW; reads and checks the chip files and embeds
+                                  them as the catalog of supported chips
+                                  (Appendix H); host only, no firmware dependency
+
+chips/                             NEW; one file per supported chip (TARGET-03)
+                                  with its memory layout, interfaces and the
+                                  components its firmware holds
+
 firmware/
   trust-nucleo-f401re/             NEW; confirmed board composition
     src/main.rs
     src/board.rs
     memory.x                      or the selected BSP's equivalent
+
+  trust-stm32f407/                 NEW; the STM32F407 chip firmware (ARCH-10); the
+                                  bench board's wiring is its configuration
+                                  (src/board.rs), not a firmware of its own
 
   trust-esp32c6-reference/         NEW; proposed C6-DevKitC-1 composition
 ```
@@ -174,7 +231,7 @@ Do not introduce a crate for every trait. Define the portable interfaces in `tru
 | Source parsing, HIR, compile-time optimization, rich diagnostics and symbol lookup | Development/host tooling |
 | Prepared execution plans and validated VM execution optimizations | Shared preparation/execution code; immutable per installed generation, with the same semantic contract |
 | Candidate preparation, installed-generation publication, and handle retirement | Core lifetime/state-transition contracts; host orchestration and reclamation outside bounded execution |
-| Transport workers, web/HMI servers, databases, discovery | Optional services outside the core |
+| Control connection, start and stop, Live Values, debugging, deployment, drivers, transport workers, web/HMI servers, databases, discovery | Shared runtime components above the engine (ARCH-11, ARCH-14), the same code on every target |
 | Monotonic hardware time, wait/wake, interrupt configuration | Platform adapter/runner |
 | Pin choices, external ADC/DAC wiring, polarity, memory reservations | Board support/configuration |
 | RETAIN interpretation and restart semantics | Common core |
@@ -269,7 +326,7 @@ For the F401 Cortex-M4F bring-up, `thumbv7em-none-eabihf` is the selected target
 
 **HOST-01.** Linux, Windows, and macOS shall use the shared loader, execution state, opcode semantics, cycle policy, and fault identities. Host `Runtime` compatibility APIs shall compose or wrap that engine, rather than retain an independent legacy dispatcher as the permanent desktop implementation.
 
-**HOST-02.** Hosted limits shall be selected for the application and deployment, not copied from STM32 defaults. Hosts may allocate backing storage during preparation and offer larger programs, strings, arrays, instance counts, and task configurations while retaining checked execution and admission. Instance identities are 32-bit: the allocator hands out 0 through `u32::MAX - 1` and never `u32::MAX`, and creating an instance beyond that fails with `Overflow` and never wraps an identity or panics, in hosted and portable construction alike.
+**HOST-02.** Hosted limits shall be selected for the application and deployment, not copied from STM32 defaults. Hosts may allocate backing storage during preparation and offer larger programs, strings, arrays, instance counts, and task configurations while retaining checked execution and admission. Instance identities are 32-bit: the allocator hands out 0 through `u32::MAX - 1` and never `u32::MAX`, and creating an instance beyond that fails with `Overflow` and never wraps an identity or panics, in hosted and portable construction alike. A live instance's identity is never issued again. When a top-level execution entry (§4.3.1) begins, the identities issued since the previous entry began are issued again if none of their instances is still live, as is the case for function-block and class instances declared in a function or method. If any of them is still live, persistent instances included, none of those identities is issued again until a restart or replacement constructs new storage.
 
 **HOST-03.** Existing supported debugger, HMI, protocol, persistence, configuration, CLI, and embedding workflows shall remain available on their supported platforms. Preserve existing APIs except for the explicitly selected H raw-mutation migration in §4.3.1: unrestricted mutable storage and executable type-registry access shall be available only during non-executable construction; installed-state integrations shall use checked writes or candidate replacement. Document replacement APIs and migrate all repository callers; do not silently claim source compatibility for the old live mutable-reference signatures. Hosted online change shall follow the generation, restart, and retirement contract in Section 11.3. The M0 feature matrix shall distinguish implemented support, unavailable platform-specific features, and experimental support; it shall not infer identical service/driver support on every OS.
 
@@ -319,10 +376,21 @@ specification. The following guarantees bind them:
   copying it per visit.
 - Activations. The execution-frame registry is the single authority for
   reserved identity, activation membership, optional POU/instance owner and
-  suspended local payload. Identities are monotonic and never reused. Retirement
+  suspended local payload. Identities increase within one top-level execution
+  entry: one task program or function-block invocation, or one engineering
+  operation. A retired identity is not issued again within its entry, so identity
+  order is ancestry order among live activations, and exhausting one entry's
+  identities fails with `Overflow` instead of wrapping. After construction, which
+  keeps one increasing sequence, each entry begins with nothing reserved and
+  starts again at identity 0. The lifetime checks confine every reference to an
+  activation, and every instance it owns, to its entry, so a reissued identity
+  cannot name an earlier entry's state, and every checked operation refuses a
+  reference into a retired activation. Retirement
   removes liveness, owner and payload together and never abandons owned-instance
   cleanup on a work or deadline failure. Debugger stack views list owned, active,
-  suspended ancestors in activation order, followed by the current frame.
+  suspended ancestors in activation order, followed by the current frame. Their
+  frame identities hold for the pause that reported them, as DAP frame
+  references do; a later entry may report the same numbers for other activations.
 - Edge-qualified inputs bind by admitted POU identity; compatibility callers
   that do not supply it keep name-based resolution.
 
@@ -375,7 +443,7 @@ deviation. It preserves the full PLC function set on every platform.
 | Installed controller, including RUN, debugger pause and STOP | Declared storage layout/schema, executable types and code remain admitted and immutable for that installation. Existing supported value and instance operations remain permitted under admitted capacities and lifetime rules. No public API or adapter-trait call may return unrestricted mutable storage or installed TYPE_TABLE access. STOP or a debugger pause alone does not turn installed state into an authoring object. Ordinary PLC value updates remain permitted through checked operations. |
 | Live value writes and forces | Use the single engine owner and existing cycle/debugger write boundaries. Preserve authorization, one-time write versus persistent-force behavior, and existing input/output image timing under CYCLE-05/06. Ordinary supported writes shall not require STOP, restart or re-admission. Synchronous owner-local calls may commit at an existing permitted boundary; remote requests use bounded staging/queues where the profile requires them. |
 | Code, declarations, types or storage layout changes | Build and validate an isolated candidate outside bounded RUN. Replace only through §11.3's hosted boundary and warm-restart/retain policy, or §11.2's stopped MCU installation. A failed candidate leaves the installed state executable and unchanged. No implicit first-use preparation or recompilation may repair a live mutation. |
-| Resource-only task, image extent or direct-I/O binding reconfiguration | Admit a candidate with unchanged executable code, constants, reference identities, types, declarations, construction/default recipes and access policy. Stage scheduler metadata, reset task readiness to the current logical time and sample each SINGLE input as its initial event baseline when replacing task/resource metadata (binding-only edits preserve readiness), and resize flat images with intersection preservation and zero-filled growth. Commit only after binding and safe-output validation. Keep the same PLC storage, instance IDs, non-retained and retained values, hierarchical images, fault, logical time, cycle counters, register observations, stable debugger thread identities and pending debugger requests. Do not rerun initializers, replace the PLC graph, or clone the full store. Failure preserves the installed resource and images. This is the existing hosted resource-update behavior, distinct from code/schema replacement. |
+| Resource-only task, image extent or direct-I/O binding reconfiguration | Admit a candidate with unchanged executable code, constants, reference identities, types, declarations, construction/default recipes and access policy. Stage scheduler metadata, reset task readiness to the current logical time and sample each SINGLE input as its initial event baseline when replacing task/resource metadata (binding-only edits preserve readiness), and resize flat images with intersection preservation and zero-filled growth. Commit only after binding and safe-output validation. Keep the same PLC storage and installation generation (§11.3), so every reference stays valid, the same instance IDs, non-retained and retained values, hierarchical images, fault, logical time, cycle counters, register observations, stable debugger thread identities and pending debugger requests. Do not rerun initializers, replace the PLC graph, or clone the full store. Failure preserves the installed resource and images. This is the existing hosted resource-update behavior, distinct from code/schema replacement. |
 | Debug expression parsing | Use separate authoring/scratch types and immutable installed metadata for lookup. Parsing an expression shall not extend or alter the installed executable type table. Any resulting write goes through the same checked live-write path. Compiler-dependent expression authoring remains in the selected development service, not the runtime-only graph. |
 
 Retained checkpoint capture is also a checked owner operation. The hosted
@@ -440,7 +508,13 @@ is distinguishable from deterministic resource exhaustion.
 Queue acceptance is distinct from application of a write. A staged request shall
 be checked against the active destination and binding again at its commit
 boundary; a request targeting a replaced or retired destination shall be rejected
-unless an existing supported checked rebinding operation applies. Queue exhaustion
+unless an existing supported checked rebinding operation applies. A request that
+names a destination by name is bound to that name at its boundary. A request that
+names an instance by its identity keeps the installation generation (§11.3) in
+which that identity was resolved, and its boundary rejects it with
+`ReferenceLifetime` when another generation is installed, so a restart or
+replacement in between cannot redirect it to the instance that now has that
+identity. Queue exhaustion
 shall return an explicit failure without applying the request; the hosted control
 surface bounds its pending writes and forces at 1,024 entries each and refuses
 further requests with `request queue full` (specification 11, runtime control I/O
@@ -626,7 +700,7 @@ Hardware pin mappings belong to board configuration, not the STBC instruction se
 
 Debug/source sections may be omitted when genuinely optional. Required symbol, type, interface, or import information shall not be stripped merely because it resembles debug metadata.
 
-STBC integrity checks and CRCs shall not be described as authentication. Production deployment requires an explicit trust model, such as physical commissioning authorization or authenticated update access; signatures are required where the product's threat model requires them.
+STBC integrity checks and CRCs shall not be described as authentication. Deployment uses the access rights of the control connection on every target, as trust-runtime does (specification 11, runtime control authorization); signatures are required where the product's threat model requires them.
 
 The initial source-free execution profile rejects raw `REF_TABLE` storage domains
 `Retain` and `Io` during preparation, before any initializer or POU executes.
@@ -675,9 +749,90 @@ conservative admission metrics, not allocator peak, RSS, elapsed time or WCET;
 allocator overhead, error diagnostics and native stack still require measured
 profile headroom in Scope B. Validation retains its independent scratch/work
 limits. Executable native imports must resolve to the shared standard-library or
-POU implementation; built-in FB signatures and hidden state must match the native
-contract. CURRENT_DT additionally requires an explicitly supplied wall-clock
+POU implementation, and every built-in import must match its contract (§5.2.1),
+a built-in FB's signature and hidden state included. CURRENT_DT additionally requires an explicitly supplied wall-clock
 service before instance construction; a logical-only composition rejects it.
+
+### 5.2.1 Built-in import contracts
+
+LOAD-06 and PORT-02 are met for the built-in imports by one contract table in
+`trust-runtime-core` (`stdlib::contracts`), the same on every target; no built-in
+import is host-only. The standard-library registration stays the one list of
+registered functions: each registered family names its contract there. Conversions,
+date/time splits, the runtime clocks and the standard function blocks keep their
+recognizers, and each kind they recognize has one contract. A native test compares
+the table with the registration entry by entry.
+
+Every contract in the table is version 1; a change to any rule of a contract issues
+a new version. A contract states:
+
+- **Signature.** A registered function takes the parameters of its registration: a
+  fixed list, or fixed parameters followed by a numbered variadic suffix with a
+  minimum count (specification 07). A conversion takes one input `IN`. A split takes
+  `IN` and then its outputs, each a writable target. A clock takes no parameter. A
+  standard function block declares its IEC parameters, each with its direction and
+  type, and the hidden native state of specification 12 §11.5.5.
+- **Work.** What TIME-08 charges beyond the call's instructions. A registered function
+  or a conversion charges its argument binding and 1 unit per byte of its STRING and
+  WSTRING arguments before the body runs; a clock, a split or a function block charges
+  its argument binding only. A call has at most 1,024 native arguments (specification
+  12 §4.6), and a text argument is bounded by its declared capacity or by the
+  allocation allowance.
+- **Allocation.** Whether the call can return a STRING or WSTRING result, which
+  TIME-08 charges as a new value: 1 unit and its bytes of allocation.
+- **Blocking.** None. Every built-in import returns without waiting for a device, a
+  lock or a service other than the clock it is given.
+- **Failure.** The stable codes its implementation can return for a call that matches
+  its signature. The engine's binding and reference checks (specification 12 §7.7 and
+  §7.8) apply to every call besides.
+- **Profile.** CURRENT_DT requires the platform wall clock (§5.2). No other built-in
+  import requires a capability.
+
+| Family | Imports | IEC 61131-3 Ed.3 | Text | Failures |
+|---|---|---|---|---|
+| Numeric | ABS, SQRT, LN, LOG, EXP, SIN, COS, TAN, ASIN, ACOS, ATAN, ATAN2, ADD, SUB, MUL, DIV, MOD, EXPT, MOVE | Tables 28 and 29; ADD, SUB, MUL and DIV of durations and dates: Table 35 | arguments charged; MOVE returns text | type mismatch, overflow, division by zero, modulo by zero, date/time range, argument count (ADD and MUL with a time operand take exactly two inputs) |
+| Bit | SHL, SHR, ROL, ROR, AND, OR, XOR, NOT | Tables 30 and 31 | arguments charged | type mismatch |
+| Selection | SEL, MAX, MIN, LIMIT, MUX | Table 32; enumerations: Table 38 | arguments charged; text results | type mismatch, overflow, index out of bounds |
+| Comparison | GT, GE, EQ, LE, LT, NE | Table 33; enumerations: Table 38 | arguments charged | type mismatch |
+| String | LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE, FIND; the assignment helper `__TRUST_LIMIT_STRING` (specification 07 §8.1) | Table 34 | arguments charged; text results | type mismatch, overflow |
+| Time | ADD_TIME, ADD_LTIME, ADD_TOD_TIME, ADD_LTOD_LTIME, ADD_DT_TIME, ADD_LDT_LTIME, the twelve SUB_ functions, MUL_TIME, MUL_LTIME, DIV_TIME, DIV_LTIME; CONCAT_DATE, CONCAT_DATE_TOD, CONCAT_DATE_LTOD, CONCAT_TOD, CONCAT_LTOD, CONCAT_DT, CONCAT_LDT, DAY_OF_WEEK | Tables 35 and 36 | arguments charged | type mismatch, overflow, division by zero, date/time range |
+| Validate | IS_VALID, IS_VALID_BCD | Table 39 | arguments charged | type mismatch |
+| Assertions | ASSERT_TRUE, ASSERT_FALSE, ASSERT_EQUAL, ASSERT_NOT_EQUAL, ASSERT_GREATER, ASSERT_LESS, ASSERT_GREATER_OR_EQUAL, ASSERT_LESS_OR_EQUAL, ASSERT_NEAR (specification 07, a truST test extension) | none | arguments charged | assertion failed, type mismatch, overflow |
+| Conversion | every name of a Table 22 conversion form | Tables 22 to 27 | arguments charged; text results | type mismatch, overflow |
+| Split | SPLIT_DATE, SPLIT_TOD, SPLIT_LTOD, SPLIT_DT, SPLIT_LDT | Table 36 | binding only | type mismatch, overflow |
+| Clock | TIME, CURRENT_DT (specification 07, truST clock sources) | none | binding only | none for TIME; overflow for CURRENT_DT |
+| Bistable | RS, SR | Table 43 | binding only | type mismatch |
+| Edge detection | R_TRIG, F_TRIG, and their other names DIFU and DIFD | Table 44 | binding only | type mismatch |
+| Counters | CTU, CTD, CTUD and their _INT, _DINT, _LINT, _UDINT and _ULINT variants | Table 45 | binding only | type mismatch |
+| Timers | TP, TON, TOF and their _TIME and _LTIME variants | Table 46 | binding only | type mismatch |
+
+The failures are the stable codes `runtime_type_mismatch`, `runtime_overflow`,
+`runtime_division_by_zero`, `runtime_modulo_by_zero`, `runtime_date_time_range`,
+`runtime_invalid_argument_count`, `runtime_index_out_of_bounds` and
+`runtime_assertion_failed`.
+
+**Admission.** A standard-library descriptor resolves in the order the call
+dispatcher runs it: a clock, a split, a conversion, then a registered function.
+Before any state exists, preparation refuses the artifact (LOAD-03, ARCH-06,
+DEPLOY-04) when:
+
+- a standard-library descriptor names no contract;
+- its argument count does not fit the signature (a fixed list takes exactly its
+  parameters, a variadic one at least its minimum), or its argument names do not fit
+  the parameters: an unknown or repeated name, a gap in a variadic suffix, or named
+  and positional arguments in one call (specification 12 §7.7);
+- a split output is not a writable target;
+- a function-block template that carries a standard function block's name declares
+  other parameters than its contract, in number, name, direction or type, or other
+  hidden native state.
+
+The refusal is `RuntimeError::ImportUnsupported` with the stable code
+`runtime_import_unsupported`. It names the import by its canonical uppercase name and
+states which part of the contract it fails, for example `unsupported import 'TON': a
+parameter's type or direction differs from the contract`. A call of the artifact's
+own function, function block or method resolves to that POU and has no built-in
+contract. When a deployment record (§5.1) names the contract version of a required
+import, admission refuses a version other than the runtime's.
 
 ### 5.3 Validated construction and admission evidence
 
@@ -796,11 +951,13 @@ reference, rollback and ordering contracts. It changes storage and code generati
 not bytecode semantics. This is a measured bring-up slice of MEM-03/06/10/11, not
 completion of M3's allocation-free compound-value contract.
 
-- Frame/instance identities retain every bit of their existing monotonic u32 domain.
-  Removed identities stay invalid; capacity follows live entries, not the largest
-  identity ever issued. ID exhaustion remains a checked fault. Sorted live entries
-  use binary search; reserve appends in identity order. Arbitrary public removals
-  remain supported even where ordinary frame retirement is LIFO.
+- Frame/instance identities retain every bit of their existing u32 domain. Within
+  a top-level entry they increase and removed identities stay invalid; §4.3.1 and
+  HOST-02 state when a later entry issues them again. Capacity follows live
+  entries, not the largest identity ever issued. ID exhaustion remains a checked
+  fault. Sorted live entries use binary search; reserve appends in identity order.
+  Arbitrary public removals remain supported even where ordinary frame retirement
+  is LIFO.
 - Ordinary activation depth and initializer staging storage are distinct. A POU
   activation remains live while its declaration initializer reserves a result slot
   at the same logical depth. Do not equate storage entries with max_call_depth.
@@ -1283,7 +1440,11 @@ BOOT -> INITIALIZING -> STOPPED/NO_PROGRAM
 
 **STATE-06.** Recovery shall not automatically resume an interrupted instruction stream. The configured cold/warm initialization and retain policy shall run before control resumes. Automatic restart, where offered, shall be a deliberate product setting.
 
-Hardware forcing and PLC breakpoints shall be disabled in the initial production MCU profile. Commissioning support may allow them only after an explicit controlled-output transition and authorization. A CPU-debugger halt must not be assumed to preserve watchdog or output supervision.
+**STATE-07.** Writing, forcing, breakpoints, pause and stepping behave on every target as in trust-runtime (specification 11, debug and resource pause interaction; specification 13, run control), with the same access rights. A pause suspends the current cycle: the outputs keep their last committed values, and the pause does not count against the cycle watchdog. A hardware debug probe (JTAG/SWD) halts the whole processor; it is not a PLC breakpoint, and it must not be assumed to preserve watchdog or output supervision.
+
+**STATE-08.** Stop and Start on a device without an operating system (owner, 16 October 2026: "on a chip, Stop and Start are the existing `shutdown` and `restart`"). On a computer, `shutdown` ends the trust-runtime process and a new process is the start. A chip's firmware never ends, so the program takes the place of the process: `shutdown` stops the program as trust-runtime stops it (outputs to their stop policy, STATE-02, and the durable retain save), and the chip stays reachable in the Stopped state, serving the control connection; `restart` with `cold` or `warm` then starts the installed program as a new trust-runtime process would: its logical time and uptime start at zero, and its events, metrics and task statistics start empty. Power-on and reset start the installed program in the same way; its logical time starts when the program starts, not at the chip's reset. Every other request answers as trust-runtime answers it in the same state; a `restart` of a program that runs, is paused or is faulted restarts it in place as trust-runtime does, and its records stay. One control loop serves the link between cycles and while Stopped; it is shared code (ARCH-11), and only its wait and wake come from the platform adapter.
+
+Requests take effect where trust-runtime's scan thread takes them. The loop answers each request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next boundary, as trust-runtime's scan thread takes it at its next pass: while the program runs, when its next cycle is due, one cycle interval after the last cycle started; while it is paused, one cycle interval after the last boundary; while it is faulted, at the end of each 10 ms poll of the faulted wait. At a boundary the stop is taken first, then the queued pauses and resumes in order, then a pending restart, and then the cycle; at a poll of the faulted wait a pending restart is taken before the stop. Pauses and resumes wait in a queue of trust-runtime's size, and one beyond it is refused with `resource_busy`. Only these differences remain: the device serves requests between cycles, never during one, at most eight in one pass before a due cycle; trust-runtime starts each cycle later than it is due by its operating system's wake-up latency; and after `shutdown` the device stays reachable and a `restart` takes effect at once, where trust-runtime's process has ended. The loop feeds the platform's hardware watchdog once in every pass and waits no longer than the watchdog's feed interval, in every state, so a stopped, paused or faulted chip is never reset by it (TIME-04).
 
 ## 10. Retain and persistence
 
@@ -1303,7 +1464,11 @@ process images before executing replacement initialization. Ordered configuratio
 actions then overwrite only their selected targets, including direct `%I`, `%Q`
 and `%M` addresses. Unconfigured bytes, bits and hierarchical keys retain their
 previous values; repeated or overlapping actions follow the initializer table's
-order. Image carry-over must not overwrite an initializer's result after construction.
+order. A variable located at `%M` then publishes its initial or retained value
+into exactly the bits and bytes it covers, so where an action and such a variable
+cover the same byte, the variable's value is the one the first scan reads
+(specification 11 §6.7). Image carry-over must not overwrite an initializer's
+result after construction.
 An initialization or budget failure leaves the complete installed state, images
 and logical time unchanged. This specifies the portable image lifecycle alongside
 the variable-retention rules of IEC 61131-3 §6.5.6; it does not change hosted 1.1
@@ -1332,6 +1497,90 @@ For hosted bounded operation, capture a coherent checkpoint in admitted prealloc
 
 The reviewed hosted cycle can call `maybe_save_retain_store()` before normal output writes. The initial extraction preserves this behavior in hosted compatibility compositions. The bounded profile above deliberately changes failure/acknowledgment timing and needs its own release notes and tests; it is not a behavior-preserving file move. A compatibility build retaining unbounded persistence shall not claim bounded-profile compliance. [R12]
 
+### 10.1 Checkpoint log in flash
+
+A chip keeps its retain checkpoints in the two checkpoint slots of its chip file, `checkpoint_a`
+and `checkpoint_b` (Appendix H). This section defines how they are written and read: the chips'
+form of RETAIN-01 and RETAIN-02. Both are the same whichever persistence policy decides when a
+chip writes a checkpoint. The shared core implements them (`retain::checkpoint` in
+`trust-runtime-core`); the platform adapter only reads, programs and erases its flash.
+
+**Flash.** A slot is one or more whole erase units: one 16 KiB sector on the STM32F407 (sectors 2
+and 3) and four 4 KiB sectors on the ESP32-C6 (`memory.spi_flash.erase_kib`). Erasing sets every
+byte to 0xFF. A program writes whole program units at multiples of the unit, 4 bytes on both
+chips: the F407 programs 32-bit words, the parallelism of its 2.7 to 3.6 V supply (RM0090), and
+`esp-storage` 0.10.0 writes 4-byte words. A program only clears bits; it never sets a bit back
+to 1. The log programs only units that read as erased, so it programs each unit at most once
+between two erases.
+
+**Slot header.** A slot holds records only after its erase has completed and its header has been
+programmed. The header is the slot's first 16 bytes:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | Magic `TRCS` |
+| 4 | 2 | Format version, 1 |
+| 6 | 2 | Reserved, 0 |
+| 8 | 4 | Slot epoch: one more than the highest epoch of either slot when this one was formatted |
+| 12 | 4 | CRC-32 of bytes 0 to 11 |
+
+**Record.** The records follow the header, each starting at the next multiple of the program unit:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 4 | Magic `TRCK` |
+| 4 | 2 | Format version, 1 |
+| 6 | 2 | Flags, 0 |
+| 8 | 8 | Checkpoint sequence: one more than the highest sequence in either slot |
+| 16 | 16 | Application identity: the first 16 bytes of the bytecode hash in the deployment record (§5.1) |
+| 32 | 16 | Retain-schema identity: the first 16 bytes of the retain-schema identity in the deployment record (§5.1) |
+| 48 | 4 | Payload length R, in bytes |
+| 52 | 4 | CRC-32 of the payload |
+| 56 | 4 | Reserved, 0 |
+| 60 | 4 | CRC-32 of bytes 0 to 59 |
+| 64 | C | Commit marker: `DONE`, repeated to fill C, the larger of 4 bytes and the program unit |
+| 64 + C | R | Payload: the retained values as the retain codec encodes them (specification 11 §6.7) |
+| 64 + C + R | | 0xFF up to the next multiple of the program unit |
+
+Integers are little-endian. CRC-32 is CRC-32/ISO-HDLC, as in STBC and the retain file on a
+computer. The commit marker has a fixed place after the header, so whether a record was committed
+can be read even when its header is damaged. With 4-byte units a record takes 68 + R bytes, R
+rounded up to a multiple of 4: a 16 KiB slot takes records of up to 16,300 payload bytes, and
+⌊16,368 / (68 + R)⌋ records before it is erased again. The sequence counts checkpoints; it is not
+an execution generation (RETAIN-01).
+
+**Writing.** A checkpoint is written in this order: the record header, the payload, a read-back of
+everything the write programmed, and the commit marker last. It goes after the last record of the
+slot with the highest epoch, when that slot's log is not ended by a failing header and the record
+fits in the erased space after it. Otherwise the log erases a slot unit by unit, programs its
+header with the next epoch and writes the record there. It erases the slot that does not hold the
+newest committed record; when neither slot holds one, the slot without the highest epoch, or
+`checkpoint_a` when neither slot has a header. The slot that holds the newest committed record is
+thus never erased, and no write programs over another record, so a write or an erase interrupted
+at any byte leaves the previous checkpoint readable. Each erase of a unit and each program is a
+step of its own, so a write can be spread over the time between cycles.
+
+**Recovery.** At start the log reads each slot's records in order, from the first:
+
+- A record is committed when its commit marker reads exactly as written, and valid when its header
+  and its payload also pass their checks.
+- A record whose header is valid but whose commit marker is not is absent: its write was
+  interrupted, and the slot's log continues after it.
+- A record whose header fails its check ends the slot's log.
+- The newest committed record is the last committed record of the slot with the highest epoch that
+  has one.
+
+A warm start loads the newest committed record when it is valid. When its header or its payload
+fails its check, the warm start fails, as it does for a damaged retain file on a computer
+(specification 11 §6.7); an older record is not loaded in its place. A slot whose header fails its
+check holds no log, but its records are read as well: when one of them is a valid committed record
+with a higher sequence than the newest committed record, or there is no newest committed record,
+the warm start fails too, because that slot's header is damaged. Otherwise, without a newest
+committed record, the store is empty, as a missing retain file is. A commit marker damaged after
+its write cannot be told from one whose write was interrupted, so its record is absent and the
+record before it is loaded. The sequence and the identities come back with the payload; the
+retained values are matched by name, as for the retain file (specification 11 §6.7).
+
 ## 11. Services and deployment
 
 ### 11.1 Non-control services
@@ -1340,39 +1589,53 @@ Hosted and MCU networking and management are adapters/services, not runtime-core
 
 Workers shall exchange bounded messages or process-image snapshots with the control path. Polling budgets, queue overflow, stale-data limits, and critical versus noncritical failures shall be explicit. A network outage shall not make PLC execution wait indefinitely. The MQTT driver keeps at most 256 received messages for the control path; when a new message arrives at that bound it drops the oldest, counts every dropped message, and reports the driver as `degraded` with the stable detail `incoming queue overflow: <n> messages dropped` (the count since the driver started) from the first drop until the driver restarts. A degraded driver does not by itself fault the PLC or make aggregate health false, and because the overflow concerns received messages only, it does not unconfirm a safe-state handoff, which depends on the driver's output path (specification 11, safe-state handoff confirmation).
 
-Rich symbol lookup, source rendering, HMI, DAP presentation, compilation, and deployment orchestration remain on the development computer or hosted product. The MCU needs only the bounded device-side hooks required by the selected features.
+Compilation stays on the development computer. The runtime services of ARCH-11 run on every target as shared code, and the development tools present them the same way for every runtime.
 
 **SERVICE-01.** Crate boundaries shall be treated as dependency boundaries, not process-fault isolation. Services may remain in the same process where their scheduling and communication contracts satisfy the selected profile. Stronger isolation requires an explicit thread/process design and its own failure tests; this migration shall not require a process-per-service architecture.
 
-**SERVICE-02.** Rich hosted debugging, tracing, and diagnostic rendering shall remain outside bounded callbacks. Supported pauses, forcing, and online change shall have explicit state/boundary behavior and regression tests. Debugger/export reads shall pin or snapshot the appropriate generation under Section 11.3 and shall not keep unaccounted retired storage alive indefinitely. Initial MCU restrictions shall not remove existing hosted workflows.
+**SERVICE-02.** Rich hosted debugging, tracing, and diagnostic rendering shall remain outside bounded callbacks. Supported pauses, forcing, and online change shall have explicit state/boundary behavior and regression tests. Debugger/export reads shall pin or snapshot the appropriate generation under Section 11.3 and shall not keep unaccounted retired storage alive indefinitely. The same behavior and tests apply on every target (ARCH-11).
 
-### 11.2 Stopped installation workflow
+**SERVICE-03.** OPC UA (owner, 16 October 2026): the OPC UA server and client of trust-runtime
+(specification 11) are one shared implementation in Rust that runs with and without an operating
+system, on every target. It replaces the `opcua` library on Linux, macOS and Windows and keeps
+their present behavior, which their existing tests pin; the chips get the same server and client
+over their network links (ARCH-11, ARCH-12).
 
-This is the initial MCU installation path and any applicable stopped hosted installation path. Existing hosted online changes use Section 11.3; this procedure shall not silently require STOP for all previously supported hosted updates.
+**SERVICE-04.** OpenOT telemetry (owner, 16 October 2026): the runtime produces the same OpenOT
+records on every target (`[runtime.openot]`). On Linux, macOS and Windows it publishes them to the
+shared-memory ring as today; a chip, which runs no other program, publishes them over its network
+link.
+
+**SERVICE-05.** Simulation (owner, 16 October 2026): `simulation.toml` (disturbances, couplings
+and injected faults) works on every target, chips included, as it does in trust-runtime.
+
+### 11.2 Installation workflow
+
+This is the installation of a program into a stopped runtime on every target. A running runtime also takes a new program by online change (Section 11.3) on every target, as trust-runtime does; this procedure shall not silently require STOP for any update that online change supports.
 
 ```text
 1. Discover/read the device's capability and resource descriptor.
 2. Compile the application and build its deployment metadata on the computer.
 3. Check compatibility before transfer.
-4. Put the controller into the required stopped/commissioning state.
-5. Transfer/stage the artifacts using the selected management transport.
+4. Put the controller into the stopped state, or use online change (Section 11.3).
+5. Transfer/stage the artifacts over the control connection.
 6. Independently validate and prepare them on the device.
 7. Mark the new installation complete using an interruption-safe procedure.
 8. Report the installed application identity and readiness.
-9. Start only through the configured authorized start policy.
+9. Start through the configured start policy and the access rights of the control connection.
 ```
 
 **DEPLOY-01.** MCU firmware and PLC application shall be separate concepts. Firmware is compiled for the CPU/board; STBC is the loadable PLC artifact. Changing only the PLC application should not require a new platform implementation.
 
-**DEPLOY-02.** The first MCU release shall install applications while stopped. It shall not promise live online changes. A probe-flashed, embedded STBC fixture is acceptable for bring-up, but does not satisfy the release deployment gate.
+**DEPLOY-02.** A board loads programs as trust-runtime does: over the control connection, stopped or by online change, with the same checks and access rights. A probe-flashed, embedded STBC fixture is acceptable for bring-up, but does not satisfy the release deployment gate.
 
 **DEPLOY-03.** A failed transfer or power loss shall never select a partially installed application as valid. Dual slots are one option, not a universal requirement; devices without spare storage shall have a documented stopped/recovery installation procedure.
 
 **DEPLOY-04.** The device shall reject a mismatched configuration/application pair, incompatible retain schema, unsupported required import, or insufficient memory without starting the candidate application.
 
-**DEPLOY-05.** The development environment shall offer the MCU's feature and limit profile in simulation. The simulated process model may differ, but the compiled PLC logic and runtime semantics shall not depend on changing the application for the simulator.
+**DEPLOY-05.** The development environment shall offer the board's resource sizes (memory and timing) in simulation; the board has the same features as every other target (ARCH-11). The simulated process model may differ, but the compiled PLC logic and runtime semantics shall not depend on changing the application for the simulator.
 
-**DEPLOY-06.** Firmware verification shall not automatically establish authorization or authenticity of a separately downloaded PLC application. Define the application's identity, authorized deployment principals/physical commissioning policy, integrity/authentication mechanism, key/trust handling where applicable, and any rollback policy independently. Bind bytecode, configuration, and declared contracts; enforce the selected policy at installation and activation. A bootloader may support firmware recovery without implementing these application-management obligations. [E23]
+**DEPLOY-06.** Firmware verification shall not automatically establish authorization or authenticity of a separately downloaded PLC application. Define the application's identity, authorized deployment principals (the access rights of the control connection), integrity/authentication mechanism, key/trust handling where applicable, and any rollback policy independently. Bind bytecode, configuration, and declared contracts; enforce the selected policy at installation and activation. A bootloader may support firmware recovery without implementing these application-management obligations. [E23]
 
 ### 11.3 Hosted online change and execution generations
 
@@ -1419,6 +1682,8 @@ The boundary is the existing semantic transition point, not a claim that warm in
 
 **UPDATE-04.** PLC handles, debugger/export references, cached lookups, and service bindings shall carry or be validated against the applicable generation/lifetime. A stale reference shall fail explicitly unless a supported, checked rebinding operation intentionally replaces it. Define token wrap/reuse and restart/identity behavior; a repeated counter value shall not let an old handle alias an unrelated generation.
 
+**Installation generations (MEM-07, UPDATE-04).** Every value reference carries the installation generation of the storage it was taken in. Instantiating an application starts its first generation. Each committed warm or cold restart and each committed replacement of the installed application constructs the next generation, on every target. A resource-only reconfiguration (§4.3.1) keeps the storage, the generation and every reference. A refused restart or candidate changes no generation. The generation is a 32-bit counter of one installation that never wraps and is never reused: once it is exhausted, a further restart or replacement is refused with `Overflow` before anything changes, which takes 2^32 − 1 restarts and replacements of one installation. A reference of another generation names no state. A storage read through it returns nothing; a checked read, write or function-block execution refuses it with `ReferenceLifetime` before any change; and no checked write or PLC assignment stores it, so every reference the PLC holds belongs to the installed generation. The warm-restart transfer of a retained reference (§11.3 above) binds it to the new generation, which is the checked rebinding this requirement allows; a copy of the same reference held outside the PLC stays stale. A host binds the references it holds, such as engineering aliases, task function blocks, I/O binding records and protocol client points, to the same declarations again when a restart or replacement commits and before the next cycle. If a declaration of the restarted application no longer resolves, the controller faults (UPDATE-07). A staged request that names an instance by identity carries its generation (§4.3.1). The check is one 32-bit comparison, independent of pointer width.
+
 **UPDATE-05.** Retired module and state storage shall remain valid until all permitted execution, debugging, and export readers release it. Reclamation, last-owner destruction, and deallocation shall not run on a bounded control path. Use an appropriate ownership/pinning or snapshot mechanism; the design does not mandate a lock-free algorithm or a separate process.
 
 **UPDATE-06.** Admission shall cover overlapping installed/candidate/retired generations and checkpoint/export buffers. Bound retained-reader lifetime or retained-generation capacity through explicit policy; a slow debugger shall not cause indefinite memory growth. Reject/defer additional candidates safely when capacity is exhausted rather than reclaim live storage.
@@ -1428,6 +1693,85 @@ The boundary is the existing semantic transition point, not a claim that warm in
 **UPDATE-08.** Qualification shall exercise updates with nested calls completed at the boundary, active debugger/export readers, queued management/I/O work, stale handles, exhausted overlap capacity, invalid candidates, and generation wrap/reuse simulation. Verify output behavior, old-storage lifetime, off-path reclamation, and the preserved restart/retain contract. These tests do not qualify live MCU update support.
 
 Preserve UPDATE-01/02's existing boundary/warm-restart behavior as the hosted code is migrated. The extra bounded generation, reader-capacity, reclamation, and wrap/reuse machinery in UPDATE-03 through UPDATE-08 belongs to M3/M4H, where actual readers and lifetimes are inventoried. Scope A/B needs valid module ownership and no address-as-identity cache; it does not need a speculative multi-generation reclamation service. Use existing ownership where it satisfies the contract and record a reader class as absent when no actual surface can hold it.
+
+### 11.4 Projects, device settings and hardware descriptions
+
+A board is a runtime like trust-runtime on Linux, macOS and Windows (ARCH-11). Three kinds of
+settings keep it that way:
+
+| What | Files | Where they live | On Linux, macOS and Windows |
+|---|---|---|---|
+| What the PLC does | `runtime.toml`, `io.toml`, the program | the project | the same files with the same meaning |
+| The device itself | `device.toml` | written onto the device | not used; the operating system holds these settings |
+| The chip | `chips/<chip>.toml` | inside truST | not used |
+
+**TARGET-01 — Same project.** A project for a board is the same as for any trust-runtime:
+`runtime.toml`, `io.toml` and the program, with the same keys and meaning (specification 11 and the
+configuration reference). I/O uses the same `io.toml` drivers; on a chip, the `gpio` driver's `line`
+names a pin of the chip, for example `PD12` on the STM32F407 or a GPIO number on the ESP32-C6, and
+the chip's other I/O (analog, PWM, counters, CAN) are drivers of the same file. A setting that needs
+hardware the device lacks is refused when the project is deployed, with the reason (ARCH-13).
+
+**TARGET-02 — Device settings.** A device without an operating system keeps the settings that the
+operating system holds on Linux in `device.toml`, stored on the device and not in the project, so
+that no password reaches the project: the device name; each network interface (Ethernet, Wi-Fi)
+with DHCP or a fixed address; the Wi-Fi network name and password; Bluetooth; and the time server.
+It also holds the few wiring values of the device that are not pins and that the firmware cannot
+detect itself: the firmware measures the crystal frequency against the chip's internal clock and
+identifies the Ethernet PHY over its management interface, and `device.toml` names them only when
+detection is not possible. Pins are named in `io.toml`, as on Linux. It is written over the control
+connection, the first time over USB, from `trust-runtime` and from the hardware canvas, with the
+access rights of the control connection. Runtimes on Linux, macOS
+and Windows do not use it.
+
+**TARGET-03 — Chip descriptions.** truST describes each supported chip in `chips/<chip>.toml`:
+processor and instruction set, flash and RAM sizes and layout, clock limits, its interfaces, and the
+runtime components its firmware holds (ARCH-14).
+truST builds one firmware per chip from it; there is no firmware, and no file, per board. Any board
+with a supported chip runs that firmware: its pins are named in `io.toml` and its other wiring is
+detected or named in `device.toml` (TARGET-02). A chip of a supported family needs only its chip
+file. A new chip family
+needs a platform adapter, written once: the drivers for its timer, watchdog, flash, pins, USB and
+network links. Everything above the adapter is shared (ARCH-11). Appendix H defines the file.
+
+**TARGET-04 — Installing truST on a device.** `trust-runtime` and the hardware canvas install the
+truST firmware on a supported chip, over the chip's own USB boot loader or a debug probe, and
+update it later over the control connection. After that, a project is deployed to the board as to
+any trust-runtime. A chip on USB is found by the USB source of the one search of specification 11:
+a passive listing that reads USB descriptors and never resets or writes a board (owner, 15 October
+2026). A chip that already runs truST is listed as a truST runtime, reachable over USB and, when it
+has a network, found on the network like any runtime (ARCH-12).
+
+**TARGET-05 — Versions.** The same version rules apply to every runtime: the tools read the
+runtime's version over the control connection and, when the versions do not match, say which
+update is needed.
+
+**TARGET-06 — Time.** Date and time functions use the device clock. A device without a battery-held
+clock sets its clock from the time server of `device.toml` when it has a network, and reports the
+time as not set until then. A reply or event value that carries the wall-clock time, such as the
+`time_ns` of a `feature_disabled` event, is `null` while the time is not set, never an invented 0;
+trust-runtime on Linux, macOS and Windows always has the time, so its replies stay as they are. A
+device reports no `audit_dropped`: trust-runtime reports it when its audit logger thread has ended
+and the channel to it refuses a record, and a device has no such thread or channel, since its
+control loop hands each audit record to the platform's audit store in the pass that serves the
+request.
+
+**TARGET-07 — Diagnostics.** The same fault log, events and log levels as trust-runtime
+(`[runtime.log]`), read over the control connection.
+
+**TARGET-08 — Outputs on a fault.** As on Linux: `io.toml` `[[io.safe_state]]` gives each
+output's safe value, and `runtime.toml` `[runtime.fault]` and `[runtime.watchdog]` choose `halt`,
+`safe_halt` or `restart`. A disconnected computer changes nothing; the runtime keeps running
+(ARCH-07).
+
+**TARGET-09 — Releases.** Each truST release includes the firmware for every supported chip, built
+from the same version as trust-runtime, with SHA-256 sums (owner, 16 October 2026:
+"the whole point was to release builds for stm32 and esp32").
+
+**TARGET-10 — No read-out protection.** The owner wants to see the code on a device: "we dont
+want read out protection, i want to be able to see the code" (16 October 2026). truST does not
+enable read-out protection, flash encryption or secure boot on any chip; a debug probe can read the
+firmware and the installed program.
 
 ## 12. Compatibility and numeric behavior
 
@@ -1780,7 +2124,7 @@ Instrumented timings locate costs; PERF-01 acceptance uses uninstrumented builds
 
 **Hosted migration is complete** when Linux, Windows, and macOS products use the shared engine, pass native compiler-free loading and contract-qualified trace tests, retain existing supported workflows including applicable generation changes, qualify their bounded control paths, and provide per-platform baseline-relative memory/timing evidence. Timing classification and unresolved compatibility/runner exceptions shall be stated explicitly; an unresolved exception is not a passed gate.
 
-**The first MCU release is complete** when the NUCLEO-F401RE boots into its controlled state, accepts an authorized and independently validated application/configuration, prepares it without the compiler, executes the shared VM under admitted resource/scheduling/numeric contracts, meets its required completion level within the recorded timing envelope, and handles fault, restart, retain, and interrupted stopped installation as specified. Integration, disturbed/extended tests, and per-region resource evidence are all required; the release shall state its timing-evidence classification. A changed first-board selection requires an explicit scope decision and preserves the F401 evidence status.
+**The first MCU release is complete** when the STM32F407 boots into its controlled state, accepts an authorized and independently validated application/configuration, prepares it without the compiler, executes the shared VM under admitted resource/scheduling/numeric contracts, meets its required completion level within the recorded timing envelope, handles fault, restart, retain, and interrupted installation as specified, and offers every runtime service of ARCH-11 over its links (ARCH-12), tested from VS Code exactly as a trust-runtime is. Integration, disturbed/extended tests, and per-region resource evidence are all required; the release shall state its timing-evidence classification. A changed first-board selection requires an explicit scope decision and preserves the F401 evidence status.
 
 **The required ESP32 release is complete** when the named ESP32 board/build separately satisfies the same applicable MCU release gates for its declared profile. M1 core checking, firmware linking, or M2E trace parity alone is insufficient.
 
@@ -1804,7 +2148,7 @@ The evidence package shall identify whether timing support is measured-qualified
 
 ## 15. Decisions still requiring target evidence
 
-The first board model is confirmed as NUCLEO-F401RE. Its physical revision/marking and Appendix D settings still need recording before hardware work. The proposed ESP32-C6 board's availability, exact module/revision, and usable memory remain to be confirmed. Pin HAL/BSP/toolchain versions, actual memory reservations, I/O mapping, management transport, checkpoint medium, interrupt/watchdog policy, and time/space headroom for each build. No measured truST footprint or universal family support is supplied here.
+The STM32 target is the STM32F407 on the STM32F407G-DISC1 (Appendix D.4); its revision and settings still need recording before hardware work. The NUCLEO-F401RE was the first board. The proposed ESP32-C6 board's availability, exact module/revision, and usable memory remain to be confirmed. Pin HAL/BSP/toolchain versions, actual memory reservations, I/O mapping, management transport, checkpoint medium, interrupt/watchdog policy, and time/space headroom for each build. No measured truST footprint or universal family support is supplied here.
 
 M0 shall also freeze the hosted OS/architecture and service matrix, scheduling/numeric/import contracts, permitted timing-evidence classifications, application authentication/rollback model, and regression/measurement thresholds. Pin the production runtime/adapter build in qualification records; support shall not be inferred from portable Rust source alone.
 
@@ -2007,8 +2351,9 @@ belongs to scopes B/E and does not form part of RTP-A4-02 software closure.
 
 ## 17. Rust design patterns for this runtime
 
-A4 execution ownership: each source-free invocation has a checked, non-reused live
-activation identity. A nested call temporarily transfers its caller's local vector
+A4 execution ownership: each source-free invocation has a checked live activation
+identity that no other activation of its top-level entry uses (§4.3.1). A nested
+call temporarily transfers its caller's local vector
 into the engine's reference-addressable storage, then restores that same vector on
 both successful and failed return. No local snapshot is substituted for live aliasing.
 References to the current activation resolve against its active frame; references to
@@ -2226,6 +2571,9 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.23 | 17 October 2026 | §10.1: the checkpoint log in the chips' two checkpoint slots: the slot header, the record with its commit marker, the order of a write, and recovery, in which a damaged newest committed record fails the warm start, as a damaged retain file does on a computer. Appendix H: the checkpoint slots refer to §10.1. §5.2.1: the version-1 contract of every built-in function and function block (LOAD-06, PORT-02), with its IEC table, TIME-08 charges, failures and capability; preparation refuses an import without a contract or one that does not match it with `runtime_import_unsupported`, naming the import. §4.3.1 and §11.3 (MEM-07, UPDATE-04): every reference carries the installation generation it was taken in; each committed restart and replacement installs the next one, a resource-only reconfiguration keeps it, and exhaustion refuses the restart with `Overflow`; a reference of another generation names no state, a staged request that names an instance by identity carries its generation, and the host binds its own references again at each restart. |
+| 0.22 | 17 October 2026 | ARCH-15: several runtimes on every host (owner, 17 October 2026). STATE-08 states the device runner's boundary rules: `restart` after `shutdown` starts the program as a new trust-runtime process would, a `restart` while running, paused or faulted restarts in place as trust-runtime does, and pause, resume, restart and shutdown take effect at the program's next boundary. TARGET-04: the USB source is a passive listing. TARGET-06: a wall-clock value is `null` while the device time is not set. §10: a variable located at `%M` publishes its initial or retained value over the bytes it covers after the configuration actions (specification 11 §6.7). HOST-02, §4.3.1, §6.2.1 and §17 A4: activation and per-call instance identities are reused per top-level execution entry, which removes the `Overflow` fault after 2^32 − 1 activations; they stay monotonic within an entry. Appendix D.2: the ESP-IDF v5.5.1 QIO bootloader. Appendix D.4: the STM32F407 adapter, the crystal measurement, the console and the evidence profile. Appendix H: the chip file format of TARGET-03. |
+| 0.21 | 16 October 2026 | Owner corrections: adds the owner's requirements; the boards run the same runtime services as trust-runtime (ARCH-11) over any link (ARCH-12) without limits of their own (ARCH-13); ARCH-14 makes the runtime a set of components and gives each chip one firmware with every component it can hold, development boards being examples only; STATE-07 replaces the board restriction on forcing and breakpoints; removes the stopped-only installation, the physical commissioning authorization, the disabled radios and the exclusion of online change and protocol parity, which the v0.3 draft carried without the owner's approval; ARCH-02 now requires shared service code instead of excluding it; the STM32 target becomes the STM32F407 chip, firmware is developed for chips rather than boards, and network runtimes are found by the common discovery (ARCH-10, ARCH-12, Appendix D.4); adds Bluetooth as a link and a service, and §11.4: the same project files as Linux, `device.toml` for the settings an operating system holds, chip description files (one firmware per chip, no board files), installation and update of truST, versions, time, diagnostics and safe outputs (TARGET-01 to TARGET-09); SERVICE-03 selects one shared OPC UA implementation for every target; SERVICE-04 and SERVICE-05 put OpenOT telemetry (over the network) and simulation on the chips; TARGET-10 records that chips get no read-out protection. |
 | 0.16 | 13 October 2026 | Owner-approved decision makes the 16 KiB F401 upper-flash growth target informational for hardware bring-up; the executable-region bound, sector reservations, and all other memory gates remain enforced. |
 | 0.15 | 12 October 2026 | Selects uniform eight-byte temporal storage and SIZEOF in STBC 3.0, explicit legacy-layout imports, checked retained-layout compatibility, and management-write alias validation. Preserves every platform function and the external four-byte TIME codec. H corrections are authored, with review and validation tracked separately. |
 | 0.14 | 11 October 2026 | Selects HOST-09's construction-only raw mutation, checked live writes, isolated debug parsing and transactional schema replacement. Explicitly narrows live Rust mutable-reference API compatibility without reducing PLC functions or hosted workflows. H implementation and native acceptance remain pending. |
@@ -2276,7 +2624,9 @@ such as REV-MODEL-05 are not product requirement identifiers.
 
 ## Appendix D — Target decisions and first-board feasibility
 
-### D.1 NUCLEO-F401RE: confirmed first target
+### D.1 NUCLEO-F401RE: first target until 16 October 2026
+
+The owner selected the STM32F407 as the STM32 target on 16 October 2026 (Appendix D.4). This section remains as the record of scope B and its evidence.
 
 NUCLEO-F401RE is the selected first reference board. Its role is to establish compiler-free execution and useful resource evidence on hardware already available. It is not yet a supported truST controller. [E24]
 
@@ -2289,7 +2639,7 @@ NUCLEO-F401RE is the selected first reference board. Its role is to establish co
 | Flash | 512 KiB total device flash. | Partition firmware, saved/deployable application, installation metadata, and durable retain/recovery storage at actual erase-sector boundaries. Count numeric helpers and all loadable sections. [E25, E27] |
 | Clock/wake | A hardware timer supplies extended monotonic time; the runner implements PORT-03 wait/wake. | Select timer, prescaler, resolution, rollover extension, interrupt priorities, and reset epoch. Validate clock startup and wake races. |
 | Initial physical I/O | Board user button and LED through process images; proposed logical bindings `%IX0.0` and `%QX0.0`. | UM1724 maps the relevant button to PC13 and LED/D13 to PA5 for this board. Confirm bridges/polarity on the actual revision; normalize them in the BSP. A physical smoke check supplements the richer M2A trace fixture. [E26] |
-| Programming/management | Onboard ST-LINK/SWD for firmware bring-up; bounded serial management is the initial application-installation direction. | Verify ST-LINK virtual COM routing and UART setup; distinguish probe-flashed firmware from the stopped STBC installation required for release. [E24, E26] |
+| Programming/management | Onboard ST-LINK/SWD for firmware bring-up; the control connection over USB, through the ST-LINK virtual COM port. The F401 has no network port; a network link needs an STM32 board with Ethernet, which the owner selects (ARCH-13). | Verify ST-LINK virtual COM routing and UART setup; distinguish probe-flashed firmware from the stopped STBC installation required for release. [E24, E26] |
 | Fault supervision | Independent watchdog and explicit BOOT/STOP/FAULT output behavior. | Record watchdog clock/tolerance, timeout, debug-freeze behavior, and reset output state; service only under supervisor policy. [E27] |
 | Persistence | Internal flash stop checkpoints; last completed compatible checkpoint survives power loss. | No last-scan retention promise. Specify separate valid/new checkpoint storage, interrupted-write recovery, endurance, and watchdog servicing during maintenance. External storage or power-fail hardware is needed only if the stronger selected policy requires it. [E61] |
 | Numeric behavior | Preserve `REAL`/`LREAL` widths and NUM-05 evaluation rules. | Budget software double precision on M4F; no silent narrowing to make the fixture fit or run faster. |
@@ -2451,12 +2801,12 @@ graphs. No desktop dependency may be hidden by moving the adapter out of the wor
 | Area | Proposed first profile | Decision to freeze or evidence required |
 |---|---|---|
 | Board/chip | ESP32-C6-DevKitC-1 with 8 MB flash, HP RV32IMAC core; owned since 15 October 2026. | M0 record: chip revision v0.2, eFuse block revision v0.3, 40 MHz crystal, chip ID 13, base MAC 20:6e:f1:17:04:c0, secure boot and flash encryption disabled; the factory flash image is retained with its SHA-256. Keep one PLC engine owner on the HP core. Another MCU family cannot satisfy ARCH-10. [E56, E57] |
-| Rust/HAL | `riscv32imac-unknown-none-elf` with `esp-hal`; radios disabled. | Pin compiler/HAL/startup/flash tools and linker layout. This is a stable bare-metal target, not the similarly named ESP-IDF target. [E56] |
+| Rust/HAL | `riscv32imac-unknown-none-elf` with `esp-hal`; Wi-Fi as a network link (ARCH-12). | Pin compiler/HAL/startup/flash tools and linker layout. This is a stable bare-metal target, not the similarly named ESP-IDF target. [E56] |
 | Atomic/ownership boundary | IMAC permits existing atomic-backed values during measured bring-up; no new atomic RMW dependency in core. | Retire them in the shared bounded-storage slice before M3. C3/IMC becomes an additional gate after that work if selected; portable-atomic alone does not rewrite `alloc::sync::Arc` consumers. [R24, E46, E56] |
 | Numeric cost | No F/D floating-point extension on the selected target; REAL and LREAL use software arithmetic. | Measure numeric helpers/latency on C6 independently of F401; an ARM single-precision result is not a C6 estimate. Optional C3 also needs software floats. [E56, E57] |
 | Memory/flash | Explicit usable internal-memory and linker/partition budget. | Record code/data/stack/driver reservations, preparation peaks, and actual module flash. Do not assume external RAM or treat LP memory as freely interchangeable HP engine SRAM. [E57] |
-| Runner and I/O | One engine owner, timer wakeups, staged I/O, bounded serial management. | Interrupts/callbacks notify the runner or fill staging buffers; they do not independently run PLC tasks or mutate its active state. Freeze pin/strapping and reset behavior. |
-| Radio/services | Initial parity profile has Wi-Fi/BLE disabled. | If later enabled, include its actual radio scheduler, interrupts, buffers, contention, and load in memory/timing qualification. Espressif documents background runtime requirements for its radio stack. [E33] |
+| Runner and I/O | One engine owner, timer wakeups, staged I/O, the control connection over Wi-Fi and USB. | Interrupts/callbacks notify the runner or fill staging buffers; they do not independently run PLC tasks or mutate its active state. Freeze pin/strapping and reset behavior. |
+| Radio/services | Wi-Fi carries the control connection and the other network services (ARCH-11, ARCH-12). | Include the radio scheduler, interrupts, buffers, contention, and load in memory/timing qualification. Espressif documents background runtime requirements for its radio stack. [E33] |
 | Alternative ESP-IDF composition | Available as an explicit platform integration choice if required drivers/services justify it. | Bind IDF, Rust wrapper, FreeRTOS/task, and synchronization versions; use the same core and PLC scheduler. Do not pull the desktop `trust-runtime` product into MCU firmware. [E34] |
 | Flash interference and supervision | Forbid installation/erase during RUN in the initial profile. | Qualify later persistence against the C6 stack/memory placement. E35's earlier ESP32 IDF guidance is background, not C6 bare-metal proof; review the selected implementation before permitting flash work in RUN. |
 | Milestones | M1 isolated core check, M2E linked firmware and saved-artifact execution, M5 qualification. | Missing hardware leaves physical gates open while independent host/F401 work proceeds. |
@@ -2472,9 +2822,16 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   memory and USB-Serial/JTAG drivers are unstable API in that release. `esp-bootloader-esp-idf`
   0.6.0 supplies the application descriptor and `esp-storage` 0.10.0 the flash reads. The bench
   host flashes and reads back with `espflash` 4.6.0.
-- **Bootloader.** The second-stage bootloader is the one bundled with `espflash` 4.6.0, which
-  reports `ESP-IDF v6.1-beta1-497-g14f663f003e`. M2E records its hash. M5 qualification requires a
-  released bootloader instead.
+- **Bootloader.** M2E used the second-stage bootloader bundled with `espflash` 4.6.0, which
+  reports `ESP-IDF v6.1-beta1-497-g14f663f003e`. Since 17 October 2026 the C6 uses a bootloader
+  built from the ESP-IDF v5.5.1 release tag, configured for QIO and 8 MB (sha256
+  `f5c0819843648a6692a563a4b2c933c9473fda7e42e7c13627f2acffb34208ce`). As ESP-IDF does for QIO,
+  its image header says DIO: the chip's ROM loads the bootloader in DIO, and the bootloader sets
+  the flash's quad-enable bit and switches to QIO itself. It is flashed with `espflash flash
+  --bootloader <file> --flash-mode dio`; forcing a QIO header (`--flash-mode qio`) makes the ROM
+  stop with `ets_loader.c 67`, which was the QIO failure seen with the beta bootloader. The
+  M2E firmware ran with it in DIO and in QIO with the same records as with the beta bootloader
+  apart from timing values.
 - **Clock.** `CpuClock::max()` sets 160 MHz. SYSTIMER (16 MHz, 52 bits) supplies monotonic
   microseconds without a rollover extension. The machine performance counter CSR 0x7E2 counts CPU
   cycles from boot: 16,003,071 cycles in 100,018 µs. A 1 kHz SYSTIMER alarm interrupt only
@@ -2544,6 +2901,25 @@ The RISC-V choice exposes a different ISA, soft-float cost, interrupts, and plat
 
 An H7 is a later capacity/performance option, not the starting-board requirement. If selected, add a named board/HAL profile with memory-bank availability, DMA reachability, cache/MPU maintenance, clock/FPU setup, and watchdog/output behavior. ST's Cortex-M7 cache/DMA guidance applies to this profile; do not carry its memory assumptions into F401 or ESP32 code. Larger capacity does not waive the shared fixture or turn F401 failure into success. [E37]
 
+### D.4 STM32F407: the STM32 target from 16 October 2026
+
+Firmware is developed for the chip (ARCH-10). The first board is the owner's STM32F407G-DISC1.
+
+| Area | Decision | Evidence or remaining work |
+|---|---|---|
+| Chip | STM32F407 (STM32F407VG on the DISC1): Cortex-M4 with single-precision FPU, up to 168 MHz, 1 MiB flash, 192 KiB SRAM including 64 KiB CCM, Ethernet MAC, USB OTG FS and HS. | Record the device ID, revision and flash size at M0. The CCM is reachable by the CPU only, not by DMA. |
+| Board | STM32F407G-DISC1: on-board ST-LINK (USB 0483:3752, serial 0671FF575377524867063440), USB OTG FS on its micro-USB connector, no Ethernet PHY. | 16 Oct M0 record over SWD: DBGMCU_IDCODE 0x100F6413 (device 0x413, STM32F405/407, revision code 0x100F), flash size register 1024 KiB, CPUID 0x410FC241 (Cortex-M4 r0p1), UID 0x0034002D 0x34314715 0x35363630, target supply 2.87 V. |
+| Links (ARCH-12) | The control connection over USB (OTG FS to the chip) and over Ethernet when the board has a PHY. | The DISC1 has no PHY; Ethernet is proved on a board or add-on with one. |
+| Adapter | `crates/trust-platform-stm32f4`, one Cargo feature per chip: `stm32f401` (the default, the F401 composition unchanged) and `stm32f407`. What differs between the chips is data in `chip.rs`: system clock, flash sectors, RAM, device ID, ports and the pins the firmware keeps. Pins are named at run time; no pin of any board is in the adapter. Ethernet and USB are the next steps. | Authored 17 October 2026, not yet built or run. HAL 0.23.0, PAC 0.16.0, cortex-m 0.7.9 and cortex-m-rt 0.7.7 are the F401's versions; one engine owner as on the F401. |
+| Clock | 168 MHz for SYSCLK and HCLK, APB1 42 MHz, APB2 84 MHz, from the PLL. The crystal is measured, not assumed (TARGET-02): after reset the chip runs from the 16 MHz HSI, the firmware starts the crystal, and TIM11 counts HSI cycles over 64 captures, each of eight edges of the crystal clock divided by 31 (RCC_CFGR.RTCPRE; TIM11 option register TI1_RMP = HSE_RTC). The figure is rounded to a whole MHz, between 4 and 26 MHz, when it is at most 1.2 % above or 5 % below one, and configures the PLL; above is tight because a crystal above the figure the PLL is told would run the chip above 168 MHz (for a crystal that is not a whole MHz, with the HSI inside its trim, at most about 0.5 % above). No crystal, no clean capture or an unlikely figure sends the PLL to the HSI. The startup record `B1,CLOCK,<HSE or HSI>,<measured Hz>,<crystal Hz>,<SYSCLK Hz>,<note>` follows each `B1,IDENTITY`, the first boot's and the watchdog boot's, and says which, and why. | The HSI is factory-trimmed to 1 % at 25 degrees (DS8626), so the measurement is no more exact than that. A crystal that is not a whole number of MHz is named in `device.toml` (TARGET-02). The route through TIM11 is unproven until the bench run. |
+| Flash | 1 MiB in 12 sectors: 4 x 16 KiB, 1 x 64 KiB and 7 x 128 KiB (RM0090). The first four sectors and the start of the firmware are laid out as on the F401: vectors in sector 0, the application bundle in sector 1 (0x08004000), checkpoint slots in sectors 2 and 3, firmware from sector 4 (0x08010000) through sector 11, 960 KiB. | The linker script asserts the vector size, the firmware start and the end of flash. The F401's data placement in sector 0 is a squeeze for 448 KiB and is not used. |
+| RAM | SRAM1 112 KiB and SRAM2 16 KiB form one block of 128 KiB at 0x20000000; the 64 KiB CCM at 0x10000000 is for the CPU only. The bench firmware keeps the fixture's 72 KiB allocator arena and 16 KiB main stack in the 128 KiB; the CCM is unassigned. | The footprint of the services runner decides what moves into the CCM. |
+| Identity | The firmware checks DBGMCU_IDCODE device 0x413 and the flash size register, 1024 KiB, and stops on another chip. The device ID is shared by the F405, F407, F415 and F417; the build selects the chip. | The check is tested on the host against the M0 record above. |
+| Pins (TARGET-01) | A line names a pin as `P`, a port letter A to K and a number 0 to 15: `PD12` (small letters are accepted). The chip table says which pins exist (ports A to I; port I has PI0 to PI11) and which the firmware keeps: PA2 and PA3 for the console, PA13 and PA14 for SWD, PH0 and PH1 for the crystal. A refused line says why. An output latches its safe level before it becomes an output, and `emergency_halt` drives every configured output to its safe level. The table check is a `const fn`, so the bench firmware asserts its wiring when it is built. | The DISC1 is configuration of the bench firmware, not of the adapter: LD4 (green) on PD12 (LD3 to LD6 are PD13, PD12, PD14 and PD15) and the user button B1 on PA0, which reads high while pressed. |
+| Console | USART2 on PA2 (TX) and PA3 (RX), 230400 baud, 8N1, written at register level because the driver that owns every GPIO port also owns these pins. | ST's UM1472, as an ST community post quotes it, says the ST-LINK/V2-A's virtual COM port lines (ST-LINK_TX and ST-LINK_RX on U2 pins 12 and 13) are not connected to the F407's USART, so the DISC1 may give no console over its USB cable. The manual itself has not been checked for this entry; confirm on the owner's board. Until a link over USB exists the bench console is a 3.3 V USB-UART adapter on PA2 and GND. |
+| Firmware | `firmware/trust-stm32f407`, for the chip. It runs the shared `trust-board-fixture` runner until the services runner replaces it. | Build and bench run pending. |
+| Evidence | `cargo xtask portability build-firmware stm32f407` builds the chip's firmware from `chips/stm32f407.toml` (Appendix H); `inspect` and `verify` take the bench board's name `stm32f407g-disc1`. Inspection reads the sector map above: the vector table alone in sector 0, nothing loaded in sectors 1 to 3, the firmware and the initial values of `.data` in sectors 4 to 11, the statics and the 72 KiB arena in the 112 KiB of SRAM below the 16 KiB main stack (0x2001C000 to 0x20020000, initial stack pointer 0x20020000), and nothing in the CCM. The verifier pins the chip words of the M0 record (DBGMCU_IDCODE and the three UID words), the 1024 KiB flash size and the 168 MHz clock, and requires exactly one `B1,CLOCK` record right after each of the two `B1,IDENTITY` records. It checks the record's fields: the source is HSE or HSI and goes with the note; SYSCLK equals the profile's 168 MHz; an HSE record has a crystal of 4 to 26 MHz that is the measurement rounded to a whole MHz; an HSI record has no crystal figure. It reads B1 as active high (the pin level equals the pressed flag; the F401's PC13 and the C6's GPIO9 read low while pressed) and bounds a scan at 10 ms of cycles, 1,680,000. | Authored 17 October 2026 and tested on the host with synthetic records only. The reader of the linked ELF and the form of a real capture are proved by the first build and bench run. |
+
 ## Appendix E — Implementation deliverables and acceptance ownership
 
 These are future work items, not completed code or newly passing tests. Existing native tests supply behavior references; add missing assertions in the owning crate/physical harness while implementing the authorized scope. Execution follows Section 13's consolidated validation cadence.
@@ -2603,3 +2979,146 @@ qualification. A1 fixes scheduling and freezes the corrected native and numeric
 fixtures; A3 settles exact 2.0 layouts before
 format implementation. A4 proves integrated source-free execution, and Scope B/M2E
 supplies physical resource evidence.
+
+## Appendix H — Chip description files
+
+TARGET-03 describes each supported chip once, in `chips/<chip>.toml`. This appendix defines that
+file. The supported chips are the STM32F407 (`chips/stm32f407.toml`) and the ESP32-C6
+(`chips/esp32c6.toml`). The STM32F401 of the NUCLEO-F401RE is no longer a supported chip (D.1)
+and has no file; its firmware stays buildable under the bench name `nucleo-f401re` for the scope B
+record. A development board has no file (ARCH-14): its pins are named in `io.toml` and its other
+wiring is detected or named in `device.toml` (TARGET-01, TARGET-02).
+
+### H.1 Reading a file
+
+A chip file is TOML. Every key below is required unless the table names it for one family only;
+`sources.measured_on` follows rule 10 of H.5. A key the format does not define, a missing key, a
+value of the wrong type and a word outside a closed list are refused, and so is a file that breaks
+a rule of H.5. Numbers are integers; addresses and IDs may be written in hexadecimal. Sizes are in
+KiB.
+
+### H.2 Keys
+
+| Table | Key | Meaning |
+|---|---|---|
+| `[identity]` | `name` | The chip's name: the file's name without `.toml`, in small letters and digits. `build-firmware` takes it. |
+| | `model` | The manufacturer's name for the chip, for example `STM32F407`. |
+| | `family` | The platform adapter that drives the chip, which also decides how its pins are named: `stm32f4` (`crates/trust-platform-stm32f4`) or `esp32` (`crates/trust-platform-esp32`). |
+| | `device_id` | The number the chip reports for itself, by which the firmware and a probe recognize it. `stm32f4`: DEV_ID, bits 11:0 of DBGMCU_IDCODE, which the firmware checks at start and a debug probe reads; the firmware also checks that the flash size register equals `memory.flash.kib` (D.4). `esp32`: the chip ID that the ROM and espflash report and the firmware image header carries (D.2). |
+| | `usb_bootloader` | `{ vid, pid }`: the USB IDs the chip shows while its own boot loader runs, through which truST is installed over USB (TARGET-04). The USB search recognizes a chip by them. |
+| `[processor]` | `core` | The processor core. |
+| | `isa` | Its instruction set. |
+| | `rust_target` | The Rust target the firmware is built for. |
+| | `fpu` | `none`, `single` or `double` precision. |
+| `[clock]` | `max_hz` | The highest processor clock of the data sheet. |
+| | `firmware_hz` | The clock the truST firmware runs the processor at. |
+| | `crystal_min_hz`, `crystal_max_hz` | The crystals the chip's oscillator accepts. |
+| `[memory.flash]` | `start`, `kib`, `sectors` | `stm32f4` only: flash in the chip's address space, from address `start`, of `kib`, with its erase sectors in address order as runs `{ count, kib }`. |
+| `[memory.spi_flash]` | `erase_kib` | `esp32` only: flash on the chip's SPI flash interface, in the package or the module. Its size is the device's own and is read when truST is installed; `erase_kib` is its erase unit. |
+| `[[memory.ram]]` | `name`, `start`, `kib`, `dma` | One entry per RAM region: its name in the reference manual, its first address, its size, and whether DMA reaches it (the F407's CCM is for the CPU only). |
+| `[layout]` | `vectors` | `stm32f4` only: the vector table. |
+| | `bootloader`, `partition_table` | `esp32` only: the second-stage boot loader and the partition table. |
+| | `firmware` | The truST firmware. |
+| | `application` | The separately installed application (DEPLOY-01). |
+| | `checkpoint_a`, `checkpoint_b` | The two checkpoint slots of the retain store, so that an interrupted write keeps the last good checkpoint (RETAIN-02); §10.1 defines their contents. |
+| `[interfaces]` | `usb`, `ethernet`, `wifi`, `bluetooth`, `uart`, `can`, `spi`, `i2c`, `adc`, `dac`, `timers`, `pwm` | The chip's peripherals of each kind, by the manufacturer's names. An empty list means the chip has none. An Ethernet PHY and other wiring belong to the board. |
+| `[gpio]` | `ports` | `stm32f4` only: `{ port, pins }` for each GPIO port, its pins counted from 0; a pin is named like `PD12`. |
+| | `pins` | `esp32` only: the number of GPIOs, `GPIO0` upwards; a pin is named like `GPIO18`. |
+| | `reserved` | `{ pin, reason }` for each pin the firmware keeps for itself, which `io.toml` cannot use; `reason` is `console`, `debug`, `oscillator` or `usb`. |
+| `[firmware]` | `crate` | The firmware crate's directory, under `firmware/`. |
+| | `bin` | Its binary. |
+| | `components` | The runtime components the firmware holds (H.3). |
+| `[sources]` | `documents`, `measured`, `measured_on`, `unchecked` | Where the values come from (H.4). |
+
+Layout regions are `{ start, kib }`. Their addresses are bus addresses in `memory.flash` and flash
+offsets in `memory.spi_flash`. The pins are those of the chip's largest package; a board's package
+may have fewer, and its `io.toml` names only pins it has.
+
+### H.3 Components
+
+The component names are a closed list. Each is one runtime service of ARCH-11, the same code on
+every target (ARCH-14):
+
+| Component | What it is |
+|---|---|
+| `engine` | The engine, `trust-runtime-core`: bytecode execution, tasks and cycles, the process image. |
+| `control` | The control connection and its protocol: status, start, stop and restart, resource states and faults, events and log. |
+| `live-values` | Live Values: read, write, force and release. |
+| `debug` | Debugging (specification 13). |
+| `deploy` | Program loading, including online change. |
+| `access` | Access rights: tokens and roles, TLS and signed deployment. |
+| `discovery` | Discovery and the mesh (ARCH-12). |
+| `communication` | The communication services: the `io.toml` drivers, and Bluetooth devices where the chip has Bluetooth. |
+| `web-hmi` | The web pages and the HMI. |
+| `modbus-rtu` | The `modbus-rtu` driver on the chip's UARTs. |
+| `ethercat` | The `ethercat` driver on a chip with an Ethernet controller. |
+| `opcua` | The OPC UA server and client (SERVICE-03). |
+| `ads` | The Beckhoff ADS client and server. |
+| `cloud` | The runtime cloud, the fleet and pairing. |
+| `observability` | The historian with its alerts, and the Prometheus metrics. |
+| `openot` | OpenOT telemetry (SERVICE-04). |
+| `simulation` | Simulation (SERVICE-05). |
+
+A firmware holds `engine` and lists each further component once it holds it, as measured. Today's
+firmware runs the M2E fixture and holds `engine` alone. Several resources in one configuration,
+and several runtimes on one chip (ARCH-15), are not components: every firmware runs them, and how
+many runtimes fit a chip is measured and reported (ARCH-13). Linux, macOS and Windows run every
+component and have no chip file. The tools offer what the device's chip file lists and refuse a
+project that needs a component it lacks, naming the chips whose files list it (ARCH-14).
+
+### H.4 Measured and data-sheet values
+
+A value is the manufacturer's, from the documents in `sources.documents`, or truST's own choice
+(the layout, the firmware clock, the firmware and its components), unless `[sources]` says
+otherwise. `measured` lists the values that were read on a chip, and `measured_on` says on which
+device and when. `unchecked` lists manufacturer values that the repository's records do not yet
+confirm; a reviewer checks them against the documents before a tool relies on them. An entry is a
+key path such as `identity.device_id`. A path through an array of tables names that key in every
+entry (`memory.ram.dma`); a path to a table or an array names all of it.
+
+### H.5 Rules
+
+The reader refuses a file that breaks one of these rules:
+
+1. `identity.name` is the file's name, of small letters and digits. `model`, `core`, `isa`,
+   `bin` and every name in a list are not empty.
+2. For `stm32f4`, `device_id` is 1 to 0xFFF, the twelve bits of DEV_ID.
+3. `firmware_hz` is more than 0 and at most `max_hz`; `crystal_min_hz` is more than 0 and at most
+   `crystal_max_hz`.
+4. The Rust target is of the family's architecture, `thumb` for `stm32f4` and `riscv32` for
+   `esp32`, and it agrees with the FPU: an `eabihf` target has an FPU and an `eabi` target none; a
+   RISC-V target's letters are the instruction set (`riscv32imac` is `RV32IMAC`), and its F or D
+   letter is the FPU.
+5. `stm32f4` describes its flash in `memory.flash` and `esp32` in `memory.spi_flash`, and neither
+   in the other. The sectors add up to `kib`. The flash, every sector run, RAM region and layout
+   region, and the erase unit hold at least 1 KiB; there is at least one RAM region; an `esp32`
+   chip has at least one GPIO.
+6. The RAM regions have different names, lie below 4 GiB and overlap neither one another nor
+   `memory.flash`.
+7. The layout has the family's regions and no others. Each region lies inside `memory.flash` and
+   starts and ends on a sector boundary, or, in SPI flash, on a multiple of `erase_kib`. No two
+   regions overlap. `vectors` starts at the first byte of the flash, where the processor starts,
+   and `bootloader` at offset 0, where the ROM loads it.
+8. Each name is listed once in each list of `interfaces`, in the ports, the reserved pins, the
+   components and the documents. `stm32f4` has `ports`, with letters A to K and 1 to 16 pins each,
+   and no `pins`; `esp32` has `pins` and no `ports`. A reserved pin is named in its family's form
+   and is a pin of the chip.
+9. `firmware.crate` is a directory under `firmware/`, and the components include `engine`.
+10. `sources.documents` is not empty. Every path in `measured` and `unchecked` names a key outside
+    `[sources]`, and no path is listed twice or inside another listed path. `measured_on` is given,
+    and not empty, exactly when `measured` is not empty.
+
+### H.6 Where the files are read
+
+The crate `crates/trust-chips` reads and checks chip files and embeds every file of `chips/` as
+the catalog of supported chips, in which no two files have one name. It depends on no firmware or
+platform adapter, so `trust-runtime` (its command line, and the USB search and installation of
+TARGET-04) and `xtask` can use it; the adapters use it only in their host tests.
+`cargo xtask portability build-firmware <chip>` builds the chip's firmware from its file: its
+crate, binary and Rust target. `inspect` and `verify` take a bench board: `stm32f407g-disc1`,
+`esp32c6-devkitc-1` or `nucleo-f401re`. A bench profile holds the bench's own values, such as the
+button's polarity, the fixture's memory budget and the module's flash, and takes its chip values
+from the chip's file. Host tests compare the adapters' chip data with the files: the STM32F407
+table in `chip.rs`, its crystal range, and the C6 profile. The xtask tests compare the firmware's
+linker scripts and partition table, the inspector's regions and the verifier's pinned chip IDs
+with them. A chip value is thus written once, in its file, and checked wherever code repeats it.

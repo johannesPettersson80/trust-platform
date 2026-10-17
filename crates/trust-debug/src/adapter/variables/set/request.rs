@@ -344,8 +344,12 @@ impl DebugAdapter {
                         // A force is queued before the write, so a full request queue refuses the
                         // request before the destination changes.
                         let debug = self.session.debug_control();
-                        let target =
-                            ForcedVarTarget::Instance(instance_id, args.name.as_str().into());
+                        let generation = runtime.storage().generation();
+                        let target = ForcedVarTarget::Instance(
+                            generation,
+                            instance_id,
+                            args.name.as_str().into(),
+                        );
                         let previous = if force_requested {
                             debug.forced_var_value(&target)
                         } else {
@@ -353,6 +357,7 @@ impl DebugAdapter {
                         };
                         if force_requested
                             && let Err(error) = debug.try_force_instance(
+                                generation,
                                 instance_id,
                                 args.name.clone(),
                                 coerced.clone(),

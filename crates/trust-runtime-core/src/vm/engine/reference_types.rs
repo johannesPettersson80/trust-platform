@@ -158,7 +158,8 @@ mod tests {
                     id as u32,
                     crate::value::ValueRef {
                         location: MemoryLocation::Instance(instance),
-                        offset: *offset,
+                        offset: u32::try_from(*offset).ok()?,
+                        generation: data.storage.generation(),
                         path: path.clone(),
                     },
                     ty,

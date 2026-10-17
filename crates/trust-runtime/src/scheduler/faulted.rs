@@ -11,15 +11,18 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration as StdDuration;
 
+use trust_runtime_services::resource::commands::{faulted_command_effect, FaultedCommandEffect};
+
 use super::supervisor::ScanSupervision;
 use super::{
-    apply_resource_command, recover_mutex_lock, set_last_error, set_resource_state,
+    apply_resource_command, command_class, recover_mutex_lock, set_last_error, set_resource_state,
     AutomaticRestartLimiter, Clock, ResourceCommand, ResourceRunner, ResourceState, RuntimeError,
 };
 
-/// Poll period of the faulted wait. A command wakes the wait at once. A restart request or a
-/// stop request is seen within this period, so the wait never spins.
-const FAULTED_WAIT_POLL: StdDuration = StdDuration::from_millis(10);
+/// Poll period of the faulted wait, the shared one. A command wakes the wait at once. A restart
+/// request or a stop request is seen within this period, so the wait never spins.
+const FAULTED_WAIT_POLL: StdDuration =
+    trust_runtime_services::resource::supervisor::FAULTED_WAIT_POLL;
 
 /// How the faulted wait ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,34 +138,46 @@ fn next_command<C: Clock + Clone>(runner: &ResourceRunner<C>) -> Option<Resource
     }
 }
 
-/// Serves one command while faulted. Returns true when an online change was applied.
+/// Serves one command while faulted, by the shared faulted-wait rules. Returns true when an
+/// online change was applied.
 pub(super) fn serve_command<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     command: ResourceCommand,
 ) -> bool {
-    match command {
-        // The control plane refuses pause and resume while faulted. They are ignored if they arrive.
-        ResourceCommand::Pause | ResourceCommand::Resume => false,
-        // Variable writes are dropped: fault handling is a clearing boundary (spec 11 section 6.9.2).
-        ResourceCommand::MeshApply { .. } => false,
-        ResourceCommand::ReloadBytecode {
-            bytes,
-            claim,
-            respond_to,
-        } => {
-            // A withdrawn reload is skipped: it neither commits nor ends the faulted wait.
-            if !claim.take() {
-                return false;
-            }
-            let result = runner.runtime.apply_online_change_bytes(&bytes, None);
-            let applied = result.is_ok();
-            let _ = respond_to.send(result);
-            applied
-        }
+    match faulted_command_effect(command_class(&command)) {
+        // The control plane refuses pause and resume while faulted; they are ignored if they
+        // arrive. Variable writes are dropped: fault handling is a clearing boundary (spec 11
+        // section 6.9.2).
+        FaultedCommandEffect::Ignore | FaultedCommandEffect::Discard => false,
+        FaultedCommandEffect::Recover => apply_recovery_reload(runner, command),
         // Configuration updates and read-only reports answer exactly as they do while running.
-        other => {
-            apply_resource_command(&mut runner.runtime, other);
+        FaultedCommandEffect::Apply => {
+            apply_resource_command(&mut runner.runtime, command);
             false
         }
     }
+}
+
+/// Applies a reload while faulted. Returns true when the online change was applied, which ends
+/// the fault.
+fn apply_recovery_reload<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    command: ResourceCommand,
+) -> bool {
+    let ResourceCommand::ReloadBytecode {
+        bytes,
+        claim,
+        respond_to,
+    } = command
+    else {
+        return false;
+    };
+    // A withdrawn reload is skipped: it neither commits nor ends the faulted wait.
+    if !claim.take() {
+        return false;
+    }
+    let result = runner.runtime.apply_online_change_bytes(&bytes, None);
+    let applied = result.is_ok();
+    let _ = respond_to.send(result);
+    applied
 }

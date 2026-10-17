@@ -9,7 +9,7 @@ use std::{
 };
 
 /// Crates that only the full controller and its services may bring in.
-const RUNTIME_ONLY_ABSENT: [&str; 16] = [
+const RUNTIME_ONLY_ABSENT: [&str; 17] = [
     "serde",
     "serde_json",
     "tiny_http",
@@ -26,6 +26,7 @@ const RUNTIME_ONLY_ABSENT: [&str; 16] = [
     "trust-tcads-native",
     "trust-wasm-analysis",
     "trust-ads-server",
+    "trust-runtime-services",
 ];
 
 /// Crates that the full and development compositions must include.

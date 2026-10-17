@@ -152,6 +152,43 @@ assert_eq!(runtime.storage().get_global("count"), Some(&Value::DInt(14)));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
+A reference belongs to the installation generation of the storage it was taken
+in (specification 34 §11.3). A warm or cold restart and a replacement each
+install the next generation; a resource-only update keeps it. A reference of an
+earlier generation names no state: `storage().read_by_ref_ref` returns `None`,
+and `read_reference`, `write_reference` and `execute_function_block` refuse it
+with `RuntimeError::ReferenceLifetime` before anything changes. Resolve a held
+reference again after a restart or replacement. The hosted `Runtime` does so for
+the references it holds itself: engineering aliases, task function blocks, I/O
+bindings and ADS and OPC UA client points.
+
+```rust
+use trust_runtime::{error::RuntimeError, harness::CompileSession, value::Value, RestartMode};
+
+let mut runtime = CompileSession::from_source(
+    "VAR_GLOBAL count : INT := 1; END_VAR PROGRAM Main END_PROGRAM",
+).build_runtime()?;
+let held = runtime.storage().ref_for_global("count").expect("declared global");
+runtime.restart(RestartMode::Warm)?;
+assert_eq!(runtime.read_reference(&held), Err(RuntimeError::ReferenceLifetime));
+let current = runtime.storage().ref_for_global("count").expect("declared global");
+assert_eq!(current.generation, runtime.storage().generation());
+assert_eq!(runtime.read_reference(&current)?, Value::Int(1));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+This changes the embedding API:
+
+| Previous | Replacement |
+|---|---|
+| `ValueRef { location, offset: usize, path }` | `ValueRef { location, offset: u32, generation, path }`: the slot index is 32 bits on every target, and `generation` comes from the storage the reference addresses (`VariableStorage::generation()`). Prefer the storage's `ref_for_*` methods, which set both. |
+| `ValueRefView { location, offset, path }` | The view also carries `generation`. `ValueRefView::to_owned()` returns `Result<ValueRef, RuntimeError>`: a slot beyond 32 bits fails with `Overflow`. |
+| `DebugControl::enqueue_instance_write(id, ..)`, `try_enqueue_instance_write`, `force_instance`, `try_force_instance` | The same methods take the generation the instance identity was resolved in first, for example `snapshot.storage.generation()`. A request of an earlier generation is rejected at its scan boundary with `write_rejected`. `DebugControl::generation()` gives the installed generation for a bare identity a client sent. |
+| `ForcedVarTarget::Instance(id, name)` | `ForcedVarTarget::Instance(generation, id, name)`; `release_instance(id, name)` releases the force in any generation. |
+
+`ValueRef` keeps its size on 64-bit targets (40 bytes) and `Value` keeps its size
+on every target.
+
 STBC 1.1 loading requires the full authoring composition's explicit matching
 construction context, `CompileSession::build_runtime_from_bytecode`. It preserves
 the supplied instruction bodies. Source positions are attached only when the
@@ -182,3 +219,12 @@ This is artifact compatibility on every platform, not a different function set.
 
 The external DWORD TIME process-image codec is still unsigned milliseconds with
 checked overflow. It is independent of eight-byte internal temporal storage.
+
+Preparation names a refused built-in import. An artifact whose standard-library
+call or standard function-block template does not match its built-in contract
+(specification 34 §5.2.1) fails with `RuntimeError::ImportUnsupported { import,
+reason }` and the stable code `runtime_import_unsupported`. Before, an unknown name
+failed with `runtime_profile_unsupported` and a mismatched call or template with
+`vm_bytecode_decode`, neither naming the import. A `match` over `RuntimeError` or
+`StableErrorCode` without a wildcard arm needs the new variant. The contracts
+themselves are public in `trust_runtime_core::stdlib::contracts`.

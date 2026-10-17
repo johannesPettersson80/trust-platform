@@ -1,17 +1,6 @@
-/// Newest runtime events the product event store keeps for `events.tail` and `faults`. It is the
-/// largest limit either operation accepts (specification 11, event store).
-const EVENT_STORE_CAPACITY: usize = 1_000;
-
-/// Append a runtime event, dropping the oldest events beyond `EVENT_STORE_CAPACITY`.
-fn store_event(
-    store: &mut VecDeque<trust_runtime::debug::RuntimeEvent>,
-    event: trust_runtime::debug::RuntimeEvent,
-) {
-    store.push_back(event);
-    while store.len() > EVENT_STORE_CAPACITY {
-        store.pop_front();
-    }
-}
+// The product event store keeps the newest runtime events for `events.tail` and `faults`; its
+// bound is shared runtime code (spec 34 ARCH-11, specification 11 event store).
+use trust_runtime_services::events::store_event;
 
 #[allow(clippy::too_many_arguments)]
 pub fn run_runtime(

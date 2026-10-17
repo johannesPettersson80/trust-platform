@@ -8,7 +8,7 @@ use super::{
 use crate::{
     debug::{DebugControl, ForcedVarTarget, PendingVarTarget, RuntimeEvent},
     error::RuntimeError,
-    memory::{InstanceId, VariableStorage},
+    memory::{Generation, InstanceId, VariableStorage},
     program_model::{Expr, LValue},
     task::TaskConfig,
     value::{Duration, Value, ValueRef},
@@ -417,9 +417,9 @@ impl HostedCycle<'_> {
                         });
                     (name.to_string(), result)
                 }
-                PendingVarTarget::Instance(id, name) => {
-                    let result =
-                        instance_reference(access.storage(), id, &name).and_then(|reference| {
+                PendingVarTarget::Instance(generation, id, name) => {
+                    let result = instance_reference(access.storage(), generation, id, &name)
+                        .and_then(|reference| {
                             access.write_admitted_reference(reference.as_view(), write.value)
                         });
                     (format!("{}.{name}", id.0), result)
@@ -474,9 +474,9 @@ impl HostedCycle<'_> {
                         });
                     (name.to_string(), result)
                 }
-                ForcedVarTarget::Instance(id, name) => {
-                    let result =
-                        instance_reference(access.storage(), id, &name).and_then(|reference| {
+                ForcedVarTarget::Instance(generation, id, name) => {
+                    let result = instance_reference(access.storage(), generation, id, &name)
+                        .and_then(|reference| {
                             access
                                 .write_admitted_reference(reference.as_view(), forced.value.clone())
                         });
@@ -498,11 +498,19 @@ fn is_refused_request(result: &Result<(), RuntimeError>) -> bool {
     matches!(result, Err(error) if !is_cycle_operational_error(error))
 }
 
+/// Resolve a staged request that names an instance by identity. The identity belongs to the
+/// generation the request was resolved in; another installed generation rejects it, so a restart
+/// or replacement in between cannot redirect it to the instance that now has that identity
+/// (specification 34 §4.3.1).
 fn instance_reference(
     storage: &VariableStorage,
+    generation: Generation,
     id: InstanceId,
     name: &str,
 ) -> Result<ValueRef, RuntimeError> {
+    if generation != storage.generation() {
+        return Err(RuntimeError::ReferenceLifetime);
+    }
     storage
         .ref_for_instance_recursive(id, name)
         .ok_or(RuntimeError::ReferenceLifetime)

@@ -4,11 +4,13 @@ use crate::{error::RuntimeError, value::Duration, RestartMode, RetainSnapshot};
 
 impl Runtime {
     /// Rebuild the same admitted application transactionally. A failed candidate
-    /// preserves PLC values, pending debugger mutations and host service state.
+    /// preserves PLC values, pending debugger mutations and host service state. A
+    /// committed restart installs the next generation and binds the host's references
+    /// to it (specification 34 §11.3).
     pub fn restart(&mut self, mode: RestartMode) -> Result<(), RuntimeError> {
         self.state.restart(mode)?;
         self.finish_restart();
-        Ok(())
+        self.rebind_restarted_generation()
     }
 
     /// Restore a durable checkpoint as part of the warm restart transaction.
@@ -23,12 +25,14 @@ impl Runtime {
             .restart_with_retain_snapshot(mode, &snapshot.inner)?;
         self.finish_restart();
         self.publish_retain_events(events);
-        Ok(())
+        self.rebind_restarted_generation()
     }
 
+    /// A restart or replacement committed: clear the previous lifecycle's queued
+    /// debugger writes and forces, and publish the new generation to the debug control.
     fn finish_restart(&mut self) {
         if let Some(debug) = self.debug_control() {
-            debug.clear_runtime_mutations();
+            debug.begin_lifecycle(self.state.storage().generation());
         }
         self.openot_telemetry.reset_scan_state();
         self.cycle_counter = 0;
@@ -49,24 +53,12 @@ impl Runtime {
         let Some(debug) = self.debug_control() else {
             return;
         };
+        // The event text is shared runtime code (spec 34 ARCH-11).
         for event in events {
-            debug.push_runtime_event(match event {
-                trust_runtime_core::vm::RetainApplyEvent::Orphan { name } => {
-                    crate::debug::RuntimeEvent::RetainOrphanDropped {
-                        name,
-                        time: self.current_time(),
-                    }
-                }
-                trust_runtime_core::vm::RetainApplyEvent::Migrated {
-                    name,
-                    before,
-                    after,
-                } => crate::debug::RuntimeEvent::RetainMigrationApplied {
-                    name,
-                    detail: super::retain_snapshot::retain_migration_detail(&before, &after),
-                    time: self.current_time(),
-                },
-            });
+            debug.push_runtime_event(trust_runtime_services::events::retain_apply_event(
+                event,
+                self.current_time(),
+            ));
         }
     }
 
@@ -349,9 +341,16 @@ impl Runtime {
                 .fb_instances
                 .iter()
                 .map(|reference| {
+                    // The caller's task metadata names declarations: it may come from the
+                    // artifact or from an earlier generation, so the address selects the
+                    // binding and the reconfiguration resolves it afresh (spec 34 §11.3).
                     bound
                         .iter()
-                        .find(|(old, _)| old == reference)
+                        .find(|(old, _)| {
+                            old.location == reference.location
+                                && old.offset == reference.offset
+                                && old.path == reference.path
+                        })
                         .map(|(_, id)| *id)
                         .ok_or_else(|| {
                             RuntimeError::InvalidBytecodeMetadata(

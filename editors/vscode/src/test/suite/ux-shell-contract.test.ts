@@ -940,8 +940,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
   test("viewer Live Values permissions disable Write/Force before a backend rejection", () => {
     const web = readSrc("ioPanel.webview.js");
     const status = readSrc("io-panel/status.ts");
+    // The status reply's access capabilities are built by the shared runtime services
+    // (specification 34 ARCH-11), the same code on every runtime.
     const runtime = fs.readFileSync(
-      path.join(workspaceRoot(), "crates", "trust-runtime", "src", "control.rs"),
+      path.join(workspaceRoot(), "crates", "trust-runtime-services", "src", "dispatch.rs"),
       "utf8"
     );
 

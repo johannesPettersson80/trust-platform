@@ -16,6 +16,8 @@ mod preparation;
 pub use preparation::PreparationDiagnostic;
 mod execution;
 pub use execution::ExecutionLimitKind;
+mod import;
+pub use import::ImportRefusal;
 
 /// Runtime errors for evaluation and execution.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -95,6 +97,15 @@ pub enum RuntimeError {
     /// A valid artifact requires a capability absent from the selected profile.
     #[error("unsupported execution profile: {0}")]
     ProfileUnsupported(SmolStr),
+
+    /// An import has no built-in contract or does not match it (spec 34 §5.2.1).
+    #[error("unsupported import '{import}': {reason}")]
+    ImportUnsupported {
+        /// Canonical uppercase name of the refused import.
+        import: SmolStr,
+        /// The part of the contract the import fails.
+        reason: ImportRefusal,
+    },
 
     /// Type mismatch between values.
     #[error("type mismatch")]
@@ -353,6 +364,7 @@ impl RuntimeError {
             Self::PreparationLimit => StableErrorCode::RuntimePreparationLimit,
             Self::InvalidExecutionState => StableErrorCode::RuntimeInvalidExecutionState,
             Self::ProfileUnsupported(_) => StableErrorCode::RuntimeProfileUnsupported,
+            Self::ImportUnsupported { .. } => StableErrorCode::RuntimeImportUnsupported,
             Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
             Self::NonFiniteValue => StableErrorCode::RuntimeNonFiniteValue,
             Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
@@ -595,6 +607,13 @@ mod tests {
                 RuntimeError::ProfileUnsupported("resource count".into()),
                 StableErrorCode::RuntimeProfileUnsupported,
             ),
+            (
+                RuntimeError::ImportUnsupported {
+                    import: "SQRTX".into(),
+                    reason: super::ImportRefusal::NoContract,
+                },
+                StableErrorCode::RuntimeImportUnsupported,
+            ),
         ];
         for (fault, expected) in faults {
             assert_eq!(fault.stable_code(), expected);
@@ -818,6 +837,13 @@ mod tests {
             (
                 RuntimeError::ControlError("control".into()),
                 StableErrorCode::RuntimeControlError,
+            ),
+            (
+                RuntimeError::ImportUnsupported {
+                    import: "TON".into(),
+                    reason: super::ImportRefusal::ParameterType,
+                },
+                StableErrorCode::RuntimeImportUnsupported,
             ),
         ];
 

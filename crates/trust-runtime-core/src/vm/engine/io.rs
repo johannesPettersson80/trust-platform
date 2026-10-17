@@ -17,7 +17,7 @@ use alloc::format;
 use core::mem::size_of;
 
 mod admission;
-mod staging;
+pub(super) mod staging;
 
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn set_hierarchical_input(
@@ -149,10 +149,12 @@ impl EngineState<'_> {
                 .ok_or_else(|| RuntimeError::Overflow)?;
         }
         self.charge_allocation(bytes)?;
+        let offset = u32::try_from(offset).map_err(|_| RuntimeError::Overflow)?;
         let path = path.clone();
         Ok(ValueRef {
             location,
             offset,
+            generation: self.data.storage.generation(),
             path,
         })
     }
@@ -247,7 +249,7 @@ impl EngineState<'_> {
                 self.charge_storage_path_write(
                     &self.data.storage,
                     reference.location,
-                    reference.offset,
+                    reference.offset as usize,
                     &reference.path,
                     &value,
                 )?;
@@ -256,7 +258,7 @@ impl EngineState<'_> {
                     .storage
                     .prepare_by_ref_parts_write(
                         reference.location,
-                        reference.offset,
+                        reference.offset as usize,
                         &reference.path,
                         &value,
                     )?

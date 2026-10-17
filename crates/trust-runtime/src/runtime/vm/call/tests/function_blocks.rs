@@ -646,7 +646,7 @@ fn output_binding_rejects_conflicting_reference_types_for_nonstring_target() {
     for type_idx in 0..=1 {
         module.append_legacy_reference(
             super::super::VmRef::Global {
-                offset: reference.offset,
+                offset: reference.offset as usize,
                 path: reference.path.clone(),
             },
             Some(type_idx),
@@ -709,7 +709,7 @@ fn install_string_inout_types(module: &mut VmModule, target: ValueRef) {
     assert_eq!(target.location, MemoryLocation::Global);
     module.append_legacy_reference(
         super::super::VmRef::Global {
-            offset: target.offset,
+            offset: target.offset as usize,
             path: target.path,
         },
         Some(1),

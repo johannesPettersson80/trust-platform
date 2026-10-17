@@ -74,11 +74,10 @@ fn existing_evidence_is_not_overwritten() {
             .as_nanos()
     ));
     let artifacts = Artifacts::prepare(&parent.join("build.json")).unwrap();
-    let board = BoardProfile::nucleo_f401re();
     assert!(artifacts
         .retain(
             &record(false, serde_json::json!(parent.join("missing.elf"))),
-            &board
+            BIN
         )
         .is_err());
     fs::write(&artifacts.map, b"original map").unwrap();
@@ -87,7 +86,7 @@ fn existing_evidence_is_not_overwritten() {
     let executable = parent.join("linked.elf");
     fs::write(&executable, b"linked executable").unwrap();
     let retained = artifacts
-        .retain(&record(false, serde_json::json!(executable)), &board)
+        .retain(&record(false, serde_json::json!(executable)), BIN)
         .unwrap();
     assert_eq!(fs::read(&artifacts.elf).unwrap(), b"linked executable");
     assert_eq!(

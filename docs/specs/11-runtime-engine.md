@@ -331,8 +331,8 @@ that baseline to 35 ms and is next due at 45 ms.
 If due task execution returns an error, the tick returns that typed error and
 latches the runtime fault state. A later tick rejects as
 `RuntimeError::ResourceFaulted` until an explicit recovery transition clears or
-replaces that state. This focused contract does not assert rollback of work
-completed before the fault.
+replaces that state. This focused contract does not itself define the state
+after the fault; section 6.6 (state after a faulting scan) does.
 
 For the same source, initial runtime state, manual-clock samples, and input
 transitions, the ordered `RuntimeEvent` vector is reproducible. Event payload
@@ -503,10 +503,10 @@ matching-area `VAR_CONFIG` entry before runtime construction and is rejected
 in disallowed declaration sections or on an area mismatch.
 
 The built-in driver registry exposes the stable canonical names `ethercat`,
-`gpio`, `loopback`, `modbus-tcp`, `mqtt`, and `simulated` in sorted unique
-order. Accepted aliases resolve to the canonical name before validation or
-construction; this includes `sim`/`noop`, `modbus_tcp`, `mqtt-tcp`, and
-`ether-cat`/`ecat`. The explicit driver name `none` selects no driver.
+`gpio`, `loopback`, `modbus-rtu`, `modbus-tcp`, `mqtt`, and `simulated` in
+sorted unique order. Accepted aliases resolve to the canonical name before
+validation or construction; this includes `sim`/`noop`, `modbus_rtu`,
+`modbus_tcp`, `mqtt-tcp`, and `ether-cat`/`ecat`. The explicit driver name `none` selects no driver.
 Driver lookup trims surrounding whitespace and is ASCII-case-insensitive.
 Unknown and empty names are configuration errors. `none` is reserved and
 cannot be replaced by a registered driver.
@@ -899,7 +899,10 @@ product contracts into IEC language decisions or deviations.
   because continuing would reinterpret channel layout. Warn and ignore may
   keep the resource running only when the image shape remains valid, and must
   preserve the failure detail in degraded health.
-- Non-mock adapters are backed by EtherCrab hardware transport on unix targets.
+- Non-mock adapters are backed by EtherCrab hardware transport on unix targets
+  and, with EtherCrab's `no_std` build, on chips with an Ethernet controller
+  (specification 34, ARCH-11; owner, 16 October 2026). EtherCAT takes the
+  Ethernet port it uses; such a board reaches the tools over its other links.
 - Deterministic `adapter = "mock"` mode is available for CI/offline validation.
 - Explicit v1 non-goals: no functional safety/SIL claims and no advanced motion
   profile support.
@@ -1265,6 +1268,106 @@ wire response remains an external oracle. A structural response-shape
 assertion may map to this contract, but an unresolved file or wire observation
 cannot be promoted to proof merely because surrounding assertions are static.
 
+##### One search, device identity, and presence
+
+The owner asked on 16 October 2026 that truST find everything it can talk to,
+and find it better: "we need to support everything and make it better if its
+possible". These rules extend `comm.discover`; each protocol's rules above
+still apply to its part of a search. Searching is runtime logic, written in
+Rust; VS Code and other tools only start a search and show its results.
+
+**Search.** `comm.search.start` begins one search that runs every requested
+source at the same time and returns a search ID. `comm.search.status` returns
+each source's progress and every result found so far, so that a tool shows
+results while the search runs; `comm.search.cancel` ends the search. A search
+ends when every source has finished or when its deadline passes: 10 seconds by
+default, at most 60 seconds. A source still running at the deadline reports
+`timed_out` together with the results it already had. A search runs on the
+tool's own computer (`origin = this_host`) or inside a runtime
+(`origin = runtime`), which reaches the networks and buses of that runtime's
+computer. The command line runs the same search as `trust-runtime discover`,
+printing results as they are found (`--json` prints one JSON object per line),
+and `--only <source>,…` limits it to named sources.
+
+**Sources.** A search uses every source that its origin can run:
+
+| Source | Finds | How |
+|---|---|---|
+| truST runtimes | Runtimes on the local network and in the mesh | mDNS `_trust._plc._tcp.local.` (§6.12), queries to mesh peers, runtime cloud presence |
+| ADS | TwinCAT and ADS devices, their responding ADS ports, and their routes | UDP identify, unicast and broadcast; a probe of the configured ADS ports; the target's route list |
+| Modbus TCP | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
+| MQTT | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
+| OPC UA | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
+| EtherCAT | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity without bringing the bus to OP |
+| GPIO | Chips and lines of the runtime's computer | The Linux GPIO character device |
+| Serial | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
+| USB | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
+| Bluetooth | Bluetooth LE devices, where the origin computer has Bluetooth | A passive advertisement scan |
+
+**Safety.** A search only reads. It never writes a device value, never changes
+a device's state, and never resets a board. EtherCAT identification keeps the
+bus below OP, and it refuses an adapter that a running EtherCAT driver of the
+runtime owns; the driver's own live view of that bus is reported instead. A
+Modbus RTU scan refuses a serial port that a configured driver owns. A fieldbus
+scan (EtherCAT, Modbus RTU) runs only when the request sets
+`confirm_fieldbus_scan = true`; tools ask the user first.
+
+**Devices.** Results that belong to the same device are reported as one device
+listing every protocol found on it. Results belong to the same device when they
+share a network address, an AMS Net ID, a USB serial number, or a truST runtime
+ID. Each device carries its addresses, every protocol result with its source and
+confidence, its identity, and its `last_seen` time.
+
+**Identity.** Each protocol reports the identity it can read:
+
+- truST runtime: name, ID, version, platform (operating system and
+  architecture, or the chip), whether control needs a token, and its control
+  and web addresses;
+- Modbus: vendor name, product code, and revision from the FC43/14 basic
+  objects, when the device answers them;
+- ADS: computer name, AMS Net ID, TwinCAT version, operating system version,
+  and responding ADS ports;
+- OPC UA: application name and URI, product URI, every endpoint with its
+  security policy and mode, including endpoints truST cannot use (marked
+  unsupported), and the SHA-256 fingerprint of the server certificate;
+- EtherCAT: for each SubDevice its position, alias address, vendor ID, product
+  code, revision, and serial number, and the device of the project's ESI files
+  that matches it, when one does;
+- MQTT: the protocol version accepted, and whether login and TLS are needed;
+- GPIO: chip name and label, the line offset within its chip, the line name,
+  and whether the line is in use;
+- USB: vendor and product ID, maker, product name, serial number, and the chip
+  when the device is a supported chip's boot loader, a debug probe, or a truST
+  runtime;
+- serial: the port name and, when there is one, the USB device behind it;
+- Bluetooth: name, address, and signal strength.
+
+**Confidence.** Every result uses the closed confidence vocabulary of this
+section. A valid protocol exchange is `confirmed`: an ADS identify reply, an
+OPC UA GetEndpoints answer, an EtherCAT identity read, an mDNS answer from a
+truST runtime, or a USB descriptor. No other value, such as `observed`, is
+reported. A simulated (mock) result carries `simulated = true` and is never
+presented as hardware.
+
+**Compare with the project.** `comm.compare` compares a search result with the
+project's configuration. It lists each configured device that was not found,
+each found device that the project does not use, and each device whose identity
+differs from the configuration, for example an EtherCAT SubDevice in another
+position or a Modbus device with another product code. The command line runs it
+as `trust-runtime discover --compare --project <dir>`.
+
+**Identify.** `identify` with a duration of 1 to 60 seconds makes a runtime show
+where it is: it blinks the output named in `runtime.toml`
+`[runtime.identify] output` (an I/O address or a GPIO line) and reports
+`identifying` in its status for that time. The program must not use that
+output; a project that uses it is refused when it is loaded. Without the
+setting the request answers `identify_not_configured`. The command line runs it
+as `trust-runtime identify`.
+
+**Presence.** A found device keeps its `last_seen` time. A configured device
+that a running runtime stops seeing for longer than its protocol's freshness
+window reports connector state `stale`, with the time it was last seen.
+
 ##### EtherCAT unavailable-resource contract
 
 Creating an EtherCAT driver with a non-mock adapter does not require the
@@ -1283,6 +1386,36 @@ driver instance. This terminal rule prevents an unavailable adapter from
 causing unbounded allocation, retry, or scan-cycle delay. `adapter = "mock"`
 proves deterministic software behavior only and is not evidence that physical
 EtherCAT hardware is available or production-ready.
+
+6. **Modbus/RTU**
+- Driver name: `modbus-rtu`, on every target (owner, 16 October 2026): a serial
+  port of the operating system on Linux, macOS and Windows, for example
+  `/dev/ttyUSB0` or `COM3`, and a UART of the chip on a board, for example
+  `USART2` on the STM32F407 (specification 34, TARGET-01).
+- truST is the Modbus client on an RS-485 or RS-232 line; `unit_id` names the
+  server.
+- Functions, default profile, `input_points`/`output_points`, payload order,
+  scaling, `byte_order`/`word_order`, floating-point finiteness and the
+  `on_error` policy are those of Modbus/TCP above. One implementation of the
+  Modbus application layer serves both drivers; only the framing and the link
+  differ.
+- Serial parameters: `port`, `baud`, `parity` (`even` by default, `odd` or
+  `none`), `stop_bits` (1, or 2, which `parity = "none"` requires), eight data
+  bits, and `timeout_ms` for the response. A combination that the Modbus serial
+  line specification forbids is rejected before the worker starts.
+- RTU framing: each frame ends with the Modbus CRC-16; frames are separated by
+  at least 3.5 character times and characters within a frame by at most 1.5
+  character times, with the fixed 1.750 ms and 750 µs above 19,200 baud. A frame
+  with a CRC mismatch or an interrupted character stream is discarded and
+  counts as a transport failure under `on_error`.
+- RS-485 direction: on a chip, an optional `direction_pin` drives the
+  transceiver's driver-enable line while a request is sent; on a computer, the
+  serial adapter controls the direction.
+- Exchange is worker-backed as for Modbus/TCP: a serial round trip never runs
+  inside the scan. On a chip without threads the runtime serves it between
+  cycles.
+- Reference: Modbus over Serial Line Specification and Implementation Guide
+  V1.02.
 
 #### 6.6 Fault, Overrun, and Watchdog Handling
 
@@ -1365,6 +1498,29 @@ execution model, not an IEC deviation.
 - The runtime process ends only on a stop request or a termination signal. It
   exits with status 0 when the resource ends Stopped and with status 1 when it
   ends Faulted, so a service manager can tell a clean stop from a failure.
+
+**State after a faulting scan (hosted runtime):**
+- A scan that faults while its programs execute is not undone. The variables keep
+  every store that the scan completed: the queued writes and forces it applied
+  and the inputs it sampled at its boundary (specification 10 §4.7, step 2), and
+  the statements that ran before the failing one. The failing statement stores
+  nothing. Rollback exists only inside a single transaction (the start-of-cycle
+  input synchronization of section 6.4, the output copy-back of a call, the flat
+  output image of a failed output commit in specification 10 §4.7); none of them
+  reverts a statement that completed. IEC 61131-3 Ed.3 leaves the effect of an
+  error during execution to the implementer (§5.1 e and its note; §6.6.1.5,
+  rules 3 and 4), so this is a truST runtime contract, not an IEC deviation.
+- Such a scan reaches no output phase: the process image and the drivers keep the
+  values of the last completed scan unless the fault policy applies configured
+  safe values (above), the retain checkpoint of the scan is not saved, and the
+  cycle number does not advance.
+- The writes the scan applied were one-shot and are consumed. The fault is a
+  clearing boundary (section 6.9.2), so the forces that were active are removed;
+  removing a force writes no replacement value, so a forced variable keeps the
+  last value the scan applied to it.
+- A later scan request is refused with `ResourceFaulted` before it applies any
+  queued write or force (specification 10 §4.7, step 1). Section 6.9.2 states what
+  the faulted resource does with new writes and forces.
 
 **Hosted hang supervision (specification 34 TIME-03):**
 - The checks above run on the scan thread, so none of them can act while that
@@ -1693,6 +1849,72 @@ construction fails, the restart returns an error and preserves the live
 executable, storage values, queued debug force, and cycle counter. This direct
 restart boundary does not independently specify task schedules, logical time,
 I/O bindings, process-image state, or a stable diagnostic string.
+
+##### Directly represented variables at restart
+
+A variable that is declared with a direct address at an input or an output
+(`AT %I` or `AT %Q` and an address) is initialized by a restart under the rule
+of its declaration, like every other variable (IEC 61131-3 Ed.3 §6.5.6.1, Figure 9,
+with the policy at the head of this section): a warm restart gives a `RETAIN` or
+`PERSISTENT` variable its retained value and every other variable its declared
+initial value, and a cold restart gives every variable its declared initial
+value (§6.5.1.3 and §6.5.6.2, whose example declares
+`VALVE_POS AT %QW28 : INT := 100` in a `NON_RETAIN` section). For these
+variables the initial value belongs to the variable: its initializer writes no
+byte of the process image, at a restart or at any other time.
+
+The process images are carried across the restart (specification 34 §10) and
+meet the variables again at the next scan:
+- a variable located at `%Q` shows its initial or retained value in the output
+  image when the first scan after the restart completes (end-of-cycle output
+  synchronization, section 6.4). Until then the image, and the outputs that the
+  drivers hold, keep the values of the last completed scan, as after a fault;
+- a variable located at `%I` takes the sampled input image at the start of every
+  scan (section 6.4), so its initial value is visible only until the first scan
+  starts. IEC 61131-3 Ed.3 §6.5.6.2 and the note to §6.5.5.3 leave the
+  initialization of system inputs to the implementer; truST lets the input image
+  win.
+
+The only initializers that write a process image are the ordered configuration
+actions whose target is a direct address, such as process-image contents seeded
+through the hosted builder (specification 34 §10). They run after the
+carry-over, at every restart and every online change, and set exactly their
+selected bytes, bits and hierarchical keys.
+
+A variable located at `%M` (`AT %M` and an address) is initialized under the
+same rule of its declaration, but it is bound in both directions: the scan loads
+the marker image into it when the scan starts and publishes it into the image
+when the scan completes (section 6.4). A marker image that still held zero, or
+the carried-over image, at the first scan would therefore replace the variable's
+initial or retained value before the program ran. IEC 61131-3 Ed.3 exempts only
+the system inputs from initialization (§6.5.6.2 and the note to §6.5.5.3), so the
+value reaches the image first:
+- construction, every cold or warm restart and every online change publish the
+  value of every variable located at `%M` into the marker image once the
+  variable holds its initial or retained value, and before the first scan. The
+  value is the declared initial value at the first start, for a `NON_RETAIN` or
+  unqualified variable in a warm restart and for every variable in a cold
+  restart, and the retained value for a `RETAIN` or `PERSISTENT` variable in a
+  warm restart, a warm restart from the store and an online change. A retained
+  value is published after the checkpoint has been applied, so the checkpoint,
+  not the carried-over image, decides it;
+- the publication writes exactly the bits and bytes that the variables are bound
+  to. Every other bit and byte of the marker image keeps its carried-over value,
+  and `%I` and `%Q` are not touched (above);
+- it runs after the ordered configuration actions, so the bits and bytes that a
+  located variable covers hold the variable's value even where an action had
+  written them. A seeded image records an action for the last byte of each of its
+  non-empty areas, and that action writes zero when nothing was seeded there; it
+  must not clear the high byte of an initialized marker word. Bits and bytes that
+  no variable covers keep what the actions set;
+- it belongs to the initialization. A binding that cannot encode its variable's
+  value fails the construction, the restart or the online change like any other
+  initializer failure, and the publication changes no image when it fails;
+- a binding-only update, which resets no PLC value, also publishes: in the commit
+  that installs the bindings and the image sizes it publishes the current value of
+  each marker binding that it adds or changes, and of no other, so that a marker
+  byte that a driver wrote since the last scan survives, and a refused update
+  leaves the old bindings and images.
 
 ##### 6.7.1 Online-change transaction
 
@@ -4418,6 +4640,48 @@ when enabled:
   it full is rejected with the stable code `resource_busy` and is not queued, so
   a burst of requests cannot grow the runtime's memory without bound.
 
+**Operations while the debugger holds the scan:**
+- A debugger hold (a breakpoint, a debug-mode `pause` or a completed step) takes
+  effect at the next statement boundary. A scan that starts while a hold is
+  already requested first runs the boundary of specification 10 §4.7, step 2: it
+  applies its queued writes and forces and samples its inputs. It then waits
+  before the first statement of its first program. While it waits, no program
+  runs, no output is committed, no retain checkpoint is saved and the cycle number
+  does not advance; a debugger that inspects the waiting scan sees the boundary
+  writes already applied. Releasing the hold continues that same scan, which is
+  neither restarted nor repeated.
+- A hold is debugger state, not resource state, and it changes no value. Checked
+  writes, queued writes, forces, releases and retain saves between scans are
+  accepted and behave as without a hold (section 6.9.2; specification 34
+  HOST-09). A write queued while a scan waits in the hold is not applied by that
+  scan; it waits for the boundary of the next scan.
+- A restart or an online change that commits between scans (called by the
+  embedding host, or taken by the scan loop between cycles) is a clearing boundary
+  as always (section 6.9.2) and leaves the hold in place: a paused session stays
+  paused after a reload (specification 13), so the next scan waits again at its
+  first statement. One whose preparation fails changes neither the controller nor
+  the hold (section 6.7.1).
+- The scan thread applies resource commands and takes restart requests only
+  between scans, so while it waits inside a hold they wait with it. A restart
+  request is accepted (`restart queued`) and taken after the hold is released and
+  the held scan has completed; it is never applied to the suspended scan. A reload
+  that the resource has not started to apply within five seconds is withdrawn
+  (section 6.7.1). `resume` releases the hold (above).
+- A stop request is independent of the hold (specification 13, "Pause"). The
+  control `shutdown`, SIGINT and SIGTERM all end in the scheduler's `stop`, and a
+  `stop` ends the hold and keeps the debugger from holding the scan again for
+  that resource, so a pause, a step or a breakpoint cannot delay the stop and no
+  `resume` is needed first. The scan that the hold suspended runs to its end, as
+  any scan does that a stop request finds under way, with no further pause, step
+  or breakpoint. The resource then takes its ordinary stop path (section 6.6 and
+  the retain-store rules of section 6.7): the configured stop outputs are applied,
+  the retained values are saved, the resource ends `Stopped` (`Faulted` when the
+  stop outputs are unconfirmed or the save fails), and the process exits. A
+  resource thread that starts later on the same debugger can be held again.
+
+These hold rules are a truST host/debugger contract outside the IEC language
+execution model, not an IEC deviation.
+
 ##### 6.9.1 Managed debug floating-point ingress
 
 In a managed local debug session, `stIoWrite` and `stIoForce` interpret values
@@ -4437,6 +4701,19 @@ until the matching release request or a clearing lifecycle boundary. Release
 removes the force without writing a replacement value; normal program and I/O
 evaluation determine the value at the next scan.
 
+A write to a variable that reaches the queue while another write to the same
+target is still queued replaces it in place: the earlier value is never applied,
+even when the later one is refused at the boundary, and the target keeps its
+place in arrival order (section 6.8.1). Replacing a queued write is never refused
+by the queue bound. Variable writes to different targets apply in arrival order
+at the boundary and before the forces of that boundary (specification 10 §4.7,
+step 2), so a force on the same target wins. A write is checked when the
+boundary applies it, not when the queue accepts it (specification 34 HOST-09): a
+value its target cannot take, for example one outside a subrange, is dropped
+alone with a `write_rejected` event, leaves the target unchanged and does not
+fault the PLC. This replacement rule is for variable targets; each `io.write` to
+an address stays a separate ordered request (section 6.8.1).
+
 Pause and resume preserve queued writes and active forces because neither
 operation creates a new runtime lifecycle. A non-terminating debugger detach or
 transport disconnect also preserves them: detach must not alter runtime
@@ -4453,6 +4730,36 @@ replayed into the next runtime lifecycle. A restart or online change whose
 preparation fails never reaches its commit, so it is not a clearing boundary:
 queued writes and forces stay as they were (specification 10 §4.8 and the
 online-change preparation rule in section 6.7.1).
+
+A write or force that names an instance by its identity, such as an HMI write to a
+program member or a debugger write to a function-block field, keeps the
+installation generation in which that identity was resolved (specification 34
+§11.3). An identity given as a number in a control request, as in
+`instance:<id>:<name>`, belongs to the generation installed when the request is
+accepted. A request accepted after a clearing boundary can still carry an
+identity resolved before it, for example from the observation of the previous
+lifecycle. Its boundary then rejects it as `ReferenceLifetime`
+(`runtime_reference_lifetime`) with a `write_rejected` event, does not fault the
+PLC, and leaves the instance that now has that identity unchanged; a rejected
+force is also removed. A request that names its target by name, such as
+`global:<name>`, is bound to that name at its boundary.
+
+While the resource is faulted no scan boundary occurs, so nothing applies a
+queued write or a force, and a scan request is refused before it touches either
+(specification 10 §4.7, step 1). The requests of this section are still accepted
+and recorded as at any other time, because a fault does not make an engineering
+request invalid: writes and forces queue, and a release removes its force. What
+was recorded while the resource was faulted is cleared by the commit of the
+recovery (a restart or an online change, section 6.6), so it is never replayed
+into the recovered lifecycle; a recovery that fails commits nothing and leaves it
+pending (section 6.7.1). The tooling reset `clear_fault` clears only the fault
+state and is not a clearing boundary, so what was recorded while faulted is still
+pending when a scan follows it. A checked write by the embedding host
+(specification 34 HOST-09) is an operation between scans that does not depend on
+the resource state: while the resource is faulted it is accepted or refused by its
+ordinary rules, changes only its destination, and neither clears the fault nor
+resumes execution. Writes that reach the scan loop as resource commands (mesh
+updates) are discarded while the resource is faulted.
 
 ##### 6.9.3 Simulation coupling thresholds
 
@@ -5018,6 +5325,22 @@ Rules:
   web port and TLS flag, optional mesh port, control endpoint, and a trimmed
   nonempty host group; a missing or malformed optional value is absent rather
   than fabricated.
+- The TXT record also carries `version` (the truST version), `platform` (the
+  operating system and architecture, for example `linux-aarch64`, or the chip,
+  for example `stm32f407`), and `auth` (`token` when control needs a token,
+  otherwise `none`). The `id` stays the same across restarts: it is built from
+  the resource name and the host, never from a process ID. The host name is the
+  operating system's host name. `control` names only an endpoint that another
+  computer can use (`tcp://` or `tls://`); a local socket path is not
+  announced. Web port and TLS flag are announced only while the web server is
+  enabled.
+- `interfaces` limits announcing and browsing to the named network
+  interfaces; an empty list uses every interface.
+- `trust-runtime ide serve` and setup mode announce and browse in the same way
+  as a running runtime.
+- `/api/discovery` and `/api/probe` require the same web authentication as the
+  other routes. `/api/probe` takes credentials in the request body, never in
+  the URL.
 - A resolved service replaces the entry with the same runtime ID and receives a
   fresh observation timestamp. A removal event matches the exact entry ID or
   runtime name, or an mDNS instance name whose final `-<runtime-name>` suffix

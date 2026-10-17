@@ -116,7 +116,7 @@ impl EngineState<'_> {
             backups,
             writable_instances,
         } = self.initializer_seed(&entry, instance, lexical.as_deref())?;
-        let result = self.data.storage.reserve_execution_frame()?;
+        let result = self.reserve_activation_identity()?;
         let mut slot = vec![seed];
         self.data
             .storage

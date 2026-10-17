@@ -26,6 +26,7 @@ fn queued_debug_write_refuses_a_frame_scoped_reference_without_plc_change() {
     let frame_reference = ValueRef {
         location: MemoryLocation::Local(FrameId(u32::MAX)),
         offset: 0,
+        generation: runtime.storage().generation(),
         path: Vec::new(),
     };
     debug.enqueue_global_write("frame_target", Value::Reference(Some(frame_reference)));

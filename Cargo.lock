@@ -6617,6 +6617,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-chips"
+version = "0.24.75"
+dependencies = [
+ "serde",
+ "thiserror 2.0.21",
+ "toml",
+]
+
+[[package]]
 name = "trust-debug"
 version = "0.24.75"
 dependencies = [
@@ -6720,6 +6729,7 @@ dependencies = [
  "critical-section",
  "esp-hal",
  "esp-storage",
+ "trust-chips",
 ]
 
 [[package]]
@@ -6731,6 +6741,7 @@ dependencies = [
  "nb 1.1.0",
  "stm32f4",
  "stm32f4xx-hal",
+ "trust-chips",
 ]
 
 [[package]]
@@ -6755,6 +6766,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "crc32fast",
+ "critical-section",
  "crossbeam-channel",
  "crossterm",
  "dialoguer",
@@ -6807,10 +6819,12 @@ dependencies = [
  "tracing",
  "trust-ads-core",
  "trust-ads-server",
+ "trust-board-fixture",
  "trust-hir",
  "trust-ide",
  "trust-plcopen",
  "trust-runtime-core",
+ "trust-runtime-services",
  "trust-syntax",
  "trust-tcads-native",
  "trust-wasm-analysis",
@@ -6835,6 +6849,16 @@ dependencies = [
  "thiserror 2.0.21",
  "trust-hir",
  "verification-cases",
+]
+
+[[package]]
+name = "trust-runtime-services"
+version = "0.24.75"
+dependencies = [
+ "serde",
+ "serde_json",
+ "smol_str",
+ "trust-runtime-core",
 ]
 
 [[package]]
@@ -7889,6 +7913,7 @@ dependencies = [
  "sha2 0.11.0",
  "syn 3.0.7",
  "toml",
+ "trust-chips",
 ]
 
 [[package]]

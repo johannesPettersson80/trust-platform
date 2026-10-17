@@ -104,6 +104,7 @@ fn cyclic_type_comparison_in_a_reference_attempt_draws_no_work() {
     let local = ValueRef {
         location: MemoryLocation::Local(FrameId(7)),
         offset: 0,
+        generation: crate::memory::Generation::FIRST,
         path: Vec::new(),
     };
     let frame = VmFrame {

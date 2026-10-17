@@ -126,9 +126,16 @@ pub(super) fn queue_hmi_runtime_write_port(
                     point.id
                 )));
             };
+            // The program instance was resolved in the observed generation; the scan
+            // boundary rejects the write if a restart or online change installed another.
             state
                 .debug
-                .try_enqueue_instance_write(*instance_id, variable.clone(), value)
+                .try_enqueue_instance_write(
+                    snapshot.storage.generation(),
+                    *instance_id,
+                    variable.clone(),
+                    value,
+                )
                 .map_err(|error| HmiWriteError::plain(error.to_string()))?;
         }
         crate::hmi::HmiWriteBinding::Global { name } => {

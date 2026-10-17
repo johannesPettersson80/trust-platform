@@ -133,6 +133,7 @@ fn cycle_port_stale_reference_returns_reference_lifetime() {
             access: &mut CycleAccess<'_, '_>,
         ) -> Result<(), RuntimeError> {
             if phase == CyclePhase::CycleStart {
+                let generation = access.storage().generation();
                 for location in [
                     MemoryLocation::Local(FrameId(u32::MAX)),
                     MemoryLocation::Instance(InstanceId(u32::MAX)),
@@ -141,6 +142,7 @@ fn cycle_port_stale_reference_returns_reference_lifetime() {
                         ValueRefView {
                             location,
                             offset: 0,
+                            generation,
                             path: &[],
                         },
                         Value::Int(9),
@@ -185,10 +187,12 @@ fn cycle_port_unresolvable_reference_offset_returns_type_mismatch() {
             access: &mut CycleAccess<'_, '_>,
         ) -> Result<(), RuntimeError> {
             if phase == CyclePhase::CycleStart {
+                let generation = access.storage().generation();
                 self.writes.push(access.write_reference(
                     ValueRefView {
                         location: MemoryLocation::Global,
                         offset: usize::MAX,
+                        generation,
                         path: &[],
                     },
                     Value::Int(7),

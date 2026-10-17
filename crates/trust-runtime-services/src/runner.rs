@@ -1,0 +1,288 @@
+//! The resource loop of a device without an operating system (specification 34, STATE-08 and
+//! ARCH-11).
+//!
+//! One loop serves the control link between scans and while stopped, runs the installed
+//! program's scan when it is due, does the platform's idle work, feeds the hardware watchdog and
+//! then waits until the program's next boundary or a wake. It owns the resource state machine of
+//! trust-runtime's scheduler — Running, Paused, Stopped and Faulted — and follows the shared rules
+//! at the same points: the operations of [`crate::resource::operations`], the supervisor's
+//! decisions of [`crate::resource::supervisor`] and the command rules of
+//! [`crate::resource::commands`]. The platform adapter supplies the link, the wait and wake, the
+//! clock, the installed program ([`ResourceCycle`]) and its own values and watchdog
+//! ([`RunnerPlatform`]).
+//!
+//! Requests take effect where trust-runtime's scan thread takes them. The loop answers each
+//! request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next
+//! boundary, as trust-runtime's scan thread takes it at its next pass: while running, when the
+//! next scan is due; while paused, one cycle interval after the last boundary; while faulted, at
+//! the end of each poll period of the faulted wait. At a boundary the stop comes first, then the
+//! queued pause and resume, then a pending restart, and then the scan; at a poll of the faulted
+//! wait a restart comes before the stop. `shutdown` stops the program as trust-runtime stops it,
+//! and the device stays reachable and keeps serving the link; a `restart` of a program that has
+//! ended takes effect at once and starts it as a new trust-runtime process would.
+
+mod cycle;
+mod host;
+mod observer;
+mod state;
+mod supervision;
+
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec;
+use alloc::vec::Vec;
+
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::ports::{
+    ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
+    TimeSpan, WakeReason,
+};
+use trust_runtime_core::scheduler::ResourceState;
+use trust_runtime_core::value;
+
+pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
+pub use host::RunnerPlatform;
+
+use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
+use crate::protocol::ControlAfterResponse;
+use crate::resource::supervisor::AutomaticRestartLimiter;
+use host::RunnerHost;
+use state::{Records, ResourceCell};
+
+/// Requests the loop serves in one pass before it turns to the scan, so that a busy link cannot
+/// hold back a due scan. A pass that reaches the bound does not wait, and the next pass serves
+/// the rest.
+pub const FRAMES_PER_PASS: usize = 8;
+
+/// The single-thread resource loop of one installed program.
+///
+/// `L` is the control link, `W` the wait, `Y` the installed program, `P` the platform's values
+/// and watchdog, and `C` the monotonic clock, the one `W` waits on.
+///
+/// Stop response (PORT-03): a `shutdown` takes effect at the program's next boundary — within one
+/// cycle interval while running or paused, within the automatic restart's backoff of at most one
+/// second after an automatic restart, and within the faulted wait's poll period
+/// ([`crate::resource::supervisor::FAULTED_WAIT_POLL`]) while faulted — and then within the pass
+/// that takes it: up to [`FRAMES_PER_PASS`] requests and the stop's outputs and retain save. A
+/// scan or callback that never returns is not ended by a stop but by the hardware watchdog
+/// (TIME-04), which the loop then no longer feeds.
+pub struct Runner<L, W, Y, P, C> {
+    link: L,
+    wait: W,
+    cycle: Y,
+    platform: P,
+    clock: C,
+    resource: ResourceCell,
+    records: Records<C>,
+    tasks: Vec<TaskDescriptor>,
+    frame: Vec<u8>,
+    /// Where the program's logical time and uptime start: its start, as a new trust-runtime
+    /// process starts its scheduler clock and its metrics.
+    program_start: MonotonicInstant,
+    /// The program's next boundary, where the loop takes the requests that wait for it: when the
+    /// next scan is due while running, the next cycle interval while paused, the next poll of
+    /// the faulted wait while faulted; none once the program has ended.
+    next_boundary: Option<MonotonicInstant>,
+    /// A `shutdown` that waits for the program's next boundary.
+    stop_requested: bool,
+    /// Scans since the program last started, as the cycle events count them.
+    cycle_count: u64,
+    /// The program's current time: the logical time of its last scan, or of its last restart.
+    program_time: value::Duration,
+    restarts: AutomaticRestartLimiter,
+}
+
+impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
+where
+    L: ControlLink,
+    W: RunnerWait,
+    Y: ResourceCycle,
+    P: RunnerPlatform,
+    C: MonotonicClock + Clone,
+{
+    /// A loop for the started program of `cycle`: the resource is Running, its logical time
+    /// starts now, its task timing starts again at that time, and its first scan is due at once,
+    /// as trust-runtime's scheduler starts its clock and its first pass.
+    ///
+    /// The composition starts the installed program before, as trust-runtime does before it
+    /// starts its scheduler: cold, or warm with the retain checkpoint ([`ResourceCycle::restart`]).
+    /// The loop keeps a receive buffer of [`ControlLink::max_frame_len`] bytes, and its records,
+    /// among them the 512 durations of the latest scans, in place: a firmware keeps it in static
+    /// memory or on the main stack.
+    #[must_use]
+    pub fn new(link: L, wait: W, mut cycle: Y, platform: P, clock: C) -> Self {
+        let tasks = cycle.tasks();
+        let frame = vec![0; link.max_frame_len()];
+        let start = clock.now();
+        cycle.reset_task_timing(value::Duration::ZERO);
+        let records = Records::new(clock.clone(), start);
+        Self {
+            link,
+            wait,
+            cycle,
+            platform,
+            clock,
+            resource: ResourceCell::running(),
+            records,
+            tasks,
+            frame,
+            program_start: start,
+            next_boundary: Some(start),
+            stop_requested: false,
+            cycle_count: 0,
+            program_time: value::Duration::ZERO,
+            restarts: AutomaticRestartLimiter::default(),
+        }
+    }
+
+    /// The resource state, for the composition's own indicators.
+    #[must_use]
+    pub fn resource_state(&self) -> ResourceState {
+        self.resource.state()
+    }
+
+    /// The fault that stopped the resource, if any.
+    #[must_use]
+    pub fn last_error(&self) -> Option<RuntimeError> {
+        self.resource.last_error()
+    }
+
+    /// Runs passes until a port fails, and returns that failure.
+    pub fn run(&mut self) -> PortError {
+        loop {
+            if let Err(error) = self.run_pass() {
+                return error;
+            }
+        }
+    }
+
+    /// One pass of the loop: it reads the wake token, serves the requests that have arrived,
+    /// takes the program's boundary when it is due, does the platform's idle work, feeds the
+    /// hardware watchdog and waits until the next boundary or a wake (PORT-03).
+    ///
+    /// The wait never outlasts the watchdog's feed interval, so the loop feeds it in every state,
+    /// also while the program is stopped, paused or faulted (TIME-04). A pass that served
+    /// [`FRAMES_PER_PASS`] requests returns without waiting.
+    ///
+    /// # Errors
+    ///
+    /// The [`PortError`] of a wait that failed.
+    pub fn run_pass(&mut self) -> Result<WakeReason, PortError> {
+        let token = self.wait.wake_token();
+        let more_frames = self.serve_link();
+        self.supervise();
+        self.platform.idle();
+        self.platform.feed();
+        if more_frames {
+            return Ok(WakeReason::Event);
+        }
+        let liveness = self
+            .clock
+            .now()
+            .saturating_add(self.platform.feed_interval());
+        let deadline = self
+            .next_boundary
+            .map_or(liveness, |boundary| boundary.min(liveness));
+        self.wait.wait_until(deadline, token)
+    }
+
+    /// Serves up to [`FRAMES_PER_PASS`] requests; true when the bound was reached.
+    fn serve_link(&mut self) -> bool {
+        for _ in 0..FRAMES_PER_PASS {
+            let Some(received) = self.link.poll_frame(&mut self.frame) else {
+                return false;
+            };
+            let prepared = self.answer(received);
+            // A reply the link cannot deliver is lost, as trust-runtime loses a reply to a
+            // connection that has closed; so is one that does not fit a frame even as the error
+            // that replaces a longer reply.
+            if prepared.response.len() <= self.frame.len() {
+                let _ = self.link.send_frame(prepared.response.as_bytes());
+            }
+            self.after_reply(prepared.after_response);
+        }
+        true
+    }
+
+    /// The reply to one received frame, at most one frame long. A frame longer than the link
+    /// accepts, or one that is not UTF-8 text, cannot be a request line and gets
+    /// `invalid request` with id 0.
+    fn answer(&self, received: LinkFrame) -> PreparedLine {
+        let max_len = self.frame.len();
+        let LinkFrame::Frame { len, peer } = received else {
+            return too_long(max_len);
+        };
+        let Some(bytes) = self.frame.get(..len) else {
+            return too_long(max_len);
+        };
+        let line = match core::str::from_utf8(bytes) {
+            Ok(line) => line,
+            Err(error) => return invalid_line(&error.to_string()),
+        };
+        let client = client_label(peer);
+        let host = RunnerHost {
+            platform: &self.platform,
+            resource: &self.resource,
+            records: &self.records,
+        };
+        prepare_line_within(line, &host, client.as_deref(), max_len)
+    }
+
+    /// What a served request leaves for the loop, in the order of the requests: a `shutdown`
+    /// waits for the program's next boundary, and a restart of a program that has ended starts
+    /// it at once.
+    fn after_reply(&mut self, after_response: Option<ControlAfterResponse>) {
+        if after_response == Some(ControlAfterResponse::StopResource) && !self.resource.ended() {
+            self.stop_requested = true;
+        }
+        if self.resource.ended()
+            && let Some(mode) = self.resource.take_pending_restart()
+        {
+            self.start(mode);
+        }
+    }
+
+    /// The logical time of monotonic reading `instant`: the time since the program started
+    /// (spec 34 §7.1).
+    fn logical(&self, instant: MonotonicInstant) -> value::Duration {
+        let since_start = instant.saturating_since(self.program_start).as_duration();
+        value::Duration::from_nanos(i64::try_from(since_start.as_nanos()).unwrap_or(i64::MAX))
+    }
+
+    /// The program's cycle interval as a span.
+    fn interval(&self) -> TimeSpan {
+        span(self.cycle.cycle_interval())
+    }
+}
+
+fn too_long(max_len: usize) -> PreparedLine {
+    invalid_line(&format!("request longer than {max_len} bytes"))
+}
+
+/// The transport label the access rules read: none for a local client (USB counts as local,
+/// like trust-runtime's local socket), the socket address for a network client, as trust-runtime
+/// labels a TCP client.
+fn client_label(peer: PeerClass) -> Option<String> {
+    match peer {
+        PeerClass::Local => None,
+        PeerClass::Network(address) => Some(address.to_string()),
+    }
+}
+
+/// A configured span on the monotonic clock. A span that is not positive is none: what waits for
+/// it is due at once, as trust-runtime's scheduler then does not sleep.
+fn span(configured: value::Duration) -> TimeSpan {
+    TimeSpan::from_time(configured).unwrap_or(TimeSpan::ZERO)
+}
+
+#[cfg(test)]
+mod contract_tests;
+
+#[cfg(test)]
+mod link_contract_tests;
+
+#[cfg(test)]
+mod scan_contract_tests;
+
+#[cfg(test)]
+mod timing_contract_tests;

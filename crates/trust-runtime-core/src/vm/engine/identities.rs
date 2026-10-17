@@ -221,6 +221,29 @@ impl RetainedGlobals {
     }
 }
 
+impl super::EngineState<'_> {
+    /// Reserve the next activation identity for an invocation, an initializer result
+    /// or an engineering scope. After construction, a reservation made while no
+    /// activation is reserved begins a top-level execution entry: one task program or
+    /// function-block invocation, or one engineering operation. Its activation
+    /// identities start again at zero, and the instance identities issued since the
+    /// previous entry began are issued again once none of those instances is live
+    /// (specification 34 §4.3.1, HOST-02). The lifetime checks keep every reference to
+    /// an activation, and every instance it owns, inside its entry, so a reissued
+    /// identity cannot name anything of an earlier entry. Construction keeps a single
+    /// increasing sequence.
+    pub(super) fn reserve_activation_identity(&mut self) -> Result<FrameId, RuntimeError> {
+        if self.data.construction_complete && self.data.storage.execution_frame_count() == 0 {
+            self.data.storage.begin_execution_entry()?;
+        }
+        self.data.storage.reserve_execution_frame()
+    }
+}
+
+#[cfg(test)]
+#[path = "identities/reuse_tests.rs"]
+mod reuse_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;

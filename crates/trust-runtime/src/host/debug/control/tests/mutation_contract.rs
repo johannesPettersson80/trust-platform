@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::memory::{FrameId, InstanceId};
+use crate::memory::{FrameId, Generation, InstanceId};
 use crate::program_model::LValue;
 use crate::value::Value;
 
@@ -48,7 +48,7 @@ fn pending_write_identity_includes_target_kind() {
     let control = DebugControl::new();
     control.enqueue_global_write("same", Value::LInt(1));
     control.enqueue_retain_write("same", Value::LInt(2));
-    control.enqueue_instance_write(InstanceId(7), "same", Value::LInt(3));
+    control.enqueue_instance_write(Generation::FIRST, InstanceId(7), "same", Value::LInt(3));
     control.enqueue_local_write(FrameId(7), "same", Value::LInt(4));
 
     let writes = control.drain_var_writes();
@@ -63,7 +63,7 @@ fn pending_write_identity_includes_target_kind() {
     ));
     assert!(matches!(
         &writes[2].target,
-        PendingVarTarget::Instance(InstanceId(7), name) if name == "same"
+        PendingVarTarget::Instance(_, InstanceId(7), name) if name == "same"
     ));
     assert!(matches!(
         &writes[3].target,
@@ -74,20 +74,20 @@ fn pending_write_identity_includes_target_kind() {
 #[test]
 fn pending_instance_write_identity_includes_instance_id() {
     let control = DebugControl::new();
-    control.enqueue_instance_write(InstanceId(1), "value", Value::LInt(1));
-    control.enqueue_instance_write(InstanceId(2), "value", Value::LInt(2));
-    control.enqueue_instance_write(InstanceId(1), "value", Value::LInt(3));
+    control.enqueue_instance_write(Generation::FIRST, InstanceId(1), "value", Value::LInt(1));
+    control.enqueue_instance_write(Generation::FIRST, InstanceId(2), "value", Value::LInt(2));
+    control.enqueue_instance_write(Generation::FIRST, InstanceId(1), "value", Value::LInt(3));
 
     let writes = control.drain_var_writes();
     assert_eq!(writes.len(), 2);
     assert!(matches!(
         &writes[0].target,
-        PendingVarTarget::Instance(InstanceId(1), name) if name == "value"
+        PendingVarTarget::Instance(_, InstanceId(1), name) if name == "value"
     ));
     assert_eq!(writes[0].value, Value::LInt(3));
     assert!(matches!(
         &writes[1].target,
-        PendingVarTarget::Instance(InstanceId(2), name) if name == "value"
+        PendingVarTarget::Instance(_, InstanceId(2), name) if name == "value"
     ));
 }
 
@@ -184,7 +184,7 @@ fn variable_forces_preserve_distinct_target_kinds_and_order() {
     let control = DebugControl::new();
     control.force_global("same", Value::LInt(1));
     control.force_retain("same", Value::LInt(2));
-    control.force_instance(InstanceId(7), "same", Value::LInt(3));
+    control.force_instance(Generation::FIRST, InstanceId(7), "same", Value::LInt(3));
 
     let forced = control.forced_snapshot().vars;
     assert_eq!(forced.len(), 3);
@@ -198,7 +198,7 @@ fn variable_forces_preserve_distinct_target_kinds_and_order() {
     ));
     assert!(matches!(
         &forced[2].target,
-        ForcedVarTarget::Instance(InstanceId(7), name) if name == "same"
+        ForcedVarTarget::Instance(_, InstanceId(7), name) if name == "same"
     ));
 }
 
@@ -218,20 +218,20 @@ fn variable_force_replacement_keeps_original_position() {
 #[test]
 fn instance_force_identity_includes_instance_id() {
     let control = DebugControl::new();
-    control.force_instance(InstanceId(1), "value", Value::LInt(1));
-    control.force_instance(InstanceId(2), "value", Value::LInt(2));
-    control.force_instance(InstanceId(1), "value", Value::LInt(3));
+    control.force_instance(Generation::FIRST, InstanceId(1), "value", Value::LInt(1));
+    control.force_instance(Generation::FIRST, InstanceId(2), "value", Value::LInt(2));
+    control.force_instance(Generation::FIRST, InstanceId(1), "value", Value::LInt(3));
 
     let forced = control.forced_snapshot().vars;
     assert_eq!(forced.len(), 2);
     assert!(matches!(
         &forced[0].target,
-        ForcedVarTarget::Instance(InstanceId(1), name) if name == "value"
+        ForcedVarTarget::Instance(_, InstanceId(1), name) if name == "value"
     ));
     assert_eq!(forced[0].value, Value::LInt(3));
     assert!(matches!(
         &forced[1].target,
-        ForcedVarTarget::Instance(InstanceId(2), name) if name == "value"
+        ForcedVarTarget::Instance(_, InstanceId(2), name) if name == "value"
     ));
 }
 
@@ -240,8 +240,8 @@ fn releases_are_exact_across_variable_target_kinds() {
     let control = DebugControl::new();
     control.force_global("same", Value::LInt(1));
     control.force_retain("same", Value::LInt(2));
-    control.force_instance(InstanceId(7), "same", Value::LInt(3));
-    control.force_instance(InstanceId(8), "same", Value::LInt(4));
+    control.force_instance(Generation::FIRST, InstanceId(7), "same", Value::LInt(3));
+    control.force_instance(Generation::FIRST, InstanceId(8), "same", Value::LInt(4));
 
     control.release_global("same");
     control.release_instance(InstanceId(7), "same");
@@ -253,7 +253,7 @@ fn releases_are_exact_across_variable_target_kinds() {
     ));
     assert!(matches!(
         &forced[1].target,
-        ForcedVarTarget::Instance(InstanceId(8), name) if name == "same"
+        ForcedVarTarget::Instance(_, InstanceId(8), name) if name == "same"
     ));
 }
 
@@ -319,7 +319,7 @@ fn runtime_mutation_clear_removes_every_queue_and_force() {
     control.enqueue_io_write(address("%QW0"), Value::LInt(1));
     control.enqueue_global_write("global", Value::LInt(2));
     control.enqueue_retain_write("retain", Value::LInt(3));
-    control.enqueue_instance_write(InstanceId(1), "instance", Value::LInt(4));
+    control.enqueue_instance_write(Generation::FIRST, InstanceId(1), "instance", Value::LInt(4));
     control.enqueue_local_write(FrameId(1), "local", Value::LInt(5));
     control.enqueue_lvalue_write(
         Some(FrameId(1)),

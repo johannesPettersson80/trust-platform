@@ -14,10 +14,14 @@ impl EngineState<'_> {
         mode: RestartMode,
         snapshot: Option<&crate::retain::RetainSnapshot>,
     ) -> Result<Vec<super::RetainApplyEvent>, RuntimeError> {
+        // A warm or cold restart constructs the next generation, so a reference taken
+        // before it names no state afterwards (spec 34 §11.3, MEM-07, UPDATE-04).
+        let generation = self.next_generation()?;
         let mut next_data = Self::build(
             self.prepared,
             self.data.resource_index,
             self.services,
+            generation,
             true,
             (mode == RestartMode::Warm).then_some(&*self),
             Some(&self.data.images),
@@ -81,7 +85,9 @@ impl EngineState<'_> {
                 }
             }
         }
-        Ok(())
+        // A retained program variable located at %M keeps its retained value, so the marker image
+        // the first scan loads must hold it (specification 11 6.7).
+        self.publish_marker_image()
     }
 
     pub(in crate::vm::engine) fn copy_process_images(

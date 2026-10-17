@@ -62,6 +62,10 @@ struct DebugState {
     /// and cleared under the same lock as the watchdog pause total, so hosted hang supervision
     /// never sees a hold half-recorded.
     watchdog_hold_started: Option<std::time::Instant>,
+    /// Set by a resource stop (`DebugControl::release_for_stop`). The stop ended the hold, and the
+    /// debugger holds the scan no more until the next resource thread starts, so no pause, step
+    /// or breakpoint can delay the stop (specification 11 section 6.9, specification 13 "Pause").
+    stop_requested: bool,
     breakpoint_stops_this_cycle: HashSet<BreakpointCycleKey>,
     frame_locations: HashMap<FrameId, SourceLocation>,
     logs: Vec<DebugLog>,
@@ -83,6 +87,9 @@ struct DebugState {
     pending_lvalue_writes: Vec<PendingLValueWrite>,
     forced_vars: Vec<ForcedVar>,
     forced_io: Vec<(IoAddress, Value)>,
+    /// The installation generation of the attached runtime, published when it attaches this
+    /// control and at every restart or replacement commit (specification 34 §11.3).
+    generation: Generation,
 }
 
 #[derive(Debug, Clone)]
@@ -96,7 +103,9 @@ struct WatchEntry {
 pub enum ForcedVarTarget {
     Global(SmolStr),
     Retain(SmolStr),
-    Instance(InstanceId, SmolStr),
+    /// A field of the instance with this identity in this installation generation; the scan
+    /// boundary rejects the force once another generation is installed (spec 34 §4.3.1).
+    Instance(Generation, InstanceId, SmolStr),
 }
 
 #[derive(Debug, Clone)]
@@ -118,8 +127,9 @@ pub(crate) const REQUEST_QUEUE_CAPACITY: usize = 1_024;
 
 /// Runtime events a debug control with no event sender attached holds for callers that drain
 /// them directly. At the bound the oldest event is dropped and counted (specification 11, event
-/// store).
-pub(crate) const RUNTIME_EVENT_BUFFER_CAPACITY: usize = 1_024;
+/// store). The bound and the buffering are shared runtime code (spec 34 ARCH-11).
+#[cfg(test)]
+pub(crate) use trust_runtime_services::events::DEBUG_EVENT_BUFFER_CAPACITY as RUNTIME_EVENT_BUFFER_CAPACITY;
 
 /// A control request refused because its bounded queue is full. Its text is the stable control
 /// error `request queue full`, and the refused request changes nothing.
@@ -136,7 +146,8 @@ impl std::fmt::Display for RequestQueueFull {
 pub(crate) enum PendingVarTarget {
     Global(SmolStr),
     Retain(SmolStr),
-    Instance(InstanceId, SmolStr),
+    /// A field of the instance with this identity in this installation generation.
+    Instance(Generation, InstanceId, SmolStr),
     Local(FrameId, SmolStr),
 }
 

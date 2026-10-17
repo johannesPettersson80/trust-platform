@@ -85,18 +85,38 @@ impl VariableStorage {
         self.read_by_ref_ref(&value_ref)
     }
 
+    /// Read through a reference. A reference of another installation generation
+    /// names no state here and reads nothing (specification 34 §11.3).
     pub fn read_by_ref_ref(&self, value_ref: &crate::value::ValueRef) -> Option<&Value> {
-        self.read_by_ref_parts(value_ref.location, value_ref.offset, &value_ref.path)
+        if value_ref.generation != self.generation {
+            return None;
+        }
+        self.read_by_ref_parts(
+            value_ref.location,
+            value_ref.offset as usize,
+            &value_ref.path,
+        )
     }
 
     pub fn materialize_by_ref(&self, value_ref: crate::value::ValueRef) -> Option<Value> {
         self.materialize_by_ref_ref(&value_ref)
     }
 
+    /// Copy the value a reference names. A reference of another generation names
+    /// no state here.
     pub fn materialize_by_ref_ref(&self, value_ref: &crate::value::ValueRef) -> Option<Value> {
-        self.materialize_by_ref_parts(value_ref.location, value_ref.offset, &value_ref.path)
+        if value_ref.generation != self.generation {
+            return None;
+        }
+        self.materialize_by_ref_parts(
+            value_ref.location,
+            value_ref.offset as usize,
+            &value_ref.path,
+        )
     }
 
+    /// Read a slot of this storage's own generation by its parts. Callers that hold
+    /// a `ValueRef` use `read_by_ref_ref`, which checks the reference's generation.
     pub fn read_by_ref_parts(
         &self,
         location: MemoryLocation,
@@ -132,8 +152,18 @@ impl VariableStorage {
         self.write_by_ref_ref(&value_ref, value)
     }
 
+    /// Write through a reference. A reference of another generation names no state
+    /// here, so nothing is written.
     pub fn write_by_ref_ref(&mut self, value_ref: &crate::value::ValueRef, value: Value) -> bool {
-        self.write_by_ref_parts(value_ref.location, value_ref.offset, &value_ref.path, value)
+        if value_ref.generation != self.generation {
+            return false;
+        }
+        self.write_by_ref_parts(
+            value_ref.location,
+            value_ref.offset as usize,
+            &value_ref.path,
+            value,
+        )
     }
 
     pub fn write_by_ref_parts(
@@ -148,14 +178,18 @@ impl VariableStorage {
     }
 
     /// Preserve storage rejection identity instead of translating it to a missing reference.
+    /// A reference of another generation is refused with `ReferenceLifetime`.
     pub fn write_by_ref_ref_checked(
         &mut self,
         reference: &crate::value::ValueRef,
         value: Value,
     ) -> Result<bool, crate::error::RuntimeError> {
+        if reference.generation != self.generation {
+            return Err(crate::error::RuntimeError::ReferenceLifetime);
+        }
         self.write_by_ref_parts_checked(
             reference.location,
-            reference.offset,
+            reference.offset as usize,
             &reference.path,
             value,
         )
@@ -301,7 +335,7 @@ impl VariableStorage {
                 if let Value::Instance(instance) = current {
                     let resolved = self.ref_for_instance_recursive(*instance, name)?;
                     location = resolved.location;
-                    offset = resolved.offset;
+                    offset = resolved.offset as usize;
                     start = index + 1;
                 }
             }
@@ -309,6 +343,7 @@ impl VariableStorage {
         Some(crate::value::ValueRefView {
             location,
             offset,
+            generation: self.generation,
             path: &path[start..],
         })
     }

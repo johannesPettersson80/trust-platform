@@ -311,6 +311,17 @@ impl IoInterface {
         self.binding_codecs.push(codec);
     }
 
+    /// Bind the reference targets again, in binding order, after a restart constructed a
+    /// new installation generation (specification 34 §11.3). Addresses, codecs, names and
+    /// provenance are unchanged.
+    pub(crate) fn rebind_references(&mut self, references: Vec<ValueRef>) {
+        for (binding, reference) in self.bindings.iter_mut().zip(references) {
+            if let IoTarget::Reference(target) = &mut binding.target {
+                *target = reference;
+            }
+        }
+    }
+
     pub fn set_binding_sources<F>(&mut self, mut source_for: F)
     where
         F: FnMut(&IoAddress) -> Option<SmolStr>,

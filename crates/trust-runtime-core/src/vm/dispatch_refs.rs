@@ -105,7 +105,7 @@ pub fn load_ref_addr(
     runtime
         .before_reference_path_clone(reference)
         .map_err(VmTrap::Runtime)?;
-    Ok(reference.to_owned())
+    reference.to_owned().map_err(VmTrap::Runtime)
 }
 
 fn load_ref_view<'a>(
@@ -140,9 +140,11 @@ fn load_ref_view<'a>(
             frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?,
         )?,
     };
+    // A reference the program takes belongs to the installed generation.
     Ok(crate::value::ValueRefView {
         location,
         offset,
+        generation: runtime.storage().generation(),
         path,
     })
 }
@@ -299,6 +301,7 @@ pub fn dynamic_ref_field_borrowed(
             let mut next = ValueRef {
                 location: reference.location,
                 offset: reference.offset,
+                generation: reference.generation,
                 path,
             };
             next.path.push(RefSegment::Field(field));
@@ -528,10 +531,21 @@ pub fn dynamic_store_ref(
         let frame = frames
             .current_mut()
             .ok_or_else(|| VmTrap::CallStackUnderflow)?;
-        return write_vm_local_ref(frame, reference.offset, &reference.path, value, runtime);
+        return write_vm_local_ref(
+            frame,
+            reference.offset as usize,
+            &reference.path,
+            value,
+            runtime,
+        );
     }
     if runtime
-        .write_typed_storage(reference.location, reference.offset, &reference.path, value)
+        .write_typed_storage(
+            reference.location,
+            reference.offset as usize,
+            &reference.path,
+            value,
+        )
         .map_err(VmTrap::Runtime)?
     {
         Ok(())
@@ -599,12 +613,10 @@ pub fn dynamic_ref_type(
     reference: &ValueRef,
 ) -> Result<Option<u32>, VmTrap> {
     if frame.owns_local_reference(reference) {
-        if reference.offset >= frame.local_ref_count as usize {
+        if reference.offset >= frame.local_ref_count {
             return Ok(None);
         }
-        let Some(offset) = u32::try_from(reference.offset).ok() else {
-            return Ok(None);
-        };
+        let offset = reference.offset;
         let Some(base_type) = frame
             .local_ref_start
             .checked_add(offset)
@@ -632,7 +644,7 @@ pub fn dynamic_ref_type(
         let path = match (reference.location, candidate) {
             (MemoryLocation::Global, VmRef::Global { offset, path })
             | (MemoryLocation::Instance(_), VmRef::Instance { offset, path, .. })
-                if *offset == reference.offset =>
+                if *offset == reference.offset as usize =>
             {
                 path
             }
@@ -650,7 +662,7 @@ pub fn dynamic_ref_type(
             Err(VmTrap::Runtime(error)) => return Err(VmTrap::Runtime(error)),
             Err(_) => continue,
         };
-        if location == reference.location && offset == reference.offset {
+        if location == reference.location && offset == reference.offset as usize {
             let Some(type_idx) = vm_type_for_path(module, base_type_idx, suffix) else {
                 continue;
             };

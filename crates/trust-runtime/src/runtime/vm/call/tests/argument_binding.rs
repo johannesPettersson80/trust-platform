@@ -198,6 +198,7 @@ fn unpack_native_call_payload_preserves_receiver_and_argument_order() {
     let target_ref = ValueRef {
         location: MemoryLocation::Global,
         offset: 3,
+        generation: crate::memory::Generation::FIRST,
         path: RefPath::new(),
     };
     operand_stack

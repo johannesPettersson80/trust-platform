@@ -1,5 +1,6 @@
 //! Immutable descriptors shared by every default registry.
 
+use super::contracts::{self, ImportContract};
 use super::StdFunctionRef;
 
 // Each family owns its single authoritative registration list. Parameter slices
@@ -17,29 +18,55 @@ macro_rules! descriptor {
 }
 pub(super) use descriptor;
 
-static FAMILIES: [&[(&str, StdFunctionRef<'static>)]; 8] = [
-    &super::assertions::FUNCTIONS,
-    &super::numeric::FUNCTIONS,
-    &super::bit::FUNCTIONS,
-    &super::selection::FUNCTIONS,
-    &super::comparison::FUNCTIONS,
-    &super::string::FUNCTIONS,
-    &super::time::FUNCTIONS,
-    &super::validate::FUNCTIONS,
+type Family = &'static [(&'static str, StdFunctionRef<'static>)];
+
+// Each family carries the execution contract of all its functions (spec 34 §5.2.1),
+// so a registered function cannot exist without one.
+static FAMILIES: [(Family, &ImportContract); 8] = [
+    (&super::assertions::FUNCTIONS, &contracts::ASSERTIONS),
+    (&super::numeric::FUNCTIONS, &contracts::NUMERIC),
+    (&super::bit::FUNCTIONS, &contracts::BIT),
+    (&super::selection::FUNCTIONS, &contracts::SELECTION),
+    (&super::comparison::FUNCTIONS, &contracts::COMPARISON),
+    (&super::string::FUNCTIONS, &contracts::STRINGS),
+    (&super::time::FUNCTIONS, &contracts::TIME_FUNCTIONS),
+    (&super::validate::FUNCTIONS, &contracts::VALIDATE),
 ];
 
 pub(super) fn get(name: &str) -> Option<&'static StdFunctionRef<'static>> {
+    find(name).map(|(function, _)| function)
+}
+
+/// A registered function and its family's contract, by ASCII-insensitive name.
+pub(super) fn find(
+    name: &str,
+) -> Option<(&'static StdFunctionRef<'static>, &'static ImportContract)> {
     // Eight fixed families, each searched logarithmically, without allocating an
     // uppercase key. Conversion recognition remains algorithmic and separate.
-    for family in &FAMILIES {
+    for (family, contract) in &FAMILIES {
         if let Ok(index) = family.binary_search_by(|(key, _)| {
             key.bytes()
                 .cmp(name.bytes().map(|byte| byte.to_ascii_uppercase()))
         }) {
-            return Some(&family[index].1);
+            return Some((&family[index].1, *contract));
         }
     }
     None
+}
+
+/// Every registered function with its family's contract, in registration order.
+pub(super) fn entries() -> impl Iterator<
+    Item = (
+        &'static str,
+        &'static StdFunctionRef<'static>,
+        &'static ImportContract,
+    ),
+> {
+    FAMILIES.iter().flat_map(|(family, contract)| {
+        family
+            .iter()
+            .map(move |(name, function)| (*name, function, *contract))
+    })
 }
 
 #[cfg(test)]
@@ -109,16 +136,19 @@ mod tests {
         let library = StandardLibrary::new();
         let baseline = include_str!("registration-baseline.txt");
         assert_eq!(
-            FAMILIES.iter().map(|family| family.len()).sum::<usize>(),
+            FAMILIES
+                .iter()
+                .map(|(family, _)| family.len())
+                .sum::<usize>(),
             baseline.lines().count()
         );
-        for family in &FAMILIES {
+        for (family, _) in &FAMILIES {
             assert!(family.windows(2).all(|pair| pair[0].0 < pair[1].0));
             for (name, entry) in *family {
                 assert_eq!(
                     FAMILIES
                         .iter()
-                        .flat_map(|family| family.iter())
+                        .flat_map(|(family, _)| family.iter())
                         .filter(|(other, _)| name == other)
                         .count(),
                     1
@@ -255,7 +285,7 @@ mod tests {
             library.functions.len(),
             include_str!("registration-baseline.txt").lines().count()
         );
-        for family in &FAMILIES {
+        for (family, _) in &FAMILIES {
             for (name, expected) in *family {
                 let found = library.get(name).unwrap();
                 assert_eq!(found.params, expected.params);
@@ -263,5 +293,21 @@ mod tests {
             }
         }
         assert_behavior_corpus(&library);
+    }
+
+    #[test]
+    fn every_family_lookup_returns_the_contract_its_registration_names() {
+        for (family, contract) in &FAMILIES {
+            for (name, entry) in *family {
+                let (found, found_contract) = find(&name.to_ascii_lowercase()).unwrap();
+                assert!(core::ptr::eq(found, entry), "{name}");
+                assert!(core::ptr::eq(found_contract, *contract), "{name}");
+            }
+        }
+        assert_eq!(
+            entries().count(),
+            include_str!("registration-baseline.txt").lines().count()
+        );
+        assert!(find("äbs").is_none() && find(" ABS").is_none());
     }
 }

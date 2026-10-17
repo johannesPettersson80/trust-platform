@@ -152,6 +152,7 @@ mod tests {
         let reference = Value::Reference(Some(ValueRef {
             location: MemoryLocation::Global,
             offset: 0,
+            generation: data.storage.generation(),
             path: vec![
                 RefSegment::Field("field".into()),
                 RefSegment::Index(vec![4, 5]),

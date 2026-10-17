@@ -346,14 +346,57 @@ if match and "Result<IndexMap" not in match.group(0):
 PY
 }
 
+emit_retain_orphan_findings() {
+  python3 - "$ROOT" <<'PY' >>"$FINDINGS"
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+rule = "RUNTIMESAFE-RETAIN-ORPHAN-SILENT owner=runtime/retain"
+# The retained-value events are shared runtime code (S1a-3): `retain_apply_event` turns
+# what a restart reports into runtime events, and both trust-runtime's restart and the
+# device runner's restart publish them.
+events = root / "crates/trust-runtime-services/src/events.rs"
+publishers = [
+    root / "crates/trust-runtime/src/runtime/installed_lifecycle.rs",
+    root / "crates/trust-runtime-services/src/runner/supervision.rs",
+]
+
+def read(path: pathlib.Path):
+    return path.read_text(encoding="utf-8") if path.exists() else None
+
+def emit(path: pathlib.Path, message: str):
+    print(f"{rule} {path.relative_to(root).as_posix()}:0: {message}")
+
+text = read(events)
+if text is None:
+    # Fail closed: the gate must find the code it guards.
+    emit(events, "shared runtime event taxonomy not found")
+elif not re.search(
+    r"fn\s+retain_apply_event\b[\s\S]*?RetainApplyEvent::Orphan[^=]*=>\s*RuntimeEvent::RetainOrphanDropped",
+    text,
+):
+    emit(events, "missing retain orphan event/reporting in retain_apply_event")
+for publisher in publishers:
+    text = read(publisher)
+    if text is None:
+        emit(publisher, "retained-value event publisher not found")
+    elif "retain_apply_event" not in text:
+        emit(publisher, "restart does not publish its retained-value events")
+PY
+}
+
 emit_feature_disabled_findings() {
   python3 - "$ROOT" <<'PY' >>"$FINDINGS"
 import pathlib
 import sys
 
 root = pathlib.Path(sys.argv[1])
-control = root / "crates/trust-runtime/src/control.rs"
-types = root / "crates/trust-runtime/src/host/debug/types.rs"
+# The control-request pipeline and the event taxonomy live in the shared runtime
+# services (S1a-2), used by trust-runtime and by the chip firmware alike.
+dispatch = root / "crates/trust-runtime-services/src/dispatch.rs"
+events = root / "crates/trust-runtime-services/src/events.rs"
 
 def emit(path: pathlib.Path, message: str, needle: str = "debug disabled"):
     rel = path.relative_to(root).as_posix()
@@ -362,15 +405,18 @@ def emit(path: pathlib.Path, message: str, needle: str = "debug disabled"):
     line = text.count("\n", 0, idx) + 1 if idx != -1 else 0
     print(f"RUNTIMESAFE-FEATURE-DISABLED-SILENT owner=runtime/debug-control {rel}:{line}: {message}")
 
-if control.exists():
-    text = control.read_text(encoding="utf-8")
-    if "debug disabled" in text and "feature_disabled" not in text:
-        emit(control, "debug-disabled control response lacks structured feature_disabled code")
-    if "debug disabled" in text and "RuntimeEvent::FeatureDisabled" not in text:
-        emit(control, "debug-disabled control response lacks observable FeatureDisabled event")
+text = dispatch.read_text(encoding="utf-8") if dispatch.exists() else ""
+if "debug disabled" not in text:
+    # Fail closed: the gate must find the pipeline it guards.
+    emit(dispatch, "debug-disabled control response not found in the shared dispatcher")
+else:
+    if "feature_disabled" not in text:
+        emit(dispatch, "debug-disabled control response lacks structured feature_disabled code")
+    if "RuntimeEvent::FeatureDisabled" not in text:
+        emit(dispatch, "debug-disabled control response lacks observable FeatureDisabled event")
 
-if types.exists() and "FeatureDisabled" not in types.read_text(encoding="utf-8"):
-    emit(types, "runtime event taxonomy lacks FeatureDisabled")
+if "FeatureDisabled" not in (events.read_text(encoding="utf-8") if events.exists() else ""):
+    emit(events, "runtime event taxonomy lacks FeatureDisabled", "RuntimeEvent")
 PY
 }
 
@@ -491,6 +537,12 @@ emit_findings \
   'let _ = [^;]*apply_safe_state|apply_safe_state\(\)\.ok\(\)'
 
 emit_findings \
+  "RUNTIMESAFE-SAFE-STATE-DISCARD" \
+  "runtime/cycle" \
+  "crates/trust-runtime-services/src" \
+  'let _ = [^;]*apply_safe_outputs|apply_safe_outputs\(\)\.ok\(\)'
+
+emit_findings \
   "RUNTIMESAFE-DEBUG-WRITE-DISCARD" \
   "runtime/debug-control" \
   "crates/trust-runtime/src/host/debug/control" \
@@ -532,12 +584,7 @@ emit_retain_commit_order_findings
 
 emit_gpio_health_findings
 
-emit_absence_if_missing \
-  "RUNTIMESAFE-RETAIN-ORPHAN-SILENT" \
-  "runtime/retain" \
-  "crates/trust-runtime/src/runtime/installed_lifecycle.rs" \
-  'RetainOrphanDropped' \
-  "retain orphan event/reporting"
+emit_retain_orphan_findings
 
 emit_feature_disabled_findings
 

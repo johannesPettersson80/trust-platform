@@ -18,6 +18,9 @@ sha2.workspace = true
 hex.workspace = true
 syn = { version = "3.0.7", features = ["full", "visit"] }
 toml.workspace = true
+# The chip files: build-firmware builds each chip's firmware from its file, and the bench
+# profiles take their chip values from it.
+trust-chips.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 process-wrap = { version = "=10.0.1", default-features = false, features = ["std", "job-object"] }

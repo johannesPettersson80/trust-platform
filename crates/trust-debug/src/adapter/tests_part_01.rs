@@ -200,14 +200,17 @@ fn dispatch_io_state_emits_event() {
         .unwrap();
     runtime
         .io_mut()
-        .write(&speed_addr, RuntimeValue::DWord(0x3FC0_0000))
-        .unwrap();
-    runtime
-        .io_mut()
         .write(&label_addr, RuntimeValue::String("Ready".into()))
         .unwrap();
 
-    let session = DebugSession::new(install_io_fixture(runtime));
+    let mut runtime = install_io_fixture(runtime);
+    // A variable bound to %M starts with its own initial value, which the build publishes over
+    // seeded marker bytes (spec 11 §6.7). The value shown here is a later write into the marker
+    // image, as a driver makes it.
+    runtime
+        .write_io(&speed_addr, RuntimeValue::DWord(0x3FC0_0000))
+        .unwrap();
+    let session = DebugSession::new(runtime);
     let mut adapter = DebugAdapter::new(session);
 
     let request = Request::<serde_json::Value> {
