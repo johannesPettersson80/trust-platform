@@ -328,6 +328,10 @@ Target release: `v0.24.75`
 
 ### Fixed
 
+- A `POINTER TO ARRAY[*] OF T` again accepts the address of a concrete
+  `ARRAY[a..b] OF T` of the same rank, so the OSCAT array helpers and `CRC_GEN`
+  run on the shared engine; a different element type or rank is still a type
+  mismatch.
 - OPC UA startup now waits until this process's own server has bound its listen address, so another process holding the port can no longer pass for a started server on platforms where the check before startup does not see it (seen on macOS). A bind that fails during startup reports the same "listen address … is unavailable" error as that check.
 - `trust-dev ctl` and `trust-runtime ui` keep the project's control token when
   `--endpoint` is given, as `trust-runtime ctl` does; they used to drop it.
