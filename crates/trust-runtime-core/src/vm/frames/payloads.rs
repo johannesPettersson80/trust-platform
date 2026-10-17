@@ -98,7 +98,9 @@ impl FramePayloads {
         table.checked_add(values)?.checked_add(presence)
     }
 
-    /// Payload bytes held by the reserved and out payloads.
+    /// Payload bytes held by the reserved and out payloads, for the register tier's storage
+    /// accounting in tests.
+    #[cfg(all(feature = "register-ir", any(test, feature = "test-support")))]
     #[must_use]
     pub fn storage_bytes(&self) -> usize {
         let mut bytes = self
