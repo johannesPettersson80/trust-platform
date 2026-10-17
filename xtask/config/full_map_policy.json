@@ -1222,6 +1222,14 @@
         "decision_note": "ARCHPROG-C-05 baseline freeze"
       },
       {
+        "name": "fleet_topology",
+        "subsystem": "runtime_fleet_topology_contract",
+        "owner": "runtime/control",
+        "rationale": "fleet.topology wire types and the decoder of schema versions 2 to 4, shared by the control handlers that write the report and the tools that read it; owns no transport",
+        "review_date": "2026-10-17",
+        "decision_note": "V7 B1: wire types moved out of control/fleet_handlers so the Devices panel engine can read them"
+      },
+      {
         "name": "host",
         "subsystem": "linux_host_adapters",
         "owner": "runtime/Linux host",

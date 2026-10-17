@@ -6836,6 +6836,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-runtime-client"
+version = "0.24.75"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "trust-runtime-core"
 version = "0.24.75"
 dependencies = [

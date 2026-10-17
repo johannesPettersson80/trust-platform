@@ -138,7 +138,7 @@ fn fleet_link_contract_projection_retains_unsanitized_fields() {
     assert_eq!(link.from, "endpoint:runtime:mqtt");
     assert_eq!(link.to, "shared:mqtt:broker.local:1883");
     assert_eq!(link.protocol, "mqtt");
-    assert_eq!(link.role, "publish_subscribe");
+    assert_eq!(link.role.as_deref(), Some("publish_subscribe"));
     assert_eq!(link.direction, "publish_subscribe");
     assert!(!link.same_host);
     assert_eq!(link.status, "configured_policy");
@@ -233,7 +233,7 @@ tls = true
     assert_eq!(link.from, "endpoint:runtime:modbus_tcp");
     assert_eq!(link.to, "external:modbus:192.0.2.10:502");
     assert_eq!(link.protocol, "modbus_tcp");
-    assert_eq!(link.role, "client");
+    assert_eq!(link.role.as_deref(), Some("client"));
     assert_eq!(link.direction, "outbound");
     assert_eq!(link.status, "configured_policy");
     assert!(link.secure);
@@ -274,7 +274,7 @@ fn fleet_link_contract_ethercat_target_projects_unsecured_master_link() {
     let link = &links[0];
     assert_eq!(link.from, "endpoint:runtime:ethercat");
     assert_eq!(link.to, "external:ethercat:enp2s0");
-    assert_eq!(link.role, "master");
+    assert_eq!(link.role.as_deref(), Some("master"));
     assert!(!link.secure);
     assert_eq!(link.status, "configured_policy");
 }

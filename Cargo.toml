@@ -19,6 +19,7 @@ members = [
     "crates/trust-board-fixture",
     "crates/trust-chips",
     "crates/trust-runtime",
+    "crates/trust-runtime-client",
     "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
 ]
@@ -120,6 +121,7 @@ trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-board-fixture = { path = "crates/trust-board-fixture" }
 trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }
+trust-runtime-client = { path = "crates/trust-runtime-client" }
 trust-tcads-native = { path = "crates/trust-tcads-native" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
 

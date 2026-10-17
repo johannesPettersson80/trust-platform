@@ -69,6 +69,9 @@ pub mod eval;
 #[cfg(feature = "full")]
 #[path = "host/execution_backend.rs"]
 pub mod execution_backend;
+/// The `fleet.topology` report that runtimes send and tools read.
+#[cfg(feature = "full")]
+pub mod fleet_topology;
 /// Test harness for runtime execution.
 #[cfg(feature = "full")]
 #[path = "host/harness/mod.rs"]
