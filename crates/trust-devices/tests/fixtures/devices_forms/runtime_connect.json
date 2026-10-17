@@ -1,0 +1,51 @@
+{
+  "id": "runtime.connect",
+  "protocol": "runtime.connect",
+  "title": "Connect existing runtime",
+  "breadcrumb": "Devices & Connections / Runtime setup",
+  "owner_line": "",
+  "purpose": "Add a truST runtime that is already running on another computer or controller. truST checks the address before it is shown as connected.",
+  "runtime_choices": [],
+  "sections": [
+    {
+      "fields": [
+        {
+          "id": "endpoint",
+          "label": "Runtime address",
+          "required": true,
+          "kind": "text",
+          "value": "",
+          "options": [],
+          "help": "Host name or IP plus port. Advanced: tcp://host:port or unix:///path/to/socket.",
+          "placeholder": "10.0.0.5:5680"
+        },
+        {
+          "id": "token",
+          "label": "Runtime auth token (optional)",
+          "required": false,
+          "kind": "secret",
+          "value": "",
+          "options": [],
+          "help": "Paste the token configured for that runtime. Leave this empty when the runtime does not require one. VS Code stores it securely and never shows it on the canvas.",
+          "placeholder": "Optional"
+        }
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "id": "add_runtime",
+      "label": "Add runtime",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "rust",
+        "action": "runtime.add_host",
+        "payload": {
+          "form": "runtime.connect"
+        }
+      }
+    }
+  ],
+  "note": "If you do not know the address, use Discover instead."
+}

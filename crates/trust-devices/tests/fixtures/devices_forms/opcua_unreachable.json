@@ -1,0 +1,135 @@
+{
+  "id": "opcua_client@runtime:local",
+  "protocol": "opcua_client",
+  "title": "Add OPC UA client",
+  "breadcrumb": "Devices & Connections / Add device or connection",
+  "owner_line": "on Simulator",
+  "purpose": "Read selected nodes from an external OPC UA server.",
+  "runtime": {
+    "id": "runtime:local",
+    "name": "Simulator"
+  },
+  "runtime_choices": [
+    {
+      "id": "runtime:local",
+      "name": "Simulator"
+    }
+  ],
+  "sections": [
+    {
+      "fields": [
+        {
+          "id": "enabled",
+          "label": "Enable OPC UA client",
+          "required": false,
+          "kind": "boolean",
+          "value": true,
+          "options": [],
+          "help": "Read selected nodes from an external OPC UA server."
+        },
+        {
+          "id": "config_path",
+          "label": "OPC UA client config path",
+          "required": false,
+          "kind": "text",
+          "value": "opcua_client.toml",
+          "options": [],
+          "help": "Project-relative OPC UA client connection file."
+        },
+        {
+          "id": "poll_interval_ms",
+          "label": "OPC UA poll interval (ms)",
+          "required": true,
+          "kind": "number",
+          "value": 250,
+          "options": [],
+          "help": "How often truST reads selected OPC UA nodes. Lower values reduce latency but use more CPU and network traffic."
+        },
+        {
+          "id": "connections",
+          "label": "Connections",
+          "required": false,
+          "kind": "list",
+          "value": [],
+          "options": [],
+          "help": "OPC UA client connection entries. Enabling the client requires at least one connection with selected nodes.",
+          "list": {
+            "item_noun": "connection",
+            "item_title": "Connection",
+            "add_label": "Add connection",
+            "empty_text": "No connections yet. Use Discover or Browse to add one instead of typing JSON.",
+            "can_add": false,
+            "item_kind": "text",
+            "item_template": null,
+            "properties": []
+          }
+        }
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "id": "save",
+      "label": "Save",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.save",
+        "payload": {
+          "form": "opcua_client@runtime:local",
+          "protocol": "opcua_client",
+          "runtime": "runtime:local"
+        }
+      }
+    },
+    {
+      "id": "cancel",
+      "label": "Cancel",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "close_inspector"
+        }
+      }
+    },
+    {
+      "id": "test",
+      "label": "Test",
+      "enabled": false,
+      "reason": "Select a reachable online runtime before testing Communication setup.",
+      "emphasis": "quiet",
+      "op": {
+        "kind": "rust",
+        "action": "connection.test",
+        "payload": {
+          "form": "opcua_client@runtime:local",
+          "protocol": "opcua_client",
+          "runtime": "runtime:local"
+        }
+      }
+    },
+    {
+      "id": "apply_live",
+      "label": "Apply to running runtime",
+      "enabled": false,
+      "reason": "Select a reachable online runtime before applying Communication setup.",
+      "emphasis": "quiet",
+      "op": {
+        "kind": "rust",
+        "action": "connection.apply_live",
+        "payload": {
+          "form": "opcua_client@runtime:local",
+          "protocol": "opcua_client",
+          "runtime": "runtime:local"
+        }
+      }
+    }
+  ],
+  "ghost": {
+    "name": "New device",
+    "detail": "Draft: configure and Apply"
+  }
+}

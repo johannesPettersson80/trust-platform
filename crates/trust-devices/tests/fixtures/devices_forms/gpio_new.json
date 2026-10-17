@@ -1,0 +1,204 @@
+{
+  "id": "gpio@runtime:local",
+  "protocol": "gpio",
+  "title": "Add GPIO",
+  "breadcrumb": "Devices & Connections / Add device or connection",
+  "owner_line": "on Simulator",
+  "purpose": "Map local Linux/Pi pins to runtime I/O.",
+  "runtime": {
+    "id": "runtime:local",
+    "name": "Simulator"
+  },
+  "runtime_choices": [
+    {
+      "id": "runtime:local",
+      "name": "Simulator"
+    }
+  ],
+  "sections": [
+    {
+      "fields": [
+        {
+          "id": "backend",
+          "label": "Backend",
+          "required": true,
+          "kind": "choice",
+          "value": "libgpiod",
+          "options": [
+            {
+              "value": "libgpiod",
+              "label": "libgpiod"
+            },
+            {
+              "value": "sysfs",
+              "label": "sysfs"
+            }
+          ],
+          "help": "Linux GPIO access backend. libgpiod uses the kernel GPIO character device; sysfs is available for legacy hosts."
+        },
+        {
+          "id": "chip",
+          "label": "GPIO chip",
+          "required": false,
+          "kind": "text",
+          "value": "/dev/gpiochip0",
+          "options": [],
+          "help": "Linux GPIO character device used by libgpiod, usually /dev/gpiochip0 on Raspberry Pi.",
+          "visible_when": {
+            "field": "backend",
+            "equals": "libgpiod"
+          }
+        },
+        {
+          "id": "sysfs_base",
+          "label": "Sysfs base",
+          "required": false,
+          "kind": "text",
+          "value": "/sys/class/gpio",
+          "options": [],
+          "help": "Legacy sysfs root, usually /sys/class/gpio. Only used when Backend is sysfs.",
+          "visible_when": {
+            "field": "backend",
+            "equals": "sysfs"
+          }
+        },
+        {
+          "id": "inputs",
+          "label": "Inputs",
+          "required": false,
+          "kind": "list",
+          "value": [
+            {
+              "address": "%IX0.0",
+              "line": 17
+            }
+          ],
+          "options": [],
+          "help": "Input mappings from IEC address to kernel/BCM GPIO line number, e.g. line 17 = GPIO17.",
+          "list": {
+            "item_noun": "input",
+            "item_title": "Input",
+            "add_label": "Add input",
+            "empty_text": "No inputs yet. Add an item below.",
+            "can_add": true,
+            "item_kind": "object",
+            "item_template": {
+              "address": "%IX0.0",
+              "line": 17
+            },
+            "properties": [
+              {
+                "key": "address",
+                "label": "Address",
+                "kind": "text",
+                "required": false,
+                "options": [],
+                "alternatives": []
+              },
+              {
+                "key": "line",
+                "label": "Line",
+                "kind": "number",
+                "required": false,
+                "options": [],
+                "alternatives": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "outputs",
+          "label": "Outputs",
+          "required": false,
+          "kind": "list",
+          "value": [
+            {
+              "address": "%QX0.0",
+              "line": 27
+            }
+          ],
+          "options": [],
+          "help": "Output mappings from IEC address to kernel/BCM GPIO line number, e.g. line 27 = GPIO27.",
+          "list": {
+            "item_noun": "output",
+            "item_title": "Output",
+            "add_label": "Add output",
+            "empty_text": "No outputs yet. Add an item below.",
+            "can_add": true,
+            "item_kind": "object",
+            "item_template": {
+              "address": "%QX0.0",
+              "line": 27
+            },
+            "properties": [
+              {
+                "key": "address",
+                "label": "Address",
+                "kind": "text",
+                "required": false,
+                "options": [],
+                "alternatives": []
+              },
+              {
+                "key": "line",
+                "label": "Line",
+                "kind": "number",
+                "required": false,
+                "options": [],
+                "alternatives": []
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "id": "save",
+      "label": "Save",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.save",
+        "payload": {
+          "form": "gpio@runtime:local",
+          "protocol": "gpio",
+          "runtime": "runtime:local"
+        }
+      }
+    },
+    {
+      "id": "cancel",
+      "label": "Cancel",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "close_inspector"
+        }
+      }
+    },
+    {
+      "id": "apply_live",
+      "label": "Apply to running runtime",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.apply_live",
+        "payload": {
+          "form": "gpio@runtime:local",
+          "protocol": "gpio",
+          "runtime": "runtime:local"
+        }
+      }
+    }
+  ],
+  "ghost": {
+    "name": "New device",
+    "detail": "Draft: configure and Apply"
+  }
+}

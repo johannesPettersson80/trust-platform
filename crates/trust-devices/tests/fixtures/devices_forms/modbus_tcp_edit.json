@@ -1,0 +1,175 @@
+{
+  "id": "modbus_tcp@runtime:local#endpoint:meter",
+  "protocol": "modbus_tcp",
+  "title": "Modbus TCP",
+  "breadcrumb": "Devices & Connections / Edit Modbus TCP",
+  "owner_line": "on Simulator",
+  "purpose": "Read and write register-oriented devices or PLC endpoints.",
+  "runtime": {
+    "id": "runtime:local",
+    "name": "Simulator"
+  },
+  "runtime_choices": [
+    {
+      "id": "runtime:local",
+      "name": "Simulator"
+    }
+  ],
+  "sections": [
+    {
+      "fields": [
+        {
+          "id": "address",
+          "label": "Device address",
+          "required": true,
+          "kind": "text",
+          "value": "192.168.1.50:502",
+          "options": [],
+          "help": "IP address and TCP port of the Modbus device."
+        },
+        {
+          "id": "unit_id",
+          "label": "Unit ID",
+          "required": true,
+          "kind": "number",
+          "value": 1,
+          "options": [],
+          "help": "Modbus unit/server id."
+        },
+        {
+          "id": "input_start",
+          "label": "Input start register",
+          "required": true,
+          "kind": "number",
+          "value": 0,
+          "options": [],
+          "help": "First input register read by the runtime."
+        },
+        {
+          "id": "output_start",
+          "label": "Output start register",
+          "required": true,
+          "kind": "number",
+          "value": 0,
+          "options": [],
+          "help": "First output register written by the runtime."
+        },
+        {
+          "id": "timeout_ms",
+          "label": "Timeout",
+          "required": true,
+          "kind": "number",
+          "value": 500,
+          "options": [],
+          "help": "Request timeout in milliseconds."
+        },
+        {
+          "id": "on_error",
+          "label": "On error",
+          "required": true,
+          "kind": "choice",
+          "value": "warn",
+          "options": [
+            {
+              "value": "fault",
+              "label": "Stop with fault"
+            },
+            {
+              "value": "warn",
+              "label": "Warn and continue"
+            },
+            {
+              "value": "ignore",
+              "label": "Ignore"
+            }
+          ],
+          "help": "Runtime behavior when the driver cannot read or write."
+        }
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "id": "enable",
+      "label": "Enable",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.enable",
+        "payload": {
+          "connection": "endpoint:meter",
+          "form": "modbus_tcp@runtime:local#endpoint:meter",
+          "protocol": "modbus_tcp",
+          "runtime": "runtime:local"
+        }
+      }
+    },
+    {
+      "id": "cancel",
+      "label": "Cancel",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "close_inspector"
+        }
+      }
+    },
+    {
+      "id": "test",
+      "label": "Test",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.test",
+        "payload": {
+          "connection": "endpoint:meter",
+          "form": "modbus_tcp@runtime:local#endpoint:meter",
+          "protocol": "modbus_tcp",
+          "runtime": "runtime:local"
+        }
+      }
+    },
+    {
+      "id": "remove",
+      "label": "Remove",
+      "enabled": true,
+      "emphasis": "danger",
+      "confirm": {
+        "text": "Remove this endpoint from the project? This writes the config file and takes effect after restart.",
+        "confirm": "Confirm remove",
+        "cancel": "Cancel"
+      },
+      "op": {
+        "kind": "rust",
+        "action": "connection.remove",
+        "payload": {
+          "connection": "endpoint:meter",
+          "form": "modbus_tcp@runtime:local#endpoint:meter",
+          "protocol": "modbus_tcp",
+          "runtime": "runtime:local"
+        }
+      }
+    },
+    {
+      "id": "apply_live",
+      "label": "Apply to running runtime",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "rust",
+        "action": "connection.apply_live",
+        "payload": {
+          "connection": "endpoint:meter",
+          "form": "modbus_tcp@runtime:local#endpoint:meter",
+          "protocol": "modbus_tcp",
+          "runtime": "runtime:local"
+        }
+      }
+    }
+  ],
+  "note": "This endpoint is disabled. Use Enable to turn it back on; restart the runtime to apply the change."
+}

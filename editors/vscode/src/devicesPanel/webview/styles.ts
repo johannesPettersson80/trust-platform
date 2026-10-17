@@ -802,3 +802,122 @@ export const listCellStyle: React.CSSProperties = {
   color: t.text,
   verticalAlign: "top",
 };
+
+/** A list field's editor: its items, then the button that adds one (design §4.5 D3). */
+export const listEditorStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+/** The text shown while a list holds no items. */
+export const listEmptyStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  color: t.textMuted,
+};
+
+/** One item of a list. */
+export const listItemStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  padding: 8,
+  border: `1px solid ${t.borderSubtle}`,
+  borderRadius: t.radius,
+  background: t.surfaceRaised,
+};
+
+/** An item's header: its numbered title and its remove button. */
+export const listItemHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
+/** An item's numbered title, such as `Peer address 1`. */
+export const listItemTitleStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  fontWeight: 600,
+  color: t.text,
+};
+
+/** An item's remove button, drawn like the inspector's close button. */
+export const listRemoveStyle: React.CSSProperties = {
+  flex: "none",
+  border: "none",
+  background: "transparent",
+  color: t.textMuted,
+  cursor: "pointer",
+  fontSize: 12,
+  lineHeight: 1,
+  padding: 2,
+};
+
+/** An object item's properties, one row each. */
+export const listPropertyGridStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+/** One property of an object item. */
+export const listPropertyStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 2,
+};
+
+/** A property's label line: its label and, when required, the marker. */
+export const listPropertyLabelLineStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+};
+
+/** A property's label. */
+export const listPropertyLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: t.textMuted,
+};
+
+/** The marker of a required property. */
+export const listPropertyRequiredStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: t.danger,
+};
+
+/** A property and, beside it, the way to set one of its alternatives instead. */
+export const listPropertyRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+};
+
+/** The input of a property, or of a scalar item. */
+export const listPropertyInputStyle: React.CSSProperties = {
+  flex: "1 1 auto",
+  minWidth: 0,
+  boxSizing: "border-box",
+  padding: "4px 6px",
+  border: `1px solid ${t.inputBorder}`,
+  borderRadius: t.radiusSm,
+  background: t.inputBg,
+  color: t.text,
+  fontSize: 12,
+};
+
+/** The button that adds an item; drawn neutral-disabled while the list cannot grow. */
+export function listAddStyle(canAdd: boolean): React.CSSProperties {
+  return {
+    alignSelf: "flex-start",
+    border: `1px solid ${t.border}`,
+    background: "transparent",
+    color: canAdd ? t.text : t.textSubtle,
+    borderRadius: t.radiusSm,
+    padding: "4px 10px",
+    fontSize: 11.5,
+    cursor: canAdd ? "pointer" : "not-allowed",
+    opacity: canAdd ? 1 : 0.62,
+  };
+}

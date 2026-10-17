@@ -4,4 +4,5 @@
 
 mod add;
 mod forms;
+mod golden;
 mod list_items;
