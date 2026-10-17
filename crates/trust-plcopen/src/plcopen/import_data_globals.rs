@@ -320,6 +320,13 @@ fn import_global_var_lists_to_sources(
                 (rendered, None)
             }
             (_, false) => {
+                // CODESYS allows qualified access to any GVL list;
+                // qualified_only only restricts the unqualified form. Plain
+                // lists therefore get the namespace wrap too, so qualified
+                // references resolve (s4 ask #11 — the 1 335 false-E101
+                // flood came from qualified refs to bare plain lists).
+                // Caveat: unqualified access to these members now requires a
+                // USING directive, which the importer does not synthesize.
                 let mut rendered = String::new();
                 if !global_prefix.is_empty() {
                     rendered.push_str(&global_prefix);
@@ -327,6 +334,7 @@ fn import_global_var_lists_to_sources(
                         rendered.push('\n');
                     }
                 }
+                rendered.push_str(&format!("NAMESPACE {list_identifier}\n"));
                 rendered.push_str(&render_var_global_header(&var_global_header_suffix));
                 rendered.push('\n');
                 for variable in &variables {
@@ -335,6 +343,12 @@ fn import_global_var_lists_to_sources(
                     rendered.push('\n');
                 }
                 rendered.push_str("END_VAR\n");
+                rendered.push_str("END_NAMESPACE\n");
+
+                warnings.push(format!(
+                    "namespaced globalVars '{}' so qualified access resolves (unqualified access now requires a USING directive)",
+                    name
+                ));
                 (rendered, None)
             }
         };

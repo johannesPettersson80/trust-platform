@@ -118,6 +118,14 @@ Target release: `v0.24.75`
   constant: a library/stub file's failed constant no longer surfaces as
   a diagnostic under every other analyzed file's path (agent-serve
   reported stub spans under workspace src/ paths).
+- Read the canonical e!COCKPIT v3.9.2 array initializer form
+  (`<initialValue><arrayValue><value><simpleValue …/>`) in GVL imports,
+  flattening it to the ST bracket list — the boot tables previously
+  vanished from the mirror.
+- Namespace-wrap every imported `globalVars` list (not only
+  `qualified_only` ones) so qualified access resolves; unqualified
+  access to a namespaced list requires a `USING` directive (documented
+  in PLCOPEN_DECISIONS).
 - Make function-block and program `VAR_INPUT` members writable (CODESYS
   parity): the owning body and external POUs may assign them between calls.
   Function/method parameters stay call-local, and pointer/reference input

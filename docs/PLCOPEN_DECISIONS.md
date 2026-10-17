@@ -200,3 +200,29 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     `GVLEntities` imported 21 of 70 variables). Tolerating byte-identical
     repeats preserves the fail-closed boundary where it matters: ambiguous
     conflicting redefinitions still reject the list.
+
+## 2026-10-17 - GVL initializers in the canonical array form and namespace-wrapped plain lists
+
+- Area: PLCopen XML import of `globalVars` lists
+- Decision:
+  - Variable initializers serialized in the canonical e!COCKPIT v3.9.2 form
+    `<initialValue><arrayValue><value><simpleValue value="…"/></value>…`
+    (nested `arrayValue` for further dimensions) are flattened to the
+    equivalent ST bracket list `[v1, v2, …]`. Reading only `simpleValue`
+    silently dropped array boot tables (s4 `GVLRetainPersist`).
+  - Every imported `globalVars` list is now wrapped in `NAMESPACE
+    <list-identifier>`, not only lists marked `qualified_only`. CODESYS
+    allows qualified access to any GVL list; `qualified_only` only
+    restricts the unqualified form — and qualified references to a bare
+    plain list previously failed wholesale (s4: 1 335 false-E101 flood).
+  - Caveat: with the list namespaced, *unqualified* access to its members
+    requires a `USING <list>` directive, which the importer does not
+    synthesize. Projects that use unqualified GVL access should keep the
+    strict-IEC adapter mode or add the directive project-side.
+- Reason:
+  - Measured on the s4 v3.9.2 export (`GVLRetainPersist.xml`): the boot
+    table vanished from the mirror because the initializer form was
+    unread, and plain lists referenced qualified produced a four-digit
+    false-error flood. Both behaviors are data-loss or noise classes the
+    dialect mirror cannot tolerate; the strict-IEC adapter mode keeps the
+    unqualified-friendly shape for consumers that need it.

@@ -78,7 +78,7 @@ fn global_vars_structured_entries_preserve_order_types_and_initial_values() {
     assert_eq!(report.imported_global_var_lists, 1);
     assert_eq!(
         source,
-        "VAR_GLOBAL\n    Enabled : BOOL := TRUE;\n    Count : DINT;\n    State : MachineState;\nEND_VAR\n"
+        "NAMESPACE PlantGlobals\nVAR_GLOBAL\n    Enabled : BOOL := TRUE;\n    Count : DINT;\n    State : MachineState;\nEND_VAR\nEND_NAMESPACE\n"
     );
 }
 
@@ -123,11 +123,11 @@ fn global_vars_name_child_and_stable_unnamed_fallback_are_supported() {
     assert_eq!(report.imported_global_var_lists, 2);
     assert_eq!(
         read_source_named(&fixture.root, "ChildName.st"),
-        "VAR_GLOBAL\n    A : INT;\nEND_VAR\n"
+        "NAMESPACE ChildName\nVAR_GLOBAL\n    A : INT;\nEND_VAR\nEND_NAMESPACE\n"
     );
     assert_eq!(
         read_source_named(&fixture.root, "GlobalVars2.st"),
-        "VAR_GLOBAL\n    B : INT;\nEND_VAR\n"
+        "NAMESPACE GlobalVars2\nVAR_GLOBAL\n    B : INT;\nEND_VAR\nEND_NAMESPACE\n"
     );
 }
 
@@ -222,7 +222,7 @@ fn global_vars_structured_qualified_only_attribute_maps_to_namespace() {
 }
 
 #[test]
-fn global_vars_false_qualified_only_attribute_does_not_create_namespace() {
+fn global_vars_false_qualified_only_attribute_also_namespaces_for_qualified_access() {
     let fixture = global_var_fixture(
         "qualified-false",
         r#"<globalVars name="GVL">
@@ -235,7 +235,10 @@ fn global_vars_false_qualified_only_attribute_does_not_create_namespace() {
     fixture.import().expect("import ordinary globals");
     let source = read_source_named(&fixture.root, "GVL.st");
 
-    assert!(!source.contains("NAMESPACE"));
+    // Plain lists are namespaced too: CODESYS allows qualified access to
+    // any GVL list; qualified_only only restricts the unqualified form.
+    assert!(source.contains("NAMESPACE GVL\n"));
+    assert!(source.contains("END_NAMESPACE"));
     assert!(source.contains("VAR_GLOBAL"));
 }
 
@@ -282,7 +285,7 @@ END_VAR
 
     assert_eq!(
         source,
-        "VAR_GLOBAL\n    A : INT := 4;\n    B : INT := 4;\n    C : INT := 4;\nEND_VAR\n"
+        "NAMESPACE GVL\nVAR_GLOBAL\n    A : INT := 4;\n    B : INT := 4;\n    C : INT := 4;\nEND_VAR\nEND_NAMESPACE\n"
     );
 }
 
@@ -299,7 +302,12 @@ fn global_vars_invalid_list_identity_is_normalized_and_reported() {
     let report = fixture.import().expect("import normalized list");
     let source = read_source_named(&fixture.root, "1_Plant_GVL.st");
 
-    assert_eq!(source, "VAR_GLOBAL\n    Count : INT;\nEND_VAR\n");
+    // All GVL lists are namespaced so qualified access resolves (s4 #11);
+    // the sanitized identifier stays the stable namespace name.
+    assert_eq!(
+        source,
+        "NAMESPACE _1_Plant_GVL\nVAR_GLOBAL\n    Count : INT;\nEND_VAR\nEND_NAMESPACE\n"
+    );
     assert!(report
         .warnings
         .iter()
@@ -741,4 +749,61 @@ fn global_vars_conflicting_duplicate_declarations_still_reject_the_list() {
 
     assert!(error.to_string().contains("no importable PLCopen ST content"));
     assert!(!fixture.root.join("src/GVL.st").exists());
+}
+
+#[test]
+fn gvl_array_value_initializer_is_read_as_bracket_list() {
+    // e!COCKPIT v3.9.2 canonical array initializer (s4 GVLRetainPersist boot
+    // tables): <initialValue><arrayValue><value><simpleValue value=…/>.
+    // Reading only simpleValue silently dropped the boot tables.
+    let fixture = global_var_fixture(
+        "array-value",
+        r#"<globalVars name="GVLBoot">
+  <variable name="BootLevels">
+    <type>
+      <array>
+        <dimension lower="1" upper="3" />
+        <baseType><int /></baseType>
+      </array>
+    </type>
+    <initialValue>
+      <arrayValue>
+        <value><simpleValue value="1" /></value>
+        <value><simpleValue value="2" /></value>
+        <value><simpleValue value="3" /></value>
+      </arrayValue>
+    </initialValue>
+  </variable>
+</globalVars>"#,
+        "",
+    );
+
+    fixture.import().expect("import arrayValue globals");
+    let source = read_source_named(&fixture.root, "GVLBoot.st");
+    assert!(
+        source.contains("[1, 2, 3]"),
+        "arrayValue initializer must flatten to the ST bracket list:\n{source}"
+    );
+}
+
+#[test]
+fn plain_gvl_list_is_namespaced_for_qualified_access() {
+    // CODESYS allows qualified access to any GVL list; qualified_only only
+    // restricts the unqualified form (s4 ask #11 — the 1 335 false-E101
+    // flood came from qualified references to bare plain lists).
+    let fixture = global_var_fixture(
+        "plain-ns",
+        r#"<globalVars name="GVLPlain">
+  <variable name="Count"><type><int/></type></variable>
+</globalVars>"#,
+        "",
+    );
+
+    fixture.import().expect("import plain globals");
+    let source = read_source_named(&fixture.root, "GVLPlain.st");
+    assert!(
+        source.contains("NAMESPACE GVLPlain") && source.contains("END_NAMESPACE"),
+        "plain lists must be namespaced so qualified access resolves:\n{source}"
+    );
+    assert!(source.contains("Count"));
 }
