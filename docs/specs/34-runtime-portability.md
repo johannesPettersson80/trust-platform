@@ -1046,6 +1046,24 @@ move. A program whose layout tables and other preparation demand exceed those li
 preparation, never at run time. Nothing reads the layouts at run time yet, so stored values, outputs
 and faults are unchanged.
 
+**Cells and the cell store.** The bounded value store's unit is a 16-byte cell, `Copy` and without
+`Drop`. One cell holds a scalar of the value model inline: `BOOL`, the eight integers, `REAL` and
+`LREAL`, the four bit strings, `CHAR` and `WCHAR`, and each of the eight temporal types as its
+64-bit tick or nanosecond count (`core/value/datetime.rs`). It also holds an enumeration (its
+TYPE_TABLE type and its value), an instance identity, a text slot, a reference slot, an empty cell
+and an empty reference; a structure or array is a contiguous cell range of its prepared layout with
+its nested compounds inline. A region owns one cell store: its cells and one reference record per
+reference leaf the region holds, where a record is the flat reference address a reference leaf
+points at — the region, the cell index of its target, the character index of a character reference,
+the target type and the installation generation (MEM-07). The store reserves both exactly once from
+the prepared layouts, through the same checked reservation that refuses an allocation failure as the
+other construction reservations do, and never grows: every accessor answers `None` outside the
+reserved region and allocates nothing. The persistent region holds its globals' and its instance
+templates' cells and reference leaves, counted from the prepared layouts rather than by hand. The
+bytes a store takes are its cells at 16 bytes each plus its reference records, so construction
+charges them before reserving. Nothing reads the store at run time yet, so stored values, outputs and
+faults are unchanged.
+
 **MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31]
 
 ### 6.2.1 B-R3 live storage and footprint refinement
