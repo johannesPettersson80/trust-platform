@@ -58,8 +58,8 @@ impl FrameLocals {
 
 /// The scratch sizes of one prepared module under its admitted limits.
 struct ScratchPlan {
-    /// Call levels of the stack executor: the admitted call depth when a POU body calls a
-    /// user function, function block or method, otherwise one.
+    /// Call levels of the stack executor: the module's static call depth capped at the
+    /// admitted ceiling, and at least one for the entry activation (spec 34 MEM-02, MEM-09).
     levels: usize,
     /// Operand values across the levels: the deepest body, plus for every further level the
     /// most operands a body keeps below the call that started it.
@@ -77,10 +77,11 @@ struct ScratchPlan {
 
 impl ScratchPlan {
     fn of(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
-        let (levels, residue) = match prepared.max_call_operand_residue {
-            Some(residue) => (prepared.limits.max_call_depth, residue),
-            None => (1, 0),
-        };
+        Self::with_levels(prepared, prepared.reserved_call_levels())
+    }
+
+    fn with_levels(prepared: &PreparedModule, levels: usize) -> Result<Self, RuntimeError> {
+        let residue = prepared.max_call_operand_residue.unwrap_or(0);
         let operands = levels
             .saturating_sub(1)
             .checked_mul(residue)
@@ -104,7 +105,7 @@ impl ScratchPlan {
             levels,
             operands,
             slots,
-            initializers: prepared.limits.max_call_depth,
+            initializers: levels,
             types: crate::bytecode::BYTECODE_MAX_TYPE_NESTING + 1,
             journal,
             staging: StagingDemand::of(&prepared.io_bindings).ok_or(RuntimeError::Overflow)?,

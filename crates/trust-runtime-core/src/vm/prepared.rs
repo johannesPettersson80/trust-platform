@@ -2,19 +2,21 @@
 use super::module::{invalid_bytecode, VmModule};
 use super::validated_source::{OwnedValidatedSource, ValidatedSource};
 use crate::bytecode::{
-    AccessBindings, BytecodeModule, ConstructionRoots, InitializerIndex, ResourceMeta, SectionData,
-    SectionId, StorageLayout, ValidationLimits,
+    AccessBindings, BytecodeModule, CallDepth, ConstructionRoots, InitializerIndex, ResourceMeta,
+    SectionData, SectionId, StorageLayout, ValidationLimits,
 };
 use crate::error::RuntimeError;
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 mod admission;
 mod budget;
+pub(crate) mod call_plans;
 mod indexes;
 mod metadata;
 #[cfg(feature = "std")]
 mod reference_names;
 pub(crate) use budget::PreparationBudget;
 pub use budget::PreparationUsage;
+pub(crate) use call_plans::CallPlan;
 
 /// Explicit preparation limits for an allocator-backed execution profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,8 +82,12 @@ pub struct PreparedModule {
     /// a user call, from validation (construction reserves the operand stack from them).
     pub(crate) max_operand_depth: usize,
     pub(crate) max_call_operand_residue: Option<usize>,
+    /// The module's static call depth, or that its call graph is recursive (spec 34 MEM-09).
+    pub(crate) call_depth: CallDepth,
     preparation_usage: PreparationUsage,
     indexes: indexes::PreparedIndexes,
+    /// Every `CALL_NATIVE` site's resolved binding, by its code offset (spec 34 MEM-09).
+    call_plans: Vec<(u32, Arc<CallPlan>)>,
     pub(crate) stdlib: crate::stdlib::StandardLibrary,
     /// Canonical recipe context, type, member (None for type default), initializer id.
     pub(crate) method_owners: BTreeMap<u32, u32>,
@@ -92,6 +98,48 @@ impl PreparedModule {
     /// Preserve the admitted profile's limits when preparing a replacement.
     pub fn limits(&self) -> PreparationLimits {
         self.limits
+    }
+
+    /// The call levels construction reserves for this module: the static call depth, capped
+    /// at the admitted `max_call_depth`; a recursive call graph reserves for the ceiling
+    /// (spec 34 MEM-02, MEM-09).
+    pub(crate) fn reserved_call_levels(&self) -> usize {
+        match self.call_depth {
+            CallDepth::Static(depth) => depth.clamp(1, self.limits.max_call_depth.max(1)),
+            CallDepth::Recursive => self.limits.max_call_depth.max(1),
+        }
+    }
+
+    /// The module's static call depth, or that it is recursive (spec 34 MEM-09; test support).
+    #[cfg(feature = "test-support")]
+    pub fn static_call_depth(&self) -> CallDepth {
+        self.call_depth
+    }
+
+    /// The call levels construction reserves (spec 34 MEM-09; test support).
+    #[cfg(feature = "test-support")]
+    pub fn reserved_call_levels_for_test(&self) -> usize {
+        self.reserved_call_levels()
+    }
+
+    /// The prepared plan of the `CALL_NATIVE` site at `code_offset`, or none when the
+    /// site could not be planned and resolves at the call (spec 34 MEM-09).
+    pub(crate) fn call_plan(&self, code_offset: u32) -> Option<Arc<CallPlan>> {
+        if !call_plans::plans_enabled() {
+            return None;
+        }
+        let at = self
+            .call_plans
+            .binary_search_by_key(&code_offset, |entry| entry.0)
+            .ok()?;
+        Some(Arc::clone(&self.call_plans[at].1))
+    }
+
+    /// Resolve every call at the call site instead of through its plan (spec 34 MEM-09;
+    /// test support for the call-plan differential).
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    pub fn set_call_plans_enabled(enabled: bool) {
+        call_plans::set_plans_enabled(enabled);
     }
 
     /// Decode, fully validate and prepare an artifact without source or a compiler.
@@ -332,6 +380,8 @@ impl PreparedModule {
             &resources,
             &mut preparation,
         )?;
+        let call_plans =
+            call_plans::prepare_call_plans(&vm, &layout, &initializers, &mut preparation)?;
         #[cfg(feature = "register-ir")]
         let register_plans =
             super::register_ir::PreparedRegisterPlans::prepare(&vm, |bytes, work| {
@@ -341,6 +391,7 @@ impl PreparedModule {
         Ok(Self {
             preparation_usage,
             indexes,
+            call_plans,
             stdlib,
             vm,
             #[cfg(feature = "register-ir")]
@@ -355,6 +406,7 @@ impl PreparedModule {
             requires_wall_clock,
             max_operand_depth: stats.max_operand_depth,
             max_call_operand_residue: stats.max_call_operand_residue,
+            call_depth: stats.call_depth,
             method_owners,
             recipes,
         })

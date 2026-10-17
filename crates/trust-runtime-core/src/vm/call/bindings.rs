@@ -11,11 +11,12 @@ use super::super::dispatch_refs::{charge_materialize_path_work, dynamic_ref_type
 use super::super::errors::VmTrap;
 use super::super::frames::VmFrame;
 use super::super::materialize_borrowed_value;
-use super::super::module::{VmModule, VmNativeArgSpec};
+use super::super::module::{VmModule, VmNativeArgSpec, VmParamMeta};
 use super::super::stack::OperandStack;
 use super::super::type_policy::{vm_string_primitive_for_type, vm_string_shape_for_type};
 use super::context::{BuiltinParamDirection, CallContext, RegisterCallOpKind, RegisterValueOpKind};
 use super::VM_LOCAL_SENTINEL_FRAME_ID;
+use crate::vm::prepared::call_plans::CallArguments;
 
 mod indices;
 mod targets;
@@ -300,6 +301,110 @@ pub fn bind_builtin_function_block_arguments(
     Ok(out_bindings)
 }
 
+/// Bind input and output arguments for a native function block from its prepared plan
+/// (spec 34 MEM-09). The plan resolved each formal once, so no argument names are compared.
+pub(super) fn bind_builtin_function_block_arguments_planned(
+    runtime: &mut impl CallContext,
+    caller_frame: &VmFrame,
+    params: &[VmParamMeta],
+    instance_id: InstanceId,
+    args: &[VmNativeArg],
+    arguments: &CallArguments,
+) -> Result<Vec<VmFbOutBinding>, VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let mut diagnostic_formals = 0..;
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _consumer = attribution::consumer(CopyConsumerKind::BuiltinFunctionBlock, None);
+    let mut out_bindings = Vec::new();
+    for (index, param) in params.iter().enumerate() {
+        runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
+        let arg = arguments
+            .actual(index)
+            .and_then(|arg_index| args.get(arg_index));
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter = attribution::parameter(
+            diagnostic_formals.next().unwrap_or(usize::MAX),
+            param.direction,
+            arg.is_none(),
+        );
+        if matches!(param.direction, 1 | 2) && arg.is_none() {
+            continue;
+        }
+        let field_binding = VmFbFieldBinding::resolve(runtime, instance_id, &param.name)?;
+        match param.direction {
+            0 => {
+                let value = match arg {
+                    Some(arg) => resolve_vm_arg_value(runtime, caller_frame, arg)?,
+                    None => {
+                        if let Some(value) = field_binding.read_checked(runtime)? {
+                            #[cfg(all(feature = "std", feature = "test-support"))]
+                            let _read = attribution::read(CopyReadKind::RetainedField);
+                            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
+                            let (value, cloned) = materialize_borrowed_value(value);
+                            if cloned {
+                                runtime.record_value_op(RegisterValueOpKind::ReadReference);
+                            }
+                            value
+                        } else {
+                            Value::Null
+                        }
+                    }
+                };
+                field_binding.check_write(runtime, &value)?;
+                if !field_binding.write_checked(runtime, value)? {
+                    return Err(VmTrap::Runtime(RuntimeError::NullReference));
+                }
+            }
+            1 => {
+                if let Some(arg) = arg {
+                    out_bindings.push(VmFbOutBinding {
+                        source: field_binding.out_source(),
+                        target: require_output_target(arg)?,
+                        target_type_idx: None,
+                    });
+                }
+            }
+            2 => {
+                let Some(arg) = arg else {
+                    continue;
+                };
+                let target = require_output_target(arg)?;
+                let value = target.snapshot(runtime, caller_frame)?;
+                field_binding.check_write(runtime, &value)?;
+                if !field_binding.write_checked(runtime, value)? {
+                    return Err(VmTrap::Runtime(RuntimeError::NullReference));
+                }
+                out_bindings.push(VmFbOutBinding {
+                    source: field_binding.out_source(),
+                    target,
+                    target_type_idx: None,
+                });
+            }
+            other => {
+                return Err(VmTrap::InvalidNativeCall(
+                    format!("invalid parameter direction {other}").into(),
+                ));
+            }
+        }
+    }
+    Ok(out_bindings)
+}
+
+/// Resolved formal-to-actual indices: from the prepared plan or resolved at the call.
+enum CallArgIndices<'a> {
+    Resolved(Vec<Option<usize>>),
+    Planned(&'a CallArguments),
+}
+
+impl CallArgIndices<'_> {
+    fn get(&self, formal: usize) -> Option<usize> {
+        match self {
+            Self::Resolved(indices) => indices.get(formal).copied().flatten(),
+            Self::Planned(arguments) => arguments.actual(formal),
+        }
+    }
+}
+
 /// Bind a bytecode function block against its declared parameter metadata.
 pub fn bind_vm_function_block_arguments(
     runtime: &mut impl CallContext,
@@ -309,15 +414,61 @@ pub fn bind_vm_function_block_arguments(
     instance_id: InstanceId,
     args: &[VmNativeArg],
 ) -> Result<Vec<VmFbOutBinding>, VmTrap> {
+    bind_vm_function_block_arguments_with(
+        runtime,
+        module,
+        caller_frame,
+        pou_id,
+        instance_id,
+        args,
+        None,
+    )
+}
+
+/// Bind a bytecode function block from its prepared plan.
+pub(super) fn bind_vm_function_block_arguments_planned(
+    runtime: &mut impl CallContext,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    pou_id: u32,
+    instance_id: InstanceId,
+    args: &[VmNativeArg],
+    arguments: &CallArguments,
+) -> Result<Vec<VmFbOutBinding>, VmTrap> {
+    bind_vm_function_block_arguments_with(
+        runtime,
+        module,
+        caller_frame,
+        pou_id,
+        instance_id,
+        args,
+        Some(arguments),
+    )
+}
+
+fn bind_vm_function_block_arguments_with(
+    runtime: &mut impl CallContext,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    pou_id: u32,
+    instance_id: InstanceId,
+    args: &[VmNativeArg],
+    arguments: Option<&CallArguments>,
+) -> Result<Vec<VmFbOutBinding>, VmTrap> {
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _consumer = attribution::consumer(CopyConsumerKind::FunctionBlock, Some(pou_id));
     let params = module.pou_params(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
-    let arg_indices = resolve_vm_arg_indices(params, args)?;
+    let arg_indices = match arguments {
+        Some(arguments) => CallArgIndices::Planned(arguments),
+        None => CallArgIndices::Resolved(resolve_vm_arg_indices(params, args)?),
+    };
     let mut prepared_targets = Vec::with_capacity(params.len());
-    for (param, arg_index) in params.iter().zip(arg_indices.iter().copied()) {
-        let arg = arg_index.and_then(|index| args.get(index));
+    for (param_index, param) in params.iter().enumerate() {
+        let arg = arg_indices
+            .get(param_index)
+            .and_then(|index| args.get(index));
         let prepared = if matches!(param.direction, 1 | 2) {
             match arg {
                 Some(arg) => {
@@ -336,9 +487,11 @@ pub fn bind_vm_function_block_arguments(
     }
     let mut out_bindings = Vec::new();
 
-    for (param_index, (param, arg_index)) in params.iter().zip(arg_indices).enumerate() {
+    for (param_index, param) in params.iter().enumerate() {
         runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
-        let arg = arg_index.and_then(|index| args.get(index));
+        let arg = arg_indices
+            .get(param_index)
+            .and_then(|index| args.get(index));
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _parameter = attribution::parameter(param_index, param.direction, arg.is_none());
         if matches!(param.direction, 1 | 2) && arg.is_none() {
@@ -516,6 +669,7 @@ pub fn bind_vm_call_arguments(
         caller_frame,
         pou_id,
         &mut BorrowedVmCallArguments(args),
+        None,
     )
     .map(|(bound, _)| bound)
 }
@@ -534,6 +688,26 @@ pub(super) fn bind_vm_call_arguments_owned(
         caller_frame,
         pou_id,
         &mut OwnedVmCallArguments(args),
+        None,
+    )
+}
+
+/// Consume private native-call expressions from the call's prepared plan.
+pub(super) fn bind_vm_call_arguments_owned_planned(
+    runtime: &mut impl CallContext,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    pou_id: u32,
+    args: &mut [VmNativeArg],
+    arguments: &CallArguments,
+) -> Result<(BoundVmCall, bool), VmTrap> {
+    bind_vm_call_arguments_from_source(
+        runtime,
+        module,
+        caller_frame,
+        pou_id,
+        &mut OwnedVmCallArguments(args),
+        Some(arguments),
     )
 }
 
@@ -543,6 +717,7 @@ fn bind_vm_call_arguments_from_source(
     caller_frame: &VmFrame,
     pou_id: u32,
     args: &mut impl VmCallArgumentSource,
+    arguments: Option<&CallArguments>,
 ) -> Result<(BoundVmCall, bool), VmTrap> {
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _consumer = attribution::consumer(CopyConsumerKind::UserCall, Some(pou_id));
@@ -557,7 +732,10 @@ fn bind_vm_call_arguments_from_source(
     let mut present = vec![false; locals.len()];
     let capture_return = module.pou_has_return_slot(pou_id);
     let return_slots = usize::from(capture_return);
-    let arg_indices = resolve_vm_arg_indices(params, args.arguments())?;
+    let arg_indices = match arguments {
+        Some(arguments) => CallArgIndices::Planned(arguments),
+        None => CallArgIndices::Resolved(resolve_vm_arg_indices(params, args.arguments())?),
+    };
 
     for (index, param) in params.iter().enumerate() {
         let slot = return_slots + index;
@@ -570,12 +748,16 @@ fn bind_vm_call_arguments_from_source(
                 .into(),
             ));
         }
-        let arg_index = arg_indices[index];
+        let arg_index = arg_indices.get(index);
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _parameter = attribution::parameter(index, param.direction, arg_index.is_none());
 
-        present[slot] =
-            param.default_const_idx.is_some() || (param.direction != 1 && arg_index.is_some());
+        present[slot] = match arguments {
+            Some(arguments) => arguments.present()[index],
+            None => {
+                param.default_const_idx.is_some() || (param.direction != 1 && arg_index.is_some())
+            }
+        };
         match param.direction {
             0 => {
                 let value = match arg_index {

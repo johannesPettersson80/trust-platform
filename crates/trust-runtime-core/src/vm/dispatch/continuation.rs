@@ -1,6 +1,7 @@
 //! Native user-call preparation and direct stack-frame cleanup.
 use super::*;
-use crate::vm::call::{continuation::NativeCall, prepare_native_call};
+use crate::vm::call::{continuation::NativeCall, prepare_native_call_planned};
+use crate::vm::prepared::CallPlan;
 use crate::vm::VmFrame;
 
 pub(super) enum CallStart {
@@ -17,12 +18,15 @@ pub(super) fn start_call(
     kind: u32,
     symbol_idx: u32,
     arg_count: u32,
+    plan: Option<&CallPlan>,
 ) -> Result<CallStart, RuntimeError> {
     let caller = frames
         .current_mut()
         .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-    match prepare_native_call(runtime, module, caller, stack, kind, symbol_idx, arg_count)
-        .map_err(VmTrap::into_runtime_error)?
+    match prepare_native_call_planned(
+        runtime, module, caller, stack, kind, symbol_idx, arg_count, plan,
+    )
+    .map_err(VmTrap::into_runtime_error)?
     {
         NativeCall::Immediate(value) => {
             runtime.check_execution_deadline()?;

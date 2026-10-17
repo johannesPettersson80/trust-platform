@@ -1,6 +1,10 @@
 //! Owned user-call inputs and completion: shared by iterative and hosted tier entries.
-use super::bindings::{bind_vm_call_arguments_owned, VmFbOutBinding, VmOutBinding};
+use super::bindings::{
+    bind_vm_call_arguments_owned, bind_vm_call_arguments_owned_planned,
+    bind_vm_function_block_arguments_planned, VmFbOutBinding, VmOutBinding,
+};
 use super::*;
+use crate::vm::prepared::call_plans::CallArguments;
 use crate::vm::{dispatch::VmPouStackResult, edge::EdgeInputTransaction};
 
 #[derive(Debug)]
@@ -34,12 +38,17 @@ impl PreparedCall {
         pou_id: u32,
         instance: Option<InstanceId>,
         args: &mut [VmNativeArg],
+        arguments: Option<&CallArguments>,
     ) -> Result<Self, VmTrap> {
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _timing =
             crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::ArgumentBind);
-        let (bound, capture_return) =
-            bind_vm_call_arguments_owned(runtime, module, caller, pou_id, args)?;
+        let (bound, capture_return) = match arguments {
+            Some(arguments) => bind_vm_call_arguments_owned_planned(
+                runtime, module, caller, pou_id, args, arguments,
+            )?,
+            None => bind_vm_call_arguments_owned(runtime, module, caller, pou_id, args)?,
+        };
         Ok(Self {
             pou_id,
             instance,
@@ -57,13 +66,20 @@ impl PreparedCall {
         pou_id: u32,
         instance: InstanceId,
         args: &[VmNativeArg],
+        arguments: Option<&CallArguments>,
     ) -> Result<Self, VmTrap> {
         runtime.record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _timing =
             crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::ArgumentBind);
-        let outputs =
-            bind_vm_function_block_arguments(runtime, module, caller, pou_id, instance, args)?;
+        let outputs = match arguments {
+            Some(arguments) => bind_vm_function_block_arguments_planned(
+                runtime, module, caller, pou_id, instance, args, arguments,
+            )?,
+            None => {
+                bind_vm_function_block_arguments(runtime, module, caller, pou_id, instance, args)?
+            }
+        };
         let edge = EdgeInputTransaction::begin(runtime, module, pou_id, Some(instance))
             .map_err(VmTrap::Runtime)?;
         Ok(Self {

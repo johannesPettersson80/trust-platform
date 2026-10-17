@@ -481,6 +481,8 @@ fn execute_with_buffers(
             0x07 => return Err(VmTrap::UnsupportedOpcode("CALL_METHOD").into_runtime_error()),
             0x08 => return Err(VmTrap::UnsupportedOpcode("CALL_VIRTUAL").into_runtime_error()),
             0x09 => {
+                let instruction_offset = u32::try_from(cursor.pc.saturating_sub(1))
+                    .map_err(|_| RuntimeError::Overflow)?;
                 let kind =
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
                 if is_initializer && kind != crate::bytecode::NATIVE_CALL_KIND_STDLIB {
@@ -490,6 +492,7 @@ fn execute_with_buffers(
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
                 let arg_count =
                     read_u32(&module.code, &mut cursor.pc).map_err(VmTrap::into_runtime_error)?;
+                let plan = runtime.call_plan(instruction_offset);
                 match continuation::start_call(
                     runtime,
                     module,
@@ -498,6 +501,7 @@ fn execute_with_buffers(
                     kind,
                     symbol_idx,
                     arg_count,
+                    plan.as_deref(),
                 )? {
                     CallStart::Immediate(value) => operand_stack
                         .push(value)

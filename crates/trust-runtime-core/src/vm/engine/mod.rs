@@ -301,8 +301,15 @@ impl<'a> EngineState<'a> {
             .ready_tasks
             .try_reserve_exact(ready_capacity)
             .map_err(|_| super::VmTrap::BudgetExceeded.into_runtime_error())?;
-        // Calls and staging results each have their own admitted depth bound.
+        // Calls and staging results each have their own reserved depth bound: the
+        // module's static call depth, capped at the admitted ceiling (spec 34 MEM-09).
         let frame_capacity = prepared
+            .reserved_call_levels()
+            .checked_mul(2)
+            .ok_or(RuntimeError::Overflow)?;
+        // The runtime depth check stays at the admitted ceiling even though the reservation
+        // follows the static call depth, which is never larger (spec 34 MEM-02).
+        let frame_depth_check = prepared
             .limits
             .max_call_depth
             .checked_mul(2)
@@ -315,7 +322,7 @@ impl<'a> EngineState<'a> {
         state
             .data
             .storage
-            .reserve_execution_frames(frame_capacity)?;
+            .reserve_execution_frames_with_depth_check(frame_capacity, frame_depth_check)?;
         state.charge_sorted_growth(
             state
                 .data

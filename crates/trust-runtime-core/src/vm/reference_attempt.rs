@@ -1,6 +1,5 @@
 use crate::bytecode::{TypeData, TypeKind};
 use crate::value::Value;
-use alloc::string::String;
 
 use super::dispatch_refs::dynamic_ref_type;
 use super::errors::VmTrap;
@@ -82,19 +81,14 @@ fn apply_interface_attempt(
         return Ok(Value::Null);
     };
     let type_name = instance.type_name.as_str();
+    // TIME-08: copying the type name for the attempt still costs one unit per byte.
     runtime
         .before_reference_path_growth(type_name.len(), type_name.len())
         .map_err(VmTrap::Runtime)?;
-    let mut key = String::new();
-    key.try_reserve_exact(type_name.len())
-        .map_err(|_| VmTrap::Runtime(crate::error::RuntimeError::PreparationLimit))?;
-    key.push_str(type_name);
-    key.make_ascii_uppercase();
-    let Some(pou_id) = module
-        .class_ids
-        .get(key.as_str())
-        .or_else(|| module.function_block_ids.get(key.as_str()))
-        .copied()
+    // The prepared class or function-block POU replaces the uppercase type-name key
+    // (spec 34 MEM-08).
+    let Some(pou_id) = super::prepared::call_plans::class_pou_by_name(module, type_name)
+        .or_else(|| super::prepared::call_plans::function_block_pou_by_name(module, type_name))
     else {
         return Ok(Value::Null);
     };
@@ -634,6 +628,28 @@ mod tests {
             Value::Instance(instance)
         );
         assert_eq!(context.budget.remaining(), 0);
+    }
+
+    #[test]
+    fn an_interface_attempt_compares_templates_but_charges_the_type_name_bytes() {
+        let mut module = interface_attempt_module();
+        module.class_ids.insert("MOTORDRIVE".into(), 10);
+        let mut context = AttemptContext::new(20);
+        let instance = context.storage.create_instance("MOTORDRIVE");
+        // TIME-08: the attempt still copies the 10-byte type name, so it costs 10 units, and
+        // the class POU is found by its prepared name rather than an uppercase key.
+        assert_eq!(
+            apply_reference_attempt(
+                &context,
+                &module,
+                &empty_frame(),
+                Value::Instance(instance),
+                1,
+            )
+            .unwrap(),
+            Value::Instance(instance)
+        );
+        assert_eq!(context.budget.remaining(), 10);
     }
 }
 

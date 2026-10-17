@@ -39,6 +39,8 @@ mod stack_effect;
 use stack_effect::apply_unknown_effect;
 mod stack_shape;
 use stack_shape::*;
+mod call_depth;
+use call_depth::*;
 mod const_compat;
 use const_compat::*;
 mod param_direction;

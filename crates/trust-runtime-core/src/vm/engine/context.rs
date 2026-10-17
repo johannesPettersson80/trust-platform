@@ -431,6 +431,12 @@ impl CallContext for EngineState<'_> {
             self.edge_inputs(owner)
         }
     }
+    fn call_plan(
+        &self,
+        code_offset: u32,
+    ) -> Option<alloc::sync::Arc<crate::vm::prepared::CallPlan>> {
+        self.prepared.call_plan(code_offset)
+    }
 
     fn suspend_frame(&mut self, frame: &mut VmFrame) -> Result<(), RuntimeError> {
         let Some(activation) = frame.activation else {

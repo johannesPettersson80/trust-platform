@@ -991,7 +991,7 @@ The engine shall have a preparation phase that determines its full resource dema
 
 Record target `size_of`/alignment for `Value`, references, frames, and relevant compound headers, then enforce their admitted size ceilings with target-compiled assertions. A host size result does not establish a 32-bit layout. These are resource bounds, not a permanent Rust ABI or a request to pack structs unsafely. [R30]
 
-**MEM-02.** Define per-profile maxima for encoded artifact bytes, decoded instructions/references/types/locals, operand values, frames, native-call arguments, initialization nesting, and `max_call_depth`. Apply decode/allocation limits before consuming attacker-controlled counts. Do not reserve the current host-scale 16,384 operands, 1,024 call levels, or 64 MiB container allowance on F401. Report preparation, RUN, checkpoint, and generation/reader peaks per usable region. Tie admitted depth to native call-stack use when execution remains recursive, including interrupt and fault headroom. [R30]
+**MEM-02.** Define per-profile maxima for encoded artifact bytes, decoded instructions/references/types/locals, operand values, frames, native-call arguments, initialization nesting, and `max_call_depth`. Apply decode/allocation limits before consuming attacker-controlled counts. Do not reserve the current host-scale 16,384 operands, 1,024 call levels, or 64 MiB container allowance on F401. Size each per-call reservation to the program's static call depth, capped at `max_call_depth`; `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged (MEM-09). Report preparation, RUN, checkpoint, and generation/reader peaks per usable region. Tie admitted depth to native call-stack use when execution remains recursive, including interrupt and fault headroom. [R30]
 
 **MEM-03.** Operand/frame/local storage shall have capacity established before bounded RUN. A push/call uses existing storage or faults before crossing its admitted limit. Existing FB/method calls can recursively re-enter the Rust executor, so a frame-count check alone does not bound the CPU stack. Scope B records F401 MSP high-water through stack painting or equivalent instrumentation under nested calls, interrupts, and fault unwinding/abort paths; record PSP separately if used. Measure representative per-level growth and corroborate worst-path headroom with code/stack analysis. Keep a conservative finite call limit; an explicit iterative frame loop is an option if measured recursion prevents admission, not an automatic rewrite prerequisite. [R30]
 
@@ -1160,7 +1160,7 @@ Recursive calls and indirect call targets require a conservative bound or an exp
 stack execution and process-image staging use, and charges all of it against the construction
 allocation allowance before reserving any of it (TIME-09), as HOST-04 does for register scratch:
 
-- the operand stack, as deep as the deepest POU body plus, for every further admitted call
+- the operand stack, as deep as the deepest POU body plus, for every further reserved call
   level, the most operands that a body keeps below a call of a user function, function block or
   method while the callee runs. The validator records both numbers. With no such call there is
   one call level;
@@ -1174,6 +1174,24 @@ allocation allowance before reserving any of it (TIME-09), as HOST-04 does for r
 A scan takes this storage and gives it back empty. RUN charges and refusals do not change: an
 activation is charged the frame and pending-call growth that storage growing on demand would
 need, and staging, snapshots and journals are charged as before (TIME-08).
+
+Construction sizes these call levels to the program's static call depth, not to `max_call_depth`.
+The validator walks every call target from every entry and, conservatively, of every POU in the
+module, so a target reached only by method or interface dispatch still counts: a `CALL` to a
+function or function block, a method call and an interface call over every POU that can implement
+the method, and a nested instance declaration as the initialization it runs. The engine reserves
+the lesser of that depth and `max_call_depth`. A call graph with a cycle, which IEC 61131-3 forbids
+but the engine still executes, has no static depth and reserves for `max_call_depth`, exactly as
+before. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged
+(MEM-02).
+
+**Call plans.** Preparation resolves every `CALL_NATIVE` site once, before RUN: the formal index of
+each actual (named and positional resolution), the explicit-presence pattern, the output
+descriptors and the callee — a function's prepared POU, a function block's POU, a method through
+the prepared owner and method table, and a built-in function block's kind and parameters. A scan
+reads the plan and resolves no argument names and builds no uppercase type-name key, and an
+interface attempt compares prepared POUs while still charging the type-name bytes TIME-08
+prescribes; every result, charge and refusal of a call is unchanged (TIME-08).
 
 ### 6.4 Physical memory
 
@@ -2676,6 +2694,8 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.27 | 17 October 2026 | §6.3, after MEM-09: preparation resolves every `CALL_NATIVE` site once into a call plan (each actual's formal index, the presence pattern, the output descriptors, and the callee: a function's prepared POU, a function block's POU, a method through the prepared owner and method table, a built-in function block's kind and parameters); a scan resolves no argument names and builds no uppercase type-name key, and an interface attempt compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every result, charge and refusal is unchanged (TIME-08). |
+| 0.26 | 17 October 2026 | §6.3 (MEM-02, MEM-09): construction sizes the per-call reservations to the program's static call depth instead of `max_call_depth`, counting every call target from every entry, a method and interface call over every implementing POU, and a nested instance declaration as the initialization it runs; a recursive call graph has no static depth and reserves for `max_call_depth`. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged. |
 | 0.25 | 17 October 2026 | §6.3, after MEM-09: construction reserves the stack executor's operand, frame and pending-call storage from the operand demand that the validator records, the program activation's local slots, the initializer stacks, the output copy-back journal and the process-image staging, and charges them against the construction allocation allowance; RUN charges and refusals are unchanged (TIME-08). |
 | 0.24 | 17 October 2026 | §5.1.1: the deployment record, `deployment-record.bin` next to `program.stbc`: its version-1 layout of six sections, the program, configuration and retain-schema identities, how a reader refuses a malformed record (`runtime_deployment_record_invalid`) and how a later version adds sections; the admission order that refuses a deployment before any state exists (`runtime_deployment_refused`); the device descriptor read by admission. HOST-02: the hosted product takes its limits from the record. |
 | 0.23 | 17 October 2026 | §10.1: the checkpoint log in the chips' two checkpoint slots: the slot header, the record with its commit marker, the order of a write, and recovery, in which a damaged newest committed record fails the warm start, as a damaged retain file does on a computer. Appendix H: the checkpoint slots refer to §10.1. §5.2.1: the version-1 contract of every built-in function and function block (LOAD-06, PORT-02), with its IEC table, TIME-08 charges, failures and capability; preparation refuses an import without a contract or one that does not match it with `runtime_import_unsupported`, naming the import. §4.3.1 and §11.3 (MEM-07, UPDATE-04): every reference carries the installation generation it was taken in; each committed restart and replacement installs the next one, a resource-only reconfiguration keeps it, and exhaustion refuses the restart with `Overflow`; a reference of another generation names no state, a staged request that names an instance by identity carries its generation, and the host binds its own references again at each restart. |
