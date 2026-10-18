@@ -38,9 +38,11 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 1) Every executable statement **must** be assigned a location at the **first non-trivia token** in
    its syntax node. The location span covers the full statement text range.
 2) Each source file loaded in a debug session has a unique `file_id` and is registered in the
-   adapter with its path and, when the tool has it, its full text. The runtime never needs the text:
-   every statement location and every line's byte extent come from the module's `LINE_TABLE`
-   section (specification 12 §6.13), and the text serves presentation only.
+   adapter with its path and, when the tool has it, its full text. Every statement's position
+   comes from the module's `LINE_TABLE` section (specification 12 §6.13), which carries each
+   statement's file label, start and end line and column, and code span. The text serves
+   presentation only: a runtime that holds the text projects those positions to byte offsets, and
+   a runtime without the text reports line and column.
 3) The adapter converts runtime locations to `(line, column)` for DAP using 1-based coordinates
    when `linesStartAt1` / `columnsStartAt1` are true.
 4) A breakpoint source path relative to the selected project resolves against
@@ -320,12 +322,17 @@ Runtime source coordinates are zero-based byte coordinates. Line-start
 construction always contains byte offset zero and adds the byte following every
 LF, including a final LF; CR remains part of the preceding line. Offset
 projection clamps an offset beyond the source to source end. Location
-projection uses the location start. A runtime without the source text takes the
-same facts from the module's `LINE_TABLE` (specification 12 §6.13): the line
-starts, each line's length and the file's byte length, which together give the
-line byte end that a requested column clamps to and the end that an offset past
-the file clamps to. The projection is therefore identical with and without the
-text.
+projection uses the location start.
+
+**Hosted runtime mapping (owner, 18 October 2026).** A runtime that holds the
+source text resolves through the module's `LINE_TABLE` and projects each table
+position to the byte offsets above through that text. Those offsets are the ones
+the statement index held before, so the answers are byte-identical and the text
+decides no answer. A runtime without the text reports line and column from the
+table, and a client maps them to bytes with its own copy of the sources.
+`LINE_TABLE` carries statement positions only (file label, start and end line and
+column, and code span); it stores no line starts and no line lengths (specification 12
+§6.13), so a runtime cannot compute byte offsets without the text.
 
 Breakpoint resolution first rejects an unavailable line, clamps the requested
 column to that line's byte end, and ignores statements from other file IDs. On

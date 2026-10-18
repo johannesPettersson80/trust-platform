@@ -159,6 +159,9 @@ package "trust-runtime crate" as struntime #LightCoral {
     ' Breakpoint Logic
     component "matches_breakpoint()" as matchBp <<breakpoints.rs>>
 
+    ' Statement positions: the module's LINE_TABLE, bound at install (runtime/metadata.rs)
+    component "LineIndex" as lineIndex <<LINE_TABLE bound at install>>
+
     ' Snapshot
     component "DebugSnapshot" as snapshot <<debug/control/types.rs>> {
         portin storage
@@ -193,6 +196,15 @@ package "trust-runtime crate" as struntime #LightCoral {
     debugCtx --> debugHook : storage-native statement context
 
     onStatement --> stopChannel : emit DebugStop
+    onStatement --> lineIndex : statement start\n(DEBUG_MAP is read only without a LINE_TABLE)
+    lineIndex --> matchBp : byte spans of\ntable statements
+
+note right of lineIndex
+    The LINE_TABLE decides every statement
+    start, breakpoint and stop position.
+    The source text only projects those
+    positions to byte offsets.
+end note
 }
 
 ' ============================================================

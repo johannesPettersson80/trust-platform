@@ -49,6 +49,11 @@ activate runtime
 runtime -> control : begin_cycle()\nclear stopped breakpoint identities
 
 loop for each statement
+    note over runtime
+        Statement starts and byte spans come from the
+        LINE_TABLE bound at install; DEBUG_MAP is read
+        only for a module without one.
+    end note
     runtime -> hook : on_statement(location, call_depth)
     activate hook
 

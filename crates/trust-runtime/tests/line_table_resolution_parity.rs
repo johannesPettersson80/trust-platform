@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use trust_runtime::bytecode::{
     BytecodeModule, DebugEntry, LineTable, PouIndex, SectionData, SectionId, StringTable,
 };
-use trust_runtime::debug::location_to_line_col;
+use trust_runtime::debug::{location_to_line_col, resolve_breakpoint_location, SourceLocation};
 use trust_runtime::harness::CompileSession;
 use trust_runtime_core::debug::LineResolver;
 
@@ -167,7 +167,9 @@ struct Context<'a> {
     text: &'a str,
     file_id: u32,
     file_label: &'a str,
-    runtime: &'a trust_runtime::Runtime,
+    /// The source-based statement list of the file: the statement index that the source text
+    /// provides (specification 13, "Breakpoint evaluation, source resolution, and hook contract").
+    statements: &'a [SourceLocation],
     table: &'a LineTable,
     strings: &'a StringTable,
     starts: &'a [u32],
@@ -179,16 +181,19 @@ struct Context<'a> {
 }
 
 impl Context<'_> {
+    /// Today's source-based answer for a 0-based `(line, column)`: the statement list resolved
+    /// through the source text, exactly as the statement index answered before a LINE_TABLE did
+    /// (specification 13, "Breakpoint evaluation, source resolution, and hook contract").
+    fn source_location(&self, line: u32, column: u32) -> Option<SourceLocation> {
+        resolve_breakpoint_location(self.text, self.file_id, self.statements, line, column)
+    }
+
     /// Today's stop location for a DEBUG_MAP statement entry: its source position
     /// through the source-based resolver, then its start byte projected back to a
     /// 1-based `(line, column)`, labelled by DEBUG_STRING_TABLE.
     fn today(&self, entry: &DebugEntry) -> Option<(String, u32, u32)> {
-        let location = self.runtime.resolve_breakpoint_location(
-            self.text,
-            self.file_id,
-            entry.line.saturating_sub(1),
-            entry.column.saturating_sub(1),
-        )?;
+        let location =
+            self.source_location(entry.line.saturating_sub(1), entry.column.saturating_sub(1))?;
         let (line, column) = location_to_line_col(self.text, &location);
         Some((
             self.strings.entries[entry.file_idx as usize]
@@ -222,12 +227,7 @@ impl Context<'_> {
 
     /// One R1 case: today's resolver and the line table must name one statement.
     fn compare_breakpoint(&self, line: u32, column: u32, report: &mut Report) {
-        let today = self.runtime.resolve_breakpoint_location(
-            self.text,
-            self.file_id,
-            line.saturating_sub(1),
-            column.saturating_sub(1),
-        );
+        let today = self.source_location(line.saturating_sub(1), column.saturating_sub(1));
         let resolved = self
             .resolver
             .resolve_breakpoint(self.file_label, line, column);
@@ -363,10 +363,13 @@ fn check_program(name: &str, text: &str) -> Report {
         .strip_prefix("file_")
         .and_then(|suffix| suffix.parse().ok())
         .unwrap_or_else(|| panic!("{name}: virtual file label {file_label}"));
-    assert!(
-        runtime.statement_locations(file_id).is_some(),
-        "{name}: today's statement list for file {file_id}"
-    );
+    // Today's statement list is the source-based one. The runtime's own statement listing answers
+    // from the line table once one is bound, so the reference is read from the metadata's
+    // statement index, which the source text provided.
+    let metadata = runtime.metadata_snapshot();
+    let statements = metadata
+        .source_statement_locations(file_id)
+        .unwrap_or_else(|| panic!("{name}: today's statement list for file {file_id}"));
 
     let starts = line_starts(text);
     let text_len = u32::try_from(text.len()).expect("source fits u32");
@@ -403,7 +406,7 @@ fn check_program(name: &str, text: &str) -> Report {
         text,
         file_id,
         file_label,
-        runtime: &runtime,
+        statements,
         table,
         strings,
         starts: &starts,

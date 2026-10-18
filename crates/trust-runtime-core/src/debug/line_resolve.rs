@@ -12,7 +12,7 @@ use smol_str::SmolStr;
 
 use crate::bytecode::{LineStatement, LineTable};
 
-/// One resolved statement: its POU, code offset and 1-based source start.
+/// One resolved statement: its POU, code offset, and 1-based source start and end.
 ///
 /// The source coordinates are the table's own 1-based ones (specification 12
 /// §6.13); a caller that wants a 0-based pair converts at its own boundary.
@@ -26,6 +26,11 @@ pub struct ResolvedStatement {
     pub line: u32,
     /// 1-based byte column within that line.
     pub column: u32,
+    /// 1-based line of the statement's source span end, trailing trivia included
+    /// (specification 12 §6.13).
+    pub end_line: u32,
+    /// 1-based byte column of that end within its line.
+    pub end_column: u32,
 }
 
 /// A portable resolver over one module's `LINE_TABLE` (specification 12 §6.13).
@@ -166,6 +171,8 @@ fn resolved(statement: &LineStatement) -> ResolvedStatement {
         code_offset: statement.start_code_offset,
         line: statement.start_line,
         column: statement.start_column,
+        end_line: statement.end_line,
+        end_column: statement.end_column,
     }
 }
 
@@ -242,6 +249,8 @@ mod tests {
             code_offset: 2,
             line: 14,
             column: 1,
+            end_line: 14,
+            end_column: 8,
         };
         assert_eq!(
             resolver.resolve_breakpoint("main.st", 14, 1),
@@ -269,6 +278,8 @@ mod tests {
                 code_offset: 1,
                 line: 13,
                 column: 1,
+                end_line: 15,
+                end_column: 7,
             })
         );
     }
@@ -289,6 +300,8 @@ mod tests {
                 code_offset: 5,
                 line: 16,
                 column: 1,
+                end_line: 18,
+                end_column: 8,
             })
         );
     }
@@ -329,6 +342,8 @@ mod tests {
                 code_offset: 0,
                 line: 10,
                 column: 1,
+                end_line: 10,
+                end_column: 15,
             })
         );
         assert_eq!(
@@ -338,6 +353,8 @@ mod tests {
                 code_offset: 0,
                 line: 10,
                 column: 6,
+                end_line: 10,
+                end_column: 15,
             })
         );
     }

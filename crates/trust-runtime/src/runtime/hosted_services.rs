@@ -157,12 +157,20 @@ impl ExecutionServices for HostedExecutionServices {
             return Ok(());
         };
         let pc = u32::try_from(code_offset).map_err(|_| RuntimeError::InvalidExecutionState)?;
-        let Some(source) = self.prepared.debug_map().source_by_pc.get(&(pou_id, pc)) else {
-            return Ok(());
+        // A LINE_TABLE alone decides the statement starts once the installation binds it;
+        // DEBUG_MAP is read only for a module without one (specification 12 §6.13).
+        let location = match metadata.line_table() {
+            Some(table) => table.start_location(pou_id, pc),
+            None => self
+                .prepared
+                .debug_map()
+                .source_by_pc
+                .get(&(pou_id, pc))
+                .and_then(|source| {
+                    metadata.resolve_vm_debug_location(&source.file, source.line, source.column)
+                }),
         };
-        let Some(location) =
-            metadata.resolve_vm_debug_location(&source.file, source.line, source.column)
-        else {
+        let Some(location) = location else {
             return Ok(());
         };
         let mut snapshot =
