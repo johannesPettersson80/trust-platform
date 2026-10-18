@@ -8,6 +8,7 @@
 //! its control loop.
 
 pub mod install;
+pub mod reload;
 pub mod select;
 
 #[cfg(test)]

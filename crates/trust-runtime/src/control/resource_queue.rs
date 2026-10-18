@@ -12,9 +12,7 @@ use super::ControlResponse;
 
 // The refusal replies are shared runtime code (spec 34 ARCH-11). `queue_refusal` reads the
 // resource state through the host's resource port when the scheduler no longer takes commands.
-pub(super) use trust_runtime_services::resource::replies::{
-    queue_refusal, resource_not_running, RESOURCE_NOT_RUNNING,
-};
+pub(super) use trust_runtime_services::resource::replies::queue_refusal;
 
 /// A read of the scan thread that produced no report. It keeps its message, and the stable code
 /// when the refusal has one.
