@@ -22,7 +22,10 @@ export function Slot({
       data-slot={action.id}
       disabled={!action.enabled}
       title={action.label}
-      onClick={() => {
+      onClick={(event) => {
+        // A slot's click is its own action; it must not also select the card that holds it, whose
+        // inspector would replace the pane the slot opens (specification 25 §5.14).
+        event.stopPropagation();
         if (action.enabled) {
           onAction?.(action);
         }

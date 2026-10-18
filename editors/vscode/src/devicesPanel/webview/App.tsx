@@ -1,15 +1,19 @@
 // The panel shell: the toolbar above the canvas or the list, the inspector of the selected item, a
-// runtime's right-click menu, the issues list, and the form pane an action reply opens, all drawn
-// from the view model Rust returns (design §4.5 D1, D2 and D3). `App` holds only view state — the
-// open right-hand pane and whether the canvas or the list is shown — and computes no label, state,
-// enabled flag or count: every one of those is a field of the view, drawn as given. Only one
-// right-hand pane is open at a time, and Escape closes it (specification 25 §5.11). It passes the
-// host's saved item positions to the canvas and posts the positions a drag produces, so the host
-// keeps them for the project (specification 25 §5.11, D2), and it opens and closes the form pane
-// from the host's replies, so a result appears in the pane that started it (§5.13, D3).
+// runtime's right-click menu, the issues list, the Add dialog, and the form pane an action reply
+// opens, all drawn from the view model Rust returns (design §4.5 D1, D2 and D3). `App` holds only
+// view state — the open right-hand pane and whether the canvas or the list is shown — and computes
+// no label, state, enabled flag or count: every one of those is a field of the view, drawn as given.
+// Only one right-hand pane is open at a time, and Escape closes it (specification 25 §5.11). It
+// passes the host's saved item positions to the canvas and posts the positions a drag produces, so
+// the host keeps them for the project (specification 25 §5.11, D2), it opens the Add dialog from the
+// `ui` op that `+ Add`, a runtime's `Add connection` slot and its menu carry (§5.14), and it opens
+// and closes the form pane from the host's replies, so a result appears in the pane that started it
+// (§5.13, D3).
 
 import React from "react";
 
+import { AddDialog as AddDialogPane } from "./AddDialog";
+import type { AddDialog } from "./addTypes";
 import { Canvas } from "./Canvas";
 import { ContextMenu } from "./ContextMenu";
 import { FormView, formPaneName, type FormValues } from "./FormView";
@@ -19,6 +23,7 @@ import { IssuesList } from "./IssuesList";
 import { ListView } from "./ListView";
 import type { Point } from "./layout";
 import { appStyle, bodyStyle, formPaneStyle } from "./styles";
+import { addPaneStyle } from "./styles/addDialog";
 import { Toolbar } from "./Toolbar";
 import type {
   Action,
@@ -36,18 +41,34 @@ type CanvasGraph = Pick<
 
 /**
  * The view the shell hands on: the fields it mirrors for the toolbar (`DevicesView`) plus the graph
- * the canvas draws. The graph fields are the canvas's own props, so the shell adds no shape of its
- * own; each is present only when Rust gives it.
+ * the canvas draws and the Add dialog every view carries as `add` (specification 25 §5.14). The
+ * graph fields are the canvas's own props, so the shell adds no shape of its own; each is present
+ * only when Rust gives it.
  */
-type ShellView = DevicesView & CanvasGraph;
+type ShellView = DevicesView & CanvasGraph & { add?: AddDialog };
 
 /** The one open right-hand pane: the inspector of an item, a runtime's right-click menu, the issues
- * list, or the form a `form.open` reply opened. */
+ * list, the Add dialog, or the form a `form.open` reply opened. */
 type OpenPane =
   | { kind: "inspector"; id: string }
   | { kind: "menu"; id: string; x: number; y: number }
   | { kind: "issues" }
+  | { kind: "add" }
   | { kind: "form"; form: Form };
+
+/** The part of an action's `op` the shell reads: the `ui` pane it opens (design §2.1). */
+interface UiOp {
+  /** The op's kind: `rust`, `host` or `ui`. */
+  kind: string;
+  /** The change of the webview's own view, when the op is a `ui` one. */
+  ui?: { kind?: string; pane?: { kind?: string } };
+}
+
+/** Whether an action opens the Add dialog in the panel's own view (specification 25 §5.14). */
+function opensAddDialog(action: Action): boolean {
+  const op = (action as { op?: UiOp }).op;
+  return op?.kind === "ui" && op.ui?.kind === "open" && op.ui.pane?.kind === "add";
+}
 
 /**
  * The pane name Rust gives the pane that started an action, so a notice, a pending action and a
@@ -135,6 +156,17 @@ export function App({
     },
     [post],
   );
+  // The Add dialog is the panel's own pane: `+ Add`, a runtime's `Add connection` slot and its
+  // menu's `Add device or connection…` carry the `ui` op that opens it (specification 25 §5.14).
+  const chooseAction = React.useCallback(
+    (action: Action) => {
+      if (opensAddDialog(action)) {
+        setPane({ kind: "add" });
+      }
+      onAction(action);
+    },
+    [onAction],
+  );
   // A form's button carries the values the user typed, as the form keeps them (J07; §5.4).
   const onFormAction = React.useCallback(
     (action: Action, values: FormValues) => {
@@ -170,10 +202,13 @@ export function App({
   );
   const chooseFromMenu = React.useCallback(
     (action: Action) => {
-      onAction(action);
-      close();
+      chooseAction(action);
+      // The menu's `Add device or connection…` opens its own pane; anything else closes the menu.
+      if (!opensAddDialog(action)) {
+        close();
+      }
     },
-    [onAction, close],
+    [chooseAction, close],
   );
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -221,7 +256,7 @@ export function App({
         view={hasList ? panelView : undefined}
         onSelectView={setPanelView}
         onOpenIssues={openIssues}
-        onAction={onAction}
+        onAction={chooseAction}
       />
       <div style={bodyStyle}>
         {panelView === "list" && view.list !== undefined ? (
@@ -248,11 +283,16 @@ export function App({
             onSelect={openInspector}
             onContextMenu={openMenu}
             onOpenIssues={openIssues}
-            onAction={onAction}
+            onAction={chooseAction}
           />
         )}
         {inspectorId !== undefined && inspector !== undefined && (
-          <Inspector key={inspectorId} inspector={inspector} onAction={onAction} onClose={close} />
+          <Inspector key={inspectorId} inspector={inspector} onAction={chooseAction} onClose={close} />
+        )}
+        {pane?.kind === "add" && view.add !== undefined && (
+          <aside key="add" data-role="add-pane" style={addPaneStyle}>
+            <AddDialogPane dialog={view.add} onAction={chooseAction} onClose={close} />
+          </aside>
         )}
         {form !== undefined && (
           <aside key={form.id} data-role="form-pane" style={formPaneStyle}>
@@ -275,7 +315,7 @@ export function App({
           />
         )}
         {pane?.kind === "issues" && view.issues !== undefined && (
-          <IssuesList key="issues" issues={view.issues} onAction={onAction} onClose={close} />
+          <IssuesList key="issues" issues={view.issues} onAction={chooseAction} onClose={close} />
         )}
       </div>
     </div>

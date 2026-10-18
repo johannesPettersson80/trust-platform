@@ -73,6 +73,7 @@ export function run(): Promise<void> {
   require("./devices-list-view.test");
   require("./devices-keyboard.test");
   require("./devices-readability.test");
+  require("./devices-add-dialog.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {
