@@ -61,7 +61,7 @@ impl EngineState<'_> {
     ) -> Result<Value, RuntimeError> {
         self.check_management_destination(reference.as_view())?;
         self.check_read(reference.as_view())?;
-        let value = if let Ok(view) = self.data.storage.read_reference(reference.as_view()) {
+        let value = if let Ok(view) = self.read_reference(reference.as_view()) {
             self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
             self.check_entry_deadline()?;
             view.materialize()?
@@ -73,8 +73,6 @@ impl EngineState<'_> {
                 .split_last()
                 .ok_or(RuntimeError::NullReference)?;
             let view = self
-                .data
-                .storage
                 .read_path(reference.location, reference.offset as usize, prefix)
                 .map_err(|_| RuntimeError::NullReference)?;
             let RefSegment::Index(indices) = last else {
@@ -102,7 +100,7 @@ impl EngineState<'_> {
         let value = self.normalize_reference_value(reference, value)?;
         self.validate_engineering_value(&value, 0)?;
         self.charge_storage_path_write(
-            &self.data.storage,
+            &*self,
             reference.location,
             reference.offset,
             reference.path,
@@ -111,11 +109,7 @@ impl EngineState<'_> {
         let capacity = self.declared_string_capacity(reference);
         let prepared = self.prepare_engineering_storage_write(reference, &value)?;
         self.check_entry_deadline()?;
-        if !self
-            .data
-            .storage
-            .commit_write(reference.path, value, prepared, capacity)
-        {
+        if !StoreMutate::commit_write(self, reference.path, value, prepared, capacity) {
             return Err(RuntimeError::NullReference);
         }
         Ok(())
@@ -204,7 +198,7 @@ impl EngineState<'_> {
         self.validate_engineering_value(&value, 0)?;
         self.check_write(reference.as_view(), &value)?;
         self.charge_storage_path_write(
-            &self.data.storage,
+            &*self,
             reference.location,
             reference.offset as usize,
             &reference.path,
@@ -213,11 +207,7 @@ impl EngineState<'_> {
         let capacity = self.declared_string_capacity(reference.as_view());
         let prepared = self.prepare_engineering_storage_write(reference.as_view(), &value)?;
         self.check_entry_deadline()?;
-        if !self
-            .data
-            .storage
-            .commit_write(&reference.path, value, prepared, capacity)
-        {
+        if !StoreMutate::commit_write(self, &reference.path, value, prepared, capacity) {
             return Err(RuntimeError::NullReference);
         }
         Ok(())
@@ -330,7 +320,7 @@ impl EngineState<'_> {
         let value = self.normalize_assignment_value(ty, value)?;
         self.validate_engineering_value(&value, 0)?;
         self.charge_storage_path_write(
-            &self.data.storage,
+            &*self,
             reference.location,
             reference.offset as usize,
             &reference.path,
@@ -346,8 +336,6 @@ impl EngineState<'_> {
         value: &Value,
     ) -> Result<PreparedWrite, RuntimeError> {
         let prepared = self
-            .data
-            .storage
             .prepare_write(reference.location, reference.offset, reference.path, value)?
             .ok_or(RuntimeError::NullReference)?;
         // IEEE bit aliases remain valid internally. Engineering writes must also
@@ -364,11 +352,7 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         self.check_entry_deadline()?;
         let capacity = self.declared_string_capacity(reference.as_view());
-        if !self
-            .data
-            .storage
-            .commit_write(&reference.path, value, prepared, capacity)
-        {
+        if !StoreMutate::commit_write(self, &reference.path, value, prepared, capacity) {
             return Err(RuntimeError::NullReference);
         }
         Ok(())

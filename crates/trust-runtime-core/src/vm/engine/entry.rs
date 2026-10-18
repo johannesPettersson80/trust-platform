@@ -2,6 +2,8 @@
 
 use super::*;
 use crate::bytecode::StorageRole;
+use crate::memory::view::StoreAccess;
+use crate::memory::MemoryLocation;
 
 impl EngineState<'_> {
     pub(super) fn execute_named_program(&mut self, name: &str) -> Result<(), RuntimeError> {
@@ -13,14 +15,13 @@ impl EngineState<'_> {
         let pou = declaration
             .owner_pou_id
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        let instance = match self
-            .data
-            .storage
-            .read_global_slot_by_offset(declaration.slot as usize)
-        {
-            Some(Value::Instance(instance)) => *instance,
-            _ => return Err(RuntimeError::InvalidExecutionState),
+        // The program root is read from the store the engine holds (C1-9d3a, R1).
+        let Ok(root) = self.read_slot(MemoryLocation::Global, declaration.slot as usize) else {
+            return Err(RuntimeError::InvalidExecutionState);
         };
+        let instance = root
+            .instance()?
+            .ok_or(RuntimeError::InvalidExecutionState)?;
         self.execute_pou(pou, Some(instance))?;
         self.check_entry_deadline()
     }

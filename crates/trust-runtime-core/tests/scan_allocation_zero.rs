@@ -1027,8 +1027,9 @@ fn the_retain_fixture_captures_without_allocating_after_the_first_capture() {
 /// Spec 34 §10, §6.2 and MEM-04 (C1-9d2b-2, R3): the same capture on the cell store. The retain fixture is
 /// instantiated on cells, where its retained globals and its program's retained variables live in cells and
 /// the encoder writes them from there. The first capture reserves the staging buffer, and every later
-/// capture makes no allocator call. A program does not scan on the cell store before the switch (C1-9d3),
-/// so the staged bytes are the values of construction, worked out by hand from `retain/src/main.st`:
+/// capture makes no allocator call. This capture follows construction, with no scan in between (a scan on
+/// the cell store is compared with the `Value` store's in `store_construction_tests`, C1-9d3a), so the
+/// staged bytes are the values of construction, worked out by hand from `retain/src/main.st`:
 /// `counter` 0, `setpoint` 20.0, the program's `runs` 0 and its `label` 'boiler'. A cell encoder that
 /// built a `Value` for each variable, or that grew its output, would allocate in the later capture; one
 /// that read the `Value` half, where the cell store keeps none of them, would stage no entries.

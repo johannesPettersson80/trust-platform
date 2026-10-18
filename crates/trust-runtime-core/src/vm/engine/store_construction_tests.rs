@@ -4,11 +4,15 @@
 //! filled by the same construction steps as the `Value` store. These tests build programs on both stores
 //! and read the cells through the store-access seam. The bounded-C corpus supplies compiled programs; the
 //! `Keeper` module (`keeper.rs`) supplies references in aggregates and dates, which no corpus program has.
-//! Each expected value is worked out by hand from the ST source it names.
+//! Each expected value is worked out by hand from the ST source it names. The scans of the whole corpus on
+//! both stores are in `scans.rs`, and the engineering and host paths that a scan does not reach are in
+//! `engineering.rs` (C1-9d3a).
 
+mod engineering;
 mod identities;
 mod keeper;
 mod retain;
+mod scans;
 
 use super::{services, Construction, EngineData, EngineState, EngineStore, StoreKind};
 use crate::bytecode::{StorageOwner, StorageRole, ValidationLimits};
@@ -106,6 +110,15 @@ const CORPUS: [(&str, &[u8]); 18] = [
         include_bytes!("../../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc"),
     ),
 ];
+
+/// The bytes of the corpus program `name`.
+fn corpus(name: &str) -> &'static [u8] {
+    CORPUS
+        .iter()
+        .find(|(entry, _)| *entry == name)
+        .map(|(_, bytes)| *bytes)
+        .unwrap_or_else(|| panic!("the corpus holds {name}"))
+}
 
 fn prepare(bytes: &[u8]) -> PreparedModule {
     PreparedModule::from_bytes(bytes, PreparationLimits::default()).expect("the program prepares")
@@ -207,107 +220,6 @@ fn declared_values(prepared: &PreparedModule, state: &EngineState<'_>) -> Vec<St
         }
     }
     lines
-}
-
-/// The limits a corpus pass prepares its programs under.
-type Limits = fn() -> PreparationLimits;
-
-/// Build every corpus program on both stores under `limits` and compare what they hold. The first list
-/// holds one line for every fact that differs, and the second the programs the cell store refused.
-fn compare_corpus(limits: Limits) -> (Vec<String>, Vec<String>) {
-    let mut differences = Vec::new();
-    let mut refused = Vec::new();
-    for (name, bytes) in CORPUS {
-        let prepared = PreparedModule::from_bytes(bytes, limits()).expect("the program prepares");
-        let mut values =
-            build(&prepared, StoreKind::Values).expect("the Value store constructs the program");
-        assert!(matches!(values.store, EngineStore::Values), "{name}");
-        let mut cells = match build(&prepared, StoreKind::Cells) {
-            Ok(cells) => cells,
-            Err(error) => {
-                refused.push(format!("{name}: {error:?}"));
-                continue;
-            }
-        };
-        assert!(matches!(cells.store, EngineStore::Cells(_)), "{name}");
-        // Every global, and every persistent instance with its type, its parent and its members, is one
-        // line: a comparison of empty lists would prove nothing.
-        let declared = prepared.declarations(StorageOwner::Global, None).len()
-            + prepared
-                .roots
-                .entries
-                .iter()
-                .filter_map(|root| root.template_pou_id)
-                .map(|pou| {
-                    1 + prepared
-                        .declarations(StorageOwner::Instance, Some(pou))
-                        .len()
-                })
-                .sum::<usize>();
-        let mut values_state = EngineState::borrow(&mut values, &prepared, &services::LOGICAL_ONLY);
-        let mut cells_state = EngineState::borrow(&mut cells, &prepared, &services::LOGICAL_ONLY);
-        for (stage, restart) in [
-            ("constructed", None),
-            ("after a cold restart", Some(RestartMode::Cold)),
-            ("after a warm restart", Some(RestartMode::Warm)),
-        ] {
-            if let Some(mode) = restart {
-                values_state
-                    .restart(mode)
-                    .expect("the Value store restarts");
-                cells_state.restart(mode).expect("the cell store restarts");
-            }
-            let expected = declared_values(&prepared, &values_state);
-            let actual = declared_values(&prepared, &cells_state);
-            assert_eq!(expected.len(), declared, "{name} {stage}");
-            assert_eq!(
-                expected.len(),
-                actual.len(),
-                "{name} {stage}: the lines differ in number"
-            );
-            for (expected, actual) in expected.iter().zip(&actual) {
-                if expected != actual {
-                    differences.push(format!(
-                        "{name} {stage}: values `{expected}` / cells `{actual}`"
-                    ));
-                }
-            }
-        }
-    }
-    (differences, refused)
-}
-
-#[test]
-fn cells_hold_the_values_arm_initial_values_after_construction() {
-    // Specification 34 §6.2 (MEM-10) and the C1-9 note's rule for the switch: a program that starts on the
-    // cell store reads exactly what it reads on the `Value` store. Each corpus program is built on both
-    // stores, and every declared global and every member of every persistent instance is read back and
-    // compared with the `Value` store's answer, along with each instance's type and parent. A cell store
-    // that left a default unwritten, wrote an initializer into the wrong member, shifted a member's
-    // ordinal, or gave an instance another identity would differ on that line. The programs are built under
-    // the default limits and, without the register tier, under the chips' construction limits (128 KiB of
-    // construction bytes and 50,000 units of work), which the cell store's charge must still fit. Both
-    // stores are compared again after a cold and after a warm restart: a function static is initialized
-    // when the resource first starts and again by its first call after a restart, so it reads `Null`
-    // on the `Value` store in between, and the cell that holds it must stay empty as well.
-    //
-    // `structures` is the one program the cell store refuses: it declares a `STRUCT OVERLAP`, which C1-15
-    // places (specification 34 §6.2), so construction cannot write the overlay's value into its cells yet
-    // and the commit of that variable is refused. The known differences of C1-9b do not show here: a
-    // `WSTRING` has no UTF-8 text but materializes, and the program root of a built state holds its
-    // instance on both stores.
-    let mut passes: Vec<(Limits, &str)> = vec![(PreparationLimits::default, "default limits")];
-    if !cfg!(feature = "register-ir") {
-        passes.push((chip_limits, "chip limits"));
-    }
-    for (limits, label) in passes {
-        let (differences, refused) = compare_corpus(limits);
-        assert!(
-            differences.is_empty(),
-            "{label}: the cells differ from the Value store: {differences:#?}"
-        );
-        assert_eq!(refused, ["structures: InvalidExecutionState"], "{label}");
-    }
 }
 
 #[test]

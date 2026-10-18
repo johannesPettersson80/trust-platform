@@ -1,15 +1,17 @@
 use crate::error::RuntimeError;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
-use crate::memory::{InstanceId, MemoryLocation, VariableStorage};
+use crate::memory::{InstanceId, MemoryLocation};
 use crate::value::Value;
 
 use super::BuiltinExecContext;
 
 /// The view of member `name` of `instance_id`, read by its ordinal among the members the instance
 /// holds (C1-9d2a, item (d)): the member's reference names its ordinal, and the slot is read by it.
-/// `None` when the instance holds no such member.
-pub(super) fn member_view<'a>(
-    storage: &'a VariableStorage,
+/// `None` when the instance holds no such member. The store is whichever one holds the instance: the
+/// `Value` storage, or the engine's routed store, which finds a persistent instance in its cells
+/// (C1-9d3a).
+pub(super) fn member_view<'a, S: StoreAccess>(
+    storage: &'a S,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Option<ValueView<'a>>, RuntimeError> {
@@ -27,8 +29,8 @@ pub(super) fn member_view<'a>(
 
 /// The scalar of member `name` (C1-9d2a, item (d)): `Value::Null` when the instance holds no such
 /// member, as a member that holds Null reads; `TypeMismatch` when the member holds no scalar.
-pub(super) fn read_scalar_or_null(
-    ctx: &BuiltinExecContext<'_>,
+pub(super) fn read_scalar_or_null<S: StoreAccess>(
+    ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Value, RuntimeError> {
@@ -38,8 +40,8 @@ pub(super) fn read_scalar_or_null(
     }
 }
 
-pub(super) fn read_bool(
-    ctx: &BuiltinExecContext<'_>,
+pub(super) fn read_bool<S: StoreAccess>(
+    ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<bool, RuntimeError> {
@@ -53,8 +55,8 @@ pub(super) fn read_bool(
     }
 }
 
-pub(super) fn get_or_init_bool(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn get_or_init_bool<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
     default: bool,
@@ -74,8 +76,8 @@ pub(super) fn get_or_init_bool(
     }
 }
 
-pub(super) fn write_bool(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn write_bool<S: StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
     value: bool,
@@ -84,8 +86,8 @@ pub(super) fn write_bool(
         .write_instance_var(instance_id, name, Value::Bool(value));
 }
 
-pub(super) fn read_value(
-    ctx: &BuiltinExecContext<'_>,
+pub(super) fn read_value<S: StoreAccess>(
+    ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Value, RuntimeError> {
@@ -94,8 +96,8 @@ pub(super) fn read_value(
         .materialize()
 }
 
-pub(super) fn read_value_or_null(
-    ctx: &BuiltinExecContext<'_>,
+pub(super) fn read_value_or_null<S: StoreAccess>(
+    ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Value, RuntimeError> {
@@ -105,8 +107,8 @@ pub(super) fn read_value_or_null(
     }
 }
 
-pub(super) fn set_instance_value(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn set_instance_value<S: StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
     value: Value,

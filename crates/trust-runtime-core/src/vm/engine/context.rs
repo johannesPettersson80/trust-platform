@@ -226,7 +226,7 @@ impl<'e> ReferenceContext for EngineState<'e> {
         Ok(crate::value::ValueRefView {
             location: MemoryLocation::Local(active.result),
             offset: 0,
-            generation: self.data.storage.generation(),
+            generation: StoreAccess::generation(self),
             path,
         })
     }
@@ -600,12 +600,9 @@ impl CallContext for EngineState<'_> {
         instance_id: InstanceId,
         kind: crate::stdlib::fbs::BuiltinFbKind,
     ) -> Result<(), RuntimeError> {
-        crate::stdlib::fbs::execute_builtin_in_storage(
-            &mut self.data.storage,
-            now,
-            instance_id,
-            kind,
-        )
+        // The block runs on the store the engine holds: a persistent instance's members are in the cells
+        // of the cell arm, not in the `Value` half (C1-9d3a, R1).
+        crate::stdlib::fbs::execute_builtin_in_store(self, now, instance_id, kind)
     }
 }
 

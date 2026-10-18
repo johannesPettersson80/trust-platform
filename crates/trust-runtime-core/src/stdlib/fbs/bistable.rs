@@ -1,4 +1,5 @@
 use crate::error::RuntimeError;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::InstanceId;
 
 use super::instance::{read_bool, write_bool};
@@ -64,8 +65,8 @@ impl Default for Rs {
     }
 }
 
-pub(super) fn exec_rs(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_rs<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let set = read_bool(ctx, instance_id, "S")?;
@@ -80,8 +81,8 @@ pub(super) fn exec_rs(
     Ok(())
 }
 
-pub(super) fn exec_sr(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_sr<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let set = read_bool(ctx, instance_id, "S1")?;

@@ -4,7 +4,7 @@ use crate::error::RuntimeError;
 use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
-use crate::value::{single_ref_index, string_element_position, RefSegment, Value, ValueRef};
+use crate::value::{single_ref_index, string_element_position_in, RefSegment, Value, ValueRef};
 
 use super::context::ReferenceContext;
 use super::errors::VmTrap;
@@ -376,17 +376,20 @@ pub fn dynamic_ref_index(
         reference.path.push(single_ref_index(index));
         return Ok(reference);
     }
-    // A STRING or a WSTRING: its length is charged before the element is checked (TIME-08).
+    // A STRING or a WSTRING: its length is charged before the element is checked (TIME-08). The
+    // characters are counted from the view, so that a cell WSTRING, which has no borrowed UTF-8 text, is
+    // checked as a `Value` is (C1-9d3a).
     let Some(length) = target.text_utf8_len().map_err(VmTrap::Runtime)? else {
         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
     };
-    let text = target
-        .text()
-        .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
     runtime
         .before_reference_path_growth(0, length)
         .map_err(VmTrap::Runtime)?;
-    string_element_position(text, index).map_err(VmTrap::Runtime)?;
+    let count = target
+        .text_char_count()
+        .map_err(VmTrap::Runtime)?
+        .ok_or_else(|| VmTrap::Runtime(RuntimeError::TypeMismatch))?;
+    string_element_position_in(count, index).map_err(VmTrap::Runtime)?;
     reserve_reference_segment(runtime, &mut reference, 1)?;
     reference.path.push(single_ref_index(index));
     Ok(reference)

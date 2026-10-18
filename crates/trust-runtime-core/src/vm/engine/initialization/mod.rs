@@ -8,7 +8,7 @@ use super::*;
 use crate::bytecode::{
     InitializationPhase, InitializerBodyKind, StorageOwner, StorageRole, TypeData,
 };
-use crate::memory::view::StoreMutate;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
 use crate::vm::context::ReferenceContext;
@@ -417,7 +417,7 @@ fn context_store_result(state: &mut EngineState<'_>, frame: FrameId, value: Valu
     let reference = ValueRefView {
         location: MemoryLocation::Local(frame),
         offset: 0,
-        generation: state.data.storage.generation(),
+        generation: StoreAccess::generation(&*state),
         path: &[],
     };
     state.write_reference(reference, value).unwrap_or(false)

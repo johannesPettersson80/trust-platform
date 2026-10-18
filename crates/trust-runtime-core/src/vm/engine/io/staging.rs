@@ -312,7 +312,8 @@ impl EngineState<'_> {
         }
         // Admitted I/O codecs produce scalars or byte strings, never instance or
         // reference roots, so these physical destinations cannot redirect each other.
-        let generation = self.data.storage.generation();
+        // The inputs are applied through the store the engine holds, so the cell arm receives them (R1).
+        let generation = StoreAccess::generation(self);
         self.snapshot_input_destinations(
             staging
                 .inputs
@@ -332,21 +333,17 @@ impl EngineState<'_> {
             let capacity = self.declared_string_capacity(crate::value::ValueRefView {
                 location,
                 offset,
-                generation: self.data.storage.generation(),
+                generation,
                 path,
             });
             let result = self
-                .charge_storage_path_write(&self.data.storage, location, offset, path, &value)
+                .charge_storage_path_write(&*self, location, offset, path, &value)
                 .and_then(|()| {
                     let write = self
-                        .data
-                        .storage
                         .prepare_write(location, offset, path, &value)?
                         .ok_or_else(|| RuntimeError::NullReference)?;
                     self.check_entry_deadline()?;
-                    self.data
-                        .storage
-                        .commit_write(path, value, write, capacity)
+                    self.commit_write(path, value, write, capacity)
                         .then_some(())
                         .ok_or_else(|| RuntimeError::NullReference)
                 });

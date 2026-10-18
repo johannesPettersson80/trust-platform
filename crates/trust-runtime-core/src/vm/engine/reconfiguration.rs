@@ -99,20 +99,16 @@ impl<S: ExecutionServices> OwnedRuntimeState<S> {
             .map_err(|_| RuntimeError::PreparationLimit)?;
         tasks.resize(resource.tasks.len(), TaskState::new(self.data.now));
         if reset_task_timing {
+            // The SINGLE inputs are read through the store the installed engine holds, by the slots of
+            // the candidate's declarations, which `same_execution` holds equal to the installed ones.
+            let installed = EngineState::borrow(&mut self.data, &self.prepared, &self.services);
             for (state, task) in tasks.iter_mut().zip(&resource.tasks) {
                 if let Some(name_idx) = task.single_name_idx {
                     let name = &prepared.vm.strings[name_idx as usize];
                     let (_, declaration) = prepared
                         .global(name)
                         .ok_or(RuntimeError::InvalidExecutionState)?;
-                    state.last_single = match self
-                        .data
-                        .storage
-                        .read_global_slot_by_offset(declaration.slot as usize)
-                    {
-                        Some(Value::Bool(value)) => *value,
-                        _ => return Err(RuntimeError::TypeMismatch),
-                    };
+                    state.last_single = installed.read_bool_slot(declaration.slot)?;
                 }
             }
         }

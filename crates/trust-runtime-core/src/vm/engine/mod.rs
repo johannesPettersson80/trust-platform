@@ -256,9 +256,7 @@ impl<'a> EngineState<'a> {
     /// The generation a restart or replacement of this state constructs. An
     /// exhausted counter refuses it before anything changes (spec 34 §11.3).
     fn next_generation(&self) -> Result<Generation, RuntimeError> {
-        self.data
-            .storage
-            .generation()
+        crate::memory::view::StoreAccess::generation(self)
             .next()
             .ok_or(RuntimeError::Overflow)
     }

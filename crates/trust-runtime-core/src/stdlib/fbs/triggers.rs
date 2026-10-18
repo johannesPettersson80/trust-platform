@@ -1,4 +1,5 @@
 use crate::error::RuntimeError;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::InstanceId;
 
 use super::instance::{get_or_init_bool, read_bool, write_bool};
@@ -60,8 +61,8 @@ impl Default for FTrig {
     }
 }
 
-pub(super) fn exec_r_trig(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_r_trig<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let clk = read_bool(ctx, instance_id, "CLK")?;
@@ -72,8 +73,8 @@ pub(super) fn exec_r_trig(
     Ok(())
 }
 
-pub(super) fn exec_f_trig(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_f_trig<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let clk = read_bool(ctx, instance_id, "CLK")?;

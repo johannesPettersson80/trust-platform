@@ -20,9 +20,8 @@
 //!
 //! its program instance `Plant`. A scan adds 1 to `counter` and `runs` and 0.5 to `setpoint`.
 
-use super::{build, global, member, prepare, services, EngineState, StoreKind, CORPUS, RETAIN};
-use crate::bytecode::{StorageOwner, StorageRole};
-use crate::memory::view::StoreMutate;
+use super::{build, prepare, services, EngineState, StoreKind, CORPUS, RETAIN};
+use crate::bytecode::StorageOwner;
 use crate::retain::capture::RetainCapture;
 use crate::value::Duration;
 use crate::vm::PreparedModule;
@@ -48,42 +47,16 @@ fn payload(state: &mut EngineState<'_>) -> Vec<u8> {
     capture.staged_payload().to_vec()
 }
 
-/// Give `cells` the value of every retained variable that `values` holds, through the store-access seam, as
-/// the scans of a program that ran on the cell store would have left them.
-fn copy_retained(values: &EngineState<'_>, cells: &mut EngineState<'_>, prepared: &PreparedModule) {
-    for &id in prepared.retained_declarations(StorageOwner::Global, None) {
-        let name = &prepared.vm.strings[prepared.layout.entries[id as usize].name_idx as usize];
-        let value = global(values, name);
-        assert!(
-            StoreMutate::set_global(cells, name.clone(), value),
-            "{name}"
-        );
-    }
-    for (index, root) in prepared.roots.entries.iter().enumerate() {
-        let declaration = &prepared.layout.entries[root.declaration_idx as usize];
-        if root.parent_root_idx.is_some() || declaration.role != StorageRole::ProgramRoot {
-            continue;
-        }
-        let from = values.data.construction.roots[index].expect("the program has an instance");
-        let to = cells.data.construction.roots[index].expect("the program has an instance");
-        for &id in prepared.retained_declarations(StorageOwner::Instance, root.template_pou_id) {
-            let name = &prepared.vm.strings[prepared.layout.entries[id as usize].name_idx as usize];
-            let value = member(values, from, name);
-            assert!(cells.write_instance_var(to, name.clone(), value), "{name}");
-        }
-    }
-}
-
 #[test]
 fn captured_cells_encode_like_the_value_tree() {
     // Specification 11 §6.7 and specification 34 §10: the retained payload is the same bytes whether the
     // variables are held in cells or in the value tree. Each bounded-C program that declares retained
     // variables is built on both stores and captured twice: after construction, and after three scans.
-    // The scans run on the `Value` store: a program does not scan on the cell store before the switch
-    // (C1-9d3 converts the program root's read), so the cell store is given the retained values that
-    // three scans leave, through the seam. Worked out by hand for `retain`, whose entries are `counter`,
-    // `setpoint`, the program's `runs` and its `label`, in that order (the retained globals in declaration
-    // order, then the program's variables under the key `@program/Plant/<name>`):
+    // Both stores run the three scans themselves (C1-9d3a, R3): the cell store's scans advance the retained
+    // variables in its cells, and the capture encodes them from there. Worked out by hand for `retain`,
+    // whose entries are `counter`, `setpoint`, the program's `runs` and its `label`, in that order (the
+    // retained globals in declaration order, then the program's variables under the key
+    // `@program/Plant/<name>`):
     //
     // - the count 4;
     // - `counter`: name length 7, then DINT 0 (tag 4); after three scans DINT 3;
@@ -94,7 +67,8 @@ fn captured_cells_encode_like_the_value_tree() {
     //   no scan changes.
     //
     // The two payloads are compared with each other and with these bytes, so a cell encoder that dropped
-    // a variable, kept the values of construction, or encoded the label as a different tag, differs.
+    // a variable, kept the values of construction, or encoded the label as a different tag, differs, and so
+    // does a cell store whose scans did not advance the variables its capture reads.
     let after = |counter: &[u8], setpoint: &[u8], runs: &[u8]| -> Vec<u8> {
         [
             &[4, 0, 0, 0][..],
@@ -150,11 +124,10 @@ fn captured_cells_encode_like_the_value_tree() {
         }
 
         for scan in 1..=3 {
-            values
-                .execute_cycle(Duration::from_millis(10 * scan))
-                .expect("the Value store scans");
+            let now = Duration::from_millis(10 * scan);
+            values.execute_cycle(now).expect("the Value store scans");
+            cells.execute_cycle(now).expect("the cell store scans");
         }
-        copy_retained(&values, &mut cells, &prepared);
         let from_values = payload(&mut values);
         assert_eq!(payload(&mut cells), from_values, "{name} after three scans");
         if name == "retain" {

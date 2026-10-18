@@ -78,7 +78,7 @@ impl<'a> EngineState<'a> {
         Ok(ValueRefView {
             location,
             offset,
-            generation: self.data.storage.generation(),
+            generation: StoreAccess::generation(self),
             path,
         })
     }
@@ -133,10 +133,16 @@ impl EngineState<'_> {
             .prepared
             .global(name)
             .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-        let Ok(slot) = self.read_slot(MemoryLocation::Global, declaration.slot as usize) else {
+        self.read_bool_slot(declaration.slot)
+    }
+
+    /// The BOOL that the global at declaration slot `slot` holds, read from the store the engine holds.
+    /// `TypeMismatch` when the slot names no value or holds another type.
+    pub(in crate::vm::engine) fn read_bool_slot(&self, slot: u32) -> Result<bool, RuntimeError> {
+        let Ok(view) = self.read_slot(MemoryLocation::Global, slot as usize) else {
             return Err(RuntimeError::TypeMismatch);
         };
-        match slot.scalar()? {
+        match view.scalar()? {
             Some(Value::Bool(value)) => Ok(value),
             _ => Err(RuntimeError::TypeMismatch),
         }

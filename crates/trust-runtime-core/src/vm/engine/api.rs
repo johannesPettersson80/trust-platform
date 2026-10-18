@@ -3,7 +3,7 @@ use super::{Construction, EngineData, EngineState, ExecutionServices, PreparedMo
 use crate::{
     error::RuntimeError,
     fault::{FaultRecord, NO_TASK},
-    memory::{InstanceId, VariableStorage},
+    memory::{view::ValueView, InstanceId, VariableStorage},
     retain::RestartMode,
     task::TaskState,
     value::{Duration, Value},
@@ -61,11 +61,11 @@ impl PreparedModule {
     /// Construct as [`PreparedModule::instantiate_with_services`], holding the globals and the persistent
     /// instances in the bounded cell store (specification 34 §6.2) instead of the `Value` tree.
     ///
-    /// The cell store is not the default yet (C1-9d3 switches it). Until that slice a program does not
-    /// scan on it, and [`RuntimeState::storage`] shows only the `Value` half, which holds neither the
-    /// globals nor the persistent instances. This entry exists so that the tests of the store's own
-    /// behaviour, such as the retained-image capture and its allocation counts, can run on it from outside
-    /// the crate.
+    /// The cell store is not the default yet (C1-9d3 switches it). A program scans on it exactly as it
+    /// does on the `Value` store (C1-9d3a), but [`RuntimeState::storage`] shows only the `Value` half,
+    /// which holds neither the globals nor the persistent instances, until the compatibility cache of
+    /// C1-9d3b. This entry exists so that the tests of the store's own behaviour, such as the
+    /// retained-image capture and its allocation counts, can run on it from outside the crate.
     #[doc(hidden)]
     pub fn instantiate_on_cells_with_services<'a>(
         &'a self,
@@ -190,11 +190,10 @@ impl RuntimeState<'_> {
         &self.data.storage
     }
     /// Read a declared resource-global scalar by value. `Ok(None)` when the program declares no
-    /// global of that name; `TypeMismatch` when the global is not a scalar. Allocates nothing.
+    /// global of that name; `TypeMismatch` when the global is not a scalar. Allocates nothing. The
+    /// global is read from the store the state holds, the `Value` storage or the cell store.
     pub fn read_global_scalar(&self, name: &str) -> Result<Option<Value>, RuntimeError> {
-        self.data
-            .storage
-            .get_global(name)
+        crate::memory::view::StoreAccess::read_global(self, name)
             .map(scalar_copy)
             .transpose()
     }
@@ -205,18 +204,14 @@ impl RuntimeState<'_> {
         instance: InstanceId,
         name: &str,
     ) -> Result<Option<Value>, RuntimeError> {
-        self.data
-            .storage
-            .get_instance_var(instance, name)
+        crate::memory::view::StoreAccess::read_instance_var(self, instance, name)
             .map(scalar_copy)
             .transpose()
     }
     /// Resolve the instance a declared resource global holds, such as a program instance root.
     /// `Ok(None)` when no such global is declared; `TypeMismatch` when it holds another value.
     pub fn read_global_instance(&self, name: &str) -> Result<Option<InstanceId>, RuntimeError> {
-        self.data
-            .storage
-            .get_global(name)
+        crate::memory::view::StoreAccess::read_global(self, name)
             .map(instance_of)
             .transpose()
     }
@@ -227,9 +222,7 @@ impl RuntimeState<'_> {
         instance: InstanceId,
         name: &str,
     ) -> Result<Option<InstanceId>, RuntimeError> {
-        self.data
-            .storage
-            .get_instance_var(instance, name)
+        crate::memory::view::StoreAccess::read_instance_var(self, instance, name)
             .map(instance_of)
             .transpose()
     }
@@ -507,44 +500,18 @@ impl RuntimeState<'_> {
 }
 
 /// A copy of an elementary scalar (specification 02 §1, IEC 61131-3 Table 10): every elementary
-/// value except STRING and WSTRING. Any other value is refused, never read as a default.
-fn scalar_copy(value: &Value) -> Result<Value, RuntimeError> {
-    match value {
-        Value::Bool(_)
-        | Value::SInt(_)
-        | Value::Int(_)
-        | Value::DInt(_)
-        | Value::LInt(_)
-        | Value::USInt(_)
-        | Value::UInt(_)
-        | Value::UDInt(_)
-        | Value::ULInt(_)
-        | Value::Real(_)
-        | Value::LReal(_)
-        | Value::Byte(_)
-        | Value::Word(_)
-        | Value::DWord(_)
-        | Value::LWord(_)
-        | Value::Time(_)
-        | Value::LTime(_)
-        | Value::Date(_)
-        | Value::LDate(_)
-        | Value::Tod(_)
-        | Value::LTod(_)
-        | Value::Dt(_)
-        | Value::Ldt(_)
-        | Value::Char(_)
-        | Value::WChar(_) => Ok(value.clone()),
-        _ => Err(RuntimeError::TypeMismatch),
+/// value except STRING and WSTRING. Any other value, and a slot that holds no value yet, is refused,
+/// never read as a default.
+fn scalar_copy(view: ValueView<'_>) -> Result<Value, RuntimeError> {
+    match view.scalar()? {
+        Some(Value::Null) | None => Err(RuntimeError::TypeMismatch),
+        Some(value) => Ok(value),
     }
 }
 
 /// The instance a value holds, or `TypeMismatch` for any other value.
-fn instance_of(value: &Value) -> Result<InstanceId, RuntimeError> {
-    match value {
-        Value::Instance(id) => Ok(*id),
-        _ => Err(RuntimeError::TypeMismatch),
-    }
+fn instance_of(view: ValueView<'_>) -> Result<InstanceId, RuntimeError> {
+    view.instance()?.ok_or(RuntimeError::TypeMismatch)
 }
 
 #[cfg(test)]

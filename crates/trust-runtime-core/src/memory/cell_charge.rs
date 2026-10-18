@@ -18,7 +18,7 @@ use crate::memory::cells::Cell;
 use crate::memory::layout::{CellRange, CELL_BYTES};
 use crate::memory::regions::CellRegions;
 use crate::memory::{InstanceId, MemoryLocation};
-use crate::value::{RefSegment, Value};
+use crate::value::{string_element_position_in, RefSegment, Value};
 use crate::vm::PreparedModule;
 
 impl CellsView<'_> {
@@ -236,27 +236,39 @@ fn element_count(dims: &[(i64, i64)]) -> Option<usize> {
     })
 }
 
-/// The UTF-8 length of the text leaf at `range`: its bytes for a `STRING`, and the UTF-8 length of its
-/// UTF-16 units for a `WSTRING` (TIME-08 counts UTF-8). `None` when the range holds no text.
-fn text_utf8_length(regions: &CellRegions, range: CellRange, prim_id: u16) -> Option<usize> {
+/// The bytes in use of the text leaf at `range`, or `None` when the range holds no text.
+fn text_bytes(regions: &CellRegions, range: CellRange) -> Option<&[u8]> {
     let Some(Cell::Text(slot)) = regions.persistent().cells(range)?.first() else {
         return None;
     };
-    let bytes = regions.text().bytes(*slot)?;
+    regions.text().bytes(*slot)
+}
+
+/// The UTF-8 length of the text leaf at `range`: its bytes for a `STRING`, and the UTF-8 length of its
+/// UTF-16 units for a `WSTRING` (TIME-08 counts UTF-8). `None` when the range holds no text.
+fn text_utf8_length(regions: &CellRegions, range: CellRange, prim_id: u16) -> Option<usize> {
+    let bytes = text_bytes(regions, range)?;
     Some(match prim_id {
         STRING_PRIMITIVE => bytes.len(),
         _ => utf8_length_of_utf16(bytes),
     })
 }
 
+/// The characters of the text stored as little-endian UTF-16 code units, decoded in place without
+/// allocating.
+fn wide_chars(bytes: &[u8]) -> impl Iterator<Item = Result<char, core::char::DecodeUtf16Error>> {
+    char::decode_utf16(
+        bytes
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|unit| u16::from_le_bytes(*unit)),
+    )
+}
+
 /// The UTF-8 length of the text stored as little-endian UTF-16 code units, without allocating.
 fn utf8_length_of_utf16(bytes: &[u8]) -> usize {
-    let units = bytes
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .map(|unit| u16::from_le_bytes(*unit));
-    char::decode_utf16(units)
+    wide_chars(bytes)
         .map(|decoded| decoded.map_or(3, char::len_utf8))
         .sum()
 }
@@ -353,6 +365,61 @@ impl<'a> CellsView<'a> {
         text_utf8_length(self.regions, range, prim_id)
             .map(Some)
             .ok_or(RuntimeError::InvalidExecutionState)
+    }
+
+    /// The number of characters (Unicode scalar values) of the text leaf at `range` (C1-9d3a): the count
+    /// that `LEN` and a subscript use (DEV-017). A `STRING` counts the characters of its UTF-8 bytes and
+    /// a `WSTRING` those of its UTF-16 code units, decoded in place without building a `String`. `None`
+    /// for any other type.
+    pub(crate) fn text_char_count(
+        self,
+        range: CellRange,
+        type_id: u32,
+    ) -> Result<Option<usize>, RuntimeError> {
+        let Some(prim_id @ (STRING_PRIMITIVE | WSTRING_PRIMITIVE)) =
+            primitive_of(self.prepared, type_id)
+        else {
+            return Ok(None);
+        };
+        let bytes = text_bytes(self.regions, range).ok_or(RuntimeError::InvalidExecutionState)?;
+        let count = if prim_id != WSTRING_PRIMITIVE {
+            core::str::from_utf8(bytes)
+                .ok()
+                .map(|text| text.chars().count())
+        } else if bytes.len().is_multiple_of(2) {
+            wide_chars(bytes)
+                .try_fold(0usize, |count, decoded| decoded.map(|_| count + 1))
+                .ok()
+        } else {
+            None
+        };
+        count.map(Some).ok_or(RuntimeError::InvalidExecutionState)
+    }
+
+    /// The character that the one-based `index` selects in the `WSTRING` at `range` (C1-9d3a), as a
+    /// `WCHAR`, read from its UTF-16 code units in place. `None` when `index` selects no character or the
+    /// character lies outside the Basic Multilingual Plane, as the same read of a `Value` answers, and
+    /// for any type but a `WSTRING`.
+    pub(crate) fn wide_text_element(
+        self,
+        range: CellRange,
+        type_id: u32,
+        index: i64,
+    ) -> Result<Option<Value>, RuntimeError> {
+        if primitive_of(self.prepared, type_id) != Some(WSTRING_PRIMITIVE) {
+            return Ok(None);
+        }
+        let count = self
+            .text_char_count(range, type_id)?
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let Ok(position) = string_element_position_in(count, index) else {
+            return Ok(None);
+        };
+        let bytes = text_bytes(self.regions, range).ok_or(RuntimeError::InvalidExecutionState)?;
+        let Some(Ok(character)) = wide_chars(bytes).nth(position) else {
+            return Err(RuntimeError::InvalidExecutionState);
+        };
+        Ok(u16::try_from(u32::from(character)).ok().map(Value::WChar))
     }
 
     /// Whether `type_id` is a text: `Some(false)` for a `STRING`, `Some(true)` for a `WSTRING` and `None`

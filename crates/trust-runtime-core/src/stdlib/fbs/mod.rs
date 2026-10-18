@@ -15,17 +15,32 @@ pub use timers::{TimerOutput, Tof, Ton, Tp};
 pub use triggers::{FTrig, RTrig};
 
 use crate::error::RuntimeError;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::{InstanceId, VariableStorage};
 use crate::value::Duration;
 
-struct BuiltinExecContext<'a> {
-    storage: &'a mut VariableStorage,
+/// The store a native block runs on, and the logical time it runs at. The block reads and writes its
+/// instance's members through the store-access seam only, so it runs on whichever store holds the
+/// instance (specification 34 §6.2, MEM-10; C1-9d3a).
+struct BuiltinExecContext<'a, S> {
+    storage: &'a mut S,
     now: Duration,
 }
 
 /// Execute a native function block against its declared storage and supplied logical time.
 pub fn execute_builtin_in_storage(
     storage: &mut VariableStorage,
+    now: Duration,
+    instance_id: InstanceId,
+    kind: BuiltinFbKind,
+) -> Result<(), RuntimeError> {
+    execute_builtin_in_store(storage, now, instance_id, kind)
+}
+
+/// Execute a native function block on `storage`, the store that holds its instance, at the supplied
+/// logical time: the `Value` storage, or the engine's routed store (C1-9d3a, R1).
+pub(crate) fn execute_builtin_in_store<S: StoreAccess + StoreMutate>(
+    storage: &mut S,
     now: Duration,
     instance_id: InstanceId,
     kind: BuiltinFbKind,

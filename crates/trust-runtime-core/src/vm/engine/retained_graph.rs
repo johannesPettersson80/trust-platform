@@ -351,7 +351,7 @@ impl RetainedGraph<'_, '_> {
     ) -> Result<(), RuntimeError> {
         Self::step(depth)?;
         // Only a reference of the source generation names source state.
-        if reference.generation != self.source.data.storage.generation() {
+        if reference.generation != StoreAccess::generation(self.source) {
             return Err(RuntimeError::ReferenceLifetime);
         }
         match reference.location {
@@ -384,7 +384,7 @@ impl RetainedGraph<'_, '_> {
         }
         // The transferred reference names the candidate's state: this is the checked
         // rebinding of a retained reference into the new generation (spec 34 §11.3).
-        reference.generation = target.data.storage.generation();
+        reference.generation = StoreAccess::generation(&*target);
         Ok(())
     }
 }

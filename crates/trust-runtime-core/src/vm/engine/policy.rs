@@ -393,7 +393,7 @@ impl EngineState<'_> {
         &self,
         generation: crate::memory::Generation,
     ) -> Result<(), RuntimeError> {
-        if generation != self.data.storage.generation() {
+        if generation != StoreAccess::generation(self) {
             return Err(RuntimeError::ReferenceLifetime);
         }
         Ok(())

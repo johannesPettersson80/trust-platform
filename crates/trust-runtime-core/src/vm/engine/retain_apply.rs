@@ -49,7 +49,7 @@ impl EngineState<'_> {
         {
             let declaration = &self.prepared.layout.entries[id as usize];
             let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-            if let Some(view) = self.data.storage.read_global(name) {
+            if let Some(view) = self.read_global(name) {
                 check(&view.materialize()?)?;
             }
         }
@@ -68,7 +68,7 @@ impl EngineState<'_> {
             {
                 let declaration = &self.prepared.layout.entries[id as usize];
                 let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-                if let Some(view) = self.data.storage.read_instance_var(instance, name) {
+                if let Some(view) = self.read_instance_var(instance, name) {
                     check(&view.materialize()?)?;
                 }
             }
@@ -203,8 +203,8 @@ impl EngineState<'_> {
                     .ok_or(RuntimeError::InvalidExecutionState)?;
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
                 let view = match instance {
-                    Some(instance) => self.data.storage.read_instance_var(instance, name),
-                    None => self.data.storage.read_global(name),
+                    Some(instance) => self.read_instance_var(instance, name),
+                    None => self.read_global(name),
                 }
                 .ok_or(RuntimeError::InvalidExecutionState)?;
                 self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;

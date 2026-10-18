@@ -1,4 +1,5 @@
 use crate::error::RuntimeError;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::InstanceId;
 use crate::value::Value;
 
@@ -276,8 +277,8 @@ macro_rules! counter_up_down_unsigned {
     }};
 }
 
-pub(super) fn exec_ctu(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_ctu<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let cu = read_bool(ctx, instance_id, "CU")?;
@@ -335,8 +336,8 @@ pub(super) fn exec_ctu(
     Ok(())
 }
 
-pub(super) fn exec_ctd(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_ctd<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let cd = read_bool(ctx, instance_id, "CD")?;
@@ -394,8 +395,8 @@ pub(super) fn exec_ctd(
     Ok(())
 }
 
-pub(super) fn exec_ctud(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_ctud<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let cu = read_bool(ctx, instance_id, "CU")?;

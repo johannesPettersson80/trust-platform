@@ -147,10 +147,9 @@ impl EngineState<'_> {
             hooks.program_started(name);
         }
         let result = (|| {
-            // The program root is read by its declaration's slot, not by its name (C1-9d1, O22).
+            // The program root is read by its declaration's slot, not by its name (C1-9d1, O22), from
+            // the store the engine holds: on the cell arm that slot is not an index of the `Value` half.
             let instance = self
-                .data
-                .storage
                 .read_slot(MemoryLocation::Global, declaration.slot as usize)
                 .map_err(|_| RuntimeError::NullReference)?
                 .instance()?

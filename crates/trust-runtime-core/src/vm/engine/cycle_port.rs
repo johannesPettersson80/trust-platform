@@ -256,34 +256,32 @@ impl CycleAccess<'_, '_> {
     /// §4.3.1).
     #[must_use]
     pub fn generation(&self) -> Generation {
-        self.engine.data.storage.generation()
+        StoreAccess::generation(&*self.engine)
     }
     /// Resolve a declared resource global to a reference. The reference carries no path, so the
     /// lookup allocates nothing.
     #[must_use]
     pub fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
-        self.engine.data.storage.ref_for_global(name)
+        StoreAccess::ref_for_global(&*self.engine, name)
     }
     /// Resolve a declared member of one instance to a reference.
     #[must_use]
     pub fn ref_for_instance(&self, id: InstanceId, name: &str) -> Option<ValueRef> {
-        self.engine.data.storage.ref_for_instance(id, name)
+        StoreAccess::ref_for_instance(&*self.engine, id, name)
     }
     /// Resolve a member of one instance, or of its parents, to a reference.
     #[must_use]
     pub fn ref_for_instance_recursive(&self, id: InstanceId, name: &str) -> Option<ValueRef> {
-        self.engine
-            .data
-            .storage
-            .ref_for_instance_recursive(id, name)
+        StoreAccess::ref_for_instance_recursive(&*self.engine, id, name)
     }
     /// The instance a declared resource global holds, when it holds one (a program instance root).
+    /// A global that holds anything else, or whose cells are inconsistent with its type, holds none.
     #[must_use]
     pub fn global_instance(&self, name: &str) -> Option<InstanceId> {
-        match self.engine.data.storage.get_global(name)? {
-            Value::Instance(id) => Some(*id),
-            _ => None,
-        }
+        StoreAccess::read_global(&*self.engine, name)?
+            .instance()
+            .ok()
+            .flatten()
     }
     /// Logical scan time, independent of host driver clocks.
     pub fn logical_time(&self) -> Duration {

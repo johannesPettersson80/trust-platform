@@ -74,6 +74,13 @@ pub fn check_string_result(text: &str, wide: bool) -> Result<(), RuntimeError> {
 }
 
 pub fn string_element_position(text: &str, index: i64) -> Result<usize, RuntimeError> {
+    string_element_position_in(string_element_count(text), index)
+}
+
+/// The zero-based position of the element that the one-based `index` selects in a text of `count`
+/// characters (DEV-017), or the error that names the valid range. A text that is not held as a `&str`,
+/// such as a cell `WSTRING`, counts its characters itself and applies the same rule.
+pub fn string_element_position_in(count: usize, index: i64) -> Result<usize, RuntimeError> {
     if index < 1 {
         return Err(RuntimeError::IndexOutOfBounds {
             index,
@@ -81,7 +88,7 @@ pub fn string_element_position(text: &str, index: i64) -> Result<usize, RuntimeE
             upper: i64::MAX,
         });
     }
-    let upper = i64::try_from(string_element_count(text)).map_err(|_| RuntimeError::Overflow)?;
+    let upper = i64::try_from(count).map_err(|_| RuntimeError::Overflow)?;
     if index > upper {
         return Err(RuntimeError::IndexOutOfBounds {
             index,
@@ -276,8 +283,9 @@ fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
 mod tests {
     use super::{
         check_string_result, read_string_element, string_capacity, string_capacity_cut,
-        string_delete, string_element_count, string_find, string_insert, string_left, string_mid,
-        string_replace, string_right, write_string_element, MAX_STRING_CAPACITY,
+        string_delete, string_element_count, string_element_position_in, string_find,
+        string_insert, string_left, string_mid, string_replace, string_right, write_string_element,
+        MAX_STRING_CAPACITY,
     };
     use crate::error::RuntimeError;
     use crate::value::Value;
@@ -335,6 +343,39 @@ mod tests {
             Err(RuntimeError::StringCapacityExceeded)
         );
         assert_eq!(check_string_result(&euros, true), Ok(()));
+    }
+
+    #[test]
+    fn a_subscript_counts_from_one_to_the_character_count() {
+        // DEV-017: the first character of a text is index 1 and the last is its character count. A text
+        // held as UTF-16 code units counts its characters itself and applies this rule, so the rule takes
+        // the count, not the text.
+        assert_eq!(string_element_position_in(3, 1), Ok(0));
+        assert_eq!(string_element_position_in(3, 3), Ok(2));
+        assert_eq!(
+            string_element_position_in(3, 4),
+            Err(RuntimeError::IndexOutOfBounds {
+                index: 4,
+                lower: 1,
+                upper: 3,
+            })
+        );
+        assert_eq!(
+            string_element_position_in(0, 1),
+            Err(RuntimeError::IndexOutOfBounds {
+                index: 1,
+                lower: 1,
+                upper: 0,
+            })
+        );
+        assert_eq!(
+            string_element_position_in(3, 0),
+            Err(RuntimeError::IndexOutOfBounds {
+                index: 0,
+                lower: 1,
+                upper: i64::MAX,
+            })
+        );
     }
 
     #[test]

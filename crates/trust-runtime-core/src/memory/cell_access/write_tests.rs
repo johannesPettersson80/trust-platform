@@ -26,6 +26,7 @@ use super::fixture::{
 use super::tests::{field_segment, value_of, Fixture};
 use super::{CellArm, CellPatch, CellWriter};
 use crate::collections::OrderedMap;
+use crate::error::RuntimeError;
 use crate::memory::regions::CellStorage;
 use crate::memory::view::{PreparedWriteKind, StoreAccess, StoreMutate, ValueView};
 use crate::memory::{Generation, MemoryLocation, VariableStorage};
@@ -820,4 +821,82 @@ fn a_reference_write_in_a_scan_allocates_nothing() {
         fixture.arm.cells.regions().references().capacity(),
         capacity
     );
+}
+
+/// What a view of a text answers about its characters: their count, and the character at each of the
+/// indices 0 to 3.
+type Characters = (
+    Result<Option<usize>, RuntimeError>,
+    Vec<Result<Option<Value>, RuntimeError>>,
+);
+
+fn characters(view: ValueView<'_>) -> Characters {
+    (
+        view.text_char_count(),
+        [0i64, 1, 2, 3]
+            .map(|index| view.text_element(&[index]))
+            .to_vec(),
+    )
+}
+
+#[test]
+fn a_cell_wstring_counts_and_reads_its_characters_from_its_utf16_code_units() {
+    // Specification 34 §6.2 and DEV-017: `LEN` and a subscript count characters, the first of which is
+    // index 1, and a `WCHAR` holds one UTF-16 code unit. `wide_g : WSTRING[5]` is 'hi': 2 characters,
+    // 'h' (104) at index 1 and 'i' (105) at index 2, and indices 0 and 3 name none. `text_g :
+    // STRING[10]` is 'abc': 3 characters. `dint_g` holds no text. After 'a', U+1F642 and 'b' are written
+    // to `wide_g` (the middle character is two code units, so the four code units fit the capacity of
+    // five), the text has 3 characters: 'a' (97) at index 1, 'b' (98) at index 3, and none at index 2,
+    // since that character does not fit a `WCHAR`, as the `Value` store answers. A cell store that
+    // counted code units (4) or UTF-8 bytes (6) would count wrongly, and one that refused the read of a
+    // WSTRING character would answer an error instead of the character.
+    let mut fixture = Fixture::new();
+    let hi = (
+        Ok(Some(2)),
+        vec![
+            Ok(None),
+            Ok(Some(Value::WChar(104))),
+            Ok(Some(Value::WChar(105))),
+            Ok(None),
+        ],
+    );
+    let read = |fixture: &Fixture, name: &str| {
+        (
+            characters(
+                fixture
+                    .reader()
+                    .read_global(name)
+                    .expect("the global reads"),
+            ),
+            characters(StoreAccess::read_global(&fixture.values, name).expect("the global reads")),
+        )
+    };
+    let (cells, values) = read(&fixture, "wide_g");
+    assert_eq!(cells, hi, "cells");
+    assert_eq!(values, hi, "values");
+    assert_eq!(read(&fixture, "text_g").0 .0, Ok(Some(3)));
+    assert_eq!(read(&fixture, "dint_g").0 .0, Ok(None));
+
+    let mixed = Value::WString(String::from("a\u{1F642}b"));
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, WIDE_G, mixed.clone())
+    }));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        WIDE_G,
+        mixed
+    ));
+    let expected = (
+        Ok(Some(3)),
+        vec![
+            Ok(None),
+            Ok(Some(Value::WChar(97))),
+            Ok(None),
+            Ok(Some(Value::WChar(98))),
+        ],
+    );
+    let (cells, values) = read(&fixture, "wide_g");
+    assert_eq!(cells, expected, "cells");
+    assert_eq!(values, expected, "values");
 }

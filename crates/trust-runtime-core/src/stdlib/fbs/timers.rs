@@ -1,4 +1,5 @@
 use crate::error::RuntimeError;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::InstanceId;
 use crate::value::{Duration, Value};
 
@@ -177,8 +178,8 @@ impl Default for Tp {
     }
 }
 
-pub(super) fn exec_ton(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_ton<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let input = read_bool(ctx, instance_id, "IN")?;
@@ -193,8 +194,8 @@ pub(super) fn exec_ton(
     Ok(())
 }
 
-pub(super) fn exec_tof(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_tof<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let input = read_bool(ctx, instance_id, "IN")?;
@@ -218,8 +219,8 @@ pub(super) fn exec_tof(
     Ok(())
 }
 
-pub(super) fn exec_tp(
-    ctx: &mut BuiltinExecContext<'_>,
+pub(super) fn exec_tp<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<(), RuntimeError> {
     let input = read_bool(ctx, instance_id, "IN")?;
@@ -257,8 +258,8 @@ fn accumulate_elapsed(elapsed: Duration, delta: Duration, pt: Duration) -> Durat
     Duration::from_nanos(next.min(pt.as_nanos()))
 }
 
-fn read_time_input(
-    ctx: &BuiltinExecContext<'_>,
+fn read_time_input<S: StoreAccess>(
+    ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<(Duration, bool), RuntimeError> {
@@ -270,8 +271,8 @@ fn read_time_input(
     }
 }
 
-fn read_time_value(
-    ctx: &BuiltinExecContext<'_>,
+fn read_time_value<S: StoreAccess>(
+    ctx: &BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Duration, RuntimeError> {
@@ -282,8 +283,8 @@ fn read_time_value(
     }
 }
 
-fn write_time_value(
-    ctx: &mut BuiltinExecContext<'_>,
+fn write_time_value<S: StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
     value: Duration,
@@ -297,8 +298,8 @@ fn write_time_value(
     set_instance_value(ctx, instance_id, name, value);
 }
 
-fn elapsed_since(
-    ctx: &mut BuiltinExecContext<'_>,
+fn elapsed_since<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
 ) -> Result<Duration, RuntimeError> {
     let last = get_or_init_duration(ctx, instance_id, STATE_LAST_TIME, ctx.now)?;
@@ -315,8 +316,8 @@ fn elapsed_since(
     Ok(delta)
 }
 
-fn get_or_init_duration(
-    ctx: &mut BuiltinExecContext<'_>,
+fn get_or_init_duration<S: StoreAccess + StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
     default: Duration,
@@ -331,8 +332,8 @@ fn get_or_init_duration(
     }
 }
 
-fn set_internal_duration(
-    ctx: &mut BuiltinExecContext<'_>,
+fn set_internal_duration<S: StoreMutate>(
+    ctx: &mut BuiltinExecContext<'_, S>,
     instance_id: InstanceId,
     name: &str,
     value: Duration,

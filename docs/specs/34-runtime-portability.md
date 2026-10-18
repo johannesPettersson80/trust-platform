@@ -1107,8 +1107,8 @@ and the work of computing them are charged once at preparation, under the admitt
 A region's cells are only recorded at preparation, not charged: construction charges them when it
 reserves the region, so no storage is counted twice and the refusal points of large programs do not
 move. A program whose layout tables and other preparation demand exceed those limits is refused at
-preparation, never at run time. Nothing reads the layouts at run time yet, so stored values, outputs
-and faults are unchanged.
+preparation, never at run time. Only a state built on the cell store reads the layouts at run time, and
+none is by default, so stored values, outputs and faults are unchanged.
 
 **Cells and the cell store.** The bounded value store's unit is a 16-byte cell, `Copy` and without
 `Drop`. One cell holds a scalar of the value model inline: `BOOL`, the eight integers, `REAL` and
@@ -1143,11 +1143,23 @@ template POU. One counter issues the identity of every instance, persistent or p
 holds the entry floor of HOST-02: when a top-level execution entry begins on the cell store, the
 identities issued since the previous entry began are issued again if none of their instances is
 still live, exactly as on the value store, and an instance that construction created is never
-issued again. Nothing reads the store at run time yet, so stored values, outputs and
-faults are unchanged. The text store holds a region's text buffers — one fixed buffer per text leaf
+issued again. The engine reads and writes the globals, the persistent instances and the retained
+variables only through the store-access seam, whichever store it holds: a scan with its program-root
+read, its input apply, its output journals and its built-in blocks, an engineering read or write, a
+cycle-port lookup, a named program entry, a retained apply or capture, a restart and the scalar readers
+of a state all go through it. A program that runs on the cell store therefore reads, writes, faults and
+is charged exactly as it does on the value store, scan after scan; locals, per-call instances and the
+activation registry stay in the value half until C1-11. The cell store is built only when it is asked
+for (C1-9d3 makes it the default), so the stored values, outputs and faults of an ordinary build are
+unchanged. The text store holds a region's text buffers — one fixed buffer per text leaf
 at its leaf's byte capacity, reserved once and never grown, with its length in use — and its text
 sink cuts written text exactly where assignment normalization cuts it, so a `Cell::Text` leaf
 converts a `STRING` or `WSTRING` value through its buffer while a non-null reference stays refused.
+A subscript of a text held in cells counts characters, as for a `Value` (DEV-017): the first is
+index 1 and the last is the count of the text's characters, whether the buffer holds UTF-8 bytes or
+UTF-16 code units. A `WSTRING` has no borrowed UTF-8 text, so its characters are counted and read from
+its code units in place without building a `String`, and a character outside the Basic Multilingual
+Plane, which a `WCHAR` cannot hold, reads as none, as it does for a `Value`.
 
 **Value conversion.** An engineering write converts a `Value` of a prepared type into its layout's
 cells — checking the whole value before it writes a cell and allocating nothing, keeping every
@@ -1156,8 +1168,8 @@ element and nested compound at its layout offset — and refuses, leaving the ce
 value whose kind, members, bounds, element count or slice length does not match the type, a non-null
 reference (C1-9) and a `STRUCT OVERLAP` or union (C1-15), while a read materializes
 the same `Value` again and a member-and-index path resolves to its cell offset through the same
-layout (C1-10); nothing calls the conversion at run time yet, so stored values, outputs and faults
-are unchanged.
+layout (C1-10); only a state built on the cell store calls the conversion at run time, and none is by
+default, so stored values, outputs and faults are unchanged.
 
 **MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31]
 

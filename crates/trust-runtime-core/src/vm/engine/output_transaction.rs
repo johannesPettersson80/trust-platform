@@ -3,7 +3,7 @@ use super::destinations::Key;
 use super::*;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
-use crate::value::ValueRefView;
+use crate::value::{RefSegment, ValueRefView};
 use crate::vm::VmTrap;
 
 pub(super) use super::destinations::SavedDestinations;
@@ -56,28 +56,48 @@ impl EngineState<'_> {
                 (root, reference.path.first())
             {
                 let field = self
-                    .data
-                    .storage
                     .ref_for_instance_recursive(*instance, name)
                     .ok_or(RuntimeError::NullReference)?;
-                self.data
-                    .storage
-                    .resolve_reference_parts(
-                        field.location,
-                        field.offset as usize,
-                        &reference.path[1..],
-                    )
-                    .ok_or(RuntimeError::NullReference)?
+                self.resolve_root(field.location, field.offset as usize, &reference.path[1..])
             } else {
-                reference
+                Some((reference.location, reference.offset))
             }
         } else {
-            self.data
-                .storage
-                .resolve_reference_parts(reference.location, reference.offset, reference.path)
-                .ok_or(RuntimeError::NullReference)?
+            self.resolve_root(reference.location, reference.offset, reference.path)
         };
-        Ok((resolved.location, resolved.offset))
+        resolved.ok_or(RuntimeError::NullReference)
+    }
+
+    /// The slot that holds the value `path` names inside the slot at `location`/`offset`, once the
+    /// instance hops of the path are followed, as its location and offset: the key of a journaled
+    /// destination (TIME-08). A field of a value that holds an instance is a member of that instance, or
+    /// of its nearest ancestor that declares it, so the walk goes on from that member's slot. `None` when
+    /// a step of the path names no value. It reads through the store the engine holds, so the cell arm
+    /// follows the hops through its cells and its instance table (C1-9d3a, R1).
+    fn resolve_root(
+        &self,
+        mut location: MemoryLocation,
+        mut offset: usize,
+        path: &[RefSegment],
+    ) -> Option<Key> {
+        let mut start = 0;
+        for (index, segment) in path.iter().enumerate() {
+            let RefSegment::Field(name) = segment else {
+                continue;
+            };
+            let held = self
+                .read_path(location, offset, &path[start..index])
+                .ok()?
+                .instance()
+                .ok()?;
+            if let Some(instance) = held {
+                let hop = self.ref_for_instance_recursive(instance, name)?;
+                location = hop.location;
+                offset = hop.offset as usize;
+                start = index + 1;
+            }
+        }
+        Some((location, offset))
     }
 
     fn snapshot_root<'s>(
@@ -91,9 +111,7 @@ impl EngineState<'_> {
                 .map(ValueView::Value)
                 .ok_or(RuntimeError::NullReference);
         }
-        self.data
-            .storage
-            .read_slot(key.0, key.1)
+        self.read_slot(key.0, key.1)
             .map_err(|_| RuntimeError::NullReference)
     }
 
@@ -194,7 +212,7 @@ impl EngineState<'_> {
             {
                 frame.locals[offset] = value;
             } else {
-                self.data.storage.restore_slot(location, offset, value);
+                self.restore_slot(location, offset, value);
             }
         }
     }
