@@ -43,13 +43,14 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
+use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
 use trust_runtime_services::runner::{EngineLiveValues, Runner};
 
-use crate::platform::{boot_last_reset, status_settings, Platform};
-use crate::process_io::GpioIo;
+use crate::platform::Platform;
+use crate::process_io::{claim, GpioIo};
 use crate::profile::{APPLICATION_BYTES, DEVICE_DESCRIPTOR};
 use crate::watchdog::{timeout_for, Watchdog, STOPPED_TIMEOUT_MS};
 
@@ -93,7 +94,7 @@ fn main() -> ! {
         clock: chip_clock,
         wait,
         watchdog: Watchdog::new(p.IWDG),
-        last_reset: boot_last_reset(watchdog_reset, previous_record, boot_count),
+        last_reset: Platform::boot_last_reset(watchdog_reset, previous_record, boot_count),
     };
 
     // The identity: a part that is not this chip, or that has TrustZone enabled, does not run (design
@@ -139,7 +140,7 @@ fn main() -> ! {
         i: p.GPIOI,
         j: p.GPIOJ,
     };
-    let gpio = match GpioIo::claim(DigitalIo::new(ports, &p.RCC), &config) {
+    let gpio = match claim(DigitalIo::new(ports, &p.RCC), &config) {
         Ok(gpio) => gpio,
         Err(reason) => serve_stopped(parts, reason),
     };
@@ -194,12 +195,12 @@ fn main() -> ! {
     let platform = Platform::new(
         parts.watchdog,
         config.resource_name.clone(),
-        platform::device_runtime_id(),
         status_settings(),
         config.control_debug_enabled,
         config.control_mode,
         live,
         parts.last_reset,
+        platform::device_runtime_id(),
     );
     let link = match usb_link::bind(parts.clock) {
         Ok(link) => link,
@@ -232,7 +233,6 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
     let platform = Platform::new(
         watchdog,
         SmolStr::new_static("Controller"),
-        platform::device_runtime_id(),
         status_settings(),
         false,
         // A device that has not admitted an application has no record: it reports `production`, the
@@ -240,6 +240,7 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
         ControlMode::Production,
         EngineLiveValues::empty(),
         last_reset,
+        platform::device_runtime_id(),
     );
     let link = match usb_link::bind(clock) {
         Ok(link) => link,

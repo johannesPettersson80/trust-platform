@@ -339,6 +339,14 @@
       "rationale": "The shared runtime services use the engine's records (resource state, restart mode, watchdog and fault policies, durations, runtime errors and the libm rounding primitive) through the core built without std; the core never depends on the services (forbidden edge)."
     },
     {
+      "from": "trust-runtime-services",
+      "to": "trust-platform-memory",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S1b-9u-c (shared chip platform)",
+      "rationale": "The shared chip platform (chip::platform) reads the fixed-size reset record a chip keeps across a reset into the capabilities reply, so the C6 and the STM32U5A9 report the same cause from one copy of the mapping; the memory crate holds the record codec and depends on no runtime or compiler."
+    },
+    {
       "from": "trust-runtime",
       "to": "verification-cases",
       "kind": "dev",
@@ -3166,7 +3174,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 300,
+        "line": 301,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
