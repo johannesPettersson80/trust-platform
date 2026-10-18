@@ -9,6 +9,7 @@
 //! riscv32 gate, so the pin check and the inversion run in `tests/pin_lines.rs` without hardware.
 
 use core::fmt;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use trust_runtime_services::chip::process_io::ImageBit;
 
@@ -172,6 +173,9 @@ pub struct OutputLine {
     pub invert: bool,
     /// The initial logical output value driven at boot (`io.toml` `initial`).
     pub initial: bool,
+    /// The logical safe value: the output's `[[io.safe_state]]` entry, false without one
+    /// (specification 34, TARGET-08).
+    pub safe: bool,
 }
 
 impl OutputLine {
@@ -190,6 +194,52 @@ impl OutputLine {
     pub const fn level(self, value: bool) -> bool {
         self.image_bit().level(value)
     }
+
+    /// The pin's physical level in the output's safe state: its safe value, with its inversion.
+    #[must_use]
+    pub const fn safe_level(self) -> bool {
+        self.level(self.safe)
+    }
+}
+
+/// The safe levels of the configured outputs, which the terminal fault path drives before the chip
+/// resets (specification 34, TARGET-08): one bit per GPIO number for each output, and one for each
+/// output whose safe level is high. An output is recorded once it has become an output, so the
+/// fault path drives only pins it can drive.
+#[derive(Debug, Default)]
+pub struct SafeLevels {
+    outputs: AtomicU32,
+    high: AtomicU32,
+}
+
+impl SafeLevels {
+    /// No output recorded.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            outputs: AtomicU32::new(0),
+            high: AtomicU32::new(0),
+        }
+    }
+
+    /// Records `pin` as an output whose safe level is high when `high`, and low otherwise.
+    pub fn record(&self, pin: GpioPin, high: bool) {
+        let bit = 1 << pin.number();
+        if high {
+            self.high.fetch_or(bit, Ordering::Relaxed);
+        } else {
+            self.high.fetch_and(!bit, Ordering::Relaxed);
+        }
+        self.outputs.fetch_or(bit, Ordering::Relaxed);
+    }
+
+    /// The bank-0 masks of the recorded outputs: the pins to drive high, and the pins to drive low.
+    #[must_use]
+    pub fn masks(&self) -> (u32, u32) {
+        let outputs = self.outputs.load(Ordering::Relaxed);
+        let high = self.high.load(Ordering::Relaxed) & outputs;
+        (high, outputs & !high)
+    }
 }
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
@@ -197,8 +247,8 @@ mod gpio {
     use alloc::vec::Vec;
 
     use esp_hal::gpio::{AnyPin, Flex, Input, InputConfig, Level};
-    use trust_runtime_core::deployment::{GpioInput, GpioOutput};
-    use trust_runtime_services::chip::process_io::{GpioPins, ProcessImage};
+    use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
+    use trust_runtime_services::chip::process_io::{safe_value, GpioPins, ProcessImage};
 
     use super::{
         check_pin, GpioPin, InputLine, OutputLine, PinError, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
@@ -233,7 +283,9 @@ mod gpio {
 
     /// Claims the record's GPIO lines by pin name, in `io.toml` order: each pin is checked against
     /// the chip's file and taken from the bank, and an output is driven to its initial level
-    /// before its driver is enabled (specification 34, STATE-01 and TARGET-01).
+    /// before its driver is enabled (specification 34, STATE-01 and TARGET-01). Each output's safe
+    /// level, its `[[io.safe_state]]` value in `config`, is recorded for the terminal fault path
+    /// (TARGET-08).
     ///
     /// # Errors
     ///
@@ -243,6 +295,7 @@ mod gpio {
         bank: &mut GpioBank,
         inputs: &[GpioInput],
         outputs: &[GpioOutput],
+        config: &Configuration,
     ) -> Result<ClaimedLines, PinError> {
         let reserved = CHIP_GPIO_RESERVED.map(GpioPin::from_number);
         let mut input_lines = Vec::with_capacity(inputs.len());
@@ -269,12 +322,14 @@ mod gpio {
                 pin,
                 invert: output.invert,
                 initial: output.initial,
+                safe: safe_value(config, &output.address),
             };
             let mut handle = Flex::new(any);
             handle.set_level(level(line.level(line.initial)));
             handle.set_output_enable(true);
-            // The terminal fault path drives this pin to its safe level (design §1.1, R4).
-            crate::hardware::emergency::register_output(pin);
+            // The terminal fault path drives this pin to its safe level (specification 34,
+            // TARGET-08; design §1.1, R4).
+            crate::hardware::emergency::register_output(pin, line.safe_level());
             output_lines.push((handle, line));
         }
         Ok((input_lines, output_lines))

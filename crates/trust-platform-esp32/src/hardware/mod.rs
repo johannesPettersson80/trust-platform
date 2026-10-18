@@ -12,7 +12,7 @@ use esp_hal::{
     Config,
 };
 use esp_storage::FlashStorage;
-use trust_runtime_core::deployment::{GpioInput, GpioOutput};
+use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
 use trust_runtime_core::ports::ProgramFlash;
 use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash};
 
@@ -178,7 +178,8 @@ impl Board {
 
     /// Claims the record's GPIO lines by pin name, in `io.toml` order, and drives each output to
     /// its initial level before it becomes an output (design §1.1, specification 34 STATE-01 and
-    /// TARGET-01). A pin the chip lacks or keeps, or one named by two lines, is refused.
+    /// TARGET-01), recording its `[[io.safe_state]]` level in `config` for the terminal fault path
+    /// (TARGET-08). A pin the chip lacks or keeps, or one named by two lines, is refused.
     ///
     /// # Errors
     ///
@@ -187,8 +188,9 @@ impl Board {
         &mut self,
         inputs: &[GpioInput],
         outputs: &[GpioOutput],
+        config: &Configuration,
     ) -> Result<ClaimedLines, PinError> {
-        claim_lines(&mut self.gpio, inputs, outputs)
+        claim_lines(&mut self.gpio, inputs, outputs, config)
     }
 
     /// The SYSTIMER alarm the resource loop's wait arms; taken once, so the wait owns it.

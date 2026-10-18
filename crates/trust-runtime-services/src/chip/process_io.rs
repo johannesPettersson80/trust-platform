@@ -12,6 +12,8 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::value::Value;
 
 use crate::runner::engine::ProcessIo;
 use crate::status::{IoDriverHealth, IoDriverStatus};
@@ -151,6 +153,19 @@ pub fn record_lines(
     Ok((inputs, outputs))
 }
 
+/// The logical safe value of the output at `address` (specification 34, TARGET-08): its
+/// `[[io.safe_state]]` entry when that is a boolean, and false otherwise, a de-energized output. A
+/// chip latches each output to this value before the output is enabled, and its terminal fault path
+/// drives the output to it before the chip resets.
+#[must_use]
+pub fn safe_value(config: &Configuration, address: &IoAddress) -> bool {
+    config
+        .safe_state
+        .iter()
+        .find(|entry| entry.address == *address)
+        .is_some_and(|entry| matches!(entry.value, Value::Bool(true)))
+}
+
 /// Reads the bit of the flat output image that `bit` drives.
 fn read_bit(image: &[u8], bit: ImageBit) -> Result<bool, RuntimeError> {
     if bit.bit > 7 {
@@ -233,6 +248,44 @@ mod tests {
             driven: Rc::clone(&driven),
         };
         (pins, driven)
+    }
+
+    /// Specification 34, TARGET-08: an output's safe value is its `[[io.safe_state]]` entry when that is
+    /// a boolean, and false otherwise. `%QX0.1` is listed true, `%QX0.2` false and `%QX0.3` with a
+    /// number; `%QX0.4` is not listed. Catches a lookup that matches another address, a non-boolean
+    /// entry read as true, and an unlisted output that is not de-energized.
+    #[test]
+    fn an_outputs_safe_value_is_its_boolean_safe_state_entry_or_false() {
+        use trust_runtime_core::deployment::SafeStateEntry;
+        use trust_runtime_core::value::Value;
+        let address = |text: &str| IoAddress::parse(text).expect("an output address");
+        let config = Configuration {
+            safe_state: vec![
+                SafeStateEntry {
+                    address: address("%QX0.1"),
+                    value: Value::Bool(true),
+                },
+                SafeStateEntry {
+                    address: address("%QX0.2"),
+                    value: Value::Bool(false),
+                },
+                SafeStateEntry {
+                    address: address("%QX0.3"),
+                    value: Value::Int(1),
+                },
+            ],
+            ..Configuration::default()
+        };
+        assert!(safe_value(&config, &address("%QX0.1")));
+        assert!(!safe_value(&config, &address("%QX0.2")));
+        assert!(
+            !safe_value(&config, &address("%QX0.3")),
+            "a non-boolean entry is not true"
+        );
+        assert!(
+            !safe_value(&config, &address("%QX0.4")),
+            "an unlisted output is de-energized"
+        );
     }
 
     /// An inverted input reads the opposite of its pin: a high pin on an inverted line clears its bit,

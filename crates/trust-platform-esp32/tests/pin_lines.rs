@@ -4,7 +4,8 @@
 
 use trust_chips::Catalog;
 use trust_platform_esp32::process_io::{
-    check_pin, GpioPin, InputLine, OutputLine, PinError, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
+    check_pin, GpioPin, InputLine, OutputLine, PinError, SafeLevels, CHIP_GPIO_PINS,
+    CHIP_GPIO_RESERVED,
 };
 
 /// The C6's GPIO count and reserved pins, read from `chips/esp32c6.toml`.
@@ -81,7 +82,47 @@ fn an_inverted_input_reads_the_opposite_level() {
         pin: GpioPin::parse("GPIO18").expect("GPIO18 is a pin name"),
         invert: true,
         initial: false,
+        safe: false,
     };
     assert!(output.level(false));
     assert!(!output.level(true));
+}
+
+#[test]
+fn the_terminal_fault_path_drives_each_output_to_its_safe_level() {
+    // Specification 34, TARGET-08: each output goes to its `[[io.safe_state]]` value, and an output
+    // without one is de-energized; an inverted line drives the opposite level. GPIO2 is safe true,
+    // GPIO5 safe false, GPIO7 safe true on an inverted line and GPIO9 has no entry, so the fault path
+    // drives GPIO2 high and GPIO5, GPIO7 and GPIO9 low: masks 1 << 2 and (1 << 5) | (1 << 7) | (1 << 9).
+    // A pin recorded again takes its newer level. Catches every output driven low (the M2E rule this
+    // replaces), an inversion that is ignored, and a pin that was never an output being driven.
+    let line = |pin: &str, invert: bool, safe: bool| OutputLine {
+        byte: 0,
+        bit: 0,
+        pin: GpioPin::parse(pin).expect("a pin name"),
+        invert,
+        initial: false,
+        safe,
+    };
+    let levels = SafeLevels::new();
+    for output in [
+        line("GPIO2", false, true),
+        line("GPIO5", false, false),
+        line("GPIO7", true, true),
+        line("GPIO9", false, false),
+    ] {
+        levels.record(output.pin, output.safe_level());
+    }
+    assert_eq!(levels.masks(), (1 << 2, (1 << 5) | (1 << 7) | (1 << 9)));
+    levels.record(GpioPin::parse("GPIO5").expect("a pin name"), true);
+    assert_eq!(
+        levels.masks(),
+        ((1 << 2) | (1 << 5), (1 << 7) | (1 << 9)),
+        "a pin recorded again takes its newer level"
+    );
+    assert_eq!(
+        SafeLevels::new().masks(),
+        (0, 0),
+        "no output, no pin driven"
+    );
 }

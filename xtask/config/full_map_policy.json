@@ -3030,7 +3030,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 38,
+        "line": 37,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Clears only mstatus.MIE in the terminal single-core fault boundary; no suspended handler ever resumes.",
         "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the reset record it writes is proven by cargo test -p trust-platform-memory.",
@@ -3038,23 +3038,31 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 49,
+        "line": 48,
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "invariant": "`out_w1tc` is write-one-to-clear: writing only the configured output pins clears their output latch and no other pin.",
-        "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the registered pins are the record's claimed outputs.",
+        "invariant": "`out_w1ts` is write-one-to-set: writing only the configured outputs whose safe level is high sets their output latch and no other pin.",
+        "test_evidence": "The masks come from SafeLevels, whose rule cargo test -p trust-platform-esp32 --test pin_lines proves (the_terminal_fault_path_drives_each_output_to_its_safe_level); the register write runs only on the chip.",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 52,
+        "line": 51,
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "invariant": "`enable_w1ts` is write-one-to-set: writing only the configured output pins enables their output driver, which is already latched low, and no other pin.",
+        "invariant": "`out_w1tc` is write-one-to-clear: writing only the configured outputs whose safe level is low clears their output latch and no other pin.",
+        "test_evidence": "The masks come from SafeLevels, whose rule cargo test -p trust-platform-esp32 --test pin_lines proves (the_terminal_fault_path_drives_each_output_to_its_safe_level); the register write runs only on the chip.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 54,
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "invariant": "`enable_w1ts` is write-one-to-set: writing only the configured output pins enables their output driver, which is already latched at its safe level, and no other pin.",
         "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the registered pins are the record's claimed outputs.",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 259,
+        "line": 261,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3832,20 +3840,20 @@
         "review_date": "2026-10-15"
       },
       {
-        "path_prefix": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/process_io.rs",
         "primitive": "Atomic",
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "shared_state": "the configured output pins the terminal fault path drives",
-        "invariant": "One AtomicU32 holds the output pins claimed from the record; register_output fetches_or a bit before the pin is drivable and the fault path loads it with interrupts masked, so no other data is published through it.",
+        "shared_state": "the configured output pins and their safe levels, which the terminal fault path drives (SafeLevels)",
+        "invariant": "Two AtomicU32 hold the output pins claimed from the record and those whose safe level is high; record sets a pin's bits before the pin is drivable and the fault path loads them with interrupts masked, so no other data is published through them.",
         "test_evidence": "The chip build and the planned C6 bench run; the fault path is not exercised on the host.",
         "review_date": "2026-10-18"
       },
       {
-        "path_prefix": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/process_io.rs",
         "primitive": "Ordering::",
         "owner": "runtime portability S1b-5 (C6 firmware)",
-        "shared_state": "the configured output pins the terminal fault path drives",
-        "invariant": "Relaxed accesses order nothing but the pin mask itself: the mask is a set of drivable pins that the fault path re-reads after masking interrupts, never a publication fence for program state.",
+        "shared_state": "the configured output pins and their safe levels, which the terminal fault path drives (SafeLevels)",
+        "invariant": "Relaxed accesses order nothing but the two pin masks themselves: they are sets of drivable pins and their levels that the fault path re-reads after masking interrupts, never a publication fence for program state.",
         "test_evidence": "The chip build and the planned C6 bench run; the fault path is not exercised on the host.",
         "review_date": "2026-10-18"
       },

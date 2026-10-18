@@ -11,8 +11,9 @@ use trust_platform_stm32u5::gpio::{DigitalIo, Input, Output};
 use trust_platform_stm32u5::pins::Pull;
 use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::io_address::IoAddress;
-use trust_runtime_core::value::Value;
-use trust_runtime_services::chip::process_io::{record_lines, GpioPins, ImageBit, ProcessImage};
+use trust_runtime_services::chip::process_io::{
+    record_lines, safe_value, GpioPins, ImageBit, ProcessImage,
+};
 
 /// The STM32U5A9's claimed pins behind the shared process image: an input is read, and an output is
 /// driven, through the handle its claim returned (specification 34, TARGET-01).
@@ -74,14 +75,4 @@ fn image_bit(address: &IoAddress, invert: bool) -> ImageBit {
         bit: address.bit,
         invert,
     }
-}
-
-/// The logical safe value of the output at `address`: its `[[io.safe_state]]` entry when that is a
-/// boolean, false otherwise (a de-energized output).
-fn safe_value(config: &Configuration, address: &IoAddress) -> bool {
-    config
-        .safe_state
-        .iter()
-        .find(|entry| entry.address == *address)
-        .is_some_and(|entry| matches!(entry.value, Value::Bool(true)))
 }

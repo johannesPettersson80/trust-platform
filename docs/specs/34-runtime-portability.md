@@ -2127,7 +2127,10 @@ request.
 **TARGET-08 — Outputs on a fault.** As on Linux: `io.toml` `[[io.safe_state]]` gives each
 output's safe value, and `runtime.toml` `[runtime.fault]` and `[runtime.watchdog]` choose `halt`,
 `safe_halt` or `restart`. A disconnected computer changes nothing; the runtime keeps running
-(ARCH-07).
+(ARCH-07). An output's safe value is its `[[io.safe_state]]` entry when that is a Boolean, and
+false, a de-energized output, otherwise. A chip's terminal fault path, a panic that ends the boot
+(STATE-05), drives each configured output to that safe value, with the line's `invert`, before it
+resets, as the stop and the fault paths do; it touches no pin that is not a configured output.
 
 **TARGET-09 — Releases.** Each truST release includes the firmware for every supported chip, built
 from the same version as trust-runtime, with SHA-256 sums (owner, 16 October 2026:
