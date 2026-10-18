@@ -8,7 +8,7 @@ impl DebugControl {
                     mode: DebugMode::Running,
                     last_location: None,
                     last_call_depth: 0,
-                    last_call_depths: HashMap::new(),
+                    last_call_depths: BTreeMap::new(),
                     current_thread: Some(1),
                     target_thread: None,
                     breakpoints: Vec::new(),
@@ -32,7 +32,7 @@ impl DebugControl {
                     pending_stop: None,
                     stops: Vec::new(),
                     last_stop: None,
-                    steps: HashMap::new(),
+                    steps: BTreeMap::new(),
                     live_values: LiveValueQueues::new(),
                     generation: Generation::FIRST,
                 }),
@@ -102,12 +102,8 @@ impl DebugControl {
         let mut state = lock
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.stop_requested = true;
-        state.mode = DebugMode::Running;
-        state.steps.clear();
-        state.pending_stop = None;
+        run_control(&mut state).release_for_stop();
         state.snapshot = None;
-        state.target_thread = None;
         trace_debug("stop.release hold");
         cvar.notify_all();
     }
@@ -119,7 +115,7 @@ impl DebugControl {
         let mut state = lock
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.stop_requested = false;
+        run_control(&mut state).rearm();
     }
 
     pub(super) fn record_watchdog_pause(&self, elapsed: std::time::Duration) {
@@ -131,108 +127,26 @@ impl DebugControl {
                 });
     }
 
-    /// Apply a requested control action.
+    /// Apply a requested control action. The shared run control decides what the action changes.
+    /// An applied action ends the halted state, and a resumed scan wakes the waiting hold.
     pub fn apply_action(&self, action: ControlAction) -> ControlOutcome {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        let mut notify = false;
-        let mut outcome = ControlOutcome::Applied;
         let previous_mode = state.mode;
-        let step_started = matches!(previous_mode, DebugMode::Paused);
-
-        match action {
-            ControlAction::Pause(thread_id) => {
-                if matches!(state.mode, DebugMode::Paused) {
-                    outcome = ControlOutcome::Ignored;
-                } else {
-                    state.mode = DebugMode::Paused;
-                    state.steps.clear();
-                    state.pending_stop = Some(DebugStopReason::Pause);
-                    state.snapshot = None;
-                    state.target_thread = thread_id;
-                }
-            }
-            ControlAction::Continue => {
-                state.mode = DebugMode::Running;
-                state.steps.clear();
-                state.pending_stop = None;
-                state.snapshot = None;
-                state.target_thread = None;
-                notify = true;
-            }
-            ControlAction::StepIn(thread_id) => {
-                state.steps.clear();
-                let target_thread = thread_id.or(state.current_thread);
-                let step_key = target_thread.unwrap_or(0);
-                let target_depth = state.last_call_depth;
-                state.steps.insert(
-                    step_key,
-                    StepState {
-                        kind: StepKind::Into,
-                        target_depth,
-                        started: step_started,
-                    },
-                );
-                state.mode = DebugMode::Running;
-                state.pending_stop = None;
-                state.snapshot = None;
-                state.target_thread = target_thread;
-                notify = true;
-            }
-            ControlAction::StepOver(thread_id) => {
-                state.steps.clear();
-                let target_thread = thread_id.or(state.current_thread);
-                let target_depth = target_thread
-                    .and_then(|id| state.last_call_depths.get(&id).copied())
-                    .unwrap_or(state.last_call_depth);
-                let step_key = target_thread.unwrap_or(0);
-                state.steps.insert(
-                    step_key,
-                    StepState {
-                        kind: StepKind::Over,
-                        target_depth,
-                        started: step_started,
-                    },
-                );
-                state.mode = DebugMode::Running;
-                state.pending_stop = None;
-                state.snapshot = None;
-                state.target_thread = target_thread;
-                notify = true;
-            }
-            ControlAction::StepOut(thread_id) => {
-                state.steps.clear();
-                let target_thread = thread_id.or(state.current_thread);
-                let target_depth = target_thread
-                    .and_then(|id| state.last_call_depths.get(&id).copied())
-                    .unwrap_or(state.last_call_depth);
-                let step_key = target_thread.unwrap_or(0);
-                state.steps.insert(
-                    step_key,
-                    StepState {
-                        kind: StepKind::Out,
-                        target_depth: target_depth.saturating_sub(1),
-                        started: step_started,
-                    },
-                );
-                state.mode = DebugMode::Running;
-                state.pending_stop = None;
-                state.snapshot = None;
-                state.target_thread = target_thread;
-                notify = true;
-            }
+        let effect = run_control(&mut state).apply(action);
+        if effect.outcome == ControlOutcome::Applied {
+            state.snapshot = None;
         }
-
-        if notify {
+        if effect.resumed {
             cvar.notify_all();
         }
 
         trace_debug(&format!(
-            "action={action:?} outcome={outcome:?} mode={previous_mode:?}->{:?}",
-            state.mode
+            "action={action:?} outcome={:?} mode={previous_mode:?}->{:?}",
+            effect.outcome, state.mode
         ));
 
-        outcome
+        effect.outcome
     }
 
     /// Replace all breakpoints for a given file id.
@@ -305,14 +219,9 @@ impl DebugControl {
     pub fn pause_entry(&self) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        if matches!(state.mode, DebugMode::Paused) {
-            return;
+        if run_control(&mut state).pause_entry() == ControlOutcome::Applied {
+            state.snapshot = None;
         }
-        state.mode = DebugMode::Paused;
-        state.steps.clear();
-        state.pending_stop = Some(DebugStopReason::Entry);
-        state.snapshot = None;
-        state.target_thread = None;
     }
 
     /// Continue running until the next pause request.

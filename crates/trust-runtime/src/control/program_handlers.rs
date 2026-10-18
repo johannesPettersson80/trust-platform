@@ -28,7 +28,7 @@ const STEP_REQUIRES_HOLD_MESSAGE: &str =
 /// A step is armed only while the debugger holds the scan, in either control mode.
 /// Without a hold the request is refused before anything is armed.
 pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> ControlResponse {
-    if state.debug.hold_reason().is_none() {
+    if !state.debug.accepts_step() {
         return ControlResponse::error(id, STEP_REQUIRES_HOLD_MESSAGE.into());
     }
     let action = match kind {

@@ -1956,14 +1956,6 @@
         "rationale": "Validated bytecode construction assembles one compatibility-sensitive VM boundary",
         "review_date": "2026-08-21",
         "split_plan": "Extract table families only with bytecode validation and execution parity locks."
-      },
-      {
-        "path": "crates/trust-runtime/src/host/debug/control/hook.rs",
-        "name": "on_statement_inner",
-        "owner": "runtime/debug",
-        "rationale": "Debug statement hook maintains one ordered breakpoint and control-session decision boundary",
-        "review_date": "2026-08-21",
-        "split_plan": "Extract stop-reason and control-session helpers only with debugger lifecycle coverage."
       }
     ],
     "public_api_snapshots": [

@@ -140,15 +140,16 @@ package "trust-runtime crate" as struntime #LightCoral {
         component "DebugState" as debugState {
             portin mode
             portin breakpoints
-            portin step
+            portin steps
+            portin target_thread
             portin snapshot
             portin pending_stop
             portin stop_queue
             portin breakpoint_generation
             portin breakpoint_stops_this_cycle
         }
-        component "Mutex + Condvar" as sync
-        component "apply_action()" as applyAction <<api/lifecycle_actions.rs>>
+        component "Mutex + Condvar\n(the hold waits here; no decision)" as sync
+        component "apply_action()\n(applies RunControl::apply)" as applyAction <<api/lifecycle_actions.rs>>
         component "FrameLocationMap" as frameLocs
     }
 
@@ -187,7 +188,12 @@ package "trust-runtime crate" as struntime #LightCoral {
     debugControl --> sync
     debugControl --> debugState
     debugHook <|.. debugControl : implements
-    onStatement --> matchBp
+    onStatement --> matchBp : breakpoint match, asked by\nboundary() when no step stops
+    onStatement --> boundaryDecision : boundary(), take_pending_stop()\nand holds_here() decide
+    onStatement --> sync : waits while the\nrun control holds the scan
+    applyAction --> applyDecision : apply(action)
+    debugControl --> releaseDecision : release_for_stop(), rearm(),\nretire_observations()
+    debugControl --> holdDecision : hold_reason(), accepts_step()\n(status and step requests)
     onStatement --> snapshot : captures
     onStatement --> frameLocs : per-frame location
 
@@ -205,6 +211,30 @@ note right of lineIndex
     The source text only projects those
     positions to byte offsets.
 end note
+}
+
+' ============================================================
+' SHARED RUN CONTROL (trust-runtime-services debug/run.rs)
+' No lock, no thread and no clock: the decisions only.
+' ============================================================
+package "trust-runtime-services\ndebug/run.rs (RunControl)" as sharedRun #PaleGreen {
+    component "RunControl\n(run fields borrowed for one decision)" as runControl {
+        portin mode
+        portin pending_stop
+        portin steps
+        portin target_thread
+        portin stop_requested
+    }
+    component "boundary()\nstep first, then breakpoint;\nstop emitted and mode Paused" as boundaryDecision
+    component "take_pending_stop(), holds_here()\nwhether the held scan waits;\nhold_reason(), accepts_step() for status and steps" as holdDecision
+    component "apply(): pause, continue,\nstep in, over, out" as applyDecision
+    component "release_for_stop(), rearm()\nresource stop ends the holds;\nretire_observations() on a schema change" as releaseDecision
+
+    runControl --> boundaryDecision
+    runControl --> holdDecision
+    runControl --> applyDecision
+    runControl --> releaseDecision
+    boundaryDecision ..> onStatement : asks for the breakpoint match\nonly when no step stops
 }
 
 ' ============================================================
@@ -366,12 +396,11 @@ end note
 
 note bottom of onStatement
     **Called at every statement boundary:**
-    1. Update last location
-    2. Check breakpoint match
-    3. Check step condition
-    4. Capture snapshot if pausing
-    5. Emit stop event
-    6. Wait on condvar if paused
+    1. Update last location and call depth (RunControl)
+    2. Emit the pending pause of a held target (RunControl)
+    3. RunControl.boundary: step, then breakpoint match
+    4. Capture the halted state and emit the stop
+    5. Wait on the condvar while RunControl holds the scan
 end note
 
 note left of matchBp

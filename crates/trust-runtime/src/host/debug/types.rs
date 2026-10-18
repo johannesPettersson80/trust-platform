@@ -217,18 +217,9 @@ impl DebugSnapshot {
 // Runtime events are shared runtime code (spec 34 ARCH-11).
 pub use trust_runtime_services::events::RuntimeEvent;
 
-/// Stop reason for debugger events.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DebugStopReason {
-    /// Paused due to a breakpoint.
-    Breakpoint,
-    /// Paused due to stepping.
-    Step,
-    /// Paused due to a user pause request.
-    Pause,
-    /// Paused due to stopOnEntry.
-    Entry,
-}
+// Stop reasons are shared run control (specification 13, "Stopped Events"): the same four reasons
+// name a stop on every runtime (trust-runtime-services `debug::run`).
+pub use trust_runtime_services::debug::StopReason as DebugStopReason;
 
 /// Notification emitted when execution stops.
 #[derive(Debug, Clone)]

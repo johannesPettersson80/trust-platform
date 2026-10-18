@@ -53,6 +53,8 @@ impl DebugControl {
             self.on_statement_inner(location, call_depth, Some(&mut ObservedStorage::Lent(ctx)));
     }
 
+    /// The statement hook. The shared run control decides every stop; this function holds the scan
+    /// with the condition variable while the run control says the scan is held here.
     fn on_statement_inner(
         &self,
         location: Option<&SourceLocation>,
@@ -63,7 +65,7 @@ impl DebugControl {
         let mut state = lock.lock().expect("debug state poisoned");
         // A resource stop released the hold and no new one may start (`release_for_stop`): the
         // scan that was suspended runs to its end, and the ordinary stop path follows it.
-        if state.stop_requested {
+        if run_control(&mut state).stop_requested() {
             return Ok(());
         }
         trace_debug(&format!(
@@ -78,202 +80,62 @@ impl DebugControl {
             state.breakpoints.len()
         ));
         state.last_location = location.copied();
-        state.last_call_depth = call_depth;
-        if let Some(thread_id) = state.current_thread {
-            state.last_call_depths.insert(thread_id, call_depth);
-        }
+        run_control(&mut state).record_boundary(call_depth);
         if let Some(observed) = observed.as_deref() {
             observed.bind_frame_locations(&mut state.frame_locations, location.copied());
         }
-        let is_target_thread =
-            state.target_thread.is_none() || state.target_thread == state.current_thread;
-        if matches!(state.mode, DebugMode::Paused)
-            && is_target_thread
-            && let Some(reason) = state.pending_stop.take()
+        emit_pending_stop(&mut state, observed.as_deref_mut(), location)?;
+        if let Some(location) = location
+            && let Some(stop) =
+                boundary_stop(&mut state, location, call_depth, observed.as_deref_mut())?
         {
             trace_debug(&format!(
-                "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
-                format_location_ref(location),
+                "hook.pause.enter reason={:?} generation={:?} location={} thread={:?}",
+                stop.reason,
+                stop.breakpoint_generation,
+                format_location_ref(Some(location)),
                 state.current_thread
             ));
             if let Some(observed) = observed.as_deref_mut() {
                 publish_hold_stop(&mut state, observed)?;
             }
-            emit_stop(&mut state, reason, location.copied(), None);
-        }
-        let effective_mode = if is_target_thread {
-            state.mode
-        } else {
-            DebugMode::Running
-        };
-        trace_debug(&format!(
-            "hook.decision effective_mode={effective_mode:?} is_target_thread={} location={}",
-            is_target_thread,
-            format_location_ref(location)
-        ));
-        if let (DebugMode::Running, Some(location)) = (effective_mode, location) {
-            let mut should_pause = false;
-            let mut stop_reason = None;
-            let mut stop_generation = None;
-            if is_target_thread {
-                let step_key = state
-                    .current_thread
-                    .filter(|id| state.steps.contains_key(id))
-                    .or_else(|| state.steps.contains_key(&0).then_some(0));
-                if let Some(step_key) = step_key
-                    && let Some(step) = state.steps.get_mut(&step_key)
-                {
-                    if !step.started {
-                        step.started = true;
-                        trace_debug(&format!(
-                            "hook.step.arm key={} kind={:?} target_depth={} current_depth={}",
-                            step_key, step.kind, step.target_depth, call_depth
-                        ));
-                    } else {
-                        should_pause = match step.kind {
-                            StepKind::Into => true,
-                            StepKind::Over => call_depth <= step.target_depth,
-                            StepKind::Out => call_depth <= step.target_depth,
-                        };
-                        trace_debug(&format!(
-                        "hook.step.check key={} kind={:?} target_depth={} current_depth={} should_pause={}",
-                        step_key, step.kind, step.target_depth, call_depth, should_pause
-                    ));
-                        if should_pause {
-                            state.steps.remove(&step_key);
-                            stop_reason = Some(DebugStopReason::Step);
-                        }
-                    }
-                }
-            }
-            if !should_pause {
-                let needs_context = observed
-                    .as_deref()
-                    .is_some_and(|observed| observed.needs_breakpoint_context(&state, location));
-                let breakpoint_generation = {
-                    let DebugState {
-                        breakpoints,
-                        breakpoint_stops_this_cycle,
-                        logs,
-                        log_tx,
-                        ..
-                    } = &mut *state;
-                    match observed.as_deref_mut() {
-                        Some(observed) if needs_context => observed.with_context(|ctx| {
-                            matches_breakpoint(
-                                breakpoints,
-                                breakpoint_stops_this_cycle,
-                                logs,
-                                log_tx.as_ref(),
-                                location,
-                                &mut Some(ctx),
-                            )
-                        })?,
-                        _ => matches_breakpoint(
-                            breakpoints,
-                            breakpoint_stops_this_cycle,
-                            logs,
-                            log_tx.as_ref(),
-                            location,
-                            &mut None,
-                        ),
-                    }
-                };
-                trace_debug(&format!(
-                    "hook.breakpoint.check location={} matched_generation={:?}",
-                    format_location_ref(Some(location)),
-                    breakpoint_generation
-                ));
-                if let Some((generation, cycle_key)) = breakpoint_generation {
-                    should_pause = true;
-                    state.breakpoint_stops_this_cycle.insert(cycle_key);
-                    state.steps.clear();
-                    stop_reason = Some(DebugStopReason::Breakpoint);
-                    stop_generation = Some(generation);
-                    state.target_thread = None;
-                }
-            }
-            if should_pause && let Some(reason) = stop_reason {
-                trace_debug(&format!(
-                    "hook.pause.enter reason={reason:?} generation={:?} location={} thread={:?}",
-                    stop_generation,
-                    format_location_ref(Some(location)),
-                    state.current_thread
-                ));
-                state.pending_stop = None;
-                if let Some(observed) = observed.as_deref_mut() {
-                    publish_hold_stop(&mut state, observed)?;
-                }
-                state.mode = DebugMode::Paused;
-                emit_stop(&mut state, reason, Some(*location), stop_generation);
-            }
+            emit_stop(
+                &mut state,
+                stop.reason,
+                Some(*location),
+                stop.breakpoint_generation,
+            );
         }
         loop {
-            // A stop that arrives while the scan waits ends the wait even if a client pauses
-            // again before this thread wakes.
-            if state.stop_requested {
+            emit_pending_stop(&mut state, observed.as_deref_mut(), location)?;
+            if !run_control(&mut state).holds_here() {
                 trace_debug(&format!(
-                    "hook.exit reason=stop_requested location={} thread={:?}",
+                    "hook.exit location={} current_thread={:?} target_thread={:?} mode={:?}",
                     format_location_ref(location),
-                    state.current_thread
+                    state.current_thread,
+                    state.target_thread,
+                    state.mode
                 ));
                 return Ok(());
             }
-            let is_target_thread =
-                state.target_thread.is_none() || state.target_thread == state.current_thread;
-            if matches!(state.mode, DebugMode::Paused)
-                && is_target_thread
-                && let Some(reason) = state.pending_stop.take()
-            {
-                trace_debug(&format!(
-                    "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
-                    format_location_ref(location),
-                    state.current_thread
-                ));
-                if let Some(observed) = observed.as_deref_mut() {
-                    publish_hold_stop(&mut state, observed)?;
-                }
-                emit_stop(&mut state, reason, location.copied(), None);
-            }
-            match state.mode {
-                DebugMode::Running => {
-                    trace_debug(&format!(
-                        "hook.exit reason=running location={} thread={:?}",
-                        format_location_ref(location),
-                        state.current_thread
-                    ));
-                    return Ok(());
-                }
-                DebugMode::Paused => {
-                    if !is_target_thread {
-                        trace_debug(&format!(
-                            "hook.exit reason=paused_non_target location={} current_thread={:?} target_thread={:?}",
-                            format_location_ref(location),
-                            state.current_thread,
-                            state.target_thread
-                        ));
-                        return Ok(());
-                    }
-                    trace_debug(&format!(
-                        "hook.wait location={} current_thread={:?} target_thread={:?}",
-                        format_location_ref(location),
-                        state.current_thread,
-                        state.target_thread
-                    ));
-                    let wait_started = std::time::Instant::now();
-                    state.watchdog_hold_started = Some(wait_started);
-                    state = cvar.wait(state).expect("debug state poisoned");
-                    self.record_watchdog_pause(wait_started.elapsed());
-                    state.watchdog_hold_started = None;
-                    trace_debug(&format!(
-                        "hook.wake mode={:?} location={} current_thread={:?} target_thread={:?}",
-                        state.mode,
-                        format_location_ref(location),
-                        state.current_thread,
-                        state.target_thread
-                    ));
-                }
-            }
+            trace_debug(&format!(
+                "hook.wait location={} current_thread={:?} target_thread={:?}",
+                format_location_ref(location),
+                state.current_thread,
+                state.target_thread
+            ));
+            let wait_started = std::time::Instant::now();
+            state.watchdog_hold_started = Some(wait_started);
+            state = cvar.wait(state).expect("debug state poisoned");
+            self.record_watchdog_pause(wait_started.elapsed());
+            state.watchdog_hold_started = None;
+            trace_debug(&format!(
+                "hook.wake mode={:?} location={} current_thread={:?} target_thread={:?}",
+                state.mode,
+                format_location_ref(location),
+                state.current_thread,
+                state.target_thread
+            ));
         }
     }
 
@@ -348,12 +210,17 @@ impl ObservedStorage<'_, '_> {
     /// Whether a breakpoint at this statement evaluates a condition or a logpoint, which needs the
     /// storage. A suppressed hit is not counted. A hit whose condition is not met is counted, but
     /// not evaluated. The rule is `breakpoints::any_breakpoint_needs_context`.
-    fn needs_breakpoint_context(&self, state: &DebugState, location: &SourceLocation) -> bool {
+    fn needs_breakpoint_context(
+        &self,
+        breakpoints: &[DebugBreakpoint],
+        stopped_this_cycle: &HashSet<BreakpointCycleKey>,
+        location: &SourceLocation,
+    ) -> bool {
         match self {
             Self::Lent(_) => true,
             Self::Live(_) => super::breakpoints::any_breakpoint_needs_context(
-                &state.breakpoints,
-                &state.breakpoint_stops_this_cycle,
+                breakpoints,
+                stopped_this_cycle,
                 location,
             ),
         }
@@ -392,22 +259,109 @@ impl ObservedStorage<'_, '_> {
     }
 }
 
+/// The stop of a located statement boundary. The shared run control decides it, and asks for the
+/// breakpoint match only when no step stops here. The match needs the storage for a condition or a
+/// logpoint, so it runs here (specification 13, "Breakpoint evaluation, source resolution, and hook
+/// contract").
+fn boundary_stop(
+    state: &mut DebugState,
+    location: &SourceLocation,
+    call_depth: u32,
+    observed: Option<&mut ObservedStorage<'_, '_>>,
+) -> Result<Option<BoundaryStop>, RuntimeError> {
+    let DebugState {
+        mode,
+        pending_stop,
+        current_thread,
+        target_thread,
+        steps,
+        last_call_depth,
+        last_call_depths,
+        stop_requested,
+        breakpoints,
+        breakpoint_stops_this_cycle,
+        logs,
+        log_tx,
+        ..
+    } = state;
+    let mut run = RunControl {
+        mode,
+        pending_stop,
+        current_thread,
+        target_thread,
+        steps,
+        last_call_depth,
+        last_call_depths,
+        stop_requested,
+    };
+    run.boundary(call_depth, || {
+        let needs_context = observed.as_deref().is_some_and(|observed| {
+            observed.needs_breakpoint_context(
+                breakpoints.as_slice(),
+                breakpoint_stops_this_cycle,
+                location,
+            )
+        });
+        let matched = match observed {
+            Some(observed) if needs_context => observed.with_context(|ctx| {
+                matches_breakpoint(
+                    breakpoints,
+                    breakpoint_stops_this_cycle,
+                    logs,
+                    log_tx.as_ref(),
+                    location,
+                    &mut Some(ctx),
+                )
+            })?,
+            _ => matches_breakpoint(
+                breakpoints,
+                breakpoint_stops_this_cycle,
+                logs,
+                log_tx.as_ref(),
+                location,
+                &mut None,
+            ),
+        };
+        Ok(matched.map(|(generation, cycle_key)| {
+            breakpoint_stops_this_cycle.insert(cycle_key);
+            generation
+        }))
+    })
+}
+
+/// Emit the pending stop of the held target at this boundary, if there is one (specification 13,
+/// "Pause"). The halted state is published first, as for every stop of a held scan.
+fn emit_pending_stop(
+    state: &mut DebugState,
+    observed: Option<&mut ObservedStorage<'_, '_>>,
+    location: Option<&SourceLocation>,
+) -> Result<(), RuntimeError> {
+    let Some(reason) = run_control(state).take_pending_stop() else {
+        return Ok(());
+    };
+    trace_debug(&format!(
+        "hook.pending_stop.consume reason={reason:?} location={} thread={:?}",
+        format_location_ref(location),
+        state.current_thread
+    ));
+    if let Some(observed) = observed {
+        publish_hold_stop(state, observed)?;
+    }
+    emit_stop(state, reason, location.copied(), None);
+    Ok(())
+}
+
 /// Publish the halted state of a stop that holds the scan. A stop that cannot be published ends the
 /// hold it would have started, so the scan never waits for a resume that no stop asked for.
 fn publish_hold_stop(
     state: &mut DebugState,
     observed: &mut ObservedStorage<'_, '_>,
 ) -> Result<(), RuntimeError> {
-    match observed.publish_stop(state) {
-        Ok(()) => Ok(()),
-        Err(error) => {
-            state.mode = DebugMode::Running;
-            state.pending_stop = None;
-            state.steps.clear();
-            state.target_thread = None;
-            Err(error)
-        }
+    let published = observed.publish_stop(state);
+    if published.is_err() {
+        run_control(state).abandon_stop();
     }
+    published
 }
 
 fn format_location_ref(location: Option<&SourceLocation>) -> String {
