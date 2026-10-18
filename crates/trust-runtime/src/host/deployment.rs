@@ -17,6 +17,9 @@ use crate::error::RuntimeError;
 #[path = "deployment/configuration.rs"]
 mod configuration;
 
+#[path = "program_store.rs"]
+pub mod program_store;
+
 /// The record's file name, next to `program.stbc`.
 pub const DEPLOYMENT_RECORD_FILE: &str = "deployment-record.bin";
 
@@ -69,7 +72,7 @@ pub fn write_record(project: &Path, program: &[u8]) -> io::Result<RecordWrite> {
         });
     match encoded {
         Ok(bytes) => {
-            std::fs::write(&path, bytes)?;
+            program_store::write_atomic(&path, &bytes)?;
             Ok(RecordWrite::Written(path))
         }
         Err(reason) => {

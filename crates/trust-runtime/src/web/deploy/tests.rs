@@ -49,7 +49,7 @@ policy = "halt"
             .to_string(),
         ),
         io_toml: None,
-        program_stbc_b64: Some(STANDARD.encode([1u8, 2, 3])),
+        program_stbc_b64: Some(STANDARD.encode(admitted_program())),
         sources: Some(vec![DeploySource {
             path: "main.st".to_string(),
             content: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
@@ -204,11 +204,19 @@ policy = "halt"
     .to_string()
 }
 
+/// The bytes of an empty program that the runtime prepares: a deployment admits its program first
+/// (spec 34 §11.2 step 6), so a test program must be real bytecode.
+fn admitted_program() -> Vec<u8> {
+    crate::harness::CompileSession::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .build_bytecode_bytes()
+        .expect("the test program compiles")
+}
+
 fn signed_request(root: &Path, key_id: &str, secret: &str) -> DeployRequest {
     let mut request = DeployRequest {
         runtime_toml: Some(runtime_with_signed_policy()),
         io_toml: None,
-        program_stbc_b64: Some(STANDARD.encode([9u8, 8, 7])),
+        program_stbc_b64: Some(STANDARD.encode(admitted_program())),
         sources: Some(vec![DeploySource {
             path: "main.st".to_string(),
             content: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
@@ -380,10 +388,18 @@ policy = "halt"
         DeploymentRecord::decode(&fs::read(root.join(DEPLOYMENT_RECORD_FILE)).unwrap()).unwrap();
     assert_eq!(record.application.program_sha256, sha256(&program));
 
-    // A program the runtime cannot prepare has no record, so the previous one is removed.
-    let result = apply_deploy(&root, request(&[1, 2, 3])).unwrap();
-    assert!(!result.written.contains(&DEPLOYMENT_RECORD_FILE.to_string()));
-    assert!(!root.join(DEPLOYMENT_RECORD_FILE).exists());
+    // A program the runtime cannot prepare is refused before anything is written, so the deployed
+    // program and its record stay (spec 34 §11.2 step 6; D2).
+    let refused = apply_deploy(&root, request(&[1, 2, 3]))
+        .expect_err("a program that does not prepare is refused");
+    assert!(
+        refused.to_string().contains("does not prepare"),
+        "unexpected refusal: {refused}"
+    );
+    assert_eq!(fs::read(root.join("program.stbc")).unwrap(), program);
+    let record_after =
+        DeploymentRecord::decode(&fs::read(root.join(DEPLOYMENT_RECORD_FILE)).unwrap()).unwrap();
+    assert_eq!(record_after.application.program_sha256, sha256(&program));
     let _ = fs::remove_dir_all(root);
 }
 

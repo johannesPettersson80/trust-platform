@@ -55,15 +55,21 @@ impl RetainFileOps for StdRetainFileOps {
     }
 
     fn sync_parent(&self, path: &Path) -> std::io::Result<()> {
-        #[cfg(unix)]
-        {
-            fs::File::open(path)?.sync_all()
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = path;
-            Ok(())
-        }
+        sync_parent_dir(path)
+    }
+}
+
+/// Syncs the folder `path` after a rename into it, so that the rename survives a power cut. Windows
+/// has no folder sync, so nothing is done there (specification 11 §6.7). The program store reuses it.
+pub(crate) fn sync_parent_dir(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        fs::File::open(path)?.sync_all()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(())
     }
 }
 
