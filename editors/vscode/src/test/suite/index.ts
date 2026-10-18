@@ -68,6 +68,7 @@ export function run(): Promise<void> {
   require("./devices-inspector-render.test");
   require("./devices-list-editor.test");
   require("./devices-forms-render.test");
+  require("./devices-form-actions.test");
   require("./devices-issues-list.test");
   require("./devices-list-view.test");
   require("./devices-keyboard.test");

@@ -228,6 +228,23 @@ export const devicePresentsStyle: React.CSSProperties = {
   color: t.textMuted,
 };
 
+/**
+ * The draft tile drawn while a form with a ghost is open (design §4.5 D3): a dashed card, so a
+ * draft is never read as a proven device (specification 25 §5.3 and §5.5). Its name and detail
+ * come from Rust's own `Form.ghost`.
+ */
+export const ghostTileStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  overflow: "hidden",
+  padding: 10,
+  border: `1px dashed ${t.roleExternalBorder}`,
+  borderRadius: t.radius,
+  background: "transparent",
+  opacity: 0.75,
+};
+
 /** A mesh bus. */
 export const meshBusStyle: React.CSSProperties = {
   display: "flex",
@@ -1015,4 +1032,75 @@ export const fieldHelpStyle: React.CSSProperties = {
   fontSize: 11,
   lineHeight: 1.4,
   color: t.textMuted,
+};
+
+/** Why a field's value was refused, drawn under that field (specification 25 §5.9). */
+export const fieldErrorStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  lineHeight: 1.4,
+  color: t.danger,
+};
+
+/**
+ * The form pane that `App` wraps around `FormView`: the inspector's chrome, so the two right-hand
+ * panes look alike and never cover each other (specification 25 §5.11 and §5.13).
+ */
+export const formPaneStyle: React.CSSProperties = {
+  width: 380,
+  flex: "none",
+  display: "flex",
+  flexDirection: "column",
+  overflowY: "auto",
+  borderLeft: `1px solid ${t.border}`,
+  background: t.surface,
+};
+
+/** A form's notice, coloured by the notice's own tone (specification 25 §5.13). */
+export function formNoticeStyle(tone: Tone): React.CSSProperties {
+  const colour = toneColour(tone);
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    margin: "0 16px 12px",
+    padding: "8px 10px",
+    border: `1px solid ${tint(colour, 0.5)}`,
+    borderRadius: t.radius,
+    background: tint(colour, 0.1),
+  };
+}
+
+/** The notice's own text, in the notice's own tone. */
+export function formNoticeTextStyle(tone: Tone): React.CSSProperties {
+  return { fontSize: 12, lineHeight: 1.4, color: toneColour(tone) };
+}
+
+/** The notice's second line, more about the result. */
+export const formNoticeDetailStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  lineHeight: 1.4,
+  color: t.textMuted,
+};
+
+/** The notice's actions, side by side. */
+export const formNoticeActionsStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 8,
+};
+
+/** What a slow action reports while it runs, in the pane that started it (design §1.4.1). */
+export const formPendingStyle: React.CSSProperties = {
+  margin: "0 16px 12px",
+  fontSize: 12,
+  color: t.textMuted,
+};
+
+/** A form's buttons, drawn in the pane's footer, two per row. */
+export const formButtonsStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 8,
+  padding: "12px 16px",
+  borderTop: `1px solid ${t.border}`,
 };

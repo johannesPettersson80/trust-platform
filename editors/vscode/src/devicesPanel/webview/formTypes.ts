@@ -4,9 +4,11 @@
 // every value is drawn as given and never recomputed in TypeScript. A form writes the user's
 // `io.toml`, so this mirrors exactly the JSON that `form.open` returns: `Form`, `FormSection`,
 // `FormField`, `FieldKind`, `FieldOption`, `VisibleWhen`, `ListEditor`, `ListProperty`,
-// `GhostTile` and `RuntimeRef`. An absent `Option` is omitted, so those fields are optional.
+// `GhostTile` and `RuntimeRef`; and the result of an action that `trust-lsp.devicesAct` answers:
+// `ActReply`, `Notice`, `FieldError`, `PendingAction` and `Refresh` (mod.rs). An absent `Option`
+// is omitted, so those fields are optional.
 
-import type { Action } from "./types";
+import type { Action, Tone } from "./types";
 
 /**
  * A form, which `form.open` returns (panes.rs `Form`). Rust chooses the title, the breadcrumb, the
@@ -152,4 +154,65 @@ export interface RuntimeRef {
   id: string;
   /** Its name. */
   name: string;
+}
+
+/**
+ * The result of an earlier action, shown in the pane that started it (mod.rs `Notice`,
+ * specification 25 §5.13).
+ */
+export interface Notice {
+  /** The pane that started the action, such as `form:<id>` or `inspector:<id>`. */
+  pane: string;
+  /** The result's tone. */
+  tone: Tone;
+  /** The result. */
+  text: string;
+  /** More about it. */
+  detail?: string;
+  /** The fields that were refused. */
+  field_errors: FieldError[];
+  /** What can be done next. */
+  actions: Action[];
+}
+
+/** A refused field of a form (mod.rs `FieldError`). */
+export interface FieldError {
+  /** The field. */
+  field: string;
+  /** Why. */
+  message: string;
+}
+
+/** What a slow action reports while it runs (mod.rs `PendingAction`). */
+export interface PendingAction {
+  /** The operation's identity, such as `op-7`. */
+  operation: string;
+  /** The pane that started the action. */
+  pane: string;
+  /** The text of the action while it runs, such as `Starting…`. */
+  text: string;
+}
+
+/** When the panel gathers again after an action (mod.rs `Refresh`). */
+export type Refresh = "now" | "soon" | "none";
+
+/**
+ * The reply to one `trust-lsp.devicesAct` request (design §1.4.1): whether the action succeeded,
+ * the result it shows and what VS Code runs. `effects` are the host's, so they stay opaque here.
+ */
+export interface ActReply {
+  /** Whether the action succeeded. */
+  ok: boolean;
+  /** The result, shown in the pane that started the action (specification 25 §5.13). */
+  notice?: Notice;
+  /** What VS Code runs; the host runs each exactly as given. */
+  effects: unknown[];
+  /** Whether the pane that started the action closes. */
+  close_pane: boolean;
+  /** When the panel gathers again. */
+  refresh: Refresh;
+  /** What a slow action reports now; its result arrives in `operations_done`. */
+  pending?: PendingAction;
+  /** The form that `form.open` built for the payload; absent for every other action. */
+  form?: Form;
 }

@@ -6,9 +6,11 @@ import React from "react";
 
 import { t } from "../../webview/theme";
 import { LinkEdge, MeshDropEdge } from "./edges";
-import { dropRouteId, layoutCanvas, type LayoutScene, type Point } from "./layout";
+import type { GhostTile as GhostTileModel } from "./formTypes";
+import { dropRouteId, layoutCanvas, type LayoutScene, type Point, type Rect } from "./layout";
 import { ComputerFrame } from "./nodes/ComputerFrame";
 import { DeviceCard } from "./nodes/DeviceCard";
+import { GhostTile } from "./nodes/GhostTile";
 import { MeshBus } from "./nodes/MeshBus";
 import {
   bannerButtonStyle,
@@ -46,6 +48,19 @@ interface DragStart {
 }
 
 /**
+ * Where the draft tile is drawn: in the devices column, after the last device card. With no device
+ * it starts the column. This is geometry for drawing only (design §3.4); Rust decides what the tile
+ * says.
+ */
+function ghostRect(devices: Rect[]): Rect {
+  const last = devices[devices.length - 1];
+  if (last === undefined) {
+    return { x: 24, y: 24, width: 220, height: 56 };
+  }
+  return { x: last.x, y: last.y + last.height + 12, width: last.width, height: last.height };
+}
+
+/**
  * Draws the summary, the banner and the graph. The items the view marks hidden are not drawn; the
  * ones it marks dimmed are drawn dimmed. Tab reaches every item, Enter opens its inspector and a
  * device card can be dragged (specification 25 §5.11 and §5.13): the keyboard and the drag are
@@ -63,6 +78,7 @@ export function Canvas({
   devices,
   links,
   mesh,
+  ghost,
   savedPositions,
   onPositions,
   onOpenIssues,
@@ -90,6 +106,8 @@ export function Canvas({
   links?: Link[];
   /** The mesh buses. */
   mesh?: MeshBusModel[];
+  /** The draft tile drawn while a form with a ghost is open (specification 25 §5.13). */
+  ghost?: GhostTileModel;
   /** The item positions the host kept for the project, drawn over the layout (design §4.5 D2). */
   savedPositions?: Record<string, Point>;
   /** Called with the item positions when a drag ends, for the host to keep for the project. */
@@ -326,6 +344,16 @@ export function Canvas({
             onDragStart={startDrag}
           />
         ))}
+        {ghost !== undefined && (
+          <GhostTile
+            ghost={ghost}
+            rect={ghostRect(
+              visibleDevices
+                .map((device) => layout.devices[device.id])
+                .filter((rect) => rect !== undefined),
+            )}
+          />
+        )}
         {visibleMesh.map((bus) => (
           <MeshBus key={bus.id} bus={bus} rect={layout.mesh[bus.id]} />
         ))}
