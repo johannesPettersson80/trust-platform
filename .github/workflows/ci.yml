@@ -30,6 +30,8 @@ jobs:
             board_adapter: trust-platform-stm32f4
           - target: riscv32imac-unknown-none-elf
             board_adapter: trust-platform-esp32
+          - target: thumbv8m.main-none-eabihf
+            board_adapter: trust-platform-stm32u5
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.99.0
@@ -43,9 +45,15 @@ jobs:
       - name: Record resolved target features
         run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features,no-dev
       - name: Check the board adapter and shared fixture for the target
+        if: ${{ matrix.board_adapter != 'trust-platform-stm32u5' }}
         env:
           RUSTFLAGS: -D warnings
         run: cargo check --locked -p ${{ matrix.board_adapter }} -p trust-board-fixture -p trust-runtime-services --target ${{ matrix.target }}
+      - name: Check the STM32U5A9 adapter for its target
+        if: ${{ matrix.board_adapter == 'trust-platform-stm32u5' }}
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --locked -p trust-platform-stm32u5 --target thumbv8m.main-none-eabihf
       - name: Mark gate success
         if: ${{ success() }}
         run: |
@@ -817,6 +825,7 @@ jobs:
             --gate-artifacts-dir gate-artifacts \
             --required-gate gate-portable-core-thumbv7em-none-eabihf \
             --required-gate gate-portable-core-riscv32imac-unknown-none-elf \
+            --required-gate gate-portable-core-thumbv8m.main-none-eabihf \
             --required-gate gate-fmt \
             --required-gate gate-clippy \
             --required-gate gate-test-ubuntu-latest \

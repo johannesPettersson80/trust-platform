@@ -5,6 +5,7 @@ use object::{Object, ObjectSection, ObjectSymbol};
 use serde_json::{json, Value};
 
 mod stm32f407;
+mod stm32u5a9;
 
 const FLASH_GROWTH_TARGET: u64 = 16 * 1024;
 
@@ -24,12 +25,7 @@ pub(super) fn inspect(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
     let mut report = match board.board {
         Board::Stm32f407gDisc1 => stm32f407::inspect(board, bytes)?,
         Board::Esp32c6Devkitc1 => inspect_esp32c6(board, bytes)?,
-        Board::RiverdiRvt50hqsnwc00B => {
-            anyhow::bail!(
-                "{}: the linked-image inspection of the STM32U5A9 is S1b-9u work",
-                board.name
-            )
-        }
+        Board::RiverdiRvt50hqsnwc00B => stm32u5a9::inspect(board, bytes)?,
     };
     report["board"] = board.name.into();
     Ok(report)

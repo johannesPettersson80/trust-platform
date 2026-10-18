@@ -3271,7 +3271,7 @@ its clock with no hardware run; the rows marked S1b-8u-2, S1b-8u-3 and S1b-9u ar
 | RAM (S1b-8u-3) | Heap region A of 1 MiB: SRAM1, SRAM2 and the first 192 KiB of SRAM3. Statics in the rest of SRAM3. The main stack of 32 KiB at the top of SRAM5 (0x2026_8000 to 0x2027_0000): the C6 measured a 15,740 B high-water in a 16 KiB window (D.2), and this chip has the room. Heap region B of 800 KiB below the stack, in SRAM5. | The map is written in S1b-8u-3, with the shared measurement crate; the bench (S1b-9u) measures the high-water against the 2 KiB headroom rule. |
 | Console | None in the product firmware. The F407's USART2 console was a fixture of the paused track. | Decided with S1b-9u. |
 | Firmware (S1b-9u) | `firmware/trust-stm32u5a9`, built from `chips/stm32u5a9.toml`. Not part of S1b-8u-1. | Pending. |
-| Evidence (S1b-9u) | `build-firmware stm32u5a9` and `inspect riverdi-rvt50hqsnwc00-b`, the M0 record and the bench steps of the slice. | Pending: the bench has not run. |
+| Evidence (S1b-9u) | `build-firmware stm32u5a9` and `inspect riverdi-rvt50hqsnwc00-b`, the M0 record and the bench steps of the slice. `inspect` refuses a linked image whose vector table is not alone at 0x0800_0000 in the 8 KiB vectors page; whose firmware or `.data` load image leaves 0x0800_2000 to 0x0820_0000; that puts a section or a load in the application (0x0820_0000 to 0x083F_8000) or a checkpoint slot (0x083F_8000 to 0x0840_0000); whose statics leave 0x2010_0000 to 0x201A_0000; or whose initial stack pointer is not 0x2027_0000 with the 32 KiB window below it. It names the section and the address. The CI portable lane checks the adapter for `thumbv8m.main-none-eabihf`. | The inspect checks and the lane are tested on the host with synthetic layouts only; the reader of a real linked ELF is proved by the first build and the bench run. Pending: the bench has not run. |
 
 ## Appendix E — Implementation deliverables and acceptance ownership
 
@@ -3338,8 +3338,8 @@ supplies physical resource evidence.
 TARGET-03 describes each supported chip once, in `chips/<chip>.toml`. This appendix defines that
 file. The supported chips are the STM32F407 (`chips/stm32f407.toml`, paused as of 17 October
 2026, D.4) and the ESP32-C6 (`chips/esp32c6.toml`). The STM32U5A9 (`chips/stm32u5a9.toml`, D.5)
-has its file, which its adapter's tests read and check; the chip joins the catalog, `build-firmware`
-and `inspect` with its firmware crate in S1b-9u. The STM32F401 of the NUCLEO-F401RE is no longer a
+has its file, which its adapter's tests read and check; it is in the catalog, and `build-firmware`
+builds its firmware crate (S1b-9u). The STM32F401 of the NUCLEO-F401RE is no longer a
 supported chip (D.1)
 and has no file; its firmware was retired 17 October 2026 (owner). A development board has no
 file (ARCH-14): its pins are named in `io.toml` and its other wiring is detected or named in
@@ -3479,8 +3479,8 @@ one name. It depends on no firmware or
 platform adapter, so `trust-runtime` (its command line, and the USB search and installation of
 TARGET-04) and `xtask` can use it; the adapters use it only in their host tests.
 `cargo xtask portability build-firmware <chip>` builds the firmware of a chip in the catalog from its
-file: its crate, binary and Rust target. `inspect` and `verify` take a bench board: `stm32f407g-disc1` or `esp32c6-devkitc-1`; the
-`riverdi-rvt50hqsnwc00-b` board joins them, with its chip's firmware, in S1b-9u. A bench profile holds the bench's own values, such as the
+file: its crate, binary and Rust target. `inspect` and `verify` take a bench board: `stm32f407g-disc1`, `esp32c6-devkitc-1` or
+`riverdi-rvt50hqsnwc00-b`, whose first bench run is still to come (S1b-9u). A bench profile holds the bench's own values, such as the
 button's polarity, the fixture's memory budget and the module's flash, and takes its chip values
 from the chip's file. Host tests compare the adapters' chip data with the files: the STM32U5A9 table in its
 `chip.rs`, the STM32F407 table in `chip.rs`, its crystal range, and the C6 profile. The xtask tests compare the firmware's

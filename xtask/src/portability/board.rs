@@ -51,16 +51,9 @@ pub(super) fn chip(name: &str) -> Result<ChipFile> {
         .with_context(|| format!("no chip file chips/{name}.toml"))
 }
 
-/// The file of the board's chip. The STM32U5A9 joins the catalog with its firmware crate in S1b-9u,
-/// so its board parses the file directly, as the catalog parses a file.
+/// The file of the board's chip, from the catalog that `trust-chips` embeds.
 fn chip_of(board: Board) -> Result<ChipFile> {
-    match board {
-        Board::RiverdiRvt50hqsnwc00B => {
-            ChipFile::parse("stm32u5a9", include_str!("../../../chips/stm32u5a9.toml"))
-                .context("chips/stm32u5a9.toml does not parse")
-        }
-        _ => chip(board.chip()),
-    }
+    chip(board.chip())
 }
 
 /// CPU cycles in one 10 ms scan at `cpu_hz`.
@@ -163,9 +156,9 @@ impl BoardProfile {
             // Heap region A of the U5 map (design section 4.3): 1 MiB from SRAM1, SRAM2 and part
             // of SRAM3.
             heap_bytes: 1024 * 1024,
-            // The 16 KiB main stack at the top of SRAM5, with the 2 KiB headroom of the stack rule
-            // (design section 4.3).
-            stack_window_bytes: 16 * 1024,
+            // The 32 KiB main stack at the top of SRAM5, with the 2 KiB headroom of the stack rule
+            // (design section 4.3, spec 34 D.5; raised from 16 KiB on 18 October 2026).
+            stack_window_bytes: 32 * 1024,
             stack_headroom_bytes: 2 * 1024,
             boot_banner_lines: 0,
             button_pressed_high: false,
@@ -229,8 +222,9 @@ mod tests {
         assert_eq!(riverdi.application_bytes, 2016 * 1024);
         assert!(!riverdi.button_pressed_high);
         assert_eq!(riverdi.boot_banner_lines, 0);
-        // The 16 KiB window less its 2 KiB headroom.
-        assert_eq!(riverdi.stack_peak_bound(), 14 * 1024);
+        // The 32 KiB window less its 2 KiB headroom.
+        assert_eq!(riverdi.stack_window_bytes, 32 * 1024);
+        assert_eq!(riverdi.stack_peak_bound(), 30 * 1024);
         // The profile's chip values are the chip file's.
         let u5 = chip_of(Board::RiverdiRvt50hqsnwc00B).unwrap();
         assert_eq!(riverdi.cpu_hz, u64::from(u5.clock.firmware_hz));
