@@ -35,6 +35,7 @@ pub use process_io::ProcessIo;
 pub use services::DeviceServices;
 
 use super::cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
+use super::retain::{RetainConfig, RetainStore};
 use crate::status::IoDriverStatus;
 
 /// The only resource a source-free composition admits (spec 34 §5.2).
@@ -62,14 +63,18 @@ pub struct CycleSettings {
 /// borrows; a firmware keeps both for the rest of the boot (`'static`). `C` is the platform's
 /// monotonic clock, `I` its process I/O.
 ///
-/// There is no retain store until slice C5: a stop saves nothing, and a warm restart keeps the
-/// retained values the device holds in its memory.
+/// A cycle built with [`Self::with_retain`] also holds the chip's checkpoint store
+/// (`RetainStore`): it captures the retained values at the pre-output-sample checkpoint, the
+/// resource loop advances a pending checkpoint between scans, a stop completes it, and a warm
+/// restart from the checkpoint restores it. A cycle built with [`Self::start`] has no store: a stop
+/// saves nothing, and a warm restart keeps the retained values the device holds in its memory.
 pub struct EngineCycle<'a, C, I> {
     state: RuntimeState<'a>,
     prepared: &'a PreparedModule,
     services: &'a DeviceServices<C>,
     io: I,
     settings: CycleSettings,
+    retain: Option<RetainStore>,
 }
 
 impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
@@ -87,6 +92,35 @@ impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
         io: I,
         settings: CycleSettings,
     ) -> Result<Self, RuntimeError> {
+        Self::start_with(prepared, services, io, settings, None)
+    }
+
+    /// Starts the program as [`start`](Self::start) does, with the checkpoint store of `retain`
+    /// (specification 34 §10): the persister opens the log over the platform's flash, so a control
+    /// flash that cannot be read fails the start.
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] of [`start`](Self::start), or of a checkpoint log that cannot be
+    /// opened.
+    pub fn with_retain(
+        prepared: &'a PreparedModule,
+        services: &'a DeviceServices<C>,
+        io: I,
+        settings: CycleSettings,
+        retain: RetainConfig,
+    ) -> Result<Self, RuntimeError> {
+        Self::start_with(prepared, services, io, settings, Some(retain))
+    }
+
+    /// The program `prepared` started cold on the engine, with an optional checkpoint store.
+    fn start_with(
+        prepared: &'a PreparedModule,
+        services: &'a DeviceServices<C>,
+        io: I,
+        settings: CycleSettings,
+        retain: Option<RetainConfig>,
+    ) -> Result<Self, RuntimeError> {
         let state = prepared.instantiate_with_services(RESOURCE_INDEX, services)?;
         Ok(Self {
             state,
@@ -94,7 +128,14 @@ impl<'a, C: MonotonicClock, I: ProcessIo> EngineCycle<'a, C, I> {
             services,
             io,
             settings,
+            retain: retain.map(RetainStore::open).transpose()?,
         })
+    }
+
+    /// The installed program's engine state, for the tests that read the program's values.
+    #[cfg(test)]
+    pub(crate) fn state(&self) -> &RuntimeState<'a> {
+        &self.state
     }
 }
 
@@ -125,6 +166,7 @@ impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
     ) -> Result<(), RuntimeError> {
         let mut hooks = ScanHooks {
             io: &mut self.io,
+            retain: self.retain.as_mut(),
             observer,
         };
         self.services.arm(deadline);
@@ -150,23 +192,43 @@ impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
         self.io.write_safe_outputs(self.state.outputs())
     }
 
+    /// Captures the values the program holds and completes the pending checkpoint and the newest
+    /// image before the resource reports Stopped (specification 11 §6.7); a device without a
+    /// checkpoint store saves nothing.
     fn save_retain(&mut self) -> Result<(), RuntimeError> {
+        if let Some(retain) = self.retain.as_mut() {
+            retain.save(&mut self.state)?;
+        }
         Ok(())
     }
 
-    /// A warm restart from the checkpoint loads the empty checkpoint of a device without a
-    /// retain store, as trust-runtime loads it without one, and keeps the RETAIN variables the
-    /// program holds in memory: after a stop, the values they had when it stopped (IEC 61131-3
-    /// §6.5.6.1).
+    /// Advances a pending checkpoint by at most one persister step, between scans (specification
+    /// 34 §10); a device without a checkpoint store does nothing.
+    fn step_retain(&mut self) {
+        if let Some(retain) = self.retain.as_mut() {
+            retain.step();
+        }
+    }
+
+    /// A warm restart from the checkpoint decodes the newest committed checkpoint with the shared
+    /// codec and applies it by name (specification 34 §10, specification 11 §6.7); a device
+    /// without a checkpoint store loads the empty checkpoint, as trust-runtime loads it without
+    /// one, and keeps the RETAIN variables the program holds in memory: after a stop, the values
+    /// they had when it stopped (IEC 61131-3 §6.5.6.1).
     fn restart(
         &mut self,
         mode: RestartMode,
         source: RetainSource,
     ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
         match (mode, source) {
-            (RestartMode::Warm, RetainSource::Checkpoint) => self
-                .state
-                .restart_with_retain_snapshot(RestartMode::Warm, &RetainSnapshot::default()),
+            (RestartMode::Warm, RetainSource::Checkpoint) => {
+                let snapshot = match self.retain.as_mut() {
+                    Some(retain) => retain.recover()?,
+                    None => RetainSnapshot::default(),
+                };
+                self.state
+                    .restart_with_retain_snapshot(RestartMode::Warm, &snapshot)
+            }
             (mode, RetainSource::Memory | RetainSource::Checkpoint) => {
                 self.state.restart(mode)?;
                 Ok(Vec::new())
@@ -183,14 +245,15 @@ impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
     }
 }
 
-/// The engine hooks of one scan: the process I/O at its phases, and every callback to the
-/// loop's observer.
+/// The engine hooks of one scan: the process I/O at its phases, the retained capture at the
+/// pre-output-sample checkpoint, and every callback to the loop's observer.
 ///
 /// They keep the engine's default `has_output_hooks`, true, so the engine checks the scan's
 /// deadline before it publishes the outputs and restores the image it staged when the drivers
 /// fail, as trust-runtime's hosted cycle does.
 struct ScanHooks<'h, 'o, I> {
     io: &'h mut I,
+    retain: Option<&'h mut RetainStore>,
     observer: &'h mut (dyn CycleHooks + 'o),
 }
 
@@ -208,15 +271,23 @@ impl<I: ProcessIo> CycleHooks for ScanHooks<'_, '_, I> {
     }
 
     /// The inputs are read at `BeforeInputSample`, where trust-runtime's drivers fill the input
-    /// image, after the observer has seen the phase.
+    /// image, after the observer has seen the phase; the retained values are captured and offered
+    /// at `BeforeOutputSample`, where trust-runtime saves them (specification 11 §6.7). A retain
+    /// failure there fails the scan before its outputs are published.
     fn on_phase(
         &mut self,
         phase: CyclePhase,
         access: &mut CycleAccess<'_, '_>,
     ) -> Result<(), RuntimeError> {
         self.observer.on_phase(phase, access)?;
-        if phase == CyclePhase::BeforeInputSample {
-            self.io.read_inputs(access.inputs_mut()?)?;
+        match phase {
+            CyclePhase::BeforeInputSample => self.io.read_inputs(access.inputs_mut()?)?,
+            CyclePhase::BeforeOutputSample => {
+                if let Some(retain) = self.retain.as_mut() {
+                    retain.capture(access)?;
+                }
+            }
+            _ => {}
         }
         Ok(())
     }

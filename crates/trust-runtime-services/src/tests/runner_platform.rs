@@ -2,6 +2,7 @@
 //! token, an audit sink that numbers its records, a wall clock that may be unset, fixed status
 //! values, one platform operation and a hardware watchdog that counts its feeds.
 
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -11,7 +12,10 @@ use core::time::Duration;
 
 use serde_json::json;
 use smol_str::SmolStr;
-use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan, WallClock};
+use trust_runtime_core::ports::{
+    CheckpointStorage, CheckpointStore, HardwareWatchdog, TimeSpan, WallClock,
+};
+use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 
 use super::runner_ports::{ms, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
@@ -37,6 +41,8 @@ pub(crate) struct TestPlatform {
     pub(crate) feed_interval: Duration,
     /// The watchdog's feeds; a test keeps a clone to read them.
     pub(crate) feeds: Rc<Cell<u32>>,
+    /// The checkpoint store the platform supplies, or `None` when it has none.
+    pub(crate) checkpoint: Option<CheckpointStore>,
 }
 
 impl Default for TestPlatform {
@@ -50,7 +56,23 @@ impl Default for TestPlatform {
             extension_calls: RefCell::new(Vec::new()),
             feed_interval: ms(FEED_INTERVAL_MS),
             feeds: Rc::new(Cell::new(0)),
+            checkpoint: None,
         }
+    }
+}
+
+impl TestPlatform {
+    /// The platform's checkpoint store is `flash`, which one persister step may program up to
+    /// `program_budget` bytes of (specification 34 §10).
+    pub(crate) fn set_checkpoint(
+        &mut self,
+        flash: Box<dyn CheckpointFlash>,
+        program_budget: usize,
+    ) {
+        self.checkpoint = Some(CheckpointStore {
+            flash,
+            program_budget,
+        });
     }
 }
 
@@ -144,6 +166,12 @@ impl HardwareWatchdog for TestPlatform {
 
     fn feed(&mut self) {
         self.feeds.set(self.feeds.get() + 1);
+    }
+}
+
+impl CheckpointStorage for TestPlatform {
+    fn take_checkpoint_store(&mut self) -> Option<CheckpointStore> {
+        self.checkpoint.take()
     }
 }
 

@@ -1,9 +1,10 @@
 //! Small platform contracts of the shared runtime (specification 34, §3.2 and §7).
 //!
 //! A platform adapter implements these for its operating system or chip: the monotonic and wall
-//! clocks, the wait and wake of the resource loop (PORT-03), the hardware watchdog (TIME-04) and
-//! the control link, which moves whole request and reply frames (the management transport of §7).
-//! The engine and the shared runtime services use them and hold no platform state.
+//! clocks, the wait and wake of the resource loop (PORT-03), the hardware watchdog (TIME-04), the
+//! control link, which moves whole request and reply frames (the management transport of §7), and
+//! the checkpoint store a chip keeps its retained values in (§10). The engine and the shared
+//! runtime services use them and hold no platform state.
 //!
 //! Time on the monotonic clock has its own types (PORT-01): a
 //! [`MonotonicInstant`](crate::ports::MonotonicInstant) is a reading of the clock and a
@@ -12,9 +13,11 @@
 //! span only through [`TimeSpan::from_time`](crate::ports::TimeSpan::from_time), which refuses a
 //! negative one.
 
+use alloc::boxed::Box;
 use core::net::SocketAddr;
 use core::time::Duration;
 
+use crate::retain::checkpoint::CheckpointFlash;
 use crate::value;
 
 /// A reading of a platform's monotonic clock: the time since the clock's origin (PORT-01).
@@ -247,6 +250,30 @@ pub trait ControlLink {
     /// The [`PortError`] of a reply the link could not deliver, for example to a peer that has
     /// gone.
     fn send_frame(&mut self, frame: &[u8]) -> Result<(), PortError>;
+}
+
+/// The checkpoint store a platform supplies to the installed program's cycle (specification 34
+/// §10): the flash of the device's two checkpoint slots and the program budget of one persister
+/// step.
+pub struct CheckpointStore {
+    /// The flash of the device's two checkpoint slots, `checkpoint_a` and `checkpoint_b`.
+    pub flash: Box<dyn CheckpointFlash>,
+    /// The most bytes one persister step may program in the idle time before the next release, so
+    /// that one program step fits between two scans (specification 34 §10).
+    pub program_budget: usize,
+}
+
+/// A platform that keeps its retained values in the checkpoint flash of its chip file
+/// (specification 34 §10).
+///
+/// The composition takes the store once, when it builds the installed program's cycle; the cycle's
+/// persister holds the flash from then on. A warm start restores the newest committed checkpoint,
+/// and the cycle saves the retained values into the log as the project's interval and a stop or
+/// shutdown ask (specification 11 §6.7).
+pub trait CheckpointStorage {
+    /// Takes the platform's checkpoint store, or returns `None` when the device keeps no retained
+    /// checkpoint, as a project with `[runtime.retain] mode = "none"` asks for.
+    fn take_checkpoint_store(&mut self) -> Option<CheckpointStore>;
 }
 
 #[cfg(test)]

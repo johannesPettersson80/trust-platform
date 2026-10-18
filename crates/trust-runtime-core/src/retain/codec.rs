@@ -177,18 +177,24 @@ pub fn decode_snapshot(bytes: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
 }
 
 fn decode_snapshot_v2(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, RuntimeError> {
-    decode_checksummed_snapshot(reader, RETAIN_V2_VERSION, false)
+    let payload = read_checksummed_payload(reader, RETAIN_V2_VERSION)?;
+    let mut payload_reader = RetainReader::new(payload);
+    let snapshot = decode_snapshot_payload(&mut payload_reader, false)?;
+    payload_reader.expect_finished("retain v2 payload")?;
+    Ok(snapshot)
 }
 
 fn decode_snapshot_v3(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, RuntimeError> {
-    decode_checksummed_snapshot(reader, RETAIN_VERSION, true)
+    let payload = read_checksummed_payload(reader, RETAIN_VERSION)?;
+    decode_snapshot_payload_v3(payload)
 }
 
-fn decode_checksummed_snapshot(
-    reader: &mut RetainReader<'_>,
+/// Read a v2 or v3 container: its payload length, its payload, the payload's CRC-32 and the
+/// trailer; check the framing and the payload's checksum, and return the payload bytes.
+fn read_checksummed_payload<'r>(
+    reader: &mut RetainReader<'r>,
     version: u16,
-    physical_checkpoints: bool,
-) -> Result<RetainSnapshot, RuntimeError> {
+) -> Result<&'r [u8], RuntimeError> {
     let payload_len = reader.read_u64()?;
     let payload_len: usize = payload_len.try_into().map_err(|_| {
         RuntimeError::RetainCorruption("retain payload length exceeds platform size".into())
@@ -219,18 +225,7 @@ fn decode_checksummed_snapshot(
             .into(),
         ));
     }
-    let mut payload_reader = RetainReader::new(payload);
-    let snapshot = decode_snapshot_payload(&mut payload_reader, physical_checkpoints)?;
-    payload_reader.expect_finished(match version {
-        RETAIN_V2_VERSION => "retain v2 payload",
-        RETAIN_VERSION => "retain v3 payload",
-        _ => {
-            return Err(RuntimeError::RetainCorruption(
-                "invalid retain version".into(),
-            ))
-        }
-    })?;
-    Ok(snapshot)
+    Ok(payload)
 }
 
 fn decode_snapshot_payload(
@@ -247,18 +242,28 @@ fn decode_snapshot_payload(
     Ok(RetainSnapshot::from_values(values))
 }
 
-/// Decode a bare STRN v3 payload, exactly the bytes a capture stages into its buffer.
+/// Decode a bare STRN v3 payload: exactly the bytes
+/// [`RetainSnapshot::encode_snapshot_payload_into`] appends, without the file's magic, version,
+/// length, payload checksum and trailer (specification 34 §10.1).
+///
+/// [`decode_snapshot`] checks the framing of a v3 file and then applies this payload rule, and a
+/// chip applies it to the payload its checkpoint log returned, because a checkpoint record
+/// carries the payload bytes alone (specification 34 §10.1).
 ///
 /// # Errors
 ///
 /// [`RuntimeError::RetainCorruption`] when the payload is malformed or has trailing data, or when
 /// a decoded value is not a valid runtime value.
-pub(crate) fn decode_snapshot_payload_bytes(bytes: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
-    let mut reader = RetainReader::new(bytes);
+pub fn decode_snapshot_payload_v3(payload: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
+    let mut reader = RetainReader::new(payload);
     let snapshot = decode_snapshot_payload(&mut reader, true)?;
     reader.expect_finished("retain v3 payload")?;
     Ok(snapshot)
 }
+
+/// The same payload rule under the name the shared VM engine's explicit checkpoint asks for
+/// (`vm/engine/cycle.rs`); it is the one decoder, not a second one.
+pub(crate) use self::decode_snapshot_payload_v3 as decode_snapshot_payload_bytes;
 
 /// The one-byte wire tag that precedes every retained value.
 ///

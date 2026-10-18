@@ -125,6 +125,16 @@ pub trait ResourceCycle {
     /// The [`RuntimeError`] of a save that did not complete; the previous checkpoint stays.
     fn save_retain(&mut self) -> Result<(), RuntimeError>;
 
+    /// Advances a pending retained checkpoint by at most one persister step, between this cycle's
+    /// scans and with the platform's per-step program budget (specification 34 §10).
+    ///
+    /// The resource loop calls it while it otherwise waits for the next release, never inside a
+    /// scan, so an erase that outlasts the time before the next release only makes that scan late,
+    /// which the loop's overrun accounting reports. A failed step latches a retain-store failure
+    /// that the next scan fails with before physical outputs. The default does nothing: a
+    /// composition without a checkpoint store.
+    fn step_retain(&mut self) {}
+
     /// Starts the installed program again, `mode` cold or warm with the retained values of
     /// `source`, and returns the retained values it dropped or migrated. A failed restart leaves
     /// the program as it was.
