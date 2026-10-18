@@ -38,8 +38,11 @@ espflash write-bin --port <devkit-serial-by-id> 0x200000 application.bin
 cargo xtask portability verify esp32c6-devkitc-1 <uart.txt> <report.json>
 ```
 
-The bundle must fit the 16 KiB `stbc` partition. The second-stage bootloader is the one bundled
-with espflash 4.6.0 (ESP-IDF v6.1-beta1). M5 qualification requires a released bootloader instead.
+The installed bundle must fit the fixture's 16 KiB capacity
+(`trust_board_fixture::application::CAPACITY`), which the firmware copies into RAM; the `stbc`
+partition itself is 6112 KiB, the flash the chip allows. The second-stage bootloader is the one
+bundled with espflash 4.6.0 (ESP-IDF v6.1-beta1). M5 qualification requires a released bootloader
+instead.
 
 ## Flash layout
 
@@ -48,8 +51,8 @@ with espflash 4.6.0 (ESP-IDF v6.1-beta1). M5 qualification requires a released b
 | Bootloader | `0x0` | ESP-IDF second-stage bootloader from espflash 4.6.0 |
 | Partition table | `0x8000` | `partitions.csv` |
 | `factory` | `0x10000`, 1984 KiB | this firmware image |
-| `stbc` | `0x200000`, 16 KiB | separately installed application bundle, read once per boot |
-| `ckpt_a`, `ckpt_b` | `0x204000` and `0x208000`, 16 KiB each | reserved; no persistence implementation |
+| `stbc` | `0x200000`, 6112 KiB | separately installed application bundle, read once per boot |
+| `ckpt_a`, `ckpt_b` | `0x7F8000` and `0x7FC000`, 16 KiB each | reserved; no persistence implementation |
 
 ## RAM
 

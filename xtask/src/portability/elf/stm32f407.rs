@@ -2,10 +2,10 @@
 //!
 //! [`inspect`] reads the linked ELF into an [`Image`], and [`check`] applies the policy to it, so
 //! each rule is tested on a described image instead of a linked firmware. The layout is the
-//! F407's flash sector map (RM0090, specification 34 D.4): the vector table alone in sector 0, the
-//! application bundle in sector 1, the checkpoint slots in sectors 2 and 3, and the firmware from
-//! sector 4 through sector 11. The 64 KiB of core-coupled memory is unassigned, so a section
-//! there fails.
+//! F407's flash sector map (RM0090, specification 34 D.4): the vector table alone in sector 0,
+//! sector 1 unused, the checkpoint slots in sectors 2 and 3, the firmware from sector 4 through
+//! sector 9, and the separately installed application bundle in sectors 10 and 11. The 64 KiB of
+//! core-coupled memory is unassigned, so a section there fails.
 use super::{contained, meets_flash_growth_target, FLASH_GROWTH_TARGET};
 use crate::portability::board::BoardProfile;
 use anyhow::{ensure, Context, Result};
@@ -32,12 +32,13 @@ const fn sector_address(sector: usize) -> u64 {
 
 /// Sector 0: the vector table, alone.
 const VECTOR: Range<u64> = sector_address(0)..sector_address(1);
-/// Sector 1, where the separately installed application bundle goes. Nothing is loaded here.
-const APPLICATION: Range<u64> = sector_address(1)..sector_address(2);
 /// Sectors 2 and 3, the checkpoint slots. Nothing is loaded here.
 const PERSISTENCE: Range<u64> = sector_address(2)..sector_address(4);
-/// Sectors 4 to 11: the firmware, and the initial values of `.data` after its code.
-const CODE: Range<u64> = sector_address(4)..sector_address(12);
+/// Sectors 4 to 9: the firmware, and the initial values of `.data` after its code.
+const CODE: Range<u64> = sector_address(4)..sector_address(10);
+/// Sectors 10 and 11, where the separately installed application bundle goes. Nothing is loaded
+/// here; sector 1 is unused (specification 34 D.4).
+const APPLICATION: Range<u64> = sector_address(10)..sector_address(12);
 
 /// SRAM1 and SRAM2 are one block of 128 KiB. The CCM at 0x1000_0000 is not part of it.
 const SRAM: Range<u64> = 0x2000_0000..0x2002_0000;
@@ -415,14 +416,15 @@ mod tests {
             assert_eq!(sector_address(sector), start, "sector {sector}");
         }
         assert_eq!(VECTOR, 0x0800_0000..0x0800_4000);
-        assert_eq!(APPLICATION, 0x0800_4000..0x0800_8000);
         assert_eq!(PERSISTENCE, 0x0800_8000..0x0801_0000);
-        assert_eq!(CODE, 0x0801_0000..0x0810_0000);
+        assert_eq!(CODE, 0x0801_0000..0x080C_0000);
+        assert_eq!(APPLICATION, 0x080C_0000..0x0810_0000);
         let board = board();
         assert_eq!(CODE.end - CODE.start, board.image_capacity_bytes);
         assert_eq!(APPLICATION.end - APPLICATION.start, board.application_bytes);
         assert_eq!(PERSISTENCE.end - PERSISTENCE.start, 32 * 1024);
-        assert_eq!(CODE.end - FLASH_START, board.flash_kib * 1024);
+        // The application occupies the flash after the firmware, to the end of the chip.
+        assert_eq!(APPLICATION.end - FLASH_START, board.flash_kib * 1024);
         assert_eq!(SRAM.end - SRAM.start, 128 * 1024);
         assert_eq!(SRAM.end - STACK_END, board.stack_window_bytes);
         assert_eq!(INITIAL_SP, 0x2002_0000);
@@ -492,11 +494,11 @@ mod tests {
         assert_eq!(report["other_static_ram_bytes"], 2048);
         assert_eq!(report["heap_reserved_bytes"], 72 * 1024);
         assert_eq!(report["stack_reserved_bytes"], 16 * 1024);
-        assert_eq!(report["application_sector_bytes"], 16 * 1024);
+        assert_eq!(report["application_sector_bytes"], 256 * 1024);
         assert_eq!(report["persistence_reserved_bytes"], 32 * 1024);
-        assert_eq!(report["firmware_code_capacity_bytes"], 960 * 1024);
+        assert_eq!(report["firmware_code_capacity_bytes"], 704 * 1024);
         assert_eq!(report["firmware_code_span_bytes"], 0x5_0400);
-        assert_eq!(report["firmware_code_free_bytes"], 960 * 1024 - 0x5_0400);
+        assert_eq!(report["firmware_code_free_bytes"], 704 * 1024 - 0x5_0400);
         assert_eq!(report["firmware_code_growth_target_bytes"], 16 * 1024);
         assert_eq!(report["firmware_code_growth_target_met"], true);
         assert_eq!(report["sector0_span_bytes"], 0x188);
@@ -629,8 +631,8 @@ mod tests {
 
     #[test]
     fn flash_loads_stay_in_sector_0_and_the_firmware_sectors_without_overlap() {
-        // The application sector, a checkpoint slot, a load that spans a sector boundary into
-        // them, one past the end of flash, and sector 0 grown past its 16 KiB.
+        // An unused sector, a checkpoint slot, a load that spans a sector boundary into them,
+        // one past the end of flash, and sector 0 grown past its 16 KiB.
         for (address, bytes) in [
             (0x0800_4000, 16),
             (0x0800_8000, 16),
@@ -666,7 +668,7 @@ mod tests {
 
     #[test]
     fn sections_outside_the_firmware_regions_and_the_static_ram_are_refused() {
-        // The CCM is unassigned, the application sector and a checkpoint slot are never loaded.
+        // The CCM is unassigned; an unused sector and a checkpoint slot are never loaded.
         for (name, address) in [
             (".ccmram", 0x1000_0000),
             (".stray", 0x0800_4000),

@@ -3,13 +3,18 @@
 //! A chip keeps its installed program and its deployment record in one container in the
 //! `application` region. This module checks that container before exposing either payload, so a
 //! damaged or half-written container reads as no installed program (DEPLOY-03) and never as a
-//! program. The bench packs a container with `cargo xtask portability pack-project`, which calls
-//! [`encode`]; the checks in [`decode`] are the only path to the payloads.
+//! program. [`admit`] then decodes the container's record and admits the deployment against the
+//! device's descriptor before any state exists (specification 34 §5.1.1, DEPLOY-04). The bench
+//! packs a container with `cargo xtask portability pack-project`, which calls [`encode`]; the
+//! checks in [`decode`] are the only path to the payloads.
 
 use alloc::vec::Vec;
 use core::fmt;
 
 use trust_runtime_core::crc32;
+use trust_runtime_core::deployment::{DeploymentRecord, DeploymentRecordError, DeviceDescriptor};
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::vm::PreparationLimits;
 
 /// The magic that starts a container.
 pub const MAGIC: [u8; 8] = *b"TRSTA001";
@@ -233,6 +238,73 @@ pub fn decode(region: &[u8]) -> Result<Installed<'_>, InstallationError> {
     Ok(Installed {
         program: program.ok_or(InstallationError::EntryKind(PROGRAM_KIND))?,
         record: record.ok_or(InstallationError::EntryKind(RECORD_KIND))?,
+    })
+}
+
+/// An installed application a chip admitted from its `application` region: the program, its
+/// decoded record and the preparation limits the device granted (specification 34 §5.1, §5.1.1).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Admitted<'a> {
+    /// The bytes of `program.stbc`.
+    pub program: &'a [u8],
+    /// The deployment record the container holds.
+    pub record: DeploymentRecord,
+    /// The preparation limits admission granted; prepare the program with exactly these.
+    pub limits: PreparationLimits,
+}
+
+/// Why a chip admits no installed application (specification 34 §5.1, §5.1.1, DEPLOY-04). Each
+/// variant keeps the error of the step that refused, so its reason and numbers are not lost.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdmissionError {
+    /// The region holds no whole container: [`InstallationError::NoProgram`], an erased region in
+    /// particular, and the other container errors (specification 34 §5.1).
+    Container(InstallationError),
+    /// The container's record is not one this runtime reads; the same refusal the core reports as
+    /// `RuntimeError::DeploymentRecordInvalid` (specification 34 §5.1.1).
+    Record(DeploymentRecordError),
+    /// Admission refused the deployment: `RuntimeError::DeploymentRefused` with its numbers, or
+    /// `RuntimeError::ImportUnsupported` (specification 34 §5.1.1, DEPLOY-04).
+    Deployment(RuntimeError),
+}
+
+impl fmt::Display for AdmissionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Container(error) => write!(formatter, "no installed application: {error}"),
+            Self::Record(error) => write!(formatter, "invalid deployment record: {error}"),
+            Self::Deployment(error) => fmt::Display::fmt(error, formatter),
+        }
+    }
+}
+
+impl core::error::Error for AdmissionError {}
+
+/// Admit the installed-application container in a chip's `application` region before any state
+/// exists: [`decode`] the container, decode its deployment record and run the core's admission
+/// with the device's descriptor, in that order (specification 34 §5.1, §5.1.1, DEPLOY-04).
+///
+/// Nothing is constructed on any path: the checks run on the container's bytes alone, and an
+/// admitted container returns the program, its decoded record and the limits to prepare it with.
+///
+/// # Errors
+///
+/// [`AdmissionError::Container`] when the region holds no whole container,
+/// [`AdmissionError::Record`] when its record is not one this runtime reads, and
+/// [`AdmissionError::Deployment`] when admission refuses the deployment; each keeps the error and
+/// the numbers of the step that refused.
+pub fn admit<'a>(
+    region: &'a [u8],
+    device: &DeviceDescriptor,
+) -> Result<Admitted<'a>, AdmissionError> {
+    let installed = decode(region).map_err(AdmissionError::Container)?;
+    let record = DeploymentRecord::decode(installed.record).map_err(AdmissionError::Record)?;
+    let limits = trust_runtime_core::deployment::admit(&record, installed.program, device)
+        .map_err(AdmissionError::Deployment)?;
+    Ok(Admitted {
+        program: installed.program,
+        record,
+        limits,
     })
 }
 

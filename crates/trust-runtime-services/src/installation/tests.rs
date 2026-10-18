@@ -7,9 +7,17 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::crc32;
+use trust_runtime_core::deployment::{
+    AdmissionRefusal, ApplicationIdentity, Capabilities, Configuration, Contracts,
+    DeploymentRecord, DeploymentRecordError, DeviceDescriptor, NumericContract,
+    ProcessImageSummary, RequestedLimits, SchedulingProfile, TimingEvidence,
+};
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::vm::PreparationLimits;
 
-use super::{decode, encode, InstallationError};
+use super::{admit, decode, encode, AdmissionError, InstallationError};
 
 /// The program `[1, 2, 3]` and the record `[0xaa, 0xbb]` in a version-1 container, byte for byte.
 ///
@@ -152,4 +160,130 @@ fn a_write_stopped_at_any_byte_is_no_installed_program() {
             assert_eq!(installed.record, &[0xaa, 0xbb]);
         }
     }
+}
+
+/// The installed program's bytes: twelve of them. Admission checks only the program's length and
+/// SHA-256, so any bytes serve.
+const PROGRAM: &[u8] = b"TRSTB002-prg";
+
+/// The chip's descriptor: a computer's maxima with an application slot of `slot_bytes`
+/// (specification 34 §5.1.1, COMPAT-02).
+fn chip(slot_bytes: u64) -> DeviceDescriptor {
+    DeviceDescriptor {
+        application_slot_bytes: Some(slot_bytes),
+        ..DeviceDescriptor::hosted()
+    }
+}
+
+/// A version-1 record that describes `program`, requests the default limits and needs nothing
+/// else; `DeploymentRecord::encode` turns it into the record's bytes (specification 34 §5.1.1).
+fn record_of(program: &[u8]) -> DeploymentRecord {
+    DeploymentRecord {
+        application: ApplicationIdentity {
+            program_sha256: trust_runtime_core::deployment::sha256(program),
+            program_bytes: u32::try_from(program.len()).expect("a short program"),
+            bytecode_version: BytecodeVersion::SOURCE_FREE,
+            bytecode_flags: 0,
+            configuration_sha256: [0; 32],
+            retain_schema_sha256: [0; 32],
+        },
+        contracts: Contracts {
+            scheduling_profile: SchedulingProfile::COOPERATIVE_RESOURCE_V1,
+            numeric_contract: NumericContract::V1,
+            timing_evidence: TimingEvidence::UNQUALIFIED,
+            capabilities: Capabilities::NONE,
+        },
+        limits: RequestedLimits::from_preparation(&PreparationLimits::default()),
+        process_image: ProcessImageSummary::default(),
+        tasks: Vec::new(),
+        imports: Vec::new(),
+        configuration: Configuration::default(),
+    }
+}
+
+#[test]
+fn an_installed_container_is_admitted_for_the_chip() {
+    // Specification 34 §5.1: a chip reads its installed program and record from the one container
+    // in its `application` region; §5.1.1 admits it before any state exists. Catches a chip that
+    // returns the wrong payload, drops the decoded record or grants other limits.
+    let record = record_of(PROGRAM);
+    let record_bytes = record.encode().expect("the record encodes");
+    let container = encode(PROGRAM, &record_bytes).expect("the container encodes");
+    let admitted = admit(&container, &chip(6112 * 1024)).expect("the chip admits it");
+    assert_eq!(admitted.program, PROGRAM);
+    assert_eq!(admitted.record, record);
+    assert_eq!(admitted.limits, PreparationLimits::default());
+}
+
+#[test]
+fn a_container_of_another_program_is_refused_before_any_state() {
+    // Specification 34 §5.1.1, admission step 1: the program must have the length and the SHA-256
+    // of the record, refused with `ProgramMismatch` before anything is constructed. Catches a
+    // length-only check (the same-length program) and admitting whatever the container holds.
+    let record = record_of(PROGRAM);
+    let record_bytes = record.encode().expect("the record encodes");
+    let mut same_length = PROGRAM.to_vec();
+    same_length[0] = b'S';
+    let mut longer = PROGRAM.to_vec();
+    longer.push(b'!');
+    for other in [same_length, longer] {
+        let container = encode(&other, &record_bytes).expect("the container encodes");
+        assert_eq!(
+            admit(&container, &chip(6112 * 1024)),
+            Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
+                AdmissionRefusal::ProgramMismatch
+            )))
+        );
+    }
+}
+
+#[test]
+fn a_program_too_large_for_the_slot_is_refused_with_its_numbers() {
+    // Specification 34 §5.1.1, admission step 8: the program and its record must fit the
+    // application slot, refused with the bytes needed and the bytes available. Catches a slot
+    // check that is off by one or that drops the numbers.
+    let record = record_of(PROGRAM);
+    let record_bytes = record.encode().expect("the record encodes");
+    // The record is 338 bytes: header 12, seven section headers 56, the seven sections
+    // 108 + 8 + 88 + 16 + 4 + 4 + 38, and the CRC 4 (specification 34 §5.1.1).
+    assert_eq!(record_bytes.len(), 338);
+    // The program is 12 bytes, so the pair needs 350 bytes of the slot; one byte less refuses.
+    let needed = u64::try_from(PROGRAM.len() + record_bytes.len()).expect("a small pair");
+    assert_eq!(needed, 350);
+    let container = encode(PROGRAM, &record_bytes).expect("the container encodes");
+    assert_eq!(
+        admit(&container, &chip(needed - 1)),
+        Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
+            AdmissionRefusal::ApplicationSlot {
+                needed,
+                available: needed - 1,
+            }
+        )))
+    );
+    // The exact size is admitted, with the program the container holds.
+    let admitted = admit(&container, &chip(needed)).expect("the exact fit is admitted");
+    assert_eq!(admitted.program, PROGRAM);
+}
+
+#[test]
+fn an_erased_region_holds_no_program() {
+    // Specification 34 §5.1: a region whose first eight bytes are not the magic, an erased region
+    // of `0xFF` in particular, holds no installed program; admission reports the container's
+    // `NoProgram` rather than a program.
+    assert_eq!(
+        admit(&[0xff; 64], &chip(6112 * 1024)),
+        Err(AdmissionError::Container(InstallationError::NoProgram))
+    );
+}
+
+#[test]
+fn a_container_whose_record_is_unreadable_is_refused_by_the_record_step() {
+    // Specification 34 §5.1: the container's two payloads are checked before either is exposed;
+    // a program with a record that is not a record is refused by the record's reader before
+    // admission, as `RuntimeError::DeploymentRecordInvalid` on a running runtime.
+    let container = encode(PROGRAM, b"not a record").expect("the container encodes");
+    assert_eq!(
+        admit(&container, &chip(6112 * 1024)),
+        Err(AdmissionError::Record(DeploymentRecordError::Magic))
+    );
 }

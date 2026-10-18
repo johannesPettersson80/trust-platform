@@ -82,8 +82,8 @@ fn the_stm32f407_file_describes_the_chip_of_appendix_d4() {
         layout(&chip),
         [
             ("vectors", 0x0800_0000, 16),
-            ("firmware", 0x0801_0000, 960),
-            ("application", 0x0800_4000, 16),
+            ("firmware", 0x0801_0000, 704),
+            ("application", 0x080C_0000, 256),
             ("checkpoint_a", 0x0800_8000, 16),
             ("checkpoint_b", 0x0800_C000, 16),
         ]
@@ -117,9 +117,9 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
             ("bootloader", 0x0, 32),
             ("partition_table", 0x8000, 4),
             ("firmware", 0x1_0000, 1984),
-            ("application", 0x20_0000, 16),
-            ("checkpoint_a", 0x20_4000, 16),
-            ("checkpoint_b", 0x20_8000, 16),
+            ("application", 0x20_0000, 6112),
+            ("checkpoint_a", 0x7F_8000, 16),
+            ("checkpoint_b", 0x7F_C000, 16),
         ]
     );
     assert_eq!(chip.interfaces.ethernet, Vec::<String>::new());

@@ -190,10 +190,11 @@ mod tests {
         assert_eq!(disc1.stack_window_bytes, 16 * 1024);
         assert_eq!(disc1.stack_peak_bound(), 14_336);
         assert_eq!(disc1.boot_banner_lines, 0);
-        // Sectors 4 to 11 (64 KiB and seven of 128 KiB) from 0x0801_0000 to the end of flash.
-        assert_eq!(disc1.image_capacity_bytes, 0x0810_0000 - 0x0801_0000);
-        assert_eq!(disc1.image_capacity_bytes, 960 * 1024);
-        assert_eq!(disc1.application_bytes, 16 * 1024);
+        // Sectors 4 to 9 (64 KiB and five of 128 KiB) from 0x0801_0000 to 0x080C_0000.
+        assert_eq!(disc1.image_capacity_bytes, 0x080C_0000 - 0x0801_0000);
+        assert_eq!(disc1.image_capacity_bytes, 704 * 1024);
+        // Sectors 10 and 11 (two of 128 KiB) from 0x080C_0000 to the end of flash.
+        assert_eq!(disc1.application_bytes, 256 * 1024);
         assert!(disc1.button_pressed_high);
     }
 
@@ -260,7 +261,7 @@ mod tests {
         assert_eq!(c6.stack_peak_bound(), 14_336);
         assert_eq!(c6.boot_banner_lines, 64);
         assert_eq!(c6.image_capacity_bytes, 0x1F0000);
-        assert_eq!(c6.application_bytes, 16 * 1024);
+        assert_eq!(c6.application_bytes, 6112 * 1024);
     }
 
     #[test]

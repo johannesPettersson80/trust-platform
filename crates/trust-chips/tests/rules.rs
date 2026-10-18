@@ -478,7 +478,7 @@ fn a_layout_region_lies_inside_the_flash_on_erase_unit_boundaries() {
         Err(Problem::RegionNotAligned { region: "firmware" })
     );
     assert_eq!(
-        f407(|file| set(file, "layout.firmware", "kib", 832_i64)).err(),
+        f407(|file| set(file, "layout.firmware", "kib", 704_i64)).err(),
         None
     );
     // SPI flash is erased in 4 KiB units from offset 0.
@@ -506,11 +506,10 @@ fn layout_regions_do_not_overlap_and_the_chip_starts_from_the_first() {
             second: "application"
         })
     );
-    let swapped = f407(|file| {
-        set(file, "layout.vectors", "start", 0x0800_4000_i64);
-        set(file, "layout.application", "start", 0x0800_0000_i64);
-    });
-    assert_eq!(swapped, Err(Problem::BootRegion { region: "vectors" }));
+    // The vectors must start at the first byte of flash; sector 1, now unused, is a bound address
+    // where they are refused.
+    let moved = f407(|file| set(file, "layout.vectors", "start", 0x0800_4000_i64));
+    assert_eq!(moved, Err(Problem::BootRegion { region: "vectors" }));
     let late = c6(|file| {
         set(file, "layout.bootloader", "start", 0x1000_i64);
         set(file, "layout.bootloader", "kib", 28_i64);

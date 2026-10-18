@@ -2941,7 +2941,7 @@
       },
       {
         "path": "firmware/trust-esp32c6-reference/src/application.rs",
-        "line": 20,
+        "line": 25,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "An AtomicBool once-flag admits a single caller per boot, so this is the only reference to the static 16 KiB bundle buffer ever created.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2965,9 +2965,9 @@
       },
       {
         "path": "firmware/trust-stm32f407/src/application.rs",
-        "line": 11,
+        "line": 14,
         "owner": "runtime portability STM32F407 (T3)",
-        "invariant": "The exact 16 KiB flash sector-1 slice is linker-excluded from firmware and never mutated during RUN; bundle ranges and CRCs are validated by the shared decode before any payload is exposed.",
+        "invariant": "The exact 16 KiB flash-sectors-10-and-11 slice is linker-excluded from firmware and never mutated during RUN; bundle ranges and CRCs are validated by the shared decode before any payload is exposed.",
         "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
         "review_date": "2026-10-17"
       },
