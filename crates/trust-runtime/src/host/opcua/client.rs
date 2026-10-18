@@ -258,6 +258,89 @@ pub fn discover_opcua_client_endpoints(
     Err(opcua_wire_feature_error())
 }
 
+/// One server that a discovery server listed in its `FindServers` answer (specification 11,
+/// "Sources"): what it calls itself and the discovery URLs through which it can be asked for its
+/// endpoints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OpcUaFoundServer {
+    /// The server's application name, when it announces one.
+    pub(crate) application_name: Option<String>,
+    /// The discovery URLs it announces, in order.
+    pub(crate) discovery_urls: Vec<String>,
+}
+
+/// Asks the discovery server at `discovery_url` for the servers it lists, through `FindServers`.
+#[cfg(feature = "opcua-wire")]
+pub(crate) fn discover_opcua_discovery_servers(
+    discovery_url: &str,
+    timeout: std::time::Duration,
+) -> Result<Vec<OpcUaFoundServer>, RuntimeError> {
+    // The FindServers call runs on its own thread, so a discovery server that never answers cannot
+    // hold a search past its deadline; on timeout the thread is left to finish or die on its own.
+    let url = discovery_url.to_string();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let handle = std::thread::Builder::new()
+        .name("opcua-find-servers".to_string())
+        .spawn(move || {
+            let _ = sender.send(find_servers_blocking(url.as_str()));
+        })
+        .map_err(|err| {
+            RuntimeError::ControlError(format!("start OPC UA FindServers: {err}").into())
+        })?;
+    match receiver.recv_timeout(timeout) {
+        Ok(result) => {
+            let _ = handle.join();
+            result
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Err(RuntimeError::ControlError(
+            format!(
+                "OPC UA FindServers at {discovery_url} did not answer within {} ms",
+                timeout.as_millis()
+            )
+            .into(),
+        )),
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Err(RuntimeError::ControlError(
+            "OPC UA FindServers ended without an answer".into(),
+        )),
+    }
+}
+
+#[cfg(feature = "opcua-wire")]
+fn find_servers_blocking(discovery_url: &str) -> Result<Vec<OpcUaFoundServer>, RuntimeError> {
+    let mut client = build_opcua_client(
+        "truST OPC UA discovery",
+        "urn:trust:runtime:opcua:discover",
+        false,
+    )?;
+    let servers = client
+        .find_servers(discovery_url)
+        .map_err(opcua_status_error)?;
+    Ok(servers.into_iter().map(found_server_from_wire).collect())
+}
+
+/// One server of a `FindServers` answer, as truST keeps it.
+#[cfg(feature = "opcua-wire")]
+fn found_server_from_wire(server: ::opcua::types::ApplicationDescription) -> OpcUaFoundServer {
+    OpcUaFoundServer {
+        application_name: localized_text(server.application_name),
+        discovery_urls: server
+            .discovery_urls
+            .unwrap_or_default()
+            .into_iter()
+            .map(|url| url.as_ref().trim().to_string())
+            .filter(|url| !url.is_empty())
+            .collect(),
+    }
+}
+
+#[cfg(not(feature = "opcua-wire"))]
+pub(crate) fn discover_opcua_discovery_servers(
+    _discovery_url: &str,
+    _timeout: std::time::Duration,
+) -> Result<Vec<OpcUaFoundServer>, RuntimeError> {
+    Err(opcua_wire_feature_error())
+}
+
 #[cfg(feature = "opcua-wire")]
 pub fn test_opcua_client_endpoint(
     endpoint_url: &str,

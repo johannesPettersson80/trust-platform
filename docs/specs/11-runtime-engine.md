@@ -1400,6 +1400,21 @@ address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
 the search runs on the tool's computer. `comm.discover` keeps its rule of the
 first such interface.
 
+MQTT brokers and OPC UA servers are also found through what they announce. A
+search browses `_mqtt._tcp.local.` and `_opcua-tcp._tcp.local.` until it ends,
+and reports an announced service only when the protocol's own probe answers it:
+an MQTT broker at its announced address and port, and an OPC UA server asked
+with GetEndpoints at `opc.tcp://<address>:<port><path>`, where `<path>` is the
+service's `path` TXT entry and `/` when it names none. Such a find's `source` is
+`mdns`; a service that does not answer is a warning that names it, not a device.
+
+An OPC UA search also asks a local discovery server for `FindServers`: this
+computer's own at `opc.tcp://localhost:4840`, and that of each known address at
+port 4840 unless the address names one, and then asks every discovery URL of
+every server that answers with GetEndpoints. Such a find's `source` is `lds`. A
+discovery server that does not answer is passed over in silence for this
+computer's own and is a warning for a known address.
+
 **GPIO.** The GPIO source lists the lines of every GPIO chip of the runtime's
 computer through the Linux GPIO character devices (`/dev/gpiochip*`). Each line
 is reported by its chip, the chip's label, its offset within that chip, its

@@ -1,4 +1,6 @@
-//! Local discovery (mDNS) for runtimes.
+//! Local discovery (mDNS): the runtime's own announcement and browse of
+//! `_trust._plc._tcp.local.`, and the browse loop that a search's listening sources share for the
+//! service type they look for.
 
 #![allow(missing_docs)]
 
@@ -185,14 +187,25 @@ pub(crate) fn browse_runtimes(
     stop: &dyn Fn() -> bool,
     found: &mut dyn FnMut(DiscoveryEntry),
 ) -> Result<(), String> {
+    browse_services(SERVICE_TYPE, stop, &mut |service| {
+        found(resolved_to_entry(service));
+    })
+}
+
+/// Browses one announced service type until `stop` answers true, and hands every service that
+/// resolves to `found` as it arrives. A listening source of the one search browses its own
+/// announced service type this way until the search ends (specification 11, "Sources").
+pub(crate) fn browse_services(
+    service_type: &str,
+    stop: &dyn Fn() -> bool,
+    found: &mut dyn FnMut(&ResolvedService),
+) -> Result<(), String> {
     let daemon = ServiceDaemon::new().map_err(|err| format!("mDNS could not start: {err}"))?;
-    let browsed = match daemon.browse(SERVICE_TYPE) {
+    let browsed = match daemon.browse(service_type) {
         Ok(receiver) => {
             while !stop() {
                 match receiver.recv_timeout(BROWSE_STEP) {
-                    Ok(ServiceEvent::ServiceResolved(info)) => {
-                        found(resolved_to_entry(info.as_ref()));
-                    }
+                    Ok(ServiceEvent::ServiceResolved(info)) => found(info.as_ref()),
                     Ok(_) => {}
                     Err(_) if receiver.is_disconnected() => break,
                     Err(_) => {}
