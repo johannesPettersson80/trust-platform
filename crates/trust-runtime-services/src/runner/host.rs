@@ -16,6 +16,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
 use super::cycle::ResourceCycle;
+use super::debugger::ChipDebug;
 use super::engine::EngineLiveValues;
 use super::program::Program;
 use super::state::{Records, ResourceCell};
@@ -57,11 +58,15 @@ pub trait RunnerPlatform:
 {
     /// The Live Values the runner applies at its cycle phases and the platform answers the
     /// `io.*`, `set` and `var.*` requests from (specification 11, "Live Values"; specification 34
-    /// §4.3.1). The platform owns it and the runner borrows it for a scan.
+    /// §4.3.1). The platform owns it, and the runner takes a handle on the same state when it
+    /// starts ([`EngineLiveValues`] is a handle), so a platform returns the same one for the rest
+    /// of the boot.
     fn live_values(&self) -> &EngineLiveValues;
 
     /// Work between scans, for example servicing a communication driver; the loop runs it once
-    /// per pass, and it must not wait. The default does nothing.
+    /// per pass, and so does the pass of a debugger hold on a scan, which keeps communication
+    /// drivers running as trust-runtime's threads keep running (specification 34, STATE-07). It
+    /// must not wait. The default does nothing.
     fn idle(&mut self) {}
 
     /// The control mode the platform's deployment record carries (specification 34 §5.1.1,
@@ -93,15 +98,40 @@ pub trait RunnerPlatform:
     }
 }
 
-/// The ports the dispatcher reads and acts through while the loop serves a request.
-pub(super) struct RunnerHost<'a, P, Y, C> {
-    pub(super) platform: &'a P,
-    pub(super) program: &'a Program<Y>,
-    pub(super) resource: &'a ResourceCell,
-    pub(super) records: &'a Records<C>,
+/// What the dispatcher reads of the installed program while the loop serves a request: whether
+/// there is one, and the health of its I/O drivers.
+///
+/// Between scans that is the program itself. While a debugger holds a scan the program is inside
+/// its scan and cannot be asked, so the view is the health its cycle published before the program
+/// ran (specification 34, STATE-07).
+pub(super) trait ProgramView {
+    /// Why no program is installed, when none is.
+    fn missing_program(&self) -> Option<&str>;
+
+    /// The health of the program's I/O drivers, in `io.toml` order.
+    fn driver_health(&self) -> Vec<IoDriverStatus>;
 }
 
-impl<P: RunnerPlatform, Y, C> AccessPort for RunnerHost<'_, P, Y, C> {
+impl<Y: ResourceCycle> ProgramView for Program<Y> {
+    fn missing_program(&self) -> Option<&str> {
+        self.missing()
+    }
+
+    fn driver_health(&self) -> Vec<IoDriverStatus> {
+        self.io_drivers()
+    }
+}
+
+/// The ports the dispatcher reads and acts through while the loop serves a request.
+pub(super) struct RunnerHost<'a, P, C> {
+    pub(super) platform: &'a P,
+    pub(super) program: &'a dyn ProgramView,
+    pub(super) resource: &'a ResourceCell,
+    pub(super) records: &'a Records<C>,
+    pub(super) debug: &'a ChipDebug,
+}
+
+impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
     fn request_role(
         &self,
         request: &ControlRequest,
@@ -115,19 +145,19 @@ impl<P: RunnerPlatform, Y, C> AccessPort for RunnerHost<'_, P, Y, C> {
     }
 }
 
-impl<P: RunnerPlatform, Y, C> AuditSink for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> AuditSink for RunnerHost<'_, P, C> {
     fn record_audit(&self, record: AuditRecord<'_>) -> Option<SmolStr> {
         self.platform.record_audit(record)
     }
 }
 
-impl<P, Y, C: MonotonicClock> EventSink for RunnerHost<'_, P, Y, C> {
+impl<P, C: MonotonicClock> EventSink for RunnerHost<'_, P, C> {
     fn record_event(&self, event: RuntimeEvent) {
         self.records.push_event(event);
     }
 }
 
-impl<P: RunnerPlatform, Y, C> WallClock for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> WallClock for RunnerHost<'_, P, C> {
     fn utc_ms(&self) -> Option<u64> {
         self.platform.utc_ms()
     }
@@ -135,10 +165,10 @@ impl<P: RunnerPlatform, Y, C> WallClock for RunnerHost<'_, P, Y, C> {
 
 /// The resource loop's own resource. The control mode comes from the platform's deployment
 /// record, so `pause` and `resume` take trust-runtime's path for that mode (specification 11
-/// §6.9): the scheduler between cycles in production, the debugger in debug. The debugger hold of
-/// specification 13 is not part of the loop yet, so a debugger request reaches the loop's empty
-/// debugger operations.
-impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
+/// §6.9): the scheduler between cycles in production, the debugger in debug. The debugger holds
+/// the scan at a statement start (specification 13, "Pause"), and `resume` releases the hold in
+/// either mode.
+impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
     fn resource_state(&self) -> ResourceState {
         self.resource.state()
     }
@@ -147,7 +177,8 @@ impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
         self.resource.last_error()
     }
 
-    /// The loop itself runs the scan, so a request is never served while a scan has not returned.
+    /// The loop itself runs the scan, so a request is served only between scans, or while a
+    /// debugger holds a scan, which waits by design and is no hang (specification 11 §6.9).
     fn is_hung(&self) -> bool {
         false
     }
@@ -164,9 +195,13 @@ impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
         matches!(self.platform.control_mode(), ControlMode::Debug)
     }
 
-    fn debugger_pause(&self) {}
+    fn debugger_pause(&self) {
+        self.debug.pause();
+    }
 
-    fn debugger_continue(&self) {}
+    fn debugger_continue(&self) {
+        self.debug.resume();
+    }
 
     fn update_pending_restart(&self, update: impl FnOnce(&mut Option<RestartMode>)) {
         self.resource.update_pending_restart(update);
@@ -178,11 +213,11 @@ impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
     }
 
     fn missing_program(&self) -> Option<&str> {
-        self.program.missing()
+        self.program.missing_program()
     }
 }
 
-impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
     fn resource_name(&self) -> &str {
         self.platform.resource_name()
     }
@@ -210,7 +245,7 @@ impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y,
 
     /// The installed program's I/O drivers, then those the platform runs itself.
     fn io_drivers(&self) -> Option<Vec<IoDriverStatus>> {
-        let mut drivers = self.program.io_drivers();
+        let mut drivers = self.program.driver_health();
         drivers.extend(self.platform.io_drivers()?);
         Some(drivers)
     }
@@ -238,9 +273,11 @@ impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y,
     }
 }
 
-impl<P: RunnerPlatform, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> {
+    /// The reason a debugger holds the scan, as trust-runtime's `status` reports it (specification
+    /// 11 §6.9).
     fn debug_hold(&self) -> Option<&'static str> {
-        None
+        self.debug.hold_label()
     }
 
     fn control_mode_label(&self) -> Option<String> {
@@ -275,7 +312,7 @@ impl<P: RunnerPlatform, Y, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, 
     }
 }
 
-impl<P: RunnerPlatform, Y, C> ExtensionDispatch for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> ExtensionDispatch for RunnerHost<'_, P, C> {
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
         self.platform.dispatch_extension(request)
     }
@@ -287,7 +324,7 @@ impl<P: RunnerPlatform, Y, C> ExtensionDispatch for RunnerHost<'_, P, Y, C> {
 
 /// The platform owns the Live Values queues and the published snapshot, as `ControlState` does
 /// for trust-runtime; the loop only passes them through.
-impl<P: RunnerPlatform, Y, C> IoQueuePort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> IoQueuePort for RunnerHost<'_, P, C> {
     fn io_snapshot(&self) -> IoSnapshotRead {
         self.platform.io_snapshot()
     }
@@ -305,7 +342,7 @@ impl<P: RunnerPlatform, Y, C> IoQueuePort for RunnerHost<'_, P, Y, C> {
     }
 }
 
-impl<P: RunnerPlatform, Y, C> VariableQueuePort for RunnerHost<'_, P, Y, C> {
+impl<P: RunnerPlatform, C> VariableQueuePort for RunnerHost<'_, P, C> {
     fn generation(&self) -> Generation {
         self.platform.generation()
     }

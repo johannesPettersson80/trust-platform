@@ -181,7 +181,7 @@ fn main() -> ! {
             .collect(),
     };
     let cycle = match EngineCycle::start(prepared, services, gpio, settings) {
-        Ok(cycle) => cycle,
+        Ok(cycle) => cycle.with_debugger(),
         Err(error) => serve_stopped(
             parts,
             format!("the installed application cannot be started: {error}"),

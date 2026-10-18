@@ -302,7 +302,9 @@ fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
 /// Starts the installed program on the engine (specification 34 §10 and STATE-08). A platform with a
 /// checkpoint store saves the retained values into it: the program starts cold, and a warm start then
 /// restores the newest committed checkpoint, as a power-on or a reset does. Without a store the
-/// program starts cold, with its retained values at their declared initial values.
+/// program starts cold, with its retained values at their declared initial values. The debugger may
+/// hold the program's scans at its statement starts (specification 13, "Safe Points"; specification
+/// 34, STATE-07): the prepared module and the services are `'static`, as the debugger needs.
 ///
 /// # Errors
 ///
@@ -330,7 +332,8 @@ fn start_cycle(
 > {
     let Some(store) = platform.take_checkpoint_store() else {
         let cycle = EngineCycle::start(prepared, services, io, settings)
-            .map_err(|error| format!("the installed application cannot be started: {error}"))?;
+            .map_err(|error| format!("the installed application cannot be started: {error}"))?
+            .with_debugger();
         return Ok((cycle, Vec::new()));
     };
     // The largest payload one slot takes: a retained image is saved whole or not at all.
@@ -344,10 +347,11 @@ fn start_cycle(
         save_interval,
         image_bytes,
     };
-    let mut cycle =
-        EngineCycle::with_retain(prepared, services, io, settings, retain).map_err(|error| {
+    let mut cycle = EngineCycle::with_retain(prepared, services, io, settings, retain)
+        .map_err(|error| {
             format!("the installed application's checkpoint cannot be opened: {error}")
-        })?;
+        })?
+        .with_debugger();
     let events = cycle
         .restart(RestartMode::Warm, RetainSource::Checkpoint)
         .map_err(|error| {

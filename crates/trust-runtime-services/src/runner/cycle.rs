@@ -13,6 +13,7 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
+use super::hold::HoldHandle;
 use crate::status::IoDriverStatus;
 
 /// Where a warm restart finds the retained values.
@@ -162,4 +163,12 @@ pub trait ResourceCycle {
     /// The health of the program's I/O drivers, in `io.toml` order, which `status` and `health`
     /// report before the drivers the platform runs itself.
     fn io_drivers(&self) -> Vec<IoDriverStatus>;
+
+    /// Gives the cycle the loop's pass for a scan that a debugger holds (specification 13, "Safe
+    /// Points"; specification 34, STATE-07). The loop calls it once, when it starts.
+    ///
+    /// A cycle whose execution services stop at statement starts calls the pass from its statement
+    /// hook, at the first instruction of a statement, and lends it the halted state. It may keep the
+    /// handle for the rest of the boot. The default ignores it: a cycle that never holds a scan.
+    fn attach_hold(&mut self, _hold: HoldHandle) {}
 }

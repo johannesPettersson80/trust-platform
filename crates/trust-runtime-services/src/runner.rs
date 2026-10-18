@@ -15,6 +15,13 @@
 //! the resource is Stopped, the loop serves the link and feeds the hardware watchdog, and
 //! `restart` is refused with the reason until a program is installed.
 //!
+//! The debugger can hold a scan inside the engine, at the first instruction of a statement
+//! (specification 13, "Safe Points"). The loop is then not running, so the hold runs a pass of its
+//! own that does what the loop does while it waits: it serves the link, does the platform's idle
+//! work, feeds the hardware watchdog and waits (specification 34, STATE-07 and TIME-04). The link,
+//! wait, platform, resource state and records that both passes use are shared through one shell;
+//! `shell.rs` states how it is borrowed, and `hold.rs` the hold pass.
+//!
 //! Requests take effect where trust-runtime's scan thread takes them. The loop answers each
 //! request at once, unless the program's next boundary is due: then it takes that boundary first,
 //! so a due cycle waits at most for the request already being answered (STATE-08). A `pause`,
@@ -28,24 +35,24 @@
 //! ended takes effect at once and starts it as a new trust-runtime process would.
 
 mod cycle;
+mod debugger;
 pub mod engine;
+mod hold;
 mod host;
 mod observer;
 mod program;
 mod retain;
+mod shell;
 mod state;
 mod supervision;
 
-use alloc::format;
-use alloc::string::{String, ToString};
-use alloc::vec;
+use alloc::rc::Rc;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{
-    ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
-    TimeSpan, WakeReason,
+    ControlLink, MonotonicClock, MonotonicInstant, PortError, RunnerWait, TimeSpan, WakeReason,
 };
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
@@ -53,14 +60,14 @@ use trust_runtime_core::vm::RetainApplyEvent;
 
 pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
+pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
 pub use retain::RetainConfig;
 
-use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
 use crate::protocol::ControlAfterResponse;
 use crate::resource::supervisor::AutomaticRestartLimiter;
-use host::RunnerHost;
 use program::Program;
+use shell::Shell;
 use state::{Records, ResourceCell};
 
 /// Requests the loop answers in one pass before it does the pass's other work (the retained
@@ -85,17 +92,18 @@ pub const REPLY_SERVICE_INTERVAL: TimeSpan = TimeSpan::new(core::time::Duration:
 /// ([`crate::resource::supervisor::FAULTED_WAIT_POLL`]) while faulted — and then within the pass
 /// that takes it, after at most the request being answered, with the stop's outputs and retain
 /// save. A scan or callback that never returns is not ended by a stop but by the hardware watchdog
-/// (TIME-04), which the loop then no longer feeds.
+/// (TIME-04), which the loop then no longer feeds. A scan that a debugger holds is not such a
+/// scan: its hold feeds the watchdog, and a stop ends the hold.
 pub struct Runner<L, W, Y, P, C> {
-    link: L,
-    wait: W,
+    /// The link, wait, platform, resource state, records and debugger, which the loop shares with
+    /// the pass that serves them while the debugger holds a scan.
+    shell: Rc<Shell<L, W, P, C>>,
     cycle: Program<Y>,
-    platform: P,
     clock: C,
-    resource: ResourceCell,
-    records: Records<C>,
+    /// The Live Values the platform answers the control requests from, which the scan applies. The
+    /// loop holds its own handle so that a scan does not borrow the platform.
+    live: EngineLiveValues,
     tasks: Vec<TaskDescriptor>,
-    frame: Vec<u8>,
     /// Where the program's logical time and uptime start: its start, as a new trust-runtime
     /// process starts its scheduler clock and its metrics.
     program_start: MonotonicInstant,
@@ -103,16 +111,11 @@ pub struct Runner<L, W, Y, P, C> {
     /// next scan is due while running, the next cycle interval while paused, the next poll of
     /// the faulted wait while faulted; none once the program has ended.
     next_boundary: Option<MonotonicInstant>,
-    /// A `shutdown` that waits for the program's next boundary.
-    stop_requested: bool,
     /// Scans since the program last started, as the cycle events count them.
     cycle_count: u64,
     /// The program's current time: the logical time of its last scan, or of its last restart.
     program_time: value::Duration,
     restarts: AutomaticRestartLimiter,
-    /// A request taken from the link and held back because the next boundary was due. The next
-    /// pass answers it once that boundary has been taken.
-    held: Option<LinkFrame>,
     /// Whether one request may be answered although the next boundary is due. The boundary is
     /// due again as soon as it is taken after a scan that overran its interval, and without this
     /// grant such a program would never let the link be answered (specification 34, STATE-08).
@@ -121,15 +124,15 @@ pub struct Runner<L, W, Y, P, C> {
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
 where
-    L: ControlLink,
-    W: RunnerWait,
+    L: ControlLink + 'static,
+    W: RunnerWait + 'static,
     Y: ResourceCycle,
-    P: RunnerPlatform,
-    C: MonotonicClock + Clone,
+    P: RunnerPlatform + 'static,
+    C: MonotonicClock + Clone + 'static,
 {
     /// A loop for the started program of `cycle`: the resource is Running, its logical time
-    /// starts now, its task timing starts again at that time, and its first scan is due at once,
-    /// as trust-runtime's scheduler starts its clock and its first pass.
+    /// starts now, its task timing starts again at that time, and its first scan is due at
+    /// once, as trust-runtime's scheduler starts its clock and its first pass.
     ///
     /// The composition starts the installed program before, as trust-runtime does before it
     /// starts its scheduler: cold, or warm with the retain checkpoint ([`ResourceCycle::restart`]).
@@ -138,6 +141,11 @@ where
     /// memory or on the main stack. Its event store keeps the newest `event_capacity` events
     /// (specification 11, the event store): a device without an operating system passes its
     /// descriptor's default, or the capacity its deployment record requests.
+    ///
+    /// The loop hands the cycle its pass for a scan that a debugger holds
+    /// ([`ResourceCycle::attach_hold`]); the link, wait, platform and clock live as long as the
+    /// pass does, which a firmware keeps for the rest of the boot (`'static`). The loop takes its
+    /// own handle on the platform's Live Values ([`RunnerPlatform::live_values`]).
     #[must_use]
     pub fn new(
         link: L,
@@ -148,27 +156,31 @@ where
         event_capacity: usize,
     ) -> Self {
         let tasks = cycle.tasks();
-        let frame = vec![0; link.max_frame_len()];
         let start = clock.now();
         cycle.reset_task_timing(value::Duration::ZERO);
+        let live = platform.live_values().clone();
         let records = Records::new(clock.clone(), start, event_capacity);
-        Self {
+        let shell = Rc::new(Shell::new(
             link,
             wait,
-            cycle: Program::Installed(cycle),
             platform,
-            clock,
-            resource: ResourceCell::running(),
+            clock.clone(),
+            ResourceCell::running(),
             records,
+        ));
+        let mut cycle = Program::Installed(cycle);
+        cycle.attach_hold(HoldHandle::new(&shell));
+        Self {
+            shell,
+            cycle,
+            clock,
+            live,
             tasks,
-            frame,
             program_start: start,
             next_boundary: Some(start),
-            stop_requested: false,
             cycle_count: 0,
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
-            held: None,
             request_grant: false,
         }
     }
@@ -190,40 +202,57 @@ where
         reason: SmolStr,
         event_capacity: usize,
     ) -> Self {
-        let frame = vec![0; link.max_frame_len()];
         let start = clock.now();
+        let live = platform.live_values().clone();
         let records = Records::new(clock.clone(), start, event_capacity);
-        Self {
+        let shell = Rc::new(Shell::new(
             link,
             wait,
-            cycle: Program::Missing(reason),
             platform,
-            clock,
-            resource: ResourceCell::stopped(),
+            clock.clone(),
+            ResourceCell::stopped(),
             records,
+        ));
+        Self {
+            shell,
+            cycle: Program::Missing(reason),
+            clock,
+            live,
             tasks: Vec::new(),
-            frame,
             program_start: start,
             next_boundary: None,
-            stop_requested: false,
             cycle_count: 0,
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
-            held: None,
             request_grant: false,
         }
     }
+}
 
+impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
+where
+    L: ControlLink,
+    W: RunnerWait,
+    Y: ResourceCycle,
+    P: RunnerPlatform,
+    C: MonotonicClock + Clone,
+{
     /// The resource state, for the composition's own indicators.
     #[must_use]
     pub fn resource_state(&self) -> ResourceState {
-        self.resource.state()
+        self.shell.resource.state()
     }
 
     /// The fault that stopped the resource, if any.
     #[must_use]
     pub fn last_error(&self) -> Option<RuntimeError> {
-        self.resource.last_error()
+        self.shell.resource.last_error()
+    }
+
+    /// The shell the loop shares with a hold, for the tests that drive the debugger.
+    #[cfg(test)]
+    fn shell(&self) -> &Rc<Shell<L, W, P, C>> {
+        &self.shell
     }
 
     /// Records the retained values that the boot's warm start dropped or migrated, at the program's
@@ -257,29 +286,31 @@ where
     ///
     /// The [`PortError`] of a wait that failed.
     pub fn run_pass(&mut self) -> Result<WakeReason, PortError> {
-        let token = self.wait.wake_token();
+        // A wait that failed inside a hold ends the run, as one that fails here does.
+        if let Some(failure) = self.shell.take_port_failure() {
+            return Err(failure);
+        }
+        let token = self.shell.wake_token();
         let more_frames = self.serve_link();
         self.supervise();
         self.step_retain();
-        self.platform.idle();
-        self.platform.feed();
+        self.shell.idle();
+        self.shell.feed();
+        self.fault_on_shell_defect();
         if more_frames {
             return Ok(WakeReason::Event);
         }
-        let liveness = self
-            .clock
-            .now()
-            .saturating_add(self.platform.feed_interval());
+        let liveness = self.clock.now().saturating_add(self.shell.feed_interval());
         let mut deadline = self
             .next_boundary
             .map_or(liveness, |boundary| boundary.min(liveness));
-        if self.link.sending() {
+        if self.shell.link_sending() {
             // The link still holds reply bytes: service it soon again, so the reply reaches its
             // end without waiting for the next request to wake the loop (specification 34,
             // PORT-05). An idle link keeps the loop's own waits.
             deadline = deadline.min(self.clock.now().saturating_add(REPLY_SERVICE_INTERVAL));
         }
-        self.wait.wait_until(deadline, token)
+        self.shell.wait_until(deadline, token)
     }
 
     /// Advances a pending retained checkpoint by one persister step, between scans and while the
@@ -303,67 +334,26 @@ where
     /// through (see `request_grant`).
     fn serve_link(&mut self) -> bool {
         for _ in 0..FRAMES_PER_PASS {
-            let Some(received) = self.next_frame() else {
+            let Some(received) = self.shell.next_frame() else {
                 return false;
             };
             if self.boundary_due() && !core::mem::take(&mut self.request_grant) {
-                self.held = Some(received);
+                self.shell.hold_back(received);
                 return true;
             }
-            let prepared = self.answer(received);
-            // A reply the link cannot deliver is lost, as trust-runtime loses a reply to a
-            // connection that has closed; so is one that does not fit a frame even as the error
-            // that replaces a longer reply.
-            if prepared.response.len() <= self.frame.len() {
-                let _ = self.link.send_frame(prepared.response.as_bytes());
-            }
-            self.after_reply(prepared.after_response);
+            let after_response = self.shell.serve(received, &self.cycle);
+            self.after_reply(after_response);
         }
         true
-    }
-
-    /// The request to answer next: the one held back for a due boundary, which goes first, else the
-    /// next frame the link has received.
-    fn next_frame(&mut self) -> Option<LinkFrame> {
-        self.held
-            .take()
-            .or_else(|| self.link.poll_frame(&mut self.frame))
-    }
-
-    /// The reply to one received frame, at most one frame long. A frame longer than the link
-    /// accepts, or one that is not UTF-8 text, cannot be a request line and gets
-    /// `invalid request` with id 0.
-    fn answer(&self, received: LinkFrame) -> PreparedLine {
-        let max_len = self.frame.len();
-        let LinkFrame::Frame { len, peer } = received else {
-            return too_long(max_len);
-        };
-        let Some(bytes) = self.frame.get(..len) else {
-            return too_long(max_len);
-        };
-        let line = match core::str::from_utf8(bytes) {
-            Ok(line) => line,
-            Err(error) => return invalid_line(&error.to_string()),
-        };
-        let client = client_label(peer);
-        let host = RunnerHost {
-            platform: &self.platform,
-            program: &self.cycle,
-            resource: &self.resource,
-            records: &self.records,
-        };
-        prepare_line_within(line, &host, client.as_deref(), max_len)
     }
 
     /// What a served request leaves for the loop, in the order of the requests: a `shutdown`
     /// waits for the program's next boundary, and a restart of a program that has ended starts
     /// it at once.
     fn after_reply(&mut self, after_response: Option<ControlAfterResponse>) {
-        if after_response == Some(ControlAfterResponse::StopResource) && !self.resource.ended() {
-            self.stop_requested = true;
-        }
-        if self.resource.ended()
-            && let Some(mode) = self.resource.take_pending_restart()
+        self.shell.note_reply(after_response);
+        if self.shell.resource.ended()
+            && let Some(mode) = self.shell.resource.take_pending_restart()
         {
             self.start(mode);
         }
@@ -388,20 +378,6 @@ where
     }
 }
 
-fn too_long(max_len: usize) -> PreparedLine {
-    invalid_line(&format!("request longer than {max_len} bytes"))
-}
-
-/// The transport label the access rules read: none for a local client (USB counts as local,
-/// like trust-runtime's local socket), the socket address for a network client, as trust-runtime
-/// labels a TCP client.
-fn client_label(peer: PeerClass) -> Option<String> {
-    match peer {
-        PeerClass::Local => None,
-        PeerClass::Network(address) => Some(address.to_string()),
-    }
-}
-
 /// A configured span on the monotonic clock. A span that is not positive is none: what waits for
 /// it is due at once, as trust-runtime's scheduler then does not sleep.
 fn span(configured: value::Duration) -> TimeSpan {
@@ -410,6 +386,12 @@ fn span(configured: value::Duration) -> TimeSpan {
 
 #[cfg(test)]
 mod contract_tests;
+
+#[cfg(test)]
+mod hold_contract_tests;
+
+#[cfg(test)]
+mod hold_link_contract_tests;
 
 #[cfg(test)]
 mod link_contract_tests;
