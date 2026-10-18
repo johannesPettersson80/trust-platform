@@ -10,6 +10,7 @@ mod devices;
 mod discover;
 pub(crate) mod fixtures;
 mod golden;
+mod golden_discover;
 mod graph_scenarios;
 mod health;
 mod inputs;

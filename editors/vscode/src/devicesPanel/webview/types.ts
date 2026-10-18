@@ -573,3 +573,120 @@ export interface Toggle {
   /** Why it cannot. */
   reason?: string;
 }
+
+/**
+ * The Discover pane, which the search status answers with `discover` (panes.rs `DiscoverView`, specification
+ * 25 §2). Rust gives every text, count and rule; the pane mirrors only the fields it draws.
+ */
+export interface DiscoverView {
+  /** The running or last search. */
+  search_id?: string;
+  /** Whether the search runs. */
+  running: boolean;
+  /** Its progress. */
+  progress_text?: string;
+  /** `Scan from`: this computer, then each runtime. */
+  origins: OriginChoice[];
+  /** `Only search`: one choice per source. */
+  only: OnlyChoice[];
+  /** `Known address or subnet`: the inputs' labels and placeholders. */
+  targets: TargetsInput;
+  /** The state of each source. */
+  sources: SourceRow[];
+  /** One card per device. */
+  cards: DeviceCard[];
+  /** What shows without finds. */
+  empty_text?: string;
+  /** The pane's own actions. */
+  actions: Action[];
+}
+
+/** An origin of the search (panes.rs `OriginChoice`). */
+export interface OriginChoice {
+  /** Its identity. */
+  id: string;
+  /** Its name. */
+  label: string;
+  /** Whether it can be chosen. */
+  enabled: boolean;
+  /** Why it cannot. */
+  reason?: string;
+  /** Whether it is chosen. */
+  selected: boolean;
+}
+
+/** A source of `Only search` (panes.rs `OnlyChoice`). */
+export interface OnlyChoice {
+  /** The source. */
+  source: string;
+  /** Its name. */
+  label: string;
+  /** Whether it is ticked. */
+  checked: boolean;
+  /** Whether it can be ticked. */
+  enabled: boolean;
+  /** Why it cannot. */
+  reason?: string;
+}
+
+/** The inputs of `Known address or subnet` (panes.rs `TargetsInput`). */
+export interface TargetsInput {
+  /** The address input's label. */
+  hosts_label: string;
+  /** The subnet input's label. */
+  cidr_label: string;
+  /** The address input's placeholder. */
+  hosts_placeholder: string;
+  /** The subnet input's placeholder. */
+  cidr_placeholder: string;
+}
+
+/** A source's state in the search (panes.rs `SourceRow`). */
+export interface SourceRow {
+  /** The source. */
+  id: string;
+  /** Its name. */
+  label: string;
+  /** `searching`, `{n} found`, `timed out` or `skipped`. */
+  word: string;
+  /** Its finds. */
+  count?: number;
+  /** Why it was skipped. */
+  reason?: string;
+  /** Its tone. */
+  tone: Tone;
+}
+
+/** A found device (panes.rs `DeviceCard`). */
+export interface DeviceCard {
+  /** Its identity. */
+  id: string;
+  /** Its title. */
+  title: string;
+  /** Its addresses; a runtime shows one `host:port`. */
+  addresses: string[];
+  /** Every protocol found on it. */
+  protocols: CardProtocol[];
+  /** Its identity facts. */
+  identity: Row[];
+  /** When it was last seen. */
+  last_seen: string;
+  /** The search's warnings about it. */
+  warnings: string[];
+  /** Its actions. */
+  actions: Action[];
+  /** Why its actions are disabled on a stale result. */
+  stale_reason?: string;
+}
+
+/** A protocol found on a device (panes.rs `CardProtocol`). */
+export interface CardProtocol {
+  /** The protocol's name. */
+  name: string;
+  /** How it was found. */
+  source: string;
+  /** Its confidence. */
+  confidence: string;
+  /** Whether the find is simulated. */
+  simulated: boolean;
+}

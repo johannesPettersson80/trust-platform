@@ -76,6 +76,7 @@ export function run(): Promise<void> {
   require("./devices-add-dialog.test");
   require("./devices-browse-render.test");
   require("./devices-ads-tag-browser.test");
+  require("./devices-discover-render.test");
 
   return new Promise((resolve, reject) => {
     const runner = mocha.run((failures: number) => {

@@ -10,7 +10,9 @@
 // and closes the form pane from the host's replies, so a result appears in the pane that started it
 // (§5.13, D3). It opens a browse pane from the `ui` op a browse carries and draws the ADS tag browser or
 // the browse tree that Rust's view says; every action goes through one handler, which carries out the
-// `ui` ops and posts the rest with the values their pane gives (design §4.5 D5 and D5b).
+// `ui` ops and posts the rest with the values their pane gives (design §4.5 D5 and D5b). It opens the
+// Discover pane from the toolbar's Discover action and draws the search that the host's `discover` view
+// gives (design §4.5 D4).
 
 import React from "react";
 
@@ -20,6 +22,7 @@ import { AdsTagBrowser } from "./AdsTagBrowser";
 import { BrowsePane } from "./BrowsePane";
 import { Canvas } from "./Canvas";
 import { ContextMenu } from "./ContextMenu";
+import { DiscoverPane } from "./DiscoverPane";
 import { FormView, formPaneName, type FormValues } from "./FormView";
 import type { ActReply, Form } from "./formTypes";
 import { Inspector } from "./Inspector";
@@ -34,6 +37,7 @@ import type {
   Action,
   BrowseView,
   DevicesView,
+  DiscoverView,
   Inspector as InspectorModel,
   PanelView,
   Runtime,
@@ -54,13 +58,14 @@ type CanvasGraph = Pick<
 type ShellView = DevicesView & CanvasGraph & { add?: AddDialog };
 
 /** The one open right-hand pane: the inspector of an item, a runtime's right-click menu, the issues
- * list, the Add dialog, a browse pane, or the form a `form.open` reply opened. */
+ * list, the Add dialog, a browse pane, the Discover pane, or the form a `form.open` reply opened. */
 type OpenPane =
   | { kind: "inspector"; id: string }
   | { kind: "menu"; id: string; x: number; y: number }
   | { kind: "issues" }
   | { kind: "add" }
   | { kind: "browse" }
+  | { kind: "discover" }
   | { kind: "form"; form: Form };
 
 /** Whether an action's `ui` op opens the pane `pane` in the panel's own view (design §2.1). */
@@ -145,6 +150,7 @@ export function App({
   positions,
   reply,
   browse,
+  discover,
 }: {
   /** The view model, as Rust returned it. */
   view: ShellView;
@@ -157,6 +163,11 @@ export function App({
    * pane draws it once a browse is open (specification 25 §5.4, design §4.5 D5).
    */
   browse?: BrowseView;
+  /**
+   * The Discover view of the host's last search status (design §1.4.1): the Discover pane draws it once
+   * the pane is open (specification 25 §2, design §4.5 D4).
+   */
+  discover?: DiscoverView;
   /**
    * The latest reply to an action, which the host hands on unchanged (design §1.4.1): a `form`
    * opens in the right-hand pane, a `notice` goes to the pane it names, `close_pane` closes the
@@ -180,6 +191,9 @@ export function App({
       }
       if (opensPane(action, "browse")) {
         setPane({ kind: "browse" });
+      }
+      if (opensPane(action, "discover")) {
+        setPane({ kind: "discover" });
       }
       if (closesPane(action)) {
         setPane(undefined);
@@ -274,6 +288,9 @@ export function App({
   // The result of a browse action is drawn in the browse pane it names (specification 25 §5.13).
   const browseNotice =
     browse !== undefined && reply?.notice?.pane === browse.id ? reply.notice : undefined;
+  // The Discover pane is named `discover`: a result that names it, such as Adopt's, is drawn there (§5.13).
+  const discoverNotice =
+    discover !== undefined && reply?.notice?.pane === "discover" ? reply.notice : undefined;
 
   const inspectorId = pane?.kind === "inspector" ? pane.id : undefined;
   const inspector = inspectorId === undefined ? undefined : inspectorFor(view, inspectorId);
@@ -346,6 +363,17 @@ export function App({
                 onClose={close}
               />
             )}
+          </aside>
+        )}
+        {pane?.kind === "discover" && discover !== undefined && (
+          <aside key="discover" data-role="discover-pane" style={addPaneStyle}>
+            <DiscoverPane
+              title={view.toolbar.discover.label}
+              discover={discover}
+              notice={discoverNotice}
+              onAction={chooseAction}
+              onClose={close}
+            />
           </aside>
         )}
         {form !== undefined && (

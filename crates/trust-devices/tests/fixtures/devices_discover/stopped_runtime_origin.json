@@ -1,0 +1,116 @@
+{
+  "actions": [],
+  "cards": [],
+  "empty_text": "Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. For EtherCAT or GPIO, start or connect a runtime first.",
+  "fieldbus": [],
+  "only": [
+    {
+      "checked": true,
+      "enabled": false,
+      "label": "truST runtimes",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "trust_runtime"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "ADS and TwinCAT",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "ads"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "Modbus TCP",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "modbus_tcp"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "MQTT",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "mqtt"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "OPC UA",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "opcua"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "EtherCAT",
+      "reason": "Start or connect a runtime before scanning EtherCAT or GPIO.",
+      "source": "ethercat"
+    },
+    {
+      "checked": true,
+      "enabled": false,
+      "label": "GPIO",
+      "reason": "Start or connect a runtime before scanning EtherCAT or GPIO.",
+      "source": "gpio"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "Serial ports",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "serial"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "USB",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "usb"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "Bluetooth LE",
+      "reason": "Bluetooth search is not available in this truST version yet.",
+      "source": "bluetooth"
+    }
+  ],
+  "origins": [
+    {
+      "enabled": true,
+      "id": "this_host",
+      "label": "This computer",
+      "selected": false
+    },
+    {
+      "enabled": true,
+      "id": "runtime:cell",
+      "label": "Cell",
+      "selected": true
+    }
+  ],
+  "running": false,
+  "search_id": "s-4",
+  "sources": [
+    {
+      "count": 0,
+      "id": "trust_runtime",
+      "label": "truST runtimes",
+      "tone": "neutral",
+      "word": "0 found"
+    },
+    {
+      "id": "gpio",
+      "label": "GPIO",
+      "reason": "Start or connect a runtime before scanning EtherCAT or GPIO.",
+      "tone": "muted",
+      "word": "skipped"
+    }
+  ],
+  "targets": {
+    "cidr_label": "Subnet",
+    "cidr_placeholder": "192.168.1.0/24",
+    "hosts_label": "Known address",
+    "hosts_placeholder": "host:port"
+  }
+}

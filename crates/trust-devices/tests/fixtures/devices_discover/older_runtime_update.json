@@ -1,0 +1,162 @@
+{
+  "actions": [],
+  "cards": [],
+  "empty_text": "Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. Hardware scans are running from the selected runtime.",
+  "fieldbus": [],
+  "only": [
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "truST runtimes",
+      "source": "trust_runtime"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "ADS and TwinCAT",
+      "source": "ads"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "Modbus TCP",
+      "source": "modbus_tcp"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "MQTT",
+      "source": "mqtt"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "OPC UA",
+      "source": "opcua"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "EtherCAT",
+      "source": "ethercat"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "GPIO",
+      "source": "gpio"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "Serial ports",
+      "source": "serial"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "USB",
+      "source": "usb"
+    },
+    {
+      "checked": true,
+      "enabled": false,
+      "label": "Bluetooth LE",
+      "reason": "Bluetooth search is not available in this truST version yet.",
+      "source": "bluetooth"
+    }
+  ],
+  "origins": [
+    {
+      "enabled": true,
+      "id": "this_host",
+      "label": "This computer",
+      "selected": false
+    },
+    {
+      "enabled": true,
+      "id": "runtime:old",
+      "label": "Old runtime",
+      "selected": true
+    }
+  ],
+  "running": false,
+  "sources": [
+    {
+      "id": "trust_runtime",
+      "label": "truST runtimes",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "ads",
+      "label": "ADS and TwinCAT",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "modbus_tcp",
+      "label": "Modbus TCP",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "mqtt",
+      "label": "MQTT",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "opcua",
+      "label": "OPC UA",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "ethercat",
+      "label": "EtherCAT",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "gpio",
+      "label": "GPIO",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "serial",
+      "label": "Serial ports",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "usb",
+      "label": "USB",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    },
+    {
+      "id": "bluetooth",
+      "label": "Bluetooth LE",
+      "reason": "This runtime's truST version cannot search; update it to 0.24.75 or later.",
+      "tone": "muted",
+      "word": "skipped"
+    }
+  ],
+  "targets": {
+    "cidr_label": "Subnet",
+    "cidr_placeholder": "192.168.1.0/24",
+    "hosts_label": "Known address",
+    "hosts_placeholder": "host:port"
+  }
+}

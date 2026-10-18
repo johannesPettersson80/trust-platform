@@ -1,0 +1,116 @@
+{
+  "actions": [],
+  "cards": [],
+  "empty_text": "Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. For EtherCAT or GPIO, choose a running runtime in Scan from.",
+  "fieldbus": [],
+  "only": [
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "truST runtimes",
+      "source": "trust_runtime"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "ADS and TwinCAT",
+      "source": "ads"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "Modbus TCP",
+      "source": "modbus_tcp"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "MQTT",
+      "source": "mqtt"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "OPC UA",
+      "source": "opcua"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "EtherCAT",
+      "reason": "Choose a running runtime for EtherCAT or GPIO scans.",
+      "source": "ethercat"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "GPIO",
+      "reason": "Choose a running runtime for EtherCAT or GPIO scans.",
+      "source": "gpio"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "Serial ports",
+      "source": "serial"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "USB",
+      "source": "usb"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "Bluetooth LE",
+      "reason": "Bluetooth search is not available in this truST version yet.",
+      "source": "bluetooth"
+    }
+  ],
+  "origins": [
+    {
+      "enabled": true,
+      "id": "this_host",
+      "label": "This computer",
+      "selected": true
+    },
+    {
+      "enabled": true,
+      "id": "runtime:cell",
+      "label": "Cell",
+      "selected": false
+    }
+  ],
+  "running": false,
+  "search_id": "s-3",
+  "sources": [
+    {
+      "count": 0,
+      "id": "trust_runtime",
+      "label": "truST runtimes",
+      "tone": "neutral",
+      "word": "0 found"
+    },
+    {
+      "count": 0,
+      "id": "ads",
+      "label": "ADS and TwinCAT",
+      "tone": "warning",
+      "word": "timed out"
+    },
+    {
+      "count": 0,
+      "id": "modbus_tcp",
+      "label": "Modbus TCP",
+      "tone": "neutral",
+      "word": "0 found"
+    }
+  ],
+  "targets": {
+    "cidr_label": "Subnet",
+    "cidr_placeholder": "192.168.1.0/24",
+    "hosts_label": "Known address",
+    "hosts_placeholder": "host:port"
+  }
+}

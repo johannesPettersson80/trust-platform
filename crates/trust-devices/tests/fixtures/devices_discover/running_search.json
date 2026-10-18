@@ -1,0 +1,203 @@
+{
+  "actions": [],
+  "cards": [
+    {
+      "actions": [
+        {
+          "emphasis": "primary",
+          "enabled": true,
+          "id": "adopt",
+          "label": "Adopt",
+          "op": {
+            "action": "runtime.adopt",
+            "kind": "rust",
+            "payload": {
+              "endpoint": "tcp://10.0.0.6:5680",
+              "label": "Line runtime",
+              "runtime": "dev:ip:10.0.0.6"
+            }
+          }
+        }
+      ],
+      "addresses": [
+        "10.0.0.6:5680"
+      ],
+      "differs": [],
+      "id": "dev:ip:10.0.0.6",
+      "identity": [
+        {
+          "label": "truST version",
+          "value": "0.24.75",
+          "wide": false
+        },
+        {
+          "label": "Platform",
+          "value": "linux-x86_64",
+          "wide": false
+        }
+      ],
+      "last_seen": "3 s ago",
+      "protocols": [
+        {
+          "confidence": "Confirmed",
+          "name": "truST runtimes",
+          "simulated": false,
+          "source": "Network discovery"
+        }
+      ],
+      "title": "Line runtime",
+      "warnings": []
+    },
+    {
+      "actions": [
+        {
+          "emphasis": "secondary",
+          "enabled": true,
+          "id": "add",
+          "label": "+ Add",
+          "op": {
+            "action": "form.open",
+            "kind": "rust",
+            "payload": {
+              "prefill": {
+                "host": "192.168.1.20",
+                "port": 502,
+                "unit_id": 1
+              },
+              "protocol": "modbus_tcp",
+              "runtime": "runtime:cell"
+            }
+          }
+        }
+      ],
+      "addresses": [
+        "192.168.1.20"
+      ],
+      "differs": [],
+      "id": "dev:ip:192.168.1.20",
+      "identity": [],
+      "last_seen": "3 s ago",
+      "protocols": [
+        {
+          "confidence": "Port reachable only",
+          "name": "Modbus TCP",
+          "simulated": false,
+          "source": "Known address"
+        }
+      ],
+      "title": "192.168.1.20",
+      "warnings": []
+    }
+  ],
+  "fieldbus": [],
+  "only": [
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "truST runtimes",
+      "source": "trust_runtime"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "ADS and TwinCAT",
+      "source": "ads"
+    },
+    {
+      "checked": true,
+      "enabled": true,
+      "label": "Modbus TCP",
+      "source": "modbus_tcp"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "MQTT",
+      "source": "mqtt"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "OPC UA",
+      "source": "opcua"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "EtherCAT",
+      "reason": "Choose a running runtime for EtherCAT or GPIO scans.",
+      "source": "ethercat"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "GPIO",
+      "reason": "Choose a running runtime for EtherCAT or GPIO scans.",
+      "source": "gpio"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "Serial ports",
+      "source": "serial"
+    },
+    {
+      "checked": false,
+      "enabled": true,
+      "label": "USB",
+      "source": "usb"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "label": "Bluetooth LE",
+      "reason": "Bluetooth search is not available in this truST version yet.",
+      "source": "bluetooth"
+    }
+  ],
+  "origins": [
+    {
+      "enabled": true,
+      "id": "this_host",
+      "label": "This computer",
+      "selected": true
+    },
+    {
+      "enabled": true,
+      "id": "runtime:cell",
+      "label": "Cell",
+      "selected": false
+    }
+  ],
+  "running": true,
+  "search_id": "s-1",
+  "sources": [
+    {
+      "count": 1,
+      "id": "trust_runtime",
+      "label": "truST runtimes",
+      "tone": "ok",
+      "word": "1 found"
+    },
+    {
+      "count": 0,
+      "id": "ads",
+      "label": "ADS and TwinCAT",
+      "tone": "neutral",
+      "word": "searching"
+    },
+    {
+      "count": 1,
+      "id": "modbus_tcp",
+      "label": "Modbus TCP",
+      "tone": "ok",
+      "word": "1 found"
+    }
+  ],
+  "targets": {
+    "cidr_label": "Subnet",
+    "cidr_placeholder": "192.168.1.0/24",
+    "hosts_label": "Known address",
+    "hosts_placeholder": "host:port"
+  }
+}
