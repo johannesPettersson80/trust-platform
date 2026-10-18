@@ -10,6 +10,7 @@ mod devices;
 mod discover;
 mod discover_cards;
 mod discover_choices;
+mod discover_follow;
 mod discover_search;
 pub(crate) mod fixtures;
 mod golden;

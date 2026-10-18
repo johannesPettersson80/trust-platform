@@ -283,8 +283,11 @@ fn card_actions_fit_the_identity() {
         ("add_to_canvas", "Add to canvas")
     );
     assert!(add.enabled, "the owning runtime takes the connection");
+    let Op::Followed { first, .. } = &add.op else {
+        panic!("the add is followed by the tag browser: {:?}", add.op);
+    };
     assert_eq!(
-        add.op,
+        **first,
         Op::Rust {
             action: "connection.ads_add".to_owned(),
             payload: json!({

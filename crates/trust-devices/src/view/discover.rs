@@ -14,7 +14,7 @@
 //!   beside the status are `discover_context`.
 //! - A source or protocol that this build does not know is left out, and the view asks to update truST.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Deserializer};
 use serde_json::{json, Map, Value};
@@ -24,6 +24,7 @@ use trust_runtime::search::SourceId;
 use super::discover_ads;
 use super::discover_choices;
 use super::discover_context::{self, Context};
+use super::discover_names::{advertised_labels, known_name, known_source, label_of};
 use super::health;
 use crate::gather::Gathered;
 use crate::inputs;
@@ -118,17 +119,19 @@ pub(crate) fn project_in(
     now_ms: u64,
 ) -> Result<DiscoverView, serde_json::Error> {
     let answer: Answer = serde_json::from_value(Value::Object(status.clone()))?;
+    let advertised = advertised_labels(scan, ctx);
     let mut left_out = false;
     let mut known_sources = Vec::new();
     for source in &answer.sources {
-        match known_source(&source.id) {
-            Some(id) => known_sources.push((id, source)),
-            None => left_out = true,
+        if known_name(&source.id, &advertised) {
+            known_sources.push(source);
+        } else {
+            left_out = true;
         }
     }
     let mut sources = known_sources
         .iter()
-        .map(|(id, source)| source_row(*id, source))
+        .map(|source| source_row(source, &advertised))
         .collect::<Result<Vec<_>, _>>()?;
     let ads_finds: Vec<&FindAnswer> = answer
         .devices
@@ -162,7 +165,7 @@ pub(crate) fn project_in(
             .finds
             .into_iter()
             .filter(|find| !discover_ads::unanswered(&find.protocol, &find.params))
-            .partition(|find| known_source(&find.protocol).is_some() && find.confidence.is_some());
+            .partition(|find| known_name(&find.protocol, &advertised) && find.confidence.is_some());
         left_out |= !unknown.is_empty();
         if had_finds && known.is_empty() {
             continue;
@@ -180,12 +183,7 @@ pub(crate) fn project_in(
         runtimes,
         ctx,
         answer.search_id.as_deref(),
-        |source| {
-            answer
-                .sources
-                .iter()
-                .any(|given| given.id == source.as_str())
-        },
+        |source| answer.sources.iter().any(|given| given.id == source),
     );
     let cards: Vec<DeviceCard> = devices
         .iter()
@@ -197,12 +195,13 @@ pub(crate) fn project_in(
                 now_ms,
                 ctx,
                 answer.search_id.as_deref(),
+                &advertised,
             )
         })
         .collect();
     let ran = known_sources
         .iter()
-        .any(|(_, source)| source.state != Progress::Skipped);
+        .any(|source| source.state != Progress::Skipped);
     let empty_text = (!running && cards.is_empty() && ran).then(|| empty_text(scan, runtimes));
     let unavailable_text = (only.is_empty() && !running && sources.is_empty() && cards.is_empty())
         .then(|| texts::NO_DISCOVERY_YET.to_owned());
@@ -268,7 +267,9 @@ pub(crate) fn idle(scan: &Scan, runtimes: &[RuntimeOrigin], ctx: &Context) -> Di
         scan,
         runtimes,
         ctx,
-        discover_choices::only_choices(scan, runtimes, ctx, None, |source| source == SourceId::Ads),
+        discover_choices::only_choices(scan, runtimes, ctx, None, |source| {
+            source == SourceId::Ads.as_str()
+        }),
     )
 }
 
@@ -284,37 +285,6 @@ pub(crate) fn failed(
     let mut view = idle(scan, runtimes, ctx);
     view.error_text = Some(text);
     view
-}
-
-/// The text of a search that failed, as the old pane gave the same failure (specification 25 §2), or
-/// `None` for a failure that the old pane had no text for. `message` is the failure's own text: the old
-/// pane told an authentication failure and a timeout apart by it (`discoveryErrors.ts`).
-#[must_use]
-pub(crate) fn failure_text(code: &str, message: &str) -> Option<String> {
-    match code {
-        "unknown_runtime" | "runtime_without_endpoint" => {
-            Some(texts::NO_LONGER_REACHABLE.to_owned())
-        }
-        "runtime_unreachable" => {
-            let detail = message.to_lowercase();
-            let text = if detail.contains("auth") {
-                texts::REJECTED_AUTHENTICATION
-            } else if detail.contains("timeout") || detail.contains("timed out") {
-                texts::DISCOVERY_TIMED_OUT
-            } else {
-                texts::COULD_NOT_COMPLETE
-            };
-            Some(text.to_owned())
-        }
-        _ => None,
-    }
-}
-
-/// The source of `name`, or `None` for a name that this build does not know.
-fn known_source(name: &str) -> Option<SourceId> {
-    SourceId::ALL
-        .into_iter()
-        .find(|source| source.as_str() == name)
 }
 
 /// The confidence of a find, or `None` for a value that this build does not know. Such a find is left
@@ -407,8 +377,11 @@ struct FindAnswer {
 
 /// The row of one source: its word, its count and, when it did not run, its reason (specification 25 §2,
 /// lines 55-58). A source that ran must report its count.
-fn source_row(id: SourceId, source: &SourceAnswer) -> Result<SourceRow, serde_json::Error> {
-    let name = id.as_str();
+fn source_row(
+    source: &SourceAnswer,
+    advertised: &BTreeMap<String, String>,
+) -> Result<SourceRow, serde_json::Error> {
+    let name = source.id.as_str();
     let (word, tone, count, reason) = match (source.state, source.count) {
         (Progress::Skipped, _) => (
             texts::SKIPPED.to_owned(),
@@ -451,7 +424,7 @@ fn source_row(id: SourceId, source: &SourceAnswer) -> Result<SourceRow, serde_js
     };
     Ok(SourceRow {
         id: name.to_owned(),
-        label: texts::source_name(name),
+        label: label_of(name, advertised),
         word,
         count,
         reason,
@@ -626,6 +599,7 @@ fn card(
     now_ms: u64,
     ctx: &Context,
     search_id: Option<&str>,
+    advertised: &BTreeMap<String, String>,
 ) -> DeviceCard {
     let runtime = device
         .finds
@@ -671,7 +645,11 @@ fn card(
             Some(endpoint) => vec![host_and_port(endpoint)],
             None => device.addresses.clone(),
         },
-        protocols: device.finds.iter().filter_map(card_protocol).collect(),
+        protocols: device
+            .finds
+            .iter()
+            .filter_map(|find| card_protocol(find, advertised))
+            .collect(),
         identity: identity_rows(device),
         last_seen: graph::ago(seconds_since(now_ms, device.last_seen_ms)),
         project: None,
@@ -752,10 +730,10 @@ fn ignore_action(scan: &Scan, search_id: Option<&str>, device_id: &str, ignored:
 
 /// A protocol line of a card: its name, how it was found, its confidence, and the mark of a simulated
 /// find. A find whose confidence this build does not know has no line.
-fn card_protocol(find: &FindAnswer) -> Option<CardProtocol> {
+fn card_protocol(find: &FindAnswer, advertised: &BTreeMap<String, String>) -> Option<CardProtocol> {
     let confidence = find.confidence?;
     Some(CardProtocol {
-        name: texts::source_name(&find.protocol),
+        name: label_of(&find.protocol, advertised),
         source: texts::discovery_source(&find.source),
         confidence: health::confidence_word(confidence).to_owned(),
         simulated: find.simulated,

@@ -56,6 +56,29 @@ function loadDiscoverPane(): WebviewComponent {
   return bundledDiscoverPane;
 }
 
+/** The whole Devices & Connections panel, bundled the way the extension ships it (`App.tsx`). */
+function loadDevicesApp(): WebviewComponent {
+  const extensionRoot = path.resolve(__dirname, "..", "..", "..");
+  const temp = fs.mkdtempSync(
+    path.join(extensionRoot, "node_modules", ".trust-devices-app-follow-up-"),
+  );
+  const outfile = path.join(temp, "devices-app.cjs");
+  try {
+    buildSync({
+      entryPoints: [path.join(extensionRoot, "src", "devicesPanel", "webview", "App.tsx")],
+      outfile,
+      bundle: true,
+      platform: "node",
+      format: "cjs",
+      external: ["react", "react-dom", "vscode"],
+      logLevel: "silent",
+    });
+    return require(outfile).App as WebviewComponent;
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
 // The golden Discover views, written by the Rust test and never by hand.
 const fixtures = path.resolve(
   path.resolve(__dirname, "..", "..", ".."),
@@ -154,6 +177,15 @@ function actionButton(container: any, label: string): any {
     (candidate: any) => candidate.textContent === label,
   );
   assert.ok(button, `an action button ${label} is drawn`);
+  return button;
+}
+
+/** The toolbar button that reads `label`; the test fails when it is not drawn. */
+function toolbarButton(container: any, label: string): any {
+  const button = [...container.querySelectorAll('[role="toolbar"] button')].find(
+    (candidate: any) => candidate.textContent === label,
+  );
+  assert.ok(button, `a toolbar button ${label} is drawn`);
   return button;
 }
 
@@ -1324,4 +1356,149 @@ suite("Devices & Connections Discover pane", () => {
       await rendered.unmount();
     }
   });
+
+  test("an_advertised_protocol_is_an_enabled_choice_that_ticks_as_given", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2: a protocol that a runtime advertises beyond the ten sources is an enabled choice, named by
+    // its advertised label and noted `discoverable`; its tick posts the change that the view gives. A wrong
+    // implementation draws it disabled, names it by its ID, or posts a tick of its own.
+    const tick = {
+      id: "select",
+      label: "Field X",
+      enabled: true,
+      emphasis: "quiet",
+      op: {
+        kind: "search",
+        request: {
+          verb: "status",
+          origin: "runtime:cell",
+          change: { kind: "select", source: "fieldx", checked: true },
+        },
+      },
+    };
+    const view = {
+      ...goldenView("stopped_runtime_origin"),
+      only: [
+        { source: "fieldx", label: "Field X", checked: false, enabled: true, group: "known_address", note: "discoverable", action: tick },
+      ],
+      cards: [],
+      actions: [],
+      show_ignored: { label: "Show ignored", checked: false, action: idleSearchOp("show_ignored") },
+    };
+    const posted: unknown[][] = [];
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: (...args: unknown[]) => posted.push(args),
+      onClose: () => undefined,
+    });
+    try {
+      const choice = onlyChoices(rendered.container).find((row) => row.source === "fieldx");
+      assert.ok(choice, "the advertised protocol is drawn as a choice");
+      assert.strictEqual(textOf(rendered.container, '[data-role="discover-only-label"]'), "Field X");
+      await click(rendered.container.querySelector('[data-role="discover-only-tick"]'));
+      assert.deepStrictEqual(posted, [[tick]], "the tick posts the change the view gives, once");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_followed_add_runs_its_browse_only_when_its_final_reply_is_ok", async () => {
+    const App = loadDevicesApp();
+    // Specification 25 §2 and §5.13: `Add to canvas` posts its first step, and the browse that the view names as the
+    // follow-up opens only when the final reply to that step is ok. A pending reply is not final, and a failed add
+    // opens nothing. A wrong implementation posts the browse at once, drops it after a pending reply, or runs it
+    // after a failure.
+    const add = {
+      id: "add_to_canvas",
+      label: "Add to canvas",
+      enabled: true,
+      emphasis: "primary",
+      op: {
+        kind: "followed",
+        first: {
+          kind: "rust",
+          action: "connection.ads_add",
+          payload: { runtime: "runtime:cell", label: "PLC-A", target: { ams_net_id: "5.6.7.8.1.1" } },
+        },
+        then: {
+          kind: "ui",
+          ui: {
+            kind: "open",
+            pane: {
+              kind: "browse",
+              request: {
+                source: { found: "dev:ads:5.6.7.8.1.1", protocol: "ads", target: { ams_net_id: "5.6.7.8.1.1" } },
+                kind: "symbols",
+                trust_server_certificate: false,
+              },
+            },
+          },
+        },
+      },
+    };
+    const card = {
+      id: "dev:ads:5.6.7.8.1.1",
+      title: "PLC-A",
+      addresses: [],
+      protocols: [],
+      identity: [],
+      last_seen: "3 s ago",
+      warnings: [],
+      actions: [add],
+      ports: [],
+    };
+    const toolbarItem = (id: string, label: string, pane: string, enabled: boolean) => ({
+      id,
+      label,
+      enabled,
+      emphasis: "secondary",
+      op: { kind: "ui", ui: { kind: "open", pane: { kind: pane } } },
+    });
+    const app = {
+      view: {
+        toolbar: {
+          add: toolbarItem("add", "+ Add", "add", true),
+          discover: toolbarItem("discover", "Discover", "discover", true),
+          add_host_slot: toolbarItem("add_host", "Add host", "add", true),
+        },
+        computers: [],
+      },
+      discover: { ...goldenView("stopped_runtime_origin"), only: [], cards: [card], actions: [], show_ignored: { label: "Show ignored", checked: false, action: idleSearchOp("show_ignored") } },
+    };
+    const followUp = { type: "action", action: { ...add, op: add.op.then } };
+    const first = { type: "action", action: { ...add, op: add.op.first } };
+    const posted: unknown[] = [];
+    const post = (message: unknown) => posted.push(message);
+    const rendered = await render(App, { ...app, post, reply: undefined });
+    try {
+      await click(toolbarButton(rendered.container, "Discover"));
+      // Opening the pane posts the toolbar's own `ui` action; the follow-up is judged from the add on.
+      posted.length = 0;
+      await click(actionButton(rendered.container, "Add to canvas"));
+      assert.deepStrictEqual(posted, [first], "the first step is posted as the view gives it");
+
+      await rendered.update({ ...app, post, reply: { ok: true, effects: [], close_pane: false, refresh: "soon", pending: { operation: "op-1", pane: "discover", text: "Adding…" } } });
+      assert.deepStrictEqual(posted, [first], "a pending reply is not final: no browse yet");
+
+      await rendered.update({ ...app, post, reply: { ok: true, effects: [], close_pane: false, refresh: "now" } });
+      assert.deepStrictEqual(posted, [first, followUp], "the final ok reply opens the browse that the view names");
+    } finally {
+      await rendered.unmount();
+    }
+
+    const failed: unknown[] = [];
+    const failedPost = (message: unknown) => failed.push(message);
+    const again = await render(App, { ...app, post: failedPost, reply: undefined });
+    try {
+      await click(toolbarButton(again.container, "Discover"));
+      failed.length = 0;
+      await click(actionButton(again.container, "Add to canvas"));
+      await again.update({ ...app, post: failedPost, reply: { ok: false, effects: [], close_pane: false, refresh: "now" } });
+      assert.deepStrictEqual(failed, [first], "a failed add opens nothing");
+    } finally {
+      await again.unmount();
+    }
+  });
+
 });

@@ -26,7 +26,7 @@ use crate::view::types::{HostEffect, OperationDone, Refresh, Secret, Tone};
 const TRUST_RUNTIME: &str = "/opt/trust-runtime/trust-runtime";
 
 /// How long a test waits for a background thread.
-const SLACK: Duration = Duration::from_secs(10);
+pub(super) const SLACK: Duration = Duration::from_secs(10);
 
 /// How long the slow work of these tests takes. A test that waits for it fails the bound of
 /// [`ANSWERED_BEFORE`] by a wide margin, so the bound measures waiting, not the machine's speed.
@@ -37,7 +37,7 @@ const SLOW_WORK: Duration = Duration::from_secs(2);
 const ANSWERED_BEFORE: Duration = Duration::from_millis(500);
 
 /// A host in online mode whose control endpoint is `endpoint`.
-fn online(endpoint: &str) -> HostFacts {
+pub(super) fn online(endpoint: &str) -> HostFacts {
     HostFacts {
         settings: HostSettings {
             mode: RunMode::Online,
@@ -62,7 +62,7 @@ fn view_of(session: &str, seq: u64, gather: GatherMode, host: HostFacts) -> View
 }
 
 /// One search request of `session` with `verb`, and no search ID.
-fn search_of(session: &str, verb: SearchVerb) -> SearchCall {
+pub(super) fn search_of(session: &str, verb: SearchVerb) -> SearchCall {
     SearchCall {
         session: session.to_owned(),
         verb,
@@ -541,7 +541,7 @@ fn project_view(
 
 /// Polls the panel of the project until its gather has ended and its runtime card answers, and
 /// returns the card's ID (design §1.5). `seq` is the number of the last request.
-fn answering_card(
+pub(super) fn answering_card(
     engine: &DevicesEngine,
     folder: &Path,
     project: &Path,
@@ -723,7 +723,7 @@ fn a_late_save_closes_its_form() {
 }
 
 /// A start of a search at the runtime with item ID `origin`, with the parameters `params`.
-fn start_at(origin: &str, params: Value) -> SearchCall {
+pub(super) fn start_at(origin: &str, params: Value) -> SearchCall {
     SearchCall {
         session: "dc-test".to_owned(),
         verb: SearchVerb::Start,
@@ -740,7 +740,7 @@ fn start_at(origin: &str, params: Value) -> SearchCall {
 /// The answer of a runtime search, asked again while the runtime has not answered in time: the
 /// panel waits for a runtime for a short while, then says `runtime_pending`, and the panel asks
 /// again.
-fn answered(engine: &DevicesEngine, call: &SearchCall) -> super::SearchReply {
+pub(super) fn answered(engine: &DevicesEngine, call: &SearchCall) -> super::SearchReply {
     let until = Instant::now() + SLACK;
     loop {
         let reply = engine.search(call);

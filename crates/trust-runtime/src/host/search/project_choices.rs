@@ -1,7 +1,7 @@
 //! The Discover pane's remembered choices per project (specification 25 §2, decision O14): the ticked
 //! sources of `Only search` and the device IDs that the project ignores, in
-//! `<project>/.trust-runtime/devices.toml` under `[discover]`. Rust reads and writes the file, so the CLI
-//! reads the same choices.
+//! `<project>/.trust-runtime/devices.toml` under `[discover]`. This is the one reader and writer of that
+//! file: the panel and `trust-runtime discover --project` both use it, so they agree on the choices.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -17,13 +17,13 @@ const FILE_NAME: &str = "devices.toml";
 /// What a project remembers of the Discover pane (specification 25 §2).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-pub(crate) struct Memory {
+pub struct Memory {
     /// The ticked source IDs of `Only search`; `None` until a tick is saved, which is the first run.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) protocols: Option<Vec<String>>,
+    pub protocols: Option<Vec<String>>,
     /// The device IDs that the project ignores, until they are undone.
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
-    pub(crate) ignored: BTreeSet<String>,
+    pub ignored: BTreeSet<String>,
 }
 
 /// The layout of the file: one `[discover]` table.
@@ -35,7 +35,7 @@ struct File {
 
 /// The file that remembers the choices of `project`.
 #[must_use]
-pub(crate) fn path(project: &Path) -> PathBuf {
+pub fn path(project: &Path) -> PathBuf {
     project.join(STATE_FOLDER).join(FILE_NAME)
 }
 
@@ -44,7 +44,7 @@ pub(crate) fn path(project: &Path) -> PathBuf {
 /// # Errors
 /// The file exists but cannot be read, or does not hold a valid `[discover]` table; the message
 /// names the file.
-pub(crate) fn load(project: &Path) -> Result<Memory, String> {
+pub fn load(project: &Path) -> Result<Memory, String> {
     let file = path(project);
     let text = match fs::read_to_string(&file) {
         Ok(text) => text,
@@ -63,7 +63,7 @@ pub(crate) fn load(project: &Path) -> Result<Memory, String> {
 ///
 /// # Errors
 /// The folder or the file cannot be written; the message names the file.
-pub(crate) fn save(project: &Path, memory: &Memory) -> Result<(), String> {
+pub fn save(project: &Path, memory: &Memory) -> Result<(), String> {
     let file = path(project);
     let text = toml::to_string(&File {
         discover: memory.clone(),

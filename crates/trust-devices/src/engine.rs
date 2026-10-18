@@ -21,12 +21,14 @@
 //! [`SearchRegistry`](trust_runtime::search::SearchRegistry). This module is the transport of the
 //! process: what is asked, when, on which thread, and what each reply holds (design §1.6).
 
+mod advertised;
 mod handoff;
 mod search;
 #[cfg(test)]
 mod tests;
 
 use std::collections::HashMap;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -68,6 +70,9 @@ pub struct DevicesEngine {
     panels: Mutex<HashMap<String, Handle>>,
     /// The searches this process runs, as `trust-runtime discover` runs them (design §1.4.1).
     searches: SearchRegistry,
+    /// How many searches the panel runs alone, of only the protocols that a runtime advertises; the next one is
+    /// `a-<n + 1>` (specification 25 §2).
+    advertised_searches: AtomicU64,
     /// How long a gather waits, and how old an answer may be before a target is asked again
     /// (design §1.5).
     budget: Budget,
@@ -96,6 +101,17 @@ enum OwnedSearch {
         token: Option<Token>,
         /// The search's ID at the runtime.
         search_id: String,
+    },
+    /// The protocols that the runtime advertises beyond the ten sources, which the panel scans through the
+    /// runtime's `comm.discover` (specification 25 §2). `engine_only` is a search of those alone, which the panel
+    /// answers itself; otherwise the runtime answers the ten sources of the same search.
+    Advertised {
+        /// The search's ID: the runtime's, or the panel's own for a search of those alone.
+        search_id: String,
+        /// The scan, which runs on its own thread.
+        scan: Arc<advertised::AdvertisedSearch>,
+        /// Whether the panel answers this search alone.
+        engine_only: bool,
     },
 }
 

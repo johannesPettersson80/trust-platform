@@ -9,6 +9,7 @@ use crate::engine::{DevicesEngine, SearchCall, SearchOrigin, SearchVerb, TypedTa
 use crate::request::HostFacts;
 use crate::view::discover::{self, RuntimeOrigin, Scan};
 use crate::view::discover_context::Context;
+use crate::view::discover_names;
 use crate::view::types::Op;
 
 /// The time of the views, in milliseconds since the Unix epoch.
@@ -255,7 +256,7 @@ fn a_runtime_that_rejects_the_token_shows_the_old_auth_text() {
     // Specification 25 §2 with `discoveryErrors.ts` line 8: a failed request whose message names the
     // authentication shows the authentication text. A wrong implementation shows the generic text.
     assert_eq!(
-        discover::failure_text("runtime_unreachable", "the runtime rejected the auth token")
+        discover_names::failure_text("runtime_unreachable", "the runtime rejected the auth token")
             .as_deref(),
         Some(REJECTED)
     );
@@ -266,7 +267,7 @@ fn a_runtime_that_times_out_shows_the_old_timeout_text() {
     // Specification 25 §2 with `discoveryErrors.ts` line 11: a failed request whose message names a
     // timeout shows the timeout text. A wrong implementation shows the generic text.
     assert_eq!(
-        discover::failure_text("runtime_unreachable", "the request timed out").as_deref(),
+        discover_names::failure_text("runtime_unreachable", "the request timed out").as_deref(),
         Some(TIMED_OUT)
     );
 }
@@ -276,7 +277,7 @@ fn a_runtime_that_cannot_be_reached_shows_the_old_generic_text() {
     // Specification 25 §2 with `discoveryErrors.ts` line 13: any other failed request to a runtime
     // shows the generic text. A wrong implementation shows the authentication or timeout text.
     assert_eq!(
-        discover::failure_text("runtime_unreachable", "connection refused").as_deref(),
+        discover_names::failure_text("runtime_unreachable", "connection refused").as_deref(),
         Some(COULD_NOT)
     );
 }
@@ -286,7 +287,7 @@ fn a_failure_the_old_pane_had_no_text_for_has_none() {
     // Specification 25 §2: a failure with no old text, such as a busy registry, keeps only its error
     // reply. A wrong implementation invents a text for it.
     assert_eq!(
-        discover::failure_text("search_busy", "eight searches run"),
+        discover_names::failure_text("search_busy", "eight searches run"),
         None
     );
 }

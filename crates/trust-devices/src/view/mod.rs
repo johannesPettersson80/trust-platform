@@ -24,6 +24,7 @@ pub(crate) mod discover;
 pub(crate) mod discover_ads;
 pub(crate) mod discover_choices;
 pub(crate) mod discover_context;
+pub(crate) mod discover_names;
 pub mod health;
 mod issues;
 pub(crate) mod lifecycle;

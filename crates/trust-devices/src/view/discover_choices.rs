@@ -43,37 +43,38 @@ pub(crate) fn only_choices(
     runtimes: &[RuntimeOrigin],
     ctx: &Context,
     search_id: Option<&str>,
-    ran: impl Fn(SourceId) -> bool,
+    ran: impl Fn(&str) -> bool,
 ) -> Vec<OnlyChoice> {
     let mut choices: Vec<OnlyChoice> = SourceId::ALL
         .into_iter()
         .map(|source| {
             let reason = scan_reason(source, scan, runtimes, ctx);
             let enabled = reason.is_none();
-            let checked = enabled && remembered_tick(source, ctx, &ran);
-            let action = enabled.then(|| select_action(source, !checked, scan, search_id));
+            let checked = enabled && remembered_tick(source.as_str(), ctx, &ran);
+            let label = texts::source_name(source.as_str());
             OnlyChoice {
                 source: source.as_str().to_owned(),
-                label: texts::source_name(source.as_str()),
+                action: enabled
+                    .then(|| select_action(source.as_str(), &label, !checked, scan, search_id)),
+                label,
                 checked,
                 enabled,
                 reason,
                 note: source_note(source).map(str::to_owned),
                 group: choice_group(source).to_owned(),
                 warning: (source == SourceId::Ethercat).then(|| texts::FIELDBUS_WARNING.to_owned()),
-                action,
             }
         })
         .collect();
-    choices.extend(advertised_choices(scan, ctx));
+    choices.extend(advertised_choices(scan, runtimes, ctx, search_id, &ran));
     choices
 }
 
-/// Whether `source` is ticked: by the project's remembered list, or until it has one, by `ran`.
-fn remembered_tick(source: SourceId, ctx: &Context, ran: &impl Fn(SourceId) -> bool) -> bool {
+/// Whether the choice `source` is ticked: by the project's remembered list, or until it has one, by `ran`.
+fn remembered_tick(source: &str, ctx: &Context, ran: &impl Fn(&str) -> bool) -> bool {
     ctx.memory.protocols.as_ref().map_or_else(
         || ran(source),
-        |remembered| remembered.iter().any(|name| name == source.as_str()),
+        |remembered| remembered.iter().any(|name| name == source),
     )
 }
 
@@ -104,11 +105,17 @@ pub(crate) fn ethercat_adapter(scan: &Scan, ctx: &Context) -> Option<String> {
     }
 }
 
-/// The action of a tick: it records `checked` for `source` and answers the new view.
-fn select_action(source: SourceId, checked: bool, scan: &Scan, search_id: Option<&str>) -> Action {
+/// The action of a tick: it records `checked` for the choice `source` and answers the new view.
+fn select_action(
+    source: &str,
+    label: &str,
+    checked: bool,
+    scan: &Scan,
+    search_id: Option<&str>,
+) -> Action {
     Action {
         id: "select".to_owned(),
-        label: texts::source_name(source.as_str()),
+        label: label.to_owned(),
         enabled: true,
         reason: None,
         emphasis: Emphasis::Quiet,
@@ -116,7 +123,7 @@ fn select_action(source: SourceId, checked: bool, scan: &Scan, search_id: Option
         op: change_op(
             scan,
             search_id,
-            json!({ "kind": "select", "source": source.as_str(), "checked": checked }),
+            json!({ "kind": "select", "source": source, "checked": checked }),
         ),
     }
 }
@@ -151,7 +158,6 @@ fn choice_group(source: SourceId) -> &'static str {
 }
 
 /// Why a scan of `source` from `scan` cannot run, or `None` when it can (specification 25 §2, lines 82-88).
-/// `EtherCAT` and GPIO run only from a runtime; every scan from a runtime that is not ready is disabled.
 fn scan_reason(
     source: SourceId,
     scan: &Scan,
@@ -162,10 +168,20 @@ fn scan_reason(
         return Some(BLUETOOTH_UNAVAILABLE.to_owned());
     }
     let needs_runtime = matches!(source, SourceId::Ethercat | SourceId::Gpio);
+    match (origin_reason(needs_runtime, scan, runtimes), scan) {
+        (Some(reason), _) => Some(reason),
+        (None, Scan::Runtime(origin)) => role_reason(source, origin, ctx),
+        (None, Scan::ThisHost) => None,
+    }
+}
+
+/// Why a scan from `scan` cannot run because of its origin: `EtherCAT` and GPIO run only from a runtime, and
+/// every scan from a runtime that is not ready is disabled until it is started or connected.
+fn origin_reason(needs_runtime: bool, scan: &Scan, runtimes: &[RuntimeOrigin]) -> Option<String> {
     match scan {
         Scan::ThisHost => needs_runtime.then(|| texts::CHOOSE_RUNTIME_FOR_HARDWARE.to_owned()),
         Scan::Runtime(id) => match runtimes.iter().find(|runtime| runtime.id == *id) {
-            Some(runtime) if runtime.ready => role_reason(source, id, ctx),
+            Some(runtime) if runtime.ready => None,
             _ if needs_runtime => Some(texts::START_RUNTIME_FOR_HARDWARE.to_owned()),
             Some(runtime) => Some(texts::start_or_connect(&runtime.name)),
             None => Some(texts::START_A_RUNTIME.to_owned()),
@@ -188,10 +204,17 @@ fn role_reason(source: SourceId, origin: &str, ctx: &Context) -> Option<String> 
         .then(|| graph::role_needed("Scanning EtherCAT", required.as_str(), role.as_str()))
 }
 
-/// The protocols that the origin runtime advertises beyond the ten sources: one disabled choice each, under
-/// `Known address or subnet`, named by its advertised label and noted `discoverable` (`DiscoverPane.tsx`
-/// line 94).
-fn advertised_choices(scan: &Scan, ctx: &Context) -> Vec<OnlyChoice> {
+/// The protocols that the origin runtime advertises beyond the ten sources: one choice each, under `Known address
+/// or subnet`, named by its advertised label and noted `discoverable` (`DiscoverPane.tsx` line 94). A scan of one
+/// runs through the origin runtime's `comm.discover` (specification 25 §2), so it is enabled wherever a scan from
+/// that runtime can run.
+fn advertised_choices(
+    scan: &Scan,
+    runtimes: &[RuntimeOrigin],
+    ctx: &Context,
+    search_id: Option<&str>,
+    ran: &impl Fn(&str) -> bool,
+) -> Vec<OnlyChoice> {
     let Scan::Runtime(id) = scan else {
         return Vec::new();
     };
@@ -201,16 +224,23 @@ fn advertised_choices(scan: &Scan, ctx: &Context) -> Vec<OnlyChoice> {
     discover
         .beyond
         .iter()
-        .map(|advertised| OnlyChoice {
-            source: advertised.id.clone(),
-            label: advertised.label.clone(),
-            checked: false,
-            enabled: false,
-            reason: Some(texts::CANNOT_SCAN_ADVERTISED.to_owned()),
-            note: Some(texts::NOTE_DISCOVERABLE.to_owned()),
-            group: texts::GROUP_KNOWN_ADDRESS.to_owned(),
-            warning: None,
-            action: None,
+        .map(|advertised| {
+            let reason = origin_reason(false, scan, runtimes);
+            let enabled = reason.is_none();
+            let checked = enabled && remembered_tick(&advertised.id, ctx, ran);
+            OnlyChoice {
+                source: advertised.id.clone(),
+                label: advertised.label.clone(),
+                checked,
+                enabled,
+                reason,
+                note: Some(texts::NOTE_DISCOVERABLE.to_owned()),
+                group: texts::GROUP_KNOWN_ADDRESS.to_owned(),
+                warning: None,
+                action: enabled.then(|| {
+                    select_action(&advertised.id, &advertised.label, !checked, scan, search_id)
+                }),
+            }
         })
         .collect()
 }

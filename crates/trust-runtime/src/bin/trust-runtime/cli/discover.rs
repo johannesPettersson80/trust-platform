@@ -29,4 +29,12 @@ pub struct DiscoverArgs {
     /// Print one JSON object per line.
     #[arg(long, action = ArgAction::SetTrue)]
     pub json: bool,
+    /// A project folder: read the choices that its Discover pane remembers
+    /// (`<project>/.trust-runtime/devices.toml`). Without --only, the remembered sources run, and
+    /// the devices that the project ignores are left out.
+    #[arg(long)]
+    pub project: Option<std::path::PathBuf>,
+    /// Show the devices that the project ignores; they are left out without this option.
+    #[arg(long = "show-ignored", action = ArgAction::SetTrue)]
+    pub show_ignored: bool,
 }

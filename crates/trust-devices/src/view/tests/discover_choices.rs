@@ -10,11 +10,11 @@ use std::fs;
 use serde_json::json;
 use trust_runtime::security::AccessRole;
 
-use crate::devices_file::{self, Memory};
 use crate::test_project::TempFolder;
 use crate::view::discover::{self, RuntimeOrigin, Scan};
 use crate::view::discover_context::{self, Context, OriginFacts};
 use crate::view::types::{Confirm, DiscoverView, Op};
+use trust_runtime::search::project_choices::{self, Memory};
 
 /// The Discover view of the idle pane, scanned from `scan` with the runtimes `runtimes` and `ctx`.
 fn idle_view(scan: &Scan, runtimes: &[RuntimeOrigin], ctx: &Context) -> DiscoverView {
@@ -182,7 +182,7 @@ fn the_protocol_selection_is_remembered_per_project_and_ads_is_ticked_first() {
 
     let project_a = TempFolder::new("devices-remember-a");
     let project_b = TempFolder::new("devices-remember-b");
-    devices_file::save(
+    project_choices::save(
         &project_a.path,
         &Memory {
             protocols: Some(vec!["mqtt".to_owned()]),
@@ -191,20 +191,21 @@ fn the_protocol_selection_is_remembered_per_project_and_ads_is_ticked_first() {
     )
     .expect("the project's file is saved");
     assert_eq!(
-        devices_file::load(&project_a.path)
+        project_choices::load(&project_a.path)
             .expect("the file reads back")
             .protocols,
         Some(vec!["mqtt".to_owned()]),
         "the project remembers its selection"
     );
     assert_eq!(
-        devices_file::load(&project_b.path)
+        project_choices::load(&project_b.path)
             .expect("an empty project reads")
             .protocols,
         None,
         "another project remembers nothing, so ADS is ticked there"
     );
-    let text = fs::read_to_string(devices_file::path(&project_a.path)).expect("the file is there");
+    let text =
+        fs::read_to_string(project_choices::path(&project_a.path)).expect("the file is there");
     assert!(
         text.contains("[discover]") && text.contains("protocols = [\"mqtt\"]"),
         "the file holds the table and the list the CLI reads: {text}"
@@ -215,9 +216,9 @@ fn the_protocol_selection_is_remembered_per_project_and_ads_is_ticked_first() {
 fn an_advertised_protocol_beyond_the_ten_is_shown_by_its_name() {
     // Specification 25 §2 (old line 94): a protocol that the origin runtime's `comm.schema` lists with
     // `discover`, beyond the ten sources, is a choice under `Known address or subnet`, named by its advertised
-    // label and noted `discoverable`. This version cannot scan it, so the choice is disabled with its reason.
-    // A protocol without `discover` is not offered. A wrong implementation drops it, names it by its ID, or
-    // offers a tick that the search would refuse.
+    // label and noted `discoverable`. The panel scans it through the runtime's `comm.discover`, so the choice is
+    // enabled, unticked until the search runs it, and it records its tick. A protocol without `discover` is not
+    // offered. A wrong implementation drops it, names it by its ID, or disables a scan that can run.
     let schema = json!({ "protocols": [
         { "id": "ads", "label": "ADS", "actions": ["add", "discover"] },
         { "id": "profinet", "label": "PROFINET", "actions": ["add", "discover"] },
@@ -252,22 +253,20 @@ fn an_advertised_protocol_beyond_the_ten_is_shown_by_its_name() {
             profinet.note.as_deref(),
             profinet.enabled,
             profinet.checked,
+            profinet.reason.as_deref(),
         ),
         (
             "PROFINET",
             "known_address",
             Some("discoverable"),
+            true,
             false,
-            false
+            None,
         )
     );
-    assert_eq!(
-        profinet.reason.as_deref(),
-        Some("This version of truST cannot scan it yet. Update truST to scan it.")
-    );
     assert!(
-        profinet.action.is_none(),
-        "a disabled choice records nothing"
+        profinet.action.is_some(),
+        "an enabled choice records its tick"
     );
     assert!(
         view.only.iter().all(|choice| choice.source != "bacnet"),

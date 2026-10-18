@@ -1315,7 +1315,14 @@ tool's own computer (`origin = this_host`) or inside a runtime
 (`origin = runtime`), which reaches the networks and buses of that runtime's
 computer. The command line runs the same search as `trust-runtime discover`,
 printing results as they are found (`--json` prints one JSON object per line),
-and `--only <source>,…` limits it to named sources.
+and `--only <source>,…` limits it to named sources. With `--project <dir>` the
+command reads `<dir>/.trust-runtime/devices.toml`, the choices that the Discover
+pane remembers (specification 25 §2): without `--only` it runs the sources named in
+the remembered `protocols`, or every source when the file remembers none, and it
+leaves out the devices that the project ignores (`ignored`) unless
+`--show-ignored` is given. A remembered name that is not one of the ten sources is
+left out, because the command line runs no protocol that a runtime advertises; when
+no remembered name is left, the command refuses the search and asks for `--only`.
 
 A listening source (mDNS, Bluetooth, an ADS broadcast) listens until the search
 ends, at its deadline or on cancel, and reports each result as it arrives. The
@@ -1395,6 +1402,13 @@ run it, that its fieldbus scan was not confirmed, that the search names nothing
 it can probe, or that this build of truST does not include it. At origin
 `runtime` the truST runtimes source reads the runtime's own mDNS discovery
 (§6.12), so it is skipped while `[runtime.discovery] enabled = false`.
+
+A protocol that a runtime advertises beyond the ten sources (its `comm.schema`
+lists `discover` for it) is not a source of `comm.search.start`, which names only
+the sources of the table above and refuses any other name. The panel that shows the
+search runs such a protocol through that runtime's `comm.discover` for it, once for
+each target, and merges its finds into the same search by the rule of
+"Devices" below (specification 25 §2). A runtime's own search never runs it.
 
 Inside a runtime, the truST runtimes source also queries the mesh peers (O31:
 the search may scout for mesh peers). The peers are those that the runtime's

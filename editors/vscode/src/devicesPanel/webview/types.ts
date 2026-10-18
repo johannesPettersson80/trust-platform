@@ -74,7 +74,8 @@ export type Op =
   | { kind: "rust"; action: string; payload: unknown }
   | { kind: "search"; request: unknown }
   | { kind: "host"; effect: { kind: string } }
-  | { kind: "ui"; ui: { kind: string; pane?: { kind: string } } };
+  | { kind: "ui"; ui: { kind: string; pane?: { kind: string } } }
+  | { kind: "followed"; first: Op; then: Op };
 
 /** How strongly an action is drawn. */
 export type Emphasis = "primary" | "secondary" | "danger" | "quiet";

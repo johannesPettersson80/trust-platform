@@ -11,8 +11,8 @@ use serde_json::Value;
 use trust_runtime::search::SourceId;
 use trust_runtime::security::AccessRole;
 
-use crate::devices_file::Memory;
 use crate::texts::discover as texts;
+use trust_runtime::search::project_choices::Memory;
 
 /// What the view reads about one origin runtime.
 #[derive(Debug, Clone, Default)]

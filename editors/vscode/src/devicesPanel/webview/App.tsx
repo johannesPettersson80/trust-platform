@@ -180,11 +180,13 @@ export function App({
   const [panelView, setPanelView] = React.useState<PanelView>("topology");
   // Whether a Rust or host action is awaiting its reply: the browse pane's ticks and `Add` wait for it.
   const [awaiting, setAwaiting] = React.useState(false);
+  // The follow-up of the `followed` action that awaits its final reply (specification 25 §2).
+  const followUp = React.useRef<Action | undefined>(undefined);
   // Every action the panel offers goes through here (specification 25 §5.13 and §5.14). The `ui` ops
   // are carried out by the shell: the Add dialog and the browse pane open, and `close_inspector` closes
   // the open pane and is never posted. A `ui` op posts no values. A Rust or host action posts with the
   // values its pane gives it: a form's typed values (J07, §5.4), a browse's ticked keys or typed port.
-  const chooseAction = React.useCallback(
+  const performAction = React.useCallback(
     (action: Action, values?: FormValues) => {
       if (opensAddDialog(action)) {
         setPane({ kind: "add" });
@@ -209,6 +211,21 @@ export function App({
       }
     },
     [post],
+  );
+  // The follow-up that the view gives a `followed` action runs when that action's final reply is `ok`, so the
+  // reply handler reaches the latest `performAction` through this ref.
+  const performRef = React.useRef(performAction);
+  performRef.current = performAction;
+  const chooseAction = React.useCallback(
+    (action: Action, values?: FormValues) => {
+      if (action.op.kind === "followed") {
+        followUp.current = { ...action, op: action.op.then };
+        performAction({ ...action, op: action.op.first }, values);
+        return;
+      }
+      performAction(action, values);
+    },
+    [performAction],
   );
 
   const onPositions = React.useCallback(
@@ -267,6 +284,15 @@ export function App({
       return;
     }
     setAwaiting(false);
+    // A `pending` reply is not final: its follow-up waits for the final reply (specification 25 §5.13).
+    const final = reply.pending === undefined;
+    const next = final ? followUp.current : undefined;
+    if (final) {
+      followUp.current = undefined;
+    }
+    if (next !== undefined && reply.ok) {
+      performRef.current(next);
+    }
     if (reply.form !== undefined) {
       setPane({ kind: "form", form: reply.form });
       return;

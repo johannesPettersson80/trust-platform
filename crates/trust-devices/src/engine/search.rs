@@ -11,14 +11,17 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use trust_runtime::search::project_choices::{self, Memory};
 use trust_runtime::search::{
     SearchError, SearchHost, SearchRequest, SearchState, SearchStatus, SourceId,
 };
 use trust_runtime_client::{ControlClient, ControlEndpoint, ControlError, RESPONSE_LINE_LIMIT};
 
+use super::advertised::{
+    self, deadline, names_except, origin_discover, scopes, AdvertisedSearch, Protocol,
+};
 use super::handoff::Handoff;
 use super::{lock, DevicesEngine, OwnedSearch, Panel, ReplyError, ANSWER_WAIT, CONTROL_TIMEOUT};
-use crate::devices_file::{self, Memory};
 use crate::gather::Gathered;
 use crate::inputs;
 use crate::request::{HostFacts, Token};
@@ -26,7 +29,8 @@ use crate::session::{KnownRuntime, Session};
 use crate::texts::discover as texts;
 use crate::view::discover::{self, RuntimeOrigin, Scan};
 use crate::view::discover_ads;
-use crate::view::discover_context::{self, Context, OriginFacts};
+use crate::view::discover_context::{Context, OriginFacts};
+use crate::view::discover_names;
 use crate::view::types::DiscoverView;
 
 /// One `trust-lsp.devicesSearch` request (design §1.4.1): one command with the verb `start`,
@@ -277,7 +281,7 @@ pub struct SearchReply {
 impl SearchReply {
     /// The answer to a `start` verb.
     #[must_use]
-    fn started(search_id: String) -> Self {
+    pub(super) fn started(search_id: String) -> Self {
         Self {
             search_id: Some(search_id),
             ..Self::default()
@@ -286,7 +290,7 @@ impl SearchReply {
 
     /// The answer to a `cancel` verb.
     #[must_use]
-    fn cancelled(search_id: String, state: SearchState) -> Self {
+    pub(super) fn cancelled(search_id: String, state: SearchState) -> Self {
         Self {
             search_id: Some(search_id),
             state: Some(state),
@@ -331,7 +335,7 @@ impl SearchReply {
 
     /// A request that could not run.
     #[must_use]
-    fn failed(code: &str, message: impl Into<String>) -> Self {
+    pub(super) fn failed(code: &str, message: impl Into<String>) -> Self {
         Self {
             error: Some(ReplyError::new(code, message)),
             ..Self::default()
@@ -364,7 +368,7 @@ fn search_error(error: &SearchError) -> SearchReply {
 }
 
 /// The control endpoint of the runtime that the session showed under `item`.
-fn runtime_endpoint(session: &Session, item: &str) -> Result<String, SearchReply> {
+pub(super) fn runtime_endpoint(session: &Session, item: &str) -> Result<String, SearchReply> {
     let runtime = session.runtime(item).ok_or_else(|| {
         SearchReply::failed(
             "unknown_runtime",
@@ -552,7 +556,7 @@ impl DevicesEngine {
     fn with_failure(&self, call: &SearchCall, reply: SearchReply) -> SearchReply {
         let text = reply.error.as_ref().and_then(|error| match call.verb {
             SearchVerb::Start | SearchVerb::Status => {
-                discover::failure_text(&error.code, &error.message)
+                discover_names::failure_text(&error.code, &error.message)
             }
             SearchVerb::Cancel => None,
         });
@@ -593,7 +597,7 @@ impl DevicesEngine {
         let known: Vec<KnownRuntime> = session.runtimes().to_vec();
         let project = session.project_folder().map(Path::to_path_buf);
         let memory = match &project {
-            Some(folder) => devices_file::load(folder)
+            Some(folder) => project_choices::load(folder)
                 .map_err(|reason| texts::devices_file_unreadable(&reason))?,
             None => Memory::default(),
         };
@@ -643,7 +647,7 @@ impl DevicesEngine {
             .project_folder()
             .map(Path::to_path_buf)
             .ok_or_else(|| texts::CHOOSE_PROJECT_TO_REMEMBER.to_owned())?;
-        let mut memory = devices_file::load(&folder)
+        let mut memory = project_choices::load(&folder)
             .map_err(|reason| texts::devices_file_unreadable(&reason))?;
         match change {
             DiscoverChange::Select { source, checked } => {
@@ -666,7 +670,8 @@ impl DevicesEngine {
             }
             DiscoverChange::ShowIgnored { .. } => {}
         }
-        devices_file::save(&folder, &memory).map_err(|reason| texts::devices_file_unsaved(&reason))
+        project_choices::save(&folder, &memory)
+            .map_err(|reason| texts::devices_file_unsaved(&reason))
     }
 
     /// The runtimes the panel offers as origins of the search, each with whether it is ready
@@ -710,15 +715,47 @@ impl DevicesEngine {
         }
     }
 
-    /// One search inside the runtime that the session showed under `item` (design §1.4.1). The
-    /// forwarded request runs on a thread of its own. The answer is awaited for at most
-    /// `ANSWER_WAIT`, so a runtime that does not answer in time reports `runtime_pending`, and the
-    /// answer it gives later is kept for the session's close.
+    /// One search inside the runtime that the session showed under `item` (design §1.4.1). A start that names
+    /// protocols which the runtime advertises beyond the ten sources runs them through the runtime's
+    /// `comm.discover` (specification 25 §2): beside the runtime's own sources in the same search, or alone when
+    /// it names no other source.
     fn search_at_runtime(&self, call: &SearchCall, item: &str) -> SearchReply {
+        if let Some(reply) = self.own_search_reply(call) {
+            return reply;
+        }
+        let beyond = match call.verb {
+            SearchVerb::Start => self.advertised_named(call, item),
+            SearchVerb::Status | SearchVerb::Cancel => Vec::new(),
+        };
+        if beyond.is_empty() {
+            let reply = self.forwarded(call, item, Vec::new());
+            return self.with_advertised(call, reply);
+        }
+        let runtime_names = names_except(&call.params, &beyond);
+        if runtime_names.is_empty() {
+            return self.start_alone(call, item, beyond);
+        }
+        let mut runtime_call = call.clone();
+        runtime_call.params["only"] = json!(runtime_names);
+        self.forwarded(&runtime_call, item, beyond)
+    }
+
+    /// One search that the runtime runs (design §1.4.1), with the advertised protocols `beyond` that the panel runs
+    /// beside it when it starts. The forwarded request runs on a thread of its own. The answer is awaited for at
+    /// most `ANSWER_WAIT`, so a runtime that does not answer in time reports `runtime_pending`, and the answer it
+    /// gives later is kept for the session's close.
+    fn forwarded(&self, call: &SearchCall, item: &str, beyond: Vec<Protocol>) -> SearchReply {
         let (panel, forward) = match self.forward_to_runtime(call, item) {
             Ok(forwarded) => forwarded,
             Err(refused) => return refused,
         };
+        let beyond = (!beyond.is_empty()).then(|| {
+            (
+                beyond,
+                scopes(call.targets.as_ref()),
+                deadline(&call.params),
+            )
+        });
         let handoff: Arc<Handoff<SearchReply>> = Handoff::open();
         let job = Arc::clone(&handoff);
         let spawned = thread::Builder::new()
@@ -731,8 +768,22 @@ impl DevicesEngine {
                     lock(&panel).searches.push(OwnedSearch::Runtime {
                         endpoint: forward.endpoint.clone(),
                         token: forward.token.clone(),
-                        search_id,
+                        search_id: search_id.clone(),
                     });
+                    if let Some((protocols, request_scopes, limit)) = beyond {
+                        let request = advertised::Request {
+                            endpoint: forward.endpoint.clone(),
+                            token: forward.token.clone(),
+                            protocols,
+                            scopes: request_scopes,
+                            deadline: limit,
+                        };
+                        lock(&panel).searches.push(OwnedSearch::Advertised {
+                            search_id,
+                            scan: AdvertisedSearch::start(request),
+                            engine_only: false,
+                        });
+                    }
                 }
                 // A late answer has no request left to wait for it, so it is dropped here.
                 let _ = job.finish(answer);
@@ -759,15 +810,10 @@ impl DevicesEngine {
         call: &SearchCall,
         item: &str,
     ) -> Result<(Arc<Mutex<Panel>>, Forward), SearchReply> {
-        let panel = self.panel(&call.session, Instant::now());
-        let endpoint = {
-            let mut shown = lock(&panel);
-            runtime_endpoint(shown.session(Instant::now()), item)?
-        };
-        let token = call.host.token(&endpoint).cloned();
+        let (endpoint, token) = self.runtime_reach(call, item)?;
         let (kind, params) = call.forwarded()?;
         Ok((
-            panel,
+            self.panel(&call.session, Instant::now()),
             Forward {
                 endpoint,
                 token,
@@ -779,7 +825,7 @@ impl DevicesEngine {
 
     /// Records a search that `session` started, so that closing the session ends it (design
     /// §1.4.1).
-    fn remember_search(&self, session: &str, search: OwnedSearch) {
+    pub(super) fn remember_search(&self, session: &str, search: OwnedSearch) {
         let panel = self.panel(session, Instant::now());
         lock(&panel).searches.push(search);
     }
@@ -795,6 +841,9 @@ impl DevicesEngine {
                     // A search the registry no longer keeps ended long ago: nothing is left to
                     // cancel.
                     let _ = self.searches.cancel(search_id);
+                }
+                OwnedSearch::Advertised { scan, .. } => {
+                    let _ = scan.cancel();
                 }
                 OwnedSearch::Runtime {
                     endpoint,
@@ -821,7 +870,9 @@ impl DevicesEngine {
 /// The search ID of a search that the panel started, in either place it runs.
 fn owned_search_id(search: &OwnedSearch) -> &str {
     match search {
-        OwnedSearch::Here(search_id) | OwnedSearch::Runtime { search_id, .. } => search_id.as_str(),
+        OwnedSearch::Here(search_id)
+        | OwnedSearch::Runtime { search_id, .. }
+        | OwnedSearch::Advertised { search_id, .. } => search_id.as_str(),
     }
 }
 
@@ -843,17 +894,7 @@ fn origin_facts(
         }
         _ => None,
     };
-    let discover = match (endpoint, gathered) {
-        (Some(endpoint), Some(gathered)) => gathered
-            .targets
-            .iter()
-            .find(|report| report.target.endpoint.trim() == endpoint)
-            .and_then(|report| match &report.live.schema {
-                Some(Ok(schema)) => Some(discover_context::discover_from_schema(schema)),
-                _ => None,
-            }),
-        _ => None,
-    };
+    let discover = origin_discover(gathered, runtime);
     let ethercat_adapter = runtime
         .connections
         .iter()

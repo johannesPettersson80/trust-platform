@@ -220,13 +220,26 @@ pub const GROUP_RUNTIME_HARDWARE: &str = "runtime_hardware";
 /// The text of an origin that the panel no longer reaches (`discoveryController.ts` line 126).
 pub const NO_LONGER_REACHABLE: &str =
     "The selected runtime is no longer reachable. Start or reconnect it, then scan again.";
-/// The text of a runtime that rejected the token (`discoveryErrors.ts` line 8). The name is the old
-/// pane's `truST runtime` for the runtime's own discovery (`discoveryErrors.ts` line 21).
-pub const REJECTED_AUTHENTICATION: &str = "The selected runtime rejected authentication for truST runtime discovery. Check its auth token. Reconnect or start the selected runtime, then scan again.";
-/// The text of a runtime that did not answer in time (`discoveryErrors.ts` line 11).
-pub const DISCOVERY_TIMED_OUT: &str = "truST runtime discovery timed out on the selected runtime. Reconnect or start the selected runtime, then scan again.";
-/// The text of any other failed request to a runtime (`discoveryErrors.ts` line 13).
-pub const COULD_NOT_COMPLETE: &str = "The selected runtime could not complete truST runtime discovery. Reconnect or start the selected runtime, then scan again.";
+/// The name of the runtime's own discovery, which the old pane gave `truST runtime` (`discoveryErrors.ts` line 21).
+pub const RUNTIME_DISCOVERY_NAME: &str = "truST runtime";
+
+/// The text of a runtime that rejected the token, for the discovery named `name` (`discoveryErrors.ts` line 8).
+#[must_use]
+pub fn rejected_authentication(name: &str) -> String {
+    format!("The selected runtime rejected authentication for {name} discovery. Check its auth token. Reconnect or start the selected runtime, then scan again.")
+}
+
+/// The text of a runtime that did not answer in time, for the discovery named `name` (`discoveryErrors.ts` line 11).
+#[must_use]
+pub fn discovery_timed_out(name: &str) -> String {
+    format!("{name} discovery timed out on the selected runtime. Reconnect or start the selected runtime, then scan again.")
+}
+
+/// The text of any other failed request to a runtime, for the discovery named `name` (`discoveryErrors.ts` line 13).
+#[must_use]
+pub fn could_not_complete(name: &str) -> String {
+    format!("The selected runtime could not complete {name} discovery. Reconnect or start the selected runtime, then scan again.")
+}
 
 // ---- the remembered choices, the fieldbus confirmation and the ADS cards (specification 25 §2) ----
 
@@ -291,10 +304,6 @@ pub const SHOW_IGNORED: &str = "Show ignored";
 
 /// The note of a protocol that a runtime advertises beyond the ten sources (`DiscoverPane.tsx` line 94).
 pub const NOTE_DISCOVERABLE: &str = "discoverable";
-/// Why a protocol that a runtime advertises beyond the ten sources cannot be scanned in this version of truST
-/// (specification 25 §2).
-pub const CANNOT_SCAN_ADVERTISED: &str =
-    "This version of truST cannot scan it yet. Update truST to scan it.";
 
 /// Why a tick or an Ignore is refused while no project is open (specification 25 §2).
 pub const CHOOSE_PROJECT_TO_REMEMBER: &str =

@@ -185,9 +185,11 @@ package, or end-to-end evidence.
 - The remembered ticks and the Ignore list are per project, in
   `<project>/.trust-runtime/devices.toml` (decision O14), under `[discover]`:
   `protocols` lists the ticked source IDs, and `ignored` lists the device IDs
-  that the project ignores. Rust reads and writes the file, so the CLI reads the
-  same choices. Without a remembered `protocols`, the first run ticks `ADS and
-  TwinCAT` where the origin can run it (old lines 136-150 and 512-523). A file
+  that the project ignores. Rust reads and writes the file through one reader,
+  which `trust-runtime discover --project` uses too, so the CLI reads the same
+  choices (specification 11, "One search"). Without a remembered `protocols`, the
+  first run ticks `ADS and TwinCAT` where the origin can run it (old lines 136-150
+  and 512-523). A file
   that cannot be read or saved leaves the pane with its text, `The project's
   devices.toml could not be read: {reason}.` or `The project's devices.toml could
   not be saved: {reason}.` (new). A tick or an Ignore with no open project is
@@ -237,6 +239,13 @@ package, or end-to-end evidence.
   mark `On canvas` (old line 356) shows when a connection of a known runtime has
   the find's AMS Net ID. Adding is disabled with `Add a runtime first, so that the
   device has a runtime to connect through.` when no runtime owns the search.
+  A successful `Add to canvas` is followed by the tag browser of the found device,
+  as the old pane opened it after the add (old `useDiscoverPane.ts` lines 98-109).
+  The view carries that browse as the action's follow-up: the action's `op` is
+  `followed`, whose `first` is the `connection.ads_add` action and whose `then` is
+  the browse that `Manage tags` opens. The webview runs `then` only when the final
+  reply to `first` is `ok` (a `pending` reply is not final, specification 25 §5.13);
+  a failed add opens nothing.
 - A card's disabled reasons (old lines 334-340 and 385-389, `discoverySession.ts`),
   in this order: `Discovery context changed. Scan again before adding this
   result.` when the search was not started by this panel session; the stale-runtime
@@ -248,10 +257,28 @@ package, or end-to-end evidence.
 - A protocol that a runtime advertises beyond the ten sources (its `comm.schema`
   lists `discover` for it) is an `Only search` choice under `Known address or
   subnet`, named by its advertised label, with the note `discoverable` (old line 94).
-  It is disabled with `This version of truST cannot scan it yet. Update truST to
-  scan it.` (new), because a search names only the sources in its table. A status
-  that names an unknown source or protocol is still left out, with the update line
-  above.
+  It is ticked, remembered and disabled by the rules of the other choices, so it is
+  enabled wherever a scan from that runtime can run. Search names it in `only` as it
+  names the ten sources, but the panel does not send that name to
+  `comm.search.start`, which names only the sources of its table (specification 11,
+  "One search"). The panel runs it through the origin runtime's `comm.discover` for
+  that protocol: once for each Known address, once for the subnet, or once with no
+  target when neither is typed (`scope.host` and `scope.cidr`, specification 11,
+  `comm.discover`). Its finds join the same search by the rule of specification 11
+  ("Devices"): a find whose `params.host` is an address of a device of the search
+  joins that device's card, which keeps its ID, and any other find is a card of its
+  own, named `dev:ip:{host}` when it has a host. Its source row reads `searching`,
+  `{n} found` or `timed out` as the other rows do, and its protocol line on a card
+  reads the advertised label. A request that the runtime refuses leaves the row `skipped` with
+  the runtime's own error text. A request that cannot reach the runtime leaves the
+  row `skipped` with the failure text of this section, with the advertised label in
+  place of `truST runtime`: `The selected runtime rejected authentication for {label}
+  discovery. Check its auth token. Reconnect or start the selected runtime, then scan
+  again.`, `{label} discovery timed out on the selected runtime. Reconnect or start
+  the selected runtime, then scan again.`, or `The selected runtime could not complete
+  {label} discovery. Reconnect or start the selected runtime, then scan again.`. A
+  status that names an unknown source or protocol is still left out, with the update
+  line above.
 
 ## 3. Examples, project scaffolding, and packaged tools
 

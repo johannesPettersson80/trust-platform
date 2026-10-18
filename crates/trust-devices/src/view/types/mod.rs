@@ -203,6 +203,15 @@ pub enum Op {
         /// The change.
         ui: UiOp,
     },
+    /// An op whose success is followed by another op: the webview performs `first`, and runs `then`
+    /// only when the final reply to `first` is `ok` (specification 25 §2, `Add to canvas`). The view chooses
+    /// the follow-up; a failed `first` runs nothing.
+    Followed {
+        /// The op that is performed first.
+        first: Box<Op>,
+        /// The op that follows a successful `first`.
+        then: Box<Op>,
+    },
 }
 
 /// A change of the webview's own view.

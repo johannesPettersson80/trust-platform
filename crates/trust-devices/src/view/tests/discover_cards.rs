@@ -7,10 +7,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{json, Map, Value};
 
-use crate::devices_file::Memory;
 use crate::view::discover::{project_in, RuntimeOrigin, Scan};
 use crate::view::discover_context::{Context, Discover, OriginFacts};
 use crate::view::types::{DiscoverView, Op, Pane, UiOp};
+use trust_runtime::search::project_choices::Memory;
 
 /// The time of the views, in milliseconds since the Unix epoch.
 const NOW_MS: u64 = 1_760_000_000_000;
@@ -127,8 +127,11 @@ fn an_ads_card_lists_its_responding_ports_and_hides_without_one() {
         ("add_to_canvas", "Add to canvas", true),
         "the card's action on a device the canvas does not hold (old line 407)"
     );
+    let Op::Followed { first, .. } = &add.op else {
+        panic!("the add is followed by the tag browser: {:?}", add.op);
+    };
     assert_eq!(
-        add.op,
+        **first,
         Op::Rust {
             action: "connection.ads_add".to_owned(),
             payload: json!({

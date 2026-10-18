@@ -8,7 +8,10 @@
 //! runs the sources of one search, `merge` and `presence` group the results into devices, and
 //! `sources` decides which sources run and runs them. A runtime serves the search through
 //! `comm.search.*`, the command line through `trust-runtime discover`, and `comm.discover` asks
-//! one protocol's source at a time. The model, merge and presence do no I/O.
+//! one protocol's source at a time. `project_choices` reads and writes the choices that a project
+//! remembers for the search (specification 25 §2). The model, merge and presence do no I/O.
+
+pub mod project_choices;
 
 mod merge;
 mod model;

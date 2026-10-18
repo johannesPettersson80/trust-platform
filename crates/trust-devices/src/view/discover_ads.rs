@@ -97,7 +97,9 @@ pub(crate) fn port_actions(device_id: &str, params: &Value, ports: &[u16]) -> Ve
 
 /// The card's own action: `Manage tags` once the canvas holds the device, which browses its tags (old line
 /// 406); else `Add to canvas`, which adds one ADS connection per responding port to the owning runtime (old
-/// line 407; `connection.ads_add`). Without an owning runtime it is disabled with its reason.
+/// line 407; `connection.ads_add`). A successful add is followed by the tag browser of the device, as the old
+/// pane opened it after the add (`useDiscoverPane.ts` lines 98-109): the follow-up is the browse that
+/// `Manage tags` opens. Without an owning runtime it is disabled with its reason.
 #[must_use]
 pub(crate) fn primary_action(
     device_id: &str,
@@ -117,28 +119,33 @@ pub(crate) fn primary_action(
             op: browse_op(device_id, params, None),
         };
     }
-    let (enabled, reason, payload) = match owner {
-        Some(runtime) => (
-            true,
-            None,
-            json!({ "runtime": runtime, "label": title, "target": params }),
-        ),
-        None => (false, Some(texts::ADD_NEEDS_RUNTIME.to_owned()), json!({})),
+    let Some(runtime) = owner else {
+        return Action {
+            id: "add_to_canvas".to_owned(),
+            label: texts::ADD_TO_CANVAS.to_owned(),
+            enabled: false,
+            reason: Some(texts::ADD_NEEDS_RUNTIME.to_owned()),
+            emphasis: Emphasis::Quiet,
+            confirm: None,
+            op: Op::Rust {
+                action: "connection.ads_add".to_owned(),
+                payload: json!({}),
+            },
+        };
     };
     Action {
         id: "add_to_canvas".to_owned(),
         label: texts::ADD_TO_CANVAS.to_owned(),
-        enabled,
-        reason,
-        emphasis: if enabled {
-            Emphasis::Primary
-        } else {
-            Emphasis::Quiet
-        },
+        enabled: true,
+        reason: None,
+        emphasis: Emphasis::Primary,
         confirm: None,
-        op: Op::Rust {
-            action: "connection.ads_add".to_owned(),
-            payload,
+        op: Op::Followed {
+            first: Box::new(Op::Rust {
+                action: "connection.ads_add".to_owned(),
+                payload: json!({ "runtime": runtime, "label": title, "target": params }),
+            }),
+            then: Box::new(browse_op(device_id, params, None)),
         },
     }
 }
