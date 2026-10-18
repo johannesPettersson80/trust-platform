@@ -541,19 +541,21 @@ impl EngineState<'_> {
             .construction
             .initialized_declarations
             .prepare_insert(initialized_plan)?;
-        // The exclusive marker reservations above borrow the lifecycle tables: only
-        // the storage field is free for the destination write, so the seam is named
-        // to reach it without leaving the store API.
+        // The exclusive marker reservations above borrow the lifecycle tables: only the storage
+        // and store fields are free for the destination write. It goes through the store the engine
+        // holds, so a cell arm receives the declared value (R2).
+        let mut routed = super::super::store_access::routed_mut_fields(
+            &mut self.data.storage,
+            &mut self.data.store,
+            self.prepared,
+        );
         match declared.owner {
             StorageOwner::Global => {
-                StoreMutate::set_global(&mut self.data.storage, name, value);
+                StoreMutate::set_global(&mut routed, name, value);
             }
             StorageOwner::Instance => {
-                if !self.data.storage.write_instance_var(
-                    instance.ok_or_else(|| RuntimeError::InvalidExecutionState)?,
-                    name,
-                    value,
-                ) {
+                let instance = instance.ok_or_else(|| RuntimeError::InvalidExecutionState)?;
+                if !StoreMutate::write_instance_var(&mut routed, instance, name, value) {
                     return Err(RuntimeError::InvalidExecutionState);
                 }
             }

@@ -21,36 +21,38 @@
 //! cuts it where assignment normalization cuts it (C1-7).
 
 use alloc::format;
-use alloc::sync::Arc;
-use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use super::{Cell, TextSlot};
+mod read;
+pub(crate) use read::read_value_in;
+
+use super::{Cell, RefSlot, ReferenceTable, TextSlot};
 use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING};
-use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::memory::layout::TypeLayout;
 use crate::memory::text::TextStore;
-use crate::value::{ArrayValue, EnumValue, RefSegment, StructValue, Value};
+use crate::value::{RefSegment, Value};
 use crate::vm::type_policy::primitive_value_matches;
 use crate::vm::PreparedModule;
 
 /// The kind-mismatch reason: the value is one kind and the type's primitive encoding another.
-const KIND_REASON: &str = "the value's kind does not match the type";
+pub(super) const KIND_REASON: &str = "the value's kind does not match the type";
 
 /// Why a non-null reference is refused here (C1-9).
 const REFERENCE_REASON: &str = "a non-null reference is stored in C1-9";
 
 /// Why a reference cell's target is refused here (C1-9).
-const REFERENCE_TARGET_REASON: &str = "a reference cell's target is its record, which C1-9 reads";
+pub(super) const REFERENCE_TARGET_REASON: &str =
+    "a reference cell's target is its record, which C1-9 reads";
 
 /// Why a `STRUCT OVERLAP` is refused here (C1-15).
-const OVERLAP_REASON: &str =
+pub(super) const OVERLAP_REASON: &str =
     "an overlapping structure is written through its byte backing in C1-15";
 
 /// Why a union is refused here (C1-15).
-const UNION_REASON: &str = "a union's members share their cells; C1-15 owns shared storage";
+pub(super) const UNION_REASON: &str =
+    "a union's members share their cells; C1-15 owns shared storage";
 
 /// Why a value of another structure type is refused.
 const STRUCTURE_NAME_REASON: &str = "the value's type name is not the structure's";
@@ -68,19 +70,19 @@ const ENUM_TYPE_REASON: &str = "the value's enumeration is not the type";
 const ENUM_VARIANT_REASON: &str = "the enumeration has no such variant with that value";
 
 /// The leaf name of a reference cell.
-const REFERENCE_LEAF: &str = "REFERENCE";
+pub(super) const REFERENCE_LEAF: &str = "REFERENCE";
 
 /// The leaf name of a `STRUCT OVERLAP`.
-const OVERLAP_LEAF: &str = "OVERLAP";
+pub(super) const OVERLAP_LEAF: &str = "OVERLAP";
 
 /// The leaf name of a union.
-const UNION_LEAF: &str = "UNION";
+pub(super) const UNION_LEAF: &str = "UNION";
 
 /// The `Cell::Text` primitive encodings (`STRING` and `WSTRING`).
 const TEXT_PRIMITIVES: [u16; 2] = [24, 25];
 
 /// The primitive encoding of `WSTRING`; `STRING` is 24.
-const WSTRING_PRIMITIVE: u16 = 25;
+pub(super) const WSTRING_PRIMITIVE: u16 = 25;
 
 /// Write the value `value` of the `TYPE_TABLE` type `type_id` into `cells`, the cell range of the
 /// type's prepared layout (specification 34 §6.2, MEM-10; design "Boundaries").
@@ -110,9 +112,25 @@ pub fn write_value(
     text: &mut TextStore,
     cell_start: u32,
 ) -> Result<(), RuntimeError> {
+    write_value_in(cells, type_id, value, prepared, text, None, cell_start)
+}
+
+/// [`write_value`] over a region that holds reference leaves: a non-null reference is kept in
+/// `references` under its cell (O9, R3). `None` refuses a non-null reference, as [`write_value`] does.
+pub(crate) fn write_value_in(
+    cells: &mut [Cell],
+    type_id: u32,
+    value: &Value,
+    prepared: &PreparedModule,
+    text: &mut TextStore,
+    references: Option<&mut ReferenceTable>,
+    cell_start: u32,
+) -> Result<(), RuntimeError> {
     check_slice_length(cells.len(), type_id, prepared)?;
-    check_value(type_id, value, prepared)?;
-    store_value(cells, type_id, value, prepared, text, cell_start)
+    check_value(type_id, value, prepared, references.is_some())?;
+    store_value(
+        cells, type_id, value, prepared, text, references, cell_start,
+    )
 }
 
 /// Materialize the value of the `TYPE_TABLE` type `type_id` from `cells`, the cell range of the
@@ -134,8 +152,7 @@ pub fn read_value(
     prepared: &PreparedModule,
     text: &TextStore,
 ) -> Result<Value, RuntimeError> {
-    check_slice_length(cells.len(), type_id, prepared)?;
-    read_one(cells, type_id, prepared, text)
+    read::read_value_in(cells, type_id, prepared, text, None)
 }
 
 /// The cell offset, within a value of the `TYPE_TABLE` type `type_id`, of the member-and-index
@@ -178,7 +195,7 @@ pub fn cell_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule)
 }
 
 /// How one prepared type holds a value in cells.
-enum Shape {
+pub(super) enum Shape {
     /// One scalar cell with this primitive encoding.
     Scalar(u16),
     /// One text leaf of this primitive encoding (`STRING` 24 or `WSTRING` 25); its buffer is in the
@@ -201,7 +218,7 @@ enum Shape {
 }
 
 /// Refuse a cell range that is not exactly the type's layout's cells.
-fn check_slice_length(
+pub(super) fn check_slice_length(
     cells: usize,
     type_id: u32,
     prepared: &PreparedModule,
@@ -230,10 +247,12 @@ pub(crate) fn is_reference_type(prepared: &PreparedModule, type_id: u32) -> bool
 }
 
 /// Check the whole value against the type before a cell is written, so a refusal writes nothing.
+/// `accept_references` admits a non-null reference, which the region's table then holds (O9).
 pub(crate) fn check_value(
     type_id: u32,
     value: &Value,
     prepared: &PreparedModule,
+    accept_references: bool,
 ) -> Result<(), RuntimeError> {
     if matches!(value, Value::Null) {
         return Ok(());
@@ -247,16 +266,28 @@ pub(crate) fn check_value(
                 Err(refusal(prepared, type_id, value_kind(value), KIND_REASON))
             }
         }
-        Shape::Reference => check_reference(type_id, value, prepared),
+        Shape::Reference => check_reference(type_id, value, prepared, accept_references),
         Shape::Instance => match value {
             Value::Instance(_) => Ok(()),
             other => Err(refusal(prepared, type_id, value_kind(other), KIND_REASON)),
         },
         Shape::Enumeration(enum_type) => check_enumeration(type_id, enum_type, value, prepared),
-        Shape::Structure(struct_type) => {
-            check_structure(type_id, struct_type, layout, value, prepared)
-        }
-        Shape::Array(elem_type) => check_array(type_id, elem_type, layout, value, prepared),
+        Shape::Structure(struct_type) => check_structure(
+            type_id,
+            struct_type,
+            layout,
+            value,
+            prepared,
+            accept_references,
+        ),
+        Shape::Array(elem_type) => check_array(
+            type_id,
+            elem_type,
+            layout,
+            value,
+            prepared,
+            accept_references,
+        ),
         Shape::Overlay => Err(refusal(prepared, type_id, OVERLAP_LEAF, OVERLAP_REASON)),
         Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
@@ -267,9 +298,11 @@ fn check_reference(
     type_id: u32,
     value: &Value,
     prepared: &PreparedModule,
+    accept_references: bool,
 ) -> Result<(), RuntimeError> {
     match value {
         Value::Reference(None) => Ok(()),
+        Value::Reference(Some(_)) if accept_references => Ok(()),
         Value::Reference(Some(_)) => {
             Err(refusal(prepared, type_id, REFERENCE_LEAF, REFERENCE_REASON))
         }
@@ -325,6 +358,7 @@ fn check_structure(
     layout: &TypeLayout,
     value: &Value,
     prepared: &PreparedModule,
+    accept_references: bool,
 ) -> Result<(), RuntimeError> {
     let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
         return Err(RuntimeError::InvalidExecutionState);
@@ -348,7 +382,7 @@ fn check_structure(
         let Some(member_value) = structure.field(name) else {
             return Err(refusal(prepared, type_id, name, MISSING_MEMBER_REASON));
         };
-        check_value(field.type_id, member_value, prepared)?;
+        check_value(field.type_id, member_value, prepared, accept_references)?;
     }
     for name in structure.fields().keys() {
         if !declares_member(prepared, fields, name)? {
@@ -379,6 +413,7 @@ fn check_array(
     layout: &TypeLayout,
     value: &Value,
     prepared: &PreparedModule,
+    accept_references: bool,
 ) -> Result<(), RuntimeError> {
     let Some(array) = layout.array.as_ref() else {
         return Err(RuntimeError::InvalidExecutionState);
@@ -411,7 +446,7 @@ fn check_array(
         ));
     }
     for element in value.elements() {
-        check_value(elem_type, element, prepared)?;
+        check_value(elem_type, element, prepared, accept_references)?;
     }
     Ok(())
 }
@@ -423,6 +458,7 @@ fn store_value(
     value: &Value,
     prepared: &PreparedModule,
     text: &mut TextStore,
+    references: Option<&mut ReferenceTable>,
     cell_start: u32,
 ) -> Result<(), RuntimeError> {
     if matches!(value, Value::Null) {
@@ -456,7 +492,7 @@ fn store_value(
                 value: enumeration.numeric_value(),
             };
         }
-        Shape::Reference => *first_mut(cells)? = Cell::NullRef,
+        Shape::Reference => store_reference(cells, value, references, cell_start)?,
         Shape::Instance => {
             let Value::Instance(instance) = value else {
                 return Err(RuntimeError::InvalidExecutionState);
@@ -470,11 +506,12 @@ fn store_value(
             value,
             prepared,
             text,
+            references,
             cell_start,
         )?,
-        Shape::Array(elem_type) => {
-            store_array(cells, type_id, elem_type, value, prepared, text, cell_start)?
-        }
+        Shape::Array(elem_type) => store_array(
+            cells, type_id, elem_type, value, prepared, text, references, cell_start,
+        )?,
         Shape::Overlay | Shape::Union => return Err(RuntimeError::InvalidExecutionState),
     }
     Ok(())
@@ -493,7 +530,41 @@ fn text_value(prim_id: u16, value: &Value) -> Option<(&str, bool)> {
     Some((stored, prim_id == WSTRING_PRIMITIVE))
 }
 
+/// Write a checked reference leaf (O9, R3). A non-null reference is kept in the region's table under
+/// the leaf's cell, and the cell names that entry. The table is reserved with the reference leaves, so
+/// a leaf outside it is refused.
+fn store_reference(
+    cells: &mut [Cell],
+    value: &Value,
+    references: Option<&mut ReferenceTable>,
+    cell_start: u32,
+) -> Result<(), RuntimeError> {
+    let slot = first_mut(cells)?;
+    match value {
+        Value::Reference(None) => {
+            if let Some(references) = references {
+                references.set(cell_start, None);
+            }
+            *slot = Cell::NullRef;
+            Ok(())
+        }
+        Value::Reference(Some(reference)) => {
+            let references = references.ok_or(RuntimeError::InvalidExecutionState)?;
+            if !references.set(cell_start, Some(reference.clone())) {
+                return Err(RuntimeError::InvalidExecutionState);
+            }
+            *slot = Cell::Ref(RefSlot(cell_start));
+            Ok(())
+        }
+        _ => Err(RuntimeError::InvalidExecutionState),
+    }
+}
+
 /// Write a checked structure's members at their layout offsets.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "a structure or an array is stored with both leaf stores and the position of its cells"
+)]
 fn store_structure(
     cells: &mut [Cell],
     type_id: u32,
@@ -501,6 +572,7 @@ fn store_structure(
     value: &Value,
     prepared: &PreparedModule,
     text: &mut TextStore,
+    mut references: Option<&mut ReferenceTable>,
     cell_start: u32,
 ) -> Result<(), RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
@@ -532,6 +604,7 @@ fn store_structure(
             member_value,
             prepared,
             text,
+            references.as_deref_mut(),
             member_start,
         )?;
     }
@@ -539,6 +612,10 @@ fn store_structure(
 }
 
 /// Write a checked array's elements at their stride.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "a structure or an array is stored with both leaf stores and the position of its cells"
+)]
 fn store_array(
     cells: &mut [Cell],
     type_id: u32,
@@ -546,6 +623,7 @@ fn store_array(
     value: &Value,
     prepared: &PreparedModule,
     text: &mut TextStore,
+    mut references: Option<&mut ReferenceTable>,
     cell_start: u32,
 ) -> Result<(), RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
@@ -565,176 +643,17 @@ fn store_array(
         let element_start = cell_start
             .checked_add(u32::try_from(start).map_err(|_| RuntimeError::Overflow)?)
             .ok_or(RuntimeError::Overflow)?;
-        store_value(range, elem_type, element, prepared, text, element_start)?;
+        store_value(
+            range,
+            elem_type,
+            element,
+            prepared,
+            text,
+            references.as_deref_mut(),
+            element_start,
+        )?;
     }
     Ok(())
-}
-
-/// Materialize the value of one cell range, refusing a cell the type does not hold.
-fn read_one(
-    cells: &[Cell],
-    type_id: u32,
-    prepared: &PreparedModule,
-    text: &TextStore,
-) -> Result<Value, RuntimeError> {
-    if cells.iter().all(|cell| *cell == Cell::Null) {
-        return Ok(Value::Null);
-    }
-    match shape(prepared, type_id)? {
-        Shape::Scalar(prim_id) => read_scalar(type_id, prim_id, cells, prepared),
-        Shape::Enumeration(enum_type) => read_enumeration(type_id, enum_type, cells, prepared),
-        Shape::Structure(struct_type) => {
-            read_structure(type_id, struct_type, cells, prepared, text)
-        }
-        Shape::Array(elem_type) => read_array(type_id, elem_type, cells, prepared, text),
-        Shape::Reference => match cells.first() {
-            Some(Cell::NullRef) => Ok(Value::Reference(None)),
-            Some(_) => Err(refusal(
-                prepared,
-                type_id,
-                REFERENCE_LEAF,
-                REFERENCE_TARGET_REASON,
-            )),
-            None => Err(RuntimeError::InvalidExecutionState),
-        },
-        Shape::Instance => match cells.first() {
-            Some(Cell::Instance(instance)) => Ok(Value::Instance(*instance)),
-            Some(_) => Err(refusal(prepared, type_id, "cell", KIND_REASON)),
-            None => Err(RuntimeError::InvalidExecutionState),
-        },
-        Shape::Text(prim_id) => read_text(type_id, prim_id, cells, prepared, text),
-        Shape::Overlay => Err(refusal(prepared, type_id, OVERLAP_LEAF, OVERLAP_REASON)),
-        Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
-    }
-}
-
-/// Materialize one text leaf from the buffer its cell names (C1-7).
-fn read_text(
-    type_id: u32,
-    prim_id: u16,
-    cells: &[Cell],
-    prepared: &PreparedModule,
-    text: &TextStore,
-) -> Result<Value, RuntimeError> {
-    let Some(Cell::Text(slot)) = cells.first() else {
-        return Err(refusal(prepared, type_id, "cell", KIND_REASON));
-    };
-    let wide = prim_id == WSTRING_PRIMITIVE;
-    let stored = text
-        .text(*slot, wide)
-        .ok_or(RuntimeError::InvalidExecutionState)?;
-    Ok(if wide {
-        Value::WString(stored)
-    } else {
-        Value::String(SmolStr::new(stored))
-    })
-}
-
-/// Materialize one scalar cell as the value of the type's primitive encoding.
-fn read_scalar(
-    type_id: u32,
-    prim_id: u16,
-    cells: &[Cell],
-    prepared: &PreparedModule,
-) -> Result<Value, RuntimeError> {
-    let cell = *cells.first().ok_or(RuntimeError::InvalidExecutionState)?;
-    let Some(value) = cell_slot(cell) else {
-        return Err(refusal(prepared, type_id, "cell", KIND_REASON));
-    };
-    if !primitive_value_matches(prim_id, &value) {
-        return Err(refusal(prepared, type_id, "cell", KIND_REASON));
-    }
-    Ok(value)
-}
-
-/// Materialize one enumeration cell as the bracket the type declares for its value.
-fn read_enumeration(
-    type_id: u32,
-    enum_type: u32,
-    cells: &[Cell],
-    prepared: &PreparedModule,
-) -> Result<Value, RuntimeError> {
-    let TypeData::Enum { variants, .. } = &type_entry(prepared, enum_type)?.data else {
-        return Err(RuntimeError::InvalidExecutionState);
-    };
-    let Some(Cell::Enum { type_idx, value }) = cells.first() else {
-        return Err(refusal(prepared, type_id, "cell", KIND_REASON));
-    };
-    if *type_idx != enum_type {
-        return Err(refusal(prepared, type_id, "cell", KIND_REASON));
-    }
-    let Some(variant) = variants.iter().find(|variant| variant.value == *value) else {
-        return Err(refusal(
-            prepared,
-            enum_type,
-            "value",
-            &format!("the enumeration has no variant with the value {value}"),
-        ));
-    };
-    let name = SmolStr::new(string(prepared, variant.name_idx)?);
-    Ok(Value::Enum(alloc::boxed::Box::new(
-        EnumValue::from_canonical_parts(value_type_name(prepared, enum_type), name, *value),
-    )))
-}
-
-/// Materialize a structure's members from their layout offsets.
-fn read_structure(
-    type_id: u32,
-    struct_type: u32,
-    cells: &[Cell],
-    prepared: &PreparedModule,
-    text: &TextStore,
-) -> Result<Value, RuntimeError> {
-    let layout = layout_of(prepared, type_id)?;
-    let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
-        return Err(RuntimeError::InvalidExecutionState);
-    };
-    let mut members: OrderedMap<SmolStr, Value> = OrderedMap::default();
-    for (member, field) in layout.members.iter().zip(fields) {
-        let member_cells = layout_of(prepared, field.type_id)?.cells as usize;
-        let start = member.offset as usize;
-        let end = start
-            .checked_add(member_cells)
-            .ok_or(RuntimeError::Overflow)?;
-        let range = cells
-            .get(start..end)
-            .ok_or(RuntimeError::InvalidExecutionState)?;
-        let value = read_one(range, field.type_id, prepared, text)?;
-        members.insert(SmolStr::new(string(prepared, member.name_idx)?), value);
-    }
-    Ok(Value::Struct(Arc::new(StructValue::from_canonical_parts(
-        value_type_name(prepared, struct_type),
-        members,
-    ))))
-}
-
-/// Materialize an array's elements from their stride.
-fn read_array(
-    type_id: u32,
-    elem_type: u32,
-    cells: &[Cell],
-    prepared: &PreparedModule,
-    text: &TextStore,
-) -> Result<Value, RuntimeError> {
-    let layout = layout_of(prepared, type_id)?;
-    let Some(array) = layout.array.as_ref() else {
-        return Err(RuntimeError::InvalidExecutionState);
-    };
-    let expected = element_count(&array.dims).ok_or(RuntimeError::InvalidExecutionState)?;
-    let stride = usize::try_from(array.stride).map_err(|_| RuntimeError::Overflow)?;
-    if stride == 0 {
-        return Err(RuntimeError::InvalidExecutionState);
-    }
-    let chunks = cells.chunks_exact(stride);
-    if chunks.len() != expected {
-        return Err(RuntimeError::InvalidExecutionState);
-    }
-    let elements = chunks
-        .map(|element| read_one(element, elem_type, prepared, text))
-        .collect::<Result<Vec<Value>, RuntimeError>>()?;
-    Ok(Value::Array(alloc::boxed::Box::new(
-        ArrayValue::from_canonical_parts(elements, array.dims.clone()),
-    )))
 }
 
 /// The first cell of a range, or a refusal when the range holds none.
@@ -743,7 +662,7 @@ fn first_mut(cells: &mut [Cell]) -> Result<&mut Cell, RuntimeError> {
 }
 
 /// How a prepared type holds its value in cells.
-fn shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, RuntimeError> {
+pub(super) fn shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, RuntimeError> {
     let (resolved, entry) = resolve(prepared, type_id)?;
     Ok(match &entry.data {
         TypeData::Primitive { .. } | TypeData::Subrange { .. } => {
@@ -811,7 +730,10 @@ fn resolve(prepared: &PreparedModule, type_id: u32) -> Result<(u32, &TypeEntry),
 }
 
 /// The `TYPE_TABLE` entry of one admitted type ordinal.
-fn type_entry(prepared: &PreparedModule, type_id: u32) -> Result<&TypeEntry, RuntimeError> {
+pub(super) fn type_entry(
+    prepared: &PreparedModule,
+    type_id: u32,
+) -> Result<&TypeEntry, RuntimeError> {
     prepared
         .type_table()
         .entries
@@ -820,14 +742,17 @@ fn type_entry(prepared: &PreparedModule, type_id: u32) -> Result<&TypeEntry, Run
 }
 
 /// One type's prepared layout.
-fn layout_of(prepared: &PreparedModule, type_id: u32) -> Result<&TypeLayout, RuntimeError> {
+pub(super) fn layout_of(
+    prepared: &PreparedModule,
+    type_id: u32,
+) -> Result<&TypeLayout, RuntimeError> {
     prepared
         .type_layout(type_id)
         .ok_or(RuntimeError::InvalidExecutionState)
 }
 
 /// The name of one `STRING_TABLE` record.
-fn string(prepared: &PreparedModule, name_idx: u32) -> Result<&str, RuntimeError> {
+pub(super) fn string(prepared: &PreparedModule, name_idx: u32) -> Result<&str, RuntimeError> {
     prepared
         .strings()
         .get(name_idx as usize)
@@ -836,7 +761,7 @@ fn string(prepared: &PreparedModule, name_idx: u32) -> Result<&str, RuntimeError
 }
 
 /// The name a value of this type carries: the `STRING_TABLE` name, or none for an anonymous type.
-fn value_type_name(prepared: &PreparedModule, type_id: u32) -> SmolStr {
+pub(super) fn value_type_name(prepared: &PreparedModule, type_id: u32) -> SmolStr {
     prepared
         .type_table()
         .entries
@@ -864,7 +789,12 @@ fn type_label(prepared: &PreparedModule, type_id: u32) -> SmolStr {
 /// A cell conversion is a boundary write or read of a destination variable, so the refusal is the
 /// runtime's initialization failure, whose owner, variable and error fields carry those three
 /// facts.
-fn refusal(prepared: &PreparedModule, type_id: u32, refused: &str, reason: &str) -> RuntimeError {
+pub(super) fn refusal(
+    prepared: &PreparedModule,
+    type_id: u32,
+    refused: &str,
+    reason: &str,
+) -> RuntimeError {
     RuntimeError::InitFailed {
         owner: type_label(prepared, type_id),
         variable: SmolStr::new(refused),
@@ -913,43 +843,6 @@ fn scalar_slot(value: &Value) -> Option<Cell> {
     })
 }
 
-/// The scalar value of a scalar cell, or `None` for a cell that holds no scalar.
-fn cell_slot(cell: Cell) -> Option<Value> {
-    Some(match cell {
-        Cell::Bool(value) => Value::Bool(value),
-        Cell::Byte(value) => Value::Byte(value),
-        Cell::Word(value) => Value::Word(value),
-        Cell::DWord(value) => Value::DWord(value),
-        Cell::LWord(value) => Value::LWord(value),
-        Cell::SInt(value) => Value::SInt(value),
-        Cell::Int(value) => Value::Int(value),
-        Cell::DInt(value) => Value::DInt(value),
-        Cell::LInt(value) => Value::LInt(value),
-        Cell::USInt(value) => Value::USInt(value),
-        Cell::UInt(value) => Value::UInt(value),
-        Cell::UDInt(value) => Value::UDInt(value),
-        Cell::ULInt(value) => Value::ULInt(value),
-        Cell::Real(value) => Value::Real(value),
-        Cell::LReal(value) => Value::LReal(value),
-        Cell::Time(value) => Value::Time(crate::value::Duration::from_nanos(value)),
-        Cell::LTime(value) => Value::LTime(crate::value::Duration::from_nanos(value)),
-        Cell::Date(value) => Value::Date(crate::value::DateValue::new(value)),
-        Cell::LDate(value) => Value::LDate(crate::value::LDateValue::new(value)),
-        Cell::Tod(value) => Value::Tod(crate::value::TimeOfDayValue::new(value)),
-        Cell::LTod(value) => Value::LTod(crate::value::LTimeOfDayValue::new(value)),
-        Cell::Dt(value) => Value::Dt(crate::value::DateTimeValue::new(value)),
-        Cell::Ldt(value) => Value::Ldt(crate::value::LDateTimeValue::new(value)),
-        Cell::Char(value) => Value::Char(value),
-        Cell::WChar(value) => Value::WChar(value),
-        Cell::Enum { .. }
-        | Cell::Instance(_)
-        | Cell::Text(_)
-        | Cell::Ref(_)
-        | Cell::Null
-        | Cell::NullRef => return None,
-    })
-}
-
 /// The value model's kind name for a refusal.
 fn value_kind(value: &Value) -> &'static str {
     match value {
@@ -990,7 +883,7 @@ fn value_kind(value: &Value) -> &'static str {
 }
 
 /// The number of elements an array's declared bounds hold, or `None` when they hold none.
-fn element_count(dims: &[(i64, i64)]) -> Option<usize> {
+pub(super) fn element_count(dims: &[(i64, i64)]) -> Option<usize> {
     dims.iter().try_fold(1usize, |count, (lower, upper)| {
         let length = upper.checked_sub(*lower)?.checked_add(1)?;
         count.checked_mul(usize::try_from(length).ok()?)

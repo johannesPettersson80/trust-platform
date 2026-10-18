@@ -1124,8 +1124,9 @@ the prepared layouts, through the same checked reservation that refuses an alloc
 other construction reservations do, and never grows: every accessor answers `None` outside the
 reserved region and allocates nothing. The persistent region holds its globals' and its persistent roots'
 cells and reference leaves, one range per root, counted from the prepared layouts rather than by hand. The
-bytes a store takes are its cells at 16 bytes each plus its reference records, so construction
-charges them before reserving. Nothing reads the store at run time yet, so stored values, outputs and
+bytes a store takes are its cells at 16 bytes each, its reference records, and its reference
+table, which holds one entry per reference leaf and the `ValueRef` of each non-null reference until
+C1-11 (O9), so construction charges them before reserving. Nothing reads the store at run time yet, so stored values, outputs and
 faults are unchanged. The text store holds a region's text buffers — one fixed buffer per text leaf
 at its leaf's byte capacity, reserved once and never grown, with its length in use — and its text
 sink cuts written text exactly where assignment normalization cuts it, so a `Cell::Text` leaf

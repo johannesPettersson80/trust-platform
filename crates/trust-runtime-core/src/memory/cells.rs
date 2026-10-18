@@ -21,10 +21,11 @@ use crate::error::RuntimeError;
 use crate::memory::layout::{CellRange, LayoutRegion, CELL_BYTES};
 use crate::memory::regions::PersistentExtent;
 use crate::memory::{Generation, InstanceId};
+use crate::value::ValueRef;
 use crate::vm::{PreparedModule, VmTrap};
 
 pub use convert::{cell_offset, read_value, write_value};
-pub(crate) use convert::{check_value, is_reference_type};
+pub(crate) use convert::{check_value, is_reference_type, read_value_in, write_value_in};
 
 /// One cell of the bounded value store (specification 34 §6.2, MEM-10; design "Cells").
 ///
@@ -157,6 +158,68 @@ impl RefRecord {
     }
 }
 
+/// The reference leaves of one region and the `ValueRef` each non-null leaf holds (specification 34
+/// §6.2; O9, R3, R5). Every reference leaf's cell is known at construction, so the table is reserved
+/// once, in ascending cell order, holding no reference. A write replaces an entry and never adds one,
+/// so a reference write in a scan allocates nothing.
+#[derive(Debug, Default)]
+pub(crate) struct ReferenceTable {
+    leaves: Vec<(u32, Option<ValueRef>)>,
+}
+
+impl ReferenceTable {
+    /// The bytes a table of `leaves` entries reserves; construction charges them with the cells.
+    pub(crate) fn reservation_bytes(leaves: usize) -> Option<usize> {
+        leaves.checked_mul(core::mem::size_of::<(u32, Option<ValueRef>)>())
+    }
+
+    /// Reserve one entry, holding no reference, for each cell of `cells`. The cells must be distinct:
+    /// a repeated cell is refused, because a reference leaf owns exactly one cell.
+    pub(crate) fn reserve(mut cells: Vec<u32>) -> Result<Self, RuntimeError> {
+        cells.sort_unstable();
+        if cells.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let mut leaves = Vec::new();
+        leaves
+            .try_reserve_exact(cells.len())
+            .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
+        leaves.extend(cells.into_iter().map(|cell| (cell, None)));
+        Ok(Self { leaves })
+    }
+
+    /// The reference the leaf at `cell` holds, or `None` for a null leaf and for a cell that is no
+    /// reference leaf.
+    pub(crate) fn get(&self, cell: u32) -> Option<&ValueRef> {
+        self.leaves[self.index_of(cell)?].1.as_ref()
+    }
+
+    /// Store `reference` (`None` for a null reference) in the leaf at `cell`. Answers `false` when
+    /// `cell` is no reference leaf of this region. Nothing is allocated.
+    pub(crate) fn set(&mut self, cell: u32, reference: Option<ValueRef>) -> bool {
+        match self.index_of(cell) {
+            Some(index) => {
+                self.leaves[index].1 = reference;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The entry of the leaf at `cell`, found by binary search over the reserved cells.
+    fn index_of(&self, cell: u32) -> Option<usize> {
+        self.leaves
+            .binary_search_by_key(&cell, |(leaf, _)| *leaf)
+            .ok()
+    }
+
+    /// The reserved capacity, which the store never grows (test support).
+    #[cfg(test)]
+    pub(crate) fn capacity(&self) -> usize {
+        self.leaves.capacity()
+    }
+}
+
 /// One region's cells and reference records (design "Regions").
 ///
 /// The store reserves both once and never grows, and it belongs to one [`LayoutRegion`]: every
@@ -243,7 +306,9 @@ impl CellStore {
     /// Refused as [`CellStore::reserve`] is, or when the prepared layouts and declarations disagree.
     pub fn persistent(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
         let extent = PersistentExtent::of(prepared)?;
-        Self::reserve(extent.cells, extent.references)
+        let references =
+            u32::try_from(extent.references.len()).map_err(|_| RuntimeError::Overflow)?;
+        Self::reserve(extent.cells, references)
     }
 
     /// The cells and the reference records this region has room for.

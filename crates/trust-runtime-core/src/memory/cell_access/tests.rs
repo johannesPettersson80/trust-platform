@@ -23,6 +23,7 @@
 //! creates for `fb_g` lives. The parent is a separate instance from the one `base_g` holds.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use smol_str::SmolStr;
 
@@ -32,12 +33,13 @@ use super::fixture::{
     FB_G, FB_ROOT, GLOBAL_NAMES, INT_ARRAY, PAIR, PARENT_ROOT, REAL, REAL_DECL, REF_DECL, REF_DINT,
     STRING_10, TEXT_DECL, WIDE_DECL, WSTRING_5,
 };
-use super::{CellArm, CellReader};
+use super::{CellArm, CellReader, CellWriter};
+use crate::collections::OrderedMap;
 use crate::memory::layout::{CellRange, LayoutRegion};
 use crate::memory::regions::CellStorage;
-use crate::memory::view::{StoreAccess, ValueView};
-use crate::memory::{Generation, MemoryLocation, VariableStorage};
-use crate::value::{RefSegment, Value, ValueRefView};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
+use crate::memory::{Generation, InstanceId, MemoryLocation, VariableStorage};
+use crate::value::{ArrayValue, RefSegment, StructValue, Value, ValueRefView};
 use crate::vm::{PreparedModule, VmTrap};
 
 /// Write `value` of `type_id` into the cells of `range`, through the same `write_value` the engine's
@@ -199,10 +201,27 @@ impl Fixture {
     /// The fixture, with the same initial values in both stores. The arm's `Value` half holds the
     /// program root, which owns no cells, and the instance records of construction (R0).
     pub(super) fn new() -> Self {
+        Self::build(true)
+    }
+
+    /// The fixture with only what construction writes (R2): the defaults of the declared leaves, and
+    /// no fixture value written over them.
+    pub(super) fn constructed() -> Self {
+        Self::build(false)
+    }
+
+    fn build(write_initial_values: bool) -> Self {
         let prepared = prepared();
         let mut cells = CellStorage::construct(&prepared, Generation::FIRST, |_| Ok(()))
             .expect("the persistent region reserves");
-        write_fixture_cells(&mut cells, &prepared);
+        // The persistent instances take their identities from the store's one counter, in the order
+        // the fixture registers them (R4).
+        for expected in [BASE_INSTANCE, DERIVED_INSTANCE, BASE_G_INSTANCE] {
+            assert_eq!(cells.issue_instance_id().ok(), Some(expected));
+        }
+        if write_initial_values {
+            write_fixture_cells(&mut cells, &prepared);
+        }
         let base_range = cells
             .regions()
             .root_range(BASE_ROOT)
@@ -573,4 +592,106 @@ fn a_derived_root_reserves_its_parents_cells() {
             .map(value_of),
         Some(Value::DInt(5))
     );
+}
+
+/// The `ARRAY[1..3] OF INT` of zeros, the default of `series_v`.
+fn zero_series() -> Value {
+    Value::Array(Box::new(ArrayValue::from_canonical_parts(
+        vec![Value::Int(0); 3],
+        vec![(1, 3)],
+    )))
+}
+
+/// The `Pair` of zeros, the default of `pair_v`.
+fn zero_pair() -> Value {
+    let mut fields = OrderedMap::default();
+    fields.insert(SmolStr::new("x"), Value::Int(0));
+    fields.insert(SmolStr::new("y"), Value::Int(0));
+    Value::Struct(Arc::new(StructValue::from_canonical_parts(
+        SmolStr::new("Pair"),
+        fields,
+    )))
+}
+
+#[test]
+fn a_constructed_store_reads_every_declared_initial_value() {
+    // Specification 34 §6.2 (R2): construction writes each declared leaf's initial value into its cells,
+    // the default of its type (the fixture declares no constants). Worked out by hand: DINT 0, REAL 0.0,
+    // STRING '' and WSTRING '', the reference null, `series_v` 0, 0, 0 and `pair_v` (x 0, y 0) of
+    // `base_g`, `base_v` 0 on `base_g` and on the inheritance parent that `fb_g` reaches, and `own_v` 0.0.
+    // `base_g` and `fb_g` hold no value until the engine creates them, so they read Null. A store that wrote
+    // no defaults would read Null in every declared cell and fail the first assertion.
+    let fixture = Fixture::constructed();
+    let reader = fixture.reader();
+    assert_eq!(
+        reader.read_global("dint_g").map(value_of),
+        Some(Value::DInt(0))
+    );
+    assert_eq!(
+        reader.read_global("real_g").map(value_of),
+        Some(Value::Real(0.0))
+    );
+    assert_eq!(
+        reader.read_global("text_g").map(value_of),
+        Some(Value::String(SmolStr::new("")))
+    );
+    assert_eq!(
+        reader.read_global("wide_g").map(value_of),
+        Some(Value::WString(String::new()))
+    );
+    assert_eq!(
+        reader.read_global("ref_g").map(value_of),
+        Some(Value::Reference(None))
+    );
+    assert_eq!(
+        reader.read_global("base_g").map(value_of),
+        Some(Value::Null)
+    );
+    assert_eq!(reader.read_global("fb_g").map(value_of), Some(Value::Null));
+    assert_eq!(
+        reader
+            .read_instance_var(BASE_G_INSTANCE, "base_v")
+            .map(value_of),
+        Some(Value::DInt(0))
+    );
+    assert_eq!(
+        reader
+            .read_instance_var(BASE_G_INSTANCE, "series_v")
+            .map(value_of),
+        Some(zero_series())
+    );
+    assert_eq!(
+        reader
+            .read_instance_var(BASE_G_INSTANCE, "pair_v")
+            .map(value_of),
+        Some(zero_pair())
+    );
+    assert_eq!(
+        reader
+            .read_instance_field(DERIVED_INSTANCE, "base_v")
+            .ok()
+            .map(value_of),
+        Some(Value::DInt(0))
+    );
+    assert_eq!(
+        reader
+            .read_instance_field(DERIVED_INSTANCE, "own_v")
+            .ok()
+            .map(value_of),
+        Some(Value::Real(0.0))
+    );
+}
+
+#[test]
+fn per_call_and_persistent_identities_never_collide() {
+    // Specification 34 §6.2 (R4): one identity counter serves both kinds of instance. The fixture's
+    // persistent instances hold 0, 1 and 2, so a per-call instance takes 3 and the next one 4. A per-call
+    // identity drawn from the `Value` half's own counter, which starts at 0, would be 0: the identity of
+    // the parent instance, whose members a read through the new instance would then return.
+    let mut fixture = Fixture::new();
+    let mut writer = CellWriter::new(&fixture.prepared, &mut fixture.arm);
+    let first = StoreMutate::try_create_instance(&mut writer, "Helper");
+    let second = StoreMutate::try_create_instance(&mut writer, "Helper");
+    assert_eq!(first, Ok(InstanceId(3)));
+    assert_eq!(second, Ok(InstanceId(4)));
 }

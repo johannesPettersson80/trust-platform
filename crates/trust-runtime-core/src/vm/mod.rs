@@ -9,7 +9,7 @@ mod boundary_compile_fail;
 mod budget;
 mod call;
 mod const_pool;
-mod construction;
+pub(crate) mod construction;
 mod context;
 /// Native phase timing for diagnostic consumers, excluded from product compositions.
 #[cfg(all(feature = "std", feature = "test-support"))]

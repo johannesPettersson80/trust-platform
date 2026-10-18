@@ -512,6 +512,8 @@ mod retain_apply_tests;
 mod stdlib_text_work_tests;
 #[cfg(test)]
 mod storage_tests;
+#[cfg(test)]
+mod store_access_tests;
 
 #[cfg(test)]
 mod activation_registry_tests;

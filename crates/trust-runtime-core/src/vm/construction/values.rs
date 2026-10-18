@@ -7,7 +7,7 @@ use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::mem::size_of;
 use smol_str::SmolStr;
 
-pub(in crate::vm) mod scalar;
+pub(crate) mod scalar;
 #[cfg(test)]
 mod tests;
 

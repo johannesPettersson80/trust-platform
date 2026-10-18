@@ -12,7 +12,9 @@ use smol_str::SmolStr;
 
 use super::{primitive_of, CellArm, CellReader, Target, STRING_PRIMITIVE, WSTRING_PRIMITIVE};
 use crate::error::RuntimeError;
-use crate::memory::cells::{check_value, is_reference_type, write_value, Cell, RefSlot};
+use crate::memory::cells::{
+    check_value, is_reference_type, write_value_in, Cell, RefSlot, ReferenceTable,
+};
 use crate::memory::layout::CellRange;
 use crate::memory::view::{PreparedWrite, PreparedWriteKind, StoreMutate};
 use crate::memory::{InstanceData, InstanceId, MemoryLocation};
@@ -21,11 +23,13 @@ use crate::vm::type_policy::{normalize_primitive_value, resolved_primitive_shape
 use crate::vm::PreparedModule;
 
 /// A prepared cell write: the range of the leaf, its declared type and the value the leaf will hold,
-/// normalized and checked before anything is copied (R4).
+/// normalized and checked before anything is copied (R4). A reference leaf holds no value here: its
+/// check reads the value by reference, and its commit moves the value it is given (R5), so a reference
+/// write in a scan clones nothing.
 pub(crate) struct CellPatch {
-    range: CellRange,
-    type_id: u32,
-    leaf: Value,
+    pub(crate) range: CellRange,
+    pub(crate) type_id: u32,
+    pub(crate) leaf: Option<Value>,
 }
 
 /// The writer of the cell arm: the writes of [`StoreMutate`] over one arm, placed by the prepared
@@ -54,27 +58,19 @@ impl<'a> CellWriter<'a> {
         let Some(cells) = persistent.cells_mut(range) else {
             return false;
         };
-        if !is_reference_type(prepared, type_id) {
-            return write_value(cells, type_id, &leaf, prepared, text, range.start).is_ok();
+        if is_reference_type(prepared, type_id) {
+            return store_reference_leaf(cells, range.start, leaf, references);
         }
-        // A reference leaf holds its `ValueRef` on the `Value` side, keyed by its cell (O9).
-        references.remove(&range.start);
-        match (leaf, cells.first_mut()) {
-            (Value::Reference(Some(reference)), Some(cell)) => {
-                *cell = Cell::Ref(RefSlot(range.start));
-                references.insert(range.start, reference);
-                true
-            }
-            (Value::Reference(None), Some(cell)) => {
-                *cell = Cell::NullRef;
-                true
-            }
-            (Value::Null, Some(cell)) => {
-                *cell = Cell::Null;
-                true
-            }
-            _ => false,
-        }
+        write_value_in(
+            cells,
+            type_id,
+            &leaf,
+            prepared,
+            text,
+            Some(references),
+            range.start,
+        )
+        .is_ok()
     }
 
     /// The write of `value` into the slot at `location`/`offset` and `path`, answering as the `Value`
@@ -100,7 +96,16 @@ impl<'a> CellWriter<'a> {
                 let patch = self
                     .reader()
                     .text_element_patch(location, offset, path, &value)?;
-                Ok(patch.is_some_and(|patch| self.store(patch.range, patch.type_id, patch.leaf)))
+                // A text patch always carries its checked leaf; a path with none names no target.
+                let Some(CellPatch {
+                    range,
+                    type_id,
+                    leaf: Some(leaf),
+                }) = patch
+                else {
+                    return Ok(false);
+                };
+                Ok(self.store(range, type_id, leaf))
             }
         }
     }
@@ -118,7 +123,13 @@ impl CellReader<'_> {
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         match self.locate(location, offset, path) {
             Ok(Target::Cells(range, type_id)) => {
-                let leaf = checked_leaf(self.prepared, type_id, value.clone())?;
+                // A reference is checked by reference: cloning its path would allocate in a scan (R5).
+                let leaf = if is_reference_type(self.prepared, type_id) {
+                    check_value(type_id, value, self.prepared, true)?;
+                    None
+                } else {
+                    Some(checked_leaf(self.prepared, type_id, value.clone())?)
+                };
                 Ok(Some(PreparedWrite(PreparedWriteKind::Cells(CellPatch {
                     range,
                     type_id,
@@ -193,24 +204,54 @@ impl CellReader<'_> {
         Ok(Some(CellPatch {
             range,
             type_id,
-            leaf,
+            leaf: Some(leaf),
         }))
     }
 }
 
+/// Store a reference leaf (O9, R5): a non-null reference moves into the reference table under the leaf's
+/// cell, and the cell names that entry. `false` when the cell is not a reference leaf of the table.
+fn store_reference_leaf(
+    cells: &mut [Cell],
+    cell: u32,
+    leaf: Value,
+    references: &mut ReferenceTable,
+) -> bool {
+    let Some(slot) = cells.first_mut() else {
+        return false;
+    };
+    match leaf {
+        Value::Reference(Some(reference)) => {
+            if !references.set(cell, Some(reference)) {
+                return false;
+            }
+            *slot = Cell::Ref(RefSlot(cell));
+            true
+        }
+        Value::Reference(None) => {
+            if !references.set(cell, None) {
+                return false;
+            }
+            *slot = Cell::NullRef;
+            true
+        }
+        Value::Null => {
+            *slot = Cell::Null;
+            true
+        }
+        _ => false,
+    }
+}
+
 /// The value a write leaves in a leaf of `type_id`: normalized by the declared type (O11) and checked
-/// against it. A non-null reference to a reference type is accepted here, since the arm holds it (O9).
+/// against it. A non-null reference is accepted, since the arm's table holds it (O9).
 fn checked_leaf(
     prepared: &PreparedModule,
     type_id: u32,
     value: Value,
 ) -> Result<Value, RuntimeError> {
     let leaf = normalize_for_declared(prepared, type_id, value)?;
-    let non_null_reference =
-        matches!(leaf, Value::Reference(Some(_))) && is_reference_type(prepared, type_id);
-    if !non_null_reference {
-        check_value(type_id, &leaf, prepared)?;
-    }
+    check_value(type_id, &leaf, prepared, true)?;
     Ok(leaf)
 }
 
@@ -304,9 +345,11 @@ impl StoreMutate for CellWriter<'_> {
         &mut self,
         type_name: impl Into<SmolStr>,
     ) -> Result<InstanceId, RuntimeError> {
-        // A persistent instance needs its reserved root range, which the trait does not carry, so
-        // the arm issues only per-call identities here (O8).
-        self.arm.values.try_create_instance(type_name)
+        // Per-call and persistent instances draw on the one counter of the cell store (R4). A persistent
+        // instance also needs its reserved root range, which the trait does not carry (O8).
+        let id = self.arm.cells.issue_instance_id()?;
+        self.arm.values.insert_instance(id, type_name)?;
+        Ok(id)
     }
 
     fn remove_instance(&mut self, id: InstanceId) -> bool {
@@ -361,8 +404,12 @@ impl StoreMutate for CellWriter<'_> {
                     .commit_prepared_write(path, value, staged, capacity),
                 None => false,
             },
-            // The leaf was checked when it was prepared, so the commit copies it and nothing else.
-            PreparedWriteKind::Cells(patch) => self.store(patch.range, patch.type_id, patch.leaf),
+            // The leaf was checked when it was prepared, so the commit copies it and nothing else. A
+            // reference was checked by reference, so the commit stores the value it is given.
+            PreparedWriteKind::Cells(patch) => match patch.leaf {
+                Some(leaf) => self.store(patch.range, patch.type_id, leaf),
+                None => self.store(patch.range, patch.type_id, value),
+            },
         }
     }
 

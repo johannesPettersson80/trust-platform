@@ -20,13 +20,15 @@ use smol_str::SmolStr;
 
 use super::cell_charge::CopyCharge;
 use super::fixture::{
-    BASE_G, BASE_G_INSTANCE, DERIVED_INSTANCE, DINT_G, FB_G, GLOBAL_NAMES, REF_G,
+    prepared_with_holder, BASE_G, BASE_G_INSTANCE, DERIVED_INSTANCE, DINT_G, FB_G, GLOBAL_NAMES,
+    HOLDER_G, REF_G,
 };
 use super::tests::{field_segment, value_of, Fixture};
-use super::CellWriter;
+use super::{CellArm, CellPatch, CellWriter};
 use crate::collections::OrderedMap;
-use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
-use crate::memory::{Generation, MemoryLocation};
+use crate::memory::regions::CellStorage;
+use crate::memory::view::{PreparedWriteKind, StoreAccess, StoreMutate, ValueView};
+use crate::memory::{Generation, MemoryLocation, VariableStorage};
 use crate::value::{RefSegment, StructValue, Value, ValueRef, ValueRefView, MAX_STRING_CAPACITY};
 
 /// The `GLOBAL_NAMES` ordinals of the globals the tests write.
@@ -679,5 +681,142 @@ fn a_saved_slot_is_restored_as_it_was_saved() {
     assert_eq!(
         fixture.reader().read_global("dint_g").map(value_of),
         Some(Value::DInt(7))
+    );
+}
+
+/// The `Holder` value of a reference `r` and a DINT `n`: the structure `holder_g` is declared as.
+fn holder_value(reference: Option<ValueRef>, n: i32) -> Value {
+    let mut fields = OrderedMap::default();
+    fields.insert(SmolStr::new("r"), Value::Reference(reference));
+    fields.insert(SmolStr::new("n"), Value::DInt(n));
+    Value::Struct(Arc::new(StructValue::from_canonical_parts(
+        SmolStr::new("Holder"),
+        fields,
+    )))
+}
+
+/// The fixture of the `holder_g` module: its cell arm holds the holder's defaults, written at construction
+/// (R2). Its `Value` half is empty, since these tests read the cells only.
+fn holder_fixture() -> Fixture {
+    let prepared = prepared_with_holder();
+    let cells = CellStorage::construct(&prepared, Generation::FIRST, |_| Ok(()))
+        .expect("the holder's region reserves");
+    Fixture {
+        prepared,
+        arm: CellArm::new(cells),
+        values: VariableStorage::new(),
+    }
+}
+
+#[test]
+fn a_reference_field_in_a_global_structure_round_trips() {
+    // Specification 34 §6.2, O9 and R3: a reference leaf nested in a structure is written, read and
+    // materialized through the cells. `holder_g` is a `Holder`, two cells: `r`, a `REF_TO DINT` whose cell
+    // names its entry in the reference table, and `n`, a DINT. Worked out by hand: before any write `r` is
+    // null and `n` is 0 (the defaults construction writes). Written: `r` names `base_g.pair_v.y` (ordinal 5,
+    // path pair_v.y) and `n` is 4. The structure reads back as written, and `r` reads back by its path. A
+    // null `r` written through its path leaves `n` at 4. An INT written to `r` is refused and changes
+    // nothing. A reader that dropped the nested reference would read `r` as a null or refuse the struct.
+    let mut fixture = holder_fixture();
+    let target = ValueRef {
+        location: MemoryLocation::Global,
+        offset: 5,
+        generation: Generation::FIRST,
+        path: vec![field_segment("pair_v"), field_segment("y")],
+    };
+    assert_eq!(
+        fixture.reader().read_global("holder_g").map(value_of),
+        Some(holder_value(None, 0))
+    );
+
+    let written = holder_value(Some(target.clone()), 4);
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, HOLDER_G, written.clone())
+    }));
+    assert_eq!(
+        fixture.reader().read_global("holder_g").map(value_of),
+        Some(written)
+    );
+    let r_path = [field_segment("r")];
+    assert_eq!(
+        fixture
+            .reader()
+            .read_path(MemoryLocation::Global, HOLDER_G, &r_path)
+            .ok()
+            .map(value_of),
+        Some(Value::Reference(Some(target)))
+    );
+
+    let r_null = ValueRefView {
+        location: MemoryLocation::Global,
+        offset: HOLDER_G,
+        generation: Generation::FIRST,
+        path: &r_path,
+    };
+    assert_eq!(
+        with_writer(&mut fixture, |writer| {
+            StoreMutate::write_reference(writer, r_null, Value::Reference(None))
+        }),
+        Ok(true)
+    );
+    assert_eq!(
+        fixture.reader().read_global("holder_g").map(value_of),
+        Some(holder_value(None, 4))
+    );
+
+    let r_int = ValueRefView {
+        location: MemoryLocation::Global,
+        offset: HOLDER_G,
+        generation: Generation::FIRST,
+        path: &r_path,
+    };
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_reference(writer, r_int, Value::Int(3))
+    })
+    .is_err());
+    assert_eq!(
+        fixture.reader().read_global("holder_g").map(value_of),
+        Some(holder_value(None, 4))
+    );
+}
+
+#[test]
+fn a_reference_write_in_a_scan_allocates_nothing() {
+    // Specification 34 §6.2 (O9, R5): a reference write takes no new reservation. The reference table is
+    // reserved with the reference leaves at construction, so its capacity is the same after the write and
+    // the write adds no entry. Its staged write holds no copy of the reference: the check reads it by
+    // reference and the commit moves the value it is given, so no path is cloned. `ref_g` takes the
+    // reference to `base_g.pair_v.y`. A reference write that cloned its path would leave a `CellPatch`
+    // holding the value, and a table that grew would change its capacity.
+    //
+    // This is the structural proof. The counting-allocator harness of `tests/scan_allocation_zero.rs`
+    // cannot reach the cell arm, which the engine does not build until C1-9d.
+    let mut fixture = Fixture::new();
+    let capacity = fixture.arm.cells.regions().references().capacity();
+    let reference = Value::Reference(Some(ValueRef {
+        location: MemoryLocation::Global,
+        offset: 5,
+        generation: Generation::FIRST,
+        path: vec![field_segment("pair_v"), field_segment("y")],
+    }));
+    let staged = fixture
+        .reader()
+        .prepare_write(MemoryLocation::Global, REF_G, &[], &reference)
+        .expect("the reference stages")
+        .expect("ref_g is a write target");
+    assert!(matches!(
+        staged.0,
+        PreparedWriteKind::Cells(CellPatch { leaf: None, .. })
+    ));
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::commit_write(writer, &[], reference.clone(), staged, MAX_STRING_CAPACITY)
+    }));
+    assert_eq!(
+        fixture.reader().read_global("ref_g").map(value_of),
+        Some(reference)
+    );
+    assert_eq!(
+        fixture.arm.cells.regions().references().capacity(),
+        capacity
     );
 }

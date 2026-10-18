@@ -19,7 +19,7 @@ use smol_str::SmolStr;
 use crate::bytecode::{StorageOwner, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
-use crate::memory::cells::{is_reference_type, read_value, Cell, RefSlot};
+use crate::memory::cells::{is_reference_type, read_value_in, Cell, RefSlot};
 use crate::memory::layout::CellRange;
 use crate::memory::regions::{CellRegions, CellStorage};
 use crate::memory::view::ValueView;
@@ -97,7 +97,13 @@ impl<'a> CellsView<'a> {
         if let Some(reference) = self.reference_leaf(range, type_id)? {
             return Ok(Value::Reference(Some(reference.clone())));
         }
-        read_value(cells, type_id, self.prepared, self.regions.text())
+        read_value_in(
+            cells,
+            type_id,
+            self.prepared,
+            self.regions.text(),
+            Some(self.regions.references()),
+        )
     }
 
     /// The `ValueRef` a reference leaf at `range` holds, when it holds one: `None` for a leaf of
@@ -154,6 +160,19 @@ pub(crate) struct CellArm {
 }
 
 impl CellArm {
+    /// An arm over `cells`, with an empty `Value` half and no persistent instance recorded yet.
+    #[allow(
+        dead_code,
+        reason = "C1-9d builds the cell arm at construction; until then only the tests build it"
+    )]
+    pub(crate) fn new(cells: CellStorage) -> Self {
+        Self {
+            cells,
+            values: VariableStorage::new(),
+            instances: BTreeMap::new(),
+        }
+    }
+
     /// Record that `instance`, of template `pou` and type `type_name`, occupies the cells of `range`
     /// with `parent` as its parent. C1-9d records the instances as it constructs them.
     #[allow(

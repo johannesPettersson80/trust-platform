@@ -33,6 +33,8 @@ pub(super) const PAIR: u32 = 5;
 pub(super) const WSTRING_5: u32 = 6;
 pub(super) const BASE: u32 = 7;
 pub(super) const DERIVED: u32 = 8;
+/// The `TYPE_TABLE` ordinal of `Holder`, a structure of a `REF_TO DINT` and a `DINT` (R3).
+pub(super) const HOLDER: u32 = 10;
 
 /// The POU ids of the fixture's `PROGRAM Main`, `Base` and `Derived`.
 const MAIN_POU: u32 = 1;
@@ -80,6 +82,16 @@ pub(super) const PARENT_ROOT: usize = 7;
 
 /// The number of initializers: one per variable declaration with storage.
 const INITIALIZERS: u32 = 10;
+
+/// The global `holder_g : Holder` of [`prepared_with_holder`]: its ordinal among the globals, its declaration
+/// index, its storage slot, its `STRING_TABLE` name, its binding reference and its initializer's result.
+pub(super) const HOLDER_G: usize = 8;
+const HOLDER_DECL: u32 = 12;
+const HOLDER_SLOT: u32 = 8;
+const HOLDER_NAME: u32 = 29;
+const HOLDER_REF: u32 = 19;
+const HOLDER_INITIALIZER: u32 = 11;
+const HOLDER_RESULT_REF: u32 = 20;
 
 fn primitive(prim_id: u16, max_length: u16) -> TypeEntry {
     TypeEntry {
@@ -298,6 +310,12 @@ fn strings() -> StringTable {
     .collect();
     entries.extend((0..INITIALIZERS).map(|index| SmolStr::new(format!("@init/{index}/result"))));
     entries.push(SmolStr::new("ref_g"));
+    // The names of `Holder` and of its members `r` and `n`, and of `holder_g` (indexes 29 to 32).
+    entries.extend(
+        ["holder_g", "Holder", "r", "n"]
+            .into_iter()
+            .map(SmolStr::new),
+    );
     StringTable { entries }
 }
 
@@ -340,6 +358,13 @@ fn types() -> TypeTable {
                 TypeKind::Reference,
                 TypeData::Reference {
                     target_type_id: DINT,
+                },
+            ),
+            named(
+                TypeKind::Struct,
+                30,
+                TypeData::Struct {
+                    fields: vec![field(31, REF_DINT), field(32, DINT)],
                 },
             ),
         ],
@@ -657,6 +682,77 @@ pub(super) fn prepared() -> PreparedModule {
         PreparationLimits::default(),
     )
     .expect("the fixture prepares")
+}
+
+/// The fixture plus one global, `holder_g : Holder` ([`HOLDER_G`]), a structure of a `REF_TO DINT` and a
+/// `DINT` (R3). Its cells follow the seven globals of [`fixture`], so it is a module of its own: the other
+/// fixtures keep the cells their tests check.
+pub(super) fn prepared_with_holder() -> PreparedModule {
+    let mut module = fixture();
+    let SectionData::StorageLayout(layout) = module
+        .section_mut(SectionId::StorageLayout)
+        .expect("the storage layout section")
+    else {
+        unreachable!("the storage layout section holds a storage layout")
+    };
+    layout.entries.push(declaration(
+        StorageOwner::Global,
+        StorageRole::Variable,
+        None,
+        HOLDER_NAME,
+        Some(HOLDER),
+        HOLDER_SLOT,
+        Some(HOLDER_REF),
+        3,
+    ));
+    let SectionData::ConstructionRoots(roots) = module
+        .section_mut(SectionId::ConstructionRoots)
+        .expect("the construction roots section")
+    else {
+        unreachable!("the construction roots section holds construction roots")
+    };
+    roots.entries.push(ConstructionRoot {
+        declaration_idx: HOLDER_DECL,
+        binding_ref_idx: Some(HOLDER_REF),
+        instance_owner_id: None,
+        parent_root_idx: None,
+        template_pou_id: None,
+        flags: 0,
+    });
+    let SectionData::Initializers(initializers) = module
+        .section_mut(SectionId::Initializers)
+        .expect("the initializers section")
+    else {
+        unreachable!("the initializers section holds initializers")
+    };
+    initializers
+        .entries
+        .push(initializer(HOLDER_DECL, None, HOLDER_RESULT_REF));
+    let SectionData::RefTable(refs) = module
+        .section_mut(SectionId::RefTable)
+        .expect("the reference table section")
+    else {
+        unreachable!("the reference table section holds references")
+    };
+    refs.entries.push(global_ref(HOLDER_SLOT));
+    refs.entries.push(result_ref(HOLDER_INITIALIZER));
+    let SectionData::VarMeta(meta) = module
+        .section_mut(SectionId::VarMeta)
+        .expect("the variable metadata section")
+    else {
+        unreachable!("the variable metadata section holds variable metadata")
+    };
+    // The metadata names the initializer's result, as the other globals' metadata does (not the global).
+    meta.entries
+        .push(var_meta(HOLDER_NAME, HOLDER, HOLDER_RESULT_REF));
+    module
+        .validate()
+        .expect("the holder fixture is a valid source-free module");
+    PreparedModule::from_bytes(
+        &module.encode().expect("encode"),
+        PreparationLimits::default(),
+    )
+    .expect("the holder fixture prepares")
 }
 
 /// The `ARRAY[1..3] OF INT` value `series_v` holds: 1, 2, 3.

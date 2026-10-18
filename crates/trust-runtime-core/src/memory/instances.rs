@@ -14,6 +14,23 @@ impl VariableStorage {
             .checked_add(1)
             .ok_or(crate::error::RuntimeError::Overflow)?;
         let id = InstanceId(self.identities.next_instance_id);
+        self.insert_instance(id, type_name)?;
+        self.identities.next_instance_id = next;
+        if id.0 >= self.identities.entry_instance_floor {
+            self.identities.entry_instances_live =
+                self.identities.entry_instances_live.saturating_add(1);
+        }
+        Ok(id)
+    }
+
+    /// Record a new instance of `type_name` under the identity `id`, which the caller issued from the
+    /// one counter of the store (specification 34 §6.2; R4). A live instance that holds `id` is refused,
+    /// never replaced.
+    pub(crate) fn insert_instance(
+        &mut self,
+        id: InstanceId,
+        type_name: impl Into<SmolStr>,
+    ) -> Result<(), crate::error::RuntimeError> {
         let value = InstanceData {
             type_name: type_name.into(),
             variables: IndexMap::default(),
@@ -28,12 +45,7 @@ impl VariableStorage {
         }
         #[cfg(not(feature = "std"))]
         self.activations.instances.try_append(id, value)?;
-        self.identities.next_instance_id = next;
-        if id.0 >= self.identities.entry_instance_floor {
-            self.identities.entry_instances_live =
-                self.identities.entry_instances_live.saturating_add(1);
-        }
-        Ok(id)
+        Ok(())
     }
 
     /// Record released instances whose identities are at or above the entry floor, so

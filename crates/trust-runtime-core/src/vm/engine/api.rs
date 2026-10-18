@@ -152,6 +152,10 @@ impl RuntimeState<'_> {
     pub(super) fn engine_parts(&self) -> (&EngineData, &PreparedModule) {
         (&*self.data, self.prepared)
     }
+    /// The engine data and the prepared module the store-access seam writes through (C1-9c).
+    pub(super) fn engine_parts_mut(&mut self) -> (&mut EngineData, &PreparedModule) {
+        (&mut *self.data, self.prepared)
+    }
     /// Inspect variables without exposing an untyped mutation path.
     pub fn storage(&self) -> &VariableStorage {
         &self.data.storage
