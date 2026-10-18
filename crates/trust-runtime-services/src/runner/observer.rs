@@ -8,10 +8,14 @@ use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::vm::{CycleAccess, CycleHooks, CyclePhase};
 
 use super::cycle::TaskDescriptor;
+use super::debugger::ChipDebug;
 use super::state::Records;
+use super::threads::{background_thread, task_thread};
 use crate::events::RuntimeEvent;
 
-/// The loop's [`CycleHooks`] for one scan.
+/// The loop's [`CycleHooks`] for one scan. It also tells the debugger which thread runs: a task
+/// starts, or the programs that run outside any task do (specification 13, "Multi-Task Thread
+/// Model").
 ///
 /// It keeps the engine's default `has_output_hooks`, true, as trust-runtime's hosted cycle does:
 /// the engine then checks the scan's deadline after the outputs are staged and before they are
@@ -22,6 +26,7 @@ pub(super) struct ScanObserver<'a, C> {
     tasks: &'a [TaskDescriptor],
     records: &'a Records<C>,
     clock: &'a C,
+    debug: &'a ChipDebug,
     cycle: u64,
     task_started: Option<MonotonicInstant>,
     program_started: Option<MonotonicInstant>,
@@ -33,12 +38,14 @@ impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
         tasks: &'a [TaskDescriptor],
         records: &'a Records<C>,
         clock: &'a C,
+        debug: &'a ChipDebug,
         cycle: u64,
     ) -> Self {
         Self {
             tasks,
             records,
             clock,
+            debug,
             cycle,
             task_started: None,
             program_started: None,
@@ -96,6 +103,7 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
             }
             CyclePhase::TaskStart(index) => {
                 let task = self.task(index)?;
+                self.debug.set_thread(task_thread(self.tasks, index));
                 self.task_started = Some(self.clock.now());
                 self.records.push_event(RuntimeEvent::TaskStart {
                     name: task.name.clone(),
@@ -116,9 +124,11 @@ impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
                     time,
                 });
             }
+            CyclePhase::BackgroundStart(_) => {
+                self.debug.set_thread(background_thread(self.tasks));
+            }
             CyclePhase::BeforeInputSample
             | CyclePhase::AfterInputSample
-            | CyclePhase::BackgroundStart(_)
             | CyclePhase::BackgroundEnd(_)
             | CyclePhase::BeforeOutputSample
             | CyclePhase::AfterOutputSample

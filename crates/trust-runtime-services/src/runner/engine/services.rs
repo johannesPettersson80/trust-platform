@@ -15,6 +15,7 @@ use trust_runtime_core::value::{self, DateTimeValue};
 use trust_runtime_core::vm::{ExecutionServices, PreparedModule, StatementFrame};
 
 use super::held_time::HeldTime;
+use crate::debug::LineSources;
 use crate::runner::debugger::{Boundary, StatementStart};
 use crate::runner::hold::{HeldView, HoldHandle};
 use crate::status::IoDriverStatus;
@@ -34,8 +35,8 @@ const NO_WALL_CLOCK: &str = "CURRENT_DT requires an admitted platform wall clock
 /// The statement hook asks the resource loop, which hands its pass to the cycle when it starts
 /// ([`ResourceCycle::attach_hold`](crate::runner::ResourceCycle::attach_hold)), and finds a
 /// statement start in the prepared module that the composition names
-/// ([`EngineCycle::with_debugger`](crate::runner::engine::EngineCycle::with_debugger)). Until both
-/// are in place the hook does nothing.
+/// ([`EngineCycle::with_debugger`](crate::runner::engine::EngineCycle::with_debugger)), which also
+/// gives it the program's line sources. Until both are in place the hook does nothing.
 pub struct DeviceServices<C> {
     clock: C,
     deadline: Cell<Option<MonotonicInstant>>,
@@ -48,6 +49,9 @@ pub struct DeviceServices<C> {
     debugging: Cell<bool>,
     /// The prepared module whose `LINE_TABLE` names the statement starts (specification 12 §6.13).
     statements: Cell<Option<&'static PreparedModule>>,
+    /// The module's `LINE_TABLE` and file labels, which place breakpoints and name files; none for
+    /// a module that has no `LINE_TABLE`.
+    sources: Cell<Option<&'static LineSources>>,
     /// The resource loop's pass for a held scan.
     hold: Cell<Option<HoldHandle>>,
     /// The health of the process I/O, which the cycle publishes after it reads the inputs while
@@ -66,14 +70,31 @@ impl<C> DeviceServices<C> {
             holds_at_arm: Cell::new(Duration::ZERO),
             debugging: Cell::new(false),
             statements: Cell::new(None),
+            sources: Cell::new(None),
             hold: Cell::new(None),
             drivers: Cell::new(Vec::new()),
         }
     }
 
-    /// Names the prepared module whose statement starts the hook finds.
-    pub(super) fn attach_statements(&self, prepared: &'static PreparedModule) {
+    /// Names the prepared module whose statement starts the hook finds, and the sources of its
+    /// `LINE_TABLE`, when it has one.
+    pub(super) fn attach_statements(
+        &self,
+        prepared: &'static PreparedModule,
+        sources: Option<&'static LineSources>,
+    ) {
         self.statements.set(Some(prepared));
+        self.sources.set(sources);
+    }
+
+    /// The prepared module and the line sources that a debugger was attached with, or none when no
+    /// debugger is attached.
+    pub(super) fn debug_attachment(
+        &self,
+    ) -> Option<(&'static PreparedModule, Option<&'static LineSources>)> {
+        self.statements
+            .get()
+            .map(|prepared| (prepared, self.sources.get()))
     }
 
     /// Gives the hook the resource loop's pass, replacing an earlier one.
@@ -165,13 +186,15 @@ impl<C: MonotonicClock> DeviceServices<C> {
         let Some(hold) = self.hold_port() else {
             return Ok(());
         };
-        let at = StatementStart { depth, span };
+        let at = StatementStart { depth, span, frame };
         if hold.at_statement(&at)? == Boundary::Run {
             return Ok(());
         }
         let view = HeldView {
             storage,
             frame,
+            prepared,
+            sources: self.sources.get(),
             logical_time,
             drivers: &self.drivers,
         };

@@ -15,13 +15,14 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
-use super::cycle::ResourceCycle;
+use super::cycle::{DebugView, ResourceCycle};
 use super::debugger::ChipDebug;
 use super::engine::EngineLiveValues;
 use super::program::Program;
 use super::state::{Records, ResourceCell};
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::debug::Debugger;
 use crate::events::RuntimeEvent;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
@@ -110,6 +111,11 @@ pub(super) trait ProgramView {
 
     /// The health of the program's I/O drivers, in `io.toml` order.
     fn driver_health(&self) -> Vec<IoDriverStatus>;
+
+    /// What a debug read sees of the program (specification 11 §6.13.1): between scans the state of
+    /// the last scan that ended, and while a debugger holds the scan its halted state. None when no
+    /// debugger is attached to the program.
+    fn debug_state(&self) -> Option<DebugView<'_>>;
 }
 
 impl<Y: ResourceCycle> ProgramView for Program<Y> {
@@ -119,6 +125,10 @@ impl<Y: ResourceCycle> ProgramView for Program<Y> {
 
     fn driver_health(&self) -> Vec<IoDriverStatus> {
         self.io_drivers()
+    }
+
+    fn debug_state(&self) -> Option<DebugView<'_>> {
+        self.debug_view()
     }
 }
 
@@ -193,6 +203,14 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
 
     fn debug_control_mode(&self) -> bool {
         matches!(self.platform.control_mode(), ControlMode::Debug)
+    }
+
+    /// A program with a debugger but without a line table has no statement start to hold at
+    /// (specification 11 §6.13.3). A program that no debugger is attached to is not asked.
+    fn debugger_unavailable(&self) -> bool {
+        self.program
+            .debug_state()
+            .is_some_and(|view| view.sources.is_none())
     }
 
     fn debugger_pause(&self) {
@@ -315,6 +333,15 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
 impl<P: RunnerPlatform, C> ExtensionDispatch for RunnerHost<'_, P, C> {
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
         self.platform.dispatch_extension(request)
+    }
+
+    /// The loop's own debugger answers the debug operations when a debugger is attached to the
+    /// program; a program without one leaves them to the platform, which has none.
+    fn debugger(&self) -> Option<&dyn Debugger> {
+        self.program
+            .debug_state()
+            .is_some()
+            .then_some(self as &dyn Debugger)
     }
 
     fn audit_details(&self, request: &ControlRequest) -> Option<serde_json::Value> {

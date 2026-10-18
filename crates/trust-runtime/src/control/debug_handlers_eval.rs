@@ -120,8 +120,8 @@ pub(super) fn handle_debug_breakpoint_locations(
             {
                 continue;
             }
-            breakpoints.push(json!({ "line": loc_line, "column": loc_col }));
+            breakpoints.push(replies::position(loc_line, loc_col));
         }
     }
-    ControlResponse::ok(id, json!({ "breakpoints": breakpoints }))
+    replies::breakpoint_locations(id, &breakpoints)
 }

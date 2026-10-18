@@ -81,6 +81,8 @@ table changes nothing a user or tool sees.
 - Passing an empty list clears all breakpoints for that source in both adapter and runtime.
 - Breakpoints are **statement-based** and resolved to the first statement whose location is at or
   after the requested `(line, column)`.
+- A request names its source by a path. A runtime without source text matches the path to the file
+  labels of the module's `LINE_TABLE` (specification 11 §6.13.3).
 - Column snapping:
   - If the client omits a column, the adapter snaps to the first non-whitespace column on that line.
   - If a column is provided but points before the first non-whitespace column, the adapter snaps
@@ -476,6 +478,8 @@ including at `0` and `u64::MAX`.
 2) The **top frame** location is the current statement location.
 3) For multi-file projects, when execution enters a function in another file, the top frame’s
    `source.path` must reflect that file, and the editor should navigate there.
+4) A runtime without source text names a frame's file by its label in `source.path`, and reports the
+   frame's line and column from the `LINE_TABLE` (specification 11 §6.13.3).
 
 ### Variables / Evaluate
 
@@ -822,6 +826,8 @@ from the DAP references above and the current runtime/adapter architecture.
 #### 8) Multi‑Task Thread Model
 
 - If multiple IEC tasks are configured, each must map to a distinct DAP thread ID.
+- The thread IDs are 1, 2, ... in the order the resource declares its tasks, and the programs that run
+  outside every task are one more thread after the last task (specification 11 §6.13.3).
 - `step*` and `pause` must apply to the thread specified by the request.
 
 #### 9) Cyclic Task Breakpoint Safety

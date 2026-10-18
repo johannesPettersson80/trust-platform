@@ -6448,6 +6448,56 @@ receives the rejection itself — a failed response carrying the code and its de
 `eval` keeps its own contract (section 6.8.1): it is a bounded exact name read, not an expression,
 and it carries text.
 
+**Before a runtime implements a version (owner, 18 October 2026).** A runtime that implements no
+`expr_version` yet, a chip until the tool compile exists, refuses every request that would evaluate
+an expression and decodes nothing: `debug.evaluate`; `eval`, which such a runtime does not answer as a
+name read; and a `breakpoints.set` whose parameters carry a `condition` or a `log_message` other than
+`null`, which it refuses whole, so that a breakpoint is never stored without the condition the client
+asked for. The refusal is a failed response with the stable code `expr_version_unsupported` and the
+message `this runtime evaluates no debug expressions yet: the compiled expression form is not
+implemented`. A refusal changes nothing.
+
+##### 6.13.3 Debug requests without source text (owner, 18 October 2026)
+
+A runtime that holds no ST source text, a chip, answers the debug operations of the role table
+(section 6.9.5) from the program's `LINE_TABLE` (specification 12 §6.13) and the file labels of its
+`DEBUG_STRING_TABLE`. The shared dispatcher routes `debug.state`, `debug.stops`, `debug.stack`,
+`debug.scopes`, `debug.variables`, `debug.breakpoint_locations`, `breakpoints.set`, `breakpoints.clear`,
+`breakpoints.list`, `breakpoints.clear_all`, `breakpoints.clear_id`, `step_in`, `step_over` and
+`step_out` to one request module, with the role the table gives each, and a read answers from the
+published debug state of section 6.13.1. Each reply is trust-runtime's reply for the same stop, field
+for field: the frame and variable identifiers, the names, the stop reason labels, the error texts and
+the error codes. Line and column numbers in a request and in a reply are zero-based, as trust-runtime
+carries them; the table holds them one-based, and the conversion happens once, at the request. The
+differences that follow from the missing text are these, and no others:
+
+- **File identity.** A reply names a file by its label: the `path` of a source, and the last `/`
+  component of the label as its `name`. A file's identifier in a reply is the index of its entry in the
+  table. A request names a file by a path: the file is the one whose label equals the path or is the
+  longest tail of it after a `/`, a `\` counting as `/`, because a client holds a path and a label is
+  relative to the project root. A path that ends with no label is refused with `unknown source path`.
+- **`breakpoints.list`.** Without the text a runtime cannot count byte offsets, so an entry carries
+  `file_id`, `line`, `column`, `end_line` and `end_column` in place of `start` and `end`.
+- **The buffer of stops.** `debug.stops` returns the stops since its last call, oldest first, and
+  empties the buffer. The buffer is bounded, and a stop beyond the bound replaces the oldest. The bound
+  is the capacity of the event store (`runtime.events.capacity` of the project, or the device
+  descriptor's default; section 6.8.1), because a stop is a smaller record than an event. A runtime that
+  enables debugging takes the whole buffer at start, as it takes the event store, so that no scan
+  allocates for it; a runtime that does not enable debugging takes none. `debug.state` reports the
+  latest stop whatever the buffer holds.
+- **Threads.** Each task is one debugger thread. The threads are numbered 1, 2, ... in the order the
+  resource declares its tasks, a task name that a later task repeats keeps the number of its first, and
+  the programs that run outside every task are one more thread, numbered after the last task. The
+  runtime sets the thread when a task starts, so a stop in a task reports that task's thread.
+- **Variable handles.** The identifiers of a variable list restart at `1` with every `debug.scopes`
+  and are valid until the next one (specification 13, "Runtime debug state, mutation, and projection
+  invariants").
+- **No line table.** A program without a `LINE_TABLE` has no statement start to hold at or to name, so
+  it cannot be debugged on a runtime that holds no text. Every debug operation above is refused with the
+  stable code `no_line_table` and the message `the program has no line table, so it cannot be debugged:
+  rebuild the project`, and a debug-mode `pause` is refused the same way before the debugger is asked
+  to hold anything. `resume` is unaffected.
+
 ##### Hosted embedding mutation lifecycle (planned H migration)
 
 [Specification 34 §4.3.1](34-runtime-portability.md#431-construction-and-installed-state-mutation)

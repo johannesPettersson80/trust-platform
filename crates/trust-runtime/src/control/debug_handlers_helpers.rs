@@ -2,33 +2,35 @@ fn debug_stop_to_json(
     stop: crate::debug::DebugStop,
     state: &ControlState,
 ) -> Option<serde_json::Value> {
-    let reason = super::types::debug_stop_reason_label(stop.reason);
-    let mut payload = json!({
-        "reason": reason,
-        "thread_id": stop.thread_id,
-        "breakpoint_generation": stop.breakpoint_generation,
-    });
-    if let Some(location) = stop.location
-        && let Some(text) = state.sources.source_text(location.file_id)
-    {
-        let (line, column) = location_to_line_col(text, &location);
-        if let Some(source) = state
+    // The stop names its place only when its file's text is loaded and the file is registered.
+    let place = stop.location.and_then(|location| {
+        let text = state.sources.source_text(location.file_id)?;
+        let source = state
             .sources
             .files()
             .iter()
-            .find(|file| file.id == location.file_id)
-            && let Some(obj) = payload.as_object_mut()
-        {
-            obj.insert("file_id".to_string(), json!(location.file_id));
-            obj.insert("line".to_string(), json!(line));
-            obj.insert("column".to_string(), json!(column));
-            obj.insert(
-                "path".to_string(),
-                json!(source.path.to_string_lossy().to_string()),
-            );
-        }
-    }
-    Some(payload)
+            .find(|file| file.id == location.file_id)?;
+        let (line, column) = location_to_line_col(text, &location);
+        Some((
+            location.file_id,
+            line,
+            column,
+            source.path.to_string_lossy().to_string(),
+        ))
+    });
+    Some(replies::stop(
+        stop.reason,
+        stop.thread_id,
+        stop.breakpoint_generation,
+        place
+            .as_ref()
+            .map(|(file_id, line, column, path)| StopPlace {
+                file_id: *file_id,
+                line: *line,
+                column: *column,
+                path: path.as_str(),
+            }),
+    ))
 }
 
 fn location_to_source(
@@ -58,13 +60,9 @@ fn location_to_stack_frame(
     state: &ControlState,
 ) -> Option<serde_json::Value> {
     let (source, line, column) = location_to_source(location, state)?;
-    Some(json!({
-        "id": frame_id,
-        "name": frame_name,
-        "source": source,
-        "line": line,
-        "column": column,
-    }))
+    Some(replies::stack_frame(
+        frame_id, frame_name, &source, line, column,
+    ))
 }
 
 fn evaluate_with_snapshot(

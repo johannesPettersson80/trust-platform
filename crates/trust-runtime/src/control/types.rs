@@ -4,40 +4,17 @@ use serde::Deserialize;
 pub(crate) use trust_runtime_services::protocol::ControlResponse;
 pub(super) use trust_runtime_services::protocol::{ControlAfterResponse, ControlRequest};
 
-#[derive(Debug, Deserialize)]
-pub(super) struct BreakpointsParams {
-    pub(super) source: String,
-    pub(super) lines: Vec<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct BreakpointsClearIdParams {
-    pub(super) file_id: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct DebugScopesParams {
-    pub(super) frame_id: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct DebugVariablesParams {
-    pub(super) variables_reference: u32,
-}
+// The parameters of the debug operations that every runtime answers the same way are shared with
+// the chips (specification 34, ARCH-11): trust-runtime-services `debug::requests`.
+pub(super) use trust_runtime_services::debug::requests::{
+    BreakpointsClearIdParams, BreakpointsParams, DebugBreakpointLocationsParams, DebugScopesParams,
+    DebugVariablesParams,
+};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct DebugEvaluateParams {
     pub(super) expression: String,
     pub(super) frame_id: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct DebugBreakpointLocationsParams {
-    pub(super) source: String,
-    pub(super) line: u32,
-    pub(super) end_line: Option<u32>,
-    pub(super) column: Option<u32>,
-    pub(super) end_column: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -111,14 +88,10 @@ pub(super) struct PairRevokeParams {
     pub(super) id: String,
 }
 
-/// Stable wire label of a debugger stop reason, shared by stop projections and status holds.
+/// Stable wire label of a debugger stop reason, shared by stop projections and status holds. The
+/// label is the shared reason's own (specification 13, "Stopped Events").
 pub(super) fn debug_stop_reason_label(reason: crate::debug::DebugStopReason) -> &'static str {
-    match reason {
-        crate::debug::DebugStopReason::Breakpoint => "breakpoint",
-        crate::debug::DebugStopReason::Step => "step",
-        crate::debug::DebugStopReason::Pause => "pause",
-        crate::debug::DebugStopReason::Entry => "entry",
-    }
+    reason.label()
 }
 
 #[cfg(test)]

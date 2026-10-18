@@ -134,9 +134,11 @@ where
     ) -> Result<(), RuntimeError> {
         let events = self.cycle.restart(mode, source)?;
         // A committed restart clears the previous lifecycle's queued writes and forces, as
-        // trust-runtime's `begin_lifecycle` does (specification 11 §6.9.2); a failed one keeps
-        // them, as a failed host restart keeps them.
+        // trust-runtime's `begin_lifecycle` does (specification 11 §6.9.2), and its published debug
+        // state (specification 11 §6.13.1); a failed one keeps them, as a failed host restart
+        // keeps them.
         self.live.clear();
+        self.shell.debug.restarted();
         self.record_retain_events(events);
         let now = self.logical(self.clock.now());
         self.cycle.reset_task_timing(now);
@@ -154,6 +156,7 @@ where
         match self.cycle.restart(mode, RetainSource::Checkpoint) {
             Ok(events) => {
                 self.live.clear();
+                self.shell.debug.restarted();
                 let start = self.clock.now();
                 self.program_start = start;
                 self.shell.records.restart(self.clock.clone(), start);
@@ -195,6 +198,7 @@ where
                 &self.tasks,
                 &self.shell.records,
                 &self.clock,
+                &self.shell.debug,
                 self.cycle_count,
             );
             let mut hooks = LiveValuesHooks::new(
@@ -209,6 +213,9 @@ where
             // finds them free (see `shell.rs`).
             self.cycle.run_scan(now, deadline, &mut hooks)
         };
+        // A scan that ended, completed or faulted, is the state that a debug read between scans
+        // answers from (specification 11 §6.13.1).
+        self.shell.debug.scan_ended();
         if let Err(error) = result {
             let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
             match cycle_error_action(watchdog, fault_policy, reported) {

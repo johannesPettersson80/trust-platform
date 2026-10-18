@@ -4,13 +4,7 @@ pub(super) fn handle_debug_state(id: u64, state: &ControlState) -> ControlRespon
         .debug
         .last_stop()
         .and_then(|stop| debug_stop_to_json(stop, state));
-    ControlResponse::ok(
-        id,
-        json!({
-            "paused": paused,
-            "last_stop": last_stop,
-        }),
-    )
+    replies::state(id, paused, last_stop.as_ref())
 }
 
 pub(super) fn handle_debug_stops(id: u64, state: &ControlState) -> ControlResponse {
@@ -20,7 +14,7 @@ pub(super) fn handle_debug_stops(id: u64, state: &ControlState) -> ControlRespon
         .into_iter()
         .filter_map(|stop| debug_stop_to_json(stop, state))
         .collect::<Vec<_>>();
-    ControlResponse::ok(id, json!({ "stops": stops }))
+    replies::stops(id, &stops)
 }
 
 pub(super) fn handle_debug_stack(id: u64, state: &ControlState) -> ControlResponse {
@@ -50,11 +44,5 @@ pub(super) fn handle_debug_stack(id: u64, state: &ControlState) -> ControlRespon
             }
         }
     }
-    ControlResponse::ok(
-        id,
-        json!({
-            "stack_frames": stack_frames,
-            "total_frames": stack_frames.len(),
-        }),
-    )
+    replies::stack(id, &stack_frames)
 }

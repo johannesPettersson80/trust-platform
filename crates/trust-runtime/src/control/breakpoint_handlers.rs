@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::debug::DebugBreakpoint;
 use serde_json::json;
+use trust_runtime_services::debug::replies;
 
 use super::types::{BreakpointsClearIdParams, BreakpointsParams};
 use super::{ControlResponse, ControlState};
@@ -44,20 +45,12 @@ pub(super) fn handle_breakpoints_set(
             metadata.resolve_breakpoint_position(source_text, file_id, line, 1)
         {
             breakpoints.push(DebugBreakpoint::new(location));
-            resolved.push(json!({"line": resolved_line, "column": resolved_col}));
+            resolved.push(replies::position(resolved_line, resolved_col));
         }
     }
     state.debug.set_breakpoints_for_file(file_id, breakpoints);
     let generation = state.debug.breakpoint_generation(file_id);
-    ControlResponse::ok(
-        id,
-        json!({
-            "status": "ok",
-            "file_id": file_id,
-            "resolved": resolved,
-            "generation": generation,
-        }),
-    )
+    replies::breakpoints_set(id, file_id, &resolved, generation)
 }
 
 pub(super) fn handle_breakpoints_clear(
@@ -81,7 +74,7 @@ pub(super) fn handle_breakpoints_clear(
         None => return ControlResponse::error(id, "unknown source path".into()),
     };
     state.debug.set_breakpoints_for_file(file_id, Vec::new());
-    ControlResponse::ok(id, json!({"status": "cleared"}))
+    replies::breakpoints_cleared(id)
 }
 
 pub(super) fn handle_breakpoints_list(id: u64, state: &ControlState) -> ControlResponse {
@@ -102,7 +95,7 @@ pub(super) fn handle_breakpoints_list(id: u64, state: &ControlState) -> ControlR
 
 pub(super) fn handle_breakpoints_clear_all(id: u64, state: &ControlState) -> ControlResponse {
     state.debug.clear_breakpoints();
-    ControlResponse::ok(id, json!({ "status": "cleared" }))
+    replies::breakpoints_cleared(id)
 }
 
 pub(super) fn handle_breakpoints_clear_id(
@@ -123,8 +116,5 @@ pub(super) fn handle_breakpoints_clear_id(
     state
         .debug
         .set_breakpoints_for_file(params.file_id, Vec::new());
-    ControlResponse::ok(
-        id,
-        json!({ "status": "cleared", "file_id": params.file_id }),
-    )
+    replies::breakpoints_cleared_for_file(id, params.file_id)
 }

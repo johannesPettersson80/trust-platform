@@ -3174,7 +3174,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 301,
+        "line": 312,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",

@@ -4,6 +4,7 @@ use crate::security::AccessRole;
 use serde_json::json;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
+use trust_runtime_services::debug::replies;
 use trust_runtime_services::loading::reload as reload_rules;
 
 use super::resource_queue::queue_refusal;
@@ -20,14 +21,11 @@ pub(super) enum StepKind {
     Out,
 }
 
-const STEP_REQUIRES_HOLD_MESSAGE: &str =
-    "stepping requires the scan to be held by the debugger (a breakpoint or a debug-mode pause)";
-
 /// A step is armed only while the debugger holds the scan, in either control mode.
 /// Without a hold the request is refused before anything is armed.
 pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> ControlResponse {
     if !state.debug.accepts_step() {
-        return ControlResponse::error(id, STEP_REQUIRES_HOLD_MESSAGE.into());
+        return ControlResponse::error(id, replies::STEP_REQUIRES_HOLD.into());
     }
     let action = match kind {
         StepKind::In => crate::debug::ControlAction::StepIn(None),
@@ -35,7 +33,7 @@ pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> Cont
         StepKind::Out => crate::debug::ControlAction::StepOut(None),
     };
     let _ = state.debug.apply_action(action);
-    ControlResponse::ok(id, json!({"status": "stepping"}))
+    replies::stepping(id)
 }
 
 /// The shared `shutdown` reply, for the in-crate tests that call it directly.

@@ -86,7 +86,7 @@ where
     C: MonotonicClock,
 {
     /// The shell of a loop over `link`, `wait` and `platform`, with a receive buffer of the link's
-    /// frame length.
+    /// frame length and a debugger whose buffer of stops takes `stop_capacity` stops.
     pub(super) fn new(
         link: L,
         wait: W,
@@ -94,6 +94,7 @@ where
         clock: C,
         resource: ResourceCell,
         records: Records<C>,
+        stop_capacity: usize,
     ) -> Self {
         let max_frame_len = link.max_frame_len();
         Self {
@@ -108,7 +109,7 @@ where
             port_failure: Cell::new(None),
             resource,
             records,
-            debug: ChipDebug::new(),
+            debug: ChipDebug::new(stop_capacity),
             clock,
             #[cfg(test)]
             probe: RefCell::new(None),

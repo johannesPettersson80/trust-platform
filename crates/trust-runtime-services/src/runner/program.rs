@@ -12,7 +12,7 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
-use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
+use super::cycle::{DebugView, ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::HoldHandle;
 use crate::status::IoDriverStatus;
 
@@ -141,6 +141,14 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
     fn attach_hold(&mut self, hold: HoldHandle) {
         if let Self::Installed(cycle) = self {
             cycle.attach_hold(hold);
+        }
+    }
+
+    fn debug_view(&self) -> Option<DebugView<'_>> {
+        match self {
+            Self::Installed(cycle) => cycle.debug_view(),
+            // A missing program has no storage to read.
+            Self::Missing(_) => None,
         }
     }
 }

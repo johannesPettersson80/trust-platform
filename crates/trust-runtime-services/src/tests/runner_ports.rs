@@ -27,12 +27,13 @@ use trust_runtime_core::vm::{
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 pub(crate) use super::runner_platform::TestPlatform;
+use crate::debug::LineSources;
 use crate::events::EVENT_STORE_CAPACITY;
 use crate::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle, ProcessIo,
 };
 use crate::runner::{
-    EngineLiveValues, HoldHandle, ResourceCycle, RetainSource, Runner, TaskDescriptor,
+    DebugView, EngineLiveValues, HoldHandle, ResourceCycle, RetainSource, Runner, TaskDescriptor,
 };
 use crate::status::IoDriverStatus;
 
@@ -619,6 +620,10 @@ impl ResourceCycle for ScriptedCycle<'_> {
         self.hold = Some(hold.clone());
         self.engine.attach_hold(hold);
     }
+
+    fn debug_view(&self) -> Option<DebugView<'_>> {
+        self.engine.debug_view()
+    }
 }
 
 /// The loop under test.
@@ -638,6 +643,8 @@ pub(crate) struct Fixture {
     /// The program and the execution services live for the rest of the test run, as a firmware
     /// keeps them, so that the debugger can find the program's statement starts.
     prepared: &'static PreparedModule,
+    /// The program's line table and file labels, when it has a line table.
+    sources: Option<&'static LineSources>,
     services: &'static DeviceServices<TestClock>,
     /// Whether a loop started from this fixture lets the debugger hold its scans.
     debugger: bool,
@@ -674,6 +681,9 @@ impl Fixture {
             )
             .expect("the program's retained names bind"),
         );
+        let sources = LineSources::read(artifact, &device_limits(CHIP_MEMORY))
+            .expect("the program's line table reads")
+            .map(|sources| &*Box::leak(Box::new(sources)));
         Self {
             wait: TestWait::new(clock.clone()),
             link: TestLink::new(max_frame_len, clock.clone()),
@@ -682,6 +692,7 @@ impl Fixture {
             live,
             services: Box::leak(Box::new(DeviceServices::new(clock.clone()))),
             prepared,
+            sources,
             clock,
             debugger: false,
         }
@@ -792,7 +803,7 @@ impl Fixture {
         let engine = EngineCycle::start(self.prepared, self.services, self.io.clone(), settings)
             .expect("the board probe starts");
         let engine = if self.debugger {
-            engine.with_debugger()
+            engine.with_debugger(self.sources)
         } else {
             engine
         };

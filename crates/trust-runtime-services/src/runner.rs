@@ -35,6 +35,7 @@
 //! ended takes effect at once and starts it as a new trust-runtime process would.
 
 mod cycle;
+mod debug_port;
 mod debugger;
 pub mod engine;
 mod hold;
@@ -45,6 +46,7 @@ mod retain;
 mod shell;
 mod state;
 mod supervision;
+mod threads;
 
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -58,7 +60,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
 use trust_runtime_core::vm::RetainApplyEvent;
 
-pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
+pub use cycle::{resource_tasks, DebugView, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
 pub use host::RunnerPlatform;
@@ -160,6 +162,14 @@ where
         cycle.reset_task_timing(value::Duration::ZERO);
         let live = platform.live_values().clone();
         let records = Records::new(clock.clone(), start, event_capacity);
+        // A platform that enables debugging keeps as many stops as the event store keeps events,
+        // so the bound comes from the device's descriptor or the record's capacity, as the event
+        // store's does (specification 11 §6.13.3); one that does not reserves nothing.
+        let stop_capacity = if platform.debug_enabled() {
+            event_capacity
+        } else {
+            0
+        };
         let shell = Rc::new(Shell::new(
             link,
             wait,
@@ -167,6 +177,7 @@ where
             clock.clone(),
             ResourceCell::running(),
             records,
+            stop_capacity,
         ));
         let mut cycle = Program::Installed(cycle);
         cycle.attach_hold(HoldHandle::new(&shell));
@@ -212,6 +223,7 @@ where
             clock.clone(),
             ResourceCell::stopped(),
             records,
+            0,
         ));
         Self {
             shell,
@@ -386,6 +398,12 @@ fn span(configured: value::Duration) -> TimeSpan {
 
 #[cfg(test)]
 mod contract_tests;
+
+#[cfg(test)]
+mod debug_contract_tests;
+
+#[cfg(test)]
+mod debug_read_contract_tests;
 
 #[cfg(test)]
 mod hold_contract_tests;

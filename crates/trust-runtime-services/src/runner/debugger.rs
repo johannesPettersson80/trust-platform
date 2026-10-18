@@ -1,12 +1,14 @@
 //! The debugger of a device's resource loop: the state that decides when a scan is held at a
 //! statement start and when the hold ends (specification 13, "Run Control", "Stepping Semantics"
 //! and "Breakpoint evaluation, source resolution, and hook contract"; specification 11 §6.9;
-//! specification 34, STATE-07).
+//! specification 34, STATE-07), and the state that the debug operations read and change.
 //!
 //! The decisions are the shared ones of [`crate::debug`]: [`RunControl`](crate::debug::RunControl)
 //! decides pauses, steps, holds and stops, and [`observe_hit`](crate::debug::observe_hit) decides
-//! which breakpoint stops. [`ChipDebug`] keeps the fields they work on. It owns no lock, thread or
-//! clock: a device's loop is one thread, so the fields sit in one `RefCell`.
+//! which breakpoint stops. [`ChipDebug`] keeps the fields they work on, and what the debug
+//! operations list: the breakpoints and their generations, the bounded buffer of stops, the
+//! statement each frame last stood at and the variable handles of the current stop. It owns no
+//! lock, thread or clock: a device's loop is one thread, so the fields sit in one `RefCell`.
 //!
 //! Every operation borrows the cell for its own work only and calls nothing outside this module
 //! while it holds the borrow, so no operation can find the state in use: a hold serves a `resume`
@@ -18,17 +20,20 @@
 //! A breakpoint and a statement are placed by the `(line, column)` of the module's `LINE_TABLE`
 //! (specification 12 §6.13), because a device holds no source text.
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, VecDeque};
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::convert::Infallible;
 
 use trust_runtime_core::debug::StatementSpan;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::memory::FrameId;
+use trust_runtime_core::vm::StatementFrame;
 
+use crate::debug::projection::DebugVariableHandles;
 use crate::debug::{
-    observe_hit, Breakpoint, CycleSuppression, RunAction, RunControl, RunMode, StepKind, StepState,
-    StopReason,
+    observe_hit, Breakpoint, BreakpointView, CycleSuppression, RunAction, RunControl, RunMode,
+    Span, StatementId, StepKind, StepState, StopReason, StopRecord,
 };
 
 /// A position in a source file: the 1-based `(line, column)` of the module's `LINE_TABLE`.
@@ -42,11 +47,13 @@ const FIRST_THREAD: u32 = 1;
 /// A statement start that the hook found: where in the call stack it runs and where in the source it
 /// stands.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct StatementStart {
+pub(super) struct StatementStart<'a> {
     /// The call depth of the statement's POU (specification 13, "Stepping Semantics").
     pub(super) depth: u32,
     /// The statement's file and its half-open source span.
     pub(super) span: StatementSpan,
+    /// The frame that runs the statement, with the frames suspended below it.
+    pub(super) frame: StatementFrame<'a>,
 }
 
 /// What the hook does at a statement start.
@@ -59,40 +66,29 @@ pub(super) enum Boundary {
 }
 
 /// The latest stop that the debugger emitted (specification 13, "Stopped Events").
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "S3d-8's debug.state and debug.stops report where and why the scan stopped"
-    )
-)]
-pub(super) struct LastStop {
-    /// Why the scan stopped.
-    pub(super) reason: StopReason,
-    /// The statement that the scan stopped before.
-    pub(super) statement: StatementSpan,
-    /// The thread that stopped.
-    pub(super) thread: Option<u32>,
-    /// The generation of the breakpoint set that named a breakpoint stop, and none for any other.
-    pub(super) breakpoint_generation: Option<u64>,
+pub(super) type LastStop = StopRecord;
+
+/// A stop of `reason` before the statement `at`.
+fn stop_at(
+    reason: StopReason,
+    at: &StatementStart<'_>,
+    thread: Option<u32>,
+    breakpoint_generation: Option<u64>,
+) -> LastStop {
+    StopRecord {
+        reason,
+        statement: at.span,
+        thread,
+        breakpoint_generation,
+    }
 }
 
-impl LastStop {
-    /// A stop of `reason` before the statement `at`.
-    fn at(
-        reason: StopReason,
-        at: &StatementStart,
-        thread: Option<u32>,
-        breakpoint_generation: Option<u64>,
-    ) -> Self {
-        Self {
-            reason,
-            statement: at.span,
-            thread,
-            breakpoint_generation,
-        }
-    }
+/// A frame on the call stack and the statement it last started, at the call depth it runs at.
+#[derive(Debug, Clone, Copy)]
+struct FrameStop {
+    depth: u32,
+    frame: FrameId,
+    statement: StatementSpan,
 }
 
 /// The run fields of the debugger, which [`RunControl`] borrows for one decision.
@@ -142,9 +138,22 @@ struct DebugState {
     run: RunFields,
     /// The breakpoints in registration order; the first eligible one owns a stop.
     breakpoints: Vec<Breakpoint<Position>>,
+    /// The generation of each file's breakpoint set; a replacement advances it (specification 13,
+    /// "Runtime debug state, mutation, and projection invariants").
+    generations: BTreeMap<u32, u64>,
     /// The ordinary stops taken in the current scan.
     suppression: CycleSuppression<Position>,
     last_stop: Option<LastStop>,
+    /// The stops that `debug.stops` has not returned yet, oldest first, at most `stop_capacity`.
+    stops: VecDeque<LastStop>,
+    stop_capacity: usize,
+    /// The statement each frame on the call stack last stood at, outermost frame first.
+    frame_locations: Vec<FrameStop>,
+    /// The variable handles of the current stop.
+    handles: DebugVariableHandles,
+    /// Whether a scan has ended since the program started: the published state of a read between
+    /// scans exists from then on (specification 11 §6.13.1).
+    published: bool,
 }
 
 /// The debugger of one device's resource loop.
@@ -155,14 +164,23 @@ pub(super) struct ChipDebug {
 }
 
 impl ChipDebug {
-    /// A debugger that holds nothing: running, with no breakpoint.
-    pub(super) fn new() -> Self {
+    /// A debugger that holds nothing: running, with no breakpoint. Its buffer of stops takes
+    /// `stop_capacity` stops at once, so a heap that is too small for it fails here, at start,
+    /// never in the middle of a scan (specification 34, ARCH-05); a capacity of 0 reserves nothing
+    /// and keeps only the latest stop.
+    pub(super) fn new(stop_capacity: usize) -> Self {
         Self {
             state: RefCell::new(DebugState {
                 run: RunFields::new(),
                 breakpoints: Vec::new(),
+                generations: BTreeMap::new(),
                 suppression: CycleSuppression::default(),
                 last_stop: None,
+                stops: VecDeque::with_capacity(stop_capacity),
+                stop_capacity,
+                frame_locations: Vec::new(),
+                handles: DebugVariableHandles::new(),
+                published: false,
             }),
             busy: Cell::new(false),
         }
@@ -203,13 +221,6 @@ impl ChipDebug {
 
     /// A step of `kind` from a hold: the scan runs until its own boundary and is held again there
     /// (specification 13, "Stepping Semantics").
-    #[cfg_attr(
-        not(test),
-        allow(
-            dead_code,
-            reason = "S3d-8 routes step_in, step_over and step_out here"
-        )
-    )]
     pub(super) fn step(&self, kind: StepKind) {
         self.apply(match kind {
             StepKind::Into => RunAction::StepIn(None),
@@ -222,28 +233,130 @@ impl ChipDebug {
         self.with(|state| state.run.control().apply(action));
     }
 
+    /// Whether the debugger holds the scan, or has a hold pending (specification 13, "Pause").
+    pub(super) fn is_held(&self) -> bool {
+        self.with(|state| state.run.control().is_held())
+            .unwrap_or(false)
+    }
+
+    /// Whether a step is accepted now: only while the debugger holds the scan (specification 11
+    /// §6.9).
+    pub(super) fn accepts_step(&self) -> bool {
+        self.with(|state| state.run.control().accepts_step())
+            .unwrap_or(false)
+    }
+
     /// Adds `breakpoint` after the breakpoints already set.
-    #[cfg_attr(
-        not(test),
-        allow(
-            dead_code,
-            reason = "S3d-8's breakpoints.set resolves and sets the breakpoints"
-        )
-    )]
+    #[cfg(test)]
     pub(super) fn add_breakpoint(&self, breakpoint: Breakpoint<Position>) {
         self.with(|state| state.breakpoints.push(breakpoint));
     }
 
+    /// Replaces the breakpoints of file `file_id` with breakpoints on `spans`, in the request's
+    /// order, and returns the file's new generation. The file's generation advances by one, with
+    /// saturation, even when `spans` is empty, and every replacement breakpoint starts with no
+    /// hit; the breakpoints of other files stay (specification 13, "Runtime debug state,
+    /// mutation, and projection invariants").
+    pub(super) fn replace_breakpoints(&self, file_id: u32, spans: Vec<Span<Position>>) -> u64 {
+        self.with(|state| {
+            let generation = {
+                let entry = state.generations.entry(file_id).or_insert(0);
+                *entry = entry.saturating_add(1);
+                *entry
+            };
+            state
+                .breakpoints
+                .retain(|breakpoint| breakpoint.id.file_id != file_id);
+            state.breakpoints.extend(spans.into_iter().map(|span| {
+                Breakpoint::new(StatementId {
+                    file_id,
+                    span,
+                    generation,
+                })
+            }));
+            generation
+        })
+        .unwrap_or(0)
+    }
+
+    /// Clears every breakpoint, every generation and the stops that the scan in progress took
+    /// (specification 13, "Runtime debug state, mutation, and projection invariants").
+    pub(super) fn clear_breakpoints(&self) {
+        self.with(|state| {
+            state.breakpoints.clear();
+            state.generations.clear();
+            state.suppression.begin_cycle();
+        });
+    }
+
+    /// The breakpoints, in registration order.
+    pub(super) fn breakpoints(&self) -> Vec<BreakpointView> {
+        self.with(|state| {
+            state
+                .breakpoints
+                .iter()
+                .map(|breakpoint| BreakpointView {
+                    file_id: breakpoint.id.file_id,
+                    start: breakpoint.id.span.start,
+                    end: breakpoint.id.span.end,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
+
     /// The latest stop.
-    #[cfg_attr(
-        not(test),
-        allow(
-            dead_code,
-            reason = "S3d-8's debug.stops and debug.state report the stop"
-        )
-    )]
     pub(super) fn last_stop(&self) -> Option<LastStop> {
         self.with(|state| state.last_stop).flatten()
+    }
+
+    /// The stops since the last call, oldest first, and an empty buffer after it (specification 13,
+    /// "Runtime debug state, mutation, and projection invariants").
+    pub(super) fn drain_stops(&self) -> Vec<LastStop> {
+        self.with(|state| state.stops.drain(..).collect())
+            .unwrap_or_default()
+    }
+
+    /// The statement that `frame` last stood at, while it is on the call stack.
+    pub(super) fn frame_span(&self, frame: FrameId) -> Option<StatementSpan> {
+        self.with(|state| {
+            state
+                .frame_locations
+                .iter()
+                .find(|stop| stop.frame == frame)
+                .map(|stop| stop.statement)
+        })
+        .flatten()
+    }
+
+    /// The thread that runs the statements from now on: a task starts (specification 13,
+    /// "Multi-Task Thread Model"; specification 11 §6.13.3). It is out of line, so the scan's
+    /// observer, which runs from RAM on a chip, only calls it.
+    #[inline(never)]
+    pub(super) fn set_thread(&self, thread: Option<u32>) {
+        self.with(|state| state.run.current_thread = thread);
+    }
+
+    /// A scan has ended, completed or faulted: a read between scans has a published state from
+    /// now on (specification 11 §6.13.1).
+    pub(super) fn scan_ended(&self) {
+        self.with(|state| state.published = true);
+    }
+
+    /// The program starts again, or restarts in place: there is no published state until the next
+    /// scan ends (specification 11 §6.13.1).
+    pub(super) fn restarted(&self) {
+        self.with(|state| state.published = false);
+    }
+
+    /// Whether a scan has ended since the program started.
+    pub(super) fn published(&self) -> bool {
+        self.with(|state| state.published).unwrap_or(false)
+    }
+
+    /// Runs `operation` on the variable handles of the current stop.
+    pub(super) fn with_handles(&self, operation: &mut dyn FnMut(&mut DebugVariableHandles)) {
+        self.with(|state| operation(&mut state.handles));
     }
 
     /// The wire label of the reason that a hold keeps the scan paused, as `status` names it, or
@@ -286,19 +399,23 @@ impl ChipDebug {
 
     /// The decision at a statement start (specification 13, "Runtime Debug-Control Execution" and
     /// "Breakpoint evaluation, source resolution, and hook contract"), in the order trust-runtime's
-    /// hook takes it: the boundary is recorded, the pending pause of a held scan is emitted, and a
-    /// step, or else a breakpoint, stops here.
+    /// hook takes it: the boundary is recorded and bound to its frame, the pending pause of a held
+    /// scan is emitted, and a step, or else a breakpoint, stops here.
     ///
     /// # Errors
     ///
     /// [`RuntimeError::InvalidExecutionState`] when the state was in use.
-    pub(super) fn at_statement(&self, at: &StatementStart) -> Result<Boundary, RuntimeError> {
+    pub(super) fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
         self.with(|state| {
             let DebugState {
                 run,
                 breakpoints,
                 suppression,
                 last_stop,
+                stops,
+                stop_capacity,
+                frame_locations,
+                ..
             } = state;
             let mut control = run.control();
             // A stop request released the holds and no new one may start.
@@ -306,20 +423,23 @@ impl ChipDebug {
                 return Boundary::Run;
             }
             control.record_boundary(at.depth);
+            bind_frame_location(frame_locations, at);
             if let Some(reason) = control.take_pending_stop() {
-                *last_stop = Some(LastStop::at(reason, at, *control.current_thread, None));
+                let stop = stop_at(reason, at, *control.current_thread, None);
+                record_stop(last_stop, stops, *stop_capacity, stop);
             }
             let decided = control.boundary(at.depth, || {
                 Ok::<_, Infallible>(match_breakpoint(breakpoints, suppression, at))
             });
             let Ok(stop) = decided;
             if let Some(stop) = stop {
-                *last_stop = Some(LastStop::at(
+                let stop = stop_at(
                     stop.reason,
                     at,
                     *control.current_thread,
                     stop.breakpoint_generation,
-                ));
+                );
+                record_stop(last_stop, stops, *stop_capacity, stop);
             }
             if control.holds_here() {
                 Boundary::Hold
@@ -337,17 +457,62 @@ impl ChipDebug {
     /// # Errors
     ///
     /// [`RuntimeError::InvalidExecutionState`] when the state was in use.
-    pub(super) fn holds(&self, at: &StatementStart) -> Result<bool, RuntimeError> {
+    pub(super) fn holds(&self, at: &StatementStart<'_>) -> Result<bool, RuntimeError> {
         self.with(|state| {
-            let DebugState { run, last_stop, .. } = state;
+            let DebugState {
+                run,
+                last_stop,
+                stops,
+                stop_capacity,
+                ..
+            } = state;
             let mut control = run.control();
             if let Some(reason) = control.take_pending_stop() {
-                *last_stop = Some(LastStop::at(reason, at, *control.current_thread, None));
+                let stop = stop_at(reason, at, *control.current_thread, None);
+                record_stop(last_stop, stops, *stop_capacity, stop);
             }
             control.holds_here()
         })
         .ok_or(RuntimeError::InvalidExecutionState)
     }
+}
+
+/// Records `stop` as the latest stop and in the buffer of stops. A stop beyond the buffer's
+/// capacity replaces the oldest; with no capacity only the latest stop is kept. The buffer holds
+/// all its capacity from the start, so this allocates nothing.
+fn record_stop(
+    last_stop: &mut Option<LastStop>,
+    stops: &mut VecDeque<LastStop>,
+    capacity: usize,
+    stop: LastStop,
+) {
+    *last_stop = Some(stop);
+    if capacity == 0 {
+        return;
+    }
+    if stops.len() >= capacity {
+        stops.pop_front();
+    }
+    stops.push_back(stop);
+}
+
+/// Binds the statement to the frame that runs it, by the call depth it runs at: a statement at
+/// depth `d` ends every frame at depth `d` or deeper, which have returned, and leaves the frames
+/// below it at the statement that called into the next one. The runtime updates the active frame's
+/// location at each statement boundary (specification 13, "Runtime Debug-Control Execution"). The
+/// list keeps its capacity, so a statement allocates nothing once the stack has been that deep.
+fn bind_frame_location(locations: &mut Vec<FrameStop>, at: &StatementStart<'_>) {
+    let Some(frame) = at.frame.activation() else {
+        return;
+    };
+    while locations.last().is_some_and(|stop| stop.depth >= at.depth) {
+        locations.pop();
+    }
+    locations.push(FrameStop {
+        depth: at.depth,
+        frame,
+        statement: at.span,
+    });
 }
 
 /// The generation of the breakpoint that stops at the statement `at`, if there is one: the first
@@ -357,7 +522,7 @@ impl ChipDebug {
 fn match_breakpoint(
     breakpoints: &mut [Breakpoint<Position>],
     suppression: &mut CycleSuppression<Position>,
-    at: &StatementStart,
+    at: &StatementStart<'_>,
 ) -> Option<u64> {
     for breakpoint in breakpoints.iter_mut() {
         if observe_hit(

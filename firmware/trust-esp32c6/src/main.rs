@@ -46,6 +46,7 @@ use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::chip::process_io::record_lines;
+use trust_runtime_services::debug::LineSources;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
@@ -136,6 +137,18 @@ fn main() -> ! {
         region_bytes: STBC_BYTES,
         heap_bytes: memory::HEAP.capacity(),
     });
+    // The program's line table and file labels, which place breakpoints and name the files of a stop
+    // (specification 13, "Source Mapping"). They are read before the program is prepared, because
+    // preparation drops the table and the heap is as free now as it is for preparation.
+    let sources = match LineSources::read(program, &limits) {
+        Ok(sources) => sources.map(|sources| &*Box::leak(Box::new(sources))),
+        Err(error) => stop(
+            board,
+            wait_alarm,
+            last_reset,
+            format!("the installed application's line table cannot be read: {error}"),
+        ),
+    };
     let prepared = match PreparedModule::from_bytes(program, limits) {
         Ok(prepared) => prepared,
         Err(error) => stop(
@@ -195,7 +208,7 @@ fn main() -> ! {
     .with_checkpoint(config.retain_mode, checkpoint_flash);
     let (cycle, boot_events) = match start_cycle(
         &mut platform,
-        prepared,
+        InstalledProgram { prepared, sources },
         services,
         io,
         settings,
@@ -300,12 +313,22 @@ fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
     emergency_halt("runner-stopped")
 }
 
+/// The installed program as the cycle takes it: the prepared module and the line sources the
+/// debugger answers from, which are `'static` as the debugger needs.
+#[derive(Clone, Copy)]
+struct InstalledProgram {
+    prepared: &'static PreparedModule,
+    /// The program's line table and file labels; none when the program has no line table.
+    sources: Option<&'static LineSources>,
+}
+
 /// Starts the installed program on the engine (specification 34 §10 and STATE-08). A platform with a
 /// checkpoint store saves the retained values into it: the program starts cold, and a warm start then
 /// restores the newest committed checkpoint, as a power-on or a reset does. Without a store the
 /// program starts cold, with its retained values at their declared initial values. The debugger may
 /// hold the program's scans at its statement starts (specification 13, "Safe Points"; specification
-/// 34, STATE-07): the prepared module and the services are `'static`, as the debugger needs.
+/// 34, STATE-07) and answers the debug operations from the program's line sources: the prepared
+/// module, the sources and the services are `'static`, as the debugger needs.
 ///
 /// # Errors
 ///
@@ -318,7 +341,7 @@ fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
 /// (specification 11 §6.7).
 fn start_cycle(
     platform: &mut Platform<Watchdog>,
-    prepared: &'static PreparedModule,
+    program: InstalledProgram,
     services: &'static DeviceServices<ChipClock>,
     io: GpioIo,
     settings: CycleSettings,
@@ -332,9 +355,9 @@ fn start_cycle(
     String,
 > {
     let Some(store) = platform.take_checkpoint_store() else {
-        let cycle = EngineCycle::start(prepared, services, io, settings)
+        let cycle = EngineCycle::start(program.prepared, services, io, settings)
             .map_err(|error| format!("the installed application cannot be started: {error}"))?
-            .with_debugger();
+            .with_debugger(program.sources);
         return Ok((cycle, Vec::new()));
     };
     // The largest payload one slot takes: a retained image is saved whole or not at all.
@@ -348,11 +371,11 @@ fn start_cycle(
         save_interval,
         image_bytes,
     };
-    let mut cycle = EngineCycle::with_retain(prepared, services, io, settings, retain)
+    let mut cycle = EngineCycle::with_retain(program.prepared, services, io, settings, retain)
         .map_err(|error| {
             format!("the installed application's checkpoint cannot be opened: {error}")
         })?
-        .with_debugger();
+        .with_debugger(program.sources);
     let events = cycle
         .restart(RestartMode::Warm, RetainSource::Checkpoint)
         .map_err(|error| {

@@ -1,8 +1,9 @@
 //! The control request pipeline (specification 11, §6.8.1 and §6.9.5).
 //!
 //! Each request is read, its credential channel stamped and its role resolved; the operation
-//! registry and the debug surface are checked; the shared operations are answered here and every
-//! other operation goes to the platform; and every request that could be read, refused or not,
+//! registry and the debug surface are checked; the shared operations are answered here, the debug
+//! operations from the platform's debugger when it has one, and every other operation goes to the
+//! platform; and every request that could be read, refused or not,
 //! gets one audit record, whose id the response carries. For a link that moves replies of a
 //! bounded length (specification 34, PORT-05), the event reads write their reply event by event
 //! within the bound.
@@ -17,6 +18,7 @@ use crate::access::{
     is_debug_request, required_role_for_control_request, stamp_credential_channel_param, AccessRole,
 };
 use crate::capabilities;
+use crate::debug::{answer as answer_debug, is_debug_operation};
 use crate::events::{wall_time, RuntimeEvent};
 use crate::live_values::{io_requests, var_requests};
 use crate::loading::program_install;
@@ -327,6 +329,12 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "transfer.begin" | "transfer.part" | "transfer.status" | "transfer.get"
         | "transfer.abort" => transfers::answer_transfer(request, host),
         "program.active" => transfers::program_active(id, host),
+        // The debug operations are answered from the platform's debugger when it has one
+        // (specification 11 §6.13); otherwise the platform answers them itself.
+        kind if is_debug_operation(kind) => match host.debugger() {
+            Some(debugger) => answer_debug(request, debugger),
+            None => return host.dispatch_extension(request),
+        },
         _ => return host.dispatch_extension(request),
     };
     Some(response)

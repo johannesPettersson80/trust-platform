@@ -10,17 +10,31 @@
 //! `(line, column)` pairs of its line table. [`run`] holds [`RunControl`], which the composing
 //! debugger calls for every decision. The composing debugger owns the lock, the condition variable
 //! and the wait that holds a scan.
+//!
+//! The debug operations of the control protocol are answered here as well, for a runtime that holds
+//! no source text (specification 11 §6.13; specification 13): [`requests`] parses a request and
+//! answers it from a [`Debugger`], [`reads`] lists the frames, scopes and
+//! variables of the published debug state, [`projection`] projects values onto the DAP shapes,
+//! [`replies`] writes the reply shapes and the stable refusals, and [`sources`] resolves
+//! breakpoints and names files from the program's `LINE_TABLE`.
 
 pub mod breakpoint;
+pub mod projection;
+pub mod reads;
+pub mod replies;
+pub mod requests;
 pub mod run;
+pub mod sources;
 pub mod statement;
 
 pub use breakpoint::{
     count_hit, observe_hit, Breakpoint, BreakpointRecord, CountedHit, CycleSuppression,
     HitCondition,
 };
+pub use requests::{answer, is_debug_operation, BreakpointView, Debugger, StopRecord};
 pub use run::{
     BoundaryStop, RunAction, RunControl, RunEffect, RunMode, RunOutcome, StepKind, StepState,
     StopReason,
 };
+pub use sources::LineSources;
 pub use statement::{Span, StatementId};
