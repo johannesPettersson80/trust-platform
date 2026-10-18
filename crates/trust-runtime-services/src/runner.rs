@@ -65,6 +65,11 @@ use state::{Records, ResourceCell};
 /// the rest.
 pub const FRAMES_PER_PASS: usize = 8;
 
+/// The longest the loop waits while its control link still holds reply bytes it has not handed to
+/// its hardware, so a reply in flight is driven to its end within a millisecond per packet without
+/// depending on the link's interrupts (specification 34, PORT-05).
+pub const REPLY_SERVICE_INTERVAL: TimeSpan = TimeSpan::new(core::time::Duration::from_millis(1));
+
 /// The single-thread resource loop of one installed program, or of a device without one.
 ///
 /// `L` is the control link, `W` the wait, `Y` the installed program, `P` the platform's values
@@ -241,9 +246,15 @@ where
             .clock
             .now()
             .saturating_add(self.platform.feed_interval());
-        let deadline = self
+        let mut deadline = self
             .next_boundary
             .map_or(liveness, |boundary| boundary.min(liveness));
+        if self.link.sending() {
+            // The link still holds reply bytes: service it soon again, so the reply reaches its
+            // end without waiting for the next request to wake the loop (specification 34,
+            // PORT-05). An idle link keeps the loop's own waits.
+            deadline = deadline.min(self.clock.now().saturating_add(REPLY_SERVICE_INTERVAL));
+        }
         self.wait.wait_until(deadline, token)
     }
 
@@ -362,6 +373,9 @@ mod live_values_contract_tests;
 
 #[cfg(test)]
 mod retain_contract_tests;
+
+#[cfg(test)]
+mod reply_contract_tests;
 
 #[cfg(test)]
 mod scan_contract_tests;

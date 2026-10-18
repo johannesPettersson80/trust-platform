@@ -2967,7 +2967,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/usb_link.rs",
-        "line": 114,
+        "line": 125,
         "owner": "runtime portability S1b",
         "invariant": "Writes one byte into the USB-Serial/JTAG EP1 FIFO data field (every eight-bit value is valid there), after the pass has checked that the IN FIFO has room for it and only while the reply in flight has unsent bytes.",
         "test_evidence": "cargo test -p trust-platform-esp32 (the fake-FIFO servicing tests, tests/usb_service.rs)",

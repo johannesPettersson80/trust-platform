@@ -1,11 +1,15 @@
 //! The FIFO servicing of the C6's USB-Serial/JTAG control link (design §2.2 and specification 34,
 //! PORT-05): one pass that moves the bytes of the peripheral's 64-byte FIFOs between them and the
-//! shared line link, and that answers the peripheral's interrupt flags.
+//! shared line link, that answers the peripheral's interrupt flags, and the bind-time sequence
+//! that clears both FIFOs of the session a reset ended.
 //!
-//! The pass is a function over [`UsbFifo`], the operations it needs from the peripheral, so the
-//! adapter's interrupt glue in `hardware/usb_link.rs` drives the peripheral's registers through it
-//! and a host test drives a fake FIFO with literal bytes.
-//! Nothing here blocks, spins or allocates.
+//! The pass and the bind-time sequence are functions over [`UsbFifo`], the operations they need
+//! from the peripheral, so the adapter's interrupt glue in `hardware/usb_link.rs` drives the
+//! peripheral's registers through them and a host test drives a fake FIFO with literal bytes.
+//! Every pass continues the reply in flight whenever the FIFO's free state shows it can take
+//! bytes, so a reply never waits for the IN FIFO's empty event: the peripheral can leave that
+//! event unraised with the FIFO already empty and free, and the interrupt only makes the reply
+//! sooner. Nothing here blocks, spins or allocates.
 
 use trust_runtime_core::ports::WakeSignal;
 use trust_runtime_services::link::DeviceLineLink;
@@ -18,7 +22,8 @@ pub const FIFO_BYTES: usize = 64;
 pub struct Pending {
     /// The host sent a packet; its bytes wait in the OUT FIFO.
     pub out_packet: bool,
-    /// The IN FIFO is empty; the reply in flight can be written into it.
+    /// The IN FIFO is empty; the reply in flight can be written into it. The event only makes the
+    /// reply sooner: a servicing pass continues the reply whether or not this is set.
     pub in_empty: bool,
     /// The host reset the bus; this is a new host session.
     pub bus_reset: bool,
@@ -37,9 +42,23 @@ pub trait UsbFifo {
     /// how many it read.
     fn read_out(&mut self, out: &mut [u8]) -> usize;
 
+    /// Reads and drops every byte the OUT FIFO holds now. A reset the peripheral survived, such
+    /// as a watchdog core reset, may leave the tail of a request here; it is discarded before the
+    /// link binds, so it never joins the next request.
+    fn discard_out(&mut self);
+
+    /// Whether the IN FIFO can take bytes now: the peripheral's IN-endpoint data-free flag. The
+    /// reply in flight is written whenever this is set, not only when the empty event arrives,
+    /// because the peripheral can leave that event unraised with the FIFO empty and free.
+    fn in_fifo_free(&mut self) -> bool;
+
     /// Writes at most [`FIFO_BYTES`] bytes of `bytes` into the IN FIFO, marks the packet done
     /// (`WR_DONE`) so the host can take it, and returns how many bytes it took.
     fn write_in(&mut self, bytes: &[u8]) -> usize;
+
+    /// Empties the IN FIFO of a session a reset ended: marks whatever it holds done (`WR_DONE`)
+    /// so the FIFO frees, and an earlier reply never prepends the next one.
+    fn flush_in(&mut self);
 
     /// Enables or disables the IN FIFO's empty interrupt: enabled while a reply is unsent,
     /// disabled while there is nothing to send.
@@ -50,12 +69,29 @@ pub trait UsbFifo {
     fn set_out_packet_enabled(&mut self, enabled: bool);
 }
 
+/// Brings the peripheral's FIFOs to a known state when the link binds (specification 34,
+/// PORT-05): the OUT FIFO's stale bytes are discarded and the IN FIFO is emptied, before any
+/// interrupt can move them into the link.
+///
+/// A watchdog core reset does not reset the USB-Serial/JTAG peripheral, so the session it ended
+/// may still hold a half-received request in the OUT FIFO and a half-sent reply in the IN FIFO.
+/// Discarding the first keeps a fragment the host sent before the reset out of the request it
+/// sends after, and flushing the second frees the FIFO for the next reply.
+pub fn bring_up<F>(fifo: &mut F)
+where
+    F: UsbFifo,
+{
+    fifo.discard_out();
+    fifo.flush_in();
+}
+
 /// Serves one interrupt: the events `fifo` reports, and the bytes they carry (design §2.2).
 ///
 /// A packet the host sent is moved into `link` without taking more than the link takes; a bus
-/// reset drops the reply in flight and any partly received request; the reply in flight is written
-/// into the IN FIFO 64 bytes at a time, and its interrupt is disabled once nothing is unsent.
-/// Every event advances `wake`, so the resource loop's wait ends at once (design §2.5).
+/// reset drops the reply in flight and any partly received request. Whatever the events, the
+/// reply in flight is continued into the IN FIFO by [`resume_reply`], so its progress never
+/// depends on the IN-empty event. Every event advances `wake`, so the resource loop's wait ends at
+/// once (design §2.5).
 pub fn service<F, W>(fifo: &mut F, link: &mut DeviceLineLink, wake: &W)
 where
     F: UsbFifo,
@@ -76,9 +112,12 @@ where
         wake.wake();
     }
     if pending.in_empty {
-        fill_in_fifo(fifo, link);
         wake.wake();
     }
+    // The reply in flight is continued whatever the events: `resume_reply` writes into the IN FIFO
+    // whenever its free state shows room, so a reply never waits for an empty event the peripheral
+    // failed to raise (specification 34, PORT-05).
+    resume_reply(fifo, link);
 }
 
 /// Moves the bytes the OUT FIFO holds into `link`, oldest first, and no more than the link takes:
@@ -106,16 +145,23 @@ where
     read == limit && limit < FIFO_BYTES
 }
 
-/// Writes the bytes of the reply in flight into the IN FIFO, at most [`FIFO_BYTES`] at a time, and
-/// disables the IN FIFO's empty interrupt once nothing is unsent (design §2.2).
-fn fill_in_fifo<F>(fifo: &mut F, link: &mut DeviceLineLink)
+/// Continues the reply in flight into the IN FIFO whenever the FIFO can take bytes: at most one
+/// FIFO, into what [`UsbFifo::in_fifo_free`] shows is free, marking the packet done (`WR_DONE`),
+/// and the IN FIFO's empty interrupt is disabled once nothing is unsent (design §2.2).
+///
+/// A watchdog core reset does not reset the USB-Serial/JTAG peripheral, and after it the
+/// peripheral can report the IN FIFO free while its empty event never arrives (specification 34,
+/// PORT-05). Every servicing pass calls this, so the reply in flight never waits for that event,
+/// and the interrupt only makes it sooner.
+pub fn resume_reply<F>(fifo: &mut F, link: &mut DeviceLineLink)
 where
     F: UsbFifo,
 {
-    if !link.unsent().is_empty() {
-        let written = fifo.write_in(link.unsent());
-        link.mark_sent(written);
+    if link.unsent().is_empty() || !fifo.in_fifo_free() {
+        return;
     }
+    let written = fifo.write_in(link.unsent());
+    link.mark_sent(written);
     if link.unsent().is_empty() {
         // Nothing is unsent: `send_frame` enables the interrupt again with the next reply.
         fifo.set_in_empty_enabled(false);
