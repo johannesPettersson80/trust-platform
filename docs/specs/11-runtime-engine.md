@@ -2770,6 +2770,11 @@ evaluation name, or unavailable/poisoned I/O snapshot fails closed with a
 negative response. These failures do not return an empty successful projection
 or mutate debug or runtime state.
 
+`eval`, `debug.stack` and `debug.variables` answer from the published debug state described in section
+6.13.1: the storage as it stood at the end of the last completed scan, one consistent state and never
+half a scan, and never a copy the runtime makes per statement. While a debugger holds the scan they
+answer the halted state.
+
 ###### Runtime control I/O and variable mutation contract
 
 The attach-mode JSON control surface uses strict parameter objects for debug
@@ -2839,7 +2844,9 @@ refused by the bound.
 
 The bounded `eval` operation trims `expr`, rejects an empty name, and performs
 an exact snapshot lookup: global storage first, then retained storage. It is a
-name read, not general expression execution. An absent snapshot returns
+name read, not general expression execution, and it keeps its text `expr`
+field; `debug.evaluate` and the other expression surfaces use the compiled form
+of section 6.13.2. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
 Successful values use the stable runtime debug representation.
 
@@ -4693,6 +4700,16 @@ when enabled:
   stop outputs are unconfirmed or the save fails), and the process exits. A
   resource thread that starts later on the same debugger can be held again.
 
+**Hold duration (owner, 18 October 2026).** A debugger hold lasts until a continue or a stop, on every
+runtime, trust-runtime and a chip alike, however long the operator waits. While it lasts, the held
+scan runs no program and the rules above apply unchanged. Neither a detach, an attach, a configuration
+change, a command waiting in the queue, a task deadline that passes, an elapsed timeout nor a lost
+connection releases it, and the cycle watchdog is suspended with the hold as section 6.6 states.
+`resume` is the one release a debugger asks for, and the explicit `stop` above is the one end that is
+not a continue, so a breakpoint, pause or step never delays a stop. On a chip the hold loop serves the
+control connection and feeds the hardware watchdog in every pass, so a long hold neither resets the
+device nor loses a queued request (specification 34 STATE-07, TIME-04).
+
 These hold rules are a truST host/debugger contract outside the IEC language
 execution model, not an IEC deviation.
 
@@ -5762,6 +5779,75 @@ The runtime emits structured events for debugging and testing:
 - Fault and overrun notifications
 
 These events are consumed by the debugger (`trust-debug`) and test harnesses to validate behavior deterministically.
+
+##### 6.13.1 Debug value freshness (owner, 18 October 2026)
+
+`eval`, `debug.stack` and `debug.variables` answer on every runtime with the values as of the last
+completed scan, from one published debug state, and no runtime keeps a copy of PLC storage per
+statement. This is a truST runtime contract; IEC 61131-3 defines no debugger and no variable
+snapshot.
+
+- The published state is the PLC storage and call stack as they stood at the end of the last
+  completed scan: one consistent state, never half a scan. A read never waits for, pauses, slows or
+  repeats a scan, and a scan in progress is not visible in an answer: a variable it has already
+  written, or a frame it has entered or left, does not appear until that scan completes and becomes
+  the last completed scan. Answers therefore come from the scan end, not from the latest statement
+  that ran.
+- A runtime that serves requests between scans (a chip's runner) answers from its storage, which is
+  that state. trust-runtime answers from one copy it publishes at each scan end: the running scan
+  writes the live storage the scan itself uses, and the published copy changes only at the boundary
+  between two scans. That is one copy per scan, and it replaces the per-statement copy the runtime
+  kept before.
+- While a debugger holds the scan (a breakpoint, a debug-mode `pause` or a completed step, section
+  6.9), the published state is the halted state: the storage exactly as the statements that already
+  ran in the suspended scan left it, and the call stack at the halt. Every stopped answer is
+  unchanged, including the boundary writes a waiting scan already shows (section 6.9).
+- Before the first completed scan there is no published state. Each read answers its existing error
+  (`no snapshot available`) rather than an invented empty projection.
+- A read changes nothing: it applies no store, releases no force, and changes no value, breakpoint,
+  hold or step, and it is subject to the requester's existing role (section 6.9.5).
+
+##### 6.13.2 Portable debug expressions (owner, 18 October 2026)
+
+Every runtime evaluates debugger expressions in one portable compiled form. The tool compiles and
+the runtime evaluates: a runtime parses no ST text for a watch, a breakpoint condition, a logpoint
+fragment or `debug.evaluate`, and needs neither the parser, the HIR nor the authoring part of the
+type registry (specification 34 ARCH-02 and the HOST-09 row "Debug expression parsing").
+The same compiled form serves all four surfaces, so they cannot drift apart, and trust-runtime and a
+chip evaluate a given expression with the same code. The expression semantics are those of IEC
+61131-3 Ed.3 §7.3.2; the compiled form reproduces them, it does not define others.
+
+A control request that carries an expression carries these two fields instead of ST text:
+
+- `expr_version` — the version of the compiled form the bytes are encoded in, an integer. The tool
+  chooses it when it compiles, so a tool may address an older runtime with an older form.
+- `expr` — the compiled form itself, base64 of the byte string (RFC 4648 §4 alphabet, padded).
+
+The instruction encoding of that form, its operands, its type rules and its fixed size and work
+limits are defined by the slice that builds it (S3c, portable debug expression compilation); this
+section fixes only the protocol boundary that every runtime implements. The original text may travel
+beside the compiled form for display only, and no runtime reads it. The boundary applies from the
+release that implements it: a runtime that does not implement a version rejects it with
+`expr_version_unsupported` and decodes nothing.
+
+A runtime answers with a value, in the stable debug representation and with the public type name,
+exactly as `debug.variables` reports a variable of that type. Evaluation reads the published state
+(section 6.13.1) and is side-effect free: it stores nothing, calls nothing with a side effect, and
+cannot fault the PLC, block the scan, apply a force or change a breakpoint, a hold or a step. It
+rejects with these stable codes:
+
+| Code | Meaning |
+| --- | --- |
+| `expr_version_unsupported` | This runtime does not implement `expr_version`; it decodes nothing. |
+| `expr_invalid` | The bytes do not decode to a complete expression this runtime accepts: truncation, an unknown instruction, an unknown name or reference, an instruction that would store or call something impure, or a result that is not a value. It is rejected before evaluation. |
+| `expr_evaluation_failed` | The expression decoded and is supported but evaluation failed, for example a divide by zero, an invalid reference or an index outside its bounds. The detail text is non-normative and the PLC is unaffected. |
+
+A watch, a breakpoint condition and a logpoint consume those answers as specification 13 already
+defines: an invalid or failed expression makes a watch report failure, makes a breakpoint condition
+false (no stop), and renders a logpoint fragment as `<error: ...>`. A client's `debug.evaluate`
+receives the rejection itself — a failed response carrying the code and its detail, and no value.
+`eval` keeps its own contract (section 6.8.1): it is a bounded exact name read, not an expression,
+and it carries text.
 
 ##### Hosted embedding mutation lifecycle (planned H migration)
 

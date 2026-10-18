@@ -29,7 +29,8 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - **Adapter**: `trust-debug` process handling DAP requests.
 - **Runtime**: `trust-runtime` process executing ST code.
 - **Statement**: A single executable ST statement with a source location.
-- **Location**: `(file_id, start_offset, end_offset)` in source text.
+- **Location**: `(file_id, start_offset, end_offset)` in source text, a half-open byte range. A
+  runtime without source text reconstructs it from the module's line table (specification 12 §6.13).
 - **Task**: IEC task representing a cyclic execution unit.
 
 ### Source Mapping
@@ -37,12 +38,35 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 1) Every executable statement **must** be assigned a location at the **first non-trivia token** in
    its syntax node. The location span covers the full statement text range.
 2) Each source file loaded in a debug session has a unique `file_id` and is registered in the
-   adapter with its path and full text.
+   adapter with its path and, when the tool has it, its full text. The runtime never needs the text:
+   every statement location and every line's byte extent come from the module's `LINE_TABLE`
+   section (specification 12 §6.13), and the text serves presentation only.
 3) The adapter converts runtime locations to `(line, column)` for DAP using 1-based coordinates
    when `linesStartAt1` / `columnsStartAt1` are true.
 4) A breakpoint source path relative to the selected project resolves against
    that project root and binds to the already registered source/file ID. It
    must not resolve outside the project root.
+
+**One resolver on every runtime (owner, 18 October 2026).** Breakpoints and stepping resolve through
+the module's `LINE_TABLE` on trust-runtime and on a chip, and on any other runtime of the shared
+services. A runtime needs no ST source text, no compiler and no HIR to resolve them: the section
+carries the statement spans, the line tables and the file labels. The rules below ("Breakpoint
+evaluation, source resolution, and hook contract", "Stepping Semantics", "Safe Points") are
+unchanged; only their input changes, from recompiled sources to the artifact.
+
+Moving to that table changes no answer. For a given program, breakpoint resolution, step stops, stop
+locations, stack-frame locations and breakpoint-location listings return exactly what the
+source-based resolver returned before, including the case where a breakpoint on an `IF` line also
+stops inside the `IF` body through span overlap. Native tests compare the two resolvers' answers over
+the existing debugger corpus, and a difference is a defect in the line table, not a new behaviour
+(owner, 18 October 2026: parity tests prove that trust-runtime's answers do not change). A module
+without `LINE_TABLE` keeps the statement-start resolution described below, so an older artifact
+still debugs as it did.
+
+A file's identity in an answer is its label, the source path relative to the project root with `/`
+separators, or the fallback label `file_<file_id>` of specification 12 §7.5.1.4. The runtime's file
+index is internal and is never part of an answer a client depends on, so numbering the files in the
+table changes nothing a user or tool sees.
 
 ### Breakpoints
 
@@ -78,6 +102,17 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - `ContinueRequest` resumes all threads.
 - Any pending pause request is cleared.
 - A `StoppedEvent` is emitted only if a breakpoint, step, or pause condition is hit after resuming.
+
+**Hold duration (owner, 18 October 2026).** A debugger hold — a breakpoint stop, a debug-mode pause
+or a completed step — lasts until a continue or a stop, on every runtime, trust-runtime and a chip
+alike, however long the operator waits. Neither a timeout, the cycle watchdog, a missed deadline, a
+full command queue, a detach, an attach nor a configuration change releases it. The one end that is
+not a continue is an explicit stop, so a breakpoint, pause or step never delays a stop
+(specification 11 §6.9). A chip's hold loop serves the control connection and feeds the hardware
+watchdog while it waits, so a long hold neither resets the device nor loses a queued request
+(specification 34 STATE-07). trust-runtime's code must follow this too: its hold loop watches the
+stop request and releases the hold when one arrives. The hold loop does not look at the stop request
+today and must be changed to do so (owner, 18 October 2026).
 
 #### Pause
 
@@ -204,7 +239,8 @@ The following are required semantics for DAP step requests:
 3) **Step Out** (`stepOut`):
    - Resume execution and stop at the next statement **after returning** to the caller.
 
-Stepping is statement-granular, not instruction-granular.
+Stepping is statement-granular, not instruction-granular. A step boundary is a statement start
+recorded in the module's `LINE_TABLE` (specification 12 §6.13), on every runtime.
 
 ### Stopped Events
 
@@ -244,7 +280,9 @@ A conditional breakpoint whose expression is false does not pause; a true
 condition follows ordinary breakpoint stop behavior. A hit-count breakpoint
 stops exactly when its accepted threshold is reached. A logpoint evaluates its
 registered fragments, appends one formatted output record, and never pauses
-execution solely because the logpoint was reached.
+execution solely because the logpoint was reached. A condition and a logpoint
+fragment are expressions in the compiled form of specification 11 §6.13.2; a
+runtime evaluates the compiled form it was sent and parses no text.
 
 Debug-control event delivery is loss-resistant at the local process boundary.
 If a registered runtime-event receiver has been dropped, the event is retained
@@ -283,7 +321,12 @@ Runtime source coordinates are zero-based byte coordinates. Line-start
 construction always contains byte offset zero and adds the byte following every
 LF, including a final LF; CR remains part of the preceding line. Offset
 projection clamps an offset beyond the source to source end. Location
-projection uses the location start.
+projection uses the location start. A runtime without the source text takes the
+same facts from the module's `LINE_TABLE` (specification 12 §6.13): the line
+starts, each line's length and the file's byte length, which together give the
+line byte end that a requested column clamps to and the end that an offset past
+the file clamps to. The projection is therefore identical with and without the
+text.
 
 Breakpoint resolution first rejects an unavailable line, clamps the requested
 column to that line's byte end, and ignores statements from other file IDs. On
@@ -292,7 +335,9 @@ after the request; if none exists, it selects the smallest start column after
 the request. If no statement starts on that line, it selects the narrowest
 statement containing the clamped offset, using inclusive runtime location
 ends for compatibility. Otherwise it selects the globally earliest later
-statement. An empty candidate set returns no location.
+statement. An empty candidate set returns no location. Statements, their spans
+and the line extents come from the `LINE_TABLE` on every runtime, so these rules
+are one implementation, not one per platform (owner, 18 October 2026).
 
 Every debug hook call records the supplied location and call depth before
 making a stop decision. Context-bearing calls additionally discard frame
@@ -420,10 +465,21 @@ including at `0` and `u64::MAX`.
 ### Variables / Evaluate
 
 - `VariablesRequest` and `ScopesRequest` return locals, globals, retain, and instance scopes.
+- Values are those of the runtime's published debug state (specification 11 §6.13.1): the storage
+  as it stood at the end of the last completed scan, one consistent state and never half a scan,
+  and never a copy the runtime makes per statement; while a hold is active, the halted state.
 - `EvaluateRequest` in `hover` or `watch` context must not have side effects.
   Explicitly whitelisted pure standard functions, conversions, and
   split-date/time helpers are accepted; user-defined, unknown, and impure calls
   are rejected.
+- Evaluate, watch, conditional-breakpoint and logpoint expressions are **compiled by the tool**, not
+  by the runtime (owner, 18 October 2026). The adapter compiles the user's ST text, beside the
+  language server, into the portable compiled form of specification 11 §6.13.2 and sends that form
+  with the form's version. The runtime parses no ST text for any of the four and needs neither the
+  parser, the HIR nor the authoring type registry. The same form serves all four surfaces; the
+  runtime's answer, its stable errors and their mapping onto DAP (`<error: ...>` in a logpoint
+  fragment, a false condition that does not stop, a failed evaluate response) are specified there.
+  The user's text stays in the editor for display and is recompiled after a reload.
 - `setVariable` and `setExpression` are allowed only when paused. Attached runtimes use the
   side-effecting Live Values I/O custom requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead
   of `setExpression` for I/O writes and forcing.
@@ -463,6 +519,10 @@ inspection fixtures may contain a legacy bank solely for presentation coverage.
 Debugger safe points align with Structured Text statement boundaries. The
 runtime may pause only before executing a statement and never within
 expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
+
+A runtime holds only at a statement's first instruction and at no instruction inside it, so a
+statement's code span in the `LINE_TABLE` is the boundary the runtime may hold at and the unit a
+step returns to.
 
 ### Reload / Hot Reload
 
