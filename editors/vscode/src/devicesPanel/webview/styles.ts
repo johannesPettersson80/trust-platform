@@ -921,3 +921,98 @@ export function listAddStyle(canAdd: boolean): React.CSSProperties {
     opacity: canAdd ? 1 : 0.62,
   };
 }
+
+/** A form pane: its header, then its sections, sharing the inspector's chrome (design §4.5 D3). */
+export const formStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  background: t.surface,
+};
+
+/** A form's header: its breadcrumb, title, owner line, purpose and note. */
+export const formHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+  padding: "16px 16px 12px",
+  borderBottom: `1px solid ${t.border}`,
+};
+
+/** The runtime a form writes to, in words; drawn under its title. */
+export const formOwnerStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  color: t.textMuted,
+};
+
+/** A form's purpose. */
+export const formPurposeStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  lineHeight: 1.4,
+  color: t.textMuted,
+};
+
+/** A form's note, such as that the endpoint is disabled. */
+export const formNoteStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  border: `1px solid ${tint(t.warn, 0.5)}`,
+  borderRadius: t.radius,
+  background: tint(t.warn, 0.1),
+  fontSize: 11.5,
+  lineHeight: 1.4,
+  color: t.text,
+};
+
+/** One field of a form: its label line, its input and its help. */
+export const fieldStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  marginBottom: 12,
+};
+
+/** A field's label line: its label and, when required, the marker. */
+export const fieldLabelLineStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+};
+
+/** A field's label. */
+export const fieldLabelStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: t.text,
+};
+
+/** The marker of a required field. */
+export const fieldRequiredStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  color: t.danger,
+};
+
+/** The input, select or checkbox of a field. */
+export const fieldInputStyle: React.CSSProperties = {
+  boxSizing: "border-box",
+  width: "100%",
+  padding: "5px 8px",
+  border: `1px solid ${t.inputBorder}`,
+  borderRadius: t.radiusSm,
+  background: t.inputBg,
+  color: t.text,
+  fontSize: 12,
+};
+
+/** The text area of an object field. */
+export const fieldTextareaStyle: React.CSSProperties = {
+  ...fieldInputStyle,
+  minHeight: 72,
+  resize: "vertical",
+  fontFamily: "monospace",
+};
+
+/** A field's help. */
+export const fieldHelpStyle: React.CSSProperties = {
+  fontSize: 11,
+  lineHeight: 1.4,
+  color: t.textMuted,
+};
