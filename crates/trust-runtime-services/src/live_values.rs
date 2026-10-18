@@ -6,9 +6,12 @@
 //! the lock and reports a refusal; the queues own the capacity, the upsert and release rules and
 //! the drain order. [`apply`] owns the order in which a scan applies the queues at its cycle
 //! boundaries and how a refusal is handled. [`retained_names`] resolves a retained management
-//! label from the prepared program alone.
+//! label from the prepared program alone. [`io_snapshot`] holds the portable snapshot and
+//! [`io_requests`] answers the `io.*` operations from it and the queues.
 
 pub mod apply;
+pub mod io_requests;
+pub mod io_snapshot;
 pub mod queues;
 pub mod retained_names;
 

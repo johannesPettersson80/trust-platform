@@ -97,19 +97,6 @@ pub(super) struct HistorianAlertsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct IoWriteParams {
-    pub(super) address: String,
-    pub(super) value: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct IoAddressParams {
-    pub(super) address: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct BytecodeReloadParams {
     pub(super) bytes: String,
 }
@@ -157,11 +144,25 @@ pub(super) struct PairRevokeParams {
     pub(super) id: String,
 }
 
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; these items remain only for the hosted snapshot-shape tests"
+    )
+)]
 pub(super) trait IoSnapshotJson {
     fn into_json(self) -> serde_json::Value;
 }
 
 impl IoSnapshotJson for IoSnapshot {
+    #[cfg_attr(
+        not(test),
+        allow(
+            dead_code,
+            reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this method remains only for the hosted snapshot-shape tests"
+        )
+    )]
     fn into_json(self) -> serde_json::Value {
         let IoSnapshot {
             scan,
@@ -179,6 +180,13 @@ impl IoSnapshotJson for IoSnapshot {
     }
 }
 
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this helper remains only for the hosted snapshot-shape tests"
+    )
+)]
 fn entry_to_json(entry: &crate::io::IoSnapshotEntry, forced: &[IoAddress]) -> serde_json::Value {
     let mut payload = json!({
         "name": entry.name.as_ref().map(|name| name.as_str()),
@@ -199,6 +207,13 @@ fn entry_to_json(entry: &crate::io::IoSnapshotEntry, forced: &[IoAddress]) -> se
     payload
 }
 
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this helper remains only for the hosted snapshot-shape tests"
+    )
+)]
 fn format_snapshot_value(value: &crate::io::IoSnapshotValue) -> serde_json::Value {
     match value {
         crate::io::IoSnapshotValue::Value(value) => json!(format!("{value:?}")),
@@ -207,6 +222,13 @@ fn format_snapshot_value(value: &crate::io::IoSnapshotValue) -> serde_json::Valu
     }
 }
 
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "the hosted snapshot's JSON moved to trust_runtime_services::live_values::io_snapshot; this helper remains only for the hosted snapshot-shape tests"
+    )
+)]
 pub(super) fn format_address(address: &IoAddress) -> String {
     let area = match address.area {
         crate::memory::IoArea::Input => "I",
