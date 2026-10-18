@@ -1,22 +1,60 @@
 //! Typed access between cooperative cycles, without exposing mutable storage.
 use super::*;
 use crate::bytecode::{AccessBindingEntry, StorageRole};
+use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate};
 use crate::value::{
     read_partial_access, write_partial_access, PartialAccess, RefSegment, ValueRefView,
 };
 use crate::vm::construction::values::ValueConstructionContext;
 
 impl EngineState<'_> {
+    /// The owned value a reference names, in this storage's generation.
+    ///
+    /// The read goes through the seam. A STRING/WSTRING element has no borrowed
+    /// `Value`, so it is resolved through its parent as its CHAR/WCHAR scalar, the
+    /// way `VariableStorage::materialize_by_ref_ref` did before the seam; unlike
+    /// `read_checked_reference`'s own inline fallback, neither caller charges that
+    /// walk.
+    pub(in crate::vm::engine) fn materialize_reference(
+        &self,
+        reference: ValueRefView<'_>,
+    ) -> Result<Value, RuntimeError> {
+        if let Ok(view) = self.data.storage.read_reference(reference) {
+            return self.data.storage.materialize(&view);
+        }
+        let (last, prefix) = reference
+            .path
+            .split_last()
+            .ok_or(RuntimeError::NullReference)?;
+        let view = self
+            .data
+            .storage
+            .read_path(reference.location, reference.offset, prefix)
+            .map_err(|_| RuntimeError::NullReference)?;
+        let parent = self
+            .data
+            .storage
+            .borrow(&view)
+            .ok_or(RuntimeError::NullReference)?;
+        crate::value::materialize_value_path(parent, core::slice::from_ref(last))
+            .ok_or(RuntimeError::NullReference)
+    }
+
     pub(super) fn read_checked_reference(
         &self,
         reference: &ValueRef,
     ) -> Result<Value, RuntimeError> {
         self.check_management_destination(reference.as_view())?;
         self.check_read(reference.as_view())?;
-        let value = if let Some(value) = self.data.storage.read_by_ref_ref(reference) {
-            self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
+        let value = if let Ok(view) = self.data.storage.read_reference(reference.as_view()) {
+            let stored = self
+                .data
+                .storage
+                .borrow(&view)
+                .ok_or(RuntimeError::NullReference)?;
+            self.charge_allocation_bytes(self.value_clone_charge(stored, 0)?)?;
             self.check_entry_deadline()?;
-            value.clone()
+            stored.clone()
         } else {
             // STRING/WSTRING elements are scalar CHAR/WCHAR values, not borrowed
             // Values. Resolve only their parent, without cloning its backing text.
@@ -24,10 +62,15 @@ impl EngineState<'_> {
                 .path
                 .split_last()
                 .ok_or(RuntimeError::NullReference)?;
+            let view = self
+                .data
+                .storage
+                .read_path(reference.location, reference.offset as usize, prefix)
+                .map_err(|_| RuntimeError::NullReference)?;
             let parent = self
                 .data
                 .storage
-                .read_by_ref_parts(reference.location, reference.offset as usize, prefix)
+                .borrow(&view)
                 .ok_or(RuntimeError::NullReference)?;
             // Reading one character scans the text up to its index: TEXT (TIME-08).
             let text_length = match (parent, last) {
@@ -67,7 +110,7 @@ impl EngineState<'_> {
         if !self
             .data
             .storage
-            .commit_prepared_write(reference.path, value, prepared, capacity)
+            .commit_write(reference.path, value, prepared, capacity)
         {
             return Err(RuntimeError::NullReference);
         }
@@ -148,11 +191,7 @@ impl EngineState<'_> {
         let value = match partial(&binding)? {
             Some(access) => {
                 self.check_read(reference.as_view())?;
-                let target = self
-                    .data
-                    .storage
-                    .materialize_by_ref_ref(&reference)
-                    .ok_or(RuntimeError::NullReference)?;
+                let target = self.materialize_reference(reference.as_view())?;
                 write_partial_access(target, access, value)
                     .map_err(crate::vm::dispatch::partial_access_error_to_runtime)?
             }
@@ -173,7 +212,7 @@ impl EngineState<'_> {
         if !self
             .data
             .storage
-            .commit_prepared_write(&reference.path, value, prepared, capacity)
+            .commit_write(&reference.path, value, prepared, capacity)
         {
             return Err(RuntimeError::NullReference);
         }
@@ -227,7 +266,7 @@ impl EngineState<'_> {
         name: &str,
         path: &[RefSegment],
         value: Value,
-    ) -> Result<(ValueRef, Value, crate::memory::PreparedStorageWrite), RuntimeError> {
+    ) -> Result<(ValueRef, Value, PreparedWrite), RuntimeError> {
         let (_, declaration) = self
             .prepared
             .global(name)
@@ -309,16 +348,11 @@ impl EngineState<'_> {
         &self,
         reference: crate::value::ValueRefView<'_>,
         value: &Value,
-    ) -> Result<crate::memory::PreparedStorageWrite, RuntimeError> {
+    ) -> Result<PreparedWrite, RuntimeError> {
         let prepared = self
             .data
             .storage
-            .prepare_by_ref_parts_write(
-                reference.location,
-                reference.offset,
-                reference.path,
-                value,
-            )?
+            .prepare_write(reference.location, reference.offset, reference.path, value)?
             .ok_or(RuntimeError::NullReference)?;
         // IEEE bit aliases remain valid internally. Engineering writes must also
         // validate the reconstructed aliases, not only the incoming integer bits.
@@ -330,14 +364,14 @@ impl EngineState<'_> {
         &mut self,
         reference: ValueRef,
         value: Value,
-        prepared: crate::memory::PreparedStorageWrite,
+        prepared: PreparedWrite,
     ) -> Result<(), RuntimeError> {
         self.check_entry_deadline()?;
         let capacity = self.declared_string_capacity(reference.as_view());
         if !self
             .data
             .storage
-            .commit_prepared_write(&reference.path, value, prepared, capacity)
+            .commit_write(&reference.path, value, prepared, capacity)
         {
             return Err(RuntimeError::NullReference);
         }

@@ -231,11 +231,19 @@ rejected as a complete candidate before it can replace the active module.
 
 The structural nesting bound is independent of active VM call frames. The root
 is depth zero: at most 64 structural edges (65 nodes) are accepted; edge 65
-is rejected before construction. A shallow
-call-depth profile must still admit a valid deeper aggregate within the structural
-bound. Validation includes the complete suffix height when reusing a cached type
-or instance-template demand. Real initializer/POU callbacks still consume the
-profile's invocation depth; this distinction does not increase that limit.
+is rejected before construction. An alias to a target type counts as one
+structural edge to that target, so an alias chain longer than 64 edges is
+refused before construction, like any other type deeper than the bound, with the
+refusal `RuntimeError::TypeNestingExceeds` and its stable code
+`runtime_type_nesting_exceeds`, distinct from the `runtime_type_mismatch` of a
+recursive type
+(`an_alias_chain_deeper_than_64_edges_is_refused_before_construction`,
+`crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs`). A
+shallow call-depth profile must still admit a valid deeper aggregate within the
+structural bound. Validation includes the complete suffix height when reusing a
+cached type or instance-template demand. Real initializer/POU callbacks still
+consume the profile's invocation depth; this distinction does not increase that
+limit.
 
 The execution budget counts each executed bytecode instruction, not only loop
 back-edges, plus the value-size work defined by specification 34 TIME-08;

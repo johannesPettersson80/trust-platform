@@ -7,6 +7,7 @@ use super::super::call::context::{
 use super::super::context::{ExecutionContext, ReferenceContext};
 use super::super::{OperandStack, VmTrap};
 use super::*;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::MemoryLocation;
 use crate::stdlib::StandardLibrary;
 use crate::value::{write_value_path, RefSegment};
@@ -229,25 +230,15 @@ impl ReferenceContext for EngineState<'_> {
             crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::StorageWrite);
         self.charge_storage_path_write(&self.data.storage, location, offset, path, &value)?;
         if path.is_empty() && !matches!(value, Value::Struct(_)) {
-            return Ok(self
-                .data
-                .storage
-                .write_direct_slot_by_location(location, offset, value));
+            return Ok(self.write_slot(location, offset, value));
         }
-        let Some(prepared) = self
-            .data
-            .storage
-            .prepare_by_ref_parts_write(location, offset, path, &value)?
-        else {
+        let Some(prepared) = self.prepare_write(location, offset, path, &value)? else {
             return Ok(false);
         };
         if prepared.requires_final_deadline_check() {
             self.check_entry_deadline()?;
         }
-        Ok(self
-            .data
-            .storage
-            .commit_prepared_write(path, value, prepared, capacity))
+        Ok(self.commit_write(path, value, prepared, capacity))
     }
     fn write_typed_local(&self, root: &mut Value, path: &[RefSegment], value: Value) -> bool {
         write_value_path(root, path, value)

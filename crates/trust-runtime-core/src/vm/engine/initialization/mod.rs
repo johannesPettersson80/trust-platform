@@ -8,7 +8,9 @@ use super::*;
 use crate::bytecode::{
     InitializationPhase, InitializerBodyKind, StorageOwner, StorageRole, TypeData,
 };
+use crate::memory::view::StoreMutate;
 use crate::memory::MemoryLocation;
+use crate::value::ValueRefView;
 use crate::vm::context::ReferenceContext;
 
 #[cfg(test)]
@@ -409,10 +411,16 @@ fn direct_scalar_intrinsic_default(module: &VmModule, type_id: u32) -> bool {
 }
 
 fn context_store_result(state: &mut EngineState<'_>, frame: FrameId, value: Value) -> bool {
-    state
-        .data
-        .storage
-        .write_by_ref_parts(MemoryLocation::Local(frame), 0, &[], value)
+    // The checked write of the frame's root with an empty path, as `write_by_ref_parts`
+    // made it. A whole-slot replacement would drop the layout of a physical structure,
+    // which the checked write keeps (specification 34 MEM-06).
+    let reference = ValueRefView {
+        location: MemoryLocation::Local(frame),
+        offset: 0,
+        generation: state.data.storage.generation(),
+        path: &[],
+    };
+    state.write_reference(reference, value).unwrap_or(false)
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@ use super::{
     is_current_location, is_vm_local_sentinel, peek_vm_reference, read_vm_reference,
     write_vm_reference,
 };
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::vm::call::context::{CallContext, RegisterValueOpKind};
 use crate::vm::{materialize_borrowed_value, VmFrame, VmTrap};
 use crate::{
@@ -30,7 +31,7 @@ pub enum VmFbOutSource {
 impl VmFbOutSource {
     /// Borrow the bound value after reference-read policy checks.
     pub fn read_checked<'a>(
-        &self,
+        &'a self,
         runtime: &'a impl CallContext,
     ) -> Result<Option<&'a Value>, VmTrap> {
         let reference = match self {
@@ -52,16 +53,20 @@ impl VmFbOutSource {
     }
 
     /// Borrow the bound storage value; callers must perform required policy checks.
-    pub fn read<'a>(&self, runtime: &'a impl CallContext) -> Option<&'a Value> {
-        match self {
+    pub fn read<'a>(&'a self, runtime: &'a impl CallContext) -> Option<&'a Value> {
+        let view = match self {
             Self::Direct {
                 instance_id,
                 offset,
             } => runtime
                 .storage()
-                .read_instance_field_by_offset(*instance_id, *offset),
-            Self::Reference(reference) => runtime.storage().read_by_ref_ref(reference),
-        }
+                .read_slot(MemoryLocation::Instance(*instance_id), *offset)
+                .ok()?,
+            Self::Reference(reference) => {
+                runtime.storage().read_reference(reference.as_view()).ok()?
+            }
+        };
+        runtime.storage().borrow(&view)
     }
 }
 
@@ -199,10 +204,16 @@ impl VmWriteTarget {
                     .get(*offset)
                     .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
             }
-            Self::DirectStorage { location, offset } => runtime
-                .storage()
-                .read_direct_slot_by_location(*location, *offset)
-                .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference)),
+            Self::DirectStorage { location, offset } => {
+                let view = runtime
+                    .storage()
+                    .read_slot(*location, *offset)
+                    .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))?;
+                runtime
+                    .storage()
+                    .borrow(&view)
+                    .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
+            }
             Self::Reference(reference) => peek_vm_reference(runtime, caller_frame, reference),
         }
     }
@@ -309,7 +320,7 @@ impl VmWriteTarget {
             }
             Self::DirectStorage { location, offset } => runtime
                 .storage_mut()
-                .write_direct_slot_by_location(*location, *offset, value)
+                .write_slot(*location, *offset, value)
                 .then_some(())
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference)),
             Self::Reference(reference) => {
@@ -359,7 +370,7 @@ impl VmFbFieldBinding {
 
     /// Borrow the bound value after reference-read policy checks.
     pub fn read_checked<'a>(
-        &self,
+        &'a self,
         runtime: &'a impl CallContext,
     ) -> Result<Option<&'a Value>, VmTrap> {
         let reference = match self {
@@ -381,16 +392,20 @@ impl VmFbFieldBinding {
     }
 
     /// Borrow the bound storage value; callers must perform required policy checks.
-    pub fn read<'a>(&self, runtime: &'a impl CallContext) -> Option<&'a Value> {
-        match self {
+    pub fn read<'a>(&'a self, runtime: &'a impl CallContext) -> Option<&'a Value> {
+        let view = match self {
             Self::Direct {
                 instance_id,
                 offset,
             } => runtime
                 .storage()
-                .read_instance_field_by_offset(*instance_id, *offset),
-            Self::Reference(reference) => runtime.storage().read_by_ref_ref(reference),
-        }
+                .read_slot(MemoryLocation::Instance(*instance_id), *offset)
+                .ok()?,
+            Self::Reference(reference) => {
+                runtime.storage().read_reference(reference.as_view()).ok()?
+            }
+        };
+        runtime.storage().borrow(&view)
     }
 
     pub(super) fn check_write(

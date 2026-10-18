@@ -2,7 +2,7 @@ use crate::error::RuntimeError;
 use crate::memory::InstanceId;
 use crate::value::{Duration, Value};
 
-use super::instance::{get_or_init_bool, read_bool, write_bool};
+use super::instance::{get_or_init_bool, instance_var, read_bool, set_instance_value, write_bool};
 use super::state::{STATE_ACTIVE, STATE_LAST_TIME, STATE_PREV_IN, STATE_TIMING};
 use super::BuiltinExecContext;
 
@@ -260,7 +260,7 @@ fn read_time_input(
     instance_id: InstanceId,
     name: &str,
 ) -> Result<(Duration, bool), RuntimeError> {
-    match ctx.storage.get_instance_var(instance_id, name) {
+    match instance_var(ctx.storage, instance_id, name) {
         Some(Value::Time(value)) => Ok((*value, false)),
         Some(Value::LTime(value)) => Ok((*value, true)),
         Some(Value::Null) | None => Ok((Duration::ZERO, false)),
@@ -273,7 +273,7 @@ fn read_time_value(
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Duration, RuntimeError> {
-    match ctx.storage.get_instance_var(instance_id, name) {
+    match instance_var(ctx.storage, instance_id, name) {
         Some(Value::Time(value)) | Some(Value::LTime(value)) => Ok(*value),
         Some(Value::Null) | None => Ok(Duration::ZERO),
         _ => Err(RuntimeError::TypeMismatch),
@@ -292,7 +292,7 @@ fn write_time_value(
     } else {
         Value::Time(value)
     };
-    ctx.storage.set_instance_var(instance_id, name, value);
+    set_instance_value(ctx, instance_id, name, value);
 }
 
 fn elapsed_since(
@@ -319,7 +319,7 @@ fn get_or_init_duration(
     name: &str,
     default: Duration,
 ) -> Result<Duration, RuntimeError> {
-    match ctx.storage.get_instance_var(instance_id, name) {
+    match instance_var(ctx.storage, instance_id, name) {
         Some(Value::Time(value)) | Some(Value::LTime(value)) => Ok(*value),
         Some(Value::Null) | None => {
             set_internal_duration(ctx, instance_id, name, default);
@@ -335,6 +335,5 @@ fn set_internal_duration(
     name: &str,
     value: Duration,
 ) {
-    ctx.storage
-        .set_instance_var(instance_id, name, Value::LTime(value));
+    set_instance_value(ctx, instance_id, name, Value::LTime(value));
 }

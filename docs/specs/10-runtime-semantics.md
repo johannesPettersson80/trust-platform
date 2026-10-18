@@ -2909,7 +2909,7 @@ pub enum RuntimeError {
 `RuntimeError::stable_code()` returns a `StableErrorCode` whose
 lower-snake-case string is the machine contract. Existing `RuntimeError`
 variants map to `runtime_<variant-name>` in lower snake case, including
-`runtime_type_mismatch`, `runtime_division_by_zero`,
+`runtime_type_mismatch`, `runtime_type_nesting_exceeds`, `runtime_division_by_zero`,
 `runtime_modulo_by_zero`, `runtime_overflow`,
 `runtime_index_out_of_bounds`, `runtime_subrange_violation`,
 `runtime_null_reference`, `runtime_for_step_zero`,

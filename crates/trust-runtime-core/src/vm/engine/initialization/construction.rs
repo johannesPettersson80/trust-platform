@@ -2,6 +2,8 @@
 use super::super::super::construction::values::construct_intrinsic_value;
 use super::*;
 use crate::bytecode::{InitializationStage, InitializationTrigger};
+use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::MemoryLocation;
 
 impl EngineState<'_> {
     pub(in crate::vm::engine) fn construct_resource(
@@ -16,15 +18,14 @@ impl EngineState<'_> {
                 .strings
                 .get(declaration.name_idx as usize)
                 .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-            self.data.storage.set_global(
-                name.clone(),
-                self.data
-                    .construction
-                    .retained_globals
-                    .get(&id)
-                    .cloned()
-                    .unwrap_or(Value::Null),
-            );
+            let value = self
+                .data
+                .construction
+                .retained_globals
+                .get(&id)
+                .cloned()
+                .unwrap_or(Value::Null);
+            self.set_global(name.clone(), value);
         }
         // Reserve all persistent identities before executing any default. This does
         // not expose uninitialized members through the initializer visibility view.
@@ -62,9 +63,7 @@ impl EngineState<'_> {
                 let declaration = &prepared.layout.entries[root.declaration_idx as usize];
                 if declaration.role == StorageRole::ProgramRoot {
                     let name = prepared.vm.strings[declaration.name_idx as usize].clone();
-                    self.data
-                        .storage
-                        .set_global(name, Value::Instance(instance));
+                    self.set_global(name, Value::Instance(instance));
                     self.data
                         .construction
                         .claimed_roots
@@ -149,7 +148,7 @@ impl EngineState<'_> {
             .resources
             .bookkeeping
             .reserve_lifetime_visited(live_instances)?;
-        let instance = self.data.storage.try_create_instance(name)?;
+        let instance = self.try_create_instance(name)?;
         // Each fallible metadata insertion is charged before mutation. If any
         // step fails, the newly issued instance is not exposed or stranded.
         let metadata = (|| {
@@ -180,7 +179,7 @@ impl EngineState<'_> {
             Ok::<_, RuntimeError>(())
         })();
         if let Err(error) = metadata {
-            self.data.storage.remove_instance(instance);
+            self.remove_instance(instance);
             self.data.construction.instance_templates.remove(&instance);
             self.data.lifetimes.instance_lifetimes.remove(&instance);
             return Err(error);
@@ -199,7 +198,7 @@ impl EngineState<'_> {
                 .and_then(|index| self.prepared.vm.consts.get(index as usize))
                 .cloned()
                 .unwrap_or(Value::Null);
-            self.data.storage.set_instance_var(instance, name, value);
+            self.write_instance_var(instance, name, value);
         }
         Ok(instance)
     }
@@ -535,10 +534,13 @@ impl EngineState<'_> {
             .construction
             .initialized_declarations
             .prepare_insert(initialized_plan)?;
+        // The exclusive marker reservations above borrow the lifecycle tables: only
+        // the storage field is free for the destination write, so the seam is named
+        // to reach it without leaving the store API.
         match declared.owner {
-            StorageOwner::Global => self.data.storage.set_global(name, value),
+            StorageOwner::Global => StoreMutate::set_global(&mut self.data.storage, name, value),
             StorageOwner::Instance => {
-                if !self.data.storage.set_instance_var(
+                if !self.data.storage.write_instance_var(
                     instance.ok_or_else(|| RuntimeError::InvalidExecutionState)?,
                     name,
                     value,
@@ -711,7 +713,18 @@ impl EngineState<'_> {
                         visited,
                     )?;
                 }
-                for value in data.variables.values() {
+                // Each member is read through its slot, in declaration order.
+                for slot in 0..data.variables.len() {
+                    let view = self
+                        .data
+                        .storage
+                        .read_slot(MemoryLocation::Instance(*instance), slot)
+                        .map_err(|_| RuntimeError::InvalidExecutionState)?;
+                    let value = self
+                        .data
+                        .storage
+                        .borrow(&view)
+                        .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
                     self.collect_owned_instance_graph(value, depth + 1, visited)?;
                 }
             }
@@ -749,9 +762,9 @@ impl EngineState<'_> {
             return;
         }
         let lifetimes = &self.data.lifetimes.instance_lifetimes;
-        self.data
-            .storage
-            .retain_instances(|id| lifetimes.get(&id) != Some(Some(owner)));
+        StoreMutate::retain_instances(&mut self.data.storage, |id| {
+            lifetimes.get(&id) != Some(Some(owner))
+        });
         self.data
             .construction
             .initialized_declarations

@@ -1,15 +1,26 @@
 use crate::error::RuntimeError;
-use crate::memory::InstanceId;
+use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::{InstanceId, VariableStorage};
 use crate::value::Value;
 
 use super::BuiltinExecContext;
+
+/// Borrow one instance variable's stored value through the store-access seam.
+pub(super) fn instance_var<'a>(
+    storage: &'a VariableStorage,
+    instance_id: InstanceId,
+    name: &str,
+) -> Option<&'a Value> {
+    let view = storage.read_instance_var(instance_id, name)?;
+    storage.borrow(&view)
+}
 
 pub(super) fn read_bool(
     ctx: &BuiltinExecContext<'_>,
     instance_id: InstanceId,
     name: &str,
 ) -> Result<bool, RuntimeError> {
-    match ctx.storage.get_instance_var(instance_id, name) {
+    match instance_var(ctx.storage, instance_id, name) {
         Some(Value::Bool(value)) => Ok(*value),
         Some(Value::Null) | None => Ok(false),
         _ => Err(RuntimeError::TypeMismatch),
@@ -22,11 +33,11 @@ pub(super) fn get_or_init_bool(
     name: &str,
     default: bool,
 ) -> Result<bool, RuntimeError> {
-    match ctx.storage.get_instance_var(instance_id, name) {
+    match instance_var(ctx.storage, instance_id, name) {
         Some(Value::Bool(value)) => Ok(*value),
         Some(Value::Null) | None => {
             ctx.storage
-                .set_instance_var(instance_id, name, Value::Bool(default));
+                .write_instance_var(instance_id, name, Value::Bool(default));
             Ok(default)
         }
         _ => Err(RuntimeError::TypeMismatch),
@@ -40,7 +51,7 @@ pub(super) fn write_bool(
     value: bool,
 ) {
     ctx.storage
-        .set_instance_var(instance_id, name, Value::Bool(value));
+        .write_instance_var(instance_id, name, Value::Bool(value));
 }
 
 pub(super) fn read_value(
@@ -48,8 +59,7 @@ pub(super) fn read_value(
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Value, RuntimeError> {
-    ctx.storage
-        .get_instance_var(instance_id, name)
+    instance_var(ctx.storage, instance_id, name)
         .cloned()
         .ok_or(RuntimeError::TypeMismatch)
 }
@@ -59,8 +69,7 @@ pub(super) fn read_value_or_null(
     instance_id: InstanceId,
     name: &str,
 ) -> Value {
-    ctx.storage
-        .get_instance_var(instance_id, name)
+    instance_var(ctx.storage, instance_id, name)
         .cloned()
         .unwrap_or(Value::Null)
 }
@@ -71,5 +80,5 @@ pub(super) fn set_instance_value(
     name: &str,
     value: Value,
 ) {
-    ctx.storage.set_instance_var(instance_id, name, value);
+    ctx.storage.write_instance_var(instance_id, name, value);
 }

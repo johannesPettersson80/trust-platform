@@ -238,6 +238,9 @@ pub(crate) use references::PreparedStorageWrite;
 mod storage;
 /// The text buffers of the bounded value store (specification 34 §6.2).
 pub mod text;
+/// The store-access seam the engine reaches variable storage through
+/// (specification 34 §6.2, MEM-10).
+pub mod view;
 
 #[cfg(all(test, feature = "std"))]
 mod tests;

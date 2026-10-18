@@ -51,6 +51,7 @@ pub enum StableErrorCode {
     RuntimeInvalidTaskSingle,
     RuntimeInvalidIoAddress,
     RuntimeTypeMismatch,
+    RuntimeTypeNestingExceeds,
     RuntimeInvalidArgumentCount,
     RuntimeInvalidArgumentName,
     RuntimeAssertionFailed,
@@ -144,6 +145,7 @@ impl StableErrorCode {
             Self::RuntimeInvalidTaskSingle => "runtime_invalid_task_single",
             Self::RuntimeInvalidIoAddress => "runtime_invalid_io_address",
             Self::RuntimeTypeMismatch => "runtime_type_mismatch",
+            Self::RuntimeTypeNestingExceeds => "runtime_type_nesting_exceeds",
             Self::RuntimeInvalidArgumentCount => "runtime_invalid_argument_count",
             Self::RuntimeInvalidArgumentName => "runtime_invalid_argument_name",
             Self::RuntimeAssertionFailed => "runtime_assertion_failed",
@@ -278,6 +280,7 @@ mod tests {
             RuntimeInvalidTaskSingle,
             RuntimeInvalidIoAddress,
             RuntimeTypeMismatch,
+            RuntimeTypeNestingExceeds,
             RuntimeInvalidArgumentCount,
             RuntimeInvalidArgumentName,
             RuntimeAssertionFailed,
@@ -322,7 +325,7 @@ mod tests {
             RuntimeDeploymentRefused,
         ];
 
-        assert_eq!(codes.len(), 86);
+        assert_eq!(codes.len(), 87);
         for (index, code) in codes.iter().copied().enumerate() {
             assert!(
                 !codes[..index].contains(&code),
@@ -383,6 +386,7 @@ mod tests {
             | RuntimeInvalidTaskSingle
             | RuntimeInvalidIoAddress
             | RuntimeTypeMismatch
+            | RuntimeTypeNestingExceeds
             | RuntimeInvalidArgumentCount
             | RuntimeInvalidArgumentName
             | RuntimeAssertionFailed

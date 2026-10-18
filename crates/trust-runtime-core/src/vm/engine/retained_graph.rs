@@ -1,6 +1,7 @@
 //! Transactional transfer of live retained globals into replacement storage.
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole, TypeData};
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::MemoryLocation;
 use alloc::sync::Arc;
 use smol_str::SmolStr;
@@ -76,10 +77,15 @@ impl EngineState<'_> {
                 continue;
             }
             let name = &source.prepared.vm.strings[declaration.name_idx as usize];
+            let view = source
+                .data
+                .storage
+                .read_global(name)
+                .ok_or(RuntimeError::NullReference)?;
             let value = source
                 .data
                 .storage
-                .get_global(name)
+                .borrow(&view)
                 .ok_or(RuntimeError::NullReference)?;
             let value = graph.value(self, declaration.type_id, value, 0)?;
             self.charge_allocation_bytes(self.value_clone_charge(&value, 0)?)?;
@@ -105,7 +111,7 @@ impl EngineState<'_> {
                 .prepare_insert(marker_plan)?;
             // All work/allocation admission and marker reservation precede the
             // candidate's persistent value/retained-state publication.
-            self.data.storage.set_global(name.clone(), value.clone());
+            StoreMutate::set_global(&mut self.data.storage, name.clone(), value.clone());
             self.data
                 .construction
                 .retained_globals
@@ -261,29 +267,34 @@ impl RetainedGraph<'_, '_> {
         )?;
         // Reserve every field before recursion so cycles can bind native/private slots too.
         for name in data.variables.keys() {
-            if target.data.storage.get_instance_var(new, name).is_none() {
+            if target.data.storage.read_instance_var(new, name).is_none() {
                 target
                     .data
                     .storage
-                    .set_instance_var(new, name.clone(), Value::Null);
+                    .write_instance_var(new, name.clone(), Value::Null);
             }
         }
         let parent = data.parent;
         let names = data.variables.keys().cloned().collect::<Vec<_>>();
         for name in names {
+            let view = source
+                .data
+                .storage
+                .read_instance_var(old, &name)
+                .ok_or(RuntimeError::NullReference)?;
             let old_value = source
                 .data
                 .storage
-                .get_instance_var(old, &name)
+                .borrow(&view)
                 .ok_or(RuntimeError::NullReference)?;
             // Type metadata is identical in the mapped candidate. Charge its
             // fresh restart budget, never the source state's previous scan fuel.
-            let ty = match target.data.storage.ref_for_instance(new, &name) {
+            let ty = match target.ref_for_instance(new, &name) {
                 Some(reference) => target.reference_type(reference.as_view())?,
                 None => None,
             };
             let value = self.value(target, ty, old_value, depth + 1)?;
-            if !target.data.storage.set_instance_var(new, name, value) {
+            if !target.data.storage.write_instance_var(new, name, value) {
                 return Err(RuntimeError::NullReference);
             }
         }
@@ -368,16 +379,11 @@ impl RetainedGraph<'_, '_> {
         }
         match reference.location {
             MemoryLocation::Global => {
-                let (name, _) = self
+                let name = self
                     .source
-                    .data
-                    .storage
-                    .globals()
-                    .get_index(reference.offset as usize)
+                    .global_name(reference.offset as usize)
                     .ok_or(RuntimeError::NullReference)?;
                 reference.offset = target
-                    .data
-                    .storage
                     .ref_for_global(name)
                     .ok_or(RuntimeError::NullReference)?
                     .offset;
@@ -398,8 +404,6 @@ impl RetainedGraph<'_, '_> {
                 // A reference to an artifact root preserves binding, not ownership.
                 let new = self.binding(target, old, depth + 1)?;
                 let mapped = target
-                    .data
-                    .storage
                     .ref_for_instance(new, &name)
                     .ok_or(RuntimeError::NullReference)?;
                 reference.location = mapped.location;

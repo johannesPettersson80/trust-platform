@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::InstanceId;
 use crate::value::Value;
 
@@ -44,9 +45,10 @@ impl EdgeInputTransaction {
         restores.clear();
         let mut mismatched = false;
         for input in &inputs {
-            let Some(raw) = runtime
-                .storage()
-                .get_instance_var(instance_id, input.name.as_str())
+            let storage = runtime.storage();
+            let Some(raw) = storage
+                .read_instance_var(instance_id, input.name.as_str())
+                .and_then(|view| storage.borrow(&view))
                 .cloned()
             else {
                 continue;
@@ -55,9 +57,9 @@ impl EdgeInputTransaction {
                 mismatched = true;
                 break;
             };
-            let previous = runtime
-                .storage()
-                .get_instance_var(instance_id, input.phase_name.as_str())
+            let previous = storage
+                .read_instance_var(instance_id, input.phase_name.as_str())
+                .and_then(|view| storage.borrow(&view))
                 .and_then(|value| match value {
                     Value::Bool(value) => Some(*value),
                     _ => None,
@@ -68,12 +70,12 @@ impl EdgeInputTransaction {
             } else {
                 !raw && previous
             };
-            runtime.storage_mut().set_instance_var(
+            runtime.storage_mut().write_instance_var(
                 instance_id,
                 input.phase_name.as_str(),
                 Value::Bool(raw),
             );
-            runtime.storage_mut().set_instance_var(
+            runtime.storage_mut().write_instance_var(
                 instance_id,
                 input.name.as_str(),
                 Value::Bool(pulse),
@@ -101,7 +103,7 @@ impl EdgeInputTransaction {
         for (name, value) in restores.drain(..) {
             runtime
                 .storage_mut()
-                .set_instance_var(instance_id, name, value);
+                .write_instance_var(instance_id, name.as_str(), value);
         }
         runtime.recycle_edge_restores(restores);
     }
