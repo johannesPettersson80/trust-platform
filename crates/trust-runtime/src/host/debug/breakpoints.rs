@@ -6,6 +6,9 @@ use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 
 use crate::value::Value;
+use trust_runtime_services::debug::{
+    count_hit, observe_hit, BreakpointRecord, HitCondition, Span, StatementId,
+};
 
 use super::hook::DebugRuntimeContext;
 use super::{DebugBreakpoint, DebugLog, LogFragment, SourceLocation};
@@ -21,33 +24,23 @@ pub(crate) fn matches_breakpoint(
     ctx: &mut Option<&mut DebugRuntimeContext<'_>>,
 ) -> Option<(u64, BreakpointCycleKey)> {
     for breakpoint in breakpoints.iter_mut() {
-        let bp_location = &breakpoint.location;
-        if bp_location.file_id != location.file_id {
-            continue;
-        }
-        // A statement matches when it starts inside the breakpoint's half-open span (specification
-        // 13, "Breakpoint evaluation, source resolution, and hook contract"). An enclosing statement,
-        // such as a FOR, IF, WHILE or CASE whose span covers its body, starts before the body, so it
-        // does not match a breakpoint on a body statement.
-        let starts_inside = bp_location.start <= location.start && location.start < bp_location.end;
-        if !starts_inside {
-            continue;
-        }
-        let cycle_key = (
-            bp_location.file_id,
-            bp_location.start,
-            bp_location.end,
-            breakpoint.generation,
+        // The shared hit rule decides the match, counts the hit and applies the hit condition, in
+        // the order of specification 13's hook contract ("Breakpoint evaluation, source resolution,
+        // and hook contract"). A statement matches when it starts inside the breakpoint's half-open
+        // span, so an enclosing statement, such as a FOR, IF, WHILE or CASE whose span covers its
+        // body, does not match a breakpoint on a body statement. A cycle-suppressed hit counts
+        // nothing, and a logpoint is never suppressed.
+        let is_logpoint = breakpoint.log_message.is_some();
+        let passes = observe_hit(
+            breakpoint,
+            |id| ordinary_stop_suppressed(stopped_this_cycle, is_logpoint, id),
+            location.file_id,
+            location.start,
         );
-        if breakpoint.log_message.is_none() && stopped_this_cycle.contains(&cycle_key) {
+        if !passes {
             continue;
         }
-        breakpoint.hits = breakpoint.hits.saturating_add(1);
-        if let Some(hit_condition) = breakpoint.hit_condition
-            && !hit_condition.is_met(breakpoint.hits)
-        {
-            continue;
-        }
+        let cycle_key = cycle_key_of(&breakpoint.statement());
         if let Some(condition) = &breakpoint.condition {
             let Some(eval_ctx) = ctx.as_deref_mut() else {
                 continue;
@@ -84,6 +77,67 @@ pub(crate) fn matches_breakpoint(
         return Some((breakpoint.generation, cycle_key));
     }
     None
+}
+
+/// The shared hit rule reads a `DebugBreakpoint` through this view: the statement it names at its
+/// generation, its hit condition and its count (specification 13).
+impl BreakpointRecord<u32> for DebugBreakpoint {
+    fn statement(&self) -> StatementId<u32> {
+        StatementId {
+            file_id: self.location.file_id,
+            span: Span::new(self.location.start, self.location.end),
+            generation: self.generation,
+        }
+    }
+
+    fn hit_condition(&self) -> Option<HitCondition> {
+        self.hit_condition
+    }
+
+    fn hits(&self) -> u64 {
+        self.hits
+    }
+
+    fn set_hits(&mut self, hits: u64) {
+        self.hits = hits;
+    }
+}
+
+/// The cycle-suppression key of a statement identity: the `(file_id,start,end,generation)` tuple
+/// the cycle set stores (specification 13). The set keeps its tuple type, which its tests build.
+fn cycle_key_of(id: &StatementId<u32>) -> BreakpointCycleKey {
+    (id.file_id, id.span.start, id.span.end, id.generation)
+}
+
+/// Whether the ordinary stop of `id` is cycle-suppressed in this scan. A logpoint never stops, so
+/// the cycle guard never suppresses its output (specification 13).
+fn ordinary_stop_suppressed(
+    stopped_this_cycle: &HashSet<BreakpointCycleKey>,
+    is_logpoint: bool,
+    id: &StatementId<u32>,
+) -> bool {
+    !is_logpoint && stopped_this_cycle.contains(&cycle_key_of(id))
+}
+
+/// Whether a breakpoint at `location` evaluates a condition or a logpoint, which needs the storage.
+/// It reads the same hit rule as `matches_breakpoint` without counting a hit, so the storage is
+/// built exactly when a condition or logpoint runs.
+pub(crate) fn any_breakpoint_needs_context(
+    breakpoints: &[DebugBreakpoint],
+    stopped_this_cycle: &HashSet<BreakpointCycleKey>,
+    location: &SourceLocation,
+) -> bool {
+    breakpoints.iter().any(|breakpoint| {
+        let is_logpoint = breakpoint.log_message.is_some();
+        (breakpoint.condition.is_some() || is_logpoint)
+            && count_hit(
+                breakpoint,
+                |id| ordinary_stop_suppressed(stopped_this_cycle, is_logpoint, id),
+                location.file_id,
+                location.start,
+            )
+            .is_some_and(|hit| hit.passes)
+    })
 }
 
 fn condition_matches(

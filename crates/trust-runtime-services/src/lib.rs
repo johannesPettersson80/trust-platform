@@ -18,6 +18,7 @@
 extern crate alloc;
 
 pub mod access;
+pub mod debug;
 pub mod dispatch;
 pub mod events;
 pub mod execution_backend;

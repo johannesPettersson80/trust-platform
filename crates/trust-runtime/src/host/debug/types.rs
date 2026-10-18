@@ -33,28 +33,9 @@ impl SourceLocation {
     }
 }
 
-/// Hit count conditions for breakpoints.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HitCondition {
-    /// Break when hit count equals the target.
-    Equal(u64),
-    /// Break when hit count is at least the target.
-    AtLeast(u64),
-    /// Break when hit count is greater than the target.
-    GreaterThan(u64),
-}
-
-impl HitCondition {
-    /// Check whether the hit condition is satisfied.
-    #[must_use]
-    pub fn is_met(self, hits: u64) -> bool {
-        match self {
-            HitCondition::Equal(target) => hits == target,
-            HitCondition::AtLeast(target) => hits >= target,
-            HitCondition::GreaterThan(target) => hits > target,
-        }
-    }
-}
+/// The hit-count condition of a breakpoint: the shared definition, so the rule exists once
+/// (specification 13, "Runtime debug state, mutation, and projection invariants").
+pub use trust_runtime_services::debug::HitCondition;
 
 /// Logpoint message fragments.
 #[derive(Debug, Clone)]

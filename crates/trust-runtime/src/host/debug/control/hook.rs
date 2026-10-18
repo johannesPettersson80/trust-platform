@@ -346,24 +346,16 @@ impl ObservedStorage<'_, '_> {
     }
 
     /// Whether a breakpoint at this statement evaluates a condition or a logpoint, which needs the
-    /// storage. A breakpoint that is suppressed in this cycle, or whose hit condition is not met, is
-    /// not evaluated, so it does not count.
+    /// storage. A suppressed hit is not counted. A hit whose condition is not met is counted, but
+    /// not evaluated. The rule is `breakpoints::any_breakpoint_needs_context`.
     fn needs_breakpoint_context(&self, state: &DebugState, location: &SourceLocation) -> bool {
         match self {
             Self::Lent(_) => true,
-            Self::Live(_) => state.breakpoints.iter().any(|breakpoint| {
-                let span = breakpoint.location;
-                let key = (span.file_id, span.start, span.end, breakpoint.generation);
-                span.file_id == location.file_id
-                    && span.start <= location.start
-                    && location.start < span.end
-                    && (breakpoint.condition.is_some() || breakpoint.log_message.is_some())
-                    && (breakpoint.log_message.is_some()
-                        || !state.breakpoint_stops_this_cycle.contains(&key))
-                    && breakpoint
-                        .hit_condition
-                        .is_none_or(|hit| hit.is_met(breakpoint.hits.saturating_add(1)))
-            }),
+            Self::Live(_) => super::breakpoints::any_breakpoint_needs_context(
+                &state.breakpoints,
+                &state.breakpoint_stops_this_cycle,
+                location,
+            ),
         }
     }
 
