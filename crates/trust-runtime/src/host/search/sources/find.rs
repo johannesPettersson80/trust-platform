@@ -133,7 +133,7 @@ pub(super) fn number<T: TryFrom<u64> + Default>(params: &Value, key: &str) -> T 
         .unwrap_or_default()
 }
 
-fn now_ms() -> u64 {
+pub(super) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, millis)

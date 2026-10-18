@@ -331,6 +331,12 @@ pub struct RuntimeIdentity {
     /// Its mesh port.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mesh_port: Option<u16>,
+    /// Its truST version, when it sends one (specification 11, "Sources").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// Its platform, `<os>-<arch>`, when it sends one (specification 11, "Sources").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub platform: Option<String>,
 }
 
 /// An ADS device's identity.

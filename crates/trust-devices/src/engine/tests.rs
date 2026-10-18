@@ -26,7 +26,7 @@ use crate::view::types::{HostEffect, OperationDone, Refresh, Secret, Tone};
 const TRUST_RUNTIME: &str = "/opt/trust-runtime/trust-runtime";
 
 /// How long a test waits for a background thread.
-const SLACK: Duration = Duration::from_secs(10);
+pub(super) const SLACK: Duration = Duration::from_secs(10);
 
 /// How long the slow work of these tests takes. A test that waits for it fails the bound of
 /// [`ANSWERED_BEFORE`] by a wide margin, so the bound measures waiting, not the machine's speed.
@@ -37,7 +37,7 @@ const SLOW_WORK: Duration = Duration::from_secs(2);
 const ANSWERED_BEFORE: Duration = Duration::from_millis(500);
 
 /// A host in online mode whose control endpoint is `endpoint`.
-fn online(endpoint: &str) -> HostFacts {
+pub(super) fn online(endpoint: &str) -> HostFacts {
     HostFacts {
         settings: HostSettings {
             mode: RunMode::Online,
@@ -62,7 +62,7 @@ fn view_of(session: &str, seq: u64, gather: GatherMode, host: HostFacts) -> View
 }
 
 /// One search request of `session` with `verb`, and no search ID.
-fn search_of(session: &str, verb: SearchVerb) -> SearchCall {
+pub(super) fn search_of(session: &str, verb: SearchVerb) -> SearchCall {
     SearchCall {
         session: session.to_owned(),
         verb,
@@ -70,7 +70,9 @@ fn search_of(session: &str, verb: SearchVerb) -> SearchCall {
         search_id: None,
         since: None,
         params: Value::Null,
+        targets: None,
         host: HostFacts::default(),
+        change: None,
     }
 }
 
@@ -487,7 +489,9 @@ fn a_runtime_search_answers_at_once_when_the_runtime_stays_silent() {
         search_id: None,
         since: None,
         params: json!({ "only": ["modbus_tcp"], "targets": { "hosts": ["127.0.0.1:502"] } }),
+        targets: None,
         host: HostFacts::default(),
+        change: None,
     };
 
     let started = Instant::now();
@@ -537,7 +541,7 @@ fn project_view(
 
 /// Polls the panel of the project until its gather has ended and its runtime card answers, and
 /// returns the card's ID (design §1.5). `seq` is the number of the last request.
-fn answering_card(
+pub(super) fn answering_card(
     engine: &DevicesEngine,
     folder: &Path,
     project: &Path,
@@ -715,5 +719,277 @@ fn a_late_save_closes_its_form() {
         runtime.count("comm.apply"),
         1,
         "the save reached the runtime once"
+    );
+}
+
+/// A start of a search at the runtime with item ID `origin`, with the parameters `params`.
+pub(super) fn start_at(origin: &str, params: Value) -> SearchCall {
+    SearchCall {
+        session: "dc-test".to_owned(),
+        verb: SearchVerb::Start,
+        origin: SearchOrigin::Runtime(origin.to_owned()),
+        search_id: None,
+        since: None,
+        params,
+        targets: None,
+        host: HostFacts::default(),
+        change: None,
+    }
+}
+
+/// The answer of a runtime search, asked again while the runtime has not answered in time: the
+/// panel waits for a runtime for a short while, then says `runtime_pending`, and the panel asks
+/// again.
+pub(super) fn answered(engine: &DevicesEngine, call: &SearchCall) -> super::SearchReply {
+    let until = Instant::now() + SLACK;
+    loop {
+        let reply = engine.search(call);
+        let pending = reply
+            .error
+            .as_ref()
+            .is_some_and(|error| error.code == "runtime_pending");
+        if !pending {
+            return reply;
+        }
+        assert!(Instant::now() < until, "the runtime answers the search");
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
+#[test]
+fn this_host_search_runs_in_process() {
+    // Design §1.4.1: "Origin `this_host` runs the engine in the language-server process", and
+    // specification 11 ("One search"): the search of this computer is started in this process, so
+    // the first search of a process is `s-1`, and its status names the origin `this_host`. A
+    // wrong implementation forwards the search to a control endpoint, which this test never
+    // gives, or names another origin.
+    let engine = DevicesEngine::new();
+    let mut start = search_of("dc-here", SearchVerb::Start);
+    start.params = json!({ "only": ["gpio"], "deadline_ms": 1000 });
+    let started = engine.search(&start);
+    assert!(
+        started.error.is_none(),
+        "the search starts on this computer"
+    );
+    assert_eq!(
+        started.search_id.as_deref(),
+        Some("s-1"),
+        "the first search of the process is s-1"
+    );
+
+    let mut status = search_of("dc-here", SearchVerb::Status);
+    status.search_id = Some("s-1".to_owned());
+    let reply = engine.search(&status);
+    assert_eq!(reply.status.get("origin"), Some(&json!("this_host")));
+    assert_eq!(
+        reply.status.get("state"),
+        Some(&json!("done")),
+        "a source that did not run ends the search at once"
+    );
+    assert_eq!(
+        reply.status.get("sources"),
+        Some(&json!([{
+            "id": "gpio",
+            "state": "skipped",
+            "reason": "GPIO is searched inside a runtime, on the computer with the GPIO lines."
+        }])),
+        "GPIO runs only inside a runtime (specification 11, Sources)"
+    );
+    assert!(
+        reply.discover.is_some(),
+        "a status carries the Discover view"
+    );
+}
+
+#[test]
+fn runtime_origin_forwards_the_same_body() {
+    // Design §1.4.1: origin `{ "runtime": <item id> }` "forwards the same body to that runtime over
+    // the control client", and the runtime runs it as its own search (specification 11, "One
+    // search": origin `runtime`). A wrong implementation drops a member of the body, or forwards
+    // another origin.
+    let runtime = FakeRuntime::start(Script::running().answer(
+        "comm.search.start",
+        Reply::Result(json!({ "search_id": "s-7" })),
+    ));
+    let folder = TempFolder::new("forward-search");
+    folder.write(
+        "cell/runtime.toml",
+        &runtime_toml("cell", &runtime.endpoint, Some("token-1")),
+    );
+    let project = folder.join("cell");
+    let engine = DevicesEngine::new();
+    let mut seq = 0_u64;
+    let card = answering_card(
+        &engine,
+        &folder.path,
+        &project,
+        &online(&runtime.endpoint),
+        &mut seq,
+    );
+    let body = json!({
+        "only": ["modbus_tcp"],
+        "targets": { "hosts": ["127.0.0.1:502"] },
+        "deadline_ms": 5000,
+    });
+    let reply = answered(&engine, &start_at(&card, body));
+    assert_eq!(
+        reply.search_id.as_deref(),
+        Some("s-7"),
+        "the runtime's search ID is the answer"
+    );
+
+    let forwarded: Vec<Value> = runtime
+        .requests()
+        .into_iter()
+        .filter(|request| request["type"] == "comm.search.start")
+        .collect();
+    assert!(!forwarded.is_empty(), "the runtime received the start");
+    for request in forwarded {
+        assert_eq!(
+            request["params"],
+            json!({
+                "only": ["modbus_tcp"],
+                "targets": { "hosts": ["127.0.0.1:502"] },
+                "deadline_ms": 5000,
+                "origin": "runtime"
+            }),
+            "the same body, with the origin the runtime runs it at"
+        );
+    }
+}
+
+#[test]
+fn older_runtime_skips_every_source_with_an_update_reason() {
+    // Design §1.4.1: "A runtime that answers `unsupported request` reports every source `skipped`
+    // with 'This runtime's truST version cannot search; update it to {version} or later.'"
+    // (specification 34 TARGET-05). The version is this tool's. A wrong implementation reports the
+    // refusal as the error of the request, skips the sources with another reason, or leaves the
+    // Discover view out.
+    let runtime = FakeRuntime::start(Script::running());
+    let folder = TempFolder::new("older-search");
+    folder.write(
+        "cell/runtime.toml",
+        &runtime_toml("cell", &runtime.endpoint, Some("token-1")),
+    );
+    let project = folder.join("cell");
+    let engine = DevicesEngine::new();
+    let mut seq = 0_u64;
+    let card = answering_card(
+        &engine,
+        &folder.path,
+        &project,
+        &online(&runtime.endpoint),
+        &mut seq,
+    );
+    let reply = answered(&engine, &start_at(&card, json!({})));
+    assert!(
+        reply.error.is_none(),
+        "an older runtime is a status, not an error"
+    );
+
+    let reason = format!(
+        "This runtime's truST version cannot search; update it to {} or later.",
+        env!("CARGO_PKG_VERSION")
+    );
+    let sources = reply
+        .status
+        .get("sources")
+        .and_then(Value::as_array)
+        .expect("the status lists the sources");
+    assert_eq!(sources.len(), 10, "every source of the table is reported");
+    for source in sources {
+        assert_eq!(source["state"], json!("skipped"));
+        assert_eq!(source["reason"], json!(reason));
+    }
+    let discover = reply
+        .discover
+        .expect("the status carries the Discover view");
+    assert_eq!(discover.sources.len(), 10);
+    assert!(
+        discover
+            .sources
+            .iter()
+            .all(|row| row.word == "skipped" && row.reason.as_deref() == Some(reason.as_str())),
+        "the pane shows every source skipped with the update it needs"
+    );
+}
+
+#[test]
+fn a_polled_status_projects_every_device_of_the_search() {
+    // Specification 11 ("One search"): with `since`, the status lists only the devices that changed
+    // after its cursor, and the caller keeps the rest. The pane keeps one card per device of the
+    // whole search (specification 25 §2), so the Discover view of a polled status is projected from
+    // the whole status, which the runtime answers without `since`. A wrong implementation projects
+    // the changed devices alone, so the pane drops the others; it shows in the requests the runtime
+    // receives, because the answer is the same whether or not `since` is sent.
+    let status_body = json!({
+        "schema_version": 1,
+        "search_id": "s-7",
+        "origin": "runtime",
+        "state": "done",
+        "deadline_ms": 10000,
+        "elapsed_ms": 900,
+        "cursor": 5,
+        "sources": [{ "id": "modbus_tcp", "state": "found", "count": 1 }],
+        "devices": [{
+            "id": "dev:ip:192.168.1.20",
+            "addresses": ["192.168.1.20"],
+            "last_seen_ms": 1,
+            "finds": [{
+                "protocol": "modbus_tcp",
+                "source": "tcp_connect",
+                "confidence": "port_reachable",
+                "simulated": false,
+                "identity": { "kind": "modbus", "unit_id": 1 },
+                "params": { "host": "192.168.1.20", "port": 502, "unit_id": 1 },
+                "warnings": [],
+                "last_seen_ms": 1
+            }]
+        }],
+        "warnings": []
+    });
+    let runtime = FakeRuntime::start(
+        Script::running().answer("comm.search.status", Reply::Result(status_body)),
+    );
+    let folder = TempFolder::new("polled-search");
+    folder.write(
+        "cell/runtime.toml",
+        &runtime_toml("cell", &runtime.endpoint, Some("token-1")),
+    );
+    let project = folder.join("cell");
+    let engine = DevicesEngine::new();
+    let mut seq = 0_u64;
+    let card = answering_card(
+        &engine,
+        &folder.path,
+        &project,
+        &online(&runtime.endpoint),
+        &mut seq,
+    );
+    let mut poll = search_of("dc-test", SearchVerb::Status);
+    poll.origin = SearchOrigin::Runtime(card);
+    poll.search_id = Some("s-7".to_owned());
+    poll.since = Some(5);
+    let reply = answered(&engine, &poll);
+    assert!(reply.error.is_none(), "the poll is answered");
+
+    let cards = reply
+        .discover
+        .expect("the poll carries the Discover view")
+        .cards;
+    assert_eq!(cards.len(), 1, "the one device of the search is a card");
+    let statuses: Vec<Value> = runtime
+        .requests()
+        .into_iter()
+        .filter(|request| request["type"] == "comm.search.status")
+        .map(|request| request["params"].clone())
+        .collect();
+    assert!(
+        statuses.contains(&json!({ "search_id": "s-7", "since": 5 })),
+        "the poll is forwarded with its cursor"
+    );
+    assert!(
+        statuses.contains(&json!({ "search_id": "s-7" })),
+        "the Discover view is projected from the whole status"
     );
 }

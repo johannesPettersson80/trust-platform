@@ -1317,7 +1317,14 @@ tool's own computer (`origin = this_host`) or inside a runtime
 (`origin = runtime`), which reaches the networks and buses of that runtime's
 computer. The command line runs the same search as `trust-runtime discover`,
 printing results as they are found (`--json` prints one JSON object per line),
-and `--only <source>,…` limits it to named sources.
+and `--only <source>,…` limits it to named sources. With `--project <dir>` the
+command reads `<dir>/.trust-runtime/devices.toml`, the choices that the Discover
+pane remembers (specification 25 §2): without `--only` it runs the sources named in
+the remembered `protocols`, or every source when the file remembers none, and it
+leaves out the devices that the project ignores (`ignored`) unless
+`--show-ignored` is given. A remembered name that is not one of the ten sources is
+left out, because the command line runs no protocol that a runtime advertises; when
+no remembered name is left, the command refuses the search and asks for `--only`.
 
 A listening source (mDNS, Bluetooth, an ADS broadcast) listens until the search
 ends, at its deadline or on cancel, and reports each result as it arrives. The
@@ -1397,6 +1404,82 @@ run it, that its fieldbus scan was not confirmed, that the search names nothing
 it can probe, or that this build of truST does not include it. At origin
 `runtime` the truST runtimes source reads the runtime's own mDNS discovery
 (§6.12), so it is skipped while `[runtime.discovery] enabled = false`.
+
+A protocol that a runtime advertises beyond the ten sources (its `comm.schema`
+lists `discover` for it) is not a source of `comm.search.start`, which names only
+the sources of the table above and refuses any other name. The panel that shows the
+search runs such a protocol through that runtime's `comm.discover` for it, once for
+each target, and merges its finds into the same search by the rule of
+"Devices" below (specification 25 §2). A runtime's own search never runs it.
+
+Inside a runtime, the truST runtimes source also queries the mesh peers (O31:
+the search may scout for mesh peers). The peers are those that the runtime's
+mesh session has seen join; the search starts no scouting of its own. Each peer
+is asked for its identity with a read-only query of its identity queryable, each
+second until the search ends and each within the search's deadline. The answer
+gives the runtime's runtime ID (the one its announcement and `status` give) as
+`stable_runtime_id`, beside the mesh name that keys its identity queryable. An
+answer without it is named by its mesh name. A runtime that sends its name,
+version and platform gives them as optional fields; a runtime that sends none is
+named by its mesh name alone. Each answer is a truST runtime find from the source
+`mesh`, merged by runtime ID with its mDNS find. A mesh find has no control
+endpoint and no network address, so it carries the warning "Runtime found
+through the mesh without a control endpoint; adopt may require manual endpoint
+entry." A peer that does not answer by the deadline is left out, with no error.
+An answer that is not the identity of the peer that was asked is left out, with
+a warning that names the peer. On the tool's own computer there is no mesh
+session, so this part does not run.
+
+Runtime cloud presence. Inside a runtime, the truST runtimes source reports each
+discovered runtime with the runtime cloud's presence, by the rule of the runtime
+cloud state (the presence projection in `runtime_cloud/projection.rs`). A
+runtime has a mesh endpoint when its announcement gives a mesh port and an
+address, and a web endpoint when it gives a web port and an address. It is
+stale when it has no mesh endpoint, or when it was last seen 30 seconds or more
+ago. It is partitioned when it has no mesh endpoint and was last seen 120
+seconds or more ago. When its announcement is at least 30 seconds old, or dated
+after now, and it has a web endpoint, the web endpoint is connected to: a
+connection accepted within 200 milliseconds means the runtime was seen now. The
+find's `last_seen` is that observation time. A stale runtime carries the warning
+`stale`, and a partitioned runtime carries the warnings `stale` and
+`partitioned`. Presence is read at most once a second for each runtime. The
+tool's own computer has no runtime cloud, so its finds carry no presence.
+
+The route list of an ADS target is read by the ADS source of a search (O20). The
+method is the one that the `ads` crate's `adstool route list` runs (`ads` 0.4.4,
+`examples/adstool.rs` lines 378–404; the Beckhoff sources checked on 18 October
+2026 documented no route read). The search connects to the target's system
+service on AMS port 10000 and reads index group 803 (0x323, `ROUTE_LIST`) at
+index offsets 0, 1, 2 and so on, until ADS error 0x716 ends the list. Each entry
+starts with a 44-byte header. Bytes 0–5 are the AMS Net ID. Bytes 8–11 are the
+flags, a little-endian u32 whose bits are 0x01 temporary, 0x80 unidirectional,
+and 0x100 virtual or NAT. Bytes 32–35 are the host length and bytes 36–39 the
+name length, each counting its NUL. The host text starts at byte 44 and ends
+with its NUL; the name text follows it and ends with its NUL. Both texts are
+Windows-1252, the Windows ANSI code page, so each byte of a text is one
+character; a byte that is not valid UTF-8, such as 0xFC for `ü`, is not damage.
+The timeout and the largest fragment (bytes 12–19) are not reported. An entry is
+damaged only when it is shorter than 44 bytes, a length is 0, the two texts need
+more bytes than the entry holds, or a text lacks its NUL at its end or holds one
+before it. The search reports a damaged entry with its index and reads on.
+
+The find of a target carries `route_list` in its params. With status `ok`, it
+gives `routes` (each with `name`, `ams_net_id`, `host`, `temporary`,
+`unidirectional` and `virtual_nat`) and `damaged` (each with `index` and
+`reason`). With status `unavailable`, it gives `reason` and, when the target
+answered with an error, that `error`. A list that ends with 0x716 at its first
+entry is empty and has status `ok`. A read refused with an ADS error, and a read
+that fails after some entries, make the list `unavailable`. So does a search
+deadline that passes before the list ends. The search opens no connection and
+starts no read after its deadline, and it never reports a partial or an empty
+list in these cases.
+
+The read needs a route from the target to this runtime. When the target gives no
+answer to the first read, the list is `unavailable` with a reason that says there
+is no route from the target to this runtime. The search adds no route: its
+Safety rule says that a search only reads and never changes a device's state.
+`comm.discover` reads no route lists. The read is unproven (O20): it stays
+unproven until a real TwinCAT computer confirms it.
 
 A known address is probed at each protocol's own port. An explicit port is used
 by Modbus TCP, MQTT and OPC UA; ADS identifies the host alone. Without a known

@@ -187,6 +187,12 @@ pub enum Op {
         /// Its arguments, chosen by Rust.
         payload: Value,
     },
+    /// A search, which the host sends to `trust-lsp.devicesSearch` with the panel's session and, for
+    /// Search, the typed targets the pane gives (specification 25 §2).
+    Search {
+        /// The body: the verb, the origin, and the `params` of a start or the `search_id` of a cancel.
+        request: Value,
+    },
     /// A VS Code call that decides nothing.
     Host {
         /// The call.
@@ -196,6 +202,15 @@ pub enum Op {
     Ui {
         /// The change.
         ui: UiOp,
+    },
+    /// An op whose success is followed by another op: the webview performs `first`, and runs `then`
+    /// only when the final reply to `first` is `ok` (specification 25 §2, `Add to canvas`). The view chooses
+    /// the follow-up; a failed `first` runs nothing.
+    Followed {
+        /// The op that is performed first.
+        first: Box<Op>,
+        /// The op that follows a successful `first`.
+        then: Box<Op>,
     },
 }
 
@@ -479,6 +494,6 @@ pub use panes::{
     CardProtocol, CompareView, Details, DeviceCard, DiscoverView, ErrorBox, FieldKind, FieldOption,
     FieldbusOffer, Form, FormField, FormSection, FoundEntry, GhostTile, InstallStep, InstallView,
     ListEditor, OnlyChoice, OriginChoice, PortInput, Progress, QuickStart, RouteHelp,
-    RuntimeChoice, RuntimeRef, SearchBox, SourceRow, StepState, TargetsInput, Toggle, TreeNode,
-    UsbItem, UsbTray, VisibleWhen,
+    RuntimeChoice, RuntimeRef, SearchBox, ShowIgnored, SourceRow, StepState, TargetsInput, Toggle,
+    TreeNode, UsbItem, UsbTray, VisibleWhen,
 };

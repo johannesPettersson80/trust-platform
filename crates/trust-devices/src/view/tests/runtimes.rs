@@ -57,14 +57,14 @@ fn ids(actions: &[Action]) -> Vec<&str> {
 fn rust_action(action: &Action) -> Option<&str> {
     match &action.op {
         Op::Rust { action, .. } => Some(action),
-        Op::Host { .. } | Op::Ui { .. } => None,
+        Op::Host { .. } | Op::Ui { .. } | Op::Search { .. } | Op::Followed { .. } => None,
     }
 }
 
 fn effect(action: &Action) -> Option<&HostEffect> {
     match &action.op {
         Op::Host { effect } => Some(effect),
-        Op::Rust { .. } | Op::Ui { .. } => None,
+        Op::Rust { .. } | Op::Ui { .. } | Op::Search { .. } | Op::Followed { .. } => None,
     }
 }
 

@@ -395,7 +395,7 @@ fn insert_symbol(
 }
 
 #[cfg(feature = "ads-wire")]
-fn derive_local_identity(
+pub(crate) fn derive_local_identity(
     target: &TargetIdentity,
 ) -> Result<crate::ads::diagnostics::LocalIdentity, String> {
     use std::net::{SocketAddr, ToSocketAddrs};

@@ -7,6 +7,8 @@ pub mod errors;
 pub mod identity;
 pub mod import;
 pub mod route;
+#[cfg(feature = "ads-wire")]
+pub mod route_list;
 pub mod wire;
 
 pub use discover::{

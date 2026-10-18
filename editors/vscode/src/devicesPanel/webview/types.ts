@@ -66,11 +66,16 @@ export interface Action {
   op: Op;
 }
 
-/** What choosing an action does (design §2.1, `Op`): Rust's action, a VS Code call, or a view change. */
+/**
+ * What choosing an action does (design §2.1, `Op`): Rust's action, a search request, a VS Code call, or a view
+ * change. A search's `request` is the `trust-lsp.devicesSearch` body that Rust gives (specification 25 §2).
+ */
 export type Op =
   | { kind: "rust"; action: string; payload: unknown }
+  | { kind: "search"; request: unknown }
   | { kind: "host"; effect: { kind: string } }
-  | { kind: "ui"; ui: { kind: string; pane?: { kind: string } } };
+  | { kind: "ui"; ui: { kind: string; pane?: { kind: string } } }
+  | { kind: "followed"; first: Op; then: Op };
 
 /** How strongly an action is drawn. */
 export type Emphasis = "primary" | "secondary" | "danger" | "quiet";
@@ -572,4 +577,170 @@ export interface Toggle {
   enabled: boolean;
   /** Why it cannot. */
   reason?: string;
+}
+
+/**
+ * The Discover pane, which the search status answers with `discover` (panes.rs `DiscoverView`, specification
+ * 25 §2). Rust gives every text, count and rule; the pane mirrors only the fields it draws.
+ */
+/** The `Show ignored` toggle (decision O14): its text, whether it is ticked and its change. */
+export interface ShowIgnored {
+  /** Its text: `Show ignored`. */
+  label: string;
+  /** Whether it is ticked. */
+  checked: boolean;
+  /** The change of the toggle, a `search` operation. */
+  action: Action;
+}
+
+export interface DiscoverView {
+  /** The running or last search. */
+  search_id?: string;
+  /** Whether the search runs. */
+  running: boolean;
+  /** Its progress. */
+  progress_text?: string;
+  /** The breadcrumb: `Devices & Connections`. */
+  breadcrumb: string;
+  /** The accessible name of the close button. */
+  close_label: string;
+  /** The heading of the scan choices. */
+  heading_find: string;
+  /** The heading of the origin choices. */
+  heading_scan_from: string;
+  /** The heading of the known address and subnet inputs. */
+  heading_targets: string;
+  /** The heading of the advanced settings. */
+  heading_advanced: string;
+  /** The heading of the runtime's hardware scans. */
+  heading_runtime: string;
+  /** The help that shows when no discovery is available. */
+  unavailable_text?: string;
+  /** The help that shows above the scan choices. */
+  choose_text?: string;
+  /** `Scan from`: this computer, then each runtime. */
+  origins: OriginChoice[];
+  /** `Only search`: one choice per source. */
+  only: OnlyChoice[];
+  /** `Known address or subnet`: the inputs' labels and placeholders. */
+  targets: TargetsInput;
+  /** The state of each source. */
+  sources: SourceRow[];
+  /** The line that asks to update truST, when a source or protocol was left out. */
+  update_text?: string;
+  /** `Show ignored`: the toggle of the finds that the project ignores (decision O14). */
+  show_ignored: ShowIgnored;
+  cards: DeviceCard[];
+  /** What shows without finds. */
+  empty_text?: string;
+  /** The text of a search that failed at a runtime, as the old pane gave it. */
+  error_text?: string;
+  /** The pane's own actions: `search`, `cancel` while a scan runs, and `configure_ads_ports`. */
+  actions: Action[];
+}
+
+/** An origin of the search (panes.rs `OriginChoice`). */
+export interface OriginChoice {
+  /** Its identity. */
+  id: string;
+  /** Its name. */
+  label: string;
+  /** Whether it can be chosen. */
+  enabled: boolean;
+  /** Why it cannot. */
+  reason?: string;
+  /** Whether it is chosen. */
+  selected: boolean;
+}
+
+/** A source of `Only search` (panes.rs `OnlyChoice`). */
+export interface OnlyChoice {
+  /** The source. */
+  source: string;
+  /** Its name. */
+  label: string;
+  /** Whether it is ticked. */
+  checked: boolean;
+  /** Whether it can be ticked. */
+  enabled: boolean;
+  /** Why it cannot. */
+  reason?: string;
+  /** The note under its name. */
+  note?: string;
+  /** The group it is drawn in: `find`, `known_address` or `runtime_hardware`. */
+  group: string;
+  /** The title of the warning drawn beside its name, such as the EtherCAT title. */
+  warning?: string;
+  /** The change of its tick, which records it and answers the new view. Absent while it is disabled. */
+  action?: Action;
+}
+
+/** The inputs of `Known address or subnet` (panes.rs `TargetsInput`). */
+export interface TargetsInput {
+  /** The address input's label. */
+  hosts_label: string;
+  /** The subnet input's label. */
+  cidr_label: string;
+  /** The address input's placeholder. */
+  hosts_placeholder: string;
+  /** The subnet input's placeholder. */
+  cidr_placeholder: string;
+}
+
+/** A source's state in the search (panes.rs `SourceRow`). */
+export interface SourceRow {
+  /** The source. */
+  id: string;
+  /** Its name. */
+  label: string;
+  /** `searching`, `{n} found`, `timed out` or `skipped`. */
+  word: string;
+  /** Its finds. */
+  count?: number;
+  /** Why it was skipped. */
+  reason?: string;
+  /** Its tone. */
+  tone: Tone;
+}
+
+/** A found device (panes.rs `DeviceCard`). */
+export interface DeviceCard {
+  /** Its identity. */
+  id: string;
+  /** Its title. */
+  title: string;
+  /** Its addresses; a runtime shows one `host:port`. */
+  addresses: string[];
+  /** Every protocol found on it. */
+  protocols: CardProtocol[];
+  /** Its identity facts. */
+  identity: Row[];
+  /** When it was last seen. */
+  last_seen: string;
+  /** The search's warnings about it. */
+  warnings: string[];
+  /** Its actions. */
+  actions: Action[];
+  /** Why its actions are disabled on a stale result. */
+  stale_reason?: string;
+  /** The count of its responding ADS ports, such as `2 responding ADS ports`. */
+  responding_ports?: string;
+  /** One button per responding ADS port, which browses that port's tags. */
+  ports: Action[];
+  /** The mark `On canvas`, when the canvas holds the device. */
+  on_canvas?: string;
+}
+
+/** A protocol found on a device (panes.rs `CardProtocol`). */
+export interface CardProtocol {
+  /** The protocol's name. */
+  name: string;
+  /** How it was found. */
+  source: string;
+  /** Its confidence. */
+  confidence: string;
+  /** Whether the find is simulated. */
+  simulated: boolean;
+  /** The visible mark of a simulated find. */
+  mark?: string;
 }

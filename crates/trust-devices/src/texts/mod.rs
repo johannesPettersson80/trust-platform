@@ -4,6 +4,7 @@
 pub mod browse;
 pub mod connections;
 pub mod devices;
+pub mod discover;
 pub mod forms;
 pub mod graph;
 pub mod issues;

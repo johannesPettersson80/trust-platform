@@ -372,7 +372,8 @@ pub struct GhostTile {
     pub detail: String,
 }
 
-/// The search pane (specification 25 §2 and §5.14).
+/// The search pane (specification 25 §2 and §5.14). Every heading, help text and action of the pane
+/// is a field here, so the pane draws nothing of its own.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DiscoverView {
     /// The running or last search.
@@ -383,6 +384,26 @@ pub struct DiscoverView {
     /// Its progress.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub progress_text: Option<String>,
+    /// The breadcrumb: `Devices & Connections`.
+    pub breadcrumb: String,
+    /// The accessible name of the close button.
+    pub close_label: String,
+    /// The heading of the scan choices: `What do you want to find?`.
+    pub heading_find: String,
+    /// The heading of the origin choices: `Scan from`.
+    pub heading_scan_from: String,
+    /// The heading of the known address and subnet inputs: `Known address or subnet`.
+    pub heading_targets: String,
+    /// The heading of the advanced settings: `Advanced scan settings`.
+    pub heading_advanced: String,
+    /// The heading of the runtime's hardware scans: `Runtime hardware scans ⚠`.
+    pub heading_runtime: String,
+    /// The help that shows when no discovery is available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unavailable_text: Option<String>,
+    /// The help that shows above the scan choices.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub choose_text: Option<String>,
     /// `Scan from`.
     pub origins: Vec<OriginChoice>,
     /// `Only search`.
@@ -391,8 +412,14 @@ pub struct DiscoverView {
     pub targets: TargetsInput,
     /// The state of each source.
     pub sources: Vec<SourceRow>,
+    /// The line that asks to update truST, when the status named a source or protocol that this
+    /// build does not know; that part is left out of the view.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_text: Option<String>,
     /// The fieldbus scans that need a confirmation.
     pub fieldbus: Vec<FieldbusOffer>,
+    /// `Show ignored`: the toggle of the finds that the project ignores (decision O14).
+    pub show_ignored: ShowIgnored,
     /// One card per device.
     pub cards: Vec<DeviceCard>,
     /// `Compare with project`.
@@ -401,8 +428,23 @@ pub struct DiscoverView {
     /// What shows without finds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub empty_text: Option<String>,
-    /// Its actions.
+    /// The text of a search that failed at a runtime, as the old pane gave it (specification 25 §2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_text: Option<String>,
+    /// Its actions: `Search`, `Cancel` while a scan runs, and `Configure ADS ports to scan`.
     pub actions: Vec<Action>,
+}
+
+/// The `Show ignored` toggle of the Discover pane (decision O14): whether the finds that the project
+/// ignores are shown, and the change of the toggle, which the search answers with the new view.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ShowIgnored {
+    /// Its text: `Show ignored`.
+    pub label: String,
+    /// Whether it is ticked.
+    pub checked: bool,
+    /// The change of the toggle, a `search` operation.
+    pub action: Action,
 }
 
 /// An origin of the search.
@@ -435,6 +477,19 @@ pub struct OnlyChoice {
     /// Why it cannot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// The note under its name, as the old pane gave it: `mDNS`, `at host`, and so on.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    /// The group the choice is drawn in: `find`, `known_address` or `runtime_hardware`.
+    pub group: String,
+    /// The title of the warning that the choice shows beside its name, such as the `EtherCAT` title
+    /// (`DiscoverPane.tsx` line 204).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
+    /// The change of the tick, a `search` operation that records it and answers the new view; absent
+    /// while the choice is disabled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<Action>,
 }
 
 /// The search's address and subnet inputs.
@@ -511,6 +566,14 @@ pub struct DeviceCard {
     /// Why its actions are disabled on a stale result.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale_reason: Option<String>,
+    /// The count of a `TwinCAT` device's responding ADS ports, such as `2 responding ADS ports`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub responding_ports: Option<String>,
+    /// One button per responding ADS port, which browses that port's tags of the device.
+    pub ports: Vec<Action>,
+    /// The mark `On canvas`, when the canvas holds the device.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_canvas: Option<String>,
 }
 
 /// A protocol found on a device.
@@ -524,6 +587,10 @@ pub struct CardProtocol {
     pub confidence: String,
     /// Whether the find is simulated.
     pub simulated: bool,
+    /// The visible mark of a simulated find: it is never presented as hardware (specification 11,
+    /// "Confidence").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mark: Option<String>,
 }
 
 /// `Compare with project`.

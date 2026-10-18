@@ -165,24 +165,7 @@ impl AdsRsOnboardingWire {
     }
 
     fn route_for_target(&self, target: &TargetIdentity) -> AdsRoute {
-        let mut route = AdsRoute::new(
-            target
-                .name
-                .clone()
-                .unwrap_or_else(|| "ads-onboarding".to_string()),
-            AmsNetId::new(target.ams_net_id.clone()),
-            target.ip.clone(),
-            target.ams_port,
-        );
-        route.security = AdsSecurityPolicy {
-            transport: TransportSecurity::Plain,
-            auto_add_route: false,
-        };
-        route.local_net_id = self
-            .local_identity
-            .as_ref()
-            .map(|identity| AmsNetId::new(identity.ams_net_id.clone()));
-        route
+        route_to_ams_port(target, self.local_identity.as_ref(), target.ams_port)
     }
 
     fn read_one_value(
@@ -298,6 +281,31 @@ impl AdsRsOnboardingWire {
             ))
         }
     }
+}
+
+/// The route from this computer to `target` at `ams_port`. The route is plain and is never
+/// auto-added: the runtime writes no AMS routes (specification 11, O20).
+#[cfg(feature = "ads-wire")]
+pub(crate) fn route_to_ams_port(
+    target: &TargetIdentity,
+    local: Option<&LocalIdentity>,
+    ams_port: u16,
+) -> AdsRoute {
+    let mut route = AdsRoute::new(
+        target
+            .name
+            .clone()
+            .unwrap_or_else(|| "ads-onboarding".to_string()),
+        AmsNetId::new(target.ams_net_id.clone()),
+        target.ip.clone(),
+        ams_port,
+    );
+    route.security = AdsSecurityPolicy {
+        transport: TransportSecurity::Plain,
+        auto_add_route: false,
+    };
+    route.local_net_id = local.map(|identity| AmsNetId::new(identity.ams_net_id.clone()));
+    route
 }
 
 #[cfg(feature = "ads-wire")]

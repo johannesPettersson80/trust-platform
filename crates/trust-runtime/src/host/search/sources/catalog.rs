@@ -10,6 +10,7 @@ use crate::ads::onboarding::{runtime_address_candidates_from_interfaces, Runtime
 use super::super::model::SourceId;
 use super::super::request::ValidSearch;
 use super::super::runner::{SourcePlan, SourceSink};
+use super::super::BLUETOOTH_UNAVAILABLE;
 use super::modbus_tcp::{self, ModbusTarget};
 use super::scope::ipv4_targets_for_cidr;
 use super::{ads, ethercat, gpio, mqtt, opcua, trust_runtimes};
@@ -83,7 +84,7 @@ fn plan_source(source: SourceId, fieldbus_confirmed: bool, context: &SourceConte
             None => SourcePlan::Run(Box::new(serial::search)),
         },
         SourceId::Usb => SourcePlan::Run(Box::new(usb::search)),
-        SourceId::Bluetooth => skip("Bluetooth search is not available in this truST version yet."),
+        SourceId::Bluetooth => skip(BLUETOOTH_UNAVAILABLE),
     }
 }
 

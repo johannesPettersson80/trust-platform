@@ -8,7 +8,10 @@
 //! runs the sources of one search, `merge` and `presence` group the results into devices, and
 //! `sources` decides which sources run and runs them. A runtime serves the search through
 //! `comm.search.*`, the command line through `trust-runtime discover`, and `comm.discover` asks
-//! one protocol's source at a time. The model, merge and presence do no I/O.
+//! one protocol's source at a time. `project_choices` reads and writes the choices that a project
+//! remembers for the search (specification 25 §2). The model, merge and presence do no I/O.
+
+pub mod project_choices;
 
 mod merge;
 mod model;
@@ -40,6 +43,10 @@ use runner::{Search, SourcePlan};
 pub const KEPT_SEARCHES: usize = 8;
 /// How long a registry keeps a search after it ended.
 pub const KEPT_AFTER_END: Duration = Duration::from_secs(5 * 60);
+/// Why the Bluetooth source does not run in this version of truST: the search skips it from every
+/// origin (specification 11, "Sources"). The Discover pane shows this reason (specification 25 §2).
+pub const BLUETOOTH_UNAVAILABLE: &str =
+    "Bluetooth search is not available in this truST version yet.";
 
 /// The searches of one runtime or one tool: it starts them and keeps the last
 /// [`KEPT_SEARCHES`], each for [`KEPT_AFTER_END`] after it ends.

@@ -1,0 +1,199 @@
+{
+  "actions": [
+    {
+      "emphasis": "quiet",
+      "enabled": false,
+      "id": "search",
+      "label": "Search",
+      "op": {
+        "kind": "search",
+        "request": {
+          "origin": {
+            "runtime": "runtime:cell"
+          },
+          "params": {
+            "only": []
+          },
+          "verb": "start"
+        }
+      },
+      "reason": "Select at least one available scan type."
+    },
+    {
+      "emphasis": "secondary",
+      "enabled": true,
+      "id": "configure_ads_ports",
+      "label": "Configure ADS ports to scan",
+      "op": {
+        "effect": {
+          "kind": "open_settings",
+          "query": "trust.ads.discoveryPorts"
+        },
+        "kind": "host"
+      }
+    }
+  ],
+  "breadcrumb": "Devices & Connections",
+  "cards": [],
+  "choose_text": "Choose what to find, then scan. Only the selected device types are searched.",
+  "close_label": "Close",
+  "empty_text": "Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. For EtherCAT or GPIO, start or connect a runtime first.",
+  "fieldbus": [],
+  "heading_advanced": "Advanced scan settings",
+  "heading_find": "What do you want to find?",
+  "heading_runtime": "Runtime hardware scans ⚠",
+  "heading_scan_from": "Scan from",
+  "heading_targets": "Known address or subnet",
+  "only": [
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "find",
+      "label": "truST runtimes",
+      "note": "mDNS",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "trust_runtime"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "find",
+      "label": "ADS and TwinCAT",
+      "note": "network broadcast",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "ads"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "find",
+      "label": "Modbus TCP",
+      "note": "local network scan",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "modbus_tcp"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "known_address",
+      "label": "MQTT",
+      "note": "at host",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "mqtt"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "known_address",
+      "label": "OPC UA",
+      "note": "at host",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "opcua"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "runtime_hardware",
+      "label": "EtherCAT",
+      "note": "bus enumeration",
+      "reason": "Start or connect a runtime before scanning EtherCAT or GPIO.",
+      "source": "ethercat",
+      "warning": "Can disturb a live bus, so confirm before scanning"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "runtime_hardware",
+      "label": "GPIO",
+      "note": "local pins on the runtime",
+      "reason": "Start or connect a runtime before scanning EtherCAT or GPIO.",
+      "source": "gpio"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "find",
+      "label": "Serial ports",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "serial"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "find",
+      "label": "USB",
+      "reason": "Start or connect Cell before scanning from it.",
+      "source": "usb"
+    },
+    {
+      "checked": false,
+      "enabled": false,
+      "group": "find",
+      "label": "Bluetooth LE",
+      "reason": "Bluetooth search is not available in this truST version yet.",
+      "source": "bluetooth"
+    }
+  ],
+  "origins": [
+    {
+      "enabled": true,
+      "id": "this_host",
+      "label": "This computer",
+      "selected": false
+    },
+    {
+      "enabled": true,
+      "id": "runtime:cell",
+      "label": "Cell",
+      "selected": true
+    }
+  ],
+  "running": false,
+  "search_id": "s-4",
+  "show_ignored": {
+    "action": {
+      "emphasis": "quiet",
+      "enabled": true,
+      "id": "show_ignored",
+      "label": "Show ignored",
+      "op": {
+        "kind": "search",
+        "request": {
+          "change": {
+            "kind": "show_ignored",
+            "shown": true
+          },
+          "origin": {
+            "runtime": "runtime:cell"
+          },
+          "search_id": "s-4",
+          "verb": "status"
+        }
+      }
+    },
+    "checked": false,
+    "label": "Show ignored"
+  },
+  "sources": [
+    {
+      "count": 0,
+      "id": "trust_runtime",
+      "label": "truST runtimes",
+      "tone": "neutral",
+      "word": "0 found"
+    },
+    {
+      "id": "gpio",
+      "label": "GPIO",
+      "reason": "Start or connect a runtime before scanning EtherCAT or GPIO.",
+      "tone": "muted",
+      "word": "skipped"
+    }
+  ],
+  "targets": {
+    "cidr_label": "Subnet",
+    "cidr_placeholder": "192.168.1.0/24",
+    "hosts_label": "Known address",
+    "hosts_placeholder": "host:port"
+  }
+}
