@@ -10,9 +10,10 @@
 //! [`runner`] is the single-thread resource loop of a device without an operating system, and
 //! [`link`] the framing and reply handling of its control link over a byte stream.
 //! [`transfer`] carries a request or reply longer than the frame in parts (PORT-05).
-//! [`installation`] checks the `TRSTA001` container a chip holds its installed program in before
-//! any payload is exposed. Transports, threads, files, clocks and host state stay in the platform
-//! that composes these services.
+//! [`installation`] checks the `TRSTA001` and `TRSTA002` containers a chip holds its installed
+//! program in before any payload is exposed. [`loading`] installs a program into the two slots of
+//! the program store and selects the installed one after a reset. Transports, threads, files,
+//! clocks and host state stay in the platform that composes these services.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -29,6 +30,7 @@ pub mod execution_backend;
 pub mod installation;
 pub mod link;
 pub mod live_values;
+pub mod loading;
 pub mod metrics;
 pub mod ports;
 pub mod protocol;
