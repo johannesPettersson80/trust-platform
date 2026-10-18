@@ -12,6 +12,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use crate::config::{validate_io_toml_text, validate_runtime_toml_text};
+use crate::deployment::program_store::{self, Payload, PayloadFile};
 use crate::error::RuntimeError;
 
 #[derive(Debug, Deserialize)]
@@ -80,6 +81,10 @@ struct DeployKeyEntry {
     not_after: Option<u64>,
 }
 
+/// Deploys a request into the project folder `bundle_root`. The request's signature policy is the
+/// installed one (spec 11). The program is admitted before anything is written, and the program
+/// store commits the deployment: a project that is a store's `current` link gets a new bundle, and
+/// any other project folder is updated in place (see `program_store`).
 pub fn apply_deploy(
     bundle_root: &Path,
     request: DeployRequest,
@@ -90,75 +95,58 @@ pub fn apply_deploy(
         ));
     }
     preflight_deploy(bundle_root, &request)?;
-    let mut written = Vec::new();
-    if let Some(runtime_toml) = request.runtime_toml {
-        let path = bundle_root.join("runtime.toml");
-        fs::write(&path, runtime_toml).map_err(|err| {
-            RuntimeError::ControlError(format!("write runtime.toml: {err}").into())
-        })?;
-        written.push("runtime.toml".to_string());
+    let payload = deploy_payload(&request)?;
+    let deployed = program_store::deploy(bundle_root, &payload, None)?;
+    Ok(DeployResult {
+        written: deployed.written,
+        restart: request.restart,
+    })
+}
+
+/// The files a deploy request brings, in the order the store writes them: `runtime.toml`,
+/// `io.toml`, `program.stbc` (decoded from base64), then the sources under `src/`.
+fn deploy_payload(request: &DeployRequest) -> Result<Payload, RuntimeError> {
+    let mut files = Vec::new();
+    if let Some(runtime_toml) = &request.runtime_toml {
+        files.push(payload_file(
+            "runtime.toml",
+            runtime_toml.as_bytes().to_vec(),
+        ));
     }
-    if let Some(io_toml) = request.io_toml {
-        let path = bundle_root.join("io.toml");
-        fs::write(&path, io_toml)
-            .map_err(|err| RuntimeError::ControlError(format!("write io.toml: {err}").into()))?;
-        written.push("io.toml".to_string());
+    if let Some(io_toml) = &request.io_toml {
+        files.push(payload_file("io.toml", io_toml.as_bytes().to_vec()));
     }
-    if let Some(program_b64) = request.program_stbc_b64 {
+    if let Some(program_b64) = &request.program_stbc_b64 {
         let bytes = STANDARD.decode(program_b64.trim()).map_err(|err| {
             RuntimeError::ControlError(format!("decode program.stbc: {err}").into())
         })?;
-        let path = bundle_root.join("program.stbc");
-        fs::write(&path, &bytes).map_err(|err| {
-            RuntimeError::ControlError(format!("write program.stbc: {err}").into())
-        })?;
-        written.push("program.stbc".to_string());
-        // A new program brings its own deployment record, never the previous program's
-        // (spec 34 §5.1.1).
-        let record = crate::deployment::write_record(bundle_root, &bytes).map_err(|err| {
-            RuntimeError::ControlError(
-                format!("write {}: {err}", crate::deployment::DEPLOYMENT_RECORD_FILE).into(),
-            )
-        })?;
-        if let crate::deployment::RecordWrite::Written(_) = record {
-            written.push(crate::deployment::DEPLOYMENT_RECORD_FILE.to_string());
-        }
+        files.push(payload_file("program.stbc", bytes));
     }
-    if let Some(sources) = request.sources {
-        let sources_root = bundle_root.join("src");
-        for source in sources {
-            let rel = normalize_source_path_for_bundle(&source.path).ok_or_else(|| {
-                RuntimeError::ControlError(format!("invalid source path: {}", source.path).into())
-            })?;
-            let dest = sources_root.join(&rel);
-            if let Some(parent) = dest.parent() {
-                fs::create_dir_all(parent).map_err(|err| {
-                    RuntimeError::ControlError(format!("create src dir: {err}").into())
-                })?;
-            }
-            fs::write(&dest, source.content).map_err(|err| {
-                RuntimeError::ControlError(format!("write source {}: {err}", dest.display()).into())
-            })?;
-            let rel_text = rel.to_string_lossy().replace('\\', "/");
-            written.push(format!("src/{rel_text}"));
-        }
-    }
-    if written.is_empty() {
-        return Err(RuntimeError::ControlError(
-            "no deploy payload provided".into(),
+    for source in request.sources.iter().flatten() {
+        let rel = normalize_source_path_for_bundle(&source.path).ok_or_else(|| {
+            RuntimeError::ControlError(format!("invalid source path: {}", source.path).into())
+        })?;
+        let rel_text = rel.to_string_lossy().replace('\\', "/");
+        files.push(payload_file(
+            &format!("src/{rel_text}"),
+            source.content.as_bytes().to_vec(),
         ));
     }
-    Ok(DeployResult {
-        written,
-        restart: request.restart,
-    })
+    Ok(Payload { files })
+}
+
+fn payload_file(path: &str, bytes: Vec<u8>) -> PayloadFile {
+    PayloadFile {
+        path: path.to_string(),
+        bytes,
+    }
 }
 
 fn preflight_deploy(bundle_root: &Path, request: &DeployRequest) -> Result<(), RuntimeError> {
     let existing = bundle_root.join("runtime.toml");
     let installed_text =
         if existing.is_file() {
-            Some(std::fs::read_to_string(&existing).map_err(|err| {
+            Some(fs::read_to_string(&existing).map_err(|err| {
                 RuntimeError::InvalidConfig(format!("runtime.toml: {err}").into())
             })?)
         } else {
@@ -184,7 +172,7 @@ fn preflight_deploy(bundle_root: &Path, request: &DeployRequest) -> Result<(), R
         let existing = bundle_root.join("io.toml");
         if existing.is_file() {
             Some(
-                std::fs::read_to_string(&existing)
+                fs::read_to_string(&existing)
                     .map_err(|err| RuntimeError::InvalidConfig(format!("io.toml: {err}").into()))?,
             )
         } else {
@@ -258,7 +246,7 @@ fn load_deploy_key(path: &Path, key_id: &str) -> Result<DeployKeyEntry, RuntimeE
     if key_id.trim().is_empty() {
         return Err(RuntimeError::ControlError("deploy key_id required".into()));
     }
-    let text = std::fs::read_to_string(path).map_err(|_| {
+    let text = fs::read_to_string(path).map_err(|_| {
         RuntimeError::ControlError(format!("deploy keyring not found: {}", path.display()).into())
     })?;
     let file: DeployKeyringFile = toml::from_str(&text)
@@ -324,50 +312,14 @@ fn now_secs() -> u64 {
         .as_secs()
 }
 
+/// Rolls the program store at `root` back: `current` and `previous` change bundles, one rename
+/// per link (see `program_store::rollback`).
 pub fn apply_rollback(root: &Path) -> Result<RollbackResult, RuntimeError> {
-    let current_link = root.join("current");
-    let previous_link = root.join("previous");
-    let current_target = read_link_target(&current_link).ok_or_else(|| {
-        RuntimeError::ControlError(
-            format!("no current project link at {}", current_link.display()).into(),
-        )
-    })?;
-    let previous_target = read_link_target(&previous_link).ok_or_else(|| {
-        RuntimeError::ControlError(
-            format!("no previous project link at {}", previous_link.display()).into(),
-        )
-    })?;
-    update_symlink(&current_link, &previous_target)?;
-    update_symlink(&previous_link, &current_target)?;
+    let rolled = program_store::rollback(root)?;
     Ok(RollbackResult {
-        current: previous_target,
-        previous: current_target,
+        current: rolled.current,
+        previous: rolled.previous,
     })
-}
-
-fn read_link_target(path: &Path) -> Option<PathBuf> {
-    std::fs::read_link(path).ok()
-}
-
-fn update_symlink(link: &Path, target: &Path) -> Result<(), RuntimeError> {
-    if link.exists() {
-        std::fs::remove_file(link).map_err(|err| {
-            RuntimeError::ControlError(format!("remove link {}: {err}", link.display()).into())
-        })?;
-    }
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(target, link).map_err(|err| {
-            RuntimeError::ControlError(format!("symlink {}: {err}", link.display()).into())
-        })?;
-    }
-    #[cfg(windows)]
-    {
-        std::os::windows::fs::symlink_dir(target, link).map_err(|err| {
-            RuntimeError::ControlError(format!("symlink {}: {err}", link.display()).into())
-        })?;
-    }
-    Ok(())
 }
 
 fn sanitize_relative_path(path: &str) -> Option<PathBuf> {

@@ -24,8 +24,8 @@ use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
-    ResourcePort, StatusPort, TransferSessionError,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
+    ProgramIdentities, RecordsPort, ResourcePort, StatusPort, TransferSessionError,
 };
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
@@ -246,6 +246,13 @@ impl RecordsPort for ControlState {
             Ok(mut session) => Ok(use_session(&mut session)),
             Err(_) => Err(TransferSessionError::Unavailable),
         }
+    }
+
+    /// The program of the project (specification 34 §11.2): the bundle `current` names and the one
+    /// before it when the project is a store's `current` link, and otherwise the project's own program,
+    /// with no previous one (see `program_store::identities`).
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        crate::deployment::program_store::identities(self.project_root.as_deref()?)
     }
 }
 
