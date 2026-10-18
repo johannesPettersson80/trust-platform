@@ -1776,6 +1776,12 @@ a decoded value materializes with the same logical name and runtime value. The
 version-3 payload codec is shared by computers and chips: a chip's checkpoint
 records carry exactly these payload bytes (specification 34 §10.1), so both
 write and read the same snapshot with one codec.
+The payload bytes of a retained value do not depend on where the runtime keeps the value. A value held in
+the bounded cell store (specification 34 §6.2) is encoded from its cells, its text buffers and its compound
+members, without first building a `Value`, and the bytes are those of the same value held as a `Value`: a
+structure with its type name and its member names, an array with its bounds, an enumeration with its type
+and variant names, a `WSTRING` as its UTF-8 text, and an empty cell range as the null value. A reference, an
+instance and a non-finite `REAL` or `LREAL` are refused with the same error whichever way the value is held.
 Those formats store structures as logical type/field values only. When an old
 snapshot is migrated to a declaration with relative physical storage, the
 runtime rebuilds backing from the admitted declaration and logical fields,

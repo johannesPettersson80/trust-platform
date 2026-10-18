@@ -1129,13 +1129,21 @@ table, which holds one entry per reference leaf and the `ValueRef` of each non-n
 C1-11 (O9), so construction charges them before reserving. Construction charges, in the same
 charge and before it reserves, the memory it holds while it builds the store: the `globals` range
 table, one 12-byte entry for each STORAGE_LAYOUT declaration; the `roots` range table, one 12-byte
-entry for each CONSTRUCTION_ROOTS record; and the lists it fills while it walks the layouts, one
-8-byte entry for each text leaf, one 4-byte entry for each reference leaf and one 24-byte entry for
-each declared variable that construction fills with its default, which is every global and every
-member of a persistent instance except a function static and a native-state slot (their static
+entry for each CONSTRUCTION_ROOTS record; the instance table, one 28-byte entry (the identity, the
+template POU, the cell range and the parent) for each CONSTRUCTION_ROOTS record that has a template
+POU, which is every persistent instance of the application; and the lists it fills while it walks the
+layouts, one 8-byte entry for each text leaf, one 4-byte entry for each reference leaf and one 24-byte
+entry for each declared variable that construction fills with its default, which is every global and
+every member of a persistent instance except a function static and a native-state slot (their static
 action and their native import give them their values, and until then their cells are empty).
 They are reserved memory, so they count with the cells, and an entry has the same size on every
-target. Nothing reads the store at run time yet, so stored values, outputs and
+target. The instance table is reserved once from that count and never grows, so an instance beyond
+it is refused; it holds no text, because the type name of a persistent instance is the name of its
+template POU. One counter issues the identity of every instance, persistent or per-call, and it
+holds the entry floor of HOST-02: when a top-level execution entry begins on the cell store, the
+identities issued since the previous entry began are issued again if none of their instances is
+still live, exactly as on the value store, and an instance that construction created is never
+issued again. Nothing reads the store at run time yet, so stored values, outputs and
 faults are unchanged. The text store holds a region's text buffers — one fixed buffer per text leaf
 at its leaf's byte capacity, reserved once and never grown, with its length in use — and its text
 sink cuts written text exactly where assignment normalization cuts it, so a `Cell::Text` leaf
@@ -1802,7 +1810,7 @@ replacement; this is not a durable serialization promise for live handles.
 
 **Selected persistence profiles.** The initial F401 profile checkpoints only after outputs enter the controlled STOP/maintenance state; no internal-flash erase/program runs during RUN. Its power-loss guarantee is recovery of the last successfully completed compatible stop checkpoint, not the most recent scan. A stronger RUN-time retention guarantee requires a separately designed medium/power-fail mechanism and qualified timing. Ordinary stop checkpoints do not inherently require external storage. [E61]
 
-For hosted bounded operation, capture a coherent checkpoint in admitted preallocated storage, publish it without waiting for disk, and persist on the storage worker. One shared capture serves a chip and a computer (`trust-runtime-core::retain::capture::RetainCapture`): it holds the save interval, the dirty mark and the unchanged-image skip that decide when a checkpoint is taken, and the staging image a platform refills in place at the established pre-output-sample checkpoint is reserved once, so a steady-state capture allocates nothing. Use a bounded latest-pending-snapshot mailbox: a pending snapshot may be superseded before worker ownership, while an in-progress/durable snapshot is never mutated. Define capacity/ownership transfer before implementation. Staging exhaustion faults before that cycle's normal output commit; a worker persistence failure is latched and faults at the next control boundary under the normal fault/output policy. Neither condition blocks the scan on storage. Expose the last durably completed sequence and failure state. A later persistence failure cannot retroactively cancel already published outputs. The durability guarantee is the last completed flush; queued/coalesced scans are not durable. This is the selected M3 bounded-profile behavior change, with restart, failure, output-order, and overload tests. Keep legacy synchronous behavior in the compatibility profile until that migration is explicitly released. [R12, R33]
+For hosted bounded operation, capture a coherent checkpoint in admitted preallocated storage, publish it without waiting for disk, and persist on the storage worker. One shared capture serves a chip and a computer (`trust-runtime-core::retain::capture::RetainCapture`): it holds the save interval, the dirty mark and the unchanged-image skip that decide when a checkpoint is taken, and the staging image a platform refills in place at the established pre-output-sample checkpoint is reserved once, so a steady-state capture allocates nothing. The capture reads each retained variable where the store holds it: a value held in the bounded cell store (§6.2) is written from its cells, its text buffers and its compound members straight into the staging image, without building a `Value`, and the payload is the same bytes as for the same value held as a `Value` (specification 11 §6.7), so a steady-state capture of cells allocates nothing either. Use a bounded latest-pending-snapshot mailbox: a pending snapshot may be superseded before worker ownership, while an in-progress/durable snapshot is never mutated. Define capacity/ownership transfer before implementation. Staging exhaustion faults before that cycle's normal output commit; a worker persistence failure is latched and faults at the next control boundary under the normal fault/output policy. Neither condition blocks the scan on storage. Expose the last durably completed sequence and failure state. A later persistence failure cannot retroactively cancel already published outputs. The durability guarantee is the last completed flush; queued/coalesced scans are not durable. This is the selected M3 bounded-profile behavior change, with restart, failure, output-order, and overload tests. Keep legacy synchronous behavior in the compatibility profile until that migration is explicitly released. [R12, R33]
 
 The reviewed hosted cycle can call `maybe_save_retain_store()` before normal output writes. The initial extraction preserves this behavior in hosted compatibility compositions. The bounded profile above deliberately changes failure/acknowledgment timing and needs its own release notes and tests; it is not a behavior-preserving file move. A compatibility build retaining unbounded persistence shall not claim bounded-profile compliance. [R12]
 

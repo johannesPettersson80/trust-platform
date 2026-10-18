@@ -25,7 +25,10 @@ use crate::value::ValueRef;
 use crate::vm::{PreparedModule, VmTrap};
 
 pub use convert::{cell_offset, read_value, write_value};
-pub(crate) use convert::{check_value, is_reference_type, read_value_in, write_value_in};
+pub(crate) use convert::{
+    check_value, is_reference_type, leaf_in, read_value_in, structure_member_name, write_value_in,
+    CellLeaf,
+};
 
 /// One cell of the bounded value store (specification 34 §6.2, MEM-10; design "Cells").
 ///

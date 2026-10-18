@@ -11,12 +11,13 @@ use smol_str::SmolStr;
 
 use crate::bytecode::{
     compute_type_offsets_for_entries, AccessBindings, BytecodeModule, BytecodeVersion, ConstPool,
-    ConstructionRoot, ConstructionRoots, Field, InitializationOnce, InitializationPhase,
-    InitializationStage, InitializationTarget, InitializationTrigger, InitializerBodyKind,
-    InitializerEntry, InitializerIndex, IoMap, PouClassMeta, PouEntry, PouIndex, PouKind, RefEntry,
-    RefLocation, RefTable, ResourceEntry, ResourceMeta, Section, SectionData, SectionId,
-    StorageDeclaration, StorageLayout, StorageOwner, StorageRole, StringTable, TaskEntry, TypeData,
-    TypeEntry, TypeKind, TypeTable, VarMeta, VarMetaEntry, HEADER_FLAG_CRC32,
+    ConstructionRoot, ConstructionRoots, EnumVariant, Field, InitializationOnce,
+    InitializationPhase, InitializationStage, InitializationTarget, InitializationTrigger,
+    InitializerBodyKind, InitializerEntry, InitializerIndex, IoMap, PouClassMeta, PouEntry,
+    PouIndex, PouKind, RefEntry, RefLocation, RefTable, ResourceEntry, ResourceMeta, Section,
+    SectionData, SectionId, StorageDeclaration, StorageLayout, StorageOwner, StorageRole,
+    StringTable, TaskEntry, TypeData, TypeEntry, TypeKind, TypeTable, VarMeta, VarMetaEntry,
+    HEADER_FLAG_CRC32,
 };
 use crate::collections::OrderedMap;
 use crate::memory::InstanceId;
@@ -92,6 +93,20 @@ const HOLDER_NAME: u32 = 29;
 const HOLDER_REF: u32 = 19;
 const HOLDER_INITIALIZER: u32 = 11;
 const HOLDER_RESULT_REF: u32 = 20;
+
+/// The `TYPE_TABLE` ordinal of `Mode`, an enumeration over `DINT` of `Idle` 0, `Running` 1 and `Stopped` 5
+/// (C1-9d2b-2).
+pub(super) const MODE: u32 = 11;
+
+/// The global `mode_g : Mode` of [`prepared_with_mode`]: its declaration index, its storage slot, its
+/// `STRING_TABLE` name, its binding reference and its initializer's result. It is a module of its own, so
+/// these numbers repeat those of `holder_g`.
+pub(super) const MODE_DECL: u32 = 12;
+const MODE_SLOT: u32 = 8;
+const MODE_NAME: u32 = 33;
+const MODE_REF: u32 = 19;
+const MODE_INITIALIZER: u32 = 11;
+const MODE_RESULT_REF: u32 = 20;
 
 pub(crate) fn primitive(prim_id: u16, max_length: u16) -> TypeEntry {
     TypeEntry {
@@ -316,6 +331,12 @@ fn strings() -> StringTable {
             .into_iter()
             .map(SmolStr::new),
     );
+    // The names of `mode_g`, of `Mode` and of its variants (indexes 33 to 37).
+    entries.extend(
+        ["mode_g", "Mode", "Idle", "Running", "Stopped"]
+            .into_iter()
+            .map(SmolStr::new),
+    );
     StringTable { entries }
 }
 
@@ -365,6 +386,27 @@ fn types() -> TypeTable {
                 30,
                 TypeData::Struct {
                     fields: vec![field(31, REF_DINT), field(32, DINT)],
+                },
+            ),
+            named(
+                TypeKind::Enum,
+                34,
+                TypeData::Enum {
+                    base_type_id: DINT,
+                    variants: vec![
+                        EnumVariant {
+                            name_idx: 35,
+                            value: 0,
+                        },
+                        EnumVariant {
+                            name_idx: 36,
+                            value: 1,
+                        },
+                        EnumVariant {
+                            name_idx: 37,
+                            value: 5,
+                        },
+                    ],
                 },
             ),
         ],
@@ -775,6 +817,76 @@ pub(super) fn prepared_with_holder() -> PreparedModule {
         PreparationLimits::default(),
     )
     .expect("the holder fixture prepares")
+}
+
+/// The fixture plus one global, `mode_g : Mode`, an enumeration (C1-9d2b-2). Its cell follows
+/// the seven globals of [`fixture`], so it is a module of its own: the other fixtures keep the cells their
+/// tests check.
+pub(super) fn prepared_with_mode() -> PreparedModule {
+    let mut module = fixture();
+    let SectionData::StorageLayout(layout) = module
+        .section_mut(SectionId::StorageLayout)
+        .expect("the storage layout section")
+    else {
+        unreachable!("the storage layout section holds a storage layout")
+    };
+    layout.entries.push(declaration(
+        StorageOwner::Global,
+        StorageRole::Variable,
+        None,
+        MODE_NAME,
+        Some(MODE),
+        MODE_SLOT,
+        Some(MODE_REF),
+        1,
+    ));
+    let SectionData::ConstructionRoots(roots) = module
+        .section_mut(SectionId::ConstructionRoots)
+        .expect("the construction roots section")
+    else {
+        unreachable!("the construction roots section holds construction roots")
+    };
+    roots.entries.push(ConstructionRoot {
+        declaration_idx: MODE_DECL,
+        binding_ref_idx: Some(MODE_REF),
+        instance_owner_id: None,
+        parent_root_idx: None,
+        template_pou_id: None,
+        flags: 0,
+    });
+    let SectionData::Initializers(initializers) = module
+        .section_mut(SectionId::Initializers)
+        .expect("the initializers section")
+    else {
+        unreachable!("the initializers section holds initializers")
+    };
+    initializers
+        .entries
+        .push(initializer(MODE_DECL, None, MODE_RESULT_REF));
+    let SectionData::RefTable(refs) = module
+        .section_mut(SectionId::RefTable)
+        .expect("the reference table section")
+    else {
+        unreachable!("the reference table section holds references")
+    };
+    refs.entries.push(global_ref(MODE_SLOT));
+    refs.entries.push(result_ref(MODE_INITIALIZER));
+    let SectionData::VarMeta(meta) = module
+        .section_mut(SectionId::VarMeta)
+        .expect("the variable metadata section")
+    else {
+        unreachable!("the variable metadata section holds variable metadata")
+    };
+    meta.entries
+        .push(var_meta(MODE_NAME, MODE, MODE_RESULT_REF));
+    module
+        .validate()
+        .expect("the mode fixture is a valid source-free module");
+    PreparedModule::from_bytes(
+        &module.encode().expect("encode"),
+        PreparationLimits::default(),
+    )
+    .expect("the mode fixture prepares")
 }
 
 /// The `ARRAY[1..3] OF INT` value `series_v` holds: 1, 2, 3.

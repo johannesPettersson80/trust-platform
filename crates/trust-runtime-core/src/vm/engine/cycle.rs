@@ -4,13 +4,12 @@ use crate::bytecode::{StorageOwner, StorageRole};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::fault::NO_TASK;
 use crate::memory::layout::CELL_BYTES;
-use crate::memory::view::StoreAccess;
+use crate::memory::view::{StoreAccess, ValueView};
 use crate::memory::MemoryLocation;
 use crate::retain::capture::RetainCapture;
-use crate::retain::codec::{decode_snapshot_payload_bytes, PayloadWriter};
+use crate::retain::codec::{decode_snapshot_payload_bytes, view_is_retainable, PayloadWriter};
 use crate::retain::RetainSnapshot;
 use crate::task::evaluate_task_readiness;
-use crate::vm::construction::values::ValueConstructionContext;
 
 impl EngineState<'_> {
     pub(super) fn seed_task_inputs(&mut self) -> Result<(), RuntimeError> {
@@ -185,8 +184,9 @@ impl EngineState<'_> {
     /// Append the retained values to `payload`: the resource's retained globals and then each root's
     /// retained program variables, in registration and declaration order (specification 11 §6.7).
     ///
-    /// The retained encoder still reads the stored `Value` (row 11 of the C1-9 note, E): it keeps the
-    /// `Value` path until the cell encoder lands (C1-9d2, P2). Its globals are reached by slot (O22).
+    /// Each value is read as a view of the store the engine holds and written from that view, so a value in
+    /// cells is encoded from its cells without building a `Value` (specification 34 §10; C1-9d2b-2). Its
+    /// globals are reached by slot (O22).
     fn fill_retained_payload(
         &mut self,
         payload: &mut PayloadWriter<'_>,
@@ -195,26 +195,12 @@ impl EngineState<'_> {
         for &id in prepared.retained_declarations(StorageOwner::Global, None) {
             let declaration = &prepared.layout.entries[id as usize];
             let name = &prepared.vm.strings[declaration.name_idx as usize];
-            if let Ok(view) = self
-                .data
-                .storage
-                .read_slot(MemoryLocation::Global, declaration.slot as usize)
-                && let Some(value) = self.data.storage.borrow(&view)
-                && self.snapshot_value_is_retainable(value, 0)?
+            if let Ok(view) = self.read_slot(MemoryLocation::Global, declaration.slot as usize)
+                && view_is_retainable(&view)?
             {
-                let bytes = self.snapshot_entry_charge(value, name.len())?;
-                self.charge_allocation(bytes)?;
-                let stored = self
-                    .data
-                    .storage
-                    .read_slot(MemoryLocation::Global, declaration.slot as usize)
-                    .map_err(|_| RuntimeError::NullReference)?;
-                let value = self
-                    .data
-                    .storage
-                    .borrow(&stored)
-                    .ok_or(RuntimeError::NullReference)?;
-                payload.entry(name.as_str(), value)?;
+                let bytes = self.snapshot_entry_charge(&view, name.len())?;
+                self.charge_allocation_bytes(bytes)?;
+                payload.entry_view(name.as_str(), &view)?;
             }
         }
         for (index, root) in prepared.roots.entries.iter().enumerate() {
@@ -229,38 +215,27 @@ impl EngineState<'_> {
             {
                 let declaration = &prepared.layout.entries[id as usize];
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
-                if let Some(view) = self.data.storage.read_instance_var(instance, name)
-                    && let Some(value) = self.data.storage.borrow(&view)
-                    && self.snapshot_value_is_retainable(value, 0)?
+                if let Some(view) = self.read_instance_var(instance, name)
+                    && view_is_retainable(&view)?
                 {
                     let key_len = program_name
                         .len()
                         .checked_add(name.len())
                         .and_then(|length| length.checked_add(10))
                         .ok_or(RuntimeError::Overflow)?;
-                    let bytes = self.snapshot_entry_charge(value, key_len)?;
-                    self.charge_allocation(bytes)?;
+                    let bytes = self.snapshot_entry_charge(&view, key_len)?;
+                    self.charge_allocation_bytes(bytes)?;
                     if self.retained_program_key_conflicts(program_name.as_str(), name.as_str()) {
                         return Err(RuntimeError::RetainMigration(
                             "ambiguous retained checkpoint label".into(),
                         ));
                     }
-                    let stored = self
-                        .data
-                        .storage
-                        .read_instance_var(instance, name)
-                        .ok_or(RuntimeError::NullReference)?;
-                    let value = self
-                        .data
-                        .storage
-                        .borrow(&stored)
-                        .ok_or(RuntimeError::NullReference)?;
                     // The reserved `@program/<program-identity>/<variable-identity>` key is
                     // appended as pieces, so an identity of any length builds no key string
                     // (specification 11 §6.7).
-                    payload.entry_pieces(
+                    payload.entry_view_pieces(
                         &["@program/", program_name.as_str(), "/", name.as_str()],
-                        value,
+                        &view,
                     )?;
                 }
             }
@@ -293,43 +268,14 @@ impl EngineState<'_> {
 
     fn snapshot_entry_charge(
         &self,
-        value: &Value,
+        view: &ValueView<'_>,
         name_bytes: usize,
     ) -> Result<usize, RuntimeError> {
-        // A retained entry costs four cells of allocation (TIME-08 retained-value snapshot row).
-        self.value_clone_charge(value, 0)?
+        // A retained entry costs four cells of allocation (TIME-08 retained-value snapshot row). The
+        // value's own copy charge is the one a `Value` pays, computed from the cells for a cell view.
+        self.view_clone_charge(view)?
             .checked_add(name_bytes)
             .and_then(|bytes| bytes.checked_add(4 * CELL_BYTES))
             .ok_or_else(|| RuntimeError::Overflow)
-    }
-
-    fn snapshot_value_is_retainable(
-        &self,
-        value: &Value,
-        depth: usize,
-    ) -> Result<bool, RuntimeError> {
-        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
-            return Err(RuntimeError::TypeMismatch);
-        }
-        match value {
-            Value::Reference(_) | Value::Instance(_) => Ok(false),
-            Value::Array(array) => {
-                for value in array.elements() {
-                    if !self.snapshot_value_is_retainable(value, depth + 1)? {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
-            Value::Struct(structure) => {
-                for value in structure.fields().values() {
-                    if !self.snapshot_value_is_retainable(value, depth + 1)? {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
-            _ => Ok(true),
-        }
     }
 }

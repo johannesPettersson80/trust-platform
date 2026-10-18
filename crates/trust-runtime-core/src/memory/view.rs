@@ -540,9 +540,9 @@ pub trait StoreAccess {
 
     /// Borrow the stored leaf a view names, without copying it.
     ///
-    /// This is the C1-8 compatibility read, and the only caller left is the retained encoder's
-    /// reads of retained values (`vm::engine::cycle`, C1-9d1 row 11), which keeps this `&Value` path
-    /// until the cell encoder lands (C1-9d2, P2). Every other engine read goes through the view.
+    /// This is the C1-8 compatibility read. The engine has no caller left: the retained encoder
+    /// reads views since the cell encoder landed (C1-9d2b-2), and every other engine read goes
+    /// through the view. A cell view answers `None`; the cycle port forwards the read to hosts.
     fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value>;
 
     /// The owned `Value` of a view; the only allocating read.

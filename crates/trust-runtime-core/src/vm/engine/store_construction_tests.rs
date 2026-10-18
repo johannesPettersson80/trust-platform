@@ -6,7 +6,9 @@
 //! `Keeper` module (`keeper.rs`) supplies references in aggregates and dates, which no corpus program has.
 //! Each expected value is worked out by hand from the ST source it names.
 
+mod identities;
 mod keeper;
+mod retain;
 
 use super::{services, Construction, EngineData, EngineState, EngineStore, StoreKind};
 use crate::bytecode::{StorageOwner, StorageRole, ValidationLimits};
@@ -312,13 +314,14 @@ fn cells_hold_the_values_arm_initial_values_after_construction() {
 fn persistent_instances_are_registered_at_construction() {
     // Specification 34 §6.2 (MEM-10; O8): each persistent root has an instance, recorded in the cell arm with
     // an identity from the store's one counter, in CONSTRUCTION_ROOTS order. `initializers` declares
-    // `PROGRAM Initializers` (VAR tracker : Tracker; slot, result : INT END_VAR) and `FUNCTION_BLOCK
-    // Tracker` (VAR history : ARRAY[1..3] OF INT END_VAR). Its roots are the global `ticks`, the global
-    // `table`, the program (template pou 0), the tracker (template pou 34, nested in the program) and the
-    // static `calls`. Only the program and the tracker have instances, so they take identities 0 and 1 on
-    // the `Value` store, and the cells must give the same. The program holds `tracker`, `slot` and `result`
-    // (3 cells) after the 5 cells of the globals (`ticks` 1, `table` 3, `calls` 1), so its range starts at
-    // cell 5; the tracker holds `history` (3 cells) and follows at cell 8.
+    // `PROGRAM Initializers` (VAR CONSTANT gain : INT; VAR tracker : Tracker; slot, result : INT END_VAR) and
+    // `FUNCTION_BLOCK Tracker` (VAR history : ARRAY[1..3] OF INT END_VAR). Its roots are the globals `ticks`,
+    // `table`, `origin`, `corners` and `capacity`, the program (template pou 0), the tracker (template pou 34,
+    // nested in the program) and the static `calls`. Only the program and the tracker have instances, so they
+    // take identities 0 and 1 on the `Value` store, and the cells must give the same. The program holds
+    // `gain`, `tracker`, `slot` and `result` (4 cells) after the 12 cells of the globals (`ticks` 1, `table`
+    // 3, `origin` 2, `corners` 4, `capacity` 1, `calls` 1), so its range starts at cell 12; the tracker holds
+    // `history` (3 cells) and follows at cell 16.
     //
     // A second counter for per-call instances would start at 0 and issue identity 0 again: the instance
     // created next must take 2 on both stores. A store that did not record the instances would answer no
@@ -326,22 +329,31 @@ fn persistent_instances_are_registered_at_construction() {
     let prepared = prepare(INITIALIZERS);
     let mut values = build(&prepared, StoreKind::Values).expect("the Value store constructs");
     let mut cells = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
-    let roots = vec![None, None, Some(InstanceId(0)), Some(InstanceId(1)), None];
+    let roots = vec![
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(InstanceId(0)),
+        Some(InstanceId(1)),
+        None,
+    ];
     assert_eq!(values.construction.roots, roots);
     assert_eq!(cells.construction.roots, roots);
     assert_eq!(
         arm(&cells).instance_range(InstanceId(0)),
         Some(CellRange {
             region: LayoutRegion::Persistent,
-            start: 5,
-            cells: 3,
+            start: 12,
+            cells: 4,
         })
     );
     assert_eq!(
         arm(&cells).instance_range(InstanceId(1)),
         Some(CellRange {
             region: LayoutRegion::Persistent,
-            start: 8,
+            start: 16,
             cells: 3,
         })
     );
@@ -430,6 +442,17 @@ fn ints(values: &[i16]) -> Value {
     )
 }
 
+/// The `Pair` of the `initializers` program, a structure of the INT members `a` and `b`.
+fn pair(a: i16, b: i16) -> Value {
+    let mut fields = OrderedMap::default();
+    fields.insert(SmolStr::new("a"), Value::Int(a));
+    fields.insert(SmolStr::new("b"), Value::Int(b));
+    Value::Struct(Arc::new(StructValue::from_canonical_parts(
+        SmolStr::new("Pair"),
+        fields,
+    )))
+}
+
 #[test]
 fn explicit_initializers_land_in_the_cells() {
     // Specification 34 §6.2 (MEM-10) and IEC 61131-3 Ed.3 §6.5.2.2 (initial values): the value a declaration
@@ -440,14 +463,50 @@ fn explicit_initializers_land_in_the_cells() {
     // `slot : INT := INT#1` (`result : INT` has none and defaults to 0) and the function block's
     // `history : ARRAY[1..3] OF INT := [1, 2, 3]`. The program is instance 0 and the tracker instance 1.
     // A cell store that took the default over the initializer would read 0 and [0, 0, 0].
+    //
+    // The structure and constant initializers of C1-9d2b-2 (R6), on the structure `Pair` of the INT
+    // members `a` and `b`: the global `origin : Pair := (a := INT#1, b := INT#2)` reads the pair (1, 2);
+    // the global `corners : ARRAY[1..2] OF Pair := [(a := INT#3, b := INT#4), (a := INT#5, b := INT#6)]`
+    // reads the pairs (3, 4) and (5, 6) in element order; the constant in a global block, `capacity : INT
+    // := INT#9`, reads 9; and the constant in the program, `gain : INT := INT#2`, reads 2. A store that
+    // wrote a structure's members in the wrong order would read (2, 1), one that wrote the elements in
+    // the wrong order would read (5, 6) before (3, 4), and one that left a constant at its default would
+    // read 0. The `Value` store is read with the same expectations, since the specification names one
+    // value for both.
     let prepared = prepare(INITIALIZERS);
-    let mut data = build(&prepared, StoreKind::Cells).expect("the cell store constructs");
-    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
-    assert_eq!(global(&state, "ticks"), Value::DInt(0));
-    assert_eq!(global(&state, "table"), ints(&[4, 5, 6]));
-    assert_eq!(member(&state, InstanceId(0), "slot"), Value::Int(1));
-    assert_eq!(member(&state, InstanceId(0), "result"), Value::Int(0));
-    assert_eq!(member(&state, InstanceId(1), "history"), ints(&[1, 2, 3]));
+    for kind in [StoreKind::Values, StoreKind::Cells] {
+        let mut data = build(&prepared, kind).expect("the store constructs");
+        let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        assert_eq!(global(&state, "ticks"), Value::DInt(0), "{kind:?}");
+        assert_eq!(global(&state, "table"), ints(&[4, 5, 6]), "{kind:?}");
+        assert_eq!(global(&state, "origin"), pair(1, 2), "{kind:?}");
+        assert_eq!(
+            global(&state, "corners"),
+            array(vec![pair(3, 4), pair(5, 6)], vec![(1, 2)]),
+            "{kind:?}"
+        );
+        assert_eq!(global(&state, "capacity"), Value::Int(9), "{kind:?}");
+        assert_eq!(
+            member(&state, InstanceId(0), "slot"),
+            Value::Int(1),
+            "{kind:?}"
+        );
+        assert_eq!(
+            member(&state, InstanceId(0), "result"),
+            Value::Int(0),
+            "{kind:?}"
+        );
+        assert_eq!(
+            member(&state, InstanceId(0), "gain"),
+            Value::Int(2),
+            "{kind:?}"
+        );
+        assert_eq!(
+            member(&state, InstanceId(1), "history"),
+            ints(&[1, 2, 3]),
+            "{kind:?}"
+        );
+    }
 
     // scalar: `gain : REAL := REAL#1.5`, `mask : WORD := WORD#16#00FF`, `elapsed : TIME := T#0ms` and
     // `level : LREAL := LREAL#0.0`, each global of its own kind. The program is instance 0 and its

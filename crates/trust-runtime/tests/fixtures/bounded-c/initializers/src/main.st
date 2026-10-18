@@ -1,10 +1,26 @@
 (* Bounded-C corpus, initializers: call-time initializers (census rows N1 to N4 and I13). A
    function and a method each initialize a reference to an element selected by their input
    on every call, the function also builds an array from its initializer on every call, and
-   it keeps a static that is initialized once. *)
+   it keeps a static that is initialized once. The declarations also carry the explicit
+   initializers that the cell store writes at construction: a structure with a structure
+   initializer, an array of structures with an array initializer, and a constant in a global
+   block and in a program (specification 34 section 6.2, slice C1-9d2b-2). *)
+TYPE Pair :
+STRUCT
+    a : INT;
+    b : INT;
+END_STRUCT
+END_TYPE
+
 VAR_GLOBAL
     ticks : DINT := DINT#0;
     table : ARRAY[1..3] OF INT := [INT#4, INT#5, INT#6];
+    origin : Pair := (a := INT#1, b := INT#2);
+    corners : ARRAY[1..2] OF Pair := [(a := INT#3, b := INT#4), (a := INT#5, b := INT#6)];
+END_VAR
+
+VAR_GLOBAL CONSTANT
+    capacity : INT := INT#9;
 END_VAR
 
 FUNCTION Pick : INT
@@ -38,6 +54,9 @@ END_METHOD
 END_FUNCTION_BLOCK
 
 PROGRAM Initializers
+VAR CONSTANT
+    gain : INT := INT#2;
+END_VAR
 VAR
     tracker : Tracker;
     slot : INT := INT#1;

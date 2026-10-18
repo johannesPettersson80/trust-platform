@@ -1,5 +1,5 @@
 //! Public state surface excludes internal storage and dispatcher context traits.
-use super::{EngineData, EngineState, ExecutionServices, PreparedModule};
+use super::{Construction, EngineData, EngineState, ExecutionServices, PreparedModule, StoreKind};
 use crate::{
     error::RuntimeError,
     fault::{FaultRecord, NO_TASK},
@@ -53,6 +53,35 @@ impl PreparedModule {
     ) -> Result<RuntimeState<'a>, RuntimeError> {
         Ok(RuntimeState {
             data: EngineState::construct_data(self, resource_index, services)?,
+            prepared: self,
+            services,
+        })
+    }
+
+    /// Construct as [`PreparedModule::instantiate_with_services`], holding the globals and the persistent
+    /// instances in the bounded cell store (specification 34 §6.2) instead of the `Value` tree.
+    ///
+    /// The cell store is not the default yet (C1-9d3 switches it). Until that slice a program does not
+    /// scan on it, and [`RuntimeState::storage`] shows only the `Value` half, which holds neither the
+    /// globals nor the persistent instances. This entry exists so that the tests of the store's own
+    /// behaviour, such as the retained-image capture and its allocation counts, can run on it from outside
+    /// the crate.
+    #[doc(hidden)]
+    pub fn instantiate_on_cells_with_services<'a>(
+        &'a self,
+        resource_index: usize,
+        services: &'a dyn ExecutionServices,
+    ) -> Result<RuntimeState<'a>, RuntimeError> {
+        Ok(RuntimeState {
+            data: EngineState::construct_data_with(
+                self,
+                resource_index,
+                services,
+                Construction {
+                    store: StoreKind::Cells,
+                    ..Construction::default()
+                },
+            )?,
             prepared: self,
             services,
         })

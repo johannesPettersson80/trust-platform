@@ -2,9 +2,9 @@
 //!
 //! [`crate::memory::regions::CellStorage`] is the store the engine switches to in C1-9d. Its
 //! construction reads the declarations and the prepared layouts, charges the bytes of the persistent
-//! region (its cells, its reference records, its text buffers, its reference table, its range tables and
-//! the leaf lists the construction builds) through the construction allowance, and only then reserves the
-//! region, once. Each persistent root gets its own cell range (O8), and each text leaf occurrence of a
+//! region (its cells, its reference records, its text buffers, its reference table, its range tables, its
+//! instance table and the leaf lists the construction builds) through the construction allowance, and only
+//! then reserves the region, once. Each persistent root gets its own cell range (O8), and each text leaf occurrence of a
 //! global, of every array element and of every root gets its own buffer (O10). Construction then writes
 //! every declared leaf's initial value into its cells (R2), with the date/time profile of the engine
 //! that constructs it (C1-9d2b-1). The engine constructs this store when it is asked to
@@ -19,6 +19,7 @@ use crate::bytecode::{
 };
 use crate::error::RuntimeError;
 use crate::memory::cells::{write_value_in, Cell, CellStore, ReferenceTable};
+use crate::memory::instance_table::{InstanceTable, PersistentInstance};
 use crate::memory::layout::{CellRange, LayoutRegion, TextLeaf};
 use crate::memory::text::TextStore;
 use crate::memory::{ActivationStore, Generation, Identities, InstanceId};
@@ -43,6 +44,9 @@ pub struct CellRegions {
     /// The reference leaves and the `ValueRef` each non-null one holds, by cell (O9, R3, R5). Reserved
     /// at construction, one entry per reference leaf.
     references: ReferenceTable,
+    /// The persistent instances, one for each root with a template POU. Reserved at construction from that
+    /// count and never grown (C1-9d2b-2, R5).
+    instances: InstanceTable,
 }
 
 impl CellRegions {
@@ -80,6 +84,50 @@ impl CellRegions {
     /// The `ValueRef` a non-null reference leaf at `cell` holds, or `None` for a null leaf.
     pub(crate) fn reference(&self, cell: u32) -> Option<&ValueRef> {
         self.references.get(cell)
+    }
+
+    /// The persistent instance `id`, or `None` for an identity that is not one.
+    pub(crate) fn instance(&self, id: InstanceId) -> Option<&PersistentInstance> {
+        self.instances.get(id)
+    }
+
+    /// The number of persistent instances recorded.
+    pub(crate) fn instance_count(&self) -> usize {
+        self.instances.len()
+    }
+
+    /// Record the persistent instance `id` in the table reserved at construction.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidExecutionState`] when the table is full (see [`InstanceTable::insert`]).
+    pub(crate) fn register_instance(
+        &mut self,
+        id: InstanceId,
+        instance: PersistentInstance,
+    ) -> Result<(), RuntimeError> {
+        self.instances.insert(id, instance)
+    }
+
+    /// Give the persistent instance `id` the parent `parent`. `false` when `id` is not one.
+    pub(crate) fn set_instance_parent(
+        &mut self,
+        id: InstanceId,
+        parent: Option<InstanceId>,
+    ) -> bool {
+        match self.instances.get_mut(id) {
+            Some(instance) => {
+                instance.parent = parent;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The number of persistent instances the reserved table holds room for (test support).
+    #[cfg(test)]
+    pub(crate) fn instance_capacity(&self) -> usize {
+        self.instances.capacity()
     }
 
     /// The persistent cells, the text buffers and the reference table, mutably at once (C1-9c).
@@ -152,8 +200,9 @@ impl CellStorage {
     ///
     /// Before anything is reserved, `charge` receives the bytes the region takes: its cells and
     /// reference records as [`CellStore::reservation_bytes`] counts them, its text buffers' bytes, its
-    /// reference table's bytes, its `globals` and `roots` range tables and the leaf lists the
-    /// construction builds (R6). A refused charge returns its error, and nothing is reserved.
+    /// reference table's bytes, its `globals` and `roots` range tables, its instance table and the leaf
+    /// lists the construction builds (R6; C1-9d2b-2, R5). A refused charge returns its error, and nothing
+    /// is reserved.
     ///
     /// # Errors
     ///
@@ -188,6 +237,7 @@ impl CellStorage {
         let table_bytes = ReferenceTable::reservation_bytes(extent.references.len())
             .ok_or(RuntimeError::Overflow)?;
         let bookkeeping_bytes = extent.bookkeeping_bytes()?;
+        let instance_count = extent.instance_roots();
         let bytes = cell_bytes
             .checked_add(extent.text_bytes()?)
             .and_then(|bytes| bytes.checked_add(table_bytes))
@@ -200,6 +250,7 @@ impl CellStorage {
             persistent: CellStore::reserve(extent.cells, reference_count)?,
             text: TextStore::reserve(&extent.texts)?,
             references: ReferenceTable::reserve(extent.references)?,
+            instances: InstanceTable::reserve(instance_count)?,
         };
         regions.write_initial_values(prepared, profile, &extent.initials)?;
         Ok(Self {
@@ -218,12 +269,61 @@ impl CellStorage {
         &self.regions
     }
 
-    /// Issue the next instance identity from the one counter that both kinds of instance share
-    /// (specification 34 §6.2; R4). The counter only advances, so no identity is issued twice.
+    /// The identity the next instance takes from the one counter that both kinds of instance share, and
+    /// the counter value after it (specification 34 §6.2; R4). Nothing is issued until
+    /// [`CellStorage::issue_instance`] records it, so an instance that cannot be placed leaves the counter
+    /// where it was, as the `Value` store does.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] once the counter is exhausted.
+    pub(crate) fn next_instance_id(&self) -> Result<(InstanceId, u32), RuntimeError> {
+        self.identities.next_instance()
+    }
+
+    /// Record that `id` was issued and the counter now holds `following` (see
+    /// [`CellStorage::next_instance_id`]).
+    pub(crate) fn issue_instance(&mut self, id: InstanceId, following: u32) {
+        self.identities.issue(id, following);
+    }
+
+    /// Issue the next instance identity in one step (test support).
+    #[cfg(test)]
     pub(crate) fn issue_instance_id(&mut self) -> Result<InstanceId, RuntimeError> {
-        let id = self.identities.next_instance_id;
-        self.identities.next_instance_id = id.checked_add(1).ok_or(RuntimeError::Overflow)?;
-        Ok(InstanceId(id))
+        let (id, following) = self.next_instance_id()?;
+        self.issue_instance(id, following);
+        Ok(id)
+    }
+
+    /// Record that the per-call instance `id` is gone, so that the entry floor can reissue its
+    /// identity (specification 34 §4.3.1, HOST-02).
+    pub(crate) fn release_instance(&mut self, id: InstanceId) {
+        self.identities.release_instance(id);
+    }
+
+    /// Record that `released` instances at or above the entry floor are gone.
+    pub(crate) fn release_instances(&mut self, released: usize) {
+        self.identities.release(released);
+    }
+
+    /// The instance identity the current top-level execution entry started from.
+    pub(crate) fn entry_instance_floor(&self) -> u32 {
+        self.identities.entry_instance_floor
+    }
+
+    /// Begin the instance half of a top-level execution entry (specification 34 §4.3.1, HOST-02): the
+    /// identities issued since the previous entry began are issued again when none of their instances is
+    /// still live, and the persistent instances that construction created never are. The floor is the
+    /// one counter's own (R4).
+    pub(crate) fn begin_execution_entry(&mut self) {
+        self.identities.begin_entry();
+    }
+
+    /// Move the next instance identity, so that a test reaches the identity limit without issuing
+    /// 2^32 identities.
+    #[cfg(test)]
+    pub(crate) fn set_next_instance_id_for_test(&mut self, next: u32) {
+        self.identities.next_instance_id = next;
     }
 }
 
@@ -326,12 +426,19 @@ impl PersistentExtent {
         })
     }
 
+    /// The roots that hold an instance: the CONSTRUCTION_ROOTS records with a template POU. Each gets one
+    /// persistent instance, so this is the room the instance table reserves (C1-9d2b-2, R5).
+    fn instance_roots(&self) -> usize {
+        self.roots.iter().filter(|range| range.is_some()).count()
+    }
+
     /// The bytes of the tables the region keeps and of the lists construction builds while it walks the
     /// layouts (specification 34 §6.2; R6, O18): one range entry per STORAGE_LAYOUT declaration in the
-    /// `globals` table and one per CONSTRUCTION_ROOTS record in the `roots` table, which the region keeps,
-    /// and the transient text-leaf, reference-leaf and initial-value lists. They are memory the
-    /// construction holds, so the charge counts them with the cells before anything is reserved. Each
-    /// entry has the same size on every target, which the assertions below state.
+    /// `globals` table, one per CONSTRUCTION_ROOTS record in the `roots` table and one per instance root in
+    /// the instance table, which the region keeps, and the transient text-leaf, reference-leaf and
+    /// initial-value lists. They are memory the construction holds, so the charge counts them with the
+    /// cells before anything is reserved. Each entry has the same size on every target, which the
+    /// assertions state.
     fn bookkeeping_bytes(&self) -> Result<usize, RuntimeError> {
         let tables = self
             .globals
@@ -357,6 +464,8 @@ impl PersistentExtent {
         tables
             .zip(lists)
             .and_then(|(tables, lists)| tables.checked_add(lists))
+            .zip(InstanceTable::reservation_bytes(self.instance_roots()))
+            .and_then(|(bytes, instances)| bytes.checked_add(instances))
             .ok_or(RuntimeError::Overflow)
     }
 }

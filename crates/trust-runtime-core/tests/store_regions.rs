@@ -508,23 +508,26 @@ fn reservation_is_charged_before_it_is_reserved() {
     // `globals` table has one 12-byte entry for each of the 5 declarations and the `roots` table one
     // for each of the 4 roots, 108 bytes; the transient lists hold 6 text leaves at 8 bytes and 5
     // initial values at 24 bytes (`trigger`, `g_a`, `g_b` and the `v` of each `Names` root), 168
-    // bytes. The charge is 144 + 30 + 108 + 168 = 450 bytes, requested once. An allowance one byte
-    // short refuses it and reserves nothing; an allowance of exactly 450 admits the region.
+    // bytes. The instance table holds one 28-byte entry for each of the 3 roots that have a template POU
+    // (`Main`, `g_a` and `g_b`; `trigger` has none), 84 bytes (C1-9d2b-2, R5). The charge is
+    // 144 + 30 + 108 + 168 + 84 = 534 bytes, requested once. An allowance one byte short refuses it and
+    // reserves nothing; an allowance of exactly 534 admits the region. The 450 bytes that this charge was
+    // before the instance table was part of it are no longer enough.
     let prepared = prepared();
     let requested = std::cell::Cell::new(0usize);
     let refused = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
         requested.set(bytes);
-        if bytes > 449 {
+        if bytes > 533 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())
         }
     });
     assert_eq!(refused.err(), Some(RuntimeError::Overflow));
-    assert_eq!(requested.get(), 450);
+    assert_eq!(requested.get(), 534);
 
     let admitted = CellStorage::construct(&prepared, Generation::FIRST, |bytes| {
-        if bytes > 450 {
+        if bytes > 534 {
             Err(RuntimeError::Overflow)
         } else {
             Ok(())

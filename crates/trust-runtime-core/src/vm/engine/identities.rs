@@ -234,7 +234,7 @@ impl super::EngineState<'_> {
     /// increasing sequence.
     pub(super) fn reserve_activation_identity(&mut self) -> Result<FrameId, RuntimeError> {
         if self.data.construction_complete && self.data.storage.execution_frame_count() == 0 {
-            self.data.storage.begin_execution_entry()?;
+            self.begin_execution_entry()?;
         }
         self.data.storage.reserve_execution_frame()
     }

@@ -833,9 +833,14 @@ impl EngineState<'_> {
             return;
         }
         let lifetimes = &self.data.lifetimes.instance_lifetimes;
-        StoreMutate::retain_instances(&mut self.data.storage, |id| {
-            lifetimes.get(&id) != Some(Some(owner))
-        });
+        // The release goes through the store the engine holds, so that the cell arm records it in the one
+        // counter that issued the identities (specification 34 §4.3.1; C1-9d2b-2, R4).
+        let mut routed = super::super::store_access::routed_mut_fields(
+            &mut self.data.storage,
+            &mut self.data.store,
+            self.prepared,
+        );
+        StoreMutate::retain_instances(&mut routed, |id| lifetimes.get(&id) != Some(Some(owner)));
         self.data
             .construction
             .initialized_declarations

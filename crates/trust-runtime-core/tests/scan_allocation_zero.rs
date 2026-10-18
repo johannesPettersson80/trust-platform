@@ -942,6 +942,47 @@ fn the_meter_counts_armed_calls_exactly_and_in_the_phase_that_makes_them() {
     }
 }
 
+/// The retain fixture's retained image captured twice into one capture, counting the allocator calls of
+/// each capture: the first reserves the staging buffer, the later one refills it.
+fn capture_twice(
+    state: &mut RuntimeState<'_>,
+) -> (
+    trust_runtime_core::retain::capture::RetainCapture,
+    Calls,
+    Calls,
+) {
+    let mut capture = trust_runtime_core::retain::capture::RetainCapture::new();
+    let first = {
+        let _armed = Armed::new();
+        state
+            .capture_retain(&mut capture)
+            .expect("the first capture reads the retained image");
+        take_counted()
+    };
+    let later = {
+        let _armed = Armed::new();
+        state
+            .capture_retain(&mut capture)
+            .expect("a later capture reads the retained image");
+        take_counted()
+    };
+    (capture, first, later)
+}
+
+/// The STRN v3 payload bytes that the shared codec frames for the retain fixture's four retained values.
+fn retain_payload(counter: i32, setpoint: f32, runs: i32) -> Vec<u8> {
+    let mut expected = RetainSnapshot::default();
+    expected.insert("counter", Value::DInt(counter));
+    expected.insert("setpoint", Value::Real(setpoint));
+    expected.insert("@program/Plant/runs", Value::DInt(runs));
+    expected.insert("@program/Plant/label", Value::String("boiler".into()));
+    let mut payload = Vec::new();
+    expected
+        .encode_snapshot_payload_into(&mut payload)
+        .expect("the expected retained payload encodes");
+    payload
+}
+
 /// Spec 34 §10 and MEM-04 (C5-2, the capture): the corpus `retain` fixture's retained image is
 /// captured, as the STRN v3 payload bytes the shared codec writes, into a staging buffer reserved
 /// once. The first capture reserves it; every later capture of the same declarations reuses it and
@@ -961,21 +1002,7 @@ fn the_retain_fixture_captures_without_allocating_after_the_first_capture() {
         assert_eq!(scan.outcome, None, "scan {index} succeeds");
     }
 
-    let mut capture = trust_runtime_core::retain::capture::RetainCapture::new();
-    let first = {
-        let _armed = Armed::new();
-        state
-            .capture_retain(&mut capture)
-            .expect("the first capture reads the retained image");
-        take_counted()
-    };
-    let later = {
-        let _armed = Armed::new();
-        state
-            .capture_retain(&mut capture)
-            .expect("a later capture reads the retained image");
-        take_counted()
-    };
+    let (capture, first, later) = capture_twice(&mut state);
     eprintln!("scan-allocations-capture,retain,first={first},later={later}");
     assert!(
         first.count() >= 1,
@@ -990,18 +1017,45 @@ fn the_retain_fixture_captures_without_allocating_after_the_first_capture() {
     // Four scans advance every retained value once per scan: `counter` and `runs` reach 4 and
     // `setpoint` reaches 20.0 + 4 × 0.5 = 22.0. The staged bytes must be exactly the payload the
     // shared codec frames for those values, in registration and declaration order.
-    let mut expected = RetainSnapshot::default();
-    expected.insert("counter", Value::DInt(4));
-    expected.insert("setpoint", Value::Real(22.0));
-    expected.insert("@program/Plant/runs", Value::DInt(4));
-    expected.insert("@program/Plant/label", Value::String("boiler".into()));
-    let mut payload = Vec::new();
-    expected
-        .encode_snapshot_payload_into(&mut payload)
-        .expect("the expected retained payload encodes");
     assert_eq!(
         capture.staged_payload(),
-        payload.as_slice(),
+        retain_payload(4, 22.0, 4).as_slice(),
         "the capture stages the fixture's retained image as the codec's payload"
+    );
+}
+
+/// Spec 34 §10, §6.2 and MEM-04 (C1-9d2b-2, R3): the same capture on the cell store. The retain fixture is
+/// instantiated on cells, where its retained globals and its program's retained variables live in cells and
+/// the encoder writes them from there. The first capture reserves the staging buffer, and every later
+/// capture makes no allocator call. A program does not scan on the cell store before the switch (C1-9d3),
+/// so the staged bytes are the values of construction, worked out by hand from `retain/src/main.st`:
+/// `counter` 0, `setpoint` 20.0, the program's `runs` 0 and its `label` 'boiler'. A cell encoder that
+/// built a `Value` for each variable, or that grew its output, would allocate in the later capture; one
+/// that read the `Value` half, where the cell store keeps none of them, would stage no entries.
+#[test]
+fn the_cell_retain_capture_allocates_nothing() {
+    let bytes = corpus_artifact("retain").unwrap_or_else(|error| panic!("{error}"));
+    let prepared = PreparedModule::from_bytes(&bytes, run_limits())
+        .expect("the chips' admission accepts the retain fixture");
+    let services = Services::new(true);
+    let mut state = prepared
+        .instantiate_on_cells_with_services(0, &services)
+        .expect("the retain fixture constructs on the cell store");
+
+    let (capture, first, later) = capture_twice(&mut state);
+    eprintln!("scan-allocations-capture,retain-cells,first={first},later={later}");
+    assert!(
+        first.count() >= 1,
+        "the first capture reserves the staging buffer; it made {first} allocator calls"
+    );
+    assert_eq!(
+        later,
+        Calls::ZERO,
+        "a steady-state capture of cells must not allocate (spec 34 MEM-04)"
+    );
+    assert_eq!(
+        capture.staged_payload(),
+        retain_payload(0, 20.0, 0).as_slice(),
+        "the capture stages the fixture's retained image, written from its cells"
     );
 }

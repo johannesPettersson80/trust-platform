@@ -114,7 +114,7 @@ fn read_text(
 }
 
 /// Materialize one scalar cell as the value of the type's primitive encoding.
-fn read_scalar(
+pub(super) fn read_scalar(
     type_id: u32,
     prim_id: u16,
     cells: &[Cell],

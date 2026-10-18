@@ -24,7 +24,9 @@ use alloc::format;
 
 use smol_str::SmolStr;
 
+mod leaf;
 mod read;
+pub(crate) use leaf::{leaf_in, structure_member_name, CellLeaf};
 pub(crate) use read::read_value_in;
 
 use super::{Cell, RefSlot, ReferenceTable, TextSlot};

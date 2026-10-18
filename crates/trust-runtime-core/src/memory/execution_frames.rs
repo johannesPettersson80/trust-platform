@@ -79,16 +79,19 @@ impl VariableStorage {
     /// still live; otherwise the next entry starts above them. A live instance's
     /// identity is never issued again.
     pub(crate) fn begin_execution_entry(&mut self) -> Result<(), RuntimeError> {
+        self.begin_activation_entry()?;
+        self.identities.begin_entry();
+        Ok(())
+    }
+
+    /// Begin the activation half of a top-level execution entry: no activation is reserved, and
+    /// activation identities start again at zero. The cell store keeps its instance identities in its
+    /// own counter and begins their half of the entry there (specification 34 §6.2).
+    pub(crate) fn begin_activation_entry(&mut self) -> Result<(), RuntimeError> {
         if self.execution_frame_count() != 0 {
             return Err(RuntimeError::InvalidExecutionState);
         }
         self.activations.next_frame_id = 0;
-        if self.identities.entry_instances_live == 0 {
-            self.identities.next_instance_id = self.identities.entry_instance_floor;
-        } else {
-            self.identities.entry_instance_floor = self.identities.next_instance_id;
-            self.identities.entry_instances_live = 0;
-        }
         Ok(())
     }
 

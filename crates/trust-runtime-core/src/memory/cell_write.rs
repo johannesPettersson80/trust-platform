@@ -61,20 +61,19 @@ impl<'a> CellWriter<'a> {
         CellReader::new(self.prepared, &*self.arm, &*self.values)
     }
 
-    /// Record a persistent instance of template `pou` and type `type_name` in the cells of the root at
-    /// CONSTRUCTION_ROOTS index `root`, from the store's one identity counter (specification 34 §6.2;
-    /// R2, O8). Its range is the first `own` cells of its root's range, where `own` is the number of
-    /// cells the template's own members take.
+    /// Record a persistent instance of template `pou` in the cells of the root at CONSTRUCTION_ROOTS
+    /// index `root`, from the store's one identity counter (specification 34 §6.2; R2, O8). Its type
+    /// name is the name of `pou`. Its range is the first `own` cells of its root's range, where `own` is
+    /// the number of cells the template's own members take.
     ///
     /// # Errors
     ///
-    /// [`RuntimeError::InvalidExecutionState`] when the root owns no range, and
-    /// [`RuntimeError::Overflow`] when the identity counter is exhausted.
+    /// [`RuntimeError::InvalidExecutionState`] when the root owns no range or the instance table is
+    /// full, and [`RuntimeError::Overflow`] when the identity counter is exhausted.
     pub(crate) fn create_persistent_instance(
         &mut self,
         root: usize,
         pou: u32,
-        type_name: &str,
     ) -> Result<InstanceId, RuntimeError> {
         let root_range = self
             .arm
@@ -87,7 +86,7 @@ impl<'a> CellWriter<'a> {
             cells: own,
             ..root_range
         };
-        self.arm.create_persistent_instance(pou, range, type_name)
+        self.arm.create_persistent_instance(pou, range)
     }
 
     /// Give `child` the parent `parent`: a persistent instance records it in the arm, and a per-call
@@ -363,7 +362,7 @@ impl StoreMutate for CellWriter<'_> {
         value: Value,
     ) -> bool {
         let name = name.into();
-        if !self.arm.instances.contains_key(&instance) {
+        if !self.arm.is_persistent(instance) {
             return self.values.set_instance_var(instance, name, value);
         }
         let target = self
@@ -402,23 +401,38 @@ impl StoreMutate for CellWriter<'_> {
         type_name: impl Into<SmolStr>,
     ) -> Result<InstanceId, RuntimeError> {
         // Per-call and persistent instances draw on the one counter of the cell store (R4). A persistent
-        // instance also needs its reserved root range, which the trait does not carry (O8).
-        let id = self.arm.cells.issue_instance_id()?;
+        // instance also needs its reserved root range, which the trait does not carry (O8). The counter
+        // is advanced only once the record is placed, as the `Value` store does.
+        let (id, following) = self.arm.cells.next_instance_id()?;
         self.values.insert_instance(id, type_name)?;
+        self.arm.cells.issue_instance(id, following);
         Ok(id)
     }
 
     fn remove_instance(&mut self, id: InstanceId) -> bool {
-        // A persistent instance ends with its generation, so only a per-call instance is released.
-        !self.arm.instances.contains_key(&id) && self.values.remove_instance(id).is_some()
+        // A persistent instance ends with its generation, so only a per-call instance is released. The
+        // release is recorded in the counter that issued the identity (R4).
+        if self.arm.is_persistent(id) {
+            return false;
+        }
+        let removed = self.values.take_instance(id).is_some();
+        if removed {
+            self.arm.cells.release_instance(id);
+        }
+        removed
     }
 
     fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
-        self.values.retain_instances(keep)
+        // Only per-call instances are in the `Value` half; their release is recorded against the entry
+        // floor of the counter that issued the identities (R4).
+        let floor = self.arm.cells.entry_instance_floor();
+        let (removed, released_since_floor) = self.values.retain_instances_above(floor, keep);
+        self.arm.cells.release_instances(released_since_floor);
+        removed
     }
 
     fn restore_instance(&mut self, instance: InstanceId, data: InstanceData) {
-        if !self.arm.instances.contains_key(&instance) {
+        if !self.arm.is_persistent(instance) {
             StoreMutate::restore_instance(&mut *self.values, instance, data);
             return;
         }
@@ -440,9 +454,7 @@ impl StoreMutate for CellWriter<'_> {
         for (range, type_id, leaf) in leaves {
             self.store(range, type_id, leaf);
         }
-        if let Some(persistent) = self.arm.instances.get_mut(&instance) {
-            persistent.parent = data.parent;
-        }
+        self.arm.set_instance_parent(instance, data.parent);
     }
 
     fn commit_write(

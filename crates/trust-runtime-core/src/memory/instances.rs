@@ -8,18 +8,9 @@ impl VariableStorage {
         &mut self,
         type_name: impl Into<SmolStr>,
     ) -> Result<InstanceId, crate::error::RuntimeError> {
-        let next = self
-            .identities
-            .next_instance_id
-            .checked_add(1)
-            .ok_or(crate::error::RuntimeError::Overflow)?;
-        let id = InstanceId(self.identities.next_instance_id);
+        let (id, following) = self.identities.next_instance()?;
         self.insert_instance(id, type_name)?;
-        self.identities.next_instance_id = next;
-        if id.0 >= self.identities.entry_instance_floor {
-            self.identities.entry_instances_live =
-                self.identities.entry_instances_live.saturating_add(1);
-        }
+        self.identities.issue(id, following);
         Ok(id)
     }
 
@@ -48,15 +39,6 @@ impl VariableStorage {
         Ok(())
     }
 
-    /// Record released instances whose identities are at or above the entry floor, so
-    /// `begin_execution_entry` reissues those identities only once none of them is live.
-    fn note_instances_released(&mut self, released_since_floor: usize) {
-        self.identities.entry_instances_live = self
-            .identities
-            .entry_instances_live
-            .saturating_sub(released_since_floor);
-    }
-
     /// Array growth bytes and moved entries to charge before creating an instance.
     /// Hosted map nodes retain the existing per-instance construction accounting.
     pub fn instance_insertion_demand(&self) -> Option<(usize, usize)> {
@@ -80,19 +62,39 @@ impl VariableStorage {
 
     /// Release an invocation-owned instance and invalidate its lookup caches.
     pub fn remove_instance(&mut self, id: InstanceId) -> Option<InstanceData> {
-        self.invalidate_instance_field_caches(id);
-        let removed = self.activations.instances.remove(&id);
-        if removed.is_some() && id.0 >= self.identities.entry_instance_floor {
-            self.note_instances_released(1);
+        let removed = self.take_instance(id);
+        if removed.is_some() {
+            self.identities.release_instance(id);
         }
         removed
     }
 
+    /// Take an instance record out and invalidate its lookup caches, leaving this storage's identities
+    /// alone. The cell store takes its per-call instances out of this half and records the release in
+    /// the one counter that issued them (specification 34 §6.2).
+    pub(crate) fn take_instance(&mut self, id: InstanceId) -> Option<InstanceData> {
+        self.invalidate_instance_field_caches(id);
+        self.activations.instances.remove(&id)
+    }
+
     /// Retire an owner batch in one pass. Callers charge the live entry count first.
     /// Cleanup itself cannot fail or consume additional execution fuel.
-    pub fn retain_instances(&mut self, mut keep: impl FnMut(InstanceId) -> bool) -> usize {
-        let before = self.activations.instances.len();
+    pub fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
         let floor = self.identities.entry_instance_floor;
+        let (removed, released_since_floor) = self.retain_instances_above(floor, keep);
+        self.identities.release(released_since_floor);
+        removed
+    }
+
+    /// Retire an owner batch in one pass, answering how many instances were released and how many of
+    /// them lay at or above `floor`, the entry floor of the counter that issued their identities. The
+    /// cell store passes its own floor and records the release there (specification 34 §6.2).
+    pub(crate) fn retain_instances_above(
+        &mut self,
+        floor: u32,
+        mut keep: impl FnMut(InstanceId) -> bool,
+    ) -> (usize, usize) {
+        let before = self.activations.instances.len();
         let mut released_since_floor = 0usize;
         self.activations.instances.retain(|id, _| {
             let kept = keep(*id);
@@ -101,14 +103,13 @@ impl VariableStorage {
             }
             kept
         });
-        self.note_instances_released(released_since_floor);
         let removed = before - self.activations.instances.len();
         #[cfg(feature = "std")]
         if removed != 0 {
             cache::exclusive(&mut self.values.instance_field_offsets).clear();
             cache::exclusive(&mut self.values.recursive_instance_field_resolutions).clear();
         }
-        removed
+        (removed, released_since_floor)
     }
 
     /// Test support only: panics when instance identities are exhausted. Every production

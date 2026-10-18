@@ -27,13 +27,14 @@ use std::sync::Arc;
 use smol_str::SmolStr;
 
 use super::fixture::{
-    pair_value, prepared, series_value, BASE, BASE_DECL, BASE_G, BASE_G_INSTANCE, BASE_INSTANCE,
-    BASE_POU, BASE_ROOT, DERIVED, DERIVED_INSTANCE, DERIVED_POU, DINT, DINT_DECL, DINT_G, FB_DECL,
-    FB_G, FB_ROOT, GLOBAL_NAMES, INT_ARRAY, PAIR, PARENT_ROOT, REAL, REAL_DECL, REF_DECL, REF_DINT,
-    STRING_10, TEXT_DECL, WIDE_DECL, WSTRING_5,
+    pair_value, prepared, prepared_without_parent_root, series_value, BASE, BASE_DECL, BASE_G,
+    BASE_G_INSTANCE, BASE_INSTANCE, BASE_POU, BASE_ROOT, DERIVED, DERIVED_INSTANCE, DERIVED_POU,
+    DINT, DINT_DECL, DINT_G, FB_DECL, FB_G, FB_ROOT, GLOBAL_NAMES, INT_ARRAY, PAIR, PARENT_ROOT,
+    REAL, REAL_DECL, REF_DECL, REF_DINT, STRING_10, TEXT_DECL, WIDE_DECL, WSTRING_5,
 };
 use super::{CellArm, CellReader, CellWriter};
 use crate::collections::OrderedMap;
+use crate::error::RuntimeError;
 use crate::memory::layout::{CellRange, LayoutRegion};
 use crate::memory::regions::CellStorage;
 use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
@@ -244,15 +245,20 @@ impl Fixture {
         let mut arm = CellArm::new(cells);
         let mut half = VariableStorage::new();
         half.set_global("Main", Value::Null);
-        arm.register_instance(BASE_INSTANCE, BASE_POU, parent_range, None, "Base");
+        // The instance table reserves a place for each of the fixture's four instance roots (the program,
+        // `base_g`, `fb_g` and the parent of `fb_g`'s instance), so these three fit. The type name of
+        // each is its template POU's name, `Base`, `Derived` and `Base`.
+        arm.register_instance(BASE_INSTANCE, BASE_POU, parent_range, None)
+            .expect("the instance table has room for the parent instance");
         arm.register_instance(
             DERIVED_INSTANCE,
             DERIVED_POU,
             derived_range,
             Some(BASE_INSTANCE),
-            "Derived",
-        );
-        arm.register_instance(BASE_G_INSTANCE, BASE_POU, base_range, None, "Base");
+        )
+        .expect("the instance table has room for the derived instance");
+        arm.register_instance(BASE_G_INSTANCE, BASE_POU, base_range, None)
+            .expect("the instance table has room for the base instance");
         Self {
             prepared,
             arm,
@@ -693,4 +699,65 @@ fn per_call_and_persistent_identities_never_collide() {
     let second = StoreMutate::try_create_instance(&mut writer, "Helper");
     assert_eq!(first, Ok(InstanceId(3)));
     assert_eq!(second, Ok(InstanceId(4)));
+}
+
+/// The bytes that `CellStorage::construct` asks its charge for, in its one request.
+fn construction_charge(prepared: &PreparedModule) -> usize {
+    let requested = std::cell::Cell::new(None);
+    CellStorage::construct(prepared, Generation::FIRST, |bytes| {
+        assert_eq!(requested.replace(Some(bytes)), None, "one request");
+        Ok(())
+    })
+    .expect("the persistent region reserves");
+    requested.get().expect("construction asks for its charge")
+}
+
+#[test]
+fn the_persistent_instance_table_is_charged_before_it_is_reserved() {
+    // Specification 34 §6.2 and O18 (C1-9d2b-2, R5): construction charges the instance table, one 28-byte
+    // entry for each root that has a template POU, in the one charge it makes before it reserves anything.
+    // The fixture has four such roots (the program, `base_g`, `fb_g` and the parent of `fb_g`'s instance).
+    // The fixture without that parent's root has three, and the same cells, text and leaves: the parent's
+    // range lies inside `fb_g`'s, so removing its root removes only a `roots` table entry (12 bytes) and an
+    // instance table entry (28 bytes). The two charges therefore differ by 12 + 28 = 40 bytes. A construction
+    // that reserved the table without charging it would differ by 12.
+    let with_parent = construction_charge(&prepared());
+    let without_parent = construction_charge(&prepared_without_parent_root());
+    assert_eq!(with_parent - without_parent, 40);
+}
+
+#[test]
+fn the_persistent_instance_table_never_grows() {
+    // Specification 34 §6.2 (C1-9d2b-2, R5): the instance table is reserved once, from the number of roots
+    // that have a template POU, and never grows. The fixture has four such roots, so it holds room for four
+    // instances: four identities are recorded, recording one of them again replaces it, and a fifth is
+    // refused with `InvalidExecutionState` and changes nothing. A table that grew with its entries would
+    // admit the fifth.
+    let prepared = prepared();
+    let cells = CellStorage::construct(&prepared, Generation::FIRST, |_| Ok(()))
+        .expect("the persistent region reserves");
+    let mut arm = CellArm::new(cells);
+    assert_eq!(arm.cells().regions().instance_capacity(), 4);
+    let range = CellRange {
+        region: LayoutRegion::Persistent,
+        start: 0,
+        cells: 0,
+    };
+    for identity in 0..4 {
+        assert_eq!(
+            arm.register_instance(InstanceId(identity), BASE_POU, range, None),
+            Ok(())
+        );
+    }
+    assert_eq!(
+        arm.register_instance(InstanceId(2), DERIVED_POU, range, None),
+        Ok(())
+    );
+    assert_eq!(arm.persistent_count(), 4);
+    assert_eq!(
+        arm.register_instance(InstanceId(4), BASE_POU, range, None),
+        Err(RuntimeError::InvalidExecutionState)
+    );
+    assert_eq!(arm.persistent_count(), 4);
+    assert_eq!(arm.cells().regions().instance_capacity(), 4);
 }

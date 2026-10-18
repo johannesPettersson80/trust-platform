@@ -191,6 +191,59 @@ struct Identities {
     generation: Generation,
 }
 
+impl Identities {
+    /// The identity the next instance takes and the counter value after it, or `Overflow` once the
+    /// counter is exhausted: the allocator hands out `0` through `u32::MAX - 1` and never `u32::MAX`
+    /// (specification 34 HOST-02). Nothing is issued until [`Identities::issue`] records it, so a
+    /// caller that cannot place the instance leaves the counter where it was.
+    fn next_instance(&self) -> Result<(InstanceId, u32), crate::error::RuntimeError> {
+        let following = self
+            .next_instance_id
+            .checked_add(1)
+            .ok_or(crate::error::RuntimeError::Overflow)?;
+        Ok((InstanceId(self.next_instance_id), following))
+    }
+
+    /// Record that `id` was issued and the counter now holds `following`. An instance at or above
+    /// the entry floor is live in the current top-level entry, so [`Identities::begin_entry`]
+    /// reissues the identities of the entry only once none of them is live.
+    fn issue(&mut self, id: InstanceId, following: u32) {
+        self.next_instance_id = following;
+        if id.0 >= self.entry_instance_floor {
+            self.entry_instances_live = self.entry_instances_live.saturating_add(1);
+        }
+    }
+
+    /// Record that `released` instances at or above the entry floor are gone.
+    fn release(&mut self, released: usize) {
+        self.entry_instances_live = self.entry_instances_live.saturating_sub(released);
+    }
+
+    /// Record that the instance `id` is gone, if it was live in the current entry.
+    fn release_instance(&mut self, id: InstanceId) {
+        if id.0 >= self.entry_instance_floor {
+            self.release(1);
+        }
+    }
+
+    /// Begin a top-level execution entry (specification 34 §4.3.1, HOST-02). The identities issued
+    /// since the previous entry began are issued again when none of their instances is still live;
+    /// otherwise the entry starts above them. A live instance's identity is never issued again.
+    fn begin_entry(&mut self) {
+        if self.entry_instances_live == 0 {
+            self.next_instance_id = self.entry_instance_floor;
+        } else {
+            self.start_entry_at_counter();
+        }
+    }
+
+    /// Start the entry floor at the counter, with no instance live above it.
+    fn start_entry_at_counter(&mut self) {
+        self.entry_instance_floor = self.next_instance_id;
+        self.entry_instances_live = 0;
+    }
+}
+
 /// One reserved activation identity, with locals and engine metadata sharing
 /// the same monotonically ordered registry entry.
 #[derive(Debug, Clone, Default)]
@@ -247,6 +300,7 @@ pub mod cell_access;
 pub mod cells;
 mod execution_frames;
 mod frames;
+mod instance_table;
 mod instances;
 /// Prepared cell layouts for the bounded value store (specification 34 §6.2).
 pub mod layout;

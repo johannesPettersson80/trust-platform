@@ -14,14 +14,15 @@
 //! routing in `vm::engine::store_access` supplies it. The writes are in `cell_write` (C1-9c), which
 //! checks a value before it copies it into the cells.
 
-use alloc::collections::BTreeMap;
-
 use smol_str::SmolStr;
 
 use crate::bytecode::{StorageOwner, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
-use crate::memory::cells::{is_reference_type, read_value_in, Cell, RefSlot};
+use crate::memory::cells::{
+    is_reference_type, leaf_in, read_value_in, structure_member_name, Cell, CellLeaf, RefSlot,
+};
+use crate::memory::instance_table::PersistentInstance;
 use crate::memory::layout::CellRange;
 use crate::memory::regions::{CellRegions, CellStorage};
 use crate::memory::view::ValueView;
@@ -132,56 +133,62 @@ impl<'a> CellsView<'a> {
             _ => Ok(None),
         }
     }
-}
 
-/// A persistent instance held in cells: its template POU, the range of its own members, its parent
-/// and its declared type name (specification 34 §6.2; O6, O8).
-#[derive(Debug)]
-struct PersistentInstance {
-    pou: u32,
-    range: CellRange,
-    parent: Option<InstanceId>,
-    type_name: SmolStr,
+    /// What the cells at `range`, a value of `type_id`, hold, classified for the retained encoder: the
+    /// parts of the `Value` that [`CellsView::materialize`] would build, without building it
+    /// (specification 11 §6.7; C1-9d2b-2). Nothing is allocated.
+    pub(crate) fn leaf(self, range: CellRange, type_id: u32) -> Result<CellLeaf<'a>, RuntimeError> {
+        let cells = self
+            .regions
+            .persistent()
+            .cells(range)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        leaf_in(cells, type_id, self.prepared, self.regions.text())
+    }
+
+    /// The declared name of member `ordinal`, in declaration order, of the structure `type_id`.
+    pub(crate) fn structure_member_name(
+        self,
+        type_id: u32,
+        ordinal: usize,
+    ) -> Result<&'a str, RuntimeError> {
+        structure_member_name(self.prepared, type_id, ordinal)
+    }
 }
 
 /// The cell arm's state (specification 34 §6.2; C1-9b): the cell store, whose one identity counter issues
-/// every instance identity, and the persistent instances by identity. The `Value` half that holds locals
-/// and per-call instances is the engine's own `VariableStorage`, lent to each reader and writer.
+/// every instance identity and whose fixed instance table records the persistent instances (C1-9d2b-2).
+/// The `Value` half that holds locals and per-call instances is the engine's own `VariableStorage`, lent to
+/// each reader and writer.
 #[derive(Debug, Default)]
 pub(crate) struct CellArm {
     cells: CellStorage,
-    instances: BTreeMap<InstanceId, PersistentInstance>,
 }
 
 impl CellArm {
     /// An arm over `cells`, with no persistent instance recorded yet.
     pub(crate) fn new(cells: CellStorage) -> Self {
-        Self {
-            cells,
-            instances: BTreeMap::new(),
-        }
+        Self { cells }
     }
 
-    /// Record that `instance`, of template `pou` and type `type_name`, occupies the cells of `range`
-    /// with `parent` as its parent. Construction records the persistent instances as it reserves them
+    /// Record that `instance`, of template `pou`, occupies the cells of `range` with `parent` as its
+    /// parent. Construction records the persistent instances as it reserves them
     /// ([`CellArm::create_persistent_instance`]); the tests record the identities they issued.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::InvalidExecutionState`] when `instance` is new and the instance table, reserved at
+    /// construction from the roots, is full.
     pub(crate) fn register_instance(
         &mut self,
         instance: InstanceId,
         pou: u32,
         range: CellRange,
         parent: Option<InstanceId>,
-        type_name: &str,
-    ) {
-        self.instances.insert(
-            instance,
-            PersistentInstance {
-                pou,
-                range,
-                parent,
-                type_name: SmolStr::new(type_name),
-            },
-        );
+    ) -> Result<(), RuntimeError> {
+        self.cells
+            .regions_mut()
+            .register_instance(instance, PersistentInstance { pou, range, parent })
     }
 
     /// Issue the next identity from the cell store's one counter and record the persistent instance
@@ -190,15 +197,16 @@ impl CellArm {
     ///
     /// # Errors
     ///
-    /// [`RuntimeError::Overflow`] when the counter is exhausted; nothing is recorded then.
+    /// [`RuntimeError::Overflow`] when the counter is exhausted, and the error of
+    /// [`CellArm::register_instance`]; nothing is issued or recorded then.
     pub(crate) fn create_persistent_instance(
         &mut self,
         pou: u32,
         range: CellRange,
-        type_name: &str,
     ) -> Result<InstanceId, RuntimeError> {
-        let instance = self.cells.issue_instance_id()?;
-        self.register_instance(instance, pou, range, None, type_name);
+        let (instance, following) = self.cells.next_instance_id()?;
+        self.register_instance(instance, pou, range, None)?;
+        self.cells.issue_instance(instance, following);
         Ok(instance)
     }
 
@@ -209,33 +217,47 @@ impl CellArm {
         child: InstanceId,
         parent: Option<InstanceId>,
     ) -> bool {
-        match self.instances.get_mut(&child) {
-            Some(persistent) => {
-                persistent.parent = parent;
-                true
-            }
-            None => false,
-        }
+        self.cells.regions_mut().set_instance_parent(child, parent)
     }
 
     /// The number of persistent instances the arm records.
     pub(crate) fn persistent_count(&self) -> usize {
-        self.instances.len()
+        self.cells.regions().instance_count()
+    }
+
+    /// The persistent instance `instance`, or `None` for an identity that is not one.
+    fn instance(&self, instance: InstanceId) -> Option<&PersistentInstance> {
+        self.cells.regions().instance(instance)
+    }
+
+    /// Whether `instance` is a persistent instance of the arm.
+    fn is_persistent(&self, instance: InstanceId) -> bool {
+        self.instance(instance).is_some()
+    }
+
+    /// Begin a top-level execution entry for the instance identities the cell store issues
+    /// (specification 34 §4.3.1, HOST-02; C1-9d2b-2, R4).
+    pub(crate) fn begin_execution_entry(&mut self) {
+        self.cells.begin_execution_entry();
     }
 
     /// The cells of a persistent instance's own members, or `None` for an identity that is not a
     /// persistent instance of the arm.
     #[cfg(test)]
     pub(crate) fn instance_range(&self, instance: InstanceId) -> Option<CellRange> {
-        self.instances
-            .get(&instance)
-            .map(|persistent| persistent.range)
+        self.instance(instance).map(|persistent| persistent.range)
     }
 
     /// The cell store the arm reads and writes, for the tests.
     #[cfg(test)]
     pub(crate) fn cells(&self) -> &CellStorage {
         &self.cells
+    }
+
+    /// The cell store the arm reads and writes, mutably, for the tests.
+    #[cfg(test)]
+    pub(crate) fn cells_mut(&mut self) -> &mut CellStorage {
+        &mut self.cells
     }
 }
 
@@ -347,7 +369,7 @@ impl<'a> CellReader<'a> {
         instance: InstanceId,
         name: &str,
     ) -> Option<ValueView<'a>> {
-        if self.arm.instances.contains_key(&instance) {
+        if self.arm.is_persistent(instance) {
             let (_, _, range, type_id) = self.member_by(instance, |_, member| member == name)?;
             return Some(self.view(range, type_id));
         }
@@ -389,7 +411,7 @@ impl<'a> CellReader<'a> {
 
     /// The reference to the variable `name` of `instance`, in its own variables.
     pub(crate) fn ref_for_instance(self, instance: InstanceId, name: &str) -> Option<ValueRef> {
-        if self.arm.instances.contains_key(&instance) {
+        if self.arm.is_persistent(instance) {
             let (ordinal, _, _, _) = self.member_by(instance, |_, member| member == name)?;
             return self.value_ref(MemoryLocation::Instance(instance), ordinal);
         }
@@ -403,14 +425,14 @@ impl<'a> CellReader<'a> {
         name: &str,
     ) -> Option<ValueRef> {
         let mut current = instance;
-        for _ in 0..=self.arm.instances.len() {
-            if !self.arm.instances.contains_key(&current) {
+        for _ in 0..=self.arm.persistent_count() {
+            if !self.arm.is_persistent(current) {
                 return self.values.ref_for_instance_recursive(current, name);
             }
             if let Some((ordinal, _, _, _)) = self.member_by(current, |_, member| member == name) {
                 return self.value_ref(MemoryLocation::Instance(current), ordinal);
             }
-            current = self.arm.instances.get(&current)?.parent?;
+            current = self.arm.instance(current)?.parent?;
         }
         None
     }
@@ -431,7 +453,7 @@ impl<'a> CellReader<'a> {
         instance: InstanceId,
         name: &str,
     ) -> Option<usize> {
-        if self.arm.instances.contains_key(&instance) {
+        if self.arm.is_persistent(instance) {
             return self
                 .member_by(instance, |_, member| member == name)
                 .map(|(ordinal, _, _, _)| ordinal);
@@ -441,7 +463,7 @@ impl<'a> CellReader<'a> {
 
     /// An owned copy of the instance record: its members materialized from their cells.
     pub(crate) fn snapshot_instance(self, instance: InstanceId) -> Option<InstanceData> {
-        let Some(persistent) = self.arm.instances.get(&instance) else {
+        let Some(persistent) = self.arm.instance(instance) else {
             return self.values.get_instance(instance).cloned();
         };
         let mut variables = OrderedMap::default();
@@ -454,16 +476,25 @@ impl<'a> CellReader<'a> {
             ordinal += 1;
         }
         Some(InstanceData {
-            type_name: persistent.type_name.clone(),
+            type_name: self.persistent_type_name(persistent)?.clone(),
             variables,
             parent: persistent.parent,
         })
     }
 
+    /// The declared type name of the persistent instance `persistent`: the name of its template POU,
+    /// which the table does not repeat.
+    fn persistent_type_name(self, persistent: &PersistentInstance) -> Option<&'a SmolStr> {
+        self.prepared
+            .vm
+            .pou(persistent.pou)
+            .map(|entry| &entry.name)
+    }
+
     /// The declared type name of `instance`, or `None` when no such instance exists.
     pub(crate) fn instance_type_name(self, instance: InstanceId) -> Option<&'a SmolStr> {
-        match self.arm.instances.get(&instance) {
-            Some(persistent) => Some(&persistent.type_name),
+        match self.arm.instance(instance) {
+            Some(persistent) => self.persistent_type_name(persistent),
             None => self
                 .values
                 .get_instance(instance)
@@ -477,7 +508,7 @@ impl<'a> CellReader<'a> {
         self,
         instance: InstanceId,
     ) -> Result<Option<InstanceId>, VmTrap> {
-        match self.arm.instances.get(&instance) {
+        match self.arm.instance(instance) {
             Some(persistent) => Ok(persistent.parent),
             None => self
                 .values
@@ -491,7 +522,7 @@ impl<'a> CellReader<'a> {
     /// storage, or the variables of a `Value`-half instance. `None` when no such instance exists. A walk
     /// of an instance visits ordinals `0..count` (specification 34 MEM-09; C1-9d2b-1).
     pub(crate) fn instance_member_count(self, instance: InstanceId) -> Option<usize> {
-        match self.arm.instances.get(&instance) {
+        match self.arm.instance(instance) {
             Some(persistent) => Some(
                 self.prepared
                     .instance_declarations(persistent.pou)
@@ -514,7 +545,7 @@ impl<'a> CellReader<'a> {
         instance: InstanceId,
         ordinal: usize,
     ) -> Option<&'a str> {
-        if self.arm.instances.contains_key(&instance) {
+        if self.arm.is_persistent(instance) {
             let (_, name, _, _) = self.member_by(instance, |index, _| index == ordinal)?;
             return Some(name);
         }
@@ -532,7 +563,7 @@ impl<'a> CellReader<'a> {
         instance: InstanceId,
         ordinal: usize,
     ) -> Option<ValueView<'a>> {
-        if self.arm.instances.contains_key(&instance) {
+        if self.arm.is_persistent(instance) {
             let (_, _, range, type_id) = self.member_by(instance, |index, _| index == ordinal)?;
             return Some(self.view(range, type_id));
         }
@@ -627,7 +658,7 @@ impl<'a> CellReader<'a> {
         instance: InstanceId,
         select: impl Fn(usize, &str) -> bool,
     ) -> Option<(usize, &'a str, CellRange, u32)> {
-        let persistent = self.arm.instances.get(&instance)?;
+        let persistent = self.arm.instance(instance)?;
         let mut offset = 0u32;
         let mut ordinal = 0usize;
         for declaration in self.prepared.instance_declarations(persistent.pou) {
@@ -683,7 +714,7 @@ impl<'a> CellReader<'a> {
                     Ok(Target::Values(MemoryLocation::Global, index, path))
                 }
             },
-            MemoryLocation::Instance(instance) if self.arm.instances.contains_key(&instance) => {
+            MemoryLocation::Instance(instance) if self.arm.is_persistent(instance) => {
                 let (_, _, range, type_id) = self
                     .member_by(instance, |ordinal, _| ordinal == offset)
                     .ok_or(VmTrap::NullReference)?;
@@ -739,8 +770,8 @@ impl<'a> CellReader<'a> {
         rest: &'p [RefSegment],
     ) -> Result<Target<'p>, VmTrap> {
         let mut current = instance;
-        for _ in 0..=self.arm.instances.len() {
-            let Some(persistent) = self.arm.instances.get(&current) else {
+        for _ in 0..=self.arm.persistent_count() {
+            let Some(persistent) = self.arm.instance(current) else {
                 let reference = self
                     .values
                     .ref_for_instance_recursive(current, name)
@@ -846,6 +877,8 @@ mod cell_charge;
 /// The bytecode fixture of the cell arm's tests, whose builders the engine's construction tests reuse.
 #[cfg(all(test, feature = "std"))]
 pub(crate) mod fixture;
+#[cfg(all(test, feature = "std"))]
+mod retain_tests;
 #[cfg(all(test, feature = "std"))]
 mod tests;
 #[cfg(all(test, feature = "std"))]

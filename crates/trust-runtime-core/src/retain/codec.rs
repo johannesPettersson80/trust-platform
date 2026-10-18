@@ -11,6 +11,7 @@
 //! and, for version 1, without the length, payload checksum and trailer.
 
 mod reader;
+mod view;
 
 use alloc::{boxed::Box, format, sync::Arc, vec::Vec};
 
@@ -18,6 +19,7 @@ use smol_str::SmolStr;
 
 use crate::collections::OrderedMap as IndexMap;
 use crate::error::RuntimeError;
+use crate::memory::view::ValueView;
 use crate::retain::RetainSnapshot;
 use crate::value::{
     ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
@@ -25,8 +27,10 @@ use crate::value::{
 };
 
 use self::reader::RetainReader;
+use self::view::encode_view;
 
 pub use self::reader::encode_string;
+pub(crate) use self::view::view_is_retainable;
 
 /// The four-byte magic at the start of every retain file.
 const RETAIN_MAGIC: &[u8; 4] = b"STRN";
@@ -130,14 +134,55 @@ impl<'a> PayloadWriter<'a> {
     ///
     /// As [`entry`](Self::entry).
     pub fn entry_pieces(&mut self, pieces: &[&str], value: &Value) -> Result<(), RuntimeError> {
+        self.encode_name_pieces(pieces);
+        encode_value(self.out, value)?;
+        self.count += 1;
+        Ok(())
+    }
+
+    /// Append one named retained value that the store holds as `view`: a view of the `Value` tree is
+    /// encoded as [`entry`](Self::entry) encodes it, and a view of cells is encoded from its cells, its
+    /// text buffers and its compound members without building a `Value`, to the same bytes
+    /// (specification 11 §6.7; C1-9d2b-2).
+    ///
+    /// # Errors
+    ///
+    /// As [`entry`](Self::entry), and the refusal of a cell the view's type does not hold.
+    pub(crate) fn entry_view(
+        &mut self,
+        name: &str,
+        view: &ValueView<'_>,
+    ) -> Result<(), RuntimeError> {
+        encode_string(self.out, name);
+        encode_view(self.out, view)?;
+        self.count += 1;
+        Ok(())
+    }
+
+    /// Append one retained value held as `view`, whose name is the concatenation of `pieces`, as
+    /// [`entry_pieces`](Self::entry_pieces) appends a `Value`.
+    ///
+    /// # Errors
+    ///
+    /// As [`entry_view`](Self::entry_view).
+    pub(crate) fn entry_view_pieces(
+        &mut self,
+        pieces: &[&str],
+        view: &ValueView<'_>,
+    ) -> Result<(), RuntimeError> {
+        self.encode_name_pieces(pieces);
+        encode_view(self.out, view)?;
+        self.count += 1;
+        Ok(())
+    }
+
+    /// Write an entry name given as pieces: the length of all of them, then each piece.
+    fn encode_name_pieces(&mut self, pieces: &[&str]) {
         let length: usize = pieces.iter().map(|piece| piece.len()).sum();
         self.out.extend_from_slice(&(length as u32).to_le_bytes());
         for piece in pieces {
             self.out.extend_from_slice(piece.as_bytes());
         }
-        encode_value(self.out, value)?;
-        self.count += 1;
-        Ok(())
     }
 
     /// Finish the payload, writing its entry count.
@@ -455,21 +500,17 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
             out.extend_from_slice(&v.to_le_bytes());
         }
         Value::Array(array) => {
-            out.push(ValueTag::Array as u8);
-            out.extend_from_slice(&(array.elements().len() as u32).to_le_bytes());
-            out.extend_from_slice(&(array.dimensions().len() as u32).to_le_bytes());
-            for (lower, upper) in array.dimensions() {
-                out.extend_from_slice(&lower.to_le_bytes());
-                out.extend_from_slice(&upper.to_le_bytes());
-            }
+            encode_array_header(out, array.elements().len(), array.dimensions());
             for element in array.elements() {
                 encode_value(out, element)?;
             }
         }
         Value::Struct(struct_value) => {
-            out.push(ValueTag::Struct as u8);
-            encode_string(out, struct_value.type_name().as_str());
-            out.extend_from_slice(&(struct_value.fields().len() as u32).to_le_bytes());
+            encode_struct_header(
+                out,
+                struct_value.type_name().as_str(),
+                struct_value.fields().len(),
+            );
             for (name, field) in struct_value.fields() {
                 encode_string(out, name.as_str());
                 encode_value(out, field)?;
@@ -480,32 +521,66 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
                 )
             })? {
                 Some(checkpoint) => {
-                    out.push(1);
+                    out.push(PHYSICAL_CHECKPOINT);
                     let len = u32::try_from(checkpoint.len()).map_err(|_| {
                         RuntimeError::RetainStore("physical retain checkpoint is too large".into())
                     })?;
                     out.extend_from_slice(&len.to_le_bytes());
                     out.extend_from_slice(&checkpoint);
                 }
-                None => out.push(0),
+                None => out.push(NO_PHYSICAL_CHECKPOINT),
             }
         }
-        Value::Enum(enum_value) => {
-            out.push(ValueTag::Enum as u8);
-            encode_string(out, enum_value.type_name().as_str());
-            encode_string(out, enum_value.variant_name().as_str());
-            out.extend_from_slice(&enum_value.numeric_value().to_le_bytes());
-        }
+        Value::Enum(enum_value) => encode_enumeration(
+            out,
+            enum_value.type_name().as_str(),
+            enum_value.variant_name().as_str(),
+            enum_value.numeric_value(),
+        ),
         Value::Null => {
             out.push(ValueTag::Null as u8);
         }
-        Value::Reference(_) | Value::Instance(_) => {
-            return Err(RuntimeError::RetainStore(
-                "cannot retain reference/instance values".into(),
-            ));
-        }
+        Value::Reference(_) | Value::Instance(_) => return Err(reference_or_instance_refused()),
     }
     Ok(())
+}
+
+/// The marker that ends a structure value without a physical checkpoint.
+const NO_PHYSICAL_CHECKPOINT: u8 = 0;
+/// The marker that precedes a structure value's physical checkpoint.
+const PHYSICAL_CHECKPOINT: u8 = 1;
+
+/// Write the header of an array of `elements` elements within `dimensions`: its tag, its element count,
+/// its dimension count and the inclusive bounds of each dimension. The elements follow.
+fn encode_array_header(out: &mut Vec<u8>, elements: usize, dimensions: &[(i64, i64)]) {
+    out.push(ValueTag::Array as u8);
+    out.extend_from_slice(&(elements as u32).to_le_bytes());
+    out.extend_from_slice(&(dimensions.len() as u32).to_le_bytes());
+    for (lower, upper) in dimensions {
+        out.extend_from_slice(&lower.to_le_bytes());
+        out.extend_from_slice(&upper.to_le_bytes());
+    }
+}
+
+/// Write the header of a structure of `members` members: its tag, its type name and its member count.
+/// Each member's name and value follow, then the marker for its physical checkpoint.
+fn encode_struct_header(out: &mut Vec<u8>, type_name: &str, members: usize) {
+    out.push(ValueTag::Struct as u8);
+    encode_string(out, type_name);
+    out.extend_from_slice(&(members as u32).to_le_bytes());
+}
+
+/// Write an enumeration value: its tag, its type name, its variant name and its numeric value.
+fn encode_enumeration(out: &mut Vec<u8>, type_name: &str, variant_name: &str, numeric: i64) {
+    out.push(ValueTag::Enum as u8);
+    encode_string(out, type_name);
+    encode_string(out, variant_name);
+    out.extend_from_slice(&numeric.to_le_bytes());
+}
+
+/// The refusal of a value that holds a live handle, which no snapshot persists.
+fn reference_or_instance_refused() -> RuntimeError {
+    RuntimeError::RetainStore("cannot retain reference/instance values".into())
 }
 
 fn decode_value(

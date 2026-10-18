@@ -643,7 +643,7 @@ impl RoutedMut<'_> {
     ) -> Result<InstanceId, RuntimeError> {
         match self {
             RoutedMut::Values(store) => StoreMutate::try_create_instance(&mut **store, type_name),
-            RoutedMut::Cells(writer) => writer.create_persistent_instance(root, pou, type_name),
+            RoutedMut::Cells(writer) => writer.create_persistent_instance(root, pou),
         }
     }
 
@@ -686,6 +686,22 @@ impl EngineState<'_> {
         parent: Option<InstanceId>,
     ) -> bool {
         routed_mut(&mut *self.data, self.prepared).set_instance_parent(child, parent)
+    }
+
+    /// Begin a top-level execution entry on the store the engine holds (specification 34 §4.3.1, HOST-02;
+    /// C1-9d2b-2, R4). The activation identities restart at zero in the `Value` half's registry on either
+    /// arm. The instance identities restart from the entry floor of the one counter that issues them: the
+    /// `Value` half's on the `Value` store, and the cell store's on the cell arm, where the `Value` half
+    /// keeps no floor of its own.
+    pub(super) fn begin_execution_entry(&mut self) -> Result<(), RuntimeError> {
+        match &mut self.data.store {
+            EngineStore::Values => self.data.storage.begin_execution_entry(),
+            EngineStore::Cells(arm) => {
+                self.data.storage.begin_activation_entry()?;
+                arm.begin_execution_entry();
+                Ok(())
+            }
+        }
     }
 
     /// The number of live instances, persistent and per-call (specification 34 MEM-09).
