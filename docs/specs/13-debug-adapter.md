@@ -110,9 +110,8 @@ full command queue, a detach, an attach nor a configuration change releases it. 
 not a continue is an explicit stop, so a breakpoint, pause or step never delays a stop
 (specification 11 §6.9). A chip's hold loop serves the control connection and feeds the hardware
 watchdog while it waits, so a long hold neither resets the device nor loses a queued request
-(specification 34 STATE-07). trust-runtime's code must follow this too: its hold loop watches the
-stop request and releases the hold when one arrives. The hold loop does not look at the stop request
-today and must be changed to do so (owner, 18 October 2026).
+(specification 34 STATE-07). trust-runtime's hold loop does so: it watches the stop request and releases the hold when one
+arrives (owner, 18 October 2026; `crates/trust-runtime/tests/debugger_hold_stop.rs`).
 
 #### Pause
 
