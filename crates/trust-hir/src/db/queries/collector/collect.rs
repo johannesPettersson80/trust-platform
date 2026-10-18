@@ -232,7 +232,10 @@ impl SymbolCollector<'_> {
                     self.table
                         .get(id)
                         .filter(|sym| {
-                            matches!(sym.kind, SymbolKind::Class | SymbolKind::FunctionBlock)
+                            matches!(
+                                sym.kind,
+                                SymbolKind::Class | SymbolKind::FunctionBlock | SymbolKind::Program
+                            )
                         })
                         .map(|_| id)
                 });
