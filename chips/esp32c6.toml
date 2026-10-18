@@ -2,7 +2,8 @@
 # Values from the adapter profile crates/trust-platform-esp32/src/profile.rs, the firmware's
 # partition table firmware/trust-esp32c6/partitions.csv, the ESP32-C6 memory windows of
 # xtask/src/portability/elf.rs (from esp-hal 1.2.2) and specification 34 D.2. The host test
-# crates/trust-platform-esp32/tests/chip_file.rs compares them with profile.rs.
+# crates/trust-platform-esp32/tests/chip_file.rs compares them with profile.rs and with the program
+# slot constants of crates/trust-platform-esp32/src/program_flash.rs.
 
 [identity]
 name = "esp32c6"
@@ -63,7 +64,8 @@ firmware = { start = 0x1_0000, kib = 1984 }
 # to the two checkpoint slots, which sit at the very end of the 8 MB module.
 application = { start = 0x20_0000, kib = 6112 }
 # The two program slots of the program store (specification 34 §5.1): the two halves of `application`,
-# of equal size, which an install writes in turn.
+# of equal size, which an install writes in turn. Their offsets and size are SLOT_A_OFFSET,
+# SLOT_B_OFFSET and SLOT_BYTES of program_flash.rs, and the host test chip_file.rs checks them.
 application_a = { start = 0x20_0000, kib = 3056 }
 application_b = { start = 0x4F_C000, kib = 3056 }
 checkpoint_a = { start = 0x7F_8000, kib = 16 }

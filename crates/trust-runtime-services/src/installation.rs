@@ -1,14 +1,18 @@
 //! The installed-application container of a chip's `application` region (specification 34 §5.1).
 //!
 //! A chip keeps its installed program and its deployment record in one container. Version
-//! `TRSTA001` holds the two payloads. Version `TRSTA002` also holds an install sequence under the
-//! header CRC-32, which the program store uses to order its two slots. This module checks a
+//! `TRSTA002` holds the two payloads and an install sequence under the header CRC-32, which the
+//! program store uses to order its two slots. It is the only version that the program store reads
+//! and the only one that a tool writes: [`encode_sequenced`] is the one writer, and
+//! `cargo xtask portability pack-project` calls it with [`FIRST_SEQUENCE`]. Version `TRSTA001` is
+//! the same container without the sequence. It is not committed in the program store
+//! (specification 34 §5.1), and [`decode`] and [`admit`] read it only for a firmware that has no
+//! program store and reads one container in place (the STM32U5A9's). This module checks a
 //! container before exposing either payload, so a damaged or half-written container reads as no
 //! installed program (DEPLOY-03) and never as a program. [`admit`] and [`admit_sequenced`] then
 //! decode the container's record and admit the deployment against the device's descriptor before
-//! any state exists (specification 34 §5.1.1, DEPLOY-04). The bench packs a `TRSTA001` container
-//! with `cargo xtask portability pack-project`, which calls [`encode`]; the checks in [`decode`]
-//! and [`decode_sequenced`] are the only paths to the payloads.
+//! any state exists (specification 34 §5.1.1, DEPLOY-04); the checks in [`decode`] and
+//! [`decode_sequenced`] are the only paths to the payloads.
 
 use alloc::vec::Vec;
 use core::fmt;
@@ -29,6 +33,11 @@ pub const PROGRAM_KIND: u32 = 1;
 pub const RECORD_KIND: u32 = 2;
 /// Offset of the install sequence in a version-2 container (specification 34 §5.1).
 pub const SEQUENCE_OFFSET: usize = 16;
+/// The install sequence of the first commit into an empty store. The program store gives it to that
+/// container, and the bench packer writes it, so that a packed container written into slot A is a
+/// committed container with the bytes of the first commit (specification 34 §5.1, "A first flash").
+/// Each later commit takes one more than the newest committed sequence.
+pub const FIRST_SEQUENCE: u64 = 1;
 /// The bytes of a version-2 header, from the magic to the last entry. Its payloads start here.
 pub const SEQUENCED_HEADER_BYTES: usize = Version::Sequenced.header_end();
 
@@ -153,23 +162,30 @@ impl fmt::Display for InstallationError {
 
 impl core::error::Error for InstallationError {}
 
-/// Build the `TRSTA001` container of `program` and `record`.
+/// Build the `TRSTA001` container of `program` and `record`, as the tests of the version-1 reader
+/// and of the program store's refusal of version 1 need it. No tool writes version 1: the writer of
+/// every container is [`encode_sequenced`] (specification 34 §5.1).
 ///
 /// The container holds `program` first and `record` second, exactly as [`decode`] reads it: the
 /// header CRC-32 covers bytes 12 to the end of the entry table, and the total length is the whole
-/// container (specification 34 §5.1). A writer to flash writes the two payloads first, then the
-/// entry table and the header fields, and the magic last, so a write that stops early reads as no
-/// installed program (DEPLOY-03); this function returns the bytes in container order.
+/// container.
 ///
 /// # Errors
 ///
 /// [`InstallationError::TooLarge`] when the container is longer than a `u32` can count.
+#[cfg(test)]
 pub fn encode(program: &[u8], record: &[u8]) -> Result<Vec<u8>, InstallationError> {
     write(Version::Plain, None, program, record)
 }
 
 /// Build the `TRSTA002` container of `program` and `record` with the install sequence `sequence`
 /// (specification 34 §5.1). The sequence sits under the header CRC-32, at [`SEQUENCE_OFFSET`].
+///
+/// This is the one writer of the container: the bench packer calls it with [`FIRST_SEQUENCE`], and
+/// a client that uploads a program for `program.install` calls it with any sequence, since the
+/// device replaces the sequence with its own ([`set_sequence`]). The bytes are in container order; a
+/// writer to flash writes the two payloads first, then the entry table and the header fields, and
+/// the magic last, so a write that stops early reads as no installed program (DEPLOY-03).
 ///
 /// # Errors
 ///
@@ -311,7 +327,8 @@ fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError>
     })
 }
 
-/// Check a `TRSTA001` region and return the program and record it holds.
+/// Check a `TRSTA001` region and return the program and record it holds. The program store does not
+/// call this: it reads `TRSTA002` only (see the module documentation).
 ///
 /// Nothing is returned before every check has passed: the magic, the header CRC-32, the total
 /// length against the region, the entry count, each kind once, every entry's range and overlap,
@@ -465,7 +482,8 @@ impl core::error::Error for AdmissionError {}
 
 /// Admit the `TRSTA001` container in a chip's `application` region before any state exists:
 /// [`decode`] the container, decode its deployment record and run the core's admission with the
-/// device's descriptor, in that order (specification 34 §5.1, §5.1.1, DEPLOY-04).
+/// device's descriptor, in that order (specification 34 §5.1, §5.1.1, DEPLOY-04). The program store
+/// does not call this: it admits with [`admit_sequenced`].
 ///
 /// Nothing is constructed on any path: the checks run on the container's bytes alone, and an
 /// admitted container returns the program, its decoded record and the limits to prepare it with.

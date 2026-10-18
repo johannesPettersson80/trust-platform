@@ -181,6 +181,7 @@ package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
     component "Startup composition\nselected transports / T0 SHM / Linux RT posture" as startup
     component "Launcher signals / ResourceControl\nSTOP, safe outputs, durable save" as shutdown
     component "Faulted wait\nno tasks or outputs; serves reads and config;\nrestart / online change resume; STOP ends\n(scheduler/faulted.rs; command rules:\ntrust-runtime-services resource/commands.rs)" as faultedWait
+    component "Stopped wait (computer)\nshutdown stops the program (safe outputs, then the retain save);\nthe process stays up with its control server, web UI and services;\nno tasks or outputs, polls every 10 ms for restart or exit;\nrestart loads the installed bundle again, as a new process loads it;\nthe process ends only on SIGINT / SIGTERM, shutdown with exit true or hang action abort\n(scheduler/stopped.rs; run/runtime/program.rs; spec 34 STATE-08)" as stoppedWait
     component "Hang supervisor (watchdog enabled)\nindependent thread reads the published deadline;\nWatchdogTimeout + hang_action fault | abort (exit 70)\n(scheduler/supervisor.rs)" as hangSupervisor
     runtime --> resourceChange : metadata / direct / MQTT bindings
     resourceChange --> state : preserve values, live identities, debug/IR/fault state
@@ -190,6 +191,8 @@ package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
     runner --> safeState : STOP / FAULT / watchdog
     runner --> faultedWait : halting fault (process keeps serving)
     faultedWait --> runner : successful restart / online change
+    runner --> stoppedWait : control shutdown (the process stays up)
+    stoppedWait --> runner : restart cold / warm starts the installed program
     hangSupervisor ..> runner : cycle deadline; declares a hung scan Faulted
     safeState --> state : separate checked safety entry
     startup --> runner
@@ -201,6 +204,45 @@ package "Lifecycle and checked engineering" as lifecyclePkg #LightGray {
         Binding-only edits preserve task timing; explicit task replacement samples
         SINGLE and resets registration timing while retaining thread identity history.
         Failure or discarded candidate leaves the installed state unchanged.
+    end note
+}
+
+package "Program loading: transfer, checks, commit, reply, restart (spec 34 5.1, 11.2, PORT-05)" as loadingPkg #Honeydew {
+    component "pack-project (xtask portability/pack.rs)\nTRSTA002 container with install sequence 1\n(installation::encode_sequenced, FIRST_SEQUENCE):\nthe bytes the store commits into an empty store" as packTool
+    component "Transfer session (trust-runtime-services transfer/)\none upload staged in RAM in parts of 4,096 bytes,\nevery part CRC-32 checked, the whole upload SHA-256 checked;\nids: boot number + sequence; a reset ends every transfer" as transferSession
+    component "program.install request rule (loading/program_install.rs)\nAdmin; first failing check is the reply:\nparams, hung scan, resource not Stopped (resource_not_running),\nno program store (unsupported request), complete upload taken" as installRule
+    component "Install checks (loading/install.rs check)\n1 container: magic, header CRC, length, entries, payload CRCs\n2 record and admission (DEPLOY-04)\n3 retained values against the newest checkpoint or retain file (G13)\n4 dry-run preparation with the admitted limits\nnothing is written until all four pass" as installChecks
+    component "Chip commit order (loading/install.rs Install::step)\nslot = the one without the newest committed container, or A;\nsequence = newest + 1, or 1;\nerase units, program payloads, header and first half of the magic,\nread back, program the second half of the magic = commit point" as installCommit
+    component "Chip: the commit is the reply in flight (runner/install.rs)\none step in each pass of the loop (one erase unit, or at most 256 bytes\nprogrammed or read back), watchdog fed;\nno request is read until the installed reply is written;\na failed step is the reply" as chipInstall
+    component "Computer: program store (trust-runtime host/program_store.rs)\na deployment of the program alone: admit first, stage bundles/label, temporary file + rename per file,\nrename of current = commit point, then previous, then prune;\nweb deploy, web rollback and program.install, Stopped only (Q11)" as computerStore
+    interface "ProgramFlash / ProgramStore (core ports.rs)\ntwo slots A and B: read, program, erase" as programFlash
+    component "C6 program slots (trust-platform-esp32 program_flash.rs)\napplication_a 0x200000, application_b 0x4FC000, 3,056 KiB each;\none FlashOwner shares the flash with the checkpoint slots" as c6Slots
+    component "Boot selection (loading/select.rs)\nreads both headers: the committed TRSTA002 with the highest sequence wins;\nTRSTA001 is not committed and its slot is named in the reason;\na damaged newest container refuses the boot, no fallback (Q12):\nno installed program: reason" as bootSelect
+    component "bytecode.reload rules (loading/reload.rs)\nparams (bytes or transfer), hung scan, Stopped refused, upload taken;\nreplies reloaded / reload timeout / resource stopped /\ncommit outcome unknown; shared by every runtime" as reloadRules
+    component "Reload queue and waits (trust-runtime control/program_handlers.rs)\nqueues the change for the scan thread; waits 5 s for it to be taken\nand 60 s for the commit; memory only. A chip has no online change yet." as reloadWait
+
+    transferSession --> installRule : the complete upload, taken once
+    installRule --> installChecks : Stopped, program store present
+    installChecks --> installCommit : chip
+    installChecks --> computerStore : computer
+    installCommit --> chipInstall : the loop advances it
+    chipInstall --> programFlash : one step per pass
+    chipInstall ..> deviceRunner : the installed reply is written when the last step is done
+    c6Slots ..|> programFlash : implements
+    packTool ..> c6Slots : espflash write-bin at 0x200000\n(a first flash, sequence 1)
+    bootSelect --> programFlash : both headers, then the newest container once
+    bootSelect --> deviceEngine : program bytes + decoded record + limits;\nthe container is released
+    chipInstall ..> bootSelect : a reset starts the installed program\n(restart in place: slice S4-6b)
+    computerStore ..> stoppedWait : restart loads the bundle current names
+    transferSession --> reloadRules : bytecode.reload with transfer
+    reloadRules --> reloadWait : the program bytes (computer)
+    reloadWait --> codeChange : applied at a scan boundary
+
+    note bottom of installCommit
+        The reply of program.install carries status installed, sequence, program_sha256 and bytes.
+        On a chip it comes after the whole commit, up to 0.4 s per 4 KiB erase unit,
+        so a client reads it with the bound of spec 11 6.8.1 and not with 750 ms.
+        An interrupted install keeps the previous program selected (DEPLOY-03).
     end note
 }
 

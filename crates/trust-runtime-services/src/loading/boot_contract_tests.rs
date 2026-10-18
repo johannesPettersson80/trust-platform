@@ -10,10 +10,11 @@ use alloc::vec::Vec;
 use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::ProgramStore;
+use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::watchdog::RetainMode;
 
 use super::install::{begin, check, InstallError, Progress};
-use super::select::{boot, SelectError};
+use super::select::{boot, previous, SelectError};
 use crate::installation::{AdmissionError, InstallationError};
 use crate::tests::program_store::{
     committed_image, device, packed_container, transfer_of, FlashProbe, PROGRAM, SLOT_BYTES,
@@ -22,9 +23,9 @@ use crate::tests::program_store::{
 /// Memory enough for any container of these tests.
 const ROOM: usize = 1024 * 1024;
 
-/// A flash whose slot A holds `first` from its first byte and whose slot B holds `second` from its
-/// first byte, when there is one. The rest of each slot is erased.
-fn flash_with(first: &[u8], second: Option<&[u8]>) -> FlashProbe {
+/// A flash whose slot A holds `first` from its first byte, when there is one, and whose slot B holds
+/// `second` from its first byte, when there is one. The rest of each slot is erased.
+fn flash_of(first: Option<&[u8]>, second: Option<&[u8]>) -> FlashProbe {
     let slot = |image: Option<&[u8]>| {
         let mut bytes = vec![0xff_u8; SLOT_BYTES as usize];
         if let Some(image) = image {
@@ -32,7 +33,13 @@ fn flash_with(first: &[u8], second: Option<&[u8]>) -> FlashProbe {
         }
         bytes
     };
-    FlashProbe::from_slots([slot(Some(first)), slot(second)])
+    FlashProbe::from_slots([slot(first), slot(second)])
+}
+
+/// A flash whose slot A holds `first` from its first byte and whose slot B holds `second` from its
+/// first byte, when there is one. The rest of each slot is erased.
+fn flash_with(first: &[u8], second: Option<&[u8]>) -> FlashProbe {
+    flash_of(Some(first), second)
 }
 
 /// Installs `container` to its commit point, one step at a time, and returns the sequence it took.
@@ -47,17 +54,16 @@ fn install(store: &mut ProgramStore, container: Vec<u8>) -> u64 {
 }
 
 #[test]
-fn the_highest_committed_sequence_boots_and_a_packed_container_counts_as_sequence_0() {
+fn the_highest_committed_sequence_boots_in_either_slot() {
     // Specification 34 §5.1 (the program store): the committed container with the highest install
-    // sequence is the installed program, in whichever slot it is, and a `TRSTA001` container, which
-    // the bench packer writes and which has no sequence, counts as committed with sequence 0 until
-    // S4-7 removes it. Wrong behaviour caught: a boot that takes the first slot or the slot written
-    // last; a packed container that is not recognised, so a bench device boots nothing; a packed
-    // container that outranks a committed install; an install over a packed container that takes
-    // its sequence from the wrong number.
-    let flash = flash_with(&packed_container(), None);
-    let booted = boot(&mut flash.store(), &device(), ROOM).expect("a packed container boots");
-    assert_eq!(booted.sequence, 0, "a packed container has sequence 0");
+    // sequence is the installed program, in whichever slot it is. A first flash holds sequence 1 in
+    // slot A, and the install made after it takes sequence 2 in slot B and then outranks it. Wrong
+    // behaviour caught: a boot that takes the first slot or the slot written last; an install over a
+    // first flash that writes the slot the running program is in, or takes its sequence from the wrong
+    // number.
+    let flash = flash_with(&committed_image(1, RetainMode::None), None);
+    let booted = boot(&mut flash.store(), &device(), ROOM).expect("a first flash boots");
+    assert_eq!(booted.sequence, 1, "a first flash has sequence 1");
     assert_eq!(
         booted.program, PROGRAM,
         "the boot hands over the program alone"
@@ -68,10 +74,9 @@ fn the_highest_committed_sequence_boots_and_a_packed_container_counts_as_sequenc
         "and the record the container holds"
     );
 
-    // An install made after it takes sequence 1 in the other slot, and then outranks it.
     let mut store = flash.store();
-    assert_eq!(install(&mut store, transfer_of(RetainMode::None)), 1);
-    let image = committed_image(1, RetainMode::None);
+    assert_eq!(install(&mut store, transfer_of(RetainMode::None)), 2);
+    let image = committed_image(2, RetainMode::None);
     let slots = flash.slots();
     assert_eq!(
         &slots[1][..image.len()],
@@ -82,7 +87,7 @@ fn the_highest_committed_sequence_boots_and_a_packed_container_counts_as_sequenc
         boot(&mut store, &device(), ROOM)
             .expect("the install boots")
             .sequence,
-        1
+        2
     );
 
     // The highest sequence wins in either slot.
@@ -97,17 +102,6 @@ fn the_highest_committed_sequence_boots_and_a_packed_container_counts_as_sequenc
             "slot A holds sequence {first} and slot B {second}"
         );
     }
-
-    // A packed container is older than a committed install, also when it is in slot A.
-    let flash = flash_with(
-        &packed_container(),
-        Some(&committed_image(1, RetainMode::None)),
-    );
-    let booted = boot(&mut flash.store(), &device(), ROOM).expect("a container boots");
-    assert_eq!(
-        booted.sequence, 1,
-        "sequence 1 outranks the packed container"
-    );
 }
 
 #[test]
@@ -139,17 +133,6 @@ fn a_damaged_newest_container_refuses_the_boot() {
         error.reason().to_string(),
         "the CRC-32 of entry kind 1 does not match",
         "a device without a program names this reason when it refuses a restart"
-    );
-
-    // A damaged packed container is a damaged committed container as well.
-    let mut packed = packed_container();
-    packed[52] ^= 0x01;
-    let flash = flash_with(&packed, None);
-    let error = boot(&mut flash.store(), &device(), ROOM)
-        .expect_err("the damaged packed container refuses the boot");
-    assert_eq!(
-        error.to_string(),
-        "no installed program: the CRC-32 of entry kind 1 does not match"
     );
 }
 
@@ -187,15 +170,93 @@ fn a_container_longer_than_the_room_refuses_the_boot_with_its_numbers() {
 }
 
 #[test]
-fn an_erased_store_refuses_the_boot_and_names_both_containers() {
-    // Specification 34 §5.1: an erased store holds no installed program, and the reason names the two
-    // magics a slot may hold. Wrong behaviour caught: erased flash read as a container.
+fn an_erased_store_refuses_the_boot_and_names_the_container_it_reads() {
+    // Specification 34 §5.1: an erased store holds no installed program, and the reason names the one
+    // magic a slot may hold. Wrong behaviour caught: erased flash read as a container; a reason that
+    // still offers `TRSTA001`.
     let flash = FlashProbe::erased();
     let error = boot(&mut flash.store(), &device(), ROOM).expect_err("an erased store has none");
     assert_eq!(error, SelectError::NoContainer);
     assert_eq!(
         error.to_string(),
-        "no installed program: no TRSTA001 or TRSTA002 container in either slot"
+        "no installed program: no TRSTA002 container in either slot"
+    );
+}
+
+#[test]
+fn a_trsta001_container_is_not_committed() {
+    // Specification 34 §5.1 (the program store): only a `TRSTA002` container is committed. A slot whose
+    // first eight bytes read `TRSTA001` holds a version-1 container, which is not committed: the boot
+    // does not start it and names its slot, whatever else the slot holds; it takes no part in the
+    // order; and the next install overwrites it like an erased slot, in slot A with sequence 1. Wrong
+    // behaviour caught: a boot that still reads version 1 (0.36 counted it as sequence 0); a refusal
+    // that does not say which slot holds the container; a version-1 container counted as the older of
+    // two, or one that blocks the install from slot A.
+    let version_one = packed_container();
+    let reason =
+        "slot A holds a TRSTA001 container, which is not committed (only TRSTA002 is read)";
+
+    // In slot A, intact or with a damaged program, the boot is refused and names slot A.
+    let mut damaged = version_one.clone();
+    damaged[52] ^= 0x01;
+    for container in [&version_one, &damaged] {
+        let flash = flash_with(container, None);
+        let error = boot(&mut flash.store(), &device(), ROOM)
+            .expect_err("a TRSTA001 container is not committed");
+        assert_eq!(error, SelectError::VersionOne(Slot::A));
+        assert_eq!(
+            error.to_string(),
+            alloc::format!("no installed program: {reason}")
+        );
+        assert_eq!(error.reason().to_string(), reason);
+    }
+
+    // In slot B the reason names slot B, and in both the first one is named.
+    let flash = flash_of(None, Some(&version_one));
+    let error = boot(&mut flash.store(), &device(), ROOM)
+        .expect_err("a TRSTA001 container is not committed");
+    assert_eq!(
+        error.to_string(),
+        "no installed program: slot B holds a TRSTA001 container, which is not committed (only TRSTA002 is read)"
+    );
+    let flash = flash_with(&version_one, Some(&version_one));
+    assert_eq!(
+        boot(&mut flash.store(), &device(), ROOM).expect_err("neither is committed"),
+        SelectError::VersionOne(Slot::A)
+    );
+
+    // Beside a committed container it takes no part in the order, in either slot: the committed
+    // container boots, and there is no older program.
+    for (first, second) in [
+        (version_one.clone(), committed_image(1, RetainMode::None)),
+        (committed_image(1, RetainMode::None), version_one.clone()),
+    ] {
+        let flash = flash_with(&first, Some(&second));
+        let mut store = flash.store();
+        let booted = boot(&mut store, &device(), ROOM).expect("the committed container boots");
+        assert_eq!(booted.sequence, 1);
+        assert_eq!(
+            previous(&mut store, &device()),
+            Ok(None),
+            "a version-1 container is not the program before"
+        );
+    }
+
+    // The next install takes slot A and sequence 1, as in an erased store, and boots.
+    let flash = flash_with(&version_one, None);
+    let mut store = flash.store();
+    assert_eq!(install(&mut store, transfer_of(RetainMode::None)), 1);
+    let image = committed_image(1, RetainMode::None);
+    assert_eq!(
+        &flash.slots()[0][..image.len()],
+        image.as_slice(),
+        "the install overwrote the version-1 container in slot A"
+    );
+    assert_eq!(
+        boot(&mut store, &device(), ROOM)
+            .expect("the install boots")
+            .sequence,
+        1
     );
 }
 

@@ -369,9 +369,9 @@ fn a_slot_header_is_committed_only_with_its_magic_crc_and_length() {
 
 #[test]
 fn a_trsta001_container_still_reads() {
-    // Specification 34 §5.1: the firmware reads TRSTA001 until it switches to the program store, so
-    // the version-1 container still decodes to its payloads, and the version-2 reader refuses it as
-    // no program. Catches a shared layout that moves the version-1 entries, or one that takes the
+    // Specification 34 §5.1: the boot reads TRSTA002 only, and the version-1 decoder stays for the
+    // tests that build an old container, so the version-1 container still decodes to its payloads
+    // and the version-2 reader refuses it as no program. Catches a shared layout that moves the version-1 entries, or one that takes the
     // version-1 magic for version 2.
     let installed = decode(&CONTAINER).expect("the hand-built container decodes");
     assert_eq!(installed.program, &[1, 2, 3]);

@@ -2630,6 +2630,30 @@ leaves the runtime running in the Stopped state, and `ctl restart cold` starts
 the program again (specification 34 STATE-08). `ctl shutdown --exit` sends
 `shutdown` with `{"exit": true}` and so also ends the runtime's process.
 
+A chip answers `program.install` after its whole commit and answers no other
+request meanwhile (specification 34 PORT-05 and §11.2), so a reply that takes
+longer than 750 milliseconds is late, not lost. A client that sends
+`program.install` reads its reply for up to T seconds, for a container of L
+bytes:
+
+```text
+T = 4 + 0.4 × ⌈L / 4096⌉ + 0.01 × ⌈L / 256⌉
+```
+
+The first term is the longest the pass that reads the request may take: the
+chip's watchdog interval of 4,000 milliseconds (specification 34 Appendix D.2),
+which the container's checks must finish within. The second is the erase of
+each 4 KiB unit the container takes, at the up to 0.4 seconds of Appendix D.2.
+The third is the programming and the read-back of each 256-byte step of the
+commit, two steps at the few milliseconds that specification 34 §11.2 gives,
+counted as 5 milliseconds each. A container of 100 KiB (102,400 bytes) gives
+4 + 10 + 4 = 18 seconds, and one that fills a whole 3,056 KiB slot (3,129,344
+bytes) gives 4 + 305.6 + 122.24, about 432 seconds. The bound is the same on
+every runtime, because a client sends the same request to each: a computer
+commits with no erase or program step and replies sooner, and the bound is then
+only a limit. Every other request keeps the 750 millisecond read bound,
+the transfer operations included.
+
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is decoded exactly once. Malformed JSON
@@ -5015,7 +5039,11 @@ copied bundle before changing deployment pointers. A custom deployment label
 must be one non-empty filesystem component: absolute paths, `.`/`..`, path
 separators, and platform prefixes are rejected. Automatically generated labels
 must be unique across consecutive deployments from one process, including
-deployments started within the same second.
+deployments started within the same second. A label that `current` or `previous`
+names is refused with `deployment already exists`. A `bundles/<label>` that
+neither pointer names is the leftover of an interrupted or refused stage: it
+blocks nothing, and it is removed before a deployment under that label is
+staged (specification 34 §11.2).
 
 When deployment signature policy is enabled, validation occurs before any
 bundle file or deployment pointer is changed. A payload signed by a currently

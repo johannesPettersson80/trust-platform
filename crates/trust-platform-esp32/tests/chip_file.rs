@@ -11,7 +11,7 @@ use trust_platform_esp32::profile::{
     numeric_profile_ok, CHIP_ID, CPU_HZ, DEVICE_DESCRIPTOR, FACTORY_OFFSET, FLASH_KIB,
     RESET_POWER_ON, RESET_USB, RESET_WATCHDOG, STBC_BYTES, STBC_OFFSET,
 };
-use trust_platform_esp32::program_flash::SLOT_BYTES;
+use trust_platform_esp32::program_flash::{SLOT_A_OFFSET, SLOT_BYTES, SLOT_B_OFFSET};
 use trust_platform_esp32::{Platform, ResetCause, ResetRecord};
 use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_services::capabilities::{self, LastReset, ResetCauseName};
@@ -140,6 +140,43 @@ fn the_device_descriptor_offers_one_slot() {
         Some(u64::from(SLOT_BYTES)),
         "and it is the slot the program store writes"
     );
+}
+
+/// The chip file names both program slots of the program store, and the offsets and size that
+/// `program_flash.rs` drives are the file's (specification 34 §5.1, Appendix D.2 and Appendix H.2;
+/// decision G14). Worked out by hand from D.2: the `stbc` region of 6,112 KiB at 0x20_0000 is two
+/// slots of 3,056 KiB, so slot A is 3,056 x 1,024 = 3,129,344 bytes at 0x20_0000, slot B follows it at
+/// 0x20_0000 + 0x2F_C000 = 0x4F_C000 and ends at 0x7F_8000, where the first checkpoint slot begins.
+/// Catches a chip file whose slots differ from the constants the store writes with, which would
+/// send an install into the firmware or a checkpoint slot, a slot B that leaves a gap after slot A or
+/// overlaps it, and slots that do not fill the `application` region.
+#[test]
+fn the_chip_file_names_both_application_slots() {
+    let file = chip_file();
+    let slot_a = file
+        .layout
+        .application_a
+        .expect("the ESP32-C6 names slot A");
+    let slot_b = file
+        .layout
+        .application_b
+        .expect("the ESP32-C6 names slot B");
+
+    // The values of the specification, as literals.
+    assert_eq!((slot_a.start, slot_a.kib), (0x20_0000, 3_056));
+    assert_eq!((slot_b.start, slot_b.kib), (0x4F_C000, 3_056));
+
+    // `program_flash.rs` drives exactly the file's slots.
+    assert_eq!(slot_a.start, SLOT_A_OFFSET);
+    assert_eq!(slot_b.start, SLOT_B_OFFSET);
+    assert_eq!(slot_a.bytes(), u64::from(SLOT_BYTES));
+    assert_eq!(slot_b.bytes(), u64::from(SLOT_BYTES));
+
+    // The slots follow each other and fill the `application` region, up to the checkpoint slots.
+    assert_eq!(slot_a.end(), u64::from(slot_b.start));
+    assert_eq!(file.layout.application.start, slot_a.start);
+    assert_eq!(slot_b.end(), file.layout.application.end());
+    assert_eq!(slot_b.end(), u64::from(file.layout.checkpoint_a.start));
 }
 
 /// The `capabilities` reply of the chip's descriptor carries the chip file's program slot and

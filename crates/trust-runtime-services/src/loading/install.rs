@@ -254,7 +254,7 @@ pub fn start(
                 .checked_add(1)
                 .ok_or(InstallError::SequenceExhausted)?,
         ),
-        None => (Slot::A, 1),
+        None => (Slot::A, installation::FIRST_SEQUENCE),
     };
     installation::set_sequence(&mut container, sequence)
         .map_err(|error| InstallError::Admission(AdmissionError::Container(error)))?;

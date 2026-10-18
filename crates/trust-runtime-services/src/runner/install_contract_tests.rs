@@ -35,7 +35,7 @@ use crate::tests::runner_ports::{Fixture, TestPlatform, TestRunner};
 use crate::transfer::{TransferSession, PART_BYTES};
 
 /// Why the loop has no program, as a chip that booted from an erased flash says.
-const REASON: &str = "no TRSTA001 or TRSTA002 container in either slot";
+const REASON: &str = "no TRSTA002 container in either slot";
 /// The boot number of the transfer session.
 const BOOT: u32 = 3;
 /// Memory enough for the boot of any container of these tests.

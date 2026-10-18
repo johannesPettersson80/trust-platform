@@ -5,14 +5,13 @@
 //! a failed check refuses the boot with `no installed program: <reason>`. The boot never falls back
 //! to the other slot: a rollback is an explicit activation with its own check.
 //!
-//! A container packed on the bench (`TRSTA001`) has no sequence. It counts as committed with install
-//! sequence 0 until the bench packer writes version 2 (S4-7), so it boots, and an install made after
-//! it takes sequence 1 in the other slot.
+//! Only a `TRSTA002` container is committed. A slot that holds a `TRSTA001` container, which has no
+//! install sequence, is not committed: it takes no part in the order, and a store with no committed
+//! container names the slot that holds one in its refusal ([`SelectError::VersionOne`]).
 
 use alloc::vec::Vec;
 use core::fmt;
 
-use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{DeploymentRecord, DeviceDescriptor};
 use trust_runtime_core::ports::ProgramStore;
 use trust_runtime_core::retain::checkpoint::{FlashError, Slot};
@@ -22,17 +21,6 @@ use super::read_padded;
 use crate::installation::{
     self, AdmissionError, SequencedAdmitted, SequencedHeader, SEQUENCED_HEADER_BYTES,
 };
-
-/// The bytes of the install sequence in a `TRSTA002` header, which `TRSTA001` does not have.
-const SEQUENCE_BYTES: usize = 8;
-/// The bytes of a `TRSTA001` header: a `TRSTA002` header without the install sequence.
-const PACKED_HEADER_BYTES: usize = SEQUENCED_HEADER_BYTES - SEQUENCE_BYTES;
-/// Offset of the header CRC-32 in both versions.
-const HEADER_CRC_OFFSET: usize = 8;
-/// The header CRC-32 covers the bytes from here to the end of the header, in both versions.
-const HEADER_CRC_START: usize = 12;
-/// Offset of the container's total length in both versions.
-const TOTAL_LENGTH_OFFSET: usize = 12;
 
 /// A committed container and the slot that holds it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,7 +81,7 @@ pub struct Stored {
 /// the container they came out of released (specification 34 §5.1).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Booted {
-    /// The container's install sequence, 0 for a `TRSTA001` container.
+    /// The container's install sequence.
     pub sequence: u64,
     /// The bytes of `program.stbc`.
     pub program: Vec<u8>,
@@ -108,8 +96,12 @@ pub struct Booted {
 /// is `no installed program: <reason>`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SelectError {
-    /// Neither slot holds a committed container.
+    /// Neither slot holds a container.
     NoContainer,
+    /// Neither slot holds a committed container, and this slot, the first that does, holds a
+    /// `TRSTA001` container: version 1 has no install sequence and is not committed (specification 34
+    /// §5.1).
+    VersionOne(Slot),
     /// The two slots cannot be ordered (see [`ScanError`]).
     Scan(ScanError),
     /// The selected container fails its payload check or its admission. The other slot is not
@@ -136,9 +128,12 @@ impl SelectError {
 
     fn write_reason(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NoContainer => {
-                formatter.write_str("no TRSTA001 or TRSTA002 container in either slot")
-            }
+            Self::NoContainer => formatter.write_str("no TRSTA002 container in either slot"),
+            Self::VersionOne(slot) => write!(
+                formatter,
+                "slot {} holds a TRSTA001 container, which is not committed (only TRSTA002 is read)",
+                slot_name(*slot)
+            ),
             Self::Scan(error) => fmt::Display::fmt(error, formatter),
             // The container's own error, without the admission's "no installed application"
             // prefix, which would repeat this one.
@@ -205,43 +200,40 @@ pub fn order(store: &mut ProgramStore) -> Result<Order, ScanError> {
 }
 
 /// Reads the header of `slot`, and returns it when the slot holds a committed container: a
-/// `TRSTA002` container, or a `TRSTA001` container, which counts as sequence 0.
+/// `TRSTA002` container whose header CRC-32 and total length are good (specification 34 §5.1).
 fn committed_header(store: &mut ProgramStore, slot: Slot) -> Result<Option<SlotHeader>, ScanError> {
     let slot_len = store.flash.geometry().slot_len();
     let bytes = read_padded(store, slot, 0, SEQUENCED_HEADER_BYTES).map_err(ScanError::Flash)?;
-    let header = installation::committed_header(&bytes, slot_len)
-        .or_else(|| packed_header(&bytes, slot_len));
+    let header = installation::committed_header(&bytes, slot_len);
     Ok(header.map(|header| SlotHeader { slot, header }))
 }
 
-/// The header of a committed `TRSTA001` container, with install sequence 0, read from the first
-/// bytes of a slot of `slot_len` bytes. As for `TRSTA002`, the container is committed when its magic,
-/// its header CRC-32 and its total length are good (specification 34 §5.1).
-fn packed_header(bytes: &[u8], slot_len: u32) -> Option<SequencedHeader> {
-    if bytes.get(..installation::MAGIC.len())? != installation::MAGIC.as_slice() {
-        return None;
+/// The newest committed container, or why the store has none (specification 34 §5.1).
+fn newest_committed(store: &mut ProgramStore) -> Result<SlotHeader, SelectError> {
+    let ordered = order(store).map_err(SelectError::Scan)?;
+    ordered.newest.ok_or_else(|| no_container(store))
+}
+
+/// The refusal of a store that has no committed container. A slot whose first eight bytes read
+/// `TRSTA001` holds a version-1 container, which is not committed; the first such slot is named, so
+/// that a device flashed with an old container says why it has no program.
+fn no_container(store: &mut ProgramStore) -> SelectError {
+    for slot in [Slot::A, Slot::B] {
+        match read_padded(store, slot, 0, installation::MAGIC.len()) {
+            Ok(magic) if magic == installation::MAGIC => return SelectError::VersionOne(slot),
+            Ok(_) => {}
+            Err(error) => return SelectError::Scan(ScanError::Flash(error)),
+        }
     }
-    let header = bytes.get(..PACKED_HEADER_BYTES)?;
-    let word = |offset: usize| {
-        u32::from_le_bytes([
-            header[offset],
-            header[offset + 1],
-            header[offset + 2],
-            header[offset + 3],
-        ])
-    };
-    if crc32::checksum(&header[HEADER_CRC_START..]) != word(HEADER_CRC_OFFSET) {
-        return None;
+    SelectError::NoContainer
+}
+
+/// The name of `slot` in a reason: the letter of its key in the chip file.
+fn slot_name(slot: Slot) -> &'static str {
+    match slot {
+        Slot::A => "A",
+        Slot::B => "B",
     }
-    let total_len = word(TOTAL_LENGTH_OFFSET);
-    let total = usize::try_from(total_len).ok()?;
-    if total < PACKED_HEADER_BYTES || total_len > slot_len {
-        return None;
-    }
-    Some(SequencedHeader {
-        total_len,
-        sequence: 0,
-    })
 }
 
 /// The installed program the store selects at boot: the newest committed container, with its
@@ -252,10 +244,7 @@ fn packed_header(bytes: &[u8], slot_len: u32) -> Option<SequencedHeader> {
 /// [`SelectError`], whose text is `no installed program: <reason>`. A refused container refuses the
 /// boot, and the other slot is never selected in its place (DEPLOY-03).
 pub fn active(store: &mut ProgramStore, device: &DeviceDescriptor) -> Result<Stored, SelectError> {
-    let newest = order(store)
-        .map_err(SelectError::Scan)?
-        .newest
-        .ok_or(SelectError::NoContainer)?;
+    let newest = newest_committed(store)?;
     load(store, newest, device)
 }
 
@@ -291,17 +280,14 @@ pub fn boot(
     device: &DeviceDescriptor,
     room: usize,
 ) -> Result<Booted, SelectError> {
-    let newest = order(store)
-        .map_err(SelectError::Scan)?
-        .newest
-        .ok_or(SelectError::NoContainer)?;
+    let newest = newest_committed(store)?;
     let needed = newest.header.total_len as usize;
     if needed > room {
         return Err(SelectError::NoRoom { needed, room });
     }
     let mut bytes = read_container(store, newest)?;
     let SequencedAdmitted { sequence, admitted } =
-        admit_container(&bytes, device).map_err(SelectError::Refused)?;
+        installation::admit_sequenced(&bytes, device).map_err(SelectError::Refused)?;
     let (record, limits, program) = (admitted.record, admitted.limits, admitted.program);
     let start = offset_in(&bytes, program);
     let end = start + program.len();
@@ -327,22 +313,6 @@ fn read_container(store: &mut ProgramStore, container: SlotHeader) -> Result<Vec
         .map_err(|error| SelectError::Scan(ScanError::Flash(error)))
 }
 
-/// Admits the container `bytes` against `device`: a `TRSTA001` container, which has no sequence,
-/// as sequence 0, and any other as a `TRSTA002` container.
-fn admit_container<'a>(
-    bytes: &'a [u8],
-    device: &DeviceDescriptor,
-) -> Result<SequencedAdmitted<'a>, AdmissionError> {
-    if bytes.starts_with(&installation::MAGIC) {
-        installation::admit(bytes, device).map(|admitted| SequencedAdmitted {
-            sequence: 0,
-            admitted,
-        })
-    } else {
-        installation::admit_sequenced(bytes, device)
-    }
-}
-
 /// Reads the whole container in its slot, checks its payloads and admits it.
 fn load(
     store: &mut ProgramStore,
@@ -350,7 +320,7 @@ fn load(
     device: &DeviceDescriptor,
 ) -> Result<Stored, SelectError> {
     let bytes = read_container(store, container)?;
-    let admitted = admit_container(&bytes, device).map_err(SelectError::Refused)?;
+    let admitted = installation::admit_sequenced(&bytes, device).map_err(SelectError::Refused)?;
     Ok(Stored {
         sequence: admitted.sequence,
         program_sha256: admitted.admitted.record.application.program_sha256,

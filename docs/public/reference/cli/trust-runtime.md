@@ -349,9 +349,15 @@ Important control subcommands:
 - `io-force`
 - `io-unforce`
 - `restart`
-- `shutdown`
+- `shutdown [--exit]`
 - `config-get`
 - `config-set`
+
+`shutdown` stops the program and leaves the runtime running in the Stopped state, with its
+control server, web UI and other services; `restart cold` or `restart warm` starts the
+program again. `shutdown --exit` also ends the runtime's process. Both need the Admin role. A
+chip answers `--exit` as a plain `shutdown`, because its firmware never ends. The process also
+ends on SIGINT or SIGTERM, and `trust-runtime fleet runtime stop` sends the exit.
 
 ![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)
 

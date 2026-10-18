@@ -48,7 +48,7 @@
       "kind": "normal",
       "status": "allowed",
       "owner": "runtime portability S1b-3b (application container)",
-      "rationale": "The bench packer builds the chip's TRSTA001 application container with the shared no_std installation writer, so the bench writes exactly the bytes a chip checks."
+      "rationale": "The bench packer builds the chip's TRSTA002 application container with the shared no_std installation writer, so the bench writes exactly the bytes a chip checks."
     },
     {
       "from": "xtask",
@@ -3150,7 +3150,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/application.rs",
-        "line": 21,
+        "line": 23,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The application region is bank 2 from 0x0820_0000 for 2016 KiB: profile.x keeps the firmware image below 0x0820_0000, and the checkpoint slots follow the region. The firmware never writes or erases it, so the slice is constant for the boot and is read only to admit the program.",
         "test_evidence": "The region bounds are asserted at build time (profile.rs) and the admission rules are host-tested in trust-runtime-services; the read of the installed bytes is proved on the bench (S1b-9u) with a deployed program.",

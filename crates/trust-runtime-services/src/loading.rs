@@ -4,11 +4,11 @@
 //! commits it to the slot that does not hold the newest committed container, in steps the loop
 //! advances one at a time. The commit point is the second half of the magic, programmed last.
 //! [`select`] reads both slots after a reset and selects the newest committed container, and
-//! [`boot`](crate::loading::select::boot) hands the selected program to the device that starts it;
-//! a container packed on the bench (`TRSTA001`) counts as install sequence 0. A damaged container refuses the boot; the
-//! other slot never runs in its place. [`program_install`] is the request rule of `program.install`,
-//! which every runtime shares. Nothing here reads a link or a clock: the platform composes these
-//! with its control loop.
+//! [`boot`](crate::loading::select::boot) hands the selected program to the device that starts it.
+//! Only a `TRSTA002` container is committed, and the bench packer writes one with the install
+//! sequence of a first commit. A damaged container refuses the boot; the other slot never runs in
+//! its place. [`program_install`] is the request rule of `program.install`, which every runtime
+//! shares. Nothing here reads a link or a clock: the platform composes these with its control loop.
 
 pub mod install;
 pub mod program_install;

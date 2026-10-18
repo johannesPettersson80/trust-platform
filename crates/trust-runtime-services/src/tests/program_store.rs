@@ -252,7 +252,8 @@ pub(crate) fn committed_image(sequence: u64, retain_mode: RetainMode) -> Vec<u8>
     .expect("the container encodes")
 }
 
-/// The `TRSTA001` container that the bench packer writes for [`PROGRAM`]: no install sequence.
+/// A `TRSTA001` container of [`PROGRAM`], as the bench packer wrote it before S4-7: no install
+/// sequence, and the boot no longer reads it (specification 34 §5.1, the program store).
 pub(crate) fn packed_container() -> Vec<u8> {
     encode(
         PROGRAM,

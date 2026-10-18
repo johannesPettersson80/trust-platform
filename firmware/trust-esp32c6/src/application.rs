@@ -1,7 +1,8 @@
 //! The installed application: the boot selection over the two program slots, which reads the header of
 //! each slot, takes the committed container with the highest install sequence, and admits it against
-//! the C6's descriptor before any state exists (design §1.1 and §1.2, specification 34 §5.1). A
-//! `TRSTA001` container, which the bench packer writes and which has no sequence, counts as sequence 0.
+//! the C6's descriptor before any state exists (design §1.1 and §1.2, specification 34 §5.1). Only a
+//! `TRSTA002` container is committed: a slot that holds a `TRSTA001` container is not, and the refusal
+//! of the boot names it.
 use alloc::string::{String, ToString};
 use trust_platform_esp32::profile::DEVICE_DESCRIPTOR;
 use trust_runtime_core::ports::ProgramStore;

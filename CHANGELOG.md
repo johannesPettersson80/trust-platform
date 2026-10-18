@@ -24,6 +24,52 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
   `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
   the requirement off, or name a keyring of its own, and install an unsigned program.
+- New control operations to move and install a program. The transfer operations and
+  `program.install` work the same on a computer and on a chip (specification 34 PORT-05 and §11.2).
+  `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (Admin)
+  move a program into the runtime in checked parts of 4,096 bytes, each part with its CRC-32 and the
+  whole upload with its SHA-256; `transfer.get` reads a reply that a runtime holds whole back in
+  parts. `program.install` (Admin) installs the finished upload as the program the runtime starts
+  next. It works only while the program is stopped (send `shutdown` first) and answers
+  `resource_not_running` otherwise. It checks the container, the deployment record and its
+  admission, the retained values against the newest saved ones, and the program's preparation, in
+  that order, and changes nothing when one of them refuses. The reply is
+  `{"status":"installed","sequence":n,"program_sha256":"...","bytes":n}`. On a computer,
+  `bytecode.reload` also takes `transfer` in place of `bytes`; it is still an online change that
+  writes nothing, so a stop and a `restart` start the installed program again, and a chip has no
+  online change yet and answers `unsupported request`. `program.active` (Viewer) reports the
+  installed program and the one before it on a computer; a chip answers `unsupported request` for
+  now. A chip answers `program.install` after its whole commit: specification 11 §6.8.1 gives the
+  time a client waits for that reply, worked out from the container's size.
+- Changed: `trust-runtime deploy`, the web deployment and rollback, and `program.install` write a
+  computer's project through a program store. The program is admitted (its record, its admission
+  against the runtime and a dry-run preparation) before anything the runtime starts from changes,
+  so a program the runtime cannot prepare is refused and the project is left as it was; before, it
+  was written and failed at the next start. Each file is written through a temporary file and a
+  rename. `current` is replaced by one rename, and `previous` by a second, and a rollback does the
+  same, so a stop between two steps leaves a project that starts. Every bundle holds its install
+  sequence in `install-sequence`. `trust-runtime deploy` removes the `bundles/<label>` that an
+  interrupted deployment left, where it refused the label; a label that `current` or `previous` still
+  names is refused as before. A web deployment of sources only now creates a new bundle with a new
+  sequence.
+- The ESP32-C6 installs a program over its USB control link. Its `stbc` flash region is two program
+  slots of 3,056 KiB, and `program.install` writes the slot that does not hold the newest program,
+  one 4 KiB erase or one 256-byte page in each pass of the control loop, reads the bytes back, and
+  commits the container with the last four bytes of its magic, so a power loss or a failed step
+  leaves the previous program running. At power-on and after a reset the chip starts the committed
+  container with the highest install sequence; a damaged newest container refuses the start with
+  its reason, and the older one is not started in its place. A chip starts a newly installed program
+  at its next reset, because it does not reload in place yet; `restart` does not start it.
+  `capabilities` reports one slot, 3,129,344 bytes, as the chip's `application_slot_bytes`, and the
+  chip refuses a program that does not fit it. The steps to install are in
+  `firmware/trust-esp32c6/README.md`.
+- Changed: `cargo xtask portability pack-project` writes the `TRSTA002` container with install
+  sequence 1, which is the container `program.install` commits into an empty store. The ESP32-C6
+  reads `TRSTA002` only: written into slot A at `0x200000`, a packed container is a committed
+  program, and the first install after it takes slot B with sequence 2. A `TRSTA001` container that
+  an earlier `pack-project` wrote is not read any more: a chip that holds only that container
+  refuses `restart` with `no installed program: slot A holds a TRSTA001 container, which is not
+  committed (only TRSTA002 is read)`, and the project is packed again.
 - The ESP32-C6 runs truST as a runtime, first on the ESP32-C6-DevKitC-1
   (`firmware/trust-esp32c6`), with the same runtime code as `trust-runtime`. It starts the
   installed project at power-on, claims the GPIO pins the project's `io.toml` names, and answers

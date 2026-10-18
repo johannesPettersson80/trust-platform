@@ -14,8 +14,10 @@ claim and the chip's watchdog rule) lives in `crates/trust-platform-esp32`. This
 its board composition (design §1.1):
 
 - `src/main.rs`: the boot sequence, the panic path and the runner composition.
-- `src/application.rs`: the header read, the total-length copy into the heap, and `installation::admit`
-  against the C6's `DeviceDescriptor`.
+- `src/application.rs`: the boot selection over the two program slots. It reads the header of each
+  slot, takes the committed `TRSTA002` container with the highest install sequence, copies it once
+  into the heap and admits it with `installation::admit_sequenced` against the C6's
+  `DeviceDescriptor`.
 - `src/memory.rs`: the 72 KiB main heap, the boot loader's 64 KiB reclaimed region and the 24 KiB
   main-stack window.
 
@@ -27,10 +29,13 @@ The boot order is design §1.1:
    window; the adapter takes the peripherals and brings the clock up, driving no output. The reset
    reason and the reset record kept in RTC fast memory are read once, and this boot is counted for
    the next record.
-2. **The installed application.** The firmware reads the `TRSTA001` container's header from the
-   `stbc` partition, copies only its declared total length into the heap (refusing a length above
-   the heap's room with its numbers), and admits it with `installation::admit` against the C6's
-   descriptor before any state exists.
+2. **The installed application.** The firmware reads the header of each of the two program slots in
+   the `stbc` partition and selects the committed `TRSTA002` container with the highest install
+   sequence. It copies only that container's declared total length into the heap (refusing a length
+   above the heap's room with its numbers) and admits it with `installation::admit_sequenced`
+   against the C6's descriptor before any state exists. A slot that holds a `TRSTA001` container is
+   not committed, and a damaged newest container refuses the boot: the other slot never starts in
+   its place (specification 34 §5.1).
 3. **Outputs.** The deployment record's GPIO lines are claimed by the chip's pin names
    (`GPIO18`, refused if the chip lacks the pin or reserves it), and each output is driven to its
    initial value before it becomes an output (STATE-01).
@@ -45,8 +50,9 @@ The boot order is design §1.1:
    or the C6's default of 200 from `chips/esp32c6.toml` when the project sets none.
 
 With no valid installed application, or one the device refuses, the firmware still runs the same
-loop in the Stopped state and serves the link, so `status` says why and a deployment can be accepted;
-`restart` is refused until a program is installed.
+loop in the Stopped state and serves the link, so `status` says why and a program can be installed
+over the link; `restart` is refused with `no installed program: <reason>`, and a program installed
+meanwhile starts at the next reset (see Install).
 
 ## Control link
 
@@ -55,10 +61,13 @@ moves bytes between the peripheral's 64-byte FIFOs and the shared line link; the
 requests and sends one reply per request. The link carries replies only: the firmware never prints on
 it. The boot loader still prints its own lines before the first reply.
 
-The chip answers the same operations as `trust-runtime` (`status`, `health`, `tasks.stats`,
-`events.tail`, `faults`, `pause`, `resume`, `restart`, `shutdown`); the endpoint is the board's
-`/dev/serial/by-id` path (specification 11 §6.9). Requests and replies are bounded by the link's
-frame; a request or a reply above it is refused with the clear error, never cut.
+The chip answers the same operations as `trust-runtime` (`status`, `capabilities`, `health`,
+`tasks.stats`, `events.tail`, `faults`, `pause`, `resume`, `restart`, `shutdown`, the transfer
+operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort`,
+and `program.install`); the endpoint is the board's `/dev/serial/by-id` path (specification 11
+§6.9). `program.active` and `bytecode.reload` answer `unsupported request` on the chip for now.
+Requests and replies are bounded by the link's frame; a request or a reply above it is refused with
+the clear error, never cut.
 
 ## Build
 
@@ -72,20 +81,66 @@ packing, installation and the USB bench checks.
 
 ## Install
 
-Install only while the board is stopped. Firmware never writes or erases flash during RUN. Name the
-board's USB port explicitly on every command. Its `/dev/serial/by-id` path contains the MAC address.
+The firmware and the program are installed separately (DEPLOY-01). Install only while the board is
+stopped: the firmware never writes or erases flash during RUN, and `program.install` writes only
+while the program is Stopped (specification 34 §11.2). Name the board's USB port explicitly on every
+command. Its `/dev/serial/by-id` path contains the MAC address.
+
+The firmware, with the boot loader and the partition table:
 
 ```
 espflash flash --port <devkit-serial-by-id> --partition-table partitions.csv \
   target/riscv32imac-unknown-none-elf/release/trust-esp32c6
+```
+
+The `stbc` partition is 6112 KiB, the flash the chip allows (owner decision O7), and holds the two
+program slots. The second-stage bootloader is the one bundled with espflash 4.6.0 (ESP-IDF
+v6.1-beta1); M5 qualification requires a released bootloader instead.
+
+### A first program, from the bench
+
+`cargo xtask portability pack-project <program.stbc> <deployment-record.bin> application.bin`
+writes the `TRSTA002` container of a first flash: the program and its record, with install
+sequence 1 (specification 34 §5.1). Written into slot A at `0x200000`, it is a committed container,
+and the boot starts it after the next reset:
+
+```
 espflash write-bin --port <devkit-serial-by-id> 0x200000 application.bin
+espflash reset --port <devkit-serial-by-id>
 trust-runtime ctl --endpoint usb://<mac> status
 ```
 
-`application.bin` is the `TRSTA001` container the development computer generates and packs
-(`cargo xtask portability pack`), written into the `stbc` partition. The partition is 6112 KiB, the
-flash the chip allows (owner decision O7). The second-stage bootloader is the one bundled with
-espflash 4.6.0 (ESP-IDF v6.1-beta1); M5 qualification requires a released bootloader instead.
+A flash that stops part-way can leave a good header over missing bytes. The boot then refuses the
+container as damaged, and `restart` names the failed check; flash the file again.
+
+### A program, over USB
+
+With the board stopped, the same `application.bin` is installed over the control link, as
+`program.install` installs a program into any runtime (specification 34 §11.2). `trust-runtime ctl`
+has no install action yet, so a client sends these requests, one JSON line each. The USB link acts as
+Admin, because a chip has no control token yet:
+
+1. `{"id":1,"type":"shutdown"}` stops the program.
+2. `{"id":2,"type":"transfer.begin","params":{"bytes":<file size>,"sha256":"<64 hex digits of the
+   file>"}}` replies with the transfer id, `part_bytes` 4096 and `next_offset` 0.
+3. For each part of 4,096 bytes, in order (the last part is shorter):
+   `{"id":3,"type":"transfer.part","params":{"transfer":"<id>","offset":<offset>,"data":"<base64
+   of the part>","crc32":"<8 hex digits of the part's CRC-32>"}}`. The reply gives the next offset.
+4. `{"id":4,"type":"program.install","params":{"transfer":"<id>"}}` checks the container, its
+   record and its admission, the retained values against the newest checkpoint, and the program's
+   preparation, and writes nothing until all of them pass. Then it erases and writes the slot that
+   does not hold the newest committed container, one step in each pass of the loop. The reply,
+   `{"status":"installed","sequence":2,"program_sha256":"...","bytes":...}`, comes after the whole
+   commit, and the link answers no other request meanwhile. Read it for up to 4 s plus 0.4 s for
+   each 4 KiB of the file plus 10 ms for each 256 bytes (specification 11 §6.8.1): the 750 ms of
+   `ctl` is too short.
+5. Reset the board (`espflash reset`). The boot selects the committed container with the highest
+   install sequence, which is the one just installed. A chip does not yet reload in place, so
+   `restart` does not start an installed program until it does.
+
+The device writes its own install sequence, one more than the newest committed container's, so the
+sequence in the file is replaced. A refused install changes nothing, and an install that stops at
+any step, even at a power loss, leaves the previous program selected (DEPLOY-03).
 
 ## Flash layout
 
@@ -94,7 +149,7 @@ espflash 4.6.0 (ESP-IDF v6.1-beta1); M5 qualification requires a released bootlo
 | Bootloader | `0x0` | ESP-IDF second-stage bootloader from espflash 4.6.0 |
 | Partition table | `0x8000` | `partitions.csv` |
 | `factory` | `0x10000`, 1984 KiB | this firmware image |
-| `stbc` | `0x200000`, 6112 KiB | separately installed `TRSTA001` application container, read once per boot |
+| `stbc` | `0x200000`, 6112 KiB | the two program slots of the program store: slot A at `0x200000` and slot B at `0x4FC000`, 3056 KiB each, each holding one `TRSTA002` container. The boot reads the header of each slot and the newest committed container once. |
 | `ckpt_a`, `ckpt_b` | `0x7F8000` and `0x7FC000`, 16 KiB each | retain checkpoint log: the newest committed checkpoint is restored at boot, and the retained values are saved at the project's interval and at stop |
 
 ## RAM
@@ -156,8 +211,11 @@ point.
   last scan. There is no UTC clock.
 - The C6 carries out the `gpio` I/O driver only until slice T1; a record that asks for another driver
   is refused with the driver's name.
-- The application region is 6112 KiB, so a container larger than that (or larger than the heap's
-  room) cannot be installed, while `trust-runtime` has no such limit.
+- The program slots are 3056 KiB each, so a container larger than a slot (or larger than the heap's
+  room) cannot be installed, while `trust-runtime` has no such limit. An install holds the upload and
+  the commit's own copy of the container in the heap, and a container the heap cannot hold is
+  refused (`no room for a transfer of <bytes> bytes`, `no room to install a container of <bytes>
+  bytes`). The largest installable program is still to be measured.
 
 Dependency API sources: [esp-hal 1.2.2](https://docs.rs/esp-hal/1.2.2/esp_hal/) and
 [embedded-alloc 0.7.0](https://docs.rs/embedded-alloc/0.7.0/embedded_alloc/struct.LlffHeap.html).
