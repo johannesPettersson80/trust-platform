@@ -19,7 +19,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Changed: a program install now works only while the PLC program is stopped, on every runtime. The
   web deployment (`POST /api/deploy`) and the web rollback (`POST /api/rollback`) answer
   `resource_not_running`, as `program.install` does, while the program runs, and change nothing;
-  stop the program with `shutdown` first, install, and `restart`. The web IDE's Deploy button shows that refusal while the program runs.
+  stop the program with `shutdown` first, install, and `restart`. The web IDE's Deploy button
+  shows that refusal while the program runs.
 - Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
   project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
   `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
