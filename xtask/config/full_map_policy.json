@@ -1692,6 +1692,15 @@
         "rationale": "The view namespace is the panel contract of specification 25 §5.15 and its projection, in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, connections, devices and links, the filter and search, issues, status reading and addresses, with their tests and golden scenarios beside them. The pane builders (add dialog, forms, USB tray) live in the sibling `panes` namespace and answer the pane types of this contract. No single file or mixed owner; about a third of the lines are tests.",
         "review_date": "2026-10-17",
         "split_plan": "Keep one child module per panel concern; B5 added connections, devices, links, search and issues as their own files. The panes now live in the sibling `panes` namespace beside `view` (add dialog, forms, USB tray; later Discover and browse), and new panes go there; their contract types stay in `view/types/panes.rs`. Split any file approaching 1000 lines by its responsibility."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "actions",
+        "path": "crates/trust-devices/src/actions",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panel's action path of specification 25 §5.4, §5.9, §5.13 and §5.14, in focused child modules: the closed action set and its dispatch, the host-effect lists, the forms and connection actions, the connection plans, the ADS route action, the runtime actions, and the one write path they share, each with its tests beside it. No single file or mixed owner; about half the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per action family; B7 added `ads.rs` for the browse pane's `Create route` beside the plans. Split any file approaching 1000 lines by its responsibility, and put a new action family in its own child module."
       }
     ],
     "function_size_allowlist": [

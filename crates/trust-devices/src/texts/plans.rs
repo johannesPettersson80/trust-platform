@@ -1,7 +1,7 @@
 //! The texts of the connection plans (specification 25 §5.8, §5.13 and §5.14): exposing globals
 //! through a server, the `EtherCAT` channel selection, an OPC UA client connection built from
-//! selected nodes, and one ADS connection per responding port. Texts ported from the panel's
-//! TypeScript keep its words.
+//! selected nodes, one ADS connection per responding port, and the browse pane's `Create route`.
+//! Texts ported from the panel's TypeScript keep its words.
 
 use crate::texts::connections::protocol_name;
 
@@ -105,4 +105,33 @@ pub fn ads_added(connections: usize, restart: bool) -> String {
 pub fn ads_failed(reason: Option<&str>) -> String {
     let reason = reason.unwrap_or("check the discovered device and try again.");
     format!("Could not add the ADS device: {reason}")
+}
+
+/// Why the browse pane's `Create route` cannot run: a route is added over a running runtime, never
+/// into a project's files (specification 25 §5.4).
+pub const ROUTE_NEEDS_RUNTIME: &str =
+    "Creating a TwinCAT route needs a running runtime. Start the runtime and try again.";
+
+/// Why the route cannot be created: the payload names no route, no `TwinCAT` target or no host
+/// identity (specification 25 §5.4).
+pub const ROUTE_NEEDS_TARGET: &str =
+    "The route needs its TwinCAT target. Browse the ADS port again and retry.";
+
+/// Why the route cannot be created: the form carries no administrator login (specification
+/// 25:389-394).
+pub const ROUTE_NEEDS_LOGIN: &str = "Enter the TwinCAT administrator login to create the route.";
+
+/// The result of creating the `TwinCAT` route `route_name`, which asks the browse pane to retry
+/// (specification 25:389-394).
+#[must_use]
+pub fn route_created(route_name: &str) -> String {
+    format!("Created the TwinCAT route '{route_name}'. Browse retries now.")
+}
+
+/// Why creating the `TwinCAT` route failed, with the runtime's reason when it gave one
+/// (specification 25 §5.4).
+#[must_use]
+pub fn route_failed(reason: Option<&str>) -> String {
+    let reason = reason.unwrap_or("check the TwinCAT target and try again.");
+    format!("Could not create the TwinCAT route: {reason}")
 }

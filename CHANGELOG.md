@@ -27,6 +27,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   and `edit`, and an ADS tag import enables `[runtime.ads]` in the project's
   `runtime.toml` itself, live and through `trust-runtime ads import-symbols`, keeping
   every other line and comment.
+- The Devices & Connections ADS Browse pane's `Create route` creates the TwinCAT route
+  through the runtime's guarded `ads.route_add`, which takes the TwinCAT administrator
+  login once and never stores or echoes it, and then Browse retries. The extension host
+  no longer edits an ADS file itself: removing a tag runs `trust-runtime ads
+  remove-symbols` and shows its report.
 - `trust-runtime discover` also finds MQTT brokers and OPC UA servers by their mDNS
   announcements, and OPC UA servers through the local discovery server's FindServers, and
   confirms each with the same probe as a known address.

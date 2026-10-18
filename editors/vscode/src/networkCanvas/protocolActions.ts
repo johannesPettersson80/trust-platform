@@ -9,7 +9,6 @@ import {
 import { buildExposeApplyParams } from "./exposeConfig";
 import type { FleetTopologyResponse } from "./fleetTopology";
 import {
-  ensureAdsRuntimeEnabled,
   offlineAdsImportSymbols,
   offlineAdsRemoveTag,
   offlineBrowseSymbols,
@@ -315,7 +314,7 @@ export class NetworkCanvasProtocolActions {
       await this.addTagsOffline(message, projectDir, paths);
       return;
     }
-    await this.addTagsLive(message, projectDir, paths, runtime);
+    await this.addTagsLive(message, paths, runtime);
   }
 
   async addAdsTagsBatch(message: Record<string, unknown>): Promise<void> {
@@ -372,7 +371,6 @@ export class NetworkCanvasProtocolActions {
           runtime.endpoint
         ) {
           imported = await this.importAdsTagsLive(
-            projectDir,
             target,
             [...plan.paths],
             writable,
@@ -548,12 +546,10 @@ export class NetworkCanvasProtocolActions {
 
   private async addTagsLive(
     message: Record<string, unknown>,
-    projectDir: string,
     paths: string[],
     runtime: RuntimeTarget
   ): Promise<void> {
     const result = await this.importAdsTagsLive(
-      projectDir,
       isRecord(message.target) ? message.target : {},
       paths,
       Boolean(message.writable),
@@ -570,7 +566,6 @@ export class NetworkCanvasProtocolActions {
   }
 
   private async importAdsTagsLive(
-    projectDir: string,
     source: Record<string, unknown>,
     paths: string[],
     writable: boolean,
@@ -623,16 +618,8 @@ export class NetworkCanvasProtocolActions {
           message: report?.message ?? "The runtime rejected the import.",
         };
       }
-      const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
-      if (!runtimeConfig.ok) {
-        return {
-          port,
-          paths,
-          applied: false,
-          addedCount: 0,
-          message: `ADS runtime was not enabled automatically: ${runtimeConfig.message}`,
-        };
-      }
+      // The Rust import enables `[runtime.ads]` itself (specification 11 §6.12), so the extension
+      // host no longer edits `runtime.toml`.
       await openGeneratedAdsDocuments(report);
       const addedCount = report.selected_count ?? paths.length;
       return {

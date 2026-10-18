@@ -10,6 +10,8 @@
 //!   writes to from what the session last showed (design §4.3 B7).
 //! - `plans`: the connection plans, expose, the `EtherCAT` channel selection, an OPC UA client add
 //!   and an ADS device add, each written through `comm.apply` to the runtime the session resolves.
+//! - `ads`: the browse pane's `Create route`, which sends the `TwinCAT` administrator login once to
+//!   the runtime's guarded `ads.route_add`.
 //! - `write`: the one write path of `config` and `plans`: the runtime that a payload names, resolved
 //!   from the session, written over its control endpoint or in process into the open project's
 //!   files, and refused when it is unknown or silent (design §4.3 B7).
@@ -18,6 +20,7 @@
 //! name, or one whose payload does not decode, is an error reply naming it, never a silent no-op;
 //! a name of the closed set that this task does not perform yet answers that it is not available.
 
+mod ads;
 mod config;
 mod effects;
 mod plans;
@@ -102,6 +105,7 @@ pub fn act_with(session: &mut Session, request: &ActRequest, fleet: &dyn Fleet) 
         "connection.ethercat_channels" => plans::ethercat_channels(session, request),
         "connection.opcua_add" => plans::opcua_add(session, request),
         "connection.ads_add" => plans::ads_add(session, request),
+        "ads.route_add" => ads::route_add(session, request),
         action if CLOSED_ACTIONS.contains(&action) => error(
             &pane(request),
             &format!("The action '{action}' is not available yet."),
