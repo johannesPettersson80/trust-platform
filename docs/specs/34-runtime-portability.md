@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.32 — the C6's 24 KiB main-stack window (D.2) and the due-boundary rule for requests (STATE-08), after 0.31's call scratch that binds a call, the device runner's use of the checkpoint persister (§10), after 0.29's control link on a byte stream
+- **Version:** 0.33 — the STM32U5A9 as the STM32 chip (owner, 17 October 2026): ARCH-10, §1.2, Appendix D.4 and D.5, and Appendix H; after 0.32 — the C6's 24 KiB main-stack window (D.2) and the due-boundary rule for requests (STATE-08), after 0.31's call scratch that binds a call, the device runner's use of the checkpoint persister (§10), after 0.29's control link on a byte stream
 - **Date:** 18 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -64,7 +64,7 @@ A HAL is necessary, but is not the whole migration. The reviewed code still conn
 | ARCH-07 | The controller shall operate independently of the development computer after a valid application has been installed and started. |
 | ARCH-08 | Hosted products shall retain their existing supported features and interfaces while adopting the shared core; MCU limits shall not become universal desktop limits. |
 | ARCH-09 | Hosted adoption shall be verified through native execution tests on Linux, Windows, and macOS, compiler-free loading tests, and baseline-relative resource and performance evidence. |
-| ARCH-10 | The planned platform-support outcome requires one STM32 chip and one ESP32 chip to qualify with the same runtime: the STM32F407 (first on the STM32F407G-DISC1) and the ESP32-C6 (on the ESP32-C6-DevKitC-1). Firmware is developed for the chip and every interface of the chip that the runtime services use, for example the F407's Ethernet controller and USB and the C6's Wi-Fi and USB; a board's configuration only names which of them are wired, its pins and its Ethernet PHY, so any board with the chip runs the same firmware with its own configuration. An STM32 release may be delivered first, but shall not close the ESP32 deliverable. A different MCU family shall not silently substitute for ESP32. |
+| ARCH-10 | The planned platform-support outcome requires one STM32 chip and one ESP32 chip to qualify with the same runtime: the STM32U5A9 (first on the owner's Riverdi RVT50HQSNWC00-B, a 5-inch STM32 Embedded Display) and the ESP32-C6 (on the ESP32-C6-DevKitC-1). Firmware is developed for the chip and every interface of the chip that the runtime services use, for example the U5's USB OTG and the C6's Wi-Fi and USB; a board's configuration only names which of them are wired, its pins and its Ethernet PHY, so any board with the chip runs the same firmware with its own configuration. An STM32 release may be delivered first, but shall not close the ESP32 deliverable. A different MCU family shall not silently substitute for ESP32. |
 | ARCH-11 | Every target runs the same runtime, not only the same engine. The runtime services of trust-runtime behave on a board as on Linux, macOS and Windows: the control connection and its protocol, status, start, stop and restart, the resource states and fault handling, Live Values with read, write, force and release, debugging with breakpoints, pause, continue, stepping, call stack and variables (specification 13), loading a program including online change, access rights, discovery, the communication services, including Bluetooth devices where the chip has Bluetooth, and the web pages and HMI. They are shared code, not a separate implementation per target. VS Code and the other tools reach a board exactly as they reach any trust-runtime; nothing in them is specific to boards. |
 | ARCH-12 | A runtime is reached over whatever link its hardware has: a local socket or TCP on a computer, TCP over Ethernet or Wi-Fi and Bluetooth on a board that has them, and USB on a board on a cable. The control protocol is the same on every link; the platform adapter supplies the link. A runtime on the network, a board included, is found by the same discovery as any trust-runtime and can be used at once. |
 | ARCH-13 | No target has limits of its own: functionality is never reduced to fit a board. When a board lacks the memory or the hardware for a service, for example a network port, this is reported, and the owner decides on the board. |
@@ -77,7 +77,7 @@ The research supports this separation of responsibilities, not a universal claim
 
 This proposal starts a runtime-wide execution improvement workstream and a new embedded implementation phase. The existing closed core/host extraction checklist explicitly excluded STM32 bring-up, ESP32 support, and an embedded product promise. Its closure therefore does not mean that MCU support is already implemented. Those old exclusions remain accurate descriptions of that earlier work. [R13]
 
-The STM32 target is the **STM32F407** (owner, 16 October 2026): a Cortex-M4 with single-precision FPU at up to 168 MHz, 1 MiB flash, 192 KiB SRAM including 64 KiB of core-coupled memory, an Ethernet controller and USB OTG. It is first used on the owner's **STM32F407G-DISC1**, whose board has USB to the chip but no Ethernet PHY; Ethernet needs a board, or an add-on, with a PHY (ARCH-10). The NUCLEO-F401RE was the first reference board, and its scope B evidence remains; it is no longer the release target. Its firmware was retired 17 October 2026 (owner). Its STM32F401RE provides a Cortex-M4 with single-precision FPU, a maximum CPU frequency of 84 MHz, 512 KiB flash, and 96 KiB SRAM. These are device capacities, not bytes available exclusively to truST. The board makes compactness an early constraint; complete-runtime fit and timing remain unmeasured. Record the physical board/MCU revision, memory reservations, pins, clock source, toolchain, and HAL before board implementation. [E24–E27]
+The STM32 target is the **STM32U5A9** (owner, 17 October 2026): a Cortex-M33 with TrustZone and a single-precision FPU at up to 160 MHz, 4 MB flash in two banks, 2.5 MB SRAM, an Ethernet-less 216-ball package with USB OTG high speed and an on-chip PHY. It is first used on the owner's **Riverdi RVT50HQSNWC00-B**; the display of that module is not part of this track. The STM32F407 track of 16 October 2026 is **paused**, and its chip file, adapter, firmware and evidence stay in the tree (Appendix D.4 and D.5). The STM32F407 record that follows stands as the paused track's: a Cortex-M4 with single-precision FPU at up to 168 MHz, 1 MiB flash, 192 KiB SRAM including 64 KiB of core-coupled memory, an Ethernet controller and USB OTG. Its RAM limits and the RAM questions raised against them (O5) are the paused track's; the STM32U5A9 carries the same firmware with megabytes of flash and SRAM to spare (Appendix D.5). It was first used on the owner's **STM32F407G-DISC1**, whose board has USB to the chip but no Ethernet PHY; Ethernet needs a board, or an add-on, with a PHY (ARCH-10). The NUCLEO-F401RE was the first reference board, and its scope B evidence remains; it is no longer the release target. Its firmware was retired 17 October 2026 (owner). Its STM32F401RE provides a Cortex-M4 with single-precision FPU, a maximum CPU frequency of 84 MHz, 512 KiB flash, and 96 KiB SRAM. These are device capacities, not bytes available exclusively to truST. The board makes compactness an early constraint; complete-runtime fit and timing remain unmeasured. Record the physical board/MCU revision, memory reservations, pins, clock source, toolchain, and HAL before board implementation. [E24–E27]
 
 One **ESP32 target is required**. The revised provisional reference is **ESP32-C6-DevKitC-1**, using `riscv32imac-unknown-none-elf` and `esp-hal`, with its Wi-Fi as a network link of the runtime (ARCH-12). No ESP32 board possession or purchase is asserted. C6 supplies the A extension needed by the existing atomic-reference-counted values during bring-up; it does not make those values bounded. M0 confirms board availability and freezes the build. M1 checks its isolated core graph, M2E executes the common fixture on actual hardware, and M5 qualifies the profile. C3/IMC becomes a later optional no-CAS profile after storage/atomic retirement, rather than contradicting the early-storage sequencing. RISC-V/Xtensa and bare-metal/ESP-IDF choices remain distinct. [E56, E57]
 
@@ -2872,6 +2872,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.33 | 18 October 2026 | The STM32U5A9 is the STM32 chip (owner, 17 October 2026): ARCH-10 and §1.2 name it. The STM32F407 track of 16 October 2026 is paused, and its chip file, adapter, firmware and evidence are kept (D.4). Appendix D.5 records the chip, the board, the adapter, the clock, the identity and the pins; its link, flash, RAM, console, firmware and evidence rows are left to S1b-8u-2, S1b-8u-3 and S1b-9u. Appendix H names `chips/stm32u5a9.toml` and the family `stm32u5`; H.2, H.5 rules 2, 4, 5, 7 and 8, and H.6 cover it. The chip joins the catalog, `build-firmware` and `inspect` with its firmware crate in S1b-9u. |
 | 0.32 | 18 October 2026 | Appendix D.2, the C6 memory bullet: the main-stack window is 24 KiB, not 16 KiB, because the S1b-5b2 bench measured a 15,740 B high-water in the 16 KiB window, leaving 644 B untouched, below the 2 KiB headroom; the linker guard and the build check require the window plus a 4 KiB margin (28 KiB). Appendix D.4 keeps the STM32F407's 16 KiB window. STATE-08: a request that arrives while the next boundary is due waits for that boundary, and a boundary that is due again as soon as it is taken lets one request through per boundary, so a scan longer than its interval cannot starve the link; the list of remaining differences says a due cycle can wait for the one request being answered, where it said eight requests in one pass. |
 | 0.31 | 18 October 2026 | §6.3, after MEM-09: construction reserves, per call depth, the call scratch that binds a call — its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted outputs, sized for the largest call site and the largest POU — and a call takes its depth's scratch and returns it on every path (completion, trap, refusal and abort), so a scan allocates no argument, flag, output-binding, target or prepared-output vector. Every result, charge and refusal is unchanged (TIME-08). |
 | 0.30 | 18 October 2026 | §10, "The device runner": the chip's installed program holds the checkpoint persister over the checkpoint store its platform supplies; it captures the retained values and offers them at each scan's pre-output-sample checkpoint, the resource loop advances one step between scans with the store's per-step program budget so no step runs inside a scan, a stop or shutdown completes the save before the resource reports Stopped, and a latched failure fails the next scan with `RuntimeError::RetainStore` before physical outputs. A warm start decodes the newest committed checkpoint with the shared codec and applies it by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts with the declared initial values. |
@@ -3230,7 +3231,7 @@ An H7 is a later capacity/performance option, not the starting-board requirement
 
 ### D.4 STM32F407: the STM32 target from 16 October 2026
 
-Firmware is developed for the chip (ARCH-10). The first board is the owner's STM32F407G-DISC1.
+Firmware is developed for the chip (ARCH-10). The first board is the owner's STM32F407G-DISC1. This track is paused as of 17 October 2026 (D.5); its file, adapter, firmware and evidence remain.
 
 | Area | Decision | Evidence or remaining work |
 |---|---|---|
@@ -3246,6 +3247,29 @@ Firmware is developed for the chip (ARCH-10). The first board is the owner's STM
 | Console | USART2 on PA2 (TX) and PA3 (RX), 230400 baud, 8N1, written at register level because the driver that owns every GPIO port also owns these pins. | ST's UM1472, as an ST community post quotes it, says the ST-LINK/V2-A's virtual COM port lines (ST-LINK_TX and ST-LINK_RX on U2 pins 12 and 13) are not connected to the F407's USART, so the DISC1 may give no console over its USB cable. The manual itself has not been checked for this entry; confirm on the owner's board. Until a link over USB exists the bench console is a 3.3 V USB-UART adapter on PA2 and GND. |
 | Firmware | `firmware/trust-stm32f407`, for the chip. It runs the shared `trust-board-fixture` runner until the services runner replaces it. | Build and bench run pending. |
 | Evidence | `cargo xtask portability build-firmware stm32f407` builds the chip's firmware from `chips/stm32f407.toml` (Appendix H); `inspect` and `verify` take the bench board's name `stm32f407g-disc1`. Inspection reads the sector map above: the vector table alone in sector 0, nothing loaded in sectors 1 to 3 or in the application's sectors 10 and 11, the firmware and the initial values of `.data` in sectors 4 to 9, the statics and the 72 KiB arena in the 112 KiB of SRAM below the 16 KiB main stack (0x2001C000 to 0x20020000, initial stack pointer 0x20020000), and nothing in the CCM. The verifier pins the chip words of the M0 record (DBGMCU_IDCODE and the three UID words), the 1024 KiB flash size and the 168 MHz clock, and requires exactly one `B1,CLOCK` record right after each of the two `B1,IDENTITY` records. It checks the record's fields: the source is HSE or HSI and goes with the note; SYSCLK equals the profile's 168 MHz; an HSE record has a crystal of 4 to 26 MHz that is the measurement rounded to a whole MHz; an HSI record has no crystal figure. It reads B1 as active high (the pin level equals the pressed flag; the C6's GPIO9 reads low while pressed) and bounds a scan at 10 ms of cycles, 1,680,000. | Authored 17 October 2026 and tested on the host with synthetic records only. The reader of the linked ELF and the form of a real capture are proved by the first build and bench run. |
+
+### D.5 STM32U5A9: the STM32 target from 17 October 2026
+
+Firmware is developed for the chip (ARCH-10). The first board is the owner's Riverdi
+RVT50HQSNWC00-B, a 5-inch STM32 Embedded Display (owner, 17 October 2026); its display is not part
+of this track. The STM32F407 track of D.4 is paused as of 17 October 2026 (D.5): its file, adapter,
+firmware and evidence remain. The first slice of this track, S1b-8u-1, builds the chip, its pins and
+its clock with no hardware run; the rows marked S1b-8u-2, S1b-8u-3 and S1b-9u are not built by it.
+
+| Area | Decision | Evidence or remaining work |
+|---|---|---|
+| Chip | STM32U5A9NJH6Q: Cortex-M33 with TrustZone and a single-precision FPU, up to 160 MHz; 4 MB flash in two banks of 256 pages of 8 KiB, with read-while-write between the banks; 2512 KiB of SRAM: SRAM1 768 KiB, SRAM2 64 KiB, SRAM3 and SRAM5 832 KiB each (one block from 0x2000_0000), SRAM4 16 KiB at 0x2800_0000, and 2 KiB of backup SRAM at 0x4201_6400; one USB OTG_HS with an on-chip high-speed PHY; no Ethernet; TFBGA216. TrustZone is off by default, set by TZEN (bit 31 of FLASH_OPTR). Sources: DS13543 Rev 3 §3.4, §3.5, §3.55, Tables 2 and 171; AN5347 §2.1. | DEV_ID 0x481 (ST's `stm32u5a9xx.h` and the `stm32-data` record) and the factory TZEN value are unverified until the M0 record reads them on the part. |
+| Board | Riverdi RVT50HQSNWC00-B (datasheet Rev 1.1): SWD on P3; USB on P6 (D−, D+ and ID, which floats for device mode); power on P10 (6.0 to 48.0 V); the user button S1 on PH3-BOOT0 and the user LED on PE5 (pp. 14 and 15); a CR1220 cell on BT1 for the VBAT domain. The 512 Mbit QSPI flash and the micro-SD slot are not used by this track. The board's CubeMX project sets HSE to 16 MHz in bypass mode on PH0 (`riverdi-50-stm32u5-lvgl`: `RCC.HSE_VALUE`, `PH0-OSC_IN`). | Whether the board's 16 MHz source is an oscillator or a crystal driven in bypass mode is unverified; the firmware checks that HSE is present and reports it (S1b-9u). |
+| Links (ARCH-12) | USB on OTG_HS at full speed as a CDC-ACM device, with VBUS sensing off (O2); no Ethernet. | S1b-8u-2. |
+| Adapter | `crates/trust-platform-stm32u5`: the chip table in `chip.rs`, the pin names of the shared STM32 crate `crates/trust-platform-stm32` (which the F407 adapter also uses), and the clock in `clock.rs`. Register-level against the `stm32u5` PAC 0.16.0 with feature `stm32u5a9`; no HAL crate. No board value is compiled in. | Host tests compare `chip.rs` with `chips/stm32u5a9.toml`; the register code is checked for `thumbv8m.main-none-eabihf`; no hardware run. |
+| Clock | HSE of 16 MHz in bypass mode through PLL1 (M 4, N 80, R 2, Q 2) to SYSCLK and HCLK of 160 MHz; APB1, APB2 and APB3 undivided; voltage range 1 with the EPOD booster, the SMPS regulator and VDDIO2 valid; 4 flash wait states; the 48 MHz USB kernel clock from HSI48 (ICLKSEL) and the OTG_HS PHY reference from HSE (OTGHSSEL); clock security on while HSE runs. If HSE is not ready within a bounded wait, PLL1 runs from HSI16 and the clock record says so. The sequence follows the board's project (`SystemClock_Config` and `SystemPower_Config`) and OpenOCD's `stm32u5x.cfg`, which reaches the same 160 MHz from MSI. | The arithmetic is tested on the host (M 4, N 80 and R 2 give 160 MHz; 4 wait states; the 48 MHz choice). The register sequence is unverified until the bench run (S1b-9u). |
+| Identity | The firmware checks DBGMCU DEV_ID 0x481 and the flash size register, 4096 KiB. The 96-bit UID at 0x0BFA_0700 is the USB serial number (S1b-8u-2). | Read at M0 (S1b-9u). DEV_ID is shared across the U5 family, so the flash size check is made as well. |
+| Pins (TARGET-01) | A line names a pin as `P`, a port letter A to J and a pin number, as for the F407. Ports A to I have 16 pins; port J has PJ0 to PJ11; port K does not exist. The firmware keeps PA11 and PA12 (USB), PA13 and PA14 (SWD) and PH0 (the HSE in bypass mode). PC14 and PC15 are not kept in this slice; the slice that gives truST a wall clock adds them with reason `oscillator`. A refused line says why. | Host test: every port A to J round-trips, PJ12 and PK0 are refused, and each kept pin is refused with its reason. |
+| Flash (S1b-8u-3) | The chip file's layout: the vectors in the first 8 KiB page of bank 1, the firmware of 2040 KiB from 0x0800_2000, the installed application of 2016 KiB as the rest of bank 2, and two checkpoint slots of 16 KiB (two 8 KiB pages each) at the end of bank 2. | Page erase and quad-word programming are S1b-8u-3. |
+| RAM (S1b-8u-3) | Heap region A of 1 MiB: SRAM1, SRAM2 and the first 192 KiB of SRAM3. Statics in the rest of SRAM3. The main stack of 16 KiB at the top of SRAM5. Heap region B of 816 KiB below the stack, in SRAM5. | The map is written in S1b-8u-3, with the shared measurement crate. |
+| Console | None in the product firmware. The F407's USART2 console was a fixture of the paused track. | Decided with S1b-9u. |
+| Firmware (S1b-9u) | `firmware/trust-stm32u5a9`, built from `chips/stm32u5a9.toml`. Not part of S1b-8u-1. | Pending. |
+| Evidence (S1b-9u) | `build-firmware stm32u5a9` and `inspect riverdi-rvt50hqsnwc00-b`, the M0 record and the bench steps of the slice. | Pending: the bench has not run. |
 
 ## Appendix E — Implementation deliverables and acceptance ownership
 
@@ -3310,8 +3334,11 @@ supplies physical resource evidence.
 ## Appendix H — Chip description files
 
 TARGET-03 describes each supported chip once, in `chips/<chip>.toml`. This appendix defines that
-file. The supported chips are the STM32F407 (`chips/stm32f407.toml`) and the ESP32-C6
-(`chips/esp32c6.toml`). The STM32F401 of the NUCLEO-F401RE is no longer a supported chip (D.1)
+file. The supported chips are the STM32F407 (`chips/stm32f407.toml`, paused as of 17 October
+2026, D.4) and the ESP32-C6 (`chips/esp32c6.toml`). The STM32U5A9 (`chips/stm32u5a9.toml`, D.5)
+has its file, which its adapter's tests read and check; the chip joins the catalog, `build-firmware`
+and `inspect` with its firmware crate in S1b-9u. The STM32F401 of the NUCLEO-F401RE is no longer a
+supported chip (D.1)
 and has no file; its firmware was retired 17 October 2026 (owner). A development board has no
 file (ARCH-14): its pins are named in `io.toml` and its other wiring is detected or named in
 `device.toml` (TARGET-01, TARGET-02).
@@ -3330,8 +3357,8 @@ KiB.
 |---|---|---|
 | `[identity]` | `name` | The chip's name: the file's name without `.toml`, in small letters and digits. `build-firmware` takes it. |
 | | `model` | The manufacturer's name for the chip, for example `STM32F407`. |
-| | `family` | The platform adapter that drives the chip, which also decides how its pins are named: `stm32f4` (`crates/trust-platform-stm32f4`) or `esp32` (`crates/trust-platform-esp32`). |
-| | `device_id` | The number the chip reports for itself, by which the firmware and a probe recognize it. `stm32f4`: DEV_ID, bits 11:0 of DBGMCU_IDCODE, which the firmware checks at start and a debug probe reads; the firmware also checks that the flash size register equals `memory.flash.kib` (D.4). `esp32`: the chip ID that the ROM and espflash report and the firmware image header carries (D.2). |
+| | `family` | The platform adapter that drives the chip, which also decides how its pins are named: `stm32f4` (`crates/trust-platform-stm32f4`), `stm32u5` (`crates/trust-platform-stm32u5`) or `esp32` (`crates/trust-platform-esp32`). |
+| | `device_id` | The number the chip reports for itself, by which the firmware and a probe recognize it. For the STM32 families (`stm32f4`, `stm32u5`): DEV_ID, bits 11:0 of DBGMCU_IDCODE, which the firmware checks at start and a debug probe reads; the firmware also checks that the flash size register equals `memory.flash.kib` (D.4, D.5). `esp32`: the chip ID that the ROM and espflash report and the firmware image header carries (D.2). |
 | | `usb_bootloader` | `{ vid, pid }`: the USB IDs the chip shows while its own boot loader runs, through which truST is installed over USB (TARGET-04). The USB search recognizes a chip by them. |
 | `[processor]` | `core` | The processor core. |
 | | `isa` | Its instruction set. |
@@ -3340,17 +3367,17 @@ KiB.
 | `[clock]` | `max_hz` | The highest processor clock of the data sheet. |
 | | `firmware_hz` | The clock the truST firmware runs the processor at. |
 | | `crystal_min_hz`, `crystal_max_hz` | The crystals the chip's oscillator accepts. |
-| `[memory.flash]` | `start`, `kib`, `sectors` | `stm32f4` only: flash in the chip's address space, from address `start`, of `kib`, with its erase sectors in address order as runs `{ count, kib }`. |
+| `[memory.flash]` | `start`, `kib`, `sectors` | `stm32f4` and `stm32u5` only: flash in the chip's address space, from address `start`, of `kib`, with its erase sectors in address order as runs `{ count, kib }`. |
 | `[memory.spi_flash]` | `erase_kib` | `esp32` only: flash on the chip's SPI flash interface, in the package or the module. Its size is the device's own and is read when truST is installed; `erase_kib` is its erase unit. |
 | `[[memory.ram]]` | `name`, `start`, `kib`, `dma` | One entry per RAM region: its name in the reference manual, its first address, its size, and whether DMA reaches it (the F407's CCM is for the CPU only). |
 | `[events]` | `default_capacity`, `max_capacity` | The newest events the chip's event store keeps when the project sets none, and the most a project may set (truST's own choice, H.4). The firmware sizes its event store with them, and admission refuses a project above the maximum (specification 11, the event store; §5.1.1 step 7). |
-| `[layout]` | `vectors` | `stm32f4` only: the vector table. |
+| `[layout]` | `vectors` | `stm32f4` and `stm32u5` only: the vector table. |
 | | `bootloader`, `partition_table` | `esp32` only: the second-stage boot loader and the partition table. |
 | | `firmware` | The truST firmware. |
 | | `application` | The separately installed application (DEPLOY-01). |
 | | `checkpoint_a`, `checkpoint_b` | The two checkpoint slots of the retain store, so that an interrupted write keeps the last good checkpoint (RETAIN-02); §10.1 defines their contents. |
 | `[interfaces]` | `usb`, `ethernet`, `wifi`, `bluetooth`, `uart`, `can`, `spi`, `i2c`, `adc`, `dac`, `timers`, `pwm` | The chip's peripherals of each kind, by the manufacturer's names. An empty list means the chip has none. An Ethernet PHY and other wiring belong to the board. |
-| `[gpio]` | `ports` | `stm32f4` only: `{ port, pins }` for each GPIO port, its pins counted from 0; a pin is named like `PD12`. |
+| `[gpio]` | `ports` | `stm32f4` and `stm32u5` only: `{ port, pins }` for each GPIO port, its pins counted from 0; a pin is named like `PD12`. |
 | | `pins` | `esp32` only: the number of GPIOs, `GPIO0` upwards; a pin is named like `GPIO18`. |
 | | `reserved` | `{ pin, reason }` for each pin the firmware keeps for itself, which `io.toml` cannot use; `reason` is `console`, `debug`, `oscillator` or `usb`. |
 | `[firmware]` | `crate` | The firmware crate's directory, under `firmware/`. |
@@ -3413,27 +3440,28 @@ The reader refuses a file that breaks one of these rules:
 
 1. `identity.name` is the file's name, of small letters and digits. `model`, `core`, `isa`,
    `bin` and every name in a list are not empty.
-2. For `stm32f4`, `device_id` is 1 to 0xFFF, the twelve bits of DEV_ID.
+2. For `stm32f4` and `stm32u5`, `device_id` is 1 to 0xFFF, the twelve bits of DEV_ID.
 3. `firmware_hz` is more than 0 and at most `max_hz`; `crystal_min_hz` is more than 0 and at most
    `crystal_max_hz`.
-4. The Rust target is of the family's architecture, `thumb` for `stm32f4` and `riscv32` for
+4. The Rust target is of the family's architecture, `thumb` for `stm32f4` and `stm32u5` and `riscv32` for
    `esp32`, and it agrees with the FPU: an `eabihf` target has an FPU and an `eabi` target none; a
    RISC-V target's letters are the instruction set (`riscv32imac` is `RV32IMAC`), and its F or D
    letter is the FPU.
-5. `stm32f4` describes its flash in `memory.flash` and `esp32` in `memory.spi_flash`, and neither
+5. `stm32f4` and `stm32u5` describe their flash in `memory.flash` and `esp32` in `memory.spi_flash`, and neither
    in the other. The sectors add up to `kib`. The flash, every sector run, RAM region and layout
    region, and the erase unit hold at least 1 KiB; there is at least one RAM region; an `esp32`
    chip has at least one GPIO.
 6. The RAM regions have different names, lie below 4 GiB and overlap neither one another nor
    `memory.flash`.
-7. The layout has the family's regions and no others. Each region lies inside `memory.flash` and
+7. The layout has the family's regions and no others: `vectors` for `stm32f4` and `stm32u5`;
+   `bootloader` and `partition_table` for `esp32`. Each region lies inside `memory.flash` and
    starts and ends on a sector boundary, or, in SPI flash, on a multiple of `erase_kib`. No two
    regions overlap. `vectors` starts at the first byte of the flash, where the processor starts,
    and `bootloader` at offset 0, where the ROM loads it.
 8. Each name is listed once in each list of `interfaces`, in the ports, the reserved pins, the
-   components and the documents. `stm32f4` has `ports`, with letters A to K and 1 to 16 pins each,
-   and no `pins`; `esp32` has `pins` and no `ports`. A reserved pin is named in its family's form
-   and is a pin of the chip.
+   components and the documents. `stm32f4` and `stm32u5` have `ports`, with letters A to K and
+   1 to 16 pins each, and no `pins`; `esp32` has `pins` and no `ports`. A reserved pin is named in
+   its family's form and is a pin of the chip.
 9. `firmware.crate` is a directory under `firmware/`, and the components include `engine`.
 10. `sources.documents` is not empty. Every path in `measured` and `unchecked` names a key outside
     `[sources]`, and no path is listed twice or inside another listed path. `measured_on` is given,
@@ -3443,15 +3471,16 @@ The reader refuses a file that breaks one of these rules:
 
 ### H.6 Where the files are read
 
-The crate `crates/trust-chips` reads and checks chip files and embeds every file of `chips/` as
-the catalog of supported chips, in which no two files have one name. It depends on no firmware or
+The crate `crates/trust-chips` reads and checks chip files and embeds, as the catalog of supported
+chips, the files of the chips whose firmware crate is in the repository, in which no two files have
+one name. It depends on no firmware or
 platform adapter, so `trust-runtime` (its command line, and the USB search and installation of
 TARGET-04) and `xtask` can use it; the adapters use it only in their host tests.
-`cargo xtask portability build-firmware <chip>` builds the chip's firmware from its file: its
-crate, binary and Rust target. `inspect` and `verify` take a bench board: `stm32f407g-disc1` or
-`esp32c6-devkitc-1`. A bench profile holds the bench's own values, such as the
+`cargo xtask portability build-firmware <chip>` builds the firmware of a chip in the catalog from its
+file: its crate, binary and Rust target. `inspect` and `verify` take a bench board: `stm32f407g-disc1` or `esp32c6-devkitc-1`; the
+`riverdi-rvt50hqsnwc00-b` board joins them, with its chip's firmware, in S1b-9u. A bench profile holds the bench's own values, such as the
 button's polarity, the fixture's memory budget and the module's flash, and takes its chip values
-from the chip's file. Host tests compare the adapters' chip data with the files: the STM32F407
-table in `chip.rs`, its crystal range, and the C6 profile. The xtask tests compare the firmware's
+from the chip's file. Host tests compare the adapters' chip data with the files: the STM32U5A9 table in its
+`chip.rs`, the STM32F407 table in `chip.rs`, its crystal range, and the C6 profile. The xtask tests compare the firmware's
 linker scripts and partition table, the inspector's regions and the verifier's pinned chip IDs
 with them. A chip value is thus written once, in its file, and checked wherever code repeats it.

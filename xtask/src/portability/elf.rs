@@ -24,6 +24,12 @@ pub(super) fn inspect(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
     let mut report = match board.board {
         Board::Stm32f407gDisc1 => stm32f407::inspect(board, bytes)?,
         Board::Esp32c6Devkitc1 => inspect_esp32c6(board, bytes)?,
+        Board::RiverdiRvt50hqsnwc00B => {
+            anyhow::bail!(
+                "{}: the linked-image inspection of the STM32U5A9 is S1b-9u work",
+                board.name
+            )
+        }
     };
     report["board"] = board.name.into();
     Ok(report)

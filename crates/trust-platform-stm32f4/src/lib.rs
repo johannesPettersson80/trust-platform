@@ -22,8 +22,9 @@ mod time;
 pub use chip::{Chip, CHIP};
 pub use console_budget::ConsoleError;
 pub use pins::{Pin, PinError, Port, Pull, Wiring};
-pub use profile::{ResetCookie, ResetReason, SCAN_PERIOD_US, SYSCLK_HZ};
+pub use profile::{SCAN_PERIOD_US, SYSCLK_HZ};
 pub use time::CounterExtension;
+pub use trust_platform_stm32::{ResetCookie, ResetReason};
 
 #[cfg(all(target_arch = "arm", target_os = "none", not(feature = "stm32f407")))]
 compile_error!("select the chip: the stm32f407 feature");

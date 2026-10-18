@@ -5893,6 +5893,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "stm32u5"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d618b263f62f04405cb1a67976740dd89dfe82eb70f42811dc63ce24b09198f"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "vcell",
+]
+
+[[package]]
 name = "string_morph"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6748,6 +6760,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-platform-stm32"
+version = "0.24.75"
+
+[[package]]
 name = "trust-platform-stm32f4"
 version = "0.24.75"
 dependencies = [
@@ -6756,6 +6772,18 @@ dependencies = [
  "stm32f4xx-hal",
  "trust-chips",
  "trust-platform-memory",
+ "trust-platform-stm32",
+]
+
+[[package]]
+name = "trust-platform-stm32u5"
+version = "0.24.75"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "stm32u5",
+ "trust-chips",
+ "trust-platform-stm32",
 ]
 
 [[package]]

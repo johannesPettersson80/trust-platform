@@ -41,8 +41,8 @@ pub struct Identity {
     pub model: String,
     /// The platform adapter that drives the chip.
     pub family: Family,
-    /// The number the chip reports for itself: `DEV_ID` of `DBGMCU_IDCODE` in the `stm32f4`
-    /// family, the chip ID of the ROM and the image header in the `esp32` family.
+    /// The number the chip reports for itself: `DEV_ID` of `DBGMCU_IDCODE` in the STM32
+    /// families, the chip ID of the ROM and the image header in the `esp32` family.
     pub device_id: u32,
     /// The USB IDs the chip shows while its own boot loader runs.
     pub usb_bootloader: UsbId,
@@ -64,6 +64,8 @@ pub struct UsbId {
 pub enum Family {
     /// The STM32F4 chips, driven by `crates/trust-platform-stm32f4`.
     Stm32f4,
+    /// The STM32U5 chips, driven by `crates/trust-platform-stm32u5`.
+    Stm32u5,
     /// The RISC-V ESP32 chips, driven by `crates/trust-platform-esp32`.
     Esp32,
 }
@@ -74,6 +76,7 @@ impl Family {
     pub const fn name(self) -> &'static str {
         match self {
             Self::Stm32f4 => "stm32f4",
+            Self::Stm32u5 => "stm32u5",
             Self::Esp32 => "esp32",
         }
     }
@@ -129,7 +132,7 @@ pub struct Clock {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Memory {
-    /// Flash in the chip's address space (the `stm32f4` family).
+    /// Flash in the chip's address space (the STM32 families).
     pub flash: Option<Flash>,
     /// Flash on the chip's SPI flash interface (the `esp32` family).
     pub spi_flash: Option<SpiFlash>,
@@ -212,7 +215,7 @@ pub struct Events {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Layout {
-    /// The vector table (the `stm32f4` family).
+    /// The vector table (the STM32 families).
     pub vectors: Option<Region>,
     /// The second-stage boot loader (the `esp32` family).
     pub bootloader: Option<Region>,
@@ -327,7 +330,7 @@ impl Interfaces {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Gpio {
-    /// The GPIO ports and their sizes (the `stm32f4` family); a pin is named like `PD12`.
+    /// The GPIO ports and their sizes (the STM32 families); a pin is named like `PD12`.
     pub ports: Option<Vec<PortPins>>,
     /// The number of GPIOs (the `esp32` family); a pin is named like `GPIO18`.
     pub pins: Option<u32>,

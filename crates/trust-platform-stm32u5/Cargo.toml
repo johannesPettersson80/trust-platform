@@ -1,0 +1,27 @@
+[package]
+name = "trust-platform-stm32u5"
+description = "The STM32U5A9 chip adapter for the shared truST engine: chip table, pin names and clock (specification 34, Appendix D.5)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+# The chip of the build; the STM32U5A9 is the one supported chip, so it is the default.
+default = ["stm32u5a9"]
+stm32u5a9 = ["stm32u5/stm32u5a9"]
+
+# The STM32 rules shared with the other STM32 adapters: every target needs them.
+[dependencies]
+trust-platform-stm32.workspace = true
+
+# The PAC and the Cortex-M crates are for the chip only; a host build never resolves them.
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
+stm32u5 = { version = "=0.16.0", default-features = false, features = ["critical-section", "rt"] }
+cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
+cortex-m-rt = "=0.7.7"
+
+# The host test tests/chip_file.rs compares the chip table with chips/stm32u5a9.toml. A dev
+# dependency is resolved only for this crate's own tests, never for a firmware build.
+[dev-dependencies]
+trust-chips.workspace = true

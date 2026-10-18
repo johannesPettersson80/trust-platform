@@ -12,6 +12,11 @@ rust-version.workspace = true
 default = ["stm32f407"]
 stm32f407 = ["stm32f4xx-hal/stm32f407", "stm32f4/stm32f407"]
 
+# The STM32 rules shared with the other STM32 adapters: the pin grammar, the pin table lookup,
+# the reset record and the unique ID. Every target needs them, so no target condition.
+[dependencies]
+trust-platform-stm32.workspace = true
+
 [target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
 stm32f4xx-hal = { version = "=0.23.0", default-features = false }
 stm32f4 = { version = "=0.16.0", default-features = false, features = ["critical-section", "rt"] }

@@ -1,0 +1,10 @@
+[package]
+name = "trust-platform-stm32"
+description = "The STM32 chip rules shared by the truST STM32 adapters: pin names, the chip pin table lookup, the reset record and the unique ID"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+# No dependency: the rules are plain Rust on every target, bare metal and host alike. The adapters
+# depend on this crate on every target, so a rule is written once.

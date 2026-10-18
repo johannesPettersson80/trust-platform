@@ -566,6 +566,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-platform-stm32"
+version = "0.24.75"
+
+[[package]]
 name = "trust-platform-stm32f4"
 version = "0.24.75"
 dependencies = [
@@ -573,6 +577,7 @@ dependencies = [
  "stm32f4",
  "stm32f4xx-hal",
  "trust-platform-memory",
+ "trust-platform-stm32",
 ]
 
 [[package]]

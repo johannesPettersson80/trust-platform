@@ -6,6 +6,7 @@ use trust_chips::{ChipFile, Family, Problem};
 
 const F407: &str = include_str!("../../../chips/stm32f407.toml");
 const C6: &str = include_str!("../../../chips/esp32c6.toml");
+const U5: &str = include_str!("../../../chips/stm32u5a9.toml");
 
 /// A TOML text as a table.
 fn table(text: &str) -> toml::Table {
@@ -66,6 +67,10 @@ fn f407(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
 
 fn c6(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
     edited("esp32c6", C6, edit)
+}
+
+fn u5(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
+    edited("stm32u5a9", U5, edit)
 }
 
 /// The TOML message of a refusal.
@@ -734,4 +739,80 @@ fn a_source_path_is_listed_once_and_not_inside_another() {
             "{path}"
         );
     }
+}
+
+#[test]
+fn an_stm32u5_file_describes_its_flash_in_memory_flash_and_keeps_its_vectors() {
+    // Appendix H.5 rules 5 and 7: an STM32 chip describes its flash in memory.flash and not in
+    // spi_flash, and its layout has the vector table and no bootloader. Catches an STM32U5 file that
+    // names an SPI flash, that drops its vectors, or that takes the ESP32's bootloader region.
+    let spi = || toml::Value::Table(table("erase_kib = 4"));
+    assert_eq!(
+        u5(|file| set(file, "memory", "spi_flash", spi())),
+        Err(Problem::FlashKind {
+            family: Family::Stm32u5
+        })
+    );
+    assert_eq!(
+        u5(|file| remove(file, "layout", "vectors")),
+        Err(Problem::MissingRegion { region: "vectors" })
+    );
+    assert_eq!(
+        u5(|file| set(
+            file,
+            "layout",
+            "bootloader",
+            toml::Value::Table(table("start = 0\nkib = 4"))
+        )),
+        Err(Problem::UnexpectedRegion {
+            region: "bootloader"
+        })
+    );
+}
+
+#[test]
+fn an_stm32u5_device_id_has_twelve_bits_and_its_pins_are_named_by_port() {
+    // Appendix H.5 rules 2 and 8: the STM32 families share the twelve bits of DEV_ID and name their
+    // pins by port, not by a count. Catches an STM32U5 device ID that is not bounded, or pins given as
+    // a count.
+    for device_id in [0_i64, 0x1000] {
+        assert_eq!(
+            u5(|file| set(file, "identity", "device_id", device_id)),
+            Err(Problem::DeviceId {
+                device_id: u32::try_from(device_id).expect("a u32")
+            })
+        );
+    }
+    assert_eq!(
+        u5(|file| set(file, "identity", "device_id", 0xFFF_i64)).err(),
+        None
+    );
+    assert_eq!(
+        u5(|file| set(file, "gpio", "pins", 156_i64)),
+        Err(Problem::GpioKind {
+            family: Family::Stm32u5
+        })
+    );
+}
+
+#[test]
+fn an_stm32u5_target_is_the_thumb_hard_float_target_of_its_chip() {
+    // Appendix H.5 rule 4: the U5's target is a thumb target with hardware floating point, because the
+    // chip has a single-precision FPU. A RISC-V target and a soft-float target are refused. Catches
+    // an STM32U5 file that takes another family's target or disagrees with its FPU.
+    let riscv = "riscv32imac-unknown-none-elf";
+    assert_eq!(
+        u5(|file| set(file, "processor", "rust_target", riscv)),
+        Err(Problem::TargetFamily {
+            target: riscv.to_owned()
+        })
+    );
+    let soft = "thumbv8m.main-none-eabi";
+    assert_eq!(
+        u5(|file| set(file, "processor", "rust_target", soft)),
+        Err(Problem::TargetFpu {
+            target: soft.to_owned()
+        })
+    );
+    assert_eq!(u5(|_| {}).err(), None);
 }

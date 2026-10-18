@@ -433,6 +433,30 @@
       "status": "allowed",
       "owner": "wasm analysis",
       "rationale": "WASM analysis consumes syntax"
+    },
+    {
+      "from": "trust-platform-stm32f4",
+      "to": "trust-platform-stm32",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32 chips (S1b-8u-1)",
+      "rationale": "The STM32F4 adapter re-exports the pin grammar, the pin table lookup, the reset record and the unique ID from the shared STM32 crate, which depends on no runtime or compiler, so the STM32 adapters keep one copy of each rule."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-platform-stm32",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-1)",
+      "rationale": "The STM32U5A9 adapter uses the shared STM32 rules for its pin names and its pin table lookup; the shared crate depends on nothing."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-chips",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "runtime portability T3 (chip files)",
+      "rationale": "A host test compares the STM32U5A9 chip table and its clock with chips/stm32u5a9.toml; a dev edge only, so no firmware build resolves the reader."
     }
   ],
   "forbidden_workspace_edges": [
@@ -3004,6 +3028,22 @@
         "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
         "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
         "review_date": "2026-10-17"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/clock.rs",
+        "line": 141,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-1)",
+        "invariant": "FLASH_ACR.LATENCY takes the wait-state count, a four-bit field; the value written is FLASH_WAIT_STATES (4), the count for 160 MHz in voltage range 1, and the register is read back until it holds that count.",
+        "test_evidence": "Host test flash_has_four_wait_states_at_160_mhz_in_voltage_range_1 pins the constant; the register write and its read back are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/clock.rs",
+        "line": 178,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-1)",
+        "invariant": "PLL1DIVR.PLL1N is a nine-bit field and takes PLL1N_FIELD (0x4F); the register is written while PLL1 is off, which is its state after reset, and before PLL1ON.",
+        "test_evidence": "Host test the_n_field_holds_n_minus_one pins the field value; the register write and the PLL1 lock are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
       }
     ],
     "delegated_unsafe_path_register": [
