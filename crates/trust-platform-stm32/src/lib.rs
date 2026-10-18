@@ -10,6 +10,7 @@ extern crate std;
 pub mod pins;
 pub mod reset;
 pub mod table;
+pub mod time;
 pub mod uid;
 
 pub use reset::{ResetCookie, ResetReason};

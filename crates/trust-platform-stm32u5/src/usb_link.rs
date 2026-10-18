@@ -1,15 +1,15 @@
 //! The control link over the STM32U5A9's OTG_HS (design §2.2 and §2.3; specification 34, PORT-05):
 //! the USB device, the static line link that the OTG_HS interrupt and the runner both enter in one
 //! critical section, the interrupt itself, and the [`ControlLink`] the runner polls. The runner's
-//! clock is passed in: the monotonic clock, wait and wake of the runner are S1b-8u-2b. The wake
-//! counter this module advances is the one that wait reads.
+//! clock is passed in, and its wait is [`crate::wait`]: the servicing pass advances the wake counter
+//! that the wait reads.
 //!
 //! The bus, the descriptors and the class are in [`crate::usb`], and the servicing pass in
 //! [`crate::usb_service`]. The chip build compiles this module only.
 
 use core::cell::RefCell;
 use core::ptr::{addr_of_mut, read_volatile};
-use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use cortex_m::peripheral::NVIC;
 use critical_section::Mutex;
@@ -25,10 +25,11 @@ use usb_device::LangID;
 use usbd_serial::USB_CLASS_CDC;
 
 use crate::usb::{
-    bcd_device, serial_text, ControlClass, OtgHs, MANUFACTURER, PRODUCT, PRODUCT_ID, SERIAL_DIGITS,
-    VENDOR_ID,
+    bcd_device, dcfg_full_speed_on_hs_phy, device_mode_gccfg, serial_text, ControlClass, OtgHs,
+    MANUFACTURER, PRODUCT, PRODUCT_ID, SERIAL_DIGITS, VENDOR_ID,
 };
 use crate::usb_service::LinkService;
+use crate::wait::advance_wake;
 
 /// The chip's 96-bit unique ID: three words at this address, in address order (design §2.5, S1b
 /// §2.4).
@@ -79,10 +80,6 @@ static LINK: Mutex<RefCell<DeviceLineLink>> =
 /// Set by the first [`bind`]: the chip has one control link, so a second bind is refused.
 static BOUND: AtomicBool = AtomicBool::new(false);
 
-/// The wake counter (PORT-03): every servicing pass that completes a request or moves a reply
-/// advances it, and the runner's wait ends when it moves.
-static WAKES: AtomicU32 = AtomicU32::new(0);
-
 /// Why the control link could not be bound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BindError {
@@ -104,6 +101,7 @@ pub struct UsbLink<C> {
 
 /// Binds the control link to the OTG_HS: builds the USB device with truST's identity (design
 /// §2.5), its CDC-ACM control class and the static line link, and enables the OTG_HS interrupt. The
+/// device runs at full speed on the on-chip high-speed PHY, with VBUS sensing off (design §2.2). The
 /// device connects when its bus starts, so the interrupt is unmasked after the device is in place.
 ///
 /// `clock` is the runner's monotonic clock; the link's stall rule reads it.
@@ -138,6 +136,10 @@ pub fn bind<C: MonotonicClock>(clock: C) -> Result<UsbLink<C>, BindError> {
             .serial_number(serial_str)])
         .map_err(|_| BindError::Descriptors)?
         .build();
+    // The build has connected the device through the crate's enable. A host resets a newly attached
+    // device only after its attach debounce of 100 ms, so the device mode is set in one critical
+    // section before the device can be reset.
+    critical_section::with(|_| set_device_mode_on_hs_phy());
     critical_section::with(|cs| {
         *DEVICE.borrow_ref_mut(cs) = Some(Device {
             usb,
@@ -148,6 +150,29 @@ pub fn bind<C: MonotonicClock>(clock: C) -> Result<UsbLink<C>, BindError> {
     // SAFETY: the vector table has the `OTG_HS` handler below, and the device it serves is in place.
     unsafe { NVIC::unmask(pac::Interrupt::OTG_HS) };
     Ok(UsbLink { clock })
+}
+
+/// Sets the device mode of the on-chip high-speed PHY, after the crate's enable has connected the
+/// device (design §2.2): it disconnects, writes GCCFG for VBUS sensing off, sets DSPD to full speed,
+/// and connects again. The steps follow ST's `USB_DevInit` (`stm32u5xx_ll_usb.c`, lines 320 to 365).
+/// The caller holds the critical section, so the interrupt never sees the device half set.
+fn set_device_mode_on_hs_phy() {
+    // SAFETY: `OTG_HS` is the chip's own register block (PAC 0.16.0). The writes set DCTL.SDIS, write
+    // the whole GCCFG register (the PAC has no fields for its bits 23 to 25), set DCFG's speed bits,
+    // clear GOTGCTL's B-session override and clear DCTL.SDIS again. The caller holds the critical
+    // section, and the interrupt is not yet unmasked.
+    let otg = unsafe { &*pac::OTG_HS::ptr() };
+    otg.dctl().modify(|_, w| w.sdis().set_bit());
+    otg.gccfg()
+        .write(|w| unsafe { w.bits(device_mode_gccfg()) });
+    otg.dcfg()
+        .modify(|r, w| unsafe { w.bits(dcfg_full_speed_on_hs_phy(r.bits())) });
+    // The crate's enable also sets GOTGCTL's B-session override for core ID 0x3100. ST's
+    // `USB_DevInit` overrides the session through GCCFG alone on this chip, so both bits are
+    // cleared again.
+    otg.gotgctl()
+        .modify(|_, w| w.bvaloen().clear_bit().bvaloval().clear_bit());
+    otg.dctl().modify(|_, w| w.sdis().clear_bit());
 }
 
 /// The chip's 96-bit unique ID: its three words in address order (design §2.5).
@@ -202,12 +227,12 @@ fn set_out_interrupt(enabled: bool) {
     otg.gintmsk().modify(|_, w| w.rxflvlm().bit(enabled));
 }
 
-/// The wake counter's advance, for the servicing pass.
+/// The wake counter's advance, for the servicing pass (design §2.5).
 struct LinkWake;
 
 impl WakeSignal for LinkWake {
     fn wake(&self) {
-        WAKES.fetch_add(1, Ordering::Release);
+        advance_wake();
     }
 }
 

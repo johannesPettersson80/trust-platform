@@ -1,7 +1,7 @@
 //! The STM32U5A9 chip adapter for the shared truST engine (specification 34, ARCH-10 and Appendix
-//! D.5): the chip table, the pin names, the clock tree and the USB control link. The runner's clock,
-//! wait and wake follow in S1b-8u-2b, the flash, the watchdog and the reset record in S1b-8u-3, and
-//! the firmware and the bench in S1b-9u.
+//! D.5): the chip table, the pin names, the clock tree, the runner's clock, wait and wake ([`wait`])
+//! and the USB control link. The flash, the watchdog and the reset record follow in S1b-8u-3, and the
+//! firmware and the bench in S1b-9u.
 //!
 //! The chip's values are data ([`chip`]) and must equal `chips/stm32u5a9.toml`; a host test compares
 //! them. The clock arithmetic is host-tested ([`clock`]); its register setup is compiled for the chip
@@ -20,6 +20,7 @@ pub mod clock;
 pub mod pins;
 pub mod usb;
 pub mod usb_service;
+pub mod wait;
 
 /// The control link over the OTG_HS, compiled for the chip only (its interrupt and registers).
 #[cfg(all(target_arch = "arm", target_os = "none"))]

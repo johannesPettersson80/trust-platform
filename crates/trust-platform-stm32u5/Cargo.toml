@@ -26,13 +26,14 @@ usb-device = "=0.3.2"
 usbd-serial = "=0.2.2"
 
 # The PAC, the Cortex-M crates, the OTG_HS register driver and the critical sections are for the
-# chip only; a host build never resolves them. The register driver is in `fs` mode: the internal
-# full-speed PHY (design §2.2).
+# chip only; a host build never resolves them. The register driver is in `hs` mode, which selects
+# the on-chip high-speed PHY through its UTMI interface (design §2.2). The device runs at full speed
+# on that PHY: `HIGH_SPEED` stays false and the speed is set in `bind` (S1b-8u-2b).
 [target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
 stm32u5 = { version = "=0.16.0", default-features = false, features = ["critical-section", "rt"] }
 cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
 cortex-m-rt = "=0.7.7"
-synopsys-usb-otg = { version = "=0.5.0", features = ["fs"] }
+synopsys-usb-otg = { version = "=0.5.0", features = ["hs"] }
 critical-section = "1.2.0"
 
 # The host test tests/chip_file.rs compares the chip table with chips/stm32u5a9.toml. A dev

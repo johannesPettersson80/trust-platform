@@ -3063,7 +3063,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 124,
+        "line": 122,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "bind takes the only reference to the static mut STORAGE, after the BOUND swap has made it the first bind; the device and its allocator borrow parts of it for 'static, and nothing else reaches it.",
         "test_evidence": "Host tests usb_descriptors pin the serial and bcdDevice values bind writes; bind itself runs only on the chip and is proved on the bench (S1b-9u).",
@@ -3071,7 +3071,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 149,
+        "line": 151,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "NVIC::unmask enables OTG_HS only after bind has put the device in DEVICE, so the handler always finds it; the interrupt is the PAC's Interrupt::OTG_HS, number 73 (design §2.1).",
         "test_evidence": "The handler and the unmask are proved on the bench (S1b-9u); the servicing pass the handler runs is host-tested (tests/usb_service.rs).",
@@ -3079,7 +3079,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 158,
+        "line": 183,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "read_volatile reads the three words of the chip's read-only 96-bit unique ID at 0x0BFA_0700 (design §2.5), in address order, and writes nothing.",
         "test_evidence": "The serial text the words build is host-tested (tests/usb_descriptors.rs); the read is proved on the bench (S1b-9u).",
@@ -3087,34 +3087,98 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 201,
+        "line": 226,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the read-modify-write touches only the RXFLVLM bit of OTG_HS GINTMSK and runs under the critical section every caller holds; the USB driver writes GINTMSK only in its enable, before the device exists.",
         "test_evidence": "The pass that chooses the value is host-tested (tests/usb_service.rs, a_full_link_leaves_the_packet_with_the_port); the register write is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       },
       {
-        "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 159,
-        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
-        "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the internal full-speed PHY (design §2.1 and §2.2; PAC DIEPCTL0 to DIEPCTL8).",
-        "test_evidence": "Host test the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints pins the constants; the driver's use of them is proved on the bench (S1b-9u).",
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 164,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "OTG_HS is the chip's own register block (PAC 0.16.0). The writes run in bind's critical section, after the build and before the interrupt is unmasked, so DCTL.SDIS, GCCFG and DCFG are never seen half set.",
+        "test_evidence": "The values written are host-tested (tests/usb_phy.rs: device_mode_gccfg_overrides_vbus_and_keeps_sensing_and_pulldowns_off and full_speed_on_the_hs_phy_sets_dspd_to_one_and_keeps_the_other_fields); the writes are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 167,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "GCCFG takes the whole device-mode value 0x0180_0000 (VBVALEXTOEN and VBVALOVAL set, VBDEN and PULLDOWNEN clear), because the PAC has no fields for bits 23 to 25.",
+        "test_evidence": "device_mode_gccfg_overrides_vbus_and_keeps_sensing_and_pulldowns_off pins the value (tests/usb_phy.rs); the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
+        "line": 169,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "DCFG keeps every bit except the speed (bits 1:0), which becomes 0b01, full speed on the on-chip PHY, as ST's USB_DevInit sets it for the embedded PHY (stm32u5xx_ll_usb.c, line 365).",
+        "test_evidence": "full_speed_on_the_hs_phy_sets_dspd_to_one_and_keeps_the_other_fields pins the value (tests/usb_phy.rs); the write is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 173,
+        "line": 207,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
-        "invariant": "the RCC_AHB2ENR1 read-modify-write sets only OTGEN (bit 14), the OTG_HS clock, before the USB core is configured (PAC 0.16.0 field descriptions).",
-        "test_evidence": "The clock enable is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the on-chip high-speed PHY, driven at full speed with HIGH_SPEED false (design §2.1 and §2.2; PAC DIEPCTL0 to DIEPCTL8).",
+        "test_evidence": "Host test the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints pins the constants, and tests/usb_phy.rs pins the PHY values; the driver's use of them is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 175,
+        "line": 224,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
+        "invariant": "the RCC read-modify-writes set only OTGEN (bit 14) and USBPHYCEN (bit 15) in RCC_AHB2ENR1, and SYSCFGEN (bit 1) in RCC_APB3ENR, so the OTG_HS, PHY and SYSCFG clocks run before the USB core is configured (PAC 0.16.0 field descriptions; stm32u5a9xx.h).",
+        "test_evidence": "The clock enables are proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 228,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the PWR read-modify-writes set only USV (PWR_SVMCR bit 28) and USBPWREN and USBBOOSTEN (PWR_VOSR bits 19 and 20), the USB supply, before the USB core is configured (PAC 0.16.0 field descriptions).",
         "test_evidence": "The supply sequence is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 259,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "SYSCFG is the chip's own register block (PAC 0.16.0), and its clock is on since enable; the two writes below touch only OTGHSPHYCR, first CLKSEL and then EN, in ST's order (stm32u5xx_hal.c, lines 1002 and 1030).",
+        "test_evidence": "The reference codes are host-tested (tests/usb_phy.rs, the_phy_reference_codes_are_st_s); the register writes are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/usb.rs",
+        "line": 262,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "CLKSEL takes HSE_PHY_CLKSEL, the code of the board's 16 MHz HSE (0b0011, ST's SYSCFG_OTG_HS_PHY_CLK_SELECT_1). It is a compile-time constant, so a frequency with no code does not build.",
+        "test_evidence": "the_phy_reference_codes_are_st_s pins the code; the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/wait.rs",
+        "line": 76,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "TIM2 is the chip's own timer block at its address (PAC 0.16.0). Only this module uses its registers: Monotonic::start writes them before a wait starts, and the wait and the TIM2 interrupt use them inside the critical section.",
+        "test_evidence": "The compare arithmetic is host-tested (tests/wait.rs); the registers are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/wait.rs",
+        "line": 113,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "RCC is the chip's own register block (PAC 0.16.0), and the one write sets TIM2EN in RCC_APB1ENR1, the timer's clock.",
+        "test_evidence": "The clock enable is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/wait.rs",
+        "line": 168,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "invariant": "NVIC::unmask enables the TIM2 interrupt, whose handler (the TIM2 function of wait.rs) touches only the timer and the wake counter.",
+        "test_evidence": "The sleep and the wake are proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       }
     ],
@@ -3575,8 +3639,8 @@
         "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
         "primitive": "Atomic",
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
-        "shared_state": "bind-once flag and the wake counter advanced by the servicing pass",
-        "invariant": "BOUND is swapped once by bind, so a second bind is refused; WAKES only grows, and the runner's wait (S1b-8u-2b) reads it.",
+        "shared_state": "bind-once flag",
+        "invariant": "BOUND is swapped once by bind, so a second bind is refused. The wake counter moved to the wait module (wait.rs) in S1b-8u-2b.",
         "test_evidence": "Host tests tests/usb_service.rs pin when a pass wakes (a completed request or a moved reply); the bind refusal is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       },
@@ -3584,9 +3648,36 @@
         "path_prefix": "crates/trust-platform-stm32u5/src/usb_link.rs",
         "primitive": "Ordering::",
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
-        "shared_state": "bind-once flag and the wake counter",
-        "invariant": "AcqRel orders the bind-once swap before the storage it guards is touched; the wake advance is Release, for the wait that reads it in S1b-8u-2b.",
+        "shared_state": "bind-once flag",
+        "invariant": "AcqRel orders the bind-once swap before the storage it guards is touched.",
         "test_evidence": "The ordering is proved on the bench with the critical sections it sits beside (S1b-9u); the host runs no interrupt.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/wait.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "shared_state": "the wake counter, advanced by the TIM2 interrupt, the control link's servicing pass and WakeSignal::wake",
+        "invariant": "WAKE_COUNT only grows (fetch_add). The wait reads it with Acquire before it arms the compare, and a change since the loop read its token ends the wait at once.",
+        "test_evidence": "tests/wait.rs pins the compare arithmetic; the wake and the sleep are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/wait.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "shared_state": "the wake counter, advanced by the TIM2 interrupt, the control link's servicing pass and WakeSignal::wake",
+        "invariant": "Release on the advance and Acquire on the reads, so a wake made before the wait's check is seen by that check.",
+        "test_evidence": "The ordering is proved on the bench with the critical sections it sits beside (S1b-9u); the host runs no interrupt.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/wait.rs",
+        "primitive": "Mutex",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
+        "shared_state": "EXTENSION, the 64-bit extension of the TIM2 count",
+        "invariant": "EXTENSION is reached only inside critical_section::with, and only from the main context (now_instant); the TIM2 interrupt never samples it.",
+        "test_evidence": "counter_extension_keeps_time_across_the_32_bit_wrap pins the arithmetic; the sampling is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       }
     ],
