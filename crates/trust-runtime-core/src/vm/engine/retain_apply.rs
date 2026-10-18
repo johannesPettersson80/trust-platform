@@ -2,6 +2,7 @@
 use super::*;
 use crate::bytecode::{InitializationStage, StorageOwner, StorageRole, TypeData};
 use crate::collections::OrderedMap;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::retain::{value_is_retainable, RetainSnapshot};
 use crate::value::{ArrayValue, StructValue};
 use crate::vm::construction::values::{
@@ -47,7 +48,9 @@ impl EngineState<'_> {
         {
             let declaration = &self.prepared.layout.entries[id as usize];
             let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-            if let Some(value) = self.data.storage.get_global(name) {
+            if let Some(view) = self.data.storage.read_global(name)
+                && let Some(value) = self.data.storage.borrow(&view)
+            {
                 check(value)?;
             }
         }
@@ -66,7 +69,9 @@ impl EngineState<'_> {
             {
                 let declaration = &self.prepared.layout.entries[id as usize];
                 let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-                if let Some(value) = self.data.storage.get_instance_var(instance, name) {
+                if let Some(view) = self.data.storage.read_instance_var(instance, name)
+                    && let Some(value) = self.data.storage.borrow(&view)
+                {
                     check(value)?;
                 }
             }
@@ -217,11 +222,16 @@ impl EngineState<'_> {
                     .type_id
                     .ok_or(RuntimeError::InvalidExecutionState)?;
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
-                let old = match instance {
-                    Some(instance) => self.data.storage.get_instance_var(instance, name),
-                    None => self.data.storage.get_global(name),
+                let view = match instance {
+                    Some(instance) => self.data.storage.read_instance_var(instance, name),
+                    None => self.data.storage.read_global(name),
                 }
                 .ok_or(RuntimeError::InvalidExecutionState)?;
+                let old = self
+                    .data
+                    .storage
+                    .borrow(&view)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
                 self.charge_allocation_bytes(self.value_clone_charge(old, 0)?)?;
                 journal.push((instance, name.clone(), old.clone()));
                 let action = *indexes
@@ -267,18 +277,12 @@ impl EngineState<'_> {
                 context.engine.check_entry_deadline()?;
                 match instance {
                     Some(instance) => {
-                        context.engine.data.storage.set_instance_var(
-                            instance,
-                            name.clone(),
-                            migrated,
-                        );
-                    }
-                    None => {
                         context
                             .engine
-                            .data
-                            .storage
-                            .set_global(name.clone(), migrated);
+                            .write_instance_var(instance, name.clone(), migrated);
+                    }
+                    None => {
+                        context.engine.set_global(name.clone(), migrated);
                     }
                 }
             }
@@ -296,10 +300,10 @@ impl EngineState<'_> {
             for (instance, name, value) in journal.into_iter().rev() {
                 match instance {
                     Some(instance) => {
-                        self.data.storage.set_instance_var(instance, name, value);
+                        self.write_instance_var(instance, name, value);
                     }
                     None => {
-                        self.data.storage.set_global(name, value);
+                        self.set_global(name, value);
                     }
                 }
             }

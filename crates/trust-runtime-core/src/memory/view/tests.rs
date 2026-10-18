@@ -352,3 +352,242 @@ fn view_global_forwarding_reads_the_named_global_and_not_its_neighbour() {
         "an undeclared global reads nothing"
     );
 }
+
+#[test]
+fn view_global_write_by_name_replaces_exactly_that_global() {
+    // spec 34 §6.2 (MEM-10): a global is published under its declared name, without
+    // normalizing it for a target.
+    let mut storage = VariableStorage::new();
+    storage.set_global("first", Value::DInt(7));
+    storage.set_global("second", Value::Int(3));
+
+    StoreMutate::set_global(&mut storage, SmolStr::new("first"), Value::Int(42));
+
+    // A write that lands on the wrong name leaves `first` at DInt(7) here; a write
+    // that normalizes for the target stores DInt(42).
+    assert_eq!(storage.get_global("first"), Some(&Value::Int(42)));
+    assert_eq!(storage.get_global("second"), Some(&Value::Int(3)));
+}
+
+#[test]
+fn view_global_name_by_slot_reads_the_declared_name_in_declaration_order() {
+    // spec 34 §6.2 (MEM-10): globals are kept in declaration order, so a slot's name is
+    // the name the declaration published there.
+    let mut storage = VariableStorage::new();
+    store_global(&mut storage, "first", Value::DInt(7));
+    store_global(&mut storage, "second", Value::Int(3));
+
+    // A lookup that reorders the slots, or that reads a neighbour's name, fails one of
+    // these; a slot past the last global names nothing.
+    assert_eq!(
+        StoreAccess::global_name(&storage, 0).map(SmolStr::as_str),
+        Some("first")
+    );
+    assert_eq!(
+        StoreAccess::global_name(&storage, 1).map(SmolStr::as_str),
+        Some("second")
+    );
+    assert_eq!(StoreAccess::global_name(&storage, 2), None);
+}
+
+#[test]
+fn view_ref_for_global_names_the_slot_of_that_global() {
+    // spec 34 §6.2 (MEM-10): a global's reference names its own slot, in this storage's
+    // generation. A lookup that returns the neighbour's slot, or another generation,
+    // fails one of these.
+    let mut storage = VariableStorage::new();
+    store_global(&mut storage, "first", Value::DInt(7));
+    store_global(&mut storage, "second", Value::Int(3));
+
+    let reference = StoreAccess::ref_for_global(&storage, "second")
+        .expect("the declared global has a reference");
+    assert_eq!(reference.location, MemoryLocation::Global);
+    assert_eq!(reference.offset, 1);
+    assert_eq!(reference.generation, storage.generation());
+    assert!(reference.path.is_empty(), "a global reference has no path");
+
+    assert!(
+        StoreAccess::ref_for_global(&storage, "undeclared").is_none(),
+        "an undeclared global has no reference"
+    );
+}
+
+#[test]
+fn view_ref_for_instance_names_the_slot_of_that_member() {
+    // spec 34 §6.2 (MEM-10): an instance member's reference names its own slot, in the
+    // instance's declaration order. A lookup that returns the neighbour's slot fails.
+    let mut storage = VariableStorage::new();
+    let instance = storage.create_instance("Probe");
+    storage.set_instance_var(instance, "number", Value::DInt(7));
+    storage.set_instance_var(instance, "level", Value::Int(3));
+
+    let reference = StoreAccess::ref_for_instance(&storage, instance, "level")
+        .expect("the declared member has a reference");
+    assert_eq!(reference.location, MemoryLocation::Instance(instance));
+    assert_eq!(reference.offset, 1);
+    assert_eq!(reference.generation, storage.generation());
+
+    assert!(
+        StoreAccess::ref_for_instance(&storage, instance, "undeclared").is_none(),
+        "an undeclared member has no reference"
+    );
+}
+
+#[test]
+fn view_snapshot_of_an_instance_keeps_the_record_as_it_was() {
+    // spec 34 MEM-09: an initializer rollback restores the record as it stood before the
+    // initializer wrote it, so a snapshot must not follow later writes. A snapshot that
+    // aliases the live record reads Int(9) here.
+    let mut storage = VariableStorage::new();
+    let instance = storage.create_instance("Probe");
+    storage.set_instance_var(instance, "level", Value::Int(1));
+
+    let snapshot =
+        StoreAccess::snapshot_instance(&storage, instance).expect("the live instance snapshots");
+    assert!(storage.write_instance_var(instance, "level", Value::Int(9)));
+
+    assert_eq!(snapshot.variables.get("level"), Some(&Value::Int(1)));
+    assert_eq!(snapshot.type_name, SmolStr::new("Probe"));
+
+    // A released instance has no record to copy.
+    assert!(StoreMutate::remove_instance(&mut storage, instance));
+    assert!(StoreAccess::snapshot_instance(&storage, instance).is_none());
+}
+
+#[test]
+fn view_restore_puts_the_snapshot_back_over_the_live_record() {
+    // spec 34 MEM-09: the rollback restores the snapshot's values and drops the values
+    // written after it. A restore that merges leaves `extra` behind; one that keeps the
+    // live record leaves `level` at Int(9).
+    let mut storage = VariableStorage::new();
+    let instance = storage.create_instance("Probe");
+    storage.set_instance_var(instance, "level", Value::Int(1));
+    let snapshot =
+        StoreAccess::snapshot_instance(&storage, instance).expect("the live instance snapshots");
+    let absent = storage.create_instance("Gone");
+    assert!(StoreMutate::remove_instance(&mut storage, absent));
+    storage.set_instance_var(instance, "level", Value::Int(9));
+    storage.set_instance_var(instance, "extra", Value::Int(4));
+
+    StoreMutate::restore_instance(&mut storage, instance, snapshot.clone());
+
+    assert_eq!(
+        storage.get_instance_var(instance, "level"),
+        Some(&Value::Int(1))
+    );
+    assert_eq!(storage.get_instance_var(instance, "extra"), None);
+
+    // A snapshot of an instance that is no longer live changes nothing: the restore must
+    // not re-create the released instance.
+    StoreMutate::restore_instance(&mut storage, absent, snapshot);
+    assert!(
+        storage.get_instance(absent).is_none(),
+        "a restore never re-creates a released instance"
+    );
+}
+
+#[test]
+fn view_retention_releases_exactly_the_instances_it_refuses() {
+    // spec 34 MEM-09 (retirement of an owner's instances): the batch releases the refused
+    // instances only, and reports how many it released. A batch that clears the table
+    // reports 3 and loses `first`; one that refuses the wrong instance keeps `released`.
+    let mut storage = VariableStorage::new();
+    let first = StoreMutate::try_create_instance(&mut storage, SmolStr::new("Probe"))
+        .expect("first identity");
+    let released = StoreMutate::try_create_instance(&mut storage, SmolStr::new("Probe"))
+        .expect("second identity");
+    let kept = StoreMutate::try_create_instance(&mut storage, SmolStr::new("Probe"))
+        .expect("third identity");
+
+    let count = StoreMutate::retain_instances(&mut storage, |id| id != released);
+
+    assert_eq!(count, 1, "exactly one instance is refused");
+    assert!(
+        storage.get_instance(released).is_none(),
+        "the refused instance is released"
+    );
+    assert!(storage.get_instance(first).is_some());
+    assert!(storage.get_instance(kept).is_some());
+}
+
+#[test]
+fn view_instance_creation_issues_a_fresh_identity_of_its_type() {
+    // spec 34 MEM-09: every reserve issues a new instance identity and records its
+    // type, so a reuse never renames a live instance.
+    let mut storage = VariableStorage::new();
+
+    let first = StoreMutate::try_create_instance(&mut storage, SmolStr::new("Probe"))
+        .expect("a fresh identity");
+    let second = StoreMutate::try_create_instance(&mut storage, SmolStr::new("Probe"))
+        .expect("a fresh identity");
+
+    // An identity that is reused (or issued as a constant) makes these equal.
+    assert_ne!(first, second, "each creation issues a new identity");
+    assert_eq!(
+        storage.get_instance(first).expect("first exists").type_name,
+        SmolStr::new("Probe")
+    );
+    assert!(storage.get_instance(second).is_some());
+}
+
+#[test]
+fn view_instance_removal_releases_exactly_that_identity() {
+    // spec 34 MEM-09: releasing one instance leaves every other live identity alone.
+    let mut storage = VariableStorage::new();
+    let kept = StoreMutate::try_create_instance(&mut storage, SmolStr::new("Probe"))
+        .expect("first identity");
+    let removed = StoreMutate::try_create_instance(&mut storage, SmolStr::new("Probe"))
+        .expect("second identity");
+
+    assert!(StoreMutate::remove_instance(&mut storage, removed));
+    // Releasing the same identity again finds nothing to release.
+    assert!(!StoreMutate::remove_instance(&mut storage, removed));
+
+    // A removal that clears the whole table loses `kept` here; one that removes the
+    // wrong identity leaves `removed` resolvable.
+    assert!(
+        storage.get_instance(removed).is_none(),
+        "the released identity is gone"
+    );
+    assert!(
+        storage.get_instance(kept).is_some(),
+        "another identity must survive"
+    );
+}
+
+#[test]
+fn view_recursive_instance_field_reads_an_inherited_member() {
+    // spec 34 §6.2 (MEM-10): an instance member resolves through the instance and
+    // then its ancestors, so a derived instance reads a member its parent declares.
+    let mut storage = VariableStorage::new();
+    let parent = storage.create_instance("Parent");
+    storage.set_instance_var(parent, "shared", Value::Int(5));
+    let child = storage.create_instance("Child");
+    storage.set_instance_var(child, "own", Value::Int(7));
+    storage
+        .get_instance_mut(child)
+        .expect("the child is live")
+        .parent = Some(parent);
+
+    // The child declares no `shared` of its own, so the value below comes from the parent.
+    assert_eq!(storage.get_instance_var(child, "shared"), None);
+    let view = storage
+        .read_instance_field(child, "shared")
+        .expect("the inherited member resolves");
+    assert_eq!(
+        storage.materialize(&view).expect("shared materializes"),
+        Value::Int(5)
+    );
+
+    // An absent member is a stable trap, never a default.
+    assert!(matches!(
+        storage.read_instance_field(child, "absent"),
+        Err(VmTrap::NullReference)
+    ));
+}
+
+/// Write one global through the seam, so a test does not measure the inherent name
+/// map instead of the forwarding method.
+fn store_global(storage: &mut VariableStorage, name: &str, value: Value) {
+    StoreMutate::set_global(storage, SmolStr::new(name), value);
+}

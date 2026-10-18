@@ -16,9 +16,10 @@
 use super::{EngineState, RuntimeState};
 use crate::error::RuntimeError;
 use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate, ValueView};
-use crate::memory::{InstanceId, MemoryLocation};
-use crate::value::{RefSegment, Value, ValueRefView};
+use crate::memory::{InstanceData, InstanceId, MemoryLocation};
+use crate::value::{RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::VmTrap;
+use smol_str::SmolStr;
 
 impl StoreAccess for EngineState<'_> {
     #[inline]
@@ -53,6 +54,35 @@ impl StoreAccess for EngineState<'_> {
     #[inline]
     fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
         self.data.storage.read_global(name)
+    }
+
+    #[inline]
+    fn global_name(&self, offset: usize) -> Option<&SmolStr> {
+        self.data.storage.global_name(offset)
+    }
+
+    #[inline]
+    fn read_instance_field<'a>(
+        &'a self,
+        instance: InstanceId,
+        name: &str,
+    ) -> Result<ValueView<'a>, VmTrap> {
+        self.data.storage.read_instance_field(instance, name)
+    }
+
+    #[inline]
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
+        self.data.storage.ref_for_global(name)
+    }
+
+    #[inline]
+    fn ref_for_instance(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.data.storage.ref_for_instance(instance, name)
+    }
+
+    #[inline]
+    fn snapshot_instance(&self, instance: InstanceId) -> Option<InstanceData> {
+        self.data.storage.snapshot_instance(instance)
     }
 
     #[inline]
@@ -109,8 +139,41 @@ impl StoreMutate for EngineState<'_> {
     }
 
     #[inline]
-    fn write_instance_var(&mut self, instance: InstanceId, name: &str, value: Value) -> bool {
+    fn write_instance_var(
+        &mut self,
+        instance: InstanceId,
+        name: impl Into<SmolStr>,
+        value: Value,
+    ) -> bool {
         self.data.storage.write_instance_var(instance, name, value)
+    }
+
+    #[inline]
+    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
+        self.data.storage.set_global(name, value);
+    }
+
+    #[inline]
+    fn try_create_instance(
+        &mut self,
+        type_name: impl Into<SmolStr>,
+    ) -> Result<InstanceId, RuntimeError> {
+        self.data.storage.try_create_instance(type_name)
+    }
+
+    #[inline]
+    fn remove_instance(&mut self, id: InstanceId) -> bool {
+        StoreMutate::remove_instance(&mut self.data.storage, id)
+    }
+
+    #[inline]
+    fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
+        self.data.storage.retain_instances(keep)
+    }
+
+    #[inline]
+    fn restore_instance(&mut self, instance: InstanceId, data: InstanceData) {
+        self.data.storage.restore_instance(instance, data);
     }
 
     #[inline]
@@ -165,6 +228,35 @@ impl StoreAccess for RuntimeState<'_> {
     #[inline]
     fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
         self.storage().read_global(name)
+    }
+
+    #[inline]
+    fn global_name(&self, offset: usize) -> Option<&SmolStr> {
+        self.storage().global_name(offset)
+    }
+
+    #[inline]
+    fn read_instance_field<'a>(
+        &'a self,
+        instance: InstanceId,
+        name: &str,
+    ) -> Result<ValueView<'a>, VmTrap> {
+        self.storage().read_instance_field(instance, name)
+    }
+
+    #[inline]
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
+        self.storage().ref_for_global(name)
+    }
+
+    #[inline]
+    fn ref_for_instance(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.storage().ref_for_instance(instance, name)
+    }
+
+    #[inline]
+    fn snapshot_instance(&self, instance: InstanceId) -> Option<InstanceData> {
+        self.storage().snapshot_instance(instance)
     }
 
     #[inline]

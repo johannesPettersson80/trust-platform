@@ -1,7 +1,49 @@
 //! Private initializer transactions for existing FB member override destinations.
 use super::*;
 use crate::bytecode::{InitializationPhase, InitializationStage, InitializationTarget, TypeData};
-use crate::memory::InstanceData;
+use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::{InstanceData, MemoryLocation};
+use crate::value::ValueRef;
+
+/// The value a seed copies: the configuration action's selected reference, or the
+/// value the declaration's global, instance variable or lexical frame local holds
+/// (specification 34 MEM-09).
+fn seed_source_value<'a, S: StoreAccess>(
+    storage: &'a S,
+    configured: Option<&'a ValueRef>,
+    name: &str,
+    owner: StorageOwner,
+    instance: Option<InstanceId>,
+    frame_value: Option<&'a Value>,
+) -> Result<&'a Value, RuntimeError> {
+    if let Some(reference) = configured {
+        let view = storage
+            .read_reference(reference.as_view())
+            .map_err(|_| RuntimeError::InvalidExecutionState)?;
+        return storage
+            .borrow(&view)
+            .ok_or(RuntimeError::InvalidExecutionState);
+    }
+    match owner {
+        StorageOwner::Global => {
+            let view = storage
+                .read_global(name)
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            storage
+                .borrow(&view)
+                .ok_or(RuntimeError::InvalidExecutionState)
+        }
+        StorageOwner::Instance => {
+            let view = instance
+                .and_then(|id| storage.read_instance_var(id, name))
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            storage
+                .borrow(&view)
+                .ok_or(RuntimeError::InvalidExecutionState)
+        }
+        StorageOwner::Frame => frame_value.ok_or(RuntimeError::InvalidExecutionState),
+    }
+}
 
 pub(super) struct InitializerSeed {
     pub(super) value: Value,
@@ -70,21 +112,18 @@ impl EngineState<'_> {
             return Ok(InitializerSeed::empty());
         }
         let name = &self.prepared.vm.strings[declaration.name_idx as usize];
-        let value = if let Some(reference) = &configured {
+        if let Some(reference) = &configured {
             self.check_read(reference.as_view())?;
-            self.data.storage.read_by_ref_ref(reference)
-        } else {
-            match declaration.owner {
-                StorageOwner::Global => self.data.storage.get_global(name),
-                StorageOwner::Instance => {
-                    instance.and_then(|id| self.data.storage.get_instance_var(id, name))
-                }
-                StorageOwner::Frame => {
-                    lexical.and_then(|frame| frame.locals.get(declaration.slot as usize))
-                }
-            }
         }
-        .ok_or(RuntimeError::InvalidExecutionState)?;
+        let frame_value = lexical.and_then(|frame| frame.locals.get(declaration.slot as usize));
+        let value = seed_source_value(
+            &self.data.storage,
+            configured.as_ref(),
+            name,
+            declaration.owner,
+            instance,
+            frame_value,
+        )?;
         if matches!(
             self.prepared.vm.types.entries[type_id as usize].data,
             TypeData::Pou { .. }
@@ -145,19 +184,32 @@ impl EngineState<'_> {
                     .declarations(StorageOwner::Instance, Some(template))
                 {
                     let declaration = &self.prepared.layout.entries[declaration_id as usize];
-                    if let (Some(type_id), Some((_, value))) = (
-                        declaration.type_id,
-                        data.variables.get_index(declaration.slot as usize),
-                    ) {
+                    if let Some(type_id) = declaration.type_id
+                        && let Ok(view) = self
+                            .data
+                            .storage
+                            .read_slot(MemoryLocation::Instance(id), declaration.slot as usize)
+                        && let Some(value) = self.data.storage.borrow(&view)
+                    {
                         self.owned_value_instances(type_id, value, &mut pending, 0)?;
                     }
                 }
-                let mut charge = data
-                    .variables
-                    .len()
+                // The record's count is metadata; each value is read through its slot.
+                let count = data.variables.len();
+                let mut charge = count
                     .checked_mul(core::mem::size_of::<(smol_str::SmolStr, Value)>() * 4)
                     .ok_or(RuntimeError::Overflow)?;
-                for value in data.variables.values() {
+                for slot in 0..count {
+                    let view = self
+                        .data
+                        .storage
+                        .read_slot(MemoryLocation::Instance(id), slot)
+                        .map_err(|_| RuntimeError::InvalidExecutionState)?;
+                    let value = self
+                        .data
+                        .storage
+                        .borrow(&view)
+                        .ok_or(RuntimeError::InvalidExecutionState)?;
                     charge = charge
                         .checked_add(self.value_clone_charge(value, 0)?)
                         .ok_or(RuntimeError::Overflow)?;
@@ -180,14 +232,12 @@ impl EngineState<'_> {
                         })?;
                     backups_charged = capacity;
                 }
-                backups.push((
-                    id,
-                    self.data
-                        .storage
-                        .get_instance(id)
-                        .ok_or(RuntimeError::InvalidExecutionState)?
-                        .clone(),
-                ));
+                let snapshot = self
+                    .data
+                    .storage
+                    .snapshot_instance(id)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                backups.push((id, snapshot));
             }
             Ok(value)
         })();
@@ -285,9 +335,7 @@ impl EngineState<'_> {
         backups: &mut Vec<(InstanceId, InstanceData)>,
     ) {
         for (id, data) in backups.drain(..) {
-            if let Some(instance) = self.data.storage.get_instance_mut(id) {
-                *instance = data;
-            }
+            self.data.storage.restore_instance(id, data);
         }
     }
 }

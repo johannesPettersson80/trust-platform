@@ -15,10 +15,11 @@
 //! tree). Each method forwards to the same storage function the engine calls today
 //! (C1-8a note §3), so no result, trap, error, charge or allocation changes.
 
-use super::{InstanceId, MemoryLocation, PreparedStorageWrite, VariableStorage};
+use super::{InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite, VariableStorage};
 use crate::error::RuntimeError;
-use crate::value::{read_value_path_borrowed, RefSegment, Value, ValueRefView};
+use crate::value::{read_value_path_borrowed, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::VmTrap;
+use smol_str::SmolStr;
 
 /// A variable, or one path inside it, as the store holds it.
 ///
@@ -110,8 +111,11 @@ pub trait StoreAccess {
     /// built-in function-block executor holds no layout to resolve the name to an
     /// offset. C1-9 resolves the name through the instance template's layout at
     /// this boundary and retires the method (C1-8b note §5; specification 34 §6.2,
-    /// MEM-10). Callers: `vm::edge`, `stdlib::fbs::instance`, and `vm::engine::cycle`,
-    /// whose retained capture reads each retained program variable this way.
+    /// MEM-10). Callers: `vm::edge`, `stdlib::fbs::instance`, `vm::engine::cycle`,
+    /// whose retained capture reads each retained program variable this way, and the
+    /// C1-8c `vm::engine::initialization::staging`,
+    /// `vm::engine::retained_graph`, `vm::engine::restart` and
+    /// `vm::engine::retain_apply`.
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>>;
 
     /// The view of one global variable selected by its declared name.
@@ -121,8 +125,63 @@ pub trait StoreAccess {
     /// an ordered map, while a cell range is reached by offset and the retained
     /// capture holds a declaration's name rather than its slot. C1-9 resolves the
     /// name through the prepared layout at this boundary and retires the method
-    /// (specification 34 §6.2, MEM-10). Callers: `vm::engine::cycle`.
+    /// (specification 34 §6.2, MEM-10). Callers: `vm::engine::cycle`,
+    /// `vm::engine::initialization::staging`, `vm::engine::retained_graph` and
+    /// `vm::engine::retain_apply`.
     fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>>;
+
+    /// The declared name of the global at slot `offset`, in declaration order.
+    ///
+    /// A C1-8c forwarding method, the name counterpart of
+    /// [`StoreAccess::read_global`]: the retained graph rebinds a retained reference
+    /// to the candidate's global of the same name, and finds that name from the slot
+    /// the reference holds. A name is declaration metadata, not a value, so no stored
+    /// value leaves the seam here. C1-9 serves the name from the prepared global
+    /// declaration (specification 34 §6.2, MEM-10). Callers:
+    /// `vm::engine::retained_graph`.
+    fn global_name(&self, offset: usize) -> Option<&SmolStr>;
+
+    /// The view of one instance member resolved through the instance's inheritance
+    /// chain.
+    ///
+    /// A C1-8c forwarding method: today's storage resolves the member by name
+    /// against the instance and then its ancestors, and the path-write charge walk
+    /// needs that resolution before it may borrow the member. C1-9 resolves the name
+    /// through the instance template's layout chain at this boundary and retires the
+    /// method (specification 34 §6.2, MEM-10). Callers: `vm::engine::path_write`.
+    fn read_instance_field<'a>(
+        &'a self,
+        instance: InstanceId,
+        name: &str,
+    ) -> Result<ValueView<'a>, VmTrap>;
+
+    /// The reference to the global variable named `name`, in this storage's generation.
+    ///
+    /// A C1-8c forwarding method, the reference counterpart of
+    /// [`StoreAccess::read_global`]: the retained graph rebinds a retained reference
+    /// to the candidate's global of the same name, and needs the slot the candidate
+    /// holds it in. C1-9 resolves the name through the prepared layout at this
+    /// boundary and retires the method (specification 34 §6.2, MEM-10). Callers:
+    /// `vm::engine::retained_graph`.
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef>;
+
+    /// The reference to the instance variable `name` of `instance`, in this storage's
+    /// generation.
+    ///
+    /// A C1-8c forwarding method, the reference counterpart of
+    /// [`StoreAccess::read_instance_var`]. C1-9 resolves the name through the instance
+    /// template's layout at this boundary and retires the method (specification 34
+    /// §6.2, MEM-10). Callers: `vm::engine::retained_graph`.
+    fn ref_for_instance(&self, instance: InstanceId, name: &str) -> Option<ValueRef>;
+
+    /// An owned copy of one instance record, taken before an initializer may write it.
+    ///
+    /// A C1-8c forwarding method for the initializer rollback (specification 34
+    /// MEM-09). Like the saved root of [`StoreMutate::restore_slot`], the copy is a
+    /// journal: it goes back only through [`StoreMutate::restore_instance`]. C1-9
+    /// materializes the instance's cells here. Callers:
+    /// `vm::engine::initialization::staging`.
+    fn snapshot_instance(&self, instance: InstanceId) -> Option<InstanceData>;
 
     /// Step into one compound segment without cloning the parent.
     fn member<'a>(
@@ -149,10 +208,17 @@ pub trait StoreAccess {
     /// helper in `stdlib::fbs::instance`; the C1-8c callers are `read_named_bool`,
     /// `execute_task_fb` and `commit_configuration_target` in `vm::engine::io`,
     /// `binding_patch` in `vm::engine::io::staging`, `read_checked_reference` in
-    /// `vm::engine::access`, and `execute_program_root` and `fill_retained_payload`
-    /// in `vm::engine::cycle`. The engine reads the stored value through this for
-    /// its copy charge and step-into decisions while today's storage is a `Value`
-    /// tree.
+    /// `vm::engine::access`, `execute_program_root` and `fill_retained_payload`
+    /// in `vm::engine::cycle`, `seed_source_value` and the owned-instance walk of
+    /// `initializer_seed` in `vm::engine::initialization::staging`,
+    /// `collect_owned_instance_graph` in `vm::engine::initialization::construction`,
+    /// `charge_path_write_inner` in `vm::engine::path_write`,
+    /// `import_retained_globals` and `RetainedGraph::instance` in
+    /// `vm::engine::retained_graph`, `restore_retained_program_values` in
+    /// `vm::engine::restart`, and `require_serializable_retained_values` and
+    /// `apply_retained_inner` in `vm::engine::retain_apply`. The engine reads the stored
+    /// value through this for its copy charge and step-into decisions while today's
+    /// storage is a `Value` tree.
     fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value>;
 
     /// The owned `Value` of a view; the only allocating read.
@@ -188,10 +254,67 @@ pub trait StoreMutate {
     /// A C1-8b forwarding method, the write counterpart of
     /// [`StoreAccess::read_instance_var`]: a name may name a member not yet present
     /// in today's value map, so the seam's slot write (which requires an existing
-    /// offset) cannot express it. C1-9 resolves the name through the instance
-    /// template's layout at this boundary and retires the method. Callers:
-    /// `vm::edge`, `stdlib::fbs::instance`.
-    fn write_instance_var(&mut self, instance: InstanceId, name: &str, value: Value) -> bool;
+    /// offset) cannot express it. The name is admitted as an owned `SmolStr` so a
+    /// caller that already holds one moves it instead of building a second, keeping
+    /// today's allocation. C1-9 resolves the name through the instance template's
+    /// layout at this boundary and retires the method. Callers: `vm::edge`,
+    /// `stdlib::fbs::instance`, `vm::engine::initialization`,
+    /// `vm::engine::retained_graph`, `vm::engine::restart` and
+    /// `vm::engine::retain_apply`.
+    fn write_instance_var(
+        &mut self,
+        instance: InstanceId,
+        name: impl Into<SmolStr>,
+        value: Value,
+    ) -> bool;
+
+    /// Replace, or insert, one global variable selected by its declared name.
+    ///
+    /// A C1-8c forwarding method, the write counterpart of
+    /// [`StoreAccess::read_global`]: today's storage names globals by string in an
+    /// ordered map, while a cell range is published by offset. C1-9 resolves the
+    /// name through the prepared layout at this boundary and retires the method
+    /// (specification 34 §6.2, MEM-10). Callers:
+    /// `vm::engine::initialization::construction`, `vm::engine::retained_graph` and
+    /// `vm::engine::retain_apply`.
+    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value);
+
+    /// Allocate a fresh instance identity of `type_name`.
+    ///
+    /// A C1-8c forwarding method, the structural counterpart of
+    /// [`StoreMutate::write_instance_var`]: an identity is issued by the store today,
+    /// and C1-9 issues it against the instance region (specification 34 §6.2,
+    /// MEM-10). Callers: `vm::engine::initialization::construction`.
+    fn try_create_instance(
+        &mut self,
+        type_name: impl Into<SmolStr>,
+    ) -> Result<InstanceId, RuntimeError>;
+
+    /// Release one instance and everything that named it. Returns whether the instance
+    /// existed.
+    ///
+    /// A C1-8c forwarding method: the rollback of a reserve that failed after the
+    /// identity was issued. The released record is dropped inside the store, so no
+    /// value tree leaves the seam. C1-9 releases the instance's region (specification
+    /// 34 §6.2, MEM-10). Callers: `vm::engine::initialization::construction`.
+    fn remove_instance(&mut self, id: InstanceId) -> bool;
+
+    /// Release every instance `keep` refuses, in one pass, and return how many were
+    /// released.
+    ///
+    /// A C1-8c forwarding method: the retirement of an owner's instances (TIME-08,
+    /// specification 34 MEM-09). C1-9 releases the region of each refused instance.
+    /// Callers: `vm::engine::initialization::construction`.
+    fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize;
+
+    /// Put a snapshot of an instance record back over the instance's current record,
+    /// without normalizing any value. An absent instance is left unchanged.
+    ///
+    /// A C1-8c forwarding method, the write counterpart of
+    /// [`StoreAccess::snapshot_instance`], used only by the initializer rollback
+    /// (specification 34 MEM-09). C1-9 restores the instance's cells. Callers:
+    /// `vm::engine::initialization::staging`.
+    fn restore_instance(&mut self, instance: InstanceId, data: InstanceData);
 
     /// Publish the prepared patch once, applying the receiving text capacity.
     fn commit_write(
@@ -255,6 +378,47 @@ impl StoreAccess for VariableStorage {
     }
 
     #[inline]
+    fn global_name(&self, offset: usize) -> Option<&SmolStr> {
+        self.globals.get_index(offset).map(|(name, _)| name)
+    }
+
+    #[inline]
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
+        self.ref_for_global(name)
+    }
+
+    #[inline]
+    fn ref_for_instance(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        self.ref_for_instance(instance, name)
+    }
+
+    #[inline]
+    fn snapshot_instance(&self, instance: InstanceId) -> Option<InstanceData> {
+        self.get_instance(instance).cloned()
+    }
+
+    #[inline]
+    fn read_instance_field<'a>(
+        &'a self,
+        instance: InstanceId,
+        name: &str,
+    ) -> Result<ValueView<'a>, VmTrap> {
+        let reference = self
+            .ref_for_instance_recursive(instance, name)
+            .ok_or(VmTrap::NullReference)?;
+        if reference.generation != self.generation() {
+            return Err(VmTrap::NullReference);
+        }
+        self.read_by_ref_parts(
+            reference.location,
+            reference.offset as usize,
+            &reference.path,
+        )
+        .map(ValueView::borrowed)
+        .ok_or(VmTrap::NullReference)
+    }
+
+    #[inline]
     fn member<'a>(
         &'a self,
         view: &ValueView<'a>,
@@ -310,8 +474,48 @@ impl StoreMutate for VariableStorage {
     }
 
     #[inline]
-    fn write_instance_var(&mut self, instance: InstanceId, name: &str, value: Value) -> bool {
+    fn write_instance_var(
+        &mut self,
+        instance: InstanceId,
+        name: impl Into<SmolStr>,
+        value: Value,
+    ) -> bool {
         self.set_instance_var(instance, name, value)
+    }
+
+    #[inline]
+    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
+        // The inherent method owns the insertion; this forwards to it.
+        self.set_global(name, value);
+    }
+
+    #[inline]
+    fn try_create_instance(
+        &mut self,
+        type_name: impl Into<SmolStr>,
+    ) -> Result<InstanceId, RuntimeError> {
+        // The inherent method owns identity issue; this forwards to it.
+        self.try_create_instance(type_name)
+    }
+
+    #[inline]
+    fn remove_instance(&mut self, id: InstanceId) -> bool {
+        // The inherent method owns release; this forwards to it and drops the record.
+        self.remove_instance(id).is_some()
+    }
+
+    #[inline]
+    fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
+        // The inherent method owns the batch release; this forwards to it.
+        self.retain_instances(keep)
+    }
+
+    #[inline]
+    fn restore_instance(&mut self, instance: InstanceId, data: InstanceData) {
+        // The initializer rollback writes the copy back over the live record.
+        if let Some(record) = self.get_instance_mut(instance) {
+            *record = data;
+        }
     }
 
     #[inline]

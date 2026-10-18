@@ -1,6 +1,7 @@
 //! Staged in-process restart, preserving the active state on construction failure.
 use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::retain::{value_is_retainable, RestartMode};
 
 impl EngineState<'_> {
@@ -70,7 +71,9 @@ impl EngineState<'_> {
                 };
                 let new = self.data.construction.roots[root_index]
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                if let Some(value) = source.data.storage.get_instance_var(old, name) {
+                if let Some(view) = source.data.storage.read_instance_var(old, name)
+                    && let Some(value) = source.data.storage.borrow(&view)
+                {
                     self.check_retention_walk(value, 0)?;
                     if value_is_retainable(value) {
                         self.restore_program_value(new, name, value)?;
@@ -79,7 +82,9 @@ impl EngineState<'_> {
                 for &phase_id in source.prepared.edge_declarations(index as u32) {
                     let phase = &source.prepared.layout.entries[phase_id as usize];
                     let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
-                    if let Some(value) = source.data.storage.get_instance_var(old, phase_name) {
+                    if let Some(view) = source.data.storage.read_instance_var(old, phase_name)
+                        && let Some(value) = source.data.storage.borrow(&view)
+                    {
                         self.restore_program_value(new, phase_name, value)?;
                     }
                 }
@@ -140,7 +145,7 @@ impl EngineState<'_> {
         if !self
             .data
             .storage
-            .set_instance_var(instance, name.clone(), value.clone())
+            .write_instance_var(instance, name.clone(), value.clone())
         {
             return Err(RuntimeError::InvalidExecutionState);
         }
