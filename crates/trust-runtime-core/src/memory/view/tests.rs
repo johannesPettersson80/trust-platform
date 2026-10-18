@@ -328,3 +328,27 @@ fn view_instance_var_forwarding_selects_the_named_member_and_writes_it_raw() {
         Some(&Value::Int(3))
     );
 }
+
+#[test]
+fn view_global_forwarding_reads_the_named_global_and_not_its_neighbour() {
+    // spec 34 §6.2 (MEM-10): a global is selected by its declared name. The
+    // forwarding read lands on the wrong global if it ignores the name.
+    let mut storage = VariableStorage::new();
+    storage.set_global("first", Value::DInt(7));
+    storage.set_global("second", Value::Int(3));
+
+    let view = storage
+        .read_global("first")
+        .expect("the declared global resolves");
+    // A read that ignores the name returns the neighbouring global (Int(3)).
+    assert_eq!(
+        storage.materialize(&view).expect("first materializes"),
+        Value::DInt(7)
+    );
+
+    // A name the resource does not declare reads nothing, never a default.
+    assert!(
+        storage.read_global("undeclared").is_none(),
+        "an undeclared global reads nothing"
+    );
+}

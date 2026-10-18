@@ -5,6 +5,7 @@ use crate::io_address::IoAddress;
 use crate::io_image::{
     read_flat_image, validate_process_image_address, write_flat_image, IoAddressKey, IoValueCodec,
 };
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::{IoArea, MemoryLocation};
 use crate::value::{
     size_of_value_with_abi_and_visitor, write_partial_access, PartialAccess, RefSegment,
@@ -132,11 +133,14 @@ impl EngineState<'_> {
             .prepared
             .global(name)
             .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-        match self
+        let Ok(slot) = self
             .data
             .storage
-            .read_global_slot_by_offset(declaration.slot as usize)
-        {
+            .read_slot(MemoryLocation::Global, declaration.slot as usize)
+        else {
+            return Err(RuntimeError::TypeMismatch);
+        };
+        match self.data.storage.borrow(&slot) {
             Some(Value::Bool(value)) => Ok(*value),
             _ => Err(RuntimeError::TypeMismatch),
         }
@@ -148,14 +152,14 @@ impl EngineState<'_> {
     ) -> Result<(), RuntimeError> {
         let reference = self.persistent_io_view(ref_idx)?;
         self.check_read(reference)?;
-        let instance = match self.data.storage.read_by_ref_parts(
-            reference.location,
-            reference.offset,
-            reference.path,
-        ) {
+        let view = self
+            .data
+            .storage
+            .read_path(reference.location, reference.offset, reference.path)
+            .map_err(|_| RuntimeError::NullReference)?;
+        let instance = match self.data.storage.borrow(&view) {
             Some(Value::Instance(id)) => *id,
-            Some(_) => return Err(RuntimeError::TypeMismatch),
-            None => return Err(RuntimeError::NullReference),
+            _ => return Err(RuntimeError::TypeMismatch),
         };
         let pou = *self
             .data
@@ -249,11 +253,7 @@ impl EngineState<'_> {
                         .map_err(crate::vm::dispatch::partial_access_error_to_runtime)?
                 {
                     self.check_read(reference.as_view())?;
-                    let target = self
-                        .data
-                        .storage
-                        .materialize_by_ref_ref(&reference)
-                        .ok_or_else(|| RuntimeError::NullReference)?;
+                    let target = self.materialize_reference(reference.as_view())?;
                     write_partial_access(target, access, value)
                         .map_err(crate::vm::dispatch::partial_access_error_to_runtime)?
                 } else {
@@ -271,7 +271,7 @@ impl EngineState<'_> {
                 let prepared = self
                     .data
                     .storage
-                    .prepare_by_ref_parts_write(
+                    .prepare_write(
                         reference.location,
                         reference.offset as usize,
                         &reference.path,
@@ -280,12 +280,11 @@ impl EngineState<'_> {
                     .ok_or_else(|| RuntimeError::NullReference)?;
                 self.check_entry_deadline()?;
                 let capacity = self.declared_string_capacity(reference.as_view());
-                if !self.data.storage.commit_prepared_write(
-                    &reference.path,
-                    value,
-                    prepared,
-                    capacity,
-                ) {
+                if !self
+                    .data
+                    .storage
+                    .commit_write(&reference.path, value, prepared, capacity)
+                {
                     return Err(RuntimeError::NullReference);
                 }
                 Ok(())

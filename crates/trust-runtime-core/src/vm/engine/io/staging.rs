@@ -3,6 +3,7 @@ use super::super::cycle_port::{CycleAccess, CycleHooks, CyclePhase, OutputUndo};
 use super::super::destinations::{Key, SavedDestinations};
 use super::*;
 use crate::io_image::PreparedIoBinding;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::value::ValueRefView;
 
 /// One staged change of the process image: the bytes or the bit of a flat window, or one
@@ -340,12 +341,12 @@ impl EngineState<'_> {
                     let write = self
                         .data
                         .storage
-                        .prepare_by_ref_parts_write(location, offset, path, &value)?
+                        .prepare_write(location, offset, path, &value)?
                         .ok_or_else(|| RuntimeError::NullReference)?;
                     self.check_entry_deadline()?;
                     self.data
                         .storage
-                        .commit_prepared_write(path, value, write, capacity)
+                        .commit_write(path, value, write, capacity)
                         .then_some(())
                         .ok_or_else(|| RuntimeError::NullReference)
                 });
@@ -539,17 +540,20 @@ impl EngineState<'_> {
     ) -> Result<StagedPatch, RuntimeError> {
         let reference = self.persistent_io_view(binding.ref_idx)?;
         self.check_read(reference)?;
+        let view = self
+            .data
+            .storage
+            .read_path(reference.location, reference.offset, reference.path)
+            .map_err(|_| RuntimeError::NullReference)?;
         let source = self
             .data
             .storage
-            .read_by_ref_parts(reference.location, reference.offset, reference.path)
-            .ok_or_else(|| RuntimeError::NullReference)?;
+            .borrow(&view)
+            .ok_or(RuntimeError::NullReference)?;
         self.charge_allocation_bytes(self.value_clone_charge(source, 0)?)?;
-        let value = self
-            .data
-            .storage
-            .materialize_by_ref_parts(reference.location, reference.offset, reference.path)
-            .ok_or_else(|| RuntimeError::NullReference)?;
+        // The read above already resolved this path, so the view holds exactly the
+        // leaf the old whole-value materialize returned.
+        let value = self.data.storage.materialize(&view)?;
         let value = binding.codec.encode(value, binding.address.size)?;
         if binding.address.path.len() > 1 {
             self.charge_hierarchical_entry(&binding.address)?;

@@ -51,6 +51,11 @@ impl StoreAccess for EngineState<'_> {
     }
 
     #[inline]
+    fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        self.data.storage.read_global(name)
+    }
+
+    #[inline]
     fn member<'a>(
         &'a self,
         view: &ValueView<'a>,
@@ -155,6 +160,11 @@ impl StoreAccess for RuntimeState<'_> {
     #[inline]
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
         self.storage().read_instance_var(instance, name)
+    }
+
+    #[inline]
+    fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        self.storage().read_global(name)
     }
 
     #[inline]

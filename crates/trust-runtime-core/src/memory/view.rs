@@ -110,8 +110,19 @@ pub trait StoreAccess {
     /// built-in function-block executor holds no layout to resolve the name to an
     /// offset. C1-9 resolves the name through the instance template's layout at
     /// this boundary and retires the method (C1-8b note §5; specification 34 §6.2,
-    /// MEM-10). Callers: `vm::edge`, `stdlib::fbs::instance`.
+    /// MEM-10). Callers: `vm::edge`, `stdlib::fbs::instance`, and `vm::engine::cycle`,
+    /// whose retained capture reads each retained program variable this way.
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>>;
+
+    /// The view of one global variable selected by its declared name.
+    ///
+    /// A C1-8c forwarding method, the global counterpart of
+    /// [`StoreAccess::read_instance_var`]: today's storage names globals by string in
+    /// an ordered map, while a cell range is reached by offset and the retained
+    /// capture holds a declaration's name rather than its slot. C1-9 resolves the
+    /// name through the prepared layout at this boundary and retires the method
+    /// (specification 34 §6.2, MEM-10). Callers: `vm::engine::cycle`.
+    fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>>;
 
     /// Step into one compound segment without cloning the parent.
     fn member<'a>(
@@ -135,9 +146,13 @@ pub trait StoreAccess {
     /// `VmFbOutSource::read`, `VmFbFieldBinding::read` and `VmWriteTarget::peek` in
     /// `vm::call::bindings::targets`, `EdgeInputTransaction::begin` in `vm::edge`,
     /// `snapshot_root` in `vm::engine::output_transaction`, and the instance read
-    /// helper in `stdlib::fbs::instance`. The engine reads the stored value through
-    /// this for its copy charge and step-into decisions while today's storage is a
-    /// `Value` tree.
+    /// helper in `stdlib::fbs::instance`; the C1-8c callers are `read_named_bool`,
+    /// `execute_task_fb` and `commit_configuration_target` in `vm::engine::io`,
+    /// `binding_patch` in `vm::engine::io::staging`, `read_checked_reference` in
+    /// `vm::engine::access`, and `execute_program_root` and `fill_retained_payload`
+    /// in `vm::engine::cycle`. The engine reads the stored value through this for
+    /// its copy charge and step-into decisions while today's storage is a `Value`
+    /// tree.
     fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value>;
 
     /// The owned `Value` of a view; the only allocating read.
@@ -232,6 +247,11 @@ impl StoreAccess for VariableStorage {
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
         self.get_instance_var(instance, name)
             .map(ValueView::borrowed)
+    }
+
+    #[inline]
+    fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        self.get_global(name).map(ValueView::borrowed)
     }
 
     #[inline]

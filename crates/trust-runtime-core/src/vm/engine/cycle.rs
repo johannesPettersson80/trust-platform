@@ -3,6 +3,7 @@ use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::fault::NO_TASK;
+use crate::memory::view::StoreAccess;
 use crate::retain::capture::RetainCapture;
 use crate::retain::codec::{decode_snapshot_payload_bytes, PayloadWriter};
 use crate::retain::RetainSnapshot;
@@ -145,7 +146,12 @@ impl EngineState<'_> {
             hooks.program_started(name);
         }
         let result = (|| {
-            let instance = match self.data.storage.get_global(name) {
+            let view = self
+                .data
+                .storage
+                .read_global(name)
+                .ok_or(RuntimeError::NullReference)?;
+            let instance = match self.data.storage.borrow(&view) {
                 Some(Value::Instance(instance)) => *instance,
                 _ => return Err(RuntimeError::NullReference),
             };
@@ -185,15 +191,21 @@ impl EngineState<'_> {
         for &id in prepared.retained_declarations(StorageOwner::Global, None) {
             let declaration = &prepared.layout.entries[id as usize];
             let name = &prepared.vm.strings[declaration.name_idx as usize];
-            if let Some(value) = self.data.storage.get_global(name)
+            if let Some(view) = self.data.storage.read_global(name)
+                && let Some(value) = self.data.storage.borrow(&view)
                 && self.snapshot_value_is_retainable(value, 0)?
             {
                 let bytes = self.snapshot_entry_charge(value, name.len())?;
                 self.charge_allocation(bytes)?;
+                let stored = self
+                    .data
+                    .storage
+                    .read_global(name)
+                    .ok_or(RuntimeError::NullReference)?;
                 let value = self
                     .data
                     .storage
-                    .get_global(name)
+                    .borrow(&stored)
                     .ok_or(RuntimeError::NullReference)?;
                 payload.entry(name.as_str(), value)?;
             }
@@ -210,7 +222,8 @@ impl EngineState<'_> {
             {
                 let declaration = &prepared.layout.entries[id as usize];
                 let name = &prepared.vm.strings[declaration.name_idx as usize];
-                if let Some(value) = self.data.storage.get_instance_var(instance, name)
+                if let Some(view) = self.data.storage.read_instance_var(instance, name)
+                    && let Some(value) = self.data.storage.borrow(&view)
                     && self.snapshot_value_is_retainable(value, 0)?
                 {
                     let key_len = program_name
@@ -225,10 +238,15 @@ impl EngineState<'_> {
                             "ambiguous retained checkpoint label".into(),
                         ));
                     }
+                    let stored = self
+                        .data
+                        .storage
+                        .read_instance_var(instance, name)
+                        .ok_or(RuntimeError::NullReference)?;
                     let value = self
                         .data
                         .storage
-                        .get_instance_var(instance, name)
+                        .borrow(&stored)
                         .ok_or(RuntimeError::NullReference)?;
                     // The reserved `@program/<program-identity>/<variable-identity>` key is
                     // appended as pieces, so an identity of any length builds no key string
