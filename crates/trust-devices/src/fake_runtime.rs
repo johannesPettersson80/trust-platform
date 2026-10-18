@@ -160,7 +160,7 @@ fn serve(stream: TcpStream, script: &Script, seen: &Mutex<Vec<Value>>) {
         let id = request["id"].clone();
         seen.lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .push(request);
+            .push(request.clone());
         thread::sleep(script.delay);
         let answer = match script.replies.get(&kind).cloned() {
             Some(Reply::Result(result)) => {
@@ -172,10 +172,46 @@ fn serve(stream: TcpStream, script: &Script, seen: &Mutex<Vec<Value>>) {
             }
             Some(Reply::Raw(text)) => text.to_string(),
             Some(Reply::Silent) => continue,
+            // A `comm.apply` answers as the real runtime does, unless the script overrode it.
+            None if kind == "comm.apply" => {
+                json!({"id": id, "ok": true, "result": comm_apply_answer(&request)}).to_string()
+            }
             None => json!({"id": id, "ok": false, "error": format!("unsupported request {kind}")})
                 .to_string(),
         };
         // The client may already have given up on this answer.
         let _ = writeln!(writer, "{answer}");
     }
+}
+
+/// The result of a `comm.apply`, shaped as the runtime answers it: the protocol it wrote, the
+/// lifecycle effect, its message and the `instance_id` of the connection it wrote
+/// (specification 11 §6.8.1a; `crates/trust-runtime/src/control/comm_handlers/apply.rs`, which
+/// B7c1 made answer the written connection's ID).
+fn comm_apply_answer(request: &Value) -> Value {
+    let params = &request["params"];
+    let protocol = params["protocol"].as_str().unwrap_or_default();
+    let action = params["action"].as_str().unwrap_or("upsert");
+    let instance_id = params["instance_id"]
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| (action == "add").then(|| format!("{protocol}:0")));
+    let message = match action {
+        "validate" => "Configuration validated. No files were changed.",
+        "disable" => {
+            "Endpoint disabled. Restart the runtime to apply it; the endpoint stays visible in Devices & Connections."
+        }
+        _ => "I/O configuration saved. Restart the runtime to apply it.",
+    };
+    json!({
+        "schema_version": 1,
+        "protocol": protocol,
+        "driver": "",
+        "action": action,
+        "applied": action != "validate",
+        "lifecycle_effect": if action == "validate" { "validate_only" } else { "restart_required" },
+        "message": message,
+        "instance_id": instance_id,
+        "field_errors": [],
+    })
 }

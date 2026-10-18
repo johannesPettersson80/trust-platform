@@ -26,6 +26,9 @@ pub use identity::{
     derive_runtime_identity_from_source, resolve_os_source_ip,
     runtime_address_candidates_from_interfaces, IdentityRequest, RuntimeAddressCandidate,
 };
+pub use import::remove::{
+    regenerate_ads_interface, remove_symbol_imports, AdsTagDevice, AdsTagRemoval,
+};
 pub use import::{
     apply_symbol_import, build_symbol_import_response, SymbolImportApplyRequest,
     SymbolImportArtifacts, SymbolImportCandidate, SymbolImportGroup, SymbolImportRequest,

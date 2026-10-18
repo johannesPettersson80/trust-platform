@@ -154,6 +154,20 @@ pub const NO_NATIVE_SCHEMA: &str =
 /// A form without a catalog.
 pub const DEVICE_CATALOG_UNAVAILABLE: &str =
     "Device catalog unavailable (needs a newer trust-runtime).";
+/// A connection action with no project folder to write to.
+pub const NO_PROJECT_FOLDER: &str = "The panel has no project folder to write to.";
+/// A connection action that named no runtime.
+pub const NO_RUNTIME: &str = "The action did not name the runtime.";
+/// A runtime that the panel's session has not shown.
+#[must_use]
+pub fn runtime_not_shown(runtime: &str) -> String {
+    format!("Devices & Connections has not shown the runtime {runtime}. Open the panel again and retry.")
+}
+/// A runtime that did not answer while it is not the open project's own runtime.
+#[must_use]
+pub fn runtime_did_not_answer(runtime: &str) -> String {
+    format!("{runtime} did not answer, and it is not this project's runtime, so nothing was saved.")
+}
 /// The draft tile's name while a form adds a connection.
 pub const GHOST_NAME: &str = "New device";
 /// The draft tile's detail.

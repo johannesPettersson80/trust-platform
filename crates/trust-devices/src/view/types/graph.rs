@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use serde::Serialize;
+use serde_json::Value;
 
 use super::{
     Action, AddDialog, HoverCard, ItemId, Look, Notice, Pill, Section, Severity, Tone, UsbTray,
@@ -312,6 +313,10 @@ pub struct Container {
 
 /// A runtime card (specification 25 §5.12).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "the flags are independent facts of the contract's JSON"
+)]
 pub struct Runtime {
     /// Its identity.
     pub id: ItemId,
@@ -327,6 +332,19 @@ pub struct Runtime {
     /// The host and port of its control address.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    /// The control endpoint the panel reaches it through, which its actions use; absent when it
+    /// has none (specification 25 §5.14). It is not part of the view's JSON: a local socket path
+    /// is never shown.
+    #[serde(skip)]
+    pub control_endpoint: Option<String>,
+    /// Whether it answered `status` this round, so that an action on it reaches it over its
+    /// control endpoint (specification 25 §5.13). Not part of the view's JSON.
+    #[serde(skip)]
+    pub answers: bool,
+    /// Whether it is the open project's own runtime, whose files an action writes in process
+    /// while it does not answer (specification 25 §5.14). Not part of the view's JSON.
+    #[serde(skip)]
+    pub project: bool,
     /// Whether it is the selected run target.
     pub run_target: bool,
     /// How the card is drawn.
@@ -389,6 +407,11 @@ pub struct Connection {
     pub protocol: String,
     /// The protocol's product name.
     pub protocol_name: String,
+    /// Its configuration without secrets, which the form that edits it fills its fields from
+    /// (specification 25 §5.4). The runtime redacts a secret value. It is not part of the view's
+    /// JSON: the form is built in Rust, and the panel shows a connection's settings as rows.
+    #[serde(skip)]
+    pub params: Option<Value>,
     /// The connection's own name.
     pub name: String,
     /// The status dot.

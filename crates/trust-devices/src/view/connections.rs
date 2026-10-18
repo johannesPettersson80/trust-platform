@@ -284,6 +284,7 @@ fn connection(
         },
         inspector: inspector(endpoint, owning, schema, &shown, &connector, &live),
         protocol: protocol.to_owned(),
+        params: endpoint.params.clone(),
         live: shown.live,
         marks: health::connection_marks(protocol, role, health),
         look: if draft {
