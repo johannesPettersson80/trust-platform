@@ -16,6 +16,7 @@ use trust_runtime_core::collections::OrderedMap;
 use trust_runtime_core::memory::{FrameId, InstanceId, VariableStorage};
 use trust_runtime_core::value::Value;
 
+use super::paging::{ChildKind, Page};
 use super::projection::{
     array_elements, instance_display_metadata, struct_fields, variable_for,
     variables_from_instances, variables_from_io_rows, DebugScope, DebugSource, DebugVariable,
@@ -136,7 +137,9 @@ pub fn scopes(
     scopes
 }
 
-/// The variables a handle lists.
+/// The variables a handle lists: the children that `page` keeps, which only an array has indexed and
+/// every other handle has named (specification 11 §6.13.3, "Variable pages"). Only the children of
+/// the page take handles.
 ///
 /// # Errors
 ///
@@ -147,12 +150,13 @@ pub fn variables(
     handle: &VariableHandle,
     io: Option<&IoSnapshot>,
     handles: &mut DebugVariableHandles,
+    page: Page,
 ) -> Result<Vec<DebugVariable>, String> {
     let storage = state.storage;
     Ok(match handle {
-        VariableHandle::Locals(frame_id) => locals(state, *frame_id, handles)?,
-        VariableHandle::Globals => named_values(handles, storage.globals(), storage),
-        VariableHandle::Retain => named_values(handles, storage.retain(), storage),
+        VariableHandle::Locals(frame_id) => locals(state, *frame_id, handles, page)?,
+        VariableHandle::Globals => named_values(handles, storage.globals(), storage, page),
+        VariableHandle::Retain => named_values(handles, storage.retain(), storage, page),
         VariableHandle::Instances => {
             let mut instances = Vec::with_capacity(storage.instances().len());
             for (id, data) in storage.instances() {
@@ -161,91 +165,105 @@ pub fn variables(
             // The order is the instances' identity on every runtime; the storage's map is a hash
             // map on a computer (specification 11 §6.13.3).
             instances.sort_by_key(|(id, _)| *id);
-            variables_from_instances(handles, instances)
+            let listed = page
+                .select(ChildKind::Named, instances.into_iter())
+                .collect();
+            variables_from_instances(handles, listed)
         }
-        VariableHandle::Instance(instance_id) => instance(storage, *instance_id, handles)?,
-        VariableHandle::Struct(value) => struct_fields(handles, value),
-        VariableHandle::Array(value) => array_elements(handles, value),
+        VariableHandle::Instance(instance_id) => instance(storage, *instance_id, handles, page)?,
+        VariableHandle::Struct(value) => struct_fields(handles, value, page),
+        VariableHandle::Array(value) => array_elements(handles, value, page),
         VariableHandle::Reference(value_ref) => {
             let Some(value) = storage.read_by_ref_ref(value_ref) else {
                 return Err(String::from("reference target unavailable"));
             };
             let (display, type_name) = instance_display_metadata(value, storage);
-            vec![variable_for(handles, "*", value, None, display, type_name)]
+            page.select(ChildKind::Named, core::iter::once(value))
+                .next()
+                .map(|value| variable_for(handles, "*", value, None, display, type_name))
+                .into_iter()
+                .collect()
         }
         VariableHandle::IoRoot => {
             let io = io.ok_or_else(|| String::from("I/O snapshot unavailable"))?;
-            let inputs_ref = handles.alloc(VariableHandle::IoInputs);
-            let outputs_ref = handles.alloc(VariableHandle::IoOutputs);
-            let memory_ref = handles.alloc(VariableHandle::IoMemory);
-            vec![
-                io_area("Inputs", io.inputs.len(), inputs_ref),
-                io_area("Outputs", io.outputs.len(), outputs_ref),
-                io_area("Memory", io.memory.len(), memory_ref),
-            ]
+            let areas = [
+                ("Inputs", io.inputs.len(), VariableHandle::IoInputs),
+                ("Outputs", io.outputs.len(), VariableHandle::IoOutputs),
+                ("Memory", io.memory.len(), VariableHandle::IoMemory),
+            ];
+            page.select(ChildKind::Named, areas.into_iter())
+                .map(|(name, items, area)| io_area(name, items, handles.alloc(area)))
+                .collect()
         }
-        VariableHandle::IoInputs => io_rows(io, |io| io.inputs.as_slice())?,
-        VariableHandle::IoOutputs => io_rows(io, |io| io.outputs.as_slice())?,
-        VariableHandle::IoMemory => io_rows(io, |io| io.memory.as_slice())?,
+        VariableHandle::IoInputs => io_rows(io, |io| io.inputs.as_slice(), page)?,
+        VariableHandle::IoOutputs => io_rows(io, |io| io.outputs.as_slice(), page)?,
+        VariableHandle::IoMemory => io_rows(io, |io| io.memory.as_slice(), page)?,
     })
 }
 
-/// The variables of a table of named values, in the table's order.
+/// The variables of a table of named values that `page` lists, in the table's order.
 fn named_values(
     handles: &mut DebugVariableHandles,
     values: &OrderedMap<SmolStr, Value>,
     storage: &VariableStorage,
+    page: Page,
 ) -> Vec<DebugVariable> {
-    let mut variables = Vec::with_capacity(values.len());
-    for (name, value) in values {
-        variables.push(entry(handles, name, value, storage));
-    }
-    variables
+    page.select(ChildKind::Named, values.iter())
+        .map(|(name, value)| entry(handles, name, value, storage))
+        .collect()
 }
 
-/// The locals of a frame: the variables of the instance that receives the invocation, then the
-/// frame's own.
+/// The locals of a frame that `page` lists: the variables of the instance that receives the
+/// invocation, then the frame's own.
 fn locals(
     state: &ReadState<'_>,
     frame_id: FrameId,
     handles: &mut DebugVariableHandles,
+    page: Page,
 ) -> Result<Vec<DebugVariable>, String> {
     let storage = state.storage;
     let Some(frame) = state.frames.iter().find(|frame| frame.id == frame_id) else {
         return Err(replies::unknown_frame(frame_id.0));
     };
-    let mut variables = Vec::new();
-    if let Some(instance_id) = frame.instance {
-        let Some(instance) = storage.get_instance(instance_id) else {
-            return Err(format!("unknown instance id {}", instance_id.0));
-        };
-        for (name, value) in &instance.variables {
-            variables.push(entry(handles, name, value, storage));
+    let instance_variables = match frame.instance {
+        Some(instance_id) => {
+            let Some(instance) = storage.get_instance(instance_id) else {
+                return Err(format!("unknown instance id {}", instance_id.0));
+            };
+            Some(&instance.variables)
         }
-    }
-    for (name, value) in &frame.variables {
-        variables.push(entry(handles, name, value, storage));
-    }
-    Ok(variables)
+        None => None,
+    };
+    let of_instance = instance_variables
+        .into_iter()
+        .flat_map(|variables| variables.iter().map(|(name, value)| (name.as_str(), value)));
+    let own = frame.variables.iter().copied();
+    Ok(page
+        .select(ChildKind::Named, of_instance.chain(own))
+        .map(|(name, value)| entry(handles, name, value, storage))
+        .collect())
 }
 
-/// The variables of one instance, then its parent as an instance entry.
+/// The variables of one instance that `page` lists, then its parent as an instance entry.
 fn instance(
     storage: &VariableStorage,
     instance_id: InstanceId,
     handles: &mut DebugVariableHandles,
+    page: Page,
 ) -> Result<Vec<DebugVariable>, String> {
     let Some(instance) = storage.get_instance(instance_id) else {
         return Err(format!("unknown instance id {}", instance_id.0));
     };
-    let mut variables = Vec::new();
-    for (name, value) in &instance.variables {
-        variables.push(entry(handles, name, value, storage));
-    }
-    if let Some(parent) = instance.parent {
-        variables.push(entry(handles, "parent", &Value::Instance(parent), storage));
-    }
-    Ok(variables)
+    let parent = instance.parent.map(Value::Instance);
+    let members = instance
+        .variables
+        .iter()
+        .map(|(name, value)| (name.as_str(), value))
+        .chain(parent.as_ref().map(|value| ("parent", value)));
+    Ok(page
+        .select(ChildKind::Named, members)
+        .map(|(name, value)| entry(handles, name, value, storage))
+        .collect())
 }
 
 /// One variable of a scope: the value with the display text and type name of an instance.
@@ -267,24 +285,30 @@ fn io_area(name: &str, items: usize, variables_reference: u32) -> DebugVariable 
         r#type: None,
         variables_reference,
         evaluate_name: None,
+        indexed_variables: None,
+        named_variables: None,
     }
 }
 
-/// The rows of one I/O area.
+/// The rows of one I/O area that `page` lists.
 fn io_rows(
     io: Option<&IoSnapshot>,
     area: impl FnOnce(&IoSnapshot) -> &[IoSnapshotEntry],
+    page: Page,
 ) -> Result<Vec<DebugVariable>, String> {
     let io = io.ok_or_else(|| String::from("I/O snapshot unavailable"))?;
-    Ok(variables_from_io_rows(area(io).iter().map(|entry| IoRow {
-        name: entry.name.as_deref(),
-        address: &entry.address,
-        value: match &entry.value {
-            IoSnapshotValue::Value(value) => IoRowValue::Value(value),
-            IoSnapshotValue::Error(error) => IoRowValue::Error(error),
-            IoSnapshotValue::Unresolved => IoRowValue::Unresolved,
-        },
-    })))
+    Ok(variables_from_io_rows(
+        page.select(ChildKind::Named, area(io).iter())
+            .map(|entry| IoRow {
+                name: entry.name.as_deref(),
+                address: &entry.address,
+                value: match &entry.value {
+                    IoSnapshotValue::Value(value) => IoRowValue::Value(value),
+                    IoSnapshotValue::Error(error) => IoRowValue::Error(error),
+                    IoSnapshotValue::Unresolved => IoRowValue::Unresolved,
+                },
+            }),
+    ))
 }
 
 #[cfg(test)]
@@ -311,8 +335,14 @@ mod tests {
         };
         let mut handles = DebugVariableHandles::new();
 
-        let listed = variables(&state, &VariableHandle::Instances, None, &mut handles)
-            .expect("the instances list");
+        let listed = variables(
+            &state,
+            &VariableHandle::Instances,
+            None,
+            &mut handles,
+            Page::default(),
+        )
+        .expect("the instances list");
 
         let names = listed
             .iter()

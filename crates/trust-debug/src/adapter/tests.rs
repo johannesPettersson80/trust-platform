@@ -82,3 +82,5 @@ mod tests_part_04;
 mod tests_part_05;
 #[path = "tests_part_06.rs"]
 mod tests_part_06;
+#[path = "variable_paging_tests.rs"]
+mod variable_paging_tests;

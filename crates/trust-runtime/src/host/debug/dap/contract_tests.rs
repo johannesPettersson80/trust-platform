@@ -78,6 +78,8 @@ fn debug_variable_uses_camel_case_and_omits_optional_fields() {
             r#type: None,
             variables_reference: 0,
             evaluate_name: None,
+            indexed_variables: None,
+            named_variables: None,
         })
         .expect("serialize variable"),
         json!({

@@ -490,11 +490,26 @@ pub struct ScopesResponseBody {
     pub scopes: Vec<Scope>,
 }
 
-/// Arguments for `variables`.
+/// The kind of child variables a `variables` request asks for (DAP `VariablesArguments.filter`).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum VariablesFilter {
+    Indexed,
+    Named,
+}
+
+/// Arguments for `variables`. `filter`, `start` and `count` page the children of a container, as
+/// a client that supports variable paging asks for them (specification 13, "Variables / Evaluate").
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct VariablesArguments {
     pub variables_reference: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<VariablesFilter>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<u32>,
 }
 
 /// DAP variable description.
@@ -508,6 +523,10 @@ pub struct Variable {
     pub variables_reference: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evaluate_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub named_variables: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub indexed_variables: Option<u32>,
 }
 
 /// Response body for `variables`.

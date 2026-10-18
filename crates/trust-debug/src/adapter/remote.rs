@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 use crate::protocol::{
     AttachArguments, Breakpoint, BreakpointLocation, BreakpointLocationsResponseBody,
     EvaluateResponseBody, IoStateEntry, IoStateEventBody, Scope, Source, StackFrame, Variable,
+    VariablesArguments,
 };
 
 type RemoteResult<T> = std::result::Result<T, String>;
@@ -220,11 +221,22 @@ impl RemoteSession {
         serde_json::from_value::<Vec<Scope>>(scopes).map_err(|err| err.to_string())
     }
 
-    pub fn variables(&mut self, variables_reference: u32) -> RemoteResult<Vec<Variable>> {
-        let payload = self.request(
-            "debug.variables",
-            Some(json!({ "variables_reference": variables_reference })),
-        )?;
+    /// The children of `args.variables_reference`. The client's `filter`, `start` and `count` go
+    /// to the runtime as they are, and an argument the client left out is left out: the runtime
+    /// cuts the page, and its entries carry their `indexedVariables` and `namedVariables`
+    /// (specification 13, "Variables / Evaluate").
+    pub fn variables(&mut self, args: &VariablesArguments) -> RemoteResult<Vec<Variable>> {
+        let mut params = json!({ "variables_reference": args.variables_reference });
+        if let Some(filter) = args.filter {
+            params["filter"] = json!(filter);
+        }
+        if let Some(start) = args.start {
+            params["start"] = json!(start);
+        }
+        if let Some(count) = args.count {
+            params["count"] = json!(count);
+        }
+        let payload = self.request("debug.variables", Some(params))?;
         let vars = payload
             .get("variables")
             .cloned()

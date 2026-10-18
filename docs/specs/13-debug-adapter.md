@@ -440,7 +440,9 @@ writes plus all variable and I/O forces atomically.
 
 DAP variable handles are positive session-local identifiers. Allocation
 preserves the complete handle kind, does not alias two live handles, and clear
-invalidates every old handle before restarting allocation at `1`. Scalar and
+invalidates every old handle before restarting allocation at `1`; a bounded
+table also releases the handles of an array's oldest pages when a later page
+needs the room (specification 11 §6.13.3, "Handle bound"). Scalar and
 null values have `variablesReference = 0`; structs, arrays, instances,
 non-null references, and scope roots allocate expandable handles. Primitive
 type names use canonical IEC spelling, while a struct or enum uses its
@@ -448,7 +450,11 @@ declared public type name. A caller-supplied display or declared type overrides
 derived presentation without changing expandability.
 
 Entry and array projections preserve input/field/element order and stable
-evaluate names. Instance-list entries use `<type>#<normalized-id>` as their
+evaluate names. A page of an array names each element `[<index>]` by its zero-based
+position in the whole array, not in the page, and an entry whose value is an array or a
+structure reports `indexedVariables` (its elements) or `namedVariables` (its members),
+the size of the whole container (specification 11 §6.13.3, "Variable pages").
+Instance-list entries use `<type>#<normalized-id>` as their
 display name, the public type name as both value and type, and no evaluate
 name. An I/O entry uses its declared symbol name when present and otherwise a
 canonical uppercase direct address; its value is the runtime debug value,
@@ -484,6 +490,16 @@ including at `0` and `u64::MAX`.
 ### Variables / Evaluate
 
 - `VariablesRequest` and `ScopesRequest` return locals, globals, retain, and instance scopes.
+- `VariablesRequest` takes the DAP arguments `filter` (`indexed` or `named`), `start` and `count`,
+  and a `Variable` reports `indexedVariables` (the elements of an array) and `namedVariables` (the
+  members of a structure), so that a client that supports variable paging lists a large container in
+  chunks, which VS Code shows as `[0..99]`, `[100..199]` and so on, and asks for each chunk with those
+  arguments. In an attach session the adapter passes `filter`, `start` and `count` unchanged to the
+  runtime's `debug.variables`, which cuts the page (specification 11 §6.13.3, "Variable pages"), and
+  passes the counts of the runtime's reply on unchanged; an argument that the client leaves out is
+  left out, and a `start` of `0` is a value and is sent. A request without `start` and `count` lists
+  an array's first page of 100 elements. A launch session lists the program that it runs in its own
+  process, which has no handle bound, and does not page: it reports no counts.
 - Values are those of the runtime's published debug state (specification 11 §6.13.1): the storage
   as it stood at the end of the last scan that ended, completed or faulted (after a fault, the
   storage as the fault left it), one consistent state and never half a scan, and never a copy the

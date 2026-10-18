@@ -21,6 +21,7 @@ use serde_json::json;
 use trust_runtime_core::debug::StatementSpan;
 use trust_runtime_core::memory::FrameId;
 
+use super::paging::{ChildKind, Page};
 use super::projection::{file_name_of, DebugSource, DebugVariableHandles};
 use super::reads::{self, Located, ReadState};
 use super::replies::{self, StopPlace};
@@ -54,11 +55,32 @@ pub struct DebugScopesParams {
     pub frame_id: u32,
 }
 
-/// The parameters of `debug.variables`.
+/// The parameters of `debug.variables`: the handle, and the optional arguments of the Debug Adapter
+/// Protocol's `variables` request that page its children (specification 11 §6.13.3, "Variable
+/// pages").
 #[derive(Debug, Deserialize)]
 pub struct DebugVariablesParams {
     /// The handle of the scope or variable whose members are listed.
     pub variables_reference: u32,
+    /// The kind of children to list, or both kinds when absent.
+    pub filter: Option<ChildKind>,
+    /// The index of the first child to list, among the children that `filter` keeps.
+    pub start: Option<u32>,
+    /// The most children to list; absent or `0`, an array lists a page of its elements.
+    pub count: Option<u32>,
+}
+
+impl DebugVariablesParams {
+    /// The window of the children that these parameters ask for.
+    #[must_use]
+    pub fn page(&self) -> Page {
+        let size = |value: u32| usize::try_from(value).unwrap_or(usize::MAX);
+        Page {
+            filter: self.filter,
+            start: self.start.map_or(0, size),
+            count: self.count.map(size),
+        }
+    }
 }
 
 /// The parameters of `debug.breakpoint_locations`: a range of a file, zero-based.
@@ -344,6 +366,7 @@ fn variables(
         Ok(params) => params,
         Err(error) => return failed(id, error),
     };
+    let page = params.page();
     let state = match debugger.read_state() {
         Ok(state) => state,
         Err(error) => return failed(id, error),
@@ -361,7 +384,7 @@ fn variables(
         reply = Some(match handles.take(params.variables_reference) {
             Some(handle) => {
                 let mark = handles.mark();
-                let members = reads::variables(&state, &handle, io.as_ref(), handles);
+                let members = reads::variables(&state, &handle, io.as_ref(), handles, page);
                 handles.restore(params.variables_reference, handle);
                 if handles.take_overflow() {
                     handles.rollback(mark);

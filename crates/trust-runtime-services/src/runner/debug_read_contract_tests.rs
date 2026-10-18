@@ -642,3 +642,72 @@ fn the_handle_table_stops_at_its_bound() {
         json!("variable_handles_full")
     );
 }
+
+#[test]
+fn debug_variables_pages_the_children_of_a_handle_on_the_chip_loop() {
+    // Specification 11 §6.13.3, "Variable pages": the device loop passes `filter`, `start` and
+    // `count` to the shared dispatcher, which cuts the children of any handle to the page, not only
+    // an array's, and refuses a `filter` other than `indexed` or `named`. Worked from the stop in
+    // `ProbeLeaf`, with the scopes Locals 1, Globals 2, I/O 3 and Instances 4: the globals are
+    // `probe_depth` (INT 4) and `Plant` (the program instance, handle 5 when listed first), both
+    // named. `start` 1 with `count` 1 lists `Plant` only; `start` 2 lists none; the filter `indexed`
+    // lists none, because no global is an array element; the filter `named` with `count` 1 lists
+    // `probe_depth` only; the filter `sideways` is refused as `invalid params`.
+    // Wrong behaviour caught: parameters that the loop drops (every request would list both
+    // globals), a start that skips the wrong number, a filter that is ignored, and an unknown
+    // filter that is read as none.
+    let held = deep_hold(|stack| {
+        let innermost = stack.last().map(|level| level.frame).expect("a held stack");
+        vec![
+            with_params(10, "debug.scopes", json!({"frame_id": innermost})),
+            with_params(
+                11,
+                "debug.variables",
+                json!({"variables_reference": 2, "start": 1, "count": 1}),
+            ),
+            with_params(
+                12,
+                "debug.variables",
+                json!({"variables_reference": 2, "start": 2}),
+            ),
+            with_params(
+                13,
+                "debug.variables",
+                json!({"variables_reference": 2, "filter": "indexed"}),
+            ),
+            with_params(
+                14,
+                "debug.variables",
+                json!({"variables_reference": 2, "filter": "named", "count": 1}),
+            ),
+            with_params(
+                15,
+                "debug.variables",
+                json!({"variables_reference": 2, "filter": "sideways"}),
+            ),
+        ]
+    });
+
+    assert_eq!(
+        held.replies[1]["result"],
+        json!({"variables": [
+            {"name": "Plant", "value": "Gpio", "type": "Gpio", "variablesReference": 5, "evaluateName": "Plant"},
+        ]})
+    );
+    assert_eq!(held.replies[2]["result"], json!({"variables": []}));
+    assert_eq!(held.replies[3]["result"], json!({"variables": []}));
+    assert_eq!(
+        held.replies[4]["result"],
+        json!({"variables": [
+            {"name": "probe_depth", "value": "4", "type": "INT", "variablesReference": 0, "evaluateName": "probe_depth"},
+        ]})
+    );
+    assert_eq!(held.replies[5]["ok"], json!(false));
+    assert!(
+        held.replies[5]["error"]
+            .as_str()
+            .is_some_and(|error| error.starts_with("invalid params: unknown variant `sideways`")),
+        "{}",
+        held.replies[5]
+    );
+}

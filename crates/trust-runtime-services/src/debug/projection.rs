@@ -6,15 +6,18 @@
 //! trust-runtime and a chip project the same values through these functions, so a variable reads
 //! the same on both (specification 34, ARCH-11).
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, VecDeque};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::ops::Range;
 
 use serde::Serialize;
 use trust_runtime_core::io_address::{IoAddress, IoSize};
 use trust_runtime_core::memory::{FrameId, InstanceId, IoArea, VariableStorage};
 use trust_runtime_core::value::{format_user_value, ArrayValue, StructValue, Value, ValueRef};
+
+use super::paging::{ChildKind, Page};
 
 /// The source a scope or a stack frame names (DAP `Source`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -71,6 +74,13 @@ pub struct DebugVariable {
     /// The name an evaluate request reads the variable by.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evaluate_name: Option<String>,
+    /// The number of indexed children, the elements of an array, when the value is an array. It is
+    /// the size of the whole array, not of a page (specification 11 §6.13.3, "Variable pages").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub indexed_variables: Option<u32>,
+    /// The number of named children, the members of a structure, when the value is a structure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub named_variables: Option<u32>,
 }
 
 /// What a variable handle lists.
@@ -112,7 +122,8 @@ pub const CHIP_HANDLE_BOUND: usize = 256;
 /// and restart at `1` after a clear (specification 13, "Runtime debug state, mutation, and
 /// projection invariants"). A table with a bound holds at most that many live handles, a handle
 /// taken out for a listing counted; an allocation past the bound is refused, and the listing that
-/// made it is rolled back (specification 11 §6.13.3).
+/// made it is rolled back. A page of an array that finds the table short of room first releases
+/// the oldest earlier pages of arrays (specification 11 §6.13.3).
 #[derive(Debug)]
 pub struct DebugVariableHandles {
     /// The next identifier to hand out. Public only so that the boundary tests of the counter can
@@ -126,6 +137,9 @@ pub struct DebugVariableHandles {
     taken: usize,
     /// Whether an allocation was refused since the last [`take_overflow`](Self::take_overflow).
     overflowed: bool,
+    /// The identifiers that each page of an array took, oldest page first. Only a table with a
+    /// bound keeps them, because only such a table releases a page.
+    pages: VecDeque<Range<u32>>,
 }
 
 impl Default for DebugVariableHandles {
@@ -151,12 +165,14 @@ impl DebugVariableHandles {
             bound,
             taken: 0,
             overflowed: false,
+            pages: VecDeque::new(),
         }
     }
 
     /// Invalidates every handle and restarts the numbering at `1`.
     pub fn clear(&mut self) {
         self.handles.clear();
+        self.pages.clear();
         self.next_id = 1;
         self.overflowed = false;
     }
@@ -215,7 +231,54 @@ impl DebugVariableHandles {
     /// that a refused listing leaves the table as it was (specification 11 §6.13.3).
     pub fn rollback(&mut self, mark: u32) {
         let _ = self.handles.split_off(&mark);
+        self.pages.retain(|page| page.start < mark);
         self.next_id = mark;
+    }
+
+    /// Leaves room for `need` more handles by releasing the oldest pages of arrays that
+    /// [`record_page`](Self::record_page) recorded, a whole page at a time and only as many pages as
+    /// the room needs (specification 11 §6.13.3, "Handle bound"). It releases nothing when the
+    /// table has the room already, and nothing when all the pages together would not make it: the
+    /// listing is then refused whole and the table stays as it was.
+    pub fn make_room(&mut self, need: usize) {
+        let used = self.handles.len().saturating_add(self.taken);
+        let shortfall = need.saturating_sub(self.bound.saturating_sub(used));
+        if shortfall == 0 {
+            return;
+        }
+        let releasable = self
+            .pages
+            .iter()
+            .map(|page| self.handles.range(page.clone()).count())
+            .sum::<usize>();
+        if releasable < shortfall {
+            return;
+        }
+        let mut released = 0;
+        while released < shortfall {
+            let Some(page) = self.pages.pop_front() else {
+                break;
+            };
+            let ids = self
+                .handles
+                .range(page)
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>();
+            released += ids.len();
+            for id in ids {
+                self.handles.remove(&id);
+            }
+        }
+    }
+
+    /// Records the handles allocated since `mark` as one page of an array, the unit that
+    /// [`make_room`](Self::make_room) releases. A table without a bound never releases a page, so
+    /// it keeps no record (specification 11 §6.13.3: a computer keeps its handles).
+    pub fn record_page(&mut self, mark: u32) {
+        if self.bound == usize::MAX || self.next_id <= mark {
+            return;
+        }
+        self.pages.push_back(mark..self.next_id);
     }
 
     /// Whether an allocation was refused at the bound since the last call, which clears the record.
@@ -311,6 +374,8 @@ pub fn variables_from_instances(
             r#type: Some(type_name),
             variables_reference: handles.alloc(VariableHandle::Instance(id)),
             evaluate_name: None,
+            indexed_variables: None,
+            named_variables: None,
         })
         .collect()
 }
@@ -325,20 +390,20 @@ pub fn variables_from_struct(
     handles: &mut DebugVariableHandles,
     value: StructValue,
 ) -> Vec<DebugVariable> {
-    struct_fields(handles, &value)
+    struct_fields(handles, &value, Page::everything())
 }
 
-/// The fields of a structure value, in declaration order, read from the value where it is.
+/// The fields of a structure value that `page` lists, in declaration order, read from the value
+/// where it is (specification 11 §6.13.3, "Variable pages").
 #[must_use]
 pub fn struct_fields(
     handles: &mut DebugVariableHandles,
     value: &StructValue,
+    page: Page,
 ) -> Vec<DebugVariable> {
-    let mut variables = Vec::with_capacity(value.fields().len());
-    for (name, field) in value.fields() {
-        variables.push(variable_for(handles, name, field, Some(name), None, None));
-    }
-    variables
+    page.select(ChildKind::Named, value.fields().iter())
+        .map(|(name, field)| variable_for(handles, name, field, Some(name), None, None))
+        .collect()
 }
 
 /// The elements of an array value, named by their zero-based index.
@@ -351,28 +416,33 @@ pub fn variables_from_array(
     handles: &mut DebugVariableHandles,
     value: ArrayValue,
 ) -> Vec<DebugVariable> {
-    array_elements(handles, &value)
+    array_elements(handles, &value, Page::everything())
 }
 
-/// The elements of an array value, named by their zero-based index, read from the value where it
-/// is.
+/// The elements of an array value that `page` lists, named by their zero-based index in the whole
+/// array, read from the value where it is. A page that finds the table short of the room for its
+/// handles first releases the oldest earlier pages, and is recorded as a page itself (specification
+/// 11 §6.13.3, "Handle bound").
 #[must_use]
 pub fn array_elements(
     handles: &mut DebugVariableHandles,
     value: &ArrayValue,
+    page: Page,
 ) -> Vec<DebugVariable> {
-    let mut variables = Vec::with_capacity(value.elements().len());
-    for (index, element) in value.elements().iter().enumerate() {
-        let name = format!("[{index}]");
-        variables.push(variable_for(
-            handles,
-            &name,
-            element,
-            Some(&name),
-            None,
-            None,
-        ));
-    }
+    let listed = || page.select(ChildKind::Indexed, value.elements().iter().enumerate());
+    handles.make_room(
+        listed()
+            .filter(|(_, element)| takes_handle(element))
+            .count(),
+    );
+    let mark = handles.mark();
+    let variables = listed()
+        .map(|(index, element)| {
+            let name = format!("[{index}]");
+            variable_for(handles, &name, element, Some(&name), None, None)
+        })
+        .collect();
+    handles.record_page(mark);
     variables
 }
 
@@ -418,6 +488,8 @@ pub fn variables_from_io_rows<'a>(rows: impl IntoIterator<Item = IoRow<'a>>) -> 
                 r#type: None,
                 variables_reference: 0,
                 evaluate_name: Some(name),
+                indexed_variables: None,
+                named_variables: None,
             }
         })
         .collect()
@@ -460,9 +532,26 @@ pub fn variable_from_value_with_metadata(
     )
 }
 
+/// Whether [`variable_for`] gives the variable of `value` a handle: a structure, an array, an
+/// instance and a non-null reference are expandable (specification 13, "Runtime debug state,
+/// mutation, and projection invariants"). A page counts these to know the room its handles need.
+fn takes_handle(value: &Value) -> bool {
+    matches!(
+        value,
+        Value::Struct(_) | Value::Array(_) | Value::Instance(_) | Value::Reference(Some(_))
+    )
+}
+
+/// The count of a container's children as an entry reports it. No container of a device or of a
+/// computer holds more than `u32::MAX` children.
+fn child_count(len: usize) -> u32 {
+    u32::try_from(len).unwrap_or(u32::MAX)
+}
+
 /// One variable for the value `value` where it is, with a display text and a type name that
 /// override the derived ones. Only a compound value is copied, into the handle that expands it, so
-/// listing scalars copies nothing.
+/// listing scalars copies nothing. A structure reports its member count and an array its element
+/// count (specification 11 §6.13.3, "Variable pages").
 #[must_use]
 pub fn variable_for(
     handles: &mut DebugVariableHandles,
@@ -473,12 +562,16 @@ pub fn variable_for(
     type_name: Option<String>,
 ) -> DebugVariable {
     let mut variables_reference = 0;
+    let mut indexed_variables = None;
+    let mut named_variables = None;
     match value {
         Value::Struct(inner) => {
             variables_reference = handles.alloc(VariableHandle::Struct((**inner).clone()));
+            named_variables = Some(child_count(inner.fields().len()));
         }
         Value::Array(inner) => {
             variables_reference = handles.alloc(VariableHandle::Array((**inner).clone()));
+            indexed_variables = Some(child_count(inner.elements().len()));
         }
         Value::Instance(id) => {
             variables_reference = handles.alloc(VariableHandle::Instance(*id));
@@ -495,6 +588,8 @@ pub fn variable_for(
         r#type: type_name.or_else(|| value_type_name(value)),
         variables_reference,
         evaluate_name: evaluate_name.map(str::to_string),
+        indexed_variables,
+        named_variables,
     }
 }
 
@@ -665,5 +760,139 @@ mod tests {
 
         assert_eq!(handles.len(), 1);
         assert_eq!(handles.alloc(VariableHandle::Globals), 2);
+    }
+
+    /// Allocates `count` handles and records them as one page, as listing a page of an array does.
+    fn page_of(handles: &mut DebugVariableHandles, count: usize) {
+        let mark = handles.mark();
+        for _ in 0..count {
+            let _ = handles.alloc(VariableHandle::Globals);
+        }
+        handles.record_page(mark);
+    }
+
+    /// A table of ten with the two scope handles 1 and 2, then pages of the given sizes.
+    fn table_of_ten_with_pages(pages: &[usize]) -> DebugVariableHandles {
+        let mut handles = DebugVariableHandles::with_bound(10);
+        let _ = handles.alloc(VariableHandle::Locals(FrameId(1)));
+        let _ = handles.alloc(VariableHandle::Globals);
+        for count in pages {
+            page_of(&mut handles, *count);
+        }
+        handles
+    }
+
+    #[test]
+    fn a_bounded_table_releases_the_oldest_page_first_and_only_as_far_as_the_room_needs() {
+        // Specification 11 §6.13.3, "Handle bound": a page that finds the table short of room first
+        // releases the oldest earlier pages of arrays, a whole page at a time and only as many as the
+        // room needs. Worked: a table of 10 holds the scope handles 1 and 2 and two pages of 4
+        // (3 to 6 and 7 to 10), so it is full. Room for 3 more needs 3 released: the oldest page goes
+        // whole, which makes 4, and the newer page stays. Room for 5 more then finds 4 free and needs
+        // 1 released: the remaining page goes whole.
+        // Wrong behaviour caught: the newest page released first, a page released in part (3 to 5
+        // gone and 6 kept), every page released when one is enough, a scope handle released, and
+        // nothing released.
+        let mut handles = table_of_ten_with_pages(&[4, 4]);
+        assert_eq!(handles.len(), 10);
+
+        handles.make_room(3);
+
+        assert_eq!(handles.len(), 6);
+        assert!(
+            (3..=6).all(|id| handles.get(id).is_none()),
+            "the oldest page"
+        );
+        assert!(
+            (7..=10).all(|id| handles.get(id).is_some()),
+            "the newer page"
+        );
+        assert!(handles.get(1).is_some() && handles.get(2).is_some());
+
+        handles.make_room(5);
+
+        assert_eq!(handles.len(), 2);
+        assert!((7..=10).all(|id| handles.get(id).is_none()));
+        assert!(handles.get(1).is_some() && handles.get(2).is_some());
+    }
+
+    #[test]
+    fn a_table_that_cannot_make_the_room_releases_nothing() {
+        // Specification 11 §6.13.3, "Handle bound": when all the earlier pages together would not make
+        // the room, none is released, because the listing is then refused whole and the table stays
+        // as it was; and none is released when the room is there already. Worked: a table of 10 holds
+        // the scope handles and one page of 4, so 6 are live and 4 are free. Room for 4 is there;
+        // room for 9 needs 5 released, and the page holds only 4.
+        // Wrong behaviour caught: a page released although the listing is refused anyway, and a page
+        // released when the room is there.
+        let mut handles = table_of_ten_with_pages(&[4]);
+        assert_eq!(handles.len(), 6);
+
+        handles.make_room(4);
+        assert_eq!(handles.len(), 6, "the room is there already");
+
+        handles.make_room(9);
+        assert_eq!(handles.len(), 6, "the page would not make the room");
+        assert!((3..=6).all(|id| handles.get(id).is_some()));
+    }
+
+    #[test]
+    fn a_table_without_a_bound_never_releases_a_page() {
+        // Specification 11 §6.13.3, "Handle bound": a computer keeps its handles unbounded, as it
+        // always has, and releases none. Worked: five handles live, the last four of them taken as a
+        // page; a request for so much room that it would need those four released releases none,
+        // because an unbounded table keeps no record of pages.
+        // Wrong behaviour caught: a computer whose pages are released, so that a client's handles
+        // would go stale where they never did.
+        let mut handles = DebugVariableHandles::new();
+        let _ = handles.alloc(VariableHandle::Locals(FrameId(1)));
+        page_of(&mut handles, 4);
+
+        handles.make_room(usize::MAX - 1);
+
+        assert_eq!(handles.len(), 5);
+        assert!((2..=5).all(|id| handles.get(id).is_some()));
+    }
+
+    #[test]
+    fn only_an_expandable_value_takes_a_handle() {
+        // Specification 13, "Runtime debug state, mutation, and projection invariants": scalar and
+        // null values have `variablesReference = 0`; structs, arrays, instances and non-null
+        // references allocate expandable handles. A page counts the values that take a handle to know
+        // the room its handles need, so the count and the variable must agree.
+        // Wrong behaviour caught: a count that includes a null reference or a scalar, or leaves out
+        // an instance, so that a page would release too much or too little.
+        use alloc::boxed::Box;
+        use alloc::sync::Arc;
+        use alloc::vec;
+        use trust_runtime_core::collections::OrderedMap;
+        use trust_runtime_core::memory::{Generation, MemoryLocation};
+
+        let reference = ValueRef {
+            location: MemoryLocation::Global,
+            offset: 3,
+            generation: Generation::FIRST,
+            path: Vec::new(),
+        };
+        let structure = StructValue::from_untyped_parts("Motor".into(), OrderedMap::default());
+        let array =
+            ArrayValue::from_untyped_parts(vec![Value::DInt(1)], vec![(0, 0)]).expect("an array");
+        let cases = [
+            (Value::Bool(true), false),
+            (Value::DInt(5), false),
+            (Value::Null, false),
+            (Value::Reference(None), false),
+            (Value::Struct(Arc::new(structure)), true),
+            (Value::Array(Box::new(array)), true),
+            (Value::Instance(InstanceId(7)), true),
+            (Value::Reference(Some(reference)), true),
+        ];
+
+        for (value, expands) in cases {
+            let mut handles = DebugVariableHandles::new();
+            let variable = variable_for(&mut handles, "v", &value, None, None, None);
+            assert_eq!(takes_handle(&value), expands, "{value:?}");
+            assert_eq!(variable.variables_reference != 0, expands, "{value:?}");
+        }
     }
 }

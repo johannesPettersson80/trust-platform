@@ -450,6 +450,9 @@ fn standard_session_inspection_and_mutation_payloads_keep_dap_field_names() {
     assert_wire(
         VariablesArguments {
             variables_reference: 9,
+            filter: None,
+            start: None,
+            count: None,
         },
         json!({"variablesReference": 9}),
     );
@@ -461,6 +464,8 @@ fn standard_session_inspection_and_mutation_payloads_keep_dap_field_names() {
                 r#type: Some("DINT".to_string()),
                 variables_reference: 0,
                 evaluate_name: Some("Globals.Counter".to_string()),
+                named_variables: None,
+                indexed_variables: None,
             }],
         },
         json!({
@@ -707,4 +712,62 @@ fn missing_required_fields_and_invalid_discriminators_fail_closed() {
     assert_rejected!(MessageType, json!("Request"));
     assert_rejected!(VarWriteAction, json!("FORCE"));
     assert_rejected!(VarWriteScope, json!("instance"));
+}
+
+#[test]
+fn variables_paging_arguments_and_child_counts_keep_dap_names_and_zero_values() {
+    // Specification 13, "DAP JSON wire schema": DAP object fields use their lower-camel-case
+    // spellings, optional fields are omitted when absent, a numeric zero is still an explicit
+    // value, and unsupported enum spellings are rejected. `VariablesArguments.filter` is the
+    // lowercase `indexed` or `named`, `start` and `count` are non-negative, and a `Variable` that
+    // holds an array reports `indexedVariables`. Wrong behaviour caught: a `start` of 0 dropped
+    // from the request, so that the runtime would page from its own default; a child count
+    // dropped from a variable; a `filter` accepted in another spelling; and a negative `start`
+    // accepted.
+    assert_wire(
+        VariablesArguments {
+            variables_reference: 9,
+            filter: Some(VariablesFilter::Indexed),
+            start: Some(0),
+            count: Some(100),
+        },
+        json!({"variablesReference": 9, "filter": "indexed", "start": 0, "count": 100}),
+    );
+    assert_wire(
+        VariablesArguments {
+            variables_reference: 9,
+            filter: Some(VariablesFilter::Named),
+            start: None,
+            count: None,
+        },
+        json!({"variablesReference": 9, "filter": "named"}),
+    );
+    assert_wire(
+        Variable {
+            name: "points".to_string(),
+            value: "[250]".to_string(),
+            r#type: Some("ARRAY".to_string()),
+            variables_reference: 7,
+            evaluate_name: Some("points".to_string()),
+            named_variables: Some(0),
+            indexed_variables: Some(250),
+        },
+        json!({
+            "name": "points",
+            "value": "[250]",
+            "type": "ARRAY",
+            "variablesReference": 7,
+            "evaluateName": "points",
+            "namedVariables": 0,
+            "indexedVariables": 250
+        }),
+    );
+    assert!(serde_json::from_value::<VariablesArguments>(
+        json!({"variablesReference": 9, "filter": "Indexed"})
+    )
+    .is_err());
+    assert!(serde_json::from_value::<VariablesArguments>(
+        json!({"variablesReference": 9, "start": -1})
+    )
+    .is_err());
 }

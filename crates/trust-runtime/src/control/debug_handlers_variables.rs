@@ -110,7 +110,8 @@ pub(super) fn handle_debug_variables(
         storage: &snapshot.storage,
         frames: named_frames(&snapshot.storage),
     };
-    let variables = match reads::variables(&read, &handle, io.as_ref(), &mut handles) {
+    let variables = match reads::variables(&read, &handle, io.as_ref(), &mut handles, params.page())
+    {
         Ok(variables) => variables,
         Err(error) => return ControlResponse::error(id, error),
     };

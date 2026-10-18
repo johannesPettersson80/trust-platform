@@ -14,11 +14,13 @@
 //! The debug operations of the control protocol are answered here as well, for a runtime that holds
 //! no source text (specification 11 §6.13; specification 13): [`requests`] parses a request and
 //! answers it from a [`Debugger`], [`reads`] lists the frames, scopes and
-//! variables of the published debug state, [`projection`] projects values onto the DAP shapes,
+//! variables of the published debug state, [`paging`] cuts a variables listing to the page a
+//! request asks for, [`projection`] projects values onto the DAP shapes,
 //! [`replies`] writes the reply shapes and the stable refusals, and [`sources`] resolves
 //! breakpoints and names files from the program's `LINE_TABLE`.
 
 pub mod breakpoint;
+pub mod paging;
 pub mod projection;
 pub mod reads;
 pub mod replies;
@@ -38,3 +40,6 @@ pub use run::{
 };
 pub use sources::LineSources;
 pub use statement::{Span, StatementId};
+
+#[cfg(test)]
+mod variable_pages_contract_tests;

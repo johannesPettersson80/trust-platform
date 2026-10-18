@@ -110,6 +110,7 @@ mod instance_order_tests {
     use super::*;
     use crate::debug::{DebugVariableHandles, VariableHandle};
     use crate::memory::VariableStorage;
+    use trust_runtime_services::debug::paging::Page;
 
     #[test]
     fn instances_list_in_one_order_on_every_runtime() {
@@ -130,8 +131,14 @@ mod instance_order_tests {
         };
         let mut handles = DebugVariableHandles::new();
 
-        let listed = reads::variables(&read, &VariableHandle::Instances, None, &mut handles)
-            .expect("the instances list");
+        let listed = reads::variables(
+            &read,
+            &VariableHandle::Instances,
+            None,
+            &mut handles,
+            Page::default(),
+        )
+        .expect("the instances list");
 
         let names = listed
             .iter()
