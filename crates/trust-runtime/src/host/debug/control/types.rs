@@ -2,10 +2,14 @@
 // name are defined there, and this crate keeps the lock, the condition variable and the wait.
 use std::collections::BTreeMap;
 
+use trust_runtime_core::debug::LineResolver;
+use trust_runtime_core::fault::FaultSite;
 use trust_runtime_services::debug::{BoundaryStop, RunControl, StepState};
 pub use trust_runtime_services::debug::{
     RunAction as ControlAction, RunMode as DebugMode, RunOutcome as ControlOutcome, StepKind,
 };
+
+use crate::bytecode::{BytecodeModule, SectionData, SectionId};
 
 #[derive(Debug)]
 struct DebugState {
@@ -32,12 +36,14 @@ struct DebugState {
     /// state reads answer from while the debugger holds the scan, and it is cleared when the hold
     /// ends (specification 11 section 6.13.1).
     snapshot: Option<DebugSnapshot>,
-    /// The state of the last completed scan, published at its end. Reads answer from it whenever
-    /// no hold is in effect, so a scan in progress is never visible (specification 11 section
-    /// 6.13.1). It is shared, so a read clones it outside the state lock.
-    completed: Option<Arc<DebugSnapshot>>,
-    /// Storage copies made for the debugger: one per completed scan that published, one per
-    /// stop or conditional evaluation that built a projection.
+    /// The state of the last scan that ended, published at its end: a completed scan's, or a
+    /// faulted scan's, which replaces the last completed scan until the next scan ends or a restart
+    /// clears it (specification 11 section 6.13.1). Reads answer from it whenever no hold is in
+    /// effect, so a scan in progress is never visible. It is shared, so a read clones it outside
+    /// the state lock.
+    completed: Option<Arc<EndedScan>>,
+    /// Storage copies made for the debugger: one per scan that ended and published, one per stop
+    /// or conditional evaluation that built a projection.
     storage_copies: u64,
     watches: Vec<WatchEntry>,
     watch_changed: bool,
@@ -61,19 +67,44 @@ struct DebugState {
 
 impl DebugState {
     /// The state reads answer from: the halted state while a hold is in effect, and otherwise the
-    /// last completed scan's.
+    /// state of the last scan that ended.
     fn readable_snapshot(&self) -> Option<&DebugSnapshot> {
-        self.snapshot.as_ref().or(self.completed.as_deref())
+        self.snapshot
+            .as_ref()
+            .or(self.completed.as_deref().map(|scan| &scan.snapshot))
     }
 
-    /// The mutable form of [`Self::readable_snapshot`]. A shared completed scan is copied before it
-    /// is changed, so a reader that still holds it keeps the state it read.
+    /// The mutable form of [`Self::readable_snapshot`]. A shared scan state is copied before it is
+    /// changed, so a reader that still holds it keeps the state it read.
     fn readable_snapshot_mut(&mut self) -> Option<&mut DebugSnapshot> {
         if self.snapshot.is_some() {
             return self.snapshot.as_mut();
         }
-        self.completed.as_mut().map(Arc::make_mut)
+        self.completed
+            .as_mut()
+            .map(|scan| &mut Arc::make_mut(scan).snapshot)
     }
+}
+
+/// The published state of a scan that ended (specification 11 section 6.13.1): its storage at the
+/// end, and, for a faulted scan, the position of the statement that owned the failing instruction.
+#[derive(Debug, Clone)]
+struct EndedScan {
+    snapshot: DebugSnapshot,
+    fault: Option<FaultPosition>,
+}
+
+/// The position a faulted scan left: the statement that owns the failing instruction, as the
+/// installed `LINE_TABLE` names it (specification 12 section 6.13). Lines and columns are 1-based,
+/// as the table holds them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FaultPosition {
+    /// The statement's file label, from `DEBUG_STRING_TABLE`.
+    pub file: SmolStr,
+    /// 1-based line of the statement's first byte.
+    pub line: u32,
+    /// 1-based byte column of the statement's first byte within its line.
+    pub column: u32,
 }
 
 /// The run fields of this debugger, borrowed for one decision of the shared run control. The

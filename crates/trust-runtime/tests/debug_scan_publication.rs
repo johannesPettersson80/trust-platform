@@ -212,7 +212,7 @@ fn debug_variables_between_scans_show_the_last_completed_scan() {
 
 #[test]
 fn before_the_first_scan_completes_debug_reads_answer_no_snapshot_available() {
-    // Spec 11 section 6.13.1, bullet 4: before the first completed scan there is no published state,
+    // Spec 11 section 6.13.1, bullet 5: before the first completed scan there is no published state,
     // and each debug read answers its existing error, `no snapshot available`. Wrong behaviour caught:
     // an empty projection invented for a read, or a scan in progress published as the state. The
     // first scan is held in its output driver, after all of its statements have run.
@@ -251,7 +251,7 @@ fn before_the_first_scan_completes_debug_reads_answer_no_snapshot_available() {
 
 #[test]
 fn debug_variables_during_a_hold_show_the_halted_state() {
-    // Spec 11 section 6.13.1, bullet 3: while a debugger holds the scan, the state is the halted state,
+    // Spec 11 section 6.13.1, bullet 4: while a debugger holds the scan, the state is the halted state,
     // the storage as the statements that already ran in the suspended scan left it. Wrong behaviour
     // caught: a read during the hold that shows the last completed scan (n = 11) instead of the stop
     // (n = 12: the first statement of the second scan has run, the second has not).
@@ -293,7 +293,7 @@ fn debug_variables_during_a_hold_show_the_halted_state() {
 
 #[test]
 fn a_debug_read_changes_no_value_hold_or_step() {
-    // Spec 11 section 6.13.1, bullet 5: a read changes no value, breakpoint, hold or step. Wrong
+    // Spec 11 section 6.13.1, bullet 6: a read changes no value, breakpoint, hold or step. Wrong
     // behaviour caught: a read that releases the hold, consumes the step armed by the operator, or
     // applies a value, so that the step stops somewhere else or the scan ends with a different n.
     let mut runtime = build(SOURCE);
@@ -359,11 +359,15 @@ fn a_debug_read_changes_no_value_hold_or_step() {
 }
 
 #[test]
-fn after_a_faulted_scan_reads_show_the_last_completed_scan() {
-    // Spec 11 section 6.13.1: the state is the storage at the end of the last completed scan. A scan
-    // that faults publishes nothing. Pinned choice (owner decision O2 is open): the state after a
-    // faulted scan is the last completed scan's, not the values the faulted scan had stored.
-    // Wrong behaviour caught: publishing the faulted scan's storage, which here holds n = 2.
+fn after_a_faulted_scan_reads_show_the_values_the_fault_left() {
+    // Spec 11 section 6.13.1 and owner decision O2 (18 October 2026): after a faulted scan the reads show
+    // the storage as the fault left it, and the state names the position of the faulting statement. The
+    // second scan stores n = 2 (1 + 1) before the division by zero, and the failing statement stores
+    // nothing, so ratio keeps 10 from the first scan. The faulting statement is `ratio := ...;`, line 9
+    // and column 1 of FAULT_SOURCE, counted from 1 with the empty first line.
+    // Wrong behaviour caught: publishing the last completed scan (n = 1), which hides the store the
+    // faulted scan made; a faulted state without a position; a failing statement that stores its
+    // partial result (ratio = 0); a position on the scan's first statement (line 8).
     let mut runtime = build(FAULT_SOURCE);
     let debug = runtime.enable_debug();
     runtime.execute_cycle().expect("the first scan completes");
@@ -380,12 +384,64 @@ fn after_a_faulted_scan_reads_show_the_last_completed_scan() {
     );
     assert_eq!(
         published_dint(&debug, "n"),
-        Some(Value::DInt(1)),
-        "reads show the last completed scan, where n is 1"
+        Some(Value::DInt(2)),
+        "reads show the storage as the fault left it: n is 2, the store the scan completed"
     );
     assert_eq!(
         published_dint(&debug, "ratio"),
         Some(Value::DInt(10)),
-        "and ratio is 10, from 10 / (2 - 1) in that scan"
+        "the failing statement stores nothing: ratio keeps 10 from 10 / (2 - 1)"
+    );
+    let position = debug
+        .fault_position()
+        .expect("the faulted state names the faulting statement");
+    assert_eq!(
+        (position.line, position.column),
+        (9, 1),
+        "the faulting statement is line 9, column 1: ratio := DINT#10 / (DINT#2 - n);"
+    );
+}
+
+#[test]
+fn a_scan_completing_after_a_fault_replaces_the_faulted_state() {
+    // Spec 11 section 6.13.1: the faulted state stays published until the next scan ends, and that end
+    // replaces it with no position. A tooling reset of the fault keeps the values, so the scan after it
+    // runs on n = 2: n = 2 + 1 = 3, and ratio = 10 / (2 - 3) = -10.
+    // Wrong behaviour caught: the faulted state kept after a scan that completes (n = 2, or the position
+    // still named); a reset that drops the faulted state before any scan has ended.
+    let mut runtime = build(FAULT_SOURCE);
+    let debug = runtime.enable_debug();
+    runtime.execute_cycle().expect("the first scan completes");
+    assert!(
+        matches!(runtime.execute_cycle(), Err(RuntimeError::DivisionByZero)),
+        "the second scan divides by zero"
+    );
+
+    runtime.clear_fault();
+    assert_eq!(
+        published_dint(&debug, "n"),
+        Some(Value::DInt(2)),
+        "the reset keeps the values, and no scan has ended since the fault"
+    );
+    assert_eq!(
+        debug.fault_position().map(|position| position.line),
+        Some(9),
+        "the faulted state still names line 9 before a scan ends"
+    );
+
+    runtime
+        .execute_cycle()
+        .expect("the scan after the reset completes");
+    assert_eq!(published_dint(&debug, "n"), Some(Value::DInt(3)));
+    assert_eq!(published_dint(&debug, "ratio"), Some(Value::DInt(-10)));
+    assert_eq!(
+        debug.fault_position(),
+        None,
+        "the completed scan replaces the faulted state, which names no position"
+    );
+    assert_eq!(
+        debug.storage_copies(),
+        3,
+        "three scans ended, and each made one copy"
     );
 }

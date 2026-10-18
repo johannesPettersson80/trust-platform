@@ -6233,28 +6233,45 @@ These events are consumed by the debugger (`trust-debug`) and test harnesses to 
 ##### 6.13.1 Debug value freshness (owner, 18 October 2026)
 
 `eval`, `debug.stack` and `debug.variables` answer on every runtime with the values as of the last
-completed scan, from one published debug state, and no runtime keeps a copy of PLC storage per
+scan that ended, from one published debug state, and no runtime keeps a copy of PLC storage per
 statement. This is a truST runtime contract; IEC 61131-3 defines no debugger and no variable
 snapshot.
 
-- The published state is the PLC storage and call stack as they stood at the end of the last
-  completed scan: one consistent state, never half a scan. A read never waits for, pauses, slows or
-  repeats a scan, and a scan in progress is not visible in an answer: a variable it has already
-  written, or a frame it has entered or left, does not appear until that scan completes and becomes
-  the last completed scan. Answers therefore come from the scan end, not from the latest statement
-  that ran.
+- The published state is the PLC storage as it stood at the end of the last scan that ended, with no
+  call stack: a completed scan's, or a faulted scan's under the bullet below. It is one consistent
+  state, never half a scan. A read never waits for, pauses, slows or repeats a scan, and a scan in
+  progress is not visible in an answer: a variable it has already written, or a frame it has entered
+  or left, does not appear until that scan ends and becomes the last scan that ended. Answers
+  therefore come from the scan end, not from the latest statement that ran.
 - A runtime that serves requests between scans (a chip's runner) answers from its storage, which is
   that state. trust-runtime answers from one copy it publishes at each scan end: the running scan
   writes the live storage the scan itself uses, and the published copy changes only at the boundary
   between two scans. That is one copy per scan, and it replaces the per-statement copy the runtime
   kept before.
+- A faulted scan publishes the state it left (owner decision O2, 18 October 2026). A scan faults when
+  its execution returns an error, including a deadline or output-commit failure inside the scan, or
+  when its thread panics. Its state replaces the last completed scan's. On trust-runtime it is one
+  copy of the storage as the fault left it, made before the fault's safe-state action, together with
+  the fault's position. A failing statement stores nothing, and the stores the scan completed remain
+  (section 6.6). The call stack at the fault is part of that state: every frame the fault unwound,
+  with its local variables as the fault left them, as CODESYS and TwinCAT keep the call stack and its
+  values in their exception dumps (owner, 18 October 2026, O2). The position is the innermost
+  statement whose code span contains the failing instruction, as the installed module's LINE_TABLE
+  names it (specification 12 section 6.13): the statement's file label, and its 1-based line and byte
+  column. A fault that raised no instruction, an instruction that no statement contains, and a module
+  without a LINE_TABLE name no position. On a chip the reads come from the live storage, which already
+  holds the values the fault left, so no copy is made. A fault after a scan has ended, such as a
+  watchdog overrun or a failed publication of shared variables, does not replace that scan's state.
+  The faulted state stays published until the next scan ends, which replaces it, or a restart or an
+  online change clears it. A reset of the fault latch (section 6.6) leaves it published.
 - While a debugger holds the scan (a breakpoint, a debug-mode `pause` or a completed step, section
   6.9), the published state is the halted state: the storage exactly as the statements that already
   ran in the suspended scan left it, and the call stack at the halt. Every stopped answer is
   unchanged, including the boundary writes a waiting scan already shows (section 6.9). When the hold
-  ends, by a continue, a step or a stop, the published state is again the last completed scan's, and
-  the scan that resumes stays invisible until it completes.
-- Before the first completed scan there is no published state. Each read answers its existing error
+  ends, by a continue, a step or a stop, the published state is again the state of the last scan that
+  ended, and the scan that resumes stays invisible until it ends. A halted state names no fault
+  position.
+- Before the first scan ends there is no published state. Each read answers its existing error
   (`no snapshot available`) rather than an invented empty projection.
 - A read changes nothing: it applies no store, releases no force, and changes no value, breakpoint,
   hold or step, and it is subject to the requester's existing role (section 6.9.5).

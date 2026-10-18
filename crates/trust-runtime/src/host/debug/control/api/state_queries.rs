@@ -97,19 +97,35 @@ impl DebugControl {
     }
 
     /// Get the published debug state, if any: the halted state while a debugger holds the scan, and
-    /// otherwise the state of the last completed scan (specification 11 section 6.13.1). The last
-    /// completed scan is copied after the state lock is released, so a read does not hold up a scan.
+    /// otherwise the state of the last scan that ended (specification 11 section 6.13.1). That state
+    /// is copied after the state lock is released, so a read does not hold up a scan.
     #[must_use]
     pub fn snapshot(&self) -> Option<DebugSnapshot> {
         let (lock, _) = &*self.state;
-        let completed = {
+        let ended = {
             let state = lock.lock().expect("debug state poisoned");
             if let Some(halted) = &state.snapshot {
                 return Some(halted.clone());
             }
             state.completed.clone()
         };
-        completed.map(|snapshot| snapshot.as_ref().clone())
+        ended.map(|scan| scan.snapshot.clone())
+    }
+
+    /// The position of the faulted scan whose state is published: the statement that owns the
+    /// failing instruction (specification 11 section 6.13.1). None while a hold publishes the halted
+    /// state, when the published state is not a faulted scan's, and when its fault names no statement.
+    #[must_use]
+    pub fn fault_position(&self) -> Option<FaultPosition> {
+        let (lock, _) = &*self.state;
+        let state = lock.lock().expect("debug state poisoned");
+        if state.snapshot.is_some() {
+            return None;
+        }
+        state
+            .completed
+            .as_deref()
+            .and_then(|scan| scan.fault.clone())
     }
 
     /// Return whether execution is currently paused.

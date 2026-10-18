@@ -377,8 +377,8 @@ A newly created runtime debug control starts running with current thread `1`,
 no target thread, breakpoint, stop, snapshot, watch, buffered event, queued
 mutation, or active force. An explicit pause transitions a running control to
 paused, records one pending `pause` reason, clears step state and the captured
-snapshot (the halted state of the last stop: reads then answer from the last
-completed scan, if there is one, specification 11 section 6.13.1), and optionally
+snapshot (the halted state of the last stop: reads then answer from the last scan
+that ended, completed or faulted, if there is one, specification 11 section 6.13.1), and optionally
 binds the requested thread. Pausing an already paused
 control is ignored and does not replace the original pending reason or target.
 Stop-on-entry follows the same one-pending-stop rule but records `entry` and is
@@ -481,8 +481,9 @@ including at `0` and `u64::MAX`.
 
 - `VariablesRequest` and `ScopesRequest` return locals, globals, retain, and instance scopes.
 - Values are those of the runtime's published debug state (specification 11 §6.13.1): the storage
-  as it stood at the end of the last completed scan, one consistent state and never half a scan,
-  and never a copy the runtime makes per statement; while a hold is active, the halted state.
+  as it stood at the end of the last scan that ended, completed or faulted (after a fault, the
+  storage as the fault left it), one consistent state and never half a scan, and never a copy the
+  runtime makes per statement; while a hold is active, the halted state.
 - `EvaluateRequest` in `hover` or `watch` context must not have side effects.
   Explicitly whitelisted pure standard functions, conversions, and
   split-date/time helpers are accepted; user-defined, unknown, and impure calls

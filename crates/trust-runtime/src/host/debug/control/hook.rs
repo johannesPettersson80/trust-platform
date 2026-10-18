@@ -155,6 +155,38 @@ impl DebugControl {
         now: Duration,
         storage_abi: StorageAbi,
     ) {
+        self.publish_ended_scan(storage, now, storage_abi, None);
+    }
+
+    /// Publish the state of a faulted scan: one copy of its storage as the fault left it, with no
+    /// call stack, and the position of the statement that owns the failing instruction when the
+    /// fault has one (specification 11 section 6.13.1). The position is read from the artifact's
+    /// `LINE_TABLE`. The caller publishes before the fault's safe-state action runs.
+    pub(crate) fn publish_faulted_scan(
+        &self,
+        storage: &VariableStorage,
+        now: Duration,
+        storage_abi: StorageAbi,
+        site: Option<FaultSite>,
+        artifact: Option<&BytecodeModule>,
+    ) {
+        if !self.is_enabled() {
+            return;
+        }
+        let fault = site
+            .zip(artifact)
+            .and_then(|(site, artifact)| fault_statement_position(artifact, site));
+        self.publish_ended_scan(storage, now, storage_abi, fault);
+    }
+
+    /// Copy the storage of a scan that ended and publish it as the state reads answer from.
+    fn publish_ended_scan(
+        &self,
+        storage: &VariableStorage,
+        now: Duration,
+        storage_abi: StorageAbi,
+        fault: Option<FaultPosition>,
+    ) {
         if !self.is_enabled() {
             return;
         }
@@ -168,8 +200,28 @@ impl DebugControl {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         state.storage_copies = state.storage_copies.saturating_add(1);
-        state.completed = Some(Arc::new(snapshot));
+        state.completed = Some(Arc::new(EndedScan { snapshot, fault }));
     }
+}
+
+/// The statement that owns a fault's failing instruction, named by the artifact's `LINE_TABLE`: the
+/// innermost statement whose code span contains the instruction (specification 12 section 6.13).
+/// `FaultSite::NONE` names no statement, so the lookup finds none for a fault that raised no
+/// instruction. The position is None too when no statement contains the instruction, or when the
+/// artifact has no `DEBUG_STRING_TABLE` to name the file.
+fn fault_statement_position(artifact: &BytecodeModule, site: FaultSite) -> Option<FaultPosition> {
+    let table = artifact.line_table()?;
+    let Some(SectionData::DebugStringTable(labels)) = artifact.section(SectionId::DebugStringTable)
+    else {
+        return None;
+    };
+    let (file, line, column) =
+        LineResolver::new(table, &labels.entries).location_of(site.pou, site.pc)?;
+    Some(FaultPosition {
+        file: SmolStr::new(file),
+        line,
+        column,
+    })
 }
 
 /// Where the statement hook reads the storage of the statement it observes.
