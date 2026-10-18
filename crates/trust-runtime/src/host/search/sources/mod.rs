@@ -8,10 +8,12 @@
 pub(crate) mod ads;
 pub(crate) mod ads_ports;
 mod catalog;
+mod cloud_presence;
 pub(crate) mod ethercat;
 mod find;
 pub(crate) mod gpio;
 mod mdns_services;
+mod mesh_peers;
 pub(crate) mod modbus_tcp;
 pub(crate) mod mqtt;
 pub(crate) mod opcua;
@@ -29,6 +31,7 @@ use std::sync::Arc;
 use smol_str::SmolStr;
 
 use crate::discovery::DiscoveryState;
+use crate::mesh::MeshTopologyEvidence;
 
 use super::model::SearchOrigin;
 
@@ -74,6 +77,9 @@ pub struct RuntimeFacts {
     /// The adapters of its running EtherCAT drivers (specification 11, "Safety"); a search never
     /// scans one of these.
     pub owned_adapters: Vec<SmolStr>,
+    /// The runtime's mesh, whose session answers the identity queries of its peers (specification
+    /// 11, "Sources"); `None` when the mesh does not run.
+    pub mesh: Option<MeshTopologyEvidence>,
 }
 
 /// What one source reads: the checked request's targets and where the search runs.

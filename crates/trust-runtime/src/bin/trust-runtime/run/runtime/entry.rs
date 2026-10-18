@@ -382,6 +382,7 @@ pub fn run_runtime(
         start_mesh(
             &bundle.runtime.mesh,
             bundle.runtime.resource_name.clone(),
+            runtime_id.clone(),
             control.clone(),
         )?
     } else {

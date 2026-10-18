@@ -87,6 +87,11 @@ fn runtime_facts(state: &ControlState) -> RuntimeFacts {
         discovery_interfaces,
         runtime_id: state.runtime_id.clone(),
         owned_adapters: owned_ethercat_adapters(state),
+        mesh: state
+            .mesh_topology
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone(),
     }
 }
 

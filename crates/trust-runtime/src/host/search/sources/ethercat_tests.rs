@@ -84,6 +84,7 @@ fn context(adapters: Vec<Option<String>>, owned: Vec<SmolStr>) -> SourceContext 
             discovery_interfaces: Vec::new(),
             runtime_id: smol_str::SmolStr::new("test-runtime-id"),
             owned_adapters: owned,
+            mesh: None,
         }),
     }
 }

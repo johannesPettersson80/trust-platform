@@ -48,9 +48,10 @@ use crate::runtime_cloud::profile_policy::{
     runtime_cloud_apply_profile_policy, runtime_cloud_profile_precondition,
 };
 use crate::runtime_cloud::projection::{
-    presence_record_from_observation, project_runtime_cloud_state, ChannelState, ChannelType,
-    FleetEdge, PresenceThresholds, RuntimeCloudUiState, RuntimePeerObservation,
-    RuntimePresenceRecord, UiContext, UiMode,
+    presence_record_from_observation, project_runtime_cloud_state, runtime_cloud_peer_appears_live,
+    select_preferred_peer_address, ChannelState, ChannelType, FleetEdge, RuntimeCloudUiState,
+    RuntimePresenceRecord, UiContext, UiMode, RUNTIME_CLOUD_DEFAULT_SITE,
+    RUNTIME_CLOUD_STALE_TIMEOUT_NS,
 };
 use crate::runtime_cloud::rollout_policy::{
     RuntimeCloudRolloutActionResponse, RuntimeCloudRolloutConfigView,
@@ -103,9 +104,9 @@ use ide_tasks::*;
 use models::*;
 use ops_routes::{handle_ops_route, OpsRouteContext, OpsRouteOutcome};
 use runtime_cloud_dispatch::{
-    runtime_cloud_denied_results, runtime_cloud_peer_appears_live,
-    runtime_cloud_preflight_for_action, runtime_cloud_target_control_url,
-    runtime_cloud_target_web_base_url, RuntimeCloudPreflightPolicy,
+    runtime_cloud_denied_results, runtime_cloud_preflight_for_action,
+    runtime_cloud_target_control_url, runtime_cloud_target_web_base_url,
+    RuntimeCloudPreflightPolicy,
 };
 use runtime_cloud_helpers::*;
 use runtime_cloud_routes::{
@@ -196,8 +197,3 @@ impl WebServerMode {
         }
     }
 }
-
-// Runtime-cloud peer liveliness should not flap under normal mDNS refresh cadence.
-const RUNTIME_CLOUD_STALE_TIMEOUT_NS: u64 = 30_000_000_000;
-const RUNTIME_CLOUD_PARTITION_TIMEOUT_NS: u64 = 120_000_000_000;
-const RUNTIME_CLOUD_DEFAULT_SITE: &str = "default-site";

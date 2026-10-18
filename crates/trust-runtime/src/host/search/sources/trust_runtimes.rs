@@ -10,16 +10,22 @@ use serde_json::json;
 
 use crate::connectors::DiscoveryConfidence;
 use crate::discovery::{DiscoveryEntry, DiscoveryState};
+use crate::runtime_cloud::projection::RuntimePresenceRecord;
 
 use super::super::model::{DeviceKey, Identity, ProtocolFind, RuntimeIdentity, SourceId};
 use super::super::runner::SourceSink;
+use super::cloud_presence::{presence_warnings, PresenceCache};
+use super::mesh_peers;
 use super::report::{sanitize_id, CandidateSink, Deadline, DiscoverCandidate};
 use super::scope::{timeout, DiscoverScope};
-use super::SourceContext;
+use super::{RuntimeFacts, SourceContext};
 
 const TRUST_MDNS_SERVICE_TYPE: &str = "_trust._plc._tcp.local.";
 /// How often a search inside a runtime reads the runtime's own discovery.
 const DISCOVERY_READ_PERIOD: Duration = Duration::from_millis(250);
+/// The warning of a runtime that announces no control endpoint.
+const NO_CONTROL_WARNING: &str =
+    "Runtime advertised without a control endpoint; adopt may require manual endpoint entry.";
 
 /// The runtimes in `discovery`, the discovery of the runtime that answers; without it, the
 /// runtimes that answer an mDNS browse within the timeout of `scope`.
@@ -137,7 +143,7 @@ fn candidate(entry: &DiscoveryEntry) -> DiscoverCandidate {
             "host_group": entry.host_group.as_ref().map(ToString::to_string),
         }),
         warnings: if control_endpoint.is_empty() {
-            vec!["Runtime advertised without a control endpoint; adopt may require manual endpoint entry.".to_string()]
+            vec![NO_CONTROL_WARNING.to_string()]
         } else {
             Vec::new()
         },
@@ -151,27 +157,20 @@ fn now_ns() -> u64 {
         .as_nanos() as u64
 }
 
-/// truST runtimes in a search. Inside a runtime it reads the runtime's own mDNS discovery; on the
+/// truST runtimes in a search. Inside a runtime it reads the runtime's own mDNS discovery, with the
+/// runtime cloud's presence of each runtime, and asks the mesh peers for their identity; on the
 /// tool's computer it browses mDNS itself. Either way it listens until the search ends.
 pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
     match &context.runtime {
-        Some(runtime) => loop {
-            for entry in runtime.discovery.snapshot() {
-                // A runtime's search never reports the runtime itself (specification 11, "One
-                // search, device identity, and presence").
-                if entry.id == runtime.runtime_id {
-                    continue;
-                }
-                sink.found(runtime_find(&entry));
-            }
-            if sink.ended() {
-                return;
-            }
-            sink.wait(DISCOVERY_READ_PERIOD);
-        },
+        Some(runtime) => std::thread::scope(|scope| {
+            // The mesh peers are asked on a thread of their own, so that a slow peer holds up no
+            // runtime that discovery finds.
+            scope.spawn(|| mesh_peers::search(runtime, sink));
+            read_discovery(runtime, sink);
+        }),
         None => {
             let browsed = crate::discovery::browse_runtimes(&|| sink.ended(), &mut |entry| {
-                sink.found(runtime_find(&entry));
+                sink.found(runtime_find(&entry, None));
             });
             if let Err(error) = browsed {
                 sink.warn(error);
@@ -180,7 +179,32 @@ pub(super) fn search(context: &SourceContext, sink: &SourceSink) {
     }
 }
 
-fn runtime_find(entry: &DiscoveryEntry) -> ProtocolFind {
+/// Reads the runtime's own discovery until the search ends. Each runtime is reported with its
+/// presence (specification 11, "Runtime cloud presence").
+fn read_discovery(runtime: &RuntimeFacts, sink: &SourceSink) {
+    let mut presence = PresenceCache::default();
+    loop {
+        let entries = runtime.discovery.snapshot();
+        presence.retain_listed(&entries);
+        for entry in &entries {
+            // A runtime's search never reports the runtime itself (specification 11, "One
+            // search, device identity, and presence").
+            if entry.id == runtime.runtime_id {
+                continue;
+            }
+            let record = presence.presence_of(entry, std::time::Instant::now(), now_ns());
+            sink.found(runtime_find(entry, Some(&record)));
+        }
+        if sink.ended() {
+            return;
+        }
+        sink.wait(DISCOVERY_READ_PERIOD);
+    }
+}
+
+/// The truST runtime find of one discovered runtime. With its `presence`, the find's `last_seen`
+/// is the observation time of that presence, and its marks are warnings.
+fn runtime_find(entry: &DiscoveryEntry, presence: Option<&RuntimePresenceRecord>) -> ProtocolFind {
     let control = entry
         .control
         .as_ref()
@@ -198,10 +222,17 @@ fn runtime_find(entry: &DiscoveryEntry) -> ProtocolFind {
         "web_port": entry.web_port,
         "host_group": host_group,
     });
-    let warnings = if control.is_none() {
-        vec!["Runtime advertised without a control endpoint; adopt may require manual endpoint entry.".to_string()]
+    let mut warnings = if control.is_none() {
+        vec![NO_CONTROL_WARNING.to_string()]
     } else {
         Vec::new()
+    };
+    let last_seen_ns = match presence {
+        Some(record) => {
+            warnings.extend(presence_warnings(record));
+            record.last_seen_ns
+        }
+        None => entry.last_seen_ns,
     };
     let mut keys: Vec<DeviceKey> = entry
         .addresses
@@ -216,6 +247,8 @@ fn runtime_find(entry: &DiscoveryEntry) -> ProtocolFind {
         web: web_address(entry),
         host_group,
         mesh_port: entry.mesh_port,
+        version: None,
+        platform: None,
     });
     ProtocolFind::new(
         SourceId::TrustRuntime,
@@ -223,7 +256,7 @@ fn runtime_find(entry: &DiscoveryEntry) -> ProtocolFind {
         DiscoveryConfidence::Confirmed,
         identity,
         params,
-        entry.last_seen_ns / 1_000_000,
+        last_seen_ns / 1_000_000,
     )
     .with_warnings(warnings)
     .keyed(entry.id.to_string(), keys)

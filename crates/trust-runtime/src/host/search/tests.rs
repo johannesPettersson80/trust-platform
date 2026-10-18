@@ -396,6 +396,7 @@ fn fieldbus_sources_skipped_without_confirmation() {
         discovery_interfaces: Vec::new(),
         runtime_id: smol_str::SmolStr::new("test-runtime-id"),
         owned_adapters: Vec::new(),
+        mesh: None,
     });
     let request = |confirm: bool| {
         SearchRequest::from_params(Some(json!({

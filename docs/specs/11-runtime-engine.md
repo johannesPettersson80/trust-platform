@@ -1396,6 +1396,48 @@ it can probe, or that this build of truST does not include it. At origin
 `runtime` the truST runtimes source reads the runtime's own mDNS discovery
 (§6.12), so it is skipped while `[runtime.discovery] enabled = false`.
 
+Inside a runtime, the truST runtimes source also queries the mesh peers (O31:
+the search may scout for mesh peers). The peers are those that the runtime's
+mesh session has seen join; the search starts no scouting of its own. Each peer
+is asked for its identity with a read-only query of its identity queryable, each
+second until the search ends and each within the search's deadline. The answer
+gives the runtime's runtime ID (the one its announcement and `status` give) as
+`stable_runtime_id`, beside the mesh name that keys its identity queryable. An
+answer without it is named by its mesh name. A runtime that sends its name,
+version and platform gives them as optional fields; a runtime that sends none is
+named by its mesh name alone. Each answer is a truST runtime find from the source
+`mesh`, merged by runtime ID with its mDNS find. A mesh find has no control
+endpoint and no network address, so it carries the warning "Runtime found
+through the mesh without a control endpoint; adopt may require manual endpoint
+entry." A peer that does not answer by the deadline is left out, with no error.
+An answer that is not the identity of the peer that was asked is left out, with
+a warning that names the peer. On the tool's own computer there is no mesh
+session, so this part does not run.
+
+Runtime cloud presence. Inside a runtime, the truST runtimes source reports each
+discovered runtime with the runtime cloud's presence, by the rule of the runtime
+cloud state (the presence projection in `runtime_cloud/projection.rs`). A
+runtime has a mesh endpoint when its announcement gives a mesh port and an
+address, and a web endpoint when it gives a web port and an address. It is
+stale when it has no mesh endpoint, or when it was last seen 30 seconds or more
+ago. It is partitioned when it has no mesh endpoint and was last seen 120
+seconds or more ago. When its announcement is at least 30 seconds old, or dated
+after now, and it has a web endpoint, the web endpoint is connected to: a
+connection accepted within 200 milliseconds means the runtime was seen now. The
+find's `last_seen` is that observation time. A stale runtime carries the warning
+`stale`, and a partitioned runtime carries the warnings `stale` and
+`partitioned`. Presence is read at most once a second for each runtime. The
+tool's own computer has no runtime cloud, so its finds carry no presence.
+
+The route list of an ADS target is unproven (O20). No source yet gives the read
+that lists a target's routes. The AMS router's route table is expected on AMS
+port 10000, but no public source checked confirms the read, its index group, or
+its data layout. The sources checked on 18 October 2026 were the Beckhoff
+InfoSys page for the `Get-AdsRoute` cmdlet, which describes the cmdlet and not
+the wire read, and the Beckhoff ADS repository on GitHub, which documents no
+route read. A real TwinCAT computer confirms the read before the ADS source
+relies on it.
+
 A known address is probed at each protocol's own port. An explicit port is used
 by Modbus TCP, MQTT and OPC UA; ADS identifies the host alone. Without a known
 address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
