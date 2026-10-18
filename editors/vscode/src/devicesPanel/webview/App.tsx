@@ -397,6 +397,7 @@ export function App({
               title={view.toolbar.discover.label}
               discover={discover}
               notice={discoverNotice}
+              busy={awaiting}
               onAction={chooseAction}
               onClose={close}
             />

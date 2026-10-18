@@ -559,6 +559,41 @@ suite("Devices & Connections Discover pane", () => {
     }
   });
 
+  test("while_a_posted_action_awaits_its_reply_every_card_action_is_disabled", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Design §4.5, D4b: while a Rust or host action that the panel posted awaits its reply, as `Adopt` does, the
+    // panel passes `busy`, and every card action is drawn disabled until the reply arrives, as the browse pane's
+    // actions are (specification 25 §5.13). A wrong implementation leaves `Adopt` enabled, so a double click posts
+    // it twice, or keeps the cards disabled after the reply.
+    const props = {
+      title: "Discover",
+      discover: goldenView("running_search"),
+      busy: true,
+      onAction: () => undefined,
+      onClose: () => undefined,
+    };
+    const rendered = await render(DiscoverPane, props);
+    const disabled = (): boolean[] =>
+      cardsOf(rendered.container).flatMap((card) =>
+        (card.actions as Array<{ disabled: boolean }>).map((action) => action.disabled),
+      );
+    try {
+      assert.deepStrictEqual(
+        disabled(),
+        [true, true, true, true],
+        "Adopt, + Add and both Ignore buttons wait for the reply",
+      );
+      await rendered.update({ ...props, busy: false });
+      assert.deepStrictEqual(
+        disabled(),
+        [false, false, false, false],
+        "the reply enables every card action again",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
   test("add_posts_the_form_request_of_the_runtime_that_owns_the_search", async () => {
     const DiscoverPane = loadDiscoverPane();
     // The `+ Add` of a Modbus device opens the Modbus connection on the runtime that owns the search, prefilled

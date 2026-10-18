@@ -366,11 +366,15 @@ export function DiscoverPane({
   title,
   discover,
   notice,
+  busy,
   onAction,
   onClose,
 }: {
   /** The pane's title: the words of the toolbar action that opened it. */
   title: string;
+  /** Whether a Rust or host action that the panel posted awaits its reply, such as a card's `Adopt`: the cards'
+   * actions are drawn disabled until it arrives, as the browse pane's are. */
+  busy: boolean;
   /** The Discover view, as Rust gives it. */
   discover: DiscoverView;
   /** The result of the last action, when it names this pane. */
@@ -478,7 +482,7 @@ export function DiscoverPane({
         {discover.cards.length > 0 && (
           <section data-role="discover-cards" style={discoverSectionStyle}>
             {discover.cards.map((card) => (
-              <Card key={card.id} card={card} busy={awaiting} onAction={chooseCardAction} />
+              <Card key={card.id} card={card} busy={busy || awaiting} onAction={chooseCardAction} />
             ))}
           </section>
         )}
