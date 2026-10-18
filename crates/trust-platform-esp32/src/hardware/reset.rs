@@ -1,6 +1,9 @@
 //! MWDT0 supervision and the reset cookie in RTC fast memory, which survives MWDT0 and USB resets.
 use super::BoardError;
-use crate::{cookie::ResetCookie, profile::WATCHDOG_MS};
+use crate::{
+    cookie::ResetCookie,
+    watchdog_rule::{watchdog_timeout_ms, FEED_INTERVAL_MS},
+};
 use core::ptr::{read_volatile, write_volatile};
 use esp_hal::{
     peripherals::TIMG0,
@@ -8,6 +11,8 @@ use esp_hal::{
     time::Duration,
     timer::timg::{MwdtStage, MwdtStageAction, TimerGroup, Wdt},
 };
+use trust_platform_memory::reset::{self, ResetCause, ResetRecord, ResetStore, RECORD_WORDS};
+use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan};
 
 /// Largest accepted MWDT0 stage-0 interval in milliseconds.
 const MAX_WATCHDOG_MS: u32 = 60_000;
@@ -20,34 +25,59 @@ pub struct Watchdog {
 }
 
 impl Watchdog {
-    /// Configure the stage-0 interval and action. The watchdog stays disabled until `start_ms`.
+    /// Configure the stage-0 interval and action. The watchdog stays disabled until `start`. The
+    /// interval starts at the 4 s minimum of [`crate::watchdog_rule::watchdog_timeout_ms`], which
+    /// a project without a cycle watchdog keeps.
     pub(super) fn new(timg0: TIMG0<'static>) -> Self {
         let mut inner = TimerGroup::new(timg0).wdt;
-        inner.set_timeout(
-            MwdtStage::Stage0,
-            Duration::from_millis(u64::from(WATCHDOG_MS)),
-        );
-        inner.set_stage_action(MwdtStage::Stage0, MwdtStageAction::ResetSystem);
+        configure(&mut inner, watchdog_timeout_ms(0));
         Self { inner }
     }
 
-    /// Enable MWDT0 with a stage-0 interval in 1..=60,000 ms. Only a reset stops it afterwards.
-    pub fn start_ms(&mut self, milliseconds: u32) -> Result<(), BoardError> {
+    /// Set MWDT0's stage-0 interval from the project's cycle watchdog timeout: the larger of 4 s
+    /// and the cycle timeout plus 2 s (design §2.5 and specification 34, TIME-04).
+    ///
+    /// # Errors
+    ///
+    /// [`BoardError::WatchdogInterval`] when the rule's interval is outside 1..=60,000 ms.
+    pub fn set_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> Result<(), BoardError> {
+        let milliseconds = watchdog_timeout_ms(cycle_timeout_ms);
         if !(1..=MAX_WATCHDOG_MS).contains(&milliseconds) {
             return Err(BoardError::WatchdogInterval);
         }
-        self.inner.set_timeout(
-            MwdtStage::Stage0,
-            Duration::from_millis(u64::from(milliseconds)),
-        );
-        self.inner
-            .set_stage_action(MwdtStage::Stage0, MwdtStageAction::ResetSystem);
-        self.inner.enable();
+        configure(&mut self.inner, milliseconds);
         Ok(())
+    }
+
+    /// Enable MWDT0 with the interval [`Self::new`] or [`Self::set_cycle_timeout_ms`] set. Only a
+    /// reset stops it afterwards.
+    pub fn start(&mut self) {
+        self.inner.enable();
     }
 
     /// Refresh the watchdog once the firmware supervisor has accepted the completed work.
     pub fn feed(&mut self) {
+        self.inner.feed();
+    }
+}
+
+/// Set MWDT0's stage-0 interval and action. The caller has checked `milliseconds`.
+fn configure(inner: &mut Wdt<TIMG0<'static>>, milliseconds: u32) {
+    inner.set_timeout(
+        MwdtStage::Stage0,
+        Duration::from_millis(u64::from(milliseconds)),
+    );
+    inner.set_stage_action(MwdtStage::Stage0, MwdtStageAction::ResetSystem);
+}
+
+impl HardwareWatchdog for Watchdog {
+    fn feed_interval(&self) -> TimeSpan {
+        TimeSpan::new(core::time::Duration::from_millis(u64::from(
+            FEED_INTERVAL_MS,
+        )))
+    }
+
+    fn feed(&mut self) {
         self.inner.feed();
     }
 }
@@ -102,6 +132,66 @@ impl ResetControl {
         } else {
             Err(BoardError::ResetCookie)
         }
+    }
+
+    /// Write the record a panic or watchdog path leaves for the next boot: the cause, the panic
+    /// location when there is one, and the boot counter. It is kept in RTC fast memory next to the
+    /// cookie and survives the same MWDT0 and USB-Serial/JTAG resets.
+    pub fn write_reset_record(&mut self, cause: ResetCause, text: &str) {
+        reset::write_record(self, cause, text);
+    }
+
+    /// Read the record the previous boot left, with its cause and text, and clear it, so a cause is
+    /// reported once. A damaged record reads as `None`, never as a cause.
+    pub fn take_reset_record(&mut self) -> Option<ResetRecord> {
+        reset::take_record(self)
+    }
+
+    /// Count this boot in RTC memory and return the new boot counter the next record is stamped
+    /// with.
+    pub fn note_boot(&mut self) -> u32 {
+        reset::note_boot(self)
+    }
+}
+
+/// The reset record words in RTC fast memory, which survive MWDT0 and USB-Serial/JTAG resets. Kept
+/// apart from [`COOKIE`], whose two words stay the D.2 phase marker.
+#[esp_hal::ram(unstable(rtc_fast, persistent))]
+static mut RECORD: [u32; RECORD_WORDS] = [0; RECORD_WORDS];
+/// The boot counter in RTC fast memory, next to the record.
+#[esp_hal::ram(unstable(rtc_fast, persistent))]
+static mut BOOT_COUNT: u32 = 0;
+
+impl ResetStore for ResetControl {
+    fn record_words(&self) -> [u32; RECORD_WORDS] {
+        let words = (&raw const RECORD).cast::<u32>();
+        let mut out = [0u32; RECORD_WORDS];
+        for (index, word) in out.iter_mut().enumerate() {
+            // SAFETY: `words` addresses the RECORD_WORDS-word RECORD static, so every load stays
+            // inside it, and the volatile load takes the value from RTC memory.
+            *word = unsafe { read_volatile(words.add(index)) };
+        }
+        out
+    }
+
+    fn set_record_words(&mut self, words: [u32; RECORD_WORDS]) {
+        let base = (&raw mut RECORD).cast::<u32>();
+        for (index, &word) in words.iter().enumerate() {
+            // SAFETY: `base` addresses the RECORD_WORDS-word RECORD static, so every store stays
+            // inside it. Only `ResetControl` writes the record, and volatile stores keep the words
+            // in RTC memory in program order.
+            unsafe { write_volatile(base.add(index), word) };
+        }
+    }
+
+    fn boot_count(&self) -> u32 {
+        // SAFETY: `BOOT_COUNT` is a `u32` static and the volatile load reads it from RTC memory.
+        unsafe { read_volatile(&raw const BOOT_COUNT) }
+    }
+
+    fn set_boot_count(&mut self, count: u32) {
+        // SAFETY: `BOOT_COUNT` is a `u32` static and the volatile store keeps it in RTC memory.
+        unsafe { write_volatile(&raw mut BOOT_COUNT, count) };
     }
 }
 

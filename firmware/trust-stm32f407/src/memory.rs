@@ -17,6 +17,13 @@ pub static HEAP: MeasuredHeap = MeasuredHeap::empty();
 
 pub fn initialize() {
     // SAFETY: called exactly once before any allocation, single core. The
-    // private static is exclusively owned by the allocator for the whole boot.
-    unsafe { HEAP.init(core::ptr::addr_of_mut!(HEAP_MEMORY) as usize, HEAP_BYTES) };
+    // private static is exclusively owned by the allocator for the whole
+    // boot; this slice covers exactly that static and nothing else reaches it.
+    unsafe {
+        let region = core::slice::from_raw_parts_mut(
+            core::ptr::addr_of_mut!(HEAP_MEMORY) as *mut u8,
+            HEAP_BYTES,
+        );
+        HEAP.init(region, None);
+    }
 }

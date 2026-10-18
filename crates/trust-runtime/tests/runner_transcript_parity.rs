@@ -33,13 +33,14 @@ use std::rc::Rc;
 use std::time::Duration as StdDuration;
 
 use serde_json::{json, Value};
-use trust_board_fixture::services::Services;
 use trust_runtime::scheduler::ResourceState;
+use trust_runtime_services::events::EVENT_STORE_CAPACITY;
+use trust_runtime_services::runner::engine::DeviceServices;
 use trust_runtime_services::runner::{EngineLiveValues, Runner};
 
 use runner_transcript_support::{
-    binding_names, prepare_board_probe, BoardCycle, BoardPlatform, DeviceRunner, HostComposition,
-    HostScan, MemoryLink, ReplayClock, ReplayWait, CYCLE_INTERVAL,
+    binding_names, prepare_board_probe, start_device_cycle, BoardPlatform, DeviceRunner,
+    HostComposition, HostScan, MemoryLink, ReplayClock, ReplayWait, CYCLE_INTERVAL,
 };
 
 /// The reply values that differ between the two compositions by construction, as JSON pointers
@@ -441,13 +442,10 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
     let warmup = host.settle_until(|scans| scans.len() >= 20);
 
     let clock = ReplayClock::default();
-    let services = Services {
-        clock: &clock,
-        deadline: Cell::new(None),
-    };
+    let services = DeviceServices::new(clock.clone());
     let prepared = prepare_board_probe();
     let scans = Rc::new(Cell::new(0));
-    let cycle = BoardCycle::start(
+    let cycle = start_device_cycle(
         &prepared,
         &services,
         Rc::clone(&scans),
@@ -465,6 +463,7 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
         cycle,
         BoardPlatform::configured_as(&host, live),
         clock.clone(),
+        EVENT_STORE_CAPACITY,
     );
     let mut device = Device {
         runner,

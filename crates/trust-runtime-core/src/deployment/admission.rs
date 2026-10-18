@@ -25,6 +25,11 @@ pub struct DeviceDescriptor {
     pub capabilities: Capabilities,
     /// The largest request the device admits for each preparation limit.
     pub maxima: RequestedLimits,
+    /// The newest events the device's event store keeps when a project sets none (0 in the
+    /// record's section 7).
+    pub event_store_default: u32,
+    /// The most a project may set for the device's event store; a record above it is refused.
+    pub event_store_max: u32,
     /// The bytes of the slot that holds the program and its record, on a device that has one.
     pub application_slot_bytes: Option<u64>,
 }
@@ -37,8 +42,9 @@ const SOURCE_FREE_VERSIONS: &[BytecodeVersion] = &[
 
 impl DeviceDescriptor {
     /// A computer: Linux, macOS or Windows. It allows at most the engine's 64 MiB artifact and
-    /// 1,024 call levels, has no maximum for the other limits and no application slot
-    /// (specification 34 HOST-02).
+    /// 1,024 call levels, has no maximum for the other limits, keeps the newest 1,000 events by
+    /// default and admits at most 1,000,000, and has no application slot (specification 34
+    /// HOST-02).
     #[must_use]
     pub fn hosted() -> Self {
         let unbounded = super::wide(usize::MAX);
@@ -61,6 +67,8 @@ impl DeviceDescriptor {
                 max_construction_work: unbounded,
                 max_call_depth: super::wide(VM_MAX_CALL_DEPTH),
             },
+            event_store_default: 1_000,
+            event_store_max: 1_000_000,
             application_slot_bytes: None,
         }
     }
@@ -133,6 +141,16 @@ pub fn admit(
                 })
             }
         }
+    }
+    // Step 7 also bounds the record's section-7 event-store capacity: 0 keeps the device's
+    // default, and a non-zero request may not be above the device's maximum (specification 34
+    // §5.1.1, section 7).
+    let requested_capacity = record.configuration.event_capacity;
+    if requested_capacity != 0 && requested_capacity > device.event_store_max {
+        return refuse(AdmissionRefusal::EventStore {
+            requested: requested_capacity,
+            maximum: device.event_store_max,
+        });
     }
     if let Some(available) = device.application_slot_bytes {
         let needed = super::wide(program.len()).saturating_add(super::wide(record.encoded_len()));

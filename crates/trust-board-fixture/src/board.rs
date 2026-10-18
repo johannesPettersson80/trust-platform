@@ -1,6 +1,8 @@
 //! Interfaces a board composition provides to the shared M2E fixture. The fixture
 //! owns the measured sequence; a board supplies only these operations.
 
+pub use trust_platform_memory::board::{Measurement, Memory};
+
 /// Monotonic time and cycle observations. Waits are bounded by the board.
 pub trait Clock {
     /// Microseconds since the board's monotonic origin.
@@ -38,34 +40,6 @@ pub trait DigitalIo {
 pub trait Watchdog {
     /// Refresh the watchdog after an accepted scan.
     fn feed(&mut self);
-}
-
-/// Heap and stack observations for one `MEM` record.
-pub struct Measurement {
-    /// Allocator bytes in use now.
-    pub used: usize,
-    /// Allocator bytes in use at the phase peak.
-    pub peak: usize,
-    /// Allocation calls in the phase.
-    pub allocations: usize,
-    /// Failed allocation calls in the phase.
-    pub failures: usize,
-    /// Measured stack bytes in use.
-    pub stack_used: usize,
-    /// Measured stack bytes still unused.
-    pub stack_remaining: usize,
-}
-
-/// Board memory measurement and stack repaint.
-pub trait Memory {
-    /// Start a phase: reset the phase peak and counters.
-    fn begin_phase(&self);
-    /// Measure the heap and the stack window now.
-    fn measure(&self) -> Measurement;
-    /// Preserve the boot-wide stack peak, then repaint only inactive stack.
-    fn repaint_inactive_stack(&self);
-    /// Boot-wide stack high-water in bytes.
-    fn boot_stack_peak(&self) -> usize;
 }
 
 /// The handles one fixture run borrows from its board composition.

@@ -25,7 +25,7 @@ mod sources;
 pub use catalog::Catalog;
 pub use error::{ChipFileError, Problem};
 pub use model::{
-    ChipFile, Clock, Component, Family, Firmware, Flash, Fpu, Gpio, Identity, Interfaces, Layout,
-    Memory, PinReason, PortPins, Processor, RamRegion, Region, ReservedPin, SectorRun, Sources,
-    SpiFlash, UsbId,
+    ChipFile, Clock, Component, Events, Family, Firmware, Flash, Fpu, Gpio, Identity, Interfaces,
+    Layout, Memory, PinReason, PortPins, Processor, RamRegion, Region, ReservedPin, SectorRun,
+    Sources, SpiFlash, UsbId,
 };

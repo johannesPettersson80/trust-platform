@@ -8,8 +8,12 @@
 //! at the same points: the operations of [`crate::resource::operations`], the supervisor's
 //! decisions of [`crate::resource::supervisor`] and the command rules of
 //! [`crate::resource::commands`]. The platform adapter supplies the link, the wait and wake, the
-//! clock, the installed program ([`ResourceCycle`]) and its own values and watchdog
-//! ([`RunnerPlatform`]).
+//! clock, the installed program ([`ResourceCycle`]; [`engine`] runs it on the shared engine over
+//! the adapter's process I/O) and its own values and watchdog ([`RunnerPlatform`]).
+//!
+//! A device without an installed program runs the same loop without one ([`Runner::stopped`]):
+//! the resource is Stopped, the loop serves the link and feeds the hardware watchdog, and
+//! `restart` is refused with the reason until a program is installed.
 //!
 //! Requests take effect where trust-runtime's scan thread takes them. The loop answers each
 //! request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next
@@ -22,9 +26,11 @@
 //! ended takes effect at once and starts it as a new trust-runtime process would.
 
 mod cycle;
-mod engine;
+pub mod engine;
 mod host;
 mod observer;
+mod program;
+mod retain;
 mod state;
 mod supervision;
 
@@ -33,6 +39,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
+use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
@@ -44,11 +51,13 @@ use trust_runtime_core::value;
 pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use host::RunnerPlatform;
+pub use retain::RetainConfig;
 
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
 use crate::protocol::ControlAfterResponse;
 use crate::resource::supervisor::AutomaticRestartLimiter;
 use host::RunnerHost;
+use program::Program;
 use state::{Records, ResourceCell};
 
 /// Requests the loop serves in one pass before it turns to the scan, so that a busy link cannot
@@ -56,7 +65,7 @@ use state::{Records, ResourceCell};
 /// the rest.
 pub const FRAMES_PER_PASS: usize = 8;
 
-/// The single-thread resource loop of one installed program.
+/// The single-thread resource loop of one installed program, or of a device without one.
 ///
 /// `L` is the control link, `W` the wait, `Y` the installed program, `P` the platform's values
 /// and watchdog, and `C` the monotonic clock, the one `W` waits on.
@@ -71,7 +80,7 @@ pub const FRAMES_PER_PASS: usize = 8;
 pub struct Runner<L, W, Y, P, C> {
     link: L,
     wait: W,
-    cycle: Y,
+    cycle: Program<Y>,
     platform: P,
     clock: C,
     resource: ResourceCell,
@@ -110,18 +119,27 @@ where
     /// starts its scheduler: cold, or warm with the retain checkpoint ([`ResourceCycle::restart`]).
     /// The loop keeps a receive buffer of [`ControlLink::max_frame_len`] bytes, and its records,
     /// among them the 512 durations of the latest scans, in place: a firmware keeps it in static
-    /// memory or on the main stack.
+    /// memory or on the main stack. Its event store keeps the newest `event_capacity` events
+    /// (specification 11, the event store): a device without an operating system passes its
+    /// descriptor's default, or the capacity its deployment record requests.
     #[must_use]
-    pub fn new(link: L, wait: W, mut cycle: Y, platform: P, clock: C) -> Self {
+    pub fn new(
+        link: L,
+        wait: W,
+        mut cycle: Y,
+        platform: P,
+        clock: C,
+        event_capacity: usize,
+    ) -> Self {
         let tasks = cycle.tasks();
         let frame = vec![0; link.max_frame_len()];
         let start = clock.now();
         cycle.reset_task_timing(value::Duration::ZERO);
-        let records = Records::new(clock.clone(), start);
+        let records = Records::new(clock.clone(), start, event_capacity);
         Self {
             link,
             wait,
-            cycle,
+            cycle: Program::Installed(cycle),
             platform,
             clock,
             resource: ResourceCell::running(),
@@ -130,6 +148,45 @@ where
             frame,
             program_start: start,
             next_boundary: Some(start),
+            stop_requested: false,
+            cycle_count: 0,
+            program_time: value::Duration::ZERO,
+            restarts: AutomaticRestartLimiter::default(),
+        }
+    }
+
+    /// A loop for a device without an installed program (specification 34, STATE-08): its
+    /// application region holds none, or one that the device refused, for `reason`. The
+    /// resource is Stopped without a fault and has no boundary; the loop serves the link and
+    /// feeds the hardware watchdog, every request answers as while Stopped, and `restart` is
+    /// refused with `no installed program: <reason>` until a program is installed.
+    ///
+    /// The loop keeps its receive buffer and its records as [`Self::new`] does, its event store
+    /// the newest `event_capacity` events.
+    #[must_use]
+    pub fn stopped(
+        link: L,
+        wait: W,
+        platform: P,
+        clock: C,
+        reason: SmolStr,
+        event_capacity: usize,
+    ) -> Self {
+        let frame = vec![0; link.max_frame_len()];
+        let start = clock.now();
+        let records = Records::new(clock.clone(), start, event_capacity);
+        Self {
+            link,
+            wait,
+            cycle: Program::Missing(reason),
+            platform,
+            clock,
+            resource: ResourceCell::stopped(),
+            records,
+            tasks: Vec::new(),
+            frame,
+            program_start: start,
+            next_boundary: None,
             stop_requested: false,
             cycle_count: 0,
             program_time: value::Duration::ZERO,
@@ -159,8 +216,9 @@ where
     }
 
     /// One pass of the loop: it reads the wake token, serves the requests that have arrived,
-    /// takes the program's boundary when it is due, does the platform's idle work, feeds the
-    /// hardware watchdog and waits until the next boundary or a wake (PORT-03).
+    /// takes the program's boundary when it is due, advances a pending retained checkpoint by one
+    /// step, does the platform's idle work, feeds the hardware watchdog and waits until the next
+    /// boundary or a wake (PORT-03).
     ///
     /// The wait never outlasts the watchdog's feed interval, so the loop feeds it in every state,
     /// also while the program is stopped, paused or faulted (TIME-04). A pass that served
@@ -173,6 +231,7 @@ where
         let token = self.wait.wake_token();
         let more_frames = self.serve_link();
         self.supervise();
+        self.step_retain();
         self.platform.idle();
         self.platform.feed();
         if more_frames {
@@ -186,6 +245,20 @@ where
             .next_boundary
             .map_or(liveness, |boundary| boundary.min(liveness));
         self.wait.wait_until(deadline, token)
+    }
+
+    /// Advances a pending retained checkpoint by one persister step, between scans and while the
+    /// loop otherwise waits for the next release (specification 34 §10). The step never runs
+    /// inside a scan, so an erase that outlasts the time before the next release only makes that
+    /// scan late; a failed step latches a retain-store failure that the next scan fails with
+    /// before physical outputs.
+    fn step_retain(&mut self) {
+        // The installed program steps its own checkpoint store. The wrapping `Program` forwards
+        // the operations the loop asks of the cycle; the step is taken from the installed cycle
+        // directly so no dispatch of the wrapper is needed for it.
+        if let Program::Installed(cycle) = &mut self.cycle {
+            cycle.step_retain();
+        }
     }
 
     /// Serves up to [`FRAMES_PER_PASS`] requests; true when the bound was reached.
@@ -224,6 +297,7 @@ where
         let client = client_label(peer);
         let host = RunnerHost {
             platform: &self.platform,
+            program: &self.cycle,
             resource: &self.resource,
             records: &self.records,
         };
@@ -287,7 +361,13 @@ mod link_contract_tests;
 mod live_values_contract_tests;
 
 #[cfg(test)]
+mod retain_contract_tests;
+
+#[cfg(test)]
 mod scan_contract_tests;
+
+#[cfg(test)]
+mod stopped_contract_tests;
 
 #[cfg(test)]
 mod timing_contract_tests;

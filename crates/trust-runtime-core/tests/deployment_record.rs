@@ -7,7 +7,7 @@ use trust_runtime_core::bytecode::{
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{
     configuration_identity, retain_schema_identity, sha256, ApplicationIdentity, Capabilities,
-    Contracts, DeploymentRecord, DeploymentRecordError, ImportKind, NumericContract,
+    Configuration, Contracts, DeploymentRecord, DeploymentRecordError, ImportKind, NumericContract,
     ProcessImageSummary, RequestedLimits, RequiredImport, SchedulingProfile, TaskSummary,
     TimingEvidence, RECORD_MAX_BYTES, RECORD_VERSION,
 };
@@ -78,6 +78,7 @@ fn sample() -> DeploymentRecord {
             import(ImportKind::Function, "SQRT", 1),
             import(ImportKind::FunctionBlock, "TON", 1),
         ],
+        configuration: Configuration::default(),
     }
 }
 
@@ -144,21 +145,23 @@ fn a_record_round_trips_through_the_version_1_layout() {
     assert_eq!(bytes.len(), record.encoded_len());
     assert_eq!(&bytes[0..4], b"TRDR");
     assert_eq!(u16_at(&bytes, 4), 1);
-    assert_eq!(u16_at(&bytes, 6), 6, "six sections");
+    assert_eq!(u16_at(&bytes, 6), 7, "seven sections");
     assert_eq!(u32_at(&bytes, 8) as usize, bytes.len());
     let end = bytes.len() - 4;
     assert_eq!(u32_at(&bytes, end), crc32::checksum(&bytes[..end]));
 
     let parts = sections(&bytes);
     let ids: Vec<u16> = parts.iter().map(|part| part.0).collect();
-    assert_eq!(ids, [1, 2, 3, 4, 5, 6]);
+    assert_eq!(ids, [1, 2, 3, 4, 5, 6, 7]);
     assert!(
         parts.iter().all(|part| part.1 == 0),
         "reserved fields are 0"
     );
     let lengths: Vec<usize> = parts.iter().map(|part| part.2.len()).collect();
     let names: usize = record.imports.iter().map(|import| import.name.len()).sum();
-    assert_eq!(lengths, [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names]);
+    // Section 7 is the empty configuration: its 42 bytes, the resource name's length byte
+    // included. Its layout is pinned byte by byte in `deployment_configuration.rs`.
+    assert_eq!(lengths, [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42]);
 
     // Section 1: program SHA-256 and length, STBC version and flags, the two identities.
     let application = &parts[0].2;
@@ -229,6 +232,11 @@ fn a_record_describes_the_program_it_was_built_for() {
         }
     );
     assert_eq!(record.limits, RequestedLimits::from_preparation(&limits));
+    assert_eq!(
+        record.configuration,
+        Configuration::default(),
+        "`for_program` writes the empty configuration of section 7"
+    );
     let Some(SectionData::ResourceMeta(meta)) = module.section(SectionId::ResourceMeta) else {
         panic!("the fixture has resource metadata");
     };
@@ -440,10 +448,10 @@ fn the_header_names_what_is_wrong_with_it() {
 }
 
 #[test]
-fn the_sections_of_version_1_are_exactly_1_to_6_in_order() {
+fn the_sections_of_version_1_are_exactly_1_to_7_in_order() {
     assert_eq!(
-        refused(&edited(|parts| parts[5].0 = 7)),
-        DeploymentRecordError::UnknownSection(7)
+        refused(&edited(|parts| parts[6].0 = 8)),
+        DeploymentRecordError::UnknownSection(8)
     );
     assert_eq!(
         refused(&edited(|parts| parts[0].0 = 0)),

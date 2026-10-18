@@ -139,25 +139,34 @@ package "Hosted cycle: borrowed adapters, common scheduler" as cyclePkg #LightBl
 package "Device resource loop: one thread, no operating system (spec 34 STATE-08)" as deviceLoopPkg #Honeydew {
     component "Runner\nserves the control link between scans and while Stopped;\ntakes pause / resume / restart / shutdown at the program's next boundary\n(next scan, paused interval, 10 ms faulted poll) as the host's scan thread does;\nscans when due, idle work, feeds the hardware watchdog,\nthen waits for the next boundary, the feed interval or a wake;\nRunning / Paused / Stopped / Faulted by the shared supervisor,\noperation and command rules\n(trust-runtime-services runner.rs + runner/supervision.rs + runner/state.rs)" as deviceRunner
     component "ScanObserver\ncycle and task events, task / program / overrun metrics\n(runner/observer.rs)" as deviceObserver
-    component "Shared request pipeline\ndispatch.rs + status.rs + resource/operations.rs" as deviceDispatch
+    component "Shared request pipeline\ndispatch.rs + status.rs + resource/operations.rs;\nevents.tail and faults written event by event\nwithin the link's frame (status/event_reads.rs)" as deviceDispatch
     interface "trust-runtime-core::ports\nMonotonicClock (MonotonicInstant, TimeSpan), WallClock (None until set),\nRunnerWait + WakeSignal (PORT-03), HardwareWatchdog (TIME-04),\nControlLink + PeerClass (frames bounded both ways)" as corePorts
-    interface "ResourceCycle (runner/cycle.rs)\nscan, latch fault, safe outputs,\nretain save, restart cold / warm, task timing" as cyclePort
+    interface "ResourceCycle (runner/cycle.rs)\nscan, latch fault, safe outputs,\nretain save, restart cold / warm, task timing,\nI/O driver health" as cyclePort
+    component "EngineCycle (runner/engine.rs)\nthe installed program on RuntimeState<'static>:\ninputs before the scan, outputs at the engine's publication,\nsafe outputs written into the output image, then driven;\nDeviceServices: scan deadline on the monotonic clock,\nno wall clock until T6 (CURRENT_DT refused at admission);\ndevice_limits from the region and heap sizes" as deviceEngine
+    interface "ProcessIo (runner/engine/process_io.rs)\nread inputs, write outputs,\nwrite safe outputs, driver health" as processIo
     interface "RunnerPlatform (runner/host.rs)\naccess, audit, wall clock, status values,\nplatform operations, hardware watchdog" as platformPort
-    component "Platform adapter\nchip firmware, or the host's transcript parity test\n(link, timer, wait, engine setup)" as deviceAdapter
+    component "Platform adapter\nchip firmware, or the host's transcript parity test\n(link, timer, wait, process I/O)" as deviceAdapter
     deviceRunner --> corePorts : poll frames, read the clock, feed, wait until
     deviceRunner --> deviceDispatch : one frame at a time, between scans
     deviceDispatch --> platformPort : platform values and operations
     deviceRunner --> cyclePort : scan when due; stop; restart
-    cyclePort --> deviceObserver : engine cycle phases
-    cyclePort --> state : RuntimeState::execute_cycle_with_hooks
+    deviceEngine ..> cyclePort : implements
+    deviceEngine --> deviceObserver : engine cycle phases
+    deviceEngine --> processIo : at the engine's I/O phases
+    deviceEngine --> state : RuntimeState::execute_cycle_with_hooks
     deviceAdapter ..> corePorts : implements
-    deviceAdapter ..> cyclePort : implements
+    deviceAdapter ..> processIo : implements
     deviceAdapter ..> platformPort : implements
+    component "LineLink (trust-runtime-services link.rs)\nline framing, frames of 8,192 bytes on a chip's USB,\nan oversized request dropped and answered once,\none reply in flight, the 1 s stall rule\nwith its line-feed repair, counters;\nfixed storage, no allocation (spec 34 PORT-05)" as lineLink
+    deviceAdapter --> lineLink : interrupts move bytes;\nits ControlLink calls poll_frame / send_frame
+    lineLink ..> corePorts : LinkFrame, PeerClass
     note bottom of deviceRunner
         shutdown stops the program (safe outputs, then the retain save) at its
         next boundary and the device keeps serving the link; restart then starts
         the installed program as a new trust-runtime process would, with empty
-        records and logical time from zero. trust-runtime on a computer keeps its
+        records and logical time from zero. Without an installed program
+        (Runner::stopped) the loop serves the link Stopped and refuses restart
+        with the reason. trust-runtime on a computer keeps its
         threads and calls the same shared rules; its scheduler keeps its own
         scheduler::Clock (StdClock), and only its metrics uptime clock and its
         ControlState wall clock implement the core port traits.

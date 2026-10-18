@@ -2,7 +2,9 @@
 //! 11, §6.8.1), which read the platform's values through [`StatusPort`] and the running resource's
 //! records through [`RecordsPort`].
 
+mod event_reads;
 mod params;
+mod unconfigured;
 
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -12,12 +14,13 @@ use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime_core::scheduler::ResourceState;
 
-use crate::events::{newest_events, newest_faults, runtime_event_to_json};
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{AccessPort, RecordsPort, ResourcePort, StatusPort};
 use crate::protocol::ControlResponse;
 
+pub(crate) use event_reads::{write_event_read, EventRead};
 pub use params::{invalid_params, parse_bounded_limit, unavailable, validate_object_fields};
+pub use unconfigured::{absent_realtime_profile, disabled_openot_persistence};
 
 /// Health of one I/O driver.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,7 +91,7 @@ pub fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
 }
 
 /// `status`: the runtime's identity, state, modes, settings, metrics, realtime posture,
-/// persistence and I/O driver health.
+/// persistence, event-store capacity and I/O driver health.
 ///
 /// A debugger hold reports `paused` unless the resource is faulted or stopped. A value that
 /// cannot be read answers `<value> unavailable`; the values are read in a fixed order, so the
@@ -127,6 +130,9 @@ where
     let Some(control_mode) = host.control_mode_label() else {
         return unavailable(id, "control mode");
     };
+    let Some(event_capacity) = host.event_capacity() else {
+        return unavailable(id, "event capacity");
+    };
     let Some(openot_persistence) = host.openot_persistence() else {
         return unavailable(id, "OpenOT persistence status");
     };
@@ -149,6 +155,7 @@ where
             "simulation_time_scale": settings.simulation_time_scale,
             "simulation_warning": settings.simulation_warning.as_str(),
             "hmi_read_only": true,
+            "event_capacity": event_capacity,
             "openot_persistence": openot_persistence,
             "metrics": metrics_json(&metrics, settings.execution_backend),
             "realtime": realtime,
@@ -238,53 +245,23 @@ pub fn task_stats<H: RecordsPort>(id: u64, host: &H) -> ControlResponse {
 /// `events.tail` and `events`: the newest events, newest first; `limit` is 1 to 1,000 and 50
 /// by default.
 #[must_use]
-#[allow(
-    clippy::missing_panics_doc,
-    reason = "the serde_json::json! conversions of these values cannot fail"
-)]
 pub fn events_tail<H: RecordsPort>(
     id: u64,
     params: Option<&serde_json::Value>,
     host: &H,
 ) -> ControlResponse {
-    let limit = match parse_bounded_limit(params, 50, 1_000, &["limit"]) {
-        Ok(limit) => limit,
-        Err(error) => return invalid_params(id, error),
-    };
-    let Some(events) = host.read_events(|store| newest_events(store, limit)) else {
-        return unavailable(id, "event store");
-    };
-    let events = events
-        .into_iter()
-        .map(runtime_event_to_json)
-        .collect::<Vec<_>>();
-    ControlResponse::ok(id, json!({ "events": events }))
+    event_reads::answer_event_read(EventRead::Events, id, params, host)
 }
 
 /// `faults`: the newest fault events, newest first; `limit` is 1 to 1,000 and 50 by default,
 /// and counts faults only.
 #[must_use]
-#[allow(
-    clippy::missing_panics_doc,
-    reason = "the serde_json::json! conversions of these values cannot fail"
-)]
 pub fn faults<H: RecordsPort>(
     id: u64,
     params: Option<&serde_json::Value>,
     host: &H,
 ) -> ControlResponse {
-    let limit = match parse_bounded_limit(params, 50, 1_000, &["limit"]) {
-        Ok(limit) => limit,
-        Err(error) => return invalid_params(id, error),
-    };
-    let Some(faults) = host.read_events(|store| newest_faults(store, limit)) else {
-        return unavailable(id, "event store");
-    };
-    let faults = faults
-        .into_iter()
-        .map(runtime_event_to_json)
-        .collect::<Vec<_>>();
-    ControlResponse::ok(id, json!({ "faults": faults }))
+    event_reads::answer_event_read(EventRead::Faults, id, params, host)
 }
 
 /// The lowercase name of a resource state, for example `running`.

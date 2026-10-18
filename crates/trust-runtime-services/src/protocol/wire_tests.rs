@@ -1,9 +1,12 @@
-//! Exact wire text of the control envelope as trust-runtime writes and reads it today.
+//! Exact wire text of the control envelope as trust-runtime writes and reads it today, and the
+//! same text written piece by piece within a bound (specification 34, PORT-05).
+
+use alloc::string::{String, ToString};
 
 use serde_json::json;
 use smol_str::SmolStr;
 
-use super::{ControlAfterResponse, ControlRequest, ControlResponse};
+use super::{BoundedReply, ControlAfterResponse, ControlRequest, ControlResponse};
 
 fn wire(response: &ControlResponse) -> alloc::string::String {
     serde_json::to_string(response).expect("serialize control response")
@@ -121,4 +124,66 @@ fn request_without_valid_id_or_type_or_with_non_text_auth_is_rejected() {
     ] {
         assert!(decode(text).is_err(), "text={text}");
     }
+}
+
+#[test]
+fn a_successful_response_written_around_its_result_is_its_serialized_text() {
+    for id in [0, 7, u64::MAX] {
+        for audit_id in [
+            None,
+            Some("audit-1760000000000-1-0000002a"),
+            Some("a\"b\\c\nd\u{1}é"),
+        ] {
+            for result in [
+                json!(null),
+                json!({"events": []}),
+                json!({"faults": [{"type": "fault", "error": "x\"y", "time_ns": -5}]}),
+            ] {
+                let response = ControlResponse::ok(id, result.clone())
+                    .with_audit_id(audit_id.map(SmolStr::new));
+                let mut text = String::new();
+                ControlResponse::write_ok_start(&mut text, id).expect("a string takes any text");
+                text.push_str(&result.to_string());
+                response
+                    .write_ok_end(&mut text)
+                    .expect("a string takes any text");
+                assert_eq!(text, wire(&response), "id={id} audit_id={audit_id:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_bounded_reply_is_whole_within_its_bound_and_nothing_beyond_it() {
+    let served = ControlResponse::ok(3, json!(null)).with_audit_id(Some(SmolStr::new("audit-9")));
+    let result = json!({"events": []});
+    let expected =
+        wire(&ControlResponse::ok(3, result.clone()).with_audit_id(Some(SmolStr::new("audit-9"))));
+    for bound in [expected.len(), expected.len() + 1, usize::MAX] {
+        let mut reply = BoundedReply::ok(3, bound);
+        reply.push_json(&result);
+        assert!(!reply.overflowed(), "bound={bound}");
+        assert_eq!(
+            reply.finish(&served).as_deref(),
+            Some(expected.as_str()),
+            "bound={bound}"
+        );
+    }
+    let mut short = BoundedReply::ok(3, expected.len() - 1);
+    short.push_json(&result);
+    assert!(
+        !short.overflowed(),
+        "the result still fits; only the end does not"
+    );
+    assert_eq!(short.finish(&served), None, "one byte too long");
+    let mut overflowed = BoundedReply::ok(3, 30);
+    overflowed.push("{\"events\":[");
+    overflowed.push(&"x".repeat(40));
+    assert!(overflowed.overflowed());
+    overflowed.push("]}");
+    assert!(
+        overflowed.overflowed(),
+        "nothing is written after an overflow"
+    );
+    assert_eq!(overflowed.finish(&served), None);
 }

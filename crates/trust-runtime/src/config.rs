@@ -8,6 +8,7 @@ use glob::Pattern;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use smol_str::SmolStr;
+use trust_runtime_services::events::{EVENT_STORE_CAPACITY_MAX, EVENT_STORE_CAPACITY_MIN};
 
 use crate::ads::server::{AdsServerClientConfig, AdsServerRuntimeConfig, AdsServerSourcePin};
 use crate::error::RuntimeError;

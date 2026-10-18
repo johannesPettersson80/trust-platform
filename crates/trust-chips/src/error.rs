@@ -211,4 +211,14 @@ pub enum Problem {
         /// The path.
         path: String,
     },
+    /// The event store's capacities do not form the range of Appendix H.5 rule 11.
+    #[error(
+        "the event store's default_capacity {default_capacity} and max_capacity {max_capacity} are not 1 <= default_capacity <= max_capacity <= 1000000"
+    )]
+    EventStoreRange {
+        /// `events.default_capacity`.
+        default_capacity: u32,
+        /// `events.max_capacity`.
+        max_capacity: u32,
+    },
 }

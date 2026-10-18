@@ -136,7 +136,7 @@ impl Default for LinuxRtConfig {
 }
 
 /// Observed Linux RT posture captured for the scheduler thread at startup.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinuxRtRuntimeStatus {
     /// Requested startup posture.
     pub requested: LinuxRtConfig,

@@ -80,6 +80,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc32fast"
+version = "1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1160,6 +1169,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_json"
+version = "1.0.152"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1741ab7a6cc54a03a89b5d563ed60075c277d9e3cfa73ad0c1f23f23974703c6"
+dependencies = [
+ "itoa",
+ "memchr",
+ "serde",
+ "serde_core",
+ "zmij",
+]
+
+[[package]]
 name = "serde_yaml"
 version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1339,22 +1361,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-board-fixture"
-version = "0.24.75"
-dependencies = [
- "critical-section",
- "embedded-alloc",
- "trust-runtime-core",
-]
-
-[[package]]
 name = "trust-esp32c6-reference"
 version = "0.1.0"
 dependencies = [
  "esp-bootloader-esp-idf",
  "esp-hal",
- "trust-board-fixture",
+ "smol_str",
  "trust-platform-esp32",
+ "trust-platform-memory",
+ "trust-runtime-core",
+ "trust-runtime-services",
 ]
 
 [[package]]
@@ -1364,6 +1380,20 @@ dependencies = [
  "critical-section",
  "esp-hal",
  "esp-storage",
+ "serde_json",
+ "smol_str",
+ "trust-platform-memory",
+ "trust-runtime-core",
+ "trust-runtime-services",
+]
+
+[[package]]
+name = "trust-platform-memory"
+version = "0.24.75"
+dependencies = [
+ "crc32fast",
+ "critical-section",
+ "embedded-alloc",
 ]
 
 [[package]]
@@ -1378,6 +1408,17 @@ dependencies = [
  "sha2",
  "smol_str",
  "thiserror",
+]
+
+[[package]]
+name = "trust-runtime-services"
+version = "0.24.75"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+ "smol_str",
+ "trust-runtime-core",
 ]
 
 [[package]]
@@ -1485,3 +1526,9 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "zmij"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"

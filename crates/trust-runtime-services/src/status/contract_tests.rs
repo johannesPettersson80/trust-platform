@@ -129,6 +129,19 @@ fn status_reports_identity_modes_settings_and_platform_blocks() {
 }
 
 #[test]
+fn status_reports_the_event_capacity() {
+    // Specification 11, the event store: `status` reports the store's capacity as
+    // `event_capacity`, 1,000 by default on a computer. Wrong behaviour caught: the capacity is
+    // not projected, or another number is reported in its place.
+    let mut host = FakeHost::running();
+    host.event_capacity = 200;
+    assert_eq!(result(status(1, &host))["event_capacity"], json!(200));
+
+    host.event_capacity = 1_000;
+    assert_eq!(result(status(2, &host))["event_capacity"], json!(1_000));
+}
+
+#[test]
 fn debugger_hold_reports_paused_unless_faulted_or_stopped() {
     let mut host = FakeHost::running();
     host.debug_hold = Some("breakpoint");
@@ -156,6 +169,7 @@ fn status_fails_closed_naming_the_first_unreadable_value() {
         ("realtime", "realtime status unavailable"),
         ("control_mode", "control mode unavailable"),
         ("openot", "OpenOT persistence status unavailable"),
+        ("event_capacity", "event capacity unavailable"),
     ] {
         let mut host = FakeHost::running();
         host.unreadable = vec![unreadable, "openot"];

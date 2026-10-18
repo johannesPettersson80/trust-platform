@@ -69,6 +69,7 @@ struct RuntimeSection {
     execution_backend: Option<String>,
     control: ControlSection,
     log: LogSection,
+    events: Option<EventsSection>,
     retain: RetainSection,
     watchdog: WatchdogSection,
     fault: FaultSection,
@@ -119,6 +120,14 @@ impl ControlMode {
 #[serde(deny_unknown_fields)]
 struct LogSection {
     level: String,
+}
+
+/// `[runtime.events]`: the event store's capacity (specification 11, the event store).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EventsSection {
+    /// `capacity`, 1 to 1,000,000; absent uses the device's default.
+    capacity: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]

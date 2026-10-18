@@ -5,7 +5,9 @@
 use std::sync::Arc;
 
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::retain::codec::{decode_snapshot, encode_snapshot};
+use trust_runtime_core::retain::codec::{
+    decode_snapshot, decode_snapshot_payload_v3, encode_snapshot,
+};
 use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::value::{
     ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
@@ -153,5 +155,68 @@ fn a_damaged_payload_is_refused_with_its_error() {
     assert!(
         error.to_string().contains("retain data truncated"),
         "expected truncation, got {error}"
+    );
+}
+
+/// The STRN v3 framing the codec writes around `payload`: the magic, the version, the payload
+/// length, the payload, the payload's CRC-32 and the trailer (specification 34 §10.1).
+///
+/// A test damages a payload and rebuilds this framing around it, so the v3 file path reaches its
+/// payload rule instead of failing on the framing or the checksum.
+fn file_around(payload: &[u8]) -> Vec<u8> {
+    let mut file = Vec::new();
+    file.extend_from_slice(b"STRN");
+    file.extend_from_slice(&3_u16.to_le_bytes());
+    file.extend_from_slice(
+        &u64::try_from(payload.len())
+            .expect("a payload length")
+            .to_le_bytes(),
+    );
+    file.extend_from_slice(payload);
+    file.extend_from_slice(&trust_runtime_core::crc32::checksum(payload).to_le_bytes());
+    file.extend_from_slice(b"ENDR");
+    file
+}
+
+#[test]
+fn a_bare_v3_payload_decodes_as_its_file_does() {
+    // Spec 34 §10.1, spec 11 §6.7: a chip's checkpoint record carries exactly the payload bytes a
+    // capture stages, so the bare payload decodes like the retain file the codec writes.
+    let snapshot = snapshot_with_every_value_kind();
+    let mut payload = Vec::new();
+    snapshot
+        .encode_snapshot_payload_into(&mut payload)
+        .expect("encode the bare payload");
+    let file = encode_snapshot(&snapshot).expect("encode the whole file");
+    // The file is this framing around exactly those payload bytes, so both decoders see the same
+    // payload.
+    assert_eq!(file_around(&payload), file);
+
+    let from_payload = decode_snapshot_payload_v3(&payload).expect("decode the bare payload");
+    let from_file = decode_snapshot(&file).expect("decode the whole file");
+    // Every value kind must survive unchanged through the payload rule and through the file: a
+    // payload decoder that dropped an entry, swapped two tags, read a value with the wrong width or
+    // mis-framed a structure's physical checkpoint would return a different snapshot, and one that
+    // disagreed with the file's path would differ from `from_file`.
+    assert_eq!(from_payload, snapshot);
+    assert_eq!(from_file, snapshot);
+
+    // The payload's last byte is the trailing NULL value's tag. Without it the payload ends before
+    // its 31st entry, and the bare rule and the file's payload rule must refuse it with the same
+    // error; a decoder that returned the 30 entries it read would not refuse it at all.
+    let mut damaged = payload.clone();
+    damaged.pop();
+    let bare =
+        decode_snapshot_payload_v3(&damaged).expect_err("a truncated bare payload is refused");
+    let framed =
+        decode_snapshot(&file_around(&damaged)).expect_err("a truncated file payload is refused");
+    assert_eq!(
+        bare.to_string(),
+        framed.to_string(),
+        "the bare payload rule and the file's payload rule must be one rule"
+    );
+    assert!(
+        bare.to_string().contains("retain data truncated"),
+        "expected truncation, got {bare}"
     );
 }

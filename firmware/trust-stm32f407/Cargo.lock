@@ -94,6 +94,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc32fast"
+version = "1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -543,7 +552,17 @@ version = "0.24.75"
 dependencies = [
  "critical-section",
  "embedded-alloc",
+ "trust-platform-memory",
  "trust-runtime-core",
+]
+
+[[package]]
+name = "trust-platform-memory"
+version = "0.24.75"
+dependencies = [
+ "crc32fast",
+ "critical-section",
+ "embedded-alloc",
 ]
 
 [[package]]
@@ -553,6 +572,7 @@ dependencies = [
  "cortex-m",
  "stm32f4",
  "stm32f4xx-hal",
+ "trust-platform-memory",
 ]
 
 [[package]]

@@ -45,15 +45,25 @@ start = 0x5000_0000
 kib = 16
 dma = false
 
+# The event store the chip's heap allows: the newest events the store keeps when the project sets
+# none, and the most a project may set (specification 34, Appendix H.2 and H.4; specification 11,
+# the event store). A larger maximum waits for a measurement of the heap a program leaves on the
+# bench.
+[events]
+default_capacity = 200
+max_capacity = 200
+
 # Flash offsets: the ESP-IDF image format puts the boot loader at 0x0 and the partition table at
 # 0x8000; the rest are the partitions of partitions.csv.
 [layout]
 bootloader = { start = 0x0, kib = 32 }
 partition_table = { start = 0x8000, kib = 4 }
 firmware = { start = 0x1_0000, kib = 1984 }
-application = { start = 0x20_0000, kib = 16 }
-checkpoint_a = { start = 0x20_4000, kib = 16 }
-checkpoint_b = { start = 0x20_8000, kib = 16 }
+# The installed application takes the flash the chip allows (owner decision O7): from its start
+# to the two checkpoint slots, which sit at the very end of the 8 MB module.
+application = { start = 0x20_0000, kib = 6112 }
+checkpoint_a = { start = 0x7F_8000, kib = 16 }
+checkpoint_b = { start = 0x7F_C000, kib = 16 }
 
 [interfaces]
 usb = ["USB_SERIAL_JTAG"]

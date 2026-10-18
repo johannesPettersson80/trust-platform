@@ -3,9 +3,9 @@
 //! shared core as on every target.
 
 use super::{
-    identity, ApplicationIdentity, Capabilities, Contracts, DeploymentRecord, ImportKind,
-    NumericContract, ProcessImageSummary, RequestedLimits, RequiredImport, SchedulingProfile,
-    TaskSummary, TimingEvidence,
+    identity, ApplicationIdentity, Capabilities, Configuration, Contracts, DeploymentRecord,
+    ImportKind, NumericContract, ProcessImageSummary, RequestedLimits, RequiredImport,
+    SchedulingProfile, TaskSummary, TimingEvidence,
 };
 use crate::bytecode::{
     BytecodeModule, InitializerEntry, PouEntry, PouKind, SectionData, SectionId,
@@ -26,7 +26,8 @@ impl DeploymentRecord {
     ///
     /// The program is first prepared under `limits`, exactly as a runtime prepares it, so a
     /// record exists only for a program that a runtime admitting these limits can run. The
-    /// record requires `cooperative-resource-v1`, numeric contract 1 and no timing evidence.
+    /// record requires `cooperative-resource-v1`, numeric contract 1 and no timing evidence, and
+    /// its configuration section is empty (specification 34 §5.1.1, section 7).
     ///
     /// # Errors
     ///
@@ -84,6 +85,7 @@ impl DeploymentRecord {
                 })
                 .collect(),
             imports,
+            configuration: Configuration::default(),
         })
     }
 }

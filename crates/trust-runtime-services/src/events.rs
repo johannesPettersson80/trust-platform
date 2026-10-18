@@ -156,19 +156,27 @@ impl RuntimeEvent {
     }
 }
 
-/// Newest runtime events the product event store keeps for `events.tail` and `faults`.
-///
-/// It is the largest limit either operation accepts.
+/// The computer's default event-store capacity: the newest runtime events the product event store
+/// keeps for `events.tail` and `faults` when the project sets none (`runtime.events.capacity`,
+/// specification 11, the event store). A device without an operating system takes its default
+/// from its chip file instead.
 pub const EVENT_STORE_CAPACITY: usize = 1_000;
+
+/// The smallest event-store capacity `runtime.events.capacity` accepts (specification 11).
+pub const EVENT_STORE_CAPACITY_MIN: usize = 1;
+
+/// The largest event-store capacity `runtime.events.capacity` accepts on a computer
+/// (specification 11).
+pub const EVENT_STORE_CAPACITY_MAX: usize = 1_000_000;
 
 /// Runtime events a debugger without an event listener buffers for direct draining.
 pub const DEBUG_EVENT_BUFFER_CAPACITY: usize = 1_024;
 
-/// Appends `event` to the product event store and drops the oldest events beyond
-/// [`EVENT_STORE_CAPACITY`].
-pub fn store_event(store: &mut VecDeque<RuntimeEvent>, event: RuntimeEvent) {
+/// Appends `event` to the product event store and drops the oldest events beyond `capacity`, the
+/// newest events the store keeps (`runtime.events.capacity`, specification 11, the event store).
+pub fn store_event(store: &mut VecDeque<RuntimeEvent>, event: RuntimeEvent, capacity: usize) {
     store.push_back(event);
-    while store.len() > EVENT_STORE_CAPACITY {
+    while store.len() > capacity {
         store.pop_front();
     }
 }
@@ -192,21 +200,53 @@ pub fn wall_time(utc_ms: Option<u64>) -> Option<Duration> {
     utc_ms.map(|ms| Duration::from_millis(i64::try_from(ms).unwrap_or(i64::MAX)))
 }
 
+/// Which events a read of the event store returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventSelection {
+    /// Every event, as `events.tail` returns them.
+    All,
+    /// Only `Fault` events, as `faults` returns them.
+    Faults,
+}
+
+impl EventSelection {
+    /// Whether `event` is one this selection returns.
+    #[must_use]
+    pub fn selects(self, event: &RuntimeEvent) -> bool {
+        match self {
+            Self::All => true,
+            Self::Faults => matches!(event, RuntimeEvent::Fault { .. }),
+        }
+    }
+}
+
+/// The newest `limit` events of `store` that `selection` returns, newest first, without copying
+/// them; events it does not return do not count toward `limit`.
+pub fn newest_selected(
+    store: &VecDeque<RuntimeEvent>,
+    selection: EventSelection,
+    limit: usize,
+) -> impl Iterator<Item = &RuntimeEvent> {
+    store
+        .iter()
+        .rev()
+        .filter(move |event| selection.selects(event))
+        .take(limit)
+}
+
 /// The newest `limit` events of `store`, newest first.
 #[must_use]
 pub fn newest_events(store: &VecDeque<RuntimeEvent>, limit: usize) -> Vec<RuntimeEvent> {
-    store.iter().rev().take(limit).cloned().collect()
+    newest_selected(store, EventSelection::All, limit)
+        .cloned()
+        .collect()
 }
 
 /// The newest `limit` fault events of `store`, newest first; other events do not count toward
 /// `limit`.
 #[must_use]
 pub fn newest_faults(store: &VecDeque<RuntimeEvent>, limit: usize) -> Vec<RuntimeEvent> {
-    store
-        .iter()
-        .rev()
-        .filter(|event| matches!(event, RuntimeEvent::Fault { .. }))
-        .take(limit)
+    newest_selected(store, EventSelection::Faults, limit)
         .cloned()
         .collect()
 }

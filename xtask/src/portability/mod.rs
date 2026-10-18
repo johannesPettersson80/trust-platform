@@ -10,6 +10,7 @@ mod database_runner;
 mod elf;
 mod firmware;
 mod map;
+mod pack;
 mod source_identity;
 #[cfg(all(test, unix))]
 mod supply_chain_tests;
@@ -53,6 +54,15 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
                 "main_sha256":digest(&main), "numeric_sha256":digest(&numeric), "gpio_sha256":digest(&gpio)}));
             Ok(())
         }
+        [action, program, record, output] if action == "pack-project" => {
+            let program = fs::read(program).context("read program.stbc")?;
+            let record = fs::read(record).context("read deployment record")?;
+            let bytes = pack::pack_project(&program, &record)?;
+            fs::write(output, &bytes)?;
+            println!("{}", serde_json::json!({"bytes":bytes.len(), "sha256":digest(&bytes),
+                "program_sha256":digest(&program), "record_sha256":digest(&record)}));
+            Ok(())
+        }
         [action, name, input, output] if action == "inspect" => {
             let board = Board::parse(name)?.profile()?;
             let bytes = fs::read(input).context("read linked firmware")?;
@@ -73,7 +83,7 @@ pub(super) fn run(root: &Path, args: Vec<String>) -> Result<()> {
             report["uart_sha256"] = digest(&raw).into();
             write_report(output, report)
         }
-        _ => bail!("expected portability build-firmware <chip> <report.json>, pack <gpio.stbc> <application.bin>, inspect <board> <firmware.elf> <report.json>, verify <board> <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
+        _ => bail!("expected portability build-firmware <chip> <report.json>, pack <gpio.stbc> <application.bin>, pack-project <program.stbc> <deployment-record.bin> <application.bin>, inspect <board> <firmware.elf> <report.json>, verify <board> <uart.txt> <report.json>, footprint <current.map> <baseline.map> <report.json>, compare-benchmarks <baseline.json> <candidate.json> <report.json>, freeze-source <manifest.json>, check-source <manifest.json>, or database-gate <generated-environment>"),
     }
 }
 

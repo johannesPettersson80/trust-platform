@@ -14,6 +14,9 @@ use trust_runtime_core::vm::PreparationLimits;
 
 use crate::error::RuntimeError;
 
+#[path = "deployment/configuration.rs"]
+mod configuration;
+
 /// The record's file name, next to `program.stbc`.
 pub const DEPLOYMENT_RECORD_FILE: &str = "deployment-record.bin";
 
@@ -22,7 +25,8 @@ pub const DEPLOYMENT_RECORD_FILE: &str = "deployment-record.bin";
 pub enum RecordWrite {
     /// The record was written to this path.
     Written(PathBuf),
-    /// The runtime cannot prepare the program, so it has no record; an older record was removed.
+    /// The runtime cannot prepare the program, or a value section 7 cannot carry was found, so
+    /// it has no record; an older record was removed.
     Skipped(RuntimeError),
 }
 
@@ -38,22 +42,31 @@ pub fn project_configuration_identity(project: &Path) -> io::Result<[u8; 32]> {
 }
 
 /// Write the record of `program`, the bytes of the project's `program.stbc`, requesting the
-/// hosted default limits. When the runtime cannot prepare the program, an older record is
-/// removed instead, so that a project never pairs a program with another program's record.
+/// hosted default limits and filling the configuration section from the project's `runtime.toml`
+/// and `io.toml` (specification 34 §5.1.1). When the runtime cannot prepare the program, or a
+/// value the record cannot carry is found, an older record is removed instead, so that a project
+/// never pairs a program with another program's record.
 ///
 /// # Errors
 ///
 /// The configuration files cannot be read, or the record cannot be written or removed.
 pub fn write_record(project: &Path, program: &[u8]) -> io::Result<RecordWrite> {
-    let configuration = project_configuration_identity(project)?;
+    let identity = project_configuration_identity(project)?;
     let path = project.join(DEPLOYMENT_RECORD_FILE);
-    let encoded =
-        DeploymentRecord::for_program(program, PreparationLimits::default(), configuration)
-            .and_then(|record| {
-                record
-                    .encode()
-                    .map_err(RuntimeError::DeploymentRecordInvalid)
-            });
+    let encoded = configuration::from_project(project)
+        .and_then(|section| {
+            DeploymentRecord::for_program(program, PreparationLimits::default(), identity).map(
+                |mut record| {
+                    record.configuration = section;
+                    record
+                },
+            )
+        })
+        .and_then(|record| {
+            record
+                .encode()
+                .map_err(RuntimeError::DeploymentRecordInvalid)
+        });
     match encoded {
         Ok(bytes) => {
             std::fs::write(&path, bytes)?;

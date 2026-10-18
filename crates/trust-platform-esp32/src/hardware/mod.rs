@@ -1,25 +1,29 @@
 //! Bare-metal ownership and initialization of the fixed ESP32-C6 board peripherals.
 use crate::{
     image::{decode_image_header, IMAGE_HEADER_BYTES},
+    process_io::{claim_lines, ClaimedLines, GpioBank, PinError},
     profile::{CPU_HZ, FACTORY_OFFSET, STBC_BYTES, STBC_OFFSET},
 };
 use core::sync::atomic::{AtomicBool, Ordering};
 use esp_hal::{
-    clock::CpuClock, efuse, timer::systimer::SystemTimer, usb::usb_serial_jtag::UsbSerialJtag,
+    clock::CpuClock, efuse, gpio::Pin, timer::systimer::Alarm, usb::usb_serial_jtag::UsbSerialJtag,
     Config,
 };
 use esp_storage::FlashStorage;
+use trust_runtime_core::deployment::{GpioInput, GpioOutput};
 
 mod clock;
 mod console;
-mod emergency;
-mod io;
+pub(crate) mod emergency;
 mod reset;
+mod usb_link;
+mod wait;
 pub use clock::Monotonic;
 pub use console::Console;
 pub use emergency::emergency_halt;
-pub use io::DigitalIo;
 pub use reset::{ResetControl, Watchdog};
+pub use usb_link::UsbLink;
+pub use wait::Wait;
 
 /// Set by the first `Board::take`. `esp_hal::init` panics when it runs twice, so this guard
 /// turns a second call into `PeripheralsTaken` before the HAL is touched.
@@ -62,50 +66,90 @@ pub struct Identity {
     pub cpu_hz: u32,
 }
 
-/// Separately owned peripherals: the engine borrows the clock while the firmware samples and
-/// publishes process images and writes bounded trace records.
+/// Separately owned peripherals: the resource loop borrows the clock and the wait, claims the
+/// record's GPIO lines, reads the installed application from flash, and feeds the watchdog.
 pub struct Board {
-    /// SYSTIMER time and the optional 1 kHz tick instrumentation.
+    /// SYSTIMER time, read by the resource loop's clock.
     pub clock: Monotonic,
-    /// BOOT input on GPIO9 and the plain output on GPIO18.
-    pub io: DigitalIo,
-    /// Native USB-Serial/JTAG trace transmitter.
+    /// Native USB-Serial/JTAG peripheral; [`UsbLink::bind`] takes the same port's registers.
     pub console: Console,
-    /// MWDT0 supervisor: configured by `take`, enabled only by `start_ms`.
+    /// MWDT0 supervisor: configured by `take`, enabled by the firmware from the record.
     pub watchdog: Watchdog,
-    /// Boot reset reason and the RTC-memory reset cookie.
+    /// Boot reset reason and the persistent reset record.
     pub reset: ResetControl,
     /// Identity captured at boot.
     pub identity: Identity,
     /// Flash driver for the factory header and the `stbc` partition.
     flash: FlashStorage<'static>,
+    /// The chip's GPIO bank, from which the record's lines are claimed by pin name.
+    gpio: GpioBank,
+    /// The SYSTIMER alarm the resource loop's wait arms at its deadline.
+    wait_alarm: Option<Alarm<'static>>,
 }
 
 impl Board {
-    /// Take the board once and configure the stock DevKitC-1 connection. GPIO18 is driven low
-    /// before anything else, then the console, clock, watchdog (configured, not enabled), reset
-    /// control and identity are set up. A second call returns `PeripheralsTaken`.
+    /// Take the board once and configure the stock DevKitC-1 connection: the console and the
+    /// resource loop's clock and deadline alarm, the watchdog (configured, not enabled), the
+    /// reset control and record, the flash and the identity, and the GPIO bank. A second call
+    /// returns `PeripheralsTaken`.
     #[inline(never)]
     pub fn take() -> Result<Self, BoardError> {
         if TAKEN.swap(true, Ordering::AcqRel) {
             return Err(BoardError::PeripheralsTaken);
         }
         let peripherals = esp_hal::init(Config::default().with_cpu_clock(CpuClock::max()));
-        let io = DigitalIo::new(peripherals.GPIO9, peripherals.GPIO18);
+        // The GPIO bank takes every pin first, so the record's lines can be claimed by name. The
+        // other peripherals are moved out of the same `Peripherals` value, one field each.
+        let gpio = GpioBank::new([
+            Some(peripherals.GPIO0.degrade()),
+            Some(peripherals.GPIO1.degrade()),
+            Some(peripherals.GPIO2.degrade()),
+            Some(peripherals.GPIO3.degrade()),
+            Some(peripherals.GPIO4.degrade()),
+            Some(peripherals.GPIO5.degrade()),
+            Some(peripherals.GPIO6.degrade()),
+            Some(peripherals.GPIO7.degrade()),
+            Some(peripherals.GPIO8.degrade()),
+            Some(peripherals.GPIO9.degrade()),
+            Some(peripherals.GPIO10.degrade()),
+            Some(peripherals.GPIO11.degrade()),
+            Some(peripherals.GPIO12.degrade()),
+            Some(peripherals.GPIO13.degrade()),
+            Some(peripherals.GPIO14.degrade()),
+            Some(peripherals.GPIO15.degrade()),
+            Some(peripherals.GPIO16.degrade()),
+            Some(peripherals.GPIO17.degrade()),
+            Some(peripherals.GPIO18.degrade()),
+            Some(peripherals.GPIO19.degrade()),
+            Some(peripherals.GPIO20.degrade()),
+            Some(peripherals.GPIO21.degrade()),
+            Some(peripherals.GPIO22.degrade()),
+            Some(peripherals.GPIO23.degrade()),
+            Some(peripherals.GPIO24.degrade()),
+            Some(peripherals.GPIO25.degrade()),
+            Some(peripherals.GPIO26.degrade()),
+            Some(peripherals.GPIO27.degrade()),
+            Some(peripherals.GPIO28.degrade()),
+            Some(peripherals.GPIO29.degrade()),
+            Some(peripherals.GPIO30.degrade()),
+        ]);
         let console = Console::new(UsbSerialJtag::new(peripherals.USB_DEVICE));
-        let clock = Monotonic::new(SystemTimer::new(peripherals.SYSTIMER).alarm0);
+        let systimer = esp_hal::timer::systimer::SystemTimer::new(peripherals.SYSTIMER);
+        let clock = Monotonic::new(systimer.alarm0);
+        let wait_alarm = Some(systimer.alarm1);
         let watchdog = Watchdog::new(peripherals.TIMG0);
         let reset = ResetControl::new();
         let mut flash = FlashStorage::new(peripherals.FLASH);
         let identity = read_identity(&mut flash)?;
         Ok(Self {
             clock,
-            io,
             console,
             watchdog,
             reset,
             identity,
             flash,
+            gpio,
+            wait_alarm,
         })
     }
 
@@ -118,6 +162,26 @@ impl Board {
         self.flash
             .read(STBC_OFFSET, buffer)
             .map_err(|_| BoardError::FlashRead)
+    }
+
+    /// Claims the record's GPIO lines by pin name, in `io.toml` order, and drives each output to
+    /// its initial level before it becomes an output (design §1.1, specification 34 STATE-01 and
+    /// TARGET-01). A pin the chip lacks or keeps, or one named by two lines, is refused.
+    ///
+    /// # Errors
+    ///
+    /// The [`PinError`] of the first line that cannot be claimed.
+    pub fn claim_lines(
+        &mut self,
+        inputs: &[GpioInput],
+        outputs: &[GpioOutput],
+    ) -> Result<ClaimedLines, PinError> {
+        claim_lines(&mut self.gpio, inputs, outputs)
+    }
+
+    /// The SYSTIMER alarm the resource loop's wait arms; taken once, so the wait owns it.
+    pub fn take_wait_alarm(&mut self) -> Option<Alarm<'static>> {
+        self.wait_alarm.take()
     }
 }
 

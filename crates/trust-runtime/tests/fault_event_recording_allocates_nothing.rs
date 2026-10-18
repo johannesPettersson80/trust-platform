@@ -97,6 +97,7 @@ fn recording_a_fault_event_allocates_nothing() {
                 cycle: 0,
                 time: Duration::ZERO,
             },
+            EVENT_STORE_CAPACITY,
         );
     }
     assert_eq!(store.len(), EVENT_STORE_CAPACITY);
@@ -106,7 +107,11 @@ fn recording_a_fault_event_allocates_nothing() {
         let counted = {
             COUNTED.with(|counted| counted.set(0));
             ARMED.with(|armed| armed.set(true));
-            store_event(&mut store, RuntimeEvent::fault(error, time));
+            store_event(
+                &mut store,
+                RuntimeEvent::fault(error, time),
+                EVENT_STORE_CAPACITY,
+            );
             ARMED.with(|armed| armed.set(false));
             COUNTED.with(Cell::get)
         };

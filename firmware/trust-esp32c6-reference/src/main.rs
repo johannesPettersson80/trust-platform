@@ -1,25 +1,55 @@
-//! ESP32-C6-DevKitC-1 M2E reference composition: the shared fixture runner on the C6 adapter. It
-//! mirrors the STM32F407 firmware step by step, without its CLOCK record. The trace grammar,
-//! record order and oracle belong to `trust_board_fixture`.
+//! The ESP32-C6 truST runtime: the shared single-thread resource loop over the installed
+//! application, on the C6 adapter (design §1.1 and §1.2, specification 34).
+//!
+//! Boot order (design §1.1, R1): the hardware first (peripherals, clock, the reset reason and the
+//! reset record read once, this boot counted); then the installed application (its header read,
+//! only its total length copied into the heap, and `installation::admit` against the C6's
+//! descriptor); then the record's GPIO lines claimed by pin name, each output driven to its
+//! initial value before it becomes an output; then the program prepared, instantiated and started;
+//! then the runner serves the control link over USB.
+//!
+//! With no valid application, or one the device refuses, the same loop runs Stopped and serves the
+//! link with the refusal's text (design §1.1, R2). A panic drives every configured output to its
+//! safe level, writes the cause and location into the reset record, and resets the chip; it never
+//! writes to the link (R4).
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 mod application;
-mod board;
 mod memory;
 
-use crate::board::{target_memory, Clock, Io, Watchdog};
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::fmt::Write;
-use trust_board_fixture::{board::Board as Fixture, records, runner};
+use core::time::Duration as CoreDuration;
+
+use smol_str::SmolStr;
+use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::{
     emergency_halt,
-    profile::{
-        boot_decision, numeric_profile_ok, BootDecision, CHIP_ID, CPU_HZ, FLASH_KIB, WATCHDOG_MS,
-    },
-    Board, ResetCookie, RUNNING_PHASE, WATCHDOG_PHASE,
+    profile::{DEVICE_DESCRIPTOR, STBC_BYTES},
+    Board, Monotonic, Platform, UsbLink, Wait, Watchdog,
 };
+use trust_runtime_core::deployment::{Configuration, GpioInput, GpioOutput};
+use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
+use trust_runtime_core::value::Duration;
+use trust_runtime_core::vm::PreparedModule;
+use trust_runtime_core::watchdog::RetainMode;
+use trust_runtime_services::runner::engine::{
+    device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
+};
+use trust_runtime_services::runner::{EngineLiveValues, Runner};
+use trust_runtime_services::status::StatusSettings;
 
 esp_bootloader_esp_idf::esp_app_desc!();
+
+/// Bytes the reset record keeps for a panic's location.
+const LOCATION_BYTES: usize = 32;
 
 #[esp_hal::main]
 fn main() -> ! {
@@ -28,163 +58,303 @@ fn main() -> ! {
         Ok(board) => board,
         Err(_) => emergency_halt("board-init"),
     };
-    board.io.safe_off();
-    if board.clock.enable_tick(true).is_err() {
-        emergency_halt("tick-timer");
-    }
-    let identity = board.identity;
-    let reason = board.reset.reason();
-    if writeln!(
-        board.console,
-        "B1,IDENTITY,{:08x},{:08x},{:08x},{:08x},{},{},{:08x},{:08x}\r",
-        identity.chip_id,
-        identity.revision,
-        u32::from(u16::from_be_bytes([identity.mac[0], identity.mac[1]])),
-        u32::from_be_bytes([
-            identity.mac[2],
-            identity.mac[3],
-            identity.mac[4],
-            identity.mac[5],
-        ]),
-        identity.flash_kib,
-        identity.cpu_hz,
-        identity.misa,
-        reason
-    )
-    .is_err()
-    {
-        emergency_halt("identity-uart");
-    }
-    match boot_decision(reason, board.reset.cookie()) {
-        BootDecision::CompleteWatchdogRun => {
-            if board.reset.clear_cookie().is_err() {
-                emergency_halt("reset-cookie");
-            }
-            if records::io(
-                &mut board.console,
-                &Io(&mut board.io),
-                "watchdog-BOOT",
-                false,
-            )
-            .is_err()
-                || writeln!(board.console, "B1,STATE,WATCHDOG_RESET\r\nB1,DONE\r").is_err()
-            {
-                emergency_halt("reset-uart");
-            }
-            idle(&mut board);
-        }
-        // A USB or power-on reset starts a new run. A leftover cookie is discarded, as D.2 requires.
-        BootDecision::StartRun => {
-            if board.reset.clear_cookie().is_err() {
-                emergency_halt("reset-cookie");
-            }
-        }
-        // Do not silently rerun after a crash or an unexpected reset. The evidence of a failed run
-        // needs an explicit new boot, as on the STM32F407.
-        BootDecision::UnexpectedReset => emergency_halt("unexpected-reset-cookie"),
-    }
-    if identity.chip_id != CHIP_ID
-        || identity.flash_kib != FLASH_KIB
-        || identity.cpu_hz != CPU_HZ
-        || !numeric_profile_ok(identity.misa)
-    {
-        emergency_halt("hardware-profile");
-    }
-    if let Err(error) = run(&mut board) {
-        board.io.safe_off();
-        records::failure(&mut board.console, "runner", error);
-        idle(&mut board);
-    }
-    // The only deliberate missed feed. The cookie written here and the MWDT0 reset cause must both
-    // confirm it on the next boot before DONE is emitted.
-    if board
-        .reset
-        .set_cookie(ResetCookie {
-            phase: WATCHDOG_PHASE,
-        })
-        .is_err()
-        || writeln!(board.console, "B1,STATE,WATCHDOG_ARM\r").is_err()
-    {
-        emergency_halt("watchdog-arm");
-    }
-    board.io.safe_off();
-    loop {
-        wait_for_interrupt();
-    }
-}
+    // Hardware first (design §1.1, R1): the reset reason and the reset record, read once, and
+    // this boot counted for the next record.
+    let _reset_reason = board.reset.reason();
+    let _previous_boot = board.reset.take_reset_record();
+    let _boot = board.reset.note_boot();
 
-/// The C6 composition: the shared M2E runner on this board's adapter and memory map.
-fn run(board: &mut Board) -> Result<(), &'static str> {
-    // The partition read borrows the whole board, so it finishes before the fixture borrows the
-    // board's parts. Its outcome goes to `load`, which reports it after the BOOT records.
-    let bundle = application::read(board);
-    let clock = Clock(&board.clock);
-    let mut io = Io(&mut board.io);
-    let mut watchdog = Watchdog(&mut board.watchdog);
-    let target = target_memory();
-    let mut fixture = Fixture {
-        clock: &clock,
-        io: &mut io,
-        console: &mut board.console,
-        watchdog: &mut watchdog,
-        memory: &target,
+    // The installed application, admitted before any state exists.
+    let admitted = application::read_and_admit(&mut board);
+    let wait_alarm = board.take_wait_alarm();
+    let admitted = match admitted {
+        Ok(admitted) => admitted,
+        Err(reason) => stop(board, wait_alarm, reason),
     };
-    runner::run(
-        &mut fixture,
-        || application::load(bundle),
-        |dog| {
-            board
-                .reset
-                .set_cookie(ResetCookie {
-                    phase: RUNNING_PHASE,
-                })
-                .map_err(|_| "reset-cookie")?;
-            dog.0.start_ms(WATCHDOG_MS).map_err(|_| "watchdog-start")
-        },
-    )
+    let program = admitted.program;
+    let config = admitted.record.configuration;
+
+    // Retain mode `none` until the C6 checkpoint driver exists (design §1.2).
+    if config.retain_mode != RetainMode::None {
+        stop(
+            board,
+            wait_alarm,
+            String::from(
+                "the installed application requests a retain mode, which the C6 does not carry out yet",
+            ),
+        );
+    }
+
+    // The record's GPIO lines, claimed by pin name, each output driven to its initial value
+    // before it becomes an output (design §1.1, R1).
+    let (gpio_inputs, gpio_outputs) = match gpio_lines(&config) {
+        Ok(lines) => lines,
+        Err(reason) => stop(board, wait_alarm, reason),
+    };
+    let claimed = board.claim_lines(&gpio_inputs, &gpio_outputs);
+    let lines = match claimed {
+        Ok(lines) => lines,
+        Err(error) => stop(
+            board,
+            wait_alarm,
+            format!("the installed application's GPIO lines cannot be claimed: {error}"),
+        ),
+    };
+
+    // The hardware watchdog from the record's cycle watchdog timeout (design §2.5).
+    let watchdog_ok = board
+        .watchdog
+        .set_cycle_timeout_ms(cycle_timeout_ms(&config))
+        .is_ok();
+    if !watchdog_ok {
+        stop(
+            board,
+            wait_alarm,
+            String::from("the installed application's watchdog timeout is outside the C6's range"),
+        );
+    }
+
+    // Prepare the program with the limits its region and the heap allow (design §1.1).
+    let limits = device_limits(DeviceMemory {
+        region_bytes: STBC_BYTES,
+        heap_bytes: memory::HEAP.capacity(),
+    });
+    let prepared = match PreparedModule::from_bytes(program, limits) {
+        Ok(prepared) => prepared,
+        Err(error) => stop(
+            board,
+            wait_alarm,
+            format!("the installed application cannot be prepared: {error}"),
+        ),
+    };
+    let prepared: &'static PreparedModule = Box::leak(Box::new(prepared));
+
+    // The Live Values of the installed program, for the `io.*`, `set` and `var.*` operations over
+    // the link (specification 11, "Live Values"; specification 34 §4.3.1).
+    let live = match live_values(prepared) {
+        Ok(live) => live,
+        Err(error) => stop(
+            board,
+            wait_alarm,
+            format!("the installed application's Live Values cannot be prepared: {error}"),
+        ),
+    };
+
+    // The loop owns the board's watchdog, clock and wait from here.
+    let mut parts = Parts::take(board, wait_alarm);
+    let clock = parts.clock;
+    let services = Box::leak(Box::new(DeviceServices::new(clock)));
+    let settings = CycleSettings {
+        cycle_interval: Duration::from_nanos(
+            i64::try_from(config.cycle_interval_nanos).unwrap_or(i64::MAX),
+        ),
+        watchdog: config.watchdog,
+        fault_policy: config.fault_policy,
+        safe_outputs: config
+            .safe_state
+            .iter()
+            .map(|entry| (entry.address.clone(), entry.value.clone()))
+            .collect(),
+    };
+    let io = GpioIo::new(lines.0, lines.1);
+    let cycle = match EngineCycle::start(prepared, services, io, settings) {
+        Ok(cycle) => cycle,
+        Err(error) => serve_stopped(
+            parts,
+            format!("the installed application cannot be started: {error}"),
+        ),
+    };
+    let Some(alarm) = parts.wait_alarm.take() else {
+        emergency_halt("wait-alarm");
+    };
+    parts.watchdog.start();
+    let platform = Platform::new(
+        parts.watchdog,
+        config.resource_name.clone(),
+        status_settings(),
+        config.control_debug_enabled,
+        live,
+    );
+    let mut runner = Box::new(Runner::new(
+        UsbLink::bind(),
+        Wait::new(alarm),
+        cycle,
+        platform,
+        clock,
+        event_capacity(&config),
+    ));
+    let _ = runner.run();
+    emergency_halt("runner")
 }
 
-/// Completion and failure supervision. Outputs stay off, and MWDT0 is fed between interrupts so that
-/// a stopped board does not enter a reset-and-retest loop. No scan is reported here.
-fn idle(board: &mut Board) -> ! {
-    board.io.safe_off();
-    loop {
-        board.watchdog.feed();
-        wait_for_interrupt();
+/// The parts the resource loop owns, extracted from the board once the record's lines are claimed.
+/// The board's console is dropped with the rest of the board, which does not stop the
+/// USB-Serial/JTAG controller the link uses.
+struct Parts {
+    watchdog: Watchdog,
+    clock: ChipClock,
+    wait_alarm: Option<esp_hal::timer::systimer::Alarm<'static>>,
+}
+
+impl Parts {
+    /// Extracts the loop's parts from `board`, holding the clock for the rest of the boot.
+    fn take(board: Board, wait_alarm: Option<esp_hal::timer::systimer::Alarm<'static>>) -> Self {
+        Self {
+            watchdog: board.watchdog,
+            clock: ChipClock(Box::leak(Box::new(board.clock))),
+            wait_alarm,
+        }
     }
 }
 
-/// Sleep until the next interrupt. The 1 kHz tick wakes the core at least every millisecond.
-fn wait_for_interrupt() {
-    // SAFETY: `wfi` only suspends the core until an interrupt is pending. It touches no memory and no
-    // register, and it does not change the stack.
-    unsafe { core::arch::asm!("wfi", options(nomem, nostack, preserves_flags)) };
+/// The refusal's path: extract the loop's parts and serve the link Stopped with `reason`
+/// (design §1.1, R2).
+fn stop(
+    board: Board,
+    wait_alarm: Option<esp_hal::timer::systimer::Alarm<'static>>,
+    reason: String,
+) -> ! {
+    serve_stopped(Parts::take(board, wait_alarm), reason)
 }
 
+/// Runs the resource loop without a program: the resource is Stopped, the loop serves the link
+/// and feeds the hardware watchdog, and `restart` is refused with `reason` (design §1.1, R2).
+fn serve_stopped(mut parts: Parts, reason: String) -> ! {
+    let Some(alarm) = parts.wait_alarm.take() else {
+        emergency_halt("wait-alarm");
+    };
+    parts.watchdog.start();
+    let platform = Platform::new(
+        parts.watchdog,
+        SmolStr::new_static("Controller"),
+        status_settings(),
+        false,
+        EngineLiveValues::empty(),
+    );
+    // A Stopped loop holds no cycle, so its type is named: the cycle a program would run.
+    let mut runner = Box::new(
+        Runner::<_, _, EngineCycle<'static, ChipClock, GpioIo>, _, _>::stopped(
+            UsbLink::bind(),
+            Wait::new(alarm),
+            platform,
+            parts.clock,
+            SmolStr::from(reason),
+            default_event_capacity(),
+        ),
+    );
+    let _ = runner.run();
+    emergency_halt("runner-stopped")
+}
+
+/// The resource loop's clock: the C6's SYSTIMER through the adapter's [`Monotonic`]. The adapter
+/// type is not `Clone`, so the firmware holds it for the boot and copies this reference.
+#[derive(Clone, Copy)]
+struct ChipClock(&'static Monotonic);
+
+impl MonotonicClock for ChipClock {
+    fn now(&self) -> MonotonicInstant {
+        MonotonicInstant::from_origin(CoreDuration::from_micros(self.0.micros()))
+    }
+}
+
+/// The runtime settings `status` reports for a chip: the engine backend, production control and
+/// no simulation.
+fn status_settings() -> StatusSettings {
+    StatusSettings {
+        execution_backend: "vm",
+        execution_backend_source: "default",
+        simulation_enabled: false,
+        simulation_time_scale: 1,
+        simulation_mode: SmolStr::new_static("production"),
+        simulation_warning: SmolStr::default(),
+    }
+}
+
+/// The Live Values of the installed program `prepared` (specification 11, "Live Values";
+/// specification 34 §4.3.1): its process-image bindings and its retained declarations.
+///
+/// The chip holds no std, so its bindings are unnamed: `io.list` omits their names, as the
+/// shared snapshot does for a platform that does not name them.
+///
+/// # Errors
+///
+/// The [`RuntimeError`] of two retained declarations that project to one label.
+fn live_values(prepared: &PreparedModule) -> Result<EngineLiveValues, RuntimeError> {
+    EngineLiveValues::for_prepared(prepared, alloc::vec![None; prepared.io_bindings().len()])
+}
+
+/// The cycle watchdog timeout the record configures, in whole milliseconds; a disabled watchdog
+/// is zero, which keeps the hardware watchdog at its 4 s minimum (design §2.5).
+fn cycle_timeout_ms(config: &Configuration) -> u32 {
+    u32::try_from(config.watchdog.timeout.as_millis().max(0)).unwrap_or(u32::MAX)
+}
+
+/// The newest events the event store keeps: the record's section-7 capacity, or the C6's default
+/// when the record sets none (0). Admission has already refused a capacity above the chip's
+/// maximum (specification 34 §5.1.1 step 7; specification 11, the event store).
+fn event_capacity(config: &Configuration) -> usize {
+    if config.event_capacity == 0 {
+        default_event_capacity()
+    } else {
+        usize::try_from(config.event_capacity).unwrap_or(usize::MAX)
+    }
+}
+
+/// The C6's default event-store capacity, from its descriptor (`chips/esp32c6.toml`).
+fn default_event_capacity() -> usize {
+    usize::try_from(DEVICE_DESCRIPTOR.event_store_default).unwrap_or(usize::MAX)
+}
+
+/// The record's `gpio` driver lines, in `io.toml` order. A driver other than `gpio` is refused
+/// with its name: the C6 carries out only GPIO until slice T1 (specification 34, TARGET-01).
+fn gpio_lines(config: &Configuration) -> Result<(Vec<GpioInput>, Vec<GpioOutput>), String> {
+    let mut inputs = Vec::new();
+    let mut outputs = Vec::new();
+    for driver in &config.io_drivers {
+        if !driver.enabled {
+            continue;
+        }
+        if driver.name.as_str() != "gpio" {
+            return Err(format!(
+                "the installed application uses the {} driver, which the C6 does not carry out yet",
+                driver.name
+            ));
+        }
+        inputs.extend(driver.inputs.iter().cloned());
+        outputs.extend(driver.outputs.iter().cloned());
+    }
+    Ok((inputs, outputs))
+}
+
+/// The terminal fault path (R4): format the panic's location into a fixed buffer and hand it to
+/// the adapter, which drives every configured output to its safe level, records the cause and
+/// resets the chip. The handler allocates nothing and never writes to the control link.
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
-    // Includes the stable allocator's allocation-error panic. Never formats the panic payload, never
-    // allocates, and never steals the live Board's HAL ownership. esp-hal's default trap handler also
-    // panics, so an exception reaches this path too.
-    let (used, peak, allocations, failures) = memory::HEAP.emergency_metrics();
-    let mut record = FailureRecord {
-        bytes: [0; 112],
+fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
+    let mut record = LocationRecord {
+        bytes: [0u8; LOCATION_BYTES],
         length: 0,
     };
-    let _ = write!(
-        record,
-        "panic_used_{used}_peak_{peak}_allocations_{allocations}_failures_{failures}"
-    );
-    let message = core::str::from_utf8(&record.bytes[..record.length]).unwrap_or("panic-record");
-    emergency_halt(message)
+    let written = match info.location() {
+        Some(location) => write!(record, "{}:{}", location.file(), location.line()),
+        None => write!(record, "panic"),
+    };
+    // A location that did not fit its buffer reads as `panic`, never as a partial path.
+    let text = if written.is_ok() {
+        core::str::from_utf8(&record.bytes[..record.length]).unwrap_or("panic")
+    } else {
+        "panic"
+    };
+    emergency_halt(text)
 }
 
-struct FailureRecord {
-    bytes: [u8; 112],
+/// A fixed-size buffer the panic location is formatted into without allocating.
+struct LocationRecord {
+    bytes: [u8; LOCATION_BYTES],
     length: usize,
 }
 
-impl core::fmt::Write for FailureRecord {
+impl core::fmt::Write for LocationRecord {
     fn write_str(&mut self, text: &str) -> core::fmt::Result {
         let end = self
             .length

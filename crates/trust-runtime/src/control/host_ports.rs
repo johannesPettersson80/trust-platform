@@ -12,7 +12,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
-use trust_runtime_services::events::RuntimeEvent;
+use trust_runtime_services::events::{store_event, RuntimeEvent};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use trust_runtime_services::live_values::io_snapshot::IoSnapshot as PortableIoSnapshot;
 use trust_runtime_services::live_values::queues::{
@@ -63,9 +63,19 @@ impl AuditSink for ControlState {
 }
 
 impl EventSink for ControlState {
+    /// Stores `event` in the project's event store, which keeps the newest
+    /// `runtime.events.capacity` events (specification 11, the event store). A settings or event
+    /// store that cannot be read drops the event, as the store being unwritable does.
     fn record_event(&self, event: RuntimeEvent) {
-        if let Ok(mut events) = self.events.lock() {
-            events.push_back(event);
+        let capacity = self
+            .settings
+            .lock()
+            .ok()
+            .map(|settings| settings.event_capacity);
+        if let Some(capacity) = capacity
+            && let Ok(mut events) = self.events.lock()
+        {
+            store_event(&mut events, event, capacity);
         }
     }
 }
@@ -178,6 +188,11 @@ impl RecordsPort for ControlState {
 
     fn metrics_snapshot(&self) -> Option<RuntimeMetricsSnapshot> {
         self.metrics.lock().ok().map(|metrics| metrics.snapshot())
+    }
+
+    fn event_capacity(&self) -> Option<usize> {
+        let settings = self.settings.lock().ok()?;
+        Some(settings.event_capacity)
     }
 
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {

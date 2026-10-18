@@ -6613,6 +6613,7 @@ version = "0.24.75"
 dependencies = [
  "critical-section",
  "embedded-alloc",
+ "trust-platform-memory",
  "trust-runtime-core",
 ]
 
@@ -6729,7 +6730,21 @@ dependencies = [
  "critical-section",
  "esp-hal",
  "esp-storage",
+ "serde_json",
+ "smol_str",
  "trust-chips",
+ "trust-platform-memory",
+ "trust-runtime-core",
+ "trust-runtime-services",
+]
+
+[[package]]
+name = "trust-platform-memory"
+version = "0.24.75"
+dependencies = [
+ "crc32fast",
+ "critical-section",
+ "embedded-alloc",
 ]
 
 [[package]]
@@ -6740,6 +6755,7 @@ dependencies = [
  "stm32f4",
  "stm32f4xx-hal",
  "trust-chips",
+ "trust-platform-memory",
 ]
 
 [[package]]
@@ -6764,7 +6780,6 @@ dependencies = [
  "clap",
  "clap_complete",
  "crc32fast",
- "critical-section",
  "crossbeam-channel",
  "crossterm",
  "dialoguer",
@@ -6817,7 +6832,6 @@ dependencies = [
  "tracing",
  "trust-ads-core",
  "trust-ads-server",
- "trust-board-fixture",
  "trust-hir",
  "trust-ide",
  "trust-plcopen",
@@ -7914,6 +7928,8 @@ dependencies = [
  "syn 3.0.7",
  "toml",
  "trust-chips",
+ "trust-runtime-core",
+ "trust-runtime-services",
 ]
 
 [[package]]

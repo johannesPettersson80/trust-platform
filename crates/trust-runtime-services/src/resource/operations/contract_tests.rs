@@ -228,6 +228,29 @@ fn a_device_without_an_operating_system_takes_a_restart_while_stopped() {
 }
 
 #[test]
+fn a_device_without_a_program_refuses_restart_with_the_reason_and_queues_nothing() {
+    // Spec 34 STATE-08: a device whose application region holds no program, or one it refused,
+    // stays Stopped and cannot start until a program is installed.
+    for mode in ["cold", "warm"] {
+        let mut device = FakeHost::running();
+        device.starts_when_stopped = true;
+        device.state.set(ResourceState::Stopped);
+        device.missing_program = Some("the application region is empty");
+        let response = restart(1, Some(json!({"mode": mode})), &device);
+        assert_eq!(
+            refusal(&response),
+            (
+                Some("no installed program: the application region is empty"),
+                Some("resource_not_running")
+            ),
+            "mode={mode}"
+        );
+        assert_eq!(*device.pending_restart.borrow(), None, "mode={mode}");
+        assert_eq!(device.actions(), [] as [Action; 0], "mode={mode}");
+    }
+}
+
+#[test]
 fn restarts_coalesce_with_cold_precedence() {
     for (pending, requested, next) in [
         (None, RestartMode::Warm, RestartMode::Warm),

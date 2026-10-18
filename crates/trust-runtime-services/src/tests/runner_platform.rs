@@ -1,8 +1,10 @@
 //! The platform of the resource loop's contract tests: access rights with an optional control
 //! token, an audit sink that numbers its records, a wall clock that may be unset, fixed status
-//! values, one platform operation, a hardware watchdog that counts its feeds and the Live Values
-//! queues the loop answers the `io.*`, `set` and `var.*` operations from.
+//! values, one platform operation, a hardware watchdog that counts its feeds, the Live Values
+//! queues the loop answers the `io.*`, `set` and `var.*` operations from, and the checkpoint
+//! store the loop's persister step programs.
 
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -14,7 +16,10 @@ use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
-use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan, WallClock};
+use trust_runtime_core::ports::{
+    CheckpointStorage, CheckpointStore, HardwareWatchdog, TimeSpan, WallClock,
+};
+use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::value::Value;
 
 use super::runner_ports::{ms, TestWait};
@@ -26,7 +31,9 @@ use crate::live_values::RequestQueueFull;
 use crate::ports::{AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort};
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::{EngineLiveValues, RunnerPlatform};
-use crate::status::{IoDriverStatus, StatusSettings};
+use crate::status::{
+    absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
+};
 
 /// The longest wait between two feeds of the hardware watchdog, unless a test sets its own.
 pub(crate) const FEED_INTERVAL_MS: u64 = 1_000;
@@ -47,6 +54,8 @@ pub(crate) struct TestPlatform {
     /// answer from: the queues and the published snapshot. The fixture replaces it with the one
     /// built from the prepared board probe.
     pub(crate) live_values: Rc<EngineLiveValues>,
+    /// The checkpoint store the platform supplies, or `None` when it has none.
+    pub(crate) checkpoint: Option<CheckpointStore>,
 }
 
 impl Default for TestPlatform {
@@ -61,7 +70,23 @@ impl Default for TestPlatform {
             feed_interval: ms(FEED_INTERVAL_MS),
             feeds: Rc::new(Cell::new(0)),
             live_values: Rc::new(EngineLiveValues::empty()),
+            checkpoint: None,
         }
+    }
+}
+
+impl TestPlatform {
+    /// The platform's checkpoint store is `flash`, which one persister step may program up to
+    /// `program_budget` bytes of (specification 34 §10).
+    pub(crate) fn set_checkpoint(
+        &mut self,
+        flash: Box<dyn CheckpointFlash>,
+        program_budget: usize,
+    ) {
+        self.checkpoint = Some(CheckpointStore {
+            flash,
+            program_budget,
+        });
     }
 }
 
@@ -119,16 +144,18 @@ impl StatusPort for TestPlatform {
         Some(Vec::new())
     }
 
+    /// A device has no realtime profile, the block every runtime reports without one.
     fn realtime_status(&self) -> Option<serde_json::Value> {
-        Some(json!({"profile": "none"}))
+        Some(absent_realtime_profile())
     }
 
     fn realtime_has_errors(&self) -> Option<bool> {
         Some(false)
     }
 
+    /// A device has no `OpenOT` persistence, the block every runtime reports without it.
     fn openot_persistence(&self) -> Option<serde_json::Value> {
-        Some(json!({"enabled": false}))
+        Some(disabled_openot_persistence())
     }
 }
 
@@ -153,6 +180,12 @@ impl HardwareWatchdog for TestPlatform {
 
     fn feed(&mut self) {
         self.feeds.set(self.feeds.get() + 1);
+    }
+}
+
+impl CheckpointStorage for TestPlatform {
+    fn take_checkpoint_store(&mut self) -> Option<CheckpointStore> {
+        self.checkpoint.take()
     }
 }
 

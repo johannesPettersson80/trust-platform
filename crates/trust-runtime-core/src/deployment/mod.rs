@@ -1,19 +1,25 @@
 //! The record of a deployment and its admission (specification 34 §5.1.1, DEPLOY-04, HOST-02).
 //!
 //! A deployment record describes one STBC program: its identities, the contracts and
-//! capabilities it needs, the preparation limits it requests, its process image, its tasks and
-//! its built-in imports. It travels as the versioned binary sidecar `deployment-record.bin`
+//! capabilities it needs, the preparation limits it requests, its process image, its tasks, its
+//! built-in imports and the configuration a device without an operating system runs from. It
+//! travels as the versioned binary sidecar `deployment-record.bin`
 //! next to `program.stbc`. Before any state exists, a runtime admits the record against its
 //! device descriptor and prepares the program with the limits the record requests. The same
 //! code runs on every target, with and without `std`.
 
 mod admission;
 mod codec;
+mod configuration;
 mod describe;
 mod identity;
 mod refusal;
 
 pub use admission::{admit, DeviceDescriptor};
+pub use configuration::{
+    Configuration, ControlMode, GpioInput, GpioOutput, HangAction, IoDriver, LogLevel,
+    SafeStateEntry, TaskOverride,
+};
 pub use identity::{configuration_identity, retain_schema_identity, sha256};
 pub use refusal::{AdmissionRefusal, DeploymentRecordError, LimitKind};
 
@@ -30,7 +36,7 @@ pub const RECORD_VERSION: u16 = 1;
 pub const RECORD_MAX_BYTES: usize = 65_536;
 
 /// A deployment record (specification 34 §5.1.1).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DeploymentRecord {
     /// Section 1: the program and the configuration it was built with.
     pub application: ApplicationIdentity,
@@ -45,6 +51,9 @@ pub struct DeploymentRecord {
     /// Section 6: the built-in imports the program calls, each once, ordered by kind and then
     /// by name.
     pub imports: Vec<RequiredImport>,
+    /// Section 7: the settings a device without an operating system needs from `runtime.toml`
+    /// and `io.toml`.
+    pub configuration: Configuration,
 }
 
 impl DeploymentRecord {

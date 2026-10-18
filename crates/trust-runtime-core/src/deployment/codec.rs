@@ -1,8 +1,10 @@
 //! The bytes of a deployment record (specification 34 §5.1.1): a header, sections in ascending
 //! order of their identifiers, and a CRC-32.
 //!
-//! Version 1 has exactly the sections 1 to 6. A later version adds sections with new
+//! Version 1 has exactly the sections 1 to 7. A later version adds sections with new
 //! identifiers after them and decodes the sections of version 1 with the functions below.
+
+mod configuration;
 
 use super::{
     ApplicationIdentity, Capabilities, Contracts, DeploymentRecord, DeploymentRecordError,
@@ -25,7 +27,7 @@ const CRC_BYTES: usize = 4;
 /// Identifier, reserved bytes and payload length.
 const SECTION_HEADER_BYTES: usize = 8;
 /// The sections of version 1, in their order.
-const SECTION_COUNT: u16 = 6;
+const SECTION_COUNT: u16 = 7;
 
 const APPLICATION: u16 = 1;
 const CONTRACTS: u16 = 2;
@@ -33,6 +35,7 @@ const LIMITS: u16 = 3;
 const PROCESS_IMAGE: u16 = 4;
 const TASKS: u16 = 5;
 const IMPORTS: u16 = 6;
+const CONFIGURATION: u16 = 7;
 
 const APPLICATION_BYTES: usize = 32 + 4 + 2 + 2 + 4 + 32 + 32;
 const CONTRACTS_BYTES: usize = 2 + 2 + 1 + 1 + 2;
@@ -50,7 +53,8 @@ impl DeploymentRecord {
     /// # Errors
     ///
     /// The record breaks a rule a reader checks: more than 65,535 tasks or imports, an empty or
-    /// too long import name, imports out of order or repeated, or more than `RECORD_MAX_BYTES`.
+    /// too long import name, imports out of order or repeated, a configuration field the section
+    /// cannot hold (specification 34 §5.1.1), or more than `RECORD_MAX_BYTES`.
     pub fn encode(&self) -> Result<Vec<u8>, DeploymentRecordError> {
         let tasks = u16::try_from(self.tasks.len()).map_err(|_| Error::Field("the task count"))?;
         let imports =
@@ -61,6 +65,13 @@ impl DeploymentRecord {
             }
         }
         check_import_order(&self.imports)?;
+        // Section 7's payload goes into its own buffer first: its length heads the section, and
+        // its fields are the record's only fallible ones (specification 34 §5.1.1).
+        let mut configuration_bytes = Vec::new();
+        configuration_bytes
+            .try_reserve_exact(self.configuration.encoded_len())
+            .map_err(|_| Error::Memory)?;
+        self.configuration.encode(&mut configuration_bytes)?;
         let length = self.encoded_len();
         if length > RECORD_MAX_BYTES {
             return Err(Error::TooLarge);
@@ -130,6 +141,9 @@ impl DeploymentRecord {
                 out.extend_from_slice(import.name.as_bytes());
             }
         });
+        section(&mut out, CONFIGURATION, configuration_bytes.len(), |out| {
+            out.extend_from_slice(&configuration_bytes);
+        });
         let crc = crc32::checksum(&out);
         out.extend_from_slice(&crc.to_le_bytes());
         debug_assert_eq!(out.len(), length);
@@ -147,6 +161,7 @@ impl DeploymentRecord {
             + PROCESS_IMAGE_BYTES
             + self.tasks_bytes()
             + self.imports_bytes()
+            + self.configuration.encoded_len()
             + CRC_BYTES
     }
 
@@ -230,6 +245,11 @@ impl DeploymentRecord {
             )?,
             tasks: read_section(TASKS, payload(TASKS)?, read_tasks)?,
             imports: read_section(IMPORTS, payload(IMPORTS)?, read_imports)?,
+            configuration: read_section(
+                CONFIGURATION,
+                payload(CONFIGURATION)?,
+                configuration::read,
+            )?,
         })
     }
 }
@@ -380,7 +400,7 @@ fn check_import_order(imports: &[RequiredImport]) -> Result<(), Error> {
 }
 
 /// Little-endian reads that fail with `Truncated` instead of reading past the end.
-struct Reader<'a> {
+pub(super) struct Reader<'a> {
     bytes: &'a [u8],
 }
 
@@ -393,11 +413,11 @@ impl<'a> Reader<'a> {
         self.bytes.is_empty()
     }
 
-    fn remaining(&self) -> usize {
+    pub(super) fn remaining(&self) -> usize {
         self.bytes.len()
     }
 
-    fn take(&mut self, count: usize) -> Result<&'a [u8], Error> {
+    pub(super) fn take(&mut self, count: usize) -> Result<&'a [u8], Error> {
         if count > self.bytes.len() {
             return Err(Error::Truncated);
         }
@@ -406,33 +426,33 @@ impl<'a> Reader<'a> {
         Ok(head)
     }
 
-    fn array<const N: usize>(&mut self) -> Result<[u8; N], Error> {
+    pub(super) fn array<const N: usize>(&mut self) -> Result<[u8; N], Error> {
         let mut array = [0; N];
         array.copy_from_slice(self.take(N)?);
         Ok(array)
     }
 
-    fn u8(&mut self) -> Result<u8, Error> {
+    pub(super) fn u8(&mut self) -> Result<u8, Error> {
         Ok(self.array::<1>()?[0])
     }
 
-    fn u16(&mut self) -> Result<u16, Error> {
+    pub(super) fn u16(&mut self) -> Result<u16, Error> {
         self.array().map(u16::from_le_bytes)
     }
 
-    fn u32(&mut self) -> Result<u32, Error> {
+    pub(super) fn u32(&mut self) -> Result<u32, Error> {
         self.array().map(u32::from_le_bytes)
     }
 
-    fn u64(&mut self) -> Result<u64, Error> {
+    pub(super) fn u64(&mut self) -> Result<u64, Error> {
         self.array().map(u64::from_le_bytes)
     }
 
-    fn i64(&mut self) -> Result<i64, Error> {
+    pub(super) fn i64(&mut self) -> Result<i64, Error> {
         self.array().map(i64::from_le_bytes)
     }
 
-    fn digest(&mut self) -> Result<[u8; 32], Error> {
+    pub(super) fn digest(&mut self) -> Result<[u8; 32], Error> {
         self.array()
     }
 }

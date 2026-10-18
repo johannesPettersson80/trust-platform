@@ -2,6 +2,12 @@
 use super::BoardError;
 use crate::{pac, ResetCookie, ResetReason};
 use stm32f4xx_hal::{prelude::*, rcc::Rcc, watchdog::IndependentWatchdog};
+use trust_platform_memory::reset::{self, ResetCause, ResetRecord, ResetStore, RECORD_WORDS};
+
+/// First RTC backup register holding the reset record; BKP0R and BKP1R keep the cookie.
+const RECORD_FIRST_REGISTER: usize = 2;
+/// RTC backup register holding the boot counter.
+const BOOT_COUNT_REGISTER: usize = 14;
 
 /// Independent hardware watchdog using the uncalibrated nominal 32kHz LSI.
 pub struct Watchdog {
@@ -31,7 +37,8 @@ impl Watchdog {
     }
 }
 
-/// Owns two RTC backup words and the reset flags captured before clearing RCC_CSR.
+/// Owns the RTC backup registers, the reset flags captured before clearing RCC_CSR, and the shared
+/// reset record.
 pub struct ResetControl {
     rtc: pac::RTC,
     _pwr: pac::PWR,
@@ -89,5 +96,57 @@ impl ResetControl {
     pub fn clear_cookie(&mut self) {
         self.rtc.bkp1r().write(|w| w.bkp().set(0));
         self.rtc.bkp0r().write(|w| w.bkp().set(0));
+    }
+
+    /// Write the record a panic or watchdog path leaves for the next boot: the cause, the panic
+    /// location when there is one, and the boot counter. It lives in the RTC backup registers, so
+    /// it survives the reset the same way the cookie does.
+    pub fn write_reset_record(&mut self, cause: ResetCause, text: &str) {
+        reset::write_record(self, cause, text);
+    }
+
+    /// Read the record the previous boot left, with its cause and text, and clear it, so a cause is
+    /// reported once. A damaged record reads as `None`, never as a cause.
+    pub fn take_reset_record(&mut self) -> Option<ResetRecord> {
+        reset::take_record(self)
+    }
+
+    /// Count this boot in the RTC backup registers and return the new boot counter the next record
+    /// is stamped with.
+    pub fn note_boot(&mut self) -> u32 {
+        reset::note_boot(self)
+    }
+}
+
+impl ResetStore for ResetControl {
+    fn record_words(&self) -> [u32; RECORD_WORDS] {
+        let mut words = [0u32; RECORD_WORDS];
+        for (index, word) in words.iter_mut().enumerate() {
+            *word = self
+                .rtc
+                .bkpr(RECORD_FIRST_REGISTER + index)
+                .read()
+                .bkp()
+                .bits();
+        }
+        words
+    }
+
+    fn set_record_words(&mut self, words: [u32; RECORD_WORDS]) {
+        for (index, &word) in words.iter().enumerate() {
+            self.rtc
+                .bkpr(RECORD_FIRST_REGISTER + index)
+                .write(|w| w.bkp().set(word));
+        }
+    }
+
+    fn boot_count(&self) -> u32 {
+        self.rtc.bkpr(BOOT_COUNT_REGISTER).read().bkp().bits()
+    }
+
+    fn set_boot_count(&mut self, count: u32) {
+        self.rtc
+            .bkpr(BOOT_COUNT_REGISTER)
+            .write(|w| w.bkp().set(count));
     }
 }

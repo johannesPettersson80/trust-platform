@@ -14,7 +14,7 @@ use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
-use crate::events::{store_event, RuntimeEvent, EVENT_STORE_CAPACITY};
+use crate::events::{store_event, RuntimeEvent};
 use crate::metrics::{RuntimeMetrics, RuntimeMetricsSnapshot};
 use crate::resource::commands::{
     running_command_effect, CommandClass, CommandSendError, RunningCommandEffect,
@@ -40,13 +40,22 @@ pub(super) struct ResourceCell {
 impl ResourceCell {
     /// A running resource without a fault.
     pub(super) fn running() -> Self {
+        Self::with(ResourceState::Running, false)
+    }
+
+    /// A resource without a program: Stopped without a fault, and ended, so it takes no command.
+    pub(super) fn stopped() -> Self {
+        Self::with(ResourceState::Stopped, true)
+    }
+
+    fn with(state: ResourceState, ended: bool) -> Self {
         Self {
-            state: Cell::new(ResourceState::Running),
+            state: Cell::new(state),
             last_error: Cell::new(None),
             pending_restart: Cell::new(None),
             queued: Cell::new(0),
             last_command: Cell::new(None),
-            ended: Cell::new(false),
+            ended: Cell::new(ended),
         }
     }
 
@@ -145,18 +154,29 @@ impl<C: MonotonicClock> MonotonicClock for ProgramClock<C> {
 pub(super) struct Records<C> {
     metrics: RefCell<RuntimeMetrics<ProgramClock<C>>>,
     events: RefCell<VecDeque<RuntimeEvent>>,
+    /// The newest events the event store keeps (`runtime.events.capacity`, specification 11).
+    capacity: usize,
 }
 
 impl<C: MonotonicClock> Records<C> {
-    /// Empty records of a program that started at `start` on `clock`.
+    /// Empty records of a program that started at `start` on `clock`, whose event store keeps the
+    /// newest `capacity` events.
     ///
     /// The event store takes its whole bound at once, so a heap that is too small for it fails
     /// here, at start, never in the middle of a scan (specification 34, ARCH-05).
-    pub(super) fn new(clock: C, start: MonotonicInstant) -> Self {
+    pub(super) fn new(clock: C, start: MonotonicInstant, capacity: usize) -> Self {
         Self {
             metrics: RefCell::new(RuntimeMetrics::with_clock(ProgramClock { clock, start })),
-            events: RefCell::new(VecDeque::with_capacity(EVENT_STORE_CAPACITY + 1)),
+            // One spare slot, so appending the event that displaces the oldest does not
+            // reallocate mid-scan.
+            events: RefCell::new(VecDeque::with_capacity(capacity + 1)),
+            capacity,
         }
+    }
+
+    /// The newest events the event store keeps.
+    pub(super) fn event_capacity(&self) -> usize {
+        self.capacity
     }
 
     /// Empties the records of a program that starts again at `start` as a new trust-runtime
@@ -174,7 +194,7 @@ impl<C: MonotonicClock> Records<C> {
     /// Stores `event` as the newest event, within the store's bound.
     pub(super) fn push_event(&self, event: RuntimeEvent) {
         if let Ok(mut events) = self.events.try_borrow_mut() {
-            store_event(&mut events, event);
+            store_event(&mut events, event, self.capacity);
         }
     }
 

@@ -1,7 +1,7 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.28 — per-depth frame payloads, bookkeeping scratch and the checkpoint persister, after 0.27's calls resolved at preparation
-- **Date:** 17 October 2026
+- **Version:** 0.31 — the call scratch that binds a call, the device runner's use of the checkpoint persister (§10), after 0.29's control link on a byte stream
+- **Date:** 18 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
 - **Baseline commit date:** 3 September 2026
@@ -679,6 +679,21 @@ The record shall identify the bytecode and configuration hashes; required instru
 
 Hardware pin mappings belong to board configuration, not the STBC instruction set. The same STBC bytes can be used on different devices only when both devices support the required features and the application's logical I/O contract. A board-specific firmware image or different peripheral mapping does not invalidate that bytecode portability.
 
+**The installed application container.** A device with an `application` region keeps the installed program and its record in that region as one container with magic `TRSTA001`, so a chip reads one bounded artifact at boot:
+
+| Offset | Bytes | Field |
+|---|---|---|
+| 0 | 8 | Magic `TRSTA001`, written last |
+| 8 | 4 | CRC-32 of bytes 12 to the end of the entry table |
+| 12 | 4 | The total length L of the container in bytes |
+| 16 | 4 | The entry count, 2 |
+| 20 | 16 each | The entries: for each, its kind (4: 1 `program.stbc`, 2 the deployment record), the payload's offset (4) from the start of the container, its length (4) and its payload's CRC-32 (4) |
+| 52 | L − 52 | The payloads: `program.stbc`, then the record |
+
+Integers are little-endian and CRC-32 is CRC-32/ISO-HDLC as in STBC. A reader (`trust-runtime-services::installation`, shared and without an operating system) exposes no payload before it has checked, in this order, the magic; the header CRC; the total length against the region; the entry count; that each kind appears once; that each entry's range lies inside the total length, outside the header and overlaps no other entry; and each payload's CRC. A region whose first eight bytes are not the magic, an erased region of `0xFF` in particular, holds no installed program.
+
+A writer writes the container in one order: the payloads, then the entry table and the header, and the magic last. A write that stops at any byte then reads as no installed program (DEPLOY-03), because the magic is absent until the container is whole. On the bench, `cargo xtask portability pack-project <program.stbc> <deployment-record.bin> <app.bin>` writes it, after checking that the record reads and describes exactly the program it packs.
+
 ### 5.1.1 The deployment record
 
 The record of §5.1 is one binary file, `deployment-record.bin`, next to `program.stbc`: a sidecar,
@@ -698,7 +713,7 @@ new program, and `trust-runtime deploy` copies it with the program.
 | L − 4 | 4 | CRC-32 of bytes 0 to L − 5 |
 
 A section is a 2-byte identifier, 2 reserved bytes (0), a 4-byte payload length and the payload.
-Version 1 has these six sections, each once:
+Version 1 has these seven sections, each once:
 
 | Section | Payload |
 |---|---|
@@ -708,6 +723,42 @@ Version 1 has these six sections, each once:
 | 4 Process image | The input, output and marker image sizes in bytes and the number of I/O bindings (4 each) |
 | 5 Tasks | The task count (2) and 2 reserved bytes, then for each task in declaration order: its interval in nanoseconds (8, signed), its priority (4) and its flags (4), of which bit 0 marks an event task (`SINGLE`) and the others are 0 |
 | 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); the contract version (2, §5.2.1); the canonical uppercase name |
+| 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the event-store capacity, the task overrides, the I/O drivers and the safe state |
+
+Section 7 carries what a device without an operating system needs from the project's `runtime.toml`
+and `io.toml`: a computer reads those two files themselves at each start, and a chip never parses
+them. Its payload is, in this order, every integer little-endian and every text a 1-byte length and
+its UTF-8 bytes, at most 255 bytes:
+
+| Field | Bytes |
+|---|---|
+| Resource name | a text; empty in a record whose build did not fill this section |
+| Cycle interval | 8, unsigned, nanoseconds |
+| Control: debug enabled, then mode | 1 (0 or 1), then 1 (1 `production`, 2 `debug`) |
+| Log level | 1 (1 `error`, 2 `warn`, 3 `info`, 4 `debug`, 5 `trace`: the names the runtime's configuration parser accepts, where `warning` is `warn`) |
+| Event-store capacity | 4, unsigned; 0 is the device's default, otherwise the newest events the store keeps (specification 11, `runtime.events.capacity`). The decoder accepts every four-byte value; admission refuses one above the device's maximum (step 7 below) |
+| Retain: mode, then save interval | 1 (0 `none`, 1 `file`), then 8, nanoseconds |
+| Watchdog: enabled, timeout, action, hang action | 1 (0 or 1), then 8, nanoseconds, then 1 (1 `halt`, 2 `safe_halt`, 3 `restart`), then 1 (1 `fault`, 2 `abort`) |
+| Fault policy | 1 (1 `halt`, 2 `safe_halt`, 3 `restart`) |
+| Task overrides: presence | 1 (0 none, 1 present) |
+| The task overrides, when present: count | 2 |
+| Each task override: name, interval, priority, single input, program count, then its programs | a text, never empty; 8, nanoseconds; 1; a text, empty for none; 2; then each program name, a text never empty |
+| I/O drivers: count | 2 |
+| Each driver: name, enabled | a text, never empty; 1 (0 or 1) |
+| The `gpio` driver's inputs: count | 2 |
+| Each GPIO input: address, line, invert, debounce | 7; a text, never empty; 1 (0 or 1); 4, milliseconds |
+| The `gpio` driver's outputs: count | 2 |
+| Each GPIO output: address, line, invert, initial | 7; a text, never empty; 1 (0 or 1); 1 (0 or 1) |
+| Safe state: count | 2 |
+| Each entry: address, value type, then value | 7; 1 (1 `BOOL`, 2 `SINT`, 3 `INT`, 4 `DINT`, 5 `LINT`, 6 `USINT`, 7 `UINT`, 8 `UDINT`, 9 `ULINT`, 10 `BYTE`, 11 `WORD`, 12 `DWORD`, 13 `LWORD`, 14 `REAL`, 15 `LREAL`); 8, little-endian, zero-extended above the type's width |
+
+An address is 7 bytes: the area (1: 1 `%I`, 2 `%Q`, 3 `%M`), the size (1: 1 X, 2 B, 3 W, 4 D, 5 L),
+the byte offset (4) and the bit (1, 0 unless the size is X). A line is a text exactly as `io.toml`
+writes it: a number's decimal digits, such as `17`, or a pin name, such as `PD12`. A driver whose
+name is not `gpio` carries no lines. `trust-runtime build` fills this section from the project's
+`runtime.toml` and `io.toml` with the runtime's own parsers and checks, so every value has the
+meaning and the defaults it has on a computer, and refuses a value the section cannot hold with the
+reason and without writing a record.
 
 The identities:
 
@@ -728,14 +779,18 @@ admitted program with exactly the requested limits, so the program meets the sam
 target (ARCH-01).
 
 **Reading a record.** A runtime reads every record version it knows. A version-1 record has
-exactly sections 1 to 6, in that order, each payload exactly as long as its content. A runtime
+exactly sections 1 to 7, in that order, each payload exactly as long as its content. A runtime
 refuses with `RuntimeError::DeploymentRecordInvalid` and the stable code
 `runtime_deployment_record_invalid`, stating the reason, a record that is shorter than its
 lengths; that has another magic, an unknown version, a length other than the file's or above
 65,536 bytes, or a wrong CRC; that has an unknown, repeated, out-of-order or missing section, a
 section count other than its sections, or a payload of another length; that has a reserved field
 other than 0, an unknown import kind or task flag, an empty or non-UTF-8 name, or imports out of
-order or repeated; or that the device's memory cannot hold. A later version adds sections with new
+order or repeated; or that the device's memory cannot hold. Section 7 refuses in the same way: a
+code outside its list, a flag other than 0 or 1, a bit above 7 or a bit with a size other than X, an
+empty name where one is required, a text over 255 bytes or not UTF-8, a line under a driver that is
+not `gpio`, a count its payload does not hold, a payload of another length, and a safe-state value
+with a byte above its type's width that is not 0. A later version adds sections with new
 identifiers after those of version 1 and leaves the sections of version 1 as they are.
 
 **Admission (DEPLOY-04, LOAD-07, LOAD-09).** Before any state exists, a runtime checks the record
@@ -751,24 +806,30 @@ numbers involved; nothing is constructed:
 6. Every import has a contract of the same version on the device (§5.2.1). Otherwise the
    refusal is `runtime_import_unsupported`, naming the import.
 7. No requested limit is above the device's maximum for it, for example "the record requests
-   max_call_depth 2048, the device allows at most 1024".
+   max_call_depth 2048, the device allows at most 1024"; nor is the record's section-7 event-store
+   capacity, when it is not 0, above the device's maximum, refused as "the record requests an
+   event store of 500 events, the device keeps at most 200" (0 is the device's default).
 8. On a device with an application slot, the program and its record fit in it, for example "the
    program and its record need 20480 bytes of the application slot, the device has 16384".
+
+A chip admits its installed container with `installation::admit` before any state exists.
 
 Preparation then validates the program under the requested limits (LOAD-03). Version 1 does not
 compare the configuration identity: a computer reads `runtime.toml` and `io.toml` at each start,
 so an edited configuration takes effect at the next start, as it does today, and a chip receives
-its configuration inside the record. Whether retained values fit a changed schema is decided at
-the warm start, by name (specification 11 §6.7).
+its configuration inside the record, in section 7. Whether retained values fit a changed schema is
+decided at the warm start, by name (specification 11 §6.7).
 
 **Device descriptor (COMPAT-02).** Admission reads from the device's descriptor the STBC versions
 it runs, its scheduling/I/O profiles, numeric contracts, timing-evidence class and capabilities,
-its maximum for each preparation limit, and the size of its application slot. A computer runs STBC
-2.0 and 3.0, `cooperative-resource-v1` and numeric contract 1, has unqualified timing evidence and
-the wall clock, allows at most a 64 MiB artifact and 1,024 call levels, and has no maximum for the
-other limits and no application slot (HOST-02). A chip's descriptor comes from its chip file
-(TARGET-03); Appendix H gains the keys for its maxima with the chip's firmware. The control
-connection serves the descriptor in a later slice.
+its maximum for each preparation limit, the event store's default capacity and maximum, and the
+size of its application slot. A computer runs STBC 2.0 and 3.0, `cooperative-resource-v1` and
+numeric contract 1, has unqualified timing evidence and the wall clock, allows at most a 64 MiB
+artifact and 1,024 call levels, keeps the newest 1,000 events by default and admits at most
+1,000,000, and has no maximum for the other limits and no application slot (HOST-02). A chip's
+descriptor comes from its chip file (TARGET-03); Appendix H gains the keys for its maxima with the
+chip's firmware, and its `[events]` table gives the chip's event-store default and maximum. The
+control connection serves the descriptor in a later slice.
 
 ### 5.2 Compiler-free preparation
 
@@ -1424,6 +1485,19 @@ The concrete implementation may adapt the existing `IoDriver` API rather than re
 
 Use static composition where convenient. Borrowed trait objects are also acceptable where they keep the design simple; using a trait object does not by itself require heap allocation. Avoid propagating platform generics through every value and instruction handler.
 
+### 7.4 The control link on a byte stream
+
+**PORT-05.** A runtime whose control link is a byte stream, such as a chip's USB serial port, carries the control protocol of specification 11 §6.8.1 as trust-runtime's control socket carries it, so every client works over it unchanged (ARCH-12). The framing, the frame bound, the reply handling and the counters below are shared code (ARCH-11); a chip's adapter only moves bytes between its hardware and that code.
+
+- **Line framing.** A request is the bytes before a line feed (`\n`), with one carriage return (`\r`) directly before the line feed removed, as trust-runtime reads its socket. A reply is one JSON object followed by `\n`. An empty line is a request of zero bytes and gets trust-runtime's answer to an empty line, `invalid request: EOF while parsing a value at line 1 column 0` with id 0.
+- **Frame size.** A link declares the longest frame it moves, in bytes and without the line end, the same in both directions. Every chip's USB link moves frames of up to 8,192 bytes. trust-runtime's own sockets have no such bound.
+- **Oversized request.** A request longer than the frame is dropped together with every byte up to its line feed. It is answered once, in its place among the replies, with `invalid request: request longer than <frame> bytes`, id 0 and no audit record; the requests after it are served as usual.
+- **Oversized reply.** No runtime cuts a reply. Requests and replies longer than a link's frame shall travel in parts on every runtime, with the transfer of program loading (§11.2 step 5, DEPLOY-02), each part within the frame. Until then a reply longer than the frame is replaced by `reply longer than <frame> bytes`, with the request's id and audit record id: the request was served and is audited as served, and the work after the reply, such as the stop after `shutdown`, still takes place. `events.tail` and `faults` write their reply one event at a time into a buffer of the frame's size and stop at its end, so a chip never builds a reply longer than its frame; a reply that fits is byte for byte the reply trust-runtime writes.
+- **One reply in flight.** The link sends one reply at a time. While a reply is being sent the link gives the control loop no further request, so the loop ends its pass and waits until the link wakes it; a busy link never delays a due cycle (STATE-08). Bytes that arrive while the receive buffer is full stay with the hardware, which stops accepting more (USB flow control); no byte is lost.
+- **A host that stops reading.** A reply that has made no progress for at least 1 second, as the loop sees when it polls the link, is dropped and counted, and the link takes requests again. Bytes of it that the hardware already holds cannot be withdrawn, so the next reply starts with an extra line feed: the stale fragment then ends as a line that is not a JSON reply, and the next reply is whole.
+- **A new host session**, such as a USB bus reset, drops the reply being sent and any partly received request, so a new session never receives an old reply. A reply dropped part-way is repaired as above.
+- **Counters.** The link counts the requests it handed to the loop, the oversized requests, the replies sent, the replies dropped by the stall rule and by a new session, the replies it refused, the times its receive buffer was full and the host sessions. The operation that reports them is decided with the runtime descriptor (COMPAT-02).
+
 ## 8. Scan-cycle and scheduling contract
 
 ### 8.1 Common cycle phases
@@ -1637,9 +1711,11 @@ BOOT -> INITIALIZING -> STOPPED/NO_PROGRAM
 
 **STATE-07.** Writing, forcing, breakpoints, pause and stepping behave on every target as in trust-runtime (specification 11, debug and resource pause interaction; specification 13, run control), with the same access rights. A pause suspends the current cycle: the outputs keep their last committed values, and the pause does not count against the cycle watchdog. A hardware debug probe (JTAG/SWD) halts the whole processor; it is not a PLC breakpoint, and it must not be assumed to preserve watchdog or output supervision.
 
-**STATE-08.** Stop and Start on a device without an operating system (owner, 16 October 2026: "on a chip, Stop and Start are the existing `shutdown` and `restart`"). On a computer, `shutdown` ends the trust-runtime process and a new process is the start. A chip's firmware never ends, so the program takes the place of the process: `shutdown` stops the program as trust-runtime stops it (outputs to their stop policy, STATE-02, and the durable retain save), and the chip stays reachable in the Stopped state, serving the control connection; `restart` with `cold` or `warm` then starts the installed program as a new trust-runtime process would: its logical time and uptime start at zero, and its events, metrics and task statistics start empty. Power-on and reset start the installed program in the same way; its logical time starts when the program starts, not at the chip's reset. Every other request answers as trust-runtime answers it in the same state; a `restart` of a program that runs, is paused or is faulted restarts it in place as trust-runtime does, and its records stay. One control loop serves the link between cycles and while Stopped; it is shared code (ARCH-11), and only its wait and wake come from the platform adapter.
+**STATE-08.** Stop and Start on a device without an operating system (owner, 16 October 2026: "on a chip, Stop and Start are the existing `shutdown` and `restart`"). On a computer, `shutdown` ends the trust-runtime process and a new process is the start. A chip's firmware never ends, so the program takes the place of the process: `shutdown` stops the program as trust-runtime stops it (outputs to their stop policy, STATE-02, and the durable retain save), and the chip stays reachable in the Stopped state, serving the control connection; `restart` with `cold` or `warm` then starts the installed program as a new trust-runtime process would: its logical time and uptime start at zero, and its events, metrics and task statistics start empty. A `warm` start gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 Ed.3 §6.5.6.1: "the values the variables had when the resource or configuration was stopped"): the chip still holds them in its memory, where a new trust-runtime process without a retain store cannot, because the process that held them has ended. Power-on and reset start the installed program in the same way; its logical time starts when the program starts, not at the chip's reset. Every other request answers as trust-runtime answers it in the same state; a `restart` of a program that runs, is paused or is faulted restarts it in place as trust-runtime does, and its records stay. One control loop serves the link between cycles and while Stopped; it is shared code (ARCH-11), and only its wait and wake come from the platform adapter.
 
 Requests take effect where trust-runtime's scan thread takes them. The loop answers each request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next boundary, as trust-runtime's scan thread takes it at its next pass: while the program runs, when its next cycle is due, one cycle interval after the last cycle started; while it is paused, one cycle interval after the last boundary; while it is faulted, at the end of each 10 ms poll of the faulted wait. At a boundary the stop is taken first, then the queued pauses and resumes in order, then a pending restart, and then the cycle; at a poll of the faulted wait a pending restart is taken before the stop. Pauses and resumes wait in a queue of trust-runtime's size, and one beyond it is refused with `resource_busy`. Only these differences remain: the device serves requests between cycles, never during one, at most eight in one pass before a due cycle; trust-runtime starts each cycle later than it is due by its operating system's wake-up latency; and after `shutdown` the device stays reachable and a `restart` takes effect at once, where trust-runtime's process has ended. The loop feeds the platform's hardware watchdog once in every pass and waits no longer than the watchdog's feed interval, in every state, so a stopped, paused or faulted chip is never reset by it (TIME-04).
+
+A chip whose application region holds no program, or holds one that the chip refuses (DEPLOY-04; for example a program that calls `CURRENT_DT` on a chip without a wall clock, §5.2), runs the same loop without a program: it serves the control connection, `status` reports `stopped` without a fault, and every request answers as in the Stopped state, except that `restart` is refused with the stable code `resource_not_running` and the message `no installed program: <reason>`, which names why the chip has none. A program deployed to it (§11.2) is then started by `restart` as above.
 
 ## 10. Retain and persistence
 
@@ -1710,6 +1786,16 @@ that checkpoint without committing it and latches the failure; the caller takes 
 committed checkpoint stays readable. A stop or shutdown completes the pending checkpoint and then
 writes the newest staged image if it was not written, all steps at once, so the save completes before
 the runtime is Stopped.
+
+**The device runner.** The installed program's cycle holds this persister over the checkpoint store
+its platform supplies: at each scan's pre-output-sample checkpoint it captures the retained values
+and offers them, the resource loop advances one step between scans with the store's per-step program
+budget, and a stop or shutdown completes the pending checkpoint and the newest image before the
+resource reports Stopped. No step runs inside a scan, and a failure a step or a start latched fails
+the next scan with `RuntimeError::RetainStore` before physical outputs, as a computer's failed retain
+save does. A warm start decodes the newest committed checkpoint with the shared codec and applies it
+by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts the retained values
+with their declared initial values.
 
 ### 10.1 Checkpoint log in flash
 
@@ -2785,7 +2871,9 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
-| 0.29 | 18 October 2026 | §6.3, after MEM-09: construction reserves, per call depth, the call scratch that binds a call — its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted outputs, sized for the largest call site and the largest POU — and a call takes its depth's scratch and returns it on every path (completion, trap, refusal and abort), so a scan allocates no argument, flag, output-binding, target or prepared-output vector. Every result, charge and refusal is unchanged (TIME-08). |
+| 0.31 | 18 October 2026 | §6.3, after MEM-09: construction reserves, per call depth, the call scratch that binds a call — its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted outputs, sized for the largest call site and the largest POU — and a call takes its depth's scratch and returns it on every path (completion, trap, refusal and abort), so a scan allocates no argument, flag, output-binding, target or prepared-output vector. Every result, charge and refusal is unchanged (TIME-08). |
+| 0.30 | 18 October 2026 | §10, "The device runner": the chip's installed program holds the checkpoint persister over the checkpoint store its platform supplies; it captures the retained values and offers them at each scan's pre-output-sample checkpoint, the resource loop advances one step between scans with the store's per-step program budget so no step runs inside a scan, a stop or shutdown completes the save before the resource reports Stopped, and a latched failure fails the next scan with `RuntimeError::RetainStore` before physical outputs. A warm start decodes the newest committed checkpoint with the shared codec and applies it by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts with the declared initial values. |
+| 0.29 | 17 October 2026 | §7.4 (PORT-05): the control link on a byte stream, such as a chip's USB serial port: line framing as trust-runtime's socket, frames of up to 8,192 bytes on every chip's USB link, an oversized request dropped to its line feed and answered once with `request longer than <frame> bytes`, a reply longer than the frame replaced by `reply longer than <frame> bytes` until requests and replies travel in parts with program loading's transfer, `events.tail` and `faults` written event by event within the frame, one reply in flight, a reply without progress for 1 second dropped with the line-feed repair, a new host session, and the link's counters. STATE-08: a chip without an installed program, or with one it refused, serves the control connection in the Stopped state and refuses `restart` with `no installed program: <reason>` until a program is installed; a warm start after `shutdown` gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 §6.5.6.1). |
 | 0.28 | 18 October 2026 | §6.3, after MEM-09: construction reserves one frame payload per call depth (that depth's local slots and parameter-presence bits, sized for the largest POU) and one edge-input list and restore list, and a user or method call takes the locals of its frame from the reserved payloads; an activation binds its arguments into the payload, reads edge inputs and their restores from the reserved lists and returns the payload when its frame is popped on every path, and a scan allocates no locals, presence, edge-input or restore vector. Construction also reserves the bookkeeping scratch: initializer result slots, seed lists and owned-instance snapshots, the lifetime check's visited set, and `SIZEOF(type)` walks a fixed stack. Every result, charge and refusal is unchanged (TIME-08). §10, "Between scans": a chip's checkpoint persister starts a checkpoint when the save is due and the image changed, advances it one log step at a time between scans, completes it at a stop, and latches a failure as `RuntimeError::RetainStore`. |
 | 0.27 | 17 October 2026 | §6.3, after MEM-09: preparation resolves every `CALL_NATIVE` site once into a call plan (each actual's formal index, the presence pattern, the output descriptors, and the callee: a function's prepared POU, a function block's POU, a method through the prepared owner and method table, a built-in function block's kind and parameters); a scan resolves no argument names and builds no uppercase type-name key, and an interface attempt compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every result, charge and refusal is unchanged (TIME-08). |
 | 0.26 | 17 October 2026 | §6.3 (MEM-02, MEM-09): construction sizes the per-call reservations to the program's static call depth instead of `max_call_depth`, counting every call target from every entry, a method and interface call over every implementing POU, and a nested instance declaration as the initialization it runs; a recursive call graph has no static depth and reserves for `max_call_depth`. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged. |
@@ -3078,7 +3166,10 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   clear it. The firmware therefore reads and clears it at every boot. With reason 0x07, a watchdog
   cookie completes the run. With reason 0x15 or 0x01, a leftover cookie is discarded and a new run
   starts; that reset is the explicit new boot. Any other reason with a cookie present halts with a
-  FAIL record.
+  FAIL record. Beside it, both chips keep the same fixed-size reset record (a magic, a version, a
+  CRC-32 and a boot counter, with the cause and a short panic location): the panic and watchdog
+  paths write it before a reset, and the next boot reads and clears it once, so a damaged record
+  reads as no record.
 - **GPIO.** The physical input is the BOOT button, GPIO9: active low with the internal pull-up. It
   is a strapping pin sampled only at reset, so the firmware reads it only after boot. The output is
   GPIO18, a plain pin with no board load, read back through its own pad input; the probe read back
@@ -3089,7 +3180,8 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   budgets a 16 KiB window at its top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant
   that inspection pins), with F401's 2 KiB minimum headroom, so the boards' heap and
   stack evidence is directly comparable. Exceeding the window fails the run although the region
-  has room. Interrupts use the same stack on RISC-V, so the window includes them.
+  has room. Interrupts use the same stack on RISC-V, so the window includes them. The allocator
+  serves two heap regions on the C6: the 72 KiB arena and the boot loader's reclaimed RAM.
 - **Code placement.** Executed from flash through the 32 KB cache, one task activation retired
   188,838 instructions in about 1.77 M cycles (11.07 ms, over the 10 ms period): the core stalled
   on code fetches. Scan-time code therefore executes from HP SRAM. The firmware enables esp-hal's
@@ -3102,11 +3194,13 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   routines run from the chip's ROM.
 - **Flash layout.** The bootloader sits at 0x0 and the partition table at 0x8000, per the ESP-IDF
   image format. Partitions: `factory` application at 0x10000 (1,984 KiB); `stbc` at 0x200000
-  (16 KiB), the separately installable application bundle, sized like F401 sector 1; and `ckpt_a`
-  at 0x204000 and `ckpt_b` at 0x208000 (16 KiB each), reserved like F401 sectors 2 and 3 with no
-  persistence implemented. `stbc` uses the custom partition type 0x40 and the checkpoint slots
-  type 0x41 (subtypes 0 and 1), so the bootloader ignores them. The firmware reads `stbc` once at
-  boot into RAM through `esp-storage`. No flash write or erase happens during RUN.
+  (6,112 KiB), the separately installable application bundle, the flash the chip allows up to the
+  checkpoint slots at the end of the 8 MB flash; and `ckpt_a` at 0x7F8000 and `ckpt_b` at
+  0x7FC000 (16 KiB each), reserved with no persistence implemented. `stbc` uses the custom
+  partition type 0x40 and the checkpoint slots type 0x41 (subtypes 0 and 1), so the bootloader
+  ignores them. The firmware reads the installed bundle, at most the fixture's 16 KiB capacity,
+  from the start of `stbc` once at boot into RAM through `esp-storage`; the RAM buffer is that
+  capacity, never the partition's size. No flash write or erase happens during RUN.
 - **Identity.** IDENTITY carries eight values: the chip ID from the running image header (13); the
   chip revision as major·100 + minor (2); the base MAC as its high 16 and low 32 bits; the flash
   size in KiB from the running image header (8192); the CPU clock in Hz; `misa`; and the reset
@@ -3132,13 +3226,13 @@ Firmware is developed for the chip (ARCH-10). The first board is the owner's STM
 | Links (ARCH-12) | The control connection over USB (OTG FS to the chip) and over Ethernet when the board has a PHY. | The DISC1 has no PHY; Ethernet is proved on a board or add-on with one. |
 | Adapter | `crates/trust-platform-stm32f4`, one Cargo feature per chip: `stm32f407`, the default; the `stm32f401` feature and the F401 composition were retired 17 October 2026 (owner). What differs between the chips is data in `chip.rs`: system clock, flash sectors, RAM, device ID, ports and the pins the firmware keeps. Pins are named at run time; no pin of any board is in the adapter. Ethernet and USB are the next steps. | Authored 17 October 2026, not yet built or run. HAL 0.23.0, PAC 0.16.0, cortex-m 0.7.9 and cortex-m-rt 0.7.7 are the F401's versions; one engine owner as on the F401. |
 | Clock | 168 MHz for SYSCLK and HCLK, APB1 42 MHz, APB2 84 MHz, from the PLL. The crystal is measured, not assumed (TARGET-02): after reset the chip runs from the 16 MHz HSI, the firmware starts the crystal, and TIM11 counts HSI cycles over 64 captures, each of eight edges of the crystal clock divided by 31 (RCC_CFGR.RTCPRE; TIM11 option register TI1_RMP = HSE_RTC). The figure is rounded to a whole MHz, between 4 and 26 MHz, when it is at most 1.2 % above or 5 % below one, and configures the PLL; above is tight because a crystal above the figure the PLL is told would run the chip above 168 MHz (for a crystal that is not a whole MHz, with the HSI inside its trim, at most about 0.5 % above). No crystal, no clean capture or an unlikely figure sends the PLL to the HSI. The startup record `B1,CLOCK,<HSE or HSI>,<measured Hz>,<crystal Hz>,<SYSCLK Hz>,<note>` follows each `B1,IDENTITY`, the first boot's and the watchdog boot's, and says which, and why. | The HSI is factory-trimmed to 1 % at 25 degrees (DS8626), so the measurement is no more exact than that. A crystal that is not a whole number of MHz is named in `device.toml` (TARGET-02). The route through TIM11 is unproven until the bench run. |
-| Flash | 1 MiB in 12 sectors: 4 x 16 KiB, 1 x 64 KiB and 7 x 128 KiB (RM0090). The first four sectors and the start of the firmware are laid out as on the F401: vectors in sector 0, the application bundle in sector 1 (0x08004000), checkpoint slots in sectors 2 and 3, firmware from sector 4 (0x08010000) through sector 11, 960 KiB. | The linker script asserts the vector size, the firmware start and the end of flash. The F401's data placement in sector 0 is a squeeze for 448 KiB and is not used. |
-| RAM | SRAM1 112 KiB and SRAM2 16 KiB form one block of 128 KiB at 0x20000000; the 64 KiB CCM at 0x10000000 is for the CPU only. The bench firmware keeps the fixture's 72 KiB allocator arena and 16 KiB main stack in the 128 KiB; the CCM is unassigned. | The footprint of the services runner decides what moves into the CCM. |
+| Flash | 1 MiB in 12 sectors: 4 x 16 KiB, 1 x 64 KiB and 7 x 128 KiB (RM0090). Vectors in sector 0, firmware in sectors 4 to 9 (704 KiB from 0x08010000), the installed application bundle in sectors 10 and 11 (256 KiB from 0x080C0000), the checkpoint slots in sectors 2 and 3, and sector 1 unused. | The linker script asserts the vector size, the firmware start, and that the firmware's load image ends at or below 0x080C0000. |
+| RAM | SRAM1 112 KiB and SRAM2 16 KiB form one block of 128 KiB at 0x20000000; the 64 KiB CCM at 0x10000000 is for the CPU only. The bench firmware keeps the fixture's 72 KiB allocator arena and 16 KiB main stack in the 128 KiB; the CCM is unassigned pending the services runner, whose stack and link buffers leave the rest of the CCM as the allocator's second heap region. | The footprint of the services runner decides what moves into the CCM. |
 | Identity | The firmware checks DBGMCU_IDCODE device 0x413 and the flash size register, 1024 KiB, and stops on another chip. The device ID is shared by the F405, F407, F415 and F417; the build selects the chip. | The check is tested on the host against the M0 record above. |
 | Pins (TARGET-01) | A line names a pin as `P`, a port letter A to K and a number 0 to 15: `PD12` (small letters are accepted). The chip table says which pins exist (ports A to I; port I has PI0 to PI11) and which the firmware keeps: PA2 and PA3 for the console, PA13 and PA14 for SWD, PH0 and PH1 for the crystal. A refused line says why. An output latches its safe level before it becomes an output, and `emergency_halt` drives every configured output to its safe level. The table check is a `const fn`, so the bench firmware asserts its wiring when it is built. | The DISC1 is configuration of the bench firmware, not of the adapter: LD4 (green) on PD12 (LD3 to LD6 are PD13, PD12, PD14 and PD15) and the user button B1 on PA0, which reads high while pressed. |
 | Console | USART2 on PA2 (TX) and PA3 (RX), 230400 baud, 8N1, written at register level because the driver that owns every GPIO port also owns these pins. | ST's UM1472, as an ST community post quotes it, says the ST-LINK/V2-A's virtual COM port lines (ST-LINK_TX and ST-LINK_RX on U2 pins 12 and 13) are not connected to the F407's USART, so the DISC1 may give no console over its USB cable. The manual itself has not been checked for this entry; confirm on the owner's board. Until a link over USB exists the bench console is a 3.3 V USB-UART adapter on PA2 and GND. |
 | Firmware | `firmware/trust-stm32f407`, for the chip. It runs the shared `trust-board-fixture` runner until the services runner replaces it. | Build and bench run pending. |
-| Evidence | `cargo xtask portability build-firmware stm32f407` builds the chip's firmware from `chips/stm32f407.toml` (Appendix H); `inspect` and `verify` take the bench board's name `stm32f407g-disc1`. Inspection reads the sector map above: the vector table alone in sector 0, nothing loaded in sectors 1 to 3, the firmware and the initial values of `.data` in sectors 4 to 11, the statics and the 72 KiB arena in the 112 KiB of SRAM below the 16 KiB main stack (0x2001C000 to 0x20020000, initial stack pointer 0x20020000), and nothing in the CCM. The verifier pins the chip words of the M0 record (DBGMCU_IDCODE and the three UID words), the 1024 KiB flash size and the 168 MHz clock, and requires exactly one `B1,CLOCK` record right after each of the two `B1,IDENTITY` records. It checks the record's fields: the source is HSE or HSI and goes with the note; SYSCLK equals the profile's 168 MHz; an HSE record has a crystal of 4 to 26 MHz that is the measurement rounded to a whole MHz; an HSI record has no crystal figure. It reads B1 as active high (the pin level equals the pressed flag; the C6's GPIO9 reads low while pressed) and bounds a scan at 10 ms of cycles, 1,680,000. | Authored 17 October 2026 and tested on the host with synthetic records only. The reader of the linked ELF and the form of a real capture are proved by the first build and bench run. |
+| Evidence | `cargo xtask portability build-firmware stm32f407` builds the chip's firmware from `chips/stm32f407.toml` (Appendix H); `inspect` and `verify` take the bench board's name `stm32f407g-disc1`. Inspection reads the sector map above: the vector table alone in sector 0, nothing loaded in sectors 1 to 3 or in the application's sectors 10 and 11, the firmware and the initial values of `.data` in sectors 4 to 9, the statics and the 72 KiB arena in the 112 KiB of SRAM below the 16 KiB main stack (0x2001C000 to 0x20020000, initial stack pointer 0x20020000), and nothing in the CCM. The verifier pins the chip words of the M0 record (DBGMCU_IDCODE and the three UID words), the 1024 KiB flash size and the 168 MHz clock, and requires exactly one `B1,CLOCK` record right after each of the two `B1,IDENTITY` records. It checks the record's fields: the source is HSE or HSI and goes with the note; SYSCLK equals the profile's 168 MHz; an HSE record has a crystal of 4 to 26 MHz that is the measurement rounded to a whole MHz; an HSI record has no crystal figure. It reads B1 as active high (the pin level equals the pressed flag; the C6's GPIO9 reads low while pressed) and bounds a scan at 10 ms of cycles, 1,680,000. | Authored 17 October 2026 and tested on the host with synthetic records only. The reader of the linked ELF and the form of a real capture are proved by the first build and bench run. |
 
 ## Appendix E — Implementation deliverables and acceptance ownership
 
@@ -3236,6 +3330,7 @@ KiB.
 | `[memory.flash]` | `start`, `kib`, `sectors` | `stm32f4` only: flash in the chip's address space, from address `start`, of `kib`, with its erase sectors in address order as runs `{ count, kib }`. |
 | `[memory.spi_flash]` | `erase_kib` | `esp32` only: flash on the chip's SPI flash interface, in the package or the module. Its size is the device's own and is read when truST is installed; `erase_kib` is its erase unit. |
 | `[[memory.ram]]` | `name`, `start`, `kib`, `dma` | One entry per RAM region: its name in the reference manual, its first address, its size, and whether DMA reaches it (the F407's CCM is for the CPU only). |
+| `[events]` | `default_capacity`, `max_capacity` | The newest events the chip's event store keeps when the project sets none, and the most a project may set (truST's own choice, H.4). The firmware sizes its event store with them, and admission refuses a project above the maximum (specification 11, the event store; §5.1.1 step 7). |
 | `[layout]` | `vectors` | `stm32f4` only: the vector table. |
 | | `bootloader`, `partition_table` | `esp32` only: the second-stage boot loader and the partition table. |
 | | `firmware` | The truST firmware. |
@@ -3289,12 +3384,13 @@ project that needs a component it lacks, naming the chips whose files list it (A
 ### H.4 Measured and data-sheet values
 
 A value is the manufacturer's, from the documents in `sources.documents`, or truST's own choice
-(the layout, the firmware clock, the firmware and its components), unless `[sources]` says
-otherwise. `measured` lists the values that were read on a chip, and `measured_on` says on which
-device and when. `unchecked` lists manufacturer values that the repository's records do not yet
-confirm; a reviewer checks them against the documents before a tool relies on them. An entry is a
-key path such as `identity.device_id`. A path through an array of tables names that key in every
-entry (`memory.ram.dma`); a path to a table or an array names all of it.
+(the layout, the firmware clock, the firmware and its components, and the `[events]` default and
+maximum), unless `[sources]` says otherwise. `measured` lists the values that were read on a chip,
+and `measured_on` says on which device and when. `unchecked` lists manufacturer values that the
+repository's records do not yet confirm; a reviewer checks them against the documents before a tool
+relies on them. An entry is a key path such as `identity.device_id`. A path through an array of
+tables names that key in every entry (`memory.ram.dma`); a path to a table or an array names all of
+it.
 
 ### H.5 Rules
 
@@ -3327,6 +3423,8 @@ The reader refuses a file that breaks one of these rules:
 10. `sources.documents` is not empty. Every path in `measured` and `unchecked` names a key outside
     `[sources]`, and no path is listed twice or inside another listed path. `measured_on` is given,
     and not empty, exactly when `measured` is not empty.
+11. The event store's capacities form a range: 1 <= `default_capacity` <= `max_capacity` <=
+    1,000,000.
 
 ### H.6 Where the files are read
 

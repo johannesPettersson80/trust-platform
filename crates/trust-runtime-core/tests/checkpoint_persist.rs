@@ -1,8 +1,10 @@
 //! The stepwise persister of a chip's retained values (specification 34 §10; C5-3): a due changed
 //! image is written in steps and committed, an unchanged image is skipped, a newer due image waits
 //! for a pending checkpoint and is not lost, `finish` completes the pending checkpoint and the
-//! newest image, a failed step latches a retain-store failure once and keeps the last checkpoint,
-//! and a power cut after every step recovers the last committed payload.
+//! newest image, a failed step latches a retain-store failure once and keeps the last checkpoint, a
+//! power cut after every step recovers the last committed payload, and a recovered checkpoint of
+//! the persister's identity is the image last written, so the first due save after a warm start
+//! writes nothing unless the checkpoint was written for another identity.
 //!
 //! The flash is simulated (`checkpoint_log/flash.rs`) with a chip's program and erase units, so a
 //! cut can stop a program or an erase at any byte.
@@ -608,6 +610,85 @@ fn the_persister_allocates_nothing_after_construction() {
         assert_eq!(
             count, 0,
             "{geometry:?}: the persister allocated after construction"
+        );
+    }
+}
+
+#[test]
+fn a_recovered_image_of_this_identity_is_not_written_again() {
+    for geometry in geometries() {
+        // A committed checkpoint of this identity, as an earlier run left it (specification 34
+        // §10.1).
+        let mut flash = SimFlash::new(geometry);
+        let first = write(&mut flash, 1);
+        assert_eq!((first.0.sequence, first.1), (1, image(1)));
+        flash.record_operations();
+
+        // A boot recovers it: the persister keeps the recovered payload as the image it last wrote,
+        // so a due save of that unchanged image writes nothing (specification 11 §6.7), and a chip
+        // does not rewrite the checkpoint it has just restored.
+        let mut capture = new_capture();
+        stage(&mut capture, 1);
+        {
+            let mut persister = persister(&mut flash);
+            let mut buffer = vec![0; 16 * 1024];
+            let recovered = persister
+                .recover(&mut buffer)
+                .expect("recover")
+                .expect("a checkpoint");
+            assert_eq!((recovered.sequence, recovered.payload_len), (1, 20));
+            persister
+                .offer(&mut capture, Duration::from_millis(100))
+                .expect("offer the recovered image");
+            assert!(
+                !persister.is_writing(),
+                "{geometry:?}: the recovered image started a write"
+            );
+            persister
+                .finish(&mut capture, Duration::from_millis(200))
+                .expect("finish the unchanged image");
+            assert_eq!(
+                flash.operations().len(),
+                0,
+                "{geometry:?}: the recovered image programmed or erased flash"
+            );
+        }
+
+        // A checkpoint of another identity is not that image, so the first due save writes it once,
+        // under this persister's identity (specification 11 §6.7).
+        let other = CheckpointIdentity {
+            application: APPLICATION,
+            schema: [0x33; 16],
+        };
+        let mut capture = new_capture();
+        stage(&mut capture, 1);
+        {
+            let log = CheckpointLog::open(&mut flash).expect("open the checkpoint log");
+            let mut persister = CheckpointPersister::new(log, other, IMAGE_BYTES);
+            let mut buffer = vec![0; 16 * 1024];
+            let recovered = persister
+                .recover(&mut buffer)
+                .expect("recover")
+                .expect("a checkpoint");
+            assert_eq!(
+                recovered.identity, IDENTITY,
+                "{geometry:?}: the checkpoint was written for the other identity"
+            );
+            persister
+                .offer(&mut capture, Duration::from_millis(100))
+                .expect("offer the due image");
+            assert!(
+                persister.is_writing(),
+                "{geometry:?}: another identity's checkpoint was kept as the last written image"
+            );
+            let record = drain(&mut persister, 64);
+            assert_eq!((record.sequence, record.identity), (2, other));
+        }
+        // One appended checkpoint, without a rotation: a record header, the payload and the commit.
+        assert_eq!(
+            flash.operations().len(),
+            3,
+            "{geometry:?}: one appended checkpoint is three programs"
         );
     }
 }

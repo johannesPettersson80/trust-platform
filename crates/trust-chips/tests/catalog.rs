@@ -82,8 +82,8 @@ fn the_stm32f407_file_describes_the_chip_of_appendix_d4() {
         layout(&chip),
         [
             ("vectors", 0x0800_0000, 16),
-            ("firmware", 0x0801_0000, 960),
-            ("application", 0x0800_4000, 16),
+            ("firmware", 0x0801_0000, 704),
+            ("application", 0x080C_0000, 256),
             ("checkpoint_a", 0x0800_8000, 16),
             ("checkpoint_b", 0x0800_C000, 16),
         ]
@@ -117,9 +117,9 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
             ("bootloader", 0x0, 32),
             ("partition_table", 0x8000, 4),
             ("firmware", 0x1_0000, 1984),
-            ("application", 0x20_0000, 16),
-            ("checkpoint_a", 0x20_4000, 16),
-            ("checkpoint_b", 0x20_8000, 16),
+            ("application", 0x20_0000, 6112),
+            ("checkpoint_a", 0x7F_8000, 16),
+            ("checkpoint_b", 0x7F_C000, 16),
         ]
     );
     assert_eq!(chip.interfaces.ethernet, Vec::<String>::new());
@@ -212,6 +212,64 @@ fn the_component_words_are_the_closed_list_of_appendix_h3() {
         let chip = ChipFile::parse("stm32f407", &text).expect("a valid file");
         assert_eq!(chip.firmware.components, [Component::Engine, component]);
     }
+}
+
+#[test]
+fn a_chip_file_gives_the_event_store_default_and_maximum() {
+    // Specification 34, Appendix H.2 and H.5 rule 11: `[events]` gives the newest events the
+    // store keeps when the project sets none and the most a project may set, with 1 <=
+    // default_capacity <= max_capacity <= 1,000,000. The C6 keeps 200 and admits at most 200
+    // until a measurement of the heap a program leaves on the bench allows more. Catches a
+    // missing or swapped pair, and a range the rule refuses.
+    let file = include_str!("../../../chips/esp32c6.toml");
+    let chip = chip("esp32c6");
+    assert_eq!(chip.events.default_capacity, 200);
+    assert_eq!(chip.events.max_capacity, 200);
+
+    // A default above the maximum.
+    let above = file.replace(
+        "default_capacity = 200\nmax_capacity = 200",
+        "default_capacity = 201\nmax_capacity = 200",
+    );
+    assert_eq!(
+        ChipFile::parse("esp32c6", &above).unwrap_err().problem,
+        Problem::EventStoreRange {
+            default_capacity: 201,
+            max_capacity: 200,
+        }
+    );
+    // A zero.
+    let zero = file.replace(
+        "default_capacity = 200\nmax_capacity = 200",
+        "default_capacity = 0\nmax_capacity = 200",
+    );
+    assert_eq!(
+        ChipFile::parse("esp32c6", &zero).unwrap_err().problem,
+        Problem::EventStoreRange {
+            default_capacity: 0,
+            max_capacity: 200,
+        }
+    );
+    // A maximum above the limit.
+    let above_limit = file.replace(
+        "default_capacity = 200\nmax_capacity = 200",
+        "default_capacity = 200\nmax_capacity = 1_000_001",
+    );
+    assert_eq!(
+        ChipFile::parse("esp32c6", &above_limit)
+            .unwrap_err()
+            .problem,
+        Problem::EventStoreRange {
+            default_capacity: 200,
+            max_capacity: 1_000_001,
+        }
+    );
+    // A missing key, as H.1 refuses it for every key.
+    let missing = file.replace("default_capacity = 200\n", "");
+    assert!(matches!(
+        ChipFile::parse("esp32c6", &missing).unwrap_err().problem,
+        Problem::Toml(_)
+    ));
 }
 
 #[test]

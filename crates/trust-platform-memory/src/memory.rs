@@ -1,5 +1,5 @@
 //! Bounded bring-up allocator and startup-painted stack measurements. The board
-//! composition owns the static arena and the addresses; this module owns the logic.
+//! composition owns the static arenas and the addresses; this module owns the logic.
 #[cfg(target_os = "none")]
 use crate::board::{Measurement, Memory};
 use crate::stack;
@@ -9,12 +9,26 @@ use core::{
 };
 use embedded_alloc::LlffHeap;
 
-/// Allocator wrapper that counts live bytes, phase peak, allocation calls and failures.
+/// Regions a [`MeasuredHeap`] serves: the main heap and one optional second region.
+const REGIONS: usize = 2;
+
+/// Allocator wrapper that serves up to two regions and counts live bytes, phase peak, allocation
+/// calls and failures over both. A composition hands in the regions at [`MeasuredHeap::init`]; the
+/// wrapper knows no address of its own.
 pub struct MeasuredHeap {
-    inner: LlffHeap,
+    /// One first-fit allocator per region; region 0 first, then region 1.
+    inner: [LlffHeap; REGIONS],
+    /// Start and size of each region as handed in, for deallocation routing and capacity.
+    bounds: [AtomicUsize; REGIONS * 2],
+    /// Sum of the region sizes, in bytes.
+    capacity: AtomicUsize,
+    /// Allocator bytes in use over both regions.
     used: AtomicUsize,
+    /// Allocator bytes in use at the peak, over both regions.
     peak: AtomicUsize,
+    /// Allocation calls over both regions.
     allocations: AtomicUsize,
+    /// Failed allocation calls over both regions.
     failures: AtomicUsize,
 }
 
@@ -22,7 +36,9 @@ impl MeasuredHeap {
     /// An allocator without a region; [`MeasuredHeap::init`] must run before any allocation.
     pub const fn empty() -> Self {
         Self {
-            inner: LlffHeap::empty(),
+            inner: [LlffHeap::empty(), LlffHeap::empty()],
+            bounds: [const { AtomicUsize::new(0) }; REGIONS * 2],
+            capacity: AtomicUsize::new(0),
             used: AtomicUsize::new(0),
             peak: AtomicUsize::new(0),
             allocations: AtomicUsize::new(0),
@@ -30,16 +46,40 @@ impl MeasuredHeap {
         }
     }
 
-    /// Give the allocator its only heap region.
+    /// Give the allocator its regions: the main heap and, when present, the second region an
+    /// allocation the first cannot take is tried in.
     ///
     /// # Safety
-    /// Call exactly once, before any allocation. `start..start + size` must be valid for
-    /// reads and writes, aligned for the allocator, and used by nothing else for the
-    /// program's lifetime.
-    pub unsafe fn init(&self, start: usize, size: usize) {
-        // SAFETY: the caller's contract gives the inner allocator exclusive ownership of
-        // this region for the whole program.
-        unsafe { self.inner.init(start, size) };
+    /// Call exactly once, before any allocation. Each region must be non-empty, valid for reads and
+    /// writes, aligned for the allocator, and used by nothing else for the program's lifetime.
+    pub unsafe fn init(&self, main: &'static mut [u8], second: Option<&'static mut [u8]>) {
+        for (index, region) in [Some(main), second].into_iter().enumerate() {
+            if let Some(region) = region {
+                let start = region.as_mut_ptr() as usize;
+                let size = region.len();
+                // SAFETY: the caller's contract gives the inner allocator exclusive ownership of
+                // this region for the whole program.
+                unsafe { self.inner[index].init(start, size) };
+                self.bounds[index * 2].store(start, Ordering::Relaxed);
+                self.bounds[index * 2 + 1].store(size, Ordering::Relaxed);
+                self.capacity.fetch_add(size, Ordering::Relaxed);
+            }
+        }
+    }
+
+    /// Total bytes of the regions handed in at [`MeasuredHeap::init`].
+    pub fn capacity(&self) -> usize {
+        self.capacity.load(Ordering::Relaxed)
+    }
+
+    /// Allocator bytes in use over both regions.
+    pub fn used(&self) -> usize {
+        self.used.load(Ordering::Relaxed)
+    }
+
+    /// Bytes of the regions not in use now, over both.
+    pub fn remaining(&self) -> usize {
+        self.capacity().saturating_sub(self.used())
     }
 
     /// Lock-free failure evidence even when the panic came from inside the allocator.
@@ -51,20 +91,43 @@ impl MeasuredHeap {
             self.failures.load(Ordering::Relaxed),
         )
     }
+
+    /// Allocator bytes in use, summed fresh over both regions.
+    fn used_of_regions(&self) -> usize {
+        self.inner.iter().map(LlffHeap::used).sum()
+    }
+
+    /// The region holding `pointer`, or region 0 when no bound matches.
+    fn region_of(&self, pointer: usize) -> usize {
+        for index in 0..REGIONS {
+            let start = self.bounds[index * 2].load(Ordering::Relaxed);
+            let size = self.bounds[index * 2 + 1].load(Ordering::Relaxed);
+            if size != 0 && pointer >= start && pointer - start < size {
+                return index;
+            }
+        }
+        0
+    }
 }
 
-// SAFETY: the inner allocator owns the only heap region, serializes allocation
-// through the target's single-core critical-section implementation, and receives
-// unchanged pointer/layout pairs. Instrumentation never allocates or panics.
+// SAFETY: each inner allocator owns its region, serializes allocation through the target's
+// single-core critical-section implementation, and receives unchanged pointer/layout pairs.
+// Instrumentation never allocates or panics.
 unsafe impl GlobalAlloc for MeasuredHeap {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // SAFETY: GlobalAlloc's caller supplies a valid allocation layout.
-        let pointer = unsafe { self.inner.alloc(layout) };
+        let mut pointer = core::ptr::null_mut();
+        for heap in &self.inner {
+            // SAFETY: GlobalAlloc's caller supplies a valid allocation layout.
+            pointer = unsafe { heap.alloc(layout) };
+            if !pointer.is_null() {
+                break;
+            }
+        }
         self.allocations.fetch_add(1, Ordering::Relaxed);
         if pointer.is_null() {
             self.failures.fetch_add(1, Ordering::Relaxed);
         } else {
-            let used = self.inner.used();
+            let used = self.used_of_regions();
             self.used.store(used, Ordering::Relaxed);
             self.peak.fetch_max(used, Ordering::Relaxed);
         }
@@ -72,9 +135,11 @@ unsafe impl GlobalAlloc for MeasuredHeap {
     }
 
     unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
-        // SAFETY: delegated unchanged from the GlobalAlloc caller.
-        unsafe { self.inner.dealloc(pointer, layout) };
-        self.used.store(self.inner.used(), Ordering::Relaxed);
+        let index = self.region_of(pointer as usize);
+        // SAFETY: the caller returns a pointer/layout pair the same allocator produced, so `index`
+        // is the region that owns it.
+        unsafe { self.inner[index].dealloc(pointer, layout) };
+        self.used.store(self.used_of_regions(), Ordering::Relaxed);
     }
 }
 
@@ -152,7 +217,7 @@ impl Memory for TargetMemory {
     fn begin_phase(&self) {
         self.heap
             .peak
-            .store(self.heap.inner.used(), Ordering::Relaxed);
+            .store(self.heap.used_of_regions(), Ordering::Relaxed);
         self.heap.allocations.store(0, Ordering::Relaxed);
         self.heap.failures.store(0, Ordering::Relaxed);
     }
@@ -173,7 +238,7 @@ impl Memory for TargetMemory {
         let stack_used = self.window.top() - self.window.bottom() - untouched;
         self.stack_peak.fetch_max(stack_used, Ordering::Relaxed);
         Measurement {
-            used: self.heap.inner.used(),
+            used: self.heap.used_of_regions(),
             peak: self.heap.peak.load(Ordering::Relaxed),
             allocations: self.heap.allocations.load(Ordering::Relaxed),
             failures: self.heap.failures.load(Ordering::Relaxed),

@@ -18,7 +18,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
 use crate::access::{resolve_role, AccessRole, AuthFailure};
-use crate::events::RuntimeEvent;
+use crate::events::{RuntimeEvent, EVENT_STORE_CAPACITY};
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{
     ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingVarTarget,
@@ -77,11 +77,13 @@ pub(crate) struct FakeHost {
     pub(crate) actions: RefCell<Vec<Action>>,
     pub(crate) pending_restart: RefCell<Option<RestartMode>>,
     /// Values that cannot be read: `settings`, `io`, `metrics`, `realtime`, `control_mode`,
-    /// `openot`, `events` or `restart_slot`.
+    /// `openot`, `event_capacity`, `events` or `restart_slot`.
     pub(crate) unreadable: Vec<&'static str>,
     pub(crate) debug_hold: Option<&'static str>,
     pub(crate) io_drivers: Vec<IoDriverStatus>,
     pub(crate) metrics: RuntimeMetricsSnapshot,
+    /// The newest events the fake platform's event store keeps.
+    pub(crate) event_capacity: usize,
     pub(crate) realtime_errors: bool,
     pub(crate) extension_calls: RefCell<Vec<String>>,
     /// The wall clock: [`WALL_TIME_MS`], or `None` while the time is not set.
@@ -94,6 +96,8 @@ pub(crate) struct FakeHost {
     pub(crate) io_snapshot: RefCell<IoSnapshotRead>,
     /// The installation generation an instance-targeted request is resolved in.
     pub(crate) generation: Generation,
+    /// Why a device has no installed program, when it has none.
+    pub(crate) missing_program: Option<&'static str>,
 }
 
 impl FakeHost {
@@ -118,6 +122,7 @@ impl FakeHost {
             debug_hold: None,
             io_drivers: Vec::new(),
             metrics: RuntimeMetricsSnapshot::default(),
+            event_capacity: EVENT_STORE_CAPACITY,
             realtime_errors: false,
             extension_calls: RefCell::new(Vec::new()),
             utc_ms: Some(WALL_TIME_MS),
@@ -125,6 +130,7 @@ impl FakeHost {
             live_values: RefCell::new(LiveValueQueues::new()),
             io_snapshot: RefCell::new(IoSnapshotRead::Missing),
             generation: Generation::FIRST,
+            missing_program: None,
         }
     }
 
@@ -249,6 +255,10 @@ impl ResourcePort for FakeHost {
     fn starts_when_stopped(&self) -> bool {
         self.starts_when_stopped
     }
+
+    fn missing_program(&self) -> Option<&str> {
+        self.missing_program
+    }
 }
 
 impl StatusPort for FakeHost {
@@ -302,6 +312,11 @@ impl RecordsPort for FakeHost {
 
     fn metrics_snapshot(&self) -> Option<RuntimeMetricsSnapshot> {
         self.readable("metrics").then(|| self.metrics.clone())
+    }
+
+    fn event_capacity(&self) -> Option<usize> {
+        self.readable("event_capacity")
+            .then_some(self.event_capacity)
     }
 
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R> {
