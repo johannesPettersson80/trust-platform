@@ -83,16 +83,6 @@ fn analyze_source_files(
     if !parse_errors.is_empty() {
         return Err(CompileError::new(parse_errors.join("\n")));
     }
-    for (idx, parse) in parses.iter().enumerate() {
-        if super::contains_textual_action(&parse.syntax()) {
-            let message = "textual ACTION/SFC execution is unsupported by the runtime compiler";
-            return Err(CompileError::new(if label_errors {
-                format!("{}: {message}", source_label(&sources[idx], idx))
-            } else {
-                message.to_string()
-            }));
-        }
-    }
 
     let mut project = Project::new();
     project

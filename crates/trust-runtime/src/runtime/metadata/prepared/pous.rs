@@ -156,6 +156,7 @@ impl Projection<'_> {
                             temps: self.variables(id, StorageOwner::Frame, false)?,
                             using: Vec::new(),
                             body: Vec::new(),
+                            methods: self.methods(id)?,
                         },
                     );
                 }

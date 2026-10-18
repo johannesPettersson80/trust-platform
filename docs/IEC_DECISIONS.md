@@ -6,6 +6,33 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-18 - Program-scoped METHOD declarations (e!COCKPIT dialect)
+
+- Area: Program organization unit declarations
+- IEC context:
+  - IEC 61131-3 Ed.3 scopes method declarations to classes (6.6.5.4) and
+    function blocks (6.6.7.2); Table 47 (PROGRAM declaration) defines no
+    method member for programs.
+  - e!COCKPIT/CODESYS export programs with attached methods (plcopen
+    `addData` methods under the program POU), and the program body calls
+    them by bare name without a `THIS` qualifier.
+- Decision:
+  - truST accepts `METHOD ... END_METHOD` declarations inside the program
+    body of the textual file grammar, collects them as program-owned
+    methods, and lowers them as sub-bodies of the program singleton
+    instance dispatched through the program's method table. Bare-name
+    self-calls resolve in call position after scope variables; qualified
+    `ProgramName.method()` uses the existing program-singleton member
+    access. `PROPERTY` declarations remain rejected in program bodies.
+  - Textual ACTION sub-bodies on programs and function blocks lower the
+    same way (CODESYS textual POU parts); SFC action control remains out of
+    scope per `sfc-profile.md`.
+- Reason:
+  - The plcopen importer and the ST mirror already carry these constructs
+    faithfully; a front-end/file-grammar rejection diverges from the vendor
+    dialect without adding IEC conformance, because IEC has no competing
+    program-method requirement to conflict with.
+
 ## 2026-10-18 - Contextual identifier names ON, NULL, SET (vendor dialect)
 
 - Area: Keywords versus identifiers (lexical elements)

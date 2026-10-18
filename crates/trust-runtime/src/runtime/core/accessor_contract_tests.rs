@@ -654,6 +654,7 @@ fn program(name: &str, using: &[&str]) -> ProgramDef {
         temps: Vec::new(),
         using: using.iter().copied().map(Into::into).collect(),
         body: Vec::new(),
+        methods: Vec::new(),
     }
 }
 

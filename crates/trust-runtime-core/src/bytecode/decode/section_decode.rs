@@ -148,7 +148,7 @@ pub(super) fn decode_pou_index(
         let id = reader.read_u32()?;
         let name_idx = reader.read_u32()?;
         let kind = reader.read_u8()?;
-        let _flags = reader.read_u8()?;
+        let entry_flags = reader.read_u8()?;
         let _reserved = reader.read_u16()?;
         let code_offset = reader.read_u32()?;
         let code_length = reader.read_u32()?;
@@ -195,7 +195,7 @@ pub(super) fn decode_pou_index(
             });
         }
 
-        let class_meta = if kind.is_class_like() {
+        let class_meta = if kind.has_class_meta(entry_flags) {
             let parent_pou_id = optional_u32(reader.read_u32()?);
             let interface_count = read_bounded_count(reader, 8, "POU_INDEX interface")?;
             let mut interfaces = budget.vector(interface_count)?;

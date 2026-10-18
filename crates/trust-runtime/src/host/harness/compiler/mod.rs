@@ -2,7 +2,6 @@
 
 #![allow(missing_docs)]
 
-mod action_profile;
 mod config;
 mod dependency_prelude;
 mod edge;
@@ -12,14 +11,13 @@ mod types;
 mod vars;
 
 #[cfg(test)]
-#[path = "action_profile_contract_tests.rs"]
-mod action_profile_contract_tests;
+#[path = "action_lowering_contract_tests.rs"]
+mod action_lowering_contract_tests;
 
 #[cfg(test)]
 #[path = "generic_type_profile_contract_tests.rs"]
 mod generic_type_profile_contract_tests;
 
-pub(super) use action_profile::contains_textual_action;
 pub(super) use config::{
     lower_configuration, lower_root_global_var_blocks, resolve_program_type_name,
 };

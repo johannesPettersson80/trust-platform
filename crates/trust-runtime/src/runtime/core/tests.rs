@@ -409,6 +409,7 @@ fn program(name: &str) -> ProgramDef {
         temps: Vec::new(),
         using: Vec::new(),
         body: Vec::new(),
+        methods: Vec::new(),
     }
 }
 

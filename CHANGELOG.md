@@ -6,6 +6,21 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Compile CODESYS textual POU parts in the runtime harness compiler:
+  `ACTION ... END_ACTION` blocks declared inside a `FUNCTION_BLOCK` or
+  `PROGRAM` lower as same-instance sub-bodies — a bare-name call from the
+  owner body runs the action against the owner's own variables, and
+  qualified calls dispatch through the owner's method table. Program-scoped
+  `METHOD ... END_METHOD` declarations (e!COCKPIT dialect) are accepted by
+  the file grammar and lower like function-block methods, callable by bare
+  name from the program body or qualified through the program name. The
+  previous fail-closed textual ACTION/SFC rejection is gone; SFC action
+  control (step association, qualifiers) remains out of scope.
+- Accept `ON`, `NULL`, and `SET` as contextual identifier names (CODESYS
+  dialect): variables, members, parameters, and enum members may spell them
+  — OSCAT pins `TIMER_EXT.ON` / `FF_DRE.SET` and the `eChar.Null` member no
+  longer need to be dropped. `NULL` stays the reference literal in value
+  position and `ON` stays the `RESOURCE ... ON` separator.
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 

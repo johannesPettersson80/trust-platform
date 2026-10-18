@@ -259,6 +259,13 @@ impl PouIdMap {
                 map.methods.insert(key, id);
             }
         }
+        for (owner, program) in programs.iter() {
+            for method in &program.methods {
+                let key = MethodKey::new(owner, &method.name);
+                let id = map.alloc();
+                map.methods.insert(key, id);
+            }
+        }
 
         map
     }

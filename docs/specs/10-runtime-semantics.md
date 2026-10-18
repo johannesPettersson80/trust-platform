@@ -120,22 +120,22 @@ reference write, and retained-value restoration into a subrange validates the
 inclusive bounds after numeric normalization and before storage. A rejected
 value leaves the complete destination unchanged.
 
-#### 1.2.2 Textual ACTION fail-closed boundary
+#### 1.2.2 Textual ACTION lowering boundary
 
 The production runtime has no textual-SFC action-control engine. A parsed
-`ACTION name: ... END_ACTION` node is retained for front-end diagnostics only.
-Before program-model lowering or bytecode emission, compilation must detect any
-such node and fail with an unsupported textual ACTION/SFC diagnostic.
+`ACTION name: ... END_ACTION` node lowers as a same-instance sub-body of its
+owning `PROGRAM` or `FUNCTION_BLOCK` (spec 04 §8): the body's statements run
+only when the action is invoked, against the owner instance's own variables.
 
 In particular:
 
-- action statements must not be appended to the enclosing POU body;
-- action statements must not be silently omitted while a runnable owner is
-  emitted;
-- declaration alone must fail even when the action body is empty or has no
-  observable side effect; and
-- multi-file compilation must fail when any participating source contains a
-  textual action declaration.
+- action statements must not be appended to, or executed as part of, the
+  enclosing POU body;
+- an action body must not be silently omitted — every declared action is
+  reachable through invocation;
+- a declaration with an empty body compiles and runs as a no-op when invoked;
+  and
+- multi-file compilation lowers actions declared in any participating source.
 
 Visual SFC remains a separate authoring surface. Its executable result is the
 ordinary generated companion ST and runtime wrapper specified by

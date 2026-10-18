@@ -760,11 +760,12 @@ required by the interface signature.
 
 ## 8. ACTION Declaration (Table 56, Table 72; Section 6.7.4)
 
-truST's current `ACTION` support is a **front-end analysis profile**, not an
-executable textual-SFC profile. The lexer, parser, and semantic layer retain
-textual ST action declarations so source can be inspected and diagnosed, but
-the runtime compiler does not implement IEC step/action association or action
-control. See `sfc-profile.md`.
+truST compiles textual `ACTION ... END_ACTION` declarations as same-instance
+sub-bodies of their owning `PROGRAM` or `FUNCTION_BLOCK` (CODESYS semantics):
+the body runs against the owner's own variables when invoked, with no
+parameters, no return value, and no storage of its own. IEC step/action
+association, action control, and action qualifiers remain outside the
+textual profile; see `sfc-profile.md`.
 
 ### Syntax
 
@@ -794,11 +795,10 @@ END_ACTION
 6. The action body shares the enclosing POU's variable, type, function, and
    function-block visibility. An action in a function block also has the
    enclosing receiver context, including valid `THIS` and `SUPER` access.
-7. Semantic analysis checks every action body even though the current runtime
-   profile cannot execute it. Invalid assignments, unresolved names, invalid
-   calls, invalid loop control, and other statement errors must not be hidden
-   merely because runtime compilation will later reject the unsupported
-   construct.
+7. Semantic analysis checks every action body exactly like the owner body.
+   Invalid assignments, unresolved names, invalid calls, invalid loop
+   control, and other statement errors must not be hidden merely because the
+   body only runs on invocation.
 8. Labels and `JMP` targets form a scope for each action body. A jump cannot
    enter or leave an action body, matching IEC 61131-3 Ed.3 §8.1.6.
 9. A bare `RETURN;` in an action body has the containing program or function
@@ -813,8 +813,7 @@ END_ACTION
     spelling keeps shadowing the action for value and assignment contexts,
     and the action remains invocable by name in call position. SFC action
     association and qualifiers remain in the unsupported textual-SFC
-    profile, and the runtime compiler still does not implement action
-    control.
+    profile; the runtime implements invocation, not action control.
 
 ### Parser acceptance and recovery boundary
 
@@ -837,15 +836,22 @@ they do not create a valid action declaration or authorize execution.
 
 ### Compilation boundary
 
-1. Any source unit containing a textual `ACTION...END_ACTION` declaration must
-   be rejected by runtime/bytecode compilation with a diagnostic that identifies
-   textual ACTION/SFC execution as unsupported.
-2. The compiler must not omit an action body, execute it as part of the owner's
-   ordinary ST body, or emit a runnable program that contains only the owner's
-   non-action statements.
-3. No action-local state, scheduling, qualifier, step association, activation,
-   or scan-cycle semantics are defined by the current profile.
-4. Visual-SFC artifacts remain executable through their generated companion
+1. The runtime compiler lowers each textual action of a `PROGRAM` or
+   `FUNCTION_BLOCK` as a zero-parameter, no-return sub-body of its owner with
+   no locals and no statics of its own. It shares the owner's variable,
+   receiver, and visibility context; invocation is an ordinary owner-scoped
+   method-style call, so a bare-name call inside the owner body runs the body
+   against the owner instance's own variables.
+2. Action bodies must not be appended to, interleaved with, or executed as
+   part of the owner's ordinary statement list: the owner body runs exactly
+   its own statements, and action statements run only on invocation.
+3. Encoding and dispatch reuse the owner's method table (an action entry is
+   indistinguishable from a zero-parameter method entry of the same owner);
+   no bytecode format extension is defined for actions.
+4. No action-local state, scheduling, qualifier, step association, activation,
+   or scan-cycle semantics are defined. The runtime implements invocation
+   only; SFC action control remains unsupported in the textual profile.
+5. Visual-SFC artifacts remain executable through their generated companion
    function block and wrapper `PROGRAM` described by
    `17-visual-editors-runtime-unification.md`; they do not gain execution
    semantics by embedding textual action declarations.

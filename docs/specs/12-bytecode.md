@@ -657,10 +657,11 @@ struct PouEntry {
   u32 local_ref_start;
   u32 local_ref_count;
   u32 return_type_id; // 0xFFFFFFFF if no return
-  u32 owner_pou_id;   // METHOD only; 0xFFFFFFFF otherwise
+  u32 owner_pou_id;   // METHOD only; the owning PROGRAM or FUNCTION_BLOCK/CLASS POU id; 0xFFFFFFFF otherwise
   u32 param_count;
   ParamEntry params[param_count];
-  // if kind == FUNCTION_BLOCK or CLASS:
+  // if kind == FUNCTION_BLOCK or CLASS, or PROGRAM (program table present
+  // only when the program declares methods or textual actions):
   u32 parent_pou_id; // 0xFFFFFFFF if no EXTENDS
   u32 interface_count;
   InterfaceImpl interfaces[interface_count];
@@ -1204,15 +1205,17 @@ Wire compatibility is defined only by the encoded byte sequence in this
 specification. Structural equality compares all three exposed components.
 
 The encoder's private `ClassLike` adapter is a structural projection shared by
-class and function-block metadata emission:
+class, function-block, and program metadata emission:
 
-- `name()` borrows the exact declared class or function-block identity;
+- `name()` borrows the exact declared class, function-block, or program
+  identity;
 - `base_name()` returns the declared base identity without changing spelling
   or assigning different encoder semantics to a function-block base and class
-  base; absence remains `None`; and
-- `interfaces()` borrows the complete declared interface list in source order;
-  and
-- `methods()` borrows the complete method list in declaration order.
+  base; absence remains `None` (programs have no base); and
+- `interfaces()` borrows the complete declared interface list in source order
+  (programs declare none); and
+- `methods()` borrows the complete method list in declaration order, which
+  for a program includes its textual actions as zero-parameter entries.
 
 These signatures create no independent runtime behavior. Their authority is
 the preservation of already-specified source identities and relationships

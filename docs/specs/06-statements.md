@@ -266,6 +266,25 @@ Motor1.SetSpeed(NewSpeed := 1000);
 Status := Motor1.GetStatus();
 ```
 
+A method of the enclosing POU is additionally callable by bare name without a
+receiver (implicit self) — program-scoped methods (e!COCKPIT dialect, spec 04
+§4) and methods of the enclosing function block. From other POUs a
+program-scoped method resolves through the program-singleton member access
+(`ProgramName.method_name(parameters)`, spec 04 §4). Scope variables keep
+precedence over the enclosing-POU member scan, and arguments and the return
+value follow the shared call rules above.
+
+### 3.5 Textual Action Calls (CODESYS vendor extension; spec 04 §8)
+
+An action declared inside a `FUNCTION_BLOCK` or `PROGRAM` is invoked by its
+bare name inside the owning POU body, qualified by the owning program
+(`ProgramName.action_name()`), or through a function-block instance
+(`instance.action_name()`). An action call takes no arguments, returns no
+value, and is invalid in value position. In call position a scope variable
+with the same spelling shadows the action; otherwise the callee resolves as a
+function first and then as an owner-scoped action or method, and an
+unresolved name keeps the ordinary undefined-function diagnostic.
+
 ## 4. RETURN Statement (Section 7.3.3.2.4; truST DEV-022)
 
 ### Syntax

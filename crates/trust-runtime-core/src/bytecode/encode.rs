@@ -6,8 +6,9 @@ use super::align4;
 mod buffer;
 mod construction;
 use super::{
-    BytecodeError, BytecodeModuleView, BytecodeVersion, SectionData, SectionEntry, TypeData,
-    TypeEntry, TypeKind, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
+    BytecodeError, BytecodeModuleView, BytecodeVersion, PouKind, SectionData, SectionEntry,
+    TypeData, TypeEntry, TypeKind, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC,
+    SECTION_ENTRY_SIZE,
 };
 use buffer::{encoded_count, encoded_extent, Buffer};
 
@@ -154,7 +155,15 @@ fn encode_section_data(
                 out.extend_from_slice(&entry.id.to_le_bytes())?;
                 out.extend_from_slice(&entry.name_idx.to_le_bytes())?;
                 out.push(entry.kind as u8)?;
-                out.push(0)?;
+                // Program records carry the class-meta tail only when they
+                // declare methods or textual actions; the flag tells the
+                // decoder the tail is present.
+                let entry_flags = if entry.class_meta.is_some() && entry.kind == PouKind::Program {
+                    PouKind::FLAG_CLASS_META
+                } else {
+                    0
+                };
+                out.push(entry_flags)?;
                 out.extend_from_slice(&0u16.to_le_bytes())?;
                 out.extend_from_slice(&entry.code_offset.to_le_bytes())?;
                 out.extend_from_slice(&entry.code_length.to_le_bytes())?;

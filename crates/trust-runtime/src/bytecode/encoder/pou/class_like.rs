@@ -44,9 +44,28 @@ impl ClassLike for ClassDef {
     }
 }
 
+impl ClassLike for crate::task::ProgramDef {
+    fn name(&self) -> &SmolStr {
+        &self.name
+    }
+
+    fn base_name(&self) -> Option<SmolStr> {
+        None
+    }
+
+    fn methods(&self) -> &[MethodDef] {
+        &self.methods
+    }
+
+    fn interfaces(&self) -> &[SmolStr] {
+        &[]
+    }
+}
+
 enum ClassLikeDef<'a> {
     FunctionBlock(&'a FunctionBlockDef),
     Class(&'a ClassDef),
+    Program(&'a crate::task::ProgramDef),
 }
 
 impl<'a> ClassLikeDef<'a> {
@@ -54,6 +73,7 @@ impl<'a> ClassLikeDef<'a> {
         match self {
             ClassLikeDef::FunctionBlock(def) => def.base_name(),
             ClassLikeDef::Class(def) => def.base_name(),
+            ClassLikeDef::Program(_) => None,
         }
     }
 
@@ -61,6 +81,7 @@ impl<'a> ClassLikeDef<'a> {
         match self {
             ClassLikeDef::FunctionBlock(def) => def.methods(),
             ClassLikeDef::Class(def) => def.methods(),
+            ClassLikeDef::Program(def) => def.methods(),
         }
     }
 }

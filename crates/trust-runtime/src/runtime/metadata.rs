@@ -370,6 +370,7 @@ mod tests {
                 temps: Vec::new(),
                 using: vec!["ProgramLib".into()],
                 body: Vec::new(),
+                methods: Vec::new(),
             })
             .unwrap();
 
@@ -397,6 +398,7 @@ mod tests {
                 temps: Vec::new(),
                 using: Vec::new(),
                 body: Vec::new(),
+                methods: Vec::new(),
             })
             .unwrap();
         runtime.register_task(TaskConfig {
