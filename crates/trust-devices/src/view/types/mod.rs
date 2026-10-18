@@ -5,7 +5,10 @@
 //!
 //! The JSON field names are the Rust field names, enums are `snake_case`, and an absent `Option`
 //! is omitted. `Op`, `UiOp`, `Pane` and `HostEffect` are tagged by `kind`. `SCHEMA_VERSION`
-//! starts at 1: a field may be added, while renaming or removing one raises the version.
+//! starts at 1: a field may be added, while renaming or removing one raises the version. A fact
+//! that only the panel engine's session reads, such as a runtime's control endpoint or a
+//! connection's configuration, is `#[serde(skip)]`ped and never reaches the webview
+//! (design §4.3 B7).
 //!
 //! This module holds the vocabulary that every item uses: identities, tones, pills, rows,
 //! actions and what they do. `graph` holds the panel and the items of its graph, and `panes`
@@ -413,6 +416,10 @@ pub struct ActReply {
     /// What a slow action reports now; its result arrives in `operations_done`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pending: Option<PendingAction>,
+    /// The form that `form.open` built for the payload, which the panel stores and draws
+    /// (design §1.4.1); absent for every other action.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form: Option<Form>,
 }
 
 /// When the panel gathers again after an action (design §1.4.1).

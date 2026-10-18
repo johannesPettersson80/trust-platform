@@ -17,7 +17,7 @@ mod merge;
 mod synthetic;
 mod wire;
 
-pub(crate) use identity::encode;
+pub(crate) use identity::{connection_id, connection_instance_id, encode};
 pub(crate) use synthetic::configured_runtime_id;
 
 use serde_json::Value;

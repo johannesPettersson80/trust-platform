@@ -44,6 +44,8 @@ pub(crate) fn runtime(runtime: &topology::Runtime, place: Place<'_>, facts: &Fac
     let owner = owner(runtime, facts);
     let name = display_name(runtime, owner);
     let (contact, endpoint) = contact(runtime, owner, facts);
+    let answered = matches!(contact, Contact::Answered(_));
+    let project = is_project(runtime, facts, endpoint.as_deref());
     let subject = subject_of(
         runtime,
         &id,
@@ -110,6 +112,9 @@ pub(crate) fn runtime(runtime: &topology::Runtime, place: Place<'_>, facts: &Fac
         name,
         icon,
         address,
+        control_endpoint: endpoint,
+        answers: answered,
+        project,
         run_target: runtime.run_target,
         look: state.look,
         connections: Vec::new(),
@@ -243,6 +248,22 @@ pub(crate) fn display_name(runtime: &topology::Runtime, owner: Owner<'_>) -> Str
 
 fn trimmed(text: Option<&str>) -> Option<&str> {
     text.map(str::trim).filter(|text| !text.is_empty())
+}
+
+/// Whether the runtime is the open project's own runtime: the project's configured runtime, the
+/// simulator that runs the project, or the runtime that answered at the project's control
+/// endpoint (specification 25 §5.14). An action writes such a runtime in process into the
+/// project's files while it does not answer.
+fn is_project(runtime: &topology::Runtime, facts: &Facts, endpoint: Option<&str>) -> bool {
+    match runtime.origin {
+        RuntimeOrigin::Configured | RuntimeOrigin::Simulator | RuntimeOrigin::SimulatorFallback => {
+            true
+        }
+        _ => facts
+            .project_target
+            .as_ref()
+            .is_some_and(|target| trimmed(Some(target.endpoint.as_str())) == endpoint),
+    }
 }
 
 /// How the panel reached the runtime, and the endpoint that its session and program actions use.

@@ -5,11 +5,15 @@
 //!
 //! - `effects`: the host-effect lists of the runtime actions.
 //! - `runtimes`: Connect, the managed lifecycle, Add host, Add runtime and Adopt.
+//! - `config`: the forms and the connection actions, `form.open`, `form.validate`, save, remove,
+//!   disable and enable. Each resolves the runtime it writes to from what the session last showed
+//!   (design §4.3 B7).
 //!
 //! Every notice names the pane that started the action (specification 25 §5.13). An unknown action
 //! name, or one whose payload does not decode, is an error reply naming it, never a silent no-op;
 //! a name of the closed set that this task does not perform yet answers that it is not available.
 
+mod config;
 mod effects;
 mod runtimes;
 
@@ -74,6 +78,12 @@ pub fn act_with(session: &mut Session, request: &ActRequest, fleet: &dyn Fleet) 
         "runtime.add_host" => runtimes::add_host(request),
         "runtime.add_local" => runtimes::add_local(request, fleet),
         "runtime.adopt" => runtimes::adopt(request),
+        "form.open" => config::open(session, request),
+        "form.validate" => config::validate(session, request),
+        "connection.save" => config::save(session, request),
+        "connection.remove" => config::remove(session, request),
+        "connection.disable" => config::disable(session, request),
+        "connection.enable" => config::enable(session, request),
         action if CLOSED_ACTIONS.contains(&action) => error(
             &pane(request),
             &format!("The action '{action}' is not available yet."),
@@ -82,8 +92,9 @@ pub fn act_with(session: &mut Session, request: &ActRequest, fleet: &dyn Fleet) 
     }
 }
 
-/// The pane that started the action (specification 25 §5.13): the runtime's inspector, the form it
-/// opened, or a pane of the action itself.
+/// The pane that started the action (specification 25 §5.13): the form it opened, the runtime's
+/// inspector, or a pane of the action itself. A payload that names a form starts in that form, as
+/// a connection's actions do; else the runtime's inspector started it.
 pub(crate) fn pane(request: &ActRequest) -> String {
     if matches!(
         request.op.action.as_str(),
@@ -91,11 +102,11 @@ pub(crate) fn pane(request: &ActRequest) -> String {
     ) {
         return "discover".to_owned();
     }
-    if let Some(runtime) = payload_text(&request.op.payload, "runtime") {
-        return format!("inspector:{runtime}");
-    }
     if let Some(form) = payload_text(&request.op.payload, "form") {
         return format!("form:{form}");
+    }
+    if let Some(runtime) = payload_text(&request.op.payload, "runtime") {
+        return format!("inspector:{runtime}");
     }
     String::new()
 }
@@ -168,6 +179,7 @@ pub(crate) fn reply(
         close_pane,
         refresh,
         pending: None,
+        form: None,
     }
 }
 
@@ -185,6 +197,7 @@ pub(crate) fn pending(operation: String, pane: String, text: String) -> ActReply
             pane,
             text,
         }),
+        form: None,
     }
 }
 

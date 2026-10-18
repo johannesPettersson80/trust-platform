@@ -63,6 +63,63 @@ pub(super) fn connection_key(id: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// The identity of the connection that a `comm.apply` wrote, from the runtime's identity
+/// `runtime` and the `instance_id` its answer carries (`{protocol}:{index}`, specification 11
+/// §6.8.1a; design §4.3 B7, I41 and I42): the runtime's owner tuple with the endpoint at the
+/// written position in its configuration. It needs no second read of the topology. `None` when
+/// `runtime` is no runtime's identity or `instance_id` names no connection.
+#[must_use]
+pub(crate) fn connection_id(runtime: &str, instance_id: &str) -> Option<String> {
+    let parts = decode(runtime)?;
+    if part(&parts, 0) != Some("runtime") {
+        return None;
+    }
+    let runtime_id = part(&parts, 3)?;
+    let raw = endpoint_raw(runtime_id, instance_id)?;
+    let owner = Owner {
+        host: part(&parts, 1)?.to_owned(),
+        container: parts.get(2).cloned().flatten(),
+        runtime: runtime_id.to_owned(),
+        instance: parts.get(4).cloned().flatten(),
+    };
+    Some(owner.scoped("endpoint", &raw))
+}
+
+/// The `instance_id` (`{protocol}:{index}`) that `comm.apply` answers for the connection
+/// `connection`, so that the same connection can be removed, disabled or enabled again
+/// (specification 11 §6.8.1a; design §4.3 B7, R4). The inverse of [`connection_id`] for a
+/// connection of a runtime. `None` when `connection` is no connection's identity.
+#[must_use]
+pub(crate) fn connection_instance_id(connection: &str) -> Option<String> {
+    let key = connection_key(connection)?;
+    Some(if key.contains(':') {
+        key
+    } else {
+        format!("{key}:0")
+    })
+}
+
+/// The raw endpoint ID of the connection at the configuration position `instance_id`, as a
+/// runtime numbers its connections (specification 11, "Offline communication operation and
+/// fleet-topology truth"): `endpoint:<runtime ID>:<protocol>` for the first one and
+/// `endpoint:<runtime ID>:<protocol>:<index>` after it.
+fn endpoint_raw(runtime_id: &str, instance_id: &str) -> Option<String> {
+    let key = instance_id.trim();
+    if key.is_empty() {
+        return None;
+    }
+    let (protocol, index) = match key.rsplit_once(':') {
+        Some((protocol, index)) if !protocol.is_empty() => (protocol, index.parse::<usize>().ok()?),
+        Some(_) => return None,
+        None => (key, 0),
+    };
+    Some(if index == 0 {
+        format!("endpoint:{runtime_id}:{protocol}")
+    } else {
+        format!("endpoint:{runtime_id}:{protocol}:{index}")
+    })
+}
+
 /// Normalizes a snapshot: every container, runtime, endpoint, configured mesh external and link
 /// gets its owner-scoped identity, and every reference to one is rewritten. A reference with more
 /// than one possible owner drops the link that uses it, omits the configured mesh external it

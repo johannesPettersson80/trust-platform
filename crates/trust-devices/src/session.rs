@@ -1,11 +1,19 @@
 //! A panel's session (design §1.5): what it gathered, the newest request it has seen, and when it
-//! was last used. A session that stays idle for longer than ten minutes is closed.
+//! was last used. A session that stays idle for longer than ten minutes is closed. It also keeps
+//! what the last view showed of each runtime, which the actions of the panel resolve their target
+//! from (design §4.3 B7).
+//!
+//! - `runtimes`: what the last view showed of each runtime, and the catalog it serves.
+
+mod runtimes;
+
+pub use runtimes::{KnownConnection, KnownRuntime};
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use crate::gather::Cache;
-use crate::view::types::OperationDone;
+use crate::gather::{Cache, Gathered};
+use crate::view::types::{DevicesView, OperationDone};
 
 /// How long a session may stay idle before it is closed.
 pub const IDLE_EXPIRY: Duration = Duration::from_mins(10);
@@ -17,6 +25,8 @@ pub struct Session {
     newest_seq: Option<u64>,
     last_used: Instant,
     operations: Operations,
+    /// What the last view showed of each runtime, in the order the view showed them.
+    runtimes: Vec<KnownRuntime>,
 }
 
 /// The slow actions a session started, and the results that a later request delivers.
@@ -35,7 +45,36 @@ impl Session {
             newest_seq: None,
             last_used: now,
             operations: Operations::default(),
+            runtimes: Vec::new(),
         }
+    }
+
+    /// Keeps what `view` showed of each runtime, so that a later action resolves the runtime it
+    /// writes to from what the panel last showed, never from a fact the extension sent (design
+    /// §4.3 B7; specification 25 §5.14). `gathered` is the gather that the view was projected
+    /// from, which also tells each runtime's served catalog; the view does not carry it.
+    pub fn remember(&mut self, gathered: &Gathered, view: &DevicesView) {
+        self.runtimes = view
+            .computers
+            .iter()
+            .flat_map(|computer| &computer.runtimes)
+            .map(|runtime| KnownRuntime::of(gathered, runtime))
+            .collect();
+    }
+
+    /// The runtime that the last view showed under the item ID `id`; `None` when the session has
+    /// shown no view yet or the view showed no such runtime.
+    #[must_use]
+    pub fn runtime(&self, id: &str) -> Option<&KnownRuntime> {
+        self.runtimes
+            .iter()
+            .find(|runtime| runtime.id.as_str() == id)
+    }
+
+    /// Every runtime that the last view showed, in the order it showed them.
+    #[must_use]
+    pub fn runtimes(&self) -> &[KnownRuntime] {
+        &self.runtimes
     }
 
     /// Records a request with the number `seq`. Returns whether it is newer than every request
