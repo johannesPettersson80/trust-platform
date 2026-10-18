@@ -7,58 +7,53 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**18 October, evening (lead).** All work is local; nothing is pushed. Agents: Claude Haiku
-(owner, 18 October: "continue with haiku"). The free opencode models proved unusable, and one
-session that kept running after its client was killed collided with S3d-3. Owner questions open:
-Q11 (installs only while stopped?) and O2 (the debugger after a faulted scan). A Beckhoff and
-CODESYS research report is running for both. The C6 is connected; the Riverdi U5A9 board comes
-later. Lanes:
+**18 October, night (lead).** All work is local; nothing is pushed. Agents: Claude Haiku, and
+Sonnet where a slice needs design judgment (owner, 18 October: "continue with haiku"). Owner
+decisions of 18 October: Q11, installs only while stopped on every runtime, with `bytecode.reload`
+still allowed while running; O2, after a faulted scan the debugger shows the values the fault
+left, with its position and call stack, as CODESYS and TwinCAT do; and on a computer `shutdown`
+keeps trust-runtime up in Stopped. The Beckhoff and CODESYS research is in
+`~/projects/.artifacts/s4/vendor-research-2026-10-18.md`. The C6 is connected; the Riverdi U5A9
+board comes later. Lanes:
 
 - c6 `feat/board-runtime` (integration):
-  - `26d151171` merges feat/u5a9-runtime.
-  - `36bfdc8b8` merges feat/chip-control-link (S4-1 to S4-3a). The joining fixes: spec 11's role
-    table; the ControlState transfer session in two devices tests; base64 in both firmware locks;
-    the U5A9 lock tracked; the U5A9 platform, runtime ID and program control.
-  - Checks green on the merge: clippy over the changed crates, both chip lanes, u5, and the C6
-    and U5A9 firmware builds; the services 514 and runtime vertical tests pass.
+  - `78fb5316f` merges live-values (S3d-1 to S3d-5); `7dbd40711` merges S4-4, the computer's
+    program store; `f8e8bcf04` is S3d-3b, the faulted-scan view (O2).
+  - `d297b39ab` merges devices (C4b to C7c). Its fix lists the STM32U5A9 among the Add dialog's
+    chips, one entry per chip file (spec 25); D4b disables the Discover cards while a posted
+    action awaits its reply.
+  - Next: merge u5a9 (9u-c), s1b (S4-5, S4-3b, S4-8), live-values (S3d-6, S3d-7) and engine-init
+    (C1-P0 to C1-9d), with one combined merge check.
 - s1b `feat/chip-control-link`:
-  - S4-1 `691b68d2c`: transfers in parts.
-  - S4-2a `1fc02be87`: the two-slot store and TRSTA002. A slot whose magic is valid but whose
-    header is damaged counts as not committed; the owner was told.
-  - S4-2b `ad3b03dee`: the reload rules in the services.
-  - S4-3a `7074517f6`: the transfer operations, `bytecode.reload {transfer}`, `program.active`
-    and the reply head.
-  - Next: S4-3b `program.install` (after Q11), S4-4 (the computer adapter), S4-5 and S4-6 (the
-    C6 flash and firmware, with a bench), S4-7.
+  - S4-5 `47d220404`: the C6's two program slots and one owner for its flash, bench-booted.
+  - S4-3b `cac0db67b`: `program.install` only while stopped, with the retained-values check
+    (G13) before any write, on computers.
+  - Running: S4-8, a computer's `shutdown` keeps the runtime up in Stopped. Next: S4-6 (the C6
+    firmware's stepped commit, with a bench), S4-7.
 - live-values `feat/live-values`:
-  - S3d-3 `3ea55d9a6`: the debugger reads the last completed scan, with no copy per statement.
-  - S3d-4 `d3c5249ba`: the breakpoint matching and the hit rule are shared.
-  - Running: S3d-5's finish (run control in the services). Then the merge into this branch, and
-    S3d-6 to S3d-9.
+  - S3d-6 `74c0319ae`: the chip's cycle deadline and active time leave out debugger holds.
+  - S3d-7a `ca66b077c`: the statement index on the prepared module.
+  - Running: S3d-7b, the chip's statement hook and hold pass. Next: S3d-8 (the debug operations),
+    S3d-9 (the C6 bench), S3d-3c (the unwound frames' locals at a fault).
 - engine-init `feat/engine-init`:
-  - C1-P3 `0ed6e9ea2`.
-  - C1-9a `1a0de68a5`: the cell store, charged before it is reserved.
-  - C1-9b `434f4fd18`: cell reads through the seam.
-  - Running: C1-9c (cell writes, and a root's range covering its inheritance chain). Then C1-9d,
-    the switch, and C1-9e.
-- u5a9 `feat/u5a9-runtime`:
-  - S1b-8u-2a `e77dbb563`: USB.
-  - 8u-2b `0f2c3ccef`: the wait, and the PHY set up as ST's driver does.
-  - 8u-3a `17c25d101`: flash, checkpoint and reset, with each chip's flag bits.
-  - 8u-3b `ebbbf184e`: watchdog, GPIO and the memory map, with a 32 KiB stack.
-  - 9u-a `9e5d0e471`: the firmware, 830,816 B flash.
-  - 9u-b `e24409ffc`: inspect, which the real image passes, and the CI gate.
-  - `ea48ec321`: the firmware lock.
-  - Next: S1b-9u-c (move the platform, process-I/O, watchdog-rule and ELF-reader copies into
-    shared code, after the lanes meet here). Then the bench, when the board is here.
+  - C1-9a to C1-9d1, then C1-9d2a `d1b05007e`: the last stored-value uses read through views,
+    and `CycleAccess::storage()` is removed.
+  - Running: C1-9d2b-1, the cell store's construction complete. Next: d2b-2 (the retain encoder
+    over cells, the entry floor), d3 (the switch), C1-9e (the differential test, PERF-01).
+- u5a9 `feat/u5a9-runtime`: 9u-c `619364e74` shares the chip platform, the process image, the
+  watchdog rule and the ELF reader; the C6 bench passed with it. Next: the bench, when the board
+  is here.
 - devices `feat/devices-connections`:
-  - C4b `5678f9aee`: mesh peers and cloud presence.
-  - C7 `ba25b90ab`: the Discover view.
-  - D4 `257737d40`: the Discover pane.
-  - C7b-1 `3ee59fdc9`: the old pane's actions, headings, notes and help.
-  - Running: C4c, the TwinCAT route list from the `ads` crate's `adstool route list`, unproven
-    until a real TwinCAT run; its follow-up decodes Windows-1252.
-  - Next: C7b-2, D4b, C5b, C6, D6, D7.
+  - C4c `a971b416f`: the TwinCAT route list (unproven until a real TwinCAT run).
+  - C7b-2a `702a811d2`, C7b-2b `31f4474a0`: the old pane's texts, TwinCAT cards, fieldbus
+    confirmation, Ignore and remembered choices.
+  - C7c `7e5672053`: advertised protocols scanned through `comm.discover`, the tag browser after
+    `Add to canvas`, and `trust-runtime discover --project` reading `devices.toml`.
+  - Next: C6a (identify), C6b (compare), C5b (Bluetooth and the Modbus RTU scan), D6, D7.
+- Builder disk, 18 October night: the VS Code tests had built into a `target/` inside two check
+  copies on the root disk (26 GB), which was down to 5.6 GB free. Both were removed with two idle
+  validation targets; the check script now builds the extension tests' binaries into the leased
+  check target.
 
 Open top-level items: 57.
 
