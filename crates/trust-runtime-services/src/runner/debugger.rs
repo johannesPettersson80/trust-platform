@@ -30,7 +30,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::FrameId;
 use trust_runtime_core::vm::StatementFrame;
 
-use crate::debug::projection::DebugVariableHandles;
+use crate::debug::projection::{DebugVariableHandles, CHIP_HANDLE_BOUND};
 use crate::debug::{
     observe_hit, Breakpoint, BreakpointView, CycleSuppression, RunAction, RunControl, RunMode,
     Span, StatementId, StepKind, StepState, StopReason, StopRecord,
@@ -179,7 +179,7 @@ impl ChipDebug {
                 stops: VecDeque::with_capacity(stop_capacity),
                 stop_capacity,
                 frame_locations: Vec::new(),
-                handles: DebugVariableHandles::new(),
+                handles: DebugVariableHandles::with_bound(CHIP_HANDLE_BOUND),
                 published: false,
             }),
             busy: Cell::new(false),

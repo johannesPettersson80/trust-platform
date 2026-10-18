@@ -158,6 +158,9 @@ pub fn variables(
             for (id, data) in storage.instances() {
                 instances.push((*id, data.type_name.to_string()));
             }
+            // The order is the instances' identity on every runtime; the storage's map is a hash
+            // map on a computer (specification 11 §6.13.3).
+            instances.sort_by_key(|(id, _)| *id);
             variables_from_instances(handles, instances)
         }
         VariableHandle::Instance(instance_id) => instance(storage, *instance_id, handles)?,
@@ -282,4 +285,45 @@ fn io_rows(
             IoSnapshotValue::Unresolved => IoRowValue::Unresolved,
         },
     })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn instances_list_in_one_order_on_every_runtime() {
+        // Specification 11 §6.13.3: the Instances scope lists its instances in ascending instance
+        // identifier on every runtime, whatever order the storage's map iterates in. Twelve instances
+        // take the identifiers 0 to 11 in creation order, and each is named `<type>#<identifier>`.
+        // Wrong behaviour caught: a listing in the map's own iteration order (a hash map on a computer
+        // does not list twelve identifiers in ascending order), an instance that is dropped, and a
+        // name without its identifier.
+        let mut storage = VariableStorage::default();
+        for _ in 0..12 {
+            storage
+                .try_create_instance("Fb")
+                .expect("an instance identity");
+        }
+        let state = ReadState {
+            storage: &storage,
+            frames: Vec::new(),
+        };
+        let mut handles = DebugVariableHandles::new();
+
+        let listed = variables(&state, &VariableHandle::Instances, None, &mut handles)
+            .expect("the instances list");
+
+        let names = listed
+            .iter()
+            .map(|variable| variable.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            [
+                "Fb#0", "Fb#1", "Fb#2", "Fb#3", "Fb#4", "Fb#5", "Fb#6", "Fb#7", "Fb#8", "Fb#9",
+                "Fb#10", "Fb#11",
+            ]
+        );
+    }
 }

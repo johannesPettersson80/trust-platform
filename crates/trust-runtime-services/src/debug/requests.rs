@@ -322,20 +322,17 @@ fn scopes(
         IoSnapshotRead::Missing => false,
         IoSnapshotRead::Unavailable => return failed(id, "I/O snapshot unavailable"),
     };
-    let mut listed = None;
+    let mut reply = None;
     debugger.with_handles(&mut |handles| {
-        listed = Some(reads::scopes(
-            handles,
-            state.storage,
-            frame,
-            place.as_ref(),
-            has_io,
-        ));
+        let scopes = reads::scopes(handles, state.storage, frame, place.as_ref(), has_io);
+        reply = Some(if handles.take_overflow() {
+            handles.clear();
+            replies::handles_full(id)
+        } else {
+            replies::scopes(id, &scopes)
+        });
     });
-    match listed {
-        Some(scopes) => replies::scopes(id, &scopes),
-        None => failed(id, "debug variables unavailable"),
-    }
+    reply.unwrap_or_else(|| failed(id, "debug variables unavailable"))
 }
 
 fn variables(
@@ -356,27 +353,33 @@ fn variables(
         IoSnapshotRead::Missing => None,
         IoSnapshotRead::Unavailable => return failed(id, "I/O snapshot unavailable"),
     };
-    let mut listed = None;
+    let mut reply = None;
     debugger.with_handles(&mut |handles| {
         // The handle is out of the table while its members are listed, because listing hands out
-        // their handles, and it is back under its own identifier afterwards.
-        listed = Some(match handles.take(params.variables_reference) {
+        // their handles, and it is back under its own identifier afterwards. A listing that the
+        // bound refuses is rolled back, so the table is as it was (specification 11 §6.13.3).
+        reply = Some(match handles.take(params.variables_reference) {
             Some(handle) => {
+                let mark = handles.mark();
                 let members = reads::variables(&state, &handle, io.as_ref(), handles);
                 handles.restore(params.variables_reference, handle);
-                members
+                if handles.take_overflow() {
+                    handles.rollback(mark);
+                    replies::handles_full(id)
+                } else {
+                    match members {
+                        Ok(variables) => replies::variables(id, &variables),
+                        Err(error) => failed(id, error),
+                    }
+                }
             }
-            None => Err(alloc::format!(
-                "unknown variables reference {}",
-                params.variables_reference
-            )),
+            None => failed(
+                id,
+                alloc::format!("unknown variables reference {}", params.variables_reference),
+            ),
         });
     });
-    match listed {
-        Some(Ok(variables)) => replies::variables(id, &variables),
-        Some(Err(error)) => failed(id, error),
-        None => failed(id, "debug variables unavailable"),
-    }
+    reply.unwrap_or_else(|| failed(id, "debug variables unavailable"))
 }
 
 fn breakpoint_locations(
@@ -501,13 +504,13 @@ fn breakpoints_list(id: u64, debugger: &dyn Debugger) -> ControlResponse {
         .breakpoints()
         .iter()
         .map(|breakpoint| {
-            json!({
-                "file_id": breakpoint.file_id,
-                "line": breakpoint.start.0.saturating_sub(1),
-                "column": breakpoint.start.1.saturating_sub(1),
-                "end_line": breakpoint.end.0.saturating_sub(1),
-                "end_column": breakpoint.end.1.saturating_sub(1),
-            })
+            replies::breakpoint_entry(
+                breakpoint.file_id,
+                breakpoint.start.0.saturating_sub(1),
+                breakpoint.start.1.saturating_sub(1),
+                breakpoint.end.0.saturating_sub(1),
+                breakpoint.end.1.saturating_sub(1),
+            )
         })
         .collect::<Vec<_>>();
     ControlResponse::ok(id, json!({ "breakpoints": breakpoints }))

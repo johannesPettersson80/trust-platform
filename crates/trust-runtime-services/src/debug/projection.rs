@@ -102,32 +102,68 @@ pub enum VariableHandle {
     IoMemory,
 }
 
+/// The most live variable handles a runtime without source text (a chip) holds at once
+/// (specification 11 §6.13.3). Each compound value a listing shows takes one handle, and a struct
+/// or array handle keeps a copy of its value, so the bound limits what a debugging session takes
+/// from the heap.
+pub const CHIP_HANDLE_BOUND: usize = 256;
+
 /// The variable handles of the current stop: positive identifiers that never alias a live handle,
 /// and restart at `1` after a clear (specification 13, "Runtime debug state, mutation, and
-/// projection invariants").
-#[derive(Debug, Default)]
+/// projection invariants"). A table with a bound holds at most that many live handles, a handle
+/// taken out for a listing counted; an allocation past the bound is refused, and the listing that
+/// made it is rolled back (specification 11 §6.13.3).
+#[derive(Debug)]
 pub struct DebugVariableHandles {
     /// The next identifier to hand out. Public only so that the boundary tests of the counter can
     /// move it; no other code writes it.
     #[doc(hidden)]
     pub next_id: u32,
     handles: BTreeMap<u32, VariableHandle>,
+    /// The most live handles the table holds.
+    bound: usize,
+    /// The handles that a listing has taken out and not yet restored.
+    taken: usize,
+    /// Whether an allocation was refused since the last [`take_overflow`](Self::take_overflow).
+    overflowed: bool,
+}
+
+impl Default for DebugVariableHandles {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DebugVariableHandles {
-    /// An empty table whose first handle is `1`.
+    /// An empty table whose first handle is `1`, without a bound: a computer keeps its handles as
+    /// they have always been kept.
     #[must_use]
     pub fn new() -> Self {
-        Self::default()
+        Self::with_bound(usize::MAX)
+    }
+
+    /// An empty table whose first handle is `1`, which holds at most `bound` live handles.
+    #[must_use]
+    pub fn with_bound(bound: usize) -> Self {
+        Self {
+            next_id: 0,
+            handles: BTreeMap::new(),
+            bound,
+            taken: 0,
+            overflowed: false,
+        }
     }
 
     /// Invalidates every handle and restarts the numbering at `1`.
     pub fn clear(&mut self) {
         self.handles.clear();
         self.next_id = 1;
+        self.overflowed = false;
     }
 
-    /// Hands out the next identifier for `handle`.
+    /// Hands out the next identifier for `handle`. At the bound nothing is stored: the refusal is
+    /// recorded for [`take_overflow`](Self::take_overflow), and `0` is returned, which the listing
+    /// that made the refused allocation never shows.
     ///
     /// # Panics
     ///
@@ -138,6 +174,10 @@ impl DebugVariableHandles {
             self.next_id != 0 || self.handles.is_empty(),
             "debug variable handle space exhausted"
         );
+        if self.handles.len().saturating_add(self.taken) >= self.bound {
+            self.overflowed = true;
+            return 0;
+        }
         let id = self.next_id.max(1);
         self.next_id = id.checked_add(1).unwrap_or(0);
         self.handles.insert(id, handle);
@@ -152,14 +192,35 @@ impl DebugVariableHandles {
 
     /// Takes handle `id` out of the table, so that listing it can hand out the handles of its
     /// members without copying it; [`restore`](Self::restore) puts it back under the same
-    /// identifier.
+    /// identifier. A handle taken out still counts against the bound.
     pub fn take(&mut self, id: u32) -> Option<VariableHandle> {
-        self.handles.remove(&id)
+        let handle = self.handles.remove(&id)?;
+        self.taken += 1;
+        Some(handle)
     }
 
     /// Puts back a handle that [`take`](Self::take) took out, under its own identifier.
     pub fn restore(&mut self, id: u32, handle: VariableHandle) {
         self.handles.insert(id, handle);
+        self.taken = self.taken.saturating_sub(1);
+    }
+
+    /// The point a listing starts from, for [`rollback`](Self::rollback).
+    #[must_use]
+    pub fn mark(&self) -> u32 {
+        self.next_id
+    }
+
+    /// Drops every handle allocated since `mark` and numbers the next handle from `mark` again, so
+    /// that a refused listing leaves the table as it was (specification 11 §6.13.3).
+    pub fn rollback(&mut self, mark: u32) {
+        let _ = self.handles.split_off(&mark);
+        self.next_id = mark;
+    }
+
+    /// Whether an allocation was refused at the bound since the last call, which clears the record.
+    pub fn take_overflow(&mut self) -> bool {
+        core::mem::take(&mut self.overflowed)
     }
 
     /// How many handles are live.
@@ -553,5 +614,56 @@ mod tests {
         assert_eq!(handles.len(), 2);
         handles.clear();
         assert!(handles.is_empty());
+    }
+
+    #[test]
+    fn the_handle_table_stops_at_its_bound() {
+        // Specification 11 §6.13.3: a runtime without source text holds at most 256 live handles, a
+        // handle taken out for a listing counted, and the allocation past the bound is refused. Wrong
+        // behaviour caught: an unbounded table (the 257th handle is numbered), a bound one handle
+        // short (the 256th is refused) or long (the 257th is numbered), and a handle taken out for a
+        // listing that does not count, so the table would grow past the bound by one per listing.
+        assert_eq!(CHIP_HANDLE_BOUND, 256, "specification 11 §6.13.3");
+        let mut handles = DebugVariableHandles::with_bound(256);
+        for expected in 1..=256 {
+            assert_eq!(handles.alloc(VariableHandle::Globals), expected);
+        }
+        assert_eq!(handles.alloc(VariableHandle::Globals), 0);
+        assert!(handles.take_overflow(), "the refusal is recorded");
+        assert!(
+            !handles.take_overflow(),
+            "the record is cleared by the read"
+        );
+        assert_eq!(handles.len(), 256);
+
+        assert!(handles.take(1).is_some());
+        assert_eq!(
+            handles.alloc(VariableHandle::Globals),
+            0,
+            "a handle out for a listing still counts against the bound"
+        );
+        assert!(handles.take_overflow());
+        handles.restore(1, VariableHandle::Globals);
+        assert_eq!(handles.len(), 256);
+    }
+
+    #[test]
+    fn a_refused_listing_leaves_the_table_as_it_was() {
+        // Specification 11 §6.13.3: a listing the bound refuses leaves the table as it was, and the
+        // next handle takes the number that the refused listing started from. Wrong behaviour caught:
+        // a refused listing that keeps the handles it had allocated (the table stays full), and one
+        // that numbers the next handle on from them.
+        let mut handles = DebugVariableHandles::with_bound(3);
+        assert_eq!(handles.alloc(VariableHandle::Globals), 1);
+        let mark = handles.mark();
+        assert_eq!(handles.alloc(VariableHandle::Globals), 2);
+        assert_eq!(handles.alloc(VariableHandle::Globals), 3);
+        assert_eq!(handles.alloc(VariableHandle::Globals), 0);
+        assert!(handles.take_overflow());
+
+        handles.rollback(mark);
+
+        assert_eq!(handles.len(), 1);
+        assert_eq!(handles.alloc(VariableHandle::Globals), 2);
     }
 }

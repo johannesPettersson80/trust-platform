@@ -150,6 +150,42 @@ fn breakpoints_list_reports_the_replaced_set_by_line_and_column() {
 }
 
 #[test]
+fn breakpoints_list_has_the_same_fields_on_a_chip_and_a_computer() {
+    // Specification 11 §6.13.3: every runtime lists a breakpoint with one entry shape, `file_id`,
+    // `line`, `column`, `end_line` and `end_column`, zero-based, and a computer adds its byte offsets
+    // `start` and `end` to it. The chip's entry is the five fields and no others, so a client reads
+    // the same five from either runtime. Worked from the statement of the list above: the breakpoint
+    // on line 28 is statement 5, 29:5-30:1, which lists as (28, 4) to (29, 0). Wrong behaviour caught:
+    // a chip entry that drops or renames one of the five fields, a chip entry that carries byte
+    // offsets it cannot count, and an entry that lists its positions one-based.
+    let fixture = Fixture::board_probe().with_debugger();
+    let mut runner = after_first_scan(&fixture, TestPlatform::default());
+    let _ = fixture.call(&mut runner, &set_breakpoints(1, &[28]));
+
+    let listed = fixture.call(&mut runner, &request(2, "breakpoints.list"));
+
+    let entries = listed["result"]["breakpoints"]
+        .as_array()
+        .expect("the breakpoints");
+    assert_eq!(entries.len(), 1);
+    let mut fields = entries[0]
+        .as_object()
+        .expect("an entry")
+        .keys()
+        .map(alloc::string::String::as_str)
+        .collect::<Vec<_>>();
+    fields.sort_unstable();
+    assert_eq!(
+        fields,
+        ["column", "end_column", "end_line", "file_id", "line"]
+    );
+    assert_eq!(
+        entries[0],
+        json!({"file_id": 0, "line": 28, "column": 4, "end_line": 29, "end_column": 0})
+    );
+}
+
+#[test]
 fn clearing_breakpoints_removes_them_and_still_advances_the_generation() {
     // Specification 13, "Runtime debug state, mutation, and projection invariants": an empty
     // replacement removes the file's breakpoints while still advancing its generation, and clearing

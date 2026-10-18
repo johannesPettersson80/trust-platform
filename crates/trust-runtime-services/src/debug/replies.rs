@@ -38,6 +38,13 @@ pub const EXPRESSIONS_UNAVAILABLE: &str =
 /// The stable code of [`EXPRESSIONS_UNAVAILABLE`]: no `expr_version` is implemented.
 pub const EXPRESSIONS_UNAVAILABLE_CODE: &str = "expr_version_unsupported";
 
+/// The refusal of a variables listing that would take the variable handle table past its bound
+/// (specification 11 §6.13.3).
+pub const HANDLES_FULL: &str = "the variable handle table is full: request the scopes again";
+
+/// The stable code of [`HANDLES_FULL`].
+pub const HANDLES_FULL_CODE: &str = "variable_handles_full";
+
 /// The error text for a frame the stop does not have.
 #[must_use]
 pub fn unknown_frame(frame_id: u32) -> String {
@@ -48,6 +55,12 @@ pub fn unknown_frame(frame_id: u32) -> String {
 #[must_use]
 pub fn no_line_table(id: u64) -> ControlResponse {
     ControlResponse::error_with_code(id, String::from(NO_LINE_TABLE), NO_LINE_TABLE_CODE)
+}
+
+/// The refusal of a listing that would take the variable handle table past its bound.
+#[must_use]
+pub fn handles_full(id: u64) -> ControlResponse {
+    ControlResponse::error_with_code(id, String::from(HANDLES_FULL), HANDLES_FULL_CODE)
 }
 
 /// The refusal of a request that carries or evaluates a debug expression.
@@ -193,6 +206,30 @@ pub fn breakpoint_locations(id: u64, breakpoints: &[serde_json::Value]) -> Contr
 )]
 pub fn position(line: u32, column: u32) -> serde_json::Value {
     json!({ "line": line, "column": column })
+}
+
+/// One entry of `breakpoints.list`: the file and the zero-based span of a breakpoint's statement.
+/// This is the one entry shape every runtime gives (specification 11 §6.13.3); a computer adds its
+/// byte offsets to it, which a runtime without the text cannot give.
+#[must_use]
+#[allow(
+    clippy::missing_panics_doc,
+    reason = "the serde_json::json! conversions of these values cannot fail"
+)]
+pub fn breakpoint_entry(
+    file_id: u32,
+    line: u32,
+    column: u32,
+    end_line: u32,
+    end_column: u32,
+) -> serde_json::Value {
+    json!({
+        "file_id": file_id,
+        "line": line,
+        "column": column,
+        "end_line": end_line,
+        "end_column": end_column,
+    })
 }
 
 /// `breakpoints.set`: the file, where each requested line resolved, and the generation of the

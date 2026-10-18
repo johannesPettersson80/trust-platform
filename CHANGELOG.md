@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- `breakpoints.list` entries now carry `file_id`, `path`, `line` and `column` beside `start` and
+  `end`, the shape a chip gives too (a chip has no source text, so it gives no byte offsets).
 - Changed: `shutdown` on a computer now stops the PLC program and keeps `trust-runtime` running
   in the Stopped state, as it does on a chip, and as CODESYS and TwinCAT keep their runtime up
   while the application is stopped. The control server, the web UI and the other services stay up,

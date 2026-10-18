@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::debug::DebugBreakpoint;
+use crate::debug::{offset_to_line_col, DebugBreakpoint, SourceLocation};
 use serde_json::json;
 use trust_runtime_services::debug::replies;
 
@@ -78,19 +78,28 @@ pub(super) fn handle_breakpoints_clear(
 }
 
 pub(super) fn handle_breakpoints_list(id: u64, state: &ControlState) -> ControlResponse {
-    let breakpoints = state
-        .debug
-        .breakpoints()
-        .into_iter()
-        .map(|bp| {
-            json!({
-                "file_id": bp.location.file_id,
-                "start": bp.location.start,
-                "end": bp.location.end,
-            })
-        })
-        .collect::<Vec<_>>();
+    let mut breakpoints = Vec::new();
+    for breakpoint in state.debug.breakpoints() {
+        let Some(text) = state.sources.source_text(breakpoint.location.file_id) else {
+            return ControlResponse::error(id, "source text not loaded".into());
+        };
+        breakpoints.push(list_entry(&breakpoint.location, text));
+    }
     ControlResponse::ok(id, json!({ "breakpoints": breakpoints }))
+}
+
+/// One entry of `breakpoints.list`: the entry shape that every runtime gives (specification 11
+/// §6.13.3), with the statement's byte offsets `start` and `end` added, which a computer counts
+/// from its text.
+fn list_entry(location: &SourceLocation, text: &str) -> serde_json::Value {
+    let (line, column) = offset_to_line_col(text, location.start);
+    let (end_line, end_column) = offset_to_line_col(text, location.end);
+    let mut entry = replies::breakpoint_entry(location.file_id, line, column, end_line, end_column);
+    if let Some(fields) = entry.as_object_mut() {
+        fields.insert("start".into(), json!(location.start));
+        fields.insert("end".into(), json!(location.end));
+    }
+    entry
 }
 
 pub(super) fn handle_breakpoints_clear_all(id: u64, state: &ControlState) -> ControlResponse {
@@ -117,4 +126,36 @@ pub(super) fn handle_breakpoints_clear_id(
         .debug
         .set_breakpoints_for_file(params.file_id, Vec::new());
     replies::breakpoints_cleared_for_file(id, params.file_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn breakpoints_list_has_the_same_fields_on_a_chip_and_a_computer() {
+        // Specification 11 §6.13.3: a computer lists a breakpoint with the five fields a chip gives,
+        // zero-based, and its byte offsets `start` and `end` in addition. In the text `x := 1;` and
+        // `  y := 2;` (18 bytes), the statement that starts at byte 10 starts at line 1, column 2, and
+        // its end, byte 18, is line 2, column 0. Wrong behaviour caught: an entry without the five
+        // shared fields, a line or a column that is one-based, a position converted from the wrong
+        // byte, and an entry without the byte offsets that a computer keeps.
+        let text = "x := 1;\n  y := 2;\n";
+        let location = SourceLocation::new(4, 10, 18);
+
+        let entry = list_entry(&location, text);
+
+        assert_eq!(
+            entry,
+            json!({
+                "file_id": 4,
+                "line": 1,
+                "column": 2,
+                "end_line": 2,
+                "end_column": 0,
+                "start": 10,
+                "end": 18,
+            })
+        );
+    }
 }

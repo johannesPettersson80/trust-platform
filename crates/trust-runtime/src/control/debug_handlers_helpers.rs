@@ -104,3 +104,45 @@ fn evaluate_with_snapshot(
         eval(&mut storage, None)
     }
 }
+
+#[cfg(test)]
+mod instance_order_tests {
+    use super::*;
+    use crate::debug::{DebugVariableHandles, VariableHandle};
+    use crate::memory::VariableStorage;
+
+    #[test]
+    fn instances_list_in_one_order_on_every_runtime() {
+        // Specification 11 §6.13.3: the Instances scope lists its instances in ascending instance
+        // identifier on every runtime. A computer's storage keeps its instances in a hash map, which
+        // does not list twelve identifiers in ascending order, so this test reads the computer's own
+        // storage type. Twelve instances take the identifiers 0 to 11. Wrong behaviour caught: a listing
+        // in the hash map's order, and an instance that is dropped from the list.
+        let mut storage = VariableStorage::default();
+        for _ in 0..12 {
+            storage
+                .try_create_instance("Fb")
+                .expect("an instance identity");
+        }
+        let read = ReadState {
+            storage: &storage,
+            frames: Vec::new(),
+        };
+        let mut handles = DebugVariableHandles::new();
+
+        let listed = reads::variables(&read, &VariableHandle::Instances, None, &mut handles)
+            .expect("the instances list");
+
+        let names = listed
+            .iter()
+            .map(|variable| variable.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            [
+                "Fb#0", "Fb#1", "Fb#2", "Fb#3", "Fb#4", "Fb#5", "Fb#6", "Fb#7", "Fb#8", "Fb#9",
+                "Fb#10", "Fb#11",
+            ]
+        );
+    }
+}

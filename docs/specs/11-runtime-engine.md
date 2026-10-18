@@ -6469,15 +6469,18 @@ published debug state of section 6.13.1. Each reply is trust-runtime's reply for
 for field: the frame and variable identifiers, the names, the stop reason labels, the error texts and
 the error codes. Line and column numbers in a request and in a reply are zero-based, as trust-runtime
 carries them; the table holds them one-based, and the conversion happens once, at the request. The
-differences that follow from the missing text are these, and no others:
+differences that follow from the missing text are these, with the handle bound below, and no others:
 
 - **File identity.** A reply names a file by its label: the `path` of a source, and the last `/`
   component of the label as its `name`. A file's identifier in a reply is the index of its entry in the
   table. A request names a file by a path: the file is the one whose label equals the path or is the
   longest tail of it after a `/`, a `\` counting as `/`, because a client holds a path and a label is
   relative to the project root. A path that ends with no label is refused with `unknown source path`.
-- **`breakpoints.list`.** Without the text a runtime cannot count byte offsets, so an entry carries
-  `file_id`, `line`, `column`, `end_line` and `end_column` in place of `start` and `end`.
+- **Shared reply shapes.** `breakpoints.list` gives one entry shape on every runtime: `file_id`,
+  `line`, `column`, `end_line` and `end_column`, zero-based, in registration order, built by the one
+  shared reply builder. A runtime that holds the text adds the statement's byte offsets `start` and
+  `end`, which a runtime without the text cannot count. The `Instances` scope lists its instances in
+  ascending instance identifier on every runtime, whatever order the storage's map iterates in.
 - **The buffer of stops.** `debug.stops` returns the stops since its last call, oldest first, and
   empties the buffer. The buffer is bounded, and a stop beyond the bound replaces the oldest. The bound
   is the capacity of the event store (`runtime.events.capacity` of the project, or the device
@@ -6492,6 +6495,11 @@ differences that follow from the missing text are these, and no others:
 - **Variable handles.** The identifiers of a variable list restart at `1` with every `debug.scopes`
   and are valid until the next one (specification 13, "Runtime debug state, mutation, and projection
   invariants").
+- **Handle bound.** A runtime without the text holds at most 256 live variable handles, a handle
+  taken out for a listing counted. A listing that would take the table past that bound is refused
+  whole, with the stable code `variable_handles_full` and the message `the variable handle table is
+  full: request the scopes again`, and the table stays as it was. A computer keeps its handles
+  unbounded, as it always has; the refusal is the same wherever a bound applies.
 - **No line table.** A program without a `LINE_TABLE` has no statement start to hold at or to name, so
   it cannot be debugged on a runtime that holds no text. Every debug operation above is refused with the
   stable code `no_line_table` and the message `the program has no line table, so it cannot be debugged:

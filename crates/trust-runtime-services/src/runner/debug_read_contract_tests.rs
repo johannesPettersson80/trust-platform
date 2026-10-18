@@ -567,3 +567,78 @@ fn a_read_between_scans_answers_from_the_last_scan_without_a_call_stack() {
         ]})
     );
 }
+
+#[test]
+fn the_handle_table_stops_at_its_bound() {
+    // Specification 11 §6.13.3: a runtime without source text holds at most 256 live handles, a handle
+    // taken out for a listing counted, and a listing that would pass the bound is refused whole with
+    // `variable_handles_full`, and leaves the table as it was. The scopes take 1 to 4. The 83 listings
+    // of the I/O root take three each (5 to 253); the globals take 254, so 254 are live. The next I/O
+    // listing needs three: 255 and 256 fit, the third does not, so the listing is refused and its two
+    // handles are rolled back, which numbers the next handle 255 again. Two global listings then take
+    // 255 and 256, the table is full, and the next global listing is refused. Wrong behaviour caught:
+    // an unbounded table (the refusals never come), a bound one handle short (256 is refused) or long
+    // (257 is numbered), a refused listing that keeps its two handles (the globals are refused at 255),
+    // and one that numbers on from them (the globals take 257 and 258).
+    let held = deep_hold(|stack| {
+        let innermost = stack.last().map(|level| level.frame).expect("a held stack");
+        let listing = |id: u64, reference: u32| {
+            with_params(
+                id,
+                "debug.variables",
+                json!({"variables_reference": reference}),
+            )
+        };
+        let mut requests = vec![with_params(
+            10,
+            "debug.scopes",
+            json!({"frame_id": innermost}),
+        )];
+        requests.extend((11..94).map(|id| listing(id, 3)));
+        requests.extend([
+            listing(94, 2),
+            listing(95, 3),
+            listing(96, 2),
+            listing(97, 2),
+            listing(98, 2),
+        ]);
+        requests
+    });
+
+    assert_eq!(held.replies[0]["ok"], json!(true));
+    assert!(
+        held.replies[1..=83]
+            .iter()
+            .all(|reply| reply["ok"] == json!(true)),
+        "the 83 I/O listings fit"
+    );
+    assert_eq!(
+        held.replies[84]["result"]["variables"][1]["variablesReference"],
+        json!(254),
+        "the globals take handle 254, the 254th live handle"
+    );
+    assert_eq!(held.replies[85]["ok"], json!(false));
+    assert_eq!(
+        held.replies[85]["error_code"],
+        json!("variable_handles_full")
+    );
+    assert_eq!(
+        held.replies[85]["error"],
+        json!("the variable handle table is full: request the scopes again")
+    );
+    assert_eq!(
+        held.replies[86]["result"]["variables"][1]["variablesReference"],
+        json!(255),
+        "the refused I/O listing was rolled back, so 255 is numbered again"
+    );
+    assert_eq!(
+        held.replies[87]["result"]["variables"][1]["variablesReference"],
+        json!(256),
+        "256 is the last handle the bound allows"
+    );
+    assert_eq!(held.replies[88]["ok"], json!(false));
+    assert_eq!(
+        held.replies[88]["error_code"],
+        json!("variable_handles_full")
+    );
+}
