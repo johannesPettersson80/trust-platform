@@ -402,6 +402,7 @@ END_PROGRAM
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: Some(project_root.to_path_buf()),
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
