@@ -21,6 +21,7 @@ use trust_runtime_core::value::Value;
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::events::{RuntimeEvent, EVENT_STORE_CAPACITY};
+use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{
     ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingVarTarget,
@@ -30,7 +31,8 @@ use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
-    ProgramIdentities, RecordsPort, ResourcePort, StatusPort, TransferSessionError,
+    ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
+    TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
@@ -115,6 +117,14 @@ pub(crate) struct FakeHost {
     pub(crate) transfers: Option<RefCell<TransferSession>>,
     /// The identities `program.active` reports; `None` for a platform without a program store.
     pub(crate) program_identities: Option<ProgramIdentities>,
+    /// Whether the platform keeps a program store that `program.install` commits to.
+    pub(crate) has_program_store: bool,
+    /// The retained-value check's refusal text, when the check refuses.
+    pub(crate) retained_refusal: Option<&'static str>,
+    /// The containers the commit was asked to store, in order.
+    pub(crate) commits: RefCell<Vec<Vec<u8>>>,
+    /// The identity a commit gives the program; `None` refuses every commit.
+    pub(crate) commit_identity: Option<ProgramIdentity>,
 }
 
 impl FakeHost {
@@ -155,6 +165,10 @@ impl FakeHost {
             program_control: ProgramControl::Process,
             transfers: None,
             program_identities: None,
+            has_program_store: false,
+            retained_refusal: None,
+            commits: RefCell::new(Vec::new()),
+            commit_identity: None,
         }
     }
 
@@ -387,6 +401,23 @@ impl RecordsPort for FakeHost {
 
     fn program_identities(&self) -> Option<ProgramIdentities> {
         self.program_identities
+    }
+
+    fn has_program_store(&self) -> bool {
+        self.has_program_store
+    }
+
+    fn check_retained_values(&self, _admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        match self.retained_refusal {
+            Some(text) => Err(RuntimeError::RetainMigration(text.into())),
+            None => Ok(()),
+        }
+    }
+
+    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+        self.commits.borrow_mut().push(container.to_vec());
+        self.commit_identity
+            .ok_or_else(|| String::from("the fake store refuses the commit"))
     }
 }
 

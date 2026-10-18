@@ -238,6 +238,11 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation(
+        "program.install",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
+    operation(
         "transfer.begin",
         RolePolicy::Fixed(AccessRole::Admin),
         false,

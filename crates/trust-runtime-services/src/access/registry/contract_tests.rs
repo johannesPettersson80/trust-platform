@@ -87,6 +87,7 @@ const ADMIN: &[&str] = &[
     "pair.list",
     "pair.revoke",
     "pair.start",
+    "program.install",
     "shutdown",
     "transfer.abort",
     "transfer.begin",

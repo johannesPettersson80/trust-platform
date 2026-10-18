@@ -30,7 +30,7 @@ use super::select::{active, previous, ScanError, SelectError};
 use crate::installation::{encode_sequenced, AdmissionError, InstallationError};
 
 /// The installed program: the fixture `program-v2.stbc`, which prepares with the default limits.
-const PROGRAM: &[u8] =
+pub(super) const PROGRAM: &[u8] =
     include_bytes!("../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
 /// The C6's application slot: 3,056 KiB, half of the 6,112 KiB `application` region.
 const SLOT_BYTES: u32 = 3056 * 1024;
@@ -202,7 +202,7 @@ fn record_of(program: &[u8]) -> DeploymentRecord {
 
 /// The complete `TRSTA002` container a transfer of `program` carries. Its sequence is zero: the
 /// device writes its own sequence before the commit.
-fn transfer_of(program: &[u8]) -> Vec<u8> {
+pub(super) fn transfer_of(program: &[u8]) -> Vec<u8> {
     let record = record_of(program).encode().expect("the record encodes");
     encode_sequenced(0, program, &record).expect("the container encodes")
 }

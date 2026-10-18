@@ -1,9 +1,10 @@
 //! Installing a program into the program store (specification 34 §5.1 and §11.2; DEPLOY-03,
 //! DEPLOY-04).
 //!
-//! [`begin`] runs the checks that read the container alone, before any flash write: the container
-//! and its record, their admission against the device, the retained values, and a dry-run
-//! preparation with the admitted limits. The transfer hands over only a complete container.
+//! [`check`] runs the checks that read the container alone, before any write: the container and its
+//! record, their admission against the device, the retained values, and a dry-run preparation with
+//! the admitted limits. [`begin`] runs them for a chip's store. The transfer hands over only a
+//! complete container.
 //! [`Install::step`] then commits the container one step per call, so the loop serves its link
 //! between steps (STATE-08). The steps erase the units the container needs, program the payloads,
 //! the header and the first half of the magic, read back what was programmed, and program the second
@@ -14,7 +15,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Range;
 
-use trust_runtime_core::deployment::{DeploymentRecord, DeviceDescriptor};
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::ProgramStore;
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
@@ -22,7 +23,9 @@ use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
 use super::read_padded;
 use super::select::{self, ScanError};
-use crate::installation::{self, AdmissionError, SequencedAdmitted, SEQUENCED_HEADER_BYTES};
+use crate::installation::{
+    self, AdmissionError, Admitted, SequencedAdmitted, SEQUENCED_HEADER_BYTES,
+};
 
 /// The bytes of a `TRSTA002` header: the payloads start here (specification 34 §5.1).
 const HEADER_END: u32 = 60;
@@ -181,9 +184,9 @@ impl Cursor {
 /// are ordered. The container takes the next install sequence, and the slot that does not hold the
 /// newest committed container, or slot A when none is committed.
 ///
-/// `retain_check` is the check of specification 11 §6.7.1 against the newest checkpoint: the caller
-/// passes it as a hook, and the S4-3 wiring supplies the real check. The sequence the transfer
-/// carries is not used: the device writes its own into the header before the commit.
+/// `retain_check` is the check of specification 11 §6.7.1 (decision G13), passed in as a hook by the
+/// platform, as [`check`] takes it. The sequence the transfer carries is not used: the device writes
+/// its own into the header before the commit.
 ///
 /// # Errors
 ///
@@ -192,9 +195,12 @@ pub fn begin(
     store: &mut ProgramStore,
     mut container: Vec<u8>,
     device: &DeviceDescriptor,
-    retain_check: impl FnOnce(&DeploymentRecord) -> Result<(), RuntimeError>,
+    retain_check: impl FnOnce(&Admitted<'_>) -> Result<(), RuntimeError>,
 ) -> Result<Install, InstallError> {
-    let (program_bytes, program_sha256) = check_program(&container, device, retain_check)?;
+    let Checked {
+        program_bytes,
+        program_sha256,
+    } = check(&container, device, retain_check)?;
     let geometry = store.flash.geometry();
     let slot_len = geometry.slot_len();
     let Some(container_len) = u32::try_from(container.len())
@@ -234,22 +240,41 @@ pub fn begin(
     })
 }
 
-/// The checks that read the container alone, before any flash write: its admission, the retained
-/// values and a dry-run preparation with the admitted limits. The dry run's result is dropped.
-/// It returns the program's length and SHA-256.
-fn check_program(
+/// What the checks of [`check`] found of an admitted program.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Checked {
+    /// The program's length in bytes.
+    pub program_bytes: usize,
+    /// The program's SHA-256, as its record names it.
+    pub program_sha256: [u8; 32],
+}
+
+/// The checks that read the container alone, before any write, in the order of specification 34
+/// §11.2 (design S4 §2.2): the container and its record, their admission against `device`
+/// (specification 34 §5.1.1, DEPLOY-04), the retained values, and a dry-run preparation with the
+/// admitted limits. The dry run's result is dropped. Every runtime runs these checks in this order
+/// with the same texts; the platform supplies `retain_check`, the check of specification 11 §6.7.1
+/// (decision G13), which is given the admitted program.
+///
+/// # Errors
+///
+/// The [`InstallError`] of the first check that refuses. Nothing has been written when it returns.
+pub fn check(
     container: &[u8],
     device: &DeviceDescriptor,
-    retain_check: impl FnOnce(&DeploymentRecord) -> Result<(), RuntimeError>,
-) -> Result<(usize, [u8; 32]), InstallError> {
+    retain_check: impl FnOnce(&Admitted<'_>) -> Result<(), RuntimeError>,
+) -> Result<Checked, InstallError> {
     let SequencedAdmitted { admitted, .. } =
         installation::admit_sequenced(container, device).map_err(InstallError::Admission)?;
-    retain_check(&admitted.record).map_err(InstallError::Retain)?;
+    retain_check(&admitted).map_err(InstallError::Retain)?;
     let program_bytes = admitted.program.len();
     let program_sha256 = admitted.record.application.program_sha256;
     PreparedModule::from_bytes(admitted.program, admitted.limits)
         .map_err(|error| preparation_error(error, program_bytes, admitted.limits))?;
-    Ok((program_bytes, program_sha256))
+    Ok(Checked {
+        program_bytes,
+        program_sha256,
+    })
 }
 
 /// The dry run's refusal. A program that needs more than the admitted preparation limits is

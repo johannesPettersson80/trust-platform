@@ -6,6 +6,7 @@
 
 use alloc::format;
 use alloc::string::ToString;
+use alloc::vec::Vec;
 
 use serde_json::{json, Value};
 
@@ -132,6 +133,20 @@ fn get(id: u64, params: &Value, session: &TransferSession) -> Result<Value, Cont
 pub(crate) fn transfer_member(id: u64, params: &Value) -> Result<TransferId, ControlResponse> {
     check_number_members(id, params, &[("transfer", MemberKind::Text)])?;
     wire::transfer_request(params).map_err(|error| wire_refusal(id, &error))
+}
+
+/// Takes the bytes of the complete transfer `transfer`, which ends it (specification 34, PORT-05).
+/// An incomplete or unknown transfer is refused with the session's own text, and stays as it is.
+pub(crate) fn take_complete<H: ControlHost>(
+    id: u64,
+    transfer: TransferId,
+    host: &H,
+) -> Result<Vec<u8>, ControlResponse> {
+    match host.with_transfers(|session| session.take_complete(transfer)) {
+        Ok(Ok(bytes)) => Ok(bytes),
+        Ok(Err(error)) => Err(ControlResponse::error(id, error.to_string())),
+        Err(refused) => Err(refused.refusal(id)),
+    }
 }
 
 /// The refusal of a request whose parameters the wire rules cannot read. Every runtime gives the

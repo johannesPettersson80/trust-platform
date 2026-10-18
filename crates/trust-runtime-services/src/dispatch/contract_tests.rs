@@ -159,6 +159,7 @@ fn role_refusal_names_the_required_role() {
         ("io.write", "engineer"),
         ("shutdown", "admin"),
         ("bytecode.reload", "admin"),
+        ("program.install", "admin"),
     ] {
         let host = FakeHost::running();
         let response = dispatch_value(json!({"id": 1, "type": kind}), &host, NETWORK);

@@ -19,6 +19,7 @@ use crate::access::{
 use crate::capabilities;
 use crate::events::{wall_time, RuntimeEvent};
 use crate::live_values::{io_requests, var_requests};
+use crate::loading::program_install;
 use crate::ports::{AuditRecord, ControlHost};
 use crate::protocol::{BoundedReply, ControlAfterResponse, ControlRequest, ControlResponse};
 use crate::resource::operations;
@@ -322,6 +323,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "resume" => operations::resume(id, host),
         "restart" => operations::restart(id, request.params.clone(), host),
         "shutdown" => operations::shutdown(id),
+        "program.install" => program_install::request(id, request.params.as_ref(), host),
         "transfer.begin" | "transfer.part" | "transfer.status" | "transfer.get"
         | "transfer.abort" => transfers::answer_transfer(request, host),
         "program.active" => transfers::program_active(id, host),
