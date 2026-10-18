@@ -140,6 +140,34 @@ fn view_text_borrow_has_the_stored_length() {
 }
 
 #[test]
+fn view_borrow_returns_the_stored_leaf_without_copying() {
+    // spec 34 §6.2 (MEM-10): a view borrows the stored member itself, so the
+    // engine's copy charge sees the stored value and not a copy of it.
+    let mut storage = VariableStorage::new();
+    storage.set_global("AXIS", axis());
+
+    let view = storage
+        .read_path(
+            MemoryLocation::Global,
+            0,
+            &[RefSegment::Field(SmolStr::new("Scale"))],
+        )
+        .expect("Scale resolves");
+    let borrowed = storage.borrow(&view).expect("the member borrows");
+
+    // A borrow that copies the member, or that lands on the root
+    // (`InternalIndex` = 1), is not the stored field: only the stored field has
+    // this address.
+    let root = storage.get_global("AXIS").expect("AXIS is stored");
+    let Value::Struct(root) = root else {
+        panic!("AXIS is a structure");
+    };
+    let stored = root.field("Scale").expect("Scale is stored");
+    assert!(core::ptr::eq(borrowed, stored));
+    assert_eq!(borrowed, &Value::UInt(9));
+}
+
+#[test]
 fn view_write_of_a_whole_scalar_normalizes_for_its_target() {
     // spec 34 MEM-06: assignment copies into the destination's own type, so an
     // INT written into a DINT slot is stored as DINT.

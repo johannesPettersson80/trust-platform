@@ -1,5 +1,6 @@
 //! Charge copy-on-write backing storage before changing a field or element.
 use super::*;
+use crate::memory::view::StoreAccess;
 use crate::memory::MemoryLocation;
 use crate::value::{array_offset_i64, RefSegment};
 use alloc::sync::Arc;
@@ -18,9 +19,10 @@ impl EngineState<'_> {
         if path.is_empty() && !matches!(input, Value::Struct(_)) {
             return Ok(());
         }
-        let root = storage
-            .read_direct_slot_by_location(location, offset)
-            .ok_or(RuntimeError::NullReference)?;
+        let view = storage
+            .read_slot(location, offset)
+            .map_err(|_| RuntimeError::NullReference)?;
+        let root = storage.borrow(&view).ok_or(RuntimeError::NullReference)?;
         self.charge_path_write_inner(storage, root, path, input, false, 0)
     }
 
@@ -102,9 +104,10 @@ impl EngineState<'_> {
                 let reference = storage
                     .ref_for_instance_recursive(*instance, name)
                     .ok_or(RuntimeError::NullReference)?;
-                let field = storage
-                    .read_by_ref_ref(&reference)
-                    .ok_or(RuntimeError::NullReference)?;
+                let view = storage
+                    .read_reference(reference.as_view())
+                    .map_err(|_| RuntimeError::NullReference)?;
+                let field = storage.borrow(&view).ok_or(RuntimeError::NullReference)?;
                 self.charge_path_write_inner(storage, field, rest, input, false, depth + 1)
             }
             (Value::Array(array), RefSegment::Index(indices)) => {

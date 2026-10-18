@@ -60,6 +60,11 @@ impl StoreAccess for EngineState<'_> {
     }
 
     #[inline]
+    fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value> {
+        self.data.storage.borrow(view)
+    }
+
+    #[inline]
     fn materialize(&self, view: &ValueView<'_>) -> Result<Value, RuntimeError> {
         self.data.storage.materialize(view)
     }
@@ -149,6 +154,11 @@ impl StoreAccess for RuntimeState<'_> {
     #[inline]
     fn text<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a str> {
         self.storage().text(view)
+    }
+
+    #[inline]
+    fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value> {
+        self.storage().borrow(view)
     }
 
     #[inline]

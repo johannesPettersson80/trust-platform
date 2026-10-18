@@ -10,8 +10,10 @@
 //! charged once at preparation, and later slices store values by them. A region's cells are only
 //! recorded here; construction charges them when it reserves the region. The traversal is bounded
 //! by
-//! [`BYTECODE_MAX_TYPE_NESTING`](crate::bytecode::BYTECODE_MAX_TYPE_NESTING) and refuses a
-//! recursive type as a type mismatch.
+//! [`BYTECODE_MAX_TYPE_NESTING`](crate::bytecode::BYTECODE_MAX_TYPE_NESTING): a type deeper than
+//! the bound is refused with
+//! [`RuntimeError::TypeNestingExceeds`](crate::error::RuntimeError::TypeNestingExceeds) and a
+//! recursive type with `TypeMismatch`.
 
 use alloc::vec::Vec;
 
@@ -175,7 +177,7 @@ fn compute_one(
         return Ok(cells);
     }
     if depth >= BYTECODE_MAX_TYPE_NESTING {
-        return Err(RuntimeError::TypeMismatch);
+        return Err(RuntimeError::TypeNestingExceeds);
     }
     if *active.get(id as usize).ok_or(RuntimeError::TypeMismatch)? {
         return Err(RuntimeError::TypeMismatch);

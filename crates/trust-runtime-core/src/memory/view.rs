@@ -2,9 +2,11 @@
 //!
 //! `StoreAccess` reads variables and stages typed path writes while storage is
 //! borrowed immutably; `StoreMutate` publishes a prepared write or restores a
-//! slot with `&mut self`. A read returns an opaque `ValueView`, so no caller can
-//! hold a `&` `Value` into storage, which lets the C1-9 slice switch the
-//! implementation to the cell store behind the same API (design
+//! slot with `&mut self`. A read returns an opaque `ValueView`; the only `&`
+//! [`Value`] a caller can obtain is
+//! [`StoreAccess::borrow`](crate::memory::view::StoreAccess::borrow), the C1-8
+//! compatibility read that C1-9 removes, so the rest of the API can switch to
+//! the cell store behind the same API (design
 //! `~/projects/.artifacts/bounded-c/design.md` lines 361-367; specification 34
 //! §6.2, MEM-10). The traits never charge: every `charge_*`, `before_*` and
 //! `check_*` call stays on the engine, where it is today.
@@ -20,53 +22,28 @@ use crate::vm::VmTrap;
 
 /// A variable, or one path inside it, as the store holds it.
 ///
-/// Opaque: only [`StoreAccess`] observes a view, its field is private and no
-/// method hands out a `&`[`Value`] into storage. A view of a string element owns
-/// its synthesized scalar, because a text leaf has no `Value` to borrow.
+/// Opaque: only [`StoreAccess`] observes a view, its field is private and, apart
+/// from the compatibility read [`StoreAccess::borrow`], no method hands out a
+/// `&`[`Value`] into storage.
 pub struct ValueView<'a> {
-    value: ViewValue<'a>,
-}
-
-/// The value a [`ValueView`] names.
-enum ViewValue<'a> {
-    /// A leaf borrowed from storage.
-    Borrowed(&'a Value),
-    /// A synthesized string element (`CHAR`/`WCHAR`). C1-8a2 builds it in the
-    /// string-element reads it moves (`dynamic_load_view`, `read_vm_reference`);
-    /// this slice moves no call site, so nothing constructs it here yet.
-    #[allow(
-        dead_code,
-        reason = "built by the string-element reads that C1-8a2 moves"
-    )]
-    Element(Value),
+    value: &'a Value,
 }
 
 impl<'a> ValueView<'a> {
     /// A view borrowing `value` from storage.
     fn borrowed(value: &'a Value) -> Self {
-        Self {
-            value: ViewValue::Borrowed(value),
-        }
+        Self { value }
     }
 
     /// Step one compound segment into a child borrowed from the same storage, or
-    /// `None` when the child is absent or this view owns its scalar.
+    /// `None` when the child is absent.
     fn member(&self, segment: &RefSegment) -> Option<Self> {
-        let ViewValue::Borrowed(value) = &self.value else {
-            return None;
-        };
-        let value: &'a Value = value;
-        read_value_path_borrowed(value, core::slice::from_ref(segment)).map(Self::borrowed)
+        read_value_path_borrowed(self.value, core::slice::from_ref(segment)).map(Self::borrowed)
     }
 
-    /// The stored text bytes of a text leaf, borrowed. `None` for any other value,
-    /// including a synthesized string element.
+    /// The stored text bytes of a text leaf, borrowed. `None` for any other value.
     fn text(&self) -> Option<&'a str> {
-        let ViewValue::Borrowed(value) = &self.value else {
-            return None;
-        };
-        let value: &'a Value = value;
-        match value {
+        match self.value {
             Value::String(text) => Some(text.as_str()),
             Value::WString(text) => Some(text.as_str()),
             _ => None,
@@ -77,10 +54,7 @@ impl<'a> ValueView<'a> {
     /// so this is the clone `materialize_by_ref_parts`/`materialize_value_path`
     /// end their walk with.
     fn materialize(&self) -> Value {
-        match &self.value {
-            ViewValue::Borrowed(value) => (*value).clone(),
-            ViewValue::Element(value) => value.clone(),
-        }
+        self.value.clone()
     }
 }
 
@@ -136,8 +110,19 @@ pub trait StoreAccess {
         segment: &RefSegment,
     ) -> Result<ValueView<'a>, VmTrap>;
 
-    /// The text bytes of a text leaf or element, borrowed, without cloning.
+    /// The text bytes of a text leaf, borrowed, without cloning.
     fn text<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a str>;
+
+    /// Borrow the stored leaf a view names, without copying it.
+    ///
+    /// This is the C1-8 compatibility read: it hands out a `&`[`Value`] into
+    /// today's `Value`-tree storage, which the C1-9 cell store cannot serve. C1-9
+    /// removes it by moving its three callers to view-based reads and charges:
+    /// `read_storage_path` and `read_storage_slot` in `vm::dispatch_refs`, and
+    /// `charge_storage_path_write` in `vm::engine::path_write` (C1-8a note §4). The
+    /// engine reads the stored value through this for its copy charge and step-into
+    /// decisions while today's storage is a `Value` tree (C1-8a).
+    fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value>;
 
     /// The owned `Value` of a view; the only allocating read.
     fn materialize(&self, view: &ValueView<'_>) -> Result<Value, RuntimeError>;
@@ -228,6 +213,11 @@ impl StoreAccess for VariableStorage {
     #[inline]
     fn text<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a str> {
         view.text()
+    }
+
+    #[inline]
+    fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value> {
+        Some(view.value)
     }
 
     #[inline]

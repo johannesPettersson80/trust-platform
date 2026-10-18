@@ -108,16 +108,6 @@ fn vm_harness_from_module(source: &str, module: &BytecodeModule) -> TestHarness 
     harness
 }
 
-fn assert_invalid_bytecode_contains(errors: &[RuntimeError], needle: &str) {
-    assert!(
-        errors.iter().any(|err| matches!(
-            err,
-            RuntimeError::Bytecode { detail, .. } if detail.contains(needle)
-        )),
-        "expected coded bytecode error containing '{needle}', got {errors:?}"
-    );
-}
-
 fn assert_apply_invalid_bytecode_contains(module: &BytecodeModule, needle: &str) {
     let bytes = module.encode().expect("encode module");
     let mut runtime = trust_runtime::RuntimeBuilder::new()

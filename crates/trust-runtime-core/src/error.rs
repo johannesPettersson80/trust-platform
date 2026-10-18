@@ -122,6 +122,12 @@ pub enum RuntimeError {
     #[error("type mismatch")]
     TypeMismatch,
 
+    /// A type is deeper than the fixed structural type-nesting bound: more than 64 structural
+    /// edges (65 visited nodes) from a depth-zero root (spec 12 §4.6). Refused while the cell
+    /// layouts are prepared, before construction; a recursive type stays a `TypeMismatch`.
+    #[error("type nesting exceeds 64 structural edges")]
+    TypeNestingExceeds,
+
     /// A checked engineering boundary received a non-finite floating value.
     #[error("non-finite floating-point value")]
     NonFiniteValue,
@@ -389,6 +395,7 @@ impl RuntimeError {
             Self::DeploymentRecordInvalid(_) => StableErrorCode::RuntimeDeploymentRecordInvalid,
             Self::DeploymentRefused(_) => StableErrorCode::RuntimeDeploymentRefused,
             Self::TypeMismatch => StableErrorCode::RuntimeTypeMismatch,
+            Self::TypeNestingExceeds => StableErrorCode::RuntimeTypeNestingExceeds,
             Self::NonFiniteValue => StableErrorCode::RuntimeNonFiniteValue,
             Self::InvalidArgumentCount { .. } => StableErrorCode::RuntimeInvalidArgumentCount,
             Self::InvalidArgumentName(_) => StableErrorCode::RuntimeInvalidArgumentName,
@@ -690,6 +697,10 @@ mod tests {
             (
                 RuntimeError::TypeMismatch,
                 StableErrorCode::RuntimeTypeMismatch,
+            ),
+            (
+                RuntimeError::TypeNestingExceeds,
+                StableErrorCode::RuntimeTypeNestingExceeds,
             ),
             (
                 RuntimeError::InvalidArgumentCount {

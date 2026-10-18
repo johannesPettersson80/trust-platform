@@ -1,7 +1,8 @@
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
-use crate::memory::MemoryLocation;
+use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::{MemoryLocation, VariableStorage};
 use crate::value::{
     materialize_value_path, read_value_path_borrowed, single_ref_index, string_element_position,
     RefSegment, Value, ValueRef,
@@ -34,6 +35,27 @@ pub fn load_ref(
     dynamic_load_view(runtime, frames, reference)
 }
 
+/// Borrow the stored leaf at a path in `storage` through the store-access seam.
+fn read_storage_path<'a>(
+    storage: &'a VariableStorage,
+    location: MemoryLocation,
+    offset: usize,
+    path: &[RefSegment],
+) -> Result<&'a Value, VmTrap> {
+    let view = storage.read_path(location, offset, path)?;
+    storage.borrow(&view).ok_or(VmTrap::NullReference)
+}
+
+/// Borrow a stored whole slot through the store-access seam.
+fn read_storage_slot(
+    storage: &VariableStorage,
+    location: MemoryLocation,
+    offset: usize,
+) -> Result<&Value, VmTrap> {
+    let view = storage.read_slot(location, offset)?;
+    storage.borrow(&view).ok_or(VmTrap::NullReference)
+}
+
 /// Borrow a static reference value after read-policy checks.
 pub fn peek_ref<'a>(
     runtime: &'a impl ReferenceContext,
@@ -49,6 +71,7 @@ pub fn peek_ref<'a>(
         .refs
         .get(ref_idx as usize)
         .ok_or_else(|| VmTrap::InvalidRefIndex(ref_idx))?;
+    let storage = runtime.storage();
 
     match reference {
         VmRef::InitializerResult {
@@ -56,20 +79,15 @@ pub fn peek_ref<'a>(
             path,
         } => {
             let reference = runtime.initializer_reference(*initializer_id, path)?;
-            runtime
-                .storage()
-                .read_by_ref_parts(reference.location, reference.offset, path)
-                .ok_or_else(|| VmTrap::NullReference)
+            read_storage_path(storage, reference.location, reference.offset, path)
         }
 
-        VmRef::Global { offset, path } if path.is_empty() => runtime
-            .storage()
-            .read_global_slot_by_offset(*offset)
-            .ok_or_else(|| VmTrap::NullReference),
-        VmRef::Global { offset, path } => runtime
-            .storage()
-            .read_by_ref_parts(MemoryLocation::Global, *offset, path)
-            .ok_or_else(|| VmTrap::NullReference),
+        VmRef::Global { offset, path } if path.is_empty() => {
+            read_storage_slot(storage, MemoryLocation::Global, *offset)
+        }
+        VmRef::Global { offset, path } => {
+            read_storage_path(storage, MemoryLocation::Global, *offset, path)
+        }
         VmRef::Local { offset, path, .. } => {
             let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
@@ -87,10 +105,7 @@ pub fn peek_ref<'a>(
                 peek_vm_local_ref(frame, slot, path)
             }
         }
-        _ => runtime
-            .storage()
-            .read_by_ref_parts(address.location, address.offset, address.path)
-            .ok_or_else(|| VmTrap::NullReference),
+        _ => read_storage_path(storage, address.location, address.offset, address.path),
     }
 }
 
@@ -198,7 +213,7 @@ pub fn store_ref(
         VmRef::Global { offset, path } if path.is_empty() => {
             if runtime
                 .storage_mut()
-                .write_global_slot_by_offset(*offset, value)
+                .write_slot(MemoryLocation::Global, *offset, value)
             {
                 Ok(())
             } else {
@@ -460,10 +475,12 @@ fn peek_dynamic_ref_path<'a>(
             .ok_or_else(|| VmTrap::NullReference)?;
         return read_value_path_borrowed(root, path).ok_or_else(|| VmTrap::NullReference);
     }
-    runtime
-        .storage()
-        .read_by_ref_parts(reference.location, reference.offset, path)
-        .ok_or_else(|| VmTrap::NullReference)
+    read_storage_path(
+        runtime.storage(),
+        reference.location,
+        reference.offset,
+        path,
+    )
 }
 
 /// Read a dynamic target with policy and pre-copy charging.
