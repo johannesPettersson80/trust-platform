@@ -538,12 +538,18 @@ impl SymbolCollector<'_> {
         let range = symbol.range;
 
         let upper_name = name.to_ascii_uppercase();
+        // Context-sensitive keyword names (CODESYS dialect, spec 01 §3):
+        // variable, member, and enum-member declarations may spell ON/NULL/SET
+        // — OSCAT pins (TIMER_EXT.ON, FF_DRE.SET) and eChar.Null exist in the
+        // wild. POU-level names keep the reserved table.
         let allow_reserved = (matches!(symbol.kind, SymbolKind::Parameter { .. })
-            && matches!(upper_name.as_str(), "EN" | "ENO"))
+            && matches!(upper_name.as_str(), "EN" | "ENO" | "ON" | "NULL" | "SET"))
             || (matches!(symbol.kind, SymbolKind::Method { .. })
                 && matches!(upper_name.as_str(), "GET" | "SET"))
             || (matches!(symbol.kind, SymbolKind::Variable { .. })
-                && matches!(upper_name.as_str(), "STEP"));
+                && matches!(upper_name.as_str(), "STEP" | "ON" | "NULL" | "SET"))
+            || (matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                && is_contextual_keyword_name(&name));
         self.validate_identifier(&name, range, allow_reserved);
 
         // Check for duplicate in current scope

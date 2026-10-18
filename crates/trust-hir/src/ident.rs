@@ -203,6 +203,16 @@ pub fn is_reserved_keyword(name: &str) -> bool {
     )
 }
 
+/// Returns true when the name spells one of the context-sensitive keywords
+/// (CODESYS dialect, spec 01 §3): `ON`, `NULL`, `SET`. Variable, member, and
+/// enum-member declarations may carry these names (OSCAT pins TIMER_EXT.ON /
+/// FF_DRE.SET, the eChar.Null member), while `NULL` stays the literal and
+/// `ON` the RESOURCE separator in their structural positions.
+#[must_use]
+pub fn is_contextual_keyword_name(name: &str) -> bool {
+    matches!(name.to_ascii_uppercase().as_str(), "ON" | "NULL" | "SET")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -404,7 +404,11 @@ impl SymbolCollector<'_> {
                 self.check_required_default_expression(field_type, expr);
             }
             for (field_name, range) in field_names {
-                self.validate_identifier(&field_name, range, false);
+                self.validate_identifier(
+                    &field_name,
+                    range,
+                    is_contextual_keyword_name(&field_name),
+                );
                 let key = field_name.to_ascii_uppercase();
                 if let Some(previous) = seen_fields.insert(key, range) {
                     self.diagnostics.add(
@@ -488,7 +492,11 @@ impl SymbolCollector<'_> {
                 self.check_required_default_expression(field_type, expr);
             }
             for (field_name, range) in field_names {
-                self.validate_identifier(&field_name, range, false);
+                self.validate_identifier(
+                    &field_name,
+                    range,
+                    is_contextual_keyword_name(&field_name),
+                );
                 let key = field_name.to_ascii_uppercase();
                 if let Some(previous) = seen_variants.insert(key, range) {
                     self.diagnostics.add(
@@ -530,7 +538,11 @@ impl SymbolCollector<'_> {
         for child in node.children() {
             if child.kind() == SyntaxKind::EnumValue {
                 if let Some((value_name, range)) = name_from_node(&child) {
-                    self.validate_identifier(&value_name, range, false);
+                    self.validate_identifier(
+                        &value_name,
+                        range,
+                        is_contextual_keyword_name(&value_name),
+                    );
                     // Check for explicit value assignment
                     let value = self.extract_enum_value(&child).unwrap_or(next_value);
                     values.push((value_name.clone(), value));
@@ -540,7 +552,11 @@ impl SymbolCollector<'_> {
             } else if child.kind() == SyntaxKind::Name {
                 // Simple enum value without EnumValue wrapper
                 if let Some((value_name, range)) = name_from_node(&child) {
-                    self.validate_identifier(&value_name, range, false);
+                    self.validate_identifier(
+                        &value_name,
+                        range,
+                        is_contextual_keyword_name(&value_name),
+                    );
                     values.push((value_name.clone(), next_value));
                     value_symbols.push((value_name, next_value, range));
                     next_value += 1;

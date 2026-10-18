@@ -297,3 +297,87 @@ END_NAMESPACE
 "#,
     );
 }
+
+// Context-sensitive keyword names (CODESYS dialect; spec 01 §3): variable
+// and enum-member declarations may spell ON/NULL/SET — OSCAT pins
+// (TIMER_EXT.ON, FF_DRE.SET) and the eChar.Null member exist in the wild.
+
+#[test]
+// A variable named `null` is declarable and reachable through member
+// access, but a bare `null` in value/statement position stays the NULL
+// literal (so `null := FALSE;` remains an invalid assignment target).
+fn test_contextual_keyword_variable_names_accepted() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR_INPUT
+    on : BOOL;
+    set : BOOL;
+END_VAR
+VAR
+    null : BOOL;
+END_VAR
+    on := set;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_contextual_keyword_fb_pin_member_access() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK TIMER_EXT
+VAR_INPUT
+    on : BOOL;
+    set : BOOL;
+END_VAR
+VAR
+    run : BOOL;
+END_VAR
+    run := on OR set;
+END_FUNCTION_BLOCK
+PROGRAM Test
+VAR
+    timer : TIMER_EXT;
+END_VAR
+    timer.on := TRUE;
+    timer.set := FALSE;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_contextual_keyword_enum_member_accepted() {
+    check_no_errors(
+        r#"
+TYPE eChar :
+(
+    Null,
+    Space
+);
+END_TYPE
+PROGRAM Test
+VAR
+    c : eChar;
+END_VAR
+    c := eChar.Null;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reserved_names_outside_the_contextual_set_stay_rejected() {
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    get : INT;
+END_VAR
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidIdentifier,
+    );
+}
