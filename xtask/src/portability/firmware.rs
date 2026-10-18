@@ -81,9 +81,9 @@ mod tests {
     fn c6_firmware_is_built_from_its_chip_file() {
         let firmware = Firmware::parse("esp32c6").unwrap();
         assert_eq!(firmware.name, "esp32c6");
-        assert_eq!(firmware.firmware_dir, "firmware/trust-esp32c6-reference");
+        assert_eq!(firmware.firmware_dir, "firmware/trust-esp32c6");
         assert_eq!(firmware.target, "riscv32imac-unknown-none-elf");
-        assert_eq!(firmware.bin, "trust-esp32c6-reference");
+        assert_eq!(firmware.bin, "trust-esp32c6");
         assert_eq!(
             firmware.required_rustflags,
             [["-C", "link-arg=-Tlinkall.x"]].as_slice()

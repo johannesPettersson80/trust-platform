@@ -36,7 +36,7 @@ const C6_HP_SRAM: std::ops::Range<u64> = 0x4080_0000..0x4088_0000;
 /// `_stack_start` in esp-hal 1.2.2's C6 memory map; the composition's fixed stack window ends here.
 const C6_STACK_TOP: u64 = 0x4086_E610;
 /// The C6's main-stack window: the 24 KiB the composition budgets at the top of the esp-hal stack
-/// region (specification 34, D.2); `firmware/trust-esp32c6-reference/src/memory.rs` pins the same.
+/// region (specification 34, D.2); `firmware/trust-esp32c6/src/memory.rs` pins the same.
 pub(super) const C6_STACK_WINDOW_BYTES: u64 = 24 * 1024;
 /// The margin above the window the C6 build requires. Below it the boot-time stack paint reaches
 /// static data, as the S1b-5c firmware did (specification 34, D.2, the S1b-5d guard).

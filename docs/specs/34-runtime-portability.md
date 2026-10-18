@@ -209,7 +209,7 @@ firmware/
                                   bench board's wiring is its configuration
                                   (src/board.rs), not a firmware of its own
 
-  trust-esp32c6-reference/         NEW; proposed C6-DevKitC-1 composition
+  trust-esp32c6/                   NEW; the ESP32-C6 chip firmware (ARCH-10)
 ```
 
 Names inside the core are proposed ownership areas, not instructions to rename every existing module at once. Existing public host APIs shall remain available through wrappers or re-exports during migration.
@@ -3387,8 +3387,10 @@ every target (ARCH-14):
 | `openot` | OpenOT telemetry (SERVICE-04). |
 | `simulation` | Simulation (SERVICE-05). |
 
-A firmware holds `engine` and lists each further component once it holds it, as measured. Today's
-firmware runs the M2E fixture and holds `engine` alone. Several resources in one configuration,
+A firmware holds `engine` and lists each further component once it holds it, as measured. The
+ESP32-C6 firmware holds `engine`, `control` and `live-values`, as its bench measured them on
+18 October 2026 (the control requests of S1b-5 and Live Values at the pins); the STM32F407
+firmware holds `engine` alone. Several resources in one configuration,
 and several runtimes on one chip (ARCH-15), are not components: every firmware runs them, and how
 many runtimes fit a chip is measured and reported (ARCH-13). Linux, macOS and Windows run every
 component and have no chip file. The tools offer what the device's chip file lists and refuse a

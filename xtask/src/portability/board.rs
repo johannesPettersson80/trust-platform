@@ -272,7 +272,7 @@ mod tests {
     fn c6_partition_table_matches_the_profile_and_uses_custom_types() {
         // Spec 34 D.2 flash layout, as the chip file records it. Custom types keep espflash's
         // table conversion and the bootloader away from truST's data partitions.
-        let csv = include_str!("../../../firmware/trust-esp32c6-reference/partitions.csv");
+        let csv = include_str!("../../../firmware/trust-esp32c6/partitions.csv");
         let rows: Vec<Vec<&str>> = csv
             .lines()
             .filter(|line| !line.trim().is_empty() && !line.trim_start().starts_with('#'))

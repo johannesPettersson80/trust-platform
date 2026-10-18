@@ -76,7 +76,7 @@ board's USB port explicitly on every command. Its `/dev/serial/by-id` path conta
 
 ```
 espflash flash --port <devkit-serial-by-id> --partition-table partitions.csv \
-  target/riscv32imac-unknown-none-elf/release/trust-esp32c6-reference
+  target/riscv32imac-unknown-none-elf/release/trust-esp32c6
 espflash write-bin --port <devkit-serial-by-id> 0x200000 application.bin
 trust-runtime ctl --endpoint usb://<mac> status
 ```

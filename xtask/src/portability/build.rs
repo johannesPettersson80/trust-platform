@@ -329,7 +329,7 @@ mod tests {
     #[test]
     fn c6_profile_requires_its_linker_script() {
         let firmware = Firmware::parse("esp32c6").unwrap();
-        let config = "[target.riscv32imac-unknown-none-elf]\nrustflags = [\"-C\", \"link-arg=-Tlinkall.x\", \"-C\", \"link-arg=-Map=trust-esp32c6-reference.map\"]\n";
+        let config = "[target.riscv32imac-unknown-none-elf]\nrustflags = [\"-C\", \"link-arg=-Tlinkall.x\", \"-C\", \"link-arg=-Map=trust-esp32c6.map\"]\n";
         let accepted = flags(
             &firmware,
             config,

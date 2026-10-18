@@ -106,6 +106,12 @@ Each task needs:
 | --- | --- | --- | --- |
 | `level` | string | yes | `error`, `warn` (`warning`), `info`, `debug`, or `trace`, case-insensitively. Empty and unknown values are rejected. |
 
+### `[runtime.events]`
+
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `capacity` | integer | no | 1,000 on a computer; on a chip, its chip file's default (200 on the ESP32-C6 and STM32F407) | The newest events the event store keeps, from 1 through 1,000,000. A newer event displaces the oldest. A chip refuses a value above its chip file's maximum (200 on the ESP32-C6 and STM32F407). `status` reports it as `event_capacity`. |
+
 ### `[runtime.retain]` (retain policy)
 
 | Key | Type | Required | Default | Notes |

@@ -107,7 +107,7 @@
       "rationale": "The F407 adapter keeps the same fixed-size reset record in the RTC backup registers, so both chips report the same cause; the memory crate holds the record codec and depends on no runtime or compiler."
     },
     {
-      "from": "trust-esp32c6-reference",
+      "from": "trust-esp32c6",
       "to": "trust-board-fixture",
       "kind": "normal",
       "status": "allowed",
@@ -115,7 +115,7 @@
       "rationale": "The C6 composition runs the same shared M2E fixture as the F407."
     },
     {
-      "from": "trust-esp32c6-reference",
+      "from": "trust-esp32c6",
       "to": "trust-platform-esp32",
       "kind": "normal",
       "status": "allowed",
@@ -512,7 +512,7 @@
       "kind": "normal"
     },
     {
-      "from": "trust-esp32c6-reference",
+      "from": "trust-esp32c6",
       "to": "trust-runtime",
       "kind": "normal"
     },
@@ -2974,7 +2974,7 @@
         "review_date": "2026-10-18"
       },
       {
-        "path": "firmware/trust-esp32c6-reference/src/memory.rs",
+        "path": "firmware/trust-esp32c6/src/memory.rs",
         "line": 45,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static and the 64 KiB reclaimed static are exclusively owned by the allocator, and the slices cover exactly those statics.",

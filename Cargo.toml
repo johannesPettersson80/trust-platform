@@ -26,7 +26,7 @@ members = [
 exclude = [
     "third_party/tiverse-mmap",
     "firmware/trust-stm32f407",
-    "firmware/trust-esp32c6-reference",
+    "firmware/trust-esp32c6",
 ]
 
 [workspace.package]
