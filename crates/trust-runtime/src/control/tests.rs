@@ -15,6 +15,7 @@ include!("tests/control_endpoint_source_contract.rs");
 include!("tests/control_request_boundary_contract.rs");
 include!("tests/io_write_integer_literals.rs");
 include!("tests/variable_write_integer_literals.rs");
+include!("tests/live_values_pipeline.rs");
 include!("tests/request_queue_bounds.rs");
 include!("tests/rejected_force_removal.rs");
 include!("tests/refused_request_reporting.rs");

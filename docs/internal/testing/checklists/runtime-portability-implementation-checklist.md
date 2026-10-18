@@ -7,6 +7,40 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
+**18 October, about 11:00 (lead).** The STM32 target is the STM32U5A9 on the owner's Riverdi
+panel (17 October; the F407 code stays). All work is local; nothing is pushed. Lanes:
+
+- c6 `feat/board-runtime` (integration): `985823d96` merges feat/chip-control-link (S1b-1 to
+  S1b-5b2 and the chip retain persister) after feat/live-values (S2a-S2d); focused check
+  c6/merge-s1b green (22 steps). C6 bench of the merged firmware: Live Values at the pins pass
+  (`~/projects/.artifacts/runtime-portability-c6/s2-dil-bench/result.md`): io.write on an unbound
+  output holds, a write to a bound output is owned by the program as on trust-runtime, io.force
+  holds over 20 scans, io.unforce returns control, BOOT drives the output. S2 closes when the chip
+  names its bindings in io.list on the bench (S1b-5c, `4806a7ff7` on feat/chip-control-link).
+- s1b `feat/chip-control-link` (= c6 + S1b-5c): S1b-5 bench steps 1-5 pass on the C6
+  (`s1b-5b2-bench/result.md`: control requests, limits, safe state on stop, a host that stops
+  reading, liveness stopped/paused/faulted, faults). Open: S1b-5d (S1b-5c's firmware resets at
+  boot: `.rwtext` grew until `_bss_end` entered the 16 KiB stack window, whose boot paint
+  overwrote the heap allocator; a link guard and a narrower RAM-code selection are running),
+  step 6 (the hardware watchdog needs a hang that is not a debugger halt: OpenOCD disables MWDT0
+  on halt and leaves it off), step 7 (heap, stack and lateness figures). Event store per device
+  (owner, 18 October): `[runtime.events] capacity`, chip default and maximum 200 from the chip
+  file (S1b-5b1 `1b5dfd167`, S1b-5b2 `436f208f5`).
+- live-values `feat/live-values`: S3a specs (Q4-Q7), S3b1 LINE_TABLE section 0x0011 (`fe13fcf2b`,
+  check green). Running: S3b3 (a stop ends a debugger hold, Q7). Next: S3b2a portable resolver
+  with parity tests, S3b2b the switch; the chips' debugger hold (a debug-mode pause on a chip
+  answers paused but does not hold until then).
+- engine-init `feat/engine-init` (C1 phase B, from c6 `87873ed68`): C1-8a1 the view seam
+  `e63e1e025`; C1-8a2 (the dispatcher on the seam) in its focused check; C1-8b next. Found: C1-5
+  moved the alias-depth refusal to preparation (spec 12 §4.6 agrees); bytecode_vm_core's test is
+  rewritten and the refusal gets `runtime_type_nesting_exceeds`. A FOR loop allocates about 32 B
+  per iteration on the chip (C6 bench), which C1-9 must remove.
+- devices `feat/devices-connections` (V7): B7 done (B7e `6885bde98`), B8a `93cbb5bde`, B8b1
+  `5e8de27e2`, B8b2 `2e4135229`; B8c (last ADS tag removal, OPC UA continuation points) running;
+  then B9 (the language-server transport).
+
+Open top-level items: 58.
+
 **16 October, evening: the owner's corrections (spec 34 v0.21, approved by the owner).** The boards
 are complete truST runtimes that work exactly like trust-runtime on Linux, macOS and Windows: spec 34
 "Owner requirements", ARCH-11 to ARCH-13, STATE-07 and §11.4 (TARGET-01 to TARGET-09). The separate

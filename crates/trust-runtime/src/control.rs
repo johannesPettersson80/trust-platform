@@ -14,7 +14,6 @@ mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
 mod host_ports;
-mod io_handlers;
 mod policy;
 mod program_handlers;
 mod resource_queue;

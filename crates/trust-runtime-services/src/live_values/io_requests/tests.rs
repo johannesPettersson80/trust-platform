@@ -145,9 +145,10 @@ fn io_read_exposes_legitimate_missing_snapshot_as_null() {
 }
 
 #[test]
-fn io_list_and_io_read_report_an_unreadable_snapshot_slot() {
-    // A platform whose snapshot slot cannot be read answers `I/O snapshot unavailable`, never the
-    // missing-snapshot text and never an empty snapshot.
+fn a_snapshot_projection_failure_answers_its_error() {
+    // The projection-failure seam (specification 11, §6.8.1): a platform whose snapshot the
+    // projection cannot render answers `I/O snapshot unavailable`, never the missing-snapshot text
+    // and never an empty snapshot.
     let listed = io_list(9, IoSnapshotRead::Unavailable);
     assert!(!listed.ok);
     assert_eq!(listed.error.as_deref(), Some("I/O snapshot unavailable"));

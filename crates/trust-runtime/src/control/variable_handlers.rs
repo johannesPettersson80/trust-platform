@@ -1,11 +1,11 @@
 //! The host's variable handlers: `eval` reads the debugger snapshot and the retained names here,
-//! because it needs the HIR expression evaluator; `set`, `var.force`, `var.unforce` and
-//! `var.forced` answer through the shared [`var_requests`] operations, which queue into the
-//! host's Live Values queues (specification 11, "Live Values"; specification 34 §4.3.1).
+//! because it needs the HIR expression evaluator. `set`, `var.force`, `var.unforce` and
+//! `var.forced` are answered by the shared request pipeline
+//! (`trust_runtime_services::live_values::var_requests`); their host wiring is tested by
+//! `control/tests/live_values_pipeline.rs` (specification 11, "Live Values"; specification 34
+//! §4.3.1).
 
 use serde_json::json;
-
-use trust_runtime_services::live_values::var_requests;
 
 use super::types::EvalParams;
 use super::{ControlResponse, ControlState};
@@ -47,32 +47,4 @@ pub(super) fn handle_eval(
         Some(value) => ControlResponse::ok(id, json!({ "value": format!("{value:?}") })),
         None => ControlResponse::error(id, "unknown identifier".into()),
     }
-}
-
-pub(super) fn handle_set(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    var_requests::set(id, params, state)
-}
-
-pub(super) fn handle_var_force(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    var_requests::var_force(id, params, state)
-}
-
-pub(super) fn handle_var_unforce(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    var_requests::var_unforce(id, params, state)
-}
-
-pub(super) fn handle_var_forced(id: u64, state: &ControlState) -> ControlResponse {
-    var_requests::var_forced(id, state)
 }
