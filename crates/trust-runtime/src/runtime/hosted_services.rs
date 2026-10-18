@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    debug::{DebugControl, DebugRuntimeContext, DebugSnapshot},
+    debug::{DebugControl, StatementProjection},
     error::RuntimeError,
     memory::VariableStorage,
     value::{DateTimeValue, Duration, Value},
@@ -156,6 +156,10 @@ impl ExecutionServices for HostedExecutionServices {
         let (Some(metadata), Some(debug)) = (&self.metadata, &self.debug) else {
             return Ok(());
         };
+        // With debugging disabled the hook does nothing beyond this check (specification 11 6.9).
+        if !debug.is_enabled() {
+            return Ok(());
+        }
         let pc = u32::try_from(code_offset).map_err(|_| RuntimeError::InvalidExecutionState)?;
         // A LINE_TABLE alone decides the statement starts once the installation binds it;
         // DEBUG_MAP is read only for a module without one (specification 12 §6.13).
@@ -173,28 +177,19 @@ impl ExecutionServices for HostedExecutionServices {
         let Some(location) = location else {
             return Ok(());
         };
-        let mut snapshot =
-            DebugSnapshot::from_execution(storage, logical_time, &self.prepared, frame)?;
-        let current_instance = snapshot
-            .storage
-            .current_frame()
-            .and_then(|frame| frame.instance_id);
-        let mut context = DebugRuntimeContext {
-            storage_abi: self.prepared.storage_abi(),
-            storage: &mut snapshot.storage,
-            registry: metadata.registry(),
-            stdlib: Some(metadata.stdlib()),
-            profile: metadata.profile(),
-            current_instance,
-            now: logical_time,
-        };
-        // The previous VM supplied only a raw snapshot and no evaluation context.
-        // Contextual hooks evaluate conditions/watches on this detached projection;
-        // any side effects of a debug expression stay outside installed PLC state.
-        debug
-            .clone()
-            .on_statement_with_owned_context(&mut context, Some(&location), depth);
-        Ok(())
+        // The scan's storage is read in place. A detached projection, which evaluates conditions and
+        // logpoints and is published at a stop, is built only when one of those needs it. Any side
+        // effects of a debug expression stay outside installed PLC state.
+        let mut projection = StatementProjection::new(
+            storage,
+            logical_time,
+            frame,
+            &self.prepared,
+            metadata.registry(),
+            metadata.stdlib(),
+            metadata.profile(),
+        );
+        debug.on_statement_projection(&mut projection, &location, depth)
     }
 }
 

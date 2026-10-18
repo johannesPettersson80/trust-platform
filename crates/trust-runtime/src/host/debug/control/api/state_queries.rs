@@ -96,12 +96,20 @@ impl DebugControl {
         state.runtime_events_dropped
     }
 
-    /// Get the last captured debug snapshot, if any.
+    /// Get the published debug state, if any: the halted state while a debugger holds the scan, and
+    /// otherwise the state of the last completed scan (specification 11 section 6.13.1). The last
+    /// completed scan is copied after the state lock is released, so a read does not hold up a scan.
     #[must_use]
     pub fn snapshot(&self) -> Option<DebugSnapshot> {
         let (lock, _) = &*self.state;
-        let state = lock.lock().expect("debug state poisoned");
-        state.snapshot.clone()
+        let completed = {
+            let state = lock.lock().expect("debug state poisoned");
+            if let Some(halted) = &state.snapshot {
+                return Some(halted.clone());
+            }
+            state.completed.clone()
+        };
+        completed.map(|snapshot| snapshot.as_ref().clone())
     }
 
     /// Return whether execution is currently paused.
@@ -145,10 +153,10 @@ impl DebugControl {
         std::mem::take(&mut state.stops)
     }
 
-    /// Mutate the stored snapshot, if one exists.
+    /// Mutate the published debug state, if one exists.
     pub fn with_snapshot<T>(&self, f: impl FnOnce(&mut DebugSnapshot) -> T) -> Option<T> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
-        state.snapshot.as_mut().map(f)
+        state.readable_snapshot_mut().map(f)
     }
 }

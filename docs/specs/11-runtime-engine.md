@@ -5801,7 +5801,9 @@ snapshot.
 - While a debugger holds the scan (a breakpoint, a debug-mode `pause` or a completed step, section
   6.9), the published state is the halted state: the storage exactly as the statements that already
   ran in the suspended scan left it, and the call stack at the halt. Every stopped answer is
-  unchanged, including the boundary writes a waiting scan already shows (section 6.9).
+  unchanged, including the boundary writes a waiting scan already shows (section 6.9). When the hold
+  ends, by a continue, a step or a stop, the published state is again the last completed scan's, and
+  the scan that resumes stays invisible until it completes.
 - Before the first completed scan there is no published state. Each read answers its existing error
   (`no snapshot available`) rather than an invented empty projection.
 - A read changes nothing: it applies no store, releases no force, and changes no value, breakpoint,

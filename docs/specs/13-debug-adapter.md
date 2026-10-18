@@ -377,7 +377,9 @@ A newly created runtime debug control starts running with current thread `1`,
 no target thread, breakpoint, stop, snapshot, watch, buffered event, queued
 mutation, or active force. An explicit pause transitions a running control to
 paused, records one pending `pause` reason, clears step state and the captured
-snapshot, and optionally binds the requested thread. Pausing an already paused
+snapshot (the halted state of the last stop: reads then answer from the last
+completed scan, if there is one, specification 11 section 6.13.1), and optionally
+binds the requested thread. Pausing an already paused
 control is ignored and does not replace the original pending reason or target.
 Stop-on-entry follows the same one-pending-stop rule but records `entry` and is
 not thread-targeted.

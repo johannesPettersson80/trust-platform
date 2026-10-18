@@ -1,5 +1,5 @@
 impl DebugControl {
-    /// Create a new debug control handle in running mode.
+    /// Create a new debug control handle in running mode, with debugging enabled.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -19,6 +19,8 @@ impl DebugControl {
                     frame_locations: HashMap::new(),
                     logs: Vec::new(),
                     snapshot: None,
+                    completed: None,
+                    storage_copies: 0,
                     watches: Vec::new(),
                     watch_changed: false,
                     log_tx: None,
@@ -37,7 +39,33 @@ impl DebugControl {
                 Condvar::new(),
             )),
             watchdog_pause_nanos: Arc::new(AtomicU64::new(0)),
+            enabled: Arc::new(AtomicBool::new(true)),
         }
+    }
+
+    /// Use `enabled` as this control's debugging switch. A runtime that shares the switch with its
+    /// control state follows a `config.set` of `runtime.control.debug_enabled` in the statement hook
+    /// (specification 11 section 6.9). A control without a switch stays enabled.
+    #[must_use]
+    pub fn with_enabled_flag(mut self, enabled: Arc<AtomicBool>) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    /// Whether debugging is enabled. While it is disabled the statement hook does nothing beyond
+    /// this check, and no storage is copied for the debugger (specification 11 section 6.9).
+    #[must_use]
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Relaxed)
+    }
+
+    /// The storage copies this control has made for the debugger: one per completed scan that
+    /// published, and one per stop or conditional evaluation that built a projection.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn storage_copies(&self) -> u64 {
+        let (lock, _) = &*self.state;
+        lock.lock().expect("debug state poisoned").storage_copies
     }
 
     pub(crate) fn watchdog_pause_elapsed(&self) -> std::time::Duration {

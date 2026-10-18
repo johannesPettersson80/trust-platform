@@ -42,6 +42,7 @@ impl DebugControl {
         state.watches.clear();
         state.watch_changed = false;
         state.snapshot = None;
+        state.completed = None;
         state.frame_locations.clear();
         state.last_location = None;
         state.last_call_depth = 0;

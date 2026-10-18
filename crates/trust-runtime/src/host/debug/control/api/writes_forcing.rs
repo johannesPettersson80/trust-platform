@@ -1,6 +1,4 @@
-use crate::error::RuntimeError;
 use crate::runtime::RuntimeMetadata;
-use crate::value::Duration;
 use trust_runtime_core::vm::CycleAccess;
 use trust_runtime_services::live_values::apply::{self, WriteSink};
 
@@ -145,7 +143,7 @@ impl DebugControl {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         state.live_values.check_lvalue_write_capacity()?;
-        if let Some(snapshot) = state.snapshot.as_mut()
+        if let Some(snapshot) = state.readable_snapshot_mut()
             && let Err(error) = write_snapshot(snapshot)
         {
             return Ok(Err(error));
@@ -279,12 +277,15 @@ impl DebugControl {
         lock.lock().expect("debug state poisoned").generation = generation;
     }
 
-    /// A restart or replacement committed `generation`: clear the queued writes and active
-    /// forces of the previous lifecycle and record the new generation, under one lock.
+    /// A restart or replacement committed `generation`: clear the queued writes, active forces and
+    /// published state of the previous lifecycle, and record the new generation, under one lock.
+    /// The storage of the previous lifecycle is no longer the PLC's, so its state is not published.
     pub(crate) fn begin_lifecycle(&self, generation: Generation) {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         state.live_values.clear();
+        state.snapshot = None;
+        state.completed = None;
         state.generation = generation;
     }
 
@@ -403,8 +404,7 @@ impl DebugControl {
             let (lock, _) = &*self.state;
             let state = lock.lock().expect("debug state poisoned");
             state
-                .snapshot
-                .as_ref()
+                .readable_snapshot()
                 .map_or(crate::value::Duration::ZERO, |snapshot| snapshot.now)
         };
         self.push_runtime_event(RuntimeEvent::WriteRejected {

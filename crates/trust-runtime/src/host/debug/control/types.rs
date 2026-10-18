@@ -69,7 +69,17 @@ struct DebugState {
     breakpoint_stops_this_cycle: HashSet<BreakpointCycleKey>,
     frame_locations: HashMap<FrameId, SourceLocation>,
     logs: Vec<DebugLog>,
+    /// The halted state: the storage and call stack at the stop that holds the scan. It is the
+    /// state reads answer from while the debugger holds the scan, and it is cleared when the hold
+    /// ends (specification 11 section 6.13.1).
     snapshot: Option<DebugSnapshot>,
+    /// The state of the last completed scan, published at its end. Reads answer from it whenever
+    /// no hold is in effect, so a scan in progress is never visible (specification 11 section
+    /// 6.13.1). It is shared, so a read clones it outside the state lock.
+    completed: Option<Arc<DebugSnapshot>>,
+    /// Storage copies made for the debugger: one per completed scan that published, one per
+    /// stop or conditional evaluation that built a projection.
+    storage_copies: u64,
     watches: Vec<WatchEntry>,
     watch_changed: bool,
     log_tx: Option<Sender<DebugLog>>,
@@ -90,6 +100,23 @@ struct DebugState {
     generation: Generation,
 }
 
+impl DebugState {
+    /// The state reads answer from: the halted state while a hold is in effect, and otherwise the
+    /// last completed scan's.
+    fn readable_snapshot(&self) -> Option<&DebugSnapshot> {
+        self.snapshot.as_ref().or(self.completed.as_deref())
+    }
+
+    /// The mutable form of [`Self::readable_snapshot`]. A shared completed scan is copied before it
+    /// is changed, so a reader that still holds it keeps the state it read.
+    fn readable_snapshot_mut(&mut self) -> Option<&mut DebugSnapshot> {
+        if self.snapshot.is_some() {
+            return self.snapshot.as_mut();
+        }
+        self.completed.as_mut().map(Arc::make_mut)
+    }
+}
+
 #[derive(Debug, Clone)]
 struct WatchEntry {
     expr: Expr,
@@ -108,4 +135,8 @@ pub(crate) use trust_runtime_services::events::DEBUG_EVENT_BUFFER_CAPACITY as RU
 pub struct DebugControl {
     state: Arc<(Mutex<DebugState>, Condvar)>,
     watchdog_pause_nanos: Arc<AtomicU64>,
+    /// Whether debugging is enabled (`runtime.control.debug_enabled`). The statement hook checks it
+    /// first, and does nothing else while it is false (specification 11 section 6.9). It is shared
+    /// with the control state, so a `config.set` takes effect here.
+    enabled: Arc<AtomicBool>,
 }

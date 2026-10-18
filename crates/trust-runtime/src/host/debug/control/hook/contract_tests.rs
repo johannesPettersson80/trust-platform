@@ -121,33 +121,112 @@ fn snapshot_captures_owned_storage_and_exact_runtime_time() {
     assert_eq!(snapshot.storage.get_global("value"), Some(&Value::DInt(7)));
 }
 
-#[test]
-fn detached_statement_snapshot_moves_owned_buffers_and_evaluates_watches_once() {
-    let mut control = DebugControl::new();
-    let registry = TypeRegistry::new();
-    let mut storage = VariableStorage::new();
-    let buffer = "A".repeat(80);
-    let original = buffer.as_ptr();
-    storage.set_global("text", Value::WString(buffer));
-    control.register_watch_expression(Expr::Literal(Value::DInt(7)));
-    let mut ctx = context(&mut storage, &registry, 42);
-    control.on_statement_with_owned_context(&mut ctx, None, 0);
-    assert!(ctx.storage.get_global("text").is_none());
-    assert!(control.take_watch_changed());
-
+/// The last value that the registered watch evaluated to, if it has been evaluated.
+fn watch_value(control: &DebugControl) -> Option<Value> {
     let (lock, _) = &*control.state;
-    let state = lock.lock().unwrap();
-    let snapshot = state.snapshot.as_ref().unwrap();
-    assert_eq!(snapshot.now, Duration::from_millis(42));
-    let Some(Value::WString(retained)) = snapshot.storage.get_global("text") else {
-        panic!("detached owned string was not published")
+    let state = lock.lock().expect("state");
+    state.watches[0].last.clone()
+}
+
+/// Waits until the held statement reports a stop, and drains the stops it has reported.
+fn wait_for_stop(control: &DebugControl) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while control.drain_stops().is_empty() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the statement did not stop"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
+/// Spec 13 line 279 ("Watch-change state is recomputed for each stop from the current storage") and
+/// spec 13 line 485 ("never a copy the runtime makes per statement"). The earlier version of this test
+/// expected every statement to move its storage into the published state and to evaluate the watch.
+/// Those lines replace that: a copy and a watch evaluation belong to a stop. The test pins the new rule.
+/// A statement that does not stop keeps the live storage with its caller, publishes nothing and evaluates
+/// no watch. Only a stop publishes a detached copy of the storage, and the stop evaluates the watch once.
+/// Wrong behaviour caught: a statement that takes the live buffer or evaluates a watch without a stop, and
+/// a stop that publishes the live buffer instead of a copy of it.
+#[test]
+fn only_a_stop_detaches_a_copy_and_evaluates_the_watches() {
+    let registry = TypeRegistry::new();
+    let mut control = DebugControl::new();
+    control.register_watch_expression(Expr::Literal(Value::DInt(7)));
+    let location = SourceLocation::new(1, 0, 10);
+    let buffer = "A".repeat(80);
+    let live = buffer.as_ptr();
+    let mut storage = VariableStorage::new();
+    storage.set_global("text", Value::WString(buffer));
+
+    // A statement that does not stop: nothing is published, and no watch is evaluated.
+    {
+        let mut ctx = context(&mut storage, &registry, 42);
+        control.on_statement_with_owned_context(&mut ctx, Some(&location), 0);
+    }
+    let Some(Value::WString(text)) = storage.get_global("text") else {
+        panic!("the live storage keeps its text")
     };
     assert_eq!(
-        retained.as_ptr(),
-        original,
-        "snapshot must move rather than clone the projection"
+        text.as_ptr(),
+        live,
+        "a statement that does not stop leaves the live buffer in place"
     );
-    assert_eq!(state.watches[0].last, Some(Value::DInt(7)));
+    assert!(
+        control.snapshot().is_none(),
+        "a statement that does not stop publishes nothing"
+    );
+    assert!(
+        !control.take_watch_changed(),
+        "a statement that does not stop evaluates no watch"
+    );
+    assert_eq!(watch_value(&control), None);
+
+    // A stop: a pause holds the statement, so it runs on another thread while this test observes it.
+    control.pause();
+    let mut hook = control.clone();
+    let worker = std::thread::spawn(move || {
+        let registry = TypeRegistry::new();
+        {
+            let mut ctx = context(&mut storage, &registry, 42);
+            hook.on_statement_with_owned_context(&mut ctx, Some(&location), 0);
+        }
+        storage
+    });
+    wait_for_stop(&control);
+    let published = control
+        .snapshot()
+        .expect("the stop publishes its halted state");
+    assert_eq!(published.now, Duration::from_millis(42));
+    let Some(Value::WString(copy)) = published.storage.get_global("text") else {
+        panic!("the stop publishes the text")
+    };
+    assert_ne!(
+        copy.as_ptr(),
+        live,
+        "the stop publishes a detached copy, not the live buffer"
+    );
+    let expected = "A".repeat(80);
+    assert_eq!(copy.as_str(), expected.as_str());
+    assert!(
+        control.take_watch_changed(),
+        "the stop evaluates the watch and reports its change"
+    );
+    assert!(!control.take_watch_changed(), "the change is reported once");
+    assert_eq!(watch_value(&control), Some(Value::DInt(7)));
+
+    control.continue_run();
+    let storage = worker
+        .join()
+        .expect("the held statement ends after the continue");
+    let Some(Value::WString(live_again)) = storage.get_global("text") else {
+        panic!("the live storage keeps its text")
+    };
+    assert_eq!(
+        live_again.as_ptr(),
+        live,
+        "the scan's storage keeps its live buffer after the stop"
+    );
 }
 
 #[test]

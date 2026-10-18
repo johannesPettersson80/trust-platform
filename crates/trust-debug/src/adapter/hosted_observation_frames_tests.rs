@@ -200,8 +200,37 @@ fn hosted_observation_paused_frame_keeps_return_parameter_and_local_slot_order()
     }
 }
 
-/// Spec 34 HOST-09 (lines 491-492): a failed reload preserves the installed watch
-/// set, so the next cycle still evaluates the watch and reports its change.
+/// Waits until the scan reports a stop, and drains the stops it has reported. The watch change is read
+/// at a stop (spec 13 line 279: watch-change state is recomputed for each stop), so the test waits for one.
+fn wait_for_new_stop(control: &trust_runtime::debug::DebugControl) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while control.drain_stops().is_empty() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the scan did not stop"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
+/// The value of the registered watch `count`, as the adapter evaluates it at the current stop.
+fn evaluate_count(adapter: &mut DebugAdapter) -> String {
+    let outcome = adapter.dispatch_request(Request {
+        seq: 3,
+        message_type: MessageType::Request,
+        command: "evaluate".into(),
+        arguments: Some(serde_json::json!({"expression":"count","context":"watch"})),
+    });
+    let response: Response<EvaluateResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(response.success, "{response:?}");
+    response.body.unwrap().result
+}
+
+/// Spec 34 HOST-09 (lines 491-492): a failed reload preserves the installed watch set, so the next stop
+/// still evaluates the watch and reports its change. The watch change is read at each stop, not after a
+/// scan that does not stop: spec 13 line 279 replaces the earlier expectation, which read it after
+/// every scan.
 #[test]
 fn hosted_observation_failed_reload_keeps_the_installed_watch_set_for_the_next_cycle() {
     let root = std::env::temp_dir().join(format!(
@@ -237,11 +266,26 @@ fn hosted_observation_failed_reload_keeps_the_installed_watch_set_for_the_next_c
     assert_eq!(adapter.watch_cache.len(), 1);
     let control = adapter.session().debug_control();
     let runtime_handle = adapter.session().runtime_handle();
-    runtime_handle.lock().unwrap().execute_cycle().unwrap();
+    // Spec 13 line 279: the change is read where the scan stops. The earlier version read it after a scan
+    // that did not stop, which the spec no longer requires. A pause holds the scan at its first statement,
+    // which runs on another thread; the watch value is read at the same stop.
+    control.pause();
+    let scan = {
+        let runtime_handle = runtime_handle.clone();
+        std::thread::spawn(move || runtime_handle.lock().unwrap().execute_cycle().unwrap())
+    };
+    wait_for_new_stop(&control);
     assert!(
         control.take_watch_changed(),
-        "the registered watch is evaluated before the failed reload"
+        "the registered watch is evaluated at the first stop"
     );
+    assert_eq!(
+        evaluate_count(&mut adapter),
+        "0",
+        "the first stop shows count before its first statement runs"
+    );
+    control.continue_run();
+    scan.join().unwrap();
 
     std::fs::write(&path, "PROGRAM Broken").unwrap();
     let outcome = adapter.dispatch_request(Request {
@@ -255,10 +299,20 @@ fn hosted_observation_failed_reload_keeps_the_installed_watch_set_for_the_next_c
     assert!(!reload.success, "the broken candidate must be refused");
     assert_eq!(adapter.watch_cache.len(), 1);
 
-    runtime_handle.lock().unwrap().execute_cycle().unwrap();
+    // The watch installed before the failed reload is still evaluated: the next stop reports the change
+    // from count = 0 to count = 1, which the first scan left in the storage.
+    control.pause();
+    let scan = {
+        let runtime_handle = runtime_handle.clone();
+        std::thread::spawn(move || runtime_handle.lock().unwrap().execute_cycle().unwrap())
+    };
+    wait_for_new_stop(&control);
     assert!(
         control.take_watch_changed(),
-        "the watch installed before the failed reload still runs in the next cycle"
+        "the watch installed before the failed reload is evaluated at the next stop"
     );
+    assert_eq!(evaluate_count(&mut adapter), "1");
+    control.continue_run();
+    scan.join().unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }

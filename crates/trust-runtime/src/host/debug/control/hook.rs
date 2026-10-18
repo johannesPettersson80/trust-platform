@@ -6,7 +6,7 @@ impl Default for DebugControl {
 
 impl DebugHook for DebugControl {
     fn on_statement(&mut self, location: Option<&SourceLocation>, call_depth: u32) {
-        self.on_statement_inner(location, call_depth, None, StatementSnapshot::Borrowed);
+        let _ = self.on_statement_inner(location, call_depth, None);
     }
 
     fn on_statement_with_context(
@@ -15,35 +15,56 @@ impl DebugHook for DebugControl {
         location: Option<&SourceLocation>,
         call_depth: u32,
     ) {
-        self.on_statement_inner(location, call_depth, Some(ctx), StatementSnapshot::Borrowed);
+        // A lent context is never projected, so this observation cannot fail.
+        let _ =
+            self.on_statement_inner(location, call_depth, Some(&mut ObservedStorage::Lent(ctx)));
     }
 }
 
 impl DebugControl {
-    /// Publish an already detached execution projection without cloning its
-    /// storage again. The caller relinquishes the projection at this boundary.
+    /// Observe a located statement of a hosted scan. The scan's storage is read where it runs, and
+    /// a detached projection is built only when a stop or a breakpoint condition or logpoint needs
+    /// one (specification 11 section 6.13.1).
+    pub(crate) fn on_statement_projection(
+        &self,
+        projection: &mut StatementProjection<'_>,
+        location: &SourceLocation,
+        call_depth: u32,
+    ) -> Result<(), RuntimeError> {
+        let mut observed = ObservedStorage::Live(&mut *projection);
+        let result = self.on_statement_inner(Some(location), call_depth, Some(&mut observed));
+        let copies = projection.copies();
+        if copies > 0 {
+            self.add_storage_copies(copies);
+        }
+        result
+    }
+
+    /// Observe a statement with a detached context that the caller hands over. A stop publishes a
+    /// copy of it, so the caller keeps the context.
+    #[cfg(test)]
     pub(crate) fn on_statement_with_owned_context(
         &mut self,
         ctx: &mut DebugRuntimeContext<'_>,
         location: Option<&SourceLocation>,
         call_depth: u32,
     ) {
-        self.on_statement_inner(location, call_depth, Some(ctx), StatementSnapshot::Detached);
+        let _ =
+            self.on_statement_inner(location, call_depth, Some(&mut ObservedStorage::Lent(ctx)));
     }
 
     fn on_statement_inner(
-        &mut self,
+        &self,
         location: Option<&SourceLocation>,
         call_depth: u32,
-        mut ctx: Option<&mut DebugRuntimeContext<'_>>,
-        mut snapshot: StatementSnapshot,
-    ) {
+        mut observed: Option<&mut ObservedStorage<'_, '_>>,
+    ) -> Result<(), RuntimeError> {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         // A resource stop released the hold and no new one may start (`release_for_stop`): the
         // scan that was suspended runs to its end, and the ordinary stop path follows it.
         if state.stop_requested {
-            return;
+            return Ok(());
         }
         trace_debug(&format!(
             "hook.entry location={} depth={} mode={:?} current_thread={:?} target_thread={:?} pending_stop={:?} steps={} breakpoints={}",
@@ -61,19 +82,8 @@ impl DebugControl {
         if let Some(thread_id) = state.current_thread {
             state.last_call_depths.insert(thread_id, call_depth);
         }
-        if let Some(eval_ctx) = ctx.as_deref() {
-            let frames = eval_ctx.storage.frames();
-            state
-                .frame_locations
-                .retain(|id, _| frames.iter().any(|frame| frame.id == *id));
-            if let (Some(location), Some(frame)) = (location, eval_ctx.storage.current_frame()) {
-                state.frame_locations.insert(frame.id, *location);
-            }
-        }
-        if matches!(snapshot, StatementSnapshot::Detached)
-            && let Some(eval_ctx) = ctx.as_mut()
-        {
-            update_watch_snapshot(&mut state, eval_ctx);
+        if let Some(observed) = observed.as_deref() {
+            observed.bind_frame_locations(&mut state.frame_locations, location.copied());
         }
         let is_target_thread =
             state.target_thread.is_none() || state.target_thread == state.current_thread;
@@ -86,8 +96,8 @@ impl DebugControl {
                 format_location_ref(location),
                 state.current_thread
             ));
-            if let Some(eval_ctx) = ctx.as_mut() {
-                snapshot.publish(&mut state, eval_ctx);
+            if let Some(observed) = observed.as_deref_mut() {
+                publish_hold_stop(&mut state, observed)?;
             }
             emit_stop(&mut state, reason, location.copied(), None);
         }
@@ -137,6 +147,9 @@ impl DebugControl {
                 }
             }
             if !should_pause {
+                let needs_context = observed
+                    .as_deref()
+                    .is_some_and(|observed| observed.needs_breakpoint_context(&state, location));
                 let breakpoint_generation = {
                     let DebugState {
                         breakpoints,
@@ -145,14 +158,26 @@ impl DebugControl {
                         log_tx,
                         ..
                     } = &mut *state;
-                    matches_breakpoint(
-                        breakpoints,
-                        breakpoint_stops_this_cycle,
-                        logs,
-                        log_tx.as_ref(),
-                        location,
-                        &mut ctx,
-                    )
+                    match observed.as_deref_mut() {
+                        Some(observed) if needs_context => observed.with_context(|ctx| {
+                            matches_breakpoint(
+                                breakpoints,
+                                breakpoint_stops_this_cycle,
+                                logs,
+                                log_tx.as_ref(),
+                                location,
+                                &mut Some(ctx),
+                            )
+                        })?,
+                        _ => matches_breakpoint(
+                            breakpoints,
+                            breakpoint_stops_this_cycle,
+                            logs,
+                            log_tx.as_ref(),
+                            location,
+                            &mut None,
+                        ),
+                    }
                 };
                 trace_debug(&format!(
                     "hook.breakpoint.check location={} matched_generation={:?}",
@@ -168,29 +193,20 @@ impl DebugControl {
                     state.target_thread = None;
                 }
             }
-            if should_pause {
-                state.mode = DebugMode::Paused;
-                if let Some(reason) = stop_reason {
-                    state.pending_stop = None;
-                    trace_debug(&format!(
-                        "hook.pause.enter reason={reason:?} generation={:?} location={} thread={:?}",
-                        stop_generation,
-                        format_location_ref(Some(location)),
-                        state.current_thread
-                    ));
-                    if let Some(eval_ctx) = ctx.as_mut() {
-                        snapshot.publish(&mut state, eval_ctx);
-                    }
-                    emit_stop(&mut state, reason, Some(*location), stop_generation);
+            if should_pause && let Some(reason) = stop_reason {
+                trace_debug(&format!(
+                    "hook.pause.enter reason={reason:?} generation={:?} location={} thread={:?}",
+                    stop_generation,
+                    format_location_ref(Some(location)),
+                    state.current_thread
+                ));
+                state.pending_stop = None;
+                if let Some(observed) = observed.as_deref_mut() {
+                    publish_hold_stop(&mut state, observed)?;
                 }
+                state.mode = DebugMode::Paused;
+                emit_stop(&mut state, reason, Some(*location), stop_generation);
             }
-        }
-        // Normal running statements also refresh the detached watch projection.
-        // Conditions and frame locations above still read its original storage.
-        if matches!(snapshot, StatementSnapshot::Detached)
-            && let Some(eval_ctx) = ctx.as_mut()
-        {
-            snapshot.publish(&mut state, eval_ctx);
         }
         loop {
             // A stop that arrives while the scan waits ends the wait even if a client pauses
@@ -201,7 +217,7 @@ impl DebugControl {
                     format_location_ref(location),
                     state.current_thread
                 ));
-                return;
+                return Ok(());
             }
             let is_target_thread =
                 state.target_thread.is_none() || state.target_thread == state.current_thread;
@@ -214,8 +230,8 @@ impl DebugControl {
                     format_location_ref(location),
                     state.current_thread
                 ));
-                if let Some(eval_ctx) = ctx.as_mut() {
-                    snapshot.publish(&mut state, eval_ctx);
+                if let Some(observed) = observed.as_deref_mut() {
+                    publish_hold_stop(&mut state, observed)?;
                 }
                 emit_stop(&mut state, reason, location.copied(), None);
             }
@@ -226,7 +242,7 @@ impl DebugControl {
                         format_location_ref(location),
                         state.current_thread
                     ));
-                    return;
+                    return Ok(());
                 }
                 DebugMode::Paused => {
                     if !is_target_thread {
@@ -236,7 +252,7 @@ impl DebugControl {
                             state.current_thread,
                             state.target_thread
                         ));
-                        return;
+                        return Ok(());
                     }
                     trace_debug(&format!(
                         "hook.wait location={} current_thread={:?} target_thread={:?}",
@@ -260,30 +276,144 @@ impl DebugControl {
             }
         }
     }
+
+    /// Record storage copies made for a statement, under the state lock.
+    fn add_storage_copies(&self, copies: u64) {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().expect("debug state poisoned");
+        state.storage_copies = state.storage_copies.saturating_add(copies);
+    }
+
+    /// Publish the state of a completed scan: one copy of its storage at the scan end, with no call
+    /// stack, as specification 11 section 6.13.1 requires. Nothing is copied while debugging is
+    /// disabled (specification 11 section 6.9).
+    pub(crate) fn publish_completed_scan(
+        &self,
+        storage: &VariableStorage,
+        now: Duration,
+        storage_abi: StorageAbi,
+    ) {
+        if !self.is_enabled() {
+            return;
+        }
+        let mut copy = storage.clone();
+        copy.clear_frames();
+        let snapshot = DebugSnapshot {
+            storage_abi,
+            storage: copy,
+            now,
+        };
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().expect("debug state poisoned");
+        state.storage_copies = state.storage_copies.saturating_add(1);
+        state.completed = Some(Arc::new(snapshot));
+    }
 }
 
-enum StatementSnapshot {
-    Borrowed,
-    Detached,
-    Published,
+/// Where the statement hook reads the storage of the statement it observes.
+enum ObservedStorage<'a, 'b> {
+    /// Storage the caller lends for this call. A stop copies it.
+    Lent(&'a mut DebugRuntimeContext<'b>),
+    /// The live storage of a hosted scan. A detached projection is built only when it is needed.
+    Live(&'a mut StatementProjection<'b>),
 }
 
-impl StatementSnapshot {
-    fn publish(&mut self, state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
+impl ObservedStorage<'_, '_> {
+    /// Bind the statement's location to the innermost active frame, and drop the locations of
+    /// frames that are no longer on the call stack.
+    fn bind_frame_locations(
+        &self,
+        frame_locations: &mut HashMap<FrameId, SourceLocation>,
+        location: Option<SourceLocation>,
+    ) {
         match self {
-            Self::Borrowed => {
+            Self::Lent(ctx) => {
+                let frames = ctx.storage.frames();
+                frame_locations.retain(|id, _| frames.iter().any(|frame| frame.id == *id));
+                if let (Some(location), Some(frame)) = (location, ctx.storage.current_frame()) {
+                    frame_locations.insert(frame.id, location);
+                }
+            }
+            Self::Live(projection) => {
+                frame_locations
+                    .retain(|id, _| projection.active_frames().any(|frame| frame == *id));
+                if let (Some(location), Some(frame)) = (location, projection.active_frames().last())
+                {
+                    frame_locations.insert(frame, location);
+                }
+            }
+        }
+    }
+
+    /// Whether a breakpoint at this statement evaluates a condition or a logpoint, which needs the
+    /// storage. A breakpoint that is suppressed in this cycle, or whose hit condition is not met, is
+    /// not evaluated, so it does not count.
+    fn needs_breakpoint_context(&self, state: &DebugState, location: &SourceLocation) -> bool {
+        match self {
+            Self::Lent(_) => true,
+            Self::Live(_) => state.breakpoints.iter().any(|breakpoint| {
+                let span = breakpoint.location;
+                let key = (span.file_id, span.start, span.end, breakpoint.generation);
+                span.file_id == location.file_id
+                    && span.start <= location.start
+                    && location.start < span.end
+                    && (breakpoint.condition.is_some() || breakpoint.log_message.is_some())
+                    && (breakpoint.log_message.is_some()
+                        || !state.breakpoint_stops_this_cycle.contains(&key))
+                    && breakpoint
+                        .hit_condition
+                        .is_none_or(|hit| hit.is_met(breakpoint.hits.saturating_add(1)))
+            }),
+        }
+    }
+
+    /// Run `f` with the evaluation context of this statement. A live statement builds its
+    /// projection here, on first use.
+    fn with_context<R>(
+        &mut self,
+        f: impl FnOnce(&mut DebugRuntimeContext<'_>) -> R,
+    ) -> Result<R, RuntimeError> {
+        match self {
+            Self::Lent(ctx) => Ok(f(ctx)),
+            Self::Live(projection) => projection.with_context(f),
+        }
+    }
+
+    /// Publish the state of a stop: the storage and call stack at this boundary, with the watches
+    /// recomputed on them, as the halted state (specification 11 section 6.13.1).
+    fn publish_stop(&mut self, state: &mut DebugState) -> Result<(), RuntimeError> {
+        match self {
+            Self::Lent(ctx) => {
                 update_watch_snapshot(state, ctx);
                 update_snapshot(state, ctx);
+                Ok(())
             }
-            Self::Detached => {
-                state.snapshot = Some(DebugSnapshot {
-                    storage_abi: ctx.storage_abi,
-                    storage: std::mem::take(ctx.storage),
-                    now: ctx.now,
-                });
-                *self = Self::Published;
+            Self::Live(projection) => {
+                if projection.is_published() {
+                    return Ok(());
+                }
+                projection.with_context(|ctx| update_watch_snapshot(&mut *state, ctx))?;
+                state.snapshot = Some(projection.take()?);
+                Ok(())
             }
-            Self::Published => {}
+        }
+    }
+}
+
+/// Publish the halted state of a stop that holds the scan. A stop that cannot be published ends the
+/// hold it would have started, so the scan never waits for a resume that no stop asked for.
+fn publish_hold_stop(
+    state: &mut DebugState,
+    observed: &mut ObservedStorage<'_, '_>,
+) -> Result<(), RuntimeError> {
+    match observed.publish_stop(state) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            state.mode = DebugMode::Running;
+            state.pending_stop = None;
+            state.steps.clear();
+            state.target_thread = None;
+            Err(error)
         }
     }
 }
