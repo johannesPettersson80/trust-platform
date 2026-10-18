@@ -36,8 +36,8 @@ use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
+    ResourcePort, StatusPort,
 };
 use trust_runtime_services::protocol::{ControlRequest, ControlResponse};
 use trust_runtime_services::resource::commands::CommandSendError;
@@ -185,6 +185,19 @@ impl ResourcePort for FullStore {
 impl StatusPort for FullStore {
     fn resource_name(&self) -> &str {
         "RESOURCE"
+    }
+
+    fn platform(&self) -> &str {
+        "esp32c6"
+    }
+
+    fn runtime_id(&self) -> &str {
+        "esp32c6-test"
+    }
+
+    /// The store stands for a chip, which keeps control after `shutdown` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

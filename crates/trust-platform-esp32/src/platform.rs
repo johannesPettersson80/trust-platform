@@ -11,6 +11,7 @@
 //! and the snapshot it publishes, as trust-runtime's `ControlState` answers them
 //! (specification 11, "Live Values"; specification 34 §4.3.1).
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -18,8 +19,12 @@ use smol_str::SmolStr;
 use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
-use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan, WallClock};
+use trust_runtime_core::ports::{
+    CheckpointStorage, CheckpointStore, HardwareWatchdog, TimeSpan, WallClock,
+};
+use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::value::Value;
+use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::access::{resolve_role, AccessRole, AuthFailure};
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -29,7 +34,7 @@ use trust_runtime_services::live_values::queues::{
 use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use trust_runtime_services::protocol::{ControlRequest, ControlResponse};
 use trust_runtime_services::runner::{EngineLiveValues, RunnerPlatform};
@@ -37,7 +42,7 @@ use trust_runtime_services::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
 
-use crate::profile::{DEVICE_DESCRIPTOR, RESET_WATCHDOG};
+use crate::profile::{CHECKPOINT_STEP_BYTES, DEVICE_DESCRIPTOR, PLATFORM, RESET_WATCHDOG};
 use crate::{ResetCause, ResetRecord};
 
 /// The C6's platform for the single-thread resource loop, over the watchdog `W` the adapter
@@ -57,14 +62,20 @@ pub struct Platform<W> {
     /// The reset the boot reports, for the `capabilities` reply (specification 11, the runtime
     /// device capabilities contract), built by [`Platform::boot_last_reset`].
     last_reset: LastReset,
+    /// The chip's stable runtime ID that `status` reports, from [`crate::profile::runtime_id`].
+    runtime_id: SmolStr,
+    /// The chip's checkpoint flash, held until the installed program takes its store (specification
+    /// 34 §10); `None` unless the record's retain mode is `file`, and after the store is taken.
+    checkpoint: Option<Box<dyn CheckpointFlash>>,
 }
 
 impl<W> Platform<W> {
     /// A platform over `watchdog` that reports `resource_name`, the runtime `settings`, whether
     /// the debug surface is `debug_enabled` and the record's `control_mode`, with the Live Values
     /// `live` of the installed program, or [`EngineLiveValues::empty`] for a chip without one, and
-    /// the `last_reset` the boot reports.
+    /// the `last_reset` the boot reports, under the chip's stable `runtime_id`.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         watchdog: W,
         resource_name: SmolStr,
@@ -73,6 +84,7 @@ impl<W> Platform<W> {
         control_mode: ControlMode,
         live: EngineLiveValues,
         last_reset: LastReset,
+        runtime_id: SmolStr,
     ) -> Self {
         Self {
             watchdog,
@@ -82,7 +94,25 @@ impl<W> Platform<W> {
             control_mode,
             live,
             last_reset,
+            runtime_id,
+            checkpoint: None,
         }
+    }
+
+    /// Keeps `flash` as the chip's checkpoint flash when the record's retain mode is `file`
+    /// (specification 34 §10): the installed program takes it as its checkpoint store. With `none`
+    /// the flash is not kept and the platform gives no store.
+    #[must_use]
+    pub fn with_checkpoint(mut self, retain: RetainMode, flash: Box<dyn CheckpointFlash>) -> Self {
+        self.checkpoint = (retain == RetainMode::File).then_some(flash);
+        self
+    }
+
+    /// The watchdog the platform holds, for the stopped loop that serves the link when the
+    /// installed program cannot start.
+    #[must_use]
+    pub fn into_watchdog(self) -> W {
+        self.watchdog
     }
 
     /// The reset the boot reports (specification 11, the runtime device capabilities contract).
@@ -147,6 +177,22 @@ impl<W> StatusPort for Platform<W> {
         self.resource_name.as_str()
     }
 
+    /// The chip's name (specification 11, `status`).
+    fn platform(&self) -> &str {
+        PLATFORM
+    }
+
+    /// The chip's name and USB serial number (specification 11, `status`).
+    fn runtime_id(&self) -> &str {
+        self.runtime_id.as_str()
+    }
+
+    /// A chip keeps control after `shutdown`: the program takes the place of the process
+    /// (specification 34, STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
+    }
+
     fn status_settings(&self) -> Option<StatusSettings> {
         Some(self.settings.clone())
     }
@@ -187,6 +233,18 @@ fn reset_cause(cause: ResetCause) -> ResetCauseName {
         ResetCause::Panic => ResetCauseName::Panic,
         ResetCause::Watchdog => ResetCauseName::Watchdog,
         ResetCause::Requested => ResetCauseName::Requested,
+    }
+}
+
+/// The chip's checkpoint store, given once (specification 34 §10): its flash, and at most one
+/// 256-byte flash page per persister step, so a step takes a few milliseconds between two scans.
+impl<W> CheckpointStorage for Platform<W> {
+    fn take_checkpoint_store(&mut self) -> Option<CheckpointStore> {
+        let flash = self.checkpoint.take()?;
+        Some(CheckpointStore {
+            flash,
+            program_budget: CHECKPOINT_STEP_BYTES,
+        })
     }
 }
 

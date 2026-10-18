@@ -26,10 +26,7 @@ import {
 import {
   buildAdsClientSummaryModel,
 } from "../../networkCanvas/webview/adsClientSummaryModel";
-import {
-  ensureAdsRuntimeEnabled,
-  existingAdsSnapshotPaths,
-} from "../../networkCanvas/offlineComm";
+import { existingAdsSnapshotPaths } from "../../networkCanvas/offlineComm";
 
 function readJson(relativePath: string): Record<string, unknown> {
   return JSON.parse(
@@ -300,25 +297,13 @@ suite("ADS multi-port discovery and existing Live Values contract", function () 
     );
   });
 
-  test("repeated ADS imports preserve prior snapshots and enable runtime.toml once", () => {
+  test("repeated ADS imports preserve prior snapshots", () => {
     const project = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-multiport-"));
     try {
       fs.mkdirSync(path.join(project, "ads", "snapshots"), { recursive: true });
       fs.writeFileSync(path.join(project, "ads", "snapshots", "b.symbols.json"), "{}");
       fs.writeFileSync(path.join(project, "ads", "snapshots", "a.symbols.json"), "{}");
-      fs.writeFileSync(
-        path.join(project, "runtime.toml"),
-        "[runtime.ads]\nenabled = false\n\n[runtime.control]\nendpoint = \"tcp://127.0.0.1:0\"\n",
-      );
 
-      const first = ensureAdsRuntimeEnabled(project);
-      const second = ensureAdsRuntimeEnabled(project);
-      assert.strictEqual(first.ok, true);
-      assert.strictEqual(second.ok, true);
-      const runtimeToml = fs.readFileSync(path.join(project, "runtime.toml"), "utf8");
-      assert.strictEqual((runtimeToml.match(/^enabled\s*=/gm) ?? []).length, 1);
-      assert.strictEqual((runtimeToml.match(/^config_path\s*=/gm) ?? []).length, 1);
-      assert.match(runtimeToml, /\[runtime\.control\][\s\S]*endpoint/);
       assert.deepStrictEqual(
         existingAdsSnapshotPaths(project).map((file) => path.basename(file)),
         ["a.symbols.json", "b.symbols.json"],

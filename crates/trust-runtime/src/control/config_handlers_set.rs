@@ -185,6 +185,18 @@ pub(super) fn handle_config_set(
                 updated.push("discovery.interfaces");
                 restart_required.push("discovery.interfaces");
             }
+            "discovery.host_group" => {
+                if value.is_null() {
+                    settings.discovery.host_group = None;
+                } else {
+                    // The same trimming and non-empty rule as `runtime.toml`'s
+                    // `runtime.discovery.host_group` parser (specification 11, runtime discovery).
+                    let host_group = parse_or_error!(expect_non_empty_string(key, value));
+                    settings.discovery.host_group = Some(SmolStr::new(host_group));
+                }
+                updated.push("discovery.host_group");
+                restart_required.push("discovery.host_group");
+            }
             "mesh.enabled" => {
                 settings.mesh.enabled = parse_or_error!(expect_bool(key, value));
                 updated.push("mesh.enabled");

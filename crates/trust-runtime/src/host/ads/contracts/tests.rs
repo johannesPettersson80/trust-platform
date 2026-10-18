@@ -1,4 +1,4 @@
-use super::parse_ads_toml;
+use super::{parse_ads_toml, AdsConnectionConfig};
 
 fn connection(name: &str, target_net_id: &str, local_net_id: Option<&str>, point: &str) -> String {
     let local_net_id = local_net_id
@@ -113,6 +113,17 @@ fn rejects_blank_or_noncanonical_explicit_local_ams_net_ids_during_configuration
 }
 
 #[test]
+fn empty_ads_configuration_parses_to_no_connections() {
+    // Spec 11 §6.8.1b: removing the last imported tag leaves a rewritten `ads.toml` with no
+    // `[[connections]]` entry, and the runtime must still start. Refusing that empty file is the
+    // wrong behavior this catches.
+    for text in ["", "\n", "connections = []\n"] {
+        let config = parse_ads_toml(text).expect("an empty ADS configuration must parse");
+        assert_eq!(config.connections, Vec::<AdsConnectionConfig>::new());
+    }
+}
+
+#[test]
 fn locks_connection_and_declared_global_shape_validation() {
     let valid = connection("line1", "5.23.91.12.1.1", None, "line1_value");
     let no_points = valid
@@ -120,11 +131,6 @@ fn locks_connection_and_declared_global_shape_validation() {
         .next()
         .expect("connection header");
     let cases = [
-        (
-            "empty connection list",
-            "connections = []".to_string(),
-            "requires at least one [[connections]] entry",
-        ),
         (
             "blank connection name",
             valid.replace("name = \"line1\"", "name = \"   \""),

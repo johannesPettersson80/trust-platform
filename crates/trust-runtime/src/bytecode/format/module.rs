@@ -37,6 +37,24 @@ impl BytecodeModule {
             .find(|section| section.id == id.as_raw())
             .map(|section| &mut section.data)
     }
+
+    /// Borrow the LINE_TABLE section (spec 12 §6.13); `None` when it is absent.
+    ///
+    /// The section is optional and belongs to the source-free container versions.
+    pub fn line_table(&self) -> Option<&LineTable> {
+        self.view().line_table()
+    }
+
+    #[must_use]
+    /// Mutably borrow the LINE_TABLE section for producer-side editing.
+    pub fn line_table_mut(&mut self) -> Option<&mut LineTable> {
+        self.sections
+            .iter_mut()
+            .find_map(|section| match &mut section.data {
+                SectionData::LineTable(table) => Some(table),
+                _ => None,
+            })
+    }
 }
 
 impl BytecodeModule {

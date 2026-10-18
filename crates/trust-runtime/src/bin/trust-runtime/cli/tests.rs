@@ -1568,4 +1568,86 @@ mod tests {
             other => panic!("expected bench command, got {other:?}"),
         }
     }
+
+    #[test]
+    fn parse_ads_remove_symbols_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "ads",
+            "remove-symbols",
+            "--project",
+            "plant",
+            "--host",
+            "192.168.77.11",
+            "--target-net-id",
+            "100.67.6.217.1.1",
+            "--ams-port",
+            "301",
+            "--path",
+            "Task 4.Inputs.Var 1",
+            "--path",
+            "Task 4.Inputs.Var 2",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Ads { action } => match action {
+                AdsAction::RemoveSymbols {
+                    project,
+                    host,
+                    target_net_id,
+                    ams_port,
+                    paths,
+                    json,
+                } => {
+                    assert_eq!(project, PathBuf::from("plant"));
+                    assert_eq!(host.as_deref(), Some("192.168.77.11"));
+                    assert_eq!(target_net_id.as_deref(), Some("100.67.6.217.1.1"));
+                    assert_eq!(ams_port, 301);
+                    assert_eq!(
+                        paths,
+                        vec![
+                            "Task 4.Inputs.Var 1".to_string(),
+                            "Task 4.Inputs.Var 2".to_string()
+                        ]
+                    );
+                    assert!(json);
+                }
+                other => panic!("expected ads remove-symbols action, got {other:?}"),
+            },
+            other => panic!("expected ads command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_comm_test_command() {
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "comm",
+            "test",
+            "--project",
+            "plant",
+            "--protocol",
+            "simulated",
+            "--params",
+            "{}",
+            "--json",
+        ]);
+        match cli.command.expect("command") {
+            Command::Comm { action } => match action {
+                CommAction::Test {
+                    project,
+                    protocol,
+                    params,
+                    json,
+                } => {
+                    assert_eq!(project, PathBuf::from("plant"));
+                    assert_eq!(protocol, "simulated");
+                    assert_eq!(params, "{}");
+                    assert!(json);
+                }
+                other => panic!("expected comm test action, got {other:?}"),
+            },
+            other => panic!("expected comm command, got {other:?}"),
+        }
+    }
 }

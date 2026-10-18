@@ -28,7 +28,8 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tracing::info;
 
 use crate::handlers::{
-    HMI_BINDINGS_COMMAND, HMI_INIT_COMMAND, MOVE_NAMESPACE_COMMAND, PROJECT_INFO_COMMAND,
+    DEVICES_COMMANDS, HMI_BINDINGS_COMMAND, HMI_INIT_COMMAND, MOVE_NAMESPACE_COMMAND,
+    PROJECT_INFO_COMMAND,
 };
 use crate::state::ServerState;
 use crate::telemetry::TelemetryEvent;
@@ -133,12 +134,16 @@ impl LanguageServer for StLanguageServer {
                 }),
 
                 execute_command_provider: Some(ExecuteCommandOptions {
-                    commands: vec![
-                        MOVE_NAMESPACE_COMMAND.to_string(),
-                        PROJECT_INFO_COMMAND.to_string(),
-                        HMI_INIT_COMMAND.to_string(),
-                        HMI_BINDINGS_COMMAND.to_string(),
-                    ],
+                    commands: [
+                        MOVE_NAMESPACE_COMMAND,
+                        PROJECT_INFO_COMMAND,
+                        HMI_INIT_COMMAND,
+                        HMI_BINDINGS_COMMAND,
+                    ]
+                    .into_iter()
+                    .chain(DEVICES_COMMANDS)
+                    .map(str::to_owned)
+                    .collect(),
                     ..Default::default()
                 }),
 

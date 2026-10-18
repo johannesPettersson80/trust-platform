@@ -19,7 +19,10 @@ use crate::ports::{AccessPort, RecordsPort, ResourcePort, StatusPort};
 use crate::protocol::ControlResponse;
 
 pub(crate) use event_reads::{write_event_read, EventRead};
-pub use params::{invalid_params, parse_bounded_limit, unavailable, validate_object_fields};
+pub use params::{
+    check_number_members, invalid_params, parse_bounded_limit, unavailable, validate_object_fields,
+    MemberKind,
+};
 pub use unconfigured::{absent_realtime_profile, disabled_openot_persistence};
 
 /// Health of one I/O driver.
@@ -90,8 +93,9 @@ pub fn io_health_to_json(entry: &IoDriverStatus) -> serde_json::Value {
     }
 }
 
-/// `status`: the runtime's identity, state, modes, settings, metrics, realtime posture,
-/// persistence, event-store capacity and I/O driver health.
+/// `status`: the runtime's identity, stable runtime ID, version, platform, program-control
+/// posture, state, modes, settings, metrics, realtime posture, persistence, event-store capacity
+/// and I/O driver health.
 ///
 /// A debugger hold reports `paused` unless the resource is faulted or stopped. A value that
 /// cannot be read answers `<value> unavailable`; the values are read in a fixed order, so the
@@ -144,6 +148,10 @@ where
             "fault": fault,
             "resource": host.resource_name(),
             "plc_name": host.resource_name(),
+            "runtime_id": host.runtime_id(),
+            "version": env!("CARGO_PKG_VERSION"),
+            "platform": host.platform(),
+            "program_control": host.program_control().as_str(),
             "uptime_ms": metrics.uptime_ms,
             "debug_enabled": host.debug_enabled(),
             "control_mode": control_mode,

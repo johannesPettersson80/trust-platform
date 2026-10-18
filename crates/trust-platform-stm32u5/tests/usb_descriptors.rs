@@ -49,3 +49,14 @@ fn the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints() {
     assert_eq!(OTG_FIFO_WORDS, 1024);
     assert_eq!(OTG_ENDPOINTS, 9);
 }
+
+/// Specification 11, `status`: a chip's runtime ID is its chip name and its USB serial number, so
+/// it needs no stored file and two chips never share one. Catches a missing hyphen, a lowercase or
+/// shortened serial, or another chip name.
+#[test]
+fn the_runtime_id_is_the_chip_name_and_the_usb_serial() {
+    assert_eq!(
+        trust_platform_stm32u5::usb::runtime_id_text([0x0034_002D, 0x3431_4715, 0x3536_3630]),
+        *b"stm32u5a9-0034002D3431471535363630"
+    );
+}

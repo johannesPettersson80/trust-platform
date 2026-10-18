@@ -169,6 +169,7 @@ fn hmi_test_state_with_status_reports(
         None, &sources,
     )));
     ControlState {
+        transfers: crate::control::new_transfer_session(),
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
@@ -192,6 +193,7 @@ fn hmi_test_state_with_status_reports(
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
@@ -201,6 +203,7 @@ fn hmi_test_state_with_status_reports(
         historian: None,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
         ads_client_config: Arc::new(Mutex::new(None)),
         opcua_client_config: Arc::new(Mutex::new(None)),

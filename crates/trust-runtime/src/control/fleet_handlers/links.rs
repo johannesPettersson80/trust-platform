@@ -133,11 +133,16 @@ pub(super) fn fleet_link(
     let protocol = protocol.into();
     let role = role.into();
     FleetLink {
-        id: link_id(from.as_str(), to.as_str(), protocol.as_str(), role.as_str()),
+        id: Some(link_id(
+            from.as_str(),
+            to.as_str(),
+            protocol.as_str(),
+            role.as_str(),
+        )),
         from,
         to,
         protocol,
-        role,
+        role: Some(role),
         direction: direction.into(),
         same_host,
         status,

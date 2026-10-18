@@ -24,11 +24,12 @@ use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
+    ResourcePort, StatusPort, TransferSessionError,
 };
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
+use trust_runtime_services::transfer::TransferSession;
 
 use crate::config::ControlMode;
 use crate::debug::ControlAction;
@@ -147,6 +148,26 @@ impl StatusPort for ControlState {
         self.resource_name.as_str()
     }
 
+    /// The operating system and CPU architecture this binary is built for, for example
+    /// `linux-x86_64`.
+    fn platform(&self) -> &str {
+        crate::runtime_id::platform()
+    }
+
+    /// The runtime's stable runtime ID (specification 11, `status` and runtime discovery): the
+    /// same value the runtime announces by mDNS. It is resolved once, where the state is built: a
+    /// project's `.trust-runtime/runtime_id`, or the resource name for a state without an
+    /// installed project, which never creates a file.
+    fn runtime_id(&self) -> &str {
+        self.runtime_id.as_str()
+    }
+
+    /// `shutdown` ends the trust-runtime process, so a stopped runtime has no scan loop to take a
+    /// `restart` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::Process
+    }
+
     fn status_settings(&self) -> Option<StatusSettings> {
         let settings = self.settings.lock().ok()?;
         Some(StatusSettings {
@@ -213,6 +234,18 @@ impl RecordsPort for ControlState {
         let events = self.events.lock().ok()?;
         let store: &VecDeque<RuntimeEvent> = &events;
         Some(read(store))
+    }
+
+    /// The process's transfer session. A session whose lock is poisoned cannot be used, so the
+    /// transfer operations answer `transfer session unavailable`, as the other values do.
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        match self.transfers.lock() {
+            Ok(mut session) => Ok(use_session(&mut session)),
+            Err(_) => Err(TransferSessionError::Unavailable),
+        }
     }
 }
 

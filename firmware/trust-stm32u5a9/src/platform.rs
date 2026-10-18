@@ -27,7 +27,7 @@ use trust_runtime_services::live_values::queues::{
 use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use trust_runtime_services::protocol::{ControlRequest, ControlResponse};
 use trust_runtime_services::runner::{EngineLiveValues, RunnerPlatform};
@@ -43,6 +43,9 @@ use crate::watchdog::Watchdog;
 pub struct Platform {
     watchdog: Watchdog,
     resource_name: SmolStr,
+    /// The chip's stable runtime ID, its chip name and USB serial number (specification 11,
+    /// `status`).
+    runtime_id: SmolStr,
     settings: StatusSettings,
     debug_enabled: bool,
     /// `runtime.control.mode` of the installed application's deployment record (specification 34
@@ -63,6 +66,7 @@ impl Platform {
     pub fn new(
         watchdog: Watchdog,
         resource_name: SmolStr,
+        runtime_id: SmolStr,
         settings: StatusSettings,
         debug_enabled: bool,
         control_mode: ControlMode,
@@ -72,6 +76,7 @@ impl Platform {
         Self {
             watchdog,
             resource_name,
+            runtime_id,
             settings,
             debug_enabled,
             control_mode,
@@ -159,6 +164,22 @@ impl WallClock for Platform {
 impl StatusPort for Platform {
     fn resource_name(&self) -> &str {
         self.resource_name.as_str()
+    }
+
+    /// The chip's name (specification 11, `status`).
+    fn platform(&self) -> &str {
+        trust_platform_stm32u5::usb::PLATFORM
+    }
+
+    /// The chip's name and USB serial number (specification 11, `status`).
+    fn runtime_id(&self) -> &str {
+        self.runtime_id.as_str()
+    }
+
+    /// A chip keeps control after `shutdown`: the program takes the place of the process, as on
+    /// the C6 (specification 11, `status`).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {
@@ -277,4 +298,16 @@ impl VariableQueuePort for Platform {
     fn forced_snapshot(&self) -> ForcedSnapshot {
         self.live.forced_snapshot()
     }
+}
+
+/// The chip's stable runtime ID: its chip name and the 24 digits of its unique ID, the serial number
+/// its USB device reports (specification 11, `status`).
+pub fn device_runtime_id() -> SmolStr {
+    let text =
+        trust_platform_stm32u5::usb::runtime_id_text(trust_platform_stm32u5::usb_link::read_uid());
+    // The text is ASCII by construction: the chip name, a hyphen and hexadecimal digits.
+    core::str::from_utf8(&text).map_or_else(
+        |_| SmolStr::new_static(trust_platform_stm32u5::usb::PLATFORM),
+        SmolStr::new,
+    )
 }

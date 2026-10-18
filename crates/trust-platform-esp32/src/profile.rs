@@ -38,6 +38,23 @@ pub const STBC_OFFSET: u32 = 0x20_0000;
 /// from [`STBC_OFFSET`] to the two checkpoint slots at the end of the 8 MB module.
 pub const STBC_BYTES: usize = 6112 * 1024;
 
+/// Checkpoint slot `checkpoint_a`: its flash address, the chip file's `[layout] checkpoint_a`
+/// (specification 34 D.2 and §10.1). The slot follows the installed application.
+pub const CHECKPOINT_A_OFFSET: u32 = 0x7F_8000;
+/// Checkpoint slot `checkpoint_b`: its flash address, the chip file's `[layout] checkpoint_b`. It
+/// follows slot A and ends the 8 MB module.
+pub const CHECKPOINT_B_OFFSET: u32 = 0x7F_C000;
+/// The bytes of each checkpoint slot: 16 KiB, four erase units (the chip file's `kib = 16`).
+pub const CHECKPOINT_SLOT_BYTES: u32 = 16 * 1024;
+/// The bytes one flash program writes at a time, and the alignment of every flash access the
+/// checkpoint makes: the word `esp-storage` writes (specification 34 §10.1).
+pub const FLASH_PROGRAM_BYTES: u32 = 4;
+/// The bytes one flash erase clears: a 4 KiB sector (the chip file's `memory.spi_flash.erase_kib`).
+pub const FLASH_ERASE_BYTES: u32 = 4 * 1024;
+/// The most bytes one checkpoint step programs between two scans: one 256-byte flash page, so a
+/// step takes a few milliseconds (specification 34 §10).
+pub const CHECKPOINT_STEP_BYTES: usize = 256;
+
 /// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
 /// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
 /// timing evidence, no platform capability, the maxima for each preparation limit, its event
@@ -151,6 +168,19 @@ const MISA_M: u32 = 1 << 12;
 pub const fn numeric_profile_ok(misa: u32) -> bool {
     let required = MISA_I | MISA_M | MISA_A | MISA_C;
     (misa >> 30) == 1 && (misa & required) == required && (misa & (MISA_F | MISA_D)) == 0
+}
+
+/// The platform the C6 reports in `status` (specification 11, `status`): its chip name.
+pub const PLATFORM: &str = "esp32c6";
+
+/// The C6's stable runtime ID (specification 11, `status`): its chip name and its USB serial
+/// number, the base MAC address in the order and case the USB-Serial/JTAG controller reports it,
+/// for example `esp32c6-20:6E:F1:17:04:C0`. It needs no stored file, stays the same across resets
+/// and differs between two chips.
+#[must_use]
+pub fn runtime_id(mac: [u8; 6]) -> smol_str::SmolStr {
+    let [a, b, c, d, e, f] = mac;
+    smol_str::format_smolstr!("{PLATFORM}-{a:02X}:{b:02X}:{c:02X}:{d:02X}:{e:02X}:{f:02X}")
 }
 
 #[cfg(test)]

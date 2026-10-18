@@ -42,17 +42,13 @@ impl DebugControl {
         state.watches.clear();
         state.watch_changed = false;
         state.snapshot = None;
+        state.completed = None;
         state.frame_locations.clear();
         state.last_location = None;
-        state.last_call_depth = 0;
-        state.last_call_depths.clear();
+        run_control(&mut state).retire_observations();
         state.last_stop = None;
         state.stops.clear();
-        state.steps.clear();
-        state.current_thread = None;
-        state.target_thread = None;
         state.breakpoint_stops_this_cycle.clear();
-        state.pending_stop = (state.mode == DebugMode::Paused).then_some(DebugStopReason::Pause);
         state.live_values.clear();
     }
 

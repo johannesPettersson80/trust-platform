@@ -10,6 +10,7 @@ pub(super) enum RolePolicy {
     AdsDoctor,
     AdsImportSymbols,
     CommBrowseSymbols,
+    CommSearchStart,
     ConfigSet,
 }
 
@@ -87,12 +88,27 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation(
+        "comm.search.status",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
+        "comm.search.cancel",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
+    operation(
         "fleet.topology",
         RolePolicy::Fixed(AccessRole::Viewer),
         false,
     ),
     operation("io.list", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation("io.read", RolePolicy::Fixed(AccessRole::Viewer), false),
+    operation(
+        "program.active",
+        RolePolicy::Fixed(AccessRole::Viewer),
+        false,
+    ),
     operation(
         "hmi.schema.get",
         RolePolicy::Fixed(AccessRole::Viewer),
@@ -221,6 +237,23 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         RolePolicy::Fixed(AccessRole::Admin),
         false,
     ),
+    operation(
+        "transfer.begin",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
+    operation("transfer.part", RolePolicy::Fixed(AccessRole::Admin), false),
+    operation(
+        "transfer.status",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
+    operation("transfer.get", RolePolicy::Fixed(AccessRole::Admin), false),
+    operation(
+        "transfer.abort",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
     operation("ads.route_add", RolePolicy::Fixed(AccessRole::Admin), false),
     operation(
         "ads.route_remove",
@@ -238,7 +271,13 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         RolePolicy::AdsImportSymbols,
         false,
     ),
+    operation(
+        "ads.import_symbols.remove",
+        RolePolicy::Fixed(AccessRole::Engineer),
+        false,
+    ),
     operation("comm.browse_symbols", RolePolicy::CommBrowseSymbols, false),
+    operation("comm.search.start", RolePolicy::CommSearchStart, false),
     operation("config.set", RolePolicy::ConfigSet, false),
 ];
 

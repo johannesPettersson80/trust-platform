@@ -4,17 +4,17 @@ impl<'a> BytecodeEncoder<'a> {
         ctx: &mut CodegenContext,
         pou_id: u32,
         body: &[crate::program_model::Stmt],
-    ) -> Result<(Vec<u8>, Vec<DebugEntry>), BytecodeError> {
+    ) -> Result<(Vec<u8>, EmittedStatements), BytecodeError> {
         // Legacy import supplies executable bodies; only construction expressions are compiled.
         if self.legacy.is_some() {
-            return Ok((Vec::new(), Vec::new()));
+            return Ok((Vec::new(), EmittedStatements::default()));
         }
         let mut code = Vec::new();
-        let mut debug_entries = Vec::new();
+        let mut statements = EmittedStatements::default();
         for stmt in body {
-            self.emit_stmt(ctx, pou_id, stmt, &mut code, &mut debug_entries)?;
+            self.emit_stmt(ctx, pou_id, stmt, &mut code, &mut statements)?;
         }
-        Ok((code, debug_entries))
+        Ok((code, statements))
     }
 
     fn emit_stmt(
@@ -23,26 +23,10 @@ impl<'a> BytecodeEncoder<'a> {
         pou_id: u32,
         stmt: &crate::program_model::Stmt,
         code: &mut Vec<u8>,
-        debug_entries: &mut Vec<DebugEntry>,
+        statements: &mut EmittedStatements,
     ) -> Result<(), BytecodeError> {
         let offset = to_u32(code.len(), "debug code offset")?;
-        if let (Some(location), Some(sources)) = (stmt.location(), self.sources) {
-            let source = sources
-                .get(location.file_id as usize)
-                .ok_or_else(|| BytecodeError::InvalidSection("debug source missing".into()))?;
-            let (line, column) = crate::debug::location_to_line_col(source, location);
-            let line = line.saturating_add(1);
-            let column = column.saturating_add(1);
-            let file_idx = self.file_path_index(location.file_id)?;
-            debug_entries.push(DebugEntry {
-                pou_id,
-                code_offset: offset,
-                file_idx,
-                line,
-                column,
-                kind: 0,
-            });
-        }
+        let recorded = self.begin_statement(pou_id, offset, stmt, statements)?;
         let emitted = match stmt {
             crate::program_model::Stmt::Assign { target, value, .. } => {
                 self.emit_assign(ctx, target, value, code)?
@@ -71,14 +55,7 @@ impl<'a> BytecodeEncoder<'a> {
                 else_block,
                 ..
             } => self.emit_if_stmt(
-                ctx,
-                pou_id,
-                condition,
-                then_block,
-                else_if,
-                else_block,
-                code,
-                debug_entries,
+                ctx, pou_id, condition, then_block, else_if, else_block, code, statements,
             )?,
             crate::program_model::Stmt::Case {
                 selector,
@@ -86,19 +63,13 @@ impl<'a> BytecodeEncoder<'a> {
                 else_block,
                 ..
             } => self.emit_case_stmt(
-                ctx,
-                pou_id,
-                selector,
-                branches,
-                else_block,
-                code,
-                debug_entries,
+                ctx, pou_id, selector, branches, else_block, code, statements,
             )?,
             crate::program_model::Stmt::While {
                 condition, body, ..
-            } => self.emit_while_stmt(ctx, pou_id, condition, body, code, debug_entries)?,
+            } => self.emit_while_stmt(ctx, pou_id, condition, body, code, statements)?,
             crate::program_model::Stmt::Repeat { body, until, .. } => {
-                self.emit_repeat_stmt(ctx, pou_id, body, until, code, debug_entries)?
+                self.emit_repeat_stmt(ctx, pou_id, body, until, code, statements)?
             }
             crate::program_model::Stmt::For {
                 control,
@@ -108,19 +79,14 @@ impl<'a> BytecodeEncoder<'a> {
                 body,
                 ..
             } => self.emit_for_stmt(
-                ctx,
-                pou_id,
-                control,
-                start,
-                end,
-                step,
-                body,
-                code,
-                debug_entries,
+                ctx, pou_id, control, start, end, step, body, code, statements,
             )?,
             crate::program_model::Stmt::Label { stmt, .. } => {
                 if let Some(stmt) = stmt.as_deref() {
-                    self.emit_stmt(ctx, pou_id, stmt, code, debug_entries)?;
+                    // §6.13 admits nested statements that share a code offset, so the
+                    // label keeps its own DEBUG_MAP entry and its statement nests in
+                    // the label's span.
+                    self.emit_stmt(ctx, pou_id, stmt, code, statements)?;
                     true
                 } else {
                     false
@@ -134,6 +100,7 @@ impl<'a> BytecodeEncoder<'a> {
         if !emitted {
             if stmt_is_intentional_nop(stmt) {
                 code.push(0x00);
+                Self::end_statement(statements, recorded, code.len())?;
                 return Ok(());
             }
             if stmt_contains_c1_required_call(stmt) {
@@ -150,7 +117,7 @@ impl<'a> BytecodeEncoder<'a> {
                 format!("unsupported bytecode lowering path: {:?}", stmt).into(),
             ));
         }
-        Ok(())
+        Self::end_statement(statements, recorded, code.len())
     }
 
     fn emit_block(
@@ -159,10 +126,10 @@ impl<'a> BytecodeEncoder<'a> {
         pou_id: u32,
         block: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
-        debug_entries: &mut Vec<DebugEntry>,
+        statements: &mut EmittedStatements,
     ) -> Result<(), BytecodeError> {
         for stmt in block {
-            self.emit_stmt(ctx, pou_id, stmt, code, debug_entries)?;
+            self.emit_stmt(ctx, pou_id, stmt, code, statements)?;
         }
         Ok(())
     }

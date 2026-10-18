@@ -85,6 +85,7 @@ pub(super) fn handle_config_get(id: u64, state: &ControlState) -> ControlRespons
             "web.auth": settings.web.auth.as_str(),
             "web.tls": settings.web.tls,
             "discovery.enabled": settings.discovery.enabled,
+            "discovery.host_group": settings.discovery.host_group.as_ref().map(|v| v.as_str()),
             "discovery.service_name": settings.discovery.service_name.as_str(),
             "discovery.advertise": settings.discovery.advertise,
             "discovery.interfaces": settings.discovery.interfaces.iter().map(|v| v.as_str()).collect::<Vec<_>>(),

@@ -310,7 +310,7 @@ where
     }
 
     /// Records the retained values a restart dropped or migrated, at the program's current time.
-    fn record_retain_events(&self, events: Vec<RetainApplyEvent>) {
+    pub(super) fn record_retain_events(&self, events: Vec<RetainApplyEvent>) {
         for event in events {
             self.records
                 .push_event(retain_apply_event(event, self.program_time));

@@ -7,6 +7,19 @@ use trust_runtime::{
     program_model::Expr,
 };
 
+/// Waits until the scan reports a stop, and drains the stops it has reported. The watch change is read
+/// at a stop (spec 13 line 279: watch-change state is recomputed for each stop), so the test waits for one.
+fn wait_for_new_stop(control: &trust_runtime::debug::DebugControl) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while control.drain_stops().is_empty() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the scan did not stop"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+}
+
 #[test]
 fn schema_reload_rebuilds_watch_plans_only_after_candidate_commit() {
     let root = std::env::temp_dir().join(format!(
@@ -56,14 +69,23 @@ fn schema_reload_rebuilds_watch_plans_only_after_candidate_commit() {
     assert_eq!(adapter.watch_cache.len(), 1);
     let old_handle = adapter.alloc_variable_handle(VariableHandle::Globals);
     let control = adapter.session().debug_control();
-    adapter
-        .session()
-        .runtime_handle()
-        .lock()
-        .unwrap()
-        .execute_cycle()
-        .unwrap();
-    assert!(control.take_watch_changed());
+    // Spec 13 line 279 ("Watch-change state is recomputed for each stop"): the change is read where the
+    // scan stops. The earlier version read it after a scan that did not stop, which the spec no longer
+    // requires. A pause holds the scan at its first statement, on another thread, and the watch value is
+    // read at the same stop.
+    control.pause();
+    let scan = {
+        let runtime = adapter.session().runtime_handle();
+        std::thread::spawn(move || runtime.lock().unwrap().execute_cycle().unwrap())
+    };
+    wait_for_new_stop(&control);
+    assert!(
+        control.take_watch_changed(),
+        "the first stop evaluates the registered watch"
+    );
+    assert_eq!(evaluate(&mut adapter), "2");
+    control.continue_run();
+    scan.join().unwrap();
     assert!(control.snapshot().is_some());
 
     std::fs::write(&path, "PROGRAM Broken").unwrap();
@@ -82,29 +104,37 @@ fn schema_reload_rebuilds_watch_plans_only_after_candidate_commit() {
     assert!(adapter.watch_cache.is_empty());
     assert!(adapter.variable_handles.is_empty());
     assert!(control.snapshot().is_none());
-    adapter
-        .session()
-        .runtime_handle()
-        .lock()
-        .unwrap()
-        .execute_cycle()
-        .unwrap();
+    // Spec 13 line 279: observed at a stop, where the change is recomputed. The earlier version read the
+    // change after a scan that did not stop. The retired watch plan is not registered, so the stop
+    // reports no change.
+    control.pause();
+    let scan = {
+        let runtime = adapter.session().runtime_handle();
+        std::thread::spawn(move || runtime.lock().unwrap().execute_cycle().unwrap())
+    };
+    wait_for_new_stop(&control);
     assert!(
         !control.take_watch_changed(),
         "retired schema must not retain an active watch plan"
     );
+    control.continue_run();
+    scan.join().unwrap();
     assert_eq!(evaluate(&mut adapter), "8");
-    adapter
-        .session()
-        .runtime_handle()
-        .lock()
-        .unwrap()
-        .execute_cycle()
-        .unwrap();
+    // Spec 13 line 279: the reinstalled watch is evaluated at the next stop, which reports its change.
+    // The earlier version read that change after a scan that did not stop.
+    control.pause();
+    let scan = {
+        let runtime = adapter.session().runtime_handle();
+        std::thread::spawn(move || runtime.lock().unwrap().execute_cycle().unwrap())
+    };
+    wait_for_new_stop(&control);
     assert!(
         control.take_watch_changed(),
         "normal evaluation reinstalls the current watch plan"
     );
+    assert_eq!(evaluate(&mut adapter), "8");
+    control.continue_run();
+    scan.join().unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }
 

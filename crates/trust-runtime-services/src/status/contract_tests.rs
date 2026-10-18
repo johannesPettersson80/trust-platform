@@ -13,6 +13,7 @@ use super::*;
 use crate::events::RuntimeEvent;
 use crate::metrics::{BudgetContributorSnapshot, TaskStatsSnapshot};
 use crate::tests::fake_host::FakeHost;
+use crate::tests::runner_ports::Fixture;
 
 fn driver(name: &str, health: IoDriverHealth) -> IoDriverStatus {
     IoDriverStatus {
@@ -139,6 +140,33 @@ fn status_reports_the_event_capacity() {
 
     host.event_capacity = 1_000;
     assert_eq!(result(status(2, &host))["event_capacity"], json!(1_000));
+}
+
+#[test]
+fn status_reports_version_and_platform() {
+    let host = FakeHost::running();
+    let value = result(status(1, &host));
+    assert_eq!(value["version"], json!(env!("CARGO_PKG_VERSION")));
+    // The fake host names its platform `test-platform` (tests/fake_host.rs).
+    assert_eq!(value["platform"], json!("test-platform"));
+}
+
+#[test]
+fn status_reports_the_runtime_id() {
+    // Specification 11 `status`: the runtime's stable runtime ID. The fake host reports the
+    // literal `test-runtime-id` (tests/fake_host.rs).
+    let host = FakeHost::running();
+    let value = result(status(1, &host));
+    assert_eq!(value["runtime_id"], json!("test-runtime-id"));
+}
+
+#[test]
+fn runner_status_reports_that_it_keeps_control() {
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    let reply = fixture.call_at(&mut runner, 3, &json!({"id": 1, "type": "status"}));
+    assert_eq!(reply["result"]["program_control"], json!("keeps_control"));
 }
 
 #[test]

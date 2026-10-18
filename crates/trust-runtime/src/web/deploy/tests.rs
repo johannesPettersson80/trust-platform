@@ -388,3 +388,99 @@ policy = "halt"
 }
 
 use super::*;
+
+/// The project's installed configuration with the signed-deploy policy and the keyring of
+/// `signed_request`, as a running project holds it before the next deployment.
+fn install_signed_policy(root: &Path) {
+    fs::write(root.join("runtime.toml"), runtime_with_signed_policy())
+        .expect("install runtime.toml");
+}
+
+/// Spec 11, deployment signature policy: the policy in force is the installed one. Catches a
+/// deployment that turns `require_signed` off with the `runtime.toml` it carries and so
+/// installs an unsigned program.
+#[test]
+fn a_request_cannot_turn_off_require_signed() {
+    let mut root = std::env::temp_dir();
+    root.push(format!("trust-deploy-lift-policy-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("create root");
+    install_signed_policy(&root);
+    let unsigned = DeployRequest {
+        runtime_toml: Some(
+            runtime_with_signed_policy().replace("require_signed = true", "require_signed = false"),
+        ),
+        io_toml: None,
+        program_stbc_b64: Some(STANDARD.encode([4u8, 5, 6])),
+        sources: None,
+        signature: None,
+        restart: None,
+    };
+    let error =
+        apply_deploy(&root, unsigned).expect_err("the installed policy requires a signature");
+    assert!(
+        error.to_string().contains("signed deploy required"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        !root.join("program.stbc").exists(),
+        "a refused deployment writes nothing"
+    );
+    let installed = fs::read_to_string(root.join("runtime.toml")).expect("installed runtime.toml");
+    assert!(
+        installed.contains("require_signed = true"),
+        "the installed policy stays"
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+/// Spec 11, deployment signature policy: the keyring is the installed policy's. Catches a
+/// deployment that names a keyring it controls and signs with a key of its own.
+#[test]
+fn a_request_cannot_name_its_own_keyring() {
+    let mut root = std::env::temp_dir();
+    root.push(format!("trust-deploy-own-keyring-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("create root");
+    install_signed_policy(&root);
+    // The installed keyring trusts "ci"; a file under src/ that an earlier deployment left trusts
+    // "intruder".
+    fs::create_dir_all(root.join("security")).expect("security dir");
+    fs::write(
+        root.join("security/deploy-keys.toml"),
+        "[[keys]]\nid = \"ci\"\nsecret = \"super-secret\"\nenabled = true\nnot_after_unix = 4102444800\n",
+    )
+    .expect("write the installed keyring");
+    fs::create_dir_all(root.join("src")).expect("src dir");
+    fs::write(
+        root.join("src/keys.toml"),
+        "[[keys]]\nid = \"intruder\"\nsecret = \"own-secret\"\nenabled = true\nnot_after_unix = 4102444800\n",
+    )
+    .expect("write the other keyring");
+    let mut request = DeployRequest {
+        runtime_toml: Some(runtime_with_signed_policy().replace(
+            "keyring_path = \"security/deploy-keys.toml\"",
+            "keyring_path = \"src/keys.toml\"",
+        )),
+        io_toml: None,
+        program_stbc_b64: Some(STANDARD.encode([7u8, 7, 7])),
+        sources: None,
+        signature: None,
+        restart: None,
+    };
+    let payload_sha = deploy_payload_sha256(&request);
+    request.signature = Some(DeploySignature {
+        key_id: "intruder".to_string(),
+        signature: deploy_signature_digest("own-secret", &payload_sha),
+        payload_sha256: payload_sha,
+    });
+    assert!(
+        apply_deploy(&root, request).is_err(),
+        "a key the installed keyring does not hold must not sign a deployment"
+    );
+    assert!(
+        !root.join("program.stbc").exists(),
+        "a refused deployment writes nothing"
+    );
+    let _ = fs::remove_dir_all(root);
+}

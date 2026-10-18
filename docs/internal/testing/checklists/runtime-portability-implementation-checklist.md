@@ -7,35 +7,58 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**18 October, about 14:00 (lead).** The STM32 target is the STM32U5A9 on the owner's Riverdi
-panel (17 October; the F407 code stays). All work is local; nothing is pushed. Implementation
-agents are Claude subagents at the lowest suitable cost (owner, 18 October) while the DeepSeek
-models are unavailable. Lanes:
+**18 October, evening (lead).** All work is local; nothing is pushed. Agents: Claude Haiku
+(owner, 18 October: "continue with haiku"). The free opencode models proved unusable, and one
+session that kept running after its client was killed collided with S3d-3. Owner questions open:
+Q11 (installs only while stopped?) and O2 (the debugger after a faulted scan). A Beckhoff and
+CODESYS research report is running for both. The C6 is connected; the Riverdi U5A9 board comes
+later. Lanes:
 
-- c6 `feat/board-runtime` (integration): `2d667368c` merges feat/chip-control-link a third time
-  (C4-4 `capabilities`, S1b-5f, S1b-5g) after `dcdde3992` (engine-init, C1-8); focused check
-  c6/merge-s1b-3 green (22 steps; VS Code 519 passing). S1b-5 is closed on the C6 bench
-  (`~/projects/.artifacts/runtime-portability-c6/s1b-5b2-bench/result.md`): stack high-water
-  15,900 B of the 24 KiB window (8,676 B untouched), heap peak 62,616 of 139,264 B (45 %), no
-  allocation failure; a due cycle of the 100 ms task waits for at most one answer (0.99 ms with
-  bursts of 8 queued requests, 7.0 ms for one `status`, whose code runs from flash). The earlier
-  25 ms lateness figure was a measurement error (each start's phase against the first start, which
-  adds the schedule's drift) and is withdrawn.
-- s1b `feat/chip-control-link` (= c6 at the merge): C5-4 for the C6 runs (the checkpoint flash over
-  `ckpt_a` and `ckpt_b`, so `mode = "file"` works on the chip; bench project
-  `bench/project-retain`).
-- live-values `feat/live-values`: S3a, S3b1, S3b2a, S3b2b and S3b3 are committed (`5272135c2` to
-  `c0ea86692`). The chip debugger design is `~/projects/.artifacts/s3/chip-debugger.md`, its
-  decisions `s3/decisions.md`; one owner question (O2: what a debugger shows after a faulted scan).
-  Running: S3d-1, the A01 FOR-scratch probe. Next: S3d-2 (a sorted statement index), S3d-3 (no
-  storage copy per statement), S3d-4 and S3d-5, the merge into this branch, S3d-6 to S3d-9 on the
-  chips, then S3c.
-- engine-init `feat/engine-init` (= `dcdde3992`): C1-8 merged. Running: C1-P0, allocation charged
-  by what a copy copies (D-C1-3 (b): a scalar 0 B, a structure or array 16 B per leaf, a STRING
-  1 B per UTF-8 byte, a WSTRING 2 B per UTF-16 unit); then P1 and P3, then the C1-9 switch.
-- devices `feat/devices-connections` (V7): B9 `c07c8e235`; D5 (the browse panes) is written and
-  D5b runs (the add, tag and typed-port actions and every text from Rust; the route login drawn by
-  the generic form); then C4, C5b, C6, C7, D4, D6, D7.
+- c6 `feat/board-runtime` (integration):
+  - `26d151171` merges feat/u5a9-runtime.
+  - `36bfdc8b8` merges feat/chip-control-link (S4-1 to S4-3a). The joining fixes: spec 11's role
+    table; the ControlState transfer session in two devices tests; base64 in both firmware locks;
+    the U5A9 lock tracked; the U5A9 platform, runtime ID and program control.
+  - Checks green on the merge: clippy over the changed crates, both chip lanes, u5, and the C6
+    and U5A9 firmware builds; the services 514 and runtime vertical tests pass.
+- s1b `feat/chip-control-link`:
+  - S4-1 `691b68d2c`: transfers in parts.
+  - S4-2a `1fc02be87`: the two-slot store and TRSTA002. A slot whose magic is valid but whose
+    header is damaged counts as not committed; the owner was told.
+  - S4-2b `ad3b03dee`: the reload rules in the services.
+  - S4-3a `7074517f6`: the transfer operations, `bytecode.reload {transfer}`, `program.active`
+    and the reply head.
+  - Next: S4-3b `program.install` (after Q11), S4-4 (the computer adapter), S4-5 and S4-6 (the
+    C6 flash and firmware, with a bench), S4-7.
+- live-values `feat/live-values`:
+  - S3d-3 `3ea55d9a6`: the debugger reads the last completed scan, with no copy per statement.
+  - S3d-4 `d3c5249ba`: the breakpoint matching and the hit rule are shared.
+  - Running: S3d-5's finish (run control in the services). Then the merge into this branch, and
+    S3d-6 to S3d-9.
+- engine-init `feat/engine-init`:
+  - C1-P3 `0ed6e9ea2`.
+  - C1-9a `1a0de68a5`: the cell store, charged before it is reserved.
+  - C1-9b `434f4fd18`: cell reads through the seam.
+  - Running: C1-9c (cell writes, and a root's range covering its inheritance chain). Then C1-9d,
+    the switch, and C1-9e.
+- u5a9 `feat/u5a9-runtime`:
+  - S1b-8u-2a `e77dbb563`: USB.
+  - 8u-2b `0f2c3ccef`: the wait, and the PHY set up as ST's driver does.
+  - 8u-3a `17c25d101`: flash, checkpoint and reset, with each chip's flag bits.
+  - 8u-3b `ebbbf184e`: watchdog, GPIO and the memory map, with a 32 KiB stack.
+  - 9u-a `9e5d0e471`: the firmware, 830,816 B flash.
+  - 9u-b `e24409ffc`: inspect, which the real image passes, and the CI gate.
+  - `ea48ec321`: the firmware lock.
+  - Next: S1b-9u-c (move the platform, process-I/O, watchdog-rule and ELF-reader copies into
+    shared code, after the lanes meet here). Then the bench, when the board is here.
+- devices `feat/devices-connections`:
+  - C4b `5678f9aee`: mesh peers and cloud presence.
+  - C7 `ba25b90ab`: the Discover view.
+  - D4 `257737d40`: the Discover pane.
+  - C7b-1 `3ee59fdc9`: the old pane's actions, headings, notes and help.
+  - Running: C4c, the TwinCAT route list from the `ads` crate's `adstool route list`, unproven
+    until a real TwinCAT run; its follow-up decodes Windows-1252.
+  - Next: C7b-2, D4b, C5b, C6, D6, D7.
 
 Open top-level items: 57.
 

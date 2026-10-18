@@ -34,7 +34,20 @@ pub fn run_runtime(
         controller: simulation_controller,
     } = simulation;
 
-    let debug = runtime.enable_debug();
+    // The debugger is attached for every run so that `config.set` can enable it later. The
+    // configured `runtime.control.debug_enabled` is the initial value of the switch that both the
+    // debugger's hook and the control state read, so the setting decides whether the hook runs
+    // (specification 11 section 6.9).
+    let debug_enabled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+        bundle
+            .as_ref()
+            .map(|bundle| bundle.runtime.control_debug_enabled)
+            .unwrap_or(true),
+    ));
+    // Attached the way `enable_debug` attaches a control, but with the shared switch.
+    let debug = trust_runtime::debug::DebugControl::new()
+        .with_enabled_flag(std::sync::Arc::clone(&debug_enabled));
+    runtime.set_debug_control(debug.clone());
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
     if let Ok(mut guard) = metrics.lock() {
         guard.set_execution_backend(selected_execution_backend);
@@ -283,7 +296,21 @@ pub fn run_runtime(
     #[cfg(feature = "ads-server")]
     let ads_server_runtime = Arc::new(Mutex::new(None));
 
+    let resource_name = bundle
+        .as_ref()
+        .map(|bundle| bundle.runtime.resource_name.clone())
+        .unwrap_or_else(|| smol_str::SmolStr::new("RESOURCE"));
+    // The stable runtime ID is read back, or generated once, on every start, even while
+    // announcing is disabled, so a file that cannot be read or holds an invalid ID is an error
+    // rather than a silently new ID (spec 11, runtime discovery; O36). One value serves both
+    // `status` and the announcement.
+    let runtime_id = match &bundle {
+        Some(bundle) => trust_runtime::runtime_id::stable_runtime_id(bundle.root.as_path())?,
+        None => resource_name.clone(),
+    };
+
     let state = Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug: debug.clone(),
         resource: control.clone(),
         metadata: metadata.clone(),
@@ -309,17 +336,10 @@ pub fn run_runtime(
         web_listener_bound: web_listener_bound.clone(),
         opcua_server_bound: opcua_server_bound.clone(),
         project_root: bundle.as_ref().map(|bundle| bundle.root.clone()),
-        resource_name: bundle
-            .as_ref()
-            .map(|bundle| bundle.runtime.resource_name.clone())
-            .unwrap_or_else(|| smol_str::SmolStr::new("RESOURCE")),
+        resource_name: resource_name.clone(),
+        runtime_id: runtime_id.clone(),
         io_health: io_health.clone(),
-        debug_enabled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
-            bundle
-                .as_ref()
-                .map(|bundle| bundle.runtime.control_debug_enabled)
-                .unwrap_or(true),
-        )),
+        debug_enabled,
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(
             hmi_persistence
@@ -335,6 +355,7 @@ pub fn run_runtime(
             .as_ref()
             .map(OpenOtPersistenceService::status_handle),
         pairing: pairing.clone(),
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),
@@ -388,14 +409,16 @@ pub fn run_runtime(
     let _discovery_handle = if let Some(bundle) = &bundle {
         if bundle.runtime.discovery.enabled {
             let web_listen = bundle.runtime.web.listen.as_str();
+            let web_listen = web_config.enabled.then_some(web_listen);
             let mesh_listen = _mesh
                 .as_ref()
                 .and_then(|service| service.discovery_mesh_listen());
             let handle = start_discovery_with_state(
                 &bundle.runtime.discovery,
                 &bundle.runtime.resource_name,
-                &control_endpoint,
-                Some(web_listen),
+                runtime_id.as_str(),
+                Some(&control_endpoint),
+                web_listen,
                 bundle.runtime.web.tls,
                 mesh_listen,
                 discovery_state.clone(),

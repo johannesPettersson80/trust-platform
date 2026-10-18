@@ -13,6 +13,7 @@ mod types;
 
 pub use control::{ControlAction, ControlOutcome, DebugControl, DebugMode, StepKind};
 pub use dap::{DebugScope, DebugSource, DebugVariable, DebugVariableHandles, VariableHandle};
+pub(crate) use execution_snapshot::StatementProjection;
 pub use hook::{DebugHook, DebugRuntimeContext, NoopDebugHook};
 pub use resolve::{location_to_line_col, offset_to_line_col, resolve_breakpoint_location};
 #[cfg(test)]

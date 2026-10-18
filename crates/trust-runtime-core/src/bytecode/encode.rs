@@ -269,6 +269,7 @@ fn encode_section_data(
                 out.extend_from_slice(&entry.const_idx.to_le_bytes())?;
             }
         }
+        SectionData::LineTable(table) => encode_line_table(version, table, &mut out)?,
         SectionData::StorageLayout(_)
         | SectionData::ConstructionRoots(_)
         | SectionData::Initializers(_)
@@ -281,6 +282,38 @@ fn encode_section_data(
         SectionData::Raw(raw) => out.extend_from_slice(raw)?,
     }
     Ok(out.into_vec())
+}
+
+/// Serialize the LINE_TABLE payload (spec 12 §6.13).
+///
+/// The section belongs to the source-free container versions 2.0 and 3.0, where
+/// §11.5 keeps `0x0011` free. A 1.x container never carries one.
+fn encode_line_table(
+    version: BytecodeVersion,
+    table: &crate::bytecode::LineTable,
+    out: &mut Buffer,
+) -> Result<(), BytecodeError> {
+    if !version.is_source_free() {
+        return Err(BytecodeError::section_static(
+            "LINE_TABLE requires a source-free container version",
+        ));
+    }
+    out.extend_from_slice(&encoded_count(table.files.len())?.to_le_bytes())?;
+    for file in &table.files {
+        out.extend_from_slice(&file.path_idx.to_le_bytes())?;
+    }
+    out.extend_from_slice(&encoded_count(table.statements.len())?.to_le_bytes())?;
+    for statement in &table.statements {
+        out.extend_from_slice(&statement.pou_id.to_le_bytes())?;
+        out.extend_from_slice(&statement.start_code_offset.to_le_bytes())?;
+        out.extend_from_slice(&statement.end_code_offset.to_le_bytes())?;
+        out.extend_from_slice(&statement.file_index.to_le_bytes())?;
+        out.extend_from_slice(&statement.start_line.to_le_bytes())?;
+        out.extend_from_slice(&statement.start_column.to_le_bytes())?;
+        out.extend_from_slice(&statement.end_line.to_le_bytes())?;
+        out.extend_from_slice(&statement.end_column.to_le_bytes())?;
+    }
+    Ok(())
 }
 
 fn encode_type_table(

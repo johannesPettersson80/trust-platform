@@ -94,6 +94,11 @@ impl ControlResponse {
         }
     }
 
+    /// The request number this response answers.
+    pub(crate) const fn id(&self) -> u64 {
+        self.id
+    }
+
     /// Attaches the id of the audit record written for this request.
     #[must_use]
     pub fn with_audit_id(mut self, audit_id: Option<SmolStr>) -> Self {

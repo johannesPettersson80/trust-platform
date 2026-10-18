@@ -25,7 +25,12 @@ use crate::value::Duration;
 use crate::value::Value;
 use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogAction, WatchdogPolicy};
 
+/// The runtimes that this computer manages under a fleet root: `fleet.toml`, their control
+/// tokens and their status.
+pub mod fleet_manifest;
 mod parser;
+/// The truST runtime projects of a folder.
+pub mod workspace_projects;
 
 pub use parser::ControlMode;
 

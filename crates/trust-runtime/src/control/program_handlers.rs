@@ -1,15 +1,13 @@
 use crate::error::RuntimeError;
-use crate::scheduler::{ReloadClaim, ResourceCommand, ResourceState};
+use crate::scheduler::{ReloadClaim, ResourceCommand};
 use crate::security::AccessRole;
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use base64::Engine;
 use serde_json::json;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
-use trust_runtime_services::resource::replies::hung_refusal;
+use trust_runtime_services::loading::reload as reload_rules;
 
-use super::resource_queue::{queue_refusal, resource_not_running, RESOURCE_NOT_RUNNING};
-use super::types::{BytecodeReloadParams, PairClaimParams, PairRevokeParams};
+use super::resource_queue::queue_refusal;
+use super::types::{PairClaimParams, PairRevokeParams};
 use super::{ControlResponse, ControlState};
 
 // `pause`, `resume`, `restart` and `shutdown` follow the shared resource rules
@@ -28,7 +26,7 @@ const STEP_REQUIRES_HOLD_MESSAGE: &str =
 /// A step is armed only while the debugger holds the scan, in either control mode.
 /// Without a hold the request is refused before anything is armed.
 pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> ControlResponse {
-    if state.debug.hold_reason().is_none() {
+    if !state.debug.accepts_step() {
         return ControlResponse::error(id, STEP_REQUIRES_HOLD_MESSAGE.into());
     }
     let action = match kind {
@@ -46,31 +44,17 @@ pub(super) fn handle_shutdown(id: u64, _state: &ControlState) -> ControlResponse
     trust_runtime_services::resource::operations::shutdown(id)
 }
 
+/// Answers `bytecode.reload`. The shared rules (`trust_runtime_services::loading::reload`) decide the
+/// params and the resource; this handler only queues the reload and waits for it.
 pub(super) fn handle_bytecode_reload(
     id: u64,
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let params: BytecodeReloadParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
-    };
-    let bytes = match BASE64_STANDARD.decode(params.bytes.as_bytes()) {
+    let bytes = match reload_rules::admit(id, params, state) {
         Ok(bytes) => bytes,
-        Err(err) => return ControlResponse::error(id, format!("invalid bytecode: {err}")),
+        Err(refusal) => return refusal,
     };
-    if state.resource.is_hung() {
-        return hung_refusal(id);
-    }
-    // A stopped resource has no scan thread to apply the change, so the request is refused
-    // instead of waiting for a reply that cannot come.
-    let resource = state.resource.state();
-    if matches!(resource, ResourceState::Stopped) {
-        return resource_not_running(id, resource);
-    }
     reload_on_resource(id, state, bytes, RELOAD_WAIT)
 }
 
@@ -152,31 +136,23 @@ pub(super) fn await_reload(
 }
 
 fn reload_reply(id: u64, outcome: ReloadOutcome, state: &ControlState) -> ControlResponse {
-    match outcome {
+    let outcome = match outcome {
         ReloadOutcome::Applied(result) => match *result {
-            Ok(metadata) => {
-                if let Ok(mut guard) = state.metadata.lock() {
-                    *guard = metadata;
-                }
-                if let Err(error) =
-                    super::ads_handlers::refresh_ads_server_runtime_after_online_change(state)
-                {
-                    return ControlResponse::error(id, error);
-                }
-                ControlResponse::ok(id, json!({ "status": "reloaded" }))
-            }
-            Err(err) => ControlResponse::error(id, err.to_string()),
+            Ok(metadata) => reload_rules::ReloadOutcome::Applied(metadata),
+            Err(err) => reload_rules::ReloadOutcome::Failed(err.to_string()),
         },
-        ReloadOutcome::Withdrawn => ControlResponse::error(id, "reload timeout".into()),
-        ReloadOutcome::Stopped => ControlResponse::error_with_code(
-            id,
-            "resource stopped before the reload was applied".into(),
-            RESOURCE_NOT_RUNNING,
-        ),
-        ReloadOutcome::Unknown => {
-            ControlResponse::error(id, "reload commit outcome is unknown".into())
+        ReloadOutcome::Withdrawn => reload_rules::ReloadOutcome::Withdrawn,
+        ReloadOutcome::Stopped => reload_rules::ReloadOutcome::Stopped,
+        ReloadOutcome::Unknown => reload_rules::ReloadOutcome::Unknown,
+    };
+    // An applied reload stores its metadata and refreshes the ADS server before the reply, as it
+    // always has. The rules own the reply text; the stores stay with the control state.
+    reload_rules::reply(id, outcome, |metadata| {
+        if let Ok(mut guard) = state.metadata.lock() {
+            *guard = metadata;
         }
-    }
+        super::ads_handlers::refresh_ads_server_runtime_after_online_change(state)
+    })
 }
 
 pub(super) fn handle_pair_start(id: u64, state: &ControlState) -> ControlResponse {

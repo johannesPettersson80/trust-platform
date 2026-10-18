@@ -28,6 +28,7 @@
     "src/ladder/webview/**",
     "src/sfc/webview/**",
     "src/networkCanvas/webview/**",
+    "src/devicesPanel/webview/**",
     "src/visual/runtime/webview/**"
   ]
 }

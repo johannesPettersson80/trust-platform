@@ -32,6 +32,8 @@ pub mod crc32;
 pub mod cycle;
 /// Portable date/time calculation helpers.
 pub mod datetime;
+/// Portable debugger resolution from the module's `LINE_TABLE` (specification 12 §6.13).
+pub mod debug;
 /// Deployment records and their admission (specification 34 §5.1.1).
 pub mod deployment;
 /// Portable runtime errors.

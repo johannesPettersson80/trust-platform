@@ -29,12 +29,13 @@ use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
+    ProgramIdentities, RecordsPort, ResourcePort, StatusPort, TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::transfer::TransferSession;
 
 /// The wall time the fake platform reports, in Unix milliseconds.
 pub(crate) const WALL_TIME_MS: u64 = 1_792_108_800_000;
@@ -64,6 +65,10 @@ pub(crate) enum Action {
 #[allow(clippy::struct_excessive_bools)] // one flag per platform condition under test
 pub(crate) struct FakeHost {
     pub(crate) resource_name: &'static str,
+    /// The platform the fake host reports, standing for the computer the tests run on.
+    pub(crate) platform: &'static str,
+    /// The stable runtime ID the fake host reports.
+    pub(crate) runtime_id: &'static str,
     pub(crate) control_token: Option<&'static str>,
     pub(crate) requires_auth: bool,
     pub(crate) pairing: Option<(&'static str, AccessRole)>,
@@ -104,6 +109,12 @@ pub(crate) struct FakeHost {
     pub(crate) device_descriptor: DeviceDescriptor,
     /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
     pub(crate) last_reset: Option<LastReset>,
+    /// The program-control posture the fake host reports.
+    pub(crate) program_control: ProgramControl,
+    /// The transfer session the transfer operations use; `None` for a platform without one.
+    pub(crate) transfers: Option<RefCell<TransferSession>>,
+    /// The identities `program.active` reports; `None` for a platform without a program store.
+    pub(crate) program_identities: Option<ProgramIdentities>,
 }
 
 impl FakeHost {
@@ -111,6 +122,8 @@ impl FakeHost {
     pub(crate) fn running() -> Self {
         Self {
             resource_name: "RESOURCE",
+            platform: "test-platform",
+            runtime_id: "test-runtime-id",
             control_token: None,
             requires_auth: false,
             pairing: None,
@@ -139,6 +152,9 @@ impl FakeHost {
             missing_program: None,
             device_descriptor: DeviceDescriptor::hosted(),
             last_reset: None,
+            program_control: ProgramControl::Process,
+            transfers: None,
+            program_identities: None,
         }
     }
 
@@ -274,6 +290,18 @@ impl StatusPort for FakeHost {
         self.resource_name
     }
 
+    fn platform(&self) -> &str {
+        self.platform
+    }
+
+    fn runtime_id(&self) -> &str {
+        self.runtime_id
+    }
+
+    fn program_control(&self) -> ProgramControl {
+        self.program_control
+    }
+
     fn status_settings(&self) -> Option<StatusSettings> {
         self.readable("settings").then(|| StatusSettings {
             execution_backend: "vm",
@@ -342,6 +370,23 @@ impl RecordsPort for FakeHost {
         let events = self.events.borrow();
         let store: &VecDeque<RuntimeEvent> = &events;
         Some(read(store))
+    }
+
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        let Some(session) = &self.transfers else {
+            return Err(TransferSessionError::Unsupported);
+        };
+        match session.try_borrow_mut() {
+            Ok(mut session) => Ok(use_session(&mut session)),
+            Err(_) => Err(TransferSessionError::Unavailable),
+        }
+    }
+
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        self.program_identities
     }
 }
 

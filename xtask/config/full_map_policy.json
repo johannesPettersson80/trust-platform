@@ -435,6 +435,54 @@
       "rationale": "WASM analysis consumes syntax"
     },
     {
+      "from": "trust-devices",
+      "to": "trust-runtime",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reads trust-runtime's wire types, configuration, catalog and control glue; it is a host tool and no chip links it."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reaches runtimes through the one shared control client."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-chips",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel shows a runtime whose status names a chip of truST's chip files as that chip; the reader depends on no firmware or adapter."
+    },
+    {
+      "from": "trust-lsp",
+      "to": "trust-devices",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The five `trust-lsp.devices*` commands decode their arguments, run the panel engine on a blocking thread and return its JSON (design §1.4.1 and §1.6)."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-devices",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The engine integration test drives the panel engine against a real `trust-runtime` binary; a dev edge only, so no runtime or firmware build resolves the reader."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "trust-runtime discover reaches the runtime that runs a search through the one shared control client; the client depends on no truST crate."
+    },
+    {
       "from": "trust-platform-stm32f4",
       "to": "trust-platform-stm32",
       "kind": "normal",
@@ -659,6 +707,12 @@
       "rationale": "communication protocol configuration and apply command surface"
     },
     {
+      "name": "Discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search for devices, from this computer or inside a runtime (spec 11, One search)"
+    },
+    {
       "name": "Fleet",
       "class": "product",
       "owner": "runtime/fleet",
@@ -803,6 +857,12 @@
       "class": "product",
       "owner": "runtime/communication",
       "rationale": "communication protocol configuration command module"
+    },
+    {
+      "name": "discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search command module: request, progress and output of trust-runtime discover"
     },
     {
       "name": "fleet",
@@ -1305,6 +1365,14 @@
         "decision_note": "ARCHPROG-C-05 baseline freeze"
       },
       {
+        "name": "fleet_topology",
+        "subsystem": "runtime_fleet_topology_contract",
+        "owner": "runtime/control",
+        "rationale": "fleet.topology wire types and the decoder of schema versions 2 to 4, shared by the control handlers that write the report and the tools that read it; owns no transport",
+        "review_date": "2026-10-17",
+        "decision_note": "V7 B1: wire types moved out of control/fleet_handlers so the Devices panel engine can read them"
+      },
+      {
         "name": "host",
         "subsystem": "linux_host_adapters",
         "owner": "runtime/Linux host",
@@ -1732,6 +1800,33 @@
         "rationale": "The device runner namespace is the resource loop and one contract test file per port: the loop and its link/wait boundary, the cycle port, the shared-engine cycle with its limits, process I/O and services, the program wrapper, the platform host, the supervisor, the records and the retain store. Slice C5-3b added the chip retention contract tests (runner/retain_contract_tests.rs) beside the loop they exercise, which takes the aggregate past 5000 lines; the boundary is the sum of focused files, not one implementation file or a mixed owner.",
         "review_date": "2026-10-18",
         "split_plan": "Keep one responsibility per child file: the loop, the cycle port, the shared-engine cycle, the platform host, the supervisor, the records and the retain store stay separate, and each port's contract tests stay beside the loop they exercise. Split any individual file approaching 1000 lines by the same responsibility rather than growing runner.rs."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "view",
+        "path": "crates/trust-devices/src/view",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The view namespace is the panel contract of specification 25 §5.15 and its projection, in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, connections, devices and links, the filter and search, issues, status reading and addresses, with their tests and golden scenarios beside them. The pane builders (add dialog, forms, USB tray) live in the sibling `panes` namespace and answer the pane types of this contract. No single file or mixed owner; about a third of the lines are tests.",
+        "review_date": "2026-10-17",
+        "split_plan": "Keep one child module per panel concern; B5 added connections, devices, links, search and issues as their own files. The panes now live in the sibling `panes` namespace beside `view` (add dialog, forms, USB tray; later Discover and browse), and new panes go there; their contract types stay in `view/types/panes.rs`. Split any file approaching 1000 lines by its responsibility."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "actions",
+        "path": "crates/trust-devices/src/actions",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panel's action path of specification 25 §5.4, §5.9, §5.13 and §5.14, in focused child modules: the closed action set and its dispatch, the host-effect lists, the forms and connection actions, the connection plans, the ADS route action, the runtime actions, and the one write path they share, each with its tests beside it. No single file or mixed owner; about half the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per action family; B7 added `ads.rs` for the browse pane's `Create route` beside the plans. Split any file approaching 1000 lines by its responsibility, and put a new action family in its own child module."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "panes",
+        "path": "crates/trust-devices/src/panes",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panes beside the graph of specification 25 §2 and §5.12-§5.14, in focused child modules: the add dialog, the forms, the USB tray, and the browse panes (OPC UA nodes, EtherCAT channels, exposed globals and, with B8b1, the ADS tag browser in `browse/ads.rs`), each with its tests beside it. The aggregate crosses 5000 lines as the sum of these focused modules; no single file is near 1000 lines and about a third of the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per pane concern; the browse panes keep one child per protocol family under `browse/`. Split any file approaching 1000 lines by its own responsibility."
       }
     ],
     "function_size_allowlist": [
@@ -2078,14 +2173,6 @@
         "rationale": "Validated bytecode construction assembles one compatibility-sensitive VM boundary",
         "review_date": "2026-08-21",
         "split_plan": "Extract table families only with bytecode validation and execution parity locks."
-      },
-      {
-        "path": "crates/trust-runtime/src/host/debug/control/hook.rs",
-        "name": "on_statement_inner",
-        "owner": "runtime/debug",
-        "rationale": "Debug statement hook maintains one ordered breakpoint and control-session decision boundary",
-        "review_date": "2026-08-21",
-        "split_plan": "Extract stop-reason and control-session helpers only with debugger lifecycle coverage."
       }
     ],
     "public_api_snapshots": [
@@ -2959,7 +3046,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 212,
+        "line": 237,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3079,7 +3166,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 298,
+        "line": 300,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
@@ -3127,7 +3214,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 183,
+        "line": 184,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "read_volatile reads the three words of the chip's read-only 96-bit unique ID at 0x0BFA_0700 (design §2.5), in address order, and writes nothing.",
         "test_evidence": "The serial text the words build is host-tested (tests/usb_descriptors.rs); the read is proved on the bench (S1b-9u).",
@@ -3135,7 +3222,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb_link.rs",
-        "line": 226,
+        "line": 227,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the read-modify-write touches only the RXFLVLM bit of OTG_HS GINTMSK and runs under the critical section every caller holds; the USB driver writes GINTMSK only in its enable, before the device exists.",
         "test_evidence": "The pass that chooses the value is host-tested (tests/usb_service.rs, a_full_link_leaves_the_packet_with_the_port); the register write is proved on the bench (S1b-9u).",
@@ -3167,7 +3254,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 207,
+        "line": 227,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the OTG_HS trait values are the chip's: the register block at 0x4204_0000, a 4 KiB FIFO of 1024 words, nine device endpoints, the 160 MHz AHB clock and the on-chip high-speed PHY, driven at full speed with HIGH_SPEED false (design §2.1 and §2.2; PAC DIEPCTL0 to DIEPCTL8).",
         "test_evidence": "Host test the_otg_hs_block_is_at_0x4204_0000_with_4_kib_of_fifo_and_nine_endpoints pins the constants, and tests/usb_phy.rs pins the PHY values; the driver's use of them is proved on the bench (S1b-9u).",
@@ -3175,7 +3262,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 224,
+        "line": 244,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the RCC read-modify-writes set only OTGEN (bit 14) and USBPHYCEN (bit 15) in RCC_AHB2ENR1, and SYSCFGEN (bit 1) in RCC_APB3ENR, so the OTG_HS, PHY and SYSCFG clocks run before the USB core is configured (PAC 0.16.0 field descriptions; stm32u5a9xx.h).",
         "test_evidence": "The clock enables are proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
@@ -3183,7 +3270,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 228,
+        "line": 248,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
         "invariant": "the PWR read-modify-writes set only USV (PWR_SVMCR bit 28) and USBPWREN and USBBOOSTEN (PWR_VOSR bits 19 and 20), the USB supply, before the USB core is configured (PAC 0.16.0 field descriptions).",
         "test_evidence": "The supply sequence is proved on the bench (S1b-9u); RM0456's USB section owns the order, which is unverified here (design §2.2).",
@@ -3191,7 +3278,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 259,
+        "line": 279,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
         "invariant": "SYSCFG is the chip's own register block (PAC 0.16.0), and its clock is on since enable; the two writes below touch only OTGHSPHYCR, first CLKSEL and then EN, in ST's order (stm32u5xx_hal.c, lines 1002 and 1030).",
         "test_evidence": "The reference codes are host-tested (tests/usb_phy.rs, the_phy_reference_codes_are_st_s); the register writes are proved on the bench (S1b-9u).",
@@ -3199,7 +3286,7 @@
       },
       {
         "path": "crates/trust-platform-stm32u5/src/usb.rs",
-        "line": 262,
+        "line": 282,
         "owner": "runtime portability STM32U5A9 (S1b-8u-2b)",
         "invariant": "CLKSEL takes HSE_PHY_CLKSEL, the code of the board's 16 MHz HSE (0b0011, ST's SYSCFG_OTG_HS_PHY_CLK_SELECT_1). It is a compile-time constant, so a frequency with no code does not build.",
         "test_evidence": "the_phy_reference_codes_are_st_s pins the code; the write is proved on the bench (S1b-9u).",
@@ -3950,16 +4037,5 @@
       "evidence"
     ]
   },
-  "unbuilt_source_allowlist": [
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    },
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity/windows_native.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    }
-  ]
+  "unbuilt_source_allowlist": []
 }

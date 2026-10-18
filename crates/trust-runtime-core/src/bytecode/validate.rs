@@ -4,11 +4,11 @@ use alloc::{string::String, vec::Vec};
 
 use super::BytecodeReader;
 use super::{
-    BytecodeError, BytecodeModuleView, ConstEntry, ConstPool, DebugMap, IoMap, ParamEntry,
-    PouEntry, PouIndex, PouKind, RefLocation, RefSegment, RefTable, RejectionReason, ResourceMeta,
-    RetainInit, SectionData, SectionDiagnostic, SectionId, StringTable, TypeData, TypeEntry,
-    TypeKind, TypeTable, ValidationLimits, ValidationStats, VarMeta, NATIVE_CALL_KIND_FUNCTION,
-    NATIVE_CALL_KIND_FUNCTION_BLOCK,
+    BytecodeError, BytecodeModuleView, ConstEntry, ConstPool, DebugEntry, DebugMap, IoMap,
+    LineStatement, LineTable, ParamEntry, PouEntry, PouIndex, PouKind, RefLocation, RefSegment,
+    RefTable, RejectionReason, ResourceMeta, RetainInit, SectionData, SectionDiagnostic, SectionId,
+    StringTable, TypeData, TypeEntry, TypeKind, TypeTable, ValidationLimits, ValidationStats,
+    VarMeta, LINE_TABLE_SECTION_ID, NATIVE_CALL_KIND_FUNCTION, NATIVE_CALL_KIND_FUNCTION_BLOCK,
 };
 
 mod construction;
@@ -49,6 +49,8 @@ mod resource_io;
 use resource_io::*;
 mod meta_debug;
 use meta_debug::*;
+mod line_table;
+use line_table::*;
 
 fn checked_jump_target(pc: i32, offset: i32) -> Result<i32, BytecodeError> {
     pc.checked_add(5)

@@ -1,9 +1,11 @@
 //! Bare-metal ownership and initialization of the fixed ESP32-C6 board peripherals.
 use crate::{
+    checkpoint::SlotFlash,
     image::{decode_image_header, IMAGE_HEADER_BYTES},
     process_io::{claim_lines, ClaimedLines, GpioBank, PinError},
     profile::{CPU_HZ, FACTORY_OFFSET, STBC_BYTES, STBC_OFFSET},
 };
+use alloc::boxed::Box;
 use core::sync::atomic::{AtomicBool, Ordering};
 use esp_hal::{
     clock::CpuClock, efuse, gpio::Pin, timer::systimer::Alarm, usb::usb_serial_jtag::UsbSerialJtag,
@@ -11,7 +13,9 @@ use esp_hal::{
 };
 use esp_storage::FlashStorage;
 use trust_runtime_core::deployment::{GpioInput, GpioOutput};
+use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash};
 
+mod checkpoint_flash;
 mod clock;
 mod console;
 pub(crate) mod emergency;
@@ -40,6 +44,10 @@ pub enum BoardError {
     ResetCookie,
     /// The flash driver rejected a read.
     FlashRead,
+    /// The flash driver went to the checkpoint store, which takes it after the application is read.
+    FlashTaken,
+    /// The checkpoint slots' geometry cannot hold the checkpoint log.
+    Checkpoint(CheckpointError),
     /// The running image header lacks the ESP magic or names an unknown flash size.
     ImageHeader,
     /// The 1 kHz tick alarm could not be configured.
@@ -79,8 +87,9 @@ pub struct Board {
     pub reset: ResetControl,
     /// Identity captured at boot.
     pub identity: Identity,
-    /// Flash driver for the factory header and the `stbc` partition.
-    flash: FlashStorage<'static>,
+    /// Flash driver for the factory header and the `stbc` partition; the checkpoint store takes it
+    /// once the installed application is read.
+    flash: Option<FlashStorage<'static>>,
     /// The chip's GPIO bank, from which the record's lines are claimed by pin name.
     gpio: GpioBank,
     /// The SYSTIMER alarm the resource loop's wait arms at its deadline.
@@ -147,7 +156,7 @@ impl Board {
             watchdog,
             reset,
             identity,
-            flash,
+            flash: Some(flash),
             gpio,
             wait_alarm,
         })
@@ -159,7 +168,8 @@ impl Board {
         if buffer.len() > STBC_BYTES {
             return Err(BoardError::BufferTooLarge);
         }
-        self.flash
+        let flash = self.flash.as_mut().ok_or(BoardError::FlashTaken)?;
+        flash
             .read(STBC_OFFSET, buffer)
             .map_err(|_| BoardError::FlashRead)
     }
@@ -182,6 +192,21 @@ impl Board {
     /// The SYSTIMER alarm the resource loop's wait arms; taken once, so the wait owns it.
     pub fn take_wait_alarm(&mut self) -> Option<Alarm<'static>> {
         self.wait_alarm.take()
+    }
+
+    /// The chip's checkpoint flash (specification 34 §10.1), handed out once: the board's flash
+    /// driver behind the two checkpoint slots. The installed application is read through the same
+    /// driver, so this is called after [`Board::read_application`] has read it.
+    ///
+    /// # Errors
+    ///
+    /// [`BoardError::FlashTaken`] when the flash was handed out already, and
+    /// [`BoardError::Checkpoint`] when the slots' geometry cannot hold the checkpoint log.
+    pub fn take_checkpoint_flash(&mut self) -> Result<Box<dyn CheckpointFlash>, BoardError> {
+        let flash = self.flash.take().ok_or(BoardError::FlashTaken)?;
+        let checkpoint = SlotFlash::new(flash).map_err(BoardError::Checkpoint)?;
+        let checkpoint: Box<dyn CheckpointFlash> = Box::new(checkpoint);
+        Ok(checkpoint)
     }
 }
 

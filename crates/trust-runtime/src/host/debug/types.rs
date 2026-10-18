@@ -33,28 +33,9 @@ impl SourceLocation {
     }
 }
 
-/// Hit count conditions for breakpoints.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HitCondition {
-    /// Break when hit count equals the target.
-    Equal(u64),
-    /// Break when hit count is at least the target.
-    AtLeast(u64),
-    /// Break when hit count is greater than the target.
-    GreaterThan(u64),
-}
-
-impl HitCondition {
-    /// Check whether the hit condition is satisfied.
-    #[must_use]
-    pub fn is_met(self, hits: u64) -> bool {
-        match self {
-            HitCondition::Equal(target) => hits == target,
-            HitCondition::AtLeast(target) => hits >= target,
-            HitCondition::GreaterThan(target) => hits > target,
-        }
-    }
-}
+/// The hit-count condition of a breakpoint: the shared definition, so the rule exists once
+/// (specification 13, "Runtime debug state, mutation, and projection invariants").
+pub use trust_runtime_services::debug::HitCondition;
 
 /// Logpoint message fragments.
 #[derive(Debug, Clone)]
@@ -236,18 +217,9 @@ impl DebugSnapshot {
 // Runtime events are shared runtime code (spec 34 ARCH-11).
 pub use trust_runtime_services::events::RuntimeEvent;
 
-/// Stop reason for debugger events.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DebugStopReason {
-    /// Paused due to a breakpoint.
-    Breakpoint,
-    /// Paused due to stepping.
-    Step,
-    /// Paused due to a user pause request.
-    Pause,
-    /// Paused due to stopOnEntry.
-    Entry,
-}
+// Stop reasons are shared run control (specification 13, "Stopped Events"): the same four reasons
+// name a stop on every runtime (trust-runtime-services `debug::run`).
+pub use trust_runtime_services::debug::StopReason as DebugStopReason;
 
 /// Notification emitted when execution stops.
 #[derive(Debug, Clone)]

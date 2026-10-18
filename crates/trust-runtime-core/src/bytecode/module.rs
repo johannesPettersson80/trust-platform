@@ -1,7 +1,7 @@
 //! Portable bytecode containers and borrowed host compatibility view.
 
 use super::{
-    BytecodeError, BytecodeMetadata, BytecodeVersion, Section, SectionData, SectionId,
+    BytecodeError, BytecodeMetadata, BytecodeVersion, LineTable, Section, SectionData, SectionId,
     ValidationLimits, ValidationStats, HEADER_FLAG_CRC32, HEADER_FLAG_LEGACY_TEMPORAL32,
 };
 use alloc::vec::Vec;
@@ -50,6 +50,25 @@ impl BytecodeModule {
             .iter_mut()
             .find(|section| section.id == id.as_raw())
             .map(|section| &mut section.data)
+    }
+
+    /// Borrow the LINE_TABLE section (spec 12 §6.13); `None` when it is absent.
+    ///
+    /// The section is optional and belongs to the source-free container versions.
+    #[must_use]
+    pub fn line_table(&self) -> Option<&LineTable> {
+        self.view().line_table()
+    }
+
+    /// Borrow the LINE_TABLE section for producer-side edits.
+    #[must_use]
+    pub fn line_table_mut(&mut self) -> Option<&mut LineTable> {
+        self.sections
+            .iter_mut()
+            .find_map(|section| match &mut section.data {
+                SectionData::LineTable(table) => Some(table),
+                _ => None,
+            })
     }
 }
 
@@ -104,6 +123,17 @@ impl<'a> BytecodeModuleView<'a> {
             .iter()
             .find(|section| section.id == id.as_raw())
             .map(|section| &section.data)
+    }
+
+    /// Borrow the LINE_TABLE section (spec 12 §6.13); `None` when it is absent.
+    #[must_use]
+    pub fn line_table(&self) -> Option<&'a LineTable> {
+        self.sections
+            .iter()
+            .find_map(|section| match &section.data {
+                SectionData::LineTable(table) => Some(table),
+                _ => None,
+            })
     }
 }
 

@@ -49,6 +49,14 @@ const NORMALISED: &[(&str, &str)] = &[
     // The host's id is its wall clock, a process-wide sequence and a random nonce; the device's
     // comes from its platform's audit sink.
     ("/audit_id", "audit record ids"),
+    // The platform each composition runs on: the test stands the device in for a chip, and the
+    // host reports the computer it runs on. `version` is the same on both, so it stays compared.
+    ("/result/platform", "platform"),
+    // The host's stable runtime ID comes from its project; the device reports its platform's value
+    // (specification 11, `status`).
+    ("/result/runtime_id", "runtime ID"),
+    // Spec 34 STATE-08: the host's process ends at `shutdown`, and the device keeps control.
+    ("/result/program_control", "program control"),
     // Process uptime on the host, the time since the program started on the device.
     ("/result/uptime_ms", "uptime"),
     // Scan durations: measured in real time on the host, on the test's clock on the device.
@@ -498,4 +506,64 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
     shutdown(&mut host, &mut device);
     host.join();
     start_again(&mut device);
+}
+
+/// Specification 11 `status` and O4 revised: the host and the device differ in `platform` and
+/// `program_control` by design. The host's `shutdown` ends its process, while the device keeps
+/// control and can be started again (spec 34 STATE-08); both name the platform they run on.
+#[test]
+fn the_runner_and_the_host_report_their_own_platform_and_program_control() {
+    let mut host = HostComposition::start();
+    let warmup = host.settle_until(|scans| !scans.is_empty());
+
+    let clock = ReplayClock::default();
+    let services = DeviceServices::new(clock.clone());
+    let prepared = prepare_board_probe();
+    let scans = Rc::new(Cell::new(0));
+    let cycle = start_device_cycle(
+        &prepared,
+        &services,
+        Rc::clone(&scans),
+        host.watchdog,
+        host.fault_policy,
+    );
+    let link = MemoryLink::default();
+    let live = Rc::new(
+        EngineLiveValues::for_prepared(&prepared, binding_names(&prepared))
+            .expect("the board probe's retained names bind"),
+    );
+    let runner = Runner::new(
+        link.clone(),
+        ReplayWait::default(),
+        cycle,
+        BoardPlatform::configured_as(&host, live),
+        clock.clone(),
+        EVENT_STORE_CAPACITY,
+    );
+    let mut device = Device {
+        runner,
+        link,
+        clock: clock.clone(),
+        scans,
+        now: StdDuration::ZERO,
+        last_scan: StdDuration::ZERO,
+    };
+    device.replay(&warmup);
+
+    let host_status = host.request(&request(1, "status"));
+    let device_status = device.request(&request(2, "status"));
+    assert_eq!(host_status["result"]["program_control"], json!("process"));
+    assert_eq!(
+        device_status["result"]["program_control"],
+        json!("keeps_control")
+    );
+    for (composition, reply) in [("host", &host_status), ("runner", &device_status)] {
+        assert!(
+            reply["result"]["platform"]
+                .as_str()
+                .is_some_and(|platform| !platform.is_empty()),
+            "the {composition} names the platform it runs on: {reply}"
+        );
+    }
+    host.join();
 }

@@ -37,8 +37,9 @@ The boot order is design §1.1:
 4. **Prepare and start.** `PreparedModule::from_bytes` is given limits derived from the application
    region and the heap, the program is instantiated on the engine with the device's execution
    services, and the resource loop starts its task timing. The prepared module lives for the rest of
-   the boot (boxed and leaked). Retain mode is `none` until the C6 checkpoint driver exists: a record
-   that requests another mode is refused.
+   the boot (boxed and leaked). With `[runtime.retain] mode = "file"` the program takes the chip's
+   checkpoint slots as its retain store and is then warm-started from the newest committed checkpoint
+   (specification 34 §10).
 5. **Run.** `Runner::new(link, wait, cycle, platform, clock, event_capacity).run()` serves the
    control link and runs the scans; the event store keeps the record's `[runtime.events] capacity`,
    or the C6's default of 200 from `chips/esp32c6.toml` when the project sets none.
@@ -94,7 +95,7 @@ espflash 4.6.0 (ESP-IDF v6.1-beta1); M5 qualification requires a released bootlo
 | Partition table | `0x8000` | `partitions.csv` |
 | `factory` | `0x10000`, 1984 KiB | this firmware image |
 | `stbc` | `0x200000`, 6112 KiB | separately installed `TRSTA001` application container, read once per boot |
-| `ckpt_a`, `ckpt_b` | `0x7F8000` and `0x7FC000`, 16 KiB each | reserved; no persistence implementation |
+| `ckpt_a`, `ckpt_b` | `0x7F8000` and `0x7FC000`, 16 KiB each | retain checkpoint log: the newest committed checkpoint is restored at boot, and the retained values are saved at the project's interval and at stop |
 
 ## RAM
 
@@ -133,6 +134,13 @@ through the adapter's emergency path, writes the cause and location into the res
 the chip. It never writes to the control link. What a chip does after such a reset is owner question
 O10.
 
+Retained values survive a reset. With `[runtime.retain] mode = "file"` the boot restores the newest
+committed checkpoint from the two checkpoint slots. A damaged newest checkpoint fails that warm start,
+so the program does not start and the control link reports why, as a damaged retain file does on a
+computer. Between scans, a save programs one 256-byte page per step and erases one 4 KiB sector per
+step; an erase runs with interrupts masked for up to about 0.4 s. At a stop the pending save completes
+at once, before the resource reports Stopped. No save step runs inside a scan.
+
 The reset reason and the record kept in RTC fast memory are read once at boot, before any
 application state exists. The record is the same one trust-runtime reports as the last fault. The CPU
 runs at `CpuClock::max()`, 160 MHz; SYSTIMER (16 MHz) gives the runner its monotonic microseconds.
@@ -142,8 +150,10 @@ point.
 ## Limits
 
 - Radios stay disabled: the firmware initializes no Wi-Fi or BLE.
-- The `ckpt_*` partitions are reserved only. There is no persistence, no UTC clock and no durable
-  RETAIN, so the deployment record's retain mode must be `none`.
+- Retained values are saved into the two 16 KiB checkpoint slots. An image larger than the 16,300
+  payload bytes a slot takes cannot be saved, and a failed save fails the next scan before its outputs.
+  A power cut loses at most the save in progress: the guarantee is the last completed save, not the
+  last scan. There is no UTC clock.
 - The C6 carries out the `gpio` I/O driver only until slice T1; a record that asks for another driver
   is refused with the driver's name.
 - The application region is 6112 KiB, so a container larger than that (or larger than the heap's

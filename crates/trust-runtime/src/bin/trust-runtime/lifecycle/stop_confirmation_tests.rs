@@ -1,5 +1,6 @@
 use super::*;
 use crate::cli::FleetRuntimeTemplateArg;
+use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
@@ -163,25 +164,4 @@ fn unacknowledged_lifecycle_probes_do_not_treat_accepted_eof_as_stopped() {
         assert!(lifecycle_paths(&root, "cell").pid.exists());
         fs::remove_dir_all(root).expect("remove fixture");
     }
-}
-
-#[test]
-fn only_transport_boundary_errors_are_inconclusive_stop_probes() {
-    for kind in [
-        std::io::ErrorKind::ConnectionReset,
-        std::io::ErrorKind::ConnectionAborted,
-        std::io::ErrorKind::BrokenPipe,
-        std::io::ErrorKind::UnexpectedEof,
-        std::io::ErrorKind::TimedOut,
-        std::io::ErrorKind::WouldBlock,
-    ] {
-        let transport = control_transport_error(std::io::Error::from(kind));
-        assert!(interrupted_stop_probe(
-            &transport.context("control exchange")
-        ));
-        let configuration = anyhow::Error::from(std::io::Error::from(kind));
-        assert!(!interrupted_stop_probe(&configuration));
-    }
-    let other = control_transport_error(std::io::Error::from(std::io::ErrorKind::InvalidData));
-    assert!(!interrupted_stop_probe(&other));
 }

@@ -284,14 +284,18 @@ Return code zero is `confirmed`; codes 4 and 5 are `likely` with
 `auth_required = true`; other valid rejection codes are `likely` without that
 flag. Every valid CONNACK, including a rejection, is followed by DISCONNECT.
 
-Discovery is directed only. A missing host returns no candidates and an
-explicit directed-host warning. A directed target accepts a host, IPv4 address,
-or bracketed IPv6 address. With no explicit port, distinct resolved addresses
-are probed at 1883 and 8883 in deterministic address/port order; an explicit
-nonzero port probes only that endpoint. Userinfo, paths, queries, fragments,
-invalid ports, ambiguous unbracketed IPv6, duplicate socket addresses, and
-unresolved targets reject before probing. A port-8883 TCP connection remains
-only MQTTS reachability until a TLS MQTT exchange succeeds.
+In the one search, the MQTT source finds brokers through mDNS
+`_mqtt._tcp.local.` and through the search's directed hosts. A `comm.discover`
+request has no mDNS browse and is directed only: a missing host returns no
+candidates and an explicit directed-host warning. A directed target accepts a
+host, IPv4 address, or bracketed IPv6 address. With no explicit port, every
+distinct resolved address is probed at 1883 and 8883 in deterministic
+address/port order; an explicit nonzero port probes only that endpoint.
+Userinfo, paths, queries, fragments, invalid ports, ambiguous unbracketed
+IPv6, duplicate socket addresses, and unresolved targets reject before
+probing. A port-8883 TLS handshake without an MQTT exchange is MQTTS
+reachability, never identified; a failed TLS handshake is only
+`port_reachable`.
 
 The communication Test operation is intentionally weaker than discovery. It is
 a bounded TCP-reachability probe, not an MQTT handshake. It accepts `mqtt://`
