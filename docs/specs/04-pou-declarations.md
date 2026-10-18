@@ -429,7 +429,12 @@ the program body observes only the resulting one-cycle pulse.
 **Program methods (e!COCKPIT dialect)**: a program may declare methods, and
 the program body calls them by bare name without a `THIS` qualifier. truST
 imports vendor method metadata attached to program POUs exactly like
-function-block methods and resolves the self-calls against them.
+function-block methods and resolves the self-calls against them. The textual
+file grammar accepts `METHOD ... END_METHOD` declarations inside the program
+body — like `ACTION ... END_ACTION`, at any position between the var sections
+and `END_PROGRAM` — with access modifiers, return type, and var sections per
+the §7 method grammar. `PROPERTY` declarations remain rejected in program
+bodies.
 
 ### Program-singleton access (vendor extension)
 
@@ -650,6 +655,10 @@ Controller.Start();            // Call through interface
 8. EXTENDS must reference INTERFACE types; cyclic interface inheritance is invalid (Table 51, IEC 61131-3 Ed.3 §6.6.6.3)
 
 ## 7. METHOD Declaration (Sections 6.6.5.4 and 6.6.7.2)
+
+IEC 61131-3 scopes method declarations to classes (6.6.5.4) and function
+blocks (6.6.7.2). truST additionally accepts program-scoped methods as the
+e!COCKPIT dialect extension defined in §4; all §7 rules apply unchanged.
 
 ### Syntax
 
