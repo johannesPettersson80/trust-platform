@@ -1,11 +1,12 @@
 use super::collector::SymbolCollector;
 use super::diagnostics::{
     add_unused_symbol_warnings, check_abstract_instantiations, check_class_semantics,
-    check_configuration_semantics, check_cyclomatic_complexity, check_extends_implements_semantics,
-    check_global_external_links_with_project, check_interface_conformance, check_nondeterminism,
-    check_property_accessors, check_shared_global_task_hazards, check_unreachable_statements,
-    check_using_directives, collect_used_symbols, expression_by_id, expression_context,
-    resolve_pending_types_with_table, type_check_file, ExpressionIndex,
+    check_configuration_semantics, check_cyclomatic_complexity, check_dut_extends_semantics,
+    check_extends_implements_semantics, check_global_external_links_with_project,
+    check_interface_conformance, check_nondeterminism, check_property_accessors,
+    check_shared_global_task_hazards, check_unreachable_statements, check_using_directives,
+    collect_used_symbols, expression_by_id, expression_context, resolve_pending_types_with_table,
+    type_check_file, ExpressionIndex,
 };
 use super::project_types::{
     build_project_type_catalog, collect_file_type_prelude, find_project_type_declaration,
@@ -312,9 +313,14 @@ pub(super) fn project_symbol_tables_query(
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = files
+    let const_roots: Vec<(FileId, SyntaxNode)> = files
         .iter()
-        .map(|(_, input)| SyntaxNode::new_root(parse_green(db, *input).clone()))
+        .map(|(file_id, input)| {
+            (
+                *file_id,
+                SyntaxNode::new_root(parse_green(db, *input).clone()),
+            )
+        })
         .collect();
     let mut project_tables: FxHashMap<FileId, Arc<SymbolTable>> = FxHashMap::default();
     for (file_id, input) in files.iter().copied() {
@@ -322,7 +328,7 @@ pub(super) fn project_symbol_tables_query(
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
             .with_temporal_storage(*input.temporal_storage(db))
-            .collect_with_project_const_roots(&root, &const_roots);
+            .collect_with_project_const_roots(&root, file_id, &const_roots);
         project_tables.insert(file_id, Arc::new(symbols));
     }
     Arc::new(project_tables)
@@ -395,20 +401,19 @@ pub(super) fn analyze_query(
         project_files: project_files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<SyntaxNode> = project_roots_from_inputs(db, &project_source_inputs)
-        .into_iter()
-        .map(|(_, project_root)| project_root)
-        .collect();
+    let const_roots: Vec<(FileId, SyntaxNode)> =
+        project_roots_from_inputs(db, &project_source_inputs);
     let (mut symbols, mut diagnostics, pending_types) =
         SymbolCollector::with_project_types(&provider)
             .with_temporal_storage(*target_input.temporal_storage(db))
-            .collect_for_project_with_const_roots(&root, &const_roots);
+            .collect_for_project_with_const_roots(&root, file_id, &const_roots);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
+    let project_roots: Vec<SyntaxNode> = const_roots.iter().map(|(_, root)| root.clone()).collect();
     let (checked_symbols, access_config_diagnostics) =
         SymbolCollector::validate_project_after_merge(
             symbols,
             &root,
-            &const_roots,
+            &project_roots,
             *target_input.temporal_storage(db),
         );
     symbols = checked_symbols;
@@ -463,6 +468,7 @@ pub(super) fn analyze_query(
     check_class_semantics(&symbols, &root, &mut builder);
     check_abstract_instantiations(&symbols, &root, &mut builder);
     check_extends_implements_semantics(&symbols, &root, &mut builder);
+    check_dut_extends_semantics(&symbols, &root, &mut builder);
     check_interface_conformance(&symbols, &root, &mut builder);
     check_property_accessors(&symbols, &mut builder);
     diagnostics.extend(builder.finish());

@@ -105,3 +105,70 @@ END_FUNCTION_BLOCK
     let local_found = symbols.iter().any(|s| s.name == "localVar");
     assert!(local_found, "Should have 'localVar' symbol");
 }
+
+#[test]
+fn test_own_pou_var_input_member_is_writable() {
+    // CODESYS practice (vendor extension): a function-block body may assign
+    // its own VAR_INPUT member (e.g. sEventTypeOverride := ...).
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK FBEntity
+VAR_INPUT
+    sOverride : STRING;
+    iCount : INT;
+END_VAR
+    sOverride := 'manual';
+    iCount := iCount + 1;
+END_FUNCTION_BLOCK
+"#,
+    );
+}
+
+#[test]
+fn test_external_fb_var_input_member_is_writable() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK FBTune
+VAR_INPUT
+    level : INT;
+END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR t : FBTune; END_VAR
+    t.level := 5;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_external_program_var_input_member_is_writable() {
+    check_no_errors(
+        r#"
+PROGRAM Setpoint
+VAR_INPUT
+    target : INT;
+END_VAR
+END_PROGRAM
+PROGRAM Main
+    Setpoint.target := 42;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_function_parameter_assignment_stays_rejected() {
+    check_has_error(
+        r#"
+FUNCTION Scale : INT
+VAR_INPUT
+    factor : INT;
+END_VAR
+    factor := 2;
+    Scale := factor;
+END_FUNCTION
+"#,
+        DiagnosticCode::InvalidAssignmentTarget,
+    );
+}

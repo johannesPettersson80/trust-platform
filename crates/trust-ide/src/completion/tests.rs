@@ -282,7 +282,9 @@ END_PROGRAM
         let items = complete(&db, file_id, TextSize::from(cursor as u32));
         assert!(items.iter().any(|item| item.label == "Next"));
         assert!(items.iter().any(|item| item.label == "Value"));
-        assert!(!items.iter().any(|item| item.label == "x"));
+        // FB members default to Public (classic IEC instance access), so
+        // the plain VAR member is offered alongside methods and properties.
+        assert!(items.iter().any(|item| item.label == "x"));
     }
 
     #[test]

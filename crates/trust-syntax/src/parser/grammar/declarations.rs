@@ -58,6 +58,11 @@ impl Parser<'_, '_> {
                 continue;
             }
 
+            // CODESYS DUT inheritance (vendor extension): `TYPE x EXTENDS y`.
+            if self.at(TokenKind::KwExtends) {
+                self.parse_extends_clause();
+            }
+
             if self.at(TokenKind::Colon) {
                 self.bump();
                 self.parse_type_def();
@@ -571,6 +576,15 @@ impl Parser<'_, '_> {
             self.finish_node();
         } else if self.at(TokenKind::KwRefTo) {
             self.start_node(SyntaxKind::ReferenceType);
+            self.bump();
+            self.parse_type_ref();
+            self.finish_node();
+        } else if self.source.at_ident_ci("REFERENCE") && self.peek_kind_n(1) == TokenKind::KwTo {
+            // CODESYS `REFERENCE TO` spelling (contextual vendor keyword):
+            // recognized only in type position followed by TO, so
+            // identifiers named `reference` keep parsing everywhere else.
+            self.start_node(SyntaxKind::ReferenceType);
+            self.bump();
             self.bump();
             self.parse_type_ref();
             self.finish_node();

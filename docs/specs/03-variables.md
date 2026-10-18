@@ -280,12 +280,15 @@ END_VAR
   6.5.6.1-6.5.6.2)
 - `VAR_IN_OUT`, `VAR_TEMP`, `VAR_EXTERNAL`, `VAR_ACCESS`, and `VAR_CONFIG`
   never own a retention policy.
-- Exactly one occurrence of one of `CONSTANT`, `RETAIN`, `NON_RETAIN`, or
-  `PERSISTENT` may appear per declaration section. Repeating a qualifier or
-  combining two different qualifiers is an error. (IEC 61131-3 Ed.3,
-  Figure 7)
+- Each of `CONSTANT`, `RETAIN`, `NON_RETAIN`, and `PERSISTENT` may appear at
+  most once per declaration section. Repeating a qualifier is an error, and
+  `NON_RETAIN` may not be combined with `RETAIN` or `PERSISTENT`. (IEC
+  61131-3 Ed.3, Figure 7)
 - `PERSISTENT` is accepted as a documented vendor extension and has exactly
-  the same placement rules as `RETAIN`.
+  the same placement rules as `RETAIN`. Combining `RETAIN PERSISTENT` is
+  accepted as a WAGO/CODESYS vendor extension: persistent storage implies
+  retention, so the combined section is preserved by restart paths that
+  honor either policy.
 
 ### Constant Qualifier
 

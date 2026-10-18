@@ -10,7 +10,7 @@ The ST language statements are:
 
 | Category | Statements |
 |----------|------------|
-| Assignment | `:=`, `?=` |
+| Assignment | `:=`, `?=`, `REF=` (vendor extension) |
 | Call | Function, Function Block, Method |
 | Control | `RETURN` |
 | Selection | `IF...THEN...END_IF`, `CASE...OF...END_CASE` |
@@ -90,6 +90,37 @@ Checks if assignment is valid (for interface references). If the instance implem
   A null dereference reports a runtime error before the target statement makes
   any write.
 
+### Reference Rebinding (`REF=` vendor extension)
+
+```
+refInt REF= someInt;
+refA REF= refB;
+refInt REF= NULL;
+```
+
+CODESYS-style reference rebinding is accepted as a vendor extension. `REF=`
+rebinds which storage a `REFERENCE TO` variable denotes; it never copies the
+pointed-to value and never performs the `?=` checked-copy fallback.
+
+**Rules**:
+- The left side of `REF=` must be a `REFERENCE TO` variable. Applying `REF=`
+  to a value or to a `POINTER TO` target is a compile-time error.
+- `ref REF= variable` rebinds `ref` to the storage of `variable`; the source
+  must be a valid assignment lvalue and must not be `CONSTANT`-qualified.
+  Pointer notation: `ref := REF(variable)`.
+- `ref1 REF= ref2` rebinds `ref1` to the same storage as `ref2`; the two
+  reference target types must be compatible in either direction.
+- `ref REF= NULL` (or the integer literal `0`) clears the reference; the
+  variable is invalid until it is rebound.
+- `REF=` follows the ordinary assignment-statement guards for its target
+  (constant and accessibility checks); it is not accepted as a declaration
+  initializer in this profile.
+- Lexical form: `REF=` is a single fused operator lexeme, matched
+  case-insensitively and by longest match (`ref=1` lexes as the operator
+  followed by `1`, never as an identifier followed by `=`; `REF` is a
+  reserved word, so no identifier can collide). `REF` and `=` separated by
+  whitespace are two tokens and do not form the operator.
+
 ## 3. Call Statements (Section 7.3.3.2.4)
 
 Call statements share one syntax skeleton and then refine the callable target:
@@ -137,6 +168,11 @@ Shared rules:
 - `=>` is only valid for `VAR_OUTPUT` / `ENO` bindings and is invalid for
   non-output parameters. `:=` is valid only for `VAR_INPUT`, `VAR_IN_OUT`, and
   `EN`. (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- An empty binding — `output =>` or `input :=` with no target, at the end of
+  the argument list or before a comma — is accepted as a CODESYS vendor
+  extension and skips that parameter: an output stays unconnected and an
+  input keeps its held value; no missing-binding diagnostic fires. `?=`
+  still requires a target — a dangling `?=` remains a parse error.
 - A named parameter may appear at most once and must belong to the selected
   callable.
 - The same caller storage, including overlapping aggregate projections, cannot
@@ -162,8 +198,8 @@ that ordering valid. Named `:=` and `=>` forms preserve their operator and
 target syntax, including selected, indexed, and dereferenced output targets.
 
 The parser rejects a leading comma, a doubled trailing comma, a missing comma
-between actuals, a named input without its expression, a named output without
-its target, an unclosed argument list, or a call statement without its required
+between actuals, a named input without its expression, an unclosed argument
+list, or a call statement without its required
 terminator. Recovery stops at the bounded call or statement boundary and must
 not reinterpret a malformed actual as a sibling statement.
 

@@ -168,5 +168,6 @@ pub(in super::super) fn call_hierarchy_symbol_kind(kind: &HirSymbolKind) -> Symb
         HirSymbolKind::Variable { .. } => SymbolKind::VARIABLE,
         HirSymbolKind::Constant => SymbolKind::CONSTANT,
         HirSymbolKind::Parameter { .. } => SymbolKind::VARIABLE,
+        HirSymbolKind::Action => SymbolKind::FUNCTION,
     }
 }

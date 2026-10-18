@@ -18,8 +18,12 @@ pub(super) struct SymbolCollector<'a> {
     pending_types: Vec<PendingType>,
     /// Parent symbol stack for nested declarations.
     parent_stack: Vec<SymbolId>,
-    const_exprs: FxHashMap<(Option<SmolStr>, SmolStr), SyntaxNode>,
+    const_exprs: FxHashMap<(Option<SmolStr>, SmolStr), (FileId, SyntaxNode)>,
     const_values: FxHashMap<(Option<SmolStr>, SmolStr), i64>,
+    /// When set (project analysis), constant-eval errors are only reported
+    /// for entries collected from this file — a stub's failures must not
+    /// surface under another file's path.
+    const_origin_filter: Option<FileId>,
     program_instances: ProgramInstanceMap,
     project_types: Option<&'a dyn ProjectTypeProvider>,
     importing_project_types: FxHashSet<SmolStr>,
@@ -46,6 +50,7 @@ impl<'a> SymbolCollector<'a> {
             parent_stack: Vec::new(),
             const_exprs: FxHashMap::default(),
             const_values: FxHashMap::default(),
+            const_origin_filter: None,
             program_instances: FxHashMap::default(),
             project_types,
             importing_project_types: FxHashSet::default(),
@@ -69,10 +74,12 @@ impl<'a> SymbolCollector<'a> {
     pub(crate) fn collect_for_project_with_const_roots(
         mut self,
         root: &SyntaxNode,
-        const_roots: &[SyntaxNode],
+        origin_file_id: FileId,
+        const_roots: &[(FileId, SyntaxNode)],
     ) -> (SymbolTable, Vec<Diagnostic>, Vec<PendingType>) {
-        for project_root in const_roots {
-            self.precollect_constants(project_root, &[], &[]);
+        self.const_origin_filter = Some(origin_file_id);
+        for (origin, project_root) in const_roots {
+            self.precollect_constants(project_root, &[], &[], *origin);
         }
         self.phase_precollect(root);
         self.phase_collect_symbols(root);
@@ -84,10 +91,12 @@ impl<'a> SymbolCollector<'a> {
     pub(crate) fn collect_with_project_const_roots(
         mut self,
         root: &SyntaxNode,
-        const_roots: &[SyntaxNode],
+        origin_file_id: FileId,
+        const_roots: &[(FileId, SyntaxNode)],
     ) -> (SymbolTable, Vec<Diagnostic>) {
-        for project_root in const_roots {
-            self.precollect_constants(project_root, &[], &[]);
+        self.const_origin_filter = Some(origin_file_id);
+        for (origin, project_root) in const_roots {
+            self.precollect_constants(project_root, &[], &[], *origin);
         }
         self.collect(root)
     }
@@ -109,7 +118,12 @@ impl<'a> SymbolCollector<'a> {
     fn phase_precollect(&mut self, root: &SyntaxNode) {
         self.precollect_pous(root, &[]);
         self.precollect_types(root, &[]);
-        self.precollect_constants(root, &[], &[]);
+        self.precollect_constants(
+            root,
+            &[],
+            &[],
+            self.const_origin_filter.unwrap_or(FileId(0)),
+        );
     }
 
     fn phase_collect_symbols(&mut self, root: &SyntaxNode) {

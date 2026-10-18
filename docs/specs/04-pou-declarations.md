@@ -305,6 +305,23 @@ END_FUNCTION_BLOCK
    `IMPLEMENTS` with one or more interface names; the parser preserves the
    complete ordered interface list for semantic validation (IEC 61131-3 Ed.3
    §6.6.7.1, Table 52).
+8. **VAR_INPUT members are writable** (CODESYS parity, vendor extension): the
+   owning body and external POUs may assign a function-block or program
+   `VAR_INPUT` member between calls (`fbInst.input := value`), matching the
+   IEC input-transfer model where input values are set by the caller.
+   Function and method parameters remain call-local and read-only, and
+   pointer/reference input slots stay read-only per the truST indirect-write
+   policy (`02-data-types.md` section 4.4). Assignments through an
+   input-parameter slot (`fbInput.field := value` where `fbInput` is a
+   `VAR_INPUT` function-block instance) remain rejected.
+9. **Members default to Public** (classic IEC instance access): plain `VAR`,
+   `VAR_STAT`, methods, and properties of a function block are reachable
+   through the instance name from outside (`fbInst.member`), matching the
+   IEC function-block model where instance state is externally readable and
+   writable. Restriction is opt-in with `VAR_PROTECTED` and `VAR_PRIVATE`;
+   `VAR_IN_OUT`, `VAR_TEMP`, and `VAR_EXTERNAL` members keep the restricted
+   default because they only mean something inside the POU. CLASS members
+   keep the Protected default (IEC 61131-3 Ed.3 object model).
 
 Table 40 permits input, output, in-out, external, ordinary, and temporary
 sections. truST also accepts `VAR_STAT` as ordinary persistent instance
@@ -408,6 +425,36 @@ the complete program declaration.
 Table 47 adopts the Table 40 textual edge-input form for programs. A program
 samples each edge-qualified `BOOL` input once per executed program cycle and
 the program body observes only the resulting one-cycle pulse.
+
+**Program methods (e!COCKPIT dialect)**: a program may declare methods, and
+the program body calls them by bare name without a `THIS` qualifier. truST
+imports vendor method metadata attached to program POUs exactly like
+function-block methods and resolves the self-calls against them.
+
+### Program-singleton access (vendor extension)
+
+```
+PROGRAM Main
+  seen := Producer.counter;   // read another program's member
+  Consumer.setpoint := 5;     // write another program's member
+  I18nConfig();               // invoke another program body
+END_PROGRAM
+```
+
+CODESYS treats task programs as implicit singletons. truST accepts the same
+access shape as a vendor extension, parallel to the namespaced-GVL
+vendor-parity extension in `03-variables.md`:
+
+- A program name used as the qualifier of a field expression resolves the
+  member (variable, function-block instance, or action) among that program's
+  own declarations, including across files. The program name alone in value
+  position remains rejected ("program cannot be used as a value").
+- A program name invoked as a statement (`Name();`) invokes the program body.
+  A program call produces no value; using the call result is rejected like a
+  void call. `VAR_INPUT` arguments are accepted and checked like
+  function-block input bindings (positional or named), matching the CODESYS
+  calling convention; arguments against a program without matching inputs are
+  an argument diagnostic.
 
 ## 5. CLASS Declaration (Table 48, Section 6.6.5)
 
@@ -748,9 +795,17 @@ END_ACTION
 9. A bare `RETURN;` in an action body has the containing program or function
    block as its IEC control context. A return value is invalid because neither
    kind of owner returns a value.
-10. A textual action name is not a callable ST function, method, or function
-    block instance. `action_name()` does not invoke the action. Action
-    association and qualifiers belong to the unsupported textual-SFC profile.
+10. Textual action invocation (CODESYS vendor extension): an action is
+    callable by its bare name inside its owning POU, qualified by the owning
+    program (`POU.action_name()`), or through a function-block instance
+    (`instance.action_name()`). An action call takes no arguments, returns no
+    value, and is invalid in value position. An action name does not
+    participate in ordinary variable resolution: a variable with the same
+    spelling keeps shadowing the action for value and assignment contexts,
+    and the action remains invocable by name in call position. SFC action
+    association and qualifiers remain in the unsupported textual-SFC
+    profile, and the runtime compiler still does not implement action
+    control.
 
 ### Parser acceptance and recovery boundary
 

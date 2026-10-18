@@ -38,6 +38,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         let target = &children[0];
         let value = &children[1];
         let is_ref_assign = assignment_is_ref(node);
+        let is_ref_bind = assignment_is_ref_bind(node);
 
         // Check target is a valid l-value
         if !self.checker.is_valid_lvalue(target) {
@@ -83,6 +84,11 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         if self.checker.is_return_target(target) {
             self.checker.saw_return_value = true;
             self.checker.return_value_definitely_assigned = true;
+        }
+
+        if is_ref_bind {
+            self.check_ref_bind_assignment(target, value);
+            return;
         }
 
         if is_ref_assign {

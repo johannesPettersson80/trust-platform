@@ -10,10 +10,15 @@ impl SymbolCollector<'_> {
         for (scope, name) in keys {
             if let Err(err) =
                 self.try_resolve_const_value_for_scope(name.as_str(), &scope, &mut guard)
-                && let Some(expr) = self
+                && let Some((origin, expr)) = self
                     .const_exprs
                     .get(&const_key(&scope, name.as_str()))
                     .cloned()
+                // A stub's failed constant must not surface under another
+                // file's path: report only in the owning file.
+                && self
+                    .const_origin_filter
+                    .is_none_or(|queried| queried == origin)
             {
                 self.report_const_eval_error(err, expr.text_range());
             }
@@ -365,6 +370,7 @@ impl SymbolCollector<'_> {
             .const_exprs
             .get(&key)
             .cloned()
+            .map(|(_, expr)| expr)
             .ok_or_else(|| ConstEvalError::UndefinedName(SmolStr::new(name)))?;
         if !guard.insert(key.clone()) {
             return Err(ConstEvalError::CyclicDependency(key.1));

@@ -142,8 +142,8 @@ fn expression_operator_rejects_string_exponentiation() {
 }
 
 #[test]
-fn expression_operator_rejects_reference_arithmetic() {
-    check_has_error("PROGRAM P\nVAR x : INT; a : REF_TO INT; r : INT; END_VAR\na := REF(x); r := a + a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+fn expression_operator_rejects_pointer_arithmetic() {
+    check_has_error("PROGRAM P\nVAR x : INT; p : POINTER TO INT; r : INT; END_VAR\np := ADR(x); r := p + p;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
 }
 
 #[test]

@@ -131,3 +131,98 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     layout, vendor aliases, reports, and adapter artifacts are product/profile
     choices that must remain explicit and testable without being presented as
     IEC deviations or full vendor compatibility.
+
+## 2026-10-11 - Textual action POU import mapping
+
+- Area: PLCopen XML import of CODESYS `pouType="action"` POUs
+- Decision:
+  - Actions are no longer skipped as unsupported `PLCO203` when their name
+    carries parent linkage: `Parent.Action` names merge the action body into
+    the parent POU's generated source as a textual `ACTION name: ... END_ACTION`
+    block inserted before the parent's end keyword, and the migration entry is
+    reported `imported` with resolved type `action` plus an informational
+    `PLCO219` diagnostic.
+  - Actions with body-less POU nodes are skipped fail-closed (`PLCO204`), and
+    actions without parent linkage (plain names, or a parent that is missing
+    or not importable) keep the `PLCO203` skip with a named reason.
+  - Parent linkage is taken from the dotted name only; the XML does not carry
+    a normative action-parent reference, so any other linkage would be
+    invention.
+- Reason:
+  - e!COCKPIT/CODESYS exports model textual actions as separate `pouType="action"`
+    POUs; the previous fail-closed projection silently lost every action body
+    (the merged `truST` ACTION declaration is a documented vendor extension,
+    see `docs/specs/04-pou-declarations.md` section 8). Keeping plain-name
+    actions skipped preserves the fail-closed boundary where no parent can be
+    derived.
+
+## 2026-10-14 - Structural action containers (e!COCKPIT export shape)
+
+- Area: PLCopen XML import of textual actions
+- Decision:
+  - Real e!COCKPIT exports do **not** emit standalone `pouType="action"` POUs:
+    they nest `<action name="Plain">` elements under an `<actions>` container
+    inside the parent POU itself (`<pou><actions><action>`), with structural
+    containment as the parent linkage and no dotted names. The importer now
+    collects that container and merges each action into its enclosing POU's
+    generated source with the same `ACTION`-block mechanics, reporting,
+    `PLCO219`, and migration entries as the dotted-name path.
+  - The 2026-10-11 dotted-name mapping remains supported as the secondary
+    form (other tools do emit standalone action POUs); its "parent linkage is
+    taken from the dotted name only" statement above is superseded — the XML
+    does carry a normative action-parent reference, as element containment.
+  - Body-less structural actions keep the fail-closed `PLCO204` skip; actions
+    whose parent POU is missing or not importable keep the `PLCO203` skip.
+- Reason:
+  - Measured against a real export (`PFC200_2ETH_RS/Application.
+    fbMqttPayloadCreate.xml`): the dotted-name path never fires on live
+    e!COCKPIT files and their action bodies were dropped silently, with no
+    diagnostic at all. Structural containment is the format's parent
+    reference, so reading it is faithful import rather than invention.
+
+## 2026-10-11 - Global-variable duplicate identity tolerance
+
+- Area: PLCopen XML import of `globalVars` lists
+- Decision:
+  - A `globalVars` list no longer fails `PLCO604` merely for repeating a
+    declaration identity. Identical duplicates (same name case-insensitively,
+    same type, same initializer) are dropped from the rendered list, keeping
+    the first occurrence, and reported with an informational `PLCO605`
+    diagnostic plus a warning.
+  - Conflicting redefinitions (same identity with a different type or
+    initializer) keep the fail-closed `PLCO604` list skip, and structural
+    well-formedness checks (identifier validity, declaration shape) are
+    unchanged.
+- Reason:
+  - e!COCKPIT exports repeat whole variable lists (`MixedAttrsVarList`
+    addData) and pair them with constants lists; the previous atomic
+    duplicate rejection silently dropped the ENTIRE main list (e.g.
+    `GVLEntities` imported 21 of 70 variables). Tolerating byte-identical
+    repeats preserves the fail-closed boundary where it matters: ambiguous
+    conflicting redefinitions still reject the list.
+
+## 2026-10-17 - GVL initializers in the canonical array form and namespace-wrapped plain lists
+
+- Area: PLCopen XML import of `globalVars` lists
+- Decision:
+  - Variable initializers serialized in the canonical e!COCKPIT v3.9.2 form
+    `<initialValue><arrayValue><value><simpleValue value="…"/></value>…`
+    (nested `arrayValue` for further dimensions) are flattened to the
+    equivalent ST bracket list `[v1, v2, …]`. Reading only `simpleValue`
+    silently dropped array boot tables (s4 `GVLRetainPersist`).
+  - Every imported `globalVars` list is now wrapped in `NAMESPACE
+    <list-identifier>`, not only lists marked `qualified_only`. CODESYS
+    allows qualified access to any GVL list; `qualified_only` only
+    restricts the unqualified form — and qualified references to a bare
+    plain list previously failed wholesale (s4: 1 335 false-E101 flood).
+  - Caveat: with the list namespaced, *unqualified* access to its members
+    requires a `USING <list>` directive, which the importer does not
+    synthesize. Projects that use unqualified GVL access should keep the
+    strict-IEC adapter mode or add the directive project-side.
+- Reason:
+  - Measured on the s4 v3.9.2 export (`GVLRetainPersist.xml`): the boot
+    table vanished from the mirror because the initializer form was
+    unread, and plain lists referenced qualified produced a four-digit
+    false-error flood. Both behaviors are data-loss or noise classes the
+    dialect mirror cannot tolerate; the strict-IEC adapter mode keeps the
+    unqualified-friendly shape for consumers that need it.

@@ -421,6 +421,7 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         };
 
         let op = UnaryOp::from_node(node);
+        let operand = self.checker.deref_reference_type(operand);
 
         match op {
             UnaryOp::Neg => {
@@ -657,8 +658,12 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         rhs: TypeId,
         range: TextRange,
     ) -> TypeId {
-        let lhs = self.checker.resolve_subrange_base(lhs);
-        let rhs = self.checker.resolve_subrange_base(rhs);
+        let lhs = self
+            .checker
+            .deref_reference_type(self.checker.resolve_subrange_base(lhs));
+        let rhs = self
+            .checker
+            .deref_reference_type(self.checker.resolve_subrange_base(rhs));
         if lhs == TypeId::UNKNOWN || rhs == TypeId::UNKNOWN {
             return self
                 .checker

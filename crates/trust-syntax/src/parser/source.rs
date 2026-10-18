@@ -34,6 +34,23 @@ impl<'t, 'src> Source<'t, 'src> {
         self.peek_token_n(0)
     }
 
+    /// Returns true when the current non-trivia token is an identifier
+    /// whose text equals `text` case-insensitively (contextual-keyword
+    /// test).
+    pub fn at_ident_ci(&self, text: &str) -> bool {
+        let Some(token) = self.peek_token_n(0) else {
+            return false;
+        };
+        if token.kind != TokenKind::Ident {
+            return false;
+        }
+        let start = usize::try_from(u32::from(token.range.start())).unwrap_or(usize::MAX);
+        let end = usize::try_from(u32::from(token.range.end())).unwrap_or(usize::MAX);
+        self.source
+            .get(start..end)
+            .is_some_and(|lexeme| lexeme.eq_ignore_ascii_case(text))
+    }
+
     /// Peeks at the nth token ahead (0 = current), skipping trivia.
     pub fn peek_kind(&self) -> TokenKind {
         self.peek_kind_n(0)
@@ -125,7 +142,7 @@ impl<'t, 'src> Source<'t, 'src> {
                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),
                 TokenKind::LBracket => bracket_depth += 1,
                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
-                TokenKind::Assign | TokenKind::RefAssign
+                TokenKind::Assign | TokenKind::RefAssign | TokenKind::KwRefBind
                     if paren_depth == 0 && bracket_depth == 0 =>
                 {
                     return true;
