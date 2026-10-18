@@ -25,7 +25,9 @@ use trust_runtime_core::vm::{
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 pub(crate) use super::runner_platform::TestPlatform;
-use crate::runner::{resource_tasks, ResourceCycle, RetainSource, Runner, TaskDescriptor};
+use crate::runner::{
+    resource_tasks, EngineLiveValues, ResourceCycle, RetainSource, Runner, TaskDescriptor,
+};
 
 /// The board probe: `led := button` in task `Scan` every 10 ms on resource `Controller`.
 const GPIO: &[u8] =
@@ -416,6 +418,8 @@ pub(crate) struct Fixture {
     pub(crate) wait: TestWait,
     pub(crate) link: TestLink,
     pub(crate) script: Rc<RefCell<CycleScript>>,
+    /// The Live Values the runner applies and the platform answers from.
+    pub(crate) live: Rc<EngineLiveValues>,
     prepared: PreparedModule,
     services: TestServices,
 }
@@ -432,6 +436,13 @@ impl Fixture {
         let clock = TestClock::default();
         let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default())
             .expect("the board probe is admitted");
+        let live = Rc::new(
+            EngineLiveValues::for_prepared(
+                &prepared,
+                alloc::vec![None; prepared.io_bindings().len()],
+            )
+            .expect("the board probe's retained names bind"),
+        );
         Self {
             wait: TestWait::new(clock.clone()),
             link: TestLink::new(max_frame_len),
@@ -440,6 +451,7 @@ impl Fixture {
                 clock: clock.clone(),
                 deadline: Cell::new(None),
             },
+            live,
             prepared,
             clock,
         }
@@ -461,7 +473,10 @@ impl Fixture {
 
     /// The program started, instantiated as the composition starts it at power-on, and the loop
     /// built at the clock's current time.
-    pub(crate) fn power_on(&self, platform: TestPlatform) -> TestRunner<'_> {
+    pub(crate) fn power_on(&self, mut platform: TestPlatform) -> TestRunner<'_> {
+        // The runner applies the Live Values of the prepared board probe, so the platform answers
+        // the control requests from the same queues and snapshot.
+        platform.live_values = Rc::clone(&self.live);
         let state = self
             .prepared
             .instantiate_with_services(0, &self.services)

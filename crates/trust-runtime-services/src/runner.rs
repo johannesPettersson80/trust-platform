@@ -22,6 +22,7 @@
 //! ended takes effect at once and starts it as a new trust-runtime process would.
 
 mod cycle;
+mod engine;
 mod host;
 mod observer;
 mod state;
@@ -41,6 +42,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
 
 pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
+pub use engine::EngineLiveValues;
 pub use host::RunnerPlatform;
 
 use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
@@ -280,6 +282,9 @@ mod contract_tests;
 
 #[cfg(test)]
 mod link_contract_tests;
+
+#[cfg(test)]
+mod live_values_contract_tests;
 
 #[cfg(test)]
 mod scan_contract_tests;

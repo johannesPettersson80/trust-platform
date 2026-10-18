@@ -35,11 +35,11 @@ use std::time::Duration as StdDuration;
 use serde_json::{json, Value};
 use trust_board_fixture::services::Services;
 use trust_runtime::scheduler::ResourceState;
-use trust_runtime_services::runner::Runner;
+use trust_runtime_services::runner::{EngineLiveValues, Runner};
 
 use runner_transcript_support::{
-    prepare_board_probe, BoardCycle, BoardPlatform, DeviceRunner, HostComposition, HostScan,
-    MemoryLink, ReplayClock, ReplayWait, CYCLE_INTERVAL,
+    binding_names, prepare_board_probe, BoardCycle, BoardPlatform, DeviceRunner, HostComposition,
+    HostScan, MemoryLink, ReplayClock, ReplayWait, CYCLE_INTERVAL,
 };
 
 /// The reply values that differ between the two compositions by construction, as JSON pointers
@@ -215,6 +215,89 @@ fn compare_reads(host: &HostComposition, device: &mut Device<'_>, reads: &[(u64,
     }
 }
 
+/// A Live Values request line with its parameters.
+fn live(id: u64, kind: &str, params: Value) -> String {
+    json!({"id": id, "type": kind, "params": params}).to_string()
+}
+
+/// Sends `line` to both compositions, replays the host's scans on the device and requires the same
+/// reply; then requires the same `reads`. A one-shot write is overwritten by the program, a force
+/// holds across scans, so a few scans make the effect settle in both before the reads.
+fn live_request(
+    host: &mut HostComposition,
+    device: &mut Device<'_>,
+    line: &str,
+    reads: &[(u64, &str)],
+) {
+    let host_reply = host.request(line);
+    let device_reply = device.request(line);
+    assert_same_reply(line, &host_reply, &device_reply);
+    device.replay(&host.settle_until(|scans| scans.len() >= 3));
+    compare_reads(host, device, reads);
+}
+
+/// Spec 11, "Live Values": both compositions queue, apply and report `io.write`, `io.force`,
+/// `io.unforce`, `set`, `var.force`, `var.unforce` and `var.forced` the same, and answer `io.list`
+/// and `io.read` from their own published image. The device would answer differently if it applied
+/// a request at the wrong phase, dropped a force, kept a released one or published the wrong
+/// image.
+fn live_values(host: &mut HostComposition, device: &mut Device<'_>) {
+    compare_reads(host, device, &[(40, "io.list"), (41, "io.read")]);
+
+    live_request(
+        host,
+        device,
+        &live(
+            42,
+            "io.force",
+            json!({"address": "%QX0.0", "value": "TRUE"}),
+        ),
+        &[(43, "io.list"), (44, "io.read")],
+    );
+    live_request(
+        host,
+        device,
+        &live(45, "io.unforce", json!({"address": "%QX0.0"})),
+        &[(46, "io.list"), (47, "io.read")],
+    );
+    live_request(
+        host,
+        device,
+        &live(
+            48,
+            "io.write",
+            json!({"address": "%QX0.0", "value": "TRUE"}),
+        ),
+        &[(49, "io.list")],
+    );
+    live_request(
+        host,
+        device,
+        &live(
+            50,
+            "set",
+            json!({"target": "global:probe_depth", "value": "7"}),
+        ),
+        &[(51, "status")],
+    );
+    live_request(
+        host,
+        device,
+        &live(
+            52,
+            "var.force",
+            json!({"target": "global:probe_depth", "value": "9"}),
+        ),
+        &[(53, "var.forced")],
+    );
+    live_request(
+        host,
+        device,
+        &live(54, "var.unforce", json!({"target": "global:probe_depth"})),
+        &[(55, "var.forced")],
+    );
+}
+
 /// `pause`: the host's scan thread takes it at its next pass, which runs no scan; the device takes
 /// it at its boundary one cycle interval after its last scan. Returns that boundary.
 fn pause(host: &mut HostComposition, device: &mut Device<'_>) -> StdDuration {
@@ -372,11 +455,15 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
         host.fault_policy,
     );
     let link = MemoryLink::default();
+    let live = Rc::new(
+        EngineLiveValues::for_prepared(&prepared, binding_names(&prepared))
+            .expect("the board probe's retained names bind"),
+    );
     let runner = Runner::new(
         link.clone(),
         ReplayWait::default(),
         cycle,
-        BoardPlatform::configured_as(&host),
+        BoardPlatform::configured_as(&host, live),
         clock.clone(),
     );
     let mut device = Device {
@@ -402,6 +489,8 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
             (5, "faults"),
         ],
     );
+
+    live_values(&mut host, &mut device);
 
     let paused_at = pause(&mut host, &mut device);
     resume(&mut host, &mut device, paused_at);

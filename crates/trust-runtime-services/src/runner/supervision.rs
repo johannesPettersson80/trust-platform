@@ -17,6 +17,7 @@ use trust_runtime_core::value;
 use trust_runtime_core::vm::RetainApplyEvent;
 use trust_runtime_core::watchdog::FaultDecision;
 
+use super::engine::LiveValuesHooks;
 use super::observer::ScanObserver;
 use super::{span, ResourceCycle, RetainSource, Runner, RunnerPlatform};
 use crate::events::{retain_apply_event, RuntimeEvent};
@@ -116,6 +117,10 @@ where
         source: RetainSource,
     ) -> Result<(), RuntimeError> {
         let events = self.cycle.restart(mode, source)?;
+        // A committed restart clears the previous lifecycle's queued writes and forces, as
+        // trust-runtime's `begin_lifecycle` does (specification 11 §6.9.2); a failed one keeps
+        // them, as a failed host restart keeps them.
+        self.platform.live_values().clear();
         self.record_retain_events(events);
         let now = self.logical(self.clock.now());
         self.cycle.reset_task_timing(now);
@@ -132,6 +137,7 @@ where
     pub(super) fn start(&mut self, mode: RestartMode) {
         match self.cycle.restart(mode, RetainSource::Checkpoint) {
             Ok(events) => {
+                self.platform.live_values().clear();
                 let start = self.clock.now();
                 self.program_start = start;
                 self.records.restart(self.clock.clone(), start);
@@ -165,7 +171,13 @@ where
         let result = {
             let mut observer =
                 ScanObserver::new(&self.tasks, &self.records, &self.clock, self.cycle_count);
-            self.cycle.run_scan(now, deadline, &mut observer)
+            let mut hooks = LiveValuesHooks::new(
+                self.platform.live_values(),
+                &self.records,
+                self.cycle_count,
+                &mut observer,
+            );
+            self.cycle.run_scan(now, deadline, &mut hooks)
         };
         if let Err(error) = result {
             let reported = self.apply_fault(error, FaultDecision::from_fault_policy(fault_policy));
@@ -209,6 +221,9 @@ where
     /// outputs follow when `decision` asks for them, the fault counts in the metrics and the
     /// events, and the fault to report comes back, the safe-output failure included.
     fn apply_fault(&mut self, error: RuntimeError, decision: FaultDecision) -> RuntimeError {
+        // A fault clears the queued writes and active forces, as trust-runtime's `apply_fault`
+        // does (specification 11 §6.9.2).
+        self.platform.live_values().clear();
         let time = self.program_time;
         let root = error.to_string();
         let mut reported = error.clone();
@@ -268,6 +283,9 @@ where
     /// outputs and then the retain save, and the resource is Stopped, or Faulted with the first
     /// failure; the program has then ended.
     fn stop(&mut self) {
+        // A stop's safe state clears the queued writes and active forces, as trust-runtime's
+        // `apply_io_safe_state` does (specification 11 §6.9.2).
+        self.platform.live_values().clear();
         let safe_state = self.cycle.apply_safe_outputs();
         let retain_save = self.cycle.save_retain();
         let (next, error) = stop_outcome(safe_state, retain_save);

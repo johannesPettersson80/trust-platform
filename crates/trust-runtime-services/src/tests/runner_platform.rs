@@ -20,14 +20,12 @@ use trust_runtime_core::value::Value;
 use super::runner_ports::{ms, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
-use crate::live_values::queues::{
-    ForcedSnapshot, ForcedVarTarget, LiveValueQueues, PendingVarTarget,
-};
+use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::ports::{AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort};
 use crate::protocol::{ControlRequest, ControlResponse};
-use crate::runner::RunnerPlatform;
+use crate::runner::{EngineLiveValues, RunnerPlatform};
 use crate::status::{IoDriverStatus, StatusSettings};
 
 /// The longest wait between two feeds of the hardware watchdog, unless a test sets its own.
@@ -45,12 +43,10 @@ pub(crate) struct TestPlatform {
     pub(crate) feed_interval: Duration,
     /// The watchdog's feeds; a test keeps a clone to read them.
     pub(crate) feeds: Rc<Cell<u32>>,
-    /// The Live Values queues: I/O writes, variable writes and active forces.
-    pub(crate) live_values: RefCell<LiveValueQueues<()>>,
-    /// The published I/O snapshot the shared `io.*` operations answer from.
-    pub(crate) io_snapshot: RefCell<IoSnapshotRead>,
-    /// The installation generation an instance-targeted request is resolved in.
-    pub(crate) generation: Generation,
+    /// The Live Values the runner applies and the shared `io.*`, `set` and `var.*` operations
+    /// answer from: the queues and the published snapshot. The fixture replaces it with the one
+    /// built from the prepared board probe.
+    pub(crate) live_values: Rc<EngineLiveValues>,
 }
 
 impl Default for TestPlatform {
@@ -64,9 +60,7 @@ impl Default for TestPlatform {
             extension_calls: RefCell::new(Vec::new()),
             feed_interval: ms(FEED_INTERVAL_MS),
             feeds: Rc::new(Cell::new(0)),
-            live_values: RefCell::new(LiveValueQueues::new()),
-            io_snapshot: RefCell::new(IoSnapshotRead::Missing),
-            generation: Generation::FIRST,
+            live_values: Rc::new(EngineLiveValues::empty()),
         }
     }
 }
@@ -163,6 +157,10 @@ impl HardwareWatchdog for TestPlatform {
 }
 
 impl RunnerPlatform for TestPlatform {
+    fn live_values(&self) -> &EngineLiveValues {
+        &self.live_values
+    }
+
     fn idle(&mut self) {
         self.idle_passes.set(self.idle_passes.get() + 1);
         if let Some(wait) = &self.wake_during_idle {
@@ -173,29 +171,25 @@ impl RunnerPlatform for TestPlatform {
 
 impl IoQueuePort for TestPlatform {
     fn io_snapshot(&self) -> IoSnapshotRead {
-        self.io_snapshot.borrow().clone()
+        self.live_values.io_snapshot()
     }
 
     fn enqueue_io_write(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
-        self.live_values
-            .borrow_mut()
-            .try_enqueue_io_write(address, value)
+        self.live_values.enqueue_io_write(address, value)
     }
 
     fn force_io(&self, address: IoAddress, value: Value) -> Result<(), RequestQueueFull> {
-        self.live_values
-            .borrow_mut()
-            .try_upsert_forced_io(address, value)
+        self.live_values.force_io(address, value)
     }
 
     fn release_io(&self, address: &IoAddress) {
-        self.live_values.borrow_mut().release_io(address);
+        self.live_values.release_io(address);
     }
 }
 
 impl VariableQueuePort for TestPlatform {
     fn generation(&self) -> Generation {
-        self.generation
+        self.live_values.generation()
     }
 
     fn enqueue_var_write(
@@ -203,40 +197,26 @@ impl VariableQueuePort for TestPlatform {
         target: PendingVarTarget,
         value: Value,
     ) -> Result<(), RequestQueueFull> {
-        self.live_values
-            .borrow_mut()
-            .try_upsert_var_write(target, value)
+        self.live_values.enqueue_var_write(target, value)
     }
 
     fn force_var(&self, target: ForcedVarTarget, value: Value) -> Result<(), RequestQueueFull> {
-        self.live_values
-            .borrow_mut()
-            .try_upsert_forced_var(target, value)
+        self.live_values.force_var(target, value)
     }
 
     fn release_global(&self, name: &str) {
-        self.live_values.borrow_mut().clear_forced_vars(
-            |target| matches!(target, ForcedVarTarget::Global(current) if current.as_str() == name),
-        );
+        self.live_values.release_global(name);
     }
 
     fn release_retain(&self, name: &str) {
-        self.live_values.borrow_mut().clear_forced_vars(
-            |target| matches!(target, ForcedVarTarget::Retain(current) if current.as_str() == name),
-        );
+        self.live_values.release_retain(name);
     }
 
     fn release_instance(&self, instance: InstanceId, name: &str) {
-        self.live_values.borrow_mut().clear_forced_vars(|target| {
-            matches!(
-                target,
-                ForcedVarTarget::Instance(_, current_id, current_name)
-                    if *current_id == instance && current_name.as_str() == name
-            )
-        });
+        self.live_values.release_instance(instance, name);
     }
 
     fn forced_snapshot(&self) -> ForcedSnapshot {
-        self.live_values.borrow().forced_snapshot()
+        self.live_values.forced_snapshot()
     }
 }

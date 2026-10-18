@@ -14,6 +14,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
+use super::engine::EngineLiveValues;
 use super::state::{Records, ResourceCell};
 use crate::access::{AccessRole, AuthFailure};
 use crate::events::RuntimeEvent;
@@ -49,6 +50,11 @@ pub trait RunnerPlatform:
     + IoQueuePort
     + VariableQueuePort
 {
+    /// The Live Values the runner applies at its cycle phases and the platform answers the
+    /// `io.*`, `set` and `var.*` requests from (specification 11, "Live Values"; specification 34
+    /// §4.3.1). The platform owns it and the runner borrows it for a scan.
+    fn live_values(&self) -> &EngineLiveValues;
+
     /// Work between scans, for example servicing a communication driver; the loop runs it once
     /// per pass, and it must not wait. The default does nothing.
     fn idle(&mut self) {}
