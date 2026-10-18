@@ -1077,6 +1077,25 @@
           }
         },
         {
+          "protocol": "chip.stm32u5a9",
+          "title": "STM32U5A9",
+          "badge": "Chip",
+          "purpose": "truST firmware · USB",
+          "action": {
+            "id": "chip.stm32u5a9",
+            "label": "STM32U5A9",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "stm32u5a9"
+              }
+            }
+          }
+        },
+        {
           "protocol": "runtime.ssh",
           "title": "Install over SSH",
           "badge": "Computer",

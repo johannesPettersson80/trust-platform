@@ -105,7 +105,9 @@ const ENTRIES: [(&str, &str, &str, &str); 14] = [
 ];
 
 /// The entries of `Runtimes`: title, badge, purpose and whether they can be chosen.
-const RUNTIME_ENTRIES: [(&str, &str, &str, bool); 6] = [
+// One entry per chip of truST's chip files (specification 25, the Runtimes group): `chips/` holds the
+// STM32F407, the ESP32-C6 and the STM32U5A9, whose only listed interface of the four is USB.
+const RUNTIME_ENTRIES: [(&str, &str, &str, bool); 7] = [
     (
         "Connect existing runtime",
         "Computer",
@@ -125,6 +127,7 @@ const RUNTIME_ENTRIES: [(&str, &str, &str, bool); 6] = [
         "truST firmware · Wi-Fi, Bluetooth, USB",
         true,
     ),
+    ("STM32U5A9", "Chip", "truST firmware · USB", true),
     (
         "Install over SSH",
         "Computer",
@@ -695,5 +698,9 @@ fn catalog_from_the_runtime_or_the_library() {
         dialog.catalog_state.as_deref(),
         Some("Catalog unavailable (needs a runtime that serves the schema).")
     );
-    assert_eq!(dialog.runtimes.entries.len(), 6, "Runtimes stays");
+    assert_eq!(
+        dialog.runtimes.entries.len(),
+        RUNTIME_ENTRIES.len(),
+        "Runtimes stays"
+    );
 }
