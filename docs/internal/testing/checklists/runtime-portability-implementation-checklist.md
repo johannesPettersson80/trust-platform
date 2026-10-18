@@ -7,35 +7,40 @@ it does not create additional product requirements. Existing closed extraction b
 
 ## Current checkpoint
 
-**18 October, about 14:00 (lead).** The STM32 target is the STM32U5A9 on the owner's Riverdi
-panel (17 October; the F407 code stays). All work is local; nothing is pushed. Implementation
-agents are Claude subagents at the lowest suitable cost (owner, 18 October) while the DeepSeek
-models are unavailable. Lanes:
+**18 October, about 16:30 (lead).** The STM32 target is the STM32U5A9 on the owner's Riverdi
+panel (17 October; the F407 code stays). All work is local; nothing is pushed. Agents: Claude
+Haiku by default (owner, 18 October: lowest suitable cost); the free opencode models that still
+answer (LongCat 2.5 preview, Nemotron 3 Ultra) are on trial on S4-1 and S3d-3. Owner questions
+open: O2 (what the debugger shows after a faulted scan, `~/projects/.artifacts/s3/decisions.md`)
+and Q11 (when an install may commit, `~/projects/.artifacts/s4/decisions.md`). Lanes:
 
-- c6 `feat/board-runtime` (integration): `2d667368c` merges feat/chip-control-link a third time
-  (C4-4 `capabilities`, S1b-5f, S1b-5g) after `dcdde3992` (engine-init, C1-8); focused check
-  c6/merge-s1b-3 green (22 steps; VS Code 519 passing). S1b-5 is closed on the C6 bench
-  (`~/projects/.artifacts/runtime-portability-c6/s1b-5b2-bench/result.md`): stack high-water
-  15,900 B of the 24 KiB window (8,676 B untouched), heap peak 62,616 of 139,264 B (45 %), no
-  allocation failure; a due cycle of the 100 ms task waits for at most one answer (0.99 ms with
-  bursts of 8 queued requests, 7.0 ms for one `status`, whose code runs from flash). The earlier
-  25 ms lateness figure was a measurement error (each start's phase against the first start, which
-  adds the schedule's drift) and is withdrawn.
-- s1b `feat/chip-control-link` (= c6 at the merge): C5-4 for the C6 runs (the checkpoint flash over
-  `ckpt_a` and `ckpt_b`, so `mode = "file"` works on the chip; bench project
-  `bench/project-retain`).
-- live-values `feat/live-values`: S3a, S3b1, S3b2a, S3b2b and S3b3 are committed (`5272135c2` to
-  `c0ea86692`). The chip debugger design is `~/projects/.artifacts/s3/chip-debugger.md`, its
-  decisions `s3/decisions.md`; one owner question (O2: what a debugger shows after a faulted scan).
-  Running: S3d-1, the A01 FOR-scratch probe. Next: S3d-2 (a sorted statement index), S3d-3 (no
-  storage copy per statement), S3d-4 and S3d-5, the merge into this branch, S3d-6 to S3d-9 on the
-  chips, then S3c.
-- engine-init `feat/engine-init` (= `dcdde3992`): C1-8 merged. Running: C1-P0, allocation charged
-  by what a copy copies (D-C1-3 (b): a scalar 0 B, a structure or array 16 B per leaf, a STRING
-  1 B per UTF-8 byte, a WSTRING 2 B per UTF-16 unit); then P1 and P3, then the C1-9 switch.
-- devices `feat/devices-connections` (V7): B9 `c07c8e235`; D5 (the browse panes) is written and
-  D5b runs (the add, tag and typed-port actions and every text from Rust; the route login drawn by
-  the generic form); then C4, C5b, C6, C7, D4, D6, D7.
+- c6 `feat/board-runtime` (integration): `217f62db3` merges feat/devices-connections (V7: the
+  trust-devices engine and views, trust-runtime-client, D3 and D5; 13 conflicts; the C6 reports
+  `platform` `esp32c6`, `runtime_id` `esp32c6-<USB serial>`, `program_control` `keeps_control`),
+  checks c6/merge-dev-2 and merge-dev-4 green (28 steps, VS Code 615 passing); `0712c7a57` merges
+  feat/chip-control-link (C5-4 and D1), check c6/merge-s1b-4 green (30 steps, VS Code 615).
+- s1b `feat/chip-control-link`: C5-4 `686fb52d1`, the C6's RETAIN in its checkpoint flash (bench
+  `~/projects/.artifacts/runtime-portability-c6/c54-bench/result.md`: 27 of 27; 20 resets at random
+  times recovered, at most 9 scans, one save interval, behind; the stop save keeps the last value;
+  shutdown to Stopped 153 ms). D1 `8af90f5ee` (security): a web deployment is checked against the
+  installed signature policy and keyring. S4 design `~/projects/.artifacts/s4/design.md` with its
+  decisions; running: S4-1 (transfers in parts), on the free LongCat model.
+- live-values `feat/live-values`: S3d-1 `c9635b1cf` (A01: a breakpoint in a FOR, WHILE, REPEAT, IF
+  or CASE body stops in the body; spec 13's hook contract), S3d-2 `12d7227c5` (the statement index,
+  parity 5,091 offsets, no difference). Running: S3d-3 (no storage copy per statement), on the
+  free Nemotron 3 Ultra model. Next: the LINE_TABLE decoder's fail-closed span check, S3d-4/5, the
+  merge into this branch, S3d-6 to S3d-9, S3c.
+- engine-init `feat/engine-init`: C1-P0 `4b9374671` (charges by what a copy copies, full
+  trust-runtime suite green), C1-P1 `2bd282970` (scalar and identity reads; `CycleAccess::storage()`
+  stays for C1-9d). Running: C1-P3 (ReferenceContext's store type). Then C1-9a to C1-9e.
+- u5a9 `feat/u5a9-runtime` (new, from c6 `cccce685c`): S1b-8u-1 `236140d92` (the chip file, the
+  shared STM32 crate, the U5 adapter's chip table, pins and clock; spec 34 revision 0.33). Next:
+  S1b-8u-2a (the OTG_HS CDC link), 8u-2b (clock, wait, wake), 8u-3, S1b-9u (firmware, bench).
+- devices `feat/devices-connections`: D5 `307ad8471` merged into c6. Next: C4, C5b, C6, C7, D4, D6,
+  D7.
+- Found on the C6: a loop costs about 390 us per iteration at opt-level "z" (half the time in ROM
+  memcpy); a higher opt-level does not fit the 512 KB SRAM; measured again at C1-9e
+  (`~/projects/.artifacts/bounded-c/followups.md`).
 
 Open top-level items: 57.
 
