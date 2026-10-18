@@ -56,6 +56,7 @@ use self::policy::required_role_for_control_request;
 pub(crate) use self::types::ControlResponse;
 use self::types::*;
 use trust_runtime_services::dispatch::{dispatch_value, prepare_line};
+use trust_runtime_services::transfer::TransferSession;
 
 // The in-crate control tests reach these through `use super::*`.
 #[cfg(test)]
@@ -78,6 +79,24 @@ fn control_event_time_now() -> crate::value::Duration {
         .as_millis()
         .min(i64::MAX as u128) as i64;
     crate::value::Duration::from_millis(timestamp_ms)
+}
+
+/// The transfers of this process (specification 34, PORT-05). Its boot number is the process start
+/// in seconds since the epoch, so a transfer id does not repeat after a restart. A computer's reply
+/// buffer and its upload limit are both the engine's container limit, the largest artifact a hosted
+/// runtime admits.
+#[must_use]
+pub fn new_transfer_session() -> Arc<Mutex<TransferSession>> {
+    let boot = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            u32::try_from(elapsed.as_secs()).unwrap_or(u32::MAX)
+        });
+    Arc::new(Mutex::new(TransferSession::new(
+        boot,
+        crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES,
+        crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES,
+    )))
 }
 
 /// Build the communication setup schema without connecting to a running runtime.
@@ -199,6 +218,8 @@ pub struct ControlState {
     pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
     #[cfg(feature = "ads-server")]
     pub ads_server_runtime: Arc<Mutex<Option<crate::ads::server::AdsServerRuntime>>>,
+    /// The transfers of this process (specification 34, PORT-05); see [`new_transfer_session`].
+    pub transfers: Arc<Mutex<TransferSession>>,
 }
 
 #[derive(Debug, Clone)]

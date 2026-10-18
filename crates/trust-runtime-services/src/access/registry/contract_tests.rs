@@ -44,6 +44,7 @@ const VIEWER: &[&str] = &[
     "hmi.values.get",
     "io.list",
     "io.read",
+    "program.active",
     "status",
     "tasks.stats",
     "var.forced",
@@ -84,6 +85,11 @@ const ADMIN: &[&str] = &[
     "pair.revoke",
     "pair.start",
     "shutdown",
+    "transfer.abort",
+    "transfer.begin",
+    "transfer.get",
+    "transfer.part",
+    "transfer.status",
 ];
 
 const PARAMETER_SENSITIVE: &[(&str, RolePolicy)] = &[

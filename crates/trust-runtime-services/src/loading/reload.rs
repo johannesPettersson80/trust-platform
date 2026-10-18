@@ -15,9 +15,12 @@ use serde::Deserialize;
 use serde_json::json;
 use trust_runtime_core::scheduler::ResourceState;
 
-use crate::ports::ResourcePort;
+use crate::dispatch::transfers::transfer_member;
+use crate::ports::ControlHost;
 use crate::protocol::ControlResponse;
 use crate::resource::replies::{hung_refusal, resource_not_running, RESOURCE_NOT_RUNNING};
+use crate::status::{check_number_members, invalid_params, MemberKind};
+use crate::transfer::TransferId;
 
 /// The params of `bytecode.reload`: the program's bytes in standard base64. Fields the rule does not
 /// read are ignored.
@@ -26,21 +29,32 @@ struct BytecodeReloadParams {
     bytes: String,
 }
 
+/// Where the program of a request comes from: its `bytes`, or the complete transfer it names
+/// (specification 34, PORT-05).
+enum Source {
+    /// The program's bytes, decoded from `bytes`.
+    Bytes(Vec<u8>),
+    /// The transfer whose bytes are the program. It is taken only once the request is accepted.
+    Transfer(TransferId),
+}
+
 /// Decides a `bytecode.reload` before it is queued, and returns the program bytes to queue.
 ///
 /// The first failing check is the reply. The params come first (`missing params`,
-/// `invalid params: <serde error>`, `invalid bytecode: <base64 error>`), then a hung resource
-/// (`hung_refusal`), then a stopped resource, which is named with its state.
+/// `invalid params: <reason>`, `invalid bytecode: <base64 error>`), then a hung resource
+/// (`hung_refusal`), then a stopped resource, which is named with its state. A `transfer` is taken
+/// only after those checks pass, so a refused request leaves the transfer open; a transfer that is
+/// incomplete or unknown is refused with the session's own message.
 ///
 /// # Errors
 ///
 /// The refusal reply. Nothing is queued for a refused request.
-pub fn admit<H: ResourcePort>(
+pub fn admit<H: ControlHost>(
     id: u64,
     params: Option<serde_json::Value>,
     host: &H,
 ) -> Result<Vec<u8>, ControlResponse> {
-    let bytes = decode(id, params)?;
+    let source = decode(id, params)?;
     if host.is_hung() {
         return Err(hung_refusal(id));
     }
@@ -50,21 +64,52 @@ pub fn admit<H: ResourcePort>(
     if matches!(resource, ResourceState::Stopped) {
         return Err(resource_not_running(id, resource));
     }
-    Ok(bytes)
+    match source {
+        Source::Bytes(bytes) => Ok(bytes),
+        Source::Transfer(transfer) => take_transfer(id, transfer, host),
+    }
 }
 
-/// Reads the params and decodes the program bytes from their base64 text.
-fn decode(id: u64, params: Option<serde_json::Value>) -> Result<Vec<u8>, ControlResponse> {
-    let params: BytecodeReloadParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return Err(ControlResponse::error(id, format!("invalid params: {err}"))),
-        },
-        None => return Err(ControlResponse::error(id, "missing params".to_string())),
+/// Reads the params: `bytes` or `transfer`, and not both.
+fn decode(id: u64, params: Option<serde_json::Value>) -> Result<Source, ControlResponse> {
+    let Some(params) = params else {
+        return Err(ControlResponse::error(id, "missing params".to_string()));
+    };
+    let has_bytes = params.get("bytes").is_some();
+    let has_transfer = params.get("transfer").is_some();
+    match (has_bytes, has_transfer) {
+        (false, true) => Ok(Source::Transfer(transfer_member(id, &params)?)),
+        (true, true) => Err(invalid_params(
+            id,
+            "give either bytes or transfer, not both",
+        )),
+        _ => decode_bytes(id, params).map(Source::Bytes),
+    }
+}
+
+/// Reads `bytes` and decodes the program bytes from their base64 text.
+fn decode_bytes(id: u64, params: serde_json::Value) -> Result<Vec<u8>, ControlResponse> {
+    check_number_members(id, &params, &[("bytes", MemberKind::Text)])?;
+    let params: BytecodeReloadParams = match serde_json::from_value(params) {
+        Ok(parsed) => parsed,
+        Err(err) => return Err(ControlResponse::error(id, format!("invalid params: {err}"))),
     };
     BASE64_STANDARD
         .decode(params.bytes.as_bytes())
         .map_err(|err| ControlResponse::error(id, format!("invalid bytecode: {err}")))
+}
+
+/// Takes the bytes of the complete transfer `transfer`, which ends it (specification 34, PORT-05).
+fn take_transfer<H: ControlHost>(
+    id: u64,
+    transfer: TransferId,
+    host: &H,
+) -> Result<Vec<u8>, ControlResponse> {
+    match host.with_transfers(|session| session.take_complete(transfer)) {
+        Ok(Ok(bytes)) => Ok(bytes),
+        Ok(Err(error)) => Err(ControlResponse::error(id, error.to_string())),
+        Err(refused) => Err(refused.refusal(id)),
+    }
 }
 
 /// How a queued reload ended, as the platform's wait reports it.

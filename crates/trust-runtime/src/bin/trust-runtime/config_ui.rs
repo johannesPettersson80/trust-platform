@@ -235,6 +235,7 @@ fn build_config_mode_control_state(
 
     let discovery = Arc::new(DiscoveryState::new());
     Ok(Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug,
         resource,
         metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),

@@ -472,6 +472,13 @@ impl TransferSession {
         Ok(())
     }
 
+    /// The capacity of the reply buffer: the longest reply the session holds (specification 34,
+    /// PORT-05).
+    #[must_use]
+    pub(crate) const fn reply_capacity(&self) -> usize {
+        self.reply_capacity
+    }
+
     /// Holds `reply`, a reply longer than the frame, whole under a new id, and returns its head.
     /// It replaces the reply held before, which its id then no longer names.
     ///

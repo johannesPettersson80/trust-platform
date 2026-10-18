@@ -26,6 +26,7 @@ use crate::metrics::RuntimeMetricsSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::transfer::TransferSession;
 
 /// Access rights of the control connection.
 pub trait AccessPort {
@@ -176,8 +177,51 @@ pub trait StatusPort {
     }
 }
 
+/// One installed program, as `program.active` reports it: its install sequence, the SHA-256 of the
+/// program and its length in bytes (specification 34 §11.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProgramIdentity {
+    /// The install sequence the store gave the program.
+    pub sequence: u64,
+    /// The SHA-256 of the program.
+    pub program_sha256: [u8; 32],
+    /// The program's length in bytes.
+    pub bytes: usize,
+}
+
+/// The program the store selects and the program before it, as `program.active` reports them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProgramIdentities {
+    /// The selected program, when the store holds one.
+    pub active: Option<ProgramIdentity>,
+    /// The program before the selected one, when the store holds one.
+    pub previous: Option<ProgramIdentity>,
+}
+
+/// Why the platform gives out no transfer session (specification 34, PORT-05).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferSessionError {
+    /// The platform keeps no transfer session, so the transfer operations are unsupported.
+    Unsupported,
+    /// The platform's session cannot be locked now.
+    Unavailable,
+}
+
+impl TransferSessionError {
+    /// The refusal to request `id` when the platform gives out no session.
+    #[must_use]
+    pub fn refusal(self, id: u64) -> ControlResponse {
+        let text = match self {
+            Self::Unsupported => "unsupported request",
+            Self::Unavailable => "transfer session unavailable",
+        };
+        ControlResponse::error(id, text.into())
+    }
+}
+
 /// What the running resource records and the status operations report: the debugger hold, the
-/// control mode, the metrics and the event store.
+/// control mode, the metrics and the event store. The transfer session and the installed program's
+/// identities are held the same way, and a platform that keeps neither keeps the defaults.
 ///
 /// A method that returns `None` reports a value that cannot be read, and the operation answers
 /// `<value> unavailable`.
@@ -197,6 +241,27 @@ pub trait RecordsPort {
 
     /// Reads the event store, oldest event first.
     fn read_events<R>(&self, read: impl FnOnce(&VecDeque<RuntimeEvent>) -> R) -> Option<R>;
+
+    /// Runs `use_session` on the platform's transfer session, which holds the transfers of its boot
+    /// (specification 34, PORT-05). The default is no session, so the transfer operations answer
+    /// `unsupported request`.
+    ///
+    /// # Errors
+    ///
+    /// [`TransferSessionError::Unsupported`] when the platform keeps no session, and
+    /// [`TransferSessionError::Unavailable`] when the session cannot be locked.
+    fn with_transfers<R>(
+        &self,
+        _use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        Err(TransferSessionError::Unsupported)
+    }
+
+    /// The selected program and the program before it, which `program.active` reports (specification
+    /// 34 §11.2). The default is no program store, so `program.active` answers `unsupported request`.
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        None
+    }
 }
 
 /// Operations that only the platform answers.

@@ -19,7 +19,10 @@ use crate::ports::{AccessPort, RecordsPort, ResourcePort, StatusPort};
 use crate::protocol::ControlResponse;
 
 pub(crate) use event_reads::{write_event_read, EventRead};
-pub use params::{invalid_params, parse_bounded_limit, unavailable, validate_object_fields};
+pub use params::{
+    check_number_members, invalid_params, parse_bounded_limit, unavailable, validate_object_fields,
+    MemberKind,
+};
 pub use unconfigured::{absent_realtime_profile, disabled_openot_persistence};
 
 /// Health of one I/O driver.

@@ -284,6 +284,7 @@ pub fn run_runtime(
     let ads_server_runtime = Arc::new(Mutex::new(None));
 
     let state = Arc::new(ControlState {
+        transfers: trust_runtime::control::new_transfer_session(),
         debug: debug.clone(),
         resource: control.clone(),
         metadata: metadata.clone(),

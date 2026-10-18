@@ -3,13 +3,15 @@
 
 use alloc::string::String;
 use alloc::vec;
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 
 use serde_json::json;
 use trust_runtime_core::scheduler::ResourceState;
 
 use super::*;
+use crate::ports::RecordsPort;
 use crate::tests::fake_host::FakeHost;
+use crate::transfer::TransferSession;
 
 const HUNG: &str = "resource scan thread did not return; the runtime process must be restarted";
 const BAD_SYMBOL: &str = "invalid bytecode: Invalid symbol 33, offset 0.";
@@ -156,4 +158,63 @@ fn each_reload_outcome_gives_its_reply() {
     // reload that may already be applied.
     let unknown = reply(6, ReloadOutcome::<u32>::Unknown, |_| Ok(()));
     assert_refusal(&unknown, "reload commit outcome is unknown", None);
+}
+
+/// The first transfer id of the session of these tests: boot 7, then sequence 1 (specification 34,
+/// PORT-05).
+const FIRST_ID: &str = "0000000700000001";
+
+/// The SHA-256 of `hello`, the five bytes these tests upload, as its 32 bytes:
+/// `2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824`.
+const HELLO_DIGEST: [u8; 32] = [
+    0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e,
+    0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24,
+];
+
+#[test]
+fn bytecode_reload_applies_only_a_complete_transfer() {
+    // Specification 34 PORT-05 and design S4 section 2.3: `bytecode.reload {transfer}` takes the bytes
+    // of a complete transfer and of no other. An upload with no bytes is refused with the session's
+    // own text and stays open; once its last part is in, the same request gives its five bytes, and
+    // the transfer is then ended. Wrong behaviour: a partial container is queued and runs, or a refused
+    // request ends the upload.
+    let mut host = FakeHost::running();
+    host.transfers = Some(RefCell::new(TransferSession::new(7, 1024, 1024)));
+    let id = host
+        .with_transfers(|session| session.begin(5, HELLO_DIGEST))
+        .expect("the platform gives out its session")
+        .expect("the upload begins");
+    let partial = admit(1, Some(json!({"transfer": FIRST_ID})), &host)
+        .expect_err("an upload with no bytes is not applied");
+    assert_refusal(
+        &partial,
+        "transfer is receiving: next offset 0 of 5 bytes",
+        None,
+    );
+    // `hello` is one part at offset 0, with the CRC-32 of its bytes, 0x3610a686.
+    host.with_transfers(|session| session.part(id, 0, "aGVsbG8=", 0x3610_a686))
+        .expect("the platform gives out its session")
+        .expect("the part is stored");
+    let applied = admit(2, Some(json!({"transfer": FIRST_ID})), &host)
+        .expect("a complete transfer is applied");
+    assert_eq!(applied, b"hello".to_vec());
+    let taken = admit(3, Some(json!({"transfer": FIRST_ID})), &host)
+        .expect_err("a transfer that the reload took is unknown");
+    assert_refusal(&taken, "unknown transfer", None);
+}
+
+#[test]
+fn invalid_params_text_is_the_same_with_and_without_arbitrary_precision() {
+    // Specification 11 `invalid params`, and the S4-2b follow-up: a fractional number in `bytes` is
+    // refused with one text on every runtime. serde_json reads `1.50` differently when its
+    // arbitrary_precision feature is on (the computer's build, through opcua) and off (a chip's), so
+    // serde's own message would differ between the two. Wrong behaviour: the chip's serde text, or the
+    // computer's, is given.
+    let running = FakeHost::running();
+    let refusal = admit(1, Some(json!({"bytes": 1.50})), &running)
+        .expect_err("a fractional number is refused");
+    assert_refusal(&refusal, "invalid params: bytes must be a string", None);
+    // The same holds when the whole params are one fractional number.
+    let whole = admit(2, Some(json!(1.50)), &running).expect_err("a fractional params is refused");
+    assert_refusal(&whole, "invalid params: parameters must be an object", None);
 }

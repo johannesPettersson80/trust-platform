@@ -29,12 +29,13 @@ use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramIdentities,
+    RecordsPort, ResourcePort, StatusPort, TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::status::{IoDriverStatus, StatusSettings};
+use crate::transfer::TransferSession;
 
 /// The wall time the fake platform reports, in Unix milliseconds.
 pub(crate) const WALL_TIME_MS: u64 = 1_792_108_800_000;
@@ -104,6 +105,10 @@ pub(crate) struct FakeHost {
     pub(crate) device_descriptor: DeviceDescriptor,
     /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
     pub(crate) last_reset: Option<LastReset>,
+    /// The transfer session the transfer operations use; `None` for a platform without one.
+    pub(crate) transfers: Option<RefCell<TransferSession>>,
+    /// The identities `program.active` reports; `None` for a platform without a program store.
+    pub(crate) program_identities: Option<ProgramIdentities>,
 }
 
 impl FakeHost {
@@ -139,6 +144,8 @@ impl FakeHost {
             missing_program: None,
             device_descriptor: DeviceDescriptor::hosted(),
             last_reset: None,
+            transfers: None,
+            program_identities: None,
         }
     }
 
@@ -342,6 +349,23 @@ impl RecordsPort for FakeHost {
         let events = self.events.borrow();
         let store: &VecDeque<RuntimeEvent> = &events;
         Some(read(store))
+    }
+
+    fn with_transfers<R>(
+        &self,
+        use_session: impl FnOnce(&mut TransferSession) -> R,
+    ) -> Result<R, TransferSessionError> {
+        let Some(session) = &self.transfers else {
+            return Err(TransferSessionError::Unsupported);
+        };
+        match session.try_borrow_mut() {
+            Ok(mut session) => Ok(use_session(&mut session)),
+            Err(_) => Err(TransferSessionError::Unavailable),
+        }
+    }
+
+    fn program_identities(&self) -> Option<ProgramIdentities> {
+        self.program_identities
     }
 }
 

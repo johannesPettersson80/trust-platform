@@ -262,7 +262,7 @@ fn hex_digit(digit: u8) -> Option<u8> {
 }
 
 /// The lowercase hexadecimal digits of `bytes`, two per byte.
-fn hex_text(bytes: &[u8]) -> String {
+pub(crate) fn hex_text(bytes: &[u8]) -> String {
     let mut text = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
         // Writing into a String cannot fail.

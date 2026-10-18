@@ -23,6 +23,7 @@ use crate::ports::{AuditRecord, ControlHost};
 use crate::protocol::{BoundedReply, ControlAfterResponse, ControlRequest, ControlResponse};
 use crate::resource::operations;
 use crate::status::{self, EventRead};
+use crate::transfer::{wire, ReplyHead};
 
 /// One request line's serialized response and the work to run after writing it.
 #[derive(Debug)]
@@ -64,15 +65,15 @@ pub fn prepare_line_within<H: ControlHost>(
 ) -> PreparedLine {
     let value = match serde_json::from_str::<serde_json::Value>(line) {
         Ok(value) => value,
-        Err(err) => return within(unreadable_line(&err), max_len),
+        Err(err) => return within(unreadable_line(&err), max_len, host),
     };
     let admitted = match admit(value, host, client) {
         Ok(admitted) => admitted,
-        Err(refused) => return within(refused, max_len),
+        Err(refused) => return within(refused, max_len, host),
     };
     match EventRead::of(admitted.request.r#type.as_str()) {
         Some(read) => event_read_within(read, &admitted.request, host, client, max_len),
-        None => within(answer(admitted, host, client), max_len),
+        None => within(answer(admitted, host, client), max_len, host),
     }
 }
 
@@ -89,25 +90,56 @@ fn unreadable_line(err: &serde_json::Error) -> ControlResponse {
     ControlResponse::error(0, format!("invalid request: {err}"))
 }
 
-/// `response` serialized for a link that moves replies of at most `max_len` bytes. A longer one
-/// is replaced by `reply longer than <max_len> bytes` with the same id and audit record id, and
-/// its work after the reply stays.
-fn within(mut response: ControlResponse, max_len: usize) -> PreparedLine {
+/// `response` serialized for a link that moves replies of at most `max_len` bytes. A longer one is
+/// held whole in the platform's transfer session and answered with its head (specification 34,
+/// PORT-05); its work after the reply stays.
+fn within<H: ControlHost>(mut response: ControlResponse, max_len: usize, host: &H) -> PreparedLine {
     let after_response = response.after_response.take();
-    let mut serialized = serialize_response(&response);
-    if serialized.len() > max_len {
-        serialized = serialize_response(&response.replaced_by_error(reply_too_long(max_len)));
-    }
+    let serialized = serialize_response(&response);
+    let response = if serialized.len() > max_len {
+        held_or_refused(&response, serialized, max_len, host)
+    } else {
+        serialized
+    };
     PreparedLine {
-        response: serialized,
+        response,
         after_response,
     }
 }
 
+/// The reply to a reply longer than the link moves: the head of the reply, which the session holds
+/// whole, answered with the id and audit record id of `response`. A reply the session cannot hold
+/// is refused with the session's own message. A platform without a session refuses it with
+/// `reply longer than <max_len> bytes`, as it always has.
+fn held_or_refused<H: ControlHost>(
+    response: &ControlResponse,
+    serialized: String,
+    max_len: usize,
+    host: &H,
+) -> String {
+    match host.with_transfers(|session| session.hold_reply(serialized.into_bytes())) {
+        Ok(Ok(head)) => reply_head_text(response, &head, max_len).unwrap_or_else(|| {
+            serialize_response(&response.replaced_by_error(reply_too_long(max_len)))
+        }),
+        Ok(Err(error)) => serialize_response(&response.replaced_by_error(error.to_string())),
+        Err(_) => serialize_response(&response.replaced_by_error(reply_too_long(max_len))),
+    }
+}
+
+/// The head of a held reply, as the response that `response` answers: the reply head as its result,
+/// with the same id and audit record id. `None` when the head does not fit `max_len`.
+fn reply_head_text(response: &ControlResponse, head: &ReplyHead, max_len: usize) -> Option<String> {
+    let mut reply = BoundedReply::ok(response.id(), max_len);
+    reply.push_json(&wire::reply_head(head));
+    reply.finish(response)
+}
+
 /// The reply to the admitted event read `request` for a link that moves replies of at most
-/// `max_len` bytes, written event by event into one buffer of that size. The read was served, so
-/// it is audited as served whether its reply fits or not, as [`within`] keeps the audit record of
-/// any reply it replaces.
+/// `max_len` bytes, written event by event into one buffer. The buffer is the platform's reply
+/// buffer when it has a transfer session, so a reply longer than the frame is held there whole
+/// (specification 34, PORT-05), and one frame otherwise. The read was served, so it is audited as
+/// served whether its reply fits or not, as [`within`] keeps the audit record of any reply it
+/// replaces.
 fn event_read_within<H: ControlHost>(
     read: EventRead,
     request: &ControlRequest,
@@ -115,11 +147,14 @@ fn event_read_within<H: ControlHost>(
     client: Option<&str>,
     max_len: usize,
 ) -> PreparedLine {
-    let mut reply = BoundedReply::ok(request.id, max_len);
+    let capacity = host
+        .with_transfers(|session| session.reply_capacity())
+        .unwrap_or(max_len);
+    let mut reply = BoundedReply::ok(request.id, capacity);
     if let Err(refused) =
         status::write_event_read(read, request.id, request.params.as_ref(), host, &mut reply)
     {
-        return within(audited(host, request, client, refused), max_len);
+        return within(audited(host, request, client, refused), max_len, host);
     }
     let served = audited(
         host,
@@ -127,9 +162,11 @@ fn event_read_within<H: ControlHost>(
         client,
         ControlResponse::ok(request.id, serde_json::Value::Null),
     );
-    let response = reply
-        .finish(&served)
-        .unwrap_or_else(|| serialize_response(&served.replaced_by_error(reply_too_long(max_len))));
+    let response = match reply.finish(&served) {
+        Some(text) if text.len() > max_len => held_or_refused(&served, text, max_len, host),
+        Some(text) => text,
+        None => serialize_response(&served.replaced_by_error(reply_too_long(capacity))),
+    };
     PreparedLine {
         response,
         after_response: None,
@@ -285,6 +322,9 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "resume" => operations::resume(id, host),
         "restart" => operations::restart(id, request.params.clone(), host),
         "shutdown" => operations::shutdown(id),
+        "transfer.begin" | "transfer.part" | "transfer.status" | "transfer.get"
+        | "transfer.abort" => transfers::answer_transfer(request, host),
+        "program.active" => transfers::program_active(id, host),
         _ => return host.dispatch_extension(request),
     };
     Some(response)
@@ -352,6 +392,8 @@ fn capitalize_role(role: &str) -> String {
     };
     first.to_uppercase().collect::<String>() + chars.as_str()
 }
+
+pub(crate) mod transfers;
 
 #[cfg(test)]
 mod contract_tests;
