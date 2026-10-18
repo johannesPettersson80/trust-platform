@@ -15,7 +15,7 @@
 
 use super::{EngineData, EngineState, EngineStore, RuntimeState};
 use crate::error::RuntimeError;
-use crate::memory::cell_access::CellReader;
+use crate::memory::cell_access::{CellReader, CellWriter};
 use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate, ValueView};
 use crate::memory::VariableStorage;
 use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation};
@@ -152,7 +152,7 @@ impl StoreAccess for EngineState<'_> {
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         match self.data.routed(self.prepared) {
             Routed::Values(store) => store.prepare_write(location, offset, path, value),
-            Routed::Cells(_) => Err(RuntimeError::InvalidExecutionState),
+            Routed::Cells(reader) => reader.prepare_write(location, offset, path, value),
         }
     }
 
@@ -208,7 +208,12 @@ impl StoreAccess for EngineState<'_> {
 impl StoreMutate for EngineState<'_> {
     #[inline]
     fn write_slot(&mut self, location: MemoryLocation, offset: usize, value: Value) -> bool {
-        self.data.storage.write_slot(location, offset, value)
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::write_slot(store, location, offset, value),
+            RoutedMut::Cells(mut writer) => {
+                StoreMutate::write_slot(&mut writer, location, offset, value)
+            }
+        }
     }
 
     #[inline]
@@ -217,7 +222,12 @@ impl StoreMutate for EngineState<'_> {
         reference: ValueRefView<'_>,
         value: Value,
     ) -> Result<bool, RuntimeError> {
-        self.data.storage.write_reference(reference, value)
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::write_reference(store, reference, value),
+            RoutedMut::Cells(mut writer) => {
+                StoreMutate::write_reference(&mut writer, reference, value)
+            }
+        }
     }
 
     #[inline]
@@ -227,12 +237,22 @@ impl StoreMutate for EngineState<'_> {
         name: impl Into<SmolStr>,
         value: Value,
     ) -> bool {
-        self.data.storage.write_instance_var(instance, name, value)
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => {
+                StoreMutate::write_instance_var(store, instance, name, value)
+            }
+            RoutedMut::Cells(mut writer) => {
+                StoreMutate::write_instance_var(&mut writer, instance, name, value)
+            }
+        }
     }
 
     #[inline]
-    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
-        self.data.storage.set_global(name, value);
+    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) -> bool {
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::set_global(store, name, value),
+            RoutedMut::Cells(mut writer) => StoreMutate::set_global(&mut writer, name, value),
+        }
     }
 
     #[inline]
@@ -240,22 +260,38 @@ impl StoreMutate for EngineState<'_> {
         &mut self,
         type_name: impl Into<SmolStr>,
     ) -> Result<InstanceId, RuntimeError> {
-        self.data.storage.try_create_instance(type_name)
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::try_create_instance(store, type_name),
+            RoutedMut::Cells(mut writer) => {
+                StoreMutate::try_create_instance(&mut writer, type_name)
+            }
+        }
     }
 
     #[inline]
     fn remove_instance(&mut self, id: InstanceId) -> bool {
-        StoreMutate::remove_instance(&mut self.data.storage, id)
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::remove_instance(store, id),
+            RoutedMut::Cells(mut writer) => StoreMutate::remove_instance(&mut writer, id),
+        }
     }
 
     #[inline]
     fn retain_instances(&mut self, keep: impl FnMut(InstanceId) -> bool) -> usize {
-        self.data.storage.retain_instances(keep)
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::retain_instances(store, keep),
+            RoutedMut::Cells(mut writer) => StoreMutate::retain_instances(&mut writer, keep),
+        }
     }
 
     #[inline]
     fn restore_instance(&mut self, instance: InstanceId, data: InstanceData) {
-        self.data.storage.restore_instance(instance, data);
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::restore_instance(store, instance, data),
+            RoutedMut::Cells(mut writer) => {
+                StoreMutate::restore_instance(&mut writer, instance, data)
+            }
+        }
     }
 
     #[inline]
@@ -266,14 +302,24 @@ impl StoreMutate for EngineState<'_> {
         prepared: PreparedWrite,
         capacity: usize,
     ) -> bool {
-        self.data
-            .storage
-            .commit_write(path, value, prepared, capacity)
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => {
+                StoreMutate::commit_write(store, path, value, prepared, capacity)
+            }
+            RoutedMut::Cells(mut writer) => {
+                StoreMutate::commit_write(&mut writer, path, value, prepared, capacity)
+            }
+        }
     }
 
     #[inline]
     fn restore_slot(&mut self, location: MemoryLocation, offset: usize, value: Value) {
-        self.data.storage.restore_slot(location, offset, value);
+        match routed_mut(&mut *self.data, self.prepared) {
+            RoutedMut::Values(store) => StoreMutate::restore_slot(store, location, offset, value),
+            RoutedMut::Cells(mut writer) => {
+                StoreMutate::restore_slot(&mut writer, location, offset, value)
+            }
+        }
     }
 }
 
@@ -405,7 +451,7 @@ impl StoreAccess for RuntimeState<'_> {
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         match self.routed() {
             Routed::Values(store) => store.prepare_write(location, offset, path, value),
-            Routed::Cells(_) => Err(RuntimeError::InvalidExecutionState),
+            Routed::Cells(reader) => reader.prepare_write(location, offset, path, value),
         }
     }
 
@@ -464,6 +510,23 @@ enum Routed<'a> {
     Values(&'a VariableStorage),
     /// The cell arm, read through the prepared module that places its cells.
     Cells(CellReader<'a>),
+}
+
+/// The store one engine state writes through, borrowed for one call (C1-9c).
+enum RoutedMut<'a> {
+    /// Today's `Value` storage.
+    Values(&'a mut VariableStorage),
+    /// The cell arm's writer.
+    Cells(CellWriter<'a>),
+}
+
+/// The store an engine state writes through (C1-9c): the same `EngineStore` choice that reads use.
+fn routed_mut<'a>(data: &'a mut EngineData, prepared: &'a PreparedModule) -> RoutedMut<'a> {
+    let EngineData { storage, store, .. } = data;
+    match store {
+        EngineStore::Values => RoutedMut::Values(storage),
+        EngineStore::Cells(arm) => RoutedMut::Cells(CellWriter::new(prepared, arm)),
+    }
 }
 
 impl RuntimeState<'_> {

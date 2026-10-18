@@ -24,6 +24,7 @@ use crate::memory::{Generation, InstanceId};
 use crate::vm::{PreparedModule, VmTrap};
 
 pub use convert::{cell_offset, read_value, write_value};
+pub(crate) use convert::{check_value, is_reference_type};
 
 /// One cell of the bounded value store (specification 34 §6.2, MEM-10; design "Cells").
 ///
@@ -111,7 +112,8 @@ const _: () = assert!(core::mem::size_of::<Cell>() == CELL_BYTES);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextSlot(pub u32);
 
-/// Index of a reference record in its region's reference records (design "Regions").
+/// Index of a reference record in its region's reference records (design "Regions"). Until C1-11 a
+/// non-null reference leaf names its cell here, as the key of its `ValueRef` (O9).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RefSlot(pub u32);
 

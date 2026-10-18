@@ -223,8 +223,18 @@ fn check_slice_length(
     Ok(())
 }
 
+/// Whether `type_id` resolves to a reference type, whose leaf the cell arm holds as a `ValueRef` (O9).
+pub(crate) fn is_reference_type(prepared: &PreparedModule, type_id: u32) -> bool {
+    resolve(prepared, type_id)
+        .is_ok_and(|(_, entry)| matches!(entry.data, TypeData::Reference { .. }))
+}
+
 /// Check the whole value against the type before a cell is written, so a refusal writes nothing.
-fn check_value(type_id: u32, value: &Value, prepared: &PreparedModule) -> Result<(), RuntimeError> {
+pub(crate) fn check_value(
+    type_id: u32,
+    value: &Value,
+    prepared: &PreparedModule,
+) -> Result<(), RuntimeError> {
     if matches!(value, Value::Null) {
         return Ok(());
     }

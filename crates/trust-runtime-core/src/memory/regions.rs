@@ -8,6 +8,7 @@
 //! buffer (O10). Until C1-9d the engine keeps running on [`crate::memory::VariableStorage`], does
 //! not construct this store, and nothing reads these regions yet.
 
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::bytecode::{StorageOwner, TypeData, TypeKind, BYTECODE_MAX_TYPE_NESTING};
@@ -16,6 +17,7 @@ use crate::memory::cells::CellStore;
 use crate::memory::layout::{CellRange, LayoutRegion, TextLeaf};
 use crate::memory::text::TextStore;
 use crate::memory::{ActivationStore, Generation, Identities};
+use crate::value::ValueRef;
 use crate::vm::PreparedModule;
 
 /// The persistent region's cell ranges, its cells and reference records, and its text buffers
@@ -31,6 +33,10 @@ pub struct CellRegions {
     persistent: CellStore,
     /// The region's text buffers: one per text leaf occurrence (O10).
     text: TextStore,
+    /// The non-null reference leaves and the `ValueRef` each holds, keyed by the leaf's cell
+    /// (O9, C1-9c). The reference records stay unused until C1-11, so the reference a leaf holds
+    /// lives here, on the `Value` side.
+    references: BTreeMap<u32, ValueRef>,
 }
 
 impl CellRegions {
@@ -58,6 +64,18 @@ impl CellRegions {
     #[must_use]
     pub fn text(&self) -> &TextStore {
         &self.text
+    }
+
+    /// The `ValueRef` a non-null reference leaf at `cell` holds, or `None` for a null leaf.
+    pub(crate) fn reference(&self, cell: u32) -> Option<&ValueRef> {
+        self.references.get(&cell)
+    }
+
+    /// The persistent cells, the text buffers and the reference values, mutably at once (C1-9c).
+    pub(crate) fn split_mut(
+        &mut self,
+    ) -> (&mut CellStore, &mut TextStore, &mut BTreeMap<u32, ValueRef>) {
+        (&mut self.persistent, &mut self.text, &mut self.references)
     }
 }
 
@@ -105,6 +123,7 @@ impl CellStorage {
                 roots: extent.roots,
                 persistent: CellStore::reserve(extent.cells, extent.references)?,
                 text: TextStore::reserve(&extent.texts)?,
+                references: BTreeMap::new(),
             },
             activations: ActivationStore::default(),
             identities: Identities {
@@ -134,7 +153,10 @@ pub(crate) struct PersistentExtent {
 
 impl PersistentExtent {
     /// Read the persistent region of `prepared`: the globals first, then each persistent root in
-    /// CONSTRUCTION_ROOTS order, each root's own cells only (specification 34 §6.2, O6, O8).
+    /// CONSTRUCTION_ROOTS order (specification 34 §6.2, O6, O8). A root that is not an inheritance
+    /// parent reserves its whole inheritance chain: its own cells, then its parent's, and so on up
+    /// (R0, C1-9c). The inheritance parent of a derived root lies inside that root's range and
+    /// reserves no cells of its own, so no cell is reserved twice.
     pub(crate) fn of(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
         let mut leaves = Leaves::default();
         let mut globals = alloc::vec![None; prepared.layout.entries.len()];
@@ -157,24 +179,33 @@ impl PersistentExtent {
             leaves.add_value(prepared, type_id, range.start, 0)?;
         }
 
-        let mut roots = alloc::vec![None; prepared.roots.entries.len()];
+        let mut roots: Vec<Option<CellRange>> = alloc::vec![None; prepared.roots.entries.len()];
         for (index, root) in prepared.roots.entries.iter().enumerate() {
             let Some(pou) = root.template_pou_id else {
                 continue;
             };
-            let own = prepared
-                .instance_template_cells(pou)
-                .map_or(0, |template| template.range.cells);
-            let range = CellRange {
-                region: LayoutRegion::Persistent,
-                start: cells,
-                cells: own,
+            let range = if root.is_inheritance_parent() {
+                let child = root.parent_root_idx.ok_or(RuntimeError::TypeMismatch)?;
+                inherited_range(prepared, &roots, child, pou)?
+            } else {
+                let chain = chain_of(prepared, pou)?;
+                let total = chain_total(&chain)?;
+                let range = CellRange {
+                    region: LayoutRegion::Persistent,
+                    start: cells,
+                    cells: total,
+                };
+                let mut base = range.start;
+                for &(member, own) in &chain {
+                    if leaves.add_instance(prepared, member, base)? != own {
+                        return Err(RuntimeError::TypeMismatch);
+                    }
+                    base = base.checked_add(own).ok_or(RuntimeError::Overflow)?;
+                }
+                cells = cells.checked_add(total).ok_or(RuntimeError::Overflow)?;
+                range
             };
-            if leaves.add_instance(prepared, pou, range.start)? != own {
-                return Err(RuntimeError::TypeMismatch);
-            }
             roots[index] = Some(range);
-            cells = cells.checked_add(own).ok_or(RuntimeError::Overflow)?;
         }
         Ok(Self {
             globals,
@@ -304,6 +335,78 @@ fn offset_of(base: u32, relative: u32) -> Result<u32, RuntimeError> {
     base.checked_add(relative).ok_or(RuntimeError::Overflow)
 }
 
+/// The own cells of `pou`'s template: none for a POU without a template, which has no own variables
+/// and no parent (O7).
+fn own_cells(prepared: &PreparedModule, pou: u32) -> u32 {
+    prepared
+        .instance_template_cells(pou)
+        .map_or(0, |template| template.range.cells)
+}
+
+/// The POUs of `pou`'s inheritance chain, `pou` first and then each parent, each with the own cells of
+/// its template (O6).
+fn chain_of(prepared: &PreparedModule, pou: u32) -> Result<Vec<(u32, u32)>, RuntimeError> {
+    let mut chain = Vec::new();
+    let mut current = Some(pou);
+    for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
+        let Some(member) = current else {
+            return Ok(chain);
+        };
+        let parent = prepared
+            .instance_template_cells(member)
+            .and_then(|template| template.parent);
+        chain.push((member, own_cells(prepared, member)));
+        current = parent;
+    }
+    Err(RuntimeError::TypeMismatch)
+}
+
+/// The cells of a whole inheritance chain: the sum of its own cells.
+fn chain_total(chain: &[(u32, u32)]) -> Result<u32, RuntimeError> {
+    chain.iter().try_fold(0u32, |sum, &(_, own)| {
+        sum.checked_add(own).ok_or(RuntimeError::Overflow)
+    })
+}
+
+/// The range of the inheritance parent `pou` of the root `child` (R0): it starts where the child's own
+/// cells end, spans its own chain, and must lie inside the child's range.
+fn inherited_range(
+    prepared: &PreparedModule,
+    roots: &[Option<CellRange>],
+    child: u32,
+    pou: u32,
+) -> Result<CellRange, RuntimeError> {
+    let child_range = roots
+        .get(child as usize)
+        .copied()
+        .flatten()
+        .ok_or(RuntimeError::TypeMismatch)?;
+    let child_pou = prepared
+        .roots
+        .entries
+        .get(child as usize)
+        .and_then(|root| root.template_pou_id)
+        .ok_or(RuntimeError::TypeMismatch)?;
+    let start = child_range
+        .start
+        .checked_add(own_cells(prepared, child_pou))
+        .ok_or(RuntimeError::Overflow)?;
+    let cells = chain_total(&chain_of(prepared, pou)?)?;
+    let end = start.checked_add(cells).ok_or(RuntimeError::Overflow)?;
+    let child_end = child_range
+        .start
+        .checked_add(child_range.cells)
+        .ok_or(RuntimeError::Overflow)?;
+    if end > child_end {
+        return Err(RuntimeError::TypeMismatch);
+    }
+    Ok(CellRange {
+        region: LayoutRegion::Persistent,
+        start,
+        cells,
+    })
+}
+
 impl CellStorage {
     /// The installation generation this store's references carry (specification 34 §11.3, MEM-07).
     #[must_use]
@@ -312,16 +415,14 @@ impl CellStorage {
     }
 }
 
-/// Test seams for the cell arm's reads (C1-9b). The write side (C1-9c) is what fills the cells in
-/// the engine; until then a fixture writes its initial values through these accessors.
-#[cfg(test)]
 impl CellStorage {
-    /// The regions, mutably.
+    /// The regions, mutably: the cell arm's writes publish into them (C1-9c).
     pub(crate) fn regions_mut(&mut self) -> &mut CellRegions {
         &mut self.regions
     }
 }
 
+/// Test seams for the cell arm (C1-9b): a fixture writes its initial values through these accessors.
 #[cfg(test)]
 impl CellRegions {
     /// The persistent cells and the text buffers, mutably.

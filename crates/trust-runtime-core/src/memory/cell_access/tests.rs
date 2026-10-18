@@ -18,21 +18,22 @@
 //! ```
 //!
 //! `base_g` and `fb_g` are persistent roots. The `Base` root holds 6 cells: `base_v` (1), `series_v`
-//! (3) and `pair_v` (2). `fb_g` is a `Derived` with one cell, `own_v`, whose parent is the instance
-//! `base_g` holds (the parent link the tests record by hand, until construction does).
+//! (3) and `pair_v` (2). `fb_g` is a `Derived` whose root covers its whole chain (R0, C1-9c): its own
+//! cell `own_v` (1), then the 6 cells of its parent's template, where the parent instance construction
+//! creates for `fb_g` lives. The parent is a separate instance from the one `base_g` holds.
 
 use std::collections::BTreeMap;
 
 use smol_str::SmolStr;
 
 use super::fixture::{
-    pair_value, prepared, series_value, BASE, BASE_DECL, BASE_G, BASE_INSTANCE, BASE_POU,
-    BASE_ROOT, DERIVED, DERIVED_INSTANCE, DERIVED_POU, DINT, DINT_DECL, DINT_G, FB_DECL, FB_G,
-    FB_ROOT, GLOBAL_NAMES, INT_ARRAY, PAIR, REAL, REAL_DECL, STRING_10, TEXT_DECL, WIDE_DECL,
-    WSTRING_5,
+    pair_value, prepared, series_value, BASE, BASE_DECL, BASE_G, BASE_G_INSTANCE, BASE_INSTANCE,
+    BASE_POU, BASE_ROOT, DERIVED, DERIVED_INSTANCE, DERIVED_POU, DINT, DINT_DECL, DINT_G, FB_DECL,
+    FB_G, FB_ROOT, GLOBAL_NAMES, INT_ARRAY, PAIR, PARENT_ROOT, REAL, REAL_DECL, REF_DECL, REF_DINT,
+    STRING_10, TEXT_DECL, WIDE_DECL, WSTRING_5,
 };
 use super::{CellArm, CellReader};
-use crate::memory::layout::CellRange;
+use crate::memory::layout::{CellRange, LayoutRegion};
 use crate::memory::regions::CellStorage;
 use crate::memory::view::{StoreAccess, ValueView};
 use crate::memory::{Generation, MemoryLocation, VariableStorage};
@@ -64,39 +65,10 @@ fn global(cells: &CellStorage, declaration: u32) -> CellRange {
         .expect("the global owns cells")
 }
 
-/// The fixture's initial values, written into the persistent region (specification 34 §6.2).
-fn write_fixture_cells(cells: &mut CellStorage, prepared: &PreparedModule) {
-    let base = cells
-        .regions()
-        .root_range(BASE_ROOT)
-        .expect("the Base root has cells");
-    let derived = cells
-        .regions()
-        .root_range(FB_ROOT)
-        .expect("the Derived root has cells");
+/// The `Base` members of the instance whose cells start at `base`: `base_v` (1 cell), `series_v` (3)
+/// and `pair_v` (2), at the offsets the `Base` layout gives them.
+fn write_base_members(cells: &mut CellStorage, prepared: &PreparedModule, base: CellRange) {
     let writes = [
-        (global(cells, DINT_DECL), DINT, Value::DInt(7)),
-        (global(cells, REAL_DECL), REAL, Value::Real(1.5)),
-        (
-            global(cells, TEXT_DECL),
-            STRING_10,
-            Value::String(SmolStr::new("abc")),
-        ),
-        (
-            global(cells, WIDE_DECL),
-            WSTRING_5,
-            Value::WString(String::from("hi")),
-        ),
-        (
-            global(cells, BASE_DECL),
-            BASE,
-            Value::Instance(BASE_INSTANCE),
-        ),
-        (
-            global(cells, FB_DECL),
-            DERIVED,
-            Value::Instance(DERIVED_INSTANCE),
-        ),
         (
             CellRange {
                 region: base.region,
@@ -124,46 +96,109 @@ fn write_fixture_cells(cells: &mut CellStorage, prepared: &PreparedModule) {
             PAIR,
             pair_value(),
         ),
-        (derived, REAL, Value::Real(2.5)),
     ];
     for (range, type_id, value) in &writes {
         write(cells, prepared, *range, *type_id, value);
     }
 }
 
-/// The `Value` store holding the same globals and instances as the cell arm.
-fn values_store() -> VariableStorage {
+/// The fixture's initial values, written into the persistent region (specification 34 §6.2).
+fn write_fixture_cells(cells: &mut CellStorage, prepared: &PreparedModule) {
+    let base = cells
+        .regions()
+        .root_range(BASE_ROOT)
+        .expect("the Base root has cells");
+    let parent = cells
+        .regions()
+        .root_range(PARENT_ROOT)
+        .expect("the parent root has cells");
+    let derived = cells
+        .regions()
+        .root_range(FB_ROOT)
+        .expect("the Derived root has cells");
+    let derived_own = CellRange {
+        region: derived.region,
+        start: derived.start,
+        cells: 1,
+    };
+    let writes = [
+        (global(cells, DINT_DECL), DINT, Value::DInt(7)),
+        (global(cells, REAL_DECL), REAL, Value::Real(1.5)),
+        (
+            global(cells, TEXT_DECL),
+            STRING_10,
+            Value::String(SmolStr::new("abc")),
+        ),
+        (
+            global(cells, WIDE_DECL),
+            WSTRING_5,
+            Value::WString(String::from("hi")),
+        ),
+        (
+            global(cells, BASE_DECL),
+            BASE,
+            Value::Instance(BASE_G_INSTANCE),
+        ),
+        (
+            global(cells, FB_DECL),
+            DERIVED,
+            Value::Instance(DERIVED_INSTANCE),
+        ),
+        (derived_own, REAL, Value::Real(2.5)),
+        (global(cells, REF_DECL), REF_DINT, Value::Reference(None)),
+    ];
+    for (range, type_id, value) in &writes {
+        write(cells, prepared, *range, *type_id, value);
+    }
+    write_base_members(cells, prepared, base);
+    write_base_members(cells, prepared, parent);
+}
+
+/// The `Value` store holding the same globals and instances as the cell arm: the inheritance parent
+/// of `fb_g`'s instance, `fb_g`'s instance and the instance `base_g` holds, in that order.
+pub(super) fn values_store() -> VariableStorage {
     let mut values = VariableStorage::new();
     values.set_global("Main", Value::Null);
     values.set_global("dint_g", Value::DInt(7));
     values.set_global("real_g", Value::Real(1.5));
     values.set_global("text_g", Value::String(SmolStr::new("abc")));
     values.set_global("wide_g", Value::WString(String::from("hi")));
-    let base = values.try_create_instance("Base").expect("a Base instance");
+    let parent = values.try_create_instance("Base").expect("a Base instance");
     let derived = values
         .try_create_instance("Derived")
         .expect("a Derived instance");
-    assert_eq!((base, derived), (BASE_INSTANCE, DERIVED_INSTANCE));
-    values.set_instance_var(base, "base_v", Value::DInt(5));
-    values.set_instance_var(base, "series_v", series_value());
-    values.set_instance_var(base, "pair_v", pair_value());
+    let base = values.try_create_instance("Base").expect("a Base instance");
+    assert_eq!(
+        (parent, derived, base),
+        (BASE_INSTANCE, DERIVED_INSTANCE, BASE_G_INSTANCE)
+    );
+    for instance in [parent, base] {
+        values.set_instance_var(instance, "base_v", Value::DInt(5));
+        values.set_instance_var(instance, "series_v", series_value());
+        values.set_instance_var(instance, "pair_v", pair_value());
+    }
     values.set_instance_var(derived, "own_v", Value::Real(2.5));
     if let Some(record) = values.get_instance_mut(derived) {
-        record.parent = Some(base);
+        record.parent = Some(parent);
     }
     values.set_global("base_g", Value::Instance(base));
     values.set_global("fb_g", Value::Instance(derived));
+    values.set_global("ref_g", Value::Reference(None));
     values
 }
 
-struct Fixture {
-    prepared: PreparedModule,
-    arm: CellArm,
-    values: VariableStorage,
+/// The fixture: the cell arm, the `Value` store that holds the same program, and the prepared module
+/// that places both.
+pub(super) struct Fixture {
+    pub(super) prepared: PreparedModule,
+    pub(super) arm: CellArm,
+    pub(super) values: VariableStorage,
 }
 
 impl Fixture {
-    fn new() -> Self {
+    /// The fixture, with the same initial values in both stores. The arm's `Value` half holds the
+    /// program root, which owns no cells, and the instance records of construction (R0).
+    pub(super) fn new() -> Self {
         let prepared = prepared();
         let mut cells = CellStorage::construct(&prepared, Generation::FIRST, |_| Ok(()))
             .expect("the persistent region reserves");
@@ -172,16 +207,27 @@ impl Fixture {
             .regions()
             .root_range(BASE_ROOT)
             .expect("the Base root has cells");
-        let derived_range = cells
+        let parent_range = cells
+            .regions()
+            .root_range(PARENT_ROOT)
+            .expect("the parent root has cells");
+        let derived_root = cells
             .regions()
             .root_range(FB_ROOT)
             .expect("the Derived root has cells");
+        // The derived instance's own cell comes first in its root's range; its parent follows.
+        let derived_range = CellRange {
+            region: derived_root.region,
+            start: derived_root.start,
+            cells: 1,
+        };
         let mut arm = CellArm {
             cells,
             values: VariableStorage::new(),
             instances: BTreeMap::new(),
         };
-        arm.register_instance(BASE_INSTANCE, BASE_POU, base_range, None, "Base");
+        arm.values.set_global("Main", Value::Null);
+        arm.register_instance(BASE_INSTANCE, BASE_POU, parent_range, None, "Base");
         arm.register_instance(
             DERIVED_INSTANCE,
             DERIVED_POU,
@@ -189,6 +235,7 @@ impl Fixture {
             Some(BASE_INSTANCE),
             "Derived",
         );
+        arm.register_instance(BASE_G_INSTANCE, BASE_POU, base_range, None, "Base");
         Self {
             prepared,
             arm,
@@ -196,17 +243,17 @@ impl Fixture {
         }
     }
 
-    fn reader(&self) -> CellReader<'_> {
+    pub(super) fn reader(&self) -> CellReader<'_> {
         CellReader::new(&self.prepared, &self.arm)
     }
 }
 
 /// The owned value a view names, read through the view's own cells or borrowed `Value`.
-fn value_of(view: ValueView<'_>) -> Value {
+pub(super) fn value_of(view: ValueView<'_>) -> Value {
     view.materialize().expect("the view materializes")
 }
 
-fn field_segment(name: &str) -> RefSegment {
+pub(super) fn field_segment(name: &str) -> RefSegment {
     RefSegment::Field(SmolStr::new(name))
 }
 
@@ -471,4 +518,59 @@ fn wstring_text_is_none_on_the_cells() {
         .read_global("text_g")
         .expect("text_g reads");
     assert_eq!(text.text(), Some("abc"));
+}
+
+#[test]
+fn a_derived_root_reserves_its_parents_cells() {
+    // Specification 34 §6.2 (MEM-10) and O6, the C1-9b finding (R0): a root's range covers its whole
+    // inheritance chain. The seven globals before the roots take cells 0 to 6 (`dint_g`, `real_g`,
+    // `text_g`, `wide_g`, `base_g`, `fb_g` and `ref_g`, one cell each: a function-block global holds its
+    // instance in one cell, a reference global holds its reference in one cell). `base_g`'s root takes
+    // cells 7 to 12, its six `Base` cells. `fb_g`'s root takes cells 13 to 19: its own `own_v` (one REAL
+    // cell) at 13, then the six cells of its parent's template (`base_v` 1, `series_v` 3, `pair_v` 2) at
+    // 14 to 19, where the parent instance lies. The parent has no root of its own. A root that reserved
+    // only its own template would give `fb_g` one cell and leave the parent with none, so this test
+    // fails then.
+    let fixture = Fixture::new();
+    let regions = fixture.arm.cells.regions();
+    assert_eq!(
+        regions.root_range(BASE_ROOT),
+        Some(CellRange {
+            region: LayoutRegion::Persistent,
+            start: 7,
+            cells: 6,
+        })
+    );
+    assert_eq!(
+        regions.root_range(FB_ROOT),
+        Some(CellRange {
+            region: LayoutRegion::Persistent,
+            start: 13,
+            cells: 7,
+        })
+    );
+    assert_eq!(
+        regions.root_range(PARENT_ROOT),
+        Some(CellRange {
+            region: LayoutRegion::Persistent,
+            start: 14,
+            cells: 6,
+        })
+    );
+    // The parent's `base_v` is the cell at 14, which the fixture wrote as 5 (specification 34 §6.2).
+    assert_eq!(
+        fixture
+            .reader()
+            .read_instance_var(BASE_INSTANCE, "base_v")
+            .map(value_of),
+        Some(Value::DInt(5))
+    );
+    assert_eq!(
+        fixture
+            .reader()
+            .read_instance_field(DERIVED_INSTANCE, "base_v")
+            .ok()
+            .map(value_of),
+        Some(Value::DInt(5))
+    );
 }

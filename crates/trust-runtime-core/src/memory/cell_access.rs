@@ -9,16 +9,17 @@
 //!
 //! The reads take the prepared module through `CellReader`: a cell view needs the layouts that
 //! place its members and elements, and the store-access trait carries no prepared module. The
-//! routing in `vm::engine::store_access` supplies it. The write side is C1-9c.
+//! routing in `vm::engine::store_access` supplies it. The writes are in `cell_write` (C1-9c), which
+//! checks a value before it copies it into the cells.
 
 use alloc::collections::BTreeMap;
 
 use smol_str::SmolStr;
 
-use crate::bytecode::{StorageOwner, TypeData, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::{StorageOwner, TypeData, TypeEntry, BYTECODE_MAX_TYPE_NESTING};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
-use crate::memory::cells::{read_value, Cell};
+use crate::memory::cells::{is_reference_type, read_value, Cell, RefSlot};
 use crate::memory::layout::CellRange;
 use crate::memory::regions::{CellRegions, CellStorage};
 use crate::memory::view::ValueView;
@@ -26,9 +27,18 @@ use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation, Variab
 use crate::value::{array_offset_i64, RefPath, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::{PreparedModule, VmTrap};
 
+pub(crate) use cell_write::{CellPatch, CellWriter};
+
+/// The write side of the arm (C1-9c), in its own file.
+#[path = "cell_write.rs"]
+mod cell_write;
+
 /// The primitive encoding of `STRING` (`prim_id` 24; the encodings of
 /// `vm::type_policy::primitive_value_matches`).
 const STRING_PRIMITIVE: u16 = 24;
+
+/// The primitive encoding of `WSTRING` (`prim_id` 25).
+const WSTRING_PRIMITIVE: u16 = 25;
 
 /// The layouts and the region a cell view reads through: the prepared module places its members
 /// and elements, and the region holds its cells and text buffers.
@@ -76,14 +86,43 @@ impl<'a> CellsView<'a> {
         core::str::from_utf8(self.regions.text().bytes(*slot)?).ok()
     }
 
-    /// The owned value of the cells at `range`, read with `read_value` (the only allocating read).
+    /// The owned value of the cells at `range`, read with `read_value` (the only allocating read). A
+    /// reference leaf holding a reference answers the `ValueRef` it keeps (O9).
     pub(crate) fn materialize(self, range: CellRange, type_id: u32) -> Result<Value, RuntimeError> {
         let cells = self
             .regions
             .persistent()
             .cells(range)
             .ok_or(RuntimeError::InvalidExecutionState)?;
+        if let Some(reference) = self.reference_leaf(range, type_id)? {
+            return Ok(Value::Reference(Some(reference.clone())));
+        }
         read_value(cells, type_id, self.prepared, self.regions.text())
+    }
+
+    /// The `ValueRef` a reference leaf at `range` holds, when it holds one: `None` for a leaf of
+    /// another type and for a null reference.
+    fn reference_leaf(
+        self,
+        range: CellRange,
+        type_id: u32,
+    ) -> Result<Option<&'a ValueRef>, RuntimeError> {
+        if !is_reference_type(self.prepared, type_id) {
+            return Ok(None);
+        }
+        let cells = self
+            .regions
+            .persistent()
+            .cells(range)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        match cells.first() {
+            Some(Cell::Ref(RefSlot(cell))) => self
+                .regions
+                .reference(*cell)
+                .map(Some)
+                .ok_or(RuntimeError::InvalidExecutionState),
+            _ => Ok(None),
+        }
     }
 }
 
@@ -249,11 +288,14 @@ impl<'a> CellReader<'a> {
             .map(ValueView::Value)
     }
 
-    /// The view of the global named `name`.
+    /// The view of the global named `name`. A declared global that owns no cells, the program root,
+    /// is read from the `Value` half.
     pub(crate) fn read_global(self, name: &str) -> Option<ValueView<'a>> {
         let ordinal = self.global_index(name)?;
-        let (range, type_id) = self.global(ordinal)?;
-        Some(self.view(range, type_id))
+        match self.global(ordinal) {
+            Some((range, type_id)) => Some(self.view(range, type_id)),
+            None => self.arm.values.get_global(name).map(ValueView::Value),
+        }
     }
 
     /// The declared name of the global at `offset`, in declaration order.
@@ -428,6 +470,13 @@ impl<'a> CellReader<'a> {
         Some((range, type_id))
     }
 
+    /// The `Value` half's index of the global at declaration ordinal `ordinal`, which owns no cells:
+    /// the half holds such a global under its name (C1-9c).
+    fn values_global(self, ordinal: usize) -> Option<usize> {
+        let name = self.global_name(ordinal)?;
+        self.arm.values.globals().get_index_of(name)
+    }
+
     /// The declaration-order ordinal of the global named `name`.
     fn global_index(self, name: &str) -> Option<usize> {
         self.prepared
@@ -512,7 +561,10 @@ impl<'a> CellReader<'a> {
         match location {
             MemoryLocation::Global => match self.global(offset) {
                 Some((range, type_id)) => self.walk(range, type_id, path),
-                None => Ok(Target::Values(location, offset, path)),
+                None => {
+                    let index = self.values_global(offset).ok_or(VmTrap::NullReference)?;
+                    Ok(Target::Values(MemoryLocation::Global, index, path))
+                }
             },
             MemoryLocation::Instance(instance) if self.arm.instances.contains_key(&instance) => {
                 let (_, _, range, type_id) = self
@@ -604,12 +656,17 @@ fn member_name(prepared: &PreparedModule, name_idx: u32) -> Option<&str> {
 
 /// The `TYPE_TABLE` ordinal of `type_id` with its aliases resolved, and the type's data.
 fn resolve_alias(prepared: &PreparedModule, type_id: u32) -> Option<(u32, &TypeData)> {
+    resolve_entry(prepared, type_id).map(|(resolved, entry)| (resolved, &entry.data))
+}
+
+/// The `TYPE_TABLE` ordinal of `type_id` with its aliases resolved, and the resolved entry.
+fn resolve_entry(prepared: &PreparedModule, type_id: u32) -> Option<(u32, &TypeEntry)> {
     let mut current = type_id;
     for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
         let entry = prepared.type_table().entries.get(current as usize)?;
         match &entry.data {
             TypeData::Alias { target_type_id } => current = *target_type_id,
-            data => return Some((current, data)),
+            _ => return Some((current, entry)),
         }
     }
     None
@@ -668,7 +725,11 @@ fn step(prepared: &PreparedModule, type_id: u32, segment: &RefSegment) -> Option
     }
 }
 
+#[path = "cell_charge.rs"]
+mod cell_charge;
 #[cfg(all(test, feature = "std"))]
 mod fixture;
 #[cfg(all(test, feature = "std"))]
 mod tests;
+#[cfg(all(test, feature = "std"))]
+mod write_tests;

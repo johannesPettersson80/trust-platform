@@ -39,9 +39,12 @@ const MAIN_POU: u32 = 1;
 pub(super) const BASE_POU: u32 = 2;
 pub(super) const DERIVED_POU: u32 = 3;
 
-/// The identities the `Value` store issues to the two persistent roots, and records in the arm.
+/// The identities the `Value` store issues. `BASE_INSTANCE` is the inheritance parent of `fb_g`'s
+/// instance, which construction creates for the derived root; `DERIVED_INSTANCE` is `fb_g`'s instance;
+/// `BASE_G_INSTANCE` is the `Base` instance the global `base_g` holds.
 pub(super) const BASE_INSTANCE: InstanceId = InstanceId(0);
 pub(super) const DERIVED_INSTANCE: InstanceId = InstanceId(1);
+pub(super) const BASE_G_INSTANCE: InstanceId = InstanceId(2);
 
 /// The globals' ordinals in declaration order (`PreparedModule::declarations` for the global
 /// owner, which leaves out the program's own root), as the `Value` store and the references number
@@ -49,8 +52,8 @@ pub(super) const DERIVED_INSTANCE: InstanceId = InstanceId(1);
 pub(super) const DINT_G: usize = 1;
 pub(super) const BASE_G: usize = 5;
 pub(super) const FB_G: usize = 6;
-pub(super) const GLOBAL_NAMES: [&str; 7] = [
-    "Main", "dint_g", "real_g", "text_g", "wide_g", "base_g", "fb_g",
+pub(super) const GLOBAL_NAMES: [&str; 8] = [
+    "Main", "dint_g", "real_g", "text_g", "wide_g", "base_g", "fb_g", "ref_g",
 ];
 
 /// The declaration ids (STORAGE_LAYOUT indexes) of the globals with cells.
@@ -61,9 +64,19 @@ pub(super) const WIDE_DECL: u32 = 4;
 pub(super) const BASE_DECL: u32 = 5;
 pub(super) const FB_DECL: u32 = 6;
 
-/// The CONSTRUCTION_ROOTS indexes of the `Base` and `Derived` instances (the program is index 0).
+/// The `REF_TO DINT` global `ref_g` (O9): its ordinal, its declaration index, its TYPE_TABLE entry and its
+/// reference binding (RefEntry 17, after the 10 initializer results).
+pub(super) const REF_G: usize = 7;
+/// The storage slot of `ref_g`: its ordinal among the globals, which the slots of the globals are dense in.
+const REF_SLOT: u32 = 7;
+pub(super) const REF_DECL: u32 = 11;
+pub(super) const REF_DINT: u32 = 9;
+
+/// The CONSTRUCTION_ROOTS indexes of the `Base` and `Derived` instances (the program is index 0), and
+/// of the inheritance parent of `fb_g`'s instance, which lies inside `FB_ROOT`'s range (R0).
 pub(super) const BASE_ROOT: usize = 5;
 pub(super) const FB_ROOT: usize = 6;
+pub(super) const PARENT_ROOT: usize = 7;
 
 /// The number of initializers: one per variable declaration with storage.
 const INITIALIZERS: u32 = 10;
@@ -284,6 +297,7 @@ fn strings() -> StringTable {
     .map(SmolStr::new)
     .collect();
     entries.extend((0..INITIALIZERS).map(|index| SmolStr::new(format!("@init/{index}/result"))));
+    entries.push(SmolStr::new("ref_g"));
     StringTable { entries }
 }
 
@@ -322,6 +336,12 @@ fn types() -> TypeTable {
                     pou_id: DERIVED_POU,
                 },
             ),
+            anonymous(
+                TypeKind::Reference,
+                TypeData::Reference {
+                    target_type_id: DINT,
+                },
+            ),
         ],
     };
     table.offsets = compute_type_offsets_for_entries(&table.entries).expect("type offsets");
@@ -331,6 +351,8 @@ fn types() -> TypeTable {
 fn refs() -> RefTable {
     let mut entries: Vec<RefEntry> = (0..=FB_DECL).map(global_ref).collect();
     entries.extend((0..INITIALIZERS).map(result_ref));
+    entries.push(global_ref(REF_SLOT));
+    entries.push(result_ref(INITIALIZERS));
     RefTable { entries }
 }
 
@@ -392,7 +414,7 @@ fn pous() -> PouIndex {
 /// and `Derived`. `Base`'s demand is its own members (1 + 1 + 4 + 3 = 9); `Derived`'s is its parent's
 /// plus its own (1 + 9 + 1 = 11), as the validator's demand model counts it.
 fn storage_layout() -> StorageLayout {
-    StorageLayout {
+    let mut layout = StorageLayout {
         entries: vec![
             declaration(
                 StorageOwner::Global,
@@ -505,11 +527,23 @@ fn storage_layout() -> StorageLayout {
                 1,
             ),
         ],
-    }
+    };
+    layout.entries.push(declaration(
+        StorageOwner::Global,
+        StorageRole::Variable,
+        None,
+        28,
+        Some(REF_DINT),
+        REF_SLOT,
+        Some(17),
+        1,
+    ));
+    layout
 }
 
 /// The construction roots: the program's root, one for every global variable (the validator
-/// requires each global to be a root), and the `Base` and `Derived` instances' roots.
+/// requires each global to be a root), the `Base` and `Derived` instances' roots, and the inheritance
+/// parent of `fb_g`'s instance, which the encoder emits with the inheritance flag (`flags` 1).
 fn construction_roots() -> ConstructionRoots {
     let root =
         |declaration_idx: u32, instance_owner_id: Option<u32>, template_pou_id: Option<u32>| {
@@ -526,6 +560,22 @@ fn construction_roots() -> ConstructionRoots {
     entries.extend((DINT_DECL..=WIDE_DECL).map(|declaration| root(declaration, None, None)));
     entries.push(root(BASE_DECL, Some(1), Some(BASE_POU)));
     entries.push(root(FB_DECL, Some(2), Some(DERIVED_POU)));
+    entries.push(ConstructionRoot {
+        declaration_idx: FB_DECL,
+        binding_ref_idx: None,
+        instance_owner_id: Some(3),
+        parent_root_idx: Some(u32::try_from(FB_ROOT).expect("a root index fits a u32")),
+        template_pou_id: Some(BASE_POU),
+        flags: 1,
+    });
+    entries.push(ConstructionRoot {
+        declaration_idx: REF_DECL,
+        binding_ref_idx: Some(17),
+        instance_owner_id: None,
+        parent_root_idx: None,
+        template_pou_id: None,
+        flags: 0,
+    });
     ConstructionRoots { entries }
 }
 
@@ -564,6 +614,7 @@ fn fixture() -> BytecodeModule {
                     initializer(8, Some(BASE_POU), 14),
                     initializer(9, Some(BASE_POU), 15),
                     initializer(10, Some(DERIVED_POU), 16),
+                    initializer(REF_DECL, None, 18),
                 ],
             }),
         },
@@ -587,6 +638,7 @@ fn fixture() -> BytecodeModule {
                     var_meta(25, INT_ARRAY, 14),
                     var_meta(26, PAIR, 15),
                     var_meta(27, REAL, 16),
+                    var_meta(28, REF_DINT, 18),
                 ],
             }),
         },

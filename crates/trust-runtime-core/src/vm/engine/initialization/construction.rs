@@ -545,7 +545,9 @@ impl EngineState<'_> {
         // the storage field is free for the destination write, so the seam is named
         // to reach it without leaving the store API.
         match declared.owner {
-            StorageOwner::Global => StoreMutate::set_global(&mut self.data.storage, name, value),
+            StorageOwner::Global => {
+                StoreMutate::set_global(&mut self.data.storage, name, value);
+            }
             StorageOwner::Instance => {
                 if !self.data.storage.write_instance_var(
                     instance.ok_or_else(|| RuntimeError::InvalidExecutionState)?,

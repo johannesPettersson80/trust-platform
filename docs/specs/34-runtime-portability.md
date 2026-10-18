@@ -1098,8 +1098,10 @@ later lifetime check skips scalar-only layouts. A `STRING[n]` leaf reserves `n` 
 `WSTRING[n]` leaf `2n` bytes of UTF-16 code units; a `STRING` or `WSTRING` declared without a length
 reserves 80 and 160 bytes (D-C1-1, D-C1-2), which supersedes the earlier `4 × n` unit. Globals, each
 persistent root (one range per root, so two instances of one type get two ranges; a derived
-function block's template holds its own cells and a link to its parent's template), each POU's
-locals and each initializer result map to a cell range of the persistent or the activation region,
+function block's template holds its own cells and a link to its parent's template, and a derived
+root's range covers its whole inheritance chain: its own cells, then its parent's cells and so on up,
+the parent instance that construction creates for it lying inside that range and reserving no cells of
+its own; C1-9c), each POU's locals and each initializer result map to a cell range of the persistent or the activation region,
 and a `REF_FIELD` member name resolves to a member ordinal at preparation. The prepared layout tables
 and the work of computing them are charged once at preparation, under the admitted profile's limits.
 A region's cells are only recorded at preparation, not charged: construction charges them when it

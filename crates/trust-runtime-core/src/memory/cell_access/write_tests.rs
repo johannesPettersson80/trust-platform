@@ -1,0 +1,683 @@
+//! Tests of the cell arm's writes (specification 34 §6.2, MEM-10; C1-9c). They write the same program
+//! into the cell arm and into the `Value` store and compare the reads, and each expected value is worked
+//! out by hand from the ST source in `super::tests`:
+//!
+//! ```text
+//! TYPE Pair : STRUCT x : INT; y : INT; END_STRUCT END_TYPE
+//! FUNCTION_BLOCK Base VAR base_v : DINT; series_v : ARRAY[1..3] OF INT; pair_v : Pair; END_VAR
+//! FUNCTION_BLOCK Derived EXTENDS Base VAR own_v : REAL; END_VAR
+//! VAR_GLOBAL dint_g : DINT; real_g : REAL; text_g : STRING[10]; wide_g : WSTRING[5];
+//!            base_g : Base; fb_g : Derived; END_VAR
+//! ```
+//!
+//! The initial values are `dint_g` 7, `real_g` 1.5, `text_g` 'abc', `wide_g` 'hi', `base_g.base_v` 5,
+//! `base_g.series_v` 1, 2, 3, `base_g.pair_v` (10, 20), `fb_g.own_v` 2.5 and the 5, 1, 2, 3, (10, 20) of
+//! the instance `fb_g` inherits.
+
+use std::sync::Arc;
+
+use smol_str::SmolStr;
+
+use super::cell_charge::CopyCharge;
+use super::fixture::{
+    BASE_G, BASE_G_INSTANCE, DERIVED_INSTANCE, DINT_G, FB_G, GLOBAL_NAMES, REF_G,
+};
+use super::tests::{field_segment, value_of, Fixture};
+use super::CellWriter;
+use crate::collections::OrderedMap;
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
+use crate::memory::{Generation, MemoryLocation};
+use crate::value::{RefSegment, StructValue, Value, ValueRef, ValueRefView, MAX_STRING_CAPACITY};
+
+/// The `GLOBAL_NAMES` ordinals of the globals the tests write.
+const REAL_G: usize = 2;
+const TEXT_G: usize = 3;
+const WIDE_G: usize = 4;
+const MAIN_G: usize = 0;
+
+/// Run `write` on a writer of the cell arm of `fixture`.
+fn with_writer<T>(fixture: &mut Fixture, write: impl FnOnce(&mut CellWriter<'_>) -> T) -> T {
+    let mut writer = CellWriter::new(&fixture.prepared, &mut fixture.arm);
+    write(&mut writer)
+}
+
+/// The cells of a cell view's copy charge, computed from the view (TIME-08; C1-9c, R5).
+fn charge_of(view: ValueView<'_>) -> CopyCharge {
+    match view {
+        ValueView::Cells {
+            cells,
+            range,
+            type_id,
+        } => cells
+            .copy_charge(range, type_id, 0)
+            .expect("the cells of a value copy"),
+        ValueView::Value(_) => panic!("a view of the cell arm holds cells"),
+    }
+}
+
+#[test]
+fn write_normalizes_to_the_declared_type() {
+    // Specification 34 §6.2 (O11, R2): a write is widened by the declared type, never by the stored
+    // variant. A SINT written to `dint_g` (DINT) reads back as DINT 3, and an INT written to `real_g`
+    // (REAL) as REAL 2.0. The `Value` store widens by the variant it holds (DInt, Real) and gives the
+    // same. A cell arm that stored the SINT unwidened would refuse it, since a DINT cell holds no SINT.
+    let mut fixture = Fixture::new();
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, DINT_G, Value::SInt(3))
+    }));
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, REAL_G, Value::Int(2))
+    }));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        DINT_G,
+        Value::SInt(3)
+    ));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        REAL_G,
+        Value::Int(2)
+    ));
+    assert_eq!(
+        fixture.reader().read_global("dint_g").map(value_of),
+        Some(Value::DInt(3))
+    );
+    assert_eq!(
+        fixture.reader().read_global("real_g").map(value_of),
+        Some(Value::Real(2.0))
+    );
+    assert_eq!(
+        StoreAccess::read_global(&fixture.values, "dint_g").map(value_of),
+        Some(Value::DInt(3))
+    );
+    assert_eq!(
+        StoreAccess::read_global(&fixture.values, "real_g").map(value_of),
+        Some(Value::Real(2.0))
+    );
+}
+
+#[test]
+fn a_null_slot_is_not_widened() {
+    // Specification 34 §6.2 (O11): a slot that holds Null is not widened, as the `Value` store keeps it
+    // (`value/types.rs:943`, the last arm). The program root `Main` holds Null on the `Value` half of both
+    // stores, so a SINT 3 written over it stays a SINT 3, not an INT or a DINT. A Null written over the
+    // cell-backed `dint_g` leaves the empty cell, which reads as Null and not as the DINT zero.
+    let mut fixture = Fixture::new();
+    assert_eq!(
+        fixture.reader().read_global("Main").map(value_of),
+        Some(Value::Null)
+    );
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, MAIN_G, Value::SInt(3))
+    }));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        MAIN_G,
+        Value::SInt(3)
+    ));
+    assert_eq!(
+        fixture.reader().read_global("Main").map(value_of),
+        Some(Value::SInt(3))
+    );
+    assert_eq!(
+        StoreAccess::read_global(&fixture.values, "Main").map(value_of),
+        Some(Value::SInt(3))
+    );
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, DINT_G, Value::Null)
+    }));
+    assert_eq!(
+        fixture.reader().read_global("dint_g").map(value_of),
+        Some(Value::Null)
+    );
+}
+
+#[test]
+fn refused_write_leaves_every_cell_unchanged() {
+    // Specification 34 §6.2 (R4): a refused write copies nothing. A `Pair` whose `x` is a valid INT and
+    // whose `y` is a BOOL is refused, because `y` does not match INT. A writer that copied `x` before it
+    // met the refusal of `y` would leave `x` at 1, so the test reads both members back: `base_g.pair_v`
+    // still holds x 10 and y 20.
+    let mut fixture = Fixture::new();
+    let mut fields = OrderedMap::default();
+    fields.insert(SmolStr::new("x"), Value::Int(1));
+    fields.insert(SmolStr::new("y"), Value::Bool(true));
+    let refused = Value::Struct(Arc::new(StructValue::from_canonical_parts(
+        SmolStr::new("Pair"),
+        fields,
+    )));
+    assert!(!with_writer(&mut fixture, |writer| {
+        StoreMutate::write_instance_var(writer, BASE_G_INSTANCE, "pair_v", refused.clone())
+    }));
+    assert!(fixture
+        .reader()
+        .prepare_write(
+            MemoryLocation::Global,
+            BASE_G,
+            &[field_segment("pair_v")],
+            &refused
+        )
+        .is_err());
+    assert_eq!(
+        fixture
+            .reader()
+            .read_path(
+                MemoryLocation::Global,
+                BASE_G,
+                &[field_segment("pair_v"), field_segment("x")]
+            )
+            .ok()
+            .map(value_of),
+        Some(Value::Int(10))
+    );
+    assert_eq!(
+        fixture
+            .reader()
+            .read_path(
+                MemoryLocation::Global,
+                BASE_G,
+                &[field_segment("pair_v"), field_segment("y")]
+            )
+            .ok()
+            .map(value_of),
+        Some(Value::Int(20))
+    );
+}
+
+#[test]
+fn a_text_write_is_cut_at_its_capacity() {
+    // Specification 34 §6.2 (R3) and IEC 61131-3 Ed.3 §6.4.2.2: a text is cut to its declared capacity.
+    // `text_g` is STRING[10], so the 15 characters 'abcdefghijklmno' keep their first 10. `wide_g` is
+    // WSTRING[5], so 'abcdefg' keeps its first 5 UTF-16 code units. A cell arm that did not cut would
+    // store all 15 and all 7.
+    let mut fixture = Fixture::new();
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(
+            writer,
+            MemoryLocation::Global,
+            TEXT_G,
+            Value::String(SmolStr::new("abcdefghijklmno")),
+        )
+    }));
+    assert_eq!(
+        fixture.reader().read_global("text_g").map(value_of),
+        Some(Value::String(SmolStr::new("abcdefghij")))
+    );
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(
+            writer,
+            MemoryLocation::Global,
+            WIDE_G,
+            Value::WString(String::from("abcdefg")),
+        )
+    }));
+    assert_eq!(
+        fixture.reader().read_global("wide_g").map(value_of),
+        Some(Value::WString(String::from("abcde")))
+    );
+}
+
+/// Specification 34 §6.2 and §3.1 of the C1-9 note: the same writes to the cell arm and to the `Value`
+/// store give the same reads. Each written value has its target's declared type, so both stores keep it
+/// as written. The expected values, worked out by hand, are: dint_g 3 (written 4, then the INT 3 by
+/// reference, widened to DINT), real_g 2.5, text_g 'xyz', base_g.base_v 9, base_g.series_v[2] 7,
+/// base_g.pair_v.y 33, fb_g.own_v 1.5, and the parent's base_v 5, which `base_g` does not change.
+#[test]
+fn cell_writes_then_reads_equal_value_writes_then_reads() {
+    let mut fixture = Fixture::new();
+    apply_cell_and_value_writes(&mut fixture);
+    assert_cell_and_value_reads_equal(&fixture);
+}
+
+/// The same writes applied to the cell arm and to the `Value` store of `fixture`.
+#[allow(
+    clippy::too_many_lines,
+    reason = "the writes of both stores, one statement each, in the order the test documents"
+)]
+fn apply_cell_and_value_writes(fixture: &mut Fixture) {
+    assert!(with_writer(fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, DINT_G, Value::DInt(4))
+    }));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        DINT_G,
+        Value::DInt(4)
+    ));
+    assert!(with_writer(fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, REAL_G, Value::Real(2.5))
+    }));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        REAL_G,
+        Value::Real(2.5)
+    ));
+    assert!(with_writer(fixture, |writer| {
+        StoreMutate::write_slot(
+            writer,
+            MemoryLocation::Global,
+            TEXT_G,
+            Value::String(SmolStr::new("xyz")),
+        )
+    }));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        TEXT_G,
+        Value::String(SmolStr::new("xyz"))
+    ));
+    assert!(with_writer(fixture, |writer| {
+        StoreMutate::write_instance_var(writer, BASE_G_INSTANCE, "base_v", Value::DInt(9))
+    }));
+    assert!(StoreMutate::write_instance_var(
+        &mut fixture.values,
+        BASE_G_INSTANCE,
+        "base_v",
+        Value::DInt(9)
+    ));
+    assert!(with_writer(fixture, |writer| {
+        StoreMutate::write_instance_var(writer, DERIVED_INSTANCE, "own_v", Value::Real(1.5))
+    }));
+    assert!(StoreMutate::write_instance_var(
+        &mut fixture.values,
+        DERIVED_INSTANCE,
+        "own_v",
+        Value::Real(1.5)
+    ));
+
+    // Element and member writes, prepared on each store and committed once.
+    let element = [field_segment("series_v"), RefSegment::Index(vec![2])];
+    let cell_prepared = fixture
+        .reader()
+        .prepare_write(MemoryLocation::Global, BASE_G, &element, &Value::Int(7))
+        .expect("the element prepares")
+        .expect("the element is a target");
+    assert!(with_writer(fixture, |writer| {
+        StoreMutate::commit_write(
+            writer,
+            &element,
+            Value::Int(7),
+            cell_prepared,
+            MAX_STRING_CAPACITY,
+        )
+    }));
+    let value_prepared = StoreAccess::prepare_write(
+        &fixture.values,
+        MemoryLocation::Global,
+        BASE_G,
+        &element,
+        &Value::Int(7),
+    )
+    .expect("the element prepares in the value store")
+    .expect("the element is a target in the value store");
+    assert!(StoreMutate::commit_write(
+        &mut fixture.values,
+        &element,
+        Value::Int(7),
+        value_prepared,
+        MAX_STRING_CAPACITY
+    ));
+
+    let member = [field_segment("pair_v"), field_segment("y")];
+    let cell_prepared = fixture
+        .reader()
+        .prepare_write(MemoryLocation::Global, BASE_G, &member, &Value::Int(33))
+        .expect("the member prepares")
+        .expect("the member is a target");
+    assert!(with_writer(fixture, |writer| {
+        StoreMutate::commit_write(
+            writer,
+            &member,
+            Value::Int(33),
+            cell_prepared,
+            MAX_STRING_CAPACITY,
+        )
+    }));
+    let value_prepared = StoreAccess::prepare_write(
+        &fixture.values,
+        MemoryLocation::Global,
+        BASE_G,
+        &member,
+        &Value::Int(33),
+    )
+    .expect("the member prepares in the value store")
+    .expect("the member is a target in the value store");
+    assert!(StoreMutate::commit_write(
+        &mut fixture.values,
+        &member,
+        Value::Int(33),
+        value_prepared,
+        MAX_STRING_CAPACITY
+    ));
+
+    // A write through a reference to `dint_g`, with no path.
+    let reference = ValueRefView {
+        location: MemoryLocation::Global,
+        offset: DINT_G,
+        generation: Generation::FIRST,
+        path: &[],
+    };
+    assert_eq!(
+        with_writer(fixture, |writer| {
+            StoreMutate::write_reference(writer, reference, Value::Int(3))
+        }),
+        Ok(true)
+    );
+    assert_eq!(
+        StoreMutate::write_reference(&mut fixture.values, reference, Value::Int(3)),
+        Ok(true)
+    );
+}
+
+/// Every global and every path read compares the two stores, and the hand values hold.
+fn assert_cell_and_value_reads_equal(fixture: &Fixture) {
+    for (ordinal, name) in GLOBAL_NAMES.iter().enumerate() {
+        let from_cells = fixture.reader().read_global(name).map(value_of);
+        assert_eq!(
+            from_cells,
+            StoreAccess::read_global(&fixture.values, name).map(value_of),
+            "global {name} (ordinal {ordinal})"
+        );
+    }
+    assert_eq!(
+        fixture.reader().read_global("dint_g").map(value_of),
+        Some(Value::DInt(3))
+    );
+    assert_eq!(
+        fixture.reader().read_global("real_g").map(value_of),
+        Some(Value::Real(2.5))
+    );
+    assert_eq!(
+        fixture.reader().read_global("text_g").map(value_of),
+        Some(Value::String(SmolStr::new("xyz")))
+    );
+    assert_eq!(
+        fixture.reader().read_global("Main").map(value_of),
+        Some(Value::Null)
+    );
+
+    let paths: [(usize, Vec<RefSegment>, Value); 5] = [
+        (BASE_G, vec![field_segment("base_v")], Value::DInt(9)),
+        (
+            BASE_G,
+            vec![field_segment("series_v"), RefSegment::Index(vec![2])],
+            Value::Int(7),
+        ),
+        (
+            BASE_G,
+            vec![field_segment("pair_v"), field_segment("y")],
+            Value::Int(33),
+        ),
+        (FB_G, vec![field_segment("own_v")], Value::Real(1.5)),
+        (FB_G, vec![field_segment("base_v")], Value::DInt(5)),
+    ];
+    for (ordinal, path, expected) in &paths {
+        let from_cells = fixture
+            .reader()
+            .read_path(MemoryLocation::Global, *ordinal, path)
+            .ok()
+            .map(value_of);
+        assert_eq!(
+            from_cells,
+            Some(expected.clone()),
+            "path of global {ordinal}"
+        );
+        assert_eq!(
+            from_cells,
+            StoreAccess::read_path(&fixture.values, MemoryLocation::Global, *ordinal, path)
+                .ok()
+                .map(value_of),
+            "path of global {ordinal} in the value store"
+        );
+    }
+}
+
+#[test]
+fn set_global_takes_declared_names_only() {
+    // Specification 34 §6.2 (MEM-10, O15): a name no declaration holds is refused and stores nothing;
+    // a declared global takes its value. The `Value` store would insert `undeclared` and answer true.
+    let mut fixture = Fixture::new();
+    assert!(!with_writer(&mut fixture, |writer| {
+        StoreMutate::set_global(writer, "undeclared", Value::DInt(1))
+    }));
+    assert_eq!(
+        fixture.reader().read_global("undeclared").map(value_of),
+        None
+    );
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::set_global(writer, "dint_g", Value::DInt(8))
+    }));
+    assert_eq!(
+        fixture.reader().read_global("dint_g").map(value_of),
+        Some(Value::DInt(8))
+    );
+}
+
+#[test]
+fn a_persistent_instance_ends_only_with_its_generation() {
+    // Specification 34 §6.2 (the C1-9 note, `remove_instance`): a persistent instance is not released
+    // by `remove_instance`; it ends with its generation. The refused removal leaves `base_g` readable, with
+    // base_v 5 (the value the fixture wrote into its cells).
+    let mut fixture = Fixture::new();
+    assert!(!with_writer(&mut fixture, |writer| {
+        StoreMutate::remove_instance(writer, BASE_G_INSTANCE)
+    }));
+    assert_eq!(
+        fixture
+            .reader()
+            .read_instance_var(BASE_G_INSTANCE, "base_v")
+            .map(value_of),
+        Some(Value::DInt(5))
+    );
+    assert!(!with_writer(&mut fixture, |writer| {
+        StoreMutate::write_instance_var(writer, BASE_G_INSTANCE, "undeclared", Value::DInt(1))
+    }));
+}
+
+#[test]
+fn a_copy_of_a_cell_value_charges_what_the_value_copy_charges() {
+    // TIME-08 and C1-9c (R5): the copy charge of a value, computed from its cells, with the units of the
+    // `Value` copy worked out by hand. `series_v` (an ARRAY of three INT) costs 1 + 3 = 4 work units, and
+    // 3 leaves of one cell (16 bytes) each, 48 bytes. `pair_v` (a Pair of two INT) costs 1 + 2 = 3 units
+    // and 2 leaves, 32 bytes. The STRING 'abc' costs its 3 bytes and no work. The WSTRING 'hi' costs one
+    // unit and 4 bytes (two UTF-16 code units of two bytes). The instance `base_g` copies nothing.
+    let fixture = Fixture::new();
+    let reader = fixture.reader();
+    let series = reader
+        .read_path(MemoryLocation::Global, BASE_G, &[field_segment("series_v")])
+        .expect("series_v reads");
+    assert_eq!(
+        charge_of(series),
+        CopyCharge {
+            work: 4,
+            allocation: 48,
+        }
+    );
+    let pair = reader
+        .read_path(MemoryLocation::Global, BASE_G, &[field_segment("pair_v")])
+        .expect("pair_v reads");
+    assert_eq!(
+        charge_of(pair),
+        CopyCharge {
+            work: 3,
+            allocation: 32,
+        }
+    );
+    let text = reader.read_global("text_g").expect("text_g reads");
+    assert_eq!(
+        charge_of(text),
+        CopyCharge {
+            work: 0,
+            allocation: 3,
+        }
+    );
+    let wide = reader.read_global("wide_g").expect("wide_g reads");
+    assert_eq!(
+        charge_of(wide),
+        CopyCharge {
+            work: 1,
+            allocation: 4,
+        }
+    );
+    let instance = reader.read_global("base_g").expect("base_g reads");
+    assert_eq!(charge_of(instance), CopyCharge::default());
+}
+
+#[test]
+fn a_character_write_charges_the_utf8_length_of_its_text() {
+    // TIME-08 and C1-9c (R5), `charge_string_path_write`: a character write charges the text's length plus
+    // four units, three work units and one 16-byte cell of allocation for each unit. `text_g` is 'abc' (3
+    // bytes), so 3 + 4 = 7 units: 21 work and 112 bytes. `wide_g` is 'hi', whose UTF-8 length is 2 (not its
+    // 4 bytes of UTF-16), so 2 + 4 = 6 units: 18 work and 96 bytes. A path with no index on a text charges
+    // nothing.
+    let fixture = Fixture::new();
+    let reader = fixture.reader();
+    assert_eq!(
+        reader
+            .text_element_charge(
+                MemoryLocation::Global,
+                TEXT_G,
+                &[RefSegment::Index(vec![1])]
+            )
+            .expect("a charge"),
+        Some(CopyCharge {
+            work: 21,
+            allocation: 112,
+        })
+    );
+    assert_eq!(
+        reader
+            .text_element_charge(
+                MemoryLocation::Global,
+                WIDE_G,
+                &[RefSegment::Index(vec![1])]
+            )
+            .expect("a charge"),
+        Some(CopyCharge {
+            work: 18,
+            allocation: 96,
+        })
+    );
+    assert_eq!(
+        reader
+            .text_element_charge(MemoryLocation::Global, BASE_G, &[field_segment("series_v")])
+            .expect("no charge is not a refusal"),
+        None
+    );
+    // The declared name of the global at ordinal FB_G (6) is `fb_g`, in declaration order.
+    assert_eq!(reader.global_name(FB_G).map(SmolStr::as_str), Some("fb_g"));
+}
+
+#[test]
+fn a_reference_leaf_holds_its_value_ref_on_the_value_side() {
+    // Specification 34 §6.2 and O9 (R3, C1-9c): a non-null reference leaf holds its `ValueRef` on the
+    // `Value` side and reads back as the reference written. `ref_g` is a `REF_TO DINT` of one cell. The
+    // reference written names `base_g.pair_v.y` (`base_g` is ordinal 5), a path of two field segments, so
+    // its copy costs 1 + 2 = 3 work units and 2 cells of allocation (32 bytes). A null reference frees the
+    // leaf, and an INT is refused, which leaves the leaf as it was.
+    let mut fixture = Fixture::new();
+    let target = ValueRef {
+        location: MemoryLocation::Global,
+        offset: 5,
+        generation: Generation::FIRST,
+        path: vec![field_segment("pair_v"), field_segment("y")],
+    };
+    let reference = Value::Reference(Some(target));
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, REF_G, reference.clone())
+    }));
+    assert!(StoreMutate::write_slot(
+        &mut fixture.values,
+        MemoryLocation::Global,
+        REF_G,
+        reference.clone()
+    ));
+    assert_eq!(
+        fixture.reader().read_global("ref_g").map(value_of),
+        Some(reference.clone())
+    );
+    assert_eq!(
+        StoreAccess::read_global(&fixture.values, "ref_g").map(value_of),
+        Some(reference)
+    );
+    let view = fixture.reader().read_global("ref_g").expect("ref_g reads");
+    assert_eq!(
+        charge_of(view),
+        CopyCharge {
+            work: 3,
+            allocation: 32,
+        }
+    );
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(
+            writer,
+            MemoryLocation::Global,
+            REF_G,
+            Value::Reference(None),
+        )
+    }));
+    assert_eq!(
+        fixture.reader().read_global("ref_g").map(value_of),
+        Some(Value::Reference(None))
+    );
+    assert!(!with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, REF_G, Value::Int(3))
+    }));
+    assert_eq!(
+        fixture.reader().read_global("ref_g").map(value_of),
+        Some(Value::Reference(None))
+    );
+}
+
+#[test]
+fn a_snapshot_restores_the_members_it_holds() {
+    // Specification 34 MEM-09 (the initializer rollback, `restore_instance`): a snapshot put back over the
+    // record restores the members it holds. The snapshot of `base_g` holds base_v 5. After base_v is
+    // written 9, restoring the snapshot reads base_v 5 again.
+    let mut fixture = Fixture::new();
+    let snapshot = fixture
+        .reader()
+        .snapshot_instance(BASE_G_INSTANCE)
+        .expect("base_g has a record");
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_instance_var(writer, BASE_G_INSTANCE, "base_v", Value::DInt(9))
+    }));
+    assert_eq!(
+        fixture
+            .reader()
+            .read_instance_var(BASE_G_INSTANCE, "base_v")
+            .map(value_of),
+        Some(Value::DInt(9))
+    );
+    with_writer(&mut fixture, |writer| {
+        StoreMutate::restore_instance(writer, BASE_G_INSTANCE, snapshot);
+    });
+    assert_eq!(
+        fixture
+            .reader()
+            .read_instance_var(BASE_G_INSTANCE, "base_v")
+            .map(value_of),
+        Some(Value::DInt(5))
+    );
+}
+
+#[test]
+fn a_saved_slot_is_restored_as_it_was_saved() {
+    // Specification 34 MEM-09 (`restore_slot`, the journals): a saved root goes back without normalization.
+    // `dint_g` is saved as DINT 7, written 9, and restored to 7.
+    let mut fixture = Fixture::new();
+    assert!(with_writer(&mut fixture, |writer| {
+        StoreMutate::write_slot(writer, MemoryLocation::Global, DINT_G, Value::DInt(9))
+    }));
+    with_writer(&mut fixture, |writer| {
+        StoreMutate::restore_slot(writer, MemoryLocation::Global, DINT_G, Value::DInt(7));
+    });
+    assert_eq!(
+        fixture.reader().read_global("dint_g").map(value_of),
+        Some(Value::DInt(7))
+    );
+}

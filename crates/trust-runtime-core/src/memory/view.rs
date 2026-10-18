@@ -19,7 +19,7 @@ use super::{
     Generation, InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite, VariableStorage,
 };
 use crate::error::RuntimeError;
-use crate::memory::cell_access::CellsView;
+use crate::memory::cell_access::{CellPatch, CellsView};
 use crate::memory::layout::CellRange;
 use crate::value::{read_value_path_borrowed, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::VmTrap;
@@ -118,24 +118,41 @@ impl<'a> ValueView<'a> {
 ///
 /// [`StoreAccess::prepare_write`] returns one while storage is borrowed
 /// immutably; [`StoreMutate::commit_write`] publishes it once. Its field stays
-/// private so C1-9 can replace today's `PreparedStorageWrite` with a
-/// cell-based patch.
-pub struct PreparedWrite(PreparedStorageWrite);
+/// private so the stores' patches are built only by their own arm.
+pub struct PreparedWrite(pub(crate) PreparedWriteKind);
+
+/// What a staged write holds (C1-9c).
+pub(crate) enum PreparedWriteKind {
+    /// A patch of the `Value` half. `consumed` leading segments of the path were walked by the cell
+    /// arm before it reached that half, so the commit takes the path from there.
+    Values {
+        consumed: usize,
+        staged: PreparedStorageWrite,
+    },
+    /// A checked leaf of the cells: its range, its type and the value it will hold (R4).
+    Cells(CellPatch),
+}
 
 impl PreparedWrite {
-    /// Whether publishing this patch needs the engine's final deadline check,
-    /// forwarding to `PreparedStorageWrite::requires_final_deadline_check`.
+    /// Whether publishing this patch needs the engine's final deadline check. A cell patch copies
+    /// one checked leaf, so it needs none.
     pub fn requires_final_deadline_check(&self) -> bool {
-        self.0.requires_final_deadline_check()
+        match &self.0 {
+            PreparedWriteKind::Values { staged, .. } => staged.requires_final_deadline_check(),
+            PreparedWriteKind::Cells(_) => false,
+        }
     }
 
-    /// Run the caller's alias preflight over the staged patch before it is
-    /// published, forwarding to `PreparedStorageWrite::validate_aliases`.
+    /// Run the caller's alias preflight over the staged patch before it is published. A cell patch
+    /// has no alias to check: its leaf is copied, not shared.
     pub fn validate_aliases(
         &self,
         check: &mut impl FnMut(&Value) -> Result<(), RuntimeError>,
     ) -> Result<(), RuntimeError> {
-        self.0.validate_aliases(check)
+        match &self.0 {
+            PreparedWriteKind::Values { staged, .. } => staged.validate_aliases(check),
+            PreparedWriteKind::Cells(_) => Ok(()),
+        }
     }
 }
 
@@ -362,16 +379,14 @@ pub trait StoreMutate {
         value: Value,
     ) -> bool;
 
-    /// Replace, or insert, one global variable selected by its declared name.
+    /// Replace one global variable selected by its declared name, or store a declared global
+    /// that owns no cells on the `Value` half (the program root).
     ///
-    /// A C1-8c forwarding method, the write counterpart of
-    /// [`StoreAccess::read_global`]: today's storage names globals by string in an
-    /// ordered map, while a cell range is published by offset. C1-9 resolves the
-    /// name through the prepared layout at this boundary and retires the method
-    /// (specification 34 §6.2, MEM-10). Callers:
+    /// Answers `false`, and stores nothing, for a name no declaration holds: the cell arm admits
+    /// declared names only (specification 34 §6.2, MEM-10; O15). Callers:
     /// `vm::engine::initialization::construction`, `vm::engine::retained_graph` and
     /// `vm::engine::retain_apply`.
-    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value);
+    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) -> bool;
 
     /// Allocate a fresh instance identity of `type_name`.
     ///
@@ -545,7 +560,14 @@ impl StoreAccess for VariableStorage {
         value: &Value,
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
         self.prepare_by_ref_parts_write(location, offset, path, value)
-            .map(|prepared| prepared.map(PreparedWrite))
+            .map(|staged| {
+                staged.map(|staged| {
+                    PreparedWrite(PreparedWriteKind::Values {
+                        consumed: 0,
+                        staged,
+                    })
+                })
+            })
     }
 
     #[inline]
@@ -610,9 +632,11 @@ impl StoreMutate for VariableStorage {
     }
 
     #[inline]
-    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
-        // The inherent method owns the insertion; this forwards to it.
+    fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) -> bool {
+        // The inherent method owns the insertion; this forwards to it. The `Value` store keeps
+        // every name it is given, so every call stores.
         self.set_global(name, value);
+        true
     }
 
     #[inline]
@@ -652,7 +676,14 @@ impl StoreMutate for VariableStorage {
         prepared: PreparedWrite,
         capacity: usize,
     ) -> bool {
-        self.commit_prepared_write(path, value, prepared.0, capacity)
+        match prepared.0 {
+            PreparedWriteKind::Values { consumed, staged } => path
+                .get(consumed..)
+                .is_some_and(|path| self.commit_prepared_write(path, value, staged, capacity)),
+            // A cell patch is published by the cell arm, which holds the cells; it is never
+            // handed to the `Value` store, so this store refuses it.
+            PreparedWriteKind::Cells(_) => false,
+        }
     }
 
     #[inline]
