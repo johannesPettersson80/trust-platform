@@ -3,7 +3,7 @@ use super::{EngineData, EngineState, ExecutionServices, PreparedModule};
 use crate::{
     error::RuntimeError,
     fault::{FaultRecord, NO_TASK},
-    memory::VariableStorage,
+    memory::{InstanceId, VariableStorage},
     retain::RestartMode,
     task::TaskState,
     value::{Duration, Value},
@@ -148,9 +148,61 @@ impl RuntimeState<'_> {
         self.engine().engineering_operation(action)
     }
 
+    /// The engine data and the prepared module the store-access seam reads through (C1-9b).
+    pub(super) fn engine_parts(&self) -> (&EngineData, &PreparedModule) {
+        (&*self.data, self.prepared)
+    }
+    /// The engine data and the prepared module the store-access seam writes through (C1-9c).
+    pub(super) fn engine_parts_mut(&mut self) -> (&mut EngineData, &PreparedModule) {
+        (&mut *self.data, self.prepared)
+    }
     /// Inspect variables without exposing an untyped mutation path.
     pub fn storage(&self) -> &VariableStorage {
         &self.data.storage
+    }
+    /// Read a declared resource-global scalar by value. `Ok(None)` when the program declares no
+    /// global of that name; `TypeMismatch` when the global is not a scalar. Allocates nothing.
+    pub fn read_global_scalar(&self, name: &str) -> Result<Option<Value>, RuntimeError> {
+        self.data
+            .storage
+            .get_global(name)
+            .map(scalar_copy)
+            .transpose()
+    }
+    /// Read a declared member of one instance by value, with the rules of
+    /// [`Self::read_global_scalar`]. `Ok(None)` also when `instance` is not a live instance.
+    pub fn read_instance_scalar(
+        &self,
+        instance: InstanceId,
+        name: &str,
+    ) -> Result<Option<Value>, RuntimeError> {
+        self.data
+            .storage
+            .get_instance_var(instance, name)
+            .map(scalar_copy)
+            .transpose()
+    }
+    /// Resolve the instance a declared resource global holds, such as a program instance root.
+    /// `Ok(None)` when no such global is declared; `TypeMismatch` when it holds another value.
+    pub fn read_global_instance(&self, name: &str) -> Result<Option<InstanceId>, RuntimeError> {
+        self.data
+            .storage
+            .get_global(name)
+            .map(instance_of)
+            .transpose()
+    }
+    /// Resolve the instance held by a declared member of `instance`, with the rules of
+    /// [`Self::read_global_instance`]. `Ok(None)` also when `instance` is not a live instance.
+    pub fn read_instance_member_instance(
+        &self,
+        instance: InstanceId,
+        name: &str,
+    ) -> Result<Option<InstanceId>, RuntimeError> {
+        self.data
+            .storage
+            .get_instance_var(instance, name)
+            .map(instance_of)
+            .transpose()
     }
     /// Inspect the installed date/time profile without modifying executable metadata.
     pub fn profile(&self) -> &crate::value::DateTimeProfile {
@@ -422,6 +474,47 @@ impl RuntimeState<'_> {
             return Err(RuntimeError::ResourceFaulted);
         }
         self.engineering_operation(|state| state.execute_bound_function_block(reference))
+    }
+}
+
+/// A copy of an elementary scalar (specification 02 §1, IEC 61131-3 Table 10): every elementary
+/// value except STRING and WSTRING. Any other value is refused, never read as a default.
+fn scalar_copy(value: &Value) -> Result<Value, RuntimeError> {
+    match value {
+        Value::Bool(_)
+        | Value::SInt(_)
+        | Value::Int(_)
+        | Value::DInt(_)
+        | Value::LInt(_)
+        | Value::USInt(_)
+        | Value::UInt(_)
+        | Value::UDInt(_)
+        | Value::ULInt(_)
+        | Value::Real(_)
+        | Value::LReal(_)
+        | Value::Byte(_)
+        | Value::Word(_)
+        | Value::DWord(_)
+        | Value::LWord(_)
+        | Value::Time(_)
+        | Value::LTime(_)
+        | Value::Date(_)
+        | Value::LDate(_)
+        | Value::Tod(_)
+        | Value::LTod(_)
+        | Value::Dt(_)
+        | Value::Ldt(_)
+        | Value::Char(_)
+        | Value::WChar(_) => Ok(value.clone()),
+        _ => Err(RuntimeError::TypeMismatch),
+    }
+}
+
+/// The instance a value holds, or `TypeMismatch` for any other value.
+fn instance_of(value: &Value) -> Result<InstanceId, RuntimeError> {
+    match value {
+        Value::Instance(id) => Ok(*id),
+        _ => Err(RuntimeError::TypeMismatch),
     }
 }
 

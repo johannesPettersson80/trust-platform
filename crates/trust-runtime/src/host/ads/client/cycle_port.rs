@@ -106,6 +106,18 @@ pub(super) fn queue_output(
 
 #[cfg(test)]
 mod tests {
+    fn member_value(
+        access: &CycleAccess<'_, '_>,
+        instance: trust_runtime_core::memory::InstanceId,
+        name: &str,
+    ) -> Option<Value> {
+        let store = access.store();
+        let view = store.read_instance_var(instance, name)?;
+        store.materialize(&view).ok()
+    }
+
+    use trust_runtime_core::memory::view::StoreAccess;
+
     use super::*;
     use crate::value::Duration;
     use trust_ads_core::{PointAccess, UpdateMode};
@@ -256,13 +268,12 @@ mod tests {
                 }
                 if phase == CyclePhase::AfterInputSample {
                     if !self.rejects {
-                        let Some(Value::Instance(plant)) = access.storage().get_global("Plant")
-                        else {
+                        let Some(plant) = access.global_instance("Plant") else {
                             panic!("root")
                         };
                         assert_eq!(
-                            access.storage().get_instance_var(*plant, "button"),
-                            Some(&Value::Bool(true))
+                            member_value(access, plant, "button"),
+                            Some(Value::Bool(true))
                         );
                     }
                     self.bridge.apply_inputs_with_cycle(access, 10).unwrap();

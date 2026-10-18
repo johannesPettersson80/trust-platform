@@ -1,5 +1,6 @@
 //! Composition services used by the shared reference and execution paths.
 
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::{MemoryLocation, VariableStorage};
 use crate::value::{RefSegment, Value};
 
@@ -7,6 +8,11 @@ use crate::value::{RefSegment, Value};
 /// Legacy hosts obtain type information from HIR; source-free execution uses the
 /// prepared artifact. Reference traversal itself has one shared implementation.
 pub trait ReferenceContext {
+    /// The store the composition's variables live in, reached only through the
+    /// store-access seam (specification 34 §6.2, MEM-10). A hosted composition uses
+    /// [`VariableStorage`].
+    type Store: StoreAccess + StoreMutate;
+
     /// Prepared candidate references for a dynamic target, in wire order.
     /// None retains full discovery for legacy or temporary modules. An empty
     /// slice means the prepared module has no candidate for this storage slot.
@@ -24,10 +30,10 @@ pub trait ReferenceContext {
         Ok(())
     }
 
-    /// Charge a STRING or WSTRING result of a native call as a new value: one work
-    /// unit plus its allocation of `size_of::<Value>()` and `bytes` (spec 34 TIME-08,
-    /// TEXT). Compositions without a work allowance charge nothing.
-    fn charge_text_result(&self, _bytes: usize) -> Result<(), crate::error::RuntimeError> {
+    /// Charge a STRING or WSTRING result of a native call as a new value: one work unit plus
+    /// its copy allocation (spec 34 TIME-08, TEXT): the UTF-8 bytes of a STRING, two bytes per
+    /// UTF-16 code unit of a WSTRING. Compositions without a work allowance charge nothing.
+    fn charge_text_result(&self, _result: &Value) -> Result<(), crate::error::RuntimeError> {
         Ok(())
     }
 
@@ -66,6 +72,20 @@ pub trait ReferenceContext {
     ) -> Result<(), crate::error::RuntimeError> {
         Ok(())
     }
+    /// Admit the allocation of a path write into a stored view (C1-9d2a, item (a)): the view form of
+    /// [`ReferenceContext::before_path_write`]. A `Value` view is admitted as that method admits it; a
+    /// cell view is admitted by a composition that reads cells, so this default refuses one.
+    fn before_view_path_write(
+        &self,
+        root: &ValueView<'_>,
+        path: &[RefSegment],
+        input: &Value,
+    ) -> Result<(), crate::error::RuntimeError> {
+        match root {
+            ValueView::Value(value) => self.before_path_write(value, path, input),
+            ValueView::Cells { .. } => Err(crate::error::RuntimeError::InvalidExecutionState),
+        }
+    }
     /// Final operational check after detached staging and before installed mutation.
     fn before_write_commit(&self) -> Result<(), crate::error::RuntimeError> {
         Ok(())
@@ -82,6 +102,15 @@ pub trait ReferenceContext {
     #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
     fn before_value_clone(&self, _value: &Value) -> Result<(), crate::error::RuntimeError> {
         Ok(())
+    }
+    /// Admit the work and allocation of one copy of a stored view (C1-9d2a, item (a)): the view form of
+    /// [`ReferenceContext::before_value_clone`]. A `Value` view is admitted as that method admits its
+    /// value; a cell view is admitted by a composition that reads cells, so this default refuses one.
+    fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), crate::error::RuntimeError> {
+        match view {
+            ValueView::Value(value) => self.before_value_clone(value),
+            ValueView::Cells { .. } => Err(crate::error::RuntimeError::InvalidExecutionState),
+        }
     }
     /// Admit a private call-transaction snapshot: a VAR_IN_OUT copy-in. IEC passes
     /// IN_OUT by reference, so a work-charging composition admits only its
@@ -121,9 +150,9 @@ pub trait ReferenceContext {
         })
     }
     /// Borrow the composition's shared storage.
-    fn storage(&self) -> &VariableStorage;
+    fn storage(&self) -> &Self::Store;
     /// Access internal storage after the shared policy checks.
-    fn storage_mut(&mut self) -> &mut VariableStorage;
+    fn storage_mut(&mut self) -> &mut Self::Store;
     /// Commit a value already normalized and lifetime-checked by the shared store path.
     /// Preserve operational failures; false means only an invalid storage target. `capacity` is
     /// the declared string capacity of the target element write, in UTF-8 bytes for `STRING` and

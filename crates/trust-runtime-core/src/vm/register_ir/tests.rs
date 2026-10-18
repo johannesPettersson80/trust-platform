@@ -108,6 +108,8 @@ impl Context {
     }
 }
 impl ReferenceContext for Context {
+    type Store = VariableStorage;
+
     fn charge_text_work(&self, units: usize) -> Result<(), RuntimeError> {
         self.budget.charge(units).map(drop)
     }
@@ -232,6 +234,14 @@ impl CallContext for Context {
     }
     fn check_builtin_call(&self, _: InstanceId) -> Result<(), RuntimeError> {
         Ok(())
+    }
+    fn execute_builtin_fb(
+        &mut self,
+        now: Duration,
+        instance_id: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+    ) -> Result<(), RuntimeError> {
+        crate::stdlib::fbs::execute_builtin_in_storage(&mut self.storage, now, instance_id, kind)
     }
 }
 impl ExecutionContext for Context {

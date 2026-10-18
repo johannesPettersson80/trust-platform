@@ -20,6 +20,8 @@ impl CandidateContext {
 }
 
 impl ReferenceContext for CandidateContext {
+    type Store = VariableStorage;
+
     fn dynamic_reference_candidates(
         &self,
         _: &VmModule,

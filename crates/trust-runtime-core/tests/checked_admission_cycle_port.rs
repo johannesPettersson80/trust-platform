@@ -1,4 +1,5 @@
 //! Cycle-service engineering writes return their structured rejection causes.
+use trust_runtime_core::memory::view::StoreAccess;
 use trust_runtime_core::{
     bytecode::{BytecodeModule, SectionData, SectionId, StorageOwner},
     error::RuntimeError,
@@ -33,6 +34,12 @@ fn constant_module() -> BytecodeModule {
     module
 }
 
+fn global_value(access: &CycleAccess<'_, '_>, name: &str) -> Option<Value> {
+    let store = access.store();
+    let view = store.read_global(name)?;
+    store.materialize(&view).ok()
+}
+
 /// Spec 34 §4.3.1: a type-rejected cycle-service write returns TypeMismatch, point-locally.
 #[test]
 fn cycle_port_type_mismatch_returns_type_mismatch_and_keeps_destination() {
@@ -48,7 +55,7 @@ fn cycle_port_type_mismatch_returns_type_mismatch_and_keeps_destination() {
             if phase == CyclePhase::CycleStart {
                 self.writes
                     .push(access.write_named_path("probe_depth", &[], Value::Bool(false)));
-                let reference = access.storage().ref_for_global("probe_depth").unwrap();
+                let reference = access.ref_for_global("probe_depth").unwrap();
                 self.writes
                     .push(access.write_reference(reference.as_view(), Value::Bool(false)));
             }
@@ -91,7 +98,7 @@ fn cycle_port_constant_destination_returns_constant_write() {
             if phase == CyclePhase::CycleStart {
                 self.writes
                     .push(access.write_named_path("probe_depth", &[], Value::Int(3)));
-                let reference = access.storage().ref_for_global("probe_depth").unwrap();
+                let reference = access.ref_for_global("probe_depth").unwrap();
                 self.writes
                     .push(access.write_reference(reference.as_view(), Value::Int(3)));
             }
@@ -133,7 +140,7 @@ fn cycle_port_stale_reference_returns_reference_lifetime() {
             access: &mut CycleAccess<'_, '_>,
         ) -> Result<(), RuntimeError> {
             if phase == CyclePhase::CycleStart {
-                let generation = access.storage().generation();
+                let generation = access.generation();
                 for location in [
                     MemoryLocation::Local(FrameId(u32::MAX)),
                     MemoryLocation::Instance(InstanceId(u32::MAX)),
@@ -187,7 +194,7 @@ fn cycle_port_unresolvable_reference_offset_returns_type_mismatch() {
             access: &mut CycleAccess<'_, '_>,
         ) -> Result<(), RuntimeError> {
             if phase == CyclePhase::CycleStart {
-                let generation = access.storage().generation();
+                let generation = access.generation();
                 self.writes.push(access.write_reference(
                     ValueRefView {
                         location: MemoryLocation::Global,
@@ -341,10 +348,10 @@ fn cycle_port_program_root_replacement_returns_program_root_replacement() {
             access: &mut CycleAccess<'_, '_>,
         ) -> Result<(), RuntimeError> {
             if phase == CyclePhase::CycleStart {
-                let before = access.storage().get_global("Plant").cloned();
+                let before = global_value(access, "Plant");
                 self.writes
                     .push(access.write_named_path("Plant", &[], Value::Null));
-                self.root_unchanged = access.storage().get_global("Plant").cloned() == before;
+                self.root_unchanged = global_value(access, "Plant") == before;
             }
             Ok(())
         }

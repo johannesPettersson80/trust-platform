@@ -283,7 +283,7 @@ pub(super) fn exec_ctu(
     let cu = read_bool(ctx, instance_id, "CU")?;
     let reset = read_bool(ctx, instance_id, "R")?;
     let pv = read_value(ctx, instance_id, "PV")?;
-    let cv = read_value_or_null(ctx, instance_id, "CV");
+    let cv = read_value_or_null(ctx, instance_id, "CV")?;
     let prev_cu = get_or_init_bool(ctx, instance_id, STATE_PREV_CU, false)?;
     let rising = cu && !prev_cu;
 
@@ -342,7 +342,7 @@ pub(super) fn exec_ctd(
     let cd = read_bool(ctx, instance_id, "CD")?;
     let load = read_bool(ctx, instance_id, "LD")?;
     let pv = read_value(ctx, instance_id, "PV")?;
-    let cv = read_value_or_null(ctx, instance_id, "CV");
+    let cv = read_value_or_null(ctx, instance_id, "CV")?;
     let prev_cd = get_or_init_bool(ctx, instance_id, STATE_PREV_CD, false)?;
     let rising = cd && !prev_cd;
 
@@ -403,7 +403,7 @@ pub(super) fn exec_ctud(
     let reset = read_bool(ctx, instance_id, "R")?;
     let load = read_bool(ctx, instance_id, "LD")?;
     let pv = read_value(ctx, instance_id, "PV")?;
-    let cv = read_value_or_null(ctx, instance_id, "CV");
+    let cv = read_value_or_null(ctx, instance_id, "CV")?;
     let prev_cu = get_or_init_bool(ctx, instance_id, STATE_PREV_CU, false)?;
     let prev_cd = get_or_init_bool(ctx, instance_id, STATE_PREV_CD, false)?;
     let rising_cu = cu && !prev_cu;

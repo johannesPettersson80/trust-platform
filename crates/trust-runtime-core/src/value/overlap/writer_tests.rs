@@ -93,7 +93,8 @@ fn hundred_field_write_charges_only_its_patch_and_aliases() {
         .unwrap()
         .unwrap();
     assert!(cost.work < 4096, "single-field cost {}", cost.work);
-    assert_eq!(cost.allocation, 4 + core::mem::size_of::<(usize, Value)>());
+    // One affected leaf (f050): its 4 bytes of patch and one 16-byte cell.
+    assert_eq!(cost.allocation, 20);
     assert!(
         write_value_path_checked(&mut target, &path("f050"), Value::DWord(0x12345678)).unwrap()
     );

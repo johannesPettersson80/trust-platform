@@ -8,6 +8,7 @@ use super::{
 use crate::bytecode::{InitializationOnce, InitializerEntry, ResourceEntry};
 use crate::error::RuntimeError;
 use crate::fault::{FaultRecord, FaultSite, NO_TASK};
+use crate::memory::cell_access::CellArm;
 use crate::memory::{FrameId, Generation, InstanceId, VariableStorage};
 use crate::task::TaskState;
 use crate::value::{DateTimeProfile, Duration, Value, ValueRef};
@@ -112,8 +113,9 @@ struct ExecutionResources {
     frame_locals: scratch::FrameLocals,
     /// Reusable edge-input plan of one call, empty between calls (spec 34 MEM-09).
     edge_inputs: Vec<VmEdgeInput>,
-    /// Reusable originals of one edge-affected call, empty between calls.
-    edge_restores: Vec<(SmolStr, Value)>,
+    /// Reusable originals of one edge-affected call, empty between calls: member ordinals with
+    /// their values (C1-9d2a, R2).
+    edge_restores: Vec<(usize, Value)>,
     /// Reserved initializer, frame and lifetime-check bookkeeping (spec 34 MEM-09).
     bookkeeping: scratch::BookkeepingScratch,
     /// Reusable per-depth call-binding scratch (spec 34 MEM-09; census C1, C3, C4, C5, C7).
@@ -131,6 +133,20 @@ struct ExecutionResources {
     register: register::RegisterExecutionState,
 }
 
+/// The store the engine reads variables through (specification 34 §6.2; C1-9b). `Values` reads
+/// `EngineData::storage`, today's `Value` storage. `Cells` reads the cell arm, which holds its own
+/// `Value` half for locals and per-call instances. Only `Values` is built until C1-9d.
+#[allow(
+    dead_code,
+    reason = "C1-9d builds the cell arm at construction; until then only the tests build it"
+)]
+enum EngineStore {
+    /// Today's `Value` storage, `EngineData::storage`.
+    Values,
+    /// The cell arm.
+    Cells(Box<CellArm>),
+}
+
 /// Owned mutable application data. Metadata and platform services are borrowed
 /// only while an operation executes, allowing hosted ownership without a
 /// self-reference or a second variable store.
@@ -141,6 +157,7 @@ struct EngineData {
     construction: ConstructionState,
     lifetimes: LifetimeState,
     storage: VariableStorage,
+    store: EngineStore,
     profile: DateTimeProfile,
     now: Duration,
     resource: ResourceEntry,
@@ -273,6 +290,7 @@ impl<'a> EngineState<'a> {
                 owned_instances: OwnedInstances::default(),
             },
             storage,
+            store: EngineStore::Values,
             profile: DateTimeProfile::default(),
             now,
             tasks: vec![TaskState::new(now); resource.tasks.len()],
@@ -495,6 +513,8 @@ mod retain_apply_tests;
 mod stdlib_text_work_tests;
 #[cfg(test)]
 mod storage_tests;
+#[cfg(test)]
+mod store_access_tests;
 
 #[cfg(test)]
 mod activation_registry_tests;

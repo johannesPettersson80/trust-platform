@@ -43,7 +43,10 @@ mod tests {
             .read_by_ref_ref(&reference)
             .expect("direct global read");
 
-        assert!(std::ptr::eq(peeked, direct));
+        assert!(matches!(
+            peeked,
+            trust_runtime_core::memory::view::ValueView::Value(stored) if std::ptr::eq(stored, direct)
+        ));
     }
 
     #[test]
@@ -85,7 +88,10 @@ mod tests {
             read_value_path_borrowed(frame.locals.first().expect("local slot"), &reference.path)
                 .expect("direct local read");
 
-        assert!(std::ptr::eq(peeked, direct));
+        assert!(matches!(
+            peeked,
+            trust_runtime_core::memory::view::ValueView::Value(stored) if std::ptr::eq(stored, direct)
+        ));
     }
 
     #[test]

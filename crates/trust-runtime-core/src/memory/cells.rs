@@ -17,13 +17,15 @@ mod convert;
 
 use alloc::vec::Vec;
 
-use crate::bytecode::{StorageOwner, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::memory::layout::{CellRange, LayoutRegion, CELL_BYTES};
+use crate::memory::regions::PersistentExtent;
 use crate::memory::{Generation, InstanceId};
+use crate::value::ValueRef;
 use crate::vm::{PreparedModule, VmTrap};
 
 pub use convert::{cell_offset, read_value, write_value};
+pub(crate) use convert::{check_value, is_reference_type, read_value_in, write_value_in};
 
 /// One cell of the bounded value store (specification 34 §6.2, MEM-10; design "Cells").
 ///
@@ -111,7 +113,8 @@ const _: () = assert!(core::mem::size_of::<Cell>() == CELL_BYTES);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextSlot(pub u32);
 
-/// Index of a reference record in its region's reference records (design "Regions").
+/// Index of a reference record in its region's reference records (design "Regions"). Until C1-11 a
+/// non-null reference leaf names its cell here, as the key of its `ValueRef` (O9).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RefSlot(pub u32);
 
@@ -152,6 +155,68 @@ impl RefRecord {
     #[must_use]
     pub fn is_null(self) -> bool {
         self.cell == Self::NO_CELL
+    }
+}
+
+/// The reference leaves of one region and the `ValueRef` each non-null leaf holds (specification 34
+/// §6.2; O9, R3, R5). Every reference leaf's cell is known at construction, so the table is reserved
+/// once, in ascending cell order, holding no reference. A write replaces an entry and never adds one,
+/// so a reference write in a scan allocates nothing.
+#[derive(Debug, Default)]
+pub(crate) struct ReferenceTable {
+    leaves: Vec<(u32, Option<ValueRef>)>,
+}
+
+impl ReferenceTable {
+    /// The bytes a table of `leaves` entries reserves; construction charges them with the cells.
+    pub(crate) fn reservation_bytes(leaves: usize) -> Option<usize> {
+        leaves.checked_mul(core::mem::size_of::<(u32, Option<ValueRef>)>())
+    }
+
+    /// Reserve one entry, holding no reference, for each cell of `cells`. The cells must be distinct:
+    /// a repeated cell is refused, because a reference leaf owns exactly one cell.
+    pub(crate) fn reserve(mut cells: Vec<u32>) -> Result<Self, RuntimeError> {
+        cells.sort_unstable();
+        if cells.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        let mut leaves = Vec::new();
+        leaves
+            .try_reserve_exact(cells.len())
+            .map_err(|_| VmTrap::BudgetExceeded.into_runtime_error())?;
+        leaves.extend(cells.into_iter().map(|cell| (cell, None)));
+        Ok(Self { leaves })
+    }
+
+    /// The reference the leaf at `cell` holds, or `None` for a null leaf and for a cell that is no
+    /// reference leaf.
+    pub(crate) fn get(&self, cell: u32) -> Option<&ValueRef> {
+        self.leaves[self.index_of(cell)?].1.as_ref()
+    }
+
+    /// Store `reference` (`None` for a null reference) in the leaf at `cell`. Answers `false` when
+    /// `cell` is no reference leaf of this region. Nothing is allocated.
+    pub(crate) fn set(&mut self, cell: u32, reference: Option<ValueRef>) -> bool {
+        match self.index_of(cell) {
+            Some(index) => {
+                self.leaves[index].1 = reference;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The entry of the leaf at `cell`, found by binary search over the reserved cells.
+    fn index_of(&self, cell: u32) -> Option<usize> {
+        self.leaves
+            .binary_search_by_key(&cell, |(leaf, _)| *leaf)
+            .ok()
+    }
+
+    /// The reserved capacity, which the store never grows (test support).
+    #[cfg(test)]
+    pub(crate) fn capacity(&self) -> usize {
+        self.leaves.capacity()
     }
 }
 
@@ -232,44 +297,18 @@ impl CellStore {
         Ok(store)
     }
 
-    /// Reserve the persistent region of `prepared`: its globals' and its instance templates'
-    /// cells, and one reference record per reference leaf they hold (specification 34 §6.2, the
-    /// paragraph after MEM-10).
+    /// Reserve the persistent region of `prepared`: its globals' cells, and each persistent root's
+    /// own cells and reference leaves (specification 34 §6.2; O6, O8). The cell store reads the same
+    /// extent (`memory/regions.rs`).
     ///
-    /// The region's cells and reference leaves are counted from the prepared layouts, never by
-    /// hand: a template's references include its parent chain's, whose cells it places first.
+    /// # Errors
+    ///
+    /// Refused as [`CellStore::reserve`] is, or when the prepared layouts and declarations disagree.
     pub fn persistent(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
-        let mut cells = 0u32;
-        let mut references = 0u32;
-        for declaration in prepared.storage_declarations() {
-            if declaration.owner != StorageOwner::Global || !declaration.owns_storage() {
-                continue;
-            }
-            let Some(type_id) = declaration.type_id else {
-                continue;
-            };
-            let layout = prepared
-                .type_layout(type_id)
-                .ok_or(RuntimeError::TypeMismatch)?;
-            cells = cells
-                .checked_add(layout.cells)
-                .ok_or(RuntimeError::Overflow)?;
-            references = references
-                .checked_add(leaf_count(layout.reference_leaves.len())?)
-                .ok_or(RuntimeError::Overflow)?;
-        }
-        for (pou, _) in prepared.pous() {
-            let Some(template) = prepared.instance_template_cells(pou) else {
-                continue;
-            };
-            cells = cells
-                .checked_add(template.range.cells)
-                .ok_or(RuntimeError::Overflow)?;
-            references = references
-                .checked_add(template_reference_leaves(prepared, pou, 0)?)
-                .ok_or(RuntimeError::Overflow)?;
-        }
-        Self::reserve(cells, references)
+        let extent = PersistentExtent::of(prepared)?;
+        let references =
+            u32::try_from(extent.references.len()).map_err(|_| RuntimeError::Overflow)?;
+        Self::reserve(extent.cells, references)
     }
 
     /// The cells and the reference records this region has room for.
@@ -323,45 +362,4 @@ fn cell_span(range: CellRange) -> Option<core::ops::Range<usize>> {
     let start = usize::try_from(range.start).ok()?;
     let end = start.checked_add(usize::try_from(range.cells).ok()?)?;
     Some(start..end)
-}
-
-/// The reference leaves of one POU's instance template: its own declarations' leaves and then its
-/// parent chain's, matching the parent cells a template places first (design "Prepared layouts").
-///
-/// The chain is bounded like the prepared template totals are, so a cyclic parent chain is refused
-/// rather than followed.
-fn template_reference_leaves(
-    prepared: &PreparedModule,
-    pou: u32,
-    depth: usize,
-) -> Result<u32, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
-        return Err(RuntimeError::TypeMismatch);
-    }
-    let mut leaves = 0u32;
-    for declaration in prepared.instance_declarations(pou) {
-        if !declaration.owns_storage() {
-            continue;
-        }
-        let Some(type_id) = declaration.type_id else {
-            continue;
-        };
-        let layout = prepared
-            .type_layout(type_id)
-            .ok_or(RuntimeError::TypeMismatch)?;
-        leaves = leaves
-            .checked_add(leaf_count(layout.reference_leaves.len())?)
-            .ok_or(RuntimeError::Overflow)?;
-    }
-    if let Some(parent) = prepared.parent_pou(pou) {
-        leaves = leaves
-            .checked_add(template_reference_leaves(prepared, parent, depth + 1)?)
-            .ok_or(RuntimeError::Overflow)?;
-    }
-    Ok(leaves)
-}
-
-/// One leaf count as a `u32`.
-fn leaf_count(leaves: usize) -> Result<u32, RuntimeError> {
-    u32::try_from(leaves).map_err(|_| RuntimeError::Overflow)
 }

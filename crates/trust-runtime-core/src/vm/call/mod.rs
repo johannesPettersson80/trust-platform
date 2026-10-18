@@ -6,6 +6,7 @@ use crate::bytecode::{
     NATIVE_CALL_KIND_STDLIB,
 };
 use crate::error::RuntimeError;
+use crate::memory::view::StoreAccess;
 use crate::memory::InstanceId;
 use crate::stdlib::fbs;
 use crate::value::Value;
@@ -17,7 +18,6 @@ use self::context::{CallContext, RegisterCallOpKind, RegisterValueOpKind};
 use super::context::ExecutionContext;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
-use super::materialize_borrowed_value;
 use super::module::{VmModule, VmNativeSymbolSpec};
 use super::stack::OperandStack;
 
@@ -403,9 +403,8 @@ fn dispatch_native_vm_call(
             }
             let instance_type_name = runtime
                 .storage()
-                .get_instance(instance_id)
+                .instance_type_name(instance_id)
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?
-                .type_name
                 .clone();
             let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
             let pou_id = module
@@ -471,11 +470,11 @@ fn dispatch_native_vm_call(
                 )
                 .map(NativeCall::User);
             }
-            let instance = runtime
+            let instance_type_name = runtime
                 .storage()
-                .get_instance(instance_id)
+                .instance_type_name(instance_id)
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
-            let type_key = SmolStr::new(instance.type_name.to_ascii_uppercase());
+            let type_key = SmolStr::new(instance_type_name.to_ascii_uppercase());
             let owner_pou_id = module
                 .function_block_ids
                 .get(&type_key)
@@ -510,8 +509,8 @@ fn instance_function_block_pou(
     module: &VmModule,
     instance_id: InstanceId,
 ) -> Option<u32> {
-    let instance = runtime.storage().get_instance(instance_id)?;
-    function_block_pou_by_name(module, instance.type_name.as_str())
+    let type_name = runtime.storage().instance_type_name(instance_id)?;
+    function_block_pou_by_name(module, type_name.as_str())
 }
 
 /// The function-block or class POU of an instance's declared type.
@@ -520,9 +519,9 @@ fn instance_owner_pou(
     module: &VmModule,
     instance_id: InstanceId,
 ) -> Option<u32> {
-    let instance = runtime.storage().get_instance(instance_id)?;
-    function_block_pou_by_name(module, instance.type_name.as_str())
-        .or_else(|| class_pou_by_name(module, instance.type_name.as_str()))
+    let type_name = runtime.storage().instance_type_name(instance_id)?;
+    function_block_pou_by_name(module, type_name.as_str())
+        .or_else(|| class_pou_by_name(module, type_name.as_str()))
 }
 
 fn execute_native_builtin_function_block_call(
@@ -566,18 +565,19 @@ fn execute_builtin_and_stage_outputs(
         .check_builtin_call(instance_id)
         .map_err(VmTrap::Runtime)?;
     let now = runtime.current_time();
-    fbs::execute_builtin_in_storage(runtime.storage_mut(), now, instance_id, kind)
+    runtime
+        .execute_builtin_fb(now, instance_id, kind)
         .map_err(VmTrap::Runtime)?;
 
     for binding in out_bindings.drain(..) {
         runtime.record_call_op(RegisterCallOpKind::OutputCopyBack);
         let value = {
-            let value = binding
+            let view = binding
                 .source
                 .read_checked(runtime)?
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
-            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-            let (value, cloned) = materialize_borrowed_value(value);
+            runtime.before_view_clone(&view).map_err(VmTrap::Runtime)?;
+            let (value, cloned) = view.materialize_flagged().map_err(VmTrap::Runtime)?;
             if cloned {
                 runtime.record_value_op(RegisterValueOpKind::CopyOutput);
             }

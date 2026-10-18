@@ -1,10 +1,9 @@
 use super::call::context::CallContext;
 use alloc::vec::Vec;
-use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::memory::view::{StoreAccess, StoreMutate};
-use crate::memory::InstanceId;
+use crate::memory::{InstanceId, MemoryLocation};
 use crate::value::Value;
 
 use super::module::VmModule;
@@ -13,7 +12,8 @@ use super::module::VmModule;
 #[derive(Debug)]
 pub struct EdgeInputTransaction {
     instance_id: InstanceId,
-    restores: Vec<(SmolStr, Value)>,
+    /// The original input values, each with its member ordinal in the instance (C1-9d2a, R2).
+    restores: Vec<(usize, Value)>,
 }
 
 impl EdgeInputTransaction {
@@ -46,41 +46,44 @@ impl EdgeInputTransaction {
         let mut mismatched = false;
         for input in &inputs {
             let storage = runtime.storage();
-            let Some(raw) = storage
-                .read_instance_var(instance_id, input.name.as_str())
-                .and_then(|view| storage.borrow(&view))
-                .cloned()
-            else {
+            let Some(view) = storage.read_instance_var(instance_id, input.name.as_str()) else {
                 continue;
             };
-            let Value::Bool(raw) = raw else {
+            let Some(Value::Bool(raw)) = view.scalar()? else {
                 mismatched = true;
                 break;
             };
-            let previous = storage
-                .read_instance_var(instance_id, input.phase_name.as_str())
-                .and_then(|view| storage.borrow(&view))
-                .and_then(|value| match value {
-                    Value::Bool(value) => Some(*value),
-                    _ => None,
-                })
-                .unwrap_or(!input.rising);
+            let previous = match storage.read_instance_var(instance_id, input.phase_name.as_str()) {
+                Some(view) => match view.scalar()? {
+                    Some(Value::Bool(value)) => value,
+                    _ => !input.rising,
+                },
+                None => !input.rising,
+            };
             let pulse = if input.rising {
                 raw && !previous
             } else {
                 !raw && previous
             };
-            runtime.storage_mut().write_instance_var(
-                instance_id,
-                input.phase_name.as_str(),
+            // The members are written by ordinal, which the store reads from the instance's layout
+            // (C1-9d1, R4): a name over 23 bytes is not converted to a `SmolStr` on each scan.
+            let phase = storage
+                .ref_for_instance(instance_id, input.phase_name.as_str())
+                .ok_or(RuntimeError::NullReference)?;
+            let name = storage
+                .ref_for_instance(instance_id, input.name.as_str())
+                .ok_or(RuntimeError::NullReference)?;
+            runtime.storage_mut().write_slot(
+                MemoryLocation::Instance(instance_id),
+                phase.offset as usize,
                 Value::Bool(raw),
             );
-            runtime.storage_mut().write_instance_var(
-                instance_id,
-                input.name.as_str(),
+            runtime.storage_mut().write_slot(
+                MemoryLocation::Instance(instance_id),
+                name.offset as usize,
                 Value::Bool(pulse),
             );
-            restores.push((input.name.clone(), Value::Bool(raw)));
+            restores.push((name.offset as usize, Value::Bool(raw)));
         }
         runtime.recycle_edge_inputs(inputs);
         if mismatched {
@@ -100,10 +103,10 @@ impl EdgeInputTransaction {
             instance_id,
             mut restores,
         } = self;
-        for (name, value) in restores.drain(..) {
+        for (offset, value) in restores.drain(..) {
             runtime
                 .storage_mut()
-                .write_instance_var(instance_id, name.as_str(), value);
+                .write_slot(MemoryLocation::Instance(instance_id), offset, value);
         }
         runtime.recycle_edge_restores(restores);
     }

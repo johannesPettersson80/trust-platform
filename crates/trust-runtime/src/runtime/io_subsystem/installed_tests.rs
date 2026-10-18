@@ -2,6 +2,7 @@
 use super::*;
 use crate::io::{IoAddress, IoSnapshotValue};
 use crate::value::{Duration, Value};
+use trust_runtime_core::memory::view::StoreAccess;
 use trust_runtime_core::vm::{
     CycleHooks, CyclePhase, LogicalExecutionServices, PreparationLimits, PreparedModule,
 };
@@ -11,6 +12,16 @@ fn state() -> OwnedRuntimeState<LogicalExecutionServices> {
     Arc::new(PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap())
         .instantiate_owned(0)
         .unwrap()
+}
+
+fn member_value(
+    access: &CycleAccess<'_, '_>,
+    instance: trust_runtime_core::memory::InstanceId,
+    name: &str,
+) -> Option<Value> {
+    let store = access.store();
+    let view = store.read_instance_var(instance, name)?;
+    store.materialize(&view).ok()
 }
 
 #[test]
@@ -106,12 +117,12 @@ impl CycleHooks for Hooks<'_> {
         match phase {
             CyclePhase::BeforeInputSample => self.0.sample_inputs_with_cycle(access),
             CyclePhase::AfterInputSample => {
-                let Some(Value::Instance(root)) = access.storage().get_global("Plant") else {
+                let Some(root) = access.global_instance("Plant") else {
                     panic!("root")
                 };
                 assert_eq!(
-                    access.storage().get_instance_var(*root, "button"),
-                    Some(&Value::Bool(true))
+                    member_value(access, root, "button"),
+                    Some(Value::Bool(true))
                 );
                 Ok(())
             }

@@ -167,7 +167,8 @@ fn unordered_case_folded_fields_use_prepared_positions_without_work_charges() {
         assert_eq!(name.as_str(), format!("Field{index:03}"));
         assert_eq!(*value, Value::Int(7));
     }
-    // TIME-08: field matching and normalization passes are bookkeeping, so no work is consumed.
+    // TIME-08: the rebuild of a non-canonical structure is normalization bookkeeping. Its copy is
+    // charged at the load, and this call has none, so no work is consumed.
     assert_eq!(state.data.resources.work_budget.remaining(), 64_000);
 }
 
@@ -335,8 +336,8 @@ fn bounded_primitive_strings_normalize_before_same_family_fast_return() {
     );
     assert_eq!(
         state.data.resources.construction_bytes.get(),
-        2,
-        "in-place WSTRING truncation adds no second text allocation"
+        6,
+        "WSTRING truncation charges its kept prefix: 2 + 2 UTF-16 units x 2 bytes = 6"
     );
     assert_eq!(
         state.normalize_assignment_value(string, Value::WString("å".into())),
@@ -378,4 +379,89 @@ fn primitive_type_table_policy_preserves_any_int_values_and_null() {
         ),
         Err(RuntimeError::TypeMismatch)
     );
+}
+
+/// Spec 34 TIME-08: a non-canonical structure assignment is the load's copy and then the rebuild.
+/// The rebuild is normalization bookkeeping (no charge beyond the text rows), so the assignment
+/// charges exactly what a plain copy of the same value charges. It catches a rebuild that charges
+/// its copy again.
+#[test]
+fn a_non_canonical_structure_assignment_charges_what_a_plain_copy_charges() {
+    use crate::vm::context::ReferenceContext;
+    let (prepared, _, ty) = prepared_types();
+    // Reversed, case-folded field names and SINT values make the value non-canonical, so the
+    // assignment rebuilds it into the record type's order and INT values.
+    let value = Arc::new(StructValue::from_canonical_parts(
+        "assignmentrecord".into(),
+        (0..FIELDS)
+            .rev()
+            .map(|index| (format!("field{index:03}").into(), Value::SInt(7)))
+            .collect(),
+    ));
+
+    // A plain copy: 1 unit for the structure and 1 for each of its 128 fields (SINT leaves pay no
+    // row charge), so 1 + 128 = 129 units, and one 16-byte cell per leaf: 128 x 16 = 2,048 bytes.
+    let mut copy_data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    copy_data.resources.work_budget.reset(1_000);
+    copy_data.resources.construction_bytes.set(0);
+    let copy = EngineState::borrow(&mut copy_data, &prepared, &services::LOGICAL_ONLY);
+    copy.before_value_clone(&Value::Struct(Arc::clone(&value)))
+        .unwrap();
+    assert_eq!(copy.data.resources.work_budget.remaining(), 1_000 - 129);
+    assert_eq!(copy.data.resources.construction_bytes.get(), 2_048);
+
+    // The assignment: the same load, then the normalization that rebuilds the value.
+    let mut assign_data =
+        EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    assign_data.resources.work_budget.reset(1_000);
+    assign_data.resources.construction_bytes.set(0);
+    let assign = EngineState::borrow(&mut assign_data, &prepared, &services::LOGICAL_ONLY);
+    assign
+        .before_value_clone(&Value::Struct(Arc::clone(&value)))
+        .unwrap();
+    let Value::Struct(rebuilt) = assign
+        .normalize_assignment_value(ty, Value::Struct(value))
+        .unwrap()
+    else {
+        panic!("struct result")
+    };
+    assert_eq!(rebuilt.type_name().as_str(), "AssignmentRecord");
+    assert_eq!(
+        assign.data.resources.work_budget.remaining(),
+        copy.data.resources.work_budget.remaining()
+    );
+    assert_eq!(
+        assign.data.resources.construction_bytes.get(),
+        copy.data.resources.construction_bytes.get()
+    );
+}
+
+/// Spec 34 TIME-08: a text cut at a store allocates its kept prefix by the copy rule, two bytes
+/// per UTF-16 code unit for a WSTRING. It catches a cut that charges UTF-8 bytes (the STRING
+/// rule) or no allocation at all.
+#[test]
+fn a_wstring_cut_at_a_store_allocates_its_kept_prefix_at_two_bytes_per_unit() {
+    let (mut prepared, _, _) = prepared_types();
+    // A WSTRING[3]: primitive id 25 with a declared length of 3.
+    let wstring3 = prepared.vm.types.entries.len() as u32;
+    prepared.vm.types.entries.push(TypeEntry {
+        kind: TypeKind::Primitive,
+        name_idx: None,
+        data: TypeData::Primitive {
+            prim_id: 25,
+            max_length: 3,
+        },
+    });
+    let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+    data.resources.construction_bytes.set(0);
+    data.resources.work_budget.reset(100);
+    let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+    let stored = state
+        .normalize_assignment_value(wstring3, Value::WString("abcde".into()))
+        .unwrap();
+    assert_eq!(stored, Value::WString("abc".into()));
+    // The text row charges 2 units per UTF-8 byte of the value: 2 x 5 = 10 units. The kept prefix
+    // "abc" is three UTF-16 code units at 2 bytes each: 3 x 2 = 6 bytes.
+    assert_eq!(state.data.resources.work_budget.remaining(), 90);
+    assert_eq!(state.data.resources.construction_bytes.get(), 6);
 }

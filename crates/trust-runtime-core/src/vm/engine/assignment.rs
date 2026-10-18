@@ -74,11 +74,14 @@ impl EngineState<'_> {
                                 .ok_or_else(|| RuntimeError::Overflow)?,
                         )?;
                         let capacity = usize::from(crate::value::string_capacity(*max_length));
-                        if matches!(value, Value::String(_))
-                            && let Some(end) =
-                                crate::value::string_capacity_cut(text, *prim_id == 25, capacity)
+                        if let Some(end) =
+                            crate::value::string_capacity_cut(text, *prim_id == 25, capacity)
                         {
-                            self.charge_allocation_bytes(end)?;
+                            // The kept prefix is a new text, charged by the copy rule (TIME-08).
+                            self.charge_allocation_bytes(super::allocation::text_copy_allocation(
+                                &text[..end],
+                                *prim_id == 25,
+                            )?)?;
                         }
                     }
                 }
@@ -159,15 +162,6 @@ impl EngineState<'_> {
         if self.assignment_is_canonical(ty, &Value::Struct(Arc::clone(&structure)), depth)? {
             return Ok(Value::Struct(structure));
         }
-        self.charge_allocation_bytes(
-            core::mem::size_of::<StructValue>() + 2 * core::mem::size_of::<usize>(),
-        )?;
-        self.charge_allocation_bytes(
-            fields
-                .len()
-                .checked_mul(4 * core::mem::size_of::<(smol_str::SmolStr, Value)>())
-                .ok_or_else(|| RuntimeError::Overflow)?,
-        )?;
         let mut in_order = true;
         for (field, (name, _)) in fields.iter().zip(structure.fields()) {
             let expected = &self.prepared.vm.strings[field.name_idx as usize];
@@ -176,12 +170,6 @@ impl EngineState<'_> {
         let positions = if in_order {
             None
         } else {
-            self.charge_allocation_bytes(
-                fields
-                    .len()
-                    .checked_mul(core::mem::size_of::<usize>())
-                    .ok_or_else(|| RuntimeError::Overflow)?,
-            )?;
             let mut positions = Vec::new();
             positions
                 .try_reserve_exact(fields.len())
@@ -212,7 +200,6 @@ impl EngineState<'_> {
                 .fields()
                 .get_index(position)
                 .ok_or_else(|| RuntimeError::TypeMismatch)?;
-            self.charge_allocation_bytes(self.value_clone_charge(child, 0)?)?;
             normalized.insert(
                 name.clone(),
                 self.normalize_assignment_inner(field.type_id, child.clone(), depth + 1)?,

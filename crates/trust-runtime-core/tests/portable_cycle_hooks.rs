@@ -3,11 +3,12 @@ use std::{
     cell::{Cell, RefCell},
     rc::Rc,
 };
+use trust_runtime_core::memory::view::StoreAccess;
 use trust_runtime_core::{
     bytecode::{BytecodeModule, SectionData, SectionId},
     error::RuntimeError,
     io_address::IoAddress,
-    memory::{MemoryLocation, VariableStorage},
+    memory::MemoryLocation,
     retain::RetainSnapshot,
     value::{DateTimeValue, Duration, RefSegment, Value, ValueRefView},
     vm::{
@@ -17,11 +18,19 @@ use trust_runtime_core::{
 
 const GPIO: &[u8] = include_bytes!("../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
 
-fn field(storage: &VariableStorage, name: &str) -> Value {
-    let Some(Value::Instance(instance)) = storage.get_global("Plant") else {
+fn field(storage: &impl StoreAccess, name: &str) -> Value {
+    let root = storage.read_global("Plant").expect("admitted root");
+    let Ok(Value::Instance(instance)) = storage.materialize(&root) else {
         panic!("admitted root")
     };
-    storage.get_instance_var(*instance, name).unwrap().clone()
+    let member = storage.read_instance_var(instance, name).expect("member");
+    storage.materialize(&member).expect("member value")
+}
+
+fn global_value(access: &CycleAccess<'_, '_>, name: &str) -> Option<Value> {
+    let store = access.store();
+    let view = store.read_global(name)?;
+    store.materialize(&view).ok()
 }
 
 struct RetainObserver(Rc<RefCell<Vec<&'static str>>>);
@@ -111,7 +120,7 @@ fn borrowed_adapters_preserve_input_protocol_retain_output_force_phase_order() {
                     "physical-inputs"
                 }
                 CyclePhase::AfterInputSample => {
-                    assert_eq!(field(access.storage(), "button"), Value::Bool(true));
+                    assert_eq!(field(&access.store(), "button"), Value::Bool(true));
                     access.write_named_path(
                         "Plant",
                         &[RefSegment::Field("button".into())],
@@ -121,8 +130,8 @@ fn borrowed_adapters_preserve_input_protocol_retain_output_force_phase_order() {
                 }
                 CyclePhase::TaskStart(0) => "task-start",
                 CyclePhase::TaskEnd(0) => {
-                    assert_eq!(field(access.storage(), "led"), Value::Bool(false));
-                    assert_eq!(field(access.storage(), "depth_result"), Value::Int(2));
+                    assert_eq!(field(&access.store(), "led"), Value::Bool(false));
+                    assert_eq!(field(&access.store(), "depth_result"), Value::Int(2));
                     "task-end"
                 }
                 CyclePhase::BeforeOutputSample => "before-output",
@@ -192,11 +201,8 @@ fn rejected_management_requests_leave_the_owner_executable_and_destination_uncha
                     .write_named_path("probe_depth", &[], Value::Bool(false))
                     .is_err());
                 self.rejections += 1;
-                assert_eq!(
-                    access.storage().get_global("probe_depth"),
-                    Some(&Value::Int(1))
-                );
-                let generation = access.storage().generation();
+                assert_eq!(global_value(access, "probe_depth"), Some(Value::Int(1)));
+                let generation = access.generation();
                 assert!(access
                     .write_reference(
                         ValueRefView {

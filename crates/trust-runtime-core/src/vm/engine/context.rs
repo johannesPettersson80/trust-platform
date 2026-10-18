@@ -7,7 +7,7 @@ use super::super::call::context::{
 use super::super::context::{ExecutionContext, ReferenceContext};
 use super::super::{OperandStack, VmTrap};
 use super::*;
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
 use crate::stdlib::StandardLibrary;
 use crate::value::{write_value_path, RefSegment};
@@ -17,6 +17,8 @@ use crate::value::{write_value_path, RefSegment};
 mod owner_tests;
 
 impl ReferenceContext for EngineState<'_> {
+    type Store = VariableStorage;
+
     fn dynamic_reference_candidates(
         &self,
         module: &super::super::module::VmModule,
@@ -35,13 +37,11 @@ impl ReferenceContext for EngineState<'_> {
         self.charge_work_units(units)
     }
 
-    fn charge_text_result(&self, bytes: usize) -> Result<(), RuntimeError> {
-        // TIME-08 TEXT: a new text value costs one unit and its Value plus its bytes.
+    fn charge_text_result(&self, result: &Value) -> Result<(), RuntimeError> {
+        // TIME-08 TEXT: a new text value costs one unit and its copy allocation.
         self.charge_work_units(1)?;
-        let allocation = core::mem::size_of::<Value>()
-            .checked_add(bytes)
-            .ok_or(RuntimeError::Overflow)?;
-        self.charge_allocation_bytes(allocation)
+        let bytes = super::allocation::copy_allocation(result, 0)?;
+        self.charge_allocation_bytes(bytes)
     }
 
     // A call-transaction snapshot is transient bookkeeping: it lives only until the
@@ -71,6 +71,23 @@ impl ReferenceContext for EngineState<'_> {
         input: &Value,
     ) -> Result<(), RuntimeError> {
         self.charge_path_write(root, path, input)
+    }
+    fn before_view_path_write(
+        &self,
+        root: &ValueView<'_>,
+        path: &[RefSegment],
+        input: &Value,
+    ) -> Result<(), RuntimeError> {
+        self.charge_path_write_view(root, path, input)
+    }
+    fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), RuntimeError> {
+        match view {
+            ValueView::Value(value) => self.before_value_clone(value),
+            ValueView::Cells { .. } => {
+                let bytes = self.view_clone_charge(view)?;
+                self.charge_allocation_bytes(bytes)
+            }
+        }
     }
     fn normalize_assignment(
         &self,
@@ -445,11 +462,11 @@ impl CallContext for EngineState<'_> {
         self.data.resources.edge_inputs = inputs;
     }
 
-    fn take_edge_restores(&mut self) -> Vec<(smol_str::SmolStr, Value)> {
+    fn take_edge_restores(&mut self) -> Vec<(usize, Value)> {
         core::mem::take(&mut self.data.resources.edge_restores)
     }
 
-    fn recycle_edge_restores(&mut self, restores: Vec<(smol_str::SmolStr, Value)>) {
+    fn recycle_edge_restores(&mut self, restores: Vec<(usize, Value)>) {
         self.data.resources.edge_restores = restores;
     }
 
@@ -577,6 +594,19 @@ impl CallContext for EngineState<'_> {
         } else {
             Err(RuntimeError::StagingViolation)
         }
+    }
+    fn execute_builtin_fb(
+        &mut self,
+        now: Duration,
+        instance_id: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+    ) -> Result<(), RuntimeError> {
+        crate::stdlib::fbs::execute_builtin_in_storage(
+            &mut self.data.storage,
+            now,
+            instance_id,
+            kind,
+        )
     }
 }
 

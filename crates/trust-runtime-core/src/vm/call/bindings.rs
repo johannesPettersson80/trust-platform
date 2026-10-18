@@ -4,11 +4,13 @@ use alloc::{borrow::ToOwned, format, vec::Vec};
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
-use crate::value::{materialize_value_path, read_value_path_borrowed, RefSegment, Value, ValueRef};
+use crate::value::{RefSegment, Value, ValueRef};
 
-use super::super::dispatch_refs::{charge_materialize_path_work, dynamic_ref_type};
+use super::super::dispatch_refs::{
+    charge_materialize_path_work, dynamic_ref_type, materialize_segment,
+};
 use super::super::errors::VmTrap;
 use super::super::frames::VmFrame;
 use super::super::materialize_borrowed_value;
@@ -276,11 +278,14 @@ fn bind_builtin_function_block_arguments_inner(
                 let value = match arg {
                     Some(arg) => resolve_vm_arg_value(runtime, caller_frame, arg)?,
                     None => {
-                        if let Some(value) = field_binding.read_checked(runtime)? {
+                        if let Some(view) = field_binding.read_checked(runtime)? {
                             #[cfg(all(feature = "std", feature = "test-support"))]
                             let _read = attribution::read(CopyReadKind::RetainedField);
-                            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-                            let (value, cloned) = materialize_borrowed_value(value);
+                            let (value, cloned) =
+                                view.materialize_flagged().map_err(VmTrap::Runtime)?;
+                            runtime
+                                .before_value_clone(&value)
+                                .map_err(VmTrap::Runtime)?;
                             if cloned {
                                 runtime.record_value_op(RegisterValueOpKind::ReadReference);
                             }
@@ -416,11 +421,14 @@ fn bind_builtin_function_block_arguments_planned_inner(
                 let value = match arg {
                     Some(arg) => resolve_vm_arg_value(runtime, caller_frame, arg)?,
                     None => {
-                        if let Some(value) = field_binding.read_checked(runtime)? {
+                        if let Some(view) = field_binding.read_checked(runtime)? {
                             #[cfg(all(feature = "std", feature = "test-support"))]
                             let _read = attribution::read(CopyReadKind::RetainedField);
-                            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-                            let (value, cloned) = materialize_borrowed_value(value);
+                            let (value, cloned) =
+                                view.materialize_flagged().map_err(VmTrap::Runtime)?;
+                            runtime
+                                .before_value_clone(&value)
+                                .map_err(VmTrap::Runtime)?;
                             if cloned {
                                 runtime.record_value_op(RegisterValueOpKind::ReadReference);
                             }
@@ -624,11 +632,14 @@ fn bind_vm_function_block_arguments_inner(
                 let value = match arg {
                     Some(arg) => resolve_vm_arg_value(runtime, caller_frame, arg)?,
                     None => {
-                        if let Some(value) = field_binding.read_checked(runtime)? {
+                        if let Some(view) = field_binding.read_checked(runtime)? {
                             #[cfg(all(feature = "std", feature = "test-support"))]
                             let _read = attribution::read(CopyReadKind::RetainedField);
-                            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-                            let (value, cloned) = materialize_borrowed_value(value);
+                            let (value, cloned) =
+                                view.materialize_flagged().map_err(VmTrap::Runtime)?;
+                            runtime
+                                .before_value_clone(&value)
+                                .map_err(VmTrap::Runtime)?;
                             if cloned {
                                 runtime.record_value_op(RegisterValueOpKind::ReadReference);
                             }
@@ -1040,12 +1051,7 @@ fn bind_output_target(
     };
     let target = VmWriteTarget::from_reference(reference);
     let target_type_idx = dynamic_ref_type(runtime, module, caller_frame, reference)?;
-    if target_type_idx.is_none()
-        && matches!(
-            target.peek(runtime, caller_frame)?,
-            Value::String(_) | Value::WString(_)
-        )
-    {
+    if target_type_idx.is_none() && target.peek(runtime, caller_frame)?.text_is_wide().is_some() {
         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
     }
     Ok((target, target_type_idx))
@@ -1084,7 +1090,15 @@ pub fn normalize_output_copyback_value(
         )
     };
     let (current_string_primitive, current_is_null) = match target.peek(runtime, caller_frame) {
-        Ok(current) => shape(current),
+        Ok(view) => {
+            let primitive = match view.text_is_wide() {
+                Some(false) => Some(24),
+                Some(true) => Some(25),
+                None => None,
+            };
+            let is_null = matches!(view.scalar().map_err(VmTrap::Runtime)?, Some(Value::Null));
+            (primitive, is_null)
+        }
         Err(VmTrap::Runtime(RuntimeError::NullReference)) => {
             // A valid STRING/WSTRING element synthesizes CHAR/WCHAR and cannot
             // lend a Value. The checked read path charges the materialization and
@@ -1125,8 +1139,12 @@ pub fn write_output_int(
     target: &VmWriteTarget,
     value: i64,
 ) -> Result<(), VmTrap> {
-    let current = target.peek(runtime, frame)?;
-    let converted = match current {
+    let current = target
+        .peek(runtime, frame)?
+        .scalar()
+        .map_err(VmTrap::Runtime)?
+        .unwrap_or(Value::Null);
+    let converted = match &current {
         Value::SInt(_) => Value::SInt(i8::try_from(value).map_err(|_| RuntimeError::Overflow)?),
         Value::Int(_) => Value::Int(i16::try_from(value).map_err(|_| RuntimeError::Overflow)?),
         Value::DInt(_) => Value::DInt(i32::try_from(value).map_err(|_| RuntimeError::Overflow)?),
@@ -1179,7 +1197,7 @@ pub fn peek_vm_reference<'a>(
     runtime: &'a impl CallContext,
     caller_frame: &'a VmFrame,
     reference: &ValueRef,
-) -> Result<&'a Value, VmTrap> {
+) -> Result<ValueView<'a>, VmTrap> {
     peek_vm_reference_path(runtime, caller_frame, reference, &reference.path)
 }
 
@@ -1188,7 +1206,7 @@ fn peek_vm_reference_path<'a>(
     caller_frame: &'a VmFrame,
     reference: &ValueRef,
     path: &[RefSegment],
-) -> Result<&'a Value, VmTrap> {
+) -> Result<ValueView<'a>, VmTrap> {
     runtime
         .check_reference_read(reference.as_view())
         .map_err(VmTrap::Runtime)?;
@@ -1206,17 +1224,14 @@ fn peek_vm_reference_path<'a>(
                     .into(),
                 )
             })?;
-        return read_value_path_borrowed(root, path)
+        return ValueView::Value(root)
+            .walk(path)
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference));
     }
-    let view = runtime
-        .storage()
-        .read_path(reference.location, reference.offset as usize, path)
-        .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))?;
     runtime
         .storage()
-        .borrow(&view)
-        .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
+        .read_path(reference.location, reference.offset as usize, path)
+        .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))
 }
 
 /// Materialize a referenced value after read-policy and copy-budget checks.
@@ -1229,9 +1244,12 @@ pub fn read_vm_reference(
     let _timing =
         crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::ReferenceRead);
     match peek_vm_reference(runtime, caller_frame, reference) {
-        Ok(value) => {
-            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-            let (value, cloned) = materialize_borrowed_value(value);
+        Ok(view) => {
+            // The copy is charged from the value it produces (TIME-08), as `load_ref` does.
+            let (value, cloned) = view.materialize_flagged().map_err(VmTrap::Runtime)?;
+            runtime
+                .before_value_clone(&value)
+                .map_err(VmTrap::Runtime)?;
             if cloned {
                 runtime.record_value_op(RegisterValueOpKind::ReadReference);
             }
@@ -1244,12 +1262,14 @@ pub fn read_vm_reference(
                 .split_last()
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             let parent = peek_vm_reference_path(runtime, caller_frame, reference, prefix)?;
+            // The parent is charged as a whole copy, from its view (C1-9d2a, item (a)).
             runtime
-                .before_value_clone(parent)
+                .before_view_clone(&parent)
                 .map_err(VmTrap::Runtime)?;
-            charge_materialize_path_work(runtime, parent, core::slice::from_ref(last))
+            charge_materialize_path_work(runtime, &parent, core::slice::from_ref(last))
                 .map_err(VmTrap::Runtime)?;
-            materialize_value_path(parent, core::slice::from_ref(last))
+            materialize_segment(&parent, last)
+                .map_err(VmTrap::Runtime)?
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
         }
         Err(error) => Err(error),
@@ -1301,12 +1321,9 @@ pub fn write_vm_reference(
             .storage()
             .read_slot(reference.location, reference.offset as usize)
             .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))?;
-        let root = runtime
-            .storage()
-            .borrow(&view)
-            .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
+        // The path write is charged from the root's view (C1-9d2a, item (a)).
         runtime
-            .before_path_write(root, &reference.path, &value)
+            .before_view_path_write(&view, &reference.path, &value)
             .map_err(VmTrap::Runtime)?;
     }
     #[cfg(all(feature = "std", feature = "test-support"))]

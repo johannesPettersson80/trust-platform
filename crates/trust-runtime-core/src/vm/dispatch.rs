@@ -19,6 +19,7 @@ use super::reference_attempt::apply_reference_attempt;
 use super::{ensure_global_call_depth, FrameStack, OperandStack, VmTrap};
 use crate::error::RuntimeError;
 use crate::fault::FaultSite;
+use crate::memory::view::StoreAccess;
 use crate::memory::InstanceId;
 use crate::program_model::{BinaryOp, UnaryOp};
 use crate::value::{
@@ -638,13 +639,13 @@ fn execute_with_buffers(
                 let self_instance = frame.runtime_instance.ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
                 })?;
-                let instance = runtime
+                let super_instance = runtime
                     .storage()
-                    .get_instance(self_instance)
-                    .ok_or_else(|| VmTrap::NullReference.into_runtime_error())?;
-                let super_instance = instance.parent.ok_or_else(|| {
-                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
-                })?;
+                    .instance_parent(self_instance)
+                    .map_err(VmTrap::into_runtime_error)?
+                    .ok_or_else(|| {
+                        VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                    })?;
                 operand_stack
                     .push(Value::Instance(super_instance))
                     .map_err(VmTrap::into_runtime_error)?;

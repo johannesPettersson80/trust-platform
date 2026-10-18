@@ -3,7 +3,9 @@ use super::*;
 use crate::bytecode::{StorageOwner, StorageRole};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::fault::NO_TASK;
+use crate::memory::layout::CELL_BYTES;
 use crate::memory::view::StoreAccess;
+use crate::memory::MemoryLocation;
 use crate::retain::capture::RetainCapture;
 use crate::retain::codec::{decode_snapshot_payload_bytes, PayloadWriter};
 use crate::retain::RetainSnapshot;
@@ -146,15 +148,14 @@ impl EngineState<'_> {
             hooks.program_started(name);
         }
         let result = (|| {
-            let view = self
+            // The program root is read by its declaration's slot, not by its name (C1-9d1, O22).
+            let instance = self
                 .data
                 .storage
-                .read_global(name)
+                .read_slot(MemoryLocation::Global, declaration.slot as usize)
+                .map_err(|_| RuntimeError::NullReference)?
+                .instance()?
                 .ok_or(RuntimeError::NullReference)?;
-            let instance = match self.data.storage.borrow(&view) {
-                Some(Value::Instance(instance)) => *instance,
-                _ => return Err(RuntimeError::NullReference),
-            };
             self.execute_pou(pou, Some(instance))
         })();
         if observed {
@@ -183,6 +184,9 @@ impl EngineState<'_> {
 
     /// Append the retained values to `payload`: the resource's retained globals and then each root's
     /// retained program variables, in registration and declaration order (specification 11 §6.7).
+    ///
+    /// The retained encoder still reads the stored `Value` (row 11 of the C1-9 note, E): it keeps the
+    /// `Value` path until the cell encoder lands (C1-9d2, P2). Its globals are reached by slot (O22).
     fn fill_retained_payload(
         &mut self,
         payload: &mut PayloadWriter<'_>,
@@ -191,7 +195,10 @@ impl EngineState<'_> {
         for &id in prepared.retained_declarations(StorageOwner::Global, None) {
             let declaration = &prepared.layout.entries[id as usize];
             let name = &prepared.vm.strings[declaration.name_idx as usize];
-            if let Some(view) = self.data.storage.read_global(name)
+            if let Ok(view) = self
+                .data
+                .storage
+                .read_slot(MemoryLocation::Global, declaration.slot as usize)
                 && let Some(value) = self.data.storage.borrow(&view)
                 && self.snapshot_value_is_retainable(value, 0)?
             {
@@ -200,8 +207,8 @@ impl EngineState<'_> {
                 let stored = self
                     .data
                     .storage
-                    .read_global(name)
-                    .ok_or(RuntimeError::NullReference)?;
+                    .read_slot(MemoryLocation::Global, declaration.slot as usize)
+                    .map_err(|_| RuntimeError::NullReference)?;
                 let value = self
                     .data
                     .storage
@@ -289,11 +296,10 @@ impl EngineState<'_> {
         value: &Value,
         name_bytes: usize,
     ) -> Result<usize, RuntimeError> {
+        // A retained entry costs four cells of allocation (TIME-08 retained-value snapshot row).
         self.value_clone_charge(value, 0)?
             .checked_add(name_bytes)
-            .and_then(|bytes| {
-                bytes.checked_add(4 * core::mem::size_of::<(smol_str::SmolStr, Value)>())
-            })
+            .and_then(|bytes| bytes.checked_add(4 * CELL_BYTES))
             .ok_or_else(|| RuntimeError::Overflow)
     }
 

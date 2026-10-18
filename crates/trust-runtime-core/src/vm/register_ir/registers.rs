@@ -1,4 +1,5 @@
 use super::*;
+use crate::memory::view::{StoreAccess, ValueView};
 
 pub fn read_register_ref(
     registers: &[Value],
@@ -313,8 +314,11 @@ pub fn register_ref_operand<'a>(
     frames: &'a FrameStack,
     index: u32,
 ) -> Result<Cow<'a, Value>, VmTrap> {
-    match peek_ref(runtime, module, frames, index) {
-        Ok(value) => Ok(Cow::Borrowed(value)),
+    match peek_ref_view(runtime, module, frames, index) {
+        Ok(ValueView::Value(value)) => Ok(Cow::Borrowed(value)),
+        // A cell view has no stored `Value` to borrow. Its copy is made without a charge, as a
+        // borrow is not charged (C1-9d2a, item (b)).
+        Ok(view) => view.materialize().map(Cow::Owned).map_err(VmTrap::Runtime),
         Err(VmTrap::NullReference) => load_ref(runtime, module, frames, index).map(Cow::Owned),
         Err(error) => Err(error),
     }

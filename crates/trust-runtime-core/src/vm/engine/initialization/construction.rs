@@ -2,7 +2,7 @@
 use super::super::super::construction::values::construct_intrinsic_value;
 use super::*;
 use crate::bytecode::{InitializationStage, InitializationTrigger};
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
 
 impl EngineState<'_> {
@@ -241,7 +241,14 @@ impl EngineState<'_> {
                 self.data.construction.roots[index]
                     .ok_or_else(|| RuntimeError::InvalidExecutionState)?
             }
-            None => self.reserve_instance(pou, lifetime)?,
+            // A typed instance with no root is owned by a live activation: both callers pass one
+            // (`values.rs` under an active initializer, `entry.rs` after activating its scope). A
+            // persistent instance needs its root's range in the cell store (O8), so an ownerless
+            // instance is refused before anything is issued.
+            None => {
+                let owner = lifetime.ok_or(RuntimeError::InvalidExecutionState)?;
+                self.reserve_instance(pou, Some(owner))?
+            }
         };
         let mut current = instance;
         let mut current_pou = pou;
@@ -534,17 +541,21 @@ impl EngineState<'_> {
             .construction
             .initialized_declarations
             .prepare_insert(initialized_plan)?;
-        // The exclusive marker reservations above borrow the lifecycle tables: only
-        // the storage field is free for the destination write, so the seam is named
-        // to reach it without leaving the store API.
+        // The exclusive marker reservations above borrow the lifecycle tables: only the storage
+        // and store fields are free for the destination write. It goes through the store the engine
+        // holds, so a cell arm receives the declared value (R2).
+        let mut routed = super::super::store_access::routed_mut_fields(
+            &mut self.data.storage,
+            &mut self.data.store,
+            self.prepared,
+        );
         match declared.owner {
-            StorageOwner::Global => StoreMutate::set_global(&mut self.data.storage, name, value),
+            StorageOwner::Global => {
+                StoreMutate::set_global(&mut routed, name, value);
+            }
             StorageOwner::Instance => {
-                if !self.data.storage.write_instance_var(
-                    instance.ok_or_else(|| RuntimeError::InvalidExecutionState)?,
-                    name,
-                    value,
-                ) {
+                let instance = instance.ok_or_else(|| RuntimeError::InvalidExecutionState)?;
+                if !StoreMutate::write_instance_var(&mut routed, instance, name, value) {
                     return Err(RuntimeError::InvalidExecutionState);
                 }
             }
@@ -683,6 +694,34 @@ impl EngineState<'_> {
         Ok(())
     }
 
+    /// The owned instances of one stored member (C1-9d1, C1-9d2a): an instance, or the walk of an
+    /// aggregate value. A cell aggregate is walked by its layout, its members in declaration order and
+    /// its elements in flat order, as the `Value` tree is walked.
+    fn collect_owned_member(
+        &self,
+        view: ValueView<'_>,
+        depth: usize,
+        visited: &mut InstanceSet,
+    ) -> Result<(), RuntimeError> {
+        if let ValueView::Value(value) = view {
+            return self.collect_owned_instance_graph(value, depth, visited);
+        }
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        if let Some(instance) = view.instance()? {
+            return self.collect_owned_instance_graph(&Value::Instance(instance), depth, visited);
+        }
+        let Some(count) = view.cell_child_count()? else {
+            return Ok(());
+        };
+        for ordinal in 0..count {
+            let child = view.cell_child(ordinal)?;
+            self.collect_owned_member(child, depth + 1, visited)?;
+        }
+        Ok(())
+    }
+
     fn collect_owned_instance_graph(
         &self,
         value: &Value,
@@ -720,12 +759,7 @@ impl EngineState<'_> {
                         .storage
                         .read_slot(MemoryLocation::Instance(*instance), slot)
                         .map_err(|_| RuntimeError::InvalidExecutionState)?;
-                    let value = self
-                        .data
-                        .storage
-                        .borrow(&view)
-                        .ok_or_else(|| RuntimeError::InvalidExecutionState)?;
-                    self.collect_owned_instance_graph(value, depth + 1, visited)?;
+                    self.collect_owned_member(view, depth + 1, visited)?;
                 }
             }
             Value::Array(array) => {
@@ -787,5 +821,40 @@ impl EngineState<'_> {
             .lifetimes
             .instance_lifetimes
             .retain(|_, lifetime| lifetime != Some(owner));
+    }
+}
+
+#[cfg(test)]
+mod typed_instance_refusal_tests {
+    use super::*;
+    use crate::vm::PreparationLimits;
+
+    #[test]
+    fn typed_instance_without_root_or_owner_is_refused_before_it_is_issued() {
+        // Specification 34 §6.2, O8: a persistent instance has its root's cell range. With no root
+        // and no owning activation, the typed path is refused and issues no identity. A path that
+        // created the instance unowned would leave the instance count one higher.
+        let prepared = PreparedModule::from_bytes(
+            include_bytes!(
+                "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+            ),
+            PreparationLimits::default(),
+        )
+        .unwrap();
+        let pou = prepared
+            .layout
+            .entries
+            .iter()
+            .find(|entry| entry.owner == StorageOwner::Instance && entry.type_id.is_some())
+            .and_then(|entry| entry.owner_pou_id)
+            .unwrap();
+        let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        let instances = data.storage.instances().len();
+        let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        assert_eq!(
+            state.construct_typed_instance(pou, false),
+            Err(RuntimeError::InvalidExecutionState)
+        );
+        assert_eq!(state.data.storage.instances().len(), instances);
     }
 }

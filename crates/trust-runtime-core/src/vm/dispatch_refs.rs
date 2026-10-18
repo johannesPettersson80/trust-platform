@@ -1,17 +1,14 @@
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
-use crate::memory::view::{StoreAccess, StoreMutate};
-use crate::memory::{MemoryLocation, VariableStorage};
-use crate::value::{
-    materialize_value_path, read_value_path_borrowed, single_ref_index, string_element_position,
-    RefSegment, Value, ValueRef,
-};
+use crate::memory::layout::CELL_BYTES;
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
+use crate::memory::MemoryLocation;
+use crate::value::{single_ref_index, string_element_position, RefSegment, Value, ValueRef};
 
 use super::context::ReferenceContext;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
-use super::materialize_borrowed_value;
 use super::module::{invalid_bytecode, VmModule, VmRef};
 use super::type_policy::vm_type_for_path;
 
@@ -22,10 +19,15 @@ pub fn load_ref(
     frames: &FrameStack,
     ref_idx: u32,
 ) -> Result<Value, VmTrap> {
-    match peek_ref(runtime, module, frames, ref_idx) {
-        Ok(value) => {
-            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-            return Ok(materialize_borrowed_value(value).0);
+    match peek_ref_view(runtime, module, frames, ref_idx) {
+        Ok(view) => {
+            // The copy is charged from the value it produces: a copy charges what it copies, so the
+            // owned value and the stored view have the same charge (TIME-08).
+            let value = view.materialize().map_err(VmTrap::Runtime)?;
+            runtime
+                .before_value_clone(&value)
+                .map_err(VmTrap::Runtime)?;
+            return Ok(value);
         }
         Err(VmTrap::NullReference) => {}
         Err(error) => return Err(error),
@@ -35,34 +37,14 @@ pub fn load_ref(
     dynamic_load_view(runtime, frames, reference)
 }
 
-/// Borrow the stored leaf at a path in `storage` through the store-access seam.
-fn read_storage_path<'a>(
-    storage: &'a VariableStorage,
-    location: MemoryLocation,
-    offset: usize,
-    path: &[RefSegment],
-) -> Result<&'a Value, VmTrap> {
-    let view = storage.read_path(location, offset, path)?;
-    storage.borrow(&view).ok_or(VmTrap::NullReference)
-}
-
-/// Borrow a stored whole slot through the store-access seam.
-fn read_storage_slot(
-    storage: &VariableStorage,
-    location: MemoryLocation,
-    offset: usize,
-) -> Result<&Value, VmTrap> {
-    let view = storage.read_slot(location, offset)?;
-    storage.borrow(&view).ok_or(VmTrap::NullReference)
-}
-
-/// Borrow a static reference value after read-policy checks.
-pub fn peek_ref<'a>(
+/// The view of a static reference after read-policy checks (C1-9d1): a stored leaf, or a local of the
+/// current frame, which is a `Value` of the `Values` half.
+pub fn peek_ref_view<'a>(
     runtime: &'a impl ReferenceContext,
     module: &'a VmModule,
     frames: &'a FrameStack,
     ref_idx: u32,
-) -> Result<&'a Value, VmTrap> {
+) -> Result<ValueView<'a>, VmTrap> {
     let address = load_ref_view(runtime, module, frames, ref_idx)?;
     runtime
         .check_reference_read(address)
@@ -79,33 +61,30 @@ pub fn peek_ref<'a>(
             path,
         } => {
             let reference = runtime.initializer_reference(*initializer_id, path)?;
-            read_storage_path(storage, reference.location, reference.offset, path)
+            storage.read_path(reference.location, reference.offset, path)
         }
 
         VmRef::Global { offset, path } if path.is_empty() => {
-            read_storage_slot(storage, MemoryLocation::Global, *offset)
+            storage.read_slot(MemoryLocation::Global, *offset)
         }
-        VmRef::Global { offset, path } => {
-            read_storage_path(storage, MemoryLocation::Global, *offset, path)
-        }
+        VmRef::Global { offset, path } => storage.read_path(MemoryLocation::Global, *offset, path),
         VmRef::Local { offset, path, .. } => {
             let frame = frames.current().ok_or_else(|| VmTrap::CallStackUnderflow)?;
             if path.is_empty() {
                 let slot = frame.local_slot_index(ref_idx)?;
-                frame
-                    .locals
-                    .get(slot)
-                    .ok_or_else(|| VmTrap::InvalidLocalRef {
+                frame.locals.get(slot).map(ValueView::Value).ok_or_else(|| {
+                    VmTrap::InvalidLocalRef {
                         ref_index: ref_idx,
                         start: frame.local_ref_start,
                         count: frame.local_ref_count,
-                    })
+                    }
+                })
             } else {
                 let slot = *offset;
                 peek_vm_local_ref(frame, slot, path)
             }
         }
-        _ => read_storage_path(storage, address.location, address.offset, address.path),
+        _ => storage.read_path(address.location, address.offset, address.path),
     }
 }
 
@@ -278,20 +257,20 @@ pub fn dynamic_ref_field(
     field: SmolStr,
 ) -> Result<ValueRef, VmTrap> {
     let target = peek_dynamic_ref(runtime, frames, &reference)?;
-    match target {
-        Value::Struct(struct_value) => {
-            if !struct_value.contains_field(field.as_str()) {
-                return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
-            }
-            reserve_reference_segment(runtime, &mut reference, 0)?;
-            reference.path.push(RefSegment::Field(field));
-            Ok(reference)
+    if target.is_struct() {
+        if !target.has_field(field.as_str()) {
+            return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
         }
-        Value::Instance(instance_id) => runtime
+        reserve_reference_segment(runtime, &mut reference, 0)?;
+        reference.path.push(RefSegment::Field(field));
+        return Ok(reference);
+    }
+    match target.instance().map_err(VmTrap::Runtime)? {
+        Some(instance_id) => runtime
             .storage()
-            .resolved_instance_field_ref(*instance_id, field.as_str())
+            .resolved_instance_field_ref(instance_id, field.as_str())
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::UndefinedField(field))),
-        _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
+        None => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
 }
 
@@ -304,42 +283,42 @@ pub fn dynamic_ref_field_borrowed(
     field: SmolStr,
 ) -> Result<ValueRef, VmTrap> {
     let target = peek_dynamic_ref(runtime, frames, reference)?;
-    match target {
-        Value::Struct(struct_value) => {
-            if !struct_value.contains_field(field.as_str()) {
-                return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
-            }
-            runtime
-                .before_reference_path_clone(reference.as_view())
-                .map_err(VmTrap::Runtime)?;
-            // TIME-08: the added field segment costs one unit and its own bytes, as the
-            // owned path in `reserve_reference_segment` does.
-            runtime
-                .before_reference_path_growth(core::mem::size_of::<RefSegment>(), 1)
-                .map_err(VmTrap::Runtime)?;
-            let capacity = reference
-                .path
-                .len()
-                .checked_add(1)
-                .ok_or_else(|| RuntimeError::Overflow)?;
-            let mut path = alloc::vec::Vec::new();
-            path.try_reserve_exact(capacity)
-                .map_err(|_| RuntimeError::Overflow)?;
-            path.extend_from_slice(&reference.path);
-            let mut next = ValueRef {
-                location: reference.location,
-                offset: reference.offset,
-                generation: reference.generation,
-                path,
-            };
-            next.path.push(RefSegment::Field(field));
-            Ok(next)
+    if target.is_struct() {
+        if !target.has_field(field.as_str()) {
+            return Err(VmTrap::Runtime(RuntimeError::UndefinedField(field)));
         }
-        Value::Instance(instance_id) => runtime
+        runtime
+            .before_reference_path_clone(reference.as_view())
+            .map_err(VmTrap::Runtime)?;
+        // TIME-08: the added field segment costs one unit and one cell, as the owned path
+        // in `reserve_reference_segment` does.
+        runtime
+            .before_reference_path_growth(CELL_BYTES, 1)
+            .map_err(VmTrap::Runtime)?;
+        let capacity = reference
+            .path
+            .len()
+            .checked_add(1)
+            .ok_or_else(|| RuntimeError::Overflow)?;
+        let mut path = alloc::vec::Vec::new();
+        path.try_reserve_exact(capacity)
+            .map_err(|_| RuntimeError::Overflow)?;
+        path.extend_from_slice(&reference.path);
+        let mut next = ValueRef {
+            location: reference.location,
+            offset: reference.offset,
+            generation: reference.generation,
+            path,
+        };
+        next.path.push(RefSegment::Field(field));
+        return Ok(next);
+    }
+    match target.instance().map_err(VmTrap::Runtime)? {
+        Some(instance_id) => runtime
             .storage()
-            .resolved_instance_field_ref(*instance_id, field.as_str())
+            .resolved_instance_field_ref(instance_id, field.as_str())
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::UndefinedField(field))),
-        _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
+        None => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
     }
 }
 
@@ -354,11 +333,11 @@ pub fn dynamic_ref_index(
     // partial index segment (e.g. [i] -> [i, j]) against the base array dimensions.
     if let Some(RefSegment::Index(existing)) = reference.path.last() {
         let base_path = &reference.path[..reference.path.len().saturating_sub(1)];
-        if let Value::Array(array) =
-            peek_dynamic_ref_path(runtime, frames, reference.as_view(), base_path)?
-            && existing.len() < array.dimensions().len()
+        if let Some(dims) = peek_dynamic_ref_path(runtime, frames, reference.as_view(), base_path)?
+            .array_dimensions()
+            && existing.len() < dims.len()
         {
-            let (lower, upper) = array.dimensions()[existing.len()];
+            let (lower, upper) = dims[existing.len()];
             if index < lower || index > upper {
                 return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
                     index,
@@ -366,10 +345,10 @@ pub fn dynamic_ref_index(
                     upper,
                 }));
             }
-            // TIME-08: the added subscript costs one unit and its own bytes, whatever the
-            // capacity of the trailing index vector.
+            // TIME-08: the added subscript costs one unit and one cell, whatever the capacity
+            // of the trailing index vector.
             runtime
-                .before_reference_path_growth(core::mem::size_of::<i64>(), 1)
+                .before_reference_path_growth(CELL_BYTES, 1)
                 .map_err(VmTrap::Runtime)?;
             if let Some(RefSegment::Index(indices)) = reference.path.last_mut() {
                 indices
@@ -382,56 +361,49 @@ pub fn dynamic_ref_index(
     }
 
     let target = peek_dynamic_ref(runtime, frames, &reference)?;
-    match target {
-        Value::Array(array) => {
-            let Some((lower, upper)) = array.dimensions().first().copied() else {
-                return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
-            };
-            if index < lower || index > upper {
-                return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
-                    index,
-                    lower,
-                    upper,
-                }));
-            }
-            reserve_reference_segment(runtime, &mut reference, 1)?;
-            reference.path.push(single_ref_index(index));
-            Ok(reference)
+    if let Some(dims) = target.array_dimensions() {
+        let Some((lower, upper)) = dims.first().copied() else {
+            return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+        };
+        if index < lower || index > upper {
+            return Err(VmTrap::Runtime(RuntimeError::IndexOutOfBounds {
+                index,
+                lower,
+                upper,
+            }));
         }
-        Value::String(text) => {
-            runtime
-                .before_reference_path_growth(0, text.len())
-                .map_err(VmTrap::Runtime)?;
-            string_element_position(text.as_str(), index).map_err(VmTrap::Runtime)?;
-            reserve_reference_segment(runtime, &mut reference, 1)?;
-            reference.path.push(single_ref_index(index));
-            Ok(reference)
-        }
-        Value::WString(text) => {
-            runtime
-                .before_reference_path_growth(0, text.len())
-                .map_err(VmTrap::Runtime)?;
-            string_element_position(text.as_str(), index).map_err(VmTrap::Runtime)?;
-            reserve_reference_segment(runtime, &mut reference, 1)?;
-            reference.path.push(single_ref_index(index));
-            Ok(reference)
-        }
-        _ => Err(VmTrap::Runtime(RuntimeError::TypeMismatch)),
+        reserve_reference_segment(runtime, &mut reference, 1)?;
+        reference.path.push(single_ref_index(index));
+        return Ok(reference);
     }
+    // A STRING or a WSTRING: its length is charged before the element is checked (TIME-08).
+    let Some(length) = target.text_utf8_len().map_err(VmTrap::Runtime)? else {
+        return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
+    };
+    let text = target
+        .text()
+        .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
+    runtime
+        .before_reference_path_growth(0, length)
+        .map_err(VmTrap::Runtime)?;
+    string_element_position(text, index).map_err(VmTrap::Runtime)?;
+    reserve_reference_segment(runtime, &mut reference, 1)?;
+    reference.path.push(single_ref_index(index));
+    Ok(reference)
 }
 
 /// Admit one new owned path segment that carries `subscripts` subscripts, then reserve its
-/// slot. Each added segment and each added subscript costs one unit and its own bytes,
-/// whatever the path vector's capacity (spec 34 TIME-08).
+/// slot. Each added segment and each added subscript costs one unit and one cell, whatever the
+/// path vector's capacity (spec 34 TIME-08).
 fn reserve_reference_segment(
     runtime: &impl ReferenceContext,
     reference: &mut ValueRef,
     subscripts: usize,
 ) -> Result<(), VmTrap> {
     let subscript_bytes = subscripts
-        .checked_mul(core::mem::size_of::<i64>())
+        .checked_mul(CELL_BYTES)
         .ok_or_else(|| RuntimeError::Overflow)?;
-    let bytes = core::mem::size_of::<RefSegment>()
+    let bytes = CELL_BYTES
         .checked_add(subscript_bytes)
         .ok_or_else(|| RuntimeError::Overflow)?;
     let work = subscripts
@@ -452,7 +424,7 @@ pub fn peek_dynamic_ref<'a>(
     runtime: &'a impl ReferenceContext,
     frames: &'a FrameStack,
     reference: &ValueRef,
-) -> Result<&'a Value, VmTrap> {
+) -> Result<ValueView<'a>, VmTrap> {
     peek_dynamic_ref_path(runtime, frames, reference.as_view(), &reference.path)
 }
 
@@ -461,7 +433,7 @@ fn peek_dynamic_ref_path<'a>(
     frames: &'a FrameStack,
     reference: crate::value::ValueRefView<'_>,
     path: &[RefSegment],
-) -> Result<&'a Value, VmTrap> {
+) -> Result<ValueView<'a>, VmTrap> {
     runtime
         .check_reference_read(reference)
         .map_err(VmTrap::Runtime)?;
@@ -473,14 +445,13 @@ fn peek_dynamic_ref_path<'a>(
             .locals
             .get(reference.offset)
             .ok_or_else(|| VmTrap::NullReference)?;
-        return read_value_path_borrowed(root, path).ok_or_else(|| VmTrap::NullReference);
+        return ValueView::Value(root)
+            .walk(path)
+            .ok_or_else(|| VmTrap::NullReference);
     }
-    read_storage_path(
-        runtime.storage(),
-        reference.location,
-        reference.offset,
-        path,
-    )
+    runtime
+        .storage()
+        .read_path(reference.location, reference.offset, path)
 }
 
 /// Read a dynamic target with policy and pre-copy charging.
@@ -498,9 +469,12 @@ fn dynamic_load_view(
     reference: crate::value::ValueRefView<'_>,
 ) -> Result<Value, VmTrap> {
     match peek_dynamic_ref_path(runtime, frames, reference, reference.path) {
-        Ok(value) => {
-            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-            Ok(materialize_borrowed_value(value).0)
+        Ok(view) => {
+            let value = view.materialize().map_err(VmTrap::Runtime)?;
+            runtime
+                .before_value_clone(&value)
+                .map_err(VmTrap::Runtime)?;
+            Ok(value)
         }
         Err(VmTrap::NullReference) => {
             let (last, prefix) = reference
@@ -508,34 +482,47 @@ fn dynamic_load_view(
                 .split_last()
                 .ok_or_else(|| VmTrap::NullReference)?;
             let parent = peek_dynamic_ref_path(runtime, frames, reference, prefix)?;
+            // The parent is charged as a whole copy, from its view (C1-9d2a, item (a)).
             runtime
-                .before_value_clone(parent)
+                .before_view_clone(&parent)
                 .map_err(VmTrap::Runtime)?;
-            charge_materialize_path_work(runtime, parent, core::slice::from_ref(last))
+            charge_materialize_path_work(runtime, &parent, core::slice::from_ref(last))
                 .map_err(VmTrap::Runtime)?;
-            materialize_value_path(parent, core::slice::from_ref(last))
+            materialize_segment(&parent, last)
+                .map_err(VmTrap::Runtime)?
                 .ok_or_else(|| VmTrap::NullReference)
         }
         Err(error) => Err(error),
     }
 }
 
+/// The value one path segment selects inside a view (C1-9d1): a member or an element, or the
+/// character a text selects. `None` when the segment names nothing.
+pub(crate) fn materialize_segment(
+    view: &ValueView<'_>,
+    segment: &RefSegment,
+) -> Result<Option<Value>, RuntimeError> {
+    match (view.walk(core::slice::from_ref(segment)), segment) {
+        (Some(child), _) => child.materialize().map(Some),
+        (None, RefSegment::Index(indices)) => view.text_element(indices),
+        (None, RefSegment::Field(_)) => Ok(None),
+    }
+}
+
 /// Reading one character scans the text up to its index: TEXT work (spec 34 TIME-08).
 pub(crate) fn charge_materialize_path_work(
     runtime: &impl ReferenceContext,
-    root: &Value,
+    root: &ValueView<'_>,
     path: &[RefSegment],
 ) -> Result<(), RuntimeError> {
     let Some((RefSegment::Index(_), prefix)) = path.split_last() else {
         return Ok(());
     };
-    let Some(value) = read_value_path_borrowed(root, prefix) else {
+    let Some(value) = root.walk(prefix) else {
         return Ok(());
     };
-    let bytes = match value {
-        Value::String(text) => text.len(),
-        Value::WString(text) => text.len(),
-        _ => return Ok(()),
+    let Some(bytes) = value.text_utf8_len()? else {
+        return Ok(());
     };
     let work = bytes.checked_mul(2).ok_or_else(|| RuntimeError::Overflow)?;
     runtime.charge_text_work(work)
@@ -591,12 +578,14 @@ fn peek_vm_local_ref<'a>(
     frame: &'a VmFrame,
     offset: usize,
     path: &[RefSegment],
-) -> Result<&'a Value, VmTrap> {
+) -> Result<ValueView<'a>, VmTrap> {
     let root = frame
         .locals
         .get(offset)
         .ok_or_else(|| VmTrap::NullReference)?;
-    read_value_path_borrowed(root, path).ok_or_else(|| VmTrap::NullReference)
+    ValueView::Value(root)
+        .walk(path)
+        .ok_or_else(|| VmTrap::NullReference)
 }
 
 fn write_vm_local_ref(

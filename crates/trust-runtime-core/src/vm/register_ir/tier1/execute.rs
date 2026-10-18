@@ -1,4 +1,5 @@
 use super::*;
+use crate::memory::view::StoreAccess;
 
 #[allow(clippy::too_many_arguments)]
 pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
@@ -61,13 +62,13 @@ pub(in crate::vm::register_ir) fn execute_tier1_compiled_block_slice(
                 let self_instance = frame.runtime_instance.ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
                 })?;
-                let instance = runtime
+                let super_instance = runtime
                     .storage()
-                    .get_instance(self_instance)
-                    .ok_or_else(|| VmTrap::NullReference.into_runtime_error())?;
-                let super_instance = instance.parent.ok_or_else(|| {
-                    VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
-                })?;
+                    .instance_parent(self_instance)
+                    .map_err(VmTrap::into_runtime_error)?
+                    .ok_or_else(|| {
+                        VmTrap::Runtime(RuntimeError::TypeMismatch).into_runtime_error()
+                    })?;
                 write_register(registers, *dest, Value::Instance(super_instance))?;
             }
             Tier1CompiledInstr::LoadSelfFieldDynamic { field, dest } => {

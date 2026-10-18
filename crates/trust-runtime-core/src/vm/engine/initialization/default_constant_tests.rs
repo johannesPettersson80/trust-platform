@@ -207,7 +207,8 @@ fn constant_default_charges_exact_clone_demand_and_cleans_rejected_staging() {
     prepared.vm.consts.push(payload.clone());
     prepared.layout.entries[declaration].default_const_idx = Some(constant);
     prepared.initializers.entries[id].code_length = 0;
-    let demand = core::mem::size_of::<Value>() + 8192;
+    // The payload has 8192 UTF-16 code units of 2 bytes each: its exact clone demand (TIME-08).
+    let demand = 2 * 8192;
     prepared.limits.max_construction_bytes = demand - 1;
     {
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
@@ -289,7 +290,8 @@ fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
         assert_eq!(state.data.lifetimes.instance_lifetimes.len(), lifetimes);
         assert_eq!(state.data.storage.execution_activation_count(), 0);
     }
-    prepared.limits.max_construction_bytes = core::mem::size_of::<Value>() + 8192 - 1;
+    // One byte below the copy's exact demand of 8192 x 2 bytes (TIME-08).
+    prepared.limits.max_construction_bytes = 2 * 8192 - 1;
     {
         let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
         state.data.resources.construction_bytes.set(0);
@@ -329,5 +331,5 @@ fn member_default_preflight_cannot_strand_an_instance_or_lifetime_metadata() {
             .get(&name),
         Some(&Value::WString("A".repeat(8192)))
     );
-    assert!(state.data.resources.construction_bytes.get() >= core::mem::size_of::<Value>() + 8192);
+    assert!(state.data.resources.construction_bytes.get() >= 2 * 8192);
 }

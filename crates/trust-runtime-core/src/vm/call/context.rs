@@ -158,13 +158,13 @@ pub trait CallContext: ReferenceContext {
 
     /// Take the reusable original-input list for edge restoration (spec 34 MEM-09;
     /// census A5). A composition that reserved it at construction hands one out.
-    fn take_edge_restores(&mut self) -> Vec<(SmolStr, Value)> {
+    fn take_edge_restores(&mut self) -> Vec<(usize, Value)> {
         Vec::new()
     }
 
     /// Return the restore list of [`CallContext::take_edge_restores`] once the edges are
-    /// restored.
-    fn recycle_edge_restores(&mut self, _restores: Vec<(SmolStr, Value)>) {}
+    /// restored. Each entry is a member ordinal and its original value (C1-9d2a, R2).
+    fn recycle_edge_restores(&mut self, _restores: Vec<(usize, Value)>) {}
 
     /// Apply a native output group under the composition's copy-back policy.
     /// Legacy hosts preserve their existing writes; source-free state stages them.
@@ -226,6 +226,15 @@ pub trait CallContext: ReferenceContext {
     ) -> Result<(), RuntimeError>;
     /// Admit native state mutation, including hidden function-block slots.
     fn check_builtin_call(&self, instance_id: InstanceId) -> Result<(), RuntimeError>;
+    /// Run a built-in function block against the composition's own storage (spec 34
+    /// MEM-09; census C3, C7). The composition owns the storage, so it supplies the store
+    /// here, and the shared call path needs no concrete `VariableStorage`.
+    fn execute_builtin_fb(
+        &mut self,
+        now: Duration,
+        instance_id: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+    ) -> Result<(), RuntimeError>;
     /// An optional prepared hosted optimization; None selects the common stack loop.
     #[allow(clippy::too_many_arguments)]
     fn try_execute_optimized(

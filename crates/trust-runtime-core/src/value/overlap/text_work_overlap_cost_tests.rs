@@ -91,7 +91,7 @@ fn single_leaf_write_charges_the_formula_value() {
     //   affected leaf a (bb starts at bit 32, so it is not affected): 192 + w = 194
     //   no selected children, and the path is not empty, so no span or field-count terms
     //   total work = 52 + 200 + 194 = 446
-    //   allocation = P + one leaf entry = 4 + size_of::<(usize, Value)>()
+    //   allocation = P + one cell (16 bytes) for the leaf entry = 4 + 16 = 20
     let layout = two_leaf_layout();
     let target = pair(
         &[("a", Value::DWord(0)), ("bb", Value::DWord(0))],
@@ -102,7 +102,7 @@ fn single_leaf_write_charges_the_formula_value() {
     };
     let cost = structure.physical_write_cost(&path("a")).unwrap().unwrap();
     assert_eq!(cost.work, 446);
-    assert_eq!(cost.allocation, 4 + core::mem::size_of::<(usize, Value)>());
+    assert_eq!(cost.allocation, 20);
 }
 
 #[test]
@@ -114,7 +114,7 @@ fn whole_structure_write_charges_the_formula_value() {
     //   selected leaves: a: 192 + 4·2 = 200; bb: 192 + 4·3 = 204; total 184 + 404 = 588
     //   affected leaves: a: 192 + 2 = 194; bb: 192 + 3 = 195; total 588 + 389 = 977
     //   whole structure: field count 2, so the total work is 979
-    //   allocation = P + two leaf entries = 8 + 2 × size_of::<(usize, Value)>()
+    //   allocation = P + two cells (2 x 16) = 8 + 32 = 40
     // The input carries no layout, so it is not admitted as a shared-layout assignment.
     let layout = two_leaf_layout();
     let target = pair(
@@ -126,10 +126,7 @@ fn whole_structure_write_charges_the_formula_value() {
     };
     let cost = structure.physical_write_cost(&[]).unwrap().unwrap();
     assert_eq!(cost.work, 979);
-    assert_eq!(
-        cost.allocation,
-        8 + 2 * core::mem::size_of::<(usize, Value)>()
-    );
+    assert_eq!(cost.allocation, 40);
 }
 
 #[test]
@@ -155,7 +152,7 @@ fn hundred_field_single_write_charges_the_formula_value() {
         .unwrap()
         .unwrap();
     assert_eq!(cost.work, 693);
-    assert_eq!(cost.allocation, 4 + core::mem::size_of::<(usize, Value)>());
+    assert_eq!(cost.allocation, 20);
 }
 
 #[test]
@@ -172,7 +169,7 @@ fn sparse_gap_whole_structure_write_charges_the_formula_value() {
     //   affected leaves (both intersect the span): first 192 + 6 = 198; last 192 + 5 = 197;
     //   total 140183
     //   field count 2, so the total work is 140185
-    //   allocation = P + two leaf entries = 8192 + 2 × size_of::<(usize, Value)>()
+    //   allocation = P + two cells (2 x 16) = 8192 + 32 = 8224
     let layout = layouts(
         vec![
             primitive(2),
@@ -189,8 +186,5 @@ fn sparse_gap_whole_structure_write_charges_the_formula_value() {
     };
     let cost = structure.physical_write_cost(&[]).unwrap().unwrap();
     assert_eq!(cost.work, 140_185);
-    assert_eq!(
-        cost.allocation,
-        8192 + 2 * core::mem::size_of::<(usize, Value)>()
-    );
+    assert_eq!(cost.allocation, 8224);
 }

@@ -8,7 +8,7 @@
 //! by them.
 
 use super::*;
-use crate::bytecode::{StorageOwner, BYTECODE_MAX_TYPE_NESTING};
+use crate::bytecode::StorageOwner;
 use crate::memory::layout::{
     compute_type_layouts, CellRange, InstanceTemplateLayout, LayoutRegion, TypeLayout,
 };
@@ -68,8 +68,7 @@ impl PreparedLayouts {
         }
         budget.records::<Option<CellRange>>(globals.len())?;
 
-        // A template's own cells are its POU's instance declarations; a derived POU places its
-        // parent's template cells first (design "Prepared layouts").
+        // A template's own cells are its POU's instance declarations (design "Prepared layouts").
         let mut own: BTreeMap<u32, u32> = BTreeMap::new();
         for declaration in &layout.entries {
             if declaration.owner != StorageOwner::Instance || !declaration.owns_storage() {
@@ -85,23 +84,23 @@ impl PreparedLayouts {
             let slot = own.entry(pou).or_insert(0);
             *slot = slot.checked_add(cells).ok_or(RuntimeError::Overflow)?;
         }
+        // A template holds its POU's own cells and links to its parent's template; it does not
+        // repeat the parent's cells (O6). A derived POU without own variables still has a template,
+        // with no cells (O7). Each persistent root reserves its own range from its template
+        // (`memory/regions.rs`, O8), so `start` is relative to the instance's first cell.
         let mut templates = BTreeMap::new();
-        for &pou in own.keys() {
-            let total = template_total(pou, &own, vm, 0)?;
+        for &pou in own.keys().chain(vm.parent_pou_ids.keys()) {
             templates.insert(
                 pou,
                 InstanceTemplateLayout {
                     range: CellRange {
                         region: LayoutRegion::Persistent,
-                        start: persistent_cursor,
-                        cells: total,
+                        start: 0,
+                        cells: own.get(&pou).copied().unwrap_or(0),
                     },
                     parent: vm.parent_pou_ids.get(&pou).copied(),
                 },
             );
-            persistent_cursor = persistent_cursor
-                .checked_add(total)
-                .ok_or(RuntimeError::Overflow)?;
         }
         budget.map::<u32, InstanceTemplateLayout>(templates.len())?;
 
@@ -168,25 +167,6 @@ impl PreparedLayouts {
     }
 }
 
-/// A POU's template cell count: its own cells followed by its parent chain's, parent cells first.
-fn template_total(
-    pou: u32,
-    own: &BTreeMap<u32, u32>,
-    vm: &VmModule,
-    depth: usize,
-) -> Result<u32, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
-        return Err(RuntimeError::TypeMismatch);
-    }
-    let mut total = own.get(&pou).copied().unwrap_or(0);
-    if let Some(parent) = vm.parent_pou_ids.get(&pou).copied() {
-        total = total
-            .checked_add(template_total(parent, own, vm, depth + 1)?)
-            .ok_or(RuntimeError::Overflow)?;
-    }
-    Ok(total)
-}
-
 /// A POU's frame-local cell count: the sum of its frame declarations' type layouts.
 fn frame_cells(
     types: &[TypeLayout],
@@ -250,7 +230,8 @@ impl PreparedModule {
             .flatten()
     }
 
-    /// The reserved cell range of a POU's instance template, with its parent's cells first.
+    /// A POU's instance template: its own cells from the instance's first cell, and its parent's
+    /// template (specification 34 §6.2, O6, O7).
     #[must_use]
     pub fn instance_template_cells(&self, pou: u32) -> Option<InstanceTemplateLayout> {
         self.layouts.templates.get(&pou).copied()

@@ -702,15 +702,16 @@ fn a_persistent_region_is_sized_from_the_prepared_layouts() {
         })
     );
 
-    // Base's template is x : INT and p : REF_TO INT, two cells at cell 2. Derived extends Base, so
-    // its template places Base's two cells first and adds y : INT: three cells at cell 4.
+    // Base's template is its own x : INT and p : REF_TO INT: two cells from the instance's first
+    // cell. Derived extends Base, so its template holds only its own y : INT and links to Base's
+    // template (spec 34 §6.2, O6).
     assert_eq!(
         prepared
             .instance_template_cells(BASE_POU)
             .map(|template| template.range),
         Some(CellRange {
             region: LayoutRegion::Persistent,
-            start: 2,
+            start: 0,
             cells: 2,
         })
     );
@@ -720,15 +721,17 @@ fn a_persistent_region_is_sized_from_the_prepared_layouts() {
             .map(|template| template.range),
         Some(CellRange {
             region: LayoutRegion::Persistent,
-            start: 4,
-            cells: 3,
+            start: 0,
+            cells: 1,
         })
     );
 
-    // One plus one plus two plus three cells, and one reference leaf for `g_refs.r` plus Base's
-    // `p` and the one Derived inherits: seven cells and three records.
+    // The region has one range per persistent root (spec 34 §6.2, O8). This fixture's roots are
+    // Main (no own cells), the trigger and REFS: the trigger BOOL and REFS take one cell each,
+    // and REFS holds one reference leaf (`g_refs.r`). Base and Derived have no root here, so they
+    // reserve no cells.
     let store = CellStore::persistent(&prepared).expect("the persistent region reserves");
-    assert_eq!(store.reserved(), (7, 3));
+    assert_eq!(store.reserved(), (2, 1));
 
     // The whole region is addressable: its last cell and its last record exist, and one past
     // either end does not.
@@ -736,7 +739,7 @@ fn a_persistent_region_is_sized_from_the_prepared_layouts() {
         store
             .cells(CellRange {
                 region: LayoutRegion::Persistent,
-                start: 6,
+                start: 1,
                 cells: 1,
             })
             .map(|cells| cells.len()),
@@ -745,13 +748,13 @@ fn a_persistent_region_is_sized_from_the_prepared_layouts() {
     assert_eq!(
         store.cells(CellRange {
             region: LayoutRegion::Persistent,
-            start: 7,
+            start: 2,
             cells: 1,
         }),
         None
     );
-    assert_eq!(store.record(RefSlot(2)), Some(&RefRecord::NULL));
-    assert_eq!(store.record(RefSlot(3)), None);
+    assert_eq!(store.record(RefSlot(0)), Some(&RefRecord::NULL));
+    assert_eq!(store.record(RefSlot(1)), None);
 }
 
 #[test]

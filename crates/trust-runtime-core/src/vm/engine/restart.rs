@@ -71,21 +71,19 @@ impl EngineState<'_> {
                 };
                 let new = self.data.construction.roots[root_index]
                     .ok_or(RuntimeError::InvalidExecutionState)?;
-                if let Some(view) = source.data.storage.read_instance_var(old, name)
-                    && let Some(value) = source.data.storage.borrow(&view)
-                {
-                    self.check_retention_walk(value, 0)?;
-                    if value_is_retainable(value) {
-                        self.restore_program_value(new, name, value)?;
+                if let Some(view) = source.data.storage.read_instance_var(old, name) {
+                    let value = view.materialize()?;
+                    self.check_retention_walk(&value, 0)?;
+                    if value_is_retainable(&value) {
+                        self.restore_program_value(new, name, &value)?;
                     }
                 }
                 for &phase_id in source.prepared.edge_declarations(index as u32) {
                     let phase = &source.prepared.layout.entries[phase_id as usize];
                     let phase_name = &source.prepared.vm.strings[phase.name_idx as usize];
-                    if let Some(view) = source.data.storage.read_instance_var(old, phase_name)
-                        && let Some(value) = source.data.storage.borrow(&view)
-                    {
-                        self.restore_program_value(new, phase_name, value)?;
+                    if let Some(view) = source.data.storage.read_instance_var(old, phase_name) {
+                        let value = view.materialize()?;
+                        self.restore_program_value(new, phase_name, &value)?;
                     }
                 }
             }
@@ -99,13 +97,14 @@ impl EngineState<'_> {
         &mut self,
         source: &ProcessImages,
     ) -> Result<(), RuntimeError> {
-        let image_bytes = source
+        // Sampling and publication of the images are bookkeeping and are not charged (TIME-08);
+        // the overflow guard stays.
+        source
             .inputs
             .len()
             .checked_add(source.outputs.len())
             .and_then(|n| n.checked_add(source.memory.len()))
             .ok_or(RuntimeError::Overflow)?;
-        self.charge_allocation_bytes(image_bytes)?;
         for (target, source) in [
             (&mut self.data.images.inputs, &source.inputs),
             (&mut self.data.images.outputs, &source.outputs),
@@ -114,18 +113,11 @@ impl EngineState<'_> {
             let shared = target.len().min(source.len());
             target[..shared].copy_from_slice(&source[..shared]);
         }
-        self.charge_allocation_bytes(
-            source
-                .hierarchical
-                .len()
-                .checked_mul(core::mem::size_of::<(crate::io_image::IoAddressKey, Value)>() * 4)
-                .ok_or(RuntimeError::Overflow)?,
-        )?;
         for (key, value) in &source.hierarchical {
+            // The key copy and the entry map are bookkeeping and are not charged; the overflow
+            // guard stays. The value is a copy and pays the copy rule (TIME-08).
             let key_bytes = key.clone_allocation_bytes().ok_or(RuntimeError::Overflow)?;
-            // The overflow guard stays; the key copy is bookkeeping and is not charged.
             key_bytes.checked_add(1).ok_or(RuntimeError::Overflow)?;
-            self.charge_allocation_bytes(key_bytes)?;
             self.charge_allocation_bytes(self.value_clone_charge(value, 0)?)?;
             self.data
                 .images

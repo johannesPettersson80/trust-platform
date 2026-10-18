@@ -66,9 +66,9 @@ where
             "instantiate"
         })?;
     records::memory(console, memory, "main-instantiate")?;
-    let plant = records::instance(state.storage().get_global("Plant"))?;
-    let counter = records::instance(Some(records::field(state.storage(), plant, "counter")?))?;
-    let timer = records::instance(Some(records::field(state.storage(), plant, "delay")?))?;
+    let plant = records::global_instance(&state, "Plant")?;
+    let counter = records::member_instance(&state, plant, "counter")?;
+    let timer = records::member_instance(&state, plant, "delay")?;
     memory.begin_phase();
     // A future epoch allows the first sample to be genuinely hardware-timed zero.
     let epoch = clock.micros() + 10_000;
@@ -88,17 +88,16 @@ where
         let scan_cycles = clock.cycle_count().wrapping_sub(cycles);
         let scan_us = clock.micros() - started;
         watchdog.feed();
-        let storage = state.storage();
         let task = state.task_states().first().ok_or("missing-task")?;
         writeln!(
             console,
             "B1,TRACE,{},{},{},{},{},{},{},{},{},{},{}\r",
             now_ms,
-            records::integer(records::field(storage, counter, "value")?)?,
-            records::integer(records::field(storage, plant, "result")?)?,
-            records::integer(records::field(storage, plant, "activations")?)?,
-            records::boolean(records::field(storage, timer, "Q")?)?,
-            records::integer(records::field(storage, timer, "ET")?)? / 1_000_000,
+            records::integer(&records::field(&state, counter, "value")?)?,
+            records::integer(&records::field(&state, plant, "result")?)?,
+            records::integer(&records::field(&state, plant, "activations")?)?,
+            records::boolean(&records::field(&state, timer, "Q")?)?,
+            records::integer(&records::field(&state, timer, "ET")?)? / 1_000_000,
             task.last_run.as_millis(),
             task.overrun_count,
             scan_us,
@@ -157,7 +156,7 @@ where
             "instantiate"
         })?;
     records::memory(console, memory, "numeric-instantiate")?;
-    let plant = records::instance(state.storage().get_global("Plant"))?;
+    let plant = records::global_instance(&state, "Plant")?;
     memory.begin_phase();
     let epoch = clock.micros() + 10_000;
     let mut max_us = 0;
@@ -198,7 +197,7 @@ where
         "exact_power",
         "sum",
     ] {
-        let bits = match records::field(state.storage(), plant, name)? {
+        let bits = match records::field(&state, plant, name)? {
             Value::LReal(value) => value.to_bits(),
             Value::Real(value) => u64::from(value.to_bits()),
             _ => return Err("numeric-type"),
@@ -209,9 +208,9 @@ where
     writeln!(
         console,
         "B1,NUM_STATE,{},{},{},{},{},{},{},101\r",
-        records::integer(records::field(state.storage(), plant, "scaled")?)?,
-        records::boolean(records::field(state.storage(), plant, "command")?)?,
-        records::integer(records::field(state.storage(), plant, "activations")?)?,
+        records::integer(&records::field(&state, plant, "scaled")?)?,
+        records::boolean(&records::field(&state, plant, "command")?)?,
+        records::integer(&records::field(&state, plant, "activations")?)?,
         max_us,
         max_cycles,
         task.last_run.as_nanos(),
@@ -295,7 +294,7 @@ where
     records::io(console, io, "gpio-STOP", false)?;
     records::memory(console, memory, "gpio-run")?;
     services.deadline.set(None);
-    let plant = records::instance(state.storage().get_global("Plant"))?;
+    let plant = records::global_instance(&state, "Plant")?;
     for depth in 1..=4i16 {
         state
             .write_global("probe_depth", Value::Int(depth))
@@ -326,8 +325,7 @@ where
         if state.task_states().first().ok_or("missing-task")?.last_run <= previous_deadline {
             return Err("stack-task-not-activated");
         }
-        let depth_result =
-            records::integer(records::field(state.storage(), plant, "depth_result")?)?;
+        let depth_result = records::integer(&records::field(&state, plant, "depth_result")?)?;
         if depth_result != i64::from(depth) {
             return Err("stack-depth-not-executed");
         }

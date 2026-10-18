@@ -15,9 +15,9 @@ use smol_str::SmolStr;
 use trust_runtime_core::bytecode::{StorageOwner, StorageRole};
 use trust_runtime_core::collections::OrderedMap;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::VariableStorage;
+use trust_runtime_core::memory::{InstanceId, VariableStorage};
 use trust_runtime_core::value::{Value, ValueRef};
-use trust_runtime_core::vm::PreparedModule;
+use trust_runtime_core::vm::{CycleAccess, PreparedModule};
 
 /// A retained management label: a retained global's name, or `@program/<program>/<member>`.
 #[derive(Debug, Clone)]
@@ -76,16 +76,53 @@ impl Equivalent<RetainedLabel> for LabelQuery<'_> {
     }
 }
 
+/// The store lookups a retained label resolves through. Inside a scan they are the owner's current
+/// values ([`CycleAccess`]); outside one a [`VariableStorage`] serves them.
+pub trait RetainedLookup {
+    /// The instance a declared resource global holds, when it holds one.
+    fn global_instance(&self, name: &str) -> Option<InstanceId>;
+    /// A reference to a declared resource global.
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef>;
+    /// A reference to a declared member of one instance.
+    fn ref_for_instance(&self, id: InstanceId, name: &str) -> Option<ValueRef>;
+}
+
+impl RetainedLookup for VariableStorage {
+    fn global_instance(&self, name: &str) -> Option<InstanceId> {
+        match self.get_global(name)? {
+            Value::Instance(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
+        VariableStorage::ref_for_global(self, name)
+    }
+
+    fn ref_for_instance(&self, id: InstanceId, name: &str) -> Option<ValueRef> {
+        VariableStorage::ref_for_instance(self, id, name)
+    }
+}
+
+impl RetainedLookup for CycleAccess<'_, '_> {
+    fn global_instance(&self, name: &str) -> Option<InstanceId> {
+        CycleAccess::global_instance(self, name)
+    }
+
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
+        CycleAccess::ref_for_global(self, name)
+    }
+
+    fn ref_for_instance(&self, id: InstanceId, name: &str) -> Option<ValueRef> {
+        CycleAccess::ref_for_instance(self, id, name)
+    }
+}
+
 impl RetainedBinding {
-    fn resolve(&self, storage: &VariableStorage) -> Option<ValueRef> {
+    fn resolve(&self, lookup: &impl RetainedLookup) -> Option<ValueRef> {
         match &self.root {
-            Some(root) => {
-                let Value::Instance(id) = storage.get_global(root)? else {
-                    return None;
-                };
-                storage.ref_for_instance(*id, &self.name)
-            }
-            None => storage.ref_for_global(&self.name),
+            Some(root) => lookup.ref_for_instance(lookup.global_instance(root)?, &self.name),
+            None => lookup.ref_for_global(&self.name),
         }
     }
 }
@@ -157,10 +194,10 @@ pub fn bind_retained_declarations(
 #[must_use]
 pub fn retained_reference(
     names: &RetainedNames,
-    storage: &VariableStorage,
+    lookup: &impl RetainedLookup,
     name: &str,
 ) -> Option<ValueRef> {
-    names.get(&LabelQuery(name))?.resolve(storage)
+    names.get(&LabelQuery(name))?.resolve(lookup)
 }
 
 /// Preserve the control protocol's exact-name snapshot lookup: the label must match `name` in

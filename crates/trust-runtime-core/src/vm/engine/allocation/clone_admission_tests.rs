@@ -141,18 +141,16 @@ fn actual_copy_admission_records_caller_and_refused_charge_stage() {
     )
     .unwrap();
     let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
-    let size = core::mem::size_of::<Value>();
-    for (work, limit, estimated, admitted) in
-        [(0, size, 0, 0), (1, 0, size, 0), (1, size, size, size)]
-    {
+    // TIME-08: the WSTRING "ab" has one COPY unit and 2 UTF-16 code units, so 4 bytes of
+    // estimated allocation.
+    for (work, limit, estimated, admitted) in [(0, 4, 0, 0), (1, 0, 4, 0), (1, 4, 4, 4)] {
         prepared.limits.max_construction_bytes = limit;
         let state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
         state.data.resources.work_budget.reset(work);
         state.data.resources.construction_bytes.set(0);
-        // An empty WSTRING has one COPY unit and exactly one Value of estimated bytes.
         start_callsite_accounting_log();
         let caller_line = line!() + 1;
-        let result = state.before_value_clone(&Value::WString(String::new()));
+        let result = state.before_value_clone(&Value::WString(String::from("ab")));
         let log = finish_callsite_accounting_log();
         assert!(log.is_valid());
         assert_eq!(log.copy_len, 1);

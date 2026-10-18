@@ -78,4 +78,12 @@ impl CallContext for Runtime {
     fn check_builtin_call(&self, _instance: InstanceId) -> Result<(), RuntimeError> {
         Ok(())
     }
+    fn execute_builtin_fb(
+        &mut self,
+        now: Duration,
+        instance_id: InstanceId,
+        kind: crate::stdlib::fbs::BuiltinFbKind,
+    ) -> Result<(), RuntimeError> {
+        crate::stdlib::fbs::execute_builtin_in_storage(&mut self.storage, now, instance_id, kind)
+    }
 }

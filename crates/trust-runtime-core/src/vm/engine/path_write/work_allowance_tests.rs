@@ -1,7 +1,7 @@
-//! TIME-08: copy-on-write detach of a shared structure charges each field as a copy.
+//! TIME-08: a field write into a shared structure detaches its storage without a charge, as a
+//! write into an unshared one does, because the program copies no structure.
 use super::*;
 use crate::collections::OrderedMap;
-use crate::error::ExecutionLimitKind;
 use crate::value::{ArrayValue, StructValue};
 use alloc::{boxed::Box, string::String, sync::Arc, vec};
 
@@ -20,7 +20,7 @@ fn probe_structure() -> Arc<StructValue> {
 }
 
 #[test]
-fn shared_structure_detach_charges_each_field_copy_work() {
+fn shared_structure_field_write_charges_nothing_as_an_unshared_one_does() {
     let prepared = PreparedModule::from_bytes(
         include_bytes!(
             "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
@@ -32,31 +32,19 @@ fn shared_structure_detach_charges_each_field_copy_work() {
     let mut data = EngineState::construct_data(&prepared, 0, services).unwrap();
     let state = EngineState::borrow(&mut data, &prepared, services);
     let shared = probe_structure();
-    // The second owner makes the structure shared, so a field write must detach it.
+    // The second owner makes the structure shared, so a field write detaches its storage. The
+    // detach copies "name" (a WSTRING), "items" (an array) and "small" (a scalar), but the
+    // program copies no structure, so it is bookkeeping: no work and no allocation (TIME-08).
     let root = Value::Struct(Arc::clone(&shared));
     let path = [RefSegment::Field("small".into())];
 
-    // TIME-08 COPY: detaching copies every field. "name" is a WSTRING (1 unit), "items" is an
-    // array (1 + 3 elements) and "small" is a scalar (nothing), so the detach costs 5 units.
-    state.data.resources.work_budget.reset(5);
+    state.data.resources.work_budget.reset(0);
     state.data.resources.construction_bytes.set(0);
     state
         .charge_path_write(&root, &path, &Value::DInt(90))
         .unwrap();
     assert_eq!(state.data.resources.work_budget.remaining(), 0);
-
-    state.data.resources.work_budget.reset(4);
-    let error = state
-        .charge_path_write(&root, &path, &Value::DInt(90))
-        .unwrap_err();
-    assert!(matches!(
-        error,
-        RuntimeError::ExecutionLimit {
-            kind: ExecutionLimitKind::Work,
-            limit: 4,
-            ..
-        }
-    ));
+    assert_eq!(state.data.resources.construction_bytes.get(), 0);
 }
 
 #[test]

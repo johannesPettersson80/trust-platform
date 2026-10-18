@@ -4,6 +4,8 @@ use crate::value::{RefSegment, Value};
 use trust_runtime_core::vm::hosted::context::ReferenceContext;
 
 impl ReferenceContext for Runtime {
+    type Store = VariableStorage;
+
     fn check_reference_write(
         &self,
         _reference: crate::value::ValueRefView<'_>,

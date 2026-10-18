@@ -17,7 +17,7 @@ fn vm_fb_out_source_reads_direct_instance_field() {
 
     assert!(matches!(
         source.read(&runtime).expect("direct out source read"),
-        crate::value::Value::DInt(41)
+        trust_runtime_core::memory::view::ValueView::Value(crate::value::Value::DInt(41))
     ));
 }
 
@@ -37,7 +37,7 @@ fn vm_fb_out_source_reads_reference_field() {
     assert_eq!(reference.location, MemoryLocation::Instance(instance));
     assert!(matches!(
         source.read(&runtime).expect("reference out source read"),
-        crate::value::Value::DInt(17)
+        trust_runtime_core::memory::view::ValueView::Value(crate::value::Value::DInt(17))
     ));
 }
 
@@ -98,7 +98,12 @@ fn vm_fb_field_binding_reads_writes_and_reports_invalid_direct_offset() {
 
     let binding = super::VmFbFieldBinding::resolve(&runtime, instance, &SmolStr::new("OUT"))
         .expect("field binding");
-    assert_eq!(binding.read(&runtime), Some(&Value::DInt(23)));
+    assert!(matches!(
+        binding.read(&runtime),
+        Some(trust_runtime_core::memory::view::ValueView::Value(
+            Value::DInt(23)
+        ))
+    ));
     assert!(binding.write(&mut runtime, Value::DInt(24)));
     assert_eq!(instance_field(&runtime, instance, "OUT"), Value::DInt(24));
 

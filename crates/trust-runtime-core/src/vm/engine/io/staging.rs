@@ -545,12 +545,7 @@ impl EngineState<'_> {
             .storage
             .read_path(reference.location, reference.offset, reference.path)
             .map_err(|_| RuntimeError::NullReference)?;
-        let source = self
-            .data
-            .storage
-            .borrow(&view)
-            .ok_or(RuntimeError::NullReference)?;
-        self.charge_allocation_bytes(self.value_clone_charge(source, 0)?)?;
+        self.charge_allocation_bytes(self.view_clone_charge(&view)?)?;
         // The read above already resolved this path, so the view holds exactly the
         // leaf the old whole-value materialize returned.
         let value = self.data.storage.materialize(&view)?;

@@ -103,14 +103,15 @@ fn charge_text_arguments(runtime: &mut impl CallContext, values: &[Value]) -> Re
     runtime.charge_text_work(bytes).map_err(VmTrap::Runtime)
 }
 
-/// Charge a text result as a new value after the function body returns (TIME-08).
+/// Charge a text result as a new value after the function body returns (TIME-08): its copy
+/// allocation, the UTF-8 bytes of a STRING or two bytes per UTF-16 code unit of a WSTRING.
 /// A refused charge discards the result.
 #[inline(always)]
 fn charge_text_return(runtime: &mut impl CallContext, result: &Value) -> Result<(), VmTrap> {
-    match text_byte_len(result) {
-        Some(bytes) => runtime.charge_text_result(bytes).map_err(VmTrap::Runtime),
-        None => Ok(()),
+    if !matches!(result, Value::String(_) | Value::WString(_)) {
+        return Ok(());
     }
+    runtime.charge_text_result(result).map_err(VmTrap::Runtime)
 }
 
 /// Bind the single operand of a recognized conversion.

@@ -17,7 +17,7 @@ use alloc::format;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::{Generation, InstanceId, VariableStorage};
+use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::value::{Duration, Value, ValueRef};
 use trust_runtime_core::vm::CycleAccess;
 
@@ -214,7 +214,7 @@ fn apply_pending_var(
         PendingVarTarget::Global(name) => access.write_admitted_global(name, value),
         PendingVarTarget::Retain(name) => write_retained(access, names, name, value),
         PendingVarTarget::Instance(generation, id, name) => {
-            instance_reference(access.storage(), *generation, *id, name)
+            instance_reference(access, *generation, *id, name)
                 .and_then(|reference| access.write_admitted_reference(reference.as_view(), value))
         }
         // A local of a paused frame is not reachable from the scan; the queued write is refused.
@@ -232,7 +232,7 @@ fn apply_forced_var(
         ForcedVarTarget::Global(name) => access.write_admitted_global(name, value),
         ForcedVarTarget::Retain(name) => write_retained(access, names, name, value),
         ForcedVarTarget::Instance(generation, id, name) => {
-            instance_reference(access.storage(), *generation, *id, name)
+            instance_reference(access, *generation, *id, name)
                 .and_then(|reference| access.write_admitted_reference(reference.as_view(), value))
         }
     }
@@ -249,7 +249,7 @@ fn write_retained(
     access
         .charge_management_name(name)
         .and_then(|()| {
-            retained_names::retained_reference(names, access.storage(), name)
+            retained_names::retained_reference(names, &*access, name)
                 .ok_or(RuntimeError::ReferenceLifetime)
         })
         .and_then(|reference| access.write_admitted_reference(reference.as_view(), value))
@@ -260,15 +260,15 @@ fn write_retained(
 /// or replacement in between cannot redirect it to the instance that now has that identity
 /// (specification 34 §4.3.1).
 fn instance_reference(
-    storage: &VariableStorage,
+    access: &CycleAccess<'_, '_>,
     generation: Generation,
     id: InstanceId,
     name: &str,
 ) -> Result<ValueRef, RuntimeError> {
-    if generation != storage.generation() {
+    if generation != access.generation() {
         return Err(RuntimeError::ReferenceLifetime);
     }
-    storage
+    access
         .ref_for_instance_recursive(id, name)
         .ok_or(RuntimeError::ReferenceLifetime)
 }

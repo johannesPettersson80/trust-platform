@@ -140,8 +140,8 @@ impl EngineState<'_> {
         else {
             return Err(RuntimeError::TypeMismatch);
         };
-        match self.data.storage.borrow(&slot) {
-            Some(Value::Bool(value)) => Ok(*value),
+        match slot.scalar()? {
+            Some(Value::Bool(value)) => Ok(value),
             _ => Err(RuntimeError::TypeMismatch),
         }
     }
@@ -157,9 +157,9 @@ impl EngineState<'_> {
             .storage
             .read_path(reference.location, reference.offset, reference.path)
             .map_err(|_| RuntimeError::NullReference)?;
-        let instance = match self.data.storage.borrow(&view) {
-            Some(Value::Instance(id)) => *id,
-            _ => return Err(RuntimeError::TypeMismatch),
+        let instance = match view.instance()? {
+            Some(id) => id,
+            None => return Err(RuntimeError::TypeMismatch),
         };
         let pou = *self
             .data

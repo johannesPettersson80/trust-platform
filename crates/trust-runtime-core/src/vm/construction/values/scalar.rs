@@ -6,10 +6,7 @@ use crate::value::{
 };
 use alloc::string::{String, ToString};
 
-pub(in crate::vm) fn default(
-    primitive: u16,
-    profile: DateTimeProfile,
-) -> Result<Value, RuntimeError> {
+pub(crate) fn default(primitive: u16, profile: DateTimeProfile) -> Result<Value, RuntimeError> {
     Ok(match primitive {
         1 => Value::Bool(false),
         2 => Value::Byte(0),
