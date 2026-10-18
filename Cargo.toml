@@ -29,6 +29,7 @@ exclude = [
     "third_party/tiverse-mmap",
     "firmware/trust-stm32f407",
     "firmware/trust-esp32c6",
+    "firmware/trust-stm32u5a9",
 ]
 
 [workspace.package]

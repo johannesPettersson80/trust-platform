@@ -3054,6 +3054,46 @@
         "review_date": "2026-10-17"
       },
       {
+        "path": "firmware/trust-stm32u5a9/src/application.rs",
+        "line": 21,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The application region is bank 2 from 0x0820_0000 for 2016 KiB: profile.x keeps the firmware image below 0x0820_0000, and the checkpoint slots follow the region. The firmware never writes or erases it, so the slice is constant for the boot and is read only to admit the program.",
+        "test_evidence": "The region bounds are asserted at build time (profile.rs) and the admission rules are host-tested in trust-runtime-services; the read of the installed bytes is proved on the bench (S1b-9u) with a deployed program.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/halt.rs",
+        "line": 20,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The fault path runs after the boot has ended: it takes the RCC, PWR and TAMP blocks, which no other owner uses again, to write the reset record and to reset the chip. Interrupts are masked before the outputs are driven to their safe levels.",
+        "test_evidence": "The record encoding is host-tested in trust-platform-memory; the panic record and its reset are proved on the bench (S1b-9u) by a deliberate fault.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/identity.rs",
+        "line": 36,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The flash size register is a read-only half-word of system memory at 0x0BFA_07A0 (RM0456). A volatile read of it has no effect on the chip.",
+        "test_evidence": "The boot compares the value with chips/stm32u5a9.toml; proved on the bench (S1b-9u) by the identity record of the Riverdi board.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/main.rs",
+        "line": 298,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
+        "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/memory.rs",
+        "line": 25,
+        "owner": "runtime portability STM32U5A9 (S1b-9u)",
+        "invariant": "Called exactly once, first in main and before any allocation. Region A (SRAM1, SRAM2 and the first 192 KiB of SRAM3) is no section of memory.x, so the slice covers only memory the allocator owns for the whole boot.",
+        "test_evidence": "The two-region allocator rules are proved by cargo test -p trust-platform-memory; the placement is checked by the linker assertions (profile.x) and the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
         "path": "crates/trust-platform-stm32u5/src/clock.rs",
         "line": 141,
         "owner": "runtime portability STM32U5A9 (S1b-8u-1)",

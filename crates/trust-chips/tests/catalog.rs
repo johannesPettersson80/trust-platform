@@ -26,8 +26,8 @@ fn layout(chip: &ChipFile) -> Vec<(&'static str, u32, u32)> {
 #[test]
 fn the_catalog_holds_every_chip_file_whose_firmware_crate_is_in_the_repository() {
     // Specification 34, Appendix H.6: the catalog lists the chips whose firmware crate is in the
-    // repository, which `build-firmware` builds. A chip file whose crate is not there yet (the
-    // STM32U5A9 until S1b-9u) is read and checked by its adapter's tests and is not in the catalog.
+    // repository, which `build-firmware` builds. A chip file whose crate is not there is read and
+    // checked by its adapter's tests and is not in the catalog.
     // Catches a chip whose firmware exists but is missing from the catalog, a catalog entry whose
     // firmware is absent, and a chip file that no longer parses.
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -53,13 +53,13 @@ fn the_catalog_holds_every_chip_file_whose_firmware_crate_is_in_the_repository()
     files.sort();
     let catalog = catalog();
     let mut names = catalog.names();
-    assert_eq!(names, ["stm32f407", "esp32c6"]);
+    assert_eq!(names, ["stm32f407", "esp32c6", "stm32u5a9"]);
     names.sort_unstable();
     assert_eq!(names, files);
-    assert_eq!(catalog.chips().len(), 2);
+    assert_eq!(catalog.chips().len(), 3);
     assert!(catalog.chip("stm32f401").is_none());
     assert!(catalog.chip("stm32f407g-disc1").is_none());
-    assert!(catalog.chip("stm32u5a9").is_none());
+    assert!(catalog.chip("riverdi-rvt50hqsnwc00-b").is_none());
 }
 
 #[test]
@@ -233,12 +233,12 @@ fn both_files_record_what_was_measured_on_the_owners_chips() {
 #[test]
 fn a_component_names_the_chips_whose_firmware_holds_it() {
     let catalog = catalog();
-    // Appendix H.3: both chips in the catalog hold the engine; the C6's bench measured the control requests
-    // and Live Values, which the F407 firmware does not serve. Catches a chip offered for a
+    // Appendix H.3: every chip in the catalog holds the engine; the C6's bench measured the control requests
+    // and Live Values, which the F407 and U5 firmware do not serve yet. Catches a chip offered for a
     // component its firmware lacks, or one left out for a component it holds.
     assert_eq!(
         catalog.chips_with(Component::Engine),
-        ["stm32f407", "esp32c6"]
+        ["stm32f407", "esp32c6", "stm32u5a9"]
     );
     assert_eq!(catalog.chips_with(Component::Control), ["esp32c6"]);
     assert_eq!(catalog.chips_with(Component::LiveValues), ["esp32c6"]);
