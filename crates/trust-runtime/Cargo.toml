@@ -76,6 +76,7 @@ open-ot-document = { git = "https://github.com/johannesPettersson80/open-ot-expe
 open-ot-carriage = { git = "https://github.com/johannesPettersson80/open-ot-experiments.git", rev = "137f0e765f085c262651f479be35298b836ac891" , optional = true }
 opcua = { version = "0.12.0", default-features = false, features = ["server", "client", "vendored-openssl"], optional = true }
 ads = { version = "=0.4.4", optional = true }
+encoding_rs = { version = "0.8.42", optional = true }
 crossbeam-channel = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tokio-util = { version = "0.7.20", features = ["compat"], optional = true }
@@ -230,7 +231,7 @@ development = ["full", "debug", "register-ir"]
 debug = ["full"]
 opcua-wire = ["full", "dep:opcua"]
 ethercat-wire = ["full", "dep:ethercrab", "dep:tokio", "dep:pnet_datalink"]
-ads-wire = ["full", "dep:ads"]
+ads-wire = ["full", "dep:ads", "dep:encoding_rs"]
 ads-server = ["full", "dep:trust-ads-server"]
 openot-real-database-tests = ["full"]
 openot-database-all = [

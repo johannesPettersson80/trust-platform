@@ -1429,14 +1429,41 @@ find's `last_seen` is that observation time. A stale runtime carries the warning
 `partitioned`. Presence is read at most once a second for each runtime. The
 tool's own computer has no runtime cloud, so its finds carry no presence.
 
-The route list of an ADS target is unproven (O20). No source yet gives the read
-that lists a target's routes. The AMS router's route table is expected on AMS
-port 10000, but no public source checked confirms the read, its index group, or
-its data layout. The sources checked on 18 October 2026 were the Beckhoff
-InfoSys page for the `Get-AdsRoute` cmdlet, which describes the cmdlet and not
-the wire read, and the Beckhoff ADS repository on GitHub, which documents no
-route read. A real TwinCAT computer confirms the read before the ADS source
-relies on it.
+The route list of an ADS target is read by the ADS source of a search (O20). The
+method is the one that the `ads` crate's `adstool route list` runs (`ads` 0.4.4,
+`examples/adstool.rs` lines 378–404; the Beckhoff sources checked on 18 October
+2026 documented no route read). The search connects to the target's system
+service on AMS port 10000 and reads index group 803 (0x323, `ROUTE_LIST`) at
+index offsets 0, 1, 2 and so on, until ADS error 0x716 ends the list. Each entry
+starts with a 44-byte header. Bytes 0–5 are the AMS Net ID. Bytes 8–11 are the
+flags, a little-endian u32 whose bits are 0x01 temporary, 0x80 unidirectional,
+and 0x100 virtual or NAT. Bytes 32–35 are the host length and bytes 36–39 the
+name length, each counting its NUL. The host text starts at byte 44 and ends
+with its NUL; the name text follows it and ends with its NUL. Both texts are
+Windows-1252, the Windows ANSI code page, so each byte of a text is one
+character; a byte that is not valid UTF-8, such as 0xFC for `ü`, is not damage.
+The timeout and the largest fragment (bytes 12–19) are not reported. An entry is
+damaged only when it is shorter than 44 bytes, a length is 0, the two texts need
+more bytes than the entry holds, or a text lacks its NUL at its end or holds one
+before it. The search reports a damaged entry with its index and reads on.
+
+The find of a target carries `route_list` in its params. With status `ok`, it
+gives `routes` (each with `name`, `ams_net_id`, `host`, `temporary`,
+`unidirectional` and `virtual_nat`) and `damaged` (each with `index` and
+`reason`). With status `unavailable`, it gives `reason` and, when the target
+answered with an error, that `error`. A list that ends with 0x716 at its first
+entry is empty and has status `ok`. A read refused with an ADS error, and a read
+that fails after some entries, make the list `unavailable`. So does a search
+deadline that passes before the list ends. The search opens no connection and
+starts no read after its deadline, and it never reports a partial or an empty
+list in these cases.
+
+The read needs a route from the target to this runtime. When the target gives no
+answer to the first read, the list is `unavailable` with a reason that says there
+is no route from the target to this runtime. The search adds no route: its
+Safety rule says that a search only reads and never changes a device's state.
+`comm.discover` reads no route lists. The read is unproven (O20): it stays
+unproven until a real TwinCAT computer confirms it.
 
 A known address is probed at each protocol's own port. An explicit port is used
 by Modbus TCP, MQTT and OPC UA; ADS identifies the host alone. Without a known

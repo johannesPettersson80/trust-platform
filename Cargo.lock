@@ -6872,6 +6872,7 @@ dependencies = [
  "crossbeam-channel",
  "crossterm",
  "dialoguer",
+ "encoding_rs",
  "ethercrab",
  "glob",
  "gpio-cdev",
