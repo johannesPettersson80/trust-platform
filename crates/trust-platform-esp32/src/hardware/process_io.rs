@@ -1,14 +1,16 @@
 //! The GPIO process image of the installed program (design §1.2 and specification 34, §7.2,
-//! TARGET-01 and STATE-04): one input or output line for each `io.toml` `gpio` line, named by a
-//! pin (`GPIO18`) and a bit of the flat process image, with its invert and, for an output, its
-//! initial value.
+//! TARGET-01 and STATE-04): one input or output line for each `io.toml` `gpio` line, named by a pin
+//! (`GPIO18`) and a bit of the flat process image, with its invert and, for an output, its initial
+//! value.
 //!
-//! The lines are plain data the installed-application record fills (a later slice); this module
-//! checks the pin against the chip's file and inverts a level. `GpioIo` drives the esp-hal pins
-//! behind the crate's riscv32 gate, so the pin check and the inversion run in `tests/pin_lines.rs`
-//! without hardware.
+//! The lines are plain data the installed-application record fills; this module checks the pin against
+//! the chip's file and claims it. The image itself is the shared one of
+//! `trust_runtime_services::chip::process_io`: `Esp32Pins` drives the esp-hal pins behind the crate's
+//! riscv32 gate, so the pin check and the inversion run in `tests/pin_lines.rs` without hardware.
 
 use core::fmt;
+
+use trust_runtime_services::chip::process_io::ImageBit;
 
 /// A pin number of the esp32 GPIO family, printed `GPIO0` to `GPIO255`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,10 +141,20 @@ pub struct InputLine {
 }
 
 impl InputLine {
+    /// The line's bit of the flat input image, with its inversion.
+    #[must_use]
+    pub const fn image_bit(self) -> ImageBit {
+        ImageBit {
+            byte: self.byte,
+            bit: self.bit,
+            invert: self.invert,
+        }
+    }
+
     /// The logical input value of the pin's physical level `high`; an inverted line flips it.
     #[must_use]
     pub const fn level(self, high: bool) -> bool {
-        high != self.invert
+        self.image_bit().value(high)
     }
 }
 
@@ -163,23 +175,30 @@ pub struct OutputLine {
 }
 
 impl OutputLine {
+    /// The line's bit of the flat output image, with its inversion.
+    #[must_use]
+    pub const fn image_bit(self) -> ImageBit {
+        ImageBit {
+            byte: self.byte,
+            bit: self.bit,
+            invert: self.invert,
+        }
+    }
+
     /// The pin's physical level for the logical output value `value`; an inverted line flips it.
     #[must_use]
     pub const fn level(self, value: bool) -> bool {
-        value != self.invert
+        self.image_bit().level(value)
     }
 }
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
 mod gpio {
-    use alloc::vec;
     use alloc::vec::Vec;
 
     use esp_hal::gpio::{AnyPin, Flex, Input, InputConfig, Level};
     use trust_runtime_core::deployment::{GpioInput, GpioOutput};
-    use trust_runtime_core::error::RuntimeError;
-    use trust_runtime_services::runner::engine::ProcessIo;
-    use trust_runtime_services::status::{IoDriverHealth, IoDriverStatus};
+    use trust_runtime_services::chip::process_io::{GpioPins, ProcessImage};
 
     use super::{
         check_pin, GpioPin, InputLine, OutputLine, PinError, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
@@ -261,70 +280,48 @@ mod gpio {
         Ok((input_lines, output_lines))
     }
 
-    /// The installed program's GPIO process image over esp-hal pins, one pin per configured line
-    /// and in the same order.
-    pub struct GpioIo {
+    /// The esp-hal pins behind the shared process image: an input is read, and an output is driven,
+    /// through the handle its claim returned (specification 34, TARGET-01).
+    pub struct Esp32Pins;
+
+    impl GpioPins for Esp32Pins {
+        type Input = Input<'static>;
+        type Output = Flex<'static>;
+
+        fn is_high(&self, input: &Input<'static>) -> bool {
+            input.is_high()
+        }
+
+        fn drive(&mut self, output: &mut Flex<'static>, high: bool) {
+            output.set_level(level(high));
+        }
+    }
+
+    /// The installed program's GPIO process image over the esp-hal pins, one entry per configured line
+    /// in `io.toml` order.
+    pub type GpioIo = ProcessImage<Esp32Pins>;
+
+    /// Binds the claimed lines to the shared process image. Each output is driven to its initial level
+    /// before the program runs, as the claim left it (specification 34, STATE-01).
+    #[must_use]
+    pub fn bind_lines(
         inputs: Vec<(Input<'static>, InputLine)>,
-        outputs: Vec<(Flex<'static>, OutputLine)>,
-    }
-
-    impl GpioIo {
-        /// Binds each configured line to its esp-hal pin, in `io.toml` order, and drives every
-        /// output to its initial level before it becomes an output (specification 34, STATE-01).
-        /// The caller has already configured each pin.
-        #[must_use]
-        pub fn new(
-            inputs: Vec<(Input<'static>, InputLine)>,
-            outputs: Vec<(Flex<'static>, OutputLine)>,
-        ) -> Self {
-            let mut this = Self { inputs, outputs };
-            for (pin, line) in &mut this.outputs {
-                pin.set_level(level(line.level(line.initial)));
-            }
-            this
+        mut outputs: Vec<(Flex<'static>, OutputLine)>,
+    ) -> GpioIo {
+        for (pin, line) in &mut outputs {
+            pin.set_level(level(line.level(line.initial)));
         }
-    }
-
-    impl ProcessIo for GpioIo {
-        fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
-            for (pin, line) in &self.inputs {
-                write_bit(image, line.byte, line.bit, line.level(pin.is_high()))?;
-            }
-            Ok(())
-        }
-
-        fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
-            for (pin, line) in &mut self.outputs {
-                let value = line.level(read_bit(image, line.byte, line.bit)?);
-                pin.set_level(level(value));
-            }
-            Ok(())
-        }
-
-        fn write_safe_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
-            // Specification 34, STATE-04: every output is attempted even when one fails, and the
-            // first failure is reported. A GPIO write cannot fail; an unreadable image bit is a
-            // mapping fault.
-            let mut first = None;
-            for (pin, line) in &mut self.outputs {
-                match read_bit(image, line.byte, line.bit) {
-                    Ok(raw) => pin.set_level(level(line.level(raw))),
-                    Err(error) => {
-                        if first.is_none() {
-                            first = Some(error);
-                        }
-                    }
-                }
-            }
-            first.map_or(Ok(()), Err)
-        }
-
-        fn driver_health(&self) -> Vec<IoDriverStatus> {
-            vec![IoDriverStatus {
-                name: "gpio".into(),
-                health: IoDriverHealth::Ok,
-            }]
-        }
+        ProcessImage::new(
+            Esp32Pins,
+            inputs
+                .into_iter()
+                .map(|(pin, line)| (pin, line.image_bit()))
+                .collect(),
+            outputs
+                .into_iter()
+                .map(|(pin, line)| (pin, line.image_bit()))
+                .collect(),
+        )
     }
 
     /// The pin level of a logical value.
@@ -335,39 +332,7 @@ mod gpio {
             Level::Low
         }
     }
-
-    /// Reads bit `bit` of byte `byte` in `image`.
-    fn read_bit(image: &[u8], byte: usize, bit: u8) -> Result<bool, RuntimeError> {
-        if bit > 7 {
-            return Err(invalid("gpio bit index must be between 0 and 7"));
-        }
-        let Some(value) = image.get(byte) else {
-            return Err(invalid("gpio output mapping outside the image"));
-        };
-        Ok(value & (1 << bit) != 0)
-    }
-
-    /// Writes `value` to bit `bit` of byte `byte` in `image`.
-    fn write_bit(image: &mut [u8], byte: usize, bit: u8, value: bool) -> Result<(), RuntimeError> {
-        if bit > 7 {
-            return Err(invalid("gpio bit index must be between 0 and 7"));
-        }
-        let Some(target) = image.get_mut(byte) else {
-            return Err(invalid("gpio input mapping outside the image"));
-        };
-        if value {
-            *target |= 1 << bit;
-        } else {
-            *target &= !(1 << bit);
-        }
-        Ok(())
-    }
-
-    /// A driver error with the message `message`.
-    fn invalid(message: &str) -> RuntimeError {
-        RuntimeError::InvalidConfig(message.into())
-    }
 }
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
-pub use gpio::{claim_lines, ClaimedLines, GpioBank, GpioIo};
+pub use gpio::{bind_lines, claim_lines, ClaimedLines, Esp32Pins, GpioBank, GpioIo};

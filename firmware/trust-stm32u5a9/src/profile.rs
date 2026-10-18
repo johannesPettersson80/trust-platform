@@ -1,6 +1,5 @@
 //! The fixed STM32U5A9 profile: the installed application's region and the device descriptor that
-//! admission reads (specification 34, §5.1.1, COMPAT-02 and TARGET-03; design §4.4), and the
-//! watchdog rule's constants (specification 34, TIME-04).
+//! admission reads (specification 34, §5.1.1, COMPAT-02 and TARGET-03; design §4.4).
 use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
     Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
@@ -50,11 +49,3 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     event_store_max: 1_000,
     application_slot_bytes: Some(APPLICATION_BYTES as u64),
 };
-
-/// The shortest hardware watchdog timeout (specification 34, TIME-04; the same rule as the ESP32-C6
-/// adapter's `watchdog_rule`).
-pub const MIN_TIMEOUT_MS: u32 = 4_000;
-/// The margin above the project's cycle watchdog timeout (specification 34, TIME-04).
-pub const CYCLE_MARGIN_MS: u32 = 2_000;
-/// The longest wait between two watchdog feeds (specification 34, TIME-04).
-pub const FEED_INTERVAL_MS: u32 = 1_000;

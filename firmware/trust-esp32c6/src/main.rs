@@ -29,13 +29,13 @@ use core::fmt::Write;
 use core::time::Duration as CoreDuration;
 
 use smol_str::SmolStr;
-use trust_platform_esp32::process_io::GpioIo;
+use trust_platform_esp32::process_io::{bind_lines, GpioIo};
 use trust_platform_esp32::{
     emergency_halt,
     profile::{DEVICE_DESCRIPTOR, STBC_BYTES},
     Board, Monotonic, Platform, UsbLink, Wait, Watchdog,
 };
-use trust_runtime_core::deployment::{Configuration, ControlMode, GpioInput, GpioOutput};
+use trust_runtime_core::deployment::{Configuration, ControlMode};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{CheckpointStorage, MonotonicClock, MonotonicInstant};
 use trust_runtime_core::retain::checkpoint::CheckpointIdentity;
@@ -44,13 +44,14 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{PreparedModule, RetainApplyEvent};
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
+use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::chip::process_io::record_lines;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
 use trust_runtime_services::runner::{
     EngineLiveValues, ResourceCycle, RetainConfig, RetainSource, Runner,
 };
-use trust_runtime_services::status::StatusSettings;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -89,7 +90,7 @@ fn main() -> ! {
 
     // The record's GPIO lines, claimed by pin name, each output driven to its initial value
     // before it becomes an output (design §1.1, R1).
-    let (gpio_inputs, gpio_outputs) = match gpio_lines(&config) {
+    let (gpio_inputs, gpio_outputs) = match record_lines(&config, "C6") {
         Ok(lines) => lines,
         Err(reason) => stop(board, wait_alarm, last_reset, reason),
     };
@@ -174,7 +175,7 @@ fn main() -> ! {
             .map(|entry| (entry.address.clone(), entry.value.clone()))
             .collect(),
     };
-    let io = GpioIo::new(lines.0, lines.1);
+    let io = bind_lines(lines.0, lines.1);
     let Some(alarm) = parts.wait_alarm.take() else {
         emergency_halt("wait-alarm");
     };
@@ -367,19 +368,6 @@ impl MonotonicClock for ChipClock {
     }
 }
 
-/// The runtime settings `status` reports for a chip: the engine backend, production control and
-/// no simulation.
-fn status_settings() -> StatusSettings {
-    StatusSettings {
-        execution_backend: "vm",
-        execution_backend_source: "default",
-        simulation_enabled: false,
-        simulation_time_scale: 1,
-        simulation_mode: SmolStr::new_static("production"),
-        simulation_warning: SmolStr::default(),
-    }
-}
-
 /// The Live Values of the installed program `prepared` (specification 11, "Live Values";
 /// specification 34 §4.3.1): its process-image bindings, each named by its declared root/member
 /// path as trust-runtime names it, and its retained declarations.
@@ -421,27 +409,6 @@ fn event_capacity(config: &Configuration) -> usize {
 /// The C6's default event-store capacity, from its descriptor (`chips/esp32c6.toml`).
 fn default_event_capacity() -> usize {
     usize::try_from(DEVICE_DESCRIPTOR.event_store_default).unwrap_or(usize::MAX)
-}
-
-/// The record's `gpio` driver lines, in `io.toml` order. A driver other than `gpio` is refused
-/// with its name: the C6 carries out only GPIO until slice T1 (specification 34, TARGET-01).
-fn gpio_lines(config: &Configuration) -> Result<(Vec<GpioInput>, Vec<GpioOutput>), String> {
-    let mut inputs = Vec::new();
-    let mut outputs = Vec::new();
-    for driver in &config.io_drivers {
-        if !driver.enabled {
-            continue;
-        }
-        if driver.name.as_str() != "gpio" {
-            return Err(format!(
-                "the installed application uses the {} driver, which the C6 does not carry out yet",
-                driver.name
-            ));
-        }
-        inputs.extend(driver.inputs.iter().cloned());
-        outputs.extend(driver.outputs.iter().cloned());
-    }
-    Ok((inputs, outputs))
 }
 
 /// The terminal fault path (R4): format the panic's location into a fixed buffer and hand it to

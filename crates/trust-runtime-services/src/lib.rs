@@ -24,6 +24,7 @@ extern crate alloc;
 
 pub mod access;
 pub mod capabilities;
+pub mod chip;
 pub mod debug;
 pub mod dispatch;
 pub mod events;

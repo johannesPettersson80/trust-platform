@@ -4,6 +4,7 @@ use object::read::elf::ProgramHeader;
 use object::{Object, ObjectSection, ObjectSymbol};
 use serde_json::{json, Value};
 
+mod reader;
 mod stm32f407;
 mod stm32u5a9;
 
