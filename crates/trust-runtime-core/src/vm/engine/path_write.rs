@@ -36,6 +36,17 @@ impl EngineState<'_> {
         self.charge_path_write_inner(&self.data.storage, ValueView::Value(root), path, input, 0)
     }
 
+    /// The view form of [`Self::charge_path_write`] (C1-9d2a, item (a)): the charge of a write inside
+    /// a stored view, whether it holds a `Value` or cells.
+    pub(super) fn charge_path_write_view(
+        &self,
+        root: &ValueView<'_>,
+        path: &[RefSegment],
+        input: &Value,
+    ) -> Result<(), RuntimeError> {
+        self.charge_path_write_inner(&self.data.storage, *root, path, input, 0)
+    }
+
     /// The charge of a write to `path` inside the value `root` (C1-9d1). A `Value` root walks as it
     /// always has, including the physical layout of a structure; a cell root walks its members and
     /// elements through the view. Both charge the same numbers for the same value.
@@ -47,8 +58,11 @@ impl EngineState<'_> {
         input: &Value,
         depth: usize,
     ) -> Result<(), RuntimeError> {
-        let Some(value) = root.borrowed_value() else {
-            return self.charge_cell_path_write(storage, root, path, input, depth);
+        let value = match root {
+            ValueView::Value(value) => value,
+            cells @ ValueView::Cells { .. } => {
+                return self.charge_cell_path_write(storage, cells, path, input, depth);
+            }
         };
         if let Value::Struct(structure) = value {
             let layout = structure.physical_layout();

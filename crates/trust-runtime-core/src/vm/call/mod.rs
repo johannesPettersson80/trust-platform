@@ -18,7 +18,6 @@ use self::context::{CallContext, RegisterCallOpKind, RegisterValueOpKind};
 use super::context::ExecutionContext;
 use super::errors::VmTrap;
 use super::frames::{FrameStack, VmFrame};
-use super::materialize_borrowed_value;
 use super::module::{VmModule, VmNativeSymbolSpec};
 use super::stack::OperandStack;
 
@@ -573,12 +572,12 @@ fn execute_builtin_and_stage_outputs(
     for binding in out_bindings.drain(..) {
         runtime.record_call_op(RegisterCallOpKind::OutputCopyBack);
         let value = {
-            let value = binding
+            let view = binding
                 .source
                 .read_checked(runtime)?
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
-            runtime.before_value_clone(value).map_err(VmTrap::Runtime)?;
-            let (value, cloned) = materialize_borrowed_value(value);
+            runtime.before_view_clone(&view).map_err(VmTrap::Runtime)?;
+            let (value, cloned) = view.materialize_flagged().map_err(VmTrap::Runtime)?;
             if cloned {
                 runtime.record_value_op(RegisterValueOpKind::CopyOutput);
             }

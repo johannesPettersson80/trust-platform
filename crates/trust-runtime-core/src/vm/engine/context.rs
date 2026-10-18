@@ -7,7 +7,7 @@ use super::super::call::context::{
 use super::super::context::{ExecutionContext, ReferenceContext};
 use super::super::{OperandStack, VmTrap};
 use super::*;
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::MemoryLocation;
 use crate::stdlib::StandardLibrary;
 use crate::value::{write_value_path, RefSegment};
@@ -71,6 +71,23 @@ impl ReferenceContext for EngineState<'_> {
         input: &Value,
     ) -> Result<(), RuntimeError> {
         self.charge_path_write(root, path, input)
+    }
+    fn before_view_path_write(
+        &self,
+        root: &ValueView<'_>,
+        path: &[RefSegment],
+        input: &Value,
+    ) -> Result<(), RuntimeError> {
+        self.charge_path_write_view(root, path, input)
+    }
+    fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), RuntimeError> {
+        match view {
+            ValueView::Value(value) => self.before_value_clone(value),
+            ValueView::Cells { .. } => {
+                let bytes = self.view_clone_charge(view)?;
+                self.charge_allocation_bytes(bytes)
+            }
+        }
     }
     fn normalize_assignment(
         &self,
@@ -445,11 +462,11 @@ impl CallContext for EngineState<'_> {
         self.data.resources.edge_inputs = inputs;
     }
 
-    fn take_edge_restores(&mut self) -> Vec<(smol_str::SmolStr, Value)> {
+    fn take_edge_restores(&mut self) -> Vec<(usize, Value)> {
         core::mem::take(&mut self.data.resources.edge_restores)
     }
 
-    fn recycle_edge_restores(&mut self, restores: Vec<(smol_str::SmolStr, Value)>) {
+    fn recycle_edge_restores(&mut self, restores: Vec<(usize, Value)>) {
         self.data.resources.edge_restores = restores;
     }
 

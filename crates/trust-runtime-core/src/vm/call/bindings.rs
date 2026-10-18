@@ -1262,12 +1262,9 @@ pub fn read_vm_reference(
                 .split_last()
                 .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
             let parent = peek_vm_reference_path(runtime, caller_frame, reference, prefix)?;
-            // The parent is charged as a whole copy, which needs its `Value` (see `dynamic_load_view`).
-            let parent_value = parent
-                .borrowed_value()
-                .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
+            // The parent is charged as a whole copy, from its view (C1-9d2a, item (a)).
             runtime
-                .before_value_clone(parent_value)
+                .before_view_clone(&parent)
                 .map_err(VmTrap::Runtime)?;
             charge_materialize_path_work(runtime, &parent, core::slice::from_ref(last))
                 .map_err(VmTrap::Runtime)?;
@@ -1324,12 +1321,9 @@ pub fn write_vm_reference(
             .storage()
             .read_slot(reference.location, reference.offset as usize)
             .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))?;
-        // The path write is charged from the root's `Value` (the reference context takes one).
-        let root = view
-            .borrowed_value()
-            .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
+        // The path write is charged from the root's view (C1-9d2a, item (a)).
         runtime
-            .before_path_write(root, &reference.path, &value)
+            .before_view_path_write(&view, &reference.path, &value)
             .map_err(VmTrap::Runtime)?;
     }
     #[cfg(all(feature = "std", feature = "test-support"))]

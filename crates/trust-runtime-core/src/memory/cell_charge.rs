@@ -397,4 +397,84 @@ impl<'a> CellsView<'a> {
             _ => None,
         }
     }
+
+    /// Whether `type_id` is a function block, whose cell holds an instance that a walk owns (C1-9d2a,
+    /// item (e)). An interface cell holds an instance that it does not own.
+    pub(crate) fn is_pou(self, type_id: u32) -> bool {
+        resolve_entry(self.prepared, type_id)
+            .is_some_and(|(_, entry)| matches!(entry.data, TypeData::Pou { .. }))
+    }
+
+    /// The number of members of the structure, or of elements of the array, of `type_id` (C1-9d2a,
+    /// item (e)): the children a layout walk visits, as a `Value` tree's fields and elements are
+    /// visited. `None` for any other type. A `STRUCT OVERLAP` or a union has no walk until C1-15, so
+    /// it is refused.
+    pub(crate) fn child_count(self, type_id: u32) -> Result<Option<usize>, RuntimeError> {
+        let (resolved, entry) =
+            resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
+        match &entry.data {
+            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+                Ok(Some(fields.len()))
+            }
+            TypeData::Array { .. } => {
+                let layout = self
+                    .prepared
+                    .type_layout(resolved)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let array = layout
+                    .array
+                    .as_ref()
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let count =
+                    element_count(&array.dims).ok_or(RuntimeError::InvalidExecutionState)?;
+                Ok(Some(count))
+            }
+            TypeData::Struct { .. } | TypeData::Union { .. } => {
+                Err(RuntimeError::InvalidExecutionState)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// The range and type of member `ordinal`, in declaration order, of the structure of `type_id` at
+    /// `range`, or of element `ordinal`, in flat order, of the array (C1-9d2a, item (e)). The children
+    /// of [`CellsView::child_count`].
+    pub(crate) fn child(
+        self,
+        range: CellRange,
+        type_id: u32,
+        ordinal: usize,
+    ) -> Result<(CellRange, u32), RuntimeError> {
+        let (resolved, entry) =
+            resolve_entry(self.prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
+        let layout = self
+            .prepared
+            .type_layout(resolved)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        let (offset, child_type) = match &entry.data {
+            TypeData::Struct { fields } if entry.kind != TypeKind::OverlappingStruct => {
+                let member = layout
+                    .members
+                    .get(ordinal)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let field = fields
+                    .get(ordinal)
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                (member.offset, field.type_id)
+            }
+            TypeData::Array { elem_type_id, .. } => {
+                let array = layout
+                    .array
+                    .as_ref()
+                    .ok_or(RuntimeError::InvalidExecutionState)?;
+                let offset = u32::try_from(ordinal)
+                    .ok()
+                    .and_then(|index| index.checked_mul(array.stride))
+                    .ok_or(RuntimeError::Overflow)?;
+                (offset, *elem_type_id)
+            }
+            _ => return Err(RuntimeError::InvalidExecutionState),
+        };
+        Ok((self.child_range(range, offset, child_type)?, child_type))
+    }
 }

@@ -1,20 +1,41 @@
 use crate::error::RuntimeError;
-use crate::memory::view::{StoreAccess, StoreMutate};
-use crate::memory::{InstanceId, VariableStorage};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
+use crate::memory::{InstanceId, MemoryLocation, VariableStorage};
 use crate::value::Value;
 
 use super::BuiltinExecContext;
 
-/// The stored `Value` of one instance variable. The built-in executors hold the `Value` store, so
-/// the view always holds its `Value` (C1-9d1); the other built-in modules still read it this way.
-pub(super) fn instance_var<'a>(
+/// The view of member `name` of `instance_id`, read by its ordinal among the members the instance
+/// holds (C1-9d2a, item (d)): the member's reference names its ordinal, and the slot is read by it.
+/// `None` when the instance holds no such member.
+pub(super) fn member_view<'a>(
     storage: &'a VariableStorage,
     instance_id: InstanceId,
     name: &str,
-) -> Option<&'a Value> {
+) -> Result<Option<ValueView<'a>>, RuntimeError> {
+    let Some(member) = storage.ref_for_instance(instance_id, name) else {
+        return Ok(None);
+    };
     storage
-        .read_instance_var(instance_id, name)?
-        .borrowed_value()
+        .read_slot(
+            MemoryLocation::Instance(instance_id),
+            member.offset as usize,
+        )
+        .map(Some)
+        .map_err(|error| error.into_runtime_error())
+}
+
+/// The scalar of member `name` (C1-9d2a, item (d)): `Value::Null` when the instance holds no such
+/// member, as a member that holds Null reads; `TypeMismatch` when the member holds no scalar.
+pub(super) fn read_scalar_or_null(
+    ctx: &BuiltinExecContext<'_>,
+    instance_id: InstanceId,
+    name: &str,
+) -> Result<Value, RuntimeError> {
+    match member_view(ctx.storage, instance_id, name)? {
+        Some(view) => view.scalar()?.ok_or(RuntimeError::TypeMismatch),
+        None => Ok(Value::Null),
+    }
 }
 
 pub(super) fn read_bool(
@@ -22,7 +43,7 @@ pub(super) fn read_bool(
     instance_id: InstanceId,
     name: &str,
 ) -> Result<bool, RuntimeError> {
-    let Some(view) = ctx.storage.read_instance_var(instance_id, name) else {
+    let Some(view) = member_view(ctx.storage, instance_id, name)? else {
         return Ok(false);
     };
     match view.scalar()? {
@@ -38,7 +59,7 @@ pub(super) fn get_or_init_bool(
     name: &str,
     default: bool,
 ) -> Result<bool, RuntimeError> {
-    let current = match ctx.storage.read_instance_var(instance_id, name) {
+    let current = match member_view(ctx.storage, instance_id, name)? {
         Some(view) => view.scalar()?,
         None => Some(Value::Null),
     };
@@ -68,8 +89,7 @@ pub(super) fn read_value(
     instance_id: InstanceId,
     name: &str,
 ) -> Result<Value, RuntimeError> {
-    ctx.storage
-        .read_instance_var(instance_id, name)
+    member_view(ctx.storage, instance_id, name)?
         .ok_or(RuntimeError::TypeMismatch)?
         .materialize()
 }
@@ -78,10 +98,11 @@ pub(super) fn read_value_or_null(
     ctx: &BuiltinExecContext<'_>,
     instance_id: InstanceId,
     name: &str,
-) -> Value {
-    instance_var(ctx.storage, instance_id, name)
-        .cloned()
-        .unwrap_or(Value::Null)
+) -> Result<Value, RuntimeError> {
+    match member_view(ctx.storage, instance_id, name)? {
+        Some(view) => view.materialize(),
+        None => Ok(Value::Null),
+    }
 }
 
 pub(super) fn set_instance_value(

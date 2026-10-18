@@ -323,6 +323,47 @@ impl<'a> ValueView<'a> {
             },
         }
     }
+
+    /// The number of members of the structure, or of elements of the array, that a cell view holds
+    /// (C1-9d2a, item (e)). `None` for any other value; a `Value` view is walked as its `Value`.
+    pub(crate) fn cell_child_count(&self) -> Result<Option<usize>, RuntimeError> {
+        match *self {
+            Self::Value(_) => Ok(None),
+            Self::Cells { cells, type_id, .. } => cells.child_count(type_id),
+        }
+    }
+
+    /// The view of member or element `ordinal` of the cell structure or array this view holds
+    /// (C1-9d2a, item (e)): a member in declaration order, an element in flat order.
+    pub(crate) fn cell_child(&self, ordinal: usize) -> Result<Self, RuntimeError> {
+        match *self {
+            Self::Value(_) => Err(RuntimeError::InvalidExecutionState),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells
+                .child(range, type_id, ordinal)
+                .map(|(range, type_id)| Self::Cells {
+                    cells,
+                    range,
+                    type_id,
+                }),
+        }
+    }
+
+    /// The instance a function block cell holds, which a walk owns (C1-9d2a, item (e)). An interface
+    /// cell holds an instance that it does not own, so it gives `None`, as does any other cell.
+    pub(crate) fn owned_cell_instance(&self) -> Result<Option<InstanceId>, RuntimeError> {
+        match *self {
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } if cells.is_pou(type_id) => cells.instance(range, type_id),
+            _ => Ok(None),
+        }
+    }
 }
 
 /// An opaque staged typed path write (specification 34 MEM-06).
@@ -533,6 +574,19 @@ pub trait StoreAccess {
     ///
     /// A C1-9 P3 forwarding method. Callers: `vm::call::bindings::targets`.
     fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize>;
+
+    /// The view of the local variable `name` of the current frame (C1-9d2a, R3). Locals are `Value`-half
+    /// state, so every arm answers from the `Value` store. Callers: the name resolution of the host's
+    /// expression evaluator (`helper_eval`).
+    fn read_local<'a>(&'a self, name: &str) -> Option<ValueView<'a>>;
+
+    /// The reference to the local variable `name` of the current frame, in this store's generation
+    /// (C1-9d2a, R3). Locals are `Value`-half state, as [`StoreAccess::read_local`] states.
+    fn ref_for_local(&self, name: &str) -> Option<ValueRef>;
+
+    /// The view of the retained variable `name` (C1-9d2a, R3). Retained variables are `Value`-half state,
+    /// as [`StoreAccess::read_local`] states.
+    fn read_retain<'a>(&'a self, name: &str) -> Option<ValueView<'a>>;
 }
 
 /// Publishes a prepared write, or restores a saved slot, with `&mut self`.
@@ -791,6 +845,21 @@ impl StoreAccess for VariableStorage {
     fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize> {
         self.declared_instance_field_offset(instance, name)
     }
+
+    #[inline]
+    fn read_local<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        self.get_local(name).map(ValueView::borrowed)
+    }
+
+    #[inline]
+    fn ref_for_local(&self, name: &str) -> Option<ValueRef> {
+        self.ref_for_local(name)
+    }
+
+    #[inline]
+    fn read_retain<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        self.get_retain(name).map(ValueView::borrowed)
+    }
 }
 
 impl StoreMutate for VariableStorage {
@@ -880,6 +949,29 @@ impl StoreMutate for VariableStorage {
     fn restore_slot(&mut self, location: MemoryLocation, offset: usize, value: Value) {
         self.restore_direct_slot(location, offset, value);
     }
+}
+
+/// The value a reference names in `store`, copied (C1-9d2a, R3): the answer that
+/// `VariableStorage::materialize_by_ref` gives, read through the seam, so that the host's expression
+/// evaluator reads a cell store too. A reference of another generation names nothing. A STRING or
+/// WSTRING element has no stored `Value`, so it is the character its parent text holds.
+pub fn materialize_ref_value<S: StoreAccess + ?Sized>(
+    store: &S,
+    reference: ValueRefView<'_>,
+) -> Option<Value> {
+    if reference.generation != store.generation() {
+        return None;
+    }
+    if let Ok(view) = store.read_reference(reference) {
+        return store.materialize(&view).ok();
+    }
+    let (last, prefix) = reference.path.split_last()?;
+    let parent = store
+        .read_path(reference.location, reference.offset, prefix)
+        .ok()?;
+    crate::vm::dispatch_refs::materialize_segment(&parent, last)
+        .ok()
+        .flatten()
 }
 
 #[cfg(all(test, feature = "std"))]

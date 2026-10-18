@@ -158,13 +158,13 @@ pub trait CallContext: ReferenceContext {
 
     /// Take the reusable original-input list for edge restoration (spec 34 MEM-09;
     /// census A5). A composition that reserved it at construction hands one out.
-    fn take_edge_restores(&mut self) -> Vec<(SmolStr, Value)> {
+    fn take_edge_restores(&mut self) -> Vec<(usize, Value)> {
         Vec::new()
     }
 
     /// Return the restore list of [`CallContext::take_edge_restores`] once the edges are
-    /// restored.
-    fn recycle_edge_restores(&mut self, _restores: Vec<(SmolStr, Value)>) {}
+    /// restored. Each entry is a member ordinal and its original value (C1-9d2a, R2).
+    fn recycle_edge_restores(&mut self, _restores: Vec<(usize, Value)>) {}
 
     /// Apply a native output group under the composition's copy-back policy.
     /// Legacy hosts preserve their existing writes; source-free state stages them.

@@ -16,7 +16,7 @@ mod context;
 #[doc(hidden)]
 pub mod diagnostic_timing;
 mod dispatch;
-mod dispatch_refs;
+pub(crate) mod dispatch_refs;
 mod edge;
 mod engine;
 mod module;

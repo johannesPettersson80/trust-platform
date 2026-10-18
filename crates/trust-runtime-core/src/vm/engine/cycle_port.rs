@@ -1,7 +1,11 @@
 //! Checked, owner-local access at the existing cooperative cycle boundaries.
 use super::*;
 use crate::io_address::IoAddress;
-use crate::value::{RefSegment, ValueRefView};
+use crate::memory::view::{PreparedWrite, StoreAccess, ValueView};
+use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation};
+use crate::value::{RefSegment, Value, ValueRef, ValueRefView};
+use crate::vm::VmTrap;
+use smol_str::SmolStr;
 
 /// Existing hosted phases around the single shared resource scheduler.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,6 +108,133 @@ pub struct CycleAccess<'a, 'engine> {
     pub(super) output_undo: Option<&'a mut Vec<OutputUndo>>,
 }
 
+/// The owner's store as a cycle's host reads it (C1-9d2a, R3): the store-access seam, forwarded to the
+/// engine unchanged. It holds no write, so it charges nothing; a write goes through [`CycleAccess`].
+struct CycleStore<'s, 'e> {
+    engine: &'s EngineState<'e>,
+}
+
+impl StoreAccess for CycleStore<'_, '_> {
+    fn read_path<'a>(
+        &'a self,
+        location: MemoryLocation,
+        offset: usize,
+        path: &[RefSegment],
+    ) -> Result<ValueView<'a>, VmTrap> {
+        StoreAccess::read_path(self.engine, location, offset, path)
+    }
+
+    fn read_slot<'a>(
+        &'a self,
+        location: MemoryLocation,
+        offset: usize,
+    ) -> Result<ValueView<'a>, VmTrap> {
+        StoreAccess::read_slot(self.engine, location, offset)
+    }
+
+    fn read_reference<'a>(&'a self, reference: ValueRefView<'a>) -> Result<ValueView<'a>, VmTrap> {
+        StoreAccess::read_reference(self.engine, reference)
+    }
+
+    fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
+        StoreAccess::read_instance_var(self.engine, instance, name)
+    }
+
+    fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        StoreAccess::read_global(self.engine, name)
+    }
+
+    fn global_name(&self, offset: usize) -> Option<&SmolStr> {
+        StoreAccess::global_name(self.engine, offset)
+    }
+
+    fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
+        StoreAccess::ref_for_global(self.engine, name)
+    }
+
+    fn ref_for_instance(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        StoreAccess::ref_for_instance(self.engine, instance, name)
+    }
+
+    fn snapshot_instance(&self, instance: InstanceId) -> Option<InstanceData> {
+        StoreAccess::snapshot_instance(self.engine, instance)
+    }
+
+    fn read_instance_field<'a>(
+        &'a self,
+        instance: InstanceId,
+        name: &str,
+    ) -> Result<ValueView<'a>, VmTrap> {
+        StoreAccess::read_instance_field(self.engine, instance, name)
+    }
+
+    fn member<'a>(
+        &'a self,
+        view: &ValueView<'a>,
+        segment: &RefSegment,
+    ) -> Result<ValueView<'a>, VmTrap> {
+        StoreAccess::member(self.engine, view, segment)
+    }
+
+    fn text<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a str> {
+        StoreAccess::text(self.engine, view)
+    }
+
+    fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value> {
+        StoreAccess::borrow(self.engine, view)
+    }
+
+    fn materialize(&self, view: &ValueView<'_>) -> Result<Value, RuntimeError> {
+        StoreAccess::materialize(self.engine, view)
+    }
+
+    fn prepare_write(
+        &self,
+        location: MemoryLocation,
+        offset: usize,
+        path: &[RefSegment],
+        value: &Value,
+    ) -> Result<Option<PreparedWrite>, RuntimeError> {
+        StoreAccess::prepare_write(self.engine, location, offset, path, value)
+    }
+
+    fn generation(&self) -> Generation {
+        StoreAccess::generation(self.engine)
+    }
+
+    fn instance_type_name(&self, instance: InstanceId) -> Option<&SmolStr> {
+        StoreAccess::instance_type_name(self.engine, instance)
+    }
+
+    fn instance_parent(&self, instance: InstanceId) -> Result<Option<InstanceId>, VmTrap> {
+        StoreAccess::instance_parent(self.engine, instance)
+    }
+
+    fn ref_for_instance_recursive(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        StoreAccess::ref_for_instance_recursive(self.engine, instance, name)
+    }
+
+    fn resolved_instance_field_ref(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
+        StoreAccess::resolved_instance_field_ref(self.engine, instance, name)
+    }
+
+    fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize> {
+        StoreAccess::declared_instance_field_offset(self.engine, instance, name)
+    }
+
+    fn read_local<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        StoreAccess::read_local(self.engine, name)
+    }
+
+    fn ref_for_local(&self, name: &str) -> Option<ValueRef> {
+        StoreAccess::ref_for_local(self.engine, name)
+    }
+
+    fn read_retain<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        StoreAccess::read_retain(self.engine, name)
+    }
+}
+
 impl CycleAccess<'_, '_> {
     /// Check the entry deadline before a hosted immutable index lookup of an
     /// external management label. The label lookup is bookkeeping under TIME-08:
@@ -112,9 +243,13 @@ impl CycleAccess<'_, '_> {
         self.engine.check_entry_deadline()
     }
 
-    /// Inspect the owner's current values without acquiring another controller lock.
-    pub fn storage(&self) -> &VariableStorage {
-        &self.engine.data.storage
+    /// The owner's current values, read through the store-access seam without acquiring another
+    /// controller lock (C1-9d2a, R3). It answers reads only: a write goes through this access's checked
+    /// methods, which charge and check it.
+    pub fn store(&self) -> impl StoreAccess + '_ {
+        CycleStore {
+            engine: &*self.engine,
+        }
     }
     /// The generation of the owner's current values. A reference resolved in another generation
     /// is refused, so a restart or replacement cannot redirect a staged request (specification 34

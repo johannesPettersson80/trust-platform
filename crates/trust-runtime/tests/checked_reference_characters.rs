@@ -3,12 +3,12 @@ use std::sync::Arc;
 use trust_runtime::{bytecode::BytecodeVersion, harness::CompileSession};
 use trust_runtime_core::{
     error::RuntimeError,
-    memory::VariableStorage,
+    memory::view::StoreAccess,
     value::{Duration, RefSegment, Value, ValueRef},
     vm::{CycleAccess, CycleHooks, CyclePhase, PreparationLimits, PreparedModule},
 };
 
-fn selected(storage: &VariableStorage, field: &str, index: i64) -> ValueRef {
+fn selected(storage: &impl StoreAccess, field: &str, index: i64) -> ValueRef {
     let mut reference = storage.ref_for_global("Main").unwrap();
     reference.path.extend([
         RefSegment::Field(field.into()),
@@ -31,9 +31,9 @@ impl CycleHooks for ReadCharacters {
                 ("narrow", Value::Char(b'B')),
                 ("wide", Value::WChar(0x03b2)),
             ] {
-                let reference = selected(access.storage(), field, 2);
+                let reference = selected(&access.store(), field, 2);
                 assert_eq!(access.read_reference(&reference)?, expected);
-                let invalid = selected(access.storage(), field, 3);
+                let invalid = selected(&access.store(), field, 3);
                 assert_eq!(
                     access.read_reference(&invalid),
                     Err(RuntimeError::NullReference)

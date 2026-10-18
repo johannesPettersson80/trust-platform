@@ -88,20 +88,6 @@ pub fn peek_ref_view<'a>(
     }
 }
 
-/// The `Value` of a static reference after read-policy checks, for the register operand path, which
-/// still borrows it (C1-10). A cell view has no `Value` to borrow.
-#[cfg(feature = "register-ir")]
-pub fn peek_ref<'a>(
-    runtime: &'a impl ReferenceContext,
-    module: &'a VmModule,
-    frames: &'a FrameStack,
-    ref_idx: u32,
-) -> Result<&'a Value, VmTrap> {
-    peek_ref_view(runtime, module, frames, ref_idx)?
-        .borrowed_value()
-        .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))
-}
-
 /// Resolve a static descriptor to a runtime reference value.
 pub fn load_ref_addr(
     runtime: &impl ReferenceContext,
@@ -496,13 +482,9 @@ fn dynamic_load_view(
                 .split_last()
                 .ok_or_else(|| VmTrap::NullReference)?;
             let parent = peek_dynamic_ref_path(runtime, frames, reference, prefix)?;
-            // The parent is charged as a whole copy, which needs its `Value`: a cell parent
-            // has none in the reference context yet (see `ReferenceContext::before_value_clone`).
-            let parent_value = parent
-                .borrowed_value()
-                .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
+            // The parent is charged as a whole copy, from its view (C1-9d2a, item (a)).
             runtime
-                .before_value_clone(parent_value)
+                .before_view_clone(&parent)
                 .map_err(VmTrap::Runtime)?;
             charge_materialize_path_work(runtime, &parent, core::slice::from_ref(last))
                 .map_err(VmTrap::Runtime)?;

@@ -1,7 +1,7 @@
 //! Private initializer transactions for existing FB member override destinations.
 use super::*;
 use crate::bytecode::{InitializationPhase, InitializationStage, InitializationTarget, TypeData};
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::{InstanceData, MemoryLocation};
 use crate::value::ValueRef;
 
@@ -181,10 +181,7 @@ impl EngineState<'_> {
                             .storage
                             .read_slot(MemoryLocation::Instance(id), declaration.slot as usize)
                     {
-                        let value = view
-                            .borrowed_value()
-                            .ok_or(RuntimeError::InvalidExecutionState)?;
-                        self.owned_value_instances(type_id, value, &mut pending, 0)?;
+                        self.owned_view_instances(type_id, view, &mut pending, 0)?;
                     }
                 }
                 // The members are the template's declarations: the record holds exactly these
@@ -318,6 +315,46 @@ impl EngineState<'_> {
             }
             // References and interfaces do not own the objects they point at.
             _ => {}
+        }
+        Ok(())
+    }
+
+    /// The owned instances of one stored value of declared type `type_id` (C1-9d2a, item (e)): a `Value`
+    /// is walked as its `Value`, and a cell value by its layout.
+    fn owned_view_instances(
+        &self,
+        type_id: u32,
+        view: ValueView<'_>,
+        output: &mut PendingInstances,
+        depth: usize,
+    ) -> Result<(), RuntimeError> {
+        match view {
+            ValueView::Value(value) => self.owned_value_instances(type_id, value, output, depth),
+            ValueView::Cells { .. } => self.owned_cell_instances(view, output, depth),
+        }
+    }
+
+    /// The owned instances of a cell value, walked by its layout as `owned_value_instances` walks a
+    /// `Value` (C1-9d2a, item (e)): a function block cell is owned; an interface cell and a reference are
+    /// not.
+    fn owned_cell_instances(
+        &self,
+        view: ValueView<'_>,
+        output: &mut PendingInstances,
+        depth: usize,
+    ) -> Result<(), RuntimeError> {
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        if let Some(instance) = view.owned_cell_instance()? {
+            return self.push_owned_instance(output, instance.0);
+        }
+        let Some(count) = view.cell_child_count()? else {
+            return Ok(());
+        };
+        for ordinal in 0..count {
+            let child = view.cell_child(ordinal)?;
+            self.owned_cell_instances(child, output, depth + 1)?;
         }
         Ok(())
     }

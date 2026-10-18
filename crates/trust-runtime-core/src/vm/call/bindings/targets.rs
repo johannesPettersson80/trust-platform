@@ -29,11 +29,11 @@ pub enum VmFbOutSource {
 }
 
 impl VmFbOutSource {
-    /// Borrow the bound value after reference-read policy checks.
+    /// The view of the bound value after reference-read policy checks (C1-9d2a, item (c)).
     pub fn read_checked<'a>(
         &'a self,
         runtime: &'a impl CallContext,
-    ) -> Result<Option<&'a Value>, VmTrap> {
+    ) -> Result<Option<ValueView<'a>>, VmTrap> {
         let reference = match self {
             Self::Direct {
                 instance_id,
@@ -49,13 +49,7 @@ impl VmFbOutSource {
         runtime
             .check_reference_read(reference)
             .map_err(VmTrap::Runtime)?;
-        match self.read(runtime) {
-            Some(view) => view
-                .borrowed_value()
-                .map(Some)
-                .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState)),
-            None => Ok(None),
-        }
+        Ok(self.read(runtime))
     }
 
     /// Borrow the bound storage value; callers must perform required policy checks.
@@ -441,12 +435,15 @@ impl VmFbFieldBinding {
         value: Value,
     ) -> Result<bool, VmTrap> {
         let value = match self.read(runtime) {
-            Some(view) => {
-                let target = view
-                    .borrowed_value()
-                    .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidExecutionState))?;
-                normalize_assignment_for_target(target, value)
-            }
+            Some(ValueView::Value(target)) => normalize_assignment_for_target(target, value),
+            // A cell target is normalized against its scalar, which reads without allocating.
+            Some(cells) => match cells.scalar().map_err(VmTrap::Runtime)? {
+                Some(target) => normalize_assignment_for_target(&target, value),
+                None => {
+                    let target = cells.materialize().map_err(VmTrap::Runtime)?;
+                    normalize_assignment_for_target(&target, value)
+                }
+            },
             None => value,
         };
         let (location, offset, path, capacity) = match self {

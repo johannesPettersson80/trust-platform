@@ -202,6 +202,22 @@ impl StoreAccess for EngineState<'_> {
             Routed::Cells(reader) => reader.declared_instance_field_offset(instance, name),
         }
     }
+
+    // Locals and retained variables are `Value`-half state, whichever arm the engine reads (C1-9d2a, R3).
+    #[inline]
+    fn read_local<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        self.data.storage.read_local(name)
+    }
+
+    #[inline]
+    fn ref_for_local(&self, name: &str) -> Option<ValueRef> {
+        StoreAccess::ref_for_local(&self.data.storage, name)
+    }
+
+    #[inline]
+    fn read_retain<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        self.data.storage.read_retain(name)
+    }
 }
 
 impl StoreMutate for EngineState<'_> {
@@ -557,6 +573,25 @@ impl StoreAccess for RuntimeState<'_> {
             Routed::Values(store) => store.declared_instance_field_offset(instance, name),
             Routed::Cells(reader) => reader.declared_instance_field_offset(instance, name),
         }
+    }
+
+    // Locals and retained variables are `Value`-half state, whichever arm the engine reads (C1-9d2a, R3).
+    #[inline]
+    fn read_local<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        let (data, _) = self.engine_parts();
+        data.storage.read_local(name)
+    }
+
+    #[inline]
+    fn ref_for_local(&self, name: &str) -> Option<ValueRef> {
+        let (data, _) = self.engine_parts();
+        StoreAccess::ref_for_local(&data.storage, name)
+    }
+
+    #[inline]
+    fn read_retain<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
+        let (data, _) = self.engine_parts();
+        data.storage.read_retain(name)
     }
 }
 

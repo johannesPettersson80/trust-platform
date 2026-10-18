@@ -113,8 +113,9 @@ struct ExecutionResources {
     frame_locals: scratch::FrameLocals,
     /// Reusable edge-input plan of one call, empty between calls (spec 34 MEM-09).
     edge_inputs: Vec<VmEdgeInput>,
-    /// Reusable originals of one edge-affected call, empty between calls.
-    edge_restores: Vec<(SmolStr, Value)>,
+    /// Reusable originals of one edge-affected call, empty between calls: member ordinals with
+    /// their values (C1-9d2a, R2).
+    edge_restores: Vec<(usize, Value)>,
     /// Reserved initializer, frame and lifetime-check bookkeeping (spec 34 MEM-09).
     bookkeeping: scratch::BookkeepingScratch,
     /// Reusable per-depth call-binding scratch (spec 34 MEM-09; census C1, C3, C4, C5, C7).

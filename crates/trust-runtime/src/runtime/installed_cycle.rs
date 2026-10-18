@@ -387,7 +387,7 @@ fn write_lvalue(
         other => (other, None),
     };
     let reference = crate::helper_eval::eval_storage_expr_with_abi(
-        access.storage(),
+        &access.store(),
         metadata.registry(),
         metadata.storage_abi(),
         &metadata.profile(),

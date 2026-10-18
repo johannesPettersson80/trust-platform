@@ -1,6 +1,5 @@
 use super::call::context::CallContext;
 use alloc::vec::Vec;
-use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::memory::view::{StoreAccess, StoreMutate};
@@ -13,7 +12,8 @@ use super::module::VmModule;
 #[derive(Debug)]
 pub struct EdgeInputTransaction {
     instance_id: InstanceId,
-    restores: Vec<(SmolStr, Value)>,
+    /// The original input values, each with its member ordinal in the instance (C1-9d2a, R2).
+    restores: Vec<(usize, Value)>,
 }
 
 impl EdgeInputTransaction {
@@ -83,7 +83,7 @@ impl EdgeInputTransaction {
                 name.offset as usize,
                 Value::Bool(pulse),
             );
-            restores.push((input.name.clone(), Value::Bool(raw)));
+            restores.push((name.offset as usize, Value::Bool(raw)));
         }
         runtime.recycle_edge_inputs(inputs);
         if mismatched {
@@ -103,10 +103,10 @@ impl EdgeInputTransaction {
             instance_id,
             mut restores,
         } = self;
-        for (name, value) in restores.drain(..) {
+        for (offset, value) in restores.drain(..) {
             runtime
                 .storage_mut()
-                .write_instance_var(instance_id, name.as_str(), value);
+                .write_slot(MemoryLocation::Instance(instance_id), offset, value);
         }
         runtime.recycle_edge_restores(restores);
     }

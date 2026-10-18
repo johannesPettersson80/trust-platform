@@ -14,11 +14,12 @@ use crate::value::{
     checked_array_offset_i64, parse_partial_access, ref_indices_from_iter, write_partial_access,
     DateTimeProfile, PartialAccessError, RefSegment, Value, ValueRef,
 };
+use trust_runtime_core::memory::view::StoreAccess;
 
 use super::storage_expr::eval_storage_expr_with_types;
 
 pub(super) fn read_storage_lvalue_with_types(
-    storage: &VariableStorage,
+    storage: &impl StoreAccess,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -318,7 +319,7 @@ fn resolve_lvalue_reference(
 }
 
 fn resolve_name_reference(
-    storage: &VariableStorage,
+    storage: &impl StoreAccess,
     current_instance: Option<InstanceId>,
     name: &SmolStr,
 ) -> Option<ValueRef> {

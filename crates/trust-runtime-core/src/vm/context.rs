@@ -1,6 +1,6 @@
 //! Composition services used by the shared reference and execution paths.
 
-use crate::memory::view::{StoreAccess, StoreMutate};
+use crate::memory::view::{StoreAccess, StoreMutate, ValueView};
 use crate::memory::{MemoryLocation, VariableStorage};
 use crate::value::{RefSegment, Value};
 
@@ -72,6 +72,20 @@ pub trait ReferenceContext {
     ) -> Result<(), crate::error::RuntimeError> {
         Ok(())
     }
+    /// Admit the allocation of a path write into a stored view (C1-9d2a, item (a)): the view form of
+    /// [`ReferenceContext::before_path_write`]. A `Value` view is admitted as that method admits it; a
+    /// cell view is admitted by a composition that reads cells, so this default refuses one.
+    fn before_view_path_write(
+        &self,
+        root: &ValueView<'_>,
+        path: &[RefSegment],
+        input: &Value,
+    ) -> Result<(), crate::error::RuntimeError> {
+        match root {
+            ValueView::Value(value) => self.before_path_write(value, path, input),
+            ValueView::Cells { .. } => Err(crate::error::RuntimeError::InvalidExecutionState),
+        }
+    }
     /// Final operational check after detached staging and before installed mutation.
     fn before_write_commit(&self) -> Result<(), crate::error::RuntimeError> {
         Ok(())
@@ -88,6 +102,15 @@ pub trait ReferenceContext {
     #[cfg_attr(all(feature = "std", feature = "test-support"), track_caller)]
     fn before_value_clone(&self, _value: &Value) -> Result<(), crate::error::RuntimeError> {
         Ok(())
+    }
+    /// Admit the work and allocation of one copy of a stored view (C1-9d2a, item (a)): the view form of
+    /// [`ReferenceContext::before_value_clone`]. A `Value` view is admitted as that method admits its
+    /// value; a cell view is admitted by a composition that reads cells, so this default refuses one.
+    fn before_view_clone(&self, view: &ValueView<'_>) -> Result<(), crate::error::RuntimeError> {
+        match view {
+            ValueView::Value(value) => self.before_value_clone(value),
+            ValueView::Cells { .. } => Err(crate::error::RuntimeError::InvalidExecutionState),
+        }
     }
     /// Admit a private call-transaction snapshot: a VAR_IN_OUT copy-in. IEC passes
     /// IN_OUT by reference, so a work-charging composition admits only its

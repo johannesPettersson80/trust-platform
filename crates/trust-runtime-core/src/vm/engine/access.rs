@@ -494,9 +494,11 @@ mod tests {
                 limit: 3,
             })
         ));
+        let store = access.store();
+        let probe = store.read_global("probe_depth").expect("probe_depth");
         assert_eq!(
-            access.storage().get_global("probe_depth"),
-            Some(&Value::String("AB".into()))
+            store.materialize(&probe).unwrap(),
+            Value::String("AB".into())
         );
     }
     #[test]

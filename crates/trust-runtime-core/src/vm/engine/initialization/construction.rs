@@ -694,23 +694,32 @@ impl EngineState<'_> {
         Ok(())
     }
 
-    /// The owned instances of one stored member (C1-9d1): an instance, or the walk of an aggregate
-    /// value. An aggregate of cells is not walked yet, so it is refused.
+    /// The owned instances of one stored member (C1-9d1, C1-9d2a): an instance, or the walk of an
+    /// aggregate value. A cell aggregate is walked by its layout, its members in declaration order and
+    /// its elements in flat order, as the `Value` tree is walked.
     fn collect_owned_member(
         &self,
         view: ValueView<'_>,
         depth: usize,
         visited: &mut InstanceSet,
     ) -> Result<(), RuntimeError> {
-        match view.instance()? {
-            Some(instance) => {
-                self.collect_owned_instance_graph(&Value::Instance(instance), depth, visited)
-            }
-            None => match view.borrowed_value() {
-                Some(value) => self.collect_owned_instance_graph(value, depth, visited),
-                None => Err(RuntimeError::InvalidExecutionState),
-            },
+        if let ValueView::Value(value) = view {
+            return self.collect_owned_instance_graph(value, depth, visited);
         }
+        if depth > crate::bytecode::BYTECODE_MAX_TYPE_NESTING {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        if let Some(instance) = view.instance()? {
+            return self.collect_owned_instance_graph(&Value::Instance(instance), depth, visited);
+        }
+        let Some(count) = view.cell_child_count()? else {
+            return Ok(());
+        };
+        for ordinal in 0..count {
+            let child = view.cell_child(ordinal)?;
+            self.collect_owned_member(child, depth + 1, visited)?;
+        }
+        Ok(())
     }
 
     fn collect_owned_instance_graph(

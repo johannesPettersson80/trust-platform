@@ -12,6 +12,7 @@ use crate::{
     value::{DateTimeProfile, StorageAbi, Value},
 };
 use trust_hir::types::TypeRegistry;
+use trust_runtime_core::memory::view::StoreAccess;
 
 #[cfg(test)]
 pub(super) fn eval_storage_expr(
@@ -43,7 +44,7 @@ pub(super) fn eval_storage_expr_with_stdlib(
     )
 }
 pub(crate) fn eval_storage_expr_with_abi(
-    storage: &VariableStorage,
+    storage: &impl StoreAccess,
     registry: &TypeRegistry,
     abi: StorageAbi,
     profile: &DateTimeProfile,
@@ -78,7 +79,7 @@ pub(super) fn read_storage_lvalue(
     )
 }
 pub(crate) fn read_storage_lvalue_with_abi(
-    storage: &VariableStorage,
+    storage: &impl StoreAccess,
     registry: &TypeRegistry,
     abi: StorageAbi,
     profile: &DateTimeProfile,
