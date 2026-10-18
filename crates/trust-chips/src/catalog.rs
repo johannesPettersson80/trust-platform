@@ -1,13 +1,16 @@
-//! The catalog of supported chips: every file of `chips/`, built into this crate (specification
-//! 34, TARGET-03 and Appendix H.6).
+//! The catalog of supported chips: the files of the chips whose firmware crate is in the repository,
+//! built into this crate (specification 34, TARGET-03 and Appendix H.6). A chip file without its
+//! crate is read by its adapter's tests only, until the chip joins the catalog.
 
 use crate::model::{ChipFile, Component};
 use crate::{ChipFileError, Problem};
 
-/// The files of `chips/`, each with its name, in the catalog's order.
-const FILES: [(&str, &str); 2] = [
+/// The chip files of the chips whose firmware crate is in the repository, each with its name, in the
+/// catalog's order.
+const FILES: [(&str, &str); 3] = [
     ("stm32f407", include_str!("../../../chips/stm32f407.toml")),
     ("esp32c6", include_str!("../../../chips/esp32c6.toml")),
+    ("stm32u5a9", include_str!("../../../chips/stm32u5a9.toml")),
 ];
 
 /// A set of checked chip files.
@@ -17,7 +20,8 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    /// The supported chips: the files of `chips/`, which this crate embeds.
+    /// The supported chips: the chip files of the chips whose firmware crate is in the repository, which
+    /// this crate embeds.
     ///
     /// # Errors
     ///

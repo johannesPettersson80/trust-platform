@@ -12,10 +12,16 @@ const ADDRESS_SPACE: u64 = 1 << 32;
 const KIB: u64 = 1024;
 /// The most a project may set for the event store (specification 34, Appendix H.5 rule 11).
 const EVENT_CAPACITY_LIMIT: u32 = 1_000_000;
-/// The port letters of the STM32F4 family, `A` first.
+/// The port letters of the STM32 families, `A` first.
 const PORT_LETTERS: &str = "ABCDEFGHIJK";
-/// The most pins a port of the STM32F4 family has.
+/// The most pins a port of the STM32 families has.
 const PINS_PER_PORT: u32 = 16;
+
+/// Whether a family is one of the STM32 families. Their chips share the rules that name the
+/// pins, the flash, the vectors and the device ID (specification 34, Appendix H.5).
+const fn is_stm32(family: Family) -> bool {
+    matches!(family, Family::Stm32f4 | Family::Stm32u5)
+}
 
 impl ChipFile {
     /// Reads `chips/<name>.toml` from its text and checks it.
@@ -93,7 +99,7 @@ pub(crate) fn listed_once(list: &'static str, names: &[String]) -> Result<(), Pr
     Ok(())
 }
 
-/// Rules 1 and 2: the name is the file's, and an STM32F4 device ID has twelve bits.
+/// Rules 1 and 2: the name is the file's, and an STM32 device ID has twelve bits.
 fn identity(file: &str, identity: &Identity) -> Result<(), Problem> {
     if identity.name != file {
         return Err(Problem::NameMismatch {
@@ -105,7 +111,7 @@ fn identity(file: &str, identity: &Identity) -> Result<(), Problem> {
         return Err(Problem::BadName);
     }
     filled("identity.model", &identity.model)?;
-    if identity.family == Family::Stm32f4 && !(1..=0xFFF).contains(&identity.device_id) {
+    if is_stm32(identity.family) && !(1..=0xFFF).contains(&identity.device_id) {
         return Err(Problem::DeviceId {
             device_id: identity.device_id,
         });
@@ -120,44 +126,41 @@ fn processor(family: Family, processor: &Processor) -> Result<(), Problem> {
     filled("processor.isa", &processor.isa)?;
     let target = processor.rust_target.as_str();
     let architecture = target.split('-').next().unwrap_or(target);
-    match family {
-        Family::Stm32f4 => {
-            if !architecture.starts_with("thumb") {
-                return Err(Problem::TargetFamily {
-                    target: target.to_owned(),
-                });
-            }
-            let hard_float = target.ends_with("-eabihf");
-            if hard_float == (processor.fpu == Fpu::None) {
-                return Err(Problem::TargetFpu {
-                    target: target.to_owned(),
-                });
-            }
+    if is_stm32(family) {
+        if !architecture.starts_with("thumb") {
+            return Err(Problem::TargetFamily {
+                target: target.to_owned(),
+            });
         }
-        Family::Esp32 => {
-            let Some(extensions) = architecture.strip_prefix("riscv32") else {
-                return Err(Problem::TargetFamily {
-                    target: target.to_owned(),
-                });
-            };
-            if processor.isa != format!("RV32{}", extensions.to_ascii_uppercase()) {
-                return Err(Problem::TargetIsa {
-                    target: target.to_owned(),
-                });
-            }
-            let fpu = if extensions.contains(['d', 'g']) {
-                Fpu::Double
-            } else if extensions.contains('f') {
-                Fpu::Single
-            } else {
-                Fpu::None
-            };
-            if fpu != processor.fpu {
-                return Err(Problem::TargetFpu {
-                    target: target.to_owned(),
-                });
-            }
+        let hard_float = target.ends_with("-eabihf");
+        if hard_float == (processor.fpu == Fpu::None) {
+            return Err(Problem::TargetFpu {
+                target: target.to_owned(),
+            });
         }
+        return Ok(());
+    }
+    let Some(extensions) = architecture.strip_prefix("riscv32") else {
+        return Err(Problem::TargetFamily {
+            target: target.to_owned(),
+        });
+    };
+    if processor.isa != format!("RV32{}", extensions.to_ascii_uppercase()) {
+        return Err(Problem::TargetIsa {
+            target: target.to_owned(),
+        });
+    }
+    let fpu = if extensions.contains(['d', 'g']) {
+        Fpu::Double
+    } else if extensions.contains('f') {
+        Fpu::Single
+    } else {
+        Fpu::None
+    };
+    if fpu != processor.fpu {
+        return Err(Problem::TargetFpu {
+            target: target.to_owned(),
+        });
     }
     Ok(())
 }
@@ -245,9 +248,9 @@ impl FlashSpace<'_> {
 /// Rules 5 and 6: the flash is in the family's table and its sectors add up, and the RAM regions
 /// are distinct.
 fn memory(family: Family, memory: &Memory) -> Result<FlashSpace<'_>, Problem> {
-    let flash = match (family, &memory.flash, &memory.spi_flash) {
-        (Family::Stm32f4, Some(flash), None) => mapped(flash)?,
-        (Family::Esp32, None, Some(spi)) => {
+    let flash = match (&memory.flash, &memory.spi_flash) {
+        (Some(flash), None) if is_stm32(family) => mapped(flash)?,
+        (None, Some(spi)) if !is_stm32(family) => {
             if spi.erase_kib == 0 {
                 return Err(Problem::ZeroSize {
                     what: "memory.spi_flash.erase_kib".to_owned(),
@@ -352,7 +355,7 @@ fn ram(regions: &[RamRegion], flash: &FlashSpace<'_>) -> Result<(), Problem> {
 
 /// The layout regions only one family has, and whether `family` has them.
 fn family_regions(family: Family, layout: &Layout) -> [(&'static str, bool, bool); 3] {
-    let stm32 = family == Family::Stm32f4;
+    let stm32 = is_stm32(family);
     [
         ("vectors", layout.vectors.is_some(), stm32),
         ("bootloader", layout.bootloader.is_some(), !stm32),
@@ -394,9 +397,10 @@ fn layout(family: Family, layout: &Layout, flash: &FlashSpace<'_>) -> Result<(),
     }
     // A Cortex-M fetches its stack pointer and reset vector from the first byte of its flash;
     // the ESP32 ROM loads the second-stage boot loader from offset 0.
-    let boot = match family {
-        Family::Stm32f4 => "vectors",
-        Family::Esp32 => "bootloader",
+    let boot = if is_stm32(family) {
+        "vectors"
+    } else {
+        "bootloader"
     };
     let misplaced = regions
         .iter()
@@ -417,7 +421,7 @@ fn interfaces(interfaces: &Interfaces) -> Result<(), Problem> {
 
 /// The pins of a chip, as its family names them.
 enum Pins {
-    /// `stm32f4`: the pins of each port, port A first; 0 for a port the chip lacks.
+    /// The STM32 families: the pins of each port, port A first; 0 for a port the chip lacks.
     Ports([u32; PORT_LETTERS.len()]),
     /// `esp32`: `GPIO0` to the GPIO before this count.
     Numbered(u32),
@@ -452,7 +456,7 @@ fn decimal(text: &str) -> Option<u32> {
     }
 }
 
-/// The pins of each STM32F4 port, once every port is a letter A to K with 1 to 16 pins, listed
+/// The pins of each STM32 port, once every port is a letter A to K with 1 to 16 pins, listed
 /// once.
 fn port_sizes(ports: &[PortPins]) -> Result<[u32; PORT_LETTERS.len()], Problem> {
     let mut sizes = [0; PORT_LETTERS.len()];
@@ -482,9 +486,9 @@ fn port_sizes(ports: &[PortPins]) -> Result<[u32; PORT_LETTERS.len()], Problem> 
 
 /// Rule 8 for the pins: the family's key, and reserved pins of the chip, each listed once.
 fn gpio(family: Family, gpio: &Gpio) -> Result<(), Problem> {
-    let pins = match (family, &gpio.ports, gpio.pins) {
-        (Family::Stm32f4, Some(ports), None) => Pins::Ports(port_sizes(ports)?),
-        (Family::Esp32, None, Some(count)) => {
+    let pins = match (&gpio.ports, gpio.pins) {
+        (Some(ports), None) if is_stm32(family) => Pins::Ports(port_sizes(ports)?),
+        (None, Some(count)) if !is_stm32(family) => {
             if count == 0 {
                 return Err(Problem::ZeroSize {
                     what: "gpio.pins".to_owned(),

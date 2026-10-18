@@ -10,6 +10,7 @@ use trust_chips::{Catalog, ChipFile};
 pub(super) enum Board {
     Stm32f407gDisc1,
     Esp32c6Devkitc1,
+    RiverdiRvt50hqsnwc00B,
 }
 
 impl Board {
@@ -17,8 +18,9 @@ impl Board {
         match name {
             "stm32f407g-disc1" => Ok(Self::Stm32f407gDisc1),
             "esp32c6-devkitc-1" => Ok(Self::Esp32c6Devkitc1),
+            "riverdi-rvt50hqsnwc00-b" => Ok(Self::RiverdiRvt50hqsnwc00B),
             other => {
-                bail!("unknown board {other:?}; expected stm32f407g-disc1 or esp32c6-devkitc-1")
+                bail!("unknown board {other:?}; expected stm32f407g-disc1, esp32c6-devkitc-1 or riverdi-rvt50hqsnwc00-b")
             }
         }
     }
@@ -28,6 +30,7 @@ impl Board {
         match self {
             Self::Stm32f407gDisc1 => "stm32f407",
             Self::Esp32c6Devkitc1 => "esp32c6",
+            Self::RiverdiRvt50hqsnwc00B => "stm32u5a9",
         }
     }
 
@@ -35,6 +38,7 @@ impl Board {
         match self {
             Self::Stm32f407gDisc1 => BoardProfile::stm32f407g_disc1(),
             Self::Esp32c6Devkitc1 => BoardProfile::esp32c6_devkitc_1(),
+            Self::RiverdiRvt50hqsnwc00B => BoardProfile::riverdi_rvt50hqsnwc00_b(),
         }
     }
 }
@@ -47,7 +51,7 @@ pub(super) fn chip(name: &str) -> Result<ChipFile> {
         .with_context(|| format!("no chip file chips/{name}.toml"))
 }
 
-/// The file of the board's chip.
+/// The file of the board's chip, from the catalog that `trust-chips` embeds.
 fn chip_of(board: Board) -> Result<ChipFile> {
     chip(board.chip())
 }
@@ -135,6 +139,34 @@ impl BoardProfile {
         })
     }
 
+    pub(super) fn riverdi_rvt50hqsnwc00_b() -> Result<Self> {
+        let chip = chip_of(Board::RiverdiRvt50hqsnwc00B)?;
+        let flash = chip
+            .memory
+            .flash
+            .as_ref()
+            .context("the STM32U5A9's chip file has no memory.flash")?;
+        let cpu_hz = u64::from(chip.clock.firmware_hz);
+        Ok(Self {
+            board: Board::RiverdiRvt50hqsnwc00B,
+            name: "riverdi-rvt50hqsnwc00-b",
+            cpu_hz,
+            flash_kib: u64::from(flash.kib),
+            scan_cycle_bound: cycles_per_scan(cpu_hz),
+            // Heap region A of the U5 map (design section 4.3): 1 MiB from SRAM1, SRAM2 and part
+            // of SRAM3.
+            heap_bytes: 1024 * 1024,
+            // The 32 KiB main stack at the top of SRAM5, with the 2 KiB headroom of the stack rule
+            // (design section 4.3, spec 34 D.5; raised from 16 KiB on 18 October 2026).
+            stack_window_bytes: 32 * 1024,
+            stack_headroom_bytes: 2 * 1024,
+            boot_banner_lines: 0,
+            button_pressed_high: false,
+            image_capacity_bytes: chip.layout.firmware.bytes(),
+            application_bytes: chip.layout.application.bytes(),
+        })
+    }
+
     /// The largest stack peak the measured window accepts: the window less its headroom.
     pub(super) fn stack_peak_bound(&self) -> u64 {
         self.stack_window_bytes - self.stack_headroom_bytes
@@ -145,7 +177,11 @@ impl BoardProfile {
 mod tests {
     use super::*;
 
-    const BOARDS: [Board; 2] = [Board::Stm32f407gDisc1, Board::Esp32c6Devkitc1];
+    const BOARDS: [Board; 3] = [
+        Board::Stm32f407gDisc1,
+        Board::Esp32c6Devkitc1,
+        Board::RiverdiRvt50hqsnwc00B,
+    ];
 
     #[test]
     fn board_names_select_their_profiles_and_unknown_names_list_every_board() {
@@ -172,11 +208,37 @@ mod tests {
     }
 
     #[test]
+    fn the_riverdi_profile_carries_the_stm32u5a9_bench_values() {
+        // Design section 6.1 (xtask): 160 MHz, a scan bound of 1,600,000 cycles (10 ms), 4096 KiB of
+        // flash, the application of 2016 KiB, the firmware image of 2040 KiB, a button that reads
+        // low while pressed (PH3 with the board's pull), and no boot banner. Catches a profile that
+        // takes the F407's or the C6's values.
+        let riverdi = Board::RiverdiRvt50hqsnwc00B.profile().unwrap();
+        assert_eq!(riverdi.name, "riverdi-rvt50hqsnwc00-b");
+        assert_eq!(riverdi.cpu_hz, 160_000_000);
+        assert_eq!(riverdi.scan_cycle_bound, 1_600_000);
+        assert_eq!(riverdi.flash_kib, 4096);
+        assert_eq!(riverdi.image_capacity_bytes, 2040 * 1024);
+        assert_eq!(riverdi.application_bytes, 2016 * 1024);
+        assert!(!riverdi.button_pressed_high);
+        assert_eq!(riverdi.boot_banner_lines, 0);
+        // The 32 KiB window less its 2 KiB headroom.
+        assert_eq!(riverdi.stack_window_bytes, 32 * 1024);
+        assert_eq!(riverdi.stack_peak_bound(), 30 * 1024);
+        // The profile's chip values are the chip file's.
+        let u5 = chip_of(Board::RiverdiRvt50hqsnwc00B).unwrap();
+        assert_eq!(riverdi.cpu_hz, u64::from(u5.clock.firmware_hz));
+        assert_eq!(riverdi.image_capacity_bytes, u5.layout.firmware.bytes());
+        assert_eq!(riverdi.application_bytes, u5.layout.application.bytes());
+    }
+
+    #[test]
     fn each_bench_board_names_its_supported_chip() {
         assert_eq!(Board::Stm32f407gDisc1.chip(), "stm32f407");
         assert_eq!(Board::Esp32c6Devkitc1.chip(), "esp32c6");
+        assert_eq!(Board::RiverdiRvt50hqsnwc00B.chip(), "stm32u5a9");
         for board in BOARDS {
-            assert_eq!(chip(board.chip()).unwrap().identity.name, board.chip());
+            assert_eq!(chip_of(board).unwrap().identity.name, board.chip());
         }
         assert!(chip("stm32f401").is_err());
     }

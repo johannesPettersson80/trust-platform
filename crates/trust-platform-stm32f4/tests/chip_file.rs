@@ -21,6 +21,7 @@ fn reason(reason: Reserved) -> PinReason {
         Reserved::Console => PinReason::Console,
         Reserved::Debug => PinReason::Debug,
         Reserved::Oscillator => PinReason::Oscillator,
+        Reserved::Usb => PinReason::Usb,
     }
 }
 

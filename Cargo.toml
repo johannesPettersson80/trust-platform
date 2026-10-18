@@ -14,7 +14,9 @@ members = [
     "crates/verification-cases",
     "crates/trust-runtime-core",
     "crates/trust-runtime-services",
+    "crates/trust-platform-stm32",
     "crates/trust-platform-stm32f4",
+    "crates/trust-platform-stm32u5",
     "crates/trust-platform-esp32",
     "crates/trust-platform-memory",
     "crates/trust-board-fixture",
@@ -29,6 +31,7 @@ exclude = [
     "third_party/tiverse-mmap",
     "firmware/trust-stm32f407",
     "firmware/trust-esp32c6",
+    "firmware/trust-stm32u5a9",
 ]
 
 [workspace.package]
@@ -125,6 +128,7 @@ trust-runtime-core = { path = "crates/trust-runtime-core", default-features = fa
 trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-board-fixture = { path = "crates/trust-board-fixture" }
 trust-platform-memory = { path = "crates/trust-platform-memory" }
+trust-platform-stm32 = { path = "crates/trust-platform-stm32" }
 trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-runtime-client = { path = "crates/trust-runtime-client" }
