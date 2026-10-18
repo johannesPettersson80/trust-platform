@@ -1847,8 +1847,10 @@ Integers are little-endian. CRC-32 is CRC-32/ISO-HDLC, as in STBC and the retain
 computer. The commit marker has a fixed place after the header, so whether a record was committed
 can be read even when its header is damaged. With 4-byte units a record takes 68 + R bytes, R
 rounded up to a multiple of 4: a 16 KiB slot takes records of up to 16,300 payload bytes, and
-⌊16,368 / (68 + R)⌋ records before it is erased again. The sequence counts checkpoints; it is not
-an execution generation (RETAIN-01).
+⌊16,368 / (68 + R)⌋ records before it is erased again. With the STM32U5A9's 16-byte units the
+commit marker is 16 bytes, so a record takes 80 + R bytes, R rounded up to a multiple of 16: a
+16 KiB slot takes records of up to 16,288 payload bytes, and ⌊16,368 / (80 + R)⌋ records. The
+sequence counts checkpoints; it is not an execution generation (RETAIN-01).
 
 **Writing.** A checkpoint is written in this order: the record header, the payload, a read-back of
 everything the write programmed, and the commit marker last. It goes after the last record of the

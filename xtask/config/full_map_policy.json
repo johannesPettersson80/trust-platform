@@ -3180,6 +3180,86 @@
         "invariant": "NVIC::unmask enables the TIM2 interrupt, whose handler (the TIM2 function of wait.rs) touches only the timer and the wake counter.",
         "test_evidence": "The sleep and the wake are proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 211,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "NSKEYR takes KEY1 (0x4567_0123, RM0456) as the first of the two keys that unlock NSCR, and only while NSCR.LOCK is set (ST's HAL_FLASH_Unlock). The write touches no other register.",
+        "test_evidence": "The lock state and the unlock order are proved on the bench (S1b-9u); the address and slot rules that run before it are host-tested (tests/flash.rs).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 212,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "NSKEYR takes KEY2 (0xCDEF_89AB, RM0456) straight after KEY1, which completes the unlock of NSCR; the unlock is checked by reading NSCR.LOCK back.",
+        "test_evidence": "Proved on the bench (S1b-9u) with the unlock of line 213.",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 295,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "The four 32-bit volatile writes program one quad-word at an address that is 16-byte aligned and inside the flash (is_quad_word, checked by program_quad_word before this runs), after PG is set and NSSR is idle, with interrupts masked (ST's FLASH_Program_QuadWord).",
+        "test_evidence": "The address rule is host-tested (tests/flash.rs a_quad_word_must_be_16_byte_aligned); the programming is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 311,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "PNB takes the page index in its eight-bit field (bits 3 to 10), and the index is below 256 (PAGES_PER_BANK), which erase_page checks before the sequence starts.",
+        "test_evidence": "The bank and page of an address are host-tested (tests/flash.rs a_flash_address_maps_to_its_bank_and_page); the erase is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/flash.rs",
+        "line": 326,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "A volatile byte read of the chip's flash at an address that SlotFlash keeps inside the checkpoint slots (slot_address refuses a read past the slot), so the read has no effect on the flash.",
+        "test_evidence": "The slot bounds are host-tested (tests/flash.rs a_read_outside_the_slot_is_refused); the read is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/reset.rs",
+        "line": 83,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "TAMP_BKP1R takes zero first, which invalidates the cookie pair before its replacement, as the F407 adapter does. The backup-domain access that makes the write possible is enabled by ResetControl::take (PWR_DBPR.DBP and the RTC/TAMP APB clock, read back).",
+        "test_evidence": "The cookie encoding and its refusals are host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the register writes are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/reset.rs",
+        "line": 84,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "TAMP_BKP0R takes the first word of the encoded cookie (magic and phase), written after the pair is invalidated.",
+        "test_evidence": "The encoding is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write and its read-back are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/reset.rs",
+        "line": 85,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "TAMP_BKP1R takes the complementary integrity word of the encoded cookie, the second word of the pair.",
+        "test_evidence": "The complement rule is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/reset.rs",
+        "line": 98,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "clear_cookie writes zero to TAMP_BKP1R first, which invalidates the pair as the replacement does.",
+        "test_evidence": "The decode of a zero pair is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/reset.rs",
+        "line": 99,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "clear_cookie writes zero to TAMP_BKP0R, the second half of invalidating the pair.",
+        "test_evidence": "The decode of a zero pair is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
       }
     ],
     "delegated_unsafe_path_register": [

@@ -66,7 +66,7 @@ impl ResetControl {
     /// Valid phase marker only on non-power-reset boots. Firmware must also
     /// require `reason().independent_watchdog()` for an intentional-IWDG result.
     pub fn cookie(&self) -> Option<ResetCookie> {
-        if self.reason.power_on() || self.reason.brownout() {
+        if !self.reason.cookie_trusted() {
             return None;
         }
         ResetCookie::decode([

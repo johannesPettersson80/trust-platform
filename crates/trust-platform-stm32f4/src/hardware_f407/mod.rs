@@ -12,6 +12,7 @@ use crate::{
 };
 use cortex_m::peripheral::Peripherals as CorePeripherals;
 use stm32f4xx_hal::signature::{FlashSize, Uid};
+use trust_platform_stm32::reset::F4_RESET_BITS;
 
 #[path = "../hardware/clock.rs"]
 mod clock;
@@ -115,9 +116,7 @@ impl Board {
     pub fn take(wiring: &Wiring<'_>) -> Result<Self, BoardError> {
         let dp = pac::Peripherals::take().ok_or(BoardError::PeripheralsTaken)?;
         let mut cp = CorePeripherals::take().ok_or(BoardError::PeripheralsTaken)?;
-        let reason = ResetReason {
-            raw: dp.RCC.csr().read().bits(),
-        };
+        let reason = ResetReason::new(dp.RCC.csr().read().bits(), F4_RESET_BITS);
         let (mut rcc, clock_report) = clock_tree::start(dp.RCC, &dp.TIM11);
         if rcc.clocks.sysclk().raw() != SYSCLK_HZ || rcc.clocks.hclk().raw() != SYSCLK_HZ {
             return Err(BoardError::ClockProfile);
