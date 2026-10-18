@@ -473,6 +473,14 @@
       "status": "allowed",
       "owner": "runtime portability STM32U5A9 (S1b-8u-2a)",
       "rationale": "The control link carries the shared line link of the runtime services (framing, reply and stall rule), as the C6 adapter does; the services depend on no platform crate."
+    },
+    {
+      "from": "trust-platform-stm32u5",
+      "to": "trust-platform-memory",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+      "rationale": "The STM32U5A9 memory map gives the shared measurement crate its main-stack window, and its reset store implements the shared ResetStore; the memory crate holds the record codec and depends on no runtime or compiler."
     }
   ],
   "forbidden_workspace_edges": [
@@ -3222,43 +3230,43 @@
         "review_date": "2026-10-18"
       },
       {
-        "path": "crates/trust-platform-stm32u5/src/reset.rs",
-        "line": 83,
+        "path": "crates/trust-platform-stm32u5/src/watchdog.rs",
+        "line": 135,
         "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
-        "invariant": "TAMP_BKP1R takes zero first, which invalidates the cookie pair before its replacement, as the F407 adapter does. The backup-domain access that makes the write possible is enabled by ResetControl::take (PWR_DBPR.DBP and the RTC/TAMP APB clock, read back).",
-        "test_evidence": "The cookie encoding and its refusals are host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the register writes are proved on the bench (S1b-9u).",
+        "invariant": "IWDG_KR takes any 16-bit key, and the keys are ST's three: 0xCCCC starts the counter, 0x5555 unlocks IWDG_PR and IWDG_RLR, and 0xAAAA reloads the counter (RM0456; ST's stm32u5xx_hal_iwdg.c). Only this module writes IWDG_KR.",
+        "test_evidence": "The interval rule is host-tested (tests/watchdog.rs, watchdog_interval_gives_prescaler_and_reload). The key order and the counter's start are proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/watchdog.rs",
+        "line": 143,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "IWDG_PR takes a 4-bit prescaler code, and timing_for_ms returns only codes 0 to 6 (dividers 4 to 256), so the write selects no reserved code.",
+        "test_evidence": "tests/watchdog.rs pins the code of each interval it lists; the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/watchdog.rs",
+        "line": 145,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "IWDG_RLR takes a 12-bit reload, and timing_for_ms returns at most 4,095 (4,096 counts), so the write leaves the reserved upper bits at zero.",
+        "test_evidence": "tests/watchdog.rs pins the reloads at 512, 513 and 32,767 ms; the write is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path": "crates/trust-platform-stm32u5/src/gpio.rs",
+        "line": 456,
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "invariant": "The ten GPIO register blocks are the chip's own, at their fixed addresses (RM0456). The fault path reads each port's output record with relaxed loads and writes that port's BSRR once, setting or resetting only the outputs claim_output recorded. No owner is borrowed and nothing is allocated.",
+        "test_evidence": "The record and its masks are host-tested (tests/gpio.rs, the_emergency_path_drives_every_configured_output_to_its_safe_value); the BSRR writes are proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-stm32u5/src/reset.rs",
-        "line": 84,
+        "line": 221,
         "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
-        "invariant": "TAMP_BKP0R takes the first word of the encoded cookie (magic and phase), written after the pair is invalidated.",
-        "test_evidence": "The encoding is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write and its read-back are proved on the bench (S1b-9u).",
-        "review_date": "2026-10-18"
-      },
-      {
-        "path": "crates/trust-platform-stm32u5/src/reset.rs",
-        "line": 85,
-        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
-        "invariant": "TAMP_BKP1R takes the complementary integrity word of the encoded cookie, the second word of the pair.",
-        "test_evidence": "The complement rule is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write is proved on the bench (S1b-9u).",
-        "review_date": "2026-10-18"
-      },
-      {
-        "path": "crates/trust-platform-stm32u5/src/reset.rs",
-        "line": 98,
-        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
-        "invariant": "clear_cookie writes zero to TAMP_BKP1R first, which invalidates the pair as the replacement does.",
-        "test_evidence": "The decode of a zero pair is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write is proved on the bench (S1b-9u).",
-        "review_date": "2026-10-18"
-      },
-      {
-        "path": "crates/trust-platform-stm32u5/src/reset.rs",
-        "line": 99,
-        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
-        "invariant": "clear_cookie writes zero to TAMP_BKP0R, the second half of invalidating the pair.",
-        "test_evidence": "The decode of a zero pair is host-tested (trust-platform-stm32, the_cookie_round_trips_and_refuses_torn_erased_and_zero_phase); the write is proved on the bench (S1b-9u).",
+        "invariant": "A TAMP backup register takes any 32-bit value (RM0456), so the write touches no other register. The cookie keeps its order (BKP1R cleared, then BKP0R and BKP1R written), and ResetControl::take enables the backup domain before the first write.",
+        "test_evidence": "The register mapping is host-tested over a fake register file (tests/backup_store.rs); the cookie encoding is host-tested (trust-platform-stm32); the writes and their read-back are proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       }
     ],
@@ -3758,6 +3766,24 @@
         "shared_state": "EXTENSION, the 64-bit extension of the TIM2 count",
         "invariant": "EXTENSION is reached only inside critical_section::with, and only from the main context (now_instant); the TIM2 interrupt never samples it.",
         "test_evidence": "counter_extension_keeps_time_across_the_32_bit_wrap pins the arithmetic; the sampling is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/gpio.rs",
+        "primitive": "Atomic",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "shared_state": "OUTPUTS, one AtomicU32 record per port: the outputs claimed on the port and their safe levels",
+        "invariant": "claim_output ORs a pin's bits in with fetch_or during set-up, and the fault path only loads the records. Both run on one core, so a relaxed load sees a whole record, either before or after an OR.",
+        "test_evidence": "record_bits and safe_levels are host-tested (tests/gpio.rs); the fault path is proved on the bench (S1b-9u).",
+        "review_date": "2026-10-18"
+      },
+      {
+        "path_prefix": "crates/trust-platform-stm32u5/src/gpio.rs",
+        "primitive": "Ordering::",
+        "owner": "runtime portability STM32U5A9 (S1b-8u-3)",
+        "shared_state": "OUTPUTS, one AtomicU32 record per port: the outputs claimed on the port and their safe levels",
+        "invariant": "Relaxed on the fetch_or and on the loads: a record is a set of bits and orders no other memory.",
+        "test_evidence": "The same host tests as the Atomic entry; the fault path is proved on the bench (S1b-9u).",
         "review_date": "2026-10-18"
       }
     ],

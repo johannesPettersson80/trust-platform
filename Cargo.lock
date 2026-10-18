@@ -6804,6 +6804,7 @@ dependencies = [
  "stm32u5",
  "synopsys-usb-otg",
  "trust-chips",
+ "trust-platform-memory",
  "trust-platform-stm32",
  "trust-runtime-core",
  "trust-runtime-services",
