@@ -1235,6 +1235,10 @@ the owning source:
 - OPC UA leaf browsing retains the raw node ID and maps a supported scalar data
   type into the exact apply-facing type name. Browse failure retains the
   classified protocol error instead of returning an empty successful tree.
+- OPC UA browsing follows every `BrowseNext` continuation point until the server
+  has no more references for a node, within the configured depth and node bounds.
+  A depth or node bound that limits the tree adds a warning naming that bound;
+  the tree is never silently truncated.
 
 `comm.browse_symbols` schema version 1 requires a non-empty string protocol.
 Kind defaults to `symbols`; protocol and kind are trimmed, ASCII-case folded,
@@ -4065,7 +4069,10 @@ IEC 61131-3. Configuration parsing must fail closed before worker creation or
 any ADS wire activity unless all connection names are unique; every connection
 name and host is nonblank; every target AMS Net ID and explicit local AMS Net
 ID contains exactly six canonical decimal octets; every target AMS port is
-non-zero; and every connection declares at least one point. Plain transport
+non-zero; and every connection declares at least one point. A configuration with
+no connections is valid and starts with no ADS bindings: removing a project's
+last imported tag leaves a rewritten file the runtime still starts, not an empty
+connection entry that fails closed. Plain transport
 requires explicit insecure-transport acknowledgement, and that acknowledgement
 is invalid for any non-plain transport.
 
@@ -4457,7 +4464,9 @@ configuration and every canonical cached snapshot. Its parameters name the devic
 `host`, `target_net_id`, and `ams_port`, and the `paths` to remove. In every
 connection whose host, target AMS Net ID, and AMS port equal the device's it
 removes the points whose `symbol` is one of `paths`; a connection left without
-points is removed, and every other line, blank line, and comment is kept. It
+points is removed, and every other line, blank line, and comment is kept. When
+that leaves no connection at all, the rewritten file stays valid and the runtime
+starts with no ADS bindings. It
 answers schema version 1 with `applied`, `matched`, `removed_count`,
 `restart_required`, `files_written`, and `message`, writing nothing when no point
 matched and refusing without writing when no cached snapshot can regenerate the

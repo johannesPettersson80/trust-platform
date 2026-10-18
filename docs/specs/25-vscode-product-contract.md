@@ -1208,6 +1208,9 @@ test checks each family.
 - Connection assembly requires a usable endpoint and at least one usable
   point. Browse failures use one product recovery action and human-facing text,
   never raw backend status tokens.
+- Browse follows the server's continuation points up to the configured depth and
+  node limits. When a limit stops the tree, the browse result carries a warning
+  naming that limit, and no truncated tree looks complete.
 
 ### 11.3 PLCopen import and export workflow
 

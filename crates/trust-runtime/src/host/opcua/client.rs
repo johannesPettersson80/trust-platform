@@ -1,3 +1,6 @@
+#[cfg(feature = "opcua-wire")]
+mod client_browse;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpcUaBrowseNode {
     pub id: String,
@@ -7,6 +10,15 @@ pub struct OpcUaBrowseNode {
     pub data_type: String,
     pub writable: bool,
     pub children: Vec<OpcUaBrowseNode>,
+}
+
+/// The browsed OPC UA tree and any depth or node bound that cut it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaBrowseResult {
+    /// The tree under the OPC UA Objects folder.
+    pub nodes: Vec<OpcUaBrowseNode>,
+    /// Warnings naming a bound that limited the tree; empty when the whole tree was read.
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -378,7 +390,7 @@ pub fn browse_opcua_client_nodes(
     trust_server_certificate: bool,
     max_depth: usize,
     max_nodes: usize,
-) -> Result<Vec<OpcUaBrowseNode>, RuntimeError> {
+) -> Result<OpcUaBrowseResult, RuntimeError> {
     let session = connect_opcua_client_session(
         endpoint_url,
         security,
@@ -387,20 +399,13 @@ pub fn browse_opcua_client_nodes(
         "truST OPC UA browse",
         "urn:trust:runtime:opcua:browse",
     )?;
-    let tree = {
+    let result = {
         let session = session.read();
-        browse_children(
-            &session,
-            ::opcua::types::NodeId::objects_folder_id(),
-            "",
-            0,
-            max_depth.max(1),
-            &mut 0,
-            max_nodes.max(1),
-        )?
+        let source = client_browse::SessionBrowseSource { session: &session };
+        client_browse::browse_tree(&source, max_depth.max(1), max_nodes.max(1))?
     };
     session.read().disconnect();
-    Ok(tree)
+    Ok(result)
 }
 
 #[cfg(not(feature = "opcua-wire"))]
@@ -411,7 +416,7 @@ pub fn browse_opcua_client_nodes(
     _trust_server_certificate: bool,
     _max_depth: usize,
     _max_nodes: usize,
-) -> Result<Vec<OpcUaBrowseNode>, RuntimeError> {
+) -> Result<OpcUaBrowseResult, RuntimeError> {
     Err(opcua_wire_feature_error())
 }
 
@@ -653,146 +658,6 @@ fn connect_opcua_client_session(
     client
         .connect_to_endpoint(endpoint, token)
         .map_err(opcua_status_error)
-}
-
-#[cfg(feature = "opcua-wire")]
-fn browse_children(
-    session: &::opcua::client::prelude::Session,
-    node_id: ::opcua::types::NodeId,
-    parent_path: &str,
-    depth: usize,
-    max_depth: usize,
-    count: &mut usize,
-    max_nodes: usize,
-) -> Result<Vec<OpcUaBrowseNode>, RuntimeError> {
-    if depth >= max_depth || *count >= max_nodes {
-        return Ok(Vec::new());
-    }
-    let Some(results) = session
-        .browse(&[::opcua::types::BrowseDescription {
-            node_id,
-            browse_direction: ::opcua::types::BrowseDirection::Forward,
-            reference_type_id: ::opcua::types::ReferenceTypeId::HierarchicalReferences.into(),
-            include_subtypes: true,
-            node_class_mask: (::opcua::types::NodeClassMask::OBJECT
-                | ::opcua::types::NodeClassMask::VARIABLE)
-                .bits(),
-            result_mask: ::opcua::types::BrowseDescriptionResultMask::all().bits(),
-        }])
-        .map_err(opcua_status_error)?
-    else {
-        return Ok(Vec::new());
-    };
-    let Some(result) = results.first() else {
-        return Ok(Vec::new());
-    };
-    let references = result.references.clone().unwrap_or_default();
-    let mut nodes = Vec::new();
-    for reference in references {
-        if *count >= max_nodes {
-            break;
-        }
-        let node_id = reference.node_id.node_id.clone();
-        if node_id.is_null() {
-            continue;
-        }
-        let name = localized_text(reference.display_name)
-            .unwrap_or_else(|| reference.browse_name.name.to_string());
-        let path = if parent_path.is_empty() {
-            name.clone()
-        } else {
-            format!("{parent_path}/{name}")
-        };
-        let is_variable = reference.node_class == ::opcua::types::NodeClass::Variable;
-        let (data_type_id, data_type, writable) = if is_variable {
-            variable_metadata(session, node_id.clone())
-        } else {
-            ("Object".to_string(), "object".to_string(), false)
-        };
-        *count += 1;
-        let children = browse_children(
-            session,
-            node_id.clone(),
-            path.as_str(),
-            depth + 1,
-            max_depth,
-            count,
-            max_nodes,
-        )?;
-        nodes.push(OpcUaBrowseNode {
-            id: node_id.to_string(),
-            name,
-            path,
-            data_type_id,
-            data_type,
-            writable,
-            children,
-        });
-    }
-    Ok(nodes)
-}
-
-#[cfg(feature = "opcua-wire")]
-fn variable_metadata(
-    session: &::opcua::client::prelude::Session,
-    node_id: ::opcua::types::NodeId,
-) -> (String, String, bool) {
-    let values = session
-        .read(
-            &[
-                ::opcua::types::ReadValueId {
-                    node_id: node_id.clone(),
-                    attribute_id: ::opcua::types::AttributeId::DataType as u32,
-                    index_range: ::opcua::types::UAString::null(),
-                    data_encoding: ::opcua::types::QualifiedName::null(),
-                },
-                ::opcua::types::ReadValueId {
-                    node_id,
-                    attribute_id: ::opcua::types::AttributeId::UserAccessLevel as u32,
-                    index_range: ::opcua::types::UAString::null(),
-                    data_encoding: ::opcua::types::QualifiedName::null(),
-                },
-            ],
-            ::opcua::types::TimestampsToReturn::Neither,
-            0.0,
-        )
-        .unwrap_or_default();
-    let data_type_id = values
-        .first()
-        .and_then(|value| value.value.as_ref())
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| "Value".to_string());
-    let data_type = opcua_data_type_for_apply(data_type_id.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| "unknown".to_string());
-    let writable = values
-        .get(1)
-        .and_then(|value| value.value.as_ref())
-        .and_then(|value| match value {
-            ::opcua::types::Variant::Byte(bits) => Some(bits & 0b10 != 0),
-            ::opcua::types::Variant::UInt16(bits) => Some(bits & 0b10 != 0),
-            ::opcua::types::Variant::UInt32(bits) => Some(bits & 0b10 != 0),
-            _ => None,
-        })
-        .unwrap_or(false);
-    (data_type_id, data_type, writable)
-}
-
-#[cfg(feature = "opcua-wire")]
-fn opcua_data_type_for_apply(data_type_id: &str) -> Option<&'static str> {
-    match data_type_id {
-        "i=1" | "ns=0;i=1" => Some("bool"),
-        "i=2" | "ns=0;i=2" | "i=4" | "ns=0;i=4" => Some("int16"),
-        "i=3" | "ns=0;i=3" | "i=5" | "ns=0;i=5" => Some("uint16"),
-        "i=6" | "ns=0;i=6" => Some("int32"),
-        "i=7" | "ns=0;i=7" => Some("uint32"),
-        "i=8" | "ns=0;i=8" => Some("int64"),
-        "i=9" | "ns=0;i=9" => Some("uint64"),
-        "i=10" | "ns=0;i=10" => Some("float"),
-        "i=11" | "ns=0;i=11" => Some("double"),
-        "i=12" | "ns=0;i=12" => Some("string"),
-        _ => None,
-    }
 }
 
 #[cfg(feature = "opcua-wire")]

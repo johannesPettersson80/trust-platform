@@ -118,6 +118,97 @@ fn removing_the_last_point_removes_the_connection() {
     assert!(!removal.text.contains("[[connections]]"));
 }
 
+#[test]
+fn removing_the_last_ads_tag_leaves_a_project_that_starts() {
+    // Spec 11 §6.8.1b: a connection left without points is removed; when it is the last
+    // connection the rewritten `ads.toml` must still parse, so the runtime starts. Refusing the
+    // empty file, or writing a `[[connections]]` header without points, is the wrong behavior
+    // this catches.
+    let text = concat!(
+        "[[connections]]\n",
+        "name = \"line_301\"\n",
+        "target_net_id = \"100.67.6.217.1.1\"\n",
+        "host = \"192.168.77.11\"\n",
+        "ams_port = 301\n",
+        "\n",
+        "[[connections.points]]\n",
+        "var = \"var_1\"\n",
+        "symbol = \"Task 4.Inputs.Var 1\"\n",
+        "type = \"USINT\"\n",
+    );
+    let device = AdsTagDevice {
+        host: Some("192.168.77.11".to_string()),
+        target_net_id: Some("100.67.6.217.1.1".to_string()),
+        ams_port: 301,
+    };
+
+    let removal = remove_symbol_imports(text, &device, &["Task 4.Inputs.Var 1".to_string()]);
+
+    assert_eq!(removal.removed_count, 1);
+    assert!(!removal.text.contains("[[connections]]"));
+    let config = crate::ads::parse_ads_toml(removal.text.as_str())
+        .expect("a project whose last ADS tag was removed must still start");
+    assert_eq!(
+        config.connections,
+        Vec::<crate::ads::AdsConnectionConfig>::new()
+    );
+
+    let snapshots = vec![SymbolSnapshot::new(
+        "line_301",
+        vec![usint_symbol("Task 4.Inputs.Var 1")],
+    )];
+    let generated = regenerate_ads_interface(removal.text.as_str(), &snapshots)
+        .expect("regenerate the interface from the empty configuration");
+    assert!(generated.contains("END_VAR"));
+    assert!(!generated.contains("var_1"));
+}
+
+#[test]
+fn removing_the_last_tag_of_one_connection_keeps_the_others() {
+    // Spec 11 §6.8.1b: only the matching connection loses its point, and it is removed once it
+    // has none; every other connection and point stays. An implementation that removes the whole
+    // file, or the wrong connection, is the wrong behavior this catches.
+    let text = concat!(
+        "[[connections]]\n",
+        "name = \"line_301\"\n",
+        "target_net_id = \"100.67.6.217.1.1\"\n",
+        "host = \"192.168.77.11\"\n",
+        "ams_port = 301\n",
+        "\n",
+        "[[connections.points]]\n",
+        "var = \"var_1\"\n",
+        "symbol = \"Task 4.Inputs.Var 1\"\n",
+        "type = \"USINT\"\n",
+        "\n",
+        "[[connections]]\n",
+        "name = \"line_851\"\n",
+        "target_net_id = \"100.67.6.217.1.1\"\n",
+        "host = \"192.168.77.11\"\n",
+        "ams_port = 851\n",
+        "\n",
+        "[[connections.points]]\n",
+        "var = \"other_port_var_1\"\n",
+        "symbol = \"Task 4.Inputs.Var 2\"\n",
+        "type = \"USINT\"\n",
+    );
+    let device = AdsTagDevice {
+        host: Some("192.168.77.11".to_string()),
+        target_net_id: Some("100.67.6.217.1.1".to_string()),
+        ams_port: 301,
+    };
+
+    let removal = remove_symbol_imports(text, &device, &["Task 4.Inputs.Var 1".to_string()]);
+
+    assert_eq!(removal.removed_count, 1);
+    assert!(!removal.text.contains("name = \"line_301\""));
+    assert!(removal.text.contains("name = \"line_851\""));
+    assert!(removal.text.contains("var = \"other_port_var_1\""));
+    let config = crate::ads::parse_ads_toml(removal.text.as_str())
+        .expect("the remaining connection must still parse");
+    assert_eq!(config.connections.len(), 1);
+    assert_eq!(config.connections[0].route.name, "line_851");
+}
+
 fn usint_symbol(name: &str) -> SymbolDescriptor {
     SymbolDescriptor::new(
         name,

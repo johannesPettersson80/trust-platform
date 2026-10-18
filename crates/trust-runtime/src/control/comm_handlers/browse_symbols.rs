@@ -147,7 +147,7 @@ fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value,
     let security = target.opcua_security_profile()?;
     let auth = target.opcua_auth()?;
     let trust_server_certificate = target.trust_server_certificate.unwrap_or(false);
-    let nodes = match crate::opcua::browse_opcua_client_nodes(
+    let result = match crate::opcua::browse_opcua_client_nodes(
         endpoint_url.as_str(),
         security,
         auth,
@@ -155,7 +155,7 @@ fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value,
         4,
         512,
     ) {
-        Ok(nodes) => nodes,
+        Ok(result) => result,
         Err(error) => {
             return response_tree_error_value(
                 request.protocol,
@@ -165,8 +165,8 @@ fn browse_opcua_client_nodes(mut request: BrowseSymbolsRequest) -> Result<Value,
             )
         }
     };
-    let tree = nodes.into_iter().map(opcua_node_to_symbol).collect();
-    response_tree_value(request.protocol, request.kind, tree, Vec::new())
+    let tree = result.nodes.into_iter().map(opcua_node_to_symbol).collect();
+    response_tree_value(request.protocol, request.kind, tree, result.warnings)
 }
 
 fn browse_ads_symbols(
