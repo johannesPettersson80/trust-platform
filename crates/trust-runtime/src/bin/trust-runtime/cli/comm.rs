@@ -39,6 +39,21 @@ pub enum CommAction {
         #[arg(long, action = ArgAction::SetTrue)]
         json: bool,
     },
+    /// Run the comm.test request from this host and print its answer.
+    Test {
+        /// Project folder directory.
+        #[arg(long = "project", alias = "bundle")]
+        project: PathBuf,
+        /// Communication protocol id, for example modbus-tcp, mqtt or simulated.
+        #[arg(long)]
+        protocol: String,
+        /// JSON object containing protocol parameters.
+        #[arg(long)]
+        params: String,
+        /// Print machine-readable JSON.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
+    },
     /// Discover communication targets and return setup-form parameters.
     ///
     /// Discovery confidence is explicit: `confirmed` means protocol proof,

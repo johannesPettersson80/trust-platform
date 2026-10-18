@@ -1,0 +1,76 @@
+{
+  "access_tooltip": "{access} on the device",
+  "add": {
+    "action": {
+      "emphasis": "primary",
+      "enabled": true,
+      "id": "add",
+      "label": "Expose selected",
+      "op": {
+        "action": "browse.add",
+        "kind": "rust",
+        "payload": {
+          "pane": "browse:opcua",
+          "request": {
+            "kind": "symbols",
+            "seq": 3,
+            "session": "dc-golden",
+            "source": {
+              "connection": "endpoint:line",
+              "connection_name": "Line"
+            },
+            "trust_server_certificate": false
+          }
+        }
+      }
+    },
+    "counted_label": "Expose selected ({count})",
+    "enabled": true,
+    "label": "Expose selected",
+    "no_selection_reason": "Select at least one symbol to add."
+  },
+  "added_aria_label": "Already added: {path}",
+  "added_label": "Added",
+  "breadcrumb": "Devices & Connections",
+  "close_label": "Close",
+  "id": "browse:opcua",
+  "kind": "expose",
+  "loading": false,
+  "port_help": "",
+  "port_suggestions": [],
+  "ports": [],
+  "search": {
+    "no_match": "No matching symbols.",
+    "placeholder": "Search symbols"
+  },
+  "subtitle": "Line",
+  "title": "Choose globals to expose",
+  "tree": [
+    {
+      "access": "read/write",
+      "added": true,
+      "children": [],
+      "key": "global:GVL.Speed",
+      "name": "Speed",
+      "path": "global.Speed",
+      "select_label": "Select global.Speed",
+      "selectable": true,
+      "type_label": "REAL"
+    },
+    {
+      "access": "read-only",
+      "added": false,
+      "children": [],
+      "key": "global:GVL.Count",
+      "name": "Count",
+      "path": "global.Count",
+      "select_label": "Select global.Count",
+      "selectable": true,
+      "type_label": "DINT"
+    }
+  ],
+  "write_toggle": {
+    "enabled": true,
+    "label": "Allow writes (default: read-only)"
+  }
+}

@@ -256,6 +256,14 @@ pub struct TargetIdentity {
     pub ams_net_id: String,
     pub ams_port: u16,
     pub tc_version: Option<String>,
+    /// The target's OS version, as the ADS identify `SysInfo` reports it (specification 11,
+    /// "Communication discovery scope and symbol browsing").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_version: Option<String>,
+    /// The target's fingerprint, as the ADS identify `SysInfo` reports it (specification 11,
+    /// "Communication discovery scope and symbol browsing").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

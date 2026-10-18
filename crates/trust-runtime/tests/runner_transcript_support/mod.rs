@@ -56,7 +56,7 @@ use trust_runtime_services::live_values::queues::{
 use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use trust_runtime_services::protocol::{ControlAfterResponse, ControlRequest, ControlResponse};
 use trust_runtime_services::runner::engine::{
@@ -71,6 +71,8 @@ use trust_runtime_services::status::{
 pub const GPIO: &[u8] = include_bytes!("../fixtures/portability/f401/gpio.stbc");
 const RESOURCE: &str = "Controller";
 const CYCLE_INTERVAL_MS: i64 = 10;
+/// The platform the device composition reports, standing for the chip `gpio.stbc` is built for.
+const BOARD_PLATFORM: &str = "stm32f407";
 /// The cycle interval of both compositions.
 pub const CYCLE_INTERVAL: StdDuration = StdDuration::from_millis(10);
 const WAIT_LIMIT: StdDuration = StdDuration::from_secs(20);
@@ -211,6 +213,7 @@ impl HostComposition {
             opcua_server_bound: Arc::new(AtomicBool::new(false)),
             project_root: None::<PathBuf>,
             resource_name: SmolStr::new(RESOURCE),
+            runtime_id: SmolStr::new("test-runtime-id"),
             io_health,
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
@@ -220,6 +223,7 @@ impl HostComposition {
             historian: None,
             openot_persistence_status: None,
             pairing: None,
+            search: Default::default(),
             ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
             ads_client_config: Arc::new(Mutex::new(None)),
             opcua_client_config: Arc::new(Mutex::new(None)),
@@ -585,6 +589,24 @@ impl WallClock for BoardPlatform {
 impl StatusPort for BoardPlatform {
     fn resource_name(&self) -> &str {
         StatusPort::resource_name(&*self.host)
+    }
+
+    /// The board the device composition stands for; the transcript parity test normalises it
+    /// against the host's `<os>-<arch>`.
+    fn platform(&self) -> &'static str {
+        BOARD_PLATFORM
+    }
+
+    /// A device without an operating system has no project ID; it reports its platform's value
+    /// (specification 11, `status`). The transcript parity test normalises it against the host's
+    /// stable runtime ID.
+    fn runtime_id(&self) -> &'static str {
+        BOARD_PLATFORM
+    }
+
+    /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

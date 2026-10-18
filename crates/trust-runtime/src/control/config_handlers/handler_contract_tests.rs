@@ -511,6 +511,59 @@ fn config_handler_contract_config_get_uses_canonical_enum_spellings() {
     assert_eq!(result["runtime.execution_backend_source"], "default");
 }
 
+// Specification 11, `config.get` / `config.set`: `discovery.host_group` is readable and writable,
+// with `runtime.toml`'s trimming and non-empty rule, and it needs a restart. It would catch a
+// missing key, an untrimmed value, an accepted empty value, a missing `restart_required` entry,
+// or a null that does not clear the setting.
+#[test]
+fn discovery_host_group_readable_and_writable() {
+    let state = state();
+    assert_eq!(
+        success_result(handle_config_get(2, &state))["discovery.host_group"],
+        Value::Null
+    );
+    let result = success_result(set(&state, json!({"discovery.host_group": "  line-a  "})));
+    assert_eq!(
+        result,
+        json!({
+            "updated": ["discovery.host_group"],
+            "restart_required": ["discovery.host_group"],
+        })
+    );
+    assert_eq!(
+        settings_snapshot(&state).discovery.host_group.as_deref(),
+        Some("line-a")
+    );
+    assert_eq!(
+        success_result(handle_config_get(2, &state))["discovery.host_group"],
+        json!("line-a")
+    );
+
+    let error = rejected_error(set(&state, json!({"discovery.host_group": "   "})));
+    assert_eq!(
+        error,
+        "invalid config value for 'discovery.host_group': must not be empty"
+    );
+    assert_eq!(
+        settings_snapshot(&state).discovery.host_group.as_deref(),
+        Some("line-a")
+    );
+
+    let cleared = success_result(set(&state, json!({"discovery.host_group": null})));
+    assert_eq!(
+        cleared,
+        json!({
+            "updated": ["discovery.host_group"],
+            "restart_required": ["discovery.host_group"],
+        })
+    );
+    assert_eq!(settings_snapshot(&state).discovery.host_group, None);
+    assert_eq!(
+        success_result(handle_config_get(2, &state))["discovery.host_group"],
+        Value::Null
+    );
+}
+
 #[test]
 fn config_handler_contract_get_and_set_agree_for_mutable_scalar_values() {
     let state = state();
@@ -558,6 +611,7 @@ fn config_handler_contract_config_get_contains_complete_stable_key_set() {
             "control.mode",
             "discovery.advertise",
             "discovery.enabled",
+            "discovery.host_group",
             "discovery.interfaces",
             "discovery.service_name",
             "fault.policy",

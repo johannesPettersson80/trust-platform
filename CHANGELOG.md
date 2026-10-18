@@ -57,6 +57,46 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   as `ä`, two bytes) holds fewer than n characters; `LEN` and indexing still count
   characters. A string function or conversion whose result would be longer than
   65,535 now fails with `runtime_string_capacity_exceeded`.
+
+- Every runtime has a stable runtime ID: generated once, kept in the project's
+  `.trust-runtime/runtime_id`, the same after every restart and different for two
+  runtimes on one computer. `status` reports it as `runtime_id`, and the mDNS
+  announcement carries it with the truST version, the platform and whether control
+  needs a token. Announcing and browsing follow `discovery.interfaces`, use the
+  computer's real host name, and never announce a local socket or a web server that
+  is off. `trust-runtime ide serve` and setup mode announce themselves too, and setup
+  prints its page under the computer's own `.local` name.
+- The web IDE's `/api/discovery` and `/api/probe` need the same web login as the other
+  routes, and `/api/probe` takes its target and credentials in a POST body instead of
+  the URL. `config.get` and `config.set` cover `discovery.host_group`;
+  `comm.capabilities` reports discovery and mesh peer health; a runtime listening on a
+  wildcard address reports its real network addresses instead of `127.0.0.1`.
+- `ads.import_symbols.remove` removes imported ADS tag points from a project's `ads.toml`
+  and regenerates the generated ST, and `trust-runtime ads remove-symbols` runs the same
+  function from the command line. `trust-runtime comm test` runs the `comm.test` request's
+  code from the command line.
+- `comm.apply` answers the `instance_id` of the connection it wrote for `add`, `upsert`
+  and `edit`, and an ADS tag import enables `[runtime.ads]` in the project's
+  `runtime.toml` itself, live and through `trust-runtime ads import-symbols`, keeping
+  every other line and comment.
+- The Devices & Connections ADS Browse pane's `Create route` creates the TwinCAT route
+  through the runtime's guarded `ads.route_add`, which takes the TwinCAT administrator
+  login once and never stores or echoes it, and then Browse retries. The extension host
+  no longer edits an ADS file itself: removing a tag runs `trust-runtime ads
+  remove-symbols` and shows its report.
+- `trust-runtime discover` also finds MQTT brokers and OPC UA servers by their mDNS
+  announcements, and OPC UA servers through the local discovery server's FindServers, and
+  confirms each with the same probe as a known address.
+- `trust-runtime discover` runs one search for truST runtimes, ADS, Modbus TCP, MQTT and
+  OPC UA from this computer or inside a runtime, and for EtherCAT (after you confirm the
+  scan) and GPIO inside a runtime. It shows one device per thing found, with every
+  protocol on it, while the search runs. Runtimes serve the same search as
+  `comm.search.start`, `comm.search.status` and `comm.search.cancel`.
+- The search also lists the USB devices and serial ports of the computer it runs on,
+  without opening or writing any of them: an STM32 on its boot loader, the ESP32-C6,
+  ST-LINK probes, USB-serial adapters and truST runtimes on USB, each with the serial
+  ports behind it, and every serial port with the USB device behind it
+  (`trust-runtime discover --only usb,serial`).
 - Share compact, lossless floating-point text codecs across runtime platforms,
   preserving both conversion directions and existing diagnostic spelling.
 

@@ -200,6 +200,11 @@ pub enum Command {
         #[command(subcommand)]
         action: CommAction,
     },
+    /// Search for devices: truST runtimes, ADS, Modbus TCP, MQTT, OPC UA, EtherCAT and GPIO.
+    #[command(
+        after_help = "Examples:\n  trust-runtime discover\n  trust-runtime discover --only modbus_tcp,mqtt --host 192.168.1.20 --json\n  trust-runtime discover --cidr 192.168.1.0/24 --deadline-ms 20000\n  trust-runtime discover --endpoint tcp://192.168.1.5:5680 --confirm-fieldbus ethercat:eth1"
+    )]
+    Discover(DiscoverArgs),
     /// Offline fleet manifest and sibling-runtime workflows.
     Fleet {
         #[command(subcommand)]

@@ -28,8 +28,8 @@ use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, RecordsPort, ResourcePort,
-    StatusPort,
+    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl, RecordsPort,
+    ResourcePort, StatusPort,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
@@ -163,6 +163,23 @@ impl<P: RunnerPlatform, Y, C> ResourcePort for RunnerHost<'_, P, Y, C> {
 impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y, C> {
     fn resource_name(&self) -> &str {
         self.platform.resource_name()
+    }
+
+    fn platform(&self) -> &str {
+        self.platform.platform()
+    }
+
+    /// The runner's runtime ID is its platform's, which the device without an operating system
+    /// knows on its own (specification 11, `status`).
+    fn runtime_id(&self) -> &str {
+        self.platform.runtime_id()
+    }
+
+    /// A device without an operating system keeps control after `shutdown`: its program takes the
+    /// place of the process, so it still answers and `restart` starts the program again
+    /// (spec 34 STATE-08). The device never asks the platform, which cannot answer otherwise.
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

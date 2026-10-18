@@ -61,6 +61,10 @@ pub mod deployment;
 #[cfg(feature = "full")]
 #[path = "host/discovery.rs"]
 pub mod discovery;
+/// The stable runtime ID and the platform a runtime runs on.
+#[cfg(feature = "full")]
+#[path = "host/runtime_id.rs"]
+pub mod runtime_id;
 /// Runtime errors and configuration.
 pub mod error {
     pub use trust_runtime_core::error::*;
@@ -73,6 +77,9 @@ pub mod eval;
 #[cfg(feature = "full")]
 #[path = "host/execution_backend.rs"]
 pub mod execution_backend;
+/// The `fleet.topology` report that runtimes send and tools read.
+#[cfg(feature = "full")]
+pub mod fleet_topology;
 /// Test harness for runtime execution.
 #[cfg(feature = "full")]
 #[path = "host/harness/mod.rs"]
@@ -144,6 +151,10 @@ pub mod runtime_cloud;
 /// Resource scheduling helpers and clocks.
 #[cfg(feature = "full")]
 pub mod scheduler;
+/// The one search for everything truST can talk to: sources, devices and presence.
+#[cfg(feature = "full")]
+#[path = "host/search/mod.rs"]
+pub mod search;
 /// Security roles and authorization helpers.
 #[cfg(feature = "full")]
 #[path = "host/security/mod.rs"]

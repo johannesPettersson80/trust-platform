@@ -174,6 +174,27 @@ pub enum AdsAction {
         #[arg(long, action = ArgAction::SetTrue)]
         json: bool,
     },
+    /// Remove imported TwinCAT symbols from a project's ads.toml and regenerate its ST.
+    RemoveSymbols {
+        /// Project folder directory.
+        #[arg(long = "project", alias = "bundle")]
+        project: PathBuf,
+        /// Device host that the connection must match.
+        #[arg(long = "host")]
+        host: Option<String>,
+        /// Target PLC AMS Net ID that the connection must match.
+        #[arg(long = "target-net-id")]
+        target_net_id: Option<String>,
+        /// Target PLC AMS port that the connection must match.
+        #[arg(long = "ams-port")]
+        ams_port: u16,
+        /// Symbol path to remove. Repeat to remove several symbols.
+        #[arg(long = "path", required = true)]
+        paths: Vec<String>,
+        /// Print machine-readable JSON.
+        #[arg(long, action = ArgAction::SetTrue)]
+        json: bool,
+    },
     /// Generate deterministic ST globals from ads.toml and cached symbol snapshots.
     Import {
         /// ADS config file.

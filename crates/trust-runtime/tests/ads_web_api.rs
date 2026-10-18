@@ -479,6 +479,7 @@ END_PROGRAM
         opcua_server_bound: Arc::new(AtomicBool::new(false)),
         project_root: None,
         resource_name: SmolStr::new("RESOURCE"),
+        runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
@@ -488,6 +489,7 @@ END_PROGRAM
         historian: None,
         openot_persistence_status: None,
         pairing: None,
+        search: Default::default(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
         )),

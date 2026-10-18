@@ -153,6 +153,19 @@ pub const fn numeric_profile_ok(misa: u32) -> bool {
     (misa >> 30) == 1 && (misa & required) == required && (misa & (MISA_F | MISA_D)) == 0
 }
 
+/// The platform the C6 reports in `status` (specification 11, `status`): its chip name.
+pub const PLATFORM: &str = "esp32c6";
+
+/// The C6's stable runtime ID (specification 11, `status`): its chip name and its USB serial
+/// number, the base MAC address in the order and case the USB-Serial/JTAG controller reports it,
+/// for example `esp32c6-20:6E:F1:17:04:C0`. It needs no stored file, stays the same across resets
+/// and differs between two chips.
+#[must_use]
+pub fn runtime_id(mac: [u8; 6]) -> smol_str::SmolStr {
+    let [a, b, c, d, e, f] = mac;
+    smol_str::format_smolstr!("{PLATFORM}-{a:02X}:{b:02X}:{c:02X}:{d:02X}:{e:02X}:{f:02X}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

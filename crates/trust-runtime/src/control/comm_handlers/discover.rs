@@ -1,48 +1,27 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::time::Duration;
+//! `comm.discover` (specification 11, "comm.discover"): one search of one protocol. This module
+//! reads the request, applies its origin rules and builds the answer; the protocol's search is a
+//! source of the one search (`crate::search`), asked once and without a deadline.
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use super::super::{ControlResponse, ControlState};
-use super::discovery_probe::{
-    probe_modbus_tcp, probe_mqtt, ModbusDiscoveryProbe, ModbusSafeReadProbe,
-};
-
-#[cfg(feature = "ads-wire")]
-mod ads_discovery_target;
+use crate::search::sources::report::{CandidateSink, Deadline, DiscoverCandidate};
+use crate::search::sources::scope::DiscoverScope;
+use crate::search::sources::{ads, ethercat, gpio, modbus_tcp, mqtt, opcua, trust_runtimes};
 
 const DISCOVER_SCHEMA_VERSION: u32 = 1;
-const DEFAULT_TIMEOUT_MS: u64 = 150;
-const MAX_TIMEOUT_MS: u64 = 2_000;
-const MODBUS_PORT: u16 = 502;
-const MQTT_PORT: u16 = 1883;
-const MQTTS_PORT: u16 = 8883;
-const OPCUA_PORT: u16 = 4840;
-const TRUST_MDNS_SERVICE_TYPE: &str = "_trust._plc._tcp.local.";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CommDiscoverRequest {
     protocol: String,
-    #[serde(default)]
-    scope: DiscoverScope,
+    #[serde(default = "empty_scope")]
+    scope: Value,
     #[serde(default = "default_origin")]
     origin: DiscoverOrigin,
     #[serde(default = "default_passive")]
     passive: bool,
-}
-
-#[derive(Debug, Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct DiscoverScope {
-    cidr: Option<String>,
-    host: Option<String>,
-    adapter: Option<String>,
-    timeout_ms: Option<u64>,
-    unit_id: Option<u8>,
-    probe_read_address: Option<u16>,
-    probe_read_quantity: Option<u16>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,15 +41,21 @@ struct CommDiscoverResponse {
     warnings: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
-struct DiscoverCandidate {
-    id: String,
-    label: String,
-    source: &'static str,
-    confidence: &'static str,
-    params: Value,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+/// What one request found, in the order the search reported it.
+#[derive(Default)]
+struct Answer {
+    candidates: Vec<DiscoverCandidate>,
     warnings: Vec<String>,
+}
+
+impl CandidateSink for Answer {
+    fn found(&mut self, candidate: DiscoverCandidate) {
+        self.candidates.push(candidate);
+    }
+
+    fn warn(&mut self, warning: String) {
+        self.warnings.push(warning);
+    }
 }
 
 pub(super) fn handle_comm_discover(
@@ -90,589 +75,90 @@ pub(super) fn handle_comm_discover(
 pub(super) fn discover_value(params: Value, state: Option<&ControlState>) -> Result<Value, String> {
     let request: CommDiscoverRequest = serde_json::from_value(params)
         .map_err(|error| format!("invalid comm.discover payload: {error}"))?;
+    // The scope holds `ads_ports` and every protocol-specific key; an unknown key is rejected, and
+    // a non-object scope is a request error (specification 11, "comm.discover").
+    let mut scope = match request.scope {
+        Value::Object(object) => object,
+        other => {
+            return Err(format!(
+                "invalid comm.discover payload: scope must be an object, not {other}"
+            ))
+        }
+    };
+    let ads_ports = scope.remove("ads_ports");
+    let ports = crate::search::sources::ads_ports::checked_ports(ads_ports.as_ref())
+        .map_err(|error| format!("invalid comm.discover payload: {error}"))?;
+    let scope: DiscoverScope = serde_json::from_value(Value::Object(scope))
+        .map_err(|error| format!("invalid comm.discover payload: {error}"))?;
     let protocol = canonical_protocol(request.protocol.as_str());
-    let mut warnings = Vec::new();
+    let mut answer = Answer::default();
     if !request.passive {
-        warnings.push(
+        answer.warn(
             "Active write probes are not supported; discovery ran in connect/read-only mode."
                 .to_string(),
         );
     }
-    let candidates = match protocol.as_str() {
-        "modbus_tcp" => discover_modbus(&request.scope, &mut warnings)?,
+    // One request has no deadline: each probe ends by its own timeout.
+    let deadline = Deadline::NONE;
+    let in_runtime = request.origin == DiscoverOrigin::Runtime;
+    match protocol.as_str() {
+        "modbus_tcp" => modbus_tcp::discover(&scope, deadline, &mut answer)?,
         "opcua" => {
-            warnings.push("OPC UA discovery is not exposed here because truST currently provides OPC UA server setup, not an OPC UA client writer.".to_string());
-            Vec::new()
+            answer.warn("OPC UA discovery is not exposed here because truST currently provides OPC UA server setup, not an OPC UA client writer.".to_string());
         }
-        "opcua_client" => discover_opcua_client(&request.scope, &mut warnings)?,
-        "mqtt" => discover_mqtt(&request.scope, &mut warnings)?,
-        "ethercat" => discover_ethercat(&request, state, &mut warnings)?,
-        "gpio" => discover_gpio(&request, &mut warnings),
-        "ads" => discover_ads(&request.scope, &mut warnings)?,
-        "discovery" => discover_trust_runtimes(&request, state, &mut warnings)?,
-        other if known_protocol_without_discovery(other) => {
-            warnings.push(format!(
-                "{} discovery is not available yet.",
-                protocol_title(other)
-            ));
-            Vec::new()
+        "opcua_client" => opcua::discover(&scope, deadline, &mut answer)?,
+        "mqtt" => mqtt::discover(&scope, deadline, &mut answer)?,
+        "ethercat" if !in_runtime => answer.warn(
+            "EtherCAT discovery must run from the runtime host that owns the fieldbus adapter."
+                .to_string(),
+        ),
+        "ethercat" => {
+            let project_root = state.and_then(|state| state.project_root.as_deref());
+            ethercat::discover(&scope, project_root, deadline, &mut answer)?;
         }
+        "gpio" if !in_runtime => answer.warn(
+            "GPIO discovery must run from the runtime host that owns the GPIO hardware."
+                .to_string(),
+        ),
+        "gpio" => gpio::discover(deadline, &mut answer),
+        "ads" if ports == crate::search::sources::ads_ports::DEFAULT_PORTS => {
+            ads::discover(&scope, deadline, &mut answer)?
+        }
+        "ads" => ads::discover_with_ports(&scope, &ports, deadline, &mut answer)?,
+        "discovery" => {
+            // A runtime answers from its own discovery; anywhere else the request browses mDNS.
+            let discovery = state
+                .filter(|_| in_runtime)
+                .map(|state| state.discovery.as_ref());
+            trust_runtimes::discover(&scope, discovery, deadline, &mut answer)?;
+        }
+        other if known_protocol_without_discovery(other) => answer.warn(format!(
+            "{} discovery is not available yet.",
+            protocol_title(other)
+        )),
         other => return Err(format!("comm.discover does not know protocol '{other}'")),
-    };
+    }
     serde_json::to_value(CommDiscoverResponse {
         schema_version: DISCOVER_SCHEMA_VERSION,
         protocol,
         origin: request.origin,
-        candidates,
-        warnings,
+        candidates: answer.candidates,
+        warnings: answer.warnings,
     })
     .map_err(|error| format!("comm.discover serialization failed: {error}"))
-}
-
-fn discover_modbus(
-    scope: &DiscoverScope,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<DiscoverCandidate>, String> {
-    let timeout = timeout(scope);
-    let targets = if let Some(host) = scope.host.as_deref().filter(|host| !host.trim().is_empty()) {
-        vec![modbus_socket_target(host.trim())?]
-    } else {
-        let cidr = scope
-            .cidr
-            .clone()
-            .or_else(default_ipv4_cidr)
-            .ok_or_else(|| {
-                "Modbus discovery needs --cidr or a private IPv4 interface to derive a /24 scan"
-                    .to_string()
-            })?;
-        ipv4_targets_for_cidr(cidr.as_str())?
-            .into_iter()
-            .map(|ip| SocketAddr::new(IpAddr::V4(ip), MODBUS_PORT))
-            .collect()
-    };
-
-    if targets.len() > 256 {
-        return Err(
-            "Modbus discovery is capped at 256 hosts; use a /24 or tighter CIDR".to_string(),
-        );
-    }
-    if targets.len() > 32 {
-        warnings.push(format!(
-            "Scanning {} hosts with Modbus protocol probes; this may take a moment.",
-            targets.len()
-        ));
-    }
-
-    let probe = modbus_discovery_probe(scope)?;
-    let mut candidates = Vec::new();
-    for target in targets {
-        if let Some(outcome) = probe_modbus_tcp(target, timeout, probe) {
-            let address = target.to_string();
-            let mut params = json!({
-                "address": address,
-                "unit_id": probe.unit_id,
-                "probe_source": outcome.source,
-                "probe_detail": outcome.detail,
-            });
-            if let Some(safe_read) = probe.safe_read {
-                params["probe_read_address"] = json!(safe_read.address);
-                params["probe_read_quantity"] = json!(safe_read.quantity);
-            }
-            candidates.push(DiscoverCandidate {
-                id: format!("modbus:{address}"),
-                label: address.clone(),
-                source: outcome.source,
-                confidence: outcome.confidence,
-                params,
-                warnings: outcome.warnings,
-            });
-        }
-    }
-    Ok(candidates)
-}
-
-fn discover_mqtt(
-    scope: &DiscoverScope,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<DiscoverCandidate>, String> {
-    let Some(targets) = mqtt_targets(scope, warnings)? else {
-        return Ok(Vec::new());
-    };
-    let timeout = timeout(scope);
-    let mut candidates = Vec::new();
-    for target in targets {
-        if let Some(outcome) = probe_mqtt(target, timeout) {
-            let broker = target.to_string();
-            candidates.push(DiscoverCandidate {
-                id: format!("mqtt:{}", sanitize_id(broker.as_str())),
-                label: format!("MQTT broker {broker}"),
-                source: outcome.source,
-                confidence: outcome.confidence,
-                params: json!({
-                    "broker": broker,
-                    "tls": target.port() == MQTTS_PORT,
-                    "allow_insecure_remote": target.port() != MQTTS_PORT && !target.ip().is_loopback(),
-                    "auth_required": outcome.auth_required,
-                    "probe_detail": outcome.detail,
-                }),
-                warnings: outcome.warnings,
-            });
-        }
-    }
-    if candidates.is_empty() {
-        warnings
-            .push("No MQTT broker accepted a TCP connection at the requested target.".to_string());
-    }
-    Ok(candidates)
-}
-
-fn modbus_discovery_probe(scope: &DiscoverScope) -> Result<ModbusDiscoveryProbe, String> {
-    let safe_read = match (scope.probe_read_address, scope.probe_read_quantity) {
-        (Some(address), quantity) => {
-            let quantity = quantity.unwrap_or(1);
-            if quantity == 0 || quantity > 125 {
-                return Err(
-                    "Modbus discovery scope.probe_read_quantity must be between 1 and 125"
-                        .to_string(),
-                );
-            }
-            Some(ModbusSafeReadProbe { address, quantity })
-        }
-        (None, Some(_)) => {
-            return Err(
-                "Modbus discovery scope.probe_read_address is required when scope.probe_read_quantity is set"
-                    .to_string(),
-            );
-        }
-        (None, None) => None,
-    };
-    Ok(ModbusDiscoveryProbe {
-        unit_id: scope.unit_id.unwrap_or(1),
-        safe_read,
-    })
-}
-
-fn discover_opcua_client(
-    scope: &DiscoverScope,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<DiscoverCandidate>, String> {
-    let endpoint_url = opcua_endpoint_url(scope)?;
-    match crate::opcua::discover_opcua_client_endpoints(endpoint_url.as_str()) {
-        Ok(endpoints) => {
-            if endpoints.is_empty() {
-                warnings.push(format!(
-                    "No OPC UA endpoints were advertised by {endpoint_url}."
-                ));
-            }
-            Ok(endpoints
-                .into_iter()
-                .map(|endpoint| {
-                    let label = endpoint
-                        .application_name
-                        .clone()
-                        .unwrap_or_else(|| "OPC UA server".to_string());
-                    DiscoverCandidate {
-                        id: format!(
-                            "opcua:{}:{}:{}",
-                            sanitize_id(endpoint.endpoint_url.as_str()),
-                            endpoint.security_policy.as_config_value(),
-                            endpoint.security_mode.as_config_value()
-                        ),
-                        label,
-                        source: "opcua_get_endpoints",
-                        confidence: "observed",
-                        params: json!({
-                            "endpoint_url": endpoint.endpoint_url,
-                            "security_policy": endpoint.security_policy.as_config_value(),
-                            "security_mode": endpoint.security_mode.as_config_value(),
-                            "auth": if endpoint.anonymous_supported { "anonymous" } else { "username" },
-                            "anonymous_supported": endpoint.anonymous_supported,
-                            "username_supported": endpoint.username_supported,
-                            "trust_server_certificate": false,
-                        }),
-                        warnings: Vec::new(),
-                    }
-                })
-                .collect())
-        }
-        Err(error) => {
-            warnings.push(format!("OPC UA discovery did not complete: {error}"));
-            Ok(Vec::new())
-        }
-    }
-}
-
-fn discover_ethercat(
-    request: &CommDiscoverRequest,
-    state: Option<&ControlState>,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<DiscoverCandidate>, String> {
-    if request.origin != DiscoverOrigin::Runtime {
-        warnings.push(
-            "EtherCAT discovery must run from the runtime host that owns the fieldbus adapter."
-                .to_string(),
-        );
-        return Ok(Vec::new());
-    }
-    let Some(params) = ethercat_discovery_params(&request.scope, state)? else {
-        warnings.push(
-            "EtherCAT discovery needs scope.adapter/scope.host or a configured EtherCAT driver in the runtime project."
-                .to_string(),
-        );
-        return Ok(Vec::new());
-    };
-    match crate::io::discover_ethercat_modules(&params) {
-        Ok(discovery) => Ok(discovery
-            .modules
-            .into_iter()
-            .map(|module| DiscoverCandidate {
-                id: format!("ethercat:slot:{}", module.slot),
-                label: format!("{} (slot {})", module.model, module.slot),
-                source: "ethercat_bus",
-                confidence: "observed",
-                params: json!({
-                    "adapter": params.get("adapter").and_then(toml::Value::as_str),
-                    "model": module.model,
-                    "slot": module.slot,
-                    "channels": module.channels,
-                }),
-                warnings: Vec::new(),
-            })
-            .collect()),
-        Err(error) => {
-            warnings.push(format!("EtherCAT discovery did not complete: {error}"));
-            Ok(Vec::new())
-        }
-    }
-}
-
-fn ethercat_discovery_params(
-    scope: &DiscoverScope,
-    state: Option<&ControlState>,
-) -> Result<Option<toml::Value>, String> {
-    if let Some(adapter) = scope
-        .adapter
-        .as_deref()
-        .or(scope.host.as_deref())
-        .map(str::trim)
-        .filter(|adapter| !adapter.is_empty())
-    {
-        let mut table = toml::map::Map::new();
-        table.insert(
-            "adapter".to_string(),
-            toml::Value::String(adapter.to_string()),
-        );
-        return Ok(Some(toml::Value::Table(table)));
-    }
-    let Some(root) = state.and_then(|state| state.project_root.as_ref()) else {
-        return Ok(None);
-    };
-    let path = root.join("io.toml");
-    if !path.is_file() {
-        return Ok(None);
-    }
-    let config = crate::config::IoConfig::load(path)
-        .map_err(|error| format!("failed to load io.toml for EtherCAT discovery: {error}"))?;
-    Ok(config
-        .drivers
-        .into_iter()
-        .find(|driver| canonical_protocol(driver.name.as_str()) == "ethercat")
-        .map(|driver| driver.params))
-}
-
-fn discover_gpio(
-    request: &CommDiscoverRequest,
-    warnings: &mut Vec<String>,
-) -> Vec<DiscoverCandidate> {
-    if request.origin != DiscoverOrigin::Runtime {
-        warnings.push(
-            "GPIO discovery must run from the runtime host that owns the GPIO hardware."
-                .to_string(),
-        );
-        return Vec::new();
-    }
-    match crate::io::discover_gpio_lines() {
-        Ok(lines) if lines.is_empty() => {
-            warnings.push("No GPIO chip lines were exposed by this runtime host.".to_string());
-            Vec::new()
-        }
-        Ok(lines) => lines
-            .into_iter()
-            .map(|line| DiscoverCandidate {
-                id: format!("gpio:{}:{}", sanitize_id(line.chip.as_str()), line.line),
-                label: line.label.as_ref().map_or_else(
-                    || format!("{} line {}", line.chip, line.line),
-                    |label| format!("{label} · line {}", line.line),
-                ),
-                source: "gpio_sysfs",
-                confidence: "observed",
-                params: json!({
-                    "chip": line.chip,
-                    "label": line.label,
-                    "line": line.line,
-                    "direction": line.direction,
-                }),
-                warnings: Vec::new(),
-            })
-            .collect(),
-        Err(error) => {
-            warnings.push(format!("GPIO discovery did not complete: {error}"));
-            Vec::new()
-        }
-    }
-}
-
-fn mqtt_targets(
-    scope: &DiscoverScope,
-    warnings: &mut Vec<String>,
-) -> Result<Option<Vec<SocketAddr>>, String> {
-    let Some(host) = scope
-        .host
-        .as_deref()
-        .map(str::trim)
-        .filter(|host| !host.is_empty())
-    else {
-        warnings.push(
-            "MQTT discovery needs a broker host; broad network scans are not run for MQTT."
-                .to_string(),
-        );
-        return Ok(None);
-    };
-    let (host, explicit_port) = authority_host_and_port(host, "MQTT")?;
-    let ports: &[u16] = match explicit_port.as_ref() {
-        Some(port) => std::slice::from_ref(port),
-        None => &[MQTT_PORT, MQTTS_PORT],
-    };
-    let mut addrs = Vec::new();
-    for port in ports {
-        addrs.push(resolve_authority(host.as_str(), *port, "MQTT")?);
-    }
-    if addrs.is_empty() {
-        return Err(format!("resolve MQTT target '{host}': no address found"));
-    }
-    Ok(Some(addrs))
-}
-
-#[cfg(feature = "ads-wire")]
-fn discover_ads(
-    scope: &DiscoverScope,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<DiscoverCandidate>, String> {
-    use crate::ads::onboarding::runtime_address_candidates_from_interfaces;
-    use crate::ads::onboarding::{
-        directed_broadcast_targets_from_candidates, discover_targets, interface_directed_targets,
-        AdsRsOnboardingWire, DiscoveryRequest, DiscoverySource,
-    };
-
-    let mut request = DiscoveryRequest {
-        target: ads_discovery_target::directed_target(scope.host.as_deref()),
-        directed_targets: Vec::new(),
-        target_ams_net_id: None,
-        ams_port: Some(851),
-        target_name: None,
-        include_broadcast: scope.host.is_none(),
-        broadcast_targets: Vec::new(),
-        timeout_ms: scope.timeout_ms,
-    };
-    if let Some(cidr) = scope.cidr.as_deref() {
-        request.include_broadcast = true;
-        request.broadcast_targets = vec![broadcast_target_for_cidr(cidr)?];
-    } else if request.include_broadcast {
-        let candidates = runtime_address_candidates_from_interfaces()
-            .map_err(|error| format!("enumerate interfaces for ADS broadcast: {error}"))?;
-        request.directed_targets =
-            interface_directed_targets(candidates.iter().map(|candidate| candidate.ip.as_str()));
-        request.broadcast_targets = directed_broadcast_targets_from_candidates(&candidates);
-    }
-    if request.include_broadcast && request.broadcast_targets.is_empty() {
-        warnings
-            .push("No non-loopback IPv4 broadcast target was available for ADS discovery.".into());
-    }
-
-    let mut wire = AdsRsOnboardingWire::default();
-    let results = discover_targets(&mut wire, &request)
-        .map_err(|error| format!("ADS discovery failed: {error}"))?;
-    let mut candidates = Vec::new();
-    for result in results {
-        let source = match result.source {
-            DiscoverySource::Manual => "manual",
-            DiscoverySource::DirectedIdentify => "ads_identify",
-            DiscoverySource::DirectedBroadcast => "ads_broadcast",
-        };
-        let target = result.target;
-        let label = target
-            .name
-            .as_deref()
-            .filter(|name| !name.trim().is_empty())
-            .map_or_else(
-                || format!("TwinCAT {}", target.ams_net_id),
-                |name| format!("{name} · {}", target.ams_net_id),
-            );
-        candidates.push(DiscoverCandidate {
-            id: format!("ads:{}", sanitize_id(target.ams_net_id.as_str())),
-            label,
-            source,
-            confidence: "observed",
-            params: json!({
-                "ams_net_id": target.ams_net_id,
-                "host": target.ip,
-                "name": target.name,
-                "ams_port": target.ams_port,
-                "tc_version": target.tc_version,
-            }),
-            warnings: Vec::new(),
-        });
-    }
-    Ok(candidates)
-}
-
-#[cfg(not(feature = "ads-wire"))]
-fn discover_ads(
-    _scope: &DiscoverScope,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<DiscoverCandidate>, String> {
-    warnings.push("ADS discovery needs a runtime built with the ads-wire feature.".to_string());
-    Ok(Vec::new())
-}
-
-fn discover_trust_runtimes(
-    request: &CommDiscoverRequest,
-    state: Option<&ControlState>,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<DiscoverCandidate>, String> {
-    let entries = if request.origin == DiscoverOrigin::Runtime {
-        match state {
-            Some(state) => state.discovery.snapshot(),
-            None => browse_trust_mdns(timeout(&request.scope), warnings)?,
-        }
-    } else {
-        browse_trust_mdns(timeout(&request.scope), warnings)?
-    };
-    Ok(entries
-        .into_iter()
-        .map(|entry| {
-            let host = entry
-                .addresses
-                .first()
-                .map(ToString::to_string)
-                .unwrap_or_else(|| entry.name.to_string());
-            let control_endpoint = entry
-                .control
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default();
-            DiscoverCandidate {
-                id: format!("trust:{}", sanitize_id(entry.id.as_str())),
-                label: entry.name.to_string(),
-                source: "mdns",
-                confidence: "observed",
-                params: json!({
-                    "control_endpoint": control_endpoint,
-                    "name": entry.name.as_str(),
-                    "host": host,
-                    "web_port": entry.web_port,
-                    "host_group": entry.host_group.as_ref().map(ToString::to_string),
-                }),
-                warnings: if control_endpoint.is_empty() {
-                    vec!["Runtime advertised without a control endpoint; adopt may require manual endpoint entry.".to_string()]
-                } else {
-                    Vec::new()
-                },
-            }
-        })
-        .collect())
-}
-
-fn browse_trust_mdns(
-    timeout: Duration,
-    warnings: &mut Vec<String>,
-) -> Result<Vec<crate::discovery::DiscoveryEntry>, String> {
-    use mdns_sd::{ServiceDaemon, ServiceEvent};
-
-    let daemon =
-        ServiceDaemon::new().map_err(|error| format!("mDNS daemon start failed: {error}"))?;
-    let receiver = daemon
-        .browse(TRUST_MDNS_SERVICE_TYPE)
-        .map_err(|error| format!("mDNS browse failed: {error}"))?;
-    let started = std::time::Instant::now();
-    let mut entries = Vec::new();
-    while started.elapsed() < timeout {
-        let remaining = timeout.saturating_sub(started.elapsed());
-        match receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
-            Ok(ServiceEvent::ServiceResolved(info)) => {
-                let entry = mdns_info_to_entry(info.as_ref());
-                if !entries
-                    .iter()
-                    .any(|existing: &crate::discovery::DiscoveryEntry| existing.id == entry.id)
-                {
-                    entries.push(entry);
-                }
-            }
-            Ok(_) => {}
-            Err(_) => break,
-        }
-    }
-    if entries.is_empty() {
-        warnings
-            .push("No truST runtimes answered mDNS discovery in the timeout window.".to_string());
-    }
-    Ok(entries)
-}
-
-fn mdns_info_to_entry(info: &mdns_sd::ResolvedService) -> crate::discovery::DiscoveryEntry {
-    let id = info
-        .get_property_val_str("id")
-        .map(str::to_string)
-        .unwrap_or_else(|| info.get_fullname().to_string());
-    let name = info
-        .get_property_val_str("name")
-        .map(str::to_string)
-        .unwrap_or_else(|| info.get_fullname().to_string());
-    crate::discovery::DiscoveryEntry {
-        id: smol_str::SmolStr::new(id),
-        name: smol_str::SmolStr::new(name),
-        addresses: info
-            .get_addresses()
-            .iter()
-            .map(|address| address.to_ip_addr())
-            .collect(),
-        web_port: info
-            .get_property_val_str("web_port")
-            .and_then(|value| value.parse::<u16>().ok()),
-        web_tls: info
-            .get_property_val_str("web_tls")
-            .map(|value| matches!(value, "true" | "1" | "yes"))
-            .unwrap_or(false),
-        mesh_port: info
-            .get_property_val_str("mesh_port")
-            .and_then(|value| value.parse::<u16>().ok()),
-        control: info
-            .get_property_val_str("control")
-            .map(smol_str::SmolStr::new),
-        host_group: info
-            .get_property_val_str("host_group")
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(smol_str::SmolStr::new),
-        last_seen_ns: now_ns(),
-    }
 }
 
 fn default_origin() -> DiscoverOrigin {
     DiscoverOrigin::ThisHost
 }
 
-fn default_passive() -> bool {
-    true
+/// A `comm.discover` request with no scope.
+fn empty_scope() -> Value {
+    Value::Object(serde_json::Map::new())
 }
 
-fn timeout(scope: &DiscoverScope) -> Duration {
-    Duration::from_millis(
-        scope
-            .timeout_ms
-            .unwrap_or(DEFAULT_TIMEOUT_MS)
-            .clamp(1, MAX_TIMEOUT_MS),
-    )
+fn default_passive() -> bool {
+    true
 }
 
 fn canonical_protocol(protocol: &str) -> String {
@@ -692,16 +178,6 @@ fn canonical_protocol(protocol: &str) -> String {
         }
         other => other.to_string(),
     }
-}
-
-fn modbus_socket_target(host: &str) -> Result<SocketAddr, String> {
-    socket_target(host, MODBUS_PORT, "Modbus")
-}
-
-fn socket_target(host: &str, default_port: u16, label: &str) -> Result<SocketAddr, String> {
-    let (host, port) = authority_host_and_port(host, label)?;
-    let port = port.unwrap_or(default_port);
-    resolve_authority(host.as_str(), port, label)
 }
 
 fn known_protocol_without_discovery(protocol: &str) -> bool {
@@ -737,189 +213,6 @@ fn protocol_title(protocol: &str) -> &'static str {
     }
 }
 
-fn opcua_endpoint_url(scope: &DiscoverScope) -> Result<String, String> {
-    let raw = scope
-        .host
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| "OPC UA client discovery needs scope.host".to_string())?;
-    let endpoint = if let Some(endpoint) = raw.strip_prefix("opc.tcp://") {
-        endpoint
-    } else {
-        if raw.contains("://") {
-            return Err("OPC UA endpoint must use the opc.tcp scheme".to_string());
-        }
-        raw
-    };
-    if endpoint.contains(['?', '#']) {
-        return Err("OPC UA endpoint must not contain a query or fragment".to_string());
-    }
-    let (authority, path) = endpoint
-        .split_once('/')
-        .map_or((endpoint, ""), |(authority, path)| (authority, path));
-    let (host, port) = authority_host_and_port(authority, "OPC UA")?;
-    let authority = match (port, path.is_empty()) {
-        (Some(port), _) => format!("{host}:{port}"),
-        (None, true) => format!("{host}:{OPCUA_PORT}"),
-        (None, false) => host,
-    };
-    if path.is_empty() {
-        Ok(format!("opc.tcp://{authority}"))
-    } else {
-        Ok(format!("opc.tcp://{authority}/{path}"))
-    }
-}
-
-fn default_ipv4_cidr() -> Option<String> {
-    let candidates = crate::ads::onboarding::runtime_address_candidates_from_interfaces().ok()?;
-    let ip = candidates.into_iter().find_map(|candidate| {
-        let ip = candidate.ip.parse::<Ipv4Addr>().ok()?;
-        if ip.is_loopback() || ip.is_link_local() || !ip.is_private() {
-            return None;
-        }
-        Some(ip)
-    })?;
-    let [a, b, c, _] = ip.octets();
-    Some(format!("{a}.{b}.{c}.0/24"))
-}
-
-fn ipv4_targets_for_cidr(cidr: &str) -> Result<Vec<Ipv4Addr>, String> {
-    let (base, prefix) = parse_ipv4_cidr(cidr)?;
-    if prefix < 24 {
-        return Err("Discovery CIDR must be /24 or tighter for safety.".to_string());
-    }
-    let host_count = 1u64 << (32 - u64::from(prefix));
-    if host_count > 256 {
-        return Err("Discovery CIDR is too large; use a /24 or tighter range.".to_string());
-    }
-    let base_raw = u32::from(base);
-    let mask = if prefix == 0 {
-        0
-    } else {
-        u32::MAX << (32 - u32::from(prefix))
-    };
-    let network = base_raw & mask;
-    let broadcast = network | !mask;
-    let mut addrs = Vec::new();
-    for raw in network..=broadcast {
-        if prefix <= 30 && (raw == network || raw == broadcast) {
-            continue;
-        }
-        addrs.push(Ipv4Addr::from(raw));
-    }
-    Ok(addrs)
-}
-
-fn parse_ipv4_cidr(cidr: &str) -> Result<(Ipv4Addr, u8), String> {
-    let cidr = cidr.trim();
-    let (ip, prefix) = cidr
-        .split_once('/')
-        .ok_or_else(|| format!("invalid CIDR '{cidr}', expected a.b.c.d/24"))?;
-    let ip = ip
-        .trim()
-        .parse::<Ipv4Addr>()
-        .map_err(|error| format!("invalid CIDR address '{ip}': {error}"))?;
-    let prefix = prefix
-        .trim()
-        .parse::<u8>()
-        .map_err(|error| format!("invalid CIDR prefix '{prefix}': {error}"))?;
-    if prefix > 32 {
-        return Err(format!("invalid CIDR prefix '{prefix}', expected 0..32"));
-    }
-    Ok((ip, prefix))
-}
-
-fn authority_host_and_port(authority: &str, label: &str) -> Result<(String, Option<u16>), String> {
-    if authority.is_empty()
-        || authority.chars().any(char::is_whitespace)
-        || authority
-            .chars()
-            .any(|ch| matches!(ch, '/' | '?' | '#' | '@'))
-        || authority.contains("://")
-    {
-        return Err(format!("invalid {label} authority '{authority}'"));
-    }
-    if let Some(bracketed) = authority.strip_prefix('[') {
-        let (host, suffix) = bracketed
-            .split_once(']')
-            .ok_or_else(|| format!("invalid {label} IPv6 authority '{authority}'"))?;
-        host.parse::<std::net::Ipv6Addr>()
-            .map_err(|_| format!("invalid {label} IPv6 authority '{authority}'"))?;
-        let port = if suffix.is_empty() {
-            None
-        } else {
-            Some(parse_authority_port(
-                suffix
-                    .strip_prefix(':')
-                    .ok_or_else(|| format!("invalid {label} authority '{authority}'"))?,
-                label,
-            )?)
-        };
-        return Ok((format!("[{host}]"), port));
-    }
-    if authority.matches(':').count() > 1 {
-        return Err(format!(
-            "invalid unbracketed {label} IPv6 authority '{authority}'"
-        ));
-    }
-    match authority.rsplit_once(':') {
-        Some((host, port)) if !host.is_empty() => {
-            Ok((host.to_string(), Some(parse_authority_port(port, label)?)))
-        }
-        Some(_) => Err(format!("invalid {label} authority '{authority}'")),
-        None => Ok((authority.to_string(), None)),
-    }
-}
-
-fn parse_authority_port(port: &str, label: &str) -> Result<u16, String> {
-    port.parse::<u16>()
-        .ok()
-        .filter(|port| *port != 0)
-        .ok_or_else(|| format!("invalid {label} port '{port}', expected 1..65535"))
-}
-
-fn resolve_authority(host: &str, port: u16, label: &str) -> Result<SocketAddr, String> {
-    let authority = format!("{host}:{port}");
-    if let Ok(address) = authority.parse::<SocketAddr>() {
-        return Ok(address);
-    }
-    (host, port)
-        .to_socket_addrs()
-        .map_err(|error| format!("resolve {label} target '{authority}': {error}"))?
-        .next()
-        .ok_or_else(|| format!("resolve {label} target '{authority}': no address found"))
-}
-
-#[cfg(feature = "ads-wire")]
-fn broadcast_target_for_cidr(cidr: &str) -> Result<String, String> {
-    use crate::ads::onboarding::directed_broadcast_target;
-
-    let (ip, prefix) = parse_ipv4_cidr(cidr)?;
-    directed_broadcast_target(&ip.to_string(), prefix)
-        .ok_or_else(|| format!("could not compute directed broadcast target for {cidr}"))
-}
-
-fn sanitize_id(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect()
-}
-
-fn now_ns() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos() as u64
-}
-
 #[cfg(test)]
 #[path = "discover_tests.rs"]
 mod discover_tests;
@@ -927,3 +220,41 @@ mod discover_tests;
 #[cfg(test)]
 #[path = "discover/contract_tests.rs"]
 mod contract_tests;
+
+#[cfg(test)]
+mod ads_ports_scope_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn ads_scope_ports_default_merge_and_reject_invalid() {
+        // Specification 11, "comm.discover": `scope.ads_ports` is accepted, defaults when absent,
+        // merges duplicates, and rejects an invalid value by naming it.
+        assert_eq!(
+            crate::search::sources::ads_ports::checked_ports(None).expect("default ports"),
+            vec![301, 501, 851, 852, 853, 854]
+        );
+        discover_value(
+            json!({ "protocol": "openot", "scope": { "ads_ports": [851, 301, 851] } }),
+            None,
+        )
+        .expect("the ads_ports scope key is accepted");
+
+        for bad in [json!(0), json!(65536), json!("852"), json!(501.5)] {
+            let error = discover_value(
+                json!({ "protocol": "openot", "scope": { "ads_ports": [bad] } }),
+                None,
+            )
+            .expect_err("an invalid ADS port must be a request error");
+            assert!(
+                error.starts_with("invalid comm.discover payload:"),
+                "{error}"
+            );
+            assert!(
+                error.contains(&bad.to_string()),
+                "the error must name {bad}: {error}"
+            );
+        }
+    }
+}

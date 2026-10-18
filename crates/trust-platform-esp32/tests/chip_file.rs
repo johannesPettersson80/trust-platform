@@ -147,7 +147,32 @@ fn platform_with(last_reset: LastReset) -> Platform<()> {
         ControlMode::Production,
         EngineLiveValues::empty(),
         last_reset,
+        trust_platform_esp32::profile::runtime_id([0x20, 0x6E, 0xF1, 0x17, 0x04, 0xC0]),
     )
+}
+
+/// Specification 11, `status`: a chip's runtime ID is its chip name and USB serial number, and
+/// it reports its chip as its platform and keeps control after `shutdown` (spec 34 STATE-08).
+/// Catches a runtime ID that is the same for two chips of one model (the chip name alone), a
+/// MAC in another case or order than the USB serial shows, and a chip reporting `process`.
+#[test]
+fn the_c6_reports_its_chip_its_usb_serial_and_that_it_keeps_control() {
+    let platform = platform_with(Platform::<()>::boot_last_reset(1, None, 1));
+    assert_eq!(StatusPort::platform(&platform), "esp32c6");
+    assert_eq!(
+        StatusPort::runtime_id(&platform),
+        "esp32c6-20:6E:F1:17:04:C0"
+    );
+    assert_eq!(
+        StatusPort::program_control(&platform),
+        trust_runtime_services::ports::ProgramControl::KeepsControl
+    );
+    let other = trust_platform_esp32::profile::runtime_id([0x20, 0x6E, 0xF1, 0x17, 0x04, 0xC1]);
+    assert_ne!(
+        other,
+        StatusPort::runtime_id(&platform),
+        "two chips have two runtime IDs"
+    );
 }
 
 /// The reset the chip reports for a boot: its cause, its text and the boot counter (specification 11,

@@ -7,10 +7,14 @@ use anyhow::Context;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use rand::TryRng;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use smol_str::SmolStr;
 use toml_edit::{value, DocumentMut, Item, Table};
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::config::fleet_manifest::{
+    load_manifest, validate_manifest, validate_runtime_name, FleetManifest, FleetManifestRuntime,
+    FleetRuntimeLifecycleResponse, FLEET_MANIFEST_FILE, FLEET_MANIFEST_SCHEMA_VERSION,
+};
 use trust_runtime::control::ControlEndpoint;
 
 use crate::cli::{FleetAction, FleetRuntimeAction, FleetRuntimeTemplateArg};
@@ -18,12 +22,9 @@ use crate::cli::{FleetAction, FleetRuntimeAction, FleetRuntimeTemplateArg};
 mod lifecycle;
 
 use lifecycle::{
-    runtime_logs, start_runtime, status_runtime, stop_runtime, FleetRuntimeLifecycleResponse,
-    FleetRuntimeLogsResponse,
+    runtime_logs, start_runtime, status_runtime, stop_runtime, FleetRuntimeLogsResponse,
 };
 
-pub(super) const FLEET_MANIFEST_FILE: &str = "fleet.toml";
-pub(super) const FLEET_MANIFEST_SCHEMA_VERSION: u32 = 1;
 const DEFAULT_CONTROL_PORT: u16 = 9900;
 const DEFAULT_WEB_PORT: u16 = 18080;
 
@@ -80,20 +81,6 @@ pub fn run_fleet(action: FleetAction) -> anyhow::Result<()> {
             print_list_response(response, json)
         }
     }
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub(super) struct FleetManifest {
-    #[serde(default)]
-    pub(super) runtime: Vec<FleetManifestRuntime>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub(super) struct FleetManifestRuntime {
-    pub(super) name: String,
-    pub(super) path: String,
-    pub(super) control_endpoint: String,
-    pub(super) web_port: u16,
 }
 
 #[derive(Debug, Serialize)]
@@ -189,65 +176,6 @@ fn list_runtimes(fleet_root: &Path) -> anyhow::Result<FleetListResponse> {
         fleet_root: fleet_root.display().to_string(),
         runtimes: manifest.runtime,
     })
-}
-
-pub(super) fn load_manifest(path: &Path) -> anyhow::Result<FleetManifest> {
-    let manifest = match fs::read_to_string(path) {
-        Ok(text) => toml::from_str(text.as_str())
-            .with_context(|| format!("failed to parse {}", path.display())),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(FleetManifest::default()),
-        Err(error) => Err(error).with_context(|| format!("failed to read {}", path.display())),
-    }?;
-    validate_manifest(&manifest)?;
-    Ok(manifest)
-}
-
-fn validate_manifest(manifest: &FleetManifest) -> anyhow::Result<()> {
-    let mut names = BTreeSet::new();
-    let mut ports = BTreeSet::new();
-    for runtime in &manifest.runtime {
-        let validated_name = validate_runtime_name(runtime.name.as_str())?;
-        if validated_name != runtime.name {
-            anyhow::bail!(
-                "fleet runtime name must not contain leading or trailing whitespace: {:?}",
-                runtime.name
-            );
-        }
-        if !names.insert(runtime.name.as_str()) {
-            anyhow::bail!("duplicate fleet runtime name '{}'", runtime.name);
-        }
-        if runtime.path.trim().is_empty() {
-            anyhow::bail!("fleet runtime '{}' has an empty project path", runtime.name);
-        }
-
-        let endpoint =
-            ControlEndpoint::parse(runtime.control_endpoint.as_str()).map_err(|error| {
-                anyhow::anyhow!(
-                    "fleet runtime '{}' has invalid control endpoint '{}': {error}",
-                    runtime.name,
-                    runtime.control_endpoint
-                )
-            })?;
-        match endpoint {
-            ControlEndpoint::Tcp(address) => {
-                validate_manifest_port(address.port(), &mut ports)?;
-            }
-            #[cfg(unix)]
-            ControlEndpoint::Unix(_) => {}
-        }
-        validate_manifest_port(runtime.web_port, &mut ports)?;
-    }
-    Ok(())
-}
-
-fn validate_manifest_port(port: u16, ports: &mut BTreeSet<u16>) -> anyhow::Result<()> {
-    if port == 0 {
-        anyhow::bail!("fleet TCP ports must be concrete, not 0");
-    }
-    if !ports.insert(port) {
-        anyhow::bail!("fleet TCP port {port} is used more than once");
-    }
-    Ok(())
 }
 
 fn write_manifest(path: &Path, manifest: &FleetManifest) -> anyhow::Result<()> {
@@ -377,26 +305,6 @@ fn control_port_from_endpoint(endpoint: &str) -> Option<u16> {
         #[cfg(unix)]
         ControlEndpoint::Unix(_) => None,
     }
-}
-
-fn validate_runtime_name(name: &str) -> anyhow::Result<String> {
-    let trimmed = name.trim();
-    if trimmed != name {
-        anyhow::bail!("runtime name must not contain leading or trailing whitespace: {name:?}");
-    }
-    if name.is_empty() {
-        anyhow::bail!("runtime name must not be empty");
-    }
-    if !name
-        .chars()
-        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
-    {
-        anyhow::bail!("runtime name may only contain ASCII letters, digits, '-' and '_'");
-    }
-    if name == "." || name == ".." {
-        anyhow::bail!("runtime name must be a folder name, not '{name}'");
-    }
-    Ok(name.to_string())
 }
 
 fn resource_name_from_runtime_name(name: &str) -> String {
@@ -753,143 +661,6 @@ mod tests {
             "{web_err}"
         );
 
-        fs::remove_dir_all(root).ok();
-    }
-
-    #[test]
-    fn load_manifest_rejects_unsafe_or_duplicate_runtime_names() {
-        let root = temp_dir("fleet-invalid-names");
-        let manifest_path = root.join(FLEET_MANIFEST_FILE);
-        fs::write(
-            &manifest_path,
-            r#"
-[[runtime]]
-name = "../escape"
-path = "first"
-control_endpoint = "tcp://127.0.0.1:19920"
-web_port = 19921
-"#,
-        )
-        .expect("write unsafe manifest");
-        let unsafe_error = load_manifest(&manifest_path).expect_err("unsafe name must fail");
-        assert!(
-            unsafe_error.to_string().contains("runtime name"),
-            "unexpected error: {unsafe_error:#}"
-        );
-
-        fs::write(
-            &manifest_path,
-            r#"
-[[runtime]]
-name = "cell"
-path = "first"
-control_endpoint = "tcp://127.0.0.1:19920"
-web_port = 19921
-
-[[runtime]]
-name = "cell"
-path = "second"
-control_endpoint = "tcp://127.0.0.1:19922"
-web_port = 19923
-"#,
-        )
-        .expect("write duplicate manifest");
-        let duplicate_error = load_manifest(&manifest_path).expect_err("duplicate name must fail");
-        assert!(
-            duplicate_error
-                .to_string()
-                .contains("duplicate fleet runtime name 'cell'"),
-            "unexpected error: {duplicate_error:#}"
-        );
-
-        fs::write(
-            &manifest_path,
-            r#"
-[[runtime]]
-name = " cell "
-path = "cell"
-control_endpoint = "tcp://127.0.0.1:19920"
-web_port = 19921
-"#,
-        )
-        .expect("write whitespace name manifest");
-        let whitespace_error =
-            load_manifest(&manifest_path).expect_err("whitespace name must fail");
-        assert!(
-            whitespace_error
-                .to_string()
-                .contains("leading or trailing whitespace"),
-            "unexpected error: {whitespace_error:#}"
-        );
-        fs::remove_dir_all(root).ok();
-    }
-
-    #[test]
-    fn load_manifest_rejects_invalid_endpoints_and_port_collisions() {
-        let root = temp_dir("fleet-invalid-ports");
-        let manifest_path = root.join(FLEET_MANIFEST_FILE);
-        fs::write(
-            &manifest_path,
-            r#"
-[[runtime]]
-name = "first"
-path = "first"
-control_endpoint = "not-an-endpoint"
-web_port = 19931
-"#,
-        )
-        .expect("write invalid endpoint manifest");
-        let endpoint_error =
-            load_manifest(&manifest_path).expect_err("invalid control endpoint must fail");
-        assert!(
-            endpoint_error.to_string().contains("control endpoint"),
-            "unexpected error: {endpoint_error:#}"
-        );
-
-        fs::write(
-            &manifest_path,
-            r#"
-[[runtime]]
-name = "first"
-path = "first"
-control_endpoint = "tcp://127.0.0.1:19930"
-web_port = 19931
-
-[[runtime]]
-name = "second"
-path = "second"
-control_endpoint = "tcp://127.0.0.1:19932"
-web_port = 19930
-"#,
-        )
-        .expect("write colliding manifest");
-        let collision_error =
-            load_manifest(&manifest_path).expect_err("cross-role port collision must fail");
-        assert!(
-            collision_error
-                .to_string()
-                .contains("fleet TCP port 19930 is used more than once"),
-            "unexpected error: {collision_error:#}"
-        );
-
-        fs::write(
-            &manifest_path,
-            r#"
-[[runtime]]
-name = "first"
-path = "first"
-control_endpoint = "tcp://127.0.0.1:19930"
-web_port = 0
-"#,
-        )
-        .expect("write zero web port manifest");
-        let zero_port_error = load_manifest(&manifest_path).expect_err("zero web port must fail");
-        assert!(
-            zero_port_error
-                .to_string()
-                .contains("fleet TCP ports must be concrete, not 0"),
-            "unexpected error: {zero_port_error:#}"
-        );
         fs::remove_dir_all(root).ok();
     }
 

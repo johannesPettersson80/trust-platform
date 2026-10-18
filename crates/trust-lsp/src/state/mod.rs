@@ -19,6 +19,7 @@ use tower_lsp::lsp_types::{
 use crate::config::ProjectConfig;
 use crate::library_docs::library_doc_map;
 use crate::telemetry::{TelemetryCollector, TelemetryEvent};
+use trust_devices::engine::DevicesEngine;
 use trust_hir::{db::FileId, Database, Project};
 
 const BACKGROUND_REQUEST_LIMIT: usize = 1;
@@ -149,6 +150,9 @@ pub struct ServerState {
     library_docs: RwLock<FxHashMap<Url, Arc<FxHashMap<String, String>>>>,
     /// Telemetry collector (opt-in).
     telemetry: TelemetryCollector,
+    /// The Devices & Connections panel engine (design §1.4.1): the five `trust-lsp.devices*`
+    /// commands answer through it.
+    pub devices: Arc<DevicesEngine>,
     /// Limits concurrency for background workspace scans.
     request_limiter: RequestLimiter,
     /// Signals when the first workspace-index pass has completed. Until this fires,
@@ -182,6 +186,7 @@ impl ServerState {
             workspace_configs: RwLock::new(FxHashMap::default()),
             library_docs: RwLock::new(FxHashMap::default()),
             telemetry: TelemetryCollector::new(),
+            devices: Arc::new(DevicesEngine::new()),
             request_limiter: RequestLimiter::new(BACKGROUND_REQUEST_LIMIT),
             index_first_pass: watch::channel(false).0,
         }

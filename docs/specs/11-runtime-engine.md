@@ -1147,8 +1147,10 @@ rules above earn stronger evidence. A CIDR scan broader than `/24` is rejected
 before enumeration. EtherCAT discovery is available only from the runtime host;
 another origin receives an empty candidate set and an explicit runtime-origin
 warning. Runtime-origin mock discovery may project the configured/discovered
-module chain, but it remains mock evidence. OPC UA generic discovery currently
-returns an explicit server-setup warning and no candidates. A registered
+module chain, but it remains mock evidence. Generic OPC UA discovery returns
+the servers that the local discovery servers (FindServers), mDNS
+`_opcua-tcp._tcp.local.` and GetEndpoints find, and lists every endpoint each
+server announces, including the endpoints truST cannot use. A registered
 protocol whose discovery is deferred returns an empty candidate set and a
 stable unavailable warning; an unknown protocol is a request error.
 
@@ -1159,6 +1161,28 @@ limits cannot silently disappear. A requested non-passive scan still performs
 connect/read-only operations and returns the stable warning that active write
 probes are unsupported. Timeout defaults to 150 ms and is clamped to the
 closed 1 through 2,000 ms range; malformed timeout types are request errors.
+
+ADS discovery takes an ordered list of ADS ports in `scope.ads_ports` for
+`comm.discover` and in the `ads_ports` member of a search request. Without it
+the ports are 301, 501, 851, 852, 853, and 854; duplicates are merged and the
+list is sorted in ascending order. A port that is not an integer from 1 through
+65,535 is a request error that names the value; the list never drops a value
+silently. Every ADS find is probed on those ports with the symbol browse that
+`comm.browse_symbols` runs, and the ports of one device are probed one after
+the other, because they share the device's route; different devices are probed
+at the same time. A port answers when its symbol tree is not empty, when its
+route status is `ok`, or when its error code is `symbol_upload_unsupported` or
+`empty_symbol_table`; any other error, or no answer, does not answer. An ADS
+result carries the answering ports in ascending order as `responding_ads_ports`
+and their browse results as `ads_port_browse_results`, each entry naming
+`port`, `tree`, `routeMissing`, and, when present, `routePlan` and `error`. Its
+`ams_port` is its own port when that port answered, otherwise the first
+answering port, otherwise its own port, otherwise 851. A find without an
+answering port is kept with a warning that no ADS port answered, instead of
+being hidden. Probing starts no new port once the search deadline has passed.
+An identified ADS target keeps its OS version and its fingerprint and the port
+that answered, not always 851. The ADS identify round is bounded by the
+requested timeout, and in a search by the search deadline.
 
 Protocol aliases are deterministic: Modbus hyphen/underscore forms select
 `modbus_tcp`; OPC UA server and client aliases remain distinct; MQTT broker
@@ -1213,6 +1237,10 @@ the owning source:
 - OPC UA leaf browsing retains the raw node ID and maps a supported scalar data
   type into the exact apply-facing type name. Browse failure retains the
   classified protocol error instead of returning an empty successful tree.
+- OPC UA browsing follows every `BrowseNext` continuation point until the server
+  has no more references for a node, within the configured depth and node bounds.
+  A depth or node bound that limits the tree adds a warning naming that bound;
+  the tree is never silently truncated.
 
 `comm.browse_symbols` schema version 1 requires a non-empty string protocol.
 Kind defaults to `symbols`; protocol and kind are trimmed, ASCII-case folded,
@@ -1291,25 +1319,171 @@ computer. The command line runs the same search as `trust-runtime discover`,
 printing results as they are found (`--json` prints one JSON object per line),
 and `--only <source>,…` limits it to named sources.
 
+A listening source (mDNS, Bluetooth, an ADS broadcast) listens until the search
+ends, at its deadline or on cancel, and reports each result as it arrives. The
+150 ms window above applies only to a single `comm.discover` request.
+`comm.search.status`, `comm.search.cancel`, and a `comm.search.start` without a
+confirmed fieldbus scan need the Viewer role; a `comm.search.start` with
+`confirm_fieldbus_scan = true` needs Engineer (§6.9.5).
+
+**Requests.** `comm.search.start` takes an object whose members are all
+optional; an unknown member, at any level, is a request error, as for
+`comm.discover`:
+
+- `origin`: where the search runs. A search started over a runtime's control
+  connection runs inside that runtime, so its origin is `runtime`; another value
+  is a request error. A tool that runs the search itself uses `this_host`.
+- `only`: the IDs of the sources to run (the table below). Without it every
+  source runs. An empty list or an unknown ID is a request error.
+- `targets`: `hosts`, a list of at most 256 known addresses, each a host name or
+  IP address with an optional port and nothing else; and `cidr`, one IPv4
+  subnet of at most `/24`, read by the CIDR rules of `comm.discover`.
+- `deadline_ms`: from 1 to 60,000, and 10,000 when absent; another value is a
+  request error.
+- `confirm_fieldbus_scan`: `true` runs the fieldbus sources; absent or `false`
+  skips them.
+- `fieldbus`: the buses to scan, each `{"bus": "ethercat"}` with an optional
+  `"adapter": "<name>"`. A bus named without an adapter, and a confirmed scan
+  without entries, use the adapter of the project's EtherCAT driver, as
+  `comm.discover` does.
+- `modbus`: `unit_ids`, the Modbus TCP unit IDs to probe, each from 1 to 247
+  and without repeats; without it, unit ID 1. A unit ID outside 1–247 is a
+  request error.
+
+It answers `{"search_id": "s-<n>"}`. `comm.search.status` takes `search_id` and
+an optional `since` cursor. It answers schema version 1 with `search_id`,
+`origin`, `state` (`running`, `done` or `cancelled`), `deadline_ms`,
+`elapsed_ms`, `cursor`, `sources`, `devices`, and `warnings`. Each source
+reports its `id` and `state`: `searching`, `found`, `timed_out`, `cancelled` or
+`skipped`. A source that ran also reports `count`, the results it has, and the
+`warnings` of what it could not search; a skipped source reports `reason`
+instead. A device reports its `id`, `addresses`, `ams_net_ids`, `usb_serials`,
+`runtime_ids`, `last_seen_ms`, and `finds`; each find reports its `protocol`
+(a source ID), `source`, `confidence`, `simulated`, `identity` (its `kind` names
+the protocol), the `params` that `comm.discover` reports for a connection to it,
+its `warnings`, and `last_seen_ms`. Empty `ams_net_ids`, `usb_serials` and
+`runtime_ids` lists, and empty source and find `warnings`, are left out.
+Without `since` every device is listed. With
+`since` only the devices that changed after that cursor are listed, and
+`merged` lists `{"id", "into"}` for each device that joined another after it, so
+a tool that polls with the last `cursor` keeps a complete list.
+`comm.search.cancel` takes `search_id` and answers `{"search_id", "state"}`:
+`cancelled`, or `done` when the search had already ended. A runtime keeps its
+last eight searches, each for five minutes after it ends. A ninth search
+replaces the oldest search that has ended; while eight searches are still
+running, `comm.search.start` answers the error code `search_busy`. A search ID
+that the runtime does not keep answers `search_not_found`.
+
 **Sources.** A search uses every source that its origin can run:
 
-| Source | Finds | How |
+| Source (ID) | Finds | How |
 |---|---|---|
-| truST runtimes | Runtimes on the local network and in the mesh | mDNS `_trust._plc._tcp.local.` (§6.12), queries to mesh peers, runtime cloud presence |
-| ADS | TwinCAT and ADS devices, their responding ADS ports, and their routes | UDP identify, unicast and broadcast; a probe of the configured ADS ports; the target's route list |
-| Modbus TCP | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
-| MQTT | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
-| OPC UA | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
-| EtherCAT | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity without bringing the bus to OP |
-| GPIO | Chips and lines of the runtime's computer | The Linux GPIO character device |
-| Serial | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
-| USB | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
-| Bluetooth | Bluetooth LE devices, where the origin computer has Bluetooth | A passive advertisement scan |
+| truST runtimes (`trust_runtime`) | Runtimes on the local network and in the mesh | mDNS `_trust._plc._tcp.local.` (§6.12), queries to mesh peers, runtime cloud presence |
+| ADS (`ads`) | TwinCAT and ADS devices, their responding ADS ports, and their routes | UDP identify, unicast and broadcast; a probe of the configured ADS ports; the target's route list |
+| Modbus TCP (`modbus_tcp`) | Modbus servers and their unit IDs | A directed host or a subnet of at most `/24`, probed in parallel; FC43/14 identification; unit ID 1, or a requested range within 1–247 |
+| MQTT (`mqtt`) | Brokers | mDNS `_mqtt._tcp.local.` and directed hosts; a TLS handshake on port 8883 |
+| OPC UA (`opcua`) | Servers and their endpoints | Local discovery servers (FindServers), mDNS `_opcua-tcp._tcp.local.`, and GetEndpoints for every server found |
+| EtherCAT (`ethercat`) | SubDevices on a bus adapter of the runtime's computer | A bus scan that reads each SubDevice's identity in PRE-OP with the process data mapped, without bringing the bus to SAFE-OP or OP; without a named adapter it scans the computer's up, non-loopback network adapters |
+| GPIO (`gpio`) | Chips and lines of the runtime's computer | The Linux GPIO character device |
+| Serial (`serial`) | Serial ports, and on request Modbus RTU devices on one port | Port listing; a Modbus RTU scan over requested unit IDs, baud rates, and parity |
+| USB (`usb`) | Supported chips with or without truST, debug probes, and USB-serial adapters | The USB device list; nothing is written or reset |
+| Bluetooth (`bluetooth`) | Bluetooth LE devices, where the origin computer has Bluetooth | A passive advertisement scan |
+
+EtherCAT and GPIO run only at origin `runtime`; USB and serial run at either
+origin and list the devices of the computer where the search runs. A source
+that does not run reports `skipped` with its reason in words, for example that
+its origin cannot
+run it, that its fieldbus scan was not confirmed, that the search names nothing
+it can probe, or that this build of truST does not include it. At origin
+`runtime` the truST runtimes source reads the runtime's own mDNS discovery
+(§6.12), so it is skipped while `[runtime.discovery] enabled = false`.
+
+A known address is probed at each protocol's own port. An explicit port is used
+by Modbus TCP, MQTT and OPC UA; ADS identifies the host alone. Without a known
+address or subnet, Modbus TCP probes the `/24` of each private IPv4 address
+(RFC 1918) of the origin computer's network interfaces that
+`discovery.interfaces` allows, or of every interface when that list is empty or
+the search runs on the tool's computer. `comm.discover` keeps its rule of the
+first such interface.
+
+MQTT brokers and OPC UA servers are also found through what they announce. A
+search browses `_mqtt._tcp.local.` and `_opcua-tcp._tcp.local.` until it ends,
+and reports an announced service only when the protocol's own probe answers it:
+an MQTT broker at its announced address and port, and an OPC UA server asked
+with GetEndpoints at `opc.tcp://<address>:<port><path>`, where `<path>` is the
+service's `path` TXT entry and `/` when it names none. Such a find's `source` is
+`mdns`; a service that does not answer is a warning that names it, not a device.
+
+An OPC UA search also asks a local discovery server for `FindServers`: this
+computer's own at `opc.tcp://localhost:4840`, and that of each known address at
+port 4840 unless the address names one, and then asks every discovery URL of
+every server that answers with GetEndpoints. Such a find's `source` is `lds`. A
+discovery server that does not answer is passed over in silence for this
+computer's own and is a warning for a known address.
+
+**GPIO.** The GPIO source lists the lines of every GPIO chip of the runtime's
+computer through the Linux GPIO character devices (`/dev/gpiochip*`). Each line
+is reported by its chip, the chip's label, its offset within that chip, its
+name, its consumer, whether it is in use, and its direction. On a kernel
+without GPIO character devices it falls back to the sysfs interface
+(`/sys/bus/gpio/devices`, then `/sys/class/gpio`), which reports the chip, the
+chip's label, the line and its direction where the kernel gives them, and every
+line from that fallback carries a warning that says so.
+
+**USB and serial.** The USB source lists the USB devices from the descriptors
+that the operating system already holds: sysfs on Linux, IOKit on macOS, and on
+Windows the device manager and the hub's cached connection information. It
+never opens, claims, resets or writes a device, and it reads only the strings
+that the operating system keeps, never one that it would have to ask the device
+for (owner, 15 October 2026; specification 34 TARGET-04). It reports the
+devices that it recognizes by their vendor and product ID, and every other
+device that has a serial port; a phone, a keyboard or a storage device without
+one is not reported:
+
+- a supported chip's boot loader, named as such: `0483:DF11` is the
+  `STM32 boot loader (DFU)`, which every STM32 with a USB DFU boot loader
+  shows. The chip has no truST yet;
+- a supported chip's USB controller, named as such: `303A:1001` is the
+  `Espressif USB-Serial/JTAG` controller of the ESP32-C6. It shows the same
+  descriptors with or without truST, in its ROM download mode, and on other
+  Espressif chips, so its result says that neither the chip nor truST is
+  confirmed; connecting confirms them;
+- a debug probe: the ST-LINK/V2, ST-LINK/V2-1 and STLINK-V3;
+- a USB-serial adapter: FTDI, Silicon Labs CP210x, WCH CH34x and Prolific
+  PL2303;
+- a truST runtime: truST's own ID `1209:7472` (requested from pid.codes), and
+  during development the pid.codes test ID `1209:0001` when its maker is
+  `truST` or its product `truST runtime`. Its version is the major and minor
+  version that its `bcdDevice` carries, and its control endpoint is `usb://`
+  followed by its serial number;
+- any other device that has a serial port, as a USB-serial device.
+
+A result names no chip for a boot loader or a USB controller. The supported
+chips that show its IDs are those whose chip files name the IDs as their
+`usb_bootloader` (specification 34, Appendix H.2); several chip files may name
+one ID, and the tools list them all from the chip files. The chip is confirmed
+when connecting and before any installation.
+
+The serial ports behind a USB device are the ports whose USB device has its
+vendor ID, product ID and serial number; for a device without a serial number,
+the ports with its vendor and product ID, when no other listed device without a
+serial number has the same pair. The serial source lists every serial port that
+the operating system reports, with the USB device behind it when there is one,
+and never opens a port. A port whose UART the operating system reports as
+absent (type 0 on Linux) is left out. Where the operating system offers no
+port listing, as on a Linux computer without `/sys/class/tty`, the serial
+source is skipped with that reason. Both sources list once and finish. A
+serial port's `params` are `{"port": "<name>"}`, and those of a USB device that
+runs or may run truST are `{"control_endpoint": "usb://<serial number>"}`.
 
 **Safety.** A search only reads. It never writes a device value, never changes
-a device's state, and never resets a board. EtherCAT identification keeps the
-bus below OP, and it refuses an adapter that a running EtherCAT driver of the
-runtime owns; the driver's own live view of that bus is reported instead. A
+a device's state, and never resets a board. EtherCAT identification maps the
+process data in PRE-OP and never brings the bus to SAFE-OP or OP, so no output
+changes, and it refuses an adapter that a running EtherCAT driver of the
+runtime owns: nothing on that adapter is scanned, and the driver's own live view
+of that bus is reported instead. That refusal is complete: when the adapter of a
+running EtherCAT driver cannot be determined, no EtherCAT adapter is scanned and
+a warning says why. A
 Modbus RTU scan refuses a serial port that a configured driver owns. A fieldbus
 scan (EtherCAT, Modbus RTU) runs only when the request sets
 `confirm_fieldbus_scan = true`; tools ask the user first.
@@ -1317,8 +1491,13 @@ scan (EtherCAT, Modbus RTU) runs only when the request sets
 **Devices.** Results that belong to the same device are reported as one device
 listing every protocol found on it. Results belong to the same device when they
 share a network address, an AMS Net ID, a USB serial number, or a truST runtime
-ID. Each device carries its addresses, every protocol result with its source and
-confidence, its identity, and its `last_seen` time.
+ID. A result with none of these forms its own device: an EtherCAT SubDevice by
+its adapter and position, the lines of one GPIO chip together by their chip, a
+serial port by its name, and a USB device without a serial number or a serial
+port by its bus and port. A USB device and the serial ports behind it are one
+device. When a result links two devices, they become one, and the device found
+first keeps its ID. Each device carries its addresses, every protocol result
+with its source and confidence, its identity, and its `last_seen` time.
 
 **Identity.** Each protocol reports the identity it can read:
 
@@ -1333,23 +1512,30 @@ confidence, its identity, and its `last_seen` time.
   security policy and mode, including endpoints truST cannot use (marked
   unsupported), and the SHA-256 fingerprint of the server certificate;
 - EtherCAT: for each SubDevice its position, alias address, vendor ID, product
-  code, revision, and serial number, and the device of the project's ESI files
-  that matches it, when one does;
+  code, revision, and serial number, its name, and the bus's mapped input and
+  output byte counts, and the device of the project's ESI files that matches it,
+  when one does;
 - MQTT: the protocol version accepted, and whether login and TLS are needed;
 - GPIO: chip name and label, the line offset within its chip, the line name,
-  and whether the line is in use;
-- USB: vendor and product ID, maker, product name, serial number, and the chip
-  when the device is a supported chip's boot loader, a debug probe, or a truST
-  runtime;
-- serial: the port name and, when there is one, the USB device behind it;
+  its consumer, whether the line is in use, and its direction;
+- USB: vendor and product ID, maker, product name, serial number, what the
+  device is (a supported chip's boot loader or USB controller, a debug probe, a
+  USB-serial adapter or device, or a truST runtime) and its name, such as
+  `STM32 boot loader (DFU)`, the serial ports behind it, a truST runtime's
+  version, and the control endpoint of a device that runs or may run truST.
+  It names no chip: the chip files say which supported chips show the IDs of a
+  boot loader or a USB controller;
+- serial: the port name, whether it is a USB, PCI, Bluetooth or other port,
+  and, when there is one, the USB device behind it with its vendor and product
+  ID, maker, product name, and serial number;
 - Bluetooth: name, address, and signal strength.
 
 **Confidence.** Every result uses the closed confidence vocabulary of this
 section. A valid protocol exchange is `confirmed`: an ADS identify reply, an
 OPC UA GetEndpoints answer, an EtherCAT identity read, an mDNS answer from a
-truST runtime, or a USB descriptor. No other value, such as `observed`, is
-reported. A simulated (mock) result carries `simulated = true` and is never
-presented as hardware.
+truST runtime, or a USB descriptor. A GPIO line or a serial port that the
+operating system lists is `confirmed` too. No other value, such as `observed`, is reported. A simulated
+(mock) result carries `simulated = true` and is never presented as hardware.
 
 **Compare with the project.** `comm.compare` compares a search result with the
 project's configuration. It lists each configured device that was not found,
@@ -1366,9 +1552,24 @@ output; a project that uses it is refused when it is loaded. Without the
 setting the request answers `identify_not_configured`. The command line runs it
 as `trust-runtime identify`.
 
-**Presence.** A found device keeps its `last_seen` time. A configured device
-that a running runtime stops seeing for longer than its protocol's freshness
-window reports connector state `stale`, with the time it was last seen.
+**Presence.** A found device keeps its `last_seen` time. A result seen again in
+the same search is not listed twice: it moves its `last_seen` time forward and
+keeps the stronger of its two confidences. A configured device that a running
+runtime stops seeing for longer than its protocol's freshness window reports
+connector state `stale`, with the time it was last seen.
+
+**Command line.** `trust-runtime discover` runs the search on this computer, or
+inside the runtime named by `--endpoint`, with `--token` or else
+`TRUST_CTL_TOKEN` as its control token. `--only` (comma-separated),
+`--host` (repeatable, `targets.hosts`), `--cidr` (`targets.cidr`), and
+`--deadline-ms` fill the request; `--confirm-fieldbus ethercat[:<adapter>]`
+(repeatable) sets `confirm_fieldbus_scan` and adds the bus to `fieldbus`. The
+command prints each source's progress and each device when it is found or
+changes, and it ends when the search ends. With `--json` each line is one JSON
+object whose `event` member names it: `source` (a source's progress), `device`
+(the device), `merged` (`id` and `into`), and last `end` (`search_id`, `origin`,
+`state`, `elapsed_ms`, the number of `devices`, and `warnings`). A refused
+request is a command failure.
 
 ##### EtherCAT unavailable-resource contract
 
@@ -1385,7 +1586,12 @@ for that driver instance: later reads and writes return the visible
 `ethercat hardware unavailable until driver rebuild` error without another
 allocation attempt or retry window. Recovery requires constructing a new
 driver instance. This terminal rule prevents an unavailable adapter from
-causing unbounded allocation, retry, or scan-cycle delay. `adapter = "mock"`
+causing unbounded allocation, retry, or scan-cycle delay. An identification
+opens at most one process-data storage per adapter for the whole process and
+reuses it for every later scan of that adapter, so repeated searches allocate no
+further storage. Every one of those scans re-enumerates the bus on that
+adapter's main device, so a device added after an earlier scan is found by the
+next. `adapter = "mock"`
 proves deterministic software behavior only and is not evidence that physical
 EtherCAT hardware is available or production-ready.
 
@@ -2359,6 +2565,23 @@ The status and configuration surfaces project one effective runtime state:
   profiling metrics, realtime requested and observed state, warnings, errors,
   and every I/O-driver health entry. The default realtime projection is
   disabled with scheduler `other` in both status and `config.get`.
+- Status reports the truST version in `version`, the platform the runtime runs
+  on in `platform` as `<os>-<arch>` on a computer, for example `linux-x86_64`
+  or `windows-x86_64`, and as the board name on a device, for example
+  `stm32f407` or `esp32c6`, and its program-control posture in
+  `program_control`: `keeps_control` when the runtime still answers after
+  `shutdown` and can be started again with `restart` (specification 34,
+  STATE-08), which a chip does, and `process` when `shutdown` ends the
+  runtime's process, which trust-runtime on a computer does. It reports the
+  runtime's stable runtime ID in `runtime_id`: the same value the runtime
+  announces by mDNS and keeps across restarts, generated once with a random
+  part and kept in the project's `.trust-runtime/runtime_id` (the runtime
+  discovery rules below, and decision O36). A state without an installed
+  project (the VS Code simulator, `trust-runtime ide serve` without a project)
+  reports its resource name and writes no file. A device without an operating
+  system reports its chip name and USB serial number, for example
+  `esp32c6-20:6E:F1:17:04:C0`: it needs no stored file, stays the same across
+  resets and differs between two chips of one model.
 - Aggregate health is false when any I/O driver is faulted and retains the
   faulted driver's stable error detail; runtime readiness alone cannot hide
   that fault.
@@ -2945,6 +3168,9 @@ and emits that operation's JSON result:
 - `topology` reads the selected project and reports its offline fleet topology;
 - `apply` requires `--params` to decode as a JSON object, forwards the selected
   protocol and action, and includes `instance_id` only when one was supplied;
+- `test` requires `--params` to decode as a JSON object and runs the `comm.test`
+  request's code for the selected protocol against the selected project, printing
+  that request's answer;
 - `discover` forwards the selected protocol, origin, passive flag, and only the
   optional scope fields that were supplied by the caller;
 - `browse-symbols` accepts an optional JSON-object target, optional cached JSON
@@ -3008,6 +3234,107 @@ and a default within that range. Endpoint validation is either `host_port` or
 `socket_addr`. A visibility predicate references another field in the same
 protocol and its comparison value is valid for that controlling field.
 
+The schema also carries the words of the add picker and of the setup forms
+(specification 25 §5.4 and §5.9), so that the tools show the words the catalog
+gives instead of keeping a copy of them. These keys are an additive part of
+version 4: a client ignores a key it does not know, and a runtime that
+predates them omits them. `picker_groups` lists the picker's groups in their
+canonical order; each group has a stable `id`, its `label`, whether it is
+`advanced`, and the `protocols` it holds, in their order:
+
+| `id` | `label` | `advanced` | `protocols` |
+|---|---|---|---|
+| `devices_io` | `Devices and I/O` | false | `modbus_tcp`, `ethercat`, `gpio`, `simulated`, `loopback` |
+| `read_tags` | `Read tags from another PLC or server` | false | `opcua_client`, `ads` |
+| `share_values` | `Share truST values` | false | `opcua`, `ads_server` |
+| `messages` | `Send and receive messages` | false | `mqtt` |
+| `advanced` | `Advanced integrations` | true | `mesh`, `openot`, `realtime_t0`, `runtime_cloud` |
+
+Every protocol of a group carries `picker`, its entry in the picker, with a
+`title`, a `badge`, and a `purpose`. These are the picker's words; the
+protocol's own `title` and `purpose` remain the words of its form.
+
+| Protocol | `title` | `badge` | `purpose` |
+|---|---|---|---|
+| `modbus_tcp` | `Modbus` | `MB` | `Connect PLCs, drives, meters, and remote I/O.` |
+| `ethercat` | `EtherCAT` | `EC` | `Connect EtherCAT drives, terminals, or remote I/O.` |
+| `gpio` | `GPIO` | `IO` | `Use Raspberry Pi or Linux controller pins.` |
+| `simulated` | `Simulated I/O` | `SIM` | `Practice and test without hardware.` |
+| `loopback` | `Loopback I/O` | `LOOP` | `Echo outputs back into inputs for quick checks.` |
+| `opcua_client` | `OPC UA client` | `UA IN` | `Read selected tags from another OPC UA server.` |
+| `ads` | `ADS client` | `ADS IN` | `Read tags from a TwinCAT or ADS PLC.` |
+| `opcua` | `OPC UA server` | `UA OUT` | `Share truST values with SCADA, HMI, or historians.` |
+| `ads_server` | `ADS server` | `ADS OUT` | `Share truST values with TwinCAT or ADS clients.` |
+| `mqtt` | `MQTT broker` | `MQTT` | `Send and receive process values through MQTT topics.` |
+| `mesh` | `Mesh / Zenoh` | `MESH` | `Configure a peer network; no live link is active until a runtime reports one.` |
+| `openot` | `OpenOT` | `OT` | `Configure OpenOT evidence output; no evidence is published until a runtime reports one.` |
+| `realtime_t0` | `Realtime T0` | `RT` | `Configure deterministic same-host exchange; no live exchange runs until a runtime reports one.` |
+| `runtime_cloud` | `Runtime cloud` | `CLOUD` | `Configure federation policy; no live link is active until a runtime reports one.` |
+
+`discovery` belongs to no group and carries no `picker`: the runtime discovery
+settings are edited from the runtime's `Runtime discovery` connection, not
+added as a protocol card (specification 25 §5.9 and §5.13).
+
+Every `enum` field carries `option_labels`, an object that gives each of its
+options the label that a form shows. The options of `on_error` read
+`Stop with fault` (`fault`), `Warn and continue` (`warn`), and `Ignore`
+(`ignore`); `scheduler` reads `FIFO` (`fifo`), `Round robin` (`rr`), and
+`Default` (`other`); `source` reads `Heartbeat` (`heartbeat`) and `ST producer`
+(`st-fb`); `fence_mode` reads `Fenced` (`fenced`) and `Unfenced` (`unfenced`);
+and `profile` reads `Development` (`dev`), `Plant` (`plant`), and `WAN`
+(`wan`). Every other option is labelled with its value.
+
+Every `json_array` field carries `list`, the words and the seed of its list
+editor: the `item_noun` that names one item, the `empty_text` shown while the
+list is empty, and the `item_template` that adding an item appends when the
+list holds no item to copy. The nouns of `connect`, `producer_instances`,
+`wan_allow_write`, `link_transports`, `cpu_affinity`, `expose`, `modules`,
+`mock_inputs`, and `selected_channels` are `peer address`,
+`ST producer block`, `WAN write rule`, `link transport`, `CPU index`,
+`global`, `module`, `mock frame`, and `channel`. Any other noun is the field's
+label in the singular, with its acronyms kept in capitals and its other words
+in lower case, such as `allowed client` for `Allowed clients` and `TLS ALPN`
+for `TLS ALPN`. The `connections` lists of `opcua_client` and `ads` read
+`No connections yet. Use Discover or Browse to add one instead of typing JSON.`,
+`expose` reads
+`No globals selected yet. Use Choose globals to pick project variables, or add a pattern manually.`,
+and every other list reads `No <label> yet. Add an item below.`, with the
+label's first letter in lower case unless its first word is an acronym. A list
+whose items the catalog describes (below) starts a new item from that
+description. Any other list's template is the first item of the field's
+default, an empty string when that default is empty, and null for the
+`connections` lists, whose items come only from Discover or Browse.
+
+The items of four lists are described, so that adding an item gives one that
+the runtime's configuration accepts once it is filled in. A list of numbers
+carries `item_type` `unsigned`: each item is a whole number of 0 or more, and a
+new item is an empty string, which is not a number yet. A list of objects
+carries `item_fields`, the properties of an item in their order, each with its
+`id`, `label`, `type` (`string` or `enum`), whether it is `required`, and the
+`options` of an `enum`; none of them has a default, so a new item holds each
+property as an empty string. `item_one_of` names the groups of properties of
+which an item sets exactly one, each with its `fields`, of which a new item
+holds only the first, and `unless`, the protocol's boolean field that, while
+on, lets an item set none of them. The descriptions follow the runtime's
+configuration parser:
+
+- `realtime_t0` `cpu_affinity` (`runtime.realtime.cpu_affinity`): `item_type`
+  `unsigned`; the parser reads a list of unsigned integers whose entries are
+  unique.
+- `ads_server` `clients` (`[[runtime.ads_server.clients]]`): `ams_net_id`
+  (`AMS Net ID`, required), `source_ip` (`Source IP`), and `source_cidr`
+  (`Source CIDR`), with the group `source_ip`, `source_cidr` unless
+  `allow_unpinned_clients`; the parser requires one of the two, refuses both,
+  and accepts neither only with `allow_unpinned_clients = true`.
+- `runtime_cloud` `wan_allow_write` (`runtime.cloud.wan.allow_write`):
+  `action` (`Action`) and `target` (`Target`), both required; the parser
+  refuses an empty one.
+- `runtime_cloud` `link_transports` (`runtime.cloud.links.transports`):
+  `source` (`Source`) and `target` (`Target`), both required, and `transport`
+  (`Transport`), a required `enum` of `realtime`, `zenoh`, `mesh`, `mqtt`,
+  `modbus-tcp`, `opcua`, `discovery`, and `web`, the transports the parser
+  accepts.
+
 Schema defaults and apply validation are one contract, not separate sources of
 truth. Every directly applicable default set is accepted by its owning
 validator. Every advertised integer bound, enum option set, endpoint shape,
@@ -3030,6 +3357,17 @@ communication protocols. Build availability, platform availability,
 configuration state, and operational evidence are distinct. Every protocol
 shown by default on the current platform must have a built backend; an unknown
 platform marker fails closed instead of silently removing that requirement.
+
+Two capability entries carry live health beside their version-4 shape, and no
+other entry does. The `discovery` entry reports `enabled`, whether runtime
+discovery is enabled, `announcing`, whether it announces itself, and
+`visible_runtimes`, how many other runtimes it currently sees. The
+`mesh` entry reports `peers`, one object for each configured peer in
+configuration order, with `peer`, the configured target, `connected`, whether
+the mesh's liveliness reports that peer now, and `last_seen_ms`, the
+millisecond timestamp when the mesh last heard from it, `null` while it never
+did. A runtime without mesh evidence reports every peer as not connected and
+without a last-seen timestamp.
 
 A communication Test request may succeed at the control-envelope level while
 returning `result.ok = false` for a completed negative protocol test.
@@ -3203,6 +3541,12 @@ sections, comments, and ADS-server clients not supplied by an update remain
 intact. No failure response, audit entry, temporary-file name, or persisted
 document includes a secret value.
 
+A successful `io.toml` authoring reply for `add`, `upsert`, and `edit` reports
+`instance_id` as the project-local identifier of the connection it wrote,
+`{protocol}:{index}`, where `protocol` is the canonical protocol ID and `index`
+is that driver's zero-based position in the written `io.toml`. Validate, a dry
+run, and a refused request do not recompute the identifier and answer as before.
+
 ###### Offline communication operation and fleet-topology truth
 
 Offline schema, apply, and topology require no live runtime and must not invent
@@ -3253,8 +3597,11 @@ characters. Short, non-hexadecimal, and empty components do not become
 container IDs.
 
 Configured host IP projection parses valid listen values as hosts, removes
-unspecified wildcard addresses, sorts and deduplicates the result, and falls
-back to `127.0.0.1` only when no concrete host remains. Bracketed IPv6 is
+unspecified wildcard addresses, sorts and deduplicates the result. When no
+concrete host remains but a listen value was an unspecified wildcard address,
+the projection reports the computer's real non-loopback interface addresses in
+their place, sorted and deduplicated. It falls back to `127.0.0.1` only when
+neither a concrete host nor an interface address remains. Bracketed IPv6 is
 unbracketed in the host inventory. Whenever an IP address is combined with a
 port for an endpoint, IPv6 is bracketed so the result is an unambiguous socket
 authority; IPv4 and hostnames use `host:port`.
@@ -3421,6 +3768,12 @@ requires a snapshot and fails visibly for missing symbols, type mismatches, or
 generated-source drift. Live validation rejects cached snapshots and obtains
 fresh symbols from every configured connection before applying the same
 compatibility check.
+
+`ads remove-symbols` removes selected imported tag points from a project's
+`ads.toml` and regenerates the generated ST from the rewritten configuration and
+every cached snapshot, running the same function as the `ads.import_symbols.remove`
+request. It writes nothing when no point matched, and its answer reports the number
+of points removed, the files written, and whether anything matched.
 
 The ADS parser preserves every selected live-client action and its explicit
 target, target Net ID, connection, configuration, guarded-write, and JSON
@@ -3772,7 +4125,10 @@ IEC 61131-3. Configuration parsing must fail closed before worker creation or
 any ADS wire activity unless all connection names are unique; every connection
 name and host is nonblank; every target AMS Net ID and explicit local AMS Net
 ID contains exactly six canonical decimal octets; every target AMS port is
-non-zero; and every connection declares at least one point. Plain transport
+non-zero; and every connection declares at least one point. A configuration with
+no connections is valid and starts with no ADS bindings: removing a project's
+last imported tag leaves a rewritten file the runtime still starts, not an empty
+connection entry that fails closed. Plain transport
 requires explicit insecure-transport acknowledgement, and that acknowledgement
 is invalid for any non-plain transport.
 
@@ -4148,6 +4504,30 @@ read, write, or read-write access are serialized without silently changing the
 selected capability. Malformed current configuration, missing selection,
 unacknowledged writes, invalid descriptor metadata, or generation mismatch
 fails before an artifact is returned.
+
+A successful apply then enables the ADS client in the selected project's
+`runtime.toml`: it sets `[runtime.ads]` `enabled = true`, `config_path =
+"ads.toml"`, and `worker_tick_interval_ms = 20` only when that key is absent,
+adds the section at the end when it is missing, and preserves every other line,
+comment, and section. The offline `ads import-symbols` command does the same
+after it writes its artifacts. Both answers report whether `runtime.toml`
+changed. A missing `runtime.toml` leaves the artifacts in place and reports that
+ADS could not be enabled automatically.
+
+The `ads.import_symbols.remove` request removes selected imported points from the
+project's `ads.toml` and regenerates the generated ST from the rewritten
+configuration and every canonical cached snapshot. Its parameters name the device
+`host`, `target_net_id`, and `ams_port`, and the `paths` to remove. In every
+connection whose host, target AMS Net ID, and AMS port equal the device's it
+removes the points whose `symbol` is one of `paths`; a connection left without
+points is removed, and every other line, blank line, and comment is kept. When
+that leaves no connection at all, the rewritten file stays valid and the runtime
+starts with no ADS bindings. It
+answers schema version 1 with `applied`, `matched`, `removed_count`,
+`restart_required`, `files_written`, and `message`, writing nothing when no point
+matched and refusing without writing when no cached snapshot can regenerate the
+interface. It is always write-enabled and therefore always requires Engineer,
+like `ads.import_symbols.apply`.
 
 The generated ADS interface is one deterministic Structured Text source for
 all configured connections. It declares the shared `ADS_QUALITY` enum exactly
@@ -4691,6 +5071,11 @@ when enabled:
   error that names the resource state, and they change nothing: a faulted
   resource resumes only through `restart`, which runs the configured warm or
   cold initialization first (specification 34 STATE-06).
+- `restart` takes the mode `cold` or `warm`. A new trust-runtime process starts
+  `cold` unless it is launched with `--restart warm` (`trust-runtime run` and
+  `trust-runtime play`), so a tool that starts a stopped program with `restart`
+  sends `cold`, the mode of a new process; Devices & Connections does so for a
+  runtime that keeps control after `shutdown` (specification 25 §5.1).
 - Restart requests that arrive before the resource has taken the previous one
   coalesce into a single restart, and a cold request takes precedence over a
   warm one: a pending cold restart is never downgraded by a later warm request,
@@ -4979,9 +5364,9 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
+| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
 | Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
-| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, ADS server doctor actions |
+| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
@@ -4992,7 +5377,12 @@ Parameter-sensitive operations retain these boundaries:
   request validation may still reject that ambiguous combination.
   `ads.import_symbols.apply` is always write-enabled and therefore always
   requires Engineer, including when its source symbols came from a cached
-  snapshot.
+  snapshot. `ads.import_symbols.remove` writes the project's `ads.toml` and
+  generated ST and therefore always requires Engineer too.
+- `comm.search.start` requires Engineer when its parameters set
+  `confirm_fieldbus_scan` to the JSON value `true`, and Viewer otherwise. A
+  request whose value is not a Boolean is refused by request validation and
+  runs no source.
 - `config.set` requires Admin if any request key is `control.auth_token`,
   `control.mode`, `control.debug_enabled`, `web.auth`, `mesh.auth_token`,
   `mesh.role`, `mesh.zenohd_version`, `mesh.plugin_versions`,
@@ -5293,9 +5683,11 @@ The web setup surface uses the explicitly selected bundle root, otherwise the
 current directory. A derived default resource name is the final path component
 with every non-ASCII-alphanumeric character replaced by `_`; a missing
 component uses `trust-plc`. Existing valid `runtime.toml` and project
-`io.toml` values take precedence over platform defaults. Setup need remains
-true while runtime configuration is absent or neither project nor system I/O
-configuration exists.
+`io.toml` values take precedence over platform defaults. Where setup chooses
+the I/O driver itself, the platform default is `gpio` on a Raspberry Pi and on
+the supported chips (specification 34, TARGET-01), and `loopback` on every other
+computer (owner decision O26). Setup need remains true while runtime
+configuration is absent or neither project nor system I/O configuration exists.
 
 I/O mutation accepts either a nonempty ordered `drivers` list or the legacy
 single `driver`, with the list taking precedence when present. Driver names are
@@ -5387,20 +5779,27 @@ Rules:
   than fabricated.
 - The TXT record also carries `version` (the truST version), `platform` (the
   operating system and architecture, for example `linux-aarch64`, or the chip,
-  for example `stm32f407`), and `auth` (`token` when control needs a token,
-  otherwise `none`). The `id` stays the same across restarts: it is built from
-  the resource name and the host, never from a process ID. The host name is the
+  for example `stm32f407`), and `auth` (`token` when the control endpoint needs
+  a token, otherwise `none`). The `id` is the runtime's stable runtime ID: it is
+  generated once with a random part on first start and kept in the project's
+  `.trust-runtime/runtime_id`, read back on every start, so it stays the same
+  across restarts and differs between two runtimes on one host, and it is never
+  built from a process ID. A file that cannot be read or holds an invalid ID is
+  an error, never silently replaced with a fresh ID. The host name is the
   operating system's host name. `control` names only an endpoint that another
   computer can use (`tcp://` or `tls://`); a local socket path is not
   announced. Web port and TLS flag are announced only while the web server is
   enabled.
-- `interfaces` limits announcing and browsing to the named network
-  interfaces; an empty list uses every interface.
+- `interfaces` limits announcing and browsing to the named network interfaces;
+  an empty list uses every non-loopback interface.
 - `trust-runtime ide serve` and setup mode announce and browse in the same way
-  as a running runtime.
+  as a running runtime. `trust-runtime ide serve` without a project browses
+  only, because it has no runtime to announce.
 - `/api/discovery` and `/api/probe` require the same web authentication as the
-  other routes. `/api/probe` takes credentials in the request body, never in
-  the URL.
+  other routes. `/api/probe` accepts exactly `POST /api/probe`, whose JSON body
+  carries `url`, `username` and `password`; credentials never travel in the URL,
+  and every other request on that path, a GET or any request that carries a
+  query string, is refused with `405`.
 - A resolved service replaces the entry with the same runtime ID and receives a
   fresh observation timestamp. A removal event matches the exact entry ID or
   runtime name, or an mDNS instance name whose final `-<runtime-name>` suffix

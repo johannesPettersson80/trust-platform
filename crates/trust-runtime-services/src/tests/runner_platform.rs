@@ -30,7 +30,9 @@ use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
-use crate::ports::{AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort};
+use crate::ports::{
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
+};
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::{EngineLiveValues, RunnerPlatform};
 use crate::status::{
@@ -138,6 +140,22 @@ impl WallClock for TestPlatform {
 impl StatusPort for TestPlatform {
     fn resource_name(&self) -> &'static str {
         "Controller"
+    }
+
+    /// The test platform stands for the board fixture, not for the computer the tests run on.
+    fn platform(&self) -> &'static str {
+        "stm32f407"
+    }
+
+    /// A device without an operating system has no project ID; the runner reports its platform's
+    /// value (specification 11, `status`).
+    fn runtime_id(&self) -> &'static str {
+        "stm32f407"
+    }
+
+    /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

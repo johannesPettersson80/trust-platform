@@ -81,12 +81,8 @@ pub(in crate::control) fn handle_ads_import_symbols_apply(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let params: ImportSymbolsApplyControlParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(error) => return ControlResponse::error(id, format!("invalid params: {error}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
+    let Some(params) = params else {
+        return ControlResponse::error(id, "missing params".into());
     };
     let Some(project_root) = state.project_root.as_ref() else {
         return ControlResponse::error(
@@ -94,16 +90,25 @@ pub(in crate::control) fn handle_ads_import_symbols_apply(
             "ads.import_symbols.apply requires a runtime project_root".to_string(),
         );
     };
-    match apply_import_to_project(project_root, params) {
-        Ok(report) => match serde_json::to_value(report) {
-            Ok(value) => ControlResponse::ok(id, value),
-            Err(error) => ControlResponse::error(
-                id,
-                format!("ADS import-symbols apply serialization failed: {error}"),
-            ),
-        },
+    match import_symbols_from_params(project_root, params) {
+        Ok(value) => ControlResponse::ok(id, value),
         Err(error) => ControlResponse::error(id, error),
     }
+}
+
+/// Import the selected ADS symbols into a project's `ads.toml`, snapshot cache and generated ST.
+///
+/// The same function backs the `ads.import_symbols.apply` control request and the offline import
+/// of the panel's `ads.tags_set` (design §4.3 B7; specification 25 §5.4).
+pub(crate) fn import_symbols_from_params(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let params: ImportSymbolsApplyControlParams =
+        serde_json::from_value(params).map_err(|error| format!("invalid params: {error}"))?;
+    let report = apply_import_to_project(project_root, params)?;
+    serde_json::to_value(report)
+        .map_err(|error| format!("ADS import-symbols apply serialization failed: {error}"))
 }
 
 #[cfg(feature = "ads-wire")]
@@ -192,6 +197,11 @@ struct ImportSymbolsApplyReport {
     snapshot_path: String,
     generated_path: String,
     message: String,
+    /// Whether the ADS tag import changed `runtime.toml` (spec 25 §5.8).
+    runtime_toml_changed: bool,
+    /// Why ADS could not be enabled automatically, when `runtime.toml` is missing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    runtime_toml_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     route: Option<serde_json::Value>,
 }
@@ -299,6 +309,12 @@ fn apply_import_to_project(
     write_project_file(&artifact_paths.ads_toml, artifacts.ads_toml.as_str())?;
     write_project_file(&artifact_paths.snapshot, snapshot_json.as_str())?;
     write_project_file(&artifact_paths.generated, artifacts.generated_st.as_str())?;
+    // The import also enables the ADS client where it writes (spec 25 §5.8).
+    let (runtime_toml_changed, runtime_toml_error) =
+        match super::super::comm_handlers::ensure_ads_runtime_enabled(project_root, "ads.toml") {
+            Ok(changed) => (changed, None),
+            Err(message) => (false, Some(message)),
+        };
     Ok(ImportSymbolsApplyReport {
         schema_version: 1,
         applied: true,
@@ -312,6 +328,8 @@ fn apply_import_to_project(
         message:
             "Selected ADS symbols were written to ads.toml, cached snapshot, and generated ST."
                 .to_string(),
+        runtime_toml_changed,
+        runtime_toml_error,
         route: None,
     })
 }
@@ -349,6 +367,8 @@ fn route_missing_apply_report(
         snapshot_path: display_path(&paths.snapshot),
         generated_path: display_path(&paths.generated),
         message: "ADS route is not ready; create or fix the route before adding tags.".to_string(),
+        runtime_toml_changed: false,
+        runtime_toml_error: None,
         route: Some(serde_json::json!({
             "status": "missing",
             "detail": detail,
@@ -386,7 +406,7 @@ fn import_access(readable: bool, writable: bool, write_acknowledged: bool) -> Po
     }
 }
 
-fn load_project_snapshots(project_root: &Path) -> Result<Vec<SymbolSnapshot>, String> {
+pub(super) fn load_project_snapshots(project_root: &Path) -> Result<Vec<SymbolSnapshot>, String> {
     let root = project_root.join("ads").join("snapshots");
     let entries = match fs::read_dir(&root) {
         Ok(entries) => entries,
@@ -816,6 +836,71 @@ mod tests {
             .is_some_and(|detail| detail.contains("timed out")));
     }
 
+    #[test]
+    fn ads_tags_add_enables_runtime_ads_offline_and_live() {
+        // spec 25 §5.8: an ADS tag import enables [runtime.ads] where it writes.
+        let live_root = temp_dir("ads-tags-enable-live");
+        fs::write(
+            live_root.join("runtime.toml"),
+            concat!(
+                "[bundle]\n",
+                "version = 1\n",
+                "\n",
+                "[runtime.ads]\n",
+                "enabled = false\n",
+                "config_path = \"other.toml\"\n",
+            ),
+        )
+        .expect("write live runtime.toml");
+
+        let live = apply_import_to_project(live_root.as_path(), import_params(json!({})))
+            .expect("live ADS tag import");
+        assert!(live.applied, "the live import must apply");
+        assert!(
+            live.runtime_toml_changed,
+            "the live import must enable [runtime.ads]"
+        );
+        let live_runtime =
+            fs::read_to_string(live_root.join("runtime.toml")).expect("read live runtime.toml");
+        assert!(live_runtime.contains("[runtime.ads]\n"), "{live_runtime}");
+        assert!(
+            live_runtime.contains("\nenabled = true\n"),
+            "{live_runtime}"
+        );
+        assert!(
+            live_runtime.contains("\nconfig_path = \"ads.toml\"\n"),
+            "{live_runtime}"
+        );
+        assert!(
+            live_runtime.contains("\nworker_tick_interval_ms = 20\n"),
+            "{live_runtime}"
+        );
+
+        // The offline `trust-runtime ads import-symbols` command calls this same
+        // enabling step after it writes its artifacts.
+        let offline_root = temp_dir("ads-tags-enable-offline");
+        fs::write(offline_root.join("runtime.toml"), "[bundle]\nversion = 1\n")
+            .expect("write offline runtime.toml");
+        let changed =
+            crate::control::offline_ads_ensure_runtime_enabled(offline_root.as_path(), "ads.toml")
+                .expect("enable ADS runtime offline");
+        assert!(changed, "the offline import must enable [runtime.ads]");
+        let offline_runtime =
+            fs::read_to_string(offline_root.join("runtime.toml")).expect("read runtime.toml");
+        assert!(
+            offline_runtime.contains("[runtime.ads]\n"),
+            "{offline_runtime}"
+        );
+        assert!(
+            offline_runtime.contains("\nenabled = true\n"),
+            "{offline_runtime}"
+        );
+        assert!(
+            offline_runtime.contains("\nconfig_path = \"ads.toml\"\n"),
+            "{offline_runtime}"
+        );
+    }
+
     fn real_symbol(name: &str) -> SymbolDescriptor {
         SymbolDescriptor::new(
             name,
@@ -847,6 +932,8 @@ mod tests {
 
     fn target(net_id: &str, ip: &str) -> TargetIdentity {
         TargetIdentity {
+            os_version: None,
+            fingerprint: None,
             name: Some("CX".to_string()),
             ip: ip.to_string(),
             ams_net_id: net_id.to_string(),

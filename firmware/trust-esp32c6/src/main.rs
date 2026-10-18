@@ -188,6 +188,7 @@ fn main() -> ! {
         config.control_mode,
         live,
         last_reset,
+        parts.runtime_id.clone(),
     );
     let mut runner = Box::new(Runner::new(
         UsbLink::bind(),
@@ -208,6 +209,8 @@ struct Parts {
     watchdog: Watchdog,
     clock: ChipClock,
     wait_alarm: Option<esp_hal::timer::systimer::Alarm<'static>>,
+    /// The chip's stable runtime ID, from its base MAC address (specification 11, `status`).
+    runtime_id: SmolStr,
 }
 
 impl Parts {
@@ -217,6 +220,7 @@ impl Parts {
             watchdog: board.watchdog,
             clock: ChipClock(Box::leak(Box::new(board.clock))),
             wait_alarm,
+            runtime_id: trust_platform_esp32::profile::runtime_id(board.identity.mac),
         }
     }
 }
@@ -249,6 +253,7 @@ fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
         ControlMode::Production,
         EngineLiveValues::empty(),
         last_reset,
+        parts.runtime_id.clone(),
     );
     // A Stopped loop holds no cycle, so its type is named: the cycle a program would run.
     let mut runner = Box::new(

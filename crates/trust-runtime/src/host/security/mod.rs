@@ -13,8 +13,12 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use crate::config::{TlsConfig, TlsMode};
 use crate::error::RuntimeError;
 
-// Roles and the secret comparison are shared runtime code (spec 34 ARCH-11).
-pub use trust_runtime_services::access::{constant_time_eq, AccessRole};
+// Roles, the role each control request needs (the operation registry) and the secret comparison
+// are shared runtime code (spec 34 ARCH-11). Tools read a request's role here instead of keeping
+// a copy of the registry.
+pub use trust_runtime_services::access::{
+    constant_time_eq, required_role_for_control_request, AccessRole,
+};
 
 /// Whether a configuration key names a secret value: a credential that read surfaces never return
 /// (specification 11, §6.9.7). Matched ASCII-case-insensitively.

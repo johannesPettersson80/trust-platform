@@ -433,6 +433,54 @@
       "status": "allowed",
       "owner": "wasm analysis",
       "rationale": "WASM analysis consumes syntax"
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-runtime",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reads trust-runtime's wire types, configuration, catalog and control glue; it is a host tool and no chip links it."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel engine reaches runtimes through the one shared control client."
+    },
+    {
+      "from": "trust-devices",
+      "to": "trust-chips",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The panel shows a runtime whose status names a chip of truST's chip files as that chip; the reader depends on no firmware or adapter."
+    },
+    {
+      "from": "trust-lsp",
+      "to": "trust-devices",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The five `trust-lsp.devices*` commands decode their arguments, run the panel engine on a blocking thread and return its JSON (design §1.4.1 and §1.6)."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-devices",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The engine integration test drives the panel engine against a real `trust-runtime` binary; a dev edge only, so no runtime or firmware build resolves the reader."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-runtime-client",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "trust-runtime discover reaches the runtime that runs a search through the one shared control client; the client depends on no truST crate."
     }
   ],
   "forbidden_workspace_edges": [
@@ -611,6 +659,12 @@
       "rationale": "communication protocol configuration and apply command surface"
     },
     {
+      "name": "Discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search for devices, from this computer or inside a runtime (spec 11, One search)"
+    },
+    {
       "name": "Fleet",
       "class": "product",
       "owner": "runtime/fleet",
@@ -755,6 +809,12 @@
       "class": "product",
       "owner": "runtime/communication",
       "rationale": "communication protocol configuration command module"
+    },
+    {
+      "name": "discover",
+      "class": "product",
+      "owner": "runtime/communication",
+      "rationale": "the one search command module: request, progress and output of trust-runtime discover"
     },
     {
       "name": "fleet",
@@ -1257,6 +1317,14 @@
         "decision_note": "ARCHPROG-C-05 baseline freeze"
       },
       {
+        "name": "fleet_topology",
+        "subsystem": "runtime_fleet_topology_contract",
+        "owner": "runtime/control",
+        "rationale": "fleet.topology wire types and the decoder of schema versions 2 to 4, shared by the control handlers that write the report and the tools that read it; owns no transport",
+        "review_date": "2026-10-17",
+        "decision_note": "V7 B1: wire types moved out of control/fleet_handlers so the Devices panel engine can read them"
+      },
+      {
         "name": "host",
         "subsystem": "linux_host_adapters",
         "owner": "runtime/Linux host",
@@ -1684,6 +1752,33 @@
         "rationale": "The device runner namespace is the resource loop and one contract test file per port: the loop and its link/wait boundary, the cycle port, the shared-engine cycle with its limits, process I/O and services, the program wrapper, the platform host, the supervisor, the records and the retain store. Slice C5-3b added the chip retention contract tests (runner/retain_contract_tests.rs) beside the loop they exercise, which takes the aggregate past 5000 lines; the boundary is the sum of focused files, not one implementation file or a mixed owner.",
         "review_date": "2026-10-18",
         "split_plan": "Keep one responsibility per child file: the loop, the cycle port, the shared-engine cycle, the platform host, the supervisor, the records and the retain store stay separate, and each port's contract tests stay beside the loop they exercise. Split any individual file approaching 1000 lines by the same responsibility rather than growing runner.rs."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "view",
+        "path": "crates/trust-devices/src/view",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The view namespace is the panel contract of specification 25 §5.15 and its projection, in focused child modules: the contract types (split into vocabulary, graph and panes), health rules, computers, runtimes, lifecycle actions, the list, connections, devices and links, the filter and search, issues, status reading and addresses, with their tests and golden scenarios beside them. The pane builders (add dialog, forms, USB tray) live in the sibling `panes` namespace and answer the pane types of this contract. No single file or mixed owner; about a third of the lines are tests.",
+        "review_date": "2026-10-17",
+        "split_plan": "Keep one child module per panel concern; B5 added connections, devices, links, search and issues as their own files. The panes now live in the sibling `panes` namespace beside `view` (add dialog, forms, USB tray; later Discover and browse), and new panes go there; their contract types stay in `view/types/panes.rs`. Split any file approaching 1000 lines by its responsibility."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "actions",
+        "path": "crates/trust-devices/src/actions",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panel's action path of specification 25 §5.4, §5.9, §5.13 and §5.14, in focused child modules: the closed action set and its dispatch, the host-effect lists, the forms and connection actions, the connection plans, the ADS route action, the runtime actions, and the one write path they share, each with its tests beside it. No single file or mixed owner; about half the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per action family; B7 added `ads.rs` for the browse pane's `Create route` beside the plans. Split any file approaching 1000 lines by its responsibility, and put a new action family in its own child module."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "panes",
+        "path": "crates/trust-devices/src/panes",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panes beside the graph of specification 25 §2 and §5.12-§5.14, in focused child modules: the add dialog, the forms, the USB tray, and the browse panes (OPC UA nodes, EtherCAT channels, exposed globals and, with B8b1, the ADS tag browser in `browse/ads.rs`), each with its tests beside it. The aggregate crosses 5000 lines as the sum of these focused modules; no single file is near 1000 lines and about a third of the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per pane concern; the browse panes keep one child per protocol family under `browse/`. Split any file approaching 1000 lines by its own responsibility."
       }
     ],
     "function_size_allowlist": [
@@ -3574,16 +3669,5 @@
       "evidence"
     ]
   },
-  "unbuilt_source_allowlist": [
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    },
-    {
-      "path": "crates/trust-runtime/src/host/ads/onboarding/wire/identity/windows_native.rs",
-      "owner": "runtime portability V7 (discovery)",
-      "reason": "Same-computer TwinCAT identity check (Windows ADS API, then the local router on TCP 48898, then UDP), out of the build since dd476a78f (20 August 2026). The owner decided on 16 October 2026 to restore or replace it in the discovery work of checklist item V7; remove this entry then."
-    }
-  ]
+  "unbuilt_source_allowlist": []
 }

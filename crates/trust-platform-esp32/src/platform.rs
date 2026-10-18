@@ -29,7 +29,7 @@ use trust_runtime_services::live_values::queues::{
 use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::ports::{
-    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, StatusPort,
+    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use trust_runtime_services::protocol::{ControlRequest, ControlResponse};
 use trust_runtime_services::runner::{EngineLiveValues, RunnerPlatform};
@@ -37,7 +37,7 @@ use trust_runtime_services::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
 
-use crate::profile::{DEVICE_DESCRIPTOR, RESET_WATCHDOG};
+use crate::profile::{DEVICE_DESCRIPTOR, PLATFORM, RESET_WATCHDOG};
 use crate::{ResetCause, ResetRecord};
 
 /// The C6's platform for the single-thread resource loop, over the watchdog `W` the adapter
@@ -57,14 +57,17 @@ pub struct Platform<W> {
     /// The reset the boot reports, for the `capabilities` reply (specification 11, the runtime
     /// device capabilities contract), built by [`Platform::boot_last_reset`].
     last_reset: LastReset,
+    /// The chip's stable runtime ID that `status` reports, from [`crate::profile::runtime_id`].
+    runtime_id: SmolStr,
 }
 
 impl<W> Platform<W> {
     /// A platform over `watchdog` that reports `resource_name`, the runtime `settings`, whether
     /// the debug surface is `debug_enabled` and the record's `control_mode`, with the Live Values
     /// `live` of the installed program, or [`EngineLiveValues::empty`] for a chip without one, and
-    /// the `last_reset` the boot reports.
+    /// the `last_reset` the boot reports, under the chip's stable `runtime_id`.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         watchdog: W,
         resource_name: SmolStr,
@@ -73,6 +76,7 @@ impl<W> Platform<W> {
         control_mode: ControlMode,
         live: EngineLiveValues,
         last_reset: LastReset,
+        runtime_id: SmolStr,
     ) -> Self {
         Self {
             watchdog,
@@ -82,6 +86,7 @@ impl<W> Platform<W> {
             control_mode,
             live,
             last_reset,
+            runtime_id,
         }
     }
 
@@ -145,6 +150,22 @@ impl<W> WallClock for Platform<W> {
 impl<W> StatusPort for Platform<W> {
     fn resource_name(&self) -> &str {
         self.resource_name.as_str()
+    }
+
+    /// The chip's name (specification 11, `status`).
+    fn platform(&self) -> &str {
+        PLATFORM
+    }
+
+    /// The chip's name and USB serial number (specification 11, `status`).
+    fn runtime_id(&self) -> &str {
+        self.runtime_id.as_str()
+    }
+
+    /// A chip keeps control after `shutdown`: the program takes the place of the process
+    /// (specification 34, STATE-08).
+    fn program_control(&self) -> ProgramControl {
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

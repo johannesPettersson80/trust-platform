@@ -30,6 +30,8 @@ mod ctl;
 mod deploy;
 #[path = "trust-runtime/dev_forward.rs"]
 mod dev_forward;
+#[path = "trust-runtime/discover.rs"]
+mod discover;
 #[path = "trust-runtime/docs.rs"]
 mod docs;
 #[path = "trust-runtime/fleet.rs"]
@@ -200,6 +202,7 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Plcopen { action }) => plcopen::run_plcopen(action),
         Some(Command::Ads { action }) => ads::run_ads(action),
         Some(Command::Comm { action }) => comm::run_comm(action),
+        Some(Command::Discover(args)) => discover::run_discover(args),
         Some(Command::Fleet { action }) => fleet::run_fleet(action),
         Some(Command::Registry { action }) => registry::run_registry(action),
         Some(Command::Setup {
@@ -299,6 +302,7 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "plcopen",
         "ads",
         "comm",
+        "discover",
         "fleet",
         "registry",
         "deploy",

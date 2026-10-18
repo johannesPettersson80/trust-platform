@@ -1,0 +1,1752 @@
+{
+  "schema_version": 1,
+  "generated_ms": 1760692130112,
+  "toolbar": {
+    "add": {
+      "id": "add",
+      "label": "+ Add",
+      "enabled": true,
+      "emphasis": "primary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    },
+    "discover": {
+      "id": "discover",
+      "label": "Discover",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "add_host_slot": {
+      "id": "add_host",
+      "label": "Add host",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "add"
+          }
+        }
+      }
+    },
+    "view_switch": {
+      "topology": "Topology",
+      "list": "List"
+    }
+  },
+  "project": {
+    "name": "line1",
+    "root": "/home/u/plant/line1",
+    "choices": [
+      {
+        "name": "line1",
+        "root": "/home/u/plant/line1",
+        "selected": true
+      }
+    ]
+  },
+  "summary": {
+    "text": "2 computers · 3 runtimes · 2 connections · 3 running · 0 faults · 0 warnings",
+    "computers": 2,
+    "runtimes": 3,
+    "connections": 2,
+    "running": 3,
+    "faults": 0,
+    "warnings": 0,
+    "open_issues": {
+      "id": "open_issues",
+      "label": "Issues",
+      "enabled": true,
+      "emphasis": "quiet",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "issues"
+          }
+        }
+      }
+    }
+  },
+  "issues": {
+    "button": {
+      "text": "No issues",
+      "tone": "neutral",
+      "faults": 0,
+      "warnings": 0
+    },
+    "groups": []
+  },
+  "filter": {
+    "protocols": [
+      {
+        "id": "modbus_tcp",
+        "label": "Modbus TCP",
+        "count": 1,
+        "hidden": false
+      },
+      {
+        "id": "simulated",
+        "label": "Simulated I/O",
+        "count": 1,
+        "hidden": false
+      }
+    ],
+    "lines": [
+      {
+        "text": "All protocols are visible.",
+        "tone": "neutral"
+      }
+    ],
+    "hidden_connections": 0,
+    "hidden_attention": 0,
+    "hidden_errors": 0,
+    "hidden_warnings": 0
+  },
+  "search": {
+    "query": "",
+    "placeholder": "Search devices, connections, signals, issues",
+    "matches": 0
+  },
+  "networks": [
+    {
+      "id": "network:192.168.10.0/24",
+      "label": "Network · 192.168.10.0/24",
+      "computers": [
+        "trust-fleet-v1:WyJob3N0IiwiaG9zdDpsaW5lLXBjIl0",
+        "trust-fleet-v1:WyJob3N0IiwiaG9zdDpjb252ZXlvci1ub2RlIl0"
+      ]
+    }
+  ],
+  "computers": [
+    {
+      "id": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpsaW5lLXBjIl0",
+      "kind": "computer",
+      "heading": "This computer",
+      "platform": "Raspberry Pi 5 · Linux aarch64",
+      "reachability": {
+        "word": "Reachable",
+        "tone": "ok",
+        "live": true
+      },
+      "look": "normal",
+      "containers": [],
+      "runtimes": [
+        {
+          "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0",
+          "name": "Line controller",
+          "icon": "computer",
+          "state": {
+            "word": "Running",
+            "tone": "ok",
+            "live": true
+          },
+          "cycle": "4.2 ms",
+          "address": "192.168.10.20:5680",
+          "run_target": false,
+          "look": "normal",
+          "connections": [
+            {
+              "id": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6bGluZS1wYyIsbnVsbCwibGluZSIsImVuZHBvaW50OmxpbmU6c2ltdWxhdGVkIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0",
+              "protocol": "simulated",
+              "protocol_name": "Simulated I/O",
+              "name": "Simulated I/O",
+              "dot": "ok",
+              "live": true,
+              "role_word": "I/O",
+              "marks": [],
+              "look": "normal",
+              "wire_port": false,
+              "subdevices": [],
+              "hover": {
+                "title": "Simulated I/O",
+                "rows": [
+                  {
+                    "label": "Protocol",
+                    "value": "Simulated I/O",
+                    "wide": false
+                  },
+                  {
+                    "label": "Role",
+                    "value": "I/O",
+                    "wide": false
+                  },
+                  {
+                    "label": "State",
+                    "value": "Connected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Detail",
+                    "value": "Driver is healthy.",
+                    "wide": false
+                  }
+                ]
+              },
+              "inspector": {
+                "breadcrumb": "Devices & Connections / I/O · endpoint",
+                "kind": "I/O · endpoint",
+                "title": "Simulated I/O",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
+                "primary": [
+                  {
+                    "id": "test",
+                    "label": "Test",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "rust",
+                      "action": "connection.test",
+                      "payload": {
+                        "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6bGluZS1wYyIsbnVsbCwibGluZSIsImVuZHBvaW50OmxpbmU6c2ltdWxhdGVkIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0",
+                        "protocol": "simulated",
+                        "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                      }
+                    }
+                  }
+                ],
+                "secondary": [
+                  {
+                    "id": "focus",
+                    "label": "Focus",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "ui",
+                      "ui": {
+                        "kind": "focus",
+                        "item": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6bGluZS1wYyIsbnVsbCwibGluZSIsImVuZHBvaW50OmxpbmU6c2ltdWxhdGVkIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                      }
+                    }
+                  }
+                ],
+                "sections": [
+                  {
+                    "rows": [
+                      {
+                        "label": "Protocol",
+                        "value": "Simulated I/O",
+                        "wide": false
+                      },
+                      {
+                        "label": "Role",
+                        "value": "I/O",
+                        "wide": false
+                      },
+                      {
+                        "label": "State",
+                        "value": "Connected · Driver is healthy.",
+                        "tone": "ok",
+                        "wide": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "dimmed": false,
+              "hidden": false,
+              "list": {
+                "kind": "connection",
+                "cells": {
+                  "belongs_to": "Line controller",
+                  "detail": "Driver is healthy.",
+                  "kind": "Connection",
+                  "name": "Simulated I/O",
+                  "state": "Connected",
+                  "type": "Simulated I/O"
+                }
+              }
+            }
+          ],
+          "hover": {
+            "title": "Line controller",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Running",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "192.168.10.20:5680",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Runtime answered fleet.topology from its control channel.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "Line controller",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
+            "primary": [
+              {
+                "id": "connect",
+                "label": "Connect",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.connect",
+                  "payload": {
+                    "endpoint": "tcp://192.168.10.20:5680",
+                    "label": "Line controller",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Connect to this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://192.168.10.20:5680"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "tcp://192.168.10.20:5680"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Running · Runtime answered fleet.topology from its control channel.",
+                    "tone": "ok",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Cycle",
+                    "value": "4.2 ms · max 4.9 ms",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "192.168.10.20:5680",
+                    "wide": false,
+                    "copy": "192.168.10.20:5680"
+                  },
+                  {
+                    "label": "Up for",
+                    "value": "6 h 14 min",
+                    "wide": false
+                  },
+                  {
+                    "label": "Faults",
+                    "value": "0 faults",
+                    "wide": false
+                  },
+                  {
+                    "label": "Access",
+                    "value": "Admin · may write and force",
+                    "wide": false
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "1",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "tcp://192.168.10.20:5680"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "192.168.10.20:5680",
+              "belongs_to": "This computer",
+              "detail": "Runtime answered fleet.topology from its control channel.",
+              "kind": "Runtime",
+              "name": "Line controller",
+              "state": "Running",
+              "type": "Runtime on a computer"
+            }
+          }
+        },
+        {
+          "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ",
+          "name": "Packaging",
+          "icon": "computer",
+          "state": {
+            "word": "Running",
+            "tone": "ok",
+            "live": true
+          },
+          "cycle": "4.2 ms",
+          "address": "192.168.10.20:5681",
+          "run_target": false,
+          "look": "normal",
+          "empty_hint": {
+            "title": "No devices yet",
+            "text": "Use + Add to add one, or Discover to scan the network."
+          },
+          "connections": [],
+          "hover": {
+            "title": "Packaging",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Running",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "192.168.10.20:5681",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "0",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Runtime answered fleet.topology from its control channel.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "Packaging",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
+            "primary": [
+              {
+                "id": "connect",
+                "label": "Connect",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.connect",
+                  "payload": {
+                    "endpoint": "tcp://192.168.10.20:5681",
+                    "label": "Packaging",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Connect to this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://192.168.10.20:5681"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "tcp://192.168.10.20:5681"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Running · Runtime answered fleet.topology from its control channel.",
+                    "tone": "ok",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Cycle",
+                    "value": "4.2 ms · max 4.9 ms",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "192.168.10.20:5681",
+                    "wide": false,
+                    "copy": "192.168.10.20:5681"
+                  },
+                  {
+                    "label": "Up for",
+                    "value": "6 h 14 min",
+                    "wide": false
+                  },
+                  {
+                    "label": "Faults",
+                    "value": "0 faults",
+                    "wide": false
+                  },
+                  {
+                    "label": "Access",
+                    "value": "Engineer · may write and force",
+                    "wide": false
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "0",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "tcp://192.168.10.20:5681"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "192.168.10.20:5681",
+              "belongs_to": "This computer",
+              "detail": "Runtime answered fleet.topology from its control channel.",
+              "kind": "Runtime",
+              "name": "Packaging",
+              "state": "Running",
+              "type": "Runtime on a computer"
+            }
+          }
+        }
+      ],
+      "hover": {
+        "title": "This computer",
+        "rows": [
+          {
+            "label": "Host name",
+            "value": "line-pc",
+            "wide": false
+          },
+          {
+            "label": "System",
+            "value": "Linux aarch64",
+            "wide": false
+          },
+          {
+            "label": "State",
+            "value": "Reachable",
+            "wide": false
+          },
+          {
+            "label": "Runtimes",
+            "value": "2",
+            "wide": false
+          },
+          {
+            "label": "Connections",
+            "value": "1",
+            "wide": false
+          }
+        ]
+      },
+      "inspector": {
+        "breadcrumb": "Devices & Connections / Computer",
+        "kind": "Computer",
+        "title": "This computer",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
+        "primary": [],
+        "secondary": [
+          {
+            "id": "focus",
+            "label": "Focus",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "ui",
+              "ui": {
+                "kind": "focus",
+                "item": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpsaW5lLXBjIl0"
+              }
+            }
+          }
+        ],
+        "sections": [
+          {
+            "rows": [
+              {
+                "label": "Address",
+                "value": "192.168.10.20",
+                "wide": false
+              },
+              {
+                "label": "State",
+                "value": "Reachable",
+                "tone": "ok",
+                "wide": false
+              },
+              {
+                "label": "Runtimes",
+                "value": "2",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Host name",
+                "value": "line-pc",
+                "wide": false
+              },
+              {
+                "label": "Board",
+                "value": "Raspberry Pi 5",
+                "wide": false
+              },
+              {
+                "label": "System",
+                "value": "Linux aarch64",
+                "wide": false
+              }
+            ]
+          }
+        ]
+      },
+      "slots": [
+        {
+          "id": "set_up_runtime",
+          "label": "Set up runtime",
+          "enabled": true,
+          "emphasis": "secondary",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "add",
+                "host": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpsaW5lLXBjIl0"
+              }
+            }
+          }
+        }
+      ],
+      "dimmed": false,
+      "hidden": false,
+      "list": {
+        "kind": "computer",
+        "cells": {
+          "address": "192.168.10.20",
+          "belongs_to": "Network · 192.168.10.0/24",
+          "identity": "line-pc",
+          "kind": "Computer",
+          "last_seen": "2 s ago",
+          "name": "This computer",
+          "state": "Reachable",
+          "type": "Raspberry Pi 5 · Linux aarch64"
+        }
+      }
+    },
+    {
+      "id": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpjb252ZXlvci1ub2RlIl0",
+      "kind": "chip",
+      "heading": "STM32F407 192.168.10.31",
+      "platform": "STM32F407 chip",
+      "reachability": {
+        "word": "Reachable",
+        "tone": "ok",
+        "live": true
+      },
+      "look": "normal",
+      "containers": [],
+      "runtimes": [
+        {
+          "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd",
+          "name": "Conveyor node",
+          "icon": "chip",
+          "state": {
+            "word": "Running",
+            "tone": "ok",
+            "live": true
+          },
+          "cycle": "1.02 ms",
+          "address": "192.168.10.31:5680",
+          "run_target": false,
+          "look": "normal",
+          "connections": [
+            {
+              "id": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6Y29udmV5b3Itbm9kZSIsbnVsbCwiY29udmV5b3IiLCJlbmRwb2ludDpjb252ZXlvcjptb2RidXNfdGNwIiwidGNwOi8vMTkyLjE2OC4xMC4zMTo1NjgwIl0",
+              "protocol": "modbus_tcp",
+              "protocol_name": "Modbus TCP",
+              "name": "Drive A",
+              "dot": "ok",
+              "live": true,
+              "role_word": "CLIENT",
+              "marks": [],
+              "look": "normal",
+              "wire_port": true,
+              "subdevices": [],
+              "hover": {
+                "title": "Drive A",
+                "rows": [
+                  {
+                    "label": "Protocol",
+                    "value": "Modbus TCP",
+                    "wide": false
+                  },
+                  {
+                    "label": "Role",
+                    "value": "CLIENT",
+                    "wide": false
+                  },
+                  {
+                    "label": "State",
+                    "value": "Connected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Detail",
+                    "value": "Driver is healthy.",
+                    "wide": false
+                  }
+                ]
+              },
+              "inspector": {
+                "breadcrumb": "Devices & Connections / Client · endpoint",
+                "kind": "Client · endpoint",
+                "title": "Drive A",
+                "health": {
+                  "word": "Connected",
+                  "tone": "ok",
+                  "live": true
+                },
+                "primary": [
+                  {
+                    "id": "test",
+                    "label": "Test",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "rust",
+                      "action": "connection.test",
+                      "payload": {
+                        "connection": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6Y29udmV5b3Itbm9kZSIsbnVsbCwiY29udmV5b3IiLCJlbmRwb2ludDpjb252ZXlvcjptb2RidXNfdGNwIiwidGNwOi8vMTkyLjE2OC4xMC4zMTo1NjgwIl0",
+                        "protocol": "modbus_tcp",
+                        "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                      }
+                    }
+                  }
+                ],
+                "secondary": [
+                  {
+                    "id": "focus",
+                    "label": "Focus",
+                    "enabled": true,
+                    "emphasis": "secondary",
+                    "op": {
+                      "kind": "ui",
+                      "ui": {
+                        "kind": "focus",
+                        "item": "trust-fleet-v1:WyJlbmRwb2ludCIsImhvc3Q6Y29udmV5b3Itbm9kZSIsbnVsbCwiY29udmV5b3IiLCJlbmRwb2ludDpjb252ZXlvcjptb2RidXNfdGNwIiwidGNwOi8vMTkyLjE2OC4xMC4zMTo1NjgwIl0"
+                      }
+                    }
+                  }
+                ],
+                "sections": [
+                  {
+                    "rows": [
+                      {
+                        "label": "Protocol",
+                        "value": "Modbus TCP",
+                        "wide": false
+                      },
+                      {
+                        "label": "Role",
+                        "value": "CLIENT",
+                        "wide": false
+                      },
+                      {
+                        "label": "State",
+                        "value": "Connected · Driver is healthy.",
+                        "tone": "ok",
+                        "wide": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "dimmed": false,
+              "hidden": false,
+              "list": {
+                "kind": "connection",
+                "cells": {
+                  "belongs_to": "Conveyor node",
+                  "detail": "Driver is healthy.",
+                  "kind": "Connection",
+                  "name": "Drive A",
+                  "state": "Connected",
+                  "type": "Modbus TCP"
+                }
+              }
+            }
+          ],
+          "hover": {
+            "title": "Conveyor node",
+            "rows": [
+              {
+                "label": "State",
+                "value": "Running",
+                "wide": false
+              },
+              {
+                "label": "Address",
+                "value": "192.168.10.31:5680",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Detail",
+                "value": "Runtime answered fleet.topology from its control channel.",
+                "wide": false
+              }
+            ]
+          },
+          "inspector": {
+            "breadcrumb": "Devices & Connections / Runtime",
+            "kind": "Runtime",
+            "title": "Conveyor node",
+            "health": {
+              "word": "Running",
+              "tone": "ok",
+              "live": true
+            },
+            "primary": [
+              {
+                "id": "connect",
+                "label": "Connect",
+                "enabled": true,
+                "emphasis": "primary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.connect",
+                  "payload": {
+                    "endpoint": "tcp://192.168.10.31:5680",
+                    "label": "Conveyor node",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                  }
+                }
+              },
+              {
+                "id": "program_stop",
+                "label": "Stop",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.program_stop",
+                  "payload": {
+                    "endpoint": "tcp://192.168.10.31:5680",
+                    "params": null,
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                  }
+                }
+              },
+              {
+                "id": "live_values",
+                "label": "Live Values",
+                "enabled": false,
+                "reason": "Connect to this runtime to see its live values.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_live_values"
+                  }
+                }
+              },
+              {
+                "id": "debug",
+                "label": "Debug",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "debug",
+                    "endpoint": "tcp://192.168.10.31:5680"
+                  }
+                }
+              },
+              {
+                "id": "deploy",
+                "label": "Deploy",
+                "enabled": false,
+                "reason": "Deploy is not available for this target yet.",
+                "emphasis": "quiet",
+                "op": {
+                  "kind": "rust",
+                  "action": "runtime.deploy",
+                  "payload": {
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                  }
+                }
+              }
+            ],
+            "secondary": [
+              {
+                "id": "set_run_target",
+                "label": "Set as run target",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "set_run_target",
+                    "id": "tcp://192.168.10.31:5680"
+                  }
+                }
+              },
+              {
+                "id": "settings",
+                "label": "Settings",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "host",
+                  "effect": {
+                    "kind": "open_runtime_settings"
+                  }
+                }
+              },
+              {
+                "id": "focus",
+                "label": "Focus",
+                "enabled": true,
+                "emphasis": "secondary",
+                "op": {
+                  "kind": "ui",
+                  "ui": {
+                    "kind": "focus",
+                    "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                  }
+                }
+              }
+            ],
+            "sections": [
+              {
+                "rows": [
+                  {
+                    "label": "State",
+                    "value": "Running · Runtime answered fleet.topology from its control channel.",
+                    "tone": "ok",
+                    "wide": false
+                  },
+                  {
+                    "label": "Run target",
+                    "value": "Not selected",
+                    "wide": false
+                  },
+                  {
+                    "label": "Cycle",
+                    "value": "1.02 ms · max 1.31 ms",
+                    "wide": false
+                  },
+                  {
+                    "label": "Address",
+                    "value": "192.168.10.31:5680",
+                    "wide": false,
+                    "copy": "192.168.10.31:5680"
+                  },
+                  {
+                    "label": "truST version",
+                    "value": "0.24.77",
+                    "wide": false
+                  },
+                  {
+                    "label": "Up for",
+                    "value": "6 h 14 min",
+                    "wide": false
+                  },
+                  {
+                    "label": "Faults",
+                    "value": "0 faults",
+                    "wide": false
+                  },
+                  {
+                    "label": "Access",
+                    "value": "Admin · may write and force",
+                    "wide": false
+                  },
+                  {
+                    "label": "Connections",
+                    "value": "1",
+                    "wide": false
+                  }
+                ]
+              }
+            ]
+          },
+          "context_menu": [
+            {
+              "id": "add",
+              "label": "Add device or connection…",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                  }
+                }
+              }
+            },
+            {
+              "id": "set_run_target",
+              "label": "Set as run target",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "set_run_target",
+                  "id": "tcp://192.168.10.31:5680"
+                }
+              }
+            },
+            {
+              "id": "settings",
+              "label": "Settings",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "host",
+                "effect": {
+                  "kind": "open_runtime_settings"
+                }
+              }
+            },
+            {
+              "id": "focus",
+              "label": "Focus",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "focus",
+                  "item": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                }
+              }
+            }
+          ],
+          "slots": [
+            {
+              "id": "add_connection",
+              "label": "Add connection",
+              "enabled": true,
+              "emphasis": "secondary",
+              "op": {
+                "kind": "ui",
+                "ui": {
+                  "kind": "open",
+                  "pane": {
+                    "kind": "add",
+                    "runtime": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd"
+                  }
+                }
+              }
+            }
+          ],
+          "dimmed": false,
+          "hidden": false,
+          "list": {
+            "kind": "runtime",
+            "cells": {
+              "address": "192.168.10.31:5680",
+              "belongs_to": "STM32F407 192.168.10.31",
+              "detail": "Runtime answered fleet.topology from its control channel.",
+              "identity": "0.24.77 · stm32f407",
+              "kind": "Runtime",
+              "name": "Conveyor node",
+              "state": "Running",
+              "type": "Runtime on a chip"
+            }
+          }
+        }
+      ],
+      "hover": {
+        "title": "STM32F407 192.168.10.31",
+        "rows": [
+          {
+            "label": "Host name",
+            "value": "conveyor-node",
+            "wide": false
+          },
+          {
+            "label": "System",
+            "value": "none arm",
+            "wide": false
+          },
+          {
+            "label": "State",
+            "value": "Reachable",
+            "wide": false
+          },
+          {
+            "label": "Runtimes",
+            "value": "1",
+            "wide": false
+          },
+          {
+            "label": "Connections",
+            "value": "1",
+            "wide": false
+          }
+        ]
+      },
+      "inspector": {
+        "breadcrumb": "Devices & Connections / Chip",
+        "kind": "Chip",
+        "title": "STM32F407 192.168.10.31",
+        "health": {
+          "word": "Reachable",
+          "tone": "ok",
+          "live": true
+        },
+        "primary": [],
+        "secondary": [
+          {
+            "id": "focus",
+            "label": "Focus",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "ui",
+              "ui": {
+                "kind": "focus",
+                "item": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpjb252ZXlvci1ub2RlIl0"
+              }
+            }
+          }
+        ],
+        "sections": [
+          {
+            "rows": [
+              {
+                "label": "Address",
+                "value": "192.168.10.31",
+                "wide": false
+              },
+              {
+                "label": "State",
+                "value": "Reachable",
+                "tone": "ok",
+                "wide": false
+              },
+              {
+                "label": "Runtimes",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Connections",
+                "value": "1",
+                "wide": false
+              },
+              {
+                "label": "Host name",
+                "value": "conveyor-node",
+                "wide": false
+              },
+              {
+                "label": "System",
+                "value": "none arm",
+                "wide": false
+              }
+            ]
+          }
+        ]
+      },
+      "slots": [
+        {
+          "id": "set_up_runtime",
+          "label": "Set up runtime",
+          "enabled": true,
+          "emphasis": "secondary",
+          "op": {
+            "kind": "ui",
+            "ui": {
+              "kind": "open",
+              "pane": {
+                "kind": "add",
+                "host": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpjb252ZXlvci1ub2RlIl0"
+              }
+            }
+          }
+        }
+      ],
+      "dimmed": false,
+      "hidden": false,
+      "list": {
+        "kind": "chip",
+        "cells": {
+          "address": "192.168.10.31",
+          "belongs_to": "Network · 192.168.10.0/24",
+          "identity": "conveyor-node",
+          "kind": "Chip",
+          "last_seen": "2 s ago",
+          "name": "STM32F407 192.168.10.31",
+          "state": "Reachable",
+          "type": "STM32F407 chip"
+        }
+      }
+    }
+  ],
+  "devices": [],
+  "links": [],
+  "mesh": [],
+  "usb": {
+    "heading": "",
+    "items": []
+  },
+  "add": {
+    "title": "Add device or connection",
+    "target": {
+      "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0",
+      "name": "Line controller"
+    },
+    "runtime_choices": [
+      {
+        "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJsaW5lIiwidGNwOi8vMTkyLjE2OC4xMC4yMDo1NjgwIl0",
+        "name": "Line controller"
+      },
+      {
+        "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpsaW5lLXBjIixudWxsLCJwYWNrYWdpbmciLCJ0Y3A6Ly8xOTIuMTY4LjEwLjIwOjU2ODEiXQ",
+        "name": "Packaging"
+      },
+      {
+        "id": "trust-fleet-v1:WyJydW50aW1lIiwiaG9zdDpjb252ZXlvci1ub2RlIixudWxsLCJjb252ZXlvciIsInRjcDovLzE5Mi4xNjguMTAuMzE6NTY4MCJd",
+        "name": "Conveyor node"
+      }
+    ],
+    "discover": {
+      "id": "discover",
+      "label": "Discover devices and runtimes",
+      "enabled": true,
+      "emphasis": "secondary",
+      "op": {
+        "kind": "ui",
+        "ui": {
+          "kind": "open",
+          "pane": {
+            "kind": "discover"
+          }
+        }
+      }
+    },
+    "discover_help": "Scan first when hardware is already on the network.",
+    "found_heading": "Found on the network",
+    "found": [],
+    "runtimes": {
+      "label": "Runtimes",
+      "advanced": false,
+      "entries": [
+        {
+          "protocol": "runtime.connect",
+          "title": "Connect existing runtime",
+          "badge": "Computer",
+          "purpose": "Use a runtime already running on another computer or controller.",
+          "action": {
+            "id": "runtime.connect",
+            "label": "Connect existing runtime",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "form.open",
+              "payload": {
+                "setup": "connect"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "runtime.local",
+          "title": "Run a runtime on this computer",
+          "badge": "Computer",
+          "purpose": "Create a managed runtime project here, then select it as the Target and click Start.",
+          "action": {
+            "id": "runtime.local",
+            "label": "Run a runtime on this computer",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "form.open",
+              "payload": {
+                "setup": "local"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "chip.stm32f407",
+          "title": "STM32F407",
+          "badge": "Chip",
+          "purpose": "truST firmware · Ethernet, USB",
+          "action": {
+            "id": "chip.stm32f407",
+            "label": "STM32F407",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "stm32f407"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "chip.esp32c6",
+          "title": "ESP32-C6",
+          "badge": "Chip",
+          "purpose": "truST firmware · Wi-Fi, Bluetooth, USB",
+          "action": {
+            "id": "chip.esp32c6",
+            "label": "ESP32-C6",
+            "enabled": true,
+            "emphasis": "secondary",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_chip",
+              "payload": {
+                "chip": "esp32c6"
+              }
+            }
+          }
+        },
+        {
+          "protocol": "runtime.ssh",
+          "title": "Install over SSH",
+          "badge": "Computer",
+          "purpose": "Install on another computer over SSH.",
+          "action": {
+            "id": "runtime.ssh",
+            "label": "Install over SSH",
+            "enabled": false,
+            "reason": "Available in a later release.",
+            "emphasis": "quiet",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.install_ssh",
+              "payload": {}
+            }
+          }
+        },
+        {
+          "protocol": "runtime.docker",
+          "title": "Run in Docker",
+          "badge": "Computer",
+          "purpose": "Run the runtime as a container.",
+          "action": {
+            "id": "runtime.docker",
+            "label": "Run in Docker",
+            "enabled": false,
+            "reason": "Available in a later release.",
+            "emphasis": "quiet",
+            "op": {
+              "kind": "rust",
+              "action": "runtime.run_docker",
+              "payload": {}
+            }
+          }
+        }
+      ]
+    },
+    "groups": [],
+    "quick_starts": [],
+    "catalog_state": "No device or connection types are available.",
+    "close_label": "Close"
+  },
+  "list": {
+    "columns": [
+      {
+        "id": "kind",
+        "label": "Kind"
+      },
+      {
+        "id": "name",
+        "label": "Name"
+      },
+      {
+        "id": "state",
+        "label": "State"
+      },
+      {
+        "id": "address",
+        "label": "Address"
+      },
+      {
+        "id": "type",
+        "label": "Type"
+      },
+      {
+        "id": "belongs_to",
+        "label": "Belongs to"
+      },
+      {
+        "id": "detail",
+        "label": "Detail"
+      },
+      {
+        "id": "values",
+        "label": "Live values"
+      },
+      {
+        "id": "last_seen",
+        "label": "Last seen"
+      },
+      {
+        "id": "response_time",
+        "label": "Response time"
+      },
+      {
+        "id": "identity",
+        "label": "Identity"
+      }
+    ]
+  },
+  "notices": []
+}

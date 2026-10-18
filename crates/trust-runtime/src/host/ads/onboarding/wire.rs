@@ -310,19 +310,10 @@ impl Default for AdsRsOnboardingWire {
 #[cfg(feature = "ads-wire")]
 impl AdsOnboardingWire for AdsRsOnboardingWire {
     fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        let info = ads::udp::get_info((target_ip, ads::UDP_PORT)).map_err(|error| {
-            OnboardingWireError::new(
-                OnboardingWireErrorKind::UdpIdentifyBlocked,
-                format!("ADS UDP identify failed for {target_ip}: {error}"),
-            )
-        })?;
-        Ok(TargetIdentity {
-            name: Some(info.hostname),
-            ip: target_ip.to_string(),
-            ams_net_id: info.netid.to_string(),
-            ams_port: DEFAULT_ADS_PLC_PORT,
-            tc_version: tc_version_string(info.twincat_version),
-        })
+        // A target on this computer is identified through the local AMS router first, then the
+        // Windows TwinCAT ADS API on Windows; every other target answers UDP identify
+        // (specification 11, "Communication discovery scope and symbol browsing").
+        identity::identify_target(target_ip, self.tcp_probe_timeout)
     }
 
     fn udp_identify_all(
@@ -621,6 +612,9 @@ mod mock;
 pub use mock::*;
 
 #[cfg(feature = "ads-wire")]
+mod identity;
+
+#[cfg(feature = "ads-wire")]
 fn udp_identify_all(
     target_ip: &str,
     receive_window: Duration,
@@ -836,6 +830,12 @@ fn target_identity_from_udp_message(
     peer: SocketAddr,
 ) -> TargetIdentity {
     TargetIdentity {
+        os_version: message
+            .get_bytes(ads::udp::Tag::OSVersion)
+            .and_then(parse_os_version_tag),
+        fingerprint: message
+            .get_str(ads::udp::Tag::Fingerprint)
+            .and_then(non_empty),
         name: message
             .get_str(ads::udp::Tag::ComputerName)
             .filter(|name| !name.is_empty())
@@ -855,6 +855,49 @@ fn parse_tc_version_tag(bytes: &[u8]) -> Option<(u8, u8, u16)> {
     (bytes.len() >= 4).then(|| (bytes[0], bytes[1], u16::from_le_bytes([bytes[2], bytes[3]])))
 }
 
+/// A target's OS version, decoded from the ADS identify `OSVersion` tag (specification 11,
+/// "Communication discovery scope and symbol browsing").
+#[cfg(feature = "ads-wire")]
+fn parse_os_version_tag(bytes: &[u8]) -> Option<String> {
+    if bytes.len() < 22 {
+        return None;
+    }
+    let read =
+        |at: usize| u32::from_le_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]]);
+    // The first word is the redundant structure size.
+    let major = read(4);
+    let minor = read(8);
+    let build = read(12);
+    let platform = match read(16) {
+        1 => "TC/RTOS",
+        2 => "Windows NT",
+        3 => "Windows CE",
+        _ => "Unknown platform",
+    };
+    let body = &bytes[20..];
+    let name = if platform == "TC/RTOS" {
+        body.iter()
+            .take_while(|byte| **byte != 0)
+            .map(|byte| char::from(*byte))
+            .collect::<String>()
+    } else {
+        body.as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
+            .take_while(|code| *code != 0)
+            .filter_map(|code| char::from_u32(u32::from(code)))
+            .collect::<String>()
+    };
+    Some(os_version_text(
+        platform,
+        major,
+        minor,
+        build,
+        name.as_str(),
+    ))
+}
+
 #[cfg(feature = "ads-wire")]
 fn tc_version_string(version: (u8, u8, u16)) -> Option<String> {
     if version == (0, 0, 0) {
@@ -862,6 +905,23 @@ fn tc_version_string(version: (u8, u8, u16)) -> Option<String> {
     } else {
         Some(format!("{}.{}.{}", version.0, version.1, version.2))
     }
+}
+
+/// One text for an OS version and its platform name.
+#[cfg(feature = "ads-wire")]
+fn os_version_text(platform: &str, major: u32, minor: u32, build: u32, name: &str) -> String {
+    let base = format!("{platform} {major}.{minor}.{build}");
+    if name.is_empty() {
+        base
+    } else {
+        format!("{base} ({name})")
+    }
+}
+
+/// `text` when it is not empty.
+#[cfg(feature = "ads-wire")]
+fn non_empty(text: &str) -> Option<String> {
+    (!text.is_empty()).then(|| text.to_string())
 }
 
 #[cfg(feature = "ads-wire")]

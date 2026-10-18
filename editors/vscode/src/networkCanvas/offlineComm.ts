@@ -1,6 +1,5 @@
 import { execFile } from "child_process";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -11,13 +10,11 @@ import type {
 } from "../communication/schemaForm";
 import type { FleetTopologyResponse } from "./fleetTopology";
 import {
-  buildAdsGeneratedImportArgs,
   buildOfflineAdsImportArgs,
   buildOfflineBrowseSymbolsArgs,
   classifyAdsBrowseCommandFailure,
 } from "./adsBrowseContract";
 import { adsConnectionNameForTarget } from "./adsDiscoveryPorts";
-import { removeAdsTagFromToml } from "./adsTagConfigMutation";
 
 // File-based comm config via the trust-runtime CLI — NO running runtime required. These shell
 // out to `trust-runtime comm {schema,topology,apply}` so the canvas can show + edit settings
@@ -110,68 +107,22 @@ function stringField(
   return undefined;
 }
 
-function numberField(value: Record<string, unknown>, key: string): number | undefined {
-  const raw = value[key];
-  return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
-}
-
-function upsertTomlKey(section: string, key: string, value: string): string {
-  const re = new RegExp(`^${key}\\s*=.*$`, "m");
-  if (re.test(section)) {
-    return section.replace(re, `${key} = ${value}`);
-  }
-  return `${section.trimEnd()}\n${key} = ${value}\n`;
-}
-
-export function ensureAdsRuntimeEnabled(
-  projectDir: string,
-  configPath = "ads.toml"
-): { ok: true; changed: boolean; runtimeTomlPath: string } | { ok: false; message: string } {
-  const runtimeTomlPath = path.join(projectDir, "runtime.toml");
-  if (!fs.existsSync(runtimeTomlPath)) {
-    return {
-      ok: false,
-      message: "ADS tag import wrote the selected tags, but runtime.toml is missing so ADS cannot be enabled automatically.",
-    };
-  }
-
-  const before = fs.readFileSync(runtimeTomlPath, "utf8");
-  const sectionHeader = "[runtime.ads]";
-  let after = before;
-  const escapedHeader = sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const sectionRe = new RegExp(`^${escapedHeader}\\s*$`, "m");
-  const match = sectionRe.exec(before);
-  if (match) {
-    const nextSectionRe = /^\s*\[[^\]\r\n]+\]\s*$/gm;
-    nextSectionRe.lastIndex = match.index + match[0].length;
-    const nextSection = nextSectionRe.exec(before);
-    const sectionEnd = nextSection?.index ?? before.length;
-    let section = before.slice(match.index, sectionEnd);
-    section = upsertTomlKey(section, "enabled", "true");
-    section = upsertTomlKey(section, "config_path", JSON.stringify(configPath));
-    if (!/^worker_tick_interval_ms\s*=/m.test(section)) {
-      section = upsertTomlKey(section, "worker_tick_interval_ms", "20");
-    }
-    after = `${before.slice(0, match.index)}${section}${before.slice(sectionEnd)}`;
-  } else {
-    const suffix = before.endsWith("\n") ? "\n" : "\n\n";
-    after = `${before.trimEnd()}${suffix}${sectionHeader}\nenabled = true\nconfig_path = ${JSON.stringify(configPath)}\nworker_tick_interval_ms = 20\n`;
-  }
-
-  if (after !== before) {
-    fs.writeFileSync(runtimeTomlPath, after);
-  }
-  return { ok: true, changed: after !== before, runtimeTomlPath };
-}
-
 export async function openGeneratedAdsDocuments(report: AdsImportSymbolsReport): Promise<void> {
   if (!report.generated_path || !path.isAbsolute(report.generated_path)) {
     return;
   }
+  await openGeneratedDocument(report.generated_path);
+}
+
+/**
+ * Opens the generated document at `file` so diagnostics refresh. A document that cannot be opened
+ * is ignored: the write that produced it already succeeded.
+ */
+async function openGeneratedDocument(file: string): Promise<void> {
   try {
-    await vscode.workspace.openTextDocument(vscode.Uri.file(report.generated_path));
+    await vscode.workspace.openTextDocument(vscode.Uri.file(file));
   } catch {
-    // The import itself succeeded; this only accelerates LSP/index refresh for the generated ST.
+    // The write itself succeeded; opening the document only accelerates LSP/index refresh.
   }
 }
 
@@ -332,6 +283,67 @@ export interface OfflineAdsTagRemovalResult {
   message: string;
 }
 
+/** The report that `trust-runtime ads remove-symbols` prints (specification 11 §6.12). */
+export interface AdsTagRemovalReport {
+  schema_version: number;
+  applied: boolean;
+  matched: boolean;
+  removed_count: number;
+  restart_required: boolean;
+  files_written: string[];
+  message: string;
+}
+
+/** The generated Structured Text that an import or a removal rewrites. */
+const GENERATED_ADS_ST = "src/generated/ads_generated.st";
+
+/** The `trust-runtime ads remove-symbols` arguments for `paths` of one ADS port. */
+export function buildOfflineAdsRemoveArgs(
+  projectDir: string,
+  target: Record<string, unknown>,
+  port: number,
+  paths: readonly string[],
+): string[] {
+  const args = [
+    "ads",
+    "remove-symbols",
+    "--project",
+    projectDir,
+    "--ams-port",
+    String(port),
+  ];
+  const host = stringField(target, "host", "ip");
+  if (host) {
+    args.push("--host", host);
+  }
+  const targetNetId = stringField(target, "target_net_id", "ams_net_id");
+  if (targetNetId) {
+    args.push("--target-net-id", targetNetId);
+  }
+  for (const path of paths) {
+    args.push("--path", path);
+  }
+  args.push("--json");
+  return args;
+}
+
+/** The panel's result of that report: the Rust command's own message, count and restart need. */
+export function adsTagRemovalResult(
+  report: AdsTagRemovalReport,
+): OfflineAdsTagRemovalResult {
+  return {
+    applied: report.applied,
+    removed_count: report.removed_count,
+    restart_required: report.restart_required,
+    message: report.message,
+  };
+}
+
+/**
+ * Remove one imported ADS tag through the Rust `trust-runtime ads remove-symbols` command, which
+ * rewrites `ads.toml`, regenerates the generated ST from every cached snapshot and writes both;
+ * the extension host no longer edits an ADS file itself (design §4.3 B7; specification 25 §5.4).
+ */
 export async function offlineAdsRemoveTag(
   context: vscode.ExtensionContext,
   projectDir: string,
@@ -339,87 +351,24 @@ export async function offlineAdsRemoveTag(
   port: number,
   symbolPath: string,
 ): Promise<OfflineAdsTagRemovalResult> {
-  const configPath = stringField(target, "config_path") ?? "ads.toml";
-  const adsTomlPath = path.join(projectDir, configPath);
-  let before: string;
-  try {
-    before = fs.readFileSync(adsTomlPath, "utf8");
-  } catch (error) {
+  const result = await runJsonCommand<AdsTagRemovalReport>(
+    runtimeBinary(context),
+    buildOfflineAdsRemoveArgs(projectDir, target, port, [symbolPath]),
+    projectDir,
+  );
+  if (!result.ok || !result.value) {
     return {
       applied: false,
       removed_count: 0,
       restart_required: false,
-      message: error instanceof Error ? error.message : String(error),
+      message: result.message ?? "ADS tag removal failed.",
     };
   }
-  const mutation = removeAdsTagFromToml(before, {
-    host: stringField(target, "host", "ip"),
-    targetNetId: stringField(target, "target_net_id", "ams_net_id"),
-    port,
-    path: symbolPath,
-  });
-  if (mutation.removedCount === 0) {
-    return {
-      applied: true,
-      removed_count: 0,
-      restart_required: false,
-      message: "The ADS tag was already absent from ads.toml.",
-    };
+  const removal = adsTagRemovalResult(result.value);
+  if (result.value.files_written.includes(GENERATED_ADS_ST)) {
+    await openGeneratedDocument(path.join(projectDir, GENERATED_ADS_ST));
   }
-
-  const snapshots = existingAdsSnapshotPaths(projectDir);
-  if (snapshots.length === 0) {
-    return {
-      applied: false,
-      removed_count: 0,
-      restart_required: false,
-      message: "Could not regenerate ADS ST because no cached ADS symbol snapshots were found.",
-    };
-  }
-  const generatedPath = path.join(projectDir, "src", "generated", "ads_generated.st");
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-tag-remove-"));
-  const tempConfigPath = path.join(tempDir, "ads.toml");
-  const tempGeneratedPath = path.join(tempDir, "ads_generated.st");
-  try {
-    fs.writeFileSync(tempConfigPath, mutation.text);
-    const regenerated = await runJsonCommand<Record<string, unknown>>(
-      runtimeBinary(context),
-      buildAdsGeneratedImportArgs(tempConfigPath, snapshots, tempGeneratedPath),
-      projectDir,
-    );
-    if (!regenerated.ok || !fs.existsSync(tempGeneratedPath)) {
-      return {
-        applied: false,
-        removed_count: 0,
-        restart_required: false,
-        message: regenerated.message ?? "Could not regenerate ADS ST after removing the tag.",
-      };
-    }
-    const generated = fs.readFileSync(tempGeneratedPath);
-    fs.mkdirSync(path.dirname(generatedPath), { recursive: true });
-    fs.writeFileSync(adsTomlPath, mutation.text);
-    fs.writeFileSync(generatedPath, generated);
-    try {
-      await vscode.workspace.openTextDocument(vscode.Uri.file(generatedPath));
-    } catch {
-      // The files were saved; opening the generated document only accelerates LSP refresh.
-    }
-    return {
-      applied: true,
-      removed_count: mutation.removedCount,
-      restart_required: true,
-      message: `Removed ${mutation.removedCount} ADS tag${mutation.removedCount === 1 ? "" : "s"}.`,
-    };
-  } catch (error) {
-    return {
-      applied: false,
-      removed_count: 0,
-      restart_required: false,
-      message: error instanceof Error ? error.message : String(error),
-    };
-  } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  }
+  return removal;
 }
 
 function adsSymbolName(selectionKey: string): string {
@@ -480,14 +429,8 @@ export async function offlineAdsImportSymbols(
       message: result.message ?? "ADS tag import failed.",
     };
   }
-  const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
-  if (!runtimeConfig.ok) {
-    return {
-      applied: false,
-      message: runtimeConfig.message,
-      report: result.value,
-    };
-  }
+  // The Rust import enables `[runtime.ads]` itself (specification 11 §6.12), so the extension host
+  // no longer edits `runtime.toml`.
   await openGeneratedAdsDocuments(result.value);
   return {
     applied: true,

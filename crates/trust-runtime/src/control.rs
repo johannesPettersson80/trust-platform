@@ -10,7 +10,7 @@ mod comm_handlers;
 mod config_handlers;
 mod connectors_handlers;
 mod debug_handlers;
-mod fleet_handlers;
+pub(crate) mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
 mod host_ports;
@@ -93,6 +93,49 @@ pub fn offline_comm_apply_json(
     params: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     comm_handlers::apply_project_value(project_root, params)
+}
+
+/// Enable the ADS client in a project's `runtime.toml` after an ADS tag import.
+///
+/// Returns whether `runtime.toml` changed. A missing `runtime.toml` is refused with
+/// the message the VS Code port used (spec 25 §5.8; design §4.3 B7).
+pub fn offline_ads_ensure_runtime_enabled(
+    project_root: &Path,
+    config_path: &str,
+) -> Result<bool, String> {
+    comm_handlers::ensure_ads_runtime_enabled(project_root, config_path)
+}
+
+/// Remove imported ADS tag points from a project's `ads.toml` and regenerate its ST.
+///
+/// The same function backs the `ads.import_symbols.remove` control request and
+/// `trust-runtime ads remove-symbols` (design §4.3 B7).
+pub fn offline_ads_remove_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::remove_symbols_from_project(project_root, params)
+}
+
+/// Import ADS tag points into a project's files offline, as the `ads.import_symbols.apply` control
+/// request and `trust-runtime ads import-symbols` do (design §4.3 B7; specification 25 §5.4).
+pub fn offline_ads_import_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::import_symbols_from_params(project_root, params)
+}
+
+/// Run a communication `comm.test` request from this host without a running runtime.
+///
+/// `project_root` is accepted so the command has the same shape as the runtime request;
+/// `comm.test` probes its explicit parameters and reads no project file.
+pub fn offline_comm_test_json(
+    _project_root: &Path,
+    protocol: &str,
+    params: serde_json::Value,
+) -> serde_json::Value {
+    comm_handlers::comm_test_probe_value(protocol, params)
 }
 
 /// Discover communication targets from the current host without a running runtime.
@@ -183,6 +226,7 @@ pub struct ControlState {
     pub opcua_server_bound: Arc<AtomicBool>,
     pub project_root: Option<PathBuf>,
     pub resource_name: SmolStr,
+    pub runtime_id: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
     pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
@@ -194,6 +238,8 @@ pub struct ControlState {
         Option<Arc<Mutex<crate::openot_persistence::OpenOtPersistenceStatus>>>,
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
+    /// The searches that `comm.search.*` started in this runtime.
+    pub search: Arc<crate::search::SearchRegistry>,
     pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,
     pub opcua_client_config: Arc<Mutex<Option<crate::opcua::OpcUaClientConfig>>>,
     pub ads_server_config: Arc<Mutex<Option<crate::ads::server::AdsServerRuntimeConfig>>>,
