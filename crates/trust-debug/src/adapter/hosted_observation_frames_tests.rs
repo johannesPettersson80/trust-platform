@@ -55,6 +55,8 @@ fn hosted_observation_scratch_rows_resolve_by_offset_and_stay_out_of_dap_lists()
 
     // Release the owner even if a DAP/native assertion fails while it is paused.
     let inspected = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        // The breakpoint on `Scan := Scan + i;` stops at that body statement (spec 13, Breakpoint
+        // evaluation), after the FOR loop has stored its end and step temporaries.
         let stop = receiver
             .recv_timeout(std::time::Duration::from_secs(10))
             .expect("breakpoint inside the FOR body");

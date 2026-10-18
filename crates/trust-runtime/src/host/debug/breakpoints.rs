@@ -25,10 +25,12 @@ pub(crate) fn matches_breakpoint(
         if bp_location.file_id != location.file_id {
             continue;
         }
-        // Source mapping can resolve to nearby-but-not-identical spans after
-        // edits/reformatting; treat overlapping ranges as the same statement.
-        let overlaps = location.start < bp_location.end && bp_location.start < location.end;
-        if !overlaps {
+        // A statement matches when it starts inside the breakpoint's half-open span (specification
+        // 13, "Breakpoint evaluation, source resolution, and hook contract"). An enclosing statement,
+        // such as a FOR, IF, WHILE or CASE whose span covers its body, starts before the body, so it
+        // does not match a breakpoint on a body statement.
+        let starts_inside = bp_location.start <= location.start && location.start < bp_location.end;
+        if !starts_inside {
             continue;
         }
         let cycle_key = (
@@ -188,7 +190,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn breakpoints_match_on_overlapping_location() {
+    fn breakpoints_match_a_statement_that_starts_inside_their_span() {
         let outer = SourceLocation::new(0, 0, 20);
         let inner = SourceLocation::new(0, 5, 10);
         let mut breakpoints = vec![DebugBreakpoint::new(inner)];
@@ -196,6 +198,9 @@ mod tests {
         let mut logs = Vec::new();
         let mut ctx = None;
 
+        // A01 decision (spec 13, "Breakpoint evaluation, source resolution, and hook contract"): a
+        // statement matches only when it starts inside the breakpoint's half-open span, so the
+        // enclosing span 0..20 does not match the breakpoint at 5..10.
         assert!(matches_breakpoint(
             &mut breakpoints,
             &stopped_this_cycle,
@@ -204,7 +209,7 @@ mod tests {
             &outer,
             &mut ctx
         )
-        .is_some());
+        .is_none());
         assert!(matches_breakpoint(
             &mut breakpoints,
             &stopped_this_cycle,
@@ -270,6 +275,101 @@ mod tests {
         );
         assert_eq!(matched, Some((7, (0, 30, 40, 7))));
         assert_eq!(breakpoints[1].hits, 1);
+    }
+
+    // Spans worked out by hand from the hosted probe program: the FOR statement spans 88..156 and
+    // its body statement `Scan := Scan + i;` spans 131..149.
+
+    #[test]
+    fn an_enclosing_statement_that_starts_before_a_body_breakpoint_does_not_match() {
+        // Wrong behaviour caught: the old overlap rule matched the enclosing FOR statement
+        // first, so a breakpoint on the body stopped at the loop header.
+        let body = SourceLocation::new(0, 131, 149);
+        let for_statement = SourceLocation::new(0, 88, 156);
+        let mut breakpoint = DebugBreakpoint::new(body);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &for_statement,
+                &mut None,
+            ),
+            None
+        );
+        assert_eq!(breakpoints[0].hits, 0);
+    }
+
+    #[test]
+    fn a_statement_starting_at_131_matches_the_body_breakpoint_at_131_to_149() {
+        // Wrong behaviour caught: a rule that needs the statement to start strictly after the
+        // breakpoint start misses the breakpoint's own body statement.
+        let body = SourceLocation::new(0, 131, 149);
+        let mut breakpoint = DebugBreakpoint::new(body);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &body,
+                &mut None,
+            ),
+            Some((1, (0, 131, 149, 1)))
+        );
+    }
+
+    #[test]
+    fn a_statement_starting_at_the_breakpoint_end_does_not_match() {
+        // Wrong behaviour caught: an inclusive end (`start <= end`) matches the next statement,
+        // so the breakpoint stops one statement late. The span is half-open.
+        let body = SourceLocation::new(0, 131, 149);
+        let next = SourceLocation::new(0, 149, 160);
+        let mut breakpoint = DebugBreakpoint::new(body);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &next,
+                &mut None,
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn a_statement_starting_inside_an_if_line_breakpoint_matches() {
+        // Wrong behaviour caught: a rule that matches only a breakpoint's exact span would
+        // miss the IF body, which the documented IF-line case relies on.
+        let if_statement = SourceLocation::new(0, 88, 156);
+        let body = SourceLocation::new(0, 131, 149);
+        let mut breakpoint = DebugBreakpoint::new(if_statement);
+        breakpoint.generation = 1;
+        let mut breakpoints = vec![breakpoint];
+
+        assert_eq!(
+            matches_breakpoint(
+                &mut breakpoints,
+                &HashSet::new(),
+                &mut Vec::new(),
+                None,
+                &body,
+                &mut None,
+            ),
+            Some((1, (0, 88, 156, 1)))
+        );
     }
 }
 

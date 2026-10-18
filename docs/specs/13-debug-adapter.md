@@ -58,9 +58,12 @@ unchanged; only their input changes, from recompiled sources to the artifact.
 
 Moving to that table changes no answer. For a given program, breakpoint resolution, step stops, stop
 locations, stack-frame locations and breakpoint-location listings return exactly what the
-source-based resolver returned before, including the case where a breakpoint on an `IF` line also
-stops inside the `IF` body through span overlap. Native tests compare the two resolvers' answers over
-the existing debugger corpus, and a difference is a defect in the line table, not a new behaviour
+source-based resolver returned before, including the case where a breakpoint on an `IF` line
+resolves to the `IF` statement. The body statements of that `IF` start inside its span, so the
+start-inside rule of the hook contract matches them too, but the cycle guard allows one stop per
+breakpoint per scan, at the first matching statement, which is the `IF` statement. Native tests
+compare the two resolvers' answers over the existing debugger corpus, and a difference is a defect
+in the line table, not a new behaviour
 (owner, 18 October 2026: parity tests prove that trust-runtime's answers do not change). A module
 without `LINE_TABLE` keeps the statement-start resolution described below, so an older artifact
 still debugs as it did.
@@ -293,13 +296,17 @@ buffer. Receiver failure must not discard the first fault or log record.
 
 #### Breakpoint evaluation, source resolution, and hook contract
 
-A runtime breakpoint matches only the same file ID and a strictly overlapping
-half-open source span; spans that merely touch at one endpoint do not match.
+A runtime breakpoint matches a statement only when the statement has the breakpoint's file ID and
+starts inside the breakpoint's half-open source span: `breakpoint.start <= statement.start <
+breakpoint.end`. A statement that starts at the breakpoint's end does not match. An enclosing
+statement starts before the statement the breakpoint names, so it does not match: a breakpoint on a
+body statement stops at that statement, not at the first instruction of the compound statement
+around it. Each statement's span covers its full text (Source Mapping, rule 1).
 Breakpoints are inspected in registration order and the first eligible stopping
-breakpoint owns the stop. The cycle-suppression identity is
-`(file_id,start,end,generation)` and suppresses only an ordinary stop from that
-exact identity. It does not suppress a distinct location, a later generation,
-or logpoint output.
+breakpoint owns the stop. The cycle-suppression identity is the breakpoint's
+`(file_id,start,end,generation)`, and it suppresses only an ordinary stop from that
+exact identity. It does not suppress a breakpoint at a different location, a later
+generation, or logpoint output.
 
 The hit counter increments with saturating arithmetic whenever location
 identity matches and the exact stop has not been cycle-suppressed. Hit
@@ -489,6 +496,11 @@ including at `0` and `u64::MAX`.
 - `setVariable` and `setExpression` are allowed only when paused. Attached runtimes use the
   side-effecting Live Values I/O custom requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead
   of `setExpression` for I/O writes and forcing.
+
+Compiler scratch slots of a frame (the `@scratch/<slot>` rows, which hold a `FOR` loop's end and step
+temporaries) are never listed to a user: no scope or variable list shows them. Where an internal
+reader shows them, such as a published snapshot read by a test or a tool, they hold the values the
+running code stored in those slots.
 
 ### Variable Visibility
 
