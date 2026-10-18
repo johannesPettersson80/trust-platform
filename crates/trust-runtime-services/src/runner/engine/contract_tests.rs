@@ -510,6 +510,72 @@ fn the_device_services_arm_the_deadline_on_the_monotonic_clock_and_have_no_wall_
 }
 
 #[test]
+fn a_completed_hold_moves_the_armed_deadline_forward_by_its_length() {
+    // Spec 11 §6.6: the deadline moves forward by each completed hold, as trust-runtime's
+    // `deadline_with_debug_pause` does. A 10 ms deadline with a 50 ms hold is due at 60 ms.
+    // Wrong behaviour caught: a deadline that ignores the hold is reached at 10 ms (the assertion at
+    // 59 ms fails), and one that moves by the hold twice is reached at 110 ms (the one at 60 ms).
+    let clock = TestClock::default();
+    let services = DeviceServices::new(clock.clone());
+    services.arm(Some(MonotonicInstant::from_origin(ms(10))));
+    services.hold_started();
+    clock.set(ms(50));
+    services.hold_ended();
+    clock.set(ms(59));
+    assert!(
+        !services.deadline_exceeded(),
+        "10 ms plus the 50 ms hold is 60 ms"
+    );
+    clock.set(ms(60));
+    assert!(
+        services.deadline_exceeded(),
+        "the deadline is reached at 60 ms"
+    );
+}
+
+#[test]
+fn a_hold_in_progress_never_counts_as_an_overrun() {
+    // Spec 11 §6.6: a debugger hold suspends the deadline exactly as it suspends the watchdog, so
+    // operator dwell time never counts. Wrong behaviour caught: a deadline that counts only the
+    // holds that have ended is reached at 10 ms, in the middle of the hold.
+    let clock = TestClock::default();
+    let services = DeviceServices::new(clock.clone());
+    services.arm(Some(MonotonicInstant::from_origin(ms(10))));
+    services.hold_started();
+    clock.set(ms(50));
+    assert!(
+        !services.deadline_exceeded(),
+        "the hold in progress is held time"
+    );
+    clock.set(ms(500));
+    assert!(
+        !services.deadline_exceeded(),
+        "the hold is still in progress at 500 ms"
+    );
+    services.hold_ended();
+}
+
+#[test]
+fn a_hold_before_the_arm_does_not_move_the_next_deadline() {
+    // Spec 11 §6.6: each scan's deadline is its own. A scan armed at 50 ms with a 10 ms timeout is
+    // due at 60 ms, although a 50 ms hold ran before it. Wrong behaviour caught: a deadline that
+    // keeps every earlier hold is reached at 110 ms, so the scan is not timed out at 60 ms.
+    let clock = TestClock::default();
+    let services = DeviceServices::new(clock.clone());
+    services.hold_started();
+    clock.set(ms(50));
+    services.hold_ended();
+    services.arm(Some(MonotonicInstant::from_origin(ms(60))));
+    clock.set(ms(59));
+    assert!(!services.deadline_exceeded());
+    clock.set(ms(60));
+    assert!(
+        services.deadline_exceeded(),
+        "the next deadline is reached at its own instant, 60 ms"
+    );
+}
+
+#[test]
 fn a_program_that_calls_current_dt_is_refused_when_the_device_constructs_it() {
     let probe = Probe::new(CLOCK);
     let started = EngineCycle::start(

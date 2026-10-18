@@ -2,21 +2,30 @@
 //! follows a failed or overrunning scan by the shared supervisor decisions, how a stop fails, and
 //! that the loop waits instead of spinning (PORT-03), with the board probe on the real engine.
 
+use alloc::rc::Rc;
 use alloc::string::ToString;
+use alloc::vec;
 use alloc::vec::Vec;
+use core::cell::RefCell;
+use core::time::Duration;
 
 use serde_json::{json, Value};
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::ports::PortError;
+use trust_runtime_core::ports::{MonotonicInstant, PortError};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
-use trust_runtime_core::vm::RetainApplyEvent;
+use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogAction, WatchdogPolicy};
 
-use super::RetainSource;
-use crate::tests::runner_ports::{ms, CycleCall, Fixture, TestPlatform, TestRunner, WaitCall};
+use super::{ResourceCycle, RetainSource, Runner};
+use crate::events::EVENT_STORE_CAPACITY;
+use crate::runner::engine::{device_limits, CycleSettings, DeviceServices, EngineCycle, ProcessIo};
+use crate::status::IoDriverStatus;
+use crate::tests::runner_ports::{
+    ms, CycleCall, Fixture, TestClock, TestPlatform, TestRunner, WaitCall, CHIP_MEMORY, GPIO,
+};
 
 fn request(id: u64, kind: &str) -> Value {
     json!({"id": id, "type": kind})
@@ -572,5 +581,222 @@ fn run_serves_until_a_port_fails_and_returns_the_failure() {
         fixture.take_scan_times(),
         [0],
         "the pass ran its scan before its wait failed"
+    );
+}
+
+/// One step of a scan's input phase in the holding tests: time that passes, or a debugger hold that
+/// lasts its time.
+#[derive(Clone, Copy)]
+enum Step {
+    Work(Duration),
+    Hold(Duration),
+}
+
+/// The process I/O of the holding tests. Each scan runs the test's steps at its input phase, so the
+/// time they take is inside the scan, where the engine's deadline and the loop's overrun check both
+/// see it. It reads no inputs and drives no outputs.
+struct HoldingIo<'a> {
+    services: &'a DeviceServices<TestClock>,
+    clock: TestClock,
+    steps: Rc<RefCell<Vec<Step>>>,
+}
+
+impl ProcessIo for HoldingIo<'_> {
+    fn read_inputs(&mut self, _image: &mut [u8]) -> Result<(), RuntimeError> {
+        for step in self.steps.borrow().iter() {
+            match *step {
+                Step::Work(time) => self.clock.advance(time),
+                Step::Hold(time) => {
+                    self.services.hold_started();
+                    self.clock.advance(time);
+                    self.services.hold_ended();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, _image: &[u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn write_safe_outputs(&mut self, _image: &[u8]) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn driver_health(&self) -> Vec<IoDriverStatus> {
+        Vec::new()
+    }
+}
+
+/// An observer that records nothing, so the engine's own rules are what the tests see.
+struct NoHooks;
+
+impl CycleHooks for NoHooks {}
+
+/// The engine cycle of the board probe, its input phase running `steps` in every scan, started as a
+/// chip starts it under `watchdog`.
+fn held_cycle<'a>(
+    prepared: &'a PreparedModule,
+    services: &'a DeviceServices<TestClock>,
+    clock: TestClock,
+    steps: Rc<RefCell<Vec<Step>>>,
+    watchdog: WatchdogPolicy,
+) -> EngineCycle<'a, TestClock, HoldingIo<'a>> {
+    let settings = CycleSettings {
+        // Long enough that no second scan is due while the test reads the status.
+        cycle_interval: value::Duration::from_millis(1_000),
+        watchdog,
+        fault_policy: FaultPolicy::Halt,
+        safe_outputs: Vec::new(),
+    };
+    let io = HoldingIo {
+        services,
+        clock,
+        steps,
+    };
+    let mut cycle =
+        EngineCycle::start(prepared, services, io, settings).expect("the board probe starts");
+    cycle.reset_task_timing(value::Duration::ZERO);
+    cycle
+}
+
+/// Runs one scan of the board probe at logical time zero, its input phase running `steps`, with its
+/// deadline 5 ms after its start, and returns the engine's result.
+fn run_held_scan(steps: Vec<Step>) -> Result<(), RuntimeError> {
+    let clock = TestClock::default();
+    let prepared = PreparedModule::from_bytes(GPIO, device_limits(CHIP_MEMORY))
+        .expect("the board probe is admitted");
+    let services = DeviceServices::new(clock.clone());
+    let mut cycle = held_cycle(
+        &prepared,
+        &services,
+        clock,
+        Rc::new(RefCell::new(steps)),
+        watchdog(WatchdogAction::SafeHalt),
+    );
+    cycle.run_scan(
+        value::Duration::ZERO,
+        Some(MonotonicInstant::from_origin(ms(5))),
+        &mut NoHooks,
+    )
+}
+
+#[test]
+fn two_holds_in_one_scan_add_up() {
+    // Spec 11 §6.6: the deadline moves by each completed hold. The 5 ms timeout and holds of 3 ms
+    // and 3 ms make a deadline of 11 ms, and the scan ends at 10 ms with 4 ms of its own work.
+    // Wrong behaviour caught: a total that keeps only one hold moves the deadline to 8 ms, so the
+    // scan faults at 10 ms.
+    let result = run_held_scan(vec![
+        Step::Hold(ms(3)),
+        Step::Work(ms(4)),
+        Step::Hold(ms(3)),
+    ]);
+    assert_eq!(result, Ok(()), "the two holds add up to 6 ms of held time");
+}
+
+#[test]
+fn a_scan_faults_when_its_active_time_exceeds_the_timeout() {
+    // Spec 11 §6.6 and §6.9: a hold excuses its own time and no more. The scan does 3 ms of work,
+    // holds for 10 ms and does 3 ms more: 6 ms of active time against a 5 ms timeout. Its deadline
+    // is 5 ms plus the hold, 15 ms, and the scan reaches 16 ms. Wrong behaviour caught: a deadline
+    // reset at the end of the hold, due at 18 ms, lets the scan finish.
+    let result = run_held_scan(vec![
+        Step::Work(ms(3)),
+        Step::Hold(ms(10)),
+        Step::Work(ms(3)),
+    ]);
+    assert_eq!(
+        result,
+        Err(RuntimeError::ExecutionTimeout),
+        "6 ms of active time exceed the 5 ms timeout"
+    );
+}
+
+#[test]
+fn a_scan_held_longer_than_its_timeout_does_not_fault() {
+    // Spec 11 §6.6 and spec 34 STATE-07: a hold is no active time. A scan that does 2 ms of work
+    // and then holds for 20 ms, against a 5 ms timeout, is no overrun. Wrong behaviour caught: a
+    // loop that measures wall time (22 ms) faults the resource when the scan ends.
+    let ports = Fixture::board_probe();
+    let prepared = PreparedModule::from_bytes(GPIO, device_limits(CHIP_MEMORY))
+        .expect("the board probe is admitted");
+    let services = DeviceServices::new(ports.clock.clone());
+    let cycle = held_cycle(
+        &prepared,
+        &services,
+        ports.clock.clone(),
+        Rc::new(RefCell::new(vec![Step::Work(ms(2)), Step::Hold(ms(20))])),
+        watchdog(WatchdogAction::SafeHalt),
+    );
+    let mut runner = Runner::new(
+        ports.link.clone(),
+        ports.wait.clone(),
+        cycle,
+        TestPlatform::default(),
+        ports.clock.clone(),
+        EVENT_STORE_CAPACITY,
+    );
+    ports.clock.set(ms(0));
+    runner.run_pass().expect("the test wait does not fail");
+    ports.link.send(&request(1, "status"));
+    runner.run_pass().expect("the test wait does not fail");
+    let mut replies = ports.link.take_replies();
+    assert_eq!(replies.len(), 1, "one reply to the status request");
+    let status = replies.remove(0);
+    assert_eq!(
+        runner.resource_state(),
+        ResourceState::Running,
+        "the held scan is no overrun, so the program keeps running"
+    );
+    assert_eq!(status["result"]["metrics"]["overruns"], json!(0));
+    assert_eq!(status["result"]["metrics"]["faults"], json!(0));
+}
+
+#[test]
+fn the_cycle_metric_excludes_held_time() {
+    // Spec 34 STATE-07 and spec 11 §6.6: a scan's cycle time is its active time: 2 ms of work and
+    // 3 ms after a 50 ms hold, so 5 ms. Wrong behaviour caught: a metric of wall time records 55 ms.
+    let ports = Fixture::board_probe();
+    let prepared = PreparedModule::from_bytes(GPIO, device_limits(CHIP_MEMORY))
+        .expect("the board probe is admitted");
+    let services = DeviceServices::new(ports.clock.clone());
+    let cycle = held_cycle(
+        &prepared,
+        &services,
+        ports.clock.clone(),
+        Rc::new(RefCell::new(vec![
+            Step::Work(ms(2)),
+            Step::Hold(ms(50)),
+            Step::Work(ms(3)),
+        ])),
+        WatchdogPolicy::default(),
+    );
+    let mut runner = Runner::new(
+        ports.link.clone(),
+        ports.wait.clone(),
+        cycle,
+        TestPlatform::default(),
+        ports.clock.clone(),
+        EVENT_STORE_CAPACITY,
+    );
+    ports.clock.set(ms(0));
+    runner.run_pass().expect("the test wait does not fail");
+    ports.link.send(&request(1, "status"));
+    runner.run_pass().expect("the test wait does not fail");
+    let mut replies = ports.link.take_replies();
+    assert_eq!(replies.len(), 1, "one reply to the status request");
+    let status = replies.remove(0);
+    let cycle_ms = &status["result"]["metrics"]["cycle_ms"];
+    assert_eq!(
+        cycle_ms["last"],
+        json!(5.0),
+        "the scan's active time is 5 ms"
+    );
+    assert_eq!(
+        cycle_ms["max"],
+        json!(5.0),
+        "the one scan is the largest cycle"
     );
 }

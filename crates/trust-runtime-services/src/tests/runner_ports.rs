@@ -16,7 +16,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
-    WakeReason, WakeToken,
+    TimeSpan, WakeReason, WakeToken,
 };
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::{self, Value};
@@ -420,6 +420,10 @@ impl ResourceCycle for ScriptedCycle<'_> {
 
     fn fault_policy(&self) -> FaultPolicy {
         self.engine.fault_policy()
+    }
+
+    fn held_time(&self) -> TimeSpan {
+        self.engine.held_time()
     }
 
     fn run_scan(

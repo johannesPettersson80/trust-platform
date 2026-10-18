@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::ports::MonotonicInstant;
+use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, RetainApplyEvent};
@@ -70,6 +70,14 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         match self {
             Self::Installed(cycle) => cycle.fault_policy(),
             Self::Missing(_) => FaultPolicy::Halt,
+        }
+    }
+
+    fn held_time(&self) -> TimeSpan {
+        match self {
+            Self::Installed(cycle) => cycle.held_time(),
+            // A missing program runs no scan, so no scan is held.
+            Self::Missing(_) => TimeSpan::ZERO,
         }
     }
 

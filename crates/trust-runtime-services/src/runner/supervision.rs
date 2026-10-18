@@ -171,6 +171,9 @@ where
         let deadline = watchdog
             .enabled
             .then(|| started.saturating_add(span(watchdog.timeout)));
+        // The holds that run inside the scan are no active time (spec 11 §6.6), so the loop reads
+        // them before and after the scan.
+        let held_before = self.cycle.held_time();
         let result = {
             let mut observer =
                 ScanObserver::new(&self.tasks, &self.records, &self.clock, self.cycle_count);
@@ -195,11 +198,18 @@ where
             }
             return;
         }
+        let held = self
+            .cycle
+            .held_time()
+            .as_duration()
+            .saturating_sub(held_before.as_duration());
         self.records.push_event(RuntimeEvent::CycleEnd {
             cycle: self.cycle_count,
             time: now,
         });
-        let active = self.clock.now().saturating_since(started).as_duration();
+        // The cycle metric and the overrun check see the active time: the wall time less the holds.
+        let wall = self.clock.now().saturating_since(started).as_duration();
+        let active = wall.saturating_sub(held);
         self.records.record(|metrics| metrics.record_cycle(active));
         self.cycle_count = self.cycle_count.saturating_add(1);
         match watchdog_overrun_action(watchdog, active) {

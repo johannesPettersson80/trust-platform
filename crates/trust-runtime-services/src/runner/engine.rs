@@ -27,6 +27,7 @@
 //! refused write is reported through the runner's record store as a `WriteRejected` event, as
 //! trust-runtime reports it.
 
+mod held_time;
 mod limits;
 mod process_io;
 mod services;
@@ -40,7 +41,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::memory::{Generation, InstanceId, IoArea};
-use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
+use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::vm::{
@@ -185,6 +186,10 @@ impl<C: MonotonicClock, I: ProcessIo> ResourceCycle for EngineCycle<'_, C, I> {
 
     fn fault_policy(&self) -> FaultPolicy {
         self.settings.fault_policy
+    }
+
+    fn held_time(&self) -> TimeSpan {
+        self.services.held_time()
     }
 
     /// The deadline is armed for this scan only, so a stop's or a fault's safe outputs are

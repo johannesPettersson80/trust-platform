@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::ports::MonotonicInstant;
+use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent};
@@ -80,6 +80,12 @@ pub trait ResourceCycle {
 
     /// The fault policy that follows a failed scan.
     fn fault_policy(&self) -> FaultPolicy;
+
+    /// The debugger holds that have run on this cycle since it started, on the monotonic clock. A
+    /// hold still in progress counts up to now (specification 11 §6.6; specification 34 STATE-07).
+    /// The loop takes the holds of a scan as the difference of two readings, as trust-runtime takes
+    /// its pause time, so a hold never reads as an overrun. Every implementor says what it holds.
+    fn held_time(&self) -> TimeSpan;
 
     /// Runs one scan of the installed program at logical time `now` with
     /// `RuntimeState::execute_cycle_with_hooks`.
