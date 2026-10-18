@@ -1,10 +1,8 @@
 //! The form and connection actions of the panel's `act` (design §4.3 B7, second part): open a
-//! form, validate it, save it, and remove, disable or enable a connection. Each one resolves the
-//! runtime it writes to from what the session last showed, in one function of this module, and
-//! sends the matching `comm.apply`: in process with
-//! [`offline_comm_apply_json`](trust_runtime::control::offline_comm_apply_json) for the open
-//! project's own files, or over the control channel for a runtime that answers
-//! (specification 25 §5.4, §5.9 and §5.14; decision O16).
+//! form, validate it, save it, and remove, disable or enable a connection. Each one writes through
+//! the one write path of `write`, which resolves the runtime it writes to from what the session
+//! last showed and sends the matching `comm.apply`, so that this module and `plans` cannot drift
+//! apart (specification 25 §5.4, §5.9 and §5.14; decision O16).
 //!
 //! - `form.open`: the form that [`panes::forms`](crate::panes::forms) builds from the session's
 //!   runtime, or an error naming the protocol (inventory J05).
@@ -22,26 +20,19 @@
 //!
 //! Every notice names the pane that started the action (specification 25 §5.13).
 
-use std::path::Path;
-use std::time::Duration;
-
 use serde_json::{json, Map, Value};
-use trust_runtime::control::offline_comm_apply_json;
-use trust_runtime_client::{ControlClient, ControlEndpoint, ControlError, RESPONSE_LINE_LIMIT};
 
 use super::effects;
+use super::write::{self, Target, Writes};
 use crate::panes::forms::{
     self, coerce_submission, Catalog, CatalogProtocol, EditedConnection, FormInputs, FormRequest,
 };
-use crate::request::{ActRequest, Token};
+use crate::request::ActRequest;
 use crate::session::{KnownRuntime, Session};
 use crate::texts::connections as connection_texts;
 use crate::texts::forms as texts;
 use crate::topology;
 use crate::view::types::{ActReply, FieldError, Form, ItemId, Refresh, RuntimeRef, Tone};
-
-/// The wait for one `comm.apply` on a runtime (design §1.5: 2,000 ms for each further request).
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// The action's payload did not name the protocol.
 const NO_PROTOCOL: &str = "The action did not name the protocol.";
@@ -49,67 +40,6 @@ const NO_PROTOCOL: &str = "The action did not name the protocol.";
 const NO_CONNECTION: &str = "The action did not name the connection.";
 /// A form that edits a connection whose instance ID cannot be read.
 const NO_INSTANCE: &str = "The action did not name the connection to edit.";
-
-/// Where one action works: the runtime it writes to, resolved from what the session last showed,
-/// and how it is reached (design §4.3 B7; specification 25 §5.14). A runtime the session does not
-/// know, and one that does not answer while it is not the open project's own runtime, is a
-/// refusal: nothing is written.
-struct Target<'a> {
-    /// The runtime, as the last view showed it.
-    runtime: &'a KnownRuntime,
-    /// Where its change is applied.
-    writes: Writes,
-}
-
-/// Where one `comm.apply` is applied.
-enum Writes {
-    /// The runtime's control endpoint, which answered.
-    Endpoint(String),
-    /// The open project's files, in process.
-    Project,
-}
-
-impl Target<'_> {
-    /// Whether the runtime answered this round, so that `Test` and `Apply to running runtime` can
-    /// act on it (specification 25 §5.13).
-    fn reachable(&self) -> bool {
-        matches!(self.writes, Writes::Endpoint(_))
-    }
-}
-
-/// The target that the payload names, resolved from what the session last showed: the project's
-/// own runtime over its control endpoint when it answers, else the open project's files in
-/// process; any other runtime over its control endpoint when it answers, else a refusal that
-/// names it. An ID the session does not know, or a session that has shown no view yet, is a
-/// refusal (design §4.3 B7; specification 25 §5.14).
-fn target<'a>(session: &'a Session, request: &ActRequest) -> Result<Target<'a>, String> {
-    let Some(id) = super::payload_text(&request.op.payload, "runtime") else {
-        return Err(texts::NO_RUNTIME.to_owned());
-    };
-    let Some(runtime) = session.runtime(&id) else {
-        return Err(texts::runtime_not_shown(&id));
-    };
-    let endpoint = runtime
-        .control_endpoint
-        .as_deref()
-        .map(str::trim)
-        .filter(|endpoint| !endpoint.is_empty());
-    if runtime.answers
-        && let Some(endpoint) = endpoint
-    {
-        return Ok(Target {
-            runtime,
-            writes: Writes::Endpoint(endpoint.to_owned()),
-        });
-    }
-    if runtime.project {
-        return Ok(Target {
-            runtime,
-            writes: Writes::Project,
-        });
-    }
-    Err(texts::runtime_did_not_answer(&runtime.name))
-}
 
 /// `form.open`: the form that the payload describes, built by [`panes::forms`](crate::panes::forms)
 /// from the runtime that the session last showed (design §1.4.1 and §3.2 J05; specification 25 §5.4
@@ -129,7 +59,7 @@ pub(crate) fn open(session: &Session, request: &ActRequest) -> ActReply {
     if let Some(setup) = form_request.setup {
         return form_reply(forms::setup_form(setup));
     }
-    let target = match target(session, request) {
+    let target = match write::target(session, request) {
         Ok(target) => target,
         Err(message) => return super::error(&pane, &message),
     };
@@ -183,7 +113,7 @@ pub(crate) fn open(session: &Session, request: &ActRequest) -> ActReply {
 #[must_use]
 pub(crate) fn validate(session: &Session, request: &ActRequest) -> ActReply {
     let pane = super::pane(request);
-    let target = match target(session, request) {
+    let target = match write::target(session, request) {
         Ok(target) => target,
         Err(message) => return super::error(&pane, &message),
     };
@@ -202,7 +132,7 @@ pub(crate) fn validate(session: &Session, request: &ActRequest) -> ActReply {
     match send(
         request,
         &target,
-        apply_request(&protocol, "validate", instance_id.as_deref(), &params),
+        &apply_request(&protocol, "validate", instance_id.as_deref(), &params),
     ) {
         Sent::Answered(answer) => super::reply(
             true,
@@ -222,7 +152,7 @@ pub(crate) fn validate(session: &Session, request: &ActRequest) -> ActReply {
 #[must_use]
 pub(crate) fn save(session: &Session, request: &ActRequest) -> ActReply {
     let pane = super::pane(request);
-    let target = match target(session, request) {
+    let target = match write::target(session, request) {
         Ok(target) => target,
         Err(message) => return super::error(&pane, &message),
     };
@@ -252,7 +182,7 @@ pub(crate) fn save(session: &Session, request: &ActRequest) -> ActReply {
     match send(
         request,
         &target,
-        apply_request(&protocol, action, instance_id.as_deref(), &params),
+        &apply_request(&protocol, action, instance_id.as_deref(), &params),
     ) {
         Sent::Answered(answer) => {
             let effects = written_connection(request, &answer)
@@ -292,11 +222,11 @@ pub(crate) fn test(session: &Session, request: &ActRequest) -> ActReply {
         Ok(params) => params,
         Err(errors) => return field_errors(&pane, errors),
     };
-    match send_control(
+    match send_entry(
         request,
         &endpoint,
         "comm.test",
-        test_request(&protocol, &params),
+        &test_request(&protocol, &params),
     ) {
         Sent::Answered(answer) => {
             let ok = answer.get("ok").and_then(Value::as_bool).unwrap_or(false);
@@ -337,11 +267,11 @@ pub(crate) fn apply_live(session: &Session, request: &ActRequest) -> ActReply {
         Err(errors) => return field_errors(&pane, errors),
     };
     let instance_id = instance_id(runtime, request);
-    match send_control(
+    match send_entry(
         request,
         &endpoint,
         "comm.apply",
-        apply_request(&protocol, "upsert", instance_id.as_deref(), &params),
+        &apply_request(&protocol, "upsert", instance_id.as_deref(), &params),
     ) {
         Sent::Answered(answer) => super::reply(
             true,
@@ -378,14 +308,9 @@ fn live_target<'a>(
     let Some(runtime) = session.runtime(&id) else {
         return Err(texts::runtime_not_shown(&id));
     };
-    let endpoint = runtime
-        .control_endpoint
-        .as_deref()
-        .map(str::trim)
-        .filter(|endpoint| !endpoint.is_empty());
-    match (runtime.answers, endpoint) {
-        (true, Some(endpoint)) => Ok((runtime, endpoint.to_owned())),
-        _ => Err(reason.to_owned()),
+    match write::writes(runtime) {
+        Some(Writes::Endpoint(endpoint)) => Ok((runtime, endpoint)),
+        Some(Writes::Project) | None => Err(reason.to_owned()),
     }
 }
 
@@ -441,7 +366,7 @@ pub(crate) fn enable(session: &Session, request: &ActRequest) -> ActReply {
 /// not.
 fn change(session: &Session, request: &ActRequest, action: &str, with_values: bool) -> ActReply {
     let pane = super::pane(request);
-    let target = match target(session, request) {
+    let target = match write::target(session, request) {
         Ok(target) => target,
         Err(message) => return super::error(&pane, &message),
     };
@@ -465,7 +390,7 @@ fn change(session: &Session, request: &ActRequest, action: &str, with_values: bo
     match send(
         request,
         &target,
-        apply_request(&protocol, action, Some(&instance_id), &params),
+        &apply_request(&protocol, action, Some(&instance_id), &params),
     ) {
         Sent::Answered(answer) => super::reply(
             true,
@@ -490,43 +415,19 @@ enum Sent {
 }
 
 /// Sends one `comm.apply` to the action's target.
-fn send(request: &ActRequest, target: &Target<'_>, params: Value) -> Sent {
-    match &target.writes {
-        Writes::Endpoint(endpoint) => send_control(request, endpoint, "comm.apply", params),
-        Writes::Project => send_to_project(request.project.as_deref(), params),
-    }
-}
-
-/// Applies `params` to the open project's files, where no runtime is needed.
-fn send_to_project(project: Option<&Path>, params: Value) -> Sent {
-    let Some(project) = project else {
-        return Sent::Refused(texts::NO_PROJECT_FOLDER.to_owned());
-    };
-    match offline_comm_apply_json(project, params) {
+fn send(request: &ActRequest, target: &Target<'_>, params: &Value) -> Sent {
+    match write::apply(request, &target.writes, params) {
         Ok(answer) => classify(answer),
         Err(message) => Sent::Refused(message),
     }
 }
 
-/// Sends `params` to `endpoint` as the control request `entry` (`comm.apply` or `comm.test`), with
-/// the token the extension stored for it. Secrets on a plain channel are refused by the runtime
-/// itself, which stamps the channel (decision O16).
-fn send_control(request: &ActRequest, endpoint: &str, entry: &str, params: Value) -> Sent {
-    let Some(address) = ControlEndpoint::parse(endpoint) else {
-        return Sent::Refused(format!("{endpoint} is not a control endpoint."));
-    };
-    let token = request.host.token(endpoint).map(Token::secret);
-    let mut client = match ControlClient::connect(&address, token, REQUEST_TIMEOUT) {
-        Ok(client) => client.with_response_limit(RESPONSE_LINE_LIMIT),
-        Err(error) => return Sent::Refused(error.to_string()),
-    };
-    if let Err(error) = client.set_timeout(REQUEST_TIMEOUT) {
-        return Sent::Refused(error.to_string());
-    }
-    match client.request(entry, Some(params)) {
+/// Sends one control request `entry` (`comm.apply` or `comm.test`) to a live endpoint and reads its
+/// answer, as `send` reads one `comm.apply`.
+fn send_entry(request: &ActRequest, endpoint: &str, entry: &str, params: &Value) -> Sent {
+    match write::send_control(request, endpoint, entry, params) {
         Ok(answer) => classify(answer),
-        Err(ControlError::Refused { error, .. }) => Sent::Refused(error),
-        Err(error) => Sent::Refused(error.to_string()),
+        Err(message) => Sent::Refused(message),
     }
 }
 

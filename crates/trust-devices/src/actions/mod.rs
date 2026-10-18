@@ -8,6 +8,11 @@
 //! - `config`: the forms and the connection actions, `form.open`, `form.validate`, save, test,
 //!   apply to running runtime, diagnose, remove, disable and enable. Each resolves the runtime it
 //!   writes to from what the session last showed (design §4.3 B7).
+//! - `plans`: the connection plans, expose, the `EtherCAT` channel selection, an OPC UA client add
+//!   and an ADS device add, each written through `comm.apply` to the runtime the session resolves.
+//! - `write`: the one write path of `config` and `plans`: the runtime that a payload names, resolved
+//!   from the session, written over its control endpoint or in process into the open project's
+//!   files, and refused when it is unknown or silent (design §4.3 B7).
 //!
 //! Every notice names the pane that started the action (specification 25 §5.13). An unknown action
 //! name, or one whose payload does not decode, is an error reply naming it, never a silent no-op;
@@ -15,7 +20,9 @@
 
 mod config;
 mod effects;
+mod plans;
 mod runtimes;
+mod write;
 
 use serde_json::Value;
 
@@ -26,7 +33,7 @@ use crate::view::types::{ActReply, FieldError, HostEffect, Notice, PendingAction
 pub use runtimes::{Fleet, SystemFleet};
 
 /// The closed set of actions a view may offer (design §1.4.1).
-const CLOSED_ACTIONS: [&str; 28] = [
+const CLOSED_ACTIONS: [&str; 32] = [
     "runtime.connect",
     "runtime.disconnect",
     "runtime.program_start",
@@ -49,6 +56,10 @@ const CLOSED_ACTIONS: [&str; 28] = [
     "connection.apply_live",
     "connection.test",
     "connection.diagnose",
+    "connection.expose",
+    "connection.ethercat_channels",
+    "connection.opcua_add",
+    "connection.ads_add",
     "form.open",
     "form.validate",
     "ads.tags_set",
@@ -87,6 +98,10 @@ pub fn act_with(session: &mut Session, request: &ActRequest, fleet: &dyn Fleet) 
         "connection.remove" => config::remove(session, request),
         "connection.disable" => config::disable(session, request),
         "connection.enable" => config::enable(session, request),
+        "connection.expose" => plans::expose(session, request),
+        "connection.ethercat_channels" => plans::ethercat_channels(session, request),
+        "connection.opcua_add" => plans::opcua_add(session, request),
+        "connection.ads_add" => plans::ads_add(session, request),
         action if CLOSED_ACTIONS.contains(&action) => error(
             &pane(request),
             &format!("The action '{action}' is not available yet."),
