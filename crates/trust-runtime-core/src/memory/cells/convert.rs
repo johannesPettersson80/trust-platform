@@ -14,10 +14,11 @@
 //! - [`cell_offset`](crate::memory::cells::cell_offset) maps a member-and-index path to a cell
 //!   offset within a value of its type (C1-10).
 //!
-//! Three leaves are not converted in this slice, and each refusal names the type and the reason: a
-//! text leaf (`STRING`, `WSTRING`), which gets its text buffers in C1-7; a non-null reference,
-//! whose target is the reference record a store holds (C1-9); and a `STRUCT OVERLAP` or a union,
-//! whose members share their cells (C1-15).
+//! Two leaves are not converted in this slice, and each refusal names the type and the reason: a
+//! non-null reference, whose target is the reference record a store holds (C1-9); and a
+//! `STRUCT OVERLAP` or a union, whose members share their cells (C1-15). A text leaf is written
+//! through and read from its region's [`TextStore`](crate::memory::text::TextStore), whose buffer
+//! cuts it where assignment normalization cuts it (C1-7).
 
 use alloc::format;
 use alloc::sync::Arc;
@@ -25,19 +26,18 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use super::Cell;
+use super::{Cell, TextSlot};
 use crate::bytecode::{Field, TypeData, TypeEntry, TypeKind, BYTECODE_MAX_TYPE_NESTING};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::memory::layout::TypeLayout;
+use crate::memory::text::TextStore;
 use crate::value::{ArrayValue, EnumValue, RefSegment, StructValue, Value};
+use crate::vm::type_policy::primitive_value_matches;
 use crate::vm::PreparedModule;
 
 /// The kind-mismatch reason: the value is one kind and the type's primitive encoding another.
 const KIND_REASON: &str = "the value's kind does not match the type";
-
-/// Why a text leaf is refused here (C1-7).
-const TEXT_REASON: &str = "text is converted in C1-7";
 
 /// Why a non-null reference is refused here (C1-9).
 const REFERENCE_REASON: &str = "a non-null reference is stored in C1-9";
@@ -79,54 +79,63 @@ const UNION_LEAF: &str = "UNION";
 /// The `Cell::Text` primitive encodings (`STRING` and `WSTRING`).
 const TEXT_PRIMITIVES: [u16; 2] = [24, 25];
 
+/// The primitive encoding of `WSTRING`; `STRING` is 24.
+const WSTRING_PRIMITIVE: u16 = 25;
+
 /// Write the value `value` of the `TYPE_TABLE` type `type_id` into `cells`, the cell range of the
 /// type's prepared layout (specification 34 §6.2, MEM-10; design "Boundaries").
 ///
-/// `cells` is the whole range: its length is the layout's cell count. Every value kind of this
-/// slice is converted — each scalar with its exact bits, an enumeration as its type and value, an
-/// instance as its identity, a structure's members and an array's elements at their layout offsets
-/// with nested compounds inline, a null reference as an empty reference cell, and
-/// [`Value::Null`] as an empty cell.
+/// `cells` is the whole range: its length is the layout's cell count, and `cell_start` is its cell
+/// offset within the region so a text leaf's slot names the region's buffer (C1-7). `text` is that
+/// region's [`TextStore`](crate::memory::text::TextStore). Every value kind of this slice is
+/// converted — each scalar with its exact bits, an enumeration as its type and value, an instance
+/// as its identity, a text through its buffer with the normalization cut, a structure's members
+/// and an array's elements at their layout offsets with nested compounds inline, a null reference
+/// as an empty reference cell, and [`Value::Null`] as an empty cell.
 ///
 /// # Errors
 ///
 /// Refused with [`RuntimeError::InitFailed`], naming the type, the refused value or leaf and the
-/// reason, when a value's kind is not the type's, when a structure is missing a member or carries
-/// one the type does not declare, when an array's bounds or element count are not the type's, and
-/// when `cells` is not the layout's length. A text leaf (C1-7), a non-null reference (C1-9) and a
-/// `STRUCT OVERLAP` or union (C1-15) are refused until their slices convert them. The check runs
-/// before the first write, so a refusal leaves the cells as they were, and no path allocates.
+/// reason, when a value's kind is not the type's, when a text buffer leaves the region, when a
+/// structure is missing a member or carries one the type does not declare, when an array's bounds
+/// or element count are not the type's, and when `cells` is not the layout's length. A non-null
+/// reference (C1-9) and a `STRUCT OVERLAP` or union (C1-15) are refused until their slices convert
+/// them. The check runs before the first write, so a refusal leaves the cells as they were, and no
+/// path allocates.
 pub fn write_value(
     cells: &mut [Cell],
     type_id: u32,
     value: &Value,
     prepared: &PreparedModule,
+    text: &mut TextStore,
+    cell_start: u32,
 ) -> Result<(), RuntimeError> {
     check_slice_length(cells.len(), type_id, prepared)?;
     check_value(type_id, value, prepared)?;
-    store_value(cells, type_id, value, prepared)
+    store_value(cells, type_id, value, prepared, text, cell_start)
 }
 
 /// Materialize the value of the `TYPE_TABLE` type `type_id` from `cells`, the cell range of the
 /// type's prepared layout (specification 34 §6.2, MEM-10; design "Boundaries").
 ///
 /// The inverse of [`write_value`]: a range [`write_value`] wrote reads back as the value it was
-/// given, and a range whose cells are all [`Cell::Null`] reads as
-/// [`Value::Null`], the empty value.
+/// given, a text leaf from the buffer its [`Cell::Text`] names (C1-7), and a range whose cells are
+/// all [`Cell::Null`] reads as [`Value::Null`], the empty value.
 ///
 /// # Errors
 ///
 /// Refused with [`RuntimeError::InitFailed`], naming the type, the refused cell or leaf and the
 /// reason, when a cell does not hold a value of the type, when an enumeration cell names no variant
-/// of its type, when `cells` is not the layout's length, and for the text leaves (C1-7), non-null
-/// references (C1-9) and overlapping structures and unions (C1-15) [`write_value`] refuses.
+/// of its type, when `cells` is not the layout's length, and for the non-null references (C1-9) and
+/// overlapping structures and unions (C1-15) [`write_value`] refuses.
 pub fn read_value(
     cells: &[Cell],
     type_id: u32,
     prepared: &PreparedModule,
+    text: &TextStore,
 ) -> Result<Value, RuntimeError> {
     check_slice_length(cells.len(), type_id, prepared)?;
-    read_one(cells, type_id, prepared)
+    read_one(cells, type_id, prepared, text)
 }
 
 /// The cell offset, within a value of the `TYPE_TABLE` type `type_id`, of the member-and-index
@@ -172,8 +181,9 @@ pub fn cell_offset(type_id: u32, path: &[RefSegment], prepared: &PreparedModule)
 enum Shape {
     /// One scalar cell with this primitive encoding.
     Scalar(u16),
-    /// A text leaf; its text arrives with C1-7.
-    Text,
+    /// One text leaf of this primitive encoding (`STRING` 24 or `WSTRING` 25); its buffer is in the
+    /// region's text store (C1-7).
+    Text(u16),
     /// One reference cell.
     Reference,
     /// One instance cell.
@@ -220,21 +230,13 @@ fn check_value(type_id: u32, value: &Value, prepared: &PreparedModule) -> Result
     }
     let layout = layout_of(prepared, type_id)?;
     match shape(prepared, type_id)? {
-        Shape::Scalar(prim_id) => {
-            let Some(stored) = scalar_slot(value).map(|(stored, _)| stored) else {
-                return Err(refusal(prepared, type_id, value_kind(value), KIND_REASON));
-            };
-            if !scalar_kinds_match(prim_id, stored) {
-                return Err(refusal(prepared, type_id, value_kind(value), KIND_REASON));
+        Shape::Scalar(prim_id) | Shape::Text(prim_id) => {
+            if primitive_value_matches(prim_id, value) {
+                Ok(())
+            } else {
+                Err(refusal(prepared, type_id, value_kind(value), KIND_REASON))
             }
-            Ok(())
         }
-        Shape::Text => Err(refusal(
-            prepared,
-            type_id,
-            text_leaf(prepared, type_id),
-            TEXT_REASON,
-        )),
         Shape::Reference => check_reference(type_id, value, prepared),
         Shape::Instance => match value {
             Value::Instance(_) => Ok(()),
@@ -410,6 +412,8 @@ fn store_value(
     type_id: u32,
     value: &Value,
     prepared: &PreparedModule,
+    text: &mut TextStore,
+    cell_start: u32,
 ) -> Result<(), RuntimeError> {
     if matches!(value, Value::Null) {
         cells.fill(Cell::Null);
@@ -417,13 +421,21 @@ fn store_value(
     }
     match shape(prepared, type_id)? {
         Shape::Scalar(prim_id) => {
-            let Some((stored, cell)) = scalar_slot(value) else {
-                return Err(RuntimeError::InvalidExecutionState);
-            };
-            if !scalar_kinds_match(prim_id, stored) {
+            if !primitive_value_matches(prim_id, value) {
                 return Err(RuntimeError::InvalidExecutionState);
             }
+            let Some(cell) = scalar_slot(value) else {
+                return Err(RuntimeError::InvalidExecutionState);
+            };
             *first_mut(cells)? = cell;
+        }
+        Shape::Text(prim_id) => {
+            let Some((stored, wide)) = text_value(prim_id, value) else {
+                return Err(RuntimeError::InvalidExecutionState);
+            };
+            text.write(TextSlot(cell_start), wide, stored)
+                .ok_or(RuntimeError::InvalidExecutionState)?;
+            *first_mut(cells)? = Cell::Text(TextSlot(cell_start));
         }
         Shape::Enumeration(enum_type) => {
             let Value::Enum(enumeration) = value else {
@@ -441,15 +453,34 @@ fn store_value(
             };
             *first_mut(cells)? = Cell::Instance(*instance);
         }
-        Shape::Structure(struct_type) => {
-            store_structure(cells, type_id, struct_type, value, prepared)?
+        Shape::Structure(struct_type) => store_structure(
+            cells,
+            type_id,
+            struct_type,
+            value,
+            prepared,
+            text,
+            cell_start,
+        )?,
+        Shape::Array(elem_type) => {
+            store_array(cells, type_id, elem_type, value, prepared, text, cell_start)?
         }
-        Shape::Array(elem_type) => store_array(cells, type_id, elem_type, value, prepared)?,
-        Shape::Text | Shape::Overlay | Shape::Union => {
-            return Err(RuntimeError::InvalidExecutionState)
-        }
+        Shape::Overlay | Shape::Union => return Err(RuntimeError::InvalidExecutionState),
     }
     Ok(())
+}
+
+/// The text of a value of a text leaf's primitive encoding, and whether its buffer is wide.
+fn text_value(prim_id: u16, value: &Value) -> Option<(&str, bool)> {
+    if !primitive_value_matches(prim_id, value) {
+        return None;
+    }
+    let stored = match value {
+        Value::String(stored) => stored.as_str(),
+        Value::WString(stored) => stored.as_str(),
+        _ => return None,
+    };
+    Some((stored, prim_id == WSTRING_PRIMITIVE))
 }
 
 /// Write a checked structure's members at their layout offsets.
@@ -459,6 +490,8 @@ fn store_structure(
     struct_type: u32,
     value: &Value,
     prepared: &PreparedModule,
+    text: &mut TextStore,
+    cell_start: u32,
 ) -> Result<(), RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
     let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
@@ -480,7 +513,17 @@ fn store_structure(
         let range = cells
             .get_mut(start..end)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        store_value(range, field.type_id, member_value, prepared)?;
+        let member_start = cell_start
+            .checked_add(member.offset)
+            .ok_or(RuntimeError::Overflow)?;
+        store_value(
+            range,
+            field.type_id,
+            member_value,
+            prepared,
+            text,
+            member_start,
+        )?;
     }
     Ok(())
 }
@@ -492,6 +535,8 @@ fn store_array(
     elem_type: u32,
     value: &Value,
     prepared: &PreparedModule,
+    text: &mut TextStore,
+    cell_start: u32,
 ) -> Result<(), RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
     let Some(array) = layout.array.as_ref() else {
@@ -507,7 +552,10 @@ fn store_array(
         let range = cells
             .get_mut(start..end)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        store_value(range, elem_type, element, prepared)?;
+        let element_start = cell_start
+            .checked_add(u32::try_from(start).map_err(|_| RuntimeError::Overflow)?)
+            .ok_or(RuntimeError::Overflow)?;
+        store_value(range, elem_type, element, prepared, text, element_start)?;
     }
     Ok(())
 }
@@ -517,6 +565,7 @@ fn read_one(
     cells: &[Cell],
     type_id: u32,
     prepared: &PreparedModule,
+    text: &TextStore,
 ) -> Result<Value, RuntimeError> {
     if cells.iter().all(|cell| *cell == Cell::Null) {
         return Ok(Value::Null);
@@ -524,8 +573,10 @@ fn read_one(
     match shape(prepared, type_id)? {
         Shape::Scalar(prim_id) => read_scalar(type_id, prim_id, cells, prepared),
         Shape::Enumeration(enum_type) => read_enumeration(type_id, enum_type, cells, prepared),
-        Shape::Structure(struct_type) => read_structure(type_id, struct_type, cells, prepared),
-        Shape::Array(elem_type) => read_array(type_id, elem_type, cells, prepared),
+        Shape::Structure(struct_type) => {
+            read_structure(type_id, struct_type, cells, prepared, text)
+        }
+        Shape::Array(elem_type) => read_array(type_id, elem_type, cells, prepared, text),
         Shape::Reference => match cells.first() {
             Some(Cell::NullRef) => Ok(Value::Reference(None)),
             Some(_) => Err(refusal(
@@ -541,15 +592,32 @@ fn read_one(
             Some(_) => Err(refusal(prepared, type_id, "cell", KIND_REASON)),
             None => Err(RuntimeError::InvalidExecutionState),
         },
-        Shape::Text => Err(refusal(
-            prepared,
-            type_id,
-            text_leaf(prepared, type_id),
-            TEXT_REASON,
-        )),
+        Shape::Text(prim_id) => read_text(type_id, prim_id, cells, prepared, text),
         Shape::Overlay => Err(refusal(prepared, type_id, OVERLAP_LEAF, OVERLAP_REASON)),
         Shape::Union => Err(refusal(prepared, type_id, UNION_LEAF, UNION_REASON)),
     }
+}
+
+/// Materialize one text leaf from the buffer its cell names (C1-7).
+fn read_text(
+    type_id: u32,
+    prim_id: u16,
+    cells: &[Cell],
+    prepared: &PreparedModule,
+    text: &TextStore,
+) -> Result<Value, RuntimeError> {
+    let Some(Cell::Text(slot)) = cells.first() else {
+        return Err(refusal(prepared, type_id, "cell", KIND_REASON));
+    };
+    let wide = prim_id == WSTRING_PRIMITIVE;
+    let stored = text
+        .text(*slot, wide)
+        .ok_or(RuntimeError::InvalidExecutionState)?;
+    Ok(if wide {
+        Value::WString(stored)
+    } else {
+        Value::String(SmolStr::new(stored))
+    })
 }
 
 /// Materialize one scalar cell as the value of the type's primitive encoding.
@@ -560,10 +628,10 @@ fn read_scalar(
     prepared: &PreparedModule,
 ) -> Result<Value, RuntimeError> {
     let cell = *cells.first().ok_or(RuntimeError::InvalidExecutionState)?;
-    let Some((stored, value)) = cell_slot(cell) else {
+    let Some(value) = cell_slot(cell) else {
         return Err(refusal(prepared, type_id, "cell", KIND_REASON));
     };
-    if !scalar_kinds_match(prim_id, stored) {
+    if !primitive_value_matches(prim_id, &value) {
         return Err(refusal(prepared, type_id, "cell", KIND_REASON));
     }
     Ok(value)
@@ -605,6 +673,7 @@ fn read_structure(
     struct_type: u32,
     cells: &[Cell],
     prepared: &PreparedModule,
+    text: &TextStore,
 ) -> Result<Value, RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
     let TypeData::Struct { fields } = &type_entry(prepared, struct_type)?.data else {
@@ -620,7 +689,7 @@ fn read_structure(
         let range = cells
             .get(start..end)
             .ok_or(RuntimeError::InvalidExecutionState)?;
-        let value = read_one(range, field.type_id, prepared)?;
+        let value = read_one(range, field.type_id, prepared, text)?;
         members.insert(SmolStr::new(string(prepared, member.name_idx)?), value);
     }
     Ok(Value::Struct(Arc::new(StructValue::from_canonical_parts(
@@ -635,6 +704,7 @@ fn read_array(
     elem_type: u32,
     cells: &[Cell],
     prepared: &PreparedModule,
+    text: &TextStore,
 ) -> Result<Value, RuntimeError> {
     let layout = layout_of(prepared, type_id)?;
     let Some(array) = layout.array.as_ref() else {
@@ -650,7 +720,7 @@ fn read_array(
         return Err(RuntimeError::InvalidExecutionState);
     }
     let elements = chunks
-        .map(|element| read_one(element, elem_type, prepared))
+        .map(|element| read_one(element, elem_type, prepared, text))
         .collect::<Result<Vec<Value>, RuntimeError>>()?;
     Ok(Value::Array(alloc::boxed::Box::new(
         ArrayValue::from_canonical_parts(elements, array.dims.clone()),
@@ -692,7 +762,7 @@ fn shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, RuntimeError>
 fn primitive_shape(prepared: &PreparedModule, type_id: u32) -> Result<Shape, RuntimeError> {
     let prim_id = primitive_of(prepared, type_id).ok_or(RuntimeError::InvalidExecutionState)?;
     Ok(if TEXT_PRIMITIVES.contains(&prim_id) {
-        Shape::Text
+        Shape::Text(prim_id)
     } else {
         Shape::Scalar(prim_id)
     })
@@ -801,78 +871,66 @@ fn unknown_type(type_id: u32) -> RuntimeError {
     }
 }
 
-/// The leaf name of a text type: `WSTRING` for primitive 25, `STRING` otherwise.
-fn text_leaf(prepared: &PreparedModule, type_id: u32) -> &'static str {
-    if primitive_of(prepared, type_id) == Some(25) {
-        "WSTRING"
-    } else {
-        "STRING"
-    }
-}
-
-/// The scalar cell of a value and the primitive encoding it belongs to, or `None` for a value that
-/// is not a scalar.
-fn scalar_slot(value: &Value) -> Option<(u16, Cell)> {
+/// The scalar cell of a value, or `None` for a value that is not a scalar.
+fn scalar_slot(value: &Value) -> Option<Cell> {
     Some(match value {
-        Value::Bool(value) => (1, Cell::Bool(*value)),
-        Value::Byte(value) => (2, Cell::Byte(*value)),
-        Value::Word(value) => (3, Cell::Word(*value)),
-        Value::DWord(value) => (4, Cell::DWord(*value)),
-        Value::LWord(value) => (5, Cell::LWord(*value)),
-        Value::SInt(value) => (6, Cell::SInt(*value)),
-        Value::Int(value) => (7, Cell::Int(*value)),
-        Value::DInt(value) => (8, Cell::DInt(*value)),
-        Value::LInt(value) => (9, Cell::LInt(*value)),
-        Value::USInt(value) => (10, Cell::USInt(*value)),
-        Value::UInt(value) => (11, Cell::UInt(*value)),
-        Value::UDInt(value) => (12, Cell::UDInt(*value)),
-        Value::ULInt(value) => (13, Cell::ULInt(*value)),
-        Value::Real(value) => (14, Cell::Real(*value)),
-        Value::LReal(value) => (15, Cell::LReal(*value)),
-        Value::Time(value) => (16, Cell::Time(value.as_nanos())),
-        Value::LTime(value) => (17, Cell::LTime(value.as_nanos())),
-        Value::Date(value) => (18, Cell::Date(value.ticks())),
-        Value::LDate(value) => (19, Cell::LDate(value.nanos())),
-        Value::Tod(value) => (20, Cell::Tod(value.ticks())),
-        Value::LTod(value) => (21, Cell::LTod(value.nanos())),
-        Value::Dt(value) => (22, Cell::Dt(value.ticks())),
-        Value::Ldt(value) => (23, Cell::Ldt(value.nanos())),
-        Value::Char(value) => (26, Cell::Char(*value)),
-        Value::WChar(value) => (27, Cell::WChar(*value)),
-        Value::Null => (0x0100, Cell::Null),
+        Value::Bool(value) => Cell::Bool(*value),
+        Value::Byte(value) => Cell::Byte(*value),
+        Value::Word(value) => Cell::Word(*value),
+        Value::DWord(value) => Cell::DWord(*value),
+        Value::LWord(value) => Cell::LWord(*value),
+        Value::SInt(value) => Cell::SInt(*value),
+        Value::Int(value) => Cell::Int(*value),
+        Value::DInt(value) => Cell::DInt(*value),
+        Value::LInt(value) => Cell::LInt(*value),
+        Value::USInt(value) => Cell::USInt(*value),
+        Value::UInt(value) => Cell::UInt(*value),
+        Value::UDInt(value) => Cell::UDInt(*value),
+        Value::ULInt(value) => Cell::ULInt(*value),
+        Value::Real(value) => Cell::Real(*value),
+        Value::LReal(value) => Cell::LReal(*value),
+        Value::Time(value) => Cell::Time(value.as_nanos()),
+        Value::LTime(value) => Cell::LTime(value.as_nanos()),
+        Value::Date(value) => Cell::Date(value.ticks()),
+        Value::LDate(value) => Cell::LDate(value.nanos()),
+        Value::Tod(value) => Cell::Tod(value.ticks()),
+        Value::LTod(value) => Cell::LTod(value.nanos()),
+        Value::Dt(value) => Cell::Dt(value.ticks()),
+        Value::Ldt(value) => Cell::Ldt(value.nanos()),
+        Value::Char(value) => Cell::Char(*value),
+        Value::WChar(value) => Cell::WChar(*value),
         _ => return None,
     })
 }
 
-/// The scalar value of a scalar cell and the primitive encoding it belongs to, or `None` for a
-/// cell that holds no scalar.
-fn cell_slot(cell: Cell) -> Option<(u16, Value)> {
+/// The scalar value of a scalar cell, or `None` for a cell that holds no scalar.
+fn cell_slot(cell: Cell) -> Option<Value> {
     Some(match cell {
-        Cell::Bool(value) => (1, Value::Bool(value)),
-        Cell::Byte(value) => (2, Value::Byte(value)),
-        Cell::Word(value) => (3, Value::Word(value)),
-        Cell::DWord(value) => (4, Value::DWord(value)),
-        Cell::LWord(value) => (5, Value::LWord(value)),
-        Cell::SInt(value) => (6, Value::SInt(value)),
-        Cell::Int(value) => (7, Value::Int(value)),
-        Cell::DInt(value) => (8, Value::DInt(value)),
-        Cell::LInt(value) => (9, Value::LInt(value)),
-        Cell::USInt(value) => (10, Value::USInt(value)),
-        Cell::UInt(value) => (11, Value::UInt(value)),
-        Cell::UDInt(value) => (12, Value::UDInt(value)),
-        Cell::ULInt(value) => (13, Value::ULInt(value)),
-        Cell::Real(value) => (14, Value::Real(value)),
-        Cell::LReal(value) => (15, Value::LReal(value)),
-        Cell::Time(value) => (16, Value::Time(crate::value::Duration::from_nanos(value))),
-        Cell::LTime(value) => (17, Value::LTime(crate::value::Duration::from_nanos(value))),
-        Cell::Date(value) => (18, Value::Date(crate::value::DateValue::new(value))),
-        Cell::LDate(value) => (19, Value::LDate(crate::value::LDateValue::new(value))),
-        Cell::Tod(value) => (20, Value::Tod(crate::value::TimeOfDayValue::new(value))),
-        Cell::LTod(value) => (21, Value::LTod(crate::value::LTimeOfDayValue::new(value))),
-        Cell::Dt(value) => (22, Value::Dt(crate::value::DateTimeValue::new(value))),
-        Cell::Ldt(value) => (23, Value::Ldt(crate::value::LDateTimeValue::new(value))),
-        Cell::Char(value) => (26, Value::Char(value)),
-        Cell::WChar(value) => (27, Value::WChar(value)),
+        Cell::Bool(value) => Value::Bool(value),
+        Cell::Byte(value) => Value::Byte(value),
+        Cell::Word(value) => Value::Word(value),
+        Cell::DWord(value) => Value::DWord(value),
+        Cell::LWord(value) => Value::LWord(value),
+        Cell::SInt(value) => Value::SInt(value),
+        Cell::Int(value) => Value::Int(value),
+        Cell::DInt(value) => Value::DInt(value),
+        Cell::LInt(value) => Value::LInt(value),
+        Cell::USInt(value) => Value::USInt(value),
+        Cell::UInt(value) => Value::UInt(value),
+        Cell::UDInt(value) => Value::UDInt(value),
+        Cell::ULInt(value) => Value::ULInt(value),
+        Cell::Real(value) => Value::Real(value),
+        Cell::LReal(value) => Value::LReal(value),
+        Cell::Time(value) => Value::Time(crate::value::Duration::from_nanos(value)),
+        Cell::LTime(value) => Value::LTime(crate::value::Duration::from_nanos(value)),
+        Cell::Date(value) => Value::Date(crate::value::DateValue::new(value)),
+        Cell::LDate(value) => Value::LDate(crate::value::LDateValue::new(value)),
+        Cell::Tod(value) => Value::Tod(crate::value::TimeOfDayValue::new(value)),
+        Cell::LTod(value) => Value::LTod(crate::value::LTimeOfDayValue::new(value)),
+        Cell::Dt(value) => Value::Dt(crate::value::DateTimeValue::new(value)),
+        Cell::Ldt(value) => Value::Ldt(crate::value::LDateTimeValue::new(value)),
+        Cell::Char(value) => Value::Char(value),
+        Cell::WChar(value) => Value::WChar(value),
         Cell::Enum { .. }
         | Cell::Instance(_)
         | Cell::Text(_)
@@ -880,12 +938,6 @@ fn cell_slot(cell: Cell) -> Option<(u16, Value)> {
         | Cell::Null
         | Cell::NullRef => return None,
     })
-}
-
-/// Whether a value's primitive encoding is the type's: equal, or any of the eight integer
-/// encodings for the generic native state slot (`0x0100`) the value model admits an integer into.
-fn scalar_kinds_match(prim_id: u16, stored: u16) -> bool {
-    stored == prim_id || (prim_id == 0x0100 && matches!(stored, 6..=13))
 }
 
 /// The value model's kind name for a refusal.

@@ -53,7 +53,7 @@ mod limits;
 mod materialization_limits;
 mod stack;
 mod symbols;
-mod type_policy;
+pub(crate) mod type_policy;
 
 #[cfg(test)]
 pub(crate) use const_pool::decode_const_pool_entries;

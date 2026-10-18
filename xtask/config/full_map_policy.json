@@ -1424,6 +1424,15 @@
     "module_size_allowlist": [
       {
         "crate_name": "trust-runtime-core",
+        "module_name": "memory",
+        "path": "crates/trust-runtime-core/src/memory",
+        "owner": "runtime portability",
+        "rationale": "Spec 34 §6.2 groups the bounded value store: the cell and the cell store, prepared cell layouts, reference records, activation frames, instance identities and live tests, and from C1-7 the text buffers and their sink. The aggregate is the sum of real child modules and the focused tests beside them, not one large implementation file or a mixed owner; no store responsibility is removed to satisfy a size gate.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep the cell store in memory/cells.rs and its value conversion in memory/cells/, prepared layouts in memory/layout.rs, text buffers in memory/text.rs, reference records in memory/references.rs, and activation and instance bookkeeping in their own modules. Split any individual file approaching 1000 lines by its existing responsibility rather than merging owners or adding an include fragment."
+      },
+      {
+        "crate_name": "trust-runtime-core",
         "module_name": "stdlib",
         "path": "crates/trust-runtime-core/src/stdlib",
         "owner": "runtime/stdlib",

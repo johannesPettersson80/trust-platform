@@ -236,6 +236,8 @@ pub mod layout;
 mod references;
 pub(crate) use references::PreparedStorageWrite;
 mod storage;
+/// The text buffers of the bounded value store (specification 34 §6.2).
+pub mod text;
 
 #[cfg(all(test, feature = "std"))]
 mod tests;
