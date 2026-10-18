@@ -1701,6 +1701,15 @@
         "rationale": "The panel's action path of specification 25 §5.4, §5.9, §5.13 and §5.14, in focused child modules: the closed action set and its dispatch, the host-effect lists, the forms and connection actions, the connection plans, the ADS route action, the runtime actions, and the one write path they share, each with its tests beside it. No single file or mixed owner; about half the lines are tests.",
         "review_date": "2026-10-18",
         "split_plan": "Keep one child module per action family; B7 added `ads.rs` for the browse pane's `Create route` beside the plans. Split any file approaching 1000 lines by its responsibility, and put a new action family in its own child module."
+      },
+      {
+        "crate_name": "trust-devices",
+        "module_name": "panes",
+        "path": "crates/trust-devices/src/panes",
+        "owner": "VS Code Devices & Connections (V7)",
+        "rationale": "The panes beside the graph of specification 25 §2 and §5.12-§5.14, in focused child modules: the add dialog, the forms, the USB tray, and the browse panes (OPC UA nodes, EtherCAT channels, exposed globals and, with B8b1, the ADS tag browser in `browse/ads.rs`), each with its tests beside it. The aggregate crosses 5000 lines as the sum of these focused modules; no single file is near 1000 lines and about a third of the lines are tests.",
+        "review_date": "2026-10-18",
+        "split_plan": "Keep one child module per pane concern; the browse panes keep one child per protocol family under `browse/`. Split any file approaching 1000 lines by its own responsibility."
       }
     ],
     "function_size_allowlist": [

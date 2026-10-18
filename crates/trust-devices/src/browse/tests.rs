@@ -679,4 +679,5 @@ fn an_older_seq_never_replaces_a_newer_browse() {
     assert_eq!(cached.tree[0].key, "ns=2;i=1");
 }
 
+mod ads;
 mod projection;

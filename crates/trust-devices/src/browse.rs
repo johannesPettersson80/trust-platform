@@ -1,8 +1,8 @@
 //! The browse panes in Rust (design §4.3 B8; specification 25 §5.4 and §11.2): open a browse at
 //! the runtime that owns the named connection, keep its answer in the session's cache, and add
-//! the ticked leaves. This slice covers the OPC UA node browser, the `EtherCAT` channel browser
-//! and the picker of the globals a server exposes; the ADS tag browser and OPC UA continuation
-//! points are B8b and B8c.
+//! the ticked leaves. This slice covers the OPC UA node browser, the `EtherCAT` channel browser,
+//! the picker of the globals a server exposes, and the ADS tag browser of B8b1; the ADS tag import
+//! (`ads.tags_set`) is B8b2 and OPC UA continuation points are B8c.
 //!
 //! - `run`: the I/O of one browse, at the runtime's control endpoint or in the open project's
 //!   files, returning typed facts.
@@ -19,7 +19,7 @@ mod run;
 
 pub(crate) use cache::BrowseCache;
 pub(crate) use plan::add;
-pub(crate) use run::{Browsed, BrowsedError, BrowsedNode};
+pub(crate) use run::{target_port, Browsed, BrowsedError, BrowsedNode};
 
 use crate::panes::browse;
 use crate::request::BrowseRequest;
@@ -34,7 +34,7 @@ use crate::view::types::BrowseView;
 pub fn open(session: &Session, request: &BrowseRequest) -> BrowseView {
     let (resolved, work) = match run::resolve(session, request) {
         Ok(resolved) => resolved,
-        Err(error) => return browse::failure(request, *error),
+        Err(unresolved) => return browse::failure(request, unresolved.kind, *unresolved.error),
     };
     let answer = session
         .browse()
@@ -46,6 +46,7 @@ pub fn open(session: &Session, request: &BrowseRequest) -> BrowseView {
             name: &resolved.name,
             params: &resolved.params,
             runtime: resolved.runtime.as_ref(),
+            port: resolved.port,
             request,
         },
         answer.as_ref(),

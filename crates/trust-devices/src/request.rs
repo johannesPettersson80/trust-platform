@@ -308,6 +308,11 @@ pub struct BrowseSource {
     /// The found device's protocol.
     #[serde(default)]
     pub protocol: Option<String>,
+    /// The found device's own target, as the search found it: its address, its ADS net id and its
+    /// ports. A browse of a found device runs against this, never the project's runtime (design
+    /// §4.3 B8, line 261; specification 25 §5.4).
+    #[serde(default)]
+    pub target: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl BrowseSource {
@@ -333,6 +338,12 @@ impl BrowseSource {
     #[must_use]
     pub fn protocol(&self) -> Option<&str> {
         trimmed(self.protocol.as_deref())
+    }
+
+    /// The found device's own target, when the source names one.
+    #[must_use]
+    pub fn target(&self) -> Option<&serde_json::Map<String, serde_json::Value>> {
+        self.target.as_ref()
     }
 }
 

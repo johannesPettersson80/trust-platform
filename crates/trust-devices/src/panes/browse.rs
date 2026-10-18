@@ -11,6 +11,9 @@
 //! - the `Add` button and the write toggle: the ladder of reasons it cannot be chosen
 //!   (`W/BrowseTagsPanel.tsx:95-153`).
 //! - the error box: one human title, one recovery (`W/opcuaClientModel.ts:157-203`).
+//! - the ADS tag browser's ports: `ads`, one card per ADS port.
+
+mod ads;
 
 use serde_json::{json, Map, Value};
 
@@ -36,6 +39,8 @@ pub(crate) struct Browse<'a> {
     pub(crate) params: &'a Map<String, Value>,
     /// The runtime that owns the connection, for a recovery that reopens its form.
     pub(crate) runtime: Option<&'a ItemId>,
+    /// The ADS port this browse read, for the card it belongs to (design §3.3 J55).
+    pub(crate) port: u16,
     /// The request that opened the pane.
     pub(crate) request: &'a BrowseRequest,
 }
@@ -65,6 +70,11 @@ pub(crate) fn capability(protocol: &str) -> Option<Capability> {
             wire_kind: "channels",
             local: false,
         }),
+        "ads" => Some(Capability {
+            kind: BrowseKind::AdsTags,
+            wire_kind: "symbols",
+            local: false,
+        }),
         "opcua" | "ads_server" => Some(Capability {
             kind: BrowseKind::Expose,
             wire_kind: "symbols",
@@ -82,6 +92,13 @@ pub(crate) fn kind_of_request(kind: &str) -> BrowseKind {
         "channels" => BrowseKind::Channels,
         _ => BrowseKind::Expose,
     }
+}
+
+/// The pane's identity, by protocol. The ADS route action's payload names it, so that its result
+/// returns to the pane that started it (design §4.3 B7 and B8; specification 25 §5.4).
+#[must_use]
+pub(super) fn pane_id(protocol: &str) -> String {
+    format!("browse:{protocol}")
 }
 
 /// The pane's title, by kind.
@@ -110,9 +127,12 @@ fn add_label(kind: BrowseKind) -> &'static str {
 /// origin's error, or its tree (design §1.5, §4.3 B8).
 #[must_use]
 pub(crate) fn view(data: Browse<'_>, answer: Option<&Result<Browsed, String>>) -> BrowseView {
-    let error = error_box(&data, answer);
+    let tags = data.kind == BrowseKind::AdsTags;
+    // An ADS failure — a typed wire error or an unreached origin — belongs to the port that
+    // reported it, never to the whole pane.
+    let error = if tags { None } else { error_box(&data, answer) };
     let tree = match answer {
-        Some(Ok(browsed)) if browsed.error.is_none() => project_tree(&browsed.tree, &data),
+        Some(Ok(browsed)) if browsed.error.is_none() && !tags => project_tree(&browsed.tree, &data),
         _ => Vec::new(),
     };
     let reason = ladder(answer);
@@ -127,15 +147,25 @@ pub(crate) fn view(data: Browse<'_>, answer: Option<&Result<Browsed, String>>) -
         enabled: add.enabled,
         reason,
     };
+    let (ports, port_suggestions, port_help) = if tags {
+        (
+            ads::ports(&data, answer),
+            ads::suggestions(),
+            texts::ADS_PORT_HELP.to_owned(),
+        )
+    } else {
+        (Vec::new(), Vec::new(), String::new())
+    };
     BrowseView {
-        id: format!("browse:{}", data.protocol),
+        id: pane_id(data.protocol),
         title: title(data.kind).to_owned(),
         subtitle: data.name.to_owned(),
         kind: data.kind,
+        loading: answer.is_none(),
         tree,
-        ports: Vec::new(),
-        port_suggestions: Vec::new(),
-        port_help: String::new(),
+        ports,
+        port_suggestions,
+        port_help,
         error,
         add,
         write_toggle,
@@ -145,8 +175,7 @@ pub(crate) fn view(data: Browse<'_>, answer: Option<&Result<Browsed, String>>) -
 
 /// The pane of a browse that never reached the origin: the failure is the whole answer.
 #[must_use]
-pub(crate) fn failure(request: &BrowseRequest, error: ErrorBox) -> BrowseView {
-    let kind = kind_of_request(&request.kind);
+pub(crate) fn failure(request: &BrowseRequest, kind: BrowseKind, error: ErrorBox) -> BrowseView {
     let reason = texts::RESOLVE_ERROR.to_owned();
     BrowseView {
         id: format!("browse:{}", request.source.connection().unwrap_or_default()),
@@ -157,6 +186,7 @@ pub(crate) fn failure(request: &BrowseRequest, error: ErrorBox) -> BrowseView {
             .unwrap_or_default()
             .to_owned(),
         kind,
+        loading: false,
         tree: Vec::new(),
         ports: Vec::new(),
         port_suggestions: Vec::new(),
@@ -259,7 +289,7 @@ fn trust_recovery(data: &Browse<'_>) -> Action {
         op: Op::Ui {
             ui: UiOp::Open {
                 pane: Pane::Browse {
-                    request: browse_body(data, true),
+                    request: browse_body(data, true, data.request.port),
                 },
             },
         },
@@ -294,28 +324,40 @@ fn credentials_recovery(data: &Browse<'_>) -> Option<Action> {
     })
 }
 
-/// The `devicesBrowse` body that reopens the pane with the trust flag `trust`. The webview
-/// attaches its own host facts, as it does for every request, so they are not carried here.
-fn browse_body(data: &Browse<'_>, trust: bool) -> Value {
-    let source = match (
+/// The `devicesBrowse` body that reopens the pane with the trust flag `trust` and reads `port`.
+/// The webview attaches its own host facts, as it does for every request, so they are not carried
+/// here.
+fn browse_body(data: &Browse<'_>, trust: bool, port: Option<u16>) -> Value {
+    let mut body = json!({
+        "session": data.request.session,
+        "seq": data.request.seq.saturating_add(1),
+        "source": source_body(data),
+        "kind": data.request.kind,
+        "trust_server_certificate": trust,
+    });
+    if let Some(port) = port {
+        body["port"] = json!(port);
+    }
+    body
+}
+
+/// The `source` a reopened browse names: its connection and name, or the found device's card, its
+/// protocol and its own target (design §4.3 B8, line 261).
+fn source_body(data: &Browse<'_>) -> Value {
+    match (
         data.request.source.connection(),
         data.request.source.found(),
     ) {
         (Some(connection), _) => json!({ "connection": connection, "connection_name": data.name }),
-        (None, Some(found)) => json!({ "found": found, "protocol": data.protocol }),
+        (None, Some(found)) => {
+            let mut source = json!({ "found": found, "protocol": data.protocol });
+            if let Some(target) = data.request.source.target() {
+                source["target"] = Value::Object(target.clone());
+            }
+            source
+        }
         (None, None) => json!({}),
-    };
-    let mut body = json!({
-        "session": data.request.session,
-        "seq": data.request.seq.saturating_add(1),
-        "source": source,
-        "kind": data.request.kind,
-        "trust_server_certificate": trust,
-    });
-    if let Some(port) = data.request.port {
-        body["port"] = json!(port);
     }
-    body
 }
 
 /// The projected tree of `nodes`, in browse order.

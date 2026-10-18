@@ -112,6 +112,102 @@ pub const BROWSE_DENIED_TITLE: &str = "Browse denied";
 pub const BROWSE_DENIED_DETAIL: &str =
     "The server refused node browsing for the selected identity.";
 
+// ---- the ADS tag browser (design §4.3 B8 and §3.3 J40, J46, J54, J55, J57, J58 and J59;
+// specification 25 §5.4 and its lines 878-883) ----
+
+/// The ADS ports the browser suggests, each with its name (specification 25:880-881).
+pub const ADS_PORT_SUGGESTIONS: [(&str, &str); 4] = [
+    ("301", "I/O"),
+    ("501", "Motion"),
+    ("851", "PLC runtime 1"),
+    ("852", "PLC runtime 2"),
+];
+
+/// The help under `Advanced: browse another ADS port` (specification 25:880-883;
+/// `W/AdsBrowseTargetControls.tsx:120-123`).
+pub const ADS_PORT_HELP: &str = "Each ADS port is a separate server and symbol namespace. The \
+server must support Symbol Upload.";
+
+/// Why an ADS port cannot be browsed: it is not a whole number from 1 through 65,535
+/// (`parseAdsPortInput`, `W/adsTargetPort.ts:9-22`; design §3.3 J59).
+pub const ADS_PORT_RANGE: &str = "ADS port must be between 1 and 65535.";
+
+/// The `TwinCAT` administrator login that `Create route` asks for once (specification 25:387-394).
+pub const CREATE_ROUTE: &str = "Create route";
+
+/// Why `Create route` cannot run: no runtime answered to add the route on (design §3.3 J57 and
+/// specification 25 §5.4).
+pub const CREATE_ROUTE_NEEDS_RUNTIME: &str =
+    "Creating a TwinCAT route needs a running runtime. Start the runtime and try again.";
+
+/// The title of an ADS port whose server did not answer (`classifyBrowseError`,
+/// `W/browseErrorModel.ts:23-30`).
+pub const ADS_PORT_UNAVAILABLE_TITLE: &str = "ADS port unavailable";
+/// What to do about an ADS port whose server did not answer.
+pub const ADS_PORT_UNAVAILABLE_DETAIL: &str =
+    "The selected ADS server did not answer. Check the port and that this server is running, then \
+     browse again.";
+/// The title of an ADS server without Beckhoff Symbol Upload (`W/browseErrorModel.ts:31-38`).
+pub const SYMBOL_UPLOAD_UNSUPPORTED_TITLE: &str = "Symbol Upload unsupported";
+/// What to do about an ADS server without Beckhoff Symbol Upload.
+pub const SYMBOL_UPLOAD_UNSUPPORTED_DETAIL: &str =
+    "This ADS server is reachable but does not expose Beckhoff Symbol Upload. Enable symbol \
+     generation for that server or choose another ADS port.";
+/// The title of an ADS server with no symbols truST can import (`W/browseErrorModel.ts:39-46`).
+pub const NO_COMPATIBLE_SYMBOLS_TITLE: &str = "No compatible symbols";
+/// What an empty symbol table means.
+pub const NO_COMPATIBLE_SYMBOLS_DETAIL: &str =
+    "The ADS server returned an empty symbol table or no symbols that truST can import.";
+/// The title of any other ADS browse failure (`W/browseErrorModel.ts:47-53`).
+pub const ADS_BROWSE_FAILED_TITLE: &str = "ADS symbol browse failed";
+/// What an ADS browse failure means when the origin gave no message.
+pub const ADS_BROWSE_FAILED_DETAIL: &str = "ADS symbol browse failed.";
+
+/// The card's title for the ADS port `port`.
+#[must_use]
+pub fn ads_port_title(port: u16) -> String {
+    format!("ADS port {port}")
+}
+
+/// The count of a port's tags, singular and plural (design §3.3 J58;
+/// `W/AdsMultiPortTagBrowser.tsx:279`).
+#[must_use]
+pub fn tag_count(count: usize) -> String {
+    let noun = if count == 1 { "tag" } else { "tags" };
+    format!("{count} {noun}")
+}
+
+/// What an untried port says while its browse runs (`W/AdsMultiPortTagBrowser.tsx:279`).
+pub const LOADING: &str = "Loading…";
+
+/// The button that browses one more ADS port (`W/AdsMultiPortTagBrowser.tsx:310`).
+#[must_use]
+pub fn browse_port(port: u16) -> String {
+    format!("Browse port {port}")
+}
+
+/// Why a port's route is missing, in its card (`W/AdsMultiPortTagBrowser.tsx:534`).
+#[must_use]
+pub fn route_required(port: u16) -> String {
+    format!("An ADS route is required before tags can be read from port {port}.")
+}
+
+/// What the route help says when the route plan carries generated scripts (`routeWarningText`,
+/// `W/BrowseTagsPanel.tsx:154-158`; specification 25 §5.4).
+pub const ROUTE_NEEDS_ADMIN_SCRIPT: &str = "Route needs TwinCAT administrator access. Run the \
+generated route script on the TwinCAT computer, then reopen Browse.";
+
+/// What the route help says when the route plan carries no generated script.
+pub const ROUTE_NEEDS_ADMIN_CREATE: &str = "Route needs TwinCAT administrator access. Create the \
+route on the TwinCAT computer, then reopen Browse.";
+
+/// The label of the button that copies one generated route file
+/// (`W/AdsMultiPortTagBrowser.tsx:546`).
+#[must_use]
+pub fn copy_artifact(label: &str) -> String {
+    format!("Copy {label}")
+}
+
 // ---- the add action's payload did not decode ----
 
 /// Why `Add` cannot run: its payload did not name the browse request.

@@ -32,6 +32,18 @@ pub(crate) struct Browsed {
     pub(crate) tree: Vec<BrowsedNode>,
     /// The protocol error the origin classified, when it classified one.
     pub(crate) error: Option<BrowsedError>,
+    /// The route status the origin reported, when it reported one (specification 11, "Symbol
+    /// browsing"): a missing route with its credential-free plan, or the accepted route.
+    pub(crate) route: Option<BrowsedRoute>,
+}
+
+/// The route status of one browse answer (specification 11, "Symbol browsing").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BrowsedRoute {
+    /// Whether the origin reported the route missing.
+    pub(crate) missing: bool,
+    /// The credential-free route plan, when the origin sent one.
+    pub(crate) plan: Option<Value>,
 }
 
 /// One node of the origin's answer.
@@ -89,8 +101,44 @@ impl Browsed {
         Ok(Self {
             tree: nodes(object.get("tree")),
             error: object.get("error").and_then(error_of),
+            route: object.get("route").and_then(route_of),
         })
     }
+
+    /// One answering ADS port's browse evidence, as a find's `ads_port_browse_results` carries it
+    /// (specification 11, "Communication discovery scope and symbol browsing"; design §3.3 J55):
+    /// the tree it probed, its route status and plan, and its typed error. `None` when the item is
+    /// not an object.
+    #[must_use]
+    pub(crate) fn of_evidence(item: &Value) -> Option<Self> {
+        let object = item.as_object()?;
+        Some(Self {
+            tree: nodes(object.get("tree")),
+            error: object.get("error").and_then(error_of),
+            route: Some(BrowsedRoute {
+                missing: object
+                    .get("routeMissing")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+                plan: object
+                    .get("routePlan")
+                    .filter(|plan| plan.is_object())
+                    .cloned(),
+            }),
+        })
+    }
+}
+
+/// The route status of an answer's `route`, when it carries one.
+fn route_of(value: &Value) -> Option<BrowsedRoute> {
+    let object = value.as_object()?;
+    Some(BrowsedRoute {
+        missing: object.get("status").and_then(Value::as_str) == Some("missing"),
+        plan: object
+            .get("route_plan")
+            .filter(|plan| plan.is_object())
+            .cloned(),
+    })
 }
 
 /// The nodes of an answer's `tree`.
@@ -146,9 +194,26 @@ pub(crate) struct Resolved {
     pub(crate) name: String,
     /// The connection's configuration, which tells what it already has.
     pub(crate) params: Map<String, Value>,
+    /// The ADS port this browse reads (design §3.3 J59): the request's checked port, else the
+    /// target's own. `0` for a browse that reads no port.
+    pub(crate) port: u16,
     /// The identity of this browse in the session's cache.
     pub(crate) key: String,
 }
+
+/// Why a browse could not be opened, with the pane kind the request named, so that the failure
+/// pane still shows the browse that was asked for.
+#[derive(Debug)]
+pub(crate) struct Unresolved {
+    /// The failure.
+    pub(crate) error: Box<ErrorBox>,
+    /// What the pane browses.
+    pub(crate) kind: BrowseKind,
+}
+
+/// The ADS port a browse reads when the request and the target name none (design §3.3 J59;
+/// `DEFAULT_ADS_PORT`, `W/adsTargetPort.ts:3`).
+pub(crate) const DEFAULT_ADS_PORT: u16 = 851;
 
 /// What one browse of the origin needs, owned for the background run (design §1.6).
 #[derive(Debug, Clone)]
@@ -179,8 +244,9 @@ enum At {
 pub(crate) fn resolve(
     session: &Session,
     request: &BrowseRequest,
-) -> Result<(Resolved, Run), Box<ErrorBox>> {
+) -> Result<(Resolved, Run), Unresolved> {
     let source = &request.source;
+    let fallback = browse::kind_of_request(&request.kind);
     let (runtime, protocol, params, instance_id) = if let Some(id) = source.connection() {
         let found = session.runtimes().iter().find_map(|runtime| {
             runtime
@@ -188,7 +254,7 @@ pub(crate) fn resolve(
                 .map(|connection| (runtime, connection))
         });
         let Some((runtime, connection)) = found else {
-            return Err(failure(texts::connection_not_shown(id)));
+            return Err(unresolved(fallback, texts::connection_not_shown(id)));
         };
         (
             Some(runtime),
@@ -198,17 +264,29 @@ pub(crate) fn resolve(
         )
     } else if source.found().is_some() {
         let Some(protocol) = source.protocol() else {
-            return Err(failure(texts::NO_SOURCE.to_owned()));
+            return Err(unresolved(fallback, texts::NO_SOURCE.to_owned()));
         };
         let runtime = session.runtimes().iter().find(|runtime| runtime.project);
-        (runtime, protocol.to_owned(), Map::new(), None)
+        // A found device is browsed at its own target, which the search reported (design §4.3 B8,
+        // line 261), never at the project's runtime.
+        (
+            runtime,
+            protocol.to_owned(),
+            source.target().cloned().unwrap_or_default(),
+            None,
+        )
     } else {
-        return Err(failure(texts::NO_SOURCE.to_owned()));
+        return Err(unresolved(fallback, texts::NO_SOURCE.to_owned()));
     };
     let Some(capability) = browse::capability(&protocol) else {
-        return Err(failure(texts::not_browsable(&protocol)));
+        return Err(unresolved(fallback, texts::not_browsable(&protocol)));
     };
-    let at = run_at(session, runtime)?;
+    let port = if capability.kind == BrowseKind::AdsTags {
+        ads_port(request.port, &params).map_err(|detail| unresolved(capability.kind, detail))?
+    } else {
+        request.port.unwrap_or(0)
+    };
+    let at = run_at(session, runtime).map_err(|detail| unresolved(capability.kind, detail))?;
     let token = match &at {
         At::Endpoint(endpoint) => request.host.token(endpoint).cloned(),
         At::Project(_) => None,
@@ -219,6 +297,7 @@ pub(crate) fn resolve(
         &params,
         instance_id.as_deref(),
         request.trust_server_certificate,
+        port,
     );
     let key = format!(
         "{}|{}|{}",
@@ -227,7 +306,7 @@ pub(crate) fn resolve(
             .or_else(|| source.found())
             .unwrap_or_default(),
         capability.wire_kind,
-        request.port.unwrap_or(0),
+        port,
     );
     let resolved = Resolved {
         runtime: runtime.map(|runtime| runtime.id.clone()),
@@ -236,6 +315,7 @@ pub(crate) fn resolve(
         kind: capability.kind,
         name: source.connection_name().unwrap_or_default().to_owned(),
         params,
+        port,
         key,
     };
     Ok((
@@ -287,45 +367,49 @@ fn offline(project: &Path, params: &Value) -> Result<Value, String> {
 
 /// Where a browse of `runtime` is read: its control endpoint when it answered, else the open
 /// project's files when it is the project's own runtime (design §4.3 B8; specification 25 §5.4).
-fn run_at(session: &Session, runtime: Option<&KnownRuntime>) -> Result<At, Box<ErrorBox>> {
+fn run_at(session: &Session, runtime: Option<&KnownRuntime>) -> Result<At, String> {
     let Some(runtime) = runtime else {
         return project_at(session);
     };
     match write::writes(runtime) {
         Some(Writes::Endpoint(endpoint)) => Ok(At::Endpoint(endpoint)),
         Some(Writes::Project) => project_at(session),
-        None => Err(failure(texts::runtime_did_not_answer(&runtime.name))),
+        None => Err(texts::runtime_did_not_answer(&runtime.name)),
     }
 }
 
 /// The open project's files, in process.
-fn project_at(session: &Session) -> Result<At, Box<ErrorBox>> {
+fn project_at(session: &Session) -> Result<At, String> {
     session
         .project_folder()
         .map(|path| At::Project(path.to_path_buf()))
-        .ok_or_else(|| failure(texts::NO_PROJECT.to_owned()))
+        .ok_or_else(|| texts::NO_PROJECT.to_owned())
 }
 
 /// One browse failure that never reached the origin, with its human text and no recovery. It is
 /// boxed because the human texts and their optional recovery are much larger than the `At` they
 /// ride beside.
-fn failure(detail: String) -> Box<ErrorBox> {
-    Box::new(ErrorBox {
-        title: texts::BROWSE_FAILED.to_owned(),
-        detail,
-        recovery: None,
-    })
+fn unresolved(kind: BrowseKind, detail: String) -> Unresolved {
+    Unresolved {
+        error: Box::new(ErrorBox {
+            title: texts::BROWSE_FAILED.to_owned(),
+            detail,
+            recovery: None,
+        }),
+        kind,
+    }
 }
 
 /// One `comm.browse_symbols` request (`BrowseSymbolsRequest`,
 /// `control/comm_handlers/browse_symbols.rs:32-52`): the protocol, the kind, the connection's
-/// target when it has one, and its `instance_id`.
+/// target when it has one, the ADS port it reads, and its `instance_id`.
 fn wire_params(
     protocol: &str,
     capability: Capability,
     params: &Map<String, Value>,
     instance_id: Option<&str>,
     trust: bool,
+    port: u16,
 ) -> Value {
     let mut wire = Map::new();
     wire.insert("protocol".to_owned(), Value::String(protocol.to_owned()));
@@ -340,6 +424,8 @@ fn wire_params(
             "target".to_owned(),
             Value::Object(opcua_target(params, trust)),
         );
+    } else if capability.kind == BrowseKind::AdsTags {
+        wire.insert("target".to_owned(), Value::Object(ads_target(params, port)));
     }
     if let Some(instance_id) = instance_id.filter(|value| !value.trim().is_empty()) {
         wire.insert(
@@ -348,6 +434,60 @@ fn wire_params(
         );
     }
     Value::Object(wire)
+}
+
+/// The ADS port a browse reads (design §3.3 J59; `parseAdsPortInput` and `adsTargetPort`,
+/// `W/adsTargetPort.ts:9-33`): the request's port when it named one, checked as a whole number
+/// from 1 through 65,535, else the target's own port, else the default.
+///
+/// # Errors
+/// The request named port 0, which is not a valid ADS port.
+fn ads_port(request: Option<u16>, params: &Map<String, Value>) -> Result<u16, String> {
+    match request {
+        Some(0) => Err(texts::ADS_PORT_RANGE.to_owned()),
+        Some(port) => Ok(port),
+        None => Ok(target_port(params).unwrap_or(DEFAULT_ADS_PORT)),
+    }
+}
+
+/// The ADS port the target configures, when it names a valid one.
+pub(crate) fn target_port(params: &Map<String, Value>) -> Option<u16> {
+    params
+        .get("ams_port")
+        .and_then(Value::as_u64)
+        .and_then(|port| u16::try_from(port).ok())
+        .filter(|port| *port >= 1)
+}
+
+/// The known fields of an ADS `comm.browse_symbols` target (`BrowseTarget`,
+/// `control/comm_handlers/browse_symbols.rs:32-52`): the device's host and ADS net id, and the
+/// port this browse reads. Only the fields the origin reads are sent, so the target's unrelated
+/// parameters never reach it.
+fn ads_target(params: &Map<String, Value>, port: u16) -> Map<String, Value> {
+    let mut target = Map::new();
+    if let Some(host) = string_of(params, &["ip", "host"]) {
+        target.insert("ip".to_owned(), Value::String(host));
+    }
+    if let Some(net_id) = string_of(params, &["ams_net_id", "target_net_id"]) {
+        target.insert("ams_net_id".to_owned(), Value::String(net_id));
+    }
+    if let Some(name) = string_of(params, &["name"]) {
+        target.insert("name".to_owned(), Value::String(name));
+    }
+    target.insert("ams_port".to_owned(), Value::Number(u64::from(port).into()));
+    target
+}
+
+/// The trimmed, non-empty string at the first of `keys` that holds one.
+fn string_of(params: &Map<String, Value>, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        params
+            .get(*key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+    })
 }
 
 /// The known fields of an OPC UA `comm.browse_symbols` target (`BrowseTarget`,

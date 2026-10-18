@@ -28,7 +28,12 @@ pub(crate) fn add(session: &Session, request: &ActRequest) -> ActReply {
     };
     let (resolved, _run) = match run::resolve(session, &pane_request) {
         Ok(resolved) => resolved,
-        Err(error) => return actions::error(&pane, &format!("{}: {}", error.title, error.detail)),
+        Err(unresolved) => {
+            return actions::error(
+                &pane,
+                &format!("{}: {}", unresolved.error.title, unresolved.error.detail),
+            );
+        }
     };
     let Some(answer) = session.browse().answer(&resolved.key) else {
         return actions::error(&pane, texts::WAIT_FOR_RESULTS);

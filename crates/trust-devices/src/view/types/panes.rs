@@ -538,6 +538,9 @@ pub struct BrowseView {
     pub subtitle: String,
     /// What it browses.
     pub kind: BrowseKind,
+    /// Whether the browse still runs: true from the first answer until the origin has answered
+    /// (design §1.5, line 381).
+    pub loading: bool,
     /// The tree.
     pub tree: Vec<TreeNode>,
     /// The ADS ports.
