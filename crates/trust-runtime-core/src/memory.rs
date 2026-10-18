@@ -225,12 +225,19 @@ pub type InstanceMap = FxHashMap<InstanceId, InstanceData>;
 pub type InstanceMap = live::LiveEntries<InstanceId, InstanceData>;
 
 mod access;
+/// The cell, the unit of the bounded value store, and one region's cell store
+/// (specification 34 §6.2).
+pub mod cells;
 mod execution_frames;
 mod frames;
 mod instances;
+/// Prepared cell layouts for the bounded value store (specification 34 §6.2).
+pub mod layout;
 mod references;
 pub(crate) use references::PreparedStorageWrite;
 mod storage;
+/// The text buffers of the bounded value store (specification 34 §6.2).
+pub mod text;
 
 #[cfg(all(test, feature = "std"))]
 mod tests;

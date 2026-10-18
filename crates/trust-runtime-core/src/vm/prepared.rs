@@ -11,6 +11,7 @@ mod admission;
 mod budget;
 pub(crate) mod call_plans;
 mod indexes;
+mod layouts;
 mod metadata;
 #[cfg(feature = "std")]
 mod reference_names;
@@ -71,6 +72,8 @@ pub struct PreparedModule {
     #[cfg(feature = "register-ir")]
     pub(crate) register_plans: super::register_ir::PreparedRegisterPlans,
     pub(crate) layout: StorageLayout,
+    /// Prepared cell layouts and region ranges (specification 34 §6.2, MEM-10).
+    pub(crate) layouts: layouts::PreparedLayouts,
     pub(crate) roots: ConstructionRoots,
     pub(crate) initializers: InitializerIndex,
     pub(crate) access: AccessBindings,
@@ -307,6 +310,8 @@ impl PreparedModule {
                 )))
             }
         };
+        let layouts =
+            layouts::PreparedLayouts::build(&vm, &layout, &initializers, &mut preparation)?;
         let access = token.take_access().unwrap_or_default();
         let resources = token.take_resources().unwrap_or_default();
         let io = match token.section(SectionId::IoMap) {
@@ -397,6 +402,7 @@ impl PreparedModule {
             #[cfg(feature = "register-ir")]
             register_plans,
             layout,
+            layouts,
             roots,
             initializers,
             access,

@@ -1028,6 +1028,55 @@ A complete packed representation is not the first extraction step. First separat
 
 **MEM-10.** Use exclusive ownership of mutable execution state and an explicit borrow of immutable prepared metadata as the initial portable boundary. Prepare dense program/type/member/slot identities so bounded execution does not depend on lazy name-map insertion or OS `RwLock` caches. Host code may own or pin generations with `Arc` outside this boundary where its threading model requires it. Do not replace every host `Arc` with `Rc`, weaken host thread-safety, or duplicate instruction semantics to make one target compile. Audit transitive string/container ownership as well as direct core imports. [R22, R24]
 
+**Prepared cell layouts.** At preparation the shared engine computes, for every TYPE_TABLE entry, one
+layout of the cells that will hold its values: the cell count (a scalar is one cell), a structure's
+member ordinal to cell offset mapping with its nested compounds inline, an array's element stride and
+dimensions, its text leaves with their byte capacity, its reference and instance leaves, the length
+of a `STRUCT OVERLAP`'s byte backing, and whether the type can hold a reference or an instance so a
+later lifetime check skips scalar-only layouts. A `STRING[n]` leaf reserves `n` bytes and a
+`WSTRING[n]` leaf `2n` bytes of UTF-16 code units; a `STRING` or `WSTRING` declared without a length
+reserves 80 and 160 bytes (D-C1-1, D-C1-2), which supersedes the earlier `4 × n` unit. Globals, each
+instance template (a derived function block's template places its parent's cells first), each POU's
+locals and each initializer result map to a cell range of the persistent or the activation region,
+and a `REF_FIELD` member name resolves to a member ordinal at preparation. The prepared layout tables
+and the work of computing them are charged once at preparation, under the admitted profile's limits.
+A region's cells are only recorded at preparation, not charged: construction charges them when it
+reserves the region, so no storage is counted twice and the refusal points of large programs do not
+move. A program whose layout tables and other preparation demand exceed those limits is refused at
+preparation, never at run time. Nothing reads the layouts at run time yet, so stored values, outputs
+and faults are unchanged.
+
+**Cells and the cell store.** The bounded value store's unit is a 16-byte cell, `Copy` and without
+`Drop`. One cell holds a scalar of the value model inline: `BOOL`, the eight integers, `REAL` and
+`LREAL`, the four bit strings, `CHAR` and `WCHAR`, and each of the eight temporal types as its
+64-bit tick or nanosecond count (`core/value/datetime.rs`). It also holds an enumeration (its
+TYPE_TABLE type and its value), an instance identity, a text slot, a reference slot, an empty cell
+and an empty reference; a structure or array is a contiguous cell range of its prepared layout with
+its nested compounds inline. A region owns one cell store: its cells and one reference record per
+reference leaf the region holds, where a record is the flat reference address a reference leaf
+points at — the region, the cell index of its target, the character index of a character reference,
+the target type and the installation generation (MEM-07). The store reserves both exactly once from
+the prepared layouts, through the same checked reservation that refuses an allocation failure as the
+other construction reservations do, and never grows: every accessor answers `None` outside the
+reserved region and allocates nothing. The persistent region holds its globals' and its instance
+templates' cells and reference leaves, counted from the prepared layouts rather than by hand. The
+bytes a store takes are its cells at 16 bytes each plus its reference records, so construction
+charges them before reserving. Nothing reads the store at run time yet, so stored values, outputs and
+faults are unchanged. The text store holds a region's text buffers — one fixed buffer per text leaf
+at its leaf's byte capacity, reserved once and never grown, with its length in use — and its text
+sink cuts written text exactly where assignment normalization cuts it, so a `Cell::Text` leaf
+converts a `STRING` or `WSTRING` value through its buffer while a non-null reference stays refused.
+
+**Value conversion.** An engineering write converts a `Value` of a prepared type into its layout's
+cells — checking the whole value before it writes a cell and allocating nothing, keeping every
+scalar's exact bits, every enumeration's TYPE_TABLE type and value, and every structure member, array
+element and nested compound at its layout offset — and refuses, leaving the cells as they were, a
+value whose kind, members, bounds, element count or slice length does not match the type, a non-null
+reference (C1-9) and a `STRUCT OVERLAP` or union (C1-15), while a read materializes
+the same `Value` again and a member-and-index path resolves to its cell offset through the same
+layout (C1-10); nothing calls the conversion at run time yet, so stored values, outputs and faults
+are unchanged.
+
 **MEM-11.** Document scalar slots, compound regions, frame/local/temporary reuse, initialization scratch, and copy/drop ownership. Select one bounded representation for hosts and MCUs with application-sized capacities. Scope A/B may retain `SmolStr`/`IndexMap`/`Arc` values under a bounded bring-up heap on F401/C6, recording every remaining scan allocation and refcount/destruction cost; this cannot qualify ARCH-05. Implement measured narrow storage improvements before first hardware evidence where needed. Complete atomic-reference-count retirement and bounded compound copying in M3; only then require optional C3/IMC support. Avoid a throwaway value model solely to pass M1. Retain failed fit evidence and the mandatory fixture. [R24, R30, R31]
 
 ### 6.2.1 B-R3 live storage and footprint refinement
