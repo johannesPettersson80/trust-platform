@@ -206,6 +206,14 @@ pub(super) fn handle_ops_route(
             let _ = request.respond(response);
             return OpsRouteOutcome::Handled;
         };
+        // A deployment installs a program, so it is accepted only while the resource is Stopped,
+        // as `program.install` is (specification 34 §11.2). A refusal writes nothing.
+        if let Some(refusal) = refusal_unless_stopped(&**control_state) {
+            let response = Response::from_string(refusal.to_string())
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+            let _ = request.respond(response);
+            return OpsRouteOutcome::Handled;
+        }
         let result = apply_deploy(bundle_root, payload);
         let body = match result {
             Ok(result) => {
@@ -253,6 +261,15 @@ pub(super) fn handle_ops_route(
             let _ = request.respond(response);
             return OpsRouteOutcome::Handled;
         };
+        // A rollback changes which program the runtime starts next, as a deployment does, so it is
+        // accepted only while the resource is Stopped (specification 34 §11.2, decision Q11). A
+        // refusal changes no link.
+        if let Some(refusal) = refusal_unless_stopped(&**control_state) {
+            let response = Response::from_string(refusal.to_string())
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+            let _ = request.respond(response);
+            return OpsRouteOutcome::Handled;
+        }
         let root = bundle_root
             .parent()
             .map(PathBuf::from)

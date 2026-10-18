@@ -138,10 +138,10 @@ impl ResourcePort for ControlState {
         }
     }
 
-    /// `shutdown` ends the trust-runtime process, so a stopped resource has no scan thread to take
-    /// a restart (spec 34 STATE-08).
+    /// `shutdown` stops the program and leaves the process and its scan thread running, so a
+    /// stopped resource takes a restart and starts the installed program again (spec 34 STATE-08).
     fn starts_when_stopped(&self) -> bool {
-        false
+        true
     }
 }
 
@@ -164,10 +164,11 @@ impl StatusPort for ControlState {
         self.runtime_id.as_str()
     }
 
-    /// `shutdown` ends the trust-runtime process, so a stopped runtime has no scan loop to take a
-    /// `restart` (spec 34 STATE-08).
+    /// `shutdown` stops the program and keeps trust-runtime running, so a stopped runtime still
+    /// answers and takes a `restart` (spec 34 STATE-08). Only the explicit exit, a signal or a
+    /// stopped service ends the process.
     fn program_control(&self) -> ProgramControl {
-        ProgramControl::Process
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {

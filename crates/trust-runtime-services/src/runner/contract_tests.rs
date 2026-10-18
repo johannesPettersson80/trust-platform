@@ -174,6 +174,42 @@ fn shutdown_stops_the_program_at_the_next_boundary_and_the_device_keeps_serving(
 }
 
 #[test]
+fn the_explicit_exit_stops_a_device_as_shutdown_does_and_it_stays_reachable() {
+    // Specification 34 STATE-08: a chip's firmware never ends, so it answers `shutdown` with
+    // `{"exit": true}` as plain `shutdown`: the same reply, the stop at the next boundary, and the
+    // device reachable in Stopped. Wrong behaviour: the device replies `stopping` but ignores the
+    // exit and keeps scanning, or it refuses the request.
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    let _ = fixture.take_calls();
+
+    let reply = fixture.call_at(
+        &mut runner,
+        5,
+        &json!({"id": 7, "type": "shutdown", "params": {"exit": true}}),
+    );
+    assert_eq!(
+        reply,
+        json!({"id": 7, "ok": true, "result": {"status": "stopping"}, "audit_id": "audit-1"}),
+    );
+    fixture.pass_at(&mut runner, 10);
+    assert_eq!(
+        fixture.take_calls(),
+        [CycleCall::SafeOutputs, CycleCall::SaveRetain],
+        "the boundary takes the stop: the outputs go to their stop policy, then the retained \
+         values are saved"
+    );
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    let status = fixture.call_at(&mut runner, 40, &request(8, "status"));
+    assert_eq!(
+        state_of(&status),
+        "stopped",
+        "the device still answers after the exit"
+    );
+}
+
+#[test]
 fn restart_from_stopped_starts_the_program_at_once_as_a_new_process_would() {
     for (mode, restart_mode) in [("cold", RestartMode::Cold), ("warm", RestartMode::Warm)] {
         let fixture = Fixture::board_probe();

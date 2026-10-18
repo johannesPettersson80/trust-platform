@@ -359,7 +359,13 @@ where
     /// waits for the program's next boundary, and a restart of a program that has ended starts
     /// it at once.
     fn after_reply(&mut self, after_response: Option<ControlAfterResponse>) {
-        if after_response == Some(ControlAfterResponse::StopResource) && !self.resource.ended() {
+        // The explicit exit ends a computer's process; a device's firmware never ends, so it
+        // answers the exit as `shutdown` (specification 34, STATE-08).
+        let stops = matches!(
+            after_response,
+            Some(ControlAfterResponse::StopResource | ControlAfterResponse::ExitRuntime)
+        );
+        if stops && !self.resource.ended() {
             self.stop_requested = true;
         }
         if self.resource.ended()

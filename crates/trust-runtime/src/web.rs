@@ -94,7 +94,7 @@ use ads_routes::{handle_ads_route, AdsRouteContext, AdsRouteOutcome};
 use auth_helpers::*;
 use aux_routes::{handle_aux_route, AuxRouteContext, AuxRouteOutcome};
 use config_ui_routes::{handle_config_ui_route, ConfigUiRouteContext, ConfigUiRouteOutcome};
-use deploy::{apply_deploy, apply_rollback, DeployRequest};
+use deploy::{apply_deploy, apply_rollback, refusal_unless_stopped, DeployRequest};
 use hmi_ws::*;
 use http_post_policy::{api_post_policy_check, json_body_error_response, read_json_body};
 use ide::{IdeError, IdeRole, WebIdeFrontendTelemetry, WebIdeState};

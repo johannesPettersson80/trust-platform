@@ -55,8 +55,6 @@ const NORMALISED: &[(&str, &str)] = &[
     // The host's stable runtime ID comes from its project; the device reports its platform's value
     // (specification 11, `status`).
     ("/result/runtime_id", "runtime ID"),
-    // Spec 34 STATE-08: the host's process ends at `shutdown`, and the device keeps control.
-    ("/result/program_control", "program control"),
     // Process uptime on the host, the time since the program started on the device.
     ("/result/uptime_ms", "uptime"),
     // Scan durations: measured in real time on the host, on the test's clock on the device.
@@ -385,7 +383,8 @@ fn restart_in_place(host: &mut HostComposition, device: &mut Device<'_>, id: u64
 }
 
 /// `shutdown`: the host's scan thread takes the stop at its next pass, and the device at its
-/// boundary one cycle interval after its last scan; both then report Stopped.
+/// boundary one cycle interval after its last scan; both then report Stopped and keep serving
+/// (spec 34 STATE-08).
 fn shutdown(host: &mut HostComposition, device: &mut Device<'_>) {
     let line = request(22, "shutdown");
     let host_reply = host.request(&line);
@@ -413,7 +412,8 @@ fn shutdown(host: &mut HostComposition, device: &mut Device<'_>) {
 }
 
 /// STATE-08: the stopped device stays reachable, and `restart cold` starts the program as a new
-/// trust-runtime process would, with empty records; on the host the process has ended.
+/// trust-runtime process would, with empty records. The host's restart from Stopped is proved
+/// against the real process in `computer_stopped_keeps_runtime_up.rs`.
 fn start_again(device: &mut Device<'_>) {
     assert_eq!(device.state(28), "stopped");
     let restarted = device.exchange(&restart(29, "cold"), 1);
@@ -508,11 +508,12 @@ fn the_single_thread_loop_answers_the_transcript_exactly_as_the_threaded_host() 
     start_again(&mut device);
 }
 
-/// Specification 11 `status` and O4 revised: the host and the device differ in `platform` and
-/// `program_control` by design. The host's `shutdown` ends its process, while the device keeps
-/// control and can be started again (spec 34 STATE-08); both name the platform they run on.
+/// Specification 11 `status` and O4 revised: the host and the device differ in `platform` by
+/// design, and report the same `program_control`: since decision Q11 on computers (18 October
+/// 2026) the host's `shutdown` stops the program and keeps trust-runtime running, as the device's
+/// does (spec 34 STATE-08). Both name the platform they run on.
 #[test]
-fn the_runner_and_the_host_report_their_own_platform_and_program_control() {
+fn the_runner_and_the_host_report_their_own_platform_and_the_same_program_control() {
     let mut host = HostComposition::start();
     let warmup = host.settle_until(|scans| !scans.is_empty());
 
@@ -552,11 +553,13 @@ fn the_runner_and_the_host_report_their_own_platform_and_program_control() {
 
     let host_status = host.request(&request(1, "status"));
     let device_status = device.request(&request(2, "status"));
-    assert_eq!(host_status["result"]["program_control"], json!("process"));
-    assert_eq!(
-        device_status["result"]["program_control"],
-        json!("keeps_control")
-    );
+    for (composition, reply) in [("host", &host_status), ("runner", &device_status)] {
+        assert_eq!(
+            reply["result"]["program_control"],
+            json!("keeps_control"),
+            "the {composition} keeps control after `shutdown`"
+        );
+    }
     for (composition, reply) in [("host", &host_status), ("runner", &device_status)] {
         assert!(
             reply["result"]["platform"]

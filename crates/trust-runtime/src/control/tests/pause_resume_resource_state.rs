@@ -189,9 +189,12 @@ fn healthy_resource_keeps_today_replies_and_scheduler_commands_in_both_modes() {
 #[test]
 fn restart_and_reload_follow_the_scan_thread_state() {
     // Spec 11 section 6.6: a faulted resource takes a restart request, because its scan thread is
-    // alive in the faulted wait. A stopped resource has no thread, and a hung one has a scan thread
-    // inside a call that did not return. Both refuse restart and bytecode reload with the stable
-    // code. A refused reload sends no command, so it does not wait for a reply.
+    // alive in the faulted wait. Decision Q11 on computers (18 October 2026), specification 34
+    // STATE-08: so does a stopped one, because `shutdown` stops the program and the scan thread
+    // waits in the stopped wait; it refused the restart while `shutdown` ended the process. A
+    // stopped resource still refuses bytecode reload, and a hung one, whose scan thread is inside a
+    // call that did not return, refuses restart and reload, with the stable code. A refused reload
+    // sends no command, so it does not wait for a reply.
     use crate::config::ControlMode;
     use crate::scheduler::{ResourceControl, ResourceState, StdClock};
     use crate::RestartMode;
@@ -215,13 +218,16 @@ fn restart_and_reload_follow_the_scan_thread_state() {
 
     let (stopped, stopped_rx) =
         resource_state_fixture(ControlMode::Production, ResourceState::Stopped);
-    let refused = handle_request_value(restart_request.clone(), &stopped, None);
-    assert!(!refused.ok);
-    assert_eq!(refused.error_code.as_deref(), Some("resource_not_running"));
+    let started = handle_request_value(restart_request.clone(), &stopped, None);
+    assert!(
+        started.ok,
+        "a stopped restart is accepted: {:?}",
+        started.error
+    );
     assert_eq!(
         stopped.pending_restart.lock().ok().and_then(|guard| *guard),
-        None,
-        "a refused restart leaves no pending request"
+        Some(RestartMode::Warm),
+        "the scan thread in the stopped wait takes the request"
     );
     let refused_reload = handle_request_value(reload_request.clone(), &stopped, None);
     assert!(!refused_reload.ok);

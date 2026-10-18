@@ -56,6 +56,11 @@ impl FleetFixture {
 }
 
 fn accept_request(listener: &TcpListener, expected: &str) -> TcpStream {
+    accept_request_value(listener, expected).0
+}
+
+/// Accepts one request of type `expected` and returns the peer with the request it sent.
+fn accept_request_value(listener: &TcpListener, expected: &str) -> (TcpStream, serde_json::Value) {
     let deadline = Instant::now() + Duration::from_secs(10);
     let stream = loop {
         match listener.accept() {
@@ -79,14 +84,90 @@ fn accept_request(listener: &TcpListener, expected: &str) -> TcpStream {
         .expect("read complete request");
     let request: serde_json::Value = serde_json::from_str(&request).expect("request JSON");
     assert_eq!(request["type"], expected);
-    stream
+    (stream, request)
 }
 
 fn acknowledge_shutdown(listener: &TcpListener) {
-    for operation in ["status", "shutdown"] {
-        let mut stream = accept_request(listener, operation);
-        writeln!(stream, "{STATUS_OK}").expect("acknowledge request");
-    }
+    let mut probe = accept_request(listener, "status");
+    writeln!(probe, "{STATUS_OK}").expect("acknowledge the status probe");
+    let (mut stream, request) = accept_request_value(listener, "shutdown");
+    // Specification 11 section 6.8.3 and 34 STATE-08: `fleet runtime stop` ends the managed
+    // process, so it sends the explicit exit; a plain `shutdown` would leave the process running.
+    assert_eq!(request["params"], serde_json::json!({"exit": true}));
+    writeln!(stream, "{STATUS_OK}").expect("acknowledge the shutdown");
+}
+
+/// A `status` answer that reports the program in `state`.
+fn status_in_state(state: &str) -> String {
+    serde_json::json!({"id": 1, "ok": true, "result": {"state": state}}).to_string()
+}
+
+#[test]
+fn start_of_a_runtime_whose_program_is_stopped_restarts_it_cold() {
+    // Specification 11 section 6.8.3 and 34 STATE-08: a managed process that answers while its
+    // program is stopped is not already running; `fleet runtime start` starts the program with
+    // `restart` cold, the mode of a new process, and reports it started once it runs. Wrong
+    // behaviour: it reports the runtime as already running and the program stays stopped.
+    let FleetFixture { root, listener } = FleetFixture::new();
+    let server = thread::spawn(move || {
+        let mut status = accept_request(&listener, "status");
+        writeln!(status, "{}", status_in_state("stopped")).expect("stopped status");
+        let (mut restart, request) = accept_request_value(&listener, "restart");
+        assert_eq!(request["params"], serde_json::json!({"mode": "cold"}));
+        writeln!(restart, "{STATUS_OK}").expect("acknowledge the restart");
+        let mut running = accept_request(&listener, "status");
+        writeln!(running, "{}", status_in_state("running")).expect("running status");
+    });
+    let result = start_runtime(&root, "cell").expect("start the stopped program");
+    server.join().expect("join scripted peer");
+    assert_eq!(result.status, "running");
+    assert_eq!(result.message, "Runtime program started.");
+    fs::remove_dir_all(root).expect("remove fixture");
+}
+
+#[test]
+fn start_of_a_runtime_whose_program_runs_reports_it_already_running_and_sends_nothing() {
+    // Specification 11 section 6.8.3: the start of a runtime that already runs its program keeps
+    // its answer. Wrong behaviour: it restarts a running program. The peer answers one probe, so a
+    // `restart` that follows is never answered and fails the start.
+    let FleetFixture { root, listener } = FleetFixture::new();
+    let server = thread::spawn(move || {
+        let mut status = accept_request(&listener, "status");
+        writeln!(status, "{}", status_in_state("running")).expect("running status");
+    });
+    let result = start_runtime(&root, "cell").expect("start finds the runtime running");
+    server.join().expect("join scripted peer");
+    assert_eq!(result.status, "running");
+    assert_eq!(result.message, "Runtime is already running.");
+    fs::remove_dir_all(root).expect("remove fixture");
+}
+
+#[test]
+fn start_of_a_stopped_program_that_faults_on_its_start_reports_the_fault() {
+    // Specification 34 STATE-08: a program that cannot start leaves the resource faulted with the
+    // reason, and the start reports that reason instead of a started program. Wrong behaviour:
+    // the start waits out its budget or reports the runtime started.
+    let FleetFixture { root, listener } = FleetFixture::new();
+    let server = thread::spawn(move || {
+        let mut status = accept_request(&listener, "status");
+        writeln!(status, "{}", status_in_state("stopped")).expect("stopped status");
+        let mut restart = accept_request(&listener, "restart");
+        writeln!(restart, "{STATUS_OK}").expect("acknowledge the restart");
+        let mut faulted = accept_request(&listener, "status");
+        let answer = serde_json::json!({
+            "id": 1,
+            "ok": true,
+            "result": {"state": "faulted", "fault": "invalid bundle: broken program"},
+        });
+        writeln!(faulted, "{answer}").expect("faulted status");
+    });
+    let error = start_runtime(&root, "cell").expect_err("the program did not start");
+    server.join().expect("join scripted peer");
+    assert!(
+        error.to_string().contains("invalid bundle: broken program"),
+        "the fault is the reason: {error}"
+    );
+    fs::remove_dir_all(root).expect("remove fixture");
 }
 
 #[test]

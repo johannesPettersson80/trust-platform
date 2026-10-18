@@ -644,9 +644,14 @@ fn prepare_request_value(
     dispatch_value(value, state, client)
 }
 
+/// Runs the work a reply left for after it was written. `shutdown` stops the program and leaves the
+/// runtime running in the Stopped state, and the explicit exit also ends the process (specification
+/// 34, STATE-08).
 fn apply_after_response(action: Option<ControlAfterResponse>, state: &ControlState) {
-    if matches!(action, Some(ControlAfterResponse::StopResource)) {
-        state.resource.stop();
+    match action {
+        Some(ControlAfterResponse::StopResource) => state.resource.stop_program(),
+        Some(ControlAfterResponse::ExitRuntime) => state.resource.stop(),
+        None => {}
     }
 }
 

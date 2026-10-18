@@ -12,8 +12,9 @@ use serde::Serialize;
 use trust_runtime::bundle_builder::build_program_stbc;
 use trust_runtime::config::fleet_manifest::{
     interrupted_stop_probe, lifecycle_paths, load_manifest, managed_status,
-    read_control_auth_token, request_control, runtime_project_path, FleetManifestRuntime,
-    FleetRuntimeLifecycleResponse, FLEET_MANIFEST_FILE, FLEET_MANIFEST_SCHEMA_VERSION,
+    read_control_auth_token, request_control_with_params, runtime_project_path,
+    FleetManifestRuntime, FleetRuntimeLifecycleResponse, FLEET_MANIFEST_FILE,
+    FLEET_MANIFEST_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Serialize)]
@@ -31,6 +32,9 @@ pub(super) fn start_runtime(
     let (runtime, project_path) = resolve_manifest_runtime(fleet_root, name)?;
     let current = managed_status(fleet_root, &runtime)?;
     if current.status == "running" {
+        if program_state(&current) == Some("stopped") {
+            return start_stopped_program(fleet_root, &runtime, &project_path, current);
+        }
         return Ok(FleetRuntimeLifecycleResponse {
             message: "Runtime is already running.".to_string(),
             ..current
@@ -108,6 +112,66 @@ pub(super) fn start_runtime(
     })
 }
 
+/// The state of the program that a managed runtime's `status` answer reports, when it reports one.
+fn program_state(response: &FleetRuntimeLifecycleResponse) -> Option<&str> {
+    response.control_status.as_ref()?.get("state")?.as_str()
+}
+
+/// Starts the program of a managed runtime whose process answers while its program is stopped
+/// (specification 11 section 6.8.3; specification 34 STATE-08): `restart` with the mode `cold`, the
+/// mode of a new process, and then the wait for the state `running`. A program that faults on
+/// its start is an error naming the fault.
+fn start_stopped_program(
+    fleet_root: &Path,
+    runtime: &FleetManifestRuntime,
+    project_path: &Path,
+    current: FleetRuntimeLifecycleResponse,
+) -> anyhow::Result<FleetRuntimeLifecycleResponse> {
+    let auth = read_control_auth_token(project_path)?;
+    request_control_with_params(
+        runtime.control_endpoint.as_str(),
+        auth.as_deref(),
+        "restart",
+        Some(serde_json::json!({ "mode": "cold" })),
+    )
+    .with_context(|| format!("failed to start the program of runtime '{}'", runtime.name))?;
+
+    let mut last = current;
+    for attempt in 0..=30 {
+        last = managed_status(fleet_root, runtime)?;
+        let state = program_state(&last).map(str::to_owned);
+        match state.as_deref() {
+            Some("running") => {
+                return Ok(FleetRuntimeLifecycleResponse {
+                    message: "Runtime program started.".to_string(),
+                    ..last
+                });
+            }
+            Some("faulted") => {
+                let fault = last
+                    .control_status
+                    .as_ref()
+                    .and_then(|status| status.get("fault"))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("unknown fault");
+                anyhow::bail!(
+                    "runtime '{}' did not start its program: {fault}",
+                    runtime.name
+                );
+            }
+            _ => {}
+        }
+        if attempt < 30 {
+            thread::sleep(Duration::from_millis(200));
+        }
+    }
+    Ok(FleetRuntimeLifecycleResponse {
+        status: "starting".to_string(),
+        message: "Restart was accepted, but the program is not running yet.".to_string(),
+        ..last
+    })
+}
+
 fn terminate_started_child(child: &mut Child, pid_path: &Path) {
     let _ = child.kill();
     let _ = child.wait();
@@ -130,10 +194,13 @@ pub(super) fn stop_runtime(
     }
 
     let auth = read_control_auth_token(&project_path)?;
-    request_control(
+    // This command ends the managed process, so it sends the explicit exit. A plain `shutdown`
+    // would leave the process running with its program stopped (specification 34 STATE-08).
+    request_control_with_params(
         runtime.control_endpoint.as_str(),
         auth.as_deref(),
         "shutdown",
+        Some(serde_json::json!({ "exit": true })),
     )
     .with_context(|| format!("failed to stop runtime '{}'", runtime.name))?;
 

@@ -86,7 +86,9 @@ fn run_resource_loop_with_shared<C: Clock + Clone>(
 
 /// Runs the scan loop until a stop request ends it. A halting fault does not end the loop: the
 /// resource stays `Faulted` in the faulted wait (specification 11 section 6.6) and resumes only
-/// after a successful restart or online change.
+/// after a successful restart or online change. A program stop, the control `shutdown`, does not
+/// end the loop either: the resource waits `Stopped` until a `restart` starts the program again
+/// (specification 34, STATE-08).
 fn run_resource_loop_core<C, F>(
     mut runner: ResourceRunner<C>,
     stop: Arc<AtomicBool>,
@@ -131,10 +133,18 @@ fn run_resource_loop_core<C, F>(
             break;
         }
 
+        if supervision.take_program_stop() {
+            if stop_program(&mut runner, &shared, &mut restarts) == Next::Exit {
+                return;
+            }
+            paused = false;
+            continue;
+        }
+
         drain_commands(&mut runner, &state, &mut paused);
 
         if let Some(mode) = faulted::take_pending_restart(&runner) {
-            match runner.restart_with_retain_store(mode) {
+            match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     restarts.reset();
                     faulted::clear_recovered_fault(&supervision, &last_error);
@@ -155,7 +165,7 @@ fn run_resource_loop_core<C, F>(
         }
 
         let now_raw = runner.clock.now();
-        let now = scaled_time(now_raw, runner.time_scale);
+        let now = scaled_time(runner.program_time(now_raw), runner.time_scale);
         runner.runtime.set_current_time(now);
         let wall_start = std::time::Instant::now();
         let watchdog = runner.runtime.watchdog_policy();
@@ -322,6 +332,45 @@ fn stop_resource<C: Clock + Clone>(runner: &mut ResourceRunner<C>, shared: &Loop
         set_last_error(shared.last_error, err);
     }
     set_resource_state(shared.state, next);
+}
+
+/// Stops the program for the control `shutdown`, as `stop_resource` does for an exit, and then
+/// waits for a restart or an exit (specification 34, STATE-08).
+///
+/// A restart queued before the stop is dropped with the program it was meant for; one that arrives
+/// once the state reads `Stopped` starts the program. The stop leaves the resource `Stopped`, or
+/// `Faulted` when the stop outputs are unconfirmed or the save fails, and the wait follows the
+/// state it left.
+fn stop_program<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    shared: &LoopShared<'_>,
+    restarts: &mut AutomaticRestartLimiter,
+) -> Next {
+    let safe_state = runner.runtime.apply_io_safe_state();
+    let retain_save = runner.runtime.save_retain_store();
+    let (next, stop_error) = stop_outcome(safe_state, retain_save);
+    let _ = faulted::take_pending_restart(runner);
+    if let Some(err) = stop_error {
+        set_last_error(shared.last_error, err);
+    }
+    runner.reload_required = true;
+    set_resource_state(shared.state, next);
+    if next == ResourceState::Stopped {
+        match stopped::wait_while_stopped(runner, shared, restarts) {
+            stopped::StoppedWait::Started => return Next::Continue,
+            stopped::StoppedWait::Exited => return Next::Exit,
+            // The program did not start: the resource is faulted with the reason.
+            stopped::StoppedWait::Failed => {}
+        }
+    }
+    next_after(faulted::wait_while_faulted(
+        runner,
+        shared.stop,
+        shared.state,
+        shared.last_error,
+        shared.supervision,
+        restarts,
+    ))
 }
 
 /// Serves every queued command: pause and resume change the loop's state, the others act on the

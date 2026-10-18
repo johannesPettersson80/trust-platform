@@ -122,9 +122,10 @@ pub trait ResourcePort {
 
     /// Whether `restart` starts a stopped resource again (specification 34, STATE-08).
     ///
-    /// On a device without an operating system the program takes the place of the process: after
-    /// `shutdown` the device stays reachable and `restart` starts the installed program again. On
-    /// a computer `shutdown` ends the trust-runtime process, so a stopped resource refuses it.
+    /// On every runtime the program takes the place of the process: after `shutdown` the runtime
+    /// stays reachable and `restart` starts the installed program again. A platform whose
+    /// `shutdown` ended the process would have no scan to take the restart, so its stopped
+    /// resource would refuse it.
     fn starts_when_stopped(&self) -> bool;
 
     /// Why the resource has no installed program, when it has none: a device whose application
@@ -142,11 +143,12 @@ pub trait ResourcePort {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramControl {
     /// The runtime still answers after `shutdown`, and `restart` starts the program again: the
-    /// program takes the place of the process, as on a device without an operating system
+    /// program takes the place of the process, as on a device without an operating system and,
+    /// since the owner's decision of 18 October 2026, as on trust-runtime on a computer
     /// (spec 34 STATE-08).
     KeepsControl,
     /// `shutdown` ends the runtime's process, so a stopped runtime has no scan loop to take a
-    /// `restart` (spec 34 STATE-08).
+    /// `restart`, as an earlier trust-runtime on a computer did (spec 34 STATE-08).
     Process,
 }
 

@@ -17,7 +17,8 @@ use crate::control::ControlEndpoint;
 mod status;
 
 pub use status::{
-    interrupted_stop_probe, managed_status, request_control, FleetRuntimeLifecycleResponse,
+    interrupted_stop_probe, managed_status, request_control, request_control_with_params,
+    FleetRuntimeLifecycleResponse,
 };
 
 /// The fleet manifest's file name in a fleet root.

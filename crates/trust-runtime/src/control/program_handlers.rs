@@ -41,7 +41,7 @@ pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> Cont
 /// The shared `shutdown` reply, for the in-crate tests that call it directly.
 #[cfg(test)]
 pub(super) fn handle_shutdown(id: u64, _state: &ControlState) -> ControlResponse {
-    trust_runtime_services::resource::operations::shutdown(id)
+    trust_runtime_services::resource::operations::shutdown(id, None)
 }
 
 /// Answers `bytecode.reload`. The shared rules (`trust_runtime_services::loading::reload`) decide the

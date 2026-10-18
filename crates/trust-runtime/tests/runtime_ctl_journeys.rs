@@ -245,15 +245,18 @@ fn cold_restart_keeps_the_runtime_serving() {
 }
 
 #[test]
-fn shutdown_stops_the_runtime_process() {
+fn shutdown_with_exit_stops_the_runtime_process() {
+    // Decision Q11 on computers (18 October 2026), specification 34 STATE-08: a plain `shutdown`
+    // leaves the process running in Stopped, and `shutdown --exit` is what ends it, as `shutdown`
+    // alone did.
     let mut runtime = ExampleRuntime::new("memory_marker_counter").start();
     runtime.wait_for_snapshot(WAIT, "a running scan", |_| true);
 
-    runtime.ctl_ok(&["shutdown"]);
+    runtime.ctl_ok(&["shutdown", "--exit"]);
     let exit = runtime.wait_for_exit(Duration::from_secs(10));
     assert!(
         exit.success(),
-        "the runtime must exit successfully after shutdown: {exit}\n{}",
+        "the runtime must exit successfully after shutdown --exit: {exit}\n{}",
         runtime.diagnostics()
     );
 }
@@ -385,7 +388,9 @@ fn stopped_faulted_runtime_exits_with_status_one() {
         runtime.ctl_ok(&["status"]).contains("state=faulted")
     });
 
-    runtime.ctl_ok(&["shutdown"]);
+    // Decision Q11 on computers (18 October 2026): the exit is the explicit one. A plain `shutdown`
+    // leaves the faulted resource faulted and the process running.
+    runtime.ctl_ok(&["shutdown", "--exit"]);
     let exit = runtime.wait_for_exit(Duration::from_secs(10));
     assert_eq!(
         exit.code(),

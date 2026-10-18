@@ -322,7 +322,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "pause" => operations::pause(id, host),
         "resume" => operations::resume(id, host),
         "restart" => operations::restart(id, request.params.clone(), host),
-        "shutdown" => operations::shutdown(id),
+        "shutdown" => operations::shutdown(id, request.params.as_ref()),
         "program.install" => program_install::request(id, request.params.as_ref(), host),
         "transfer.begin" | "transfer.part" | "transfer.status" | "transfer.get"
         | "transfer.abort" => transfers::answer_transfer(request, host),

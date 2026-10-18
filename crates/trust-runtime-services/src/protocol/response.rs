@@ -7,8 +7,14 @@ use smol_str::SmolStr;
 /// Work the transport runs after it has written a response.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlAfterResponse {
-    /// Stop the resource; the reply to `shutdown` is written first.
+    /// Stop the program; the reply to `shutdown` is written first. The runtime stays reachable in
+    /// the Stopped state (specification 34, STATE-08).
     StopResource,
+    /// Stop the program and then end the runtime's process; the reply to `shutdown` with
+    /// `{"exit": true}` is written first. A platform whose firmware never ends, such as a chip,
+    /// stops the program and stays reachable, as for [`Self::StopResource`] (specification 34,
+    /// STATE-08).
+    ExitRuntime,
 }
 
 /// One control response: `{"id", "ok", "result", "error", "error_code", "audit_id"}`, where
@@ -49,10 +55,22 @@ impl ControlResponse {
         }
     }
 
-    /// The reply to `shutdown`: `{"status": "stopping"}`, and the resource stops after the reply
+    /// The reply to `shutdown`: `{"status": "stopping"}`, and the program stops after the reply
     /// has been written.
     #[must_use]
     pub fn shutdown(id: u64) -> Self {
+        Self::stopping(id, ControlAfterResponse::StopResource)
+    }
+
+    /// The reply to `shutdown` with `{"exit": true}`: the same `{"status": "stopping"}`, and the
+    /// program stops and the runtime's process ends after the reply has been written.
+    #[must_use]
+    pub fn shutdown_and_exit(id: u64) -> Self {
+        Self::stopping(id, ControlAfterResponse::ExitRuntime)
+    }
+
+    /// The `stopping` reply that defers `after_response` until the reply has been written.
+    fn stopping(id: u64, after_response: ControlAfterResponse) -> Self {
         let mut result = serde_json::Map::new();
         result.insert("status".to_string(), serde_json::Value::from("stopping"));
         Self {
@@ -62,7 +80,7 @@ impl ControlResponse {
             error: None,
             error_code: None,
             audit_id: None,
-            after_response: Some(ControlAfterResponse::StopResource),
+            after_response: Some(after_response),
         }
     }
 

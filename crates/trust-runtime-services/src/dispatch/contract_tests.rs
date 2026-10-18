@@ -589,6 +589,39 @@ fn shutdown_replies_first_and_defers_the_stop() {
 }
 
 #[test]
+fn shutdown_with_the_exit_parameter_replies_first_and_defers_the_exit_for_admin_only() {
+    // Specification 11 §6.9 and 34 STATE-08: the explicit exit is `shutdown` for the Admin role,
+    // and its parameter does not lower the role. Wrong behaviour: the exit is deferred as a plain
+    // stop, or a role below Admin can end the process by adding `exit`.
+    let host = FakeHost::running();
+    let prepared = prepare_line(
+        r#"{"id":43,"type":"shutdown","params":{"exit":true}}"#,
+        &host,
+        UNIX,
+    );
+    assert_eq!(
+        prepared.response,
+        r#"{"id":43,"ok":true,"result":{"status":"stopping"},"audit_id":"audit-1"}"#
+    );
+    assert_eq!(
+        prepared.after_response,
+        Some(ControlAfterResponse::ExitRuntime)
+    );
+
+    let host = FakeHost::running();
+    let refused = dispatch_value(
+        json!({"id": 44, "type": "shutdown", "params": {"exit": true}}),
+        &host,
+        NETWORK,
+    );
+    assert_eq!(
+        refused.error.as_deref(),
+        Some("forbidden: requires role admin")
+    );
+    assert_eq!(refused.after_response, None, "a refused exit ends nothing");
+}
+
+#[test]
 fn status_carries_the_access_capabilities_of_the_request_role() {
     let host = FakeHost::running();
     let viewer = dispatch_value(json!({"id": 1, "type": "status"}), &host, NETWORK);
