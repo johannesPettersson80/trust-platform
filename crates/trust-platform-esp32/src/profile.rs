@@ -38,6 +38,23 @@ pub const STBC_OFFSET: u32 = 0x20_0000;
 /// from [`STBC_OFFSET`] to the two checkpoint slots at the end of the 8 MB module.
 pub const STBC_BYTES: usize = 6112 * 1024;
 
+/// Checkpoint slot `checkpoint_a`: its flash address, the chip file's `[layout] checkpoint_a`
+/// (specification 34 D.2 and §10.1). The slot follows the installed application.
+pub const CHECKPOINT_A_OFFSET: u32 = 0x7F_8000;
+/// Checkpoint slot `checkpoint_b`: its flash address, the chip file's `[layout] checkpoint_b`. It
+/// follows slot A and ends the 8 MB module.
+pub const CHECKPOINT_B_OFFSET: u32 = 0x7F_C000;
+/// The bytes of each checkpoint slot: 16 KiB, four erase units (the chip file's `kib = 16`).
+pub const CHECKPOINT_SLOT_BYTES: u32 = 16 * 1024;
+/// The bytes one flash program writes at a time, and the alignment of every flash access the
+/// checkpoint makes: the word `esp-storage` writes (specification 34 §10.1).
+pub const FLASH_PROGRAM_BYTES: u32 = 4;
+/// The bytes one flash erase clears: a 4 KiB sector (the chip file's `memory.spi_flash.erase_kib`).
+pub const FLASH_ERASE_BYTES: u32 = 4 * 1024;
+/// The most bytes one checkpoint step programs between two scans: one 256-byte flash page, so a
+/// step takes a few milliseconds (specification 34 §10).
+pub const CHECKPOINT_STEP_BYTES: usize = 256;
+
 /// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
 /// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
 /// timing evidence, no platform capability, the maxima for each preparation limit, its event

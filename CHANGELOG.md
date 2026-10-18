@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- RETAIN variables on the ESP32-C6: with `[runtime.retain] mode = "file"` the chip saves them into
+  its checkpoint flash at `save_interval_ms` and at `shutdown`, and power-on and a reset start the
+  program warm with the newest saved values, so an interrupted save loses at most that save. The
+  `path` key has no meaning on a chip. Retained values the program no longer declares, or whose
+  type changed, are reported in the event log at the start, as on a computer.
+
 - `[runtime.events] capacity` in `runtime.toml` sets how many events the event store keeps
   (1 to 1,000,000; 1,000 by default on a computer), as PLC vendors size their diagnostic buffer
   per device. `status` reports it as `event_capacity`, and a chip receives it in its deployment

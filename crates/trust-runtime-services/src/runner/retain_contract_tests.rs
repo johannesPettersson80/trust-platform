@@ -20,7 +20,7 @@ use trust_runtime_core::ports::CheckpointStorage;
 use trust_runtime_core::retain::checkpoint::{
     CheckpointFlash, CheckpointIdentity, CheckpointLog, FlashError, FlashGeometry, RecordInfo, Slot,
 };
-use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::vm::PreparedModule;
@@ -284,19 +284,24 @@ impl RetainFixture {
             },
         )
         .expect("the program starts");
-        if warm {
+        // The composition records the events of the boot's warm start, as the device does.
+        let boot_events = if warm {
             cycle
                 .restart(RestartMode::Warm, RetainSource::Checkpoint)
-                .expect("the warm start loads the checkpoint");
-        }
-        Runner::new(
+                .expect("the warm start loads the checkpoint")
+        } else {
+            Vec::new()
+        };
+        let runner = Runner::new(
             self.link.clone(),
             self.wait.clone(),
             cycle,
             platform,
             self.clock.clone(),
             EVENT_STORE_CAPACITY,
-        )
+        );
+        runner.record_boot_retain_events(boot_events);
+        runner
     }
 
     /// Moves the clock to `at` milliseconds and runs one pass.
@@ -651,4 +656,56 @@ fn a_warm_start_under_a_new_identity_writes_once() {
     );
     let newest = committed(&flash).expect("the checkpoint recovers");
     assert_eq!((newest.sequence, newest.identity), (2, new));
+}
+
+/// The `retain_orphan_dropped` events of an `events.tail` reply, in the order the store holds them.
+/// A scan records its own events too, so a test asks for the kind it checks.
+fn orphan_events(reply: &serde_json::Value) -> Vec<serde_json::Value> {
+    reply["result"]["events"]
+        .as_array()
+        .expect("events.tail replies with an array of events")
+        .iter()
+        .filter(|event| event["type"] == "retain_orphan_dropped")
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn a_boot_warm_start_records_the_retain_events_it_produced() {
+    // Spec 34 STATE-08: the boot's warm start is the restart the installed program starts with, and
+    // its retain events are recorded as a restart in place records them (specification 11 §6.7).
+    // The checkpoint holds `Gone`, a name the A4 program does not declare, so the warm start drops it
+    // with one orphan event at the program's time zero, which `events.tail` reports after the boot.
+    // Catches a boot whose warm-start events the composition discards.
+    let flash = RamFlash::new(f407());
+    let mut snapshot = RetainSnapshot::default();
+    snapshot.insert("Gone", Value::Int(7));
+    let mut payload = Vec::new();
+    snapshot
+        .encode_snapshot_payload_into(&mut payload)
+        .expect("the snapshot encodes");
+    CheckpointLog::open(flash.clone())
+        .expect("the checkpoint log opens")
+        .append(IDENTITY, &payload)
+        .expect("the checkpoint is written");
+
+    let fixture = RetainFixture::new(
+        flash.clone(),
+        RetainMode::File,
+        Duration::from_millis(60_000),
+    );
+    let mut runner = fixture.build(true);
+    // The boot's first scan is due at time zero, and the loop takes a due boundary before it answers
+    // a request, so the scan runs first and the request is asked at 1 ms, before the next boundary at
+    // 10 ms.
+    fixture.pass_at(&mut runner, 0);
+    let reply = fixture.call_at(
+        &mut runner,
+        1,
+        &json!({"id": 1, "type": "events.tail", "params": {"limit": 100}}),
+    );
+    assert_eq!(
+        orphan_events(&reply),
+        vec![json!({"type": "retain_orphan_dropped", "name": "Gone", "time_ns": 0})]
+    );
 }
