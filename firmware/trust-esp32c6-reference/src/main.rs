@@ -40,6 +40,7 @@ use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_core::watchdog::RetainMode;
+use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
@@ -60,16 +61,21 @@ fn main() -> ! {
     };
     // Hardware first (design §1.1, R1): the reset reason and the reset record, read once, and
     // this boot counted for the next record.
-    let _reset_reason = board.reset.reason();
-    let _previous_boot = board.reset.take_reset_record();
-    let _boot = board.reset.note_boot();
+    let reset_reason = board.reset.reason();
+    let previous_record = board.reset.take_reset_record();
+    let boot_count = board.reset.note_boot();
+    // The reset the previous boot left, kept for the platform's `capabilities` reply (specification
+    // 11, the runtime device capabilities contract; specification 34, the fixed-size reset record):
+    // its record, or its hardware reason when it left none, with this boot's counter.
+    let last_reset =
+        Platform::<Watchdog>::boot_last_reset(reset_reason, previous_record, boot_count);
 
     // The installed application, admitted before any state exists.
     let admitted = application::read_and_admit(&mut board);
     let wait_alarm = board.take_wait_alarm();
     let admitted = match admitted {
         Ok(admitted) => admitted,
-        Err(reason) => stop(board, wait_alarm, reason),
+        Err(reason) => stop(board, wait_alarm, last_reset, reason),
     };
     let program = admitted.program;
     let config = admitted.record.configuration;
@@ -79,6 +85,7 @@ fn main() -> ! {
         stop(
             board,
             wait_alarm,
+            last_reset,
             String::from(
                 "the installed application requests a retain mode, which the C6 does not carry out yet",
             ),
@@ -89,7 +96,7 @@ fn main() -> ! {
     // before it becomes an output (design §1.1, R1).
     let (gpio_inputs, gpio_outputs) = match gpio_lines(&config) {
         Ok(lines) => lines,
-        Err(reason) => stop(board, wait_alarm, reason),
+        Err(reason) => stop(board, wait_alarm, last_reset, reason),
     };
     let claimed = board.claim_lines(&gpio_inputs, &gpio_outputs);
     let lines = match claimed {
@@ -97,6 +104,7 @@ fn main() -> ! {
         Err(error) => stop(
             board,
             wait_alarm,
+            last_reset,
             format!("the installed application's GPIO lines cannot be claimed: {error}"),
         ),
     };
@@ -110,6 +118,7 @@ fn main() -> ! {
         stop(
             board,
             wait_alarm,
+            last_reset,
             String::from("the installed application's watchdog timeout is outside the C6's range"),
         );
     }
@@ -124,6 +133,7 @@ fn main() -> ! {
         Err(error) => stop(
             board,
             wait_alarm,
+            last_reset,
             format!("the installed application cannot be prepared: {error}"),
         ),
     };
@@ -136,6 +146,7 @@ fn main() -> ! {
         Err(error) => stop(
             board,
             wait_alarm,
+            last_reset,
             format!("the installed application's Live Values cannot be prepared: {error}"),
         ),
     };
@@ -161,6 +172,7 @@ fn main() -> ! {
         Ok(cycle) => cycle,
         Err(error) => serve_stopped(
             parts,
+            last_reset,
             format!("the installed application cannot be started: {error}"),
         ),
     };
@@ -175,6 +187,7 @@ fn main() -> ! {
         config.control_debug_enabled,
         config.control_mode,
         live,
+        last_reset,
     );
     let mut runner = Box::new(Runner::new(
         UsbLink::bind(),
@@ -213,14 +226,15 @@ impl Parts {
 fn stop(
     board: Board,
     wait_alarm: Option<esp_hal::timer::systimer::Alarm<'static>>,
+    last_reset: LastReset,
     reason: String,
 ) -> ! {
-    serve_stopped(Parts::take(board, wait_alarm), reason)
+    serve_stopped(Parts::take(board, wait_alarm), last_reset, reason)
 }
 
 /// Runs the resource loop without a program: the resource is Stopped, the loop serves the link
 /// and feeds the hardware watchdog, and `restart` is refused with `reason` (design §1.1, R2).
-fn serve_stopped(mut parts: Parts, reason: String) -> ! {
+fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
     let Some(alarm) = parts.wait_alarm.take() else {
         emergency_halt("wait-alarm");
     };
@@ -234,6 +248,7 @@ fn serve_stopped(mut parts: Parts, reason: String) -> ! {
         // the record's default (specification 11 §6.9).
         ControlMode::Production,
         EngineLiveValues::empty(),
+        last_reset,
     );
     // A Stopped loop holds no cycle, so its type is named: the cycle a program would run.
     let mut runner = Box::new(

@@ -829,7 +829,8 @@ artifact and 1,024 call levels, keeps the newest 1,000 events by default and adm
 1,000,000, and has no maximum for the other limits and no application slot (HOST-02). A chip's
 descriptor comes from its chip file (TARGET-03); Appendix H gains the keys for its maxima with the
 chip's firmware, and its `[events]` table gives the chip's event-store default and maximum. The
-control connection serves the descriptor in a later slice.
+control connection serves the descriptor with the `capabilities` operation (specification 11), the
+same operation on every runtime.
 
 ### 5.2 Compiler-free preparation
 
@@ -3170,9 +3171,10 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   cookie completes the run. With reason 0x15 or 0x01, a leftover cookie is discarded and a new run
   starts; that reset is the explicit new boot. Any other reason with a cookie present halts with a
   FAIL record. Beside it, both chips keep the same fixed-size reset record (a magic, a version, a
-  CRC-32 and a boot counter, with the cause and a short panic location): the panic and watchdog
-  paths write it before a reset, and the next boot reads and clears it once, so a damaged record
-  reads as no record.
+  CRC-32 and a boot counter, with the cause and a short panic location): the panic path writes it
+  before a reset, and the next boot reads and clears it once, so a damaged record reads as no
+  record. A watchdog reset runs no code, so when no record exists the next boot takes the cause
+  from the chip's reset reason, MWDT0 (0x07), as specification 11 defines it.
 - **GPIO.** The physical input is the BOOT button, GPIO9: active low with the internal pull-up. It
   is a strapping pin sampled only at reset, so the firmware reads it only after boot. The output is
   GPIO18, a plain pin with no board load, read back through its own pad input; the probe read back

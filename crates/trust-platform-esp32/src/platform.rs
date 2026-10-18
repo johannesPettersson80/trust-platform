@@ -11,15 +11,17 @@
 //! and the snapshot it publishes, as trust-runtime's `ControlState` answers them
 //! (specification 11, "Live Values"; specification 34 §4.3.1).
 
+use alloc::string::String;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
-use trust_runtime_core::deployment::ControlMode;
+use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan, WallClock};
 use trust_runtime_core::value::Value;
 use trust_runtime_services::access::{resolve_role, AccessRole, AuthFailure};
+use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use trust_runtime_services::live_values::queues::{
     ForcedSnapshot, ForcedVarTarget, PendingVarTarget,
@@ -35,6 +37,9 @@ use trust_runtime_services::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
 
+use crate::profile::{DEVICE_DESCRIPTOR, RESET_WATCHDOG};
+use crate::{ResetCause, ResetRecord};
+
 /// The C6's platform for the single-thread resource loop, over the watchdog `W` the adapter
 /// supplies, the values the installed application's record configures and the Live Values of the
 /// installed program.
@@ -49,12 +54,16 @@ pub struct Platform<W> {
     /// The Live Values the runner applies at its cycle phases and the `io.*`, `set` and `var.*`
     /// operations answer from (specification 11, "Live Values"; specification 34 §4.3.1).
     live: EngineLiveValues,
+    /// The reset the boot reports, for the `capabilities` reply (specification 11, the runtime
+    /// device capabilities contract), built by [`Platform::boot_last_reset`].
+    last_reset: LastReset,
 }
 
 impl<W> Platform<W> {
     /// A platform over `watchdog` that reports `resource_name`, the runtime `settings`, whether
     /// the debug surface is `debug_enabled` and the record's `control_mode`, with the Live Values
-    /// `live` of the installed program, or [`EngineLiveValues::empty`] for a chip without one.
+    /// `live` of the installed program, or [`EngineLiveValues::empty`] for a chip without one, and
+    /// the `last_reset` the boot reports.
     #[must_use]
     pub fn new(
         watchdog: W,
@@ -63,6 +72,7 @@ impl<W> Platform<W> {
         debug_enabled: bool,
         control_mode: ControlMode,
         live: EngineLiveValues,
+        last_reset: LastReset,
     ) -> Self {
         Self {
             watchdog,
@@ -71,6 +81,33 @@ impl<W> Platform<W> {
             debug_enabled,
             control_mode,
             live,
+            last_reset,
+        }
+    }
+
+    /// The reset the boot reports (specification 11, the runtime device capabilities contract).
+    /// Its cause and text are the record the previous boot left. When it left none, the boot's
+    /// hardware reset reason `reason` decides: `RESET_WATCHDOG` is a watchdog reset, which runs no
+    /// code and so writes no record (specification 34, the C6's supervision), and any other reason
+    /// is `power_on`. `boot_count` is the chip's boot counter for this boot, reported for every
+    /// reset, record or not.
+    #[must_use]
+    pub fn boot_last_reset(reason: u8, record: Option<ResetRecord>, boot_count: u32) -> LastReset {
+        match record {
+            Some(record) => LastReset {
+                cause: reset_cause(record.cause()),
+                text: SmolStr::new(String::from_utf8_lossy(record.text()).as_ref()),
+                boot_count,
+            },
+            None => LastReset {
+                cause: if reason == RESET_WATCHDOG {
+                    ResetCauseName::Watchdog
+                } else {
+                    ResetCauseName::PowerOn
+                },
+                text: SmolStr::default(),
+                boot_count,
+            },
         }
     }
 }
@@ -129,6 +166,27 @@ impl<W> StatusPort for Platform<W> {
 
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         Some(disabled_openot_persistence())
+    }
+
+    /// The C6's descriptor, the same admission reads (specification 34 §5.1.1, COMPAT-02 and
+    /// TARGET-03).
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        DEVICE_DESCRIPTOR
+    }
+
+    /// The reset the boot reported (specification 11, the runtime device capabilities contract).
+    fn last_reset(&self) -> Option<LastReset> {
+        Some(self.last_reset.clone())
+    }
+}
+
+/// The wire name of the reset record's cause (specification 11, the runtime device capabilities
+/// contract).
+fn reset_cause(cause: ResetCause) -> ResetCauseName {
+    match cause {
+        ResetCause::Panic => ResetCauseName::Panic,
+        ResetCause::Watchdog => ResetCauseName::Watchdog,
+        ResetCause::Requested => ResetCauseName::Requested,
     }
 }
 

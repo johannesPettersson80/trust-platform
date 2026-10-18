@@ -6,7 +6,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
-use trust_runtime_core::deployment::ControlMode;
+use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
@@ -20,6 +20,7 @@ use super::engine::EngineLiveValues;
 use super::program::Program;
 use super::state::{Records, ResourceCell};
 use crate::access::{AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::events::RuntimeEvent;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
@@ -185,6 +186,16 @@ impl<P: RunnerPlatform, Y: ResourceCycle, C> StatusPort for RunnerHost<'_, P, Y,
 
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         self.platform.openot_persistence()
+    }
+
+    /// The platform's descriptor, so a device answers its own and a hosted runtime the computer's.
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        self.platform.device_descriptor()
+    }
+
+    /// The reset the platform's boot read, `None` on a computer.
+    fn last_reset(&self) -> Option<LastReset> {
+        self.platform.last_reset()
     }
 }
 

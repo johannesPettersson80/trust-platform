@@ -1,14 +1,22 @@
 //! The ESP32-C6 data of this adapter is the chip's file, `chips/esp32c6.toml` (specification 34,
 //! TARGET-03 and Appendix H): the chip ID, the clock, the partitions the firmware reads, and the
 //! instruction set the firmware checks at boot. The firmware cannot read the file, so this host
-//! test keeps the two equal.
+//! test keeps the two equal. The `capabilities` reply the chip gives for its descriptor and its
+//! last reset is checked against the file and the reset record as well (specification 11).
 
+use serde_json::{json, Value};
+use smol_str::SmolStr;
 use trust_chips::{Catalog, ChipFile, Family, Fpu};
 use trust_platform_esp32::profile::{
-    numeric_profile_ok, CHIP_ID, CPU_HZ, DEVICE_DESCRIPTOR, FACTORY_OFFSET, FLASH_KIB, STBC_BYTES,
-    STBC_OFFSET,
+    numeric_profile_ok, CHIP_ID, CPU_HZ, DEVICE_DESCRIPTOR, FACTORY_OFFSET, FLASH_KIB,
+    RESET_POWER_ON, RESET_USB, RESET_WATCHDOG, STBC_BYTES, STBC_OFFSET,
 };
-use trust_runtime_core::deployment::DeviceDescriptor;
+use trust_platform_esp32::{Platform, ResetCause, ResetRecord};
+use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
+use trust_runtime_services::capabilities::{self, LastReset, ResetCauseName};
+use trust_runtime_services::ports::StatusPort;
+use trust_runtime_services::runner::EngineLiveValues;
+use trust_runtime_services::status::StatusSettings;
 
 fn chip_file() -> ChipFile {
     Catalog::embedded()
@@ -89,4 +97,122 @@ fn the_device_descriptor_matches_the_chip_file() {
     // No maxima keys yet: the descriptor carries trust-runtime's hosted maxima, which the
     // chip file will replace when Appendix H gains them.
     assert_eq!(DEVICE_DESCRIPTOR.maxima, DeviceDescriptor::hosted().maxima);
+}
+
+/// The `capabilities` reply of the chip's descriptor carries the chip file's application slot and
+/// event store (specification 34 §5.1.1 and TARGET-03; specification 11, the runtime device
+/// capabilities contract). The slot is `kib = 6112` of `[layout] application`, 6112 x 1024 bytes;
+/// the event store is the file's `[events]` table. The reply is rendered from the descriptor by the
+/// shared services, so the rendered fields are compared with the file and with literals worked out
+/// by hand here. Catches a slot in another unit or region (the 16 KiB bench bundle), an event store
+/// that is the computer's 1,000, and an unbounded maximum written as a number instead of `null`.
+#[test]
+fn the_capabilities_reply_of_the_chip_carries_the_chip_file_slot_and_event_store() {
+    let file = chip_file();
+    let reply = capabilities::descriptor_json(&DEVICE_DESCRIPTOR, None);
+    assert_eq!(reply["application_slot_bytes"], json!(6_258_688_u64));
+    assert_eq!(
+        reply["application_slot_bytes"],
+        json!(file.layout.application.bytes())
+    );
+    assert_eq!(
+        reply["event_store_default"],
+        json!(file.events.default_capacity)
+    );
+    assert_eq!(reply["event_store_max"], json!(file.events.max_capacity));
+    assert_eq!(reply["timing_evidence"], json!("unqualified"));
+    // The C6 has no wall clock until slice T6 (profile.rs), so no capability is reported.
+    assert_eq!(reply["capabilities"], json!([]));
+    // Specification 34 §5.1.1: a 64 MiB artifact and 1,024 call levels are bounded; the other
+    // limits are `u64::MAX` in the descriptor, no maximum, and render as `null`.
+    assert_eq!(reply["maxima"]["max_artifact_bytes"], json!(67_108_864));
+    assert_eq!(reply["maxima"]["max_call_depth"], json!(1_024));
+    assert_eq!(reply["maxima"]["max_preparation_bytes"], Value::Null);
+}
+
+/// A platform over no watchdog that reports the reset `last_reset` its boot reported.
+fn platform_with(last_reset: LastReset) -> Platform<()> {
+    Platform::new(
+        (),
+        SmolStr::new_static("Controller"),
+        StatusSettings {
+            execution_backend: "vm",
+            execution_backend_source: "default",
+            simulation_enabled: false,
+            simulation_time_scale: 1,
+            simulation_mode: SmolStr::new_static("production"),
+            simulation_warning: SmolStr::default(),
+        },
+        false,
+        ControlMode::Production,
+        EngineLiveValues::empty(),
+        last_reset,
+    )
+}
+
+/// The reset the chip reports for a boot: its cause, its text and the boot counter (specification 11,
+/// the runtime device capabilities contract).
+fn reset_of(cause: ResetCauseName, text: &str, boot_count: u32) -> LastReset {
+    LastReset {
+        cause,
+        text: SmolStr::new(text),
+        boot_count,
+    }
+}
+
+/// The chip reports the reset its boot read (specification 11, the runtime device capabilities
+/// contract; specification 34, the fixed-size reset record). A record the previous boot left gives
+/// its cause and text, and the boot counter is the chip's, for this boot: the record's own counter
+/// (3 below) is not reported. A boot with no record takes its cause from the hardware reset reason:
+/// a watchdog reset (`RESET_WATCHDOG`, 0x07) writes no record and reports `watchdog`, while a
+/// power-on or host (USB) reset reports `power_on`. A record wins over the reason. Catches a record
+/// the firmware hands over that the platform drops, a cause renamed or mapped to another, a text
+/// lost, a boot counter taken from the record or left at 0, a watchdog reset reported as `power_on`
+/// (the reply the bench checks), and a reason that overrides a record.
+#[test]
+fn the_chip_reports_the_reset_its_boot_read() {
+    // A record the previous boot left, stamped with boot 3, is reported with this boot's counter 7.
+    for (cause, name) in [
+        (ResetCause::Watchdog, ResetCauseName::Watchdog),
+        (ResetCause::Panic, ResetCauseName::Panic),
+        (ResetCause::Requested, ResetCauseName::Requested),
+    ] {
+        let record = ResetRecord::with_text(cause, "scan", 3);
+        let boot = Platform::<()>::boot_last_reset(RESET_POWER_ON, Some(record), 7);
+        assert_eq!(
+            boot,
+            reset_of(name, "scan", 7),
+            "the record's {cause:?} reads as {} with this boot's counter",
+            name.as_str()
+        );
+        assert_eq!(
+            platform_with(boot).last_reset(),
+            Some(reset_of(name, "scan", 7)),
+            "the platform reports the reset its boot reported"
+        );
+    }
+    // A watchdog reset writes no record: its reason, 0x07, reads as `watchdog` with empty text.
+    let watchdog = Platform::<()>::boot_last_reset(RESET_WATCHDOG, None, 4);
+    assert_eq!(
+        watchdog,
+        reset_of(ResetCauseName::Watchdog, "", 4),
+        "a hardware watchdog reset with no record reads as watchdog"
+    );
+    // A power-on or host (USB) reset with no record reads as `power_on`, with this boot's counter.
+    for (reason, count) in [(RESET_POWER_ON, 1), (RESET_USB, 2)] {
+        let boot = Platform::<()>::boot_last_reset(reason, None, count);
+        assert_eq!(
+            boot,
+            reset_of(ResetCauseName::PowerOn, "", count),
+            "reason {reason:#04x} with no record reads as power_on"
+        );
+    }
+    // A record the boot read wins over the watchdog reason.
+    let record = ResetRecord::with_text(ResetCause::Panic, "main.rs:42", 5);
+    let record_wins = Platform::<()>::boot_last_reset(RESET_WATCHDOG, Some(record), 6);
+    assert_eq!(
+        record_wins,
+        reset_of(ResetCauseName::Panic, "main.rs:42", 6),
+        "a record the boot read wins over the watchdog reason"
+    );
 }
