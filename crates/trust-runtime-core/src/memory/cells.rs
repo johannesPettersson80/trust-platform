@@ -17,9 +17,9 @@ mod convert;
 
 use alloc::vec::Vec;
 
-use crate::bytecode::{StorageOwner, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::memory::layout::{CellRange, LayoutRegion, CELL_BYTES};
+use crate::memory::regions::PersistentExtent;
 use crate::memory::{Generation, InstanceId};
 use crate::vm::{PreparedModule, VmTrap};
 
@@ -232,44 +232,16 @@ impl CellStore {
         Ok(store)
     }
 
-    /// Reserve the persistent region of `prepared`: its globals' and its instance templates'
-    /// cells, and one reference record per reference leaf they hold (specification 34 §6.2, the
-    /// paragraph after MEM-10).
+    /// Reserve the persistent region of `prepared`: its globals' cells, and each persistent root's
+    /// own cells and reference leaves (specification 34 §6.2; O6, O8). The cell store reads the same
+    /// extent (`memory/regions.rs`).
     ///
-    /// The region's cells and reference leaves are counted from the prepared layouts, never by
-    /// hand: a template's references include its parent chain's, whose cells it places first.
+    /// # Errors
+    ///
+    /// Refused as [`CellStore::reserve`] is, or when the prepared layouts and declarations disagree.
     pub fn persistent(prepared: &PreparedModule) -> Result<Self, RuntimeError> {
-        let mut cells = 0u32;
-        let mut references = 0u32;
-        for declaration in prepared.storage_declarations() {
-            if declaration.owner != StorageOwner::Global || !declaration.owns_storage() {
-                continue;
-            }
-            let Some(type_id) = declaration.type_id else {
-                continue;
-            };
-            let layout = prepared
-                .type_layout(type_id)
-                .ok_or(RuntimeError::TypeMismatch)?;
-            cells = cells
-                .checked_add(layout.cells)
-                .ok_or(RuntimeError::Overflow)?;
-            references = references
-                .checked_add(leaf_count(layout.reference_leaves.len())?)
-                .ok_or(RuntimeError::Overflow)?;
-        }
-        for (pou, _) in prepared.pous() {
-            let Some(template) = prepared.instance_template_cells(pou) else {
-                continue;
-            };
-            cells = cells
-                .checked_add(template.range.cells)
-                .ok_or(RuntimeError::Overflow)?;
-            references = references
-                .checked_add(template_reference_leaves(prepared, pou, 0)?)
-                .ok_or(RuntimeError::Overflow)?;
-        }
-        Self::reserve(cells, references)
+        let extent = PersistentExtent::of(prepared)?;
+        Self::reserve(extent.cells, extent.references)
     }
 
     /// The cells and the reference records this region has room for.
@@ -323,45 +295,4 @@ fn cell_span(range: CellRange) -> Option<core::ops::Range<usize>> {
     let start = usize::try_from(range.start).ok()?;
     let end = start.checked_add(usize::try_from(range.cells).ok()?)?;
     Some(start..end)
-}
-
-/// The reference leaves of one POU's instance template: its own declarations' leaves and then its
-/// parent chain's, matching the parent cells a template places first (design "Prepared layouts").
-///
-/// The chain is bounded like the prepared template totals are, so a cyclic parent chain is refused
-/// rather than followed.
-fn template_reference_leaves(
-    prepared: &PreparedModule,
-    pou: u32,
-    depth: usize,
-) -> Result<u32, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
-        return Err(RuntimeError::TypeMismatch);
-    }
-    let mut leaves = 0u32;
-    for declaration in prepared.instance_declarations(pou) {
-        if !declaration.owns_storage() {
-            continue;
-        }
-        let Some(type_id) = declaration.type_id else {
-            continue;
-        };
-        let layout = prepared
-            .type_layout(type_id)
-            .ok_or(RuntimeError::TypeMismatch)?;
-        leaves = leaves
-            .checked_add(leaf_count(layout.reference_leaves.len())?)
-            .ok_or(RuntimeError::Overflow)?;
-    }
-    if let Some(parent) = prepared.parent_pou(pou) {
-        leaves = leaves
-            .checked_add(template_reference_leaves(prepared, parent, depth + 1)?)
-            .ok_or(RuntimeError::Overflow)?;
-    }
-    Ok(leaves)
-}
-
-/// One leaf count as a `u32`.
-fn leaf_count(leaves: usize) -> Result<u32, RuntimeError> {
-    u32::try_from(leaves).map_err(|_| RuntimeError::Overflow)
 }

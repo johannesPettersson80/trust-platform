@@ -420,7 +420,7 @@ impl StoreAccess for VariableStorage {
 
     #[inline]
     fn global_name(&self, offset: usize) -> Option<&SmolStr> {
-        self.globals.get_index(offset).map(|(name, _)| name)
+        self.values.globals.get_index(offset).map(|(name, _)| name)
     }
 
     #[inline]

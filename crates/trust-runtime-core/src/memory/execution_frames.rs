@@ -18,11 +18,13 @@ impl VariableStorage {
         capacity: usize,
         depth_check: usize,
     ) -> Result<(), RuntimeError> {
-        if capacity < self.execution_frames.len() || depth_check < capacity {
+        if capacity < self.activations.execution_frames.len() || depth_check < capacity {
             return Err(RuntimeError::InvalidExecutionState);
         }
-        self.execution_frames.reserve_capacity(capacity)?;
-        self.execution_frame_limit = Some(depth_check);
+        self.activations
+            .execution_frames
+            .reserve_capacity(capacity)?;
+        self.activations.execution_frame_limit = Some(depth_check);
         Ok(())
     }
 
@@ -34,36 +36,39 @@ impl VariableStorage {
 
     /// Reserved execution-frame identities, active or not.
     pub fn execution_frame_count(&self) -> usize {
-        self.execution_frames.len()
+        self.activations.execution_frames.len()
     }
 
     pub(crate) fn execution_frame_capacity(&self) -> usize {
-        self.execution_frames.capacity()
+        self.activations.execution_frames.capacity()
     }
 
     fn execution_activation(&self, id: FrameId) -> Option<&ExecutionActivation> {
         if self
+            .activations
             .execution_frames
             .last()
             .is_some_and(|(last, _)| *last == id)
         {
-            self.execution_frames
+            self.activations
+                .execution_frames
                 .last()
                 .map(|(_, activation)| activation)
         } else {
-            self.execution_frames.get(&id)
+            self.activations.execution_frames.get(&id)
         }
     }
 
     fn execution_activation_mut(&mut self, id: FrameId) -> Option<&mut ExecutionActivation> {
         if self
+            .activations
             .execution_frames
             .last()
             .is_some_and(|(last, _)| *last == id)
         {
-            self.execution_frames.get_mut_last(&id)
+            self.activations.execution_frames.get_mut_last(&id)
         } else {
-            self.execution_frames.get_mut(&id)
+            self.activations.execution_frames.get_mut(&id)
         }
     }
 
@@ -77,12 +82,12 @@ impl VariableStorage {
         if self.execution_frame_count() != 0 {
             return Err(RuntimeError::InvalidExecutionState);
         }
-        self.next_frame_id = 0;
-        if self.entry_instances_live == 0 {
-            self.next_instance_id = self.entry_instance_floor;
+        self.activations.next_frame_id = 0;
+        if self.identities.entry_instances_live == 0 {
+            self.identities.next_instance_id = self.identities.entry_instance_floor;
         } else {
-            self.entry_instance_floor = self.next_instance_id;
-            self.entry_instances_live = 0;
+            self.identities.entry_instance_floor = self.identities.next_instance_id;
+            self.identities.entry_instances_live = 0;
         }
         Ok(())
     }
@@ -91,36 +96,38 @@ impl VariableStorage {
     /// reachable without reserving 2^32 activations.
     #[cfg(any(test, feature = "test-support"))]
     pub fn set_next_frame_id_for_test(&mut self, next: u32) {
-        self.next_frame_id = next;
+        self.activations.next_frame_id = next;
     }
 
     /// Reserve an identity without activating it. Identities only increase until the
     /// next `begin_execution_entry`, so a completed identity is never issued again
     /// within its entry, and exhaustion fails with `Overflow` instead of wrapping.
     pub fn reserve_execution_frame(&mut self) -> Result<FrameId, RuntimeError> {
-        let Some(next) = self.next_frame_id.checked_add(1) else {
+        let Some(next) = self.activations.next_frame_id.checked_add(1) else {
             return Err(RuntimeError::Overflow);
         };
-        let id = FrameId(self.next_frame_id);
+        let id = FrameId(self.activations.next_frame_id);
         if self
+            .activations
             .execution_frame_limit
-            .is_some_and(|limit| self.execution_frames.len() >= limit)
+            .is_some_and(|limit| self.activations.execution_frames.len() >= limit)
         {
             return Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error());
         }
-        self.execution_frames
+        self.activations
+            .execution_frames
             .try_append(id, ExecutionActivation::default())?;
-        self.next_frame_id = next;
+        self.activations.next_frame_id = next;
         Ok(id)
     }
 
     /// Mark a reserved identity as part of the live activation order.
     pub(crate) fn activate_execution_frame(&mut self, id: FrameId) -> Result<(), RuntimeError> {
-        let Some((last_id, _)) = self.execution_frames.last() else {
+        let Some((last_id, _)) = self.activations.execution_frames.last() else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         if *last_id == id {
-            let Some(activation) = self.execution_frames.get_mut_last(&id) else {
+            let Some(activation) = self.activations.execution_frames.get_mut_last(&id) else {
                 return Err(RuntimeError::InvalidExecutionState);
             };
             if activation.active {
@@ -136,6 +143,7 @@ impl VariableStorage {
             return Err(RuntimeError::InvalidExecutionState);
         }
         let latest_active = self
+            .activations
             .execution_frames
             .as_slice()
             .iter()
@@ -145,7 +153,7 @@ impl VariableStorage {
         if latest_active.is_some_and(|latest| latest >= id) {
             return Err(RuntimeError::InvalidExecutionState);
         }
-        let Some(activation) = self.execution_frames.get_mut(&id) else {
+        let Some(activation) = self.activations.execution_frames.get_mut(&id) else {
             return Err(RuntimeError::InvalidExecutionState);
         };
         activation.active = true;
@@ -159,7 +167,8 @@ impl VariableStorage {
     }
 
     pub(crate) fn execution_activation_count(&self) -> usize {
-        self.execution_frames
+        self.activations
+            .execution_frames
             .values()
             .filter(|activation| activation.active)
             .count()
@@ -167,14 +176,16 @@ impl VariableStorage {
 
     #[cfg(test)]
     pub(crate) fn execution_frame_owner_count(&self) -> usize {
-        self.execution_frames
+        self.activations
+            .execution_frames
             .values()
             .filter(|activation| activation.owner.is_some())
             .count()
     }
 
     pub(crate) fn last_execution_activation(&self) -> Option<FrameId> {
-        self.execution_frames
+        self.activations
+            .execution_frames
             .as_slice()
             .iter()
             .rev()
@@ -183,7 +194,7 @@ impl VariableStorage {
     }
 
     pub(crate) fn previous_execution_activation(&self, id: FrameId) -> Option<FrameId> {
-        let entries = self.execution_frames.as_slice();
+        let entries = self.activations.execution_frames.as_slice();
         let index = entries
             .binary_search_by(|(candidate, _)| candidate.cmp(&id))
             .ok()?;
@@ -226,7 +237,8 @@ impl VariableStorage {
     pub(crate) fn suspended_execution_activations(
         &self,
     ) -> impl Iterator<Item = (FrameId, ExecutionFrameOwner, &[Value])> {
-        self.execution_frames
+        self.activations
+            .execution_frames
             .as_slice()
             .iter()
             .filter_map(|(id, activation)| {
@@ -276,7 +288,8 @@ impl VariableStorage {
 
     /// Borrow suspended locals for bounded snapshot accounting.
     pub fn suspended_execution_values(&self) -> impl Iterator<Item = &Value> {
-        self.execution_frames
+        self.activations
+            .execution_frames
             .values()
             .flat_map(|activation| activation.locals.as_ref())
             .flat_map(|values| values.iter())
@@ -284,9 +297,10 @@ impl VariableStorage {
 
     /// Invalidate all references to a completed activation.
     pub fn release_execution_frame(&mut self, id: FrameId) -> bool {
-        self.execution_frames
+        self.activations
+            .execution_frames
             .remove_last(&id)
-            .or_else(|| self.execution_frames.remove(&id))
+            .or_else(|| self.activations.execution_frames.remove(&id))
             .is_some()
     }
 
@@ -300,7 +314,8 @@ impl VariableStorage {
         if let Some(activation) = self.execution_activation(id) {
             return activation.locals.as_ref()?.get(offset);
         }
-        self.frames
+        self.activations
+            .frames
             .iter()
             .find(|frame| frame.id == id)
             .and_then(|frame| frame.variables.get_index(offset).map(|(_, value)| value))
@@ -314,7 +329,8 @@ impl VariableStorage {
                 .as_mut()?
                 .get_mut(offset);
         }
-        self.frames
+        self.activations
+            .frames
             .iter_mut()
             .find(|frame| frame.id == id)
             .and_then(|frame| {

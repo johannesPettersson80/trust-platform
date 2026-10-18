@@ -142,14 +142,21 @@ struct RecursiveInstanceFieldResolution {
     offset: usize,
 }
 
-/// Storage for runtime variables.
-#[derive(Debug, Default)]
+/// Storage for runtime variables (specification 34 §6.2): the values half, the activation half
+/// and the identities. The cell store (C1-9a, [`crate::memory::regions::CellStorage`]) shares the
+/// activation half and the identities; the values half is deleted at C1-19.
+#[derive(Debug, Default, Clone)]
 pub struct VariableStorage {
+    values: ValueStore,
+    activations: ActivationStore,
+    identities: Identities,
+}
+
+/// The values half of [`VariableStorage`]: the globals, the retain map and the instance lookup
+/// caches. The cell arm holds none of them (specification 34 §6.2, MEM-10).
+#[derive(Debug, Default)]
+struct ValueStore {
     globals: IndexMap<SmolStr, Value>,
-    frames: Vec<LocalFrame>,
-    execution_frames: live::LiveEntries<FrameId, ExecutionActivation>,
-    execution_frame_limit: Option<usize>,
-    instances: InstanceMap,
     retain: IndexMap<SmolStr, Value>,
     #[cfg(feature = "std")]
     instance_field_offsets: RwLock<FxHashMap<(InstanceId, SmolStr), Option<usize>>>,
@@ -158,7 +165,23 @@ pub struct VariableStorage {
         RwLock<FxHashMap<(InstanceId, SmolStr), RecursiveInstanceFieldResolution>>,
     #[cfg(feature = "std")]
     declared_instance_field_offsets: RwLock<FxHashMap<(SmolStr, SmolStr), usize>>,
+}
+
+/// The activation half of [`VariableStorage`] and of the cell store: the local frames, the
+/// execution registry and the per-call instances (specification 34 §6.2).
+#[derive(Debug, Default, Clone)]
+struct ActivationStore {
+    frames: Vec<LocalFrame>,
+    execution_frames: live::LiveEntries<FrameId, ExecutionActivation>,
+    execution_frame_limit: Option<usize>,
+    instances: InstanceMap,
     next_frame_id: u32,
+}
+
+/// The identities shared by both kinds of instance (specification 34 §6.2): the instance
+/// counter, the top-level entry's floor and live count, and the generation (MEM-07).
+#[derive(Debug, Default, Clone)]
+struct Identities {
     next_instance_id: u32,
     /// The instance identity the current top-level execution entry started from.
     entry_instance_floor: u32,
@@ -177,14 +200,10 @@ struct ExecutionActivation {
     owner: Option<ExecutionFrameOwner>,
 }
 
-impl Clone for VariableStorage {
+impl Clone for ValueStore {
     fn clone(&self) -> Self {
         Self {
             globals: self.globals.clone(),
-            frames: self.frames.clone(),
-            execution_frames: self.execution_frames.clone(),
-            execution_frame_limit: self.execution_frame_limit,
-            instances: self.instances.clone(),
             retain: self.retain.clone(),
             #[cfg(feature = "std")]
             instance_field_offsets: RwLock::new(
@@ -204,11 +223,6 @@ impl Clone for VariableStorage {
                     .map(|cache| cache.clone())
                     .unwrap_or_default(),
             ),
-            next_frame_id: self.next_frame_id,
-            next_instance_id: self.next_instance_id,
-            entry_instance_floor: self.entry_instance_floor,
-            entry_instances_live: self.entry_instances_live,
-            generation: self.generation,
         }
     }
 }
@@ -234,6 +248,9 @@ mod instances;
 /// Prepared cell layouts for the bounded value store (specification 34 §6.2).
 pub mod layout;
 mod references;
+/// The cell regions of the bounded value store: the persistent region's cells, reference records
+/// and text buffers, reserved once from the prepared layouts (specification 34 §6.2, C1-9a).
+pub mod regions;
 pub(crate) use references::PreparedStorageWrite;
 mod storage;
 /// The text buffers of the bounded value store (specification 34 §6.2).

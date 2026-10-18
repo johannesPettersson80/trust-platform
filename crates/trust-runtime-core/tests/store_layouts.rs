@@ -739,19 +739,21 @@ fn globals_templates_locals_and_initializers_map_to_cell_ranges() {
         })
     );
 
-    // Base's template is x : INT and s : STRING[10]: two cells.
+    // Base's template is its own x : INT and s : STRING[10]: two cells from the instance's first
+    // cell (spec 34 §6.2, O6).
     let base = prepared.instance_template_cells(BASE_POU).expect("Base");
     assert_eq!(
         base.range,
         CellRange {
             region: LayoutRegion::Persistent,
-            start: 1,
+            start: 0,
             cells: 2,
         }
     );
     assert_eq!(base.parent, None);
 
-    // Derived extends Base, so its template places Base's two cells first and adds y : INT.
+    // Derived extends Base: its template holds only its own y : INT and links to Base's template,
+    // which it does not repeat (spec 34 §6.2, O6). A wrong flattened template would give three.
     let derived = prepared
         .instance_template_cells(DERIVED_POU)
         .expect("Derived");
@@ -759,8 +761,8 @@ fn globals_templates_locals_and_initializers_map_to_cell_ranges() {
         derived.range,
         CellRange {
             region: LayoutRegion::Persistent,
-            start: 3,
-            cells: 3,
+            start: 0,
+            cells: 1,
         }
     );
     assert_eq!(derived.parent, Some(BASE_POU));

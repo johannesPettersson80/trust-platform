@@ -241,7 +241,14 @@ impl EngineState<'_> {
                 self.data.construction.roots[index]
                     .ok_or_else(|| RuntimeError::InvalidExecutionState)?
             }
-            None => self.reserve_instance(pou, lifetime)?,
+            // A typed instance with no root is owned by a live activation: both callers pass one
+            // (`values.rs` under an active initializer, `entry.rs` after activating its scope). A
+            // persistent instance needs its root's range in the cell store (O8), so an ownerless
+            // instance is refused before anything is issued.
+            None => {
+                let owner = lifetime.ok_or(RuntimeError::InvalidExecutionState)?;
+                self.reserve_instance(pou, Some(owner))?
+            }
         };
         let mut current = instance;
         let mut current_pou = pou;
@@ -787,5 +794,40 @@ impl EngineState<'_> {
             .lifetimes
             .instance_lifetimes
             .retain(|_, lifetime| lifetime != Some(owner));
+    }
+}
+
+#[cfg(test)]
+mod typed_instance_refusal_tests {
+    use super::*;
+    use crate::vm::PreparationLimits;
+
+    #[test]
+    fn typed_instance_without_root_or_owner_is_refused_before_it_is_issued() {
+        // Specification 34 §6.2, O8: a persistent instance has its root's cell range. With no root
+        // and no owning activation, the typed path is refused and issues no identity. A path that
+        // created the instance unowned would leave the instance count one higher.
+        let prepared = PreparedModule::from_bytes(
+            include_bytes!(
+                "../../../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc"
+            ),
+            PreparationLimits::default(),
+        )
+        .unwrap();
+        let pou = prepared
+            .layout
+            .entries
+            .iter()
+            .find(|entry| entry.owner == StorageOwner::Instance && entry.type_id.is_some())
+            .and_then(|entry| entry.owner_pou_id)
+            .unwrap();
+        let mut data = EngineState::construct_data(&prepared, 0, &services::LOGICAL_ONLY).unwrap();
+        let instances = data.storage.instances().len();
+        let mut state = EngineState::borrow(&mut data, &prepared, &services::LOGICAL_ONLY);
+        assert_eq!(
+            state.construct_typed_instance(pou, false),
+            Err(RuntimeError::InvalidExecutionState)
+        );
+        assert_eq!(state.data.storage.instances().len(), instances);
     }
 }

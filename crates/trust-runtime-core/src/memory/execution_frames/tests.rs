@@ -5,20 +5,20 @@ use alloc::{vec, vec::Vec};
 fn identity_overflow_precedes_capacity_refusal_without_issuing_a_frame() {
     let mut storage = VariableStorage::new();
     storage.reserve_execution_frames(0).unwrap();
-    storage.next_frame_id = u32::MAX;
+    storage.activations.next_frame_id = u32::MAX;
     assert_eq!(
         storage.reserve_execution_frame(),
         Err(RuntimeError::Overflow)
     );
-    assert_eq!(storage.next_frame_id, u32::MAX);
+    assert_eq!(storage.activations.next_frame_id, u32::MAX);
     assert_eq!(storage.execution_frame_count(), 0);
 
-    storage.next_frame_id = u32::MAX - 1;
+    storage.activations.next_frame_id = u32::MAX - 1;
     assert_eq!(
         storage.reserve_execution_frame(),
         Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error())
     );
-    assert_eq!(storage.next_frame_id, u32::MAX - 1);
+    assert_eq!(storage.activations.next_frame_id, u32::MAX - 1);
     storage.reserve_execution_frames(1).unwrap();
     let last = storage.reserve_execution_frame().unwrap();
     assert_eq!(last, FrameId(u32::MAX - 1));
@@ -217,8 +217,8 @@ fn reserved_frame_capacity_refusal_is_call_stack_overflow_and_issues_no_identity
     storage.reserve_execution_frames(1).unwrap();
     let first = storage.reserve_execution_frame().unwrap();
     // The counter advances past the one admitted identity (reserve_execution_frame, memory/execution_frames.rs:58-73).
-    assert_eq!(storage.next_frame_id, first.0 + 1);
-    let next_after_first = storage.next_frame_id;
+    assert_eq!(storage.activations.next_frame_id, first.0 + 1);
+    let next_after_first = storage.activations.next_frame_id;
 
     // The capacity check runs before the identity is issued, so the counter is unchanged.
     let error = storage.reserve_execution_frame().unwrap_err();
@@ -230,6 +230,6 @@ fn reserved_frame_capacity_refusal_is_call_stack_overflow_and_issues_no_identity
         error.stable_code(),
         crate::error::StableErrorCode::VmCallStackOverflow
     );
-    assert_eq!(storage.next_frame_id, next_after_first);
+    assert_eq!(storage.activations.next_frame_id, next_after_first);
     assert_eq!(storage.execution_frame_count(), 1);
 }

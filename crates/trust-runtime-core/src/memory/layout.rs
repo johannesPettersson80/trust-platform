@@ -45,12 +45,14 @@ pub struct CellRange {
     pub cells: u32,
 }
 
-/// A POU's prepared instance template: its cells, parent cells first.
+/// A POU's prepared instance template: its own cells only, with a link to its parent's template
+/// (specification 34 MEM-10; O6). A derived POU without variables of its own has an empty
+/// template with its parent link (O7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InstanceTemplateLayout {
-    /// The template's persistent cell range.
+    /// The template's own cells, from cell 0.
     pub range: CellRange,
-    /// Parent POU whose template cells precede this template's own cells.
+    /// Parent POU whose template holds the inherited cells.
     pub parent: Option<u32>,
 }
 

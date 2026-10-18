@@ -11,61 +11,61 @@ impl VariableStorage {
     /// this generation (specification 34 §11.3).
     #[must_use]
     pub fn generation(&self) -> Generation {
-        self.generation
+        self.identities.generation
     }
 
     /// Start an empty storage in `generation`, before construction creates any
     /// reference into it. Unit tests also use it to reach the exhaustion path.
     pub(crate) fn set_generation(&mut self, generation: Generation) {
-        self.generation = generation;
+        self.identities.generation = generation;
     }
 
     pub fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
-        self.globals.insert(name.into(), value);
+        self.values.globals.insert(name.into(), value);
     }
 
     #[must_use]
     pub fn globals(&self) -> &IndexMap<SmolStr, Value> {
-        &self.globals
+        &self.values.globals
     }
 
     #[must_use]
     pub fn get_global(&self, name: &str) -> Option<&Value> {
-        self.globals.get(name)
+        self.values.globals.get(name)
     }
 
     pub fn set_retain(&mut self, name: impl Into<SmolStr>, value: Value) {
-        self.retain.insert(name.into(), value);
+        self.values.retain.insert(name.into(), value);
     }
 
     #[must_use]
     pub fn retain(&self) -> &IndexMap<SmolStr, Value> {
-        &self.retain
+        &self.values.retain
     }
 
     #[must_use]
     pub fn get_retain(&self, name: &str) -> Option<&Value> {
-        self.retain.get(name)
+        self.values.retain.get(name)
     }
 
     /// Clear values and identities in place. The generation is kept: this is the
     /// historical hosted fixture's restart, whose references stay valid across it.
     pub fn reset_runtime_values(&mut self, reset_instance_sequence: bool) {
-        self.globals.clear();
-        self.frames.clear();
-        self.execution_frames.clear();
-        self.instances.clear();
-        self.next_frame_id = 0;
+        self.values.globals.clear();
+        self.activations.frames.clear();
+        self.activations.execution_frames.clear();
+        self.activations.instances.clear();
+        self.activations.next_frame_id = 0;
         if reset_instance_sequence {
-            self.next_instance_id = 0;
+            self.identities.next_instance_id = 0;
         }
         // No instance is live. A kept sequence is never reissued below its reset point.
-        self.entry_instance_floor = self.next_instance_id;
-        self.entry_instances_live = 0;
+        self.identities.entry_instance_floor = self.identities.next_instance_id;
+        self.identities.entry_instances_live = 0;
         #[cfg(feature = "std")]
         {
-            cache::exclusive(&mut self.instance_field_offsets).clear();
-            cache::exclusive(&mut self.recursive_instance_field_resolutions).clear();
+            cache::exclusive(&mut self.values.instance_field_offsets).clear();
+            cache::exclusive(&mut self.values.recursive_instance_field_resolutions).clear();
         }
     }
 }
@@ -76,10 +76,10 @@ impl VariableStorage {
     pub fn clone_container_charge(&self) -> Option<usize> {
         let named_slot = core::mem::size_of::<(SmolStr, Value)>();
         let mut bytes = core::mem::size_of::<Self>();
-        for len in [self.globals.len(), self.retain.len()] {
+        for len in [self.values.globals.len(), self.values.retain.len()] {
             bytes = bytes.checked_add(len.checked_mul(named_slot)?.checked_mul(4)?)?;
         }
-        for instance in self.instances.values() {
+        for instance in self.activations.instances.values() {
             bytes = bytes.checked_add(core::mem::size_of::<InstanceData>().checked_mul(4)?)?;
             bytes = bytes.checked_add(
                 instance
@@ -89,7 +89,7 @@ impl VariableStorage {
                     .checked_mul(4)?,
             )?;
         }
-        for frame in &self.frames {
+        for frame in &self.activations.frames {
             bytes = bytes.checked_add(core::mem::size_of::<LocalFrame>())?;
             bytes = bytes.checked_add(
                 frame
@@ -100,11 +100,13 @@ impl VariableStorage {
             )?;
         }
         bytes = bytes.checked_add(
-            self.execution_frames
+            self.activations
+                .execution_frames
                 .capacity()
                 .checked_mul(core::mem::size_of::<(FrameId, ExecutionActivation)>() * 4)?,
         )?;
         for values in self
+            .activations
             .execution_frames
             .values()
             .flat_map(|activation| activation.locals.as_ref())
@@ -115,7 +117,8 @@ impl VariableStorage {
         {
             // Clone preserves allocated vector capacity, including spare live slots.
             bytes = bytes.checked_add(
-                self.instances
+                self.activations
+                    .instances
                     .capacity()
                     .checked_mul(core::mem::size_of::<(InstanceId, InstanceData)>())?,
             )?;
@@ -123,11 +126,12 @@ impl VariableStorage {
         }
         #[cfg(feature = "std")]
         {
-            let direct = recover_read_lock(self.instance_field_offsets.read())
+            let direct = recover_read_lock(self.values.instance_field_offsets.read())
                 .map_or(0, |cache| cache.len());
-            let recursive = recover_read_lock(self.recursive_instance_field_resolutions.read())
-                .map_or(0, |cache| cache.len());
-            let declared = recover_read_lock(self.declared_instance_field_offsets.read())
+            let recursive =
+                recover_read_lock(self.values.recursive_instance_field_resolutions.read())
+                    .map_or(0, |cache| cache.len());
+            let declared = recover_read_lock(self.values.declared_instance_field_offsets.read())
                 .map_or(0, |cache| cache.len());
             bytes = bytes.checked_add(
                 direct

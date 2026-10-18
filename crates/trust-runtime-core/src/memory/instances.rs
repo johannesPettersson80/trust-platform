@@ -9,10 +9,11 @@ impl VariableStorage {
         type_name: impl Into<SmolStr>,
     ) -> Result<InstanceId, crate::error::RuntimeError> {
         let next = self
+            .identities
             .next_instance_id
             .checked_add(1)
             .ok_or(crate::error::RuntimeError::Overflow)?;
-        let id = InstanceId(self.next_instance_id);
+        let id = InstanceId(self.identities.next_instance_id);
         let value = InstanceData {
             type_name: type_name.into(),
             variables: IndexMap::default(),
@@ -20,16 +21,17 @@ impl VariableStorage {
         };
         #[cfg(feature = "std")]
         {
-            if self.instances.contains_key(&id) {
+            if self.activations.instances.contains_key(&id) {
                 return Err(crate::error::RuntimeError::InvalidExecutionState);
             }
-            self.instances.insert(id, value);
+            self.activations.instances.insert(id, value);
         }
         #[cfg(not(feature = "std"))]
-        self.instances.try_append(id, value)?;
-        self.next_instance_id = next;
-        if id.0 >= self.entry_instance_floor {
-            self.entry_instances_live = self.entry_instances_live.saturating_add(1);
+        self.activations.instances.try_append(id, value)?;
+        self.identities.next_instance_id = next;
+        if id.0 >= self.identities.entry_instance_floor {
+            self.identities.entry_instances_live =
+                self.identities.entry_instances_live.saturating_add(1);
         }
         Ok(id)
     }
@@ -37,7 +39,8 @@ impl VariableStorage {
     /// Record released instances whose identities are at or above the entry floor, so
     /// `begin_execution_entry` reissues those identities only once none of them is live.
     fn note_instances_released(&mut self, released_since_floor: usize) {
-        self.entry_instances_live = self
+        self.identities.entry_instances_live = self
+            .identities
             .entry_instances_live
             .saturating_sub(released_since_floor);
     }
@@ -51,22 +54,23 @@ impl VariableStorage {
         }
         #[cfg(not(feature = "std"))]
         {
-            if self.instances.len() < self.instances.capacity() {
+            if self.activations.instances.len() < self.activations.instances.capacity() {
                 return Some((0, 0));
             }
             let bytes = self
+                .activations
                 .instances
                 .growth_capacity()?
                 .checked_mul(core::mem::size_of::<(InstanceId, InstanceData)>())?;
-            Some((bytes, self.instances.len()))
+            Some((bytes, self.activations.instances.len()))
         }
     }
 
     /// Release an invocation-owned instance and invalidate its lookup caches.
     pub fn remove_instance(&mut self, id: InstanceId) -> Option<InstanceData> {
         self.invalidate_instance_field_caches(id);
-        let removed = self.instances.remove(&id);
-        if removed.is_some() && id.0 >= self.entry_instance_floor {
+        let removed = self.activations.instances.remove(&id);
+        if removed.is_some() && id.0 >= self.identities.entry_instance_floor {
             self.note_instances_released(1);
         }
         removed
@@ -75,10 +79,10 @@ impl VariableStorage {
     /// Retire an owner batch in one pass. Callers charge the live entry count first.
     /// Cleanup itself cannot fail or consume additional execution fuel.
     pub fn retain_instances(&mut self, mut keep: impl FnMut(InstanceId) -> bool) -> usize {
-        let before = self.instances.len();
-        let floor = self.entry_instance_floor;
+        let before = self.activations.instances.len();
+        let floor = self.identities.entry_instance_floor;
         let mut released_since_floor = 0usize;
-        self.instances.retain(|id, _| {
+        self.activations.instances.retain(|id, _| {
             let kept = keep(*id);
             if !kept && id.0 >= floor {
                 released_since_floor += 1;
@@ -86,11 +90,11 @@ impl VariableStorage {
             kept
         });
         self.note_instances_released(released_since_floor);
-        let removed = before - self.instances.len();
+        let removed = before - self.activations.instances.len();
         #[cfg(feature = "std")]
         if removed != 0 {
-            cache::exclusive(&mut self.instance_field_offsets).clear();
-            cache::exclusive(&mut self.recursive_instance_field_resolutions).clear();
+            cache::exclusive(&mut self.values.instance_field_offsets).clear();
+            cache::exclusive(&mut self.values.recursive_instance_field_resolutions).clear();
         }
         removed
     }
@@ -108,21 +112,21 @@ impl VariableStorage {
     /// without creating 2^32 instances.
     #[cfg(any(test, feature = "test-support"))]
     pub fn set_next_instance_id_for_test(&mut self, next: u32) {
-        self.next_instance_id = next;
+        self.identities.next_instance_id = next;
     }
 
     #[must_use]
     pub fn get_instance(&self, id: InstanceId) -> Option<&InstanceData> {
-        self.instances.get(&id)
+        self.activations.instances.get(&id)
     }
 
     #[must_use]
     pub fn instances(&self) -> &InstanceMap {
-        &self.instances
+        &self.activations.instances
     }
 
     pub fn get_instance_mut(&mut self, id: InstanceId) -> Option<&mut InstanceData> {
-        self.instances.get_mut(&id)
+        self.activations.instances.get_mut(&id)
     }
 
     pub fn set_instance_var(
@@ -132,7 +136,7 @@ impl VariableStorage {
         value: Value,
     ) -> bool {
         let name = name.into();
-        let is_new = if let Some(instance) = self.instances.get_mut(&id) {
+        let is_new = if let Some(instance) = self.activations.instances.get_mut(&id) {
             let is_new = !instance.variables.contains_key(&name);
             instance.variables.insert(name, value);
             is_new
@@ -148,7 +152,8 @@ impl VariableStorage {
 
     #[must_use]
     pub fn get_instance_var(&self, id: InstanceId, name: &str) -> Option<&Value> {
-        self.instances
+        self.activations
+            .instances
             .get(&id)
             .and_then(|instance| instance.variables.get(name))
     }
@@ -161,6 +166,7 @@ impl VariableStorage {
                 return Some(value);
             }
             current = self
+                .activations
                 .instances
                 .get(&instance_id)
                 .and_then(|instance| instance.parent);
@@ -169,7 +175,12 @@ impl VariableStorage {
     }
 
     pub fn ref_for_global(&self, name: &str) -> Option<crate::value::ValueRef> {
-        ref_for_map(&self.globals, MemoryLocation::Global, self.generation, name)
+        ref_for_map(
+            &self.values.globals,
+            MemoryLocation::Global,
+            self.identities.generation,
+            name,
+        )
     }
 
     pub fn ref_for_local(&self, name: &str) -> Option<crate::value::ValueRef> {
@@ -177,7 +188,7 @@ impl VariableStorage {
         ref_for_map(
             &frame.variables,
             MemoryLocation::Local(frame.id),
-            self.generation,
+            self.identities.generation,
             name,
         )
     }
@@ -192,7 +203,7 @@ impl VariableStorage {
         Some(crate::value::ValueRef {
             location: MemoryLocation::Instance(id),
             offset: u32::try_from(offset).ok()?,
-            generation: self.generation,
+            generation: self.identities.generation,
             path: RefPath::new(),
         })
     }
@@ -220,6 +231,7 @@ impl VariableStorage {
                 return self.instance_field_ref(instance_id, offset);
             }
             current = self
+                .activations
                 .instances
                 .get(&instance_id)
                 .and_then(|instance| instance.parent);
@@ -233,30 +245,36 @@ impl VariableStorage {
 
     #[cfg(feature = "std")]
     fn invalidate_instance_field_caches(&mut self, id: InstanceId) {
-        cache::exclusive(&mut self.instance_field_offsets).retain(|(owner, _), _| *owner != id);
-        cache::exclusive(&mut self.recursive_instance_field_resolutions)
+        cache::exclusive(&mut self.values.instance_field_offsets)
+            .retain(|(owner, _), _| *owner != id);
+        cache::exclusive(&mut self.values.recursive_instance_field_resolutions)
             .retain(|(owner, _), _| *owner != id);
     }
 
     #[cfg(not(feature = "std"))]
     fn cached_instance_field_offset(&self, id: InstanceId, field_name: &str) -> Option<usize> {
-        self.instances.get(&id)?.variables.get_index_of(field_name)
+        self.activations
+            .instances
+            .get(&id)?
+            .variables
+            .get_index_of(field_name)
     }
 
     #[cfg(feature = "std")]
     fn cached_instance_field_offset(&self, id: InstanceId, field_name: &str) -> Option<usize> {
         let key = (id, SmolStr::new(field_name));
-        if let Some(cached) = recover_read_lock(self.instance_field_offsets.read())
+        if let Some(cached) = recover_read_lock(self.values.instance_field_offsets.read())
             .and_then(|cache| cache.get(&key).copied())
         {
             return cached;
         }
 
         let offset = self
+            .activations
             .instances
             .get(&id)
             .and_then(|instance| instance.variables.get_index_of(field_name));
-        if let Ok(mut cache) = self.instance_field_offsets.write() {
+        if let Ok(mut cache) = self.values.instance_field_offsets.write() {
             cache.insert(key, offset);
         }
         offset
@@ -268,7 +286,7 @@ impl VariableStorage {
         id: InstanceId,
         field_name: &str,
     ) -> Option<RecursiveInstanceFieldResolution> {
-        recover_read_lock(self.recursive_instance_field_resolutions.read())
+        recover_read_lock(self.values.recursive_instance_field_resolutions.read())
             .and_then(|cache| cache.get(&(id, SmolStr::new(field_name))).copied())
     }
 
@@ -279,7 +297,7 @@ impl VariableStorage {
         field_name: &str,
         resolution: RecursiveInstanceFieldResolution,
     ) {
-        if let Ok(mut cache) = self.recursive_instance_field_resolutions.write() {
+        if let Ok(mut cache) = self.values.recursive_instance_field_resolutions.write() {
             cache.insert((id, SmolStr::new(field_name)), resolution);
         }
     }
@@ -305,29 +323,33 @@ impl VariableStorage {
     fn resolve_ancestor_instance(&self, id: InstanceId, depth: usize) -> Option<InstanceId> {
         let mut current = id;
         for _ in 0..depth {
-            current = self.instances.get(&current)?.parent?;
+            current = self.activations.instances.get(&current)?.parent?;
         }
         Some(current)
     }
 
     #[cfg(not(feature = "std"))]
     pub fn declared_instance_field_offset(&self, id: InstanceId, name: &str) -> Option<usize> {
-        self.instances.get(&id)?.variables.get_index_of(name)
+        self.activations
+            .instances
+            .get(&id)?
+            .variables
+            .get_index_of(name)
     }
 
     #[cfg(feature = "std")]
     pub fn declared_instance_field_offset(&self, id: InstanceId, name: &str) -> Option<usize> {
-        let instance = self.instances.get(&id)?;
+        let instance = self.activations.instances.get(&id)?;
         let field_name = SmolStr::new(name);
         let key = (instance.type_name.clone(), field_name.clone());
-        if let Some(offset) = recover_read_lock(self.declared_instance_field_offsets.read())
+        if let Some(offset) = recover_read_lock(self.values.declared_instance_field_offsets.read())
             .and_then(|cache| cache.get(&key).copied())
         {
             return Some(offset);
         }
 
         let offset = instance.variables.get_index_of(field_name.as_str())?;
-        if let Ok(mut cache) = self.declared_instance_field_offsets.write() {
+        if let Ok(mut cache) = self.values.declared_instance_field_offsets.write() {
             cache.insert(key, offset);
         }
         Some(offset)
@@ -352,7 +374,8 @@ impl VariableStorage {
     }
 
     pub fn read_instance_field_by_offset(&self, id: InstanceId, offset: usize) -> Option<&Value> {
-        self.instances
+        self.activations
+            .instances
             .get(&id)
             .and_then(|instance| instance.variables.get_index(offset).map(|(_, value)| value))
     }
@@ -363,7 +386,8 @@ impl VariableStorage {
         offset: usize,
         value: Value,
     ) -> bool {
-        self.instances
+        self.activations
+            .instances
             .get_mut(&id)
             .and_then(|instance| {
                 instance.variables.get_index_mut(offset).map(|(_, slot)| {

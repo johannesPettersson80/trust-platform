@@ -25,9 +25,14 @@ impl VariableStorage {
         offset: usize,
     ) -> Option<&Value> {
         match location {
-            MemoryLocation::Global => self.globals.get_index(offset).map(|(_, value)| value),
+            MemoryLocation::Global => self
+                .values
+                .globals
+                .get_index(offset)
+                .map(|(_, value)| value),
             MemoryLocation::Local(frame_id) => self.local_slot(frame_id, offset),
             MemoryLocation::Instance(instance_id) => self
+                .activations
                 .instances
                 .get(&instance_id)
                 .and_then(|instance| instance.variables.get_index(offset).map(|(_, value)| value)),
@@ -36,7 +41,10 @@ impl VariableStorage {
     }
 
     pub fn read_global_slot_by_offset(&self, offset: usize) -> Option<&Value> {
-        self.globals.get_index(offset).map(|(_, value)| value)
+        self.values
+            .globals
+            .get_index(offset)
+            .map(|(_, value)| value)
     }
 
     pub fn write_direct_slot_by_location(
@@ -47,6 +55,7 @@ impl VariableStorage {
     ) -> bool {
         match location {
             MemoryLocation::Global => self
+                .values
                 .globals
                 .get_index_mut(offset)
                 .map(|(_, slot)| {
@@ -60,6 +69,7 @@ impl VariableStorage {
                 })
                 .is_some(),
             MemoryLocation::Instance(instance_id) => self
+                .activations
                 .instances
                 .get_mut(&instance_id)
                 .and_then(|instance| {
@@ -73,7 +83,8 @@ impl VariableStorage {
     }
 
     pub fn write_global_slot_by_offset(&mut self, offset: usize, value: Value) -> bool {
-        self.globals
+        self.values
+            .globals
             .get_index_mut(offset)
             .map(|(_, slot)| {
                 *slot = crate::value::normalize_assignment_for_target(slot, value);
@@ -88,7 +99,7 @@ impl VariableStorage {
     /// Read through a reference. A reference of another installation generation
     /// names no state here and reads nothing (specification 34 §11.3).
     pub fn read_by_ref_ref(&self, value_ref: &crate::value::ValueRef) -> Option<&Value> {
-        if value_ref.generation != self.generation {
+        if value_ref.generation != self.identities.generation {
             return None;
         }
         self.read_by_ref_parts(
@@ -105,7 +116,7 @@ impl VariableStorage {
     /// Copy the value a reference names. A reference of another generation names
     /// no state here.
     pub fn materialize_by_ref_ref(&self, value_ref: &crate::value::ValueRef) -> Option<Value> {
-        if value_ref.generation != self.generation {
+        if value_ref.generation != self.identities.generation {
             return None;
         }
         self.materialize_by_ref_parts(
@@ -155,7 +166,7 @@ impl VariableStorage {
     /// Write through a reference. A reference of another generation names no state
     /// here, so nothing is written.
     pub fn write_by_ref_ref(&mut self, value_ref: &crate::value::ValueRef, value: Value) -> bool {
-        if value_ref.generation != self.generation {
+        if value_ref.generation != self.identities.generation {
             return false;
         }
         self.write_by_ref_parts(
@@ -184,7 +195,7 @@ impl VariableStorage {
         reference: &crate::value::ValueRef,
         value: Value,
     ) -> Result<bool, crate::error::RuntimeError> {
-        if reference.generation != self.generation {
+        if reference.generation != self.identities.generation {
             return Err(crate::error::RuntimeError::ReferenceLifetime);
         }
         self.write_by_ref_parts_checked(
@@ -208,16 +219,22 @@ impl VariableStorage {
         };
         let slot = match resolved.location {
             MemoryLocation::Global => self
+                .values
                 .globals
                 .get_index_mut(resolved.offset)
                 .map(|(_, slot)| slot),
             MemoryLocation::Local(id) => self.local_slot_mut(id, resolved.offset),
-            MemoryLocation::Instance(id) => self.instances.get_mut(&id).and_then(|instance| {
-                instance
-                    .variables
-                    .get_index_mut(resolved.offset)
-                    .map(|(_, slot)| slot)
-            }),
+            MemoryLocation::Instance(id) => {
+                self.activations
+                    .instances
+                    .get_mut(&id)
+                    .and_then(|instance| {
+                        instance
+                            .variables
+                            .get_index_mut(resolved.offset)
+                            .map(|(_, slot)| slot)
+                    })
+            }
             MemoryLocation::Io(_) | MemoryLocation::Retain => None,
         };
         let Some(slot) = slot else { return Ok(false) };
@@ -266,16 +283,22 @@ impl VariableStorage {
         };
         let slot = match prepared.location {
             MemoryLocation::Global => self
+                .values
                 .globals
                 .get_index_mut(prepared.offset)
                 .map(|(_, slot)| slot),
             MemoryLocation::Local(id) => self.local_slot_mut(id, prepared.offset),
-            MemoryLocation::Instance(id) => self.instances.get_mut(&id).and_then(|instance| {
-                instance
-                    .variables
-                    .get_index_mut(prepared.offset)
-                    .map(|(_, slot)| slot)
-            }),
+            MemoryLocation::Instance(id) => {
+                self.activations
+                    .instances
+                    .get_mut(&id)
+                    .and_then(|instance| {
+                        instance
+                            .variables
+                            .get_index_mut(prepared.offset)
+                            .map(|(_, slot)| slot)
+                    })
+            }
             MemoryLocation::Io(_) | MemoryLocation::Retain => None,
         };
         let Some(slot) = slot else { return false };
@@ -300,6 +323,7 @@ impl VariableStorage {
         };
         match resolved.location {
             MemoryLocation::Global => self
+                .values
                 .globals
                 .get_index_mut(resolved.offset)
                 .map(|(_, slot)| {
@@ -325,6 +349,7 @@ impl VariableStorage {
                 })
                 .unwrap_or(false),
             MemoryLocation::Instance(instance_id) => self
+                .activations
                 .instances
                 .get_mut(&instance_id)
                 .and_then(|instance| instance.variables.get_index_mut(resolved.offset))
@@ -365,7 +390,7 @@ impl VariableStorage {
         Some(crate::value::ValueRefView {
             location,
             offset,
-            generation: self.generation,
+            generation: self.identities.generation,
             path: &path[start..],
         })
     }
@@ -379,14 +404,23 @@ impl VariableStorage {
         value: Value,
     ) {
         let slot = match location {
-            MemoryLocation::Global => self.globals.get_index_mut(offset).map(|(_, value)| value),
+            MemoryLocation::Global => self
+                .values
+                .globals
+                .get_index_mut(offset)
+                .map(|(_, value)| value),
             MemoryLocation::Local(id) => self.local_slot_mut(id, offset),
-            MemoryLocation::Instance(id) => self.instances.get_mut(&id).and_then(|instance| {
-                instance
-                    .variables
-                    .get_index_mut(offset)
-                    .map(|(_, value)| value)
-            }),
+            MemoryLocation::Instance(id) => {
+                self.activations
+                    .instances
+                    .get_mut(&id)
+                    .and_then(|instance| {
+                        instance
+                            .variables
+                            .get_index_mut(offset)
+                            .map(|(_, value)| value)
+                    })
+            }
             MemoryLocation::Io(_) | MemoryLocation::Retain => None,
         };
         if let Some(slot) = slot {

@@ -1097,7 +1097,8 @@ of a `STRUCT OVERLAP`'s byte backing, and whether the type can hold a reference 
 later lifetime check skips scalar-only layouts. A `STRING[n]` leaf reserves `n` bytes and a
 `WSTRING[n]` leaf `2n` bytes of UTF-16 code units; a `STRING` or `WSTRING` declared without a length
 reserves 80 and 160 bytes (D-C1-1, D-C1-2), which supersedes the earlier `4 × n` unit. Globals, each
-instance template (a derived function block's template places its parent's cells first), each POU's
+persistent root (one range per root, so two instances of one type get two ranges; a derived
+function block's template holds its own cells and a link to its parent's template), each POU's
 locals and each initializer result map to a cell range of the persistent or the activation region,
 and a `REF_FIELD` member name resolves to a member ordinal at preparation. The prepared layout tables
 and the work of computing them are charged once at preparation, under the admitted profile's limits.
@@ -1119,8 +1120,8 @@ points at — the region, the cell index of its target, the character index of a
 the target type and the installation generation (MEM-07). The store reserves both exactly once from
 the prepared layouts, through the same checked reservation that refuses an allocation failure as the
 other construction reservations do, and never grows: every accessor answers `None` outside the
-reserved region and allocates nothing. The persistent region holds its globals' and its instance
-templates' cells and reference leaves, counted from the prepared layouts rather than by hand. The
+reserved region and allocates nothing. The persistent region holds its globals' and its persistent roots'
+cells and reference leaves, one range per root, counted from the prepared layouts rather than by hand. The
 bytes a store takes are its cells at 16 bytes each plus its reference records, so construction
 charges them before reserving. Nothing reads the store at run time yet, so stored values, outputs and
 faults are unchanged. The text store holds a region's text buffers — one fixed buffer per text leaf
