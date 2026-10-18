@@ -12,7 +12,8 @@ use std::path::PathBuf;
 use serde_json::{json, Map, Value};
 
 use crate::texts::discover as texts;
-use crate::view::discover::{project, RuntimeOrigin, Scan};
+use crate::view::discover::{project_in, RuntimeOrigin, Scan};
+use crate::view::discover_context::Context;
 
 /// The time of every view, in milliseconds since the Unix epoch.
 const NOW_MS: u64 = 1_760_000_000_000;
@@ -64,8 +65,8 @@ fn status(search_id: &str, state: &str, sources: &Value, devices: &Value) -> Map
 
 /// The Discover view of `answer`, projected for `scan` with the origins `runtimes`.
 fn discover_view(answer: &Map<String, Value>, scan: &Scan, runtimes: &[RuntimeOrigin]) -> Value {
-    let view =
-        project(answer, scan, runtimes, NOW_MS).expect("the status reads as a search status");
+    let view = project_in(answer, scan, runtimes, &Context::default(), NOW_MS)
+        .expect("the status reads as a search status");
     serde_json::to_value(view).expect("a Discover view serializes to JSON")
 }
 

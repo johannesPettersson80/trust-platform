@@ -3,6 +3,8 @@
 //! showed, through that runtime's control endpoint. A runtime's answer is awaited for at most
 //! [`ANSWER_WAIT`](super::ANSWER_WAIT). The forwarded request itself runs on a thread of its own.
 
+use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -16,10 +18,15 @@ use trust_runtime_client::{ControlClient, ControlEndpoint, ControlError, RESPONS
 
 use super::handoff::Handoff;
 use super::{lock, DevicesEngine, OwnedSearch, Panel, ReplyError, ANSWER_WAIT, CONTROL_TIMEOUT};
+use crate::devices_file::{self, Memory};
+use crate::gather::Gathered;
+use crate::inputs;
 use crate::request::{HostFacts, Token};
-use crate::session::Session;
+use crate::session::{KnownRuntime, Session};
 use crate::texts::discover as texts;
 use crate::view::discover::{self, RuntimeOrigin, Scan};
+use crate::view::discover_ads;
+use crate::view::discover_context::{self, Context, OriginFacts};
 use crate::view::types::DiscoverView;
 
 /// One `trust-lsp.devicesSearch` request (design §1.4.1): one command with the verb `start`,
@@ -50,6 +57,36 @@ pub struct SearchCall {
     /// The facts that only VS Code knows: the token of the runtime a forwarded search reaches.
     #[serde(default)]
     pub host: HostFacts,
+    /// The change that the Discover pane records before its view is answered (specification 25 §2): a
+    /// tick, an Ignore or `Show ignored`. Absent for a plain search.
+    #[serde(default)]
+    pub change: Option<DiscoverChange>,
+}
+
+/// One change that the Discover pane records before its view is answered (specification 25 §2, decision
+/// O14): a tick of `Only search`, an `Ignore` or `Stop ignoring` on a find, or `Show ignored`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum DiscoverChange {
+    /// A tick of `Only search`: whether the project remembers the source as ticked.
+    Select {
+        /// The source's ID.
+        source: String,
+        /// Whether it is ticked now.
+        checked: bool,
+    },
+    /// `Ignore` or `Stop ignoring` on a find: whether the project ignores the device now.
+    Ignore {
+        /// The card's ID.
+        device: String,
+        /// Whether the device is ignored now.
+        ignored: bool,
+    },
+    /// `Show ignored`: whether the finds that the project ignores are shown now.
+    ShowIgnored {
+        /// Whether they are shown.
+        shown: bool,
+    },
 }
 
 /// The Known address and the subnet as the user typed them (specification 25 §2). Each is text, so the
@@ -84,9 +121,14 @@ impl TypedTargets {
 impl SearchCall {
     /// The `comm.search.start` parameters, or none when the request sends an empty body (which is
     /// a search with every default, as `comm.search.start` reads it). The pane's typed targets replace
-    /// the parameters' `targets`.
+    /// the parameters' `targets`, and the project's configured ADS ports join them.
     #[must_use]
     fn params(&self) -> Option<Value> {
+        self.with_ads_ports(self.typed_params())
+    }
+
+    /// The request's parameters with its typed targets (see [`Self::params`]).
+    fn typed_params(&self) -> Option<Value> {
         let params = match &self.params {
             Value::Null => None,
             params => Some(params.clone()),
@@ -101,6 +143,25 @@ impl SearchCall {
             // refuses, as it refuses every non-object parameter), the parameters pass unchanged.
             (None | Some(_), params) => params,
         }
+    }
+
+    /// The parameters with the project's configured ADS ports, when the request names none
+    /// (`trust.ads.discoveryPorts`, specification 25 §2).
+    fn with_ads_ports(&self, params: Option<Value>) -> Option<Value> {
+        let ports = &self.host.settings.ads_discovery_ports;
+        if ports.is_empty() {
+            return params;
+        }
+        let mut object = match params {
+            None => Map::new(),
+            Some(Value::Object(object)) => object,
+            // Parameters that are not an object pass unchanged; the search refuses them.
+            Some(other) => return Some(other),
+        };
+        object
+            .entry("ads_ports".to_owned())
+            .or_insert_with(|| json!(ports));
+        Some(Value::Object(object))
     }
 
     /// Whether a `status` request names no search, which the pane's idle view answers (specification
@@ -388,6 +449,9 @@ impl DevicesEngine {
     /// A status that names no search answers the idle view.
     #[must_use]
     pub fn search(&self, call: &SearchCall) -> SearchReply {
+        if let Err(text) = self.record_change(call) {
+            return self.with_memory_failure(call, text);
+        }
         if call.verb == SearchVerb::Status && call.names_no_search() {
             return self.idle(call);
         }
@@ -405,8 +469,23 @@ impl DevicesEngine {
     /// request names, built from the panel's topology.
     fn idle(&self, call: &SearchCall) -> SearchReply {
         let runtimes = self.runtime_origins(call);
+        let view = match self.discover_context(call) {
+            Ok(ctx) => discover::idle(&call.scan(), &runtimes, &ctx),
+            Err(text) => discover::failed(&call.scan(), &runtimes, &Context::default(), text),
+        };
         SearchReply {
-            discover: Some(Box::new(discover::idle(&call.scan(), &runtimes))),
+            discover: Some(Box::new(view)),
+            ..SearchReply::default()
+        }
+    }
+
+    /// The reply of a request whose change could not be recorded: the pane shows the text, and its idle view
+    /// (specification 25 §2).
+    fn with_memory_failure(&self, call: &SearchCall, text: String) -> SearchReply {
+        let runtimes = self.runtime_origins(call);
+        let view = discover::failed(&call.scan(), &runtimes, &Context::default(), text);
+        SearchReply {
+            discover: Some(Box::new(view)),
             ..SearchReply::default()
         }
     }
@@ -442,7 +521,23 @@ impl DevicesEngine {
             return reply;
         }
         let runtimes = self.runtime_origins(call);
-        match discover::project(&reply.status, &call.scan(), &runtimes, super::now_millis()) {
+        let ctx = match self.discover_context(call) {
+            Ok(ctx) => ctx,
+            Err(text) => {
+                let view = discover::failed(&call.scan(), &runtimes, &Context::default(), text);
+                return SearchReply {
+                    discover: Some(Box::new(view)),
+                    ..reply
+                };
+            }
+        };
+        match discover::project_in(
+            &reply.status,
+            &call.scan(),
+            &runtimes,
+            &ctx,
+            super::now_millis(),
+        ) {
             Ok(view) => SearchReply {
                 discover: Some(Box::new(view)),
                 ..reply
@@ -464,13 +559,114 @@ impl DevicesEngine {
         match text {
             Some(text) => {
                 let runtimes = self.runtime_origins(call);
+                // A project file that cannot be read is the text the pane shows, not the runtime's failure.
+                let view = match self.discover_context(call) {
+                    Ok(ctx) => discover::failed(&call.scan(), &runtimes, &ctx, text),
+                    Err(memory) => {
+                        discover::failed(&call.scan(), &runtimes, &Context::default(), memory)
+                    }
+                };
                 SearchReply {
-                    discover: Some(Box::new(discover::failed(&call.scan(), &runtimes, text))),
+                    discover: Some(Box::new(view)),
                     ..reply
                 }
             }
             None => reply,
         }
+    }
+
+    /// What the Discover pane knows beside the search (specification 25 §2): the project's remembered choices and
+    /// ignored finds, the panel's `Show ignored` tick, the ADS connections on the canvas, the configured ADS ports,
+    /// and the facts of each origin runtime, read from the panel's last gather. A project file that cannot be read
+    /// is an error, with its text.
+    fn discover_context(&self, call: &SearchCall) -> Result<Context, String> {
+        let panel = self.panel(&call.session, Instant::now());
+        let mut shown = lock(&panel);
+        let session_current = call.search_id.as_deref().is_none_or(|id| {
+            shown
+                .searches
+                .iter()
+                .any(|search| owned_search_id(search) == id)
+        });
+        let show_ignored = shown.show_ignored;
+        let session = shown.session(Instant::now());
+        let known: Vec<KnownRuntime> = session.runtimes().to_vec();
+        let project = session.project_folder().map(Path::to_path_buf);
+        let memory = match &project {
+            Some(folder) => devices_file::load(folder)
+                .map_err(|reason| texts::devices_file_unreadable(&reason))?,
+            None => Memory::default(),
+        };
+        let ads_on_canvas = discover_ads::net_ids_on_canvas(
+            known
+                .iter()
+                .flat_map(|runtime| &runtime.connections)
+                .filter(|connection| connection.protocol == "ads")
+                .map(|connection| &connection.params),
+        );
+        let gathered = shown.gathered.as_ref();
+        let facts = gathered.map(|gathered| inputs::read(gathered, &call.host, None).facts);
+        let origins: BTreeMap<String, OriginFacts> = known
+            .iter()
+            .map(|runtime| {
+                let facts = origin_facts(gathered, facts.as_ref(), runtime);
+                (runtime.id.as_str().to_owned(), facts)
+            })
+            .collect();
+        Ok(Context {
+            memory,
+            show_ignored,
+            session_current,
+            ads_on_canvas,
+            ads_ports: call.host.settings.ads_discovery_ports.clone(),
+            origins,
+        })
+    }
+
+    /// Records the change of the Discover pane that a request carries (specification 25 §2, decision O14): a
+    /// tick and an Ignore are saved in the project's `devices.toml`; `Show ignored` is the panel's own.
+    ///
+    /// # Errors
+    /// A tick or an Ignore needs an open project, and the project's file must be readable and writable; the
+    /// text says which.
+    fn record_change(&self, call: &SearchCall) -> Result<(), String> {
+        let Some(change) = &call.change else {
+            return Ok(());
+        };
+        let panel = self.panel(&call.session, Instant::now());
+        if let DiscoverChange::ShowIgnored { shown } = change {
+            lock(&panel).show_ignored = *shown;
+            return Ok(());
+        }
+        let folder = lock(&panel)
+            .session(Instant::now())
+            .project_folder()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| texts::CHOOSE_PROJECT_TO_REMEMBER.to_owned())?;
+        let mut memory = devices_file::load(&folder)
+            .map_err(|reason| texts::devices_file_unreadable(&reason))?;
+        match change {
+            DiscoverChange::Select { source, checked } => {
+                let mut ticked = memory
+                    .protocols
+                    .take()
+                    .unwrap_or_else(|| vec![SourceId::Ads.as_str().to_owned()]);
+                ticked.retain(|name| name != source);
+                if *checked {
+                    ticked.push(source.clone());
+                }
+                memory.protocols = Some(ticked);
+            }
+            DiscoverChange::Ignore { device, ignored } => {
+                if *ignored {
+                    memory.ignored.insert(device.clone());
+                } else {
+                    memory.ignored.remove(device);
+                }
+            }
+            DiscoverChange::ShowIgnored { .. } => {}
+        }
+        devices_file::save(&folder, &memory).map_err(|reason| texts::devices_file_unsaved(&reason))
     }
 
     /// The runtimes the panel offers as origins of the search, each with whether it is ready
@@ -619,5 +815,55 @@ impl DevicesEngine {
                 }
             }
         }
+    }
+}
+
+/// The search ID of a search that the panel started, in either place it runs.
+fn owned_search_id(search: &OwnedSearch) -> &str {
+    match search {
+        OwnedSearch::Here(search_id) | OwnedSearch::Runtime { search_id, .. } => search_id.as_str(),
+    }
+}
+
+/// The facts of one origin runtime (specification 25 §2): its role from its status, the protocols its
+/// `comm.schema` lists with `discover` from the last gather, and its `EtherCAT` adapter from its connection.
+fn origin_facts(
+    gathered: Option<&Gathered>,
+    facts: Option<&inputs::Facts>,
+    runtime: &KnownRuntime,
+) -> OriginFacts {
+    let endpoint = runtime
+        .control_endpoint
+        .as_deref()
+        .map(str::trim)
+        .filter(|endpoint| !endpoint.is_empty());
+    let role = match (endpoint, facts) {
+        (Some(endpoint), Some(facts)) => {
+            facts.statuses.get(endpoint).and_then(|status| status.role)
+        }
+        _ => None,
+    };
+    let discover = match (endpoint, gathered) {
+        (Some(endpoint), Some(gathered)) => gathered
+            .targets
+            .iter()
+            .find(|report| report.target.endpoint.trim() == endpoint)
+            .and_then(|report| match &report.live.schema {
+                Some(Ok(schema)) => Some(discover_context::discover_from_schema(schema)),
+                _ => None,
+            }),
+        _ => None,
+    };
+    let ethercat_adapter = runtime
+        .connections
+        .iter()
+        .find(|connection| connection.protocol == "ethercat")
+        .and_then(|connection| connection.params.get("adapter"))
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    OriginFacts {
+        role,
+        ethercat_adapter,
+        discover,
     }
 }

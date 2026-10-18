@@ -1,6 +1,11 @@
 {
   "actions": [
     {
+      "confirm": {
+        "cancel": "Cancel",
+        "confirm": "Search",
+        "text": "EtherCAT scans the SubDevices on the adapter of the project's EtherCAT driver. It reads each SubDevice's identity in PRE-OP with its process data mapped, and it never brings the bus to SAFE-OP or OP. It can disturb a live bus."
+      },
       "emphasis": "primary",
       "enabled": true,
       "id": "search",
@@ -12,6 +17,7 @@
             "runtime": "runtime:old"
           },
           "params": {
+            "confirm_fieldbus_scan": true,
             "only": [
               "trust_runtime",
               "ads",
@@ -54,6 +60,26 @@
   "heading_targets": "Known address or subnet",
   "only": [
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "truST runtimes",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "trust_runtime"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "find",
@@ -62,6 +88,26 @@
       "source": "trust_runtime"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "ADS and TwinCAT",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "ads"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "find",
@@ -70,6 +116,26 @@
       "source": "ads"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "Modbus TCP",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "modbus_tcp"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "find",
@@ -78,6 +144,26 @@
       "source": "modbus_tcp"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "MQTT",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "mqtt"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "known_address",
@@ -86,6 +172,26 @@
       "source": "mqtt"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "OPC UA",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "opcua"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "known_address",
@@ -94,14 +200,55 @@
       "source": "opcua"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "EtherCAT",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "ethercat"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "runtime_hardware",
       "label": "EtherCAT",
       "note": "bus enumeration",
-      "source": "ethercat"
+      "source": "ethercat",
+      "warning": "Can disturb a live bus, so confirm before scanning"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "GPIO",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "gpio"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "runtime_hardware",
@@ -110,6 +257,26 @@
       "source": "gpio"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "Serial ports",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "serial"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "find",
@@ -117,6 +284,26 @@
       "source": "serial"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "USB",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "usb"
+            },
+            "origin": {
+              "runtime": "runtime:old"
+            },
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "find",
@@ -124,7 +311,7 @@
       "source": "usb"
     },
     {
-      "checked": true,
+      "checked": false,
       "enabled": false,
       "group": "find",
       "label": "Bluetooth LE",
@@ -147,6 +334,29 @@
     }
   ],
   "running": false,
+  "show_ignored": {
+    "action": {
+      "emphasis": "quiet",
+      "enabled": true,
+      "id": "show_ignored",
+      "label": "Show ignored",
+      "op": {
+        "kind": "search",
+        "request": {
+          "change": {
+            "kind": "show_ignored",
+            "shown": true
+          },
+          "origin": {
+            "runtime": "runtime:old"
+          },
+          "verb": "status"
+        }
+      }
+    },
+    "checked": false,
+    "label": "Show ignored"
+  },
   "sources": [
     {
       "id": "trust_runtime",

@@ -5,7 +5,8 @@
 
 use serde_json::{json, Value};
 
-use crate::view::discover::{project, RuntimeOrigin, Scan};
+use crate::view::discover::{project_in, RuntimeOrigin, Scan};
+use crate::view::discover_context::Context;
 use crate::view::types::{DiscoverView, HostEffect, Op, SourceRow, Tone};
 
 /// The time of the view, in milliseconds since the Unix epoch.
@@ -131,6 +132,13 @@ fn ads_find(net_id: &str) -> Value {
     })
 }
 
+/// An ADS result that port 851 answered: a `TwinCAT` device whose identity and port the search confirmed.
+fn ads_find_answering(net_id: &str) -> Value {
+    let mut find = ads_find(net_id);
+    find["params"]["responding_ads_ports"] = json!([851]);
+    find
+}
+
 /// A truST runtime found by mDNS, whose control endpoint is `endpoint`.
 fn runtime_find(endpoint: &str) -> Value {
     json!({
@@ -160,7 +168,8 @@ fn view_of(answer: &Value, scan: &Scan, runtimes: &[RuntimeOrigin]) -> DiscoverV
     let body = answer
         .as_object()
         .expect("a search status is a JSON object");
-    project(body, scan, runtimes, NOW_MS).expect("the status reads as a search status")
+    project_in(body, scan, runtimes, &Context::default(), NOW_MS)
+        .expect("the status reads as a search status")
 }
 
 /// The origin `runtime:cell`, ready to scan.
@@ -184,7 +193,10 @@ fn one_card_per_device_with_every_protocol() {
             device(
                 "dev:ip:192.168.1.20",
                 &["192.168.1.20"],
-                &[modbus_find("192.168.1.20"), ads_find("192.168.1.20.1.1")]
+                &[
+                    modbus_find("192.168.1.20"),
+                    ads_find_answering("192.168.1.20.1.1")
+                ]
             ),
             device(
                 "dev:ip:10.0.0.6",
@@ -230,7 +242,7 @@ fn card_actions_fit_the_identity() {
             device(
                 "dev:netid:192.168.1.20.1.1",
                 &["192.168.1.20"],
-                &[ads_find("192.168.1.20.1.1")]
+                &[ads_find_answering("192.168.1.20.1.1")]
             ),
         ]),
     );
@@ -238,8 +250,8 @@ fn card_actions_fit_the_identity() {
     let runtime_card = &view.cards[0];
     assert_eq!(
         runtime_card.actions.len(),
-        1,
-        "a runtime card offers one action"
+        2,
+        "a runtime card offers Adopt and Ignore"
     );
     let adopt = &runtime_card.actions[0];
     assert_eq!(
@@ -262,23 +274,30 @@ fn card_actions_fit_the_identity() {
     let device_card = &view.cards[1];
     assert_eq!(
         device_card.actions.len(),
-        1,
-        "a device card offers one action"
+        2,
+        "a TwinCAT card offers its add and Ignore"
     );
     let add = &device_card.actions[0];
-    assert_eq!((add.id.as_str(), add.label.as_str()), ("add", "+ Add"));
+    assert_eq!(
+        (add.id.as_str(), add.label.as_str()),
+        ("add_to_canvas", "Add to canvas")
+    );
     assert!(add.enabled, "the owning runtime takes the connection");
     assert_eq!(
         add.op,
         Op::Rust {
-            action: "form.open".to_owned(),
+            action: "connection.ads_add".to_owned(),
             payload: json!({
-                "protocol": "ads",
                 "runtime": "runtime:cell",
-                "prefill": { "ams_net_id": "192.168.1.20.1.1", "host": "192.168.1.20" }
+                "label": "PLC-7",
+                "target": {
+                    "ams_net_id": "192.168.1.20.1.1",
+                    "host": "192.168.1.20",
+                    "responding_ads_ports": [851]
+                }
             }),
         },
-        "the form opens the ADS connection on the owning runtime, prefilled from the find"
+        "one ADS connection per responding port is added to the owning runtime (specification 25 §2)"
     );
 }
 

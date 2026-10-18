@@ -5,10 +5,11 @@
 // source rows with their words and reasons, one card per device with its protocols, address, identity and
 // actions, the empty text, and the pane's own actions. This component draws them as given and posts a chosen
 // action exactly as the view gives it. The one exception is `Search`: it also carries the known address and
-// subnet the user typed, as its values. Its only state is what the user types into those two inputs. The origin
-// and the ticks are the view's own: a change to them reports nothing here yet.
+// subnet the user typed, as its values. Its state is what the user types into those two inputs, and which card
+// action awaits its search's reply. The origin is the view's own: a change of it reports nothing here yet. A tick,
+// an Ignore and `Show ignored` post the change that the view gives them, and the view answers with the new state.
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { BrowseNotice } from "./BrowsePane";
 import { InspectorAction } from "./Inspector";
@@ -65,8 +66,8 @@ const RUNTIME_HARDWARE = "runtime_hardware";
 const SEARCH_ACTION = "search";
 
 /**
- * The origin and the ticks are the view's: the next view says which origin and sources a search uses. A change
- * reports nothing here, so the control is drawn as the view gives it.
+ * The origin is the view's: the next view says which origin a search uses. A change reports nothing here, so the
+ * control is drawn as the view gives it.
  */
 function viewDecides(): void {
   // Nothing to do: the control is drawn as the view gives it.
@@ -117,7 +118,15 @@ function OriginChoices({ origins }: { origins: OriginChoice[] }) {
  * The `Only search` choices of one group: one tick per source, its note under its name, and disabled with its
  * reason when a scan from the origin cannot run.
  */
-function OnlyChoices({ choices, group }: { choices: OnlyChoice[]; group: string }) {
+function OnlyChoices({
+  choices,
+  group,
+  onAction,
+}: {
+  choices: OnlyChoice[];
+  group: string;
+  onAction: (action: Action) => void;
+}) {
   return (
     <section data-role="discover-only" data-group={group} style={discoverSectionStyle}>
       {choices
@@ -134,9 +143,22 @@ function OnlyChoices({ choices, group }: { choices: OnlyChoice[]; group: string 
               data-role="discover-only-tick"
               checked={choice.checked}
               disabled={!choice.enabled}
-              onChange={viewDecides}
+              onChange={() => {
+                if (choice.action !== undefined) {
+                  onAction(choice.action);
+                }
+              }}
             />
             <span data-role="discover-only-label">{choice.label}</span>
+            {choice.warning !== undefined && (
+              <span
+                data-role="discover-only-warning"
+                title={choice.warning}
+                style={discoverWarningStyle}
+              >
+                ⚠
+              </span>
+            )}
             {choice.note !== undefined && (
               <span data-role="discover-only-note" style={discoverReasonStyle}>
                 {choice.note}
@@ -255,7 +277,16 @@ function ProtocolLine({ protocol }: { protocol: CardProtocol }) {
  * One device card: its title, its addresses, every protocol found on it, its identity, when it was last seen,
  * its warnings, and its actions.
  */
-function Card({ card, onAction }: { card: DeviceCard; onAction: (action: Action) => void }) {
+function Card({
+  card,
+  busy,
+  onAction,
+}: {
+  card: DeviceCard;
+  /** Whether a card action awaits its reply: the actions are drawn disabled until the next view. */
+  busy: boolean;
+  onAction: (action: Action) => void;
+}) {
   return (
     <div data-role="discover-card" data-card={card.id} style={discoverCardStyle}>
       <span data-role="discover-card-title" style={discoverTitleStyle}>
@@ -266,6 +297,27 @@ function Card({ card, onAction }: { card: DeviceCard; onAction: (action: Action)
           {address}
         </span>
       ))}
+      {card.responding_ports !== undefined && (
+        <span data-role="discover-card-ports-count" style={discoverReasonStyle}>
+          {card.responding_ports}
+        </span>
+      )}
+      {card.on_canvas !== undefined && (
+        <span data-role="discover-card-on-canvas" style={pillStyle("ok")}>
+          {card.on_canvas}
+        </span>
+      )}
+      {card.ports.length > 0 && (
+        <div data-role="discover-card-ports" style={discoverCardActionsStyle}>
+          {card.ports.map((port) => (
+            <InspectorAction
+              key={port.id}
+              action={busy ? { ...port, enabled: false } : port}
+              onAction={onAction}
+            />
+          ))}
+        </div>
+      )}
       {card.protocols.map((protocol, index) => (
         <ProtocolLine key={index} protocol={protocol} />
       ))}
@@ -294,7 +346,11 @@ function Card({ card, onAction }: { card: DeviceCard; onAction: (action: Action)
       )}
       <div data-role="discover-card-actions" style={discoverCardActionsStyle}>
         {card.actions.map((action) => (
-          <InspectorAction key={action.id} action={action} onAction={onAction} />
+          <InspectorAction
+            key={action.id}
+            action={busy ? { ...action, enabled: false } : action}
+            onAction={onAction}
+          />
         ))}
       </div>
     </div>
@@ -325,6 +381,17 @@ export function DiscoverPane({
   onClose: () => void;
 }) {
   const [typed, setTyped] = useState<TypedTargets>({ hosts: "", cidr: "" });
+  // A card action that is a search awaits the view that answers it: until that view arrives, no card action posts again.
+  const [awaiting, setAwaiting] = useState(false);
+  useEffect(() => {
+    setAwaiting(false);
+  }, [discover]);
+  const chooseCardAction = (action: Action) => {
+    if (action.op.kind === "search") {
+      setAwaiting(true);
+    }
+    onAction(action);
+  };
   const onType = (key: keyof TypedTargets, value: string) =>
     setTyped((current) => ({ ...current, [key]: value }));
   const chooseFooterAction = (action: Action) => {
@@ -382,16 +449,16 @@ export function DiscoverPane({
           </p>
         )}
         <Heading text={discover.heading_find} />
-        <OnlyChoices choices={discover.only} group={FIND} />
+        <OnlyChoices choices={discover.only} group={FIND} onAction={onAction} />
         <section data-role="discover-advanced" style={discoverSectionStyle}>
           <Heading text={discover.heading_advanced} />
           <Heading text={discover.heading_scan_from} />
           <OriginChoices origins={discover.origins} />
           <Heading text={discover.heading_targets} />
-          <OnlyChoices choices={discover.only} group={KNOWN_ADDRESS} />
+          <OnlyChoices choices={discover.only} group={KNOWN_ADDRESS} onAction={onAction} />
           <Targets targets={discover.targets} typed={typed} onType={onType} />
           <Heading text={discover.heading_runtime} />
-          <OnlyChoices choices={discover.only} group={RUNTIME_HARDWARE} />
+          <OnlyChoices choices={discover.only} group={RUNTIME_HARDWARE} onAction={onAction} />
         </section>
         <SourceRows rows={discover.sources} />
         {discover.update_text !== undefined && (
@@ -399,10 +466,19 @@ export function DiscoverPane({
             {discover.update_text}
           </p>
         )}
+        <label data-role="discover-show-ignored" style={discoverChoiceStyle(true)}>
+          <input
+            type="checkbox"
+            data-role="discover-show-ignored-tick"
+            checked={discover.show_ignored.checked}
+            onChange={() => onAction(discover.show_ignored.action)}
+          />
+          <span>{discover.show_ignored.label}</span>
+        </label>
         {discover.cards.length > 0 && (
           <section data-role="discover-cards" style={discoverSectionStyle}>
             {discover.cards.map((card) => (
-              <Card key={card.id} card={card} onAction={onAction} />
+              <Card key={card.id} card={card} busy={awaiting} onAction={chooseCardAction} />
             ))}
           </section>
         )}

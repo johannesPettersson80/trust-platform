@@ -45,7 +45,7 @@ use crate::targets::TargetKey;
 use crate::view;
 use crate::view::types::{ActReply, BrowseView, DevicesView, OperationDone, Refresh};
 
-pub use search::{SearchCall, SearchOrigin, SearchReply, SearchVerb, TypedTargets};
+pub use search::{DiscoverChange, SearchCall, SearchOrigin, SearchReply, SearchVerb, TypedTargets};
 
 /// The version of a devices command's reply (design §1.4.1 and §2.1).
 pub const SCHEMA_VERSION: u32 = 1;
@@ -127,6 +127,9 @@ struct Panel {
     refresh_due: bool,
     /// The searches this session started, which closing the session ends (design §1.4.1).
     searches: Vec<OwnedSearch>,
+    /// Whether the Discover pane shows the finds that the project ignores (specification 25 §2). The
+    /// panel's own choice, not the project's: it is not remembered.
+    show_ignored: bool,
 }
 
 /// A finished gather, the cache that gathered it, and when it ended.
@@ -340,6 +343,7 @@ impl Panel {
             pending: 0,
             refresh_due: false,
             searches: Vec::new(),
+            show_ignored: false,
         }
     }
 

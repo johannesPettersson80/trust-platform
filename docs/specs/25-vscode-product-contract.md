@@ -127,7 +127,8 @@ package, or end-to-end evidence.
     subnet` inputs, the Search action, and no sources or cards. On the first run
     the choice `ADS and TwinCAT` is ticked where the origin can run it, as the old
     pane's first-run default was (`networkCanvas/webview/DiscoverPane.tsx` lines
-    136-150). Where it cannot, Search is disabled with `Select at least one
+    136-150); after that the project's remembered ticks apply (the rules below).
+    Where the origin cannot run it, Search is disabled with `Select at least one
     available scan type.`
   - A search that fails at a runtime answers its error reply and also the view's
     `error_text`. The texts are the old pane's, word for word:
@@ -164,8 +165,8 @@ package, or end-to-end evidence.
   Serial, USB and Bluetooth had no row in the old pane and have no note. The
   choices sit in the groups of the old pane: `What do you want to find?`,
   `Known address or subnet` (MQTT, OPC UA) and `Runtime hardware scans ⚠`
-  (EtherCAT, GPIO). The note `discoverable` belongs to protocols beyond these ten
-  sources, which the view does not list yet.
+  (EtherCAT, GPIO). The note `discoverable` belongs to a protocol that a runtime
+  advertises beyond these ten sources; the view lists it (the rules below).
 - A card that is not a truST runtime shows its `Host` (line 379).
 - A simulated find carries the mark `Simulated` (new; specification 11,
   "Confidence").
@@ -181,6 +182,76 @@ package, or end-to-end evidence.
 - The Bluetooth reason is the one that trust-runtime's search catalog gives
   (`trust_runtime::search::BLUETOOTH_UNAVAILABLE`), read from that catalog rather
   than copied.
+- The remembered ticks and the Ignore list are per project, in
+  `<project>/.trust-runtime/devices.toml` (decision O14), under `[discover]`:
+  `protocols` lists the ticked source IDs, and `ignored` lists the device IDs
+  that the project ignores. Rust reads and writes the file, so the CLI reads the
+  same choices. Without a remembered `protocols`, the first run ticks `ADS and
+  TwinCAT` where the origin can run it (old lines 136-150 and 512-523). A file
+  that cannot be read or saved leaves the pane with its text, `The project's
+  devices.toml could not be read: {reason}.` or `The project's devices.toml could
+  not be saved: {reason}.` (new). A tick or an Ignore with no open project is
+  refused with `Open a truST project, so that this choice is remembered.` (new).
+- A tick, an Ignore and `Show ignored` are each a status request of the search
+  with a `change` member, and the answer is the new view: `{"kind": "select",
+  "source": <source ID>, "checked": <bool>}`, `{"kind": "ignore", "device":
+  <card ID>, "ignored": <bool>}`, and `{"kind": "show_ignored", "shown": <bool>}`.
+  A tick that cannot run is disabled, drawn unticked and carries no change (old
+  `DiscoverPane.tsx` line 191: `checked && !disabledReason`). On a status, a choice
+  is ticked when the status names its source; on the idle view the first run ticks
+  ADS only. Once the project remembers its ticks, the remembered list decides both.
+- Every card offers `Ignore` after its own actions (decision O14; spec §5.14). An
+  ignored find leaves the found list until it is undone: with `Show ignored`
+  ticked, its card is shown and offers `Stop ignoring` instead. The toggle is
+  named `Show ignored`. Decision O14 calls it the toolbar filter; it sits in this
+  pane, because the cards it changes are this pane's. The toggle is not
+  remembered: it is the panel's own, and every view carries it, unticked until
+  the user ticks it.
+- The EtherCAT choice shows ⚠ with the title `Can disturb a live bus, so confirm
+  before scanning` (old line 204). A Search with EtherCAT ticked asks first:
+  `EtherCAT scans the SubDevices on {adapter}. It reads each SubDevice's identity
+  in PRE-OP with its process data mapped, and it never brings the bus to SAFE-OP
+  or OP. It can disturb a live bus.` (new; the effect is spec 11's source table).
+  `{adapter}` is `the adapter {name}` from the origin runtime's EtherCAT
+  connection, else `the adapter of the project's EtherCAT driver`. The
+  confirmation's buttons are `Search` and `Cancel`. Only that confirmed Search
+  posts `confirm_fieldbus_scan: true`, and its `params` keep the `only` list.
+  EtherCAT needs the Engineer role (decision O12): from a runtime connection with
+  another role the choice is disabled with `Scanning EtherCAT needs the Engineer
+  role; this connection has the Viewer role.` (new; the lifecycle's role reasons
+  give the same words, `role_needed`).
+- An ADS find with no responding port is left out of the cards (old lines
+  131-134). When TwinCAT identity was found and no port answered, then at the end of
+  the search the ADS source row reads `0 found` (the devices that answered, as
+  the old pane counted them, `verified.length`) and carries `TwinCAT identity was
+  found, but none of the configured ADS ports ({ports}) responded.` (`discoveryController.ts` lines 237-241). `{ports}` are the
+  `trust.ads.discoveryPorts` ports, else `301, 501, 851, 852, 853, 854`
+  (`adsDiscoveryPorts.ts`, the default list). Configured ports are sent to the
+  search as `ads_ports`.
+- An ADS card (old lines 326-373 and 400-408) shows `{n} responding ADS port`
+  (singular for one, `ports` for more; old line 345), one button per responding
+  port that browses that port's tags of the found device (old lines 358-373 showed
+  the ports as chips; they now act), and its primary action: `Add to canvas`
+  (old line 407), which adds one ADS connection per responding port to the owning
+  runtime, or `Manage tags` (old line 406) once the device is on the canvas. The
+  mark `On canvas` (old line 356) shows when a connection of a known runtime has
+  the find's AMS Net ID. Adding is disabled with `Add a runtime first, so that the
+  device has a runtime to connect through.` when no runtime owns the search.
+- A card's disabled reasons (old lines 334-340 and 385-389, `discoverySession.ts`),
+  in this order: `Discovery context changed. Scan again before adding this
+  result.` when the search was not started by this panel session; the stale-runtime
+  text of spec §2 (`The runtime that found this result is no longer available. Scan
+  again before adding it.`) when the origin runtime is no longer shown; and `This
+  discovery action is no longer available. Refresh the runtime and scan again.`
+  when the origin runtime's `comm.schema` does not advertise the find's protocol
+  (only for the protocols that `comm.schema` lists with `discover`).
+- A protocol that a runtime advertises beyond the ten sources (its `comm.schema`
+  lists `discover` for it) is an `Only search` choice under `Known address or
+  subnet`, named by its advertised label, with the note `discoverable` (old line 94).
+  It is disabled with `This version of truST cannot scan it yet. Update truST to
+  scan it.` (new), because a search names only the sources in its table. A status
+  that names an unknown source or protocol is still left out, with the update line
+  above.
 
 ## 3. Examples, project scaffolding, and packaged tools
 
@@ -1010,7 +1081,8 @@ is specific to boards.
 - `Discover` runs one search (§2). Each device card shows every protocol found
   on it, its identity, its source and confidence labels, and when it was last
   seen, and offers what fits it: `Add`, `Adopt` for a runtime, `Browse tags`,
-  `Identify` for a runtime, `Copy address`, and `Ignore`. A card's warnings
+  `Identify` for a runtime, `Copy address`, and `Ignore` (the rules of the TwinCAT
+  cards, of `Ignore` and of the remembered ticks are in §2). A card's warnings
   from the search are shown on it. `Compare with project` lists configured
   devices not found, found devices the project does not use, and devices whose
   identity differs.

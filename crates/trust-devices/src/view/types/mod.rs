@@ -485,6 +485,6 @@ pub use panes::{
     CardProtocol, CompareView, Details, DeviceCard, DiscoverView, ErrorBox, FieldKind, FieldOption,
     FieldbusOffer, Form, FormField, FormSection, FoundEntry, GhostTile, InstallStep, InstallView,
     ListEditor, OnlyChoice, OriginChoice, PortInput, Progress, QuickStart, RouteHelp,
-    RuntimeChoice, RuntimeRef, SearchBox, SourceRow, StepState, TargetsInput, Toggle, TreeNode,
-    UsbItem, UsbTray, VisibleWhen,
+    RuntimeChoice, RuntimeRef, SearchBox, ShowIgnored, SourceRow, StepState, TargetsInput, Toggle,
+    TreeNode, UsbItem, UsbTray, VisibleWhen,
 };

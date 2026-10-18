@@ -6756,6 +6756,7 @@ dependencies = [
  "base64 0.23.1",
  "serde",
  "serde_json",
+ "toml",
  "trust-chips",
  "trust-runtime",
  "trust-runtime-client",

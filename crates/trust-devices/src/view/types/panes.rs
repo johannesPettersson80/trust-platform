@@ -418,6 +418,8 @@ pub struct DiscoverView {
     pub update_text: Option<String>,
     /// The fieldbus scans that need a confirmation.
     pub fieldbus: Vec<FieldbusOffer>,
+    /// `Show ignored`: the toggle of the finds that the project ignores (decision O14).
+    pub show_ignored: ShowIgnored,
     /// One card per device.
     pub cards: Vec<DeviceCard>,
     /// `Compare with project`.
@@ -431,6 +433,18 @@ pub struct DiscoverView {
     pub error_text: Option<String>,
     /// Its actions: `Search`, `Cancel` while a scan runs, and `Configure ADS ports to scan`.
     pub actions: Vec<Action>,
+}
+
+/// The `Show ignored` toggle of the Discover pane (decision O14): whether the finds that the project
+/// ignores are shown, and the change of the toggle, which the search answers with the new view.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ShowIgnored {
+    /// Its text: `Show ignored`.
+    pub label: String,
+    /// Whether it is ticked.
+    pub checked: bool,
+    /// The change of the toggle, a `search` operation.
+    pub action: Action,
 }
 
 /// An origin of the search.
@@ -468,6 +482,14 @@ pub struct OnlyChoice {
     pub note: Option<String>,
     /// The group the choice is drawn in: `find`, `known_address` or `runtime_hardware`.
     pub group: String,
+    /// The title of the warning that the choice shows beside its name, such as the `EtherCAT` title
+    /// (`DiscoverPane.tsx` line 204).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
+    /// The change of the tick, a `search` operation that records it and answers the new view; absent
+    /// while the choice is disabled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<Action>,
 }
 
 /// The search's address and subnet inputs.
@@ -544,6 +566,14 @@ pub struct DeviceCard {
     /// Why its actions are disabled on a stale result.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale_reason: Option<String>,
+    /// The count of a `TwinCAT` device's responding ADS ports, such as `2 responding ADS ports`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub responding_ports: Option<String>,
+    /// One button per responding ADS port, which browses that port's tags of the device.
+    pub ports: Vec<Action>,
+    /// The mark `On canvas`, when the canvas holds the device.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_canvas: Option<String>,
 }
 
 /// A protocol found on a device.

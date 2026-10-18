@@ -227,3 +227,87 @@ pub const REJECTED_AUTHENTICATION: &str = "The selected runtime rejected authent
 pub const DISCOVERY_TIMED_OUT: &str = "truST runtime discovery timed out on the selected runtime. Reconnect or start the selected runtime, then scan again.";
 /// The text of any other failed request to a runtime (`discoveryErrors.ts` line 13).
 pub const COULD_NOT_COMPLETE: &str = "The selected runtime could not complete truST runtime discovery. Reconnect or start the selected runtime, then scan again.";
+
+// ---- the remembered choices, the fieldbus confirmation and the ADS cards (specification 25 §2) ----
+
+/// The title of the `EtherCAT` choice's warning mark (`DiscoverPane.tsx` line 204).
+pub const FIELDBUS_WARNING: &str = "Can disturb a live bus, so confirm before scanning";
+
+/// The confirmation of a Search that scans `EtherCAT` (specification 25 §2): the bus, the adapter and the
+/// effect. Without the adapter that the origin runtime's `EtherCAT` connection names, it says so.
+#[must_use]
+pub fn ethercat_confirmation(adapter: Option<&str>) -> String {
+    let which = adapter.map_or_else(
+        || "the adapter of the project's EtherCAT driver".to_owned(),
+        |adapter| format!("the adapter {adapter}"),
+    );
+    format!(
+        "EtherCAT scans the SubDevices on {which}. It reads each SubDevice's identity in PRE-OP with its process data mapped, and it never brings the bus to SAFE-OP or OP. It can disturb a live bus."
+    )
+}
+
+/// The count of an ADS card's responding ports, such as `2 responding ADS ports` (`DiscoverPane.tsx`
+/// line 345).
+#[must_use]
+pub fn responding_ads_ports(count: usize) -> String {
+    let noun = if count == 1 { "port" } else { "ports" };
+    format!("{count} responding ADS {noun}")
+}
+
+/// The ADS card's action that adds the device to the canvas (`DiscoverPane.tsx` line 407).
+pub const ADD_TO_CANVAS: &str = "Add to canvas";
+/// The ADS card's action on a device that the canvas holds (`DiscoverPane.tsx` line 406).
+pub const MANAGE_TAGS: &str = "Manage tags";
+/// The mark of a device that the canvas holds (`DiscoverPane.tsx` line 356).
+pub const ON_CANVAS: &str = "On canvas";
+
+/// The source row's text when `TwinCAT` identity was found and no configured port answered, with the
+/// ports that were asked (`discoveryController.ts` lines 237-241).
+#[must_use]
+pub fn ads_unverified(ports: &[u16]) -> String {
+    let list = ports
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("TwinCAT identity was found, but none of the configured ADS ports ({list}) responded.")
+}
+
+/// Why a card's actions are disabled when the search was not started by this panel session (`DiscoverPane.tsx`
+/// lines 334-340; `discoverySession.ts`).
+pub const CONTEXT_CHANGED: &str =
+    "Discovery context changed. Scan again before adding this result.";
+/// Why a card's actions are disabled when the origin runtime does not advertise the find's protocol
+/// (`discoverySession.ts`).
+pub const PROTOCOL_UNAVAILABLE: &str =
+    "This discovery action is no longer available. Refresh the runtime and scan again.";
+
+/// The card action that ignores a find (decision O14, specification 25 §2).
+pub const IGNORE: &str = "Ignore";
+/// The card action that undoes an ignore (decision O14).
+pub const STOP_IGNORING: &str = "Stop ignoring";
+/// The toggle that shows the finds the project ignores (decision O14).
+pub const SHOW_IGNORED: &str = "Show ignored";
+
+/// The note of a protocol that a runtime advertises beyond the ten sources (`DiscoverPane.tsx` line 94).
+pub const NOTE_DISCOVERABLE: &str = "discoverable";
+/// Why a protocol that a runtime advertises beyond the ten sources cannot be scanned in this version of truST
+/// (specification 25 §2).
+pub const CANNOT_SCAN_ADVERTISED: &str =
+    "This version of truST cannot scan it yet. Update truST to scan it.";
+
+/// Why a tick or an Ignore is refused while no project is open (specification 25 §2).
+pub const CHOOSE_PROJECT_TO_REMEMBER: &str =
+    "Open a truST project, so that this choice is remembered.";
+
+/// The text of a project's `devices.toml` that cannot be read, with the reason (specification 25 §2).
+#[must_use]
+pub fn devices_file_unreadable(reason: &str) -> String {
+    format!("The project's devices.toml could not be read: {reason}.")
+}
+
+/// The text of a project's `devices.toml` that cannot be saved, with the reason (specification 25 §2).
+#[must_use]
+pub fn devices_file_unsaved(reason: &str) -> String {
+    format!("The project's devices.toml could not be saved: {reason}.")
+}

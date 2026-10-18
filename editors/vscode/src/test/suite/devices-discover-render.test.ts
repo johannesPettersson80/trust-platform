@@ -18,9 +18,9 @@ const { buildSync } = require("esbuild") as {
 // They are never read back from the component. The golden views are written by
 // `crates/trust-devices/src/view/tests/golden_discover.rs`.
 //
-// Fieldbus confirmations (EtherCAT and Modbus RTU, each naming its bus, adapter and effect) and compare markers
-// (`Compare with project`) are not in the view yet: C7 leaves `fieldbus` and `compare` empty, and C6 adds
-// compare. Their tests belong to the later slice that draws them.
+// The EtherCAT confirmation is the Search action's confirm text, and the fieldbus list stays empty. Modbus RTU
+// confirmations and compare markers (`Compare with project`) are not in the view yet; C6 adds compare. Their
+// tests belong to the later slice that draws them.
 
 /** A webview component under test, bundled the way the extension ships it. */
 type WebviewComponent = React.ComponentType<Record<string, unknown>>;
@@ -67,6 +67,12 @@ const fixtures = path.resolve(
   "fixtures",
   "devices_discover",
 );
+
+/** The search operation of a change that the view gives: a status request that records `kind`. */
+function idleSearchOp(kind: string, shown = false): any {
+  const change = kind === "show_ignored" ? { kind, shown } : { kind };
+  return { kind: "search", request: { verb: "status", origin: "this_host", change } };
+}
 
 /** The golden Discover view `name`, as Rust serialized it. */
 function goldenView(name: string): any {
@@ -242,7 +248,8 @@ function leafTexts(container: any): string[] {
 
 /**
  * The idle Discover view, as Rust gives it before the first search (specification 25 §2): this computer, the first-run
- * tick of ADS and TwinCAT, empty targets and the Search action, with no source row and no card.
+ * tick of ADS and TwinCAT, empty targets and the Search action, with no source row and no card. Every view carries the
+ * `Show ignored` toggle, unticked until the user ticks it (decision O14); an idle view names no search in its change.
  */
 function idleView(): any {
   return {
@@ -274,6 +281,20 @@ function idleView(): any {
     },
     sources: [],
     cards: [],
+    show_ignored: {
+      label: "Show ignored",
+      checked: false,
+      action: {
+        id: "show_ignored",
+        label: "Show ignored",
+        enabled: true,
+        emphasis: "quiet",
+        op: {
+          kind: "search",
+          request: { verb: "status", origin: "this_host", change: { kind: "show_ignored", shown: true } },
+        },
+      },
+    },
     actions: [
       {
         id: "search",
@@ -430,7 +451,8 @@ suite("Devices & Connections Discover pane", () => {
     const DiscoverPane = loadDiscoverPane();
     // Specification 25 §2, lines 64-65 (one card per device) and 92-93 (Adopt for a discovered runtime). The `+ Add`
     // of a device card is the view's own action; the spec does not name it. A wrong implementation offers Add on a
-    // runtime card, Adopt on a device, or draws either disabled with no reason.
+    // runtime card, Adopt on a device, or draws either disabled with no reason. Specification 25 §2: every card then
+    // offers `Ignore` after its own action (decision O14), so each card lists it last and it is enabled.
     const rendered = await render(DiscoverPane, {
       title: "Discover",
       discover: goldenView("running_search"),
@@ -441,10 +463,22 @@ suite("Devices & Connections Discover pane", () => {
       assert.deepStrictEqual(
         cardsOf(rendered.container).map((card) => ({ id: card.id, actions: card.actions })),
         [
-          { id: "dev:ip:10.0.0.6", actions: [{ label: "Adopt", disabled: false }] },
-          { id: "dev:ip:192.168.1.20", actions: [{ label: "+ Add", disabled: false }] },
+          {
+            id: "dev:ip:10.0.0.6",
+            actions: [
+              { label: "Adopt", disabled: false },
+              { label: "Ignore", disabled: false },
+            ],
+          },
+          {
+            id: "dev:ip:192.168.1.20",
+            actions: [
+              { label: "+ Add", disabled: false },
+              { label: "Ignore", disabled: false },
+            ],
+          },
         ],
-        "the runtime card offers Adopt, the device card offers + Add, and both are enabled",
+        "the runtime card offers Adopt and Ignore, the device card offers + Add and Ignore, and all are enabled",
       );
     } finally {
       await rendered.unmount();
@@ -563,7 +597,7 @@ suite("Devices & Connections Discover pane", () => {
     // GPIO use the reason `Start or connect a runtime before scanning EtherCAT or GPIO.`; every other scan from it
     // uses `Start or connect {runtime} before scanning from it.`, with the runtime's name. Bluetooth is disabled in
     // every origin (specification 11, "Sources"). A wrong implementation enables a scan of a stopped runtime, names
-    // the wrong runtime, or leaves a disabled scan without its reason.
+    // the wrong runtime, leaves a disabled scan without its reason, or draws a disabled scan as ticked.
     const rendered = await render(DiscoverPane, {
       title: "Discover",
       discover: goldenView("stopped_runtime_origin"),
@@ -583,11 +617,13 @@ suite("Devices & Connections Discover pane", () => {
       const anyScan = "Start or connect Cell before scanning from it.";
       const hardware = "Start or connect a runtime before scanning EtherCAT or GPIO.";
       // The choices are drawn in the old pane's groups, in this order: `What do you want to find?`, then
-      // `Known address or subnet` (MQTT, OPC UA), then `Runtime hardware scans ⚠` (EtherCAT, GPIO).
+      // `Known address or subnet` (MQTT, OPC UA), then `Runtime hardware scans ⚠` (EtherCAT, GPIO). Specification
+      // 25 §2: a tick that cannot run is disabled and drawn unticked (old `DiscoverPane.tsx` line 191, `checked &&
+      // !disabledReason`), so no scan of the stopped runtime is ticked, trust_runtime and GPIO included.
       assert.deepStrictEqual(
         onlyChoices(container),
         [
-          { source: "trust_runtime", checked: true, enabled: false, reason: anyScan },
+          { source: "trust_runtime", checked: false, enabled: false, reason: anyScan },
           { source: "ads", checked: false, enabled: false, reason: anyScan },
           { source: "modbus_tcp", checked: false, enabled: false, reason: anyScan },
           { source: "serial", checked: false, enabled: false, reason: anyScan },
@@ -601,9 +637,9 @@ suite("Devices & Connections Discover pane", () => {
           { source: "mqtt", checked: false, enabled: false, reason: anyScan },
           { source: "opcua", checked: false, enabled: false, reason: anyScan },
           { source: "ethercat", checked: false, enabled: false, reason: hardware },
-          { source: "gpio", checked: true, enabled: false, reason: hardware },
+          { source: "gpio", checked: false, enabled: false, reason: hardware },
         ],
-        "every scan from the stopped runtime is disabled, each with its reason",
+        "every scan from the stopped runtime is disabled and unticked, each with its reason",
       );
     } finally {
       await rendered.unmount();
@@ -687,7 +723,17 @@ suite("Devices & Connections Discover pane", () => {
       const container = rendered.container;
       assert.deepStrictEqual(sourceRows(container), [
         { source: "trust_runtime", label: "truST runtimes", word: "0 found", tone: "neutral", count: "0" },
-        { source: "ads", label: "ADS and TwinCAT", word: "1 found", tone: "ok", count: "1" },
+        // Specification 25 §2: TwinCAT identity was found and no configured port answered, so the row of the finished
+        // search reads `0 found` (the devices that answered) and carries the verification text with the default ports.
+        {
+          source: "ads",
+          label: "ADS and TwinCAT",
+          word: "0 found",
+          tone: "neutral",
+          count: "0",
+          reason:
+            "TwinCAT identity was found, but none of the configured ADS ports (301, 501, 851, 852, 853, 854) responded.",
+        },
         {
           source: "ethercat",
           label: "EtherCAT",
@@ -701,9 +747,13 @@ suite("Devices & Connections Discover pane", () => {
         "false",
         "a finished search is not marked as running",
       );
-      assert.ok(
-        container.querySelector('[data-role="discover-empty"]') === null,
-        "a search that found a device shows no empty text",
+      // Specification 25 §2: the ADS device of this search was found but no configured port answered, so it has no card,
+      // and an empty result is drawn when a source ran (the ADS source did). The text gives the checks and the
+      // runtime hint (lines 75-77), so the pane draws it as the view gives it.
+      assert.strictEqual(
+        textOf(container, '[data-role="discover-empty"]'),
+        "Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. For EtherCAT or GPIO, choose a running runtime in Scan from.",
+        "the empty result draws its checks, since no card is shown and a source ran",
       );
     } finally {
       await rendered.unmount();
@@ -1054,6 +1104,8 @@ suite("Devices & Connections Discover pane", () => {
       const allowed = viewStrings(view);
       allowed.add("Discover");
       allowed.add("✕");
+      // The warning mark is a glyph beside the view's own warning title (DiscoverPane.tsx line 204).
+      allowed.add("⚠");
       const rendered = await render(DiscoverPane, {
         title: "Discover",
         discover: view,
@@ -1066,6 +1118,210 @@ suite("Devices & Connections Discover pane", () => {
       } finally {
         await rendered.unmount();
       }
+    }
+  });
+
+  test("the_ethercat_choice_draws_its_warning_title_beside_its_name", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2 (old line 204): the EtherCAT choice shows the mark ⚠ with the title that the view
+    // gives, `Can disturb a live bus, so confirm before scanning`. A wrong implementation draws the mark with no
+    // title, or a title of its own.
+    const view = {
+      ...goldenView("stopped_runtime_origin"),
+      only: [
+        {
+          source: "ethercat",
+          label: "EtherCAT",
+          checked: false,
+          enabled: true,
+          group: "runtime_hardware",
+          note: "bus enumeration",
+          warning: "Can disturb a live bus, so confirm before scanning",
+        },
+      ],
+      cards: [],
+      actions: [],
+      show_ignored: { label: "Show ignored", checked: false, action: idleSearchOp("show_ignored") },
+    };
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: () => undefined,
+      onClose: () => undefined,
+    });
+    try {
+      const mark = rendered.container.querySelector('[data-role="discover-only-warning"]');
+      assert.ok(mark, "the warning mark is drawn");
+      assert.strictEqual(mark.textContent, "⚠");
+      assert.strictEqual(
+        mark.getAttribute("title"),
+        "Can disturb a live bus, so confirm before scanning",
+        "the mark's title is the view's warning",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_tick_posts_the_change_the_view_gives_it_exactly_once", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2: a tick records its change with the status request that the view gives, and the view
+    // answers with the new state. A wrong implementation posts nothing, rebuilds the request, or posts twice.
+    const tick = {
+      id: "select",
+      label: "ADS and TwinCAT",
+      enabled: true,
+      emphasis: "quiet",
+      op: {
+        kind: "search",
+        request: {
+          verb: "status",
+          origin: "this_host",
+          search_id: "s-1",
+          change: { kind: "select", source: "ads", checked: true },
+        },
+      },
+    };
+    const view = {
+      ...goldenView("stopped_runtime_origin"),
+      only: [
+        { source: "ads", label: "ADS and TwinCAT", checked: false, enabled: true, group: "find", note: "network broadcast", action: tick },
+      ],
+      cards: [],
+      actions: [],
+      show_ignored: { label: "Show ignored", checked: false, action: idleSearchOp("show_ignored") },
+    };
+    const posted: unknown[][] = [];
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: (...args: unknown[]) => posted.push(args),
+      onClose: () => undefined,
+    });
+    try {
+      const tickBox = rendered.container.querySelector('[data-role="discover-only-tick"]');
+      await click(tickBox);
+      assert.deepStrictEqual(posted, [[tick]], "the tick posts its change once, as given");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_twincat_card_draws_its_ports_the_mark_and_posts_each_port_as_given", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2 (old lines 345 and 356-373): a TwinCAT card counts its responding ports, shows each
+    // port as a button, and marks a device the canvas holds with `On canvas`. A port button posts the browse of
+    // that port exactly as the view gives it. A wrong implementation draws the ports as text, drops the mark, or
+    // rebuilds the port's request.
+    const browseFor = (port: number) => ({
+      id: `ads_port_${port}`,
+      label: String(port),
+      enabled: true,
+      emphasis: "secondary",
+      op: {
+        kind: "ui",
+        ui: {
+          kind: "open",
+          pane: { kind: "browse", request: { source: { found: "dev:ads:5.6.7.8.1.1", protocol: "ads" }, port } },
+        },
+      },
+    });
+    const card = {
+      id: "dev:ads:5.6.7.8.1.1",
+      title: "PLC-A",
+      addresses: ["10.0.0.5"],
+      protocols: [],
+      identity: [],
+      last_seen: "3 s ago",
+      warnings: [],
+      actions: [
+        {
+          id: "manage_tags",
+          label: "Manage tags",
+          enabled: true,
+          emphasis: "primary",
+          op: { kind: "ui", ui: { kind: "open", pane: { kind: "browse", request: {} } } },
+        },
+      ],
+      responding_ports: "2 responding ADS ports",
+      ports: [browseFor(851), browseFor(852)],
+      on_canvas: "On canvas",
+    };
+    const view = {
+      ...goldenView("stopped_runtime_origin"),
+      only: [],
+      cards: [card],
+      actions: [],
+      show_ignored: { label: "Show ignored", checked: false, action: idleSearchOp("show_ignored") },
+    };
+    const posted: unknown[][] = [];
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: (...args: unknown[]) => posted.push(args),
+      onClose: () => undefined,
+    });
+    try {
+      const drawn = rendered.container.textContent ?? "";
+      assert.ok(drawn.includes("2 responding ADS ports"), "the count of responding ports is drawn");
+      assert.ok(drawn.includes("On canvas"), "the canvas mark is drawn");
+      const portButtons = [...rendered.container.querySelectorAll('[data-role="discover-card-ports"] [data-role="action-button"]')];
+      assert.deepStrictEqual(
+        portButtons.map((button: any) => button.textContent),
+        ["851", "852"],
+        "each responding port is a button, in port order",
+      );
+      await click(portButtons[1]);
+      assert.deepStrictEqual(posted, [[browseFor(852)]], "the port's browse is posted as the view gives it");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("show_ignored_posts_its_change_and_a_card_awaiting_its_view_posts_once", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Decision O14 and specification 25 §2: `Show ignored` posts its change; an ignored card offers `Stop ignoring`,
+    // and while that search awaits its view no card action posts again. A wrong implementation posts the toggle
+    // from its own state, or lets a double click post the change twice.
+    const stop = {
+      id: "stop_ignoring",
+      label: "Stop ignoring",
+      enabled: true,
+      emphasis: "secondary",
+      op: { kind: "search", request: { verb: "status", origin: "this_host", search_id: "s-1", change: { kind: "ignore", device: "dev:ads:5.6.7.8.1.1", ignored: false } } },
+    };
+    const toggle = { label: "Show ignored", checked: false, action: idleSearchOp("show_ignored", true) };
+    const card = {
+      id: "dev:ads:5.6.7.8.1.1",
+      title: "PLC-A",
+      addresses: [],
+      protocols: [],
+      identity: [],
+      last_seen: "3 s ago",
+      warnings: [],
+      actions: [stop],
+      ports: [],
+    };
+    const view = { ...goldenView("stopped_runtime_origin"), only: [], cards: [card], actions: [], show_ignored: toggle };
+    const posted: unknown[][] = [];
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: (...args: unknown[]) => posted.push(args),
+      onClose: () => undefined,
+    });
+    try {
+      await click(rendered.container.querySelector('[data-role="discover-show-ignored-tick"]'));
+      assert.deepStrictEqual(posted, [[toggle.action]], "the toggle posts its change as given");
+      await click(actionButton(rendered.container, "Stop ignoring"));
+      await click(actionButton(rendered.container, "Stop ignoring"));
+      assert.deepStrictEqual(
+        posted.slice(1),
+        [[stop]],
+        "the card action posts once while its search awaits the view",
+      );
+    } finally {
+      await rendered.unmount();
     }
   });
 });

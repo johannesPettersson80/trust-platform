@@ -46,7 +46,7 @@
   "heading_targets": "Known address or subnet",
   "only": [
     {
-      "checked": true,
+      "checked": false,
       "enabled": false,
       "group": "find",
       "label": "truST runtimes",
@@ -97,10 +97,11 @@
       "label": "EtherCAT",
       "note": "bus enumeration",
       "reason": "Start or connect a runtime before scanning EtherCAT or GPIO.",
-      "source": "ethercat"
+      "source": "ethercat",
+      "warning": "Can disturb a live bus, so confirm before scanning"
     },
     {
-      "checked": true,
+      "checked": false,
       "enabled": false,
       "group": "runtime_hardware",
       "label": "GPIO",
@@ -149,6 +150,30 @@
   ],
   "running": false,
   "search_id": "s-4",
+  "show_ignored": {
+    "action": {
+      "emphasis": "quiet",
+      "enabled": true,
+      "id": "show_ignored",
+      "label": "Show ignored",
+      "op": {
+        "kind": "search",
+        "request": {
+          "change": {
+            "kind": "show_ignored",
+            "shown": true
+          },
+          "origin": {
+            "runtime": "runtime:cell"
+          },
+          "search_id": "s-4",
+          "verb": "status"
+        }
+      }
+    },
+    "checked": false,
+    "label": "Show ignored"
+  },
   "sources": [
     {
       "count": 0,

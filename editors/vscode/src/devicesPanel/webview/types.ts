@@ -582,6 +582,16 @@ export interface Toggle {
  * The Discover pane, which the search status answers with `discover` (panes.rs `DiscoverView`, specification
  * 25 §2). Rust gives every text, count and rule; the pane mirrors only the fields it draws.
  */
+/** The `Show ignored` toggle (decision O14): its text, whether it is ticked and its change. */
+export interface ShowIgnored {
+  /** Its text: `Show ignored`. */
+  label: string;
+  /** Whether it is ticked. */
+  checked: boolean;
+  /** The change of the toggle, a `search` operation. */
+  action: Action;
+}
+
 export interface DiscoverView {
   /** The running or last search. */
   search_id?: string;
@@ -617,7 +627,8 @@ export interface DiscoverView {
   sources: SourceRow[];
   /** The line that asks to update truST, when a source or protocol was left out. */
   update_text?: string;
-  /** One card per device. */
+  /** `Show ignored`: the toggle of the finds that the project ignores (decision O14). */
+  show_ignored: ShowIgnored;
   cards: DeviceCard[];
   /** What shows without finds. */
   empty_text?: string;
@@ -657,6 +668,10 @@ export interface OnlyChoice {
   note?: string;
   /** The group it is drawn in: `find`, `known_address` or `runtime_hardware`. */
   group: string;
+  /** The title of the warning drawn beside its name, such as the EtherCAT title. */
+  warning?: string;
+  /** The change of its tick, which records it and answers the new view. Absent while it is disabled. */
+  action?: Action;
 }
 
 /** The inputs of `Known address or subnet` (panes.rs `TargetsInput`). */
@@ -707,6 +722,12 @@ export interface DeviceCard {
   actions: Action[];
   /** Why its actions are disabled on a stale result. */
   stale_reason?: string;
+  /** The count of its responding ADS ports, such as `2 responding ADS ports`. */
+  responding_ports?: string;
+  /** One button per responding ADS port, which browses that port's tags. */
+  ports: Action[];
+  /** The mark `On canvas`, when the canvas holds the device. */
+  on_canvas?: string;
 }
 
 /** A protocol found on a device (panes.rs `CardProtocol`). */

@@ -7,7 +7,8 @@ use serde_json::{json, Map, Value};
 
 use crate::engine::{DevicesEngine, SearchCall, SearchOrigin, SearchVerb, TypedTargets};
 use crate::request::HostFacts;
-use crate::view::discover::{self, project, RuntimeOrigin, Scan};
+use crate::view::discover::{self, RuntimeOrigin, Scan};
+use crate::view::discover_context::Context;
 use crate::view::types::Op;
 
 /// The time of the views, in milliseconds since the Unix epoch.
@@ -30,6 +31,16 @@ const COULD_NOT: &str = "The selected runtime could not complete truST runtime d
 /// The line that asks to update truST (specification 25 §2).
 const UPDATE_TRUST: &str = "This search reports a source or protocol that this version of truST does not know. Update truST to see its results.";
 
+/// The Discover view of `status` with nothing remembered beside it: the default context.
+fn project(
+    status: &Map<String, Value>,
+    scan: &Scan,
+    runtimes: &[RuntimeOrigin],
+    now_ms: u64,
+) -> Result<crate::view::types::DiscoverView, serde_json::Error> {
+    discover::project_in(status, scan, runtimes, &Context::default(), now_ms)
+}
+
 /// A status of the search `s-1` in the state given, with the sources and devices of the test.
 fn status(state: &str, sources: &Value, devices: &Value) -> Map<String, Value> {
     json!({ "search_id": "s-1", "state": state, "sources": sources, "devices": devices })
@@ -49,6 +60,7 @@ fn call(verb: SearchVerb, origin: SearchOrigin, search_id: Option<&str>) -> Sear
         params: Value::Null,
         targets: None,
         host: HostFacts::default(),
+        change: None,
     }
 }
 
@@ -108,6 +120,7 @@ fn a_stopped_runtime_origin_offers_no_search_until_it_starts() {
     let view = discover::idle(
         &Scan::Runtime("rt-1".to_owned()),
         &[runtime("rt-1", "Line A", false)],
+        &Context::default(),
     );
     let ads = view
         .only
@@ -283,7 +296,7 @@ fn the_bluetooth_reason_is_the_catalogs() {
     // Specification 25 §2: the Bluetooth reason is the one that trust-runtime's search catalog gives,
     // read from that catalog rather than copied. A wrong implementation keeps its own copy, which can
     // drift from the catalog, or leaves Bluetooth without a reason.
-    let view = discover::idle(&Scan::ThisHost, &[]);
+    let view = discover::idle(&Scan::ThisHost, &[], &Context::default());
     let bluetooth = view
         .only
         .iter()

@@ -1,14 +1,17 @@
-//! The Discover pane (specification 25 §2): the status of one search, turned into what the pane
-//! draws. One card per device with every protocol found on it, the source rows, the scan choices with
-//! the reason of each scan that cannot run, the headings, notes and help texts, the pane's actions
-//! (`Search`, `Cancel` and `Configure ADS ports to scan`), the empty-result checks, and the card actions
-//! that fit the device's identity. The engine adds this view to the answer of a search status (design
-//! §1.4.1); the search itself runs in the engine's search module, and its sources in the runtime.
+//! The Discover pane (specification 25 §2): the status of one search, turned into what the pane draws. One
+//! card per device with every protocol found on it, the source rows, the scan choices with the reason of each
+//! scan that cannot run, the headings, notes and help texts, the pane's actions (`Search`, `Cancel` and
+//! `Configure ADS ports to scan`), the empty-result checks, and the card actions that fit the device's
+//! identity. The engine adds this view to the answer of a search status (design §1.4.1); the search itself
+//! runs in the engine's search module, and its sources in the runtime.
 //!
 //! - `runtime_origins`: the runtimes the panel offers as origins of a search, and whether each is
 //!   ready: attached, or with `connected`, `running` or `online` health (specification 25 §2).
-//! - A runtime card (a device that a truST runtime answered for) gets `Adopt`; any other card gets
-//!   `+ Add` with the connection it would create on the owning runtime.
+//! - A runtime card (a device that a truST runtime answered for) gets `Adopt`; a `TwinCAT` card gets `Add to
+//!   canvas` or `Manage tags` (`discover_ads`); any other card gets `+ Add` with the connection it would
+//!   create on the owning runtime. Every card gets `Ignore`, or `Stop ignoring` while the project ignores it.
+//! - The scan choices, the origins and their reasons are `discover_choices`; the facts that the view reads
+//!   beside the status are `discover_context`.
 //! - A source or protocol that this build does not know is left out, and the view asks to update truST.
 
 use std::collections::BTreeSet;
@@ -16,8 +19,11 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Deserializer};
 use serde_json::{json, Map, Value};
 use trust_runtime::connectors::DiscoveryConfidence;
-use trust_runtime::search::{SourceId, BLUETOOTH_UNAVAILABLE};
+use trust_runtime::search::SourceId;
 
+use super::discover_ads;
+use super::discover_choices;
+use super::discover_context::{self, Context};
 use super::health;
 use crate::gather::Gathered;
 use crate::inputs;
@@ -28,12 +34,12 @@ use crate::texts::discover as texts;
 use crate::texts::graph;
 use crate::topology;
 use crate::view::types::{
-    Action, CardProtocol, DeviceCard, DiscoverView, Emphasis, HostEffect, OnlyChoice, Op,
-    OriginChoice, Row, SourceRow, TargetsInput, Tone,
+    Action, CardProtocol, Confirm, DeviceCard, DiscoverView, Emphasis, HostEffect, OnlyChoice, Op,
+    Row, ShowIgnored, SourceRow, TargetsInput, Tone,
 };
 
 /// The origin of a search that runs on this computer (`origin` in `comm.search.start`).
-const THIS_HOST: &str = "this_host";
+pub(crate) const THIS_HOST: &str = "this_host";
 
 /// One runtime that the panel offers as the origin of a search (specification 25 §2, `Scan from`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,20 +99,22 @@ fn ready_runtimes(gathered: &Gathered, host: &HostFacts) -> BTreeSet<String> {
         .collect()
 }
 
-/// The Discover view of one search status (specification 25 §2). `status` is the body that
-/// `comm.search.status` answers, or the body the engine builds for a runtime that cannot search;
-/// `scan` is the origin the search ran at, `runtimes` the origins the panel offers, and `now_ms`
-/// the time of the view in milliseconds since the Unix epoch.
+/// The Discover view of one search status (specification 25 §2), read with what the panel knows beside it:
+/// `ctx` holds the project's remembered ticks and ignored finds, the runtimes' roles and advertised protocols,
+/// and the ADS connections on the canvas. `status` is the body that `comm.search.status` answers, or the body
+/// the engine builds for a runtime that cannot search; `scan` is the origin the search ran at, `runtimes` the
+/// origins the panel offers, and `now_ms` the time of the view in milliseconds since the Unix epoch.
 ///
-/// A source or a protocol that this build does not know is left out of the view, and the view then
-/// carries the line that asks to update truST (specification 25 §2).
+/// A source or a protocol that this build does not know is left out of the view, and the view then carries
+/// the line that asks to update truST (specification 25 §2). An ADS find that no port answered is left out.
 ///
 /// # Errors
 /// The body is not a search status: a source or a device lacks a member that the answer requires.
-pub(crate) fn project(
+pub(crate) fn project_in(
     status: &Map<String, Value>,
     scan: &Scan,
     runtimes: &[RuntimeOrigin],
+    ctx: &Context,
     now_ms: u64,
 ) -> Result<DiscoverView, serde_json::Error> {
     let answer: Answer = serde_json::from_value(Value::Object(status.clone()))?;
@@ -118,19 +126,48 @@ pub(crate) fn project(
             None => left_out = true,
         }
     }
-    let sources = known_sources
+    let mut sources = known_sources
         .iter()
         .map(|(id, source)| source_row(*id, source))
         .collect::<Result<Vec<_>, _>>()?;
+    let ads_finds: Vec<&FindAnswer> = answer
+        .devices
+        .iter()
+        .flat_map(|device| &device.finds)
+        .filter(|find| find.protocol == SourceId::Ads.as_str())
+        .collect();
+    let answered = ads_finds
+        .iter()
+        .any(|find| !discover_ads::unanswered(&find.protocol, &find.params));
+    let running = answer.state == Run::Running;
+    // The verification is the search's end (old `discoverResults`): while TwinCAT still searches, no text yet.
+    let verification = (!running)
+        .then(|| discover_ads::unverified_text(!ads_finds.is_empty(), answered, &ctx.ads_ports))
+        .flatten();
+    if let Some(text) = verification
+        && let Some(row) = sources
+            .iter_mut()
+            .find(|row| row.id == SourceId::Ads.as_str())
+    {
+        // The old pane counted the devices that answered (`verified.length`), so the row reads `0 found`.
+        row.count = Some(0);
+        row.word = texts::found(0);
+        row.tone = Tone::Neutral;
+        row.reason = Some(text);
+    }
     let mut devices = Vec::new();
     for device in answer.devices {
         let had_finds = !device.finds.is_empty();
         let (known, unknown): (Vec<FindAnswer>, Vec<FindAnswer>) = device
             .finds
             .into_iter()
+            .filter(|find| !discover_ads::unanswered(&find.protocol, &find.params))
             .partition(|find| known_source(&find.protocol).is_some() && find.confidence.is_some());
         left_out |= !unknown.is_empty();
         if had_finds && known.is_empty() {
+            continue;
+        }
+        if ctx.memory.ignored.contains(&device.id) && !ctx.show_ignored {
             continue;
         }
         devices.push(DeviceAnswer {
@@ -138,20 +175,30 @@ pub(crate) fn project(
             ..device
         });
     }
-    let running = answer.state == Run::Running;
-    let only = only_choices(
+    let only = discover_choices::only_choices(
+        scan,
+        runtimes,
+        ctx,
+        answer.search_id.as_deref(),
         |source| {
             answer
                 .sources
                 .iter()
                 .any(|given| given.id == source.as_str())
         },
-        scan,
-        runtimes,
     );
     let cards: Vec<DeviceCard> = devices
         .iter()
-        .map(|device| card(device, scan, runtimes, now_ms))
+        .map(|device| {
+            card(
+                device,
+                scan,
+                runtimes,
+                now_ms,
+                ctx,
+                answer.search_id.as_deref(),
+            )
+        })
         .collect();
     let ran = known_sources
         .iter()
@@ -159,7 +206,7 @@ pub(crate) fn project(
     let empty_text = (!running && cards.is_empty() && ran).then(|| empty_text(scan, runtimes));
     let unavailable_text = (only.is_empty() && !running && sources.is_empty() && cards.is_empty())
         .then(|| texts::NO_DISCOVERY_YET.to_owned());
-    let mut view = frame(running, answer.search_id, scan, runtimes, only);
+    let mut view = frame(running, answer.search_id, scan, runtimes, ctx, only);
     view.unavailable_text = unavailable_text;
     view.sources = sources;
     view.update_text = left_out.then(|| texts::UPDATE_TRUST.to_owned());
@@ -169,16 +216,19 @@ pub(crate) fn project(
 }
 
 /// The view that every Discover view shares (specification 25 §2): the headings, the origins, the
-/// `Only search` choices, the empty targets and the pane's actions. The caller adds what its search found.
+/// `Only search` choices, the `Show ignored` toggle, the empty targets and the pane's actions. The caller adds
+/// what its search found.
 fn frame(
     running: bool,
     search_id: Option<String>,
     scan: &Scan,
     runtimes: &[RuntimeOrigin],
+    ctx: &Context,
     only: Vec<OnlyChoice>,
 ) -> DiscoverView {
     let choose_text = (!only.is_empty()).then(|| texts::CHOOSE_WHAT_TO_FIND.to_owned());
-    let actions = pane_actions(running, search_id.as_deref(), scan, &only);
+    let actions = pane_actions(running, search_id.as_deref(), scan, &only, ctx);
+    let show_ignored = show_ignored_toggle(scan, search_id.as_deref(), ctx);
     DiscoverView {
         search_id,
         running,
@@ -192,12 +242,13 @@ fn frame(
         heading_runtime: texts::HEADING_RUNTIME.to_owned(),
         unavailable_text: None,
         choose_text,
-        origins: origin_choices(scan, runtimes),
+        origins: discover_choices::origin_choices(scan, runtimes),
         only,
         targets: targets(),
         sources: Vec::new(),
         update_text: None,
         fieldbus: Vec::new(),
+        show_ignored,
         cards: Vec::new(),
         compare: None,
         empty_text: None,
@@ -207,42 +258,32 @@ fn frame(
 }
 
 /// The Discover view before the first search, and after a search is cleared (specification 25 §2): the
-/// origins, every scan choice with its reason, empty targets and the Search action. On the first run ADS
-/// and `TwinCAT` is ticked where the origin can run it, as the old pane's first-run default was
-/// (`networkCanvas/webview/DiscoverPane.tsx` lines 136-150).
+/// origins, every scan choice with its reason, the ticks that the project remembers (ADS on the first run),
+/// empty targets and the Search action.
 #[must_use]
-pub(crate) fn idle(scan: &Scan, runtimes: &[RuntimeOrigin]) -> DiscoverView {
+pub(crate) fn idle(scan: &Scan, runtimes: &[RuntimeOrigin], ctx: &Context) -> DiscoverView {
     frame(
         false,
         None,
         scan,
         runtimes,
-        first_run_choices(scan, runtimes),
+        ctx,
+        discover_choices::only_choices(scan, runtimes, ctx, None, |source| source == SourceId::Ads),
     )
 }
 
-/// The Discover view of a search that failed at a runtime (specification 25 §2): the failure's text
-/// beside the pane's actions, so that Search can run again.
+/// The Discover view of a search that failed at a runtime (specification 25 §2), or of a project file that
+/// cannot be read: the failure's text beside the pane's actions, so that Search can run again.
 #[must_use]
-pub(crate) fn failed(scan: &Scan, runtimes: &[RuntimeOrigin], text: String) -> DiscoverView {
-    let mut view = frame(
-        false,
-        None,
-        scan,
-        runtimes,
-        first_run_choices(scan, runtimes),
-    );
+pub(crate) fn failed(
+    scan: &Scan,
+    runtimes: &[RuntimeOrigin],
+    ctx: &Context,
+    text: String,
+) -> DiscoverView {
+    let mut view = idle(scan, runtimes, ctx);
     view.error_text = Some(text);
     view
-}
-
-/// The `Only search` choices of the first run: ADS and `TwinCAT` is ticked where its origin can run it.
-fn first_run_choices(scan: &Scan, runtimes: &[RuntimeOrigin]) -> Vec<OnlyChoice> {
-    only_choices(
-        |source| source == SourceId::Ads && scan_reason(source, scan, runtimes).is_none(),
-        scan,
-        runtimes,
-    )
 }
 
 /// The text of a search that failed, as the old pane gave the same failure (specification 25 §2), or
@@ -362,102 +403,10 @@ struct FindAnswer {
     warnings: Vec<String>,
 }
 
-// ---- the scan choices and the source rows ----
+// ---- the source rows ----
 
-/// The origin choices: this computer, then each runtime the panel offers (specification 25 §2).
-fn origin_choices(scan: &Scan, runtimes: &[RuntimeOrigin]) -> Vec<OriginChoice> {
-    let this_host = OriginChoice {
-        id: THIS_HOST.to_owned(),
-        label: graph::THIS_COMPUTER.to_owned(),
-        enabled: true,
-        reason: None,
-        selected: *scan == Scan::ThisHost,
-    };
-    std::iter::once(this_host)
-        .chain(runtimes.iter().map(|runtime| OriginChoice {
-            id: runtime.id.clone(),
-            label: runtime.name.clone(),
-            enabled: true,
-            reason: None,
-            selected: *scan == Scan::Runtime(runtime.id.clone()),
-        }))
-        .collect()
-}
-
-/// The `Only search` choices, one per source in the order of the source table. `ticked` says whether a
-/// source is ticked; a scan that cannot run from `scan` is disabled with its reason.
-fn only_choices(
-    ticked: impl Fn(SourceId) -> bool,
-    scan: &Scan,
-    runtimes: &[RuntimeOrigin],
-) -> Vec<OnlyChoice> {
-    SourceId::ALL
-        .into_iter()
-        .map(|source| {
-            let reason = scan_reason(source, scan, runtimes);
-            OnlyChoice {
-                source: source.as_str().to_owned(),
-                label: texts::source_name(source.as_str()),
-                checked: ticked(source),
-                enabled: reason.is_none(),
-                reason,
-                note: source_note(source).map(str::to_owned),
-                group: choice_group(source).to_owned(),
-            }
-        })
-        .collect()
-}
-
-/// The note under a source's name, as the old pane placed it (`DiscoverPane.tsx` lines 33-49). Serial,
-/// USB and Bluetooth had no row in the old pane, so they have no note.
-fn source_note(source: SourceId) -> Option<&'static str> {
-    match source {
-        SourceId::TrustRuntime => Some(texts::NOTE_MDNS),
-        SourceId::Ads => Some(texts::NOTE_NETWORK_BROADCAST),
-        SourceId::ModbusTcp => Some(texts::NOTE_LOCAL_NETWORK_SCAN),
-        SourceId::Mqtt | SourceId::Opcua => Some(texts::NOTE_AT_HOST),
-        SourceId::Ethercat => Some(texts::NOTE_BUS_ENUMERATION),
-        SourceId::Gpio => Some(texts::NOTE_LOCAL_PINS),
-        SourceId::Serial | SourceId::Usb | SourceId::Bluetooth => None,
-    }
-}
-
-/// The heading group a source's choice sits under (`DiscoverPane.tsx` lines 26-50): the sources that
-/// need a known address, and `EtherCAT` and GPIO, which run only inside a runtime.
-fn choice_group(source: SourceId) -> &'static str {
-    match source {
-        SourceId::Mqtt | SourceId::Opcua => texts::GROUP_KNOWN_ADDRESS,
-        SourceId::Ethercat | SourceId::Gpio => texts::GROUP_RUNTIME_HARDWARE,
-        SourceId::TrustRuntime
-        | SourceId::Ads
-        | SourceId::ModbusTcp
-        | SourceId::Serial
-        | SourceId::Usb
-        | SourceId::Bluetooth => texts::GROUP_FIND,
-    }
-}
-
-/// Why a scan of `source` from `scan` cannot run, or `None` when it can (specification 25 §2, lines
-/// 82-88). `EtherCAT` and GPIO run only from a runtime; every scan from a runtime that is not ready is
-/// disabled.
-fn scan_reason(source: SourceId, scan: &Scan, runtimes: &[RuntimeOrigin]) -> Option<String> {
-    if source == SourceId::Bluetooth {
-        return Some(BLUETOOTH_UNAVAILABLE.to_owned());
-    }
-    let needs_runtime = matches!(source, SourceId::Ethercat | SourceId::Gpio);
-    match scan {
-        Scan::ThisHost => needs_runtime.then(|| texts::CHOOSE_RUNTIME_FOR_HARDWARE.to_owned()),
-        Scan::Runtime(id) => match runtimes.iter().find(|runtime| runtime.id == *id) {
-            Some(runtime) if runtime.ready => None,
-            _ if needs_runtime => Some(texts::START_RUNTIME_FOR_HARDWARE.to_owned()),
-            Some(runtime) => Some(texts::start_or_connect(&runtime.name)),
-            None => Some(texts::START_A_RUNTIME.to_owned()),
-        },
-    }
-}
-
-/// The row of one source: its word, its count and, when it did not run, its reason (specification
-/// 25 §2, lines 55-58). A source that ran must report its count.
+/// The row of one source: its word, its count and, when it did not run, its reason (specification 25 §2,
+/// lines 55-58). A source that ran must report its count.
 fn source_row(id: SourceId, source: &SourceAnswer) -> Result<SourceRow, serde_json::Error> {
     let name = id.as_str();
     let (word, tone, count, reason) = match (source.state, source.count) {
@@ -520,16 +469,18 @@ fn targets() -> TargetsInput {
     }
 }
 
-/// The pane's own actions (specification 25 §2): `Search` starts one search with the origin, the
-/// ticked sources and the typed targets; `Cancel` shows while a scan runs; `Configure ADS ports to scan`
-/// opens the ADS port settings. A disabled `Search` carries its reason: a scan that runs, or no ticked
-/// source. The search actions are `search` operations: the host sends each request to
+/// The pane's own actions (specification 25 §2): `Search` starts one search with the origin, the ticked
+/// sources and the typed targets; `Cancel` shows while a scan runs; `Configure ADS ports to scan` opens the
+/// ADS port settings. A disabled `Search` carries its reason: a scan that runs, or no ticked source. A
+/// `Search` that scans `EtherCAT` asks first, and only that confirmed search carries `confirm_fieldbus_scan`
+/// (specification 25 §2). The search actions are `search` operations: the host sends each request to
 /// `trust-lsp.devicesSearch`, not to `trust-lsp.devicesAct`, with the body specification 25 §2 names.
 fn pane_actions(
     running: bool,
     search_id: Option<&str>,
     scan: &Scan,
     only: &[OnlyChoice],
+    ctx: &Context,
 ) -> Vec<Action> {
     let ticked: Vec<&str> = only
         .iter()
@@ -549,6 +500,18 @@ fn pane_actions(
     } else {
         texts::SEARCH
     };
+    let fieldbus = enabled && ticked.contains(&SourceId::Ethercat.as_str());
+    let confirm = fieldbus.then(|| Confirm {
+        text: texts::ethercat_confirmation(
+            discover_choices::ethercat_adapter(scan, ctx).as_deref(),
+        ),
+        confirm: texts::SEARCH.to_owned(),
+        cancel: texts::CANCEL.to_owned(),
+    });
+    let mut params = json!({ "only": ticked });
+    if fieldbus {
+        params["confirm_fieldbus_scan"] = json!(true);
+    }
     let mut actions = vec![Action {
         id: "search".to_owned(),
         label: label.to_owned(),
@@ -559,12 +522,12 @@ fn pane_actions(
         } else {
             Emphasis::Quiet
         },
-        confirm: None,
+        confirm,
         op: Op::Search {
             request: json!({
                 "verb": "start",
                 "origin": origin_body(scan),
-                "params": { "only": ticked },
+                "params": params,
             }),
         },
     }];
@@ -601,9 +564,31 @@ fn pane_actions(
     actions
 }
 
+/// The `Show ignored` toggle (decision O14): ticked while the finds that the project ignores are shown. Its
+/// change records the panel's own choice and answers the view with the toggle flipped.
+fn show_ignored_toggle(scan: &Scan, search_id: Option<&str>, ctx: &Context) -> ShowIgnored {
+    ShowIgnored {
+        label: texts::SHOW_IGNORED.to_owned(),
+        checked: ctx.show_ignored,
+        action: Action {
+            id: "show_ignored".to_owned(),
+            label: texts::SHOW_IGNORED.to_owned(),
+            enabled: true,
+            reason: None,
+            emphasis: Emphasis::Quiet,
+            confirm: None,
+            op: discover_choices::change_op(
+                scan,
+                search_id,
+                json!({ "kind": "show_ignored", "shown": !ctx.show_ignored }),
+            ),
+        },
+    }
+}
+
 /// The origin a search request names, as `trust-lsp.devicesSearch` reads an origin: `this_host`, or
 /// `{"runtime": <item ID>}` (specification 25 §2).
-fn origin_body(scan: &Scan) -> Value {
+pub(crate) fn origin_body(scan: &Scan) -> Value {
     match scan {
         Scan::ThisHost => json!(THIS_HOST),
         Scan::Runtime(id) => json!({ "runtime": id }),
@@ -631,23 +616,54 @@ fn empty_text(scan: &Scan, runtimes: &[RuntimeOrigin]) -> String {
 
 // ---- the cards ----
 
-/// The card of one device (specification 25 §2, lines 64-72): every protocol found on it, one
-/// address for a runtime, and the actions that fit its identity.
-fn card(device: &DeviceAnswer, scan: &Scan, runtimes: &[RuntimeOrigin], now_ms: u64) -> DeviceCard {
+/// The card of one device (specification 25 §2, lines 64-72): every protocol found on it, one address for a
+/// runtime, the `TwinCAT` ports, and the actions that fit its identity. A card that the session's rules
+/// disable says why (`session_reason`); `Ignore` is never disabled.
+fn card(
+    device: &DeviceAnswer,
+    scan: &Scan,
+    runtimes: &[RuntimeOrigin],
+    now_ms: u64,
+    ctx: &Context,
+    search_id: Option<&str>,
+) -> DeviceCard {
     let runtime = device
         .finds
         .iter()
         .find(|find| find.protocol == SourceId::TrustRuntime.as_str());
+    let ads = device
+        .finds
+        .iter()
+        .find(|find| find.protocol == SourceId::Ads.as_str());
     let endpoint = runtime.and_then(control_endpoint);
     let title = device_title(device);
-    let stale_reason = stale_reason(scan, runtimes);
-    let mut actions = match runtime {
-        Some(_) => runtime_actions(device, endpoint.as_deref(), &title),
-        None => device_actions(device, owner(scan, runtimes)),
+    let owner = owner(scan, runtimes);
+    let reason = session_reason(device, scan, runtimes, ctx);
+    let (ports, on_canvas) = ads.map_or_else(
+        || (Vec::new(), false),
+        |find| {
+            (
+                discover_ads::responding_ports(&find.params),
+                discover_ads::on_canvas(&find.params, &ctx.ads_on_canvas),
+            )
+        },
+    );
+    let mut actions = match (runtime, ads) {
+        (Some(_), _) => runtime_actions(device, endpoint.as_deref(), &title),
+        (None, Some(find)) => vec![discover_ads::primary_action(
+            &device.id,
+            &find.params,
+            &title,
+            on_canvas,
+            owner.map(|runtime| runtime.id.as_str()),
+        )],
+        (None, None) => device_actions(device, owner),
     };
-    if let Some(reason) = &stale_reason {
+    if let Some(reason) = &reason {
         disable(&mut actions, reason);
     }
+    let ignored = ctx.memory.ignored.contains(&device.id);
+    actions.push(ignore_action(scan, search_id, &device.id, ignored));
     DeviceCard {
         id: device.id.clone(),
         title,
@@ -666,7 +682,71 @@ fn card(device: &DeviceAnswer, scan: &Scan, runtimes: &[RuntimeOrigin], now_ms: 
             .flat_map(|find| find.warnings.iter().cloned())
             .collect(),
         actions,
-        stale_reason,
+        stale_reason: reason,
+        responding_ports: ads.map(|_| texts::responding_ads_ports(ports.len())),
+        ports: ads.map_or_else(Vec::new, |find| {
+            discover_ads::port_actions(&device.id, &find.params, &ports)
+        }),
+        on_canvas: on_canvas.then(|| texts::ON_CANVAS.to_owned()),
+    }
+}
+
+/// Why a card's actions are disabled (specification 25 §2, old lines 334-340 and 385-389), in this order: a
+/// search that this panel session did not start, an origin runtime that is no longer shown, and a protocol
+/// that the origin runtime does not advertise.
+fn session_reason(
+    device: &DeviceAnswer,
+    scan: &Scan,
+    runtimes: &[RuntimeOrigin],
+    ctx: &Context,
+) -> Option<String> {
+    if !ctx.session_current {
+        return Some(texts::CONTEXT_CHANGED.to_owned());
+    }
+    if let Some(reason) = stale_reason(scan, runtimes) {
+        return Some(reason);
+    }
+    device
+        .finds
+        .iter()
+        .any(|find| protocol_unavailable(scan, &find.protocol, ctx))
+        .then(|| texts::PROTOCOL_UNAVAILABLE.to_owned())
+}
+
+/// Whether the origin runtime does not advertise `protocol` with `discover`, when its `comm.schema` is known
+/// and the protocol has a schema ID (`discoverySession.ts`).
+fn protocol_unavailable(scan: &Scan, protocol: &str, ctx: &Context) -> bool {
+    let (Scan::Runtime(id), Some(source)) = (scan, known_source(protocol)) else {
+        return false;
+    };
+    let Some(schema) = discover_context::schema_id(source) else {
+        return false;
+    };
+    ctx.origin(id)
+        .and_then(|facts| facts.discover.as_ref())
+        .is_some_and(|discover| !discover.ids.contains(schema))
+}
+
+/// The card's `Ignore`, or `Stop ignoring` on a find that the project ignores (decision O14). It records the
+/// change and answers the new view.
+fn ignore_action(scan: &Scan, search_id: Option<&str>, device_id: &str, ignored: bool) -> Action {
+    let (id, label) = if ignored {
+        ("stop_ignoring", texts::STOP_IGNORING)
+    } else {
+        ("ignore", texts::IGNORE)
+    };
+    Action {
+        id: id.to_owned(),
+        label: label.to_owned(),
+        enabled: true,
+        reason: None,
+        emphasis: Emphasis::Secondary,
+        confirm: None,
+        op: discover_choices::change_op(
+            scan,
+            search_id,
+            json!({ "kind": "ignore", "device": device_id, "ignored": !ignored }),
+        ),
     }
 }
 
@@ -718,9 +798,9 @@ fn device_title(device: &DeviceAnswer) -> String {
         .unwrap_or_else(|| device.id.clone())
 }
 
-/// The identity rows of a device: its AMS Net ID, its host when it is not a runtime (`DiscoverPane.tsx`
-/// line 379), its USB serial number and runtime ID, and a runtime's truST version and platform. A fact
-/// that the device does not have has no row.
+/// The identity rows of a device: its AMS Net ID, its host when it is not a runtime (`DiscoverPane.tsx` line
+/// 379), its USB serial number and runtime ID, and a runtime's truST version and platform. A fact that the
+/// device does not have has no row.
 fn identity_rows(device: &DeviceAnswer) -> Vec<Row> {
     let runtime = device
         .finds

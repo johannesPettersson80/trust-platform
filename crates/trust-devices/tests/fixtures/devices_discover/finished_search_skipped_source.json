@@ -34,60 +34,10 @@
     }
   ],
   "breadcrumb": "Devices & Connections",
-  "cards": [
-    {
-      "actions": [
-        {
-          "emphasis": "secondary",
-          "enabled": true,
-          "id": "add",
-          "label": "+ Add",
-          "op": {
-            "action": "form.open",
-            "kind": "rust",
-            "payload": {
-              "prefill": {
-                "ams_net_id": "192.168.1.20.1.1",
-                "host": "192.168.1.20"
-              },
-              "protocol": "ads",
-              "runtime": "runtime:cell"
-            }
-          }
-        }
-      ],
-      "addresses": [
-        "192.168.1.20"
-      ],
-      "differs": [],
-      "id": "dev:netid:192.168.1.20.1.1",
-      "identity": [
-        {
-          "label": "AMS Net ID",
-          "value": "192.168.1.20.1.1",
-          "wide": false
-        },
-        {
-          "label": "Host",
-          "value": "192.168.1.20",
-          "wide": false
-        }
-      ],
-      "last_seen": "3 s ago",
-      "protocols": [
-        {
-          "confidence": "Confirmed",
-          "name": "ADS and TwinCAT",
-          "simulated": false,
-          "source": "ADS identify"
-        }
-      ],
-      "title": "PLC-7",
-      "warnings": []
-    }
-  ],
+  "cards": [],
   "choose_text": "Choose what to find, then scan. Only the selected device types are searched.",
   "close_label": "Close",
+  "empty_text": "Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. For EtherCAT or GPIO, choose a running runtime in Scan from.",
   "fieldbus": [],
   "heading_advanced": "Advanced scan settings",
   "heading_find": "What do you want to find?",
@@ -96,6 +46,25 @@
   "heading_targets": "Known address or subnet",
   "only": [
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "truST runtimes",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "trust_runtime"
+            },
+            "origin": "this_host",
+            "search_id": "s-2",
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "find",
@@ -104,6 +73,25 @@
       "source": "trust_runtime"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "ADS and TwinCAT",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": false,
+              "kind": "select",
+              "source": "ads"
+            },
+            "origin": "this_host",
+            "search_id": "s-2",
+            "verb": "status"
+          }
+        }
+      },
       "checked": true,
       "enabled": true,
       "group": "find",
@@ -112,6 +100,25 @@
       "source": "ads"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "Modbus TCP",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "modbus_tcp"
+            },
+            "origin": "this_host",
+            "search_id": "s-2",
+            "verb": "status"
+          }
+        }
+      },
       "checked": false,
       "enabled": true,
       "group": "find",
@@ -120,6 +127,25 @@
       "source": "modbus_tcp"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "MQTT",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "mqtt"
+            },
+            "origin": "this_host",
+            "search_id": "s-2",
+            "verb": "status"
+          }
+        }
+      },
       "checked": false,
       "enabled": true,
       "group": "known_address",
@@ -128,6 +154,25 @@
       "source": "mqtt"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "OPC UA",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "opcua"
+            },
+            "origin": "this_host",
+            "search_id": "s-2",
+            "verb": "status"
+          }
+        }
+      },
       "checked": false,
       "enabled": true,
       "group": "known_address",
@@ -136,13 +181,14 @@
       "source": "opcua"
     },
     {
-      "checked": true,
+      "checked": false,
       "enabled": false,
       "group": "runtime_hardware",
       "label": "EtherCAT",
       "note": "bus enumeration",
       "reason": "Choose a running runtime for EtherCAT or GPIO scans.",
-      "source": "ethercat"
+      "source": "ethercat",
+      "warning": "Can disturb a live bus, so confirm before scanning"
     },
     {
       "checked": false,
@@ -154,6 +200,25 @@
       "source": "gpio"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "Serial ports",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "serial"
+            },
+            "origin": "this_host",
+            "search_id": "s-2",
+            "verb": "status"
+          }
+        }
+      },
       "checked": false,
       "enabled": true,
       "group": "find",
@@ -161,6 +226,25 @@
       "source": "serial"
     },
     {
+      "action": {
+        "emphasis": "quiet",
+        "enabled": true,
+        "id": "select",
+        "label": "USB",
+        "op": {
+          "kind": "search",
+          "request": {
+            "change": {
+              "checked": true,
+              "kind": "select",
+              "source": "usb"
+            },
+            "origin": "this_host",
+            "search_id": "s-2",
+            "verb": "status"
+          }
+        }
+      },
       "checked": false,
       "enabled": true,
       "group": "find",
@@ -192,6 +276,28 @@
   ],
   "running": false,
   "search_id": "s-2",
+  "show_ignored": {
+    "action": {
+      "emphasis": "quiet",
+      "enabled": true,
+      "id": "show_ignored",
+      "label": "Show ignored",
+      "op": {
+        "kind": "search",
+        "request": {
+          "change": {
+            "kind": "show_ignored",
+            "shown": true
+          },
+          "origin": "this_host",
+          "search_id": "s-2",
+          "verb": "status"
+        }
+      }
+    },
+    "checked": false,
+    "label": "Show ignored"
+  },
   "sources": [
     {
       "count": 0,
@@ -201,11 +307,12 @@
       "word": "0 found"
     },
     {
-      "count": 1,
+      "count": 0,
       "id": "ads",
       "label": "ADS and TwinCAT",
-      "tone": "ok",
-      "word": "1 found"
+      "reason": "TwinCAT identity was found, but none of the configured ADS ports (301, 501, 851, 852, 853, 854) responded.",
+      "tone": "neutral",
+      "word": "0 found"
     },
     {
       "id": "ethercat",
