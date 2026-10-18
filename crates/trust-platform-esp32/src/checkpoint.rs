@@ -42,6 +42,77 @@ pub trait RawFlash {
     fn erase_at(&mut self, address: u32) -> Result<(), FlashError>;
 }
 
+/// Reads `bytes` at `address` through `read_units`, which reads only whole program units
+/// ([`FLASH_PROGRAM_BYTES`], 4 bytes) at a unit-aligned address, as `esp-storage` does. The bytes
+/// move through `page`, at most `page.len()` at a time; a last piece that ends inside a unit is read
+/// to the unit's end, and only its own bytes are kept, so a read of any length works (an installed
+/// container need not be a whole number of units).
+///
+/// # Errors
+///
+/// [`FlashError::Read`] for an `address` that is not unit-aligned or a `page` that is empty or not
+/// whole units, and the error of `read_units`.
+pub fn read_whole_units(
+    address: u32,
+    bytes: &mut [u8],
+    page: &mut [u8],
+    mut read_units: impl FnMut(u32, &mut [u8]) -> Result<(), FlashError>,
+) -> Result<(), FlashError> {
+    let unit = FLASH_PROGRAM_BYTES as usize;
+    if !(address as usize).is_multiple_of(unit)
+        || page.is_empty()
+        || !page.len().is_multiple_of(unit)
+    {
+        return Err(FlashError::Read);
+    }
+    let mut at = address;
+    for part in bytes.chunks_mut(page.len()) {
+        let buffer = &mut page[..part.len().next_multiple_of(unit)];
+        read_units(at, buffer)?;
+        part.copy_from_slice(&buffer[..part.len()]);
+        at = advance(at, part.len()).ok_or(FlashError::Read)?;
+    }
+    Ok(())
+}
+
+/// Programs `bytes` at `address` through `program_units`, which programs only whole program units
+/// at a unit-aligned address, as `esp-storage` does. A last piece that ends inside a unit is padded
+/// with 0xFF to the unit's end: programming 0xFF leaves a NOR flash bit as it is, so the padding
+/// changes no byte (`RawFlash::program_at`).
+///
+/// # Errors
+///
+/// [`FlashError::Program`] for an `address` that is not unit-aligned or a `page` that is empty or
+/// not whole units, and the error of `program_units`.
+pub fn program_whole_units(
+    address: u32,
+    bytes: &[u8],
+    page: &mut [u8],
+    mut program_units: impl FnMut(u32, &[u8]) -> Result<(), FlashError>,
+) -> Result<(), FlashError> {
+    let unit = FLASH_PROGRAM_BYTES as usize;
+    if !(address as usize).is_multiple_of(unit)
+        || page.is_empty()
+        || !page.len().is_multiple_of(unit)
+    {
+        return Err(FlashError::Program);
+    }
+    let mut at = address;
+    for part in bytes.chunks(page.len()) {
+        let whole = part.len().next_multiple_of(unit);
+        page[..part.len()].copy_from_slice(part);
+        page[part.len()..whole].fill(0xFF);
+        program_units(at, &page[..whole])?;
+        at = advance(at, part.len()).ok_or(FlashError::Program)?;
+    }
+    Ok(())
+}
+
+/// The address `len` bytes after `at`, when it can be formed.
+fn advance(at: u32, len: usize) -> Option<u32> {
+    u32::try_from(len).ok().and_then(|len| at.checked_add(len))
+}
+
 /// The flash offset of a slot.
 const fn slot_base(slot: Slot) -> u32 {
     match slot {
