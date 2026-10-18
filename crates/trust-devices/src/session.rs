@@ -42,6 +42,9 @@ struct Operations {
     started: u64,
     /// The finished results not yet delivered, in the order they finished.
     done: Vec<OperationDone>,
+    /// The identity that the next operation takes, when the engine reserved it for an action that
+    /// runs on a copy of this session (design §1.5).
+    reserved: Option<String>,
 }
 
 impl Session {
@@ -120,10 +123,41 @@ impl Session {
         &mut self.cache
     }
 
-    /// Starts a slow action and returns its identity, such as `op-7`.
+    /// Starts a slow action and returns its identity, such as `op-7`. The identity the engine
+    /// reserved for this action's copy of the session is the one returned (design §1.5).
+    #[must_use]
     pub fn begin_operation(&mut self) -> String {
+        if let Some(reserved) = self.operations.reserved.take() {
+            return reserved;
+        }
         self.operations.started += 1;
         format!("op-{}", self.operations.started)
+    }
+
+    /// A copy of this session for an action that runs on a thread of its own (design §1.5): the
+    /// runtimes, the project and the browse answers that the last view showed, with `operation` as
+    /// the identity of the action's result. The copy holds no lock of the panel, so the panel's
+    /// views answer while the action runs. What the copy queues comes back with `absorb_action`.
+    #[must_use]
+    pub(crate) fn action_copy(&self, operation: String) -> Self {
+        Self {
+            cache: Cache::default(),
+            newest_seq: self.newest_seq,
+            last_used: self.last_used,
+            operations: Operations {
+                started: self.operations.started,
+                done: Vec::new(),
+                reserved: Some(operation),
+            },
+            runtimes: self.runtimes.clone(),
+            project: self.project.clone(),
+            browse: self.browse.clone(),
+        }
+    }
+
+    /// Keeps what an action queued on its copy of this session (design §1.5).
+    pub(crate) fn absorb_action(&mut self, action: &mut Self) {
+        self.operations.done.append(&mut action.operations.done);
     }
 
     /// Keeps the result of a finished operation until the next request delivers it.

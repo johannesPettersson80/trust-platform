@@ -9,6 +9,9 @@ pub mod actions;
 /// The browse panes: opening a browse at the runtime that owns a connection, and adding its
 /// selection (specification 25 §5.4 and §11.2).
 pub mod browse;
+/// The engine the five `trust-lsp.devices*` commands answer through (design §1.5): the sessions
+/// behind a lock, the background threads, and the pending results of slow actions.
+pub mod engine;
 pub mod gather;
 mod inputs;
 /// The panes of the panel: the add dialog, the forms and the USB tray.

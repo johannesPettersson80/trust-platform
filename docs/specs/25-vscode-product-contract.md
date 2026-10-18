@@ -938,6 +938,41 @@ topology merging and identity (§5.6), health and status rules, the lifecycle
 button rules of §5.1, form validation, the discovery and browse rules, and the
 extension's own edits of `runtime.toml` and `ads.toml`.
 
+The extension reaches that engine through five language-server commands, which
+the language server advertises and the extension never registers:
+`trust-lsp.devicesView` returns the whole panel, `trust-lsp.devicesAct`
+performs one action a view offered, `trust-lsp.devicesBrowse` opens or
+refreshes a browse pane, `trust-lsp.devicesSearch` runs the one search of §2
+with the verb `start`, `status` or `cancel`, and `trust-lsp.devicesClose` ends
+a panel's session and the searches it started. A session that stays idle for
+ten minutes is closed.
+
+Each command waits at most 25 ms for its own work. Slow work continues on a
+thread of its own. It holds no lock that another command of the panel needs,
+so the other commands answer meanwhile:
+
+- A `devicesView` answers the panel's last projection at once and starts the
+  next gather in the background. The first view of a session is the loading
+  shell.
+- A `devicesBrowse` answers the loading pane until its tree is read.
+- A `devicesAct` whose action is not done within 25 ms answers `ok` true,
+  `refresh` `soon`, and `pending` with three fields: `operation` (such as
+  `op-7`), `pane` (the pane that started the action, §5.13) and `text`. The
+  `text` is `Starting…` for a managed Start, `Stopping…` for a managed Stop,
+  and `Working…` for any other action.
+- A `devicesSearch` with origin `runtime` waits at most 25 ms for that runtime.
+  If the runtime has not answered, the answer is the error `runtime_pending`,
+  and the panel asks again. An answer that comes later is still kept, so that
+  `devicesClose` cancels a search the runtime started.
+
+The final reply of a pending action arrives once, in `operations_done` of a
+later `devicesView` reply, with the fields of an on-time reply: `notice`
+(absent when the action reported none), `effects`, `close_pane`, `refresh` and
+`form` (set only by `form.open`). The view that delivers it applies `refresh`:
+`now` makes that reply's `next_refresh_ms` 0 and starts a gather of the new
+state as soon as none is running; `soon` caps `next_refresh_ms` at 500 ms;
+`none` changes nothing. A result is never delivered twice.
+
 ### 5.16 Nothing is lost
 
 Every piece of information and every action of the panel before this redesign

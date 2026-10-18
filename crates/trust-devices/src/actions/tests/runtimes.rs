@@ -185,8 +185,12 @@ fn lifecycle_success_requires_the_terminal_state() {
     let done = session.take_operations_done();
 
     assert_eq!(done.len(), 1);
-    assert_ne!(done[0].notice.tone, Tone::Ok);
-    assert_eq!(done[0].notice.detail.as_deref(), Some("starting"));
+    let notice = done[0]
+        .notice
+        .as_ref()
+        .expect("the failed Start reports its notice");
+    assert_ne!(notice.tone, Tone::Ok);
+    assert_eq!(notice.detail.as_deref(), Some("starting"));
     assert_eq!(done[0].effects, Vec::<HostEffect>::new());
 }
 

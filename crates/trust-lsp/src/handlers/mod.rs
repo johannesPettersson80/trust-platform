@@ -5,6 +5,7 @@
 mod commands;
 mod config;
 mod context;
+mod devices;
 mod diagnostics;
 mod features;
 mod formatting;
@@ -21,6 +22,7 @@ pub use commands::{
     execute_command, HMI_BINDINGS_COMMAND, HMI_INIT_COMMAND, MOVE_NAMESPACE_COMMAND,
     PROJECT_INFO_COMMAND,
 };
+pub use devices::DEVICES_COMMANDS;
 #[cfg(test)]
 pub(crate) use diagnostics::document_diagnostic;
 pub(crate) use diagnostics::{document_diagnostic_result, workspace_diagnostic};

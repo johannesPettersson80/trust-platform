@@ -95,6 +95,9 @@ rustix = { version = "1.1.5", features = ["fs", "mm", "net", "thread"], optional
 proptest.workspace = true
 verification-cases.workspace = true
 trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
+# The Devices & Connections engine integration test drives the panel engine, which depends on this
+# runtime, against a real `trust-runtime`: a dev edge only, so no firmware build resolves it.
+trust-devices.workspace = true
 # The transcript parity test runs the single-thread resource loop on the board fixture's engine
 # setup beside the threaded host composition (spec 34 STATE-08).
 trust-board-fixture.workspace = true

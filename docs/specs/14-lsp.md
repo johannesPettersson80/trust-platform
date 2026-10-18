@@ -541,7 +541,7 @@ the native Rust facades; they do not by themselves prove a `wasm32`,
 | Range/On-Type Formatting | `textDocument/rangeFormatting`, `textDocument/onTypeFormatting` | ✅ | Line-based formatting using document formatter |
 | Configuration | `workspace/didChangeConfiguration` | ✅ | Settings stored (formatting/indexing); project config file is separate |
 | Code Actions | `textDocument/codeAction` | ✅ | Quick fixes for unused symbols, missing END_* / RETURN, call style conversion, namespace disambiguation, implicit conversion, etc. |
-| Execute Command | `workspace/executeCommand` | ✅ | `trust-lsp.moveNamespace` for namespace relocation across files (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66); `trust-lsp.projectInfo` surfaces build flags, targets, and library dependency graph |
+| Execute Command | `workspace/executeCommand` | ✅ | `trust-lsp.moveNamespace` for namespace relocation across files (IEC 61131-3 Ed.3, 6.6.4; Tables 64-66); `trust-lsp.projectInfo` surfaces build flags, targets, and library dependency graph; the five Devices & Connections commands `trust-lsp.devicesView`, `trust-lsp.devicesAct`, `trust-lsp.devicesBrowse`, `trust-lsp.devicesSearch` and `trust-lsp.devicesClose` reach the panel engine (specification 25 §5.15) |
 
 ##### 7.1.1 Position Encoding and Line Boundaries
 

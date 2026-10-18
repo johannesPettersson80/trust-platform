@@ -167,8 +167,11 @@ pub(crate) fn managed_start(
     };
     session.complete_operation(OperationDone {
         operation: operation.clone(),
-        notice,
+        notice: Some(notice),
         effects,
+        close_pane: false,
+        refresh: Refresh::Now,
+        form: None,
     });
     super::pending(operation, pane, STARTING.to_owned())
 }
@@ -201,8 +204,11 @@ pub(crate) fn managed_stop(
     };
     session.complete_operation(OperationDone {
         operation: operation.clone(),
-        notice,
+        notice: Some(notice),
         effects,
+        close_pane: false,
+        refresh: Refresh::Now,
+        form: None,
     });
     super::pending(operation, pane, STOPPING.to_owned())
 }

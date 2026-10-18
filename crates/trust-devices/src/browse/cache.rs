@@ -8,8 +8,9 @@ use std::thread;
 
 use super::run::Browsed;
 
-/// The browse answers of one session.
-#[derive(Debug, Default)]
+/// The browse answers of one session. A copy shares the answers, so an action's copy of the session
+/// reads the same browse answers (design §1.5).
+#[derive(Debug, Default, Clone)]
 pub(crate) struct BrowseCache {
     slots: Arc<BrowseSlots>,
 }

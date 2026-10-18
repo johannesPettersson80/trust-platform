@@ -30,6 +30,9 @@ pub(crate) enum Reply {
 pub(crate) struct Script {
     replies: BTreeMap<String, Reply>,
     delay: Duration,
+    /// Per request type: how long the answer is held, and the number of keep-alive spaces sent
+    /// meanwhile (see [`Script::trickled`]).
+    trickles: BTreeMap<String, (Duration, u32)>,
     /// Whether the runtime treats this client as an untrusted remote plain-TCP one, so that a secret
     /// over it is refused, as the real runtime does off the loopback (specification 11 §6.9.7). The
     /// fake listens on the loopback, so a script that needs the refusal sets this.
@@ -65,6 +68,16 @@ impl Script {
     #[must_use]
     pub(crate) fn delayed(mut self, delay: Duration) -> Self {
         self.delay = delay;
+        self
+    }
+
+    /// The script, answering requests of type `kind` after `interval * count`. Before its answer
+    /// the runtime sends a space every `interval`, as a slow runtime keeps its connection alive:
+    /// the client's per-read timeout is never reached, while the answer comes `interval * count`
+    /// later.
+    #[must_use]
+    pub(crate) fn trickled(mut self, kind: &str, interval: Duration, count: u32) -> Self {
+        self.trickles.insert(kind.to_string(), (interval, count));
         self
     }
 
@@ -197,6 +210,18 @@ fn serve(stream: TcpStream, script: &Script, seen: &Mutex<Vec<Value>>) {
             None => json!({"id": id, "ok": false, "error": format!("unsupported request {kind}")})
                 .to_string(),
         };
+        if let Some((interval, count)) = script.trickles.get(&kind).copied() {
+            for _ in 0..count {
+                thread::sleep(interval);
+                if writer
+                    .write_all(b" ")
+                    .and_then(|()| writer.flush())
+                    .is_err()
+                {
+                    return;
+                }
+            }
+        }
         // The client may already have given up on this answer.
         let _ = writeln!(writer, "{answer}");
     }

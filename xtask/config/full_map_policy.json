@@ -419,6 +419,22 @@
       "rationale": "The panel shows a runtime whose status names a chip of truST's chip files as that chip; the reader depends on no firmware or adapter."
     },
     {
+      "from": "trust-lsp",
+      "to": "trust-devices",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The five `trust-lsp.devices*` commands decode their arguments, run the panel engine on a blocking thread and return its JSON (design §1.4.1 and §1.6)."
+    },
+    {
+      "from": "trust-runtime",
+      "to": "trust-devices",
+      "kind": "dev",
+      "status": "allowed",
+      "owner": "VS Code Devices & Connections (V7)",
+      "rationale": "The engine integration test drives the panel engine against a real `trust-runtime` binary; a dev edge only, so no runtime or firmware build resolves the reader."
+    },
+    {
       "from": "trust-runtime",
       "to": "trust-runtime-client",
       "kind": "normal",

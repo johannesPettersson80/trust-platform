@@ -451,10 +451,20 @@ pub struct PendingAction {
 pub struct OperationDone {
     /// The operation's identity, as its pending reply named it.
     pub operation: String,
-    /// The final result, shown in the pane that started the action.
-    pub notice: Notice,
+    /// The final result, shown in the pane that started the action; absent when the action reported
+    /// none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notice: Option<Notice>,
     /// What VS Code runs.
     pub effects: Vec<HostEffect>,
+    /// Whether the pane that started the action closes, as the reply of an action on time says.
+    pub close_pane: bool,
+    /// When the panel gathers again, as the reply of an action on time says.
+    pub refresh: Refresh,
+    /// The form that `form.open` built, which the panel stores and draws; absent for every other
+    /// action.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form: Option<Form>,
 }
 
 pub use graph::{
