@@ -250,8 +250,12 @@ impl HostComposition {
     /// reply, then the work after it.
     pub fn request(&self, line: &str) -> Value {
         let prepared = prepare_line(line, &*self.state, None);
-        if prepared.after_response == Some(ControlAfterResponse::StopResource) {
-            self.state.resource.stop();
+        // Decision Q11 on computers (18 October 2026): `shutdown` stops the program and leaves the
+        // scan thread, so the process, running; only the explicit exit ends the thread.
+        match prepared.after_response {
+            Some(ControlAfterResponse::StopResource) => self.state.resource.stop_program(),
+            Some(ControlAfterResponse::ExitRuntime) => self.state.resource.stop(),
+            None => {}
         }
         serde_json::from_str(&prepared.response).expect("the host replies with one JSON object")
     }
@@ -366,7 +370,8 @@ impl HostComposition {
         }
     }
 
-    /// Waits for the stopped scan thread to end.
+    /// Ends the scan thread, which stays alive in the Stopped state after a `shutdown`, and waits
+    /// for it.
     pub fn join(mut self) {
         self.handle.stop();
         self.handle

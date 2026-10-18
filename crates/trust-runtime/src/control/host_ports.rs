@@ -15,6 +15,7 @@ use trust_runtime_core::ports::WallClock;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::events::{store_event, RuntimeEvent};
+use trust_runtime_services::installation::{self, Admitted};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use trust_runtime_services::live_values::io_snapshot::IoSnapshot as PortableIoSnapshot;
 use trust_runtime_services::live_values::queues::{
@@ -25,7 +26,8 @@ use trust_runtime_services::live_values::RequestQueueFull;
 use trust_runtime_services::metrics::RuntimeMetricsSnapshot;
 use trust_runtime_services::ports::{
     AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
-    ProgramIdentities, RecordsPort, ResourcePort, StatusPort, TransferSessionError,
+    ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
+    TransferSessionError,
 };
 use trust_runtime_services::resource::commands::CommandSendError;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
@@ -136,10 +138,10 @@ impl ResourcePort for ControlState {
         }
     }
 
-    /// `shutdown` ends the trust-runtime process, so a stopped resource has no scan thread to take
-    /// a restart (spec 34 STATE-08).
+    /// `shutdown` stops the program and leaves the process and its scan thread running, so a
+    /// stopped resource takes a restart and starts the installed program again (spec 34 STATE-08).
     fn starts_when_stopped(&self) -> bool {
-        false
+        true
     }
 }
 
@@ -162,10 +164,11 @@ impl StatusPort for ControlState {
         self.runtime_id.as_str()
     }
 
-    /// `shutdown` ends the trust-runtime process, so a stopped runtime has no scan loop to take a
-    /// `restart` (spec 34 STATE-08).
+    /// `shutdown` stops the program and keeps trust-runtime running, so a stopped runtime still
+    /// answers and takes a `restart` (spec 34 STATE-08). Only the explicit exit, a signal or a
+    /// stopped service ends the process.
     fn program_control(&self) -> ProgramControl {
-        ProgramControl::Process
+        ProgramControl::KeepsControl
     }
 
     fn status_settings(&self) -> Option<StatusSettings> {
@@ -253,6 +256,35 @@ impl RecordsPort for ControlState {
     /// with no previous one (see `program_store::identities`).
     fn program_identities(&self) -> Option<ProgramIdentities> {
         crate::deployment::program_store::identities(self.project_root.as_deref()?)
+    }
+
+    /// The project folder is the program store `program.install` commits to (specification 34
+    /// §11.2). A state with no project folder is an IDE shell with nothing to install into.
+    fn has_program_store(&self) -> bool {
+        self.project_root.is_some()
+    }
+
+    /// The retained-value check of specification 11 §6.7.1 (decision G13): the warm start of `admitted`
+    /// with the project's retain file, which is only read.
+    fn check_retained_values(&self, admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        let root = self
+            .project_root
+            .as_deref()
+            .ok_or_else(|| RuntimeError::InvalidBundle("no project folder".into()))?;
+        crate::deployment::program_store::check_retained(root, admitted.program)
+    }
+
+    /// Commits the checked container as the project's program through the program store (specification
+    /// 34 §11.2), and returns the identity the store gives it.
+    fn commit_program(&self, container: &[u8]) -> Result<ProgramIdentity, String> {
+        let root = self
+            .project_root
+            .as_deref()
+            .ok_or_else(|| String::from("no project folder"))?;
+        let sequenced =
+            installation::decode_sequenced(container).map_err(|error| error.to_string())?;
+        crate::deployment::program_store::install(root, sequenced.installed.program)
+            .map_err(|error| error.to_string())
     }
 }
 

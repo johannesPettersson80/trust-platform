@@ -87,6 +87,8 @@ pub struct ExampleRuntime {
     source_edits: Vec<(&'static str, &'static str, &'static str)>,
     mode: Option<&'static str>,
     debug_enabled: Option<bool>,
+    web_enabled: bool,
+    store: bool,
 }
 
 impl ExampleRuntime {
@@ -98,6 +100,8 @@ impl ExampleRuntime {
             source_edits: Vec::new(),
             mode: None,
             debug_enabled: None,
+            web_enabled: false,
+            store: false,
         }
     }
 
@@ -126,6 +130,22 @@ impl ExampleRuntime {
         self
     }
 
+    /// Keeps the web interface on, on its reserved loopback port (`Runtime::web_base`). Without
+    /// this the copy turns the web interface off, as the other journeys need no listener.
+    pub fn web(mut self) -> Self {
+        self.web_enabled = true;
+        self
+    }
+
+    /// Runs the project as a program store's `current` bundle (specification 34 §11.2): the built
+    /// project becomes `store/bundles/first`, and the runtime starts on the link `store/current`.
+    /// Unix only, because the store's links are symbolic links.
+    #[cfg(unix)]
+    pub fn store(mut self) -> Self {
+        self.store = true;
+        self
+    }
+
     /// Copies, builds and starts the runtime, then waits until its control endpoint answers.
     pub fn start(self) -> Runtime {
         let root = unique_root();
@@ -135,6 +155,9 @@ impl ExampleRuntime {
             root: root.clone(),
             project: project.clone(),
             child: None,
+            control_port: 0,
+            web_port: 0,
+            token: String::new(),
         };
         let source = join_relative(&repo_root(), &format!("examples/{}", self.example));
         copy_tree(&source, &project);
@@ -160,8 +183,15 @@ impl ExampleRuntime {
             &token,
             self.mode,
             self.debug_enabled,
+            self.web_enabled,
         );
+        runtime.control_port = ports[0];
+        runtime.web_port = ports[1];
+        runtime.token = token;
         runtime.build();
+        if self.store {
+            runtime.move_into_store();
+        }
         runtime.spawn_play();
         runtime.await_control();
         runtime
@@ -174,6 +204,11 @@ pub struct Runtime {
     root: PathBuf,
     project: PathBuf,
     child: Option<Child>,
+    /// The reserved loopback port of the control endpoint and of the web interface, and the
+    /// control token of the copy.
+    control_port: u16,
+    web_port: u16,
+    token: String,
 }
 
 /// What `prove_counter_write` established: the first snapshot the write changed, and the scan
@@ -203,6 +238,24 @@ impl Runtime {
             "trust-runtime build failed\n{}",
             describe(&output)
         );
+    }
+
+    /// Makes the built project the first bundle of a program store and the link `current` its
+    /// project, as a deployment root keeps its programs.
+    #[cfg(unix)]
+    fn move_into_store(&mut self) {
+        let store = self.root.join("store");
+        let bundle = store.join("bundles").join("first");
+        fs::create_dir_all(bundle.parent().expect("bundles folder")).expect("create the store");
+        fs::rename(&self.project, &bundle).expect("move the project into the store");
+        let current = store.join("current");
+        std::os::unix::fs::symlink(&bundle, &current).expect("link current to the first bundle");
+        self.project = current;
+    }
+
+    #[cfg(not(unix))]
+    fn move_into_store(&mut self) {
+        unreachable!("a program store needs symbolic links");
     }
 
     fn spawn_play(&mut self) {
@@ -390,6 +443,11 @@ impl Runtime {
         }
     }
 
+    /// The process ID of the runtime, for a signal.
+    pub fn pid(&self) -> u32 {
+        self.child.as_ref().expect("runtime child").id()
+    }
+
     /// Whether the runtime process is still alive.
     pub fn is_running(&mut self) -> bool {
         self.child
@@ -397,7 +455,31 @@ impl Runtime {
             .is_some_and(|child| matches!(child.try_wait(), Ok(None)))
     }
 
-    /// Waits for the process to exit on its own, as after `shutdown`.
+    /// Sends one raw control request over the copy's TCP control endpoint, with the copy's token
+    /// as `auth`, and returns the whole response. `request` carries `id`, `type` and any `params`.
+    pub fn control_request(&self, mut request: Value) -> Value {
+        use std::io::{BufRead, BufReader, Write};
+        request["auth"] = Value::String(self.token.clone());
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", self.control_port))
+            .unwrap_or_else(|err| panic!("connect to the control endpoint: {err}"));
+        stream
+            .set_read_timeout(Some(WAIT))
+            .expect("bound the control read");
+        writeln!(stream, "{request}").expect("send the control request");
+        let mut line = String::new();
+        BufReader::new(stream)
+            .read_line(&mut line)
+            .expect("read the control response");
+        serde_json::from_str(line.trim())
+            .unwrap_or_else(|err| panic!("the control response is not JSON ({err}): {line}"))
+    }
+
+    /// The base URL of the web interface, when `ExampleRuntime::web` kept it on.
+    pub fn web_base(&self) -> String {
+        format!("http://127.0.0.1:{}", self.web_port)
+    }
+
+    /// Waits for the process to exit on its own, as after `shutdown --exit`.
     pub fn wait_for_exit(&mut self, timeout: Duration) -> ExitStatus {
         let deadline = Instant::now() + timeout;
         loop {
@@ -611,14 +693,15 @@ fn replace_in_file(path: &Path, from: &str, to: &str) {
 
 /// Rewrites the copied runtime.toml with the toml crate. `ports[0]` becomes the TCP control
 /// endpoint, and each `LISTEN_KEYS` entry that exists takes the next reserved port. The copy's own
-/// token is set, the mode and debug flag are set when requested, and web and discovery are disabled.
-/// Every other setting is kept.
+/// token is set, the mode and debug flag are set when requested, discovery is disabled, and so is
+/// the web interface unless `web_enabled` keeps it on. Every other setting is kept.
 fn configure_runtime_toml(
     path: &Path,
     ports: &[u16],
     token: &str,
     mode: Option<&str>,
     debug_enabled: Option<bool>,
+    web_enabled: bool,
 ) {
     let text = fs::read_to_string(path).expect("read runtime.toml");
     let mut document: toml::Table = toml::from_str(&text).expect("parse runtime.toml");
@@ -637,7 +720,8 @@ fn configure_runtime_toml(
     }
     for section in ["web", "discovery"] {
         if let Some(table) = runtime.get_mut(section).and_then(toml::Value::as_table_mut) {
-            table.insert("enabled".into(), toml::Value::Boolean(false));
+            let enabled = section == "web" && web_enabled;
+            table.insert("enabled".into(), toml::Value::Boolean(enabled));
         }
     }
     for (&(table, key), &port) in LISTEN_KEYS.iter().zip(&ports[1..]) {
@@ -676,4 +760,42 @@ fn table_path_mut<'a>(document: &'a mut toml::Table, path: &str) -> Option<&'a m
 
 fn read_log(path: &Path) -> String {
     fs::read_to_string(path).unwrap_or_else(|_| String::from("<not written>"))
+}
+
+/// A program built apart from a running copy: its `program.stbc` and its deployment record.
+pub struct BuiltProgram {
+    pub program: Vec<u8>,
+    pub record: Vec<u8>,
+}
+
+/// A private build of `example`, for a test that installs a second program. Each of `edits` is
+/// `(file, from, to)` and replaces text in the copy before it is built.
+pub fn build_program(example: &str, edits: &[(&str, &str, &str)]) -> BuiltProgram {
+    let root = unique_root();
+    let project = join_relative(&root, &format!("examples/{example}"));
+    copy_tree(
+        &join_relative(&repo_root(), &format!("examples/{example}")),
+        &project,
+    );
+    for &(file, from, to) in edits {
+        replace_in_file(&project.join(file), from, to);
+    }
+    let output = trust_runtime_command()
+        .arg("build")
+        .arg("--project")
+        .arg(&project)
+        .output()
+        .expect("run trust-runtime build");
+    assert!(
+        output.status.success(),
+        "trust-runtime build failed\n{}",
+        describe(&output)
+    );
+    let built = BuiltProgram {
+        program: fs::read(project.join("program.stbc")).expect("read the built program.stbc"),
+        record: fs::read(project.join("deployment-record.bin"))
+            .expect("read the built deployment record"),
+    };
+    let _ = fs::remove_dir_all(&root);
+    built
 }

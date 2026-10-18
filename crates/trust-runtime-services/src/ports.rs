@@ -20,6 +20,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::events::RuntimeEvent;
+use crate::installation::Admitted;
 use crate::live_values::io_requests::IoQueuePort;
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::metrics::RuntimeMetricsSnapshot;
@@ -121,9 +122,10 @@ pub trait ResourcePort {
 
     /// Whether `restart` starts a stopped resource again (specification 34, STATE-08).
     ///
-    /// On a device without an operating system the program takes the place of the process: after
-    /// `shutdown` the device stays reachable and `restart` starts the installed program again. On
-    /// a computer `shutdown` ends the trust-runtime process, so a stopped resource refuses it.
+    /// On every runtime the program takes the place of the process: after `shutdown` the runtime
+    /// stays reachable and `restart` starts the installed program again. A platform whose
+    /// `shutdown` ended the process would have no scan to take the restart, so its stopped
+    /// resource would refuse it.
     fn starts_when_stopped(&self) -> bool;
 
     /// Why the resource has no installed program, when it has none: a device whose application
@@ -141,11 +143,12 @@ pub trait ResourcePort {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramControl {
     /// The runtime still answers after `shutdown`, and `restart` starts the program again: the
-    /// program takes the place of the process, as on a device without an operating system
+    /// program takes the place of the process, as on a device without an operating system and,
+    /// since the owner's decision of 18 October 2026, as on trust-runtime on a computer
     /// (spec 34 STATE-08).
     KeepsControl,
     /// `shutdown` ends the runtime's process, so a stopped runtime has no scan loop to take a
-    /// `restart` (spec 34 STATE-08).
+    /// `restart`, as an earlier trust-runtime on a computer did (spec 34 STATE-08).
     Process,
 }
 
@@ -297,6 +300,38 @@ pub trait RecordsPort {
     /// 34 §11.2). The default is no program store, so `program.active` answers `unsupported request`.
     fn program_identities(&self) -> Option<ProgramIdentities> {
         None
+    }
+
+    /// Whether the platform keeps a program store that `program.install` commits to (specification
+    /// 34 §11.2). The default is none: `program.install` then answers `unsupported request` after its
+    /// state check, and takes nothing.
+    fn has_program_store(&self) -> bool {
+        false
+    }
+
+    /// The retained-value check of specification 11 §6.7.1 (decision G13), run before any write: the
+    /// warm start of the admitted program with the retained values of the newest checkpoint on a
+    /// chip, or of the retain file on a computer. It is asked only of a platform that has a program
+    /// store. The default refuses, so a store cannot skip the check by leaving it out.
+    ///
+    /// # Errors
+    ///
+    /// The warm start's own error, which names the retained value and its reason.
+    fn check_retained_values(&self, _admitted: &Admitted<'_>) -> Result<(), RuntimeError> {
+        Err(RuntimeError::ControlError(
+            "the platform does not check retained values".into(),
+        ))
+    }
+
+    /// Commits the complete container `container`, already checked, to the platform's program store
+    /// (specification 34 §11.2), and returns the identity the store gives the program. The default
+    /// refuses.
+    ///
+    /// # Errors
+    ///
+    /// The store's refusal or failure, as plain text.
+    fn commit_program(&self, _container: &[u8]) -> Result<ProgramIdentity, String> {
+        Err("the platform does not store programs".into())
     }
 }
 

@@ -10,6 +10,9 @@ use trust_runtime_services::ports::{ProgramIdentities, ProgramIdentity};
 
 use super::*;
 use crate::deployment::{write_record, DEPLOYMENT_RECORD_FILE};
+use crate::harness::TestHarness;
+use crate::retain::FileRetainStore;
+use crate::value::{Duration, Value};
 
 /// The runtime settings of every test store, the same as the deployment tests use.
 const RUNTIME_TOML: &str = r#"
@@ -383,5 +386,103 @@ fn a_plain_project_whose_program_does_not_admit_keeps_its_files() {
         RUNTIME_TOML
     );
     assert!(!project.join(DEPLOYMENT_RECORD_FILE).exists());
+    let _ = fs::remove_dir_all(project);
+}
+
+/// The retained program of the retained-value tests: `r` is retained, and the file saves it.
+const RETAINED_INT: &str = "PROGRAM Main\nVAR RETAIN\n    r : INT := 1;\nEND_VAR\nEND_PROGRAM\n";
+/// The spec 11 §6.7.1 subrange: a retained `INT(0..10)` cannot restore the value 100.
+const SUBRANGE_INT: &str =
+    "PROGRAM Main\nVAR RETAIN\n    r : INT(0..10) := 1;\nEND_VAR\nEND_PROGRAM\n";
+/// A wider subrange that restores the value 100.
+const WIDER_INT: &str =
+    "PROGRAM Main\nVAR RETAIN\n    r : INT(0..200) := 1;\nEND_VAR\nEND_PROGRAM\n";
+
+/// Spec 34 §11.2 (`program.install`): a plain project folder takes the installed program in place,
+/// and `program.active` then reports it with sequence 0, its SHA-256 and its length. Wrong behaviour:
+/// the old program stays in the folder, or the identity reported is another program's.
+#[test]
+fn program_install_commits_and_program_active_reports_it() {
+    let project = scratch("install-plain");
+    let first = compile(EMPTY_PROGRAM);
+    fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("a plain runtime.toml");
+    fs::write(project.join(PROGRAM_FILE), &first).expect("a plain program.stbc");
+    let second = compile(COUNTING_PROGRAM);
+    let installed = install(&project, &second).expect("the program installs");
+    assert_eq!(installed, identity(&second, 0));
+    assert_eq!(
+        fs::read(project.join(PROGRAM_FILE)).expect("the program"),
+        second
+    );
+    let active = identities(&project).expect("a plain folder reports its program");
+    assert_eq!(active.active, Some(identity(&second, 0)));
+    assert_eq!(active.previous, None);
+    let _ = fs::remove_dir_all(project);
+}
+
+/// Spec 34 §11.2: an install into a store is a deployment of the program alone, so it takes the next
+/// install sequence, makes the running bundle the previous one and reports the new bundle as active.
+/// Wrong behaviour: the sequence repeats, or the previous program is lost.
+#[test]
+fn an_install_into_a_store_takes_the_next_sequence() {
+    let root = scratch("install-store");
+    let first = compile(EMPTY_PROGRAM);
+    first_deployment(&root, "first", &first);
+    let project = root.join(CURRENT_LINK);
+    let second = compile(COUNTING_PROGRAM);
+    let installed = install(&project, &second).expect("the program installs");
+    assert_eq!(installed, identity(&second, 2));
+    let active = identities(&project).expect("the store reports its programs");
+    assert_eq!(active.active, Some(identity(&second, 2)));
+    assert_eq!(active.previous, Some(identity(&first, 1)));
+    let _ = fs::remove_dir_all(root);
+}
+
+/// Spec 11 §6.7.1 and 34 §11.2 (decision G13): the new program's warm start must restore the retained
+/// values of the retain file, and a value it cannot restore refuses the install before any write. The
+/// old program saves `r` as 100; the new one declares `r` as `INT(0..10)`, the subrange the spec gives
+/// for the value 100. Wrong behaviour: the check passes, or it writes the retain file or the program.
+#[test]
+fn an_install_that_cannot_restore_its_retained_values_is_refused_before_any_write() {
+    let project = scratch("install-retain");
+    let runtime = RUNTIME_TOML.replace("mode = \"none\"", "mode = \"file\"\npath = \"retain.bin\"");
+    fs::write(project.join("runtime.toml"), runtime).expect("a retaining runtime.toml");
+    let old = compile(RETAINED_INT);
+    fs::write(project.join(PROGRAM_FILE), &old).expect("the old program.stbc");
+    let mut saver = TestHarness::from_source(RETAINED_INT).expect("the old program builds");
+    saver.runtime_mut().set_retain_store(
+        Some(Box::new(FileRetainStore::new(project.join("retain.bin")))),
+        Some(Duration::from_millis(1)),
+    );
+    saver.cycle();
+    saver.set_input("r", Value::Int(100));
+    saver.runtime_mut().mark_retain_dirty();
+    saver
+        .runtime_mut()
+        .save_retain_store()
+        .expect("the retained value is saved");
+    let retain_before = fs::read(project.join("retain.bin")).expect("the retain file");
+
+    let narrow = compile(SUBRANGE_INT);
+    let refused = check_retained(&project, &narrow).expect_err("100 is outside 0..10");
+    assert!(
+        refused
+            .to_string()
+            .contains("outside declared subrange 0..10"),
+        "unexpected refusal: {refused}"
+    );
+    assert_eq!(
+        fs::read(project.join(PROGRAM_FILE)).expect("the program"),
+        old,
+        "the check writes no program"
+    );
+    assert_eq!(
+        fs::read(project.join("retain.bin")).expect("the retain file"),
+        retain_before,
+        "the check writes no retained value"
+    );
+
+    let wider = compile(WIDER_INT);
+    check_retained(&project, &wider).expect("100 restores into 0..200");
     let _ = fs::remove_dir_all(project);
 }

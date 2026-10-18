@@ -2,7 +2,7 @@
 
 use crate::model::{
     ChipFile, Clock, Component, Events, Family, Firmware, Flash, Fpu, Gpio, Identity, Interfaces,
-    Layout, Memory, PortPins, Processor, RamRegion, SectorRun,
+    Layout, Memory, PortPins, Processor, RamRegion, Region, SectorRun,
 };
 use crate::{sources, ChipFileError, Problem};
 
@@ -407,6 +407,78 @@ fn layout(family: Family, layout: &Layout, flash: &FlashSpace<'_>) -> Result<(),
         .any(|&(key, region)| key == boot && u64::from(region.start) != flash.origin());
     if misplaced {
         return Err(Problem::BootRegion { region: boot });
+    }
+    program_slots(layout, flash)
+}
+
+/// The program store's two slots, when the file names them (specification 34 §5.1 and Appendix
+/// H.2): both or neither, of one size. Each lies inside `application`, apart from the checkpoint
+/// slots and the other slot, and on erase-unit boundaries, because an install erases whole units
+/// of its slot.
+fn program_slots(layout: &Layout, flash: &FlashSpace<'_>) -> Result<(), Problem> {
+    let (a, b) = match (layout.application_a, layout.application_b) {
+        (None, None) => return Ok(()),
+        (Some(a), Some(b)) => (a, b),
+        (Some(_), None) => {
+            return Err(Problem::MissingRegion {
+                region: "application_b",
+            });
+        }
+        (None, Some(_)) => {
+            return Err(Problem::MissingRegion {
+                region: "application_a",
+            });
+        }
+    };
+    for (key, region) in [("application_a", a), ("application_b", b)] {
+        if region.kib == 0 {
+            return Err(Problem::ZeroSize {
+                what: format!("layout.{key}"),
+            });
+        }
+    }
+    program_slot(("application_a", a), ("application_b", b), layout, flash)?;
+    program_slot(("application_b", b), ("application_a", a), layout, flash)?;
+    if a.kib != b.kib {
+        return Err(Problem::UnequalSlots {
+            first: "application_a",
+            second: "application_b",
+        });
+    }
+    Ok(())
+}
+
+/// One program slot, against the checkpoint slots and the other slot (`partner`), and against
+/// `application`. The checks run in the order that names the most specific refusal.
+fn program_slot(
+    (key, slot): (&'static str, Region),
+    (partner_key, partner): (&'static str, Region),
+    layout: &Layout,
+    flash: &FlashSpace<'_>,
+) -> Result<(), Problem> {
+    let span = (u64::from(slot.start), slot.end());
+    if !flash.on_boundary(span.0) || !flash.on_boundary(span.1) {
+        return Err(Problem::RegionNotAligned { region: key });
+    }
+    let others = [
+        ("checkpoint_a", layout.checkpoint_a),
+        ("checkpoint_b", layout.checkpoint_b),
+        (partner_key, partner),
+    ];
+    for (other_key, other) in others {
+        if overlap((u64::from(other.start), other.end()), span) {
+            return Err(Problem::RegionsOverlap {
+                first: other_key,
+                second: key,
+            });
+        }
+    }
+    let application = (
+        u64::from(layout.application.start),
+        layout.application.end(),
+    );
+    if span.0 < application.0 || application.1 < span.1 {
+        return Err(Problem::OutsideApplication { slot: key });
     }
     Ok(())
 }

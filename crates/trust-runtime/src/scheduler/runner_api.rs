@@ -10,6 +10,13 @@ pub struct ResourceRunner<C: Clock + Clone> {
     simulation: Option<crate::simulation::SimulationController>,
     thread_init_hook: Option<Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>>,
     hang_action: crate::watchdog::HangAction,
+    program_loader: Option<ProgramLoader>,
+    /// Whether the next restart loads the installed program instead of restarting the one in the
+    /// runtime: the program stopped, or the last load did not end in a started program.
+    reload_required: bool,
+    /// The scheduler clock's reading when the program started. The program's logical time counts
+    /// from it (specification 34, STATE-08), so a program started again begins at zero.
+    program_origin: Duration,
 }
 
 impl<C: Clock + Clone> ResourceRunner<C> {
@@ -26,6 +33,9 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             simulation: None,
             thread_init_hook: None,
             hang_action: crate::watchdog::HangAction::default(),
+            program_loader: None,
+            reload_required: false,
+            program_origin: Duration::ZERO,
         }
     }
 
@@ -75,6 +85,15 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         self
     }
 
+    /// Attach the loader that a `restart` of a stopped program uses to load the installed program
+    /// again. Without one, a restart restarts the program that stopped, in place (specification 34,
+    /// STATE-08).
+    #[must_use]
+    pub fn with_program_loader(mut self, loader: ProgramLoader) -> Self {
+        self.program_loader = Some(loader);
+        self
+    }
+
     /// Access the underlying runtime.
     #[must_use]
     pub fn runtime(&self) -> &Runtime {
@@ -86,10 +105,20 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         &mut self.runtime
     }
 
+    /// The program's time on the scheduler clock: the clock's reading `clock_now` less its reading
+    /// when the program started.
+    fn program_time(&self, clock_now: Duration) -> Duration {
+        Duration::from_nanos(
+            clock_now
+                .as_nanos()
+                .saturating_sub(self.program_origin.as_nanos()),
+        )
+    }
+
     /// Restart the runtime while preserving the runner's live clock baseline.
     pub fn restart(&mut self, mode: crate::RestartMode) -> Result<(), RuntimeError> {
         self.runtime.restart(mode)?;
-        let now = scaled_time(self.clock.now(), self.time_scale);
+        let now = scaled_time(self.program_time(self.clock.now()), self.time_scale);
         self.runtime.reset_task_timing(now);
         Ok(())
     }
@@ -100,8 +129,36 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         mode: crate::RestartMode,
     ) -> Result<(), RuntimeError> {
         self.runtime.restart_with_retain_store(mode)?;
-        let now = scaled_time(self.clock.now(), self.time_scale);
+        let now = scaled_time(self.program_time(self.clock.now()), self.time_scale);
         self.runtime.reset_task_timing(now);
+        Ok(())
+    }
+
+    /// Takes the `restart` request `mode`. A program that stopped, or that did not start, is
+    /// loaded again through the program loader, when there is one, and started as a new process
+    /// starts it: its logical time begins at zero. Any other program restarts in place, as
+    /// `restart_with_retain_store` does. A program that starts after a stop can be held by the
+    /// debugger again (specification 34, STATE-08).
+    fn restart_or_reload(&mut self, mode: crate::RestartMode) -> Result<(), RuntimeError> {
+        let after_stop = self.reload_required;
+        // A failed load leaves `reload_required` set, so the next restart loads again.
+        if let Some(loader) = self.program_loader.as_mut().filter(|_| after_stop) {
+            let started = loader(&mut self.runtime, mode)?;
+            self.cycle_interval = started.cycle_interval;
+            self.time_scale = started.time_scale.max(1);
+            self.simulation = started.simulation;
+            self.hang_action = started.hang_action;
+            self.program_origin = self.clock.now();
+            self.runtime.reset_task_timing(Duration::ZERO);
+        } else {
+            self.restart_with_retain_store(mode)?;
+        }
+        if after_stop {
+            if let Some(debug) = self.runtime.debug_control() {
+                debug.rearm_after_stop();
+            }
+            self.reload_required = false;
+        }
         Ok(())
     }
 

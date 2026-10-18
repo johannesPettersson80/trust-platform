@@ -6,6 +6,20 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Changed: `shutdown` on a computer now stops the PLC program and keeps `trust-runtime` running
+  in the Stopped state, as it does on a chip, and as CODESYS and TwinCAT keep their runtime up
+  while the application is stopped. The control server, the web UI and the other services stay up,
+  `status` reports `state: stopped` and `program_control: keeps_control`, and `restart` (Operator)
+  starts the installed program again, loading the program and the resource configuration the
+  project folder names now. The process ends on SIGINT or SIGTERM, or by the new explicit exit,
+  `shutdown` with `{"exit": true}` (Admin), which `trust-runtime ctl shutdown --exit` sends. Before,
+  `shutdown` ended the process. Scripts that waited for the process to exit after `shutdown` must
+  send the exit; `trust-runtime fleet runtime stop` does. `fleet runtime start` now starts the
+  program of a runtime whose process answers while its program is stopped.
+- Changed: a program install now works only while the PLC program is stopped, on every runtime. The
+  web deployment (`POST /api/deploy`) answers `resource_not_running`, as `program.install` does,
+  while the program runs, and writes nothing; stop the program with `shutdown` first, install, and
+  `restart`. The web IDE's Deploy button shows that refusal while the program runs.
 - Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
   project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
   `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn

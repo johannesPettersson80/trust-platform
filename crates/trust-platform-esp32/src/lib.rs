@@ -23,6 +23,7 @@ pub use platform::Platform;
 #[path = "hardware/process_io.rs"]
 pub mod process_io;
 pub mod profile;
+pub mod program_flash;
 mod record;
 pub use record::{fail_record, FAIL_RECORD_MAX};
 pub mod usb_service;

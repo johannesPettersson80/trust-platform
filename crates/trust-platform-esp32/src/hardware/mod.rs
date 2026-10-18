@@ -1,9 +1,9 @@
 //! Bare-metal ownership and initialization of the fixed ESP32-C6 board peripherals.
 use crate::{
-    checkpoint::SlotFlash,
     image::{decode_image_header, IMAGE_HEADER_BYTES},
     process_io::{claim_lines, ClaimedLines, GpioBank, PinError},
-    profile::{CPU_HZ, FACTORY_OFFSET, STBC_BYTES, STBC_OFFSET},
+    profile::{CPU_HZ, FACTORY_OFFSET, STBC_BYTES},
+    program_flash::FlashOwner,
 };
 use alloc::boxed::Box;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -13,6 +13,7 @@ use esp_hal::{
 };
 use esp_storage::FlashStorage;
 use trust_runtime_core::deployment::{GpioInput, GpioOutput};
+use trust_runtime_core::ports::ProgramFlash;
 use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash};
 
 mod checkpoint_flash;
@@ -44,10 +45,12 @@ pub enum BoardError {
     ResetCookie,
     /// The flash driver rejected a read.
     FlashRead,
-    /// The flash driver went to the checkpoint store, which takes it after the application is read.
+    /// The checkpoint flash or the program slots were handed out already; each is handed out once.
     FlashTaken,
     /// The checkpoint slots' geometry cannot hold the checkpoint log.
     Checkpoint(CheckpointError),
+    /// The program slots' geometry cannot be used.
+    ProgramSlots(CheckpointError),
     /// The running image header lacks the ESP magic or names an unknown flash size.
     ImageHeader,
     /// The 1 kHz tick alarm could not be configured.
@@ -87,9 +90,9 @@ pub struct Board {
     pub reset: ResetControl,
     /// Identity captured at boot.
     pub identity: Identity,
-    /// Flash driver for the factory header and the `stbc` partition; the checkpoint store takes it
-    /// once the installed application is read.
-    flash: Option<FlashStorage<'static>>,
+    /// The flash, owned once: the program slots, the checkpoint slots and the installed application
+    /// read share it (specification 34 §5.1 and §10.1).
+    flash: FlashOwner<FlashStorage<'static>>,
     /// The chip's GPIO bank, from which the record's lines are claimed by pin name.
     gpio: GpioBank,
     /// The SYSTIMER alarm the resource loop's wait arms at its deadline.
@@ -156,21 +159,20 @@ impl Board {
             watchdog,
             reset,
             identity,
-            flash: Some(flash),
+            flash: FlashOwner::new(flash),
             gpio,
             wait_alarm,
         })
     }
 
-    /// Read the first `buffer.len()` bytes of the `stbc` partition. Call only while STOPPED,
-    /// before RUN; this reads flash and never writes or erases it.
+    /// Read the first `buffer.len()` bytes of the installed application, which begin at slot A.
+    /// Call only while STOPPED, before RUN; this reads flash and never writes or erases it.
     pub fn read_application(&mut self, buffer: &mut [u8]) -> Result<(), BoardError> {
         if buffer.len() > STBC_BYTES {
             return Err(BoardError::BufferTooLarge);
         }
-        let flash = self.flash.as_mut().ok_or(BoardError::FlashTaken)?;
-        flash
-            .read(STBC_OFFSET, buffer)
+        self.flash
+            .read_application(buffer)
             .map_err(|_| BoardError::FlashRead)
     }
 
@@ -194,19 +196,39 @@ impl Board {
         self.wait_alarm.take()
     }
 
-    /// The chip's checkpoint flash (specification 34 §10.1), handed out once: the board's flash
-    /// driver behind the two checkpoint slots. The installed application is read through the same
-    /// driver, so this is called after [`Board::read_application`] has read it.
+    /// The chip's checkpoint flash (specification 34 §10.1), handed out once. It shares the flash
+    /// with the program slots and with [`Board::read_application`], so it may be taken at any point
+    /// after the board is taken.
     ///
     /// # Errors
     ///
-    /// [`BoardError::FlashTaken`] when the flash was handed out already, and
+    /// [`BoardError::FlashTaken`] when the checkpoint flash was handed out already, and
     /// [`BoardError::Checkpoint`] when the slots' geometry cannot hold the checkpoint log.
     pub fn take_checkpoint_flash(&mut self) -> Result<Box<dyn CheckpointFlash>, BoardError> {
-        let flash = self.flash.take().ok_or(BoardError::FlashTaken)?;
-        let checkpoint = SlotFlash::new(flash).map_err(BoardError::Checkpoint)?;
+        let checkpoint = self
+            .flash
+            .take_checkpoint()
+            .map_err(BoardError::Checkpoint)?
+            .ok_or(BoardError::FlashTaken)?;
         let checkpoint: Box<dyn CheckpointFlash> = Box::new(checkpoint);
         Ok(checkpoint)
+    }
+
+    /// The chip's program slots (specification 34 §5.1), handed out once. They share the flash with
+    /// the checkpoint slots and with [`Board::read_application`].
+    ///
+    /// # Errors
+    ///
+    /// [`BoardError::FlashTaken`] when the program slots were handed out already, and
+    /// [`BoardError::ProgramSlots`] when their geometry cannot be used.
+    pub fn take_program_flash(&mut self) -> Result<Box<dyn ProgramFlash>, BoardError> {
+        let program = self
+            .flash
+            .take_program()
+            .map_err(BoardError::ProgramSlots)?
+            .ok_or(BoardError::FlashTaken)?;
+        let program: Box<dyn ProgramFlash> = Box::new(program);
+        Ok(program)
     }
 }
 

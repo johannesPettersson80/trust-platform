@@ -317,7 +317,13 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "auth": auth,
             "params": { "mode": mode }
         }),
-        ControlAction::Shutdown => json!({"id": 1, "type": "shutdown", "auth": auth}),
+        ControlAction::Shutdown { exit } => {
+            let mut request = json!({"id": 1, "type": "shutdown", "auth": auth});
+            if *exit {
+                request["params"] = json!({ "exit": true });
+            }
+            request
+        }
         ControlAction::ConfigGet => json!({"id": 1, "type": "config.get", "auth": auth}),
         ControlAction::ConfigSet { key, value } => {
             let mut params = serde_json::Map::new();
@@ -368,6 +374,22 @@ fn parse_config_value(value: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shutdown_with_exit_sends_the_explicit_exit_and_nothing_else() {
+        // Specification 11 section 6.8.1 and 34 STATE-08: `--exit` adds the parameter
+        // `{"exit": true}` to `shutdown`, and the request without it carries no parameters.
+        // Wrong behaviour: the flag is ignored, so the process stays up as after a plain
+        // `shutdown`, or the plain request carries `exit`.
+        assert_eq!(
+            build_request(&ControlAction::Shutdown { exit: true }, Some("token")),
+            json!({"id": 1, "type": "shutdown", "auth": "token", "params": {"exit": true}}),
+        );
+        assert_eq!(
+            build_request(&ControlAction::Shutdown { exit: false }, Some("token")),
+            json!({"id": 1, "type": "shutdown", "auth": "token"}),
+        );
+    }
 
     #[test]
     fn control_actions_map_to_the_registered_wire_contract() {
@@ -505,7 +527,7 @@ mod tests {
                 }),
             ),
             (
-                ControlAction::Shutdown,
+                ControlAction::Shutdown { exit: false },
                 json!({"id": 1, "type": "shutdown", "auth": "token"}),
             ),
             (

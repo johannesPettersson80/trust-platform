@@ -15,7 +15,7 @@ use serde::Deserialize;
 use serde_json::json;
 use trust_runtime_core::scheduler::ResourceState;
 
-use crate::dispatch::transfers::transfer_member;
+use crate::dispatch::transfers::{take_complete, transfer_member};
 use crate::ports::ControlHost;
 use crate::protocol::ControlResponse;
 use crate::resource::replies::{hung_refusal, resource_not_running, RESOURCE_NOT_RUNNING};
@@ -66,7 +66,7 @@ pub fn admit<H: ControlHost>(
     }
     match source {
         Source::Bytes(bytes) => Ok(bytes),
-        Source::Transfer(transfer) => take_transfer(id, transfer, host),
+        Source::Transfer(transfer) => take_complete(id, transfer, host),
     }
 }
 
@@ -97,19 +97,6 @@ fn decode_bytes(id: u64, params: serde_json::Value) -> Result<Vec<u8>, ControlRe
     BASE64_STANDARD
         .decode(params.bytes.as_bytes())
         .map_err(|err| ControlResponse::error(id, format!("invalid bytecode: {err}")))
-}
-
-/// Takes the bytes of the complete transfer `transfer`, which ends it (specification 34, PORT-05).
-fn take_transfer<H: ControlHost>(
-    id: u64,
-    transfer: TransferId,
-    host: &H,
-) -> Result<Vec<u8>, ControlResponse> {
-    match host.with_transfers(|session| session.take_complete(transfer)) {
-        Ok(Ok(bytes)) => Ok(bytes),
-        Ok(Err(error)) => Err(ControlResponse::error(id, error.to_string())),
-        Err(refused) => Err(refused.refusal(id)),
-    }
 }
 
 /// How a queued reload ended, as the platform's wait reports it.

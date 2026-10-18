@@ -9,11 +9,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::Deserialize;
+use serde_json::json;
 use sha2::{Digest, Sha256};
+use trust_runtime_services::ports::ResourcePort;
+use trust_runtime_services::resource::replies::{hung_refusal, resource_not_running};
 
 use crate::config::{validate_io_toml_text, validate_runtime_toml_text};
 use crate::deployment::program_store::{self, Payload, PayloadFile};
 use crate::error::RuntimeError;
+use crate::scheduler::ResourceState;
 
 #[derive(Debug, Deserialize)]
 pub struct DeployRequest {
@@ -79,6 +83,30 @@ struct DeployKeyEntry {
     not_after_unix: Option<u64>,
     #[serde(alias = "not_after")]
     not_after: Option<u64>,
+}
+
+/// The reply to a deployment that arrives while the resource is not Stopped, or `None` when it is
+/// Stopped and the deployment may go on (specification 34 §11.2, decision Q11; specification 11
+/// §6.8.2).
+///
+/// A deployment installs a program, so it follows the rule of `program.install`: the reply is that
+/// request's refusal for the same state, a hung scan thread first, with its `error` message and
+/// its stable `error_code` (`resource_not_running`) as the members of the web reply.
+pub fn refusal_unless_stopped<H: ResourcePort>(host: &H) -> Option<serde_json::Value> {
+    let refusal = if host.is_hung() {
+        hung_refusal(0)
+    } else {
+        let resource = host.resource_state();
+        if matches!(resource, ResourceState::Stopped) {
+            return None;
+        }
+        resource_not_running(0, resource)
+    };
+    Some(json!({
+        "ok": false,
+        "error": refusal.error,
+        "error_code": refusal.error_code,
+    }))
 }
 
 /// Deploys a request into the project folder `bundle_root`. The request's signature policy is the

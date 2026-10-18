@@ -21,7 +21,7 @@ use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{ResourceHandle, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::{RetainSnapshot, Runtime};
+use trust_runtime::{RestartMode, RetainSnapshot, Runtime};
 
 /// The longest a fixture waits for a stop event, so a missing hold fails instead of blocking.
 const WAIT: WallDuration = WallDuration::from_secs(5);
@@ -386,4 +386,50 @@ fn a_hold_without_a_stop_still_waits_for_resume() {
         "the resumed scan set lamp TRUE"
     );
     assert_eq!(held.handle.last_error(), None);
+}
+
+/// Spec 11 section 6.9 and spec 34 STATE-08: `shutdown` stops the program and not the scan thread,
+/// so a `restart` starts the program again on the same debugger, and the debugger holds its scan
+/// again. The stop released the debugger, which keeps it from holding the scan until the program
+/// starts again; the breakpoint on the first statement stops the restarted program's first scan.
+/// Wrong behaviour: the debugger stays released after the stop, so the restarted program runs past
+/// its breakpoint and no second stop arrives.
+#[test]
+fn a_program_started_again_after_a_stop_is_held_by_the_debugger_again() {
+    let (runtime, debug, _probes) = fixture();
+    let breakpoint = breakpoint_on(&runtime, "kept := kept + DINT#1;");
+    debug.set_breakpoints_for_file(0, vec![breakpoint]);
+    let (stop_tx, events) = mpsc::channel();
+    debug.set_stop_sender(stop_tx);
+    let restart: Arc<Mutex<Option<RestartMode>>> = Arc::new(Mutex::new(None));
+    let mut handle = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
+        .with_restart_signal(Arc::clone(&restart))
+        .spawn("stop-then-hold-again")
+        .expect("spawn the resource");
+    let first = events.recv_timeout(WAIT);
+
+    handle.control().stop_program();
+    let stopped = wait_until(Instant::now() + WAIT, || {
+        handle.state() == ResourceState::Stopped
+    });
+    *restart.lock().expect("restart signal") = Some(RestartMode::Cold);
+    let second = events.recv_timeout(WAIT);
+    // Release whatever holds, so that a failed assertion never leaves a scan waiting.
+    handle.stop();
+    debug.continue_run();
+    handle.join().expect("the resource thread ends");
+
+    assert_eq!(
+        first
+            .expect("the first scan stops at the breakpoint")
+            .reason,
+        DebugStopReason::Breakpoint
+    );
+    assert!(stopped, "the program stops without a resume");
+    assert_eq!(
+        second
+            .expect("the restarted program's scan stops at the breakpoint again")
+            .reason,
+        DebugStopReason::Breakpoint
+    );
 }

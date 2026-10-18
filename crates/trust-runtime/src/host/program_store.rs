@@ -27,6 +27,8 @@ use crate::config::RuntimeConfig;
 mod bundles;
 #[path = "program_store/links.rs"]
 mod links;
+#[path = "program_store/retained.rs"]
+mod retained;
 #[cfg(test)]
 #[path = "program_store/tests.rs"]
 mod tests;
@@ -39,6 +41,7 @@ pub use links::{
     read_link_target, replace_symlink, resolve_existing_bundle_link, restore_pointer_pair,
     update_deployment_pointers, validate_pointer_slot, PointerState,
 };
+pub use retained::check_retained;
 
 use bundles::{copy_bundle_files, copy_sidecars, PROGRAM_FILE};
 use links::pointer_state;
@@ -150,6 +153,9 @@ pub struct Deployed {
     /// The paths written, with `/` between the folders. The record is named after the program when
     /// it was written.
     pub written: Vec<String>,
+    /// The install sequence the deployment gave its program: the new bundle's sequence in a store,
+    /// and 0 for a project folder that is not a store (specification 34 §11.2).
+    pub sequence: u64,
 }
 
 /// The bundles a rollback selected.
@@ -263,6 +269,30 @@ pub fn deploy(
     }
 }
 
+/// Installs `program` as the project's program (specification 34 §11.2, `program.install`): a
+/// deployment of the program alone, through the same store, so that the program is admitted before
+/// anything the runtime starts from changes. The reply's identity is the one `program.active` then
+/// reports. The caller runs the retained-value check, [`check_retained`], before this.
+///
+/// # Errors
+///
+/// As [`deploy`]: the program is refused by its record, its admission or its dry-run preparation, or
+/// a bundle, link or file cannot be read or written.
+pub fn install(project: &Path, program: &[u8]) -> Result<ProgramIdentity, StoreError> {
+    let payload = Payload {
+        files: vec![PayloadFile {
+            path: PROGRAM_FILE.to_string(),
+            bytes: program.to_vec(),
+        }],
+    };
+    let deployed = deploy(project, &payload, None)?;
+    Ok(ProgramIdentity {
+        sequence: deployed.sequence,
+        program_sha256: sha256(program),
+        bytes: program.len(),
+    })
+}
+
 fn deploy_to_store(
     root: &Path,
     current: &Path,
@@ -288,7 +318,7 @@ fn deploy_to_store(
         return Err(error);
     }
     prune_bundles(&bundles_dir, &bundle_targets(&stage, Some(&base)))?;
-    Ok(Deployed { written })
+    Ok(Deployed { written, sequence })
 }
 
 /// Stages a bundle at `stage`: a copy of `base` with the payload written over it, the record of its
@@ -354,6 +384,7 @@ fn deploy_in_place(project: &Path, payload: &Payload) -> Result<Deployed, StoreE
         .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error))?;
     Ok(Deployed {
         written: written_names(payload, record.as_ref()),
+        sequence: 0,
     })
 }
 
@@ -376,6 +407,17 @@ fn admit_in_scratch(
     payload: &Payload,
     program: &[u8],
 ) -> Result<(), StoreError> {
+    stage_configuration(scratch, project, payload)?;
+    admit(scratch, program).map(|_| ())
+}
+
+/// Makes the folder `scratch` hold the configuration the project will have: the payload's
+/// `runtime.toml` and `io.toml`, or the project's own where the payload leaves them out.
+fn stage_configuration(
+    scratch: &Path,
+    project: &Path,
+    payload: &Payload,
+) -> Result<(), StoreError> {
     fs::create_dir_all(scratch).map_err(|error| io_error("create the admission folder", error))?;
     for name in ["runtime.toml", "io.toml"] {
         match payload.files.iter().find(|file| file.path == name) {
@@ -390,7 +432,7 @@ fn admit_in_scratch(
             }
         }
     }
-    admit(scratch, program).map(|_| ())
+    Ok(())
 }
 
 /// Writes the record of `program` into `dir`, which holds the runtime and I/O configuration that the

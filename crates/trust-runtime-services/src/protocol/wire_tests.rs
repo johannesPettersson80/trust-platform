@@ -82,6 +82,22 @@ fn shutdown_replies_stopping_and_defers_the_stop_without_serializing_it() {
 }
 
 #[test]
+fn shutdown_and_exit_replies_stopping_and_defers_the_exit_without_serializing_it() {
+    // Specification 34 STATE-08: the explicit exit answers as `shutdown` does and defers the end
+    // of the process until the reply has been written. Wrong behaviour: the exit shows in the
+    // reply, or the deferred action is the plain stop.
+    let response = ControlResponse::shutdown_and_exit(41);
+    assert_eq!(
+        response.after_response,
+        Some(ControlAfterResponse::ExitRuntime)
+    );
+    assert_eq!(
+        wire(&response),
+        r#"{"id":41,"ok":true,"result":{"status":"stopping"}}"#
+    );
+}
+
+#[test]
 fn request_accepts_correlation_id_as_alias_of_request_id() {
     let request = decode(
         r#"{"id":9,"type":"config.set","params":{"log.level":"debug"},"auth":"secret","correlation_id":"cfg-agent-4"}"#,

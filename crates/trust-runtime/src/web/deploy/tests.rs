@@ -500,3 +500,106 @@ fn a_request_cannot_name_its_own_keyring() {
     );
     let _ = fs::remove_dir_all(root);
 }
+
+/// A resource that reports a fixed state, for the gate of a deployment.
+struct FixedResource {
+    state: ResourceState,
+    hung: bool,
+}
+
+impl ResourcePort for FixedResource {
+    fn resource_state(&self) -> ResourceState {
+        self.state
+    }
+
+    fn last_error(&self) -> Option<RuntimeError> {
+        None
+    }
+
+    fn is_hung(&self) -> bool {
+        self.hung
+    }
+
+    fn pause_resource(&self) -> Result<(), crate::scheduler::CommandSendError> {
+        Ok(())
+    }
+
+    fn resume_resource(&self) -> Result<(), crate::scheduler::CommandSendError> {
+        Ok(())
+    }
+
+    fn debug_control_mode(&self) -> bool {
+        false
+    }
+
+    fn debugger_pause(&self) {}
+
+    fn debugger_continue(&self) {}
+
+    fn update_pending_restart(&self, _update: impl FnOnce(&mut Option<crate::RestartMode>)) {}
+
+    fn starts_when_stopped(&self) -> bool {
+        true
+    }
+}
+
+#[test]
+fn a_deployment_is_refused_with_the_reply_of_program_install_unless_the_resource_is_stopped() {
+    // Specification 34 §11.2 (decision Q11) and 11 §6.8.2: a deployment installs a program, so it
+    // is accepted only while the resource is Stopped, and every other state is refused with the
+    // message and the code that `program.install` gives for it. Wrong behaviour: a running
+    // resource accepts the deployment, or the refusal is a text of the web interface alone.
+    for (state, message) in [
+        (
+            ResourceState::Running,
+            "resource is running and its scheduler does not accept commands",
+        ),
+        (
+            ResourceState::Paused,
+            "resource is paused and its scheduler does not accept commands",
+        ),
+        (
+            ResourceState::Ready,
+            "resource is ready and its scheduler does not accept commands",
+        ),
+        (
+            ResourceState::Faulted,
+            "resource is faulted; restart required",
+        ),
+    ] {
+        let resource = FixedResource { state, hung: false };
+        assert_eq!(
+            refusal_unless_stopped(&resource),
+            Some(json!({
+                "ok": false,
+                "error": message,
+                "error_code": "resource_not_running",
+            })),
+            "{state:?}"
+        );
+    }
+    let stopped = FixedResource {
+        state: ResourceState::Stopped,
+        hung: false,
+    };
+    assert_eq!(refusal_unless_stopped(&stopped), None);
+}
+
+#[test]
+fn a_deployment_to_a_hung_resource_is_refused_before_its_state_is_read() {
+    // Specification 11 §6.8.2: a hung scan thread is refused as `program.install` refuses it,
+    // even when its state reads Stopped. Wrong behaviour: the state decides and the deployment
+    // goes on while no scan thread can take the program.
+    let hung = FixedResource {
+        state: ResourceState::Stopped,
+        hung: true,
+    };
+    assert_eq!(
+        refusal_unless_stopped(&hung),
+        Some(json!({
+            "ok": false,
+            "error": "resource scan thread did not return; the runtime process must be restarted",
+            "error_code": "resource_not_running",
+        }))
+    );
+}

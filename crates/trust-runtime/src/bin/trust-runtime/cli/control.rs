@@ -39,7 +39,13 @@ pub enum ControlAction {
     Restart {
         mode: String,
     },
-    Shutdown,
+    /// Stop the program. The runtime keeps running in the Stopped state and `restart` starts the
+    /// program again.
+    Shutdown {
+        /// Also end the runtime's process (the explicit exit).
+        #[arg(long)]
+        exit: bool,
+    },
     ConfigGet,
     ConfigSet {
         key: String,

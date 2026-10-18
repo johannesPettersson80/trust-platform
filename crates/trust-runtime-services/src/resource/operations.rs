@@ -14,6 +14,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use super::replies::{hung_refusal, no_installed_program, queue_refusal, resource_not_running};
 use crate::ports::ResourcePort;
 use crate::protocol::ControlResponse;
+use crate::status::{invalid_params, validate_object_fields};
 
 #[derive(Debug, Deserialize)]
 struct RestartParams {
@@ -92,12 +93,12 @@ pub fn resume<H: ResourcePort>(id: u64, host: &H) -> ControlResponse {
 }
 
 /// `restart` with `{"mode": "cold" | "warm"}`: queues a restart that the scan takes at its next
-/// boundary, or in the faulted wait.
+/// boundary, in the faulted wait, or in the stopped wait.
 ///
 /// A hung resource has no scan to take it and refuses. A stopped one refuses too, unless the
-/// platform starts a stopped resource again (specification 34, STATE-08: on a device without an
-/// operating system the restart starts the installed program as a new process would); a device
-/// without an installed program refuses with the reason it has none.
+/// platform starts a stopped resource again (specification 34, STATE-08: on every runtime the
+/// restart starts the installed program as a new process would); a device without an installed
+/// program refuses with the reason it has none.
 #[must_use]
 #[allow(
     clippy::missing_panics_doc,
@@ -136,11 +137,33 @@ pub fn restart<H: ResourcePort>(
     ControlResponse::ok(id, json!({"status": "restart queued"}))
 }
 
-/// `shutdown`: replies `stopping`; the platform stops the resource after it has written the
-/// reply.
+/// `shutdown`: replies `stopping`; the platform stops the program after it has written the reply
+/// and leaves the runtime reachable in the Stopped state (specification 11 §6.9; specification 34,
+/// STATE-08).
+///
+/// `params` may be absent or an object whose only member is `exit`, a Boolean. `{"exit": true}` is
+/// the explicit exit: the reply is the same, and the platform then also ends the runtime's process
+/// where it has one. `{"exit": false}` is plain `shutdown`. Any other shape is refused with
+/// `invalid params: <reason>`, and nothing stops.
 #[must_use]
-pub fn shutdown(id: u64) -> ControlResponse {
-    ControlResponse::shutdown(id)
+pub fn shutdown(id: u64, params: Option<&serde_json::Value>) -> ControlResponse {
+    match exit_requested(params) {
+        Ok(false) => ControlResponse::shutdown(id),
+        Ok(true) => ControlResponse::shutdown_and_exit(id),
+        Err(reason) => invalid_params(id, reason),
+    }
+}
+
+/// Whether `params` ask for the explicit exit, or why they are refused.
+fn exit_requested(params: Option<&serde_json::Value>) -> Result<bool, &'static str> {
+    let Some(params) = params else {
+        return Ok(false);
+    };
+    validate_object_fields(params, &["exit"], &["exit"])?;
+    match params.get("exit") {
+        None => Ok(false),
+        Some(exit) => exit.as_bool().ok_or("exit must be a boolean"),
+    }
 }
 
 #[cfg(test)]

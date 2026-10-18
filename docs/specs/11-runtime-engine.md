@@ -1784,11 +1784,16 @@ execution model, not an IEC deviation.
   recovery request: `restart` (warm or cold) runs the configured initialization
   and retain policy and then resumes cyclic execution (specification 34
   STATE-06); an online change prepares and commits as in section 6.7.1 and then
-  resumes; `stop` ends the resource. A failed recovery leaves the resource in
-  FAULT with the new error. `pause` and `resume` are rejected while faulted.
-- The runtime process ends only on a stop request or a termination signal. It
-  exits with status 0 when the resource ends Stopped and with status 1 when it
-  ends Faulted, so a service manager can tell a clean stop from a failure.
+  resumes; a termination signal or the explicit exit (section 6.9) ends the
+  resource. A failed recovery leaves the resource in FAULT with the new error.
+  `pause` and `resume` are rejected while faulted.
+- The runtime process ends only on a termination signal, on the explicit exit,
+  `shutdown` with `{"exit": true}` (specification 34 STATE-08), or on the hang
+  action `abort` below. A plain `shutdown` leaves the process running and a
+  faulted resource faulted. The
+  process exits with status 0 when the resource ends Stopped and with status 1
+  when it ends Faulted, so a service manager can tell a clean stop from a
+  failure.
 
 **State after a faulting scan (hosted runtime):**
 - A scan that faults while its programs execute is not undone. The variables keep
@@ -2553,7 +2558,8 @@ object containing a Unix-epoch millisecond timestamp, canonical level, event
 name, and event data; events below the configured verbosity are omitted.
 SIGINT and SIGTERM request the ordinary bounded runtime stop path so shutdown
 and safe-state behavior completes before the launcher emits `runtime_exit` and
-returns success.
+returns success. They end the process whether the resource runs or is Stopped
+(specification 34 STATE-08).
 
 Operator-facing I/O provenance labels preserve the selected driver direction.
 For Modbus, an input address uses the configured input-register base and an
@@ -2619,6 +2625,11 @@ invented value.
 so the operation's default of 50 applies. Both print the raw response line, so a
 rejected write's `write_rejected` event is visible from the command line.
 
+`ctl shutdown` sends `shutdown` without parameters: it stops the program and
+leaves the runtime running in the Stopped state, and `ctl restart cold` starts
+the program again (specification 34 STATE-08). `ctl shutdown --exit` sends
+`shutdown` with `{"exit": true}` and so also ends the runtime's process.
+
 ###### Runtime control request, job, and state-surface contract
 
 Each newline-delimited control request is decoded exactly once. Malformed JSON
@@ -2654,8 +2665,9 @@ The status and configuration surfaces project one effective runtime state:
   `stm32f407` or `esp32c6`, and its program-control posture in
   `program_control`: `keeps_control` when the runtime still answers after
   `shutdown` and can be started again with `restart` (specification 34,
-  STATE-08), which a chip does, and `process` when `shutdown` ends the
-  runtime's process, which trust-runtime on a computer does. It reports the
+  STATE-08), which a chip does and trust-runtime on a computer does, and
+  `process` when `shutdown` ends the runtime's process, as an earlier
+  trust-runtime did. It reports the
   runtime's stable runtime ID in `runtime_id`: the same value the runtime
   announces by mDNS and keeps across restarts, generated once with a random
   part and kept in the project's `.trust-runtime/runtime_id` (the runtime
@@ -5020,6 +5032,20 @@ optional leading `src/` normalize to the same contained bundle destination;
 normalization never permits an absolute path, parent traversal, or platform
 prefix.
 
+A deployment through the web interface (`POST /api/deploy`, Admin) installs into
+the running runtime's project folder, so it follows the rule of `program.install`
+(specification 34 §11.2): it is accepted only while the resource is Stopped.
+Otherwise its reply is `{"ok": false, "error": <message>, "error_code":
+"resource_not_running"}`, with the message and the code that `program.install`
+gives for the same state, and a hung scan thread is refused as `program.install`
+refuses it. A refused deployment writes nothing, and the refusal comes after the
+authorization and before the deployment's signature or any file is read. A
+deployment that asks for a `restart` has that restart sent once the deployment
+is installed, which starts the new program (specification 34 STATE-08). A
+rollback through the web interface (`POST /api/rollback`, Admin) changes which
+program the runtime starts next, so it follows the same rule with the same
+refusal, and a refused rollback changes no link.
+
 The deployment root contains `bundles/`, `current`, and optionally `previous`.
 The pointer targets are resolved relative to the link location when an older
 relative link is read; newly written links target the canonical absolute bundle
@@ -5100,6 +5126,14 @@ response ID, or missing Boolean `ok` is a command error and must not be
 flattened to `stopped`. Failure to read or parse the managed project's control
 credential is likewise an error. The PID file is advisory process metadata.
 
+`fleet runtime stop` ends the managed process, so it sends `shutdown` with
+`{"exit": true}`; a plain `shutdown` would leave the process running with its
+program Stopped (specification 34 STATE-08). `fleet runtime start` of a runtime
+whose control endpoint answers `status` with the state `stopped` starts its
+program with `restart` `cold`, the mode of a new process, and reports the
+runtime started once its state is `running`; it does not report that runtime as
+already running.
+
 A successful `shutdown` request prepares and writes its complete correlated
 control response before it signals the resource stop. The stop signal remains
 part of the accepted request and is applied immediately after the response
@@ -5171,6 +5205,17 @@ when enabled:
   `trust-runtime play`), so a tool that starts a stopped program with `restart`
   sends `cold`, the mode of a new process; Devices & Connections does so for a
   runtime that keeps control after `shutdown` (specification 25 §5.1).
+- `shutdown` stops the program by the ordinary stop path below and leaves the
+  runtime running in the Stopped state on every runtime: the control server, the
+  web UI and the other services stay up, `status` reports the state `stopped`,
+  and `restart` starts the installed program again (specification 34 STATE-08).
+  `shutdown` with `{"exit": true}`, the explicit exit, also ends the process once
+  its reply is written. `params` may be absent or an object whose only member is
+  `exit`, a Boolean: another shape is refused with `invalid params: parameters
+  must be an object`, `invalid params: unknown parameter field`, `invalid params:
+  parameter fields must not be null` or `invalid params: exit must be a boolean`,
+  and stops nothing. A `shutdown` of a resource that is already stopped, or that a
+  fault has stopped, stops nothing more and replies `stopping`.
 - Restart requests that arrive before the resource has taken the previous one
   coalesce into a single restart, and a cold request takes precedence over a
   warm one: a pending cold restart is never downgraded by a later warm request,
@@ -5208,16 +5253,18 @@ when enabled:
   that the resource has not started to apply within five seconds is withdrawn
   (section 6.7.1). `resume` releases the hold (above).
 - A stop request is independent of the hold (specification 13, "Pause"). The
-  control `shutdown`, SIGINT and SIGTERM all end in the scheduler's `stop`, and a
-  `stop` ends the hold and keeps the debugger from holding the scan again for
-  that resource, so a pause, a step or a breakpoint cannot delay the stop and no
-  `resume` is needed first. The scan that the hold suspended runs to its end, as
+  control `shutdown`, SIGINT and SIGTERM all request the scheduler's stop, and a
+  stop ends the hold and keeps the debugger from holding the scan again until the
+  program starts again, so a pause, a step or a breakpoint cannot delay the stop
+  and no `resume` is needed first. The scan that the hold suspended runs to its end, as
   any scan does that a stop request finds under way, with no further pause, step
   or breakpoint. The resource then takes its ordinary stop path (section 6.6 and
   the retain-store rules of section 6.7): the configured stop outputs are applied,
-  the retained values are saved, the resource ends `Stopped` (`Faulted` when the
-  stop outputs are unconfirmed or the save fails), and the process exits. A
-  resource thread that starts later on the same debugger can be held again.
+  the retained values are saved, and the resource ends `Stopped` (`Faulted` when
+  the stop outputs are unconfirmed or the save fails). `shutdown` then leaves the
+  runtime running in that state, and SIGINT, SIGTERM and the explicit exit also
+  end the process. A program that starts later on the same debugger, after a
+  `restart` or in a new process, can be held again.
 
 **Hold duration (owner, 18 October 2026).** A debugger hold lasts until a continue or a stop, on every
 runtime, trust-runtime and a chip alike, however long the operator waits. While it lasts, the held
@@ -5472,7 +5519,7 @@ The explicit operation matrix is:
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
 | Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
-| Admin | `shutdown`, `bytecode.reload`, the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
+| Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
 

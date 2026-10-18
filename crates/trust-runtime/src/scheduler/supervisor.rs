@@ -54,6 +54,9 @@ pub(super) struct ScanSupervision {
     /// Set when the supervisor declared the scan thread hung. Cleared when the blocked call
     /// returns and the scan thread withdraws its cycle, and when a recovery succeeds.
     hung: AtomicBool,
+    /// Set by the control `shutdown`: the scan thread stops the program and keeps waiting in the
+    /// Stopped state (specification 34, STATE-08). The scan thread takes it once per request.
+    program_stop: AtomicBool,
     state: Arc<Mutex<ResourceState>>,
     last_error: Arc<Mutex<Option<RuntimeError>>>,
 }
@@ -69,9 +72,26 @@ impl ScanSupervision {
             deadline_ns: AtomicU64::new(NO_CYCLE),
             timeout_ns: AtomicU64::new(0),
             hung: AtomicBool::new(false),
+            program_stop: AtomicBool::new(false),
             state,
             last_error,
         }
+    }
+
+    /// Asks the scan thread to stop the program and wait in the Stopped state.
+    pub(super) fn request_program_stop(&self) {
+        self.program_stop.store(true, Ordering::SeqCst);
+    }
+
+    /// Takes a pending program stop request: true once for each request.
+    pub(super) fn take_program_stop(&self) -> bool {
+        self.program_stop.swap(false, Ordering::SeqCst)
+    }
+
+    /// Whether a program stop request waits for the scan thread.
+    #[cfg(test)]
+    pub(super) fn program_stop_requested(&self) -> bool {
+        self.program_stop.load(Ordering::SeqCst)
     }
 
     /// Whether the scan thread is inside a call that the supervisor declared hung.

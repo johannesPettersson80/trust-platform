@@ -282,9 +282,15 @@ where
 
     /// What a served request leaves for the loop: a `shutdown` waits for the program's next
     /// boundary, and ends the debugger's holds at once, so a hold needs no `resume` before the stop
-    /// (specification 11 §6.9, "Operations while the debugger holds the scan").
+    /// (specification 11 §6.9, "Operations while the debugger holds the scan"). The explicit exit
+    /// ends a computer's process; a device's firmware never ends, so it answers the exit as
+    /// `shutdown` (specification 34, STATE-08).
     pub(super) fn note_reply(&self, after_response: Option<ControlAfterResponse>) {
-        if after_response == Some(ControlAfterResponse::StopResource) && !self.resource.ended() {
+        let stops = matches!(
+            after_response,
+            Some(ControlAfterResponse::StopResource | ControlAfterResponse::ExitRuntime)
+        );
+        if stops && !self.resource.ended() {
             self.stop_requested.set(true);
             self.debug.release_for_stop();
         }

@@ -225,6 +225,11 @@ pub struct Layout {
     pub firmware: Region,
     /// The separately installed application.
     pub application: Region,
+    /// The first of the program store's two slots, inside `application` (specification 34 §5.1).
+    /// A file names both program slots or neither.
+    pub application_a: Option<Region>,
+    /// The second of the program store's two slots, the other half of `application`.
+    pub application_b: Option<Region>,
     /// The first checkpoint slot of the retain store.
     pub checkpoint_a: Region,
     /// The second checkpoint slot of the retain store.

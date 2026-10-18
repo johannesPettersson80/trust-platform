@@ -3,11 +3,13 @@
 //! The store holds two application slots. [`install`] checks a complete `TRSTA002` container and
 //! commits it to the slot that does not hold the newest committed container, in steps the loop
 //! advances one at a time. The commit point is the second half of the magic, programmed last.
-//! [`select`] reads both slots after a reset and selects the newest committed container. A damaged container refuses the boot; the other slot
-//! never runs in its place. Nothing here reads a link or a clock: the platform composes these with
-//! its control loop.
+//! [`select`] reads both slots after a reset and selects the newest committed container. A damaged
+//! container refuses the boot; the other slot never runs in its place. [`program_install`] is the
+//! request rule of `program.install`, which every runtime shares. Nothing here reads a link or a
+//! clock: the platform composes these with its control loop.
 
 pub mod install;
+pub mod program_install;
 pub mod reload;
 pub mod select;
 

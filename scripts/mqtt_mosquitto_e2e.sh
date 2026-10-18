@@ -121,7 +121,8 @@ grep -q '^state=running fault=none ' "${OUT_DIR}/status.log"
 wait "${subscriber_pid}"
 subscriber_pid=""
 
-"${runtime_bin}" ctl --endpoint "unix://${control_socket}" shutdown \
+# `shutdown` alone stops the program and keeps the runtime running; `--exit` ends the process too.
+"${runtime_bin}" ctl --endpoint "unix://${control_socket}" shutdown --exit \
   >"${OUT_DIR}/shutdown.log" 2>&1
 wait "${runtime_pid}"
 runtime_pid=""

@@ -62,7 +62,12 @@ pub fn managed_status(
     let pid = read_pid(&paths.pid).ok();
     let log_path = paths.log.display().to_string();
     let auth = read_control_auth_token(&project_path)?;
-    match exchange_control(runtime.control_endpoint.as_str(), auth.as_deref(), "status")? {
+    match exchange_control(
+        runtime.control_endpoint.as_str(),
+        auth.as_deref(),
+        "status",
+        None,
+    )? {
         ControlExchange::Response(result) => Ok(FleetRuntimeLifecycleResponse {
             schema_version: FLEET_MANIFEST_SCHEMA_VERSION,
             name: runtime.name.clone(),
@@ -152,7 +157,21 @@ pub fn request_control(
     auth_token: Option<&str>,
     request_type: &str,
 ) -> anyhow::Result<serde_json::Value> {
-    match exchange_control(endpoint, auth_token, request_type)? {
+    request_control_with_params(endpoint, auth_token, request_type, None)
+}
+
+/// Sends one control request of type `request_type` with `params`, and returns its result.
+///
+/// # Errors
+///
+/// As [`request_control`].
+pub fn request_control_with_params(
+    endpoint: &str,
+    auth_token: Option<&str>,
+    request_type: &str,
+    params: Option<serde_json::Value>,
+) -> anyhow::Result<serde_json::Value> {
+    match exchange_control(endpoint, auth_token, request_type, params)? {
         ControlExchange::Response(response) => Ok(response),
         ControlExchange::Unreachable(error) => anyhow::bail!("{error}"),
     }
@@ -162,13 +181,17 @@ fn exchange_control(
     endpoint: &str,
     auth_token: Option<&str>,
     request_type: &str,
+    params: Option<serde_json::Value>,
 ) -> anyhow::Result<ControlExchange> {
     let endpoint = ControlEndpoint::parse(endpoint).map_err(anyhow::Error::msg)?;
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "id": 1,
         "type": request_type,
         "auth": auth_token,
     });
+    if let Some(params) = params {
+        payload["params"] = params;
+    }
     let response = match endpoint {
         ControlEndpoint::Tcp(addr) => {
             let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(500)) {

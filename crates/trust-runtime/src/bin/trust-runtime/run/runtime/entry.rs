@@ -17,6 +17,9 @@ pub fn run_runtime(
     execution_backend: Option<crate::cli::ExecutionBackendArg>,
 ) -> anyhow::Result<()> {
     let restart_mode = validate_runtime_launch_options(&restart, time_scale)?;
+    // Where the program comes from, kept for a `restart` that finds the resource Stopped: it loads
+    // the installed program again from the same place (specification 34, STATE-08).
+    let program_source = (project.clone(), config.clone(), runtime_root.clone());
     let LoadedRuntime {
         bundle,
         mut runtime,
@@ -26,6 +29,7 @@ pub fn run_runtime(
     let (selected_execution_backend, selected_execution_backend_source) =
         resolve_execution_backend_selection(bundle.as_ref(), execution_backend)?;
 
+    let simulation_requested = simulation;
     let simulation = build_simulation_plan(bundle.as_ref(), simulation, time_scale)?;
     let SimulationPlan {
         enabled: simulation_enabled,
@@ -47,14 +51,16 @@ pub fn run_runtime(
     // Attached the way `enable_debug` attaches a control, but with the shared switch.
     let debug = trust_runtime::debug::DebugControl::new()
         .with_enabled_flag(std::sync::Arc::clone(&debug_enabled));
-    runtime.set_debug_control(debug.clone());
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
     if let Ok(mut guard) = metrics.lock() {
         guard.set_execution_backend(selected_execution_backend);
     }
-    runtime.set_metrics_sink(metrics.clone());
     let io_health = Arc::new(Mutex::new(Vec::new()));
-    runtime.set_io_health_sink(Some(io_health.clone()));
+    let wiring = ProgramWiring {
+        debug: debug.clone(),
+        metrics: metrics.clone(),
+        io_health: io_health.clone(),
+    };
     let io_snapshot = Arc::new(Mutex::new(None));
     let io_snapshot_seen_ms = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let (io_tx, io_rx) = std::sync::mpsc::channel();
@@ -78,15 +84,13 @@ pub fn run_runtime(
         });
     }
 
-    if let Some(bundle) = &bundle {
-        apply_bundle_runtime_services(&mut runtime, bundle)?;
-    }
-    runtime
-        .set_execution_backend(selected_execution_backend)
-        .map_err(|err| anyhow::anyhow!("{err}"))?;
-
-    runtime.restart(restart_mode)?;
-    load_startup_retain(&mut runtime, restart_mode)?;
+    start_runtime_program(
+        &mut runtime,
+        bundle.as_ref(),
+        selected_execution_backend,
+        &wiring,
+        restart_mode,
+    )?;
     let mut openot_persistence = bundle
         .as_ref()
         .map(start_openot_persistence_service)
@@ -152,19 +156,40 @@ pub fn run_runtime(
 
     let default_watchdog = runtime.watchdog_policy();
     let default_fault = runtime.fault_policy();
-    let cycle_interval = bundle
-        .as_ref()
-        .map(|bundle| bundle.runtime.cycle_interval)
-        .unwrap_or_else(|| Duration::from_millis(10));
-    let hang_action = bundle
-        .as_ref()
-        .map(|bundle| bundle.runtime.watchdog_hang_action)
-        .unwrap_or_default();
+    let cycle_interval = bundle_cycle_interval(bundle.as_ref());
+    let hang_action = bundle_hang_action(bundle.as_ref());
+    let initial_settings = build_runtime_settings(
+        bundle.as_ref(),
+        ide_shell_mode,
+        default_watchdog,
+        default_fault,
+        &SimulationPlan {
+            enabled: simulation_enabled,
+            time_scale: simulation_time_scale,
+            warning: simulation_warning.clone(),
+            controller: None,
+        },
+        selected_execution_backend,
+        selected_execution_backend_source,
+    );
+    let web_config = resolve_web_config(bundle.as_ref(), &initial_settings);
+    let settings = Arc::new(Mutex::new(initial_settings));
+    let program_reload = ProgramReload {
+        source: program_source,
+        execution_backend,
+        simulation: simulation_requested,
+        time_scale,
+        wiring,
+        metadata: metadata.clone(),
+        events: events.clone(),
+        settings: settings.clone(),
+    };
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
         .with_start_gate(start_gate.clone())
         .with_time_scale(simulation_time_scale)
-        .with_hang_action(hang_action);
+        .with_hang_action(hang_action)
+        .with_program_loader(program_reload.into_loader());
     if realtime_config.enabled {
         runner = runner.with_thread_init_hook(make_thread_init_hook(
             realtime_config.clone(),
@@ -212,22 +237,7 @@ pub fn run_runtime(
     let control = handle.control();
     let _signal_shutdown = install_runtime_signal_shutdown(control.clone())?;
 
-    let settings = build_runtime_settings(
-        bundle.as_ref(),
-        ide_shell_mode,
-        default_watchdog,
-        default_fault,
-        &SimulationPlan {
-            enabled: simulation_enabled,
-            time_scale: simulation_time_scale,
-            warning: simulation_warning.clone(),
-            controller: None,
-        },
-        selected_execution_backend,
-        selected_execution_backend_source,
-    );
     let auth_token_value = control_auth_token_value(bundle.as_ref());
-    let web_config = resolve_web_config(bundle.as_ref(), &settings);
     let auth_token = Arc::new(Mutex::new(
         bundle
             .as_ref()
@@ -329,7 +339,7 @@ pub fn run_runtime(
         audit_tx: Some(audit_tx.clone()),
         metrics: metrics.clone(),
         events: events.clone(),
-        settings: Arc::new(Mutex::new(settings)),
+        settings,
         discovery: discovery_state.clone(),
         mesh_topology: mesh_topology.clone(),
         realtime_status: realtime_status.clone(),
@@ -588,6 +598,9 @@ pub fn run_runtime(
         );
     }
 
+    // The control server, the web server and the other services above stay up while the program is
+    // stopped: `shutdown` stops the program and not the scan thread, so the join returns only when
+    // a signal or the explicit exit ends the thread (specification 34, STATE-08).
     let join_result = handle
         .join()
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));

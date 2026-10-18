@@ -6,7 +6,7 @@ fn shutdown_prepares_success_before_signalling_resource_stop() {
 
     assert!(response.ok, "shutdown response must be successful");
     assert!(
-        !state.resource.stop_requested(),
+        !state.resource.stop_requested() && !state.resource.program_stop_requested(),
         "resource stop must remain deferred until the response write boundary"
     );
 }
@@ -23,22 +23,55 @@ fn web_shutdown_dispatch_defers_resource_stop_until_transport_completion() {
     );
     assert!(response.ok, "web shutdown response must be successful");
     let mut responses = [response];
-    let serialized = write_then_complete_web_control_responses_port(
-        &mut responses,
-        &state,
-        |responses| {
+    let serialized =
+        write_then_complete_web_control_responses_port(&mut responses, &state, |responses| {
             assert!(
-                !state.resource.stop_requested(),
+                !state.resource.stop_requested() && !state.resource.program_stop_requested(),
                 "web dispatch must not stop the resource before the response write boundary"
             );
             serde_json::to_value(&responses[0]).expect("serialized web response")
-        },
-    );
+        });
     assert_eq!(serialized["id"], json!(42));
+    assert_eq!(serialized["result"]["status"], json!("stopping"));
+    // Decision Q11 on computers (18 October 2026), specification 34 STATE-08: `shutdown` stops the
+    // program and leaves the scan thread, so the process, running. Before it ended the thread.
+    assert!(
+        state.resource.program_stop_requested(),
+        "transport completion must apply the deferred program stop"
+    );
+    assert!(
+        !state.resource.stop_requested(),
+        "a plain shutdown must not end the scan thread"
+    );
+}
+
+#[test]
+fn the_explicit_exit_ends_the_scan_thread_only_after_the_response_is_written() {
+    // Specification 34 STATE-08: `shutdown` with `{"exit": true}` also ends the process. The reply
+    // is written first, and the exit is requested after it. Wrong behaviour: the exit is
+    // requested before the reply, or it is requested as the program stop alone.
+    let state = hmi_test_state("PROGRAM Main END_PROGRAM");
+
+    let response = dispatch_web_control_request_port(
+        json!({"id": 43, "type": "shutdown", "params": {"exit": true}}),
+        &state,
+        Some("web"),
+        None,
+    );
+    assert!(response.ok, "the explicit exit is answered like shutdown");
+    let mut responses = [response];
+    let serialized =
+        write_then_complete_web_control_responses_port(&mut responses, &state, |responses| {
+            assert!(
+                !state.resource.stop_requested(),
+                "the exit must wait for the response write boundary"
+            );
+            serde_json::to_value(&responses[0]).expect("serialized web response")
+        });
     assert_eq!(serialized["result"]["status"], json!("stopping"));
     assert!(
         state.resource.stop_requested(),
-        "transport completion must apply the deferred resource stop"
+        "transport completion must apply the exit"
     );
 }
 
@@ -122,12 +155,10 @@ fn web_dispatch_does_not_override_malformed_auth_member() {
 
     assert!(!response.ok);
     assert_eq!(response.error_code, None);
-    assert!(
-        response
-            .error
-            .as_deref()
-            .is_some_and(|error| error.contains("invalid request"))
-    );
+    assert!(response
+        .error
+        .as_deref()
+        .is_some_and(|error| error.contains("invalid request")));
 }
 
 #[test]
@@ -162,10 +193,8 @@ fn request_line_always_returns_one_serialized_response() {
 fn malformed_request_line_uses_id_zero_and_stable_error_prefix() {
     let state = auth_state();
     for line in ["", "{", "not json", "[] trailing"] {
-        let response =
-            handle_request_line(line, &state, Some("unix")).expect("response line");
-        let value: serde_json::Value =
-            serde_json::from_str(&response).expect("response JSON");
+        let response = handle_request_line(line, &state, Some("unix")).expect("response line");
+        let value: serde_json::Value = serde_json::from_str(&response).expect("response JSON");
         assert_eq!(value["id"], json!(0), "line={line:?}");
         assert_eq!(value["ok"], json!(false), "line={line:?}");
         assert!(
@@ -238,10 +267,7 @@ fn required_role_port_matches_registry_authority() {
         AccessRole::Admin
     );
     assert_eq!(
-        control_request_required_role_port(
-            "ads.doctor",
-            Some(&json!({"writes_enabled": true}))
-        ),
+        control_request_required_role_port("ads.doctor", Some(&json!({"writes_enabled": true}))),
         AccessRole::Engineer
     );
 }
