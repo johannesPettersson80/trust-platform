@@ -39,7 +39,7 @@ panel (17 October; the F407 code stays). All work is local; nothing is pushed. L
   `5e8de27e2`, B8b2 `2e4135229`; B8c (last ADS tag removal, OPC UA continuation points) running;
   then B9 (the language-server transport).
 
-Open top-level items: 58.
+Open top-level items: 57 (S2 closed 18 Oct, afternoon).
 
 **16 October, evening: the owner's corrections (spec 34 v0.21, approved by the owner).** The boards
 are complete truST runtimes that work exactly like trust-runtime on Linux, macOS and Windows: spec 34
@@ -268,8 +268,17 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
       unsafe lines, unregistered concurrency boundaries, one failing pin test and the C6 firmware
       lock; fixes are in progress.
     - Left for the final full run: the test-catalog denominator rows of the S1b tests.
-- [ ] S2 Live Values: read, write, force and release, as in trust-runtime. Includes a test seam
+- [x] S2 Live Values: read, write, force and release, as in trust-runtime. Includes a test seam
   for snapshot projection failures (from the A01 leftovers).
+  (Closed 18 Oct: S2a-S2d in the shared services and the device runner, merged in `06835712a`;
+  S2e `bc8437934` deleted the host's unreachable copies and names the projection-failure seam
+  `a_snapshot_projection_failure_answers_its_error`; S1b-5c gives chips their binding names. C6
+  bench on c6 `ff2bfbd13` (firmware sha256 ab5db767...): io.list names P1.Button, P1.Lamp and
+  P1.Spare; at the pins, io.write on an unbound output holds TRUE then FALSE, a write to a bound
+  output is owned by the program as on trust-runtime (runner_transcript_parity.rs), io.force
+  holds over 20 scans against the program, io.unforce returns control, BOOT drives the output
+  (bench/s2-dil.sh 9 of 9); 100 of 100 long replies whole within 1 s. Evidence
+  `~/projects/.artifacts/runtime-portability-c6/s2-close-bench/`.)
   - 18 Oct: the gap analysis `~/projects/.artifacts/s-services/gap-2026-10-18.md` maps every control
     operation: chips answer 10 of 78 today. S2 moves `live_values/*` (about 1,470 lines) into
     trust-runtime-services in three parts, then the device runner answers `io.*`, `var.*` and
