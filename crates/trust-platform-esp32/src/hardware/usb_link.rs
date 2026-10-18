@@ -15,6 +15,7 @@ use esp_hal::{
     handler,
     interrupt::bind_handler,
     peripherals::{Interrupt, USB_DEVICE},
+    ram,
 };
 use trust_runtime_core::ports::{ControlLink, LinkFrame, PeerClass, PortError};
 use trust_runtime_services::link::{DeviceLineLink, ReplyRefused};
@@ -36,7 +37,11 @@ static LINK: Mutex<RefCell<DeviceLineLink>> =
 
 /// The USB-Serial/JTAG interrupt: one servicing pass over the FIFOs, in the same critical section
 /// as the runner's polls.
+///
+/// It runs from HP SRAM: the USB controller raises it while the flash cache may be off (a flash
+/// operation in progress), so a fetch from flash would fault (design §2.2).
 #[handler]
+#[ram]
 fn usb_link_interrupt() {
     critical_section::with(|cs| {
         let mut fifo = UsbRegs;
@@ -45,10 +50,12 @@ fn usb_link_interrupt() {
     });
 }
 
-/// The peripheral's registers, the [`UsbFifo`] the servicing pass drives.
+/// The peripheral's registers, the [`UsbFifo`] the servicing pass drives. Each method runs from HP
+/// SRAM, with the interrupt handler that calls it (design §2.2).
 struct UsbRegs;
 
 impl UsbFifo for UsbRegs {
+    #[ram]
     fn take_pending(&mut self) -> Pending {
         let regs = USB_DEVICE::regs();
         let status = regs.int_st().read();
@@ -72,6 +79,7 @@ impl UsbFifo for UsbRegs {
         pending
     }
 
+    #[ram]
     fn read_out(&mut self, out: &mut [u8]) -> usize {
         let regs = USB_DEVICE::regs();
         let mut read = 0;
@@ -90,6 +98,7 @@ impl UsbFifo for UsbRegs {
         read
     }
 
+    #[ram]
     fn write_in(&mut self, bytes: &[u8]) -> usize {
         let regs = USB_DEVICE::regs();
         let mut written = 0;
@@ -111,6 +120,7 @@ impl UsbFifo for UsbRegs {
         written
     }
 
+    #[ram]
     fn set_in_empty_enabled(&mut self, enabled: bool) {
         USB_DEVICE::regs().int_ena().modify(|_, w| {
             if enabled {
@@ -122,6 +132,7 @@ impl UsbFifo for UsbRegs {
         });
     }
 
+    #[ram]
     fn set_out_packet_enabled(&mut self, enabled: bool) {
         USB_DEVICE::regs().int_ena().modify(|_, w| {
             if enabled {

@@ -1,5 +1,10 @@
 //! Fixed ESP32-C6-DevKitC-1 profile: the D.2 constants and the pure decisions built on them.
 use crate::cookie::{ResetCookie, WATCHDOG_PHASE};
+use trust_runtime_core::bytecode::BytecodeVersion;
+use trust_runtime_core::deployment::{
+    Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
+    TimingEvidence,
+};
 
 /// CPU clock from `CpuClock::max()` on ESP32-C6 (160 MHz); the PCCR rate matches it.
 pub const CPU_HZ: u32 = 160_000_000;
@@ -32,6 +37,46 @@ pub const STBC_OFFSET: u32 = 0x20_0000;
 /// Size of the `stbc` partition in bytes: the flash the chip allows for the installed application,
 /// from [`STBC_OFFSET`] to the two checkpoint slots at the end of the 8 MB module.
 pub const STBC_BYTES: usize = 6112 * 1024;
+
+/// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
+/// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
+/// timing evidence, no platform capability, the maxima for each preparation limit, and its
+/// application slot.
+///
+/// Appendix H has no maxima keys for the C6 yet ("Appendix H gains the keys for its maxima with
+/// the chip's firmware"), so the maxima are trust-runtime's hosted maxima until the chip file
+/// names them; the host test `the_device_descriptor_matches_the_chip_file` pins that and the
+/// application slot. The C6 has no wall clock until slice T6, so it supplies no capability and
+/// admission refuses a program that calls `CURRENT_DT`.
+pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
+    bytecode_versions: &[
+        BytecodeVersion::SOURCE_FREE_V2,
+        BytecodeVersion::SOURCE_FREE,
+    ],
+    scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
+    numeric_contracts: &[NumericContract::V1],
+    timing_evidence: TimingEvidence::UNQUALIFIED,
+    capabilities: Capabilities::NONE,
+    // The hosted maxima of `DeviceDescriptor::hosted`: the 64 MiB artifact
+    // (`BYTECODE_MAX_CONTAINER_BYTES`) and 1,024 call levels (`VM_MAX_CALL_DEPTH`), with no
+    // maximum for the other limits. On a 32-bit target admission clamps them to the address range.
+    maxima: RequestedLimits {
+        max_artifact_bytes: 64 * 1024 * 1024,
+        max_preparation_bytes: u64::MAX,
+        max_preparation_work: u64::MAX,
+        max_validation_scratch_bytes: u64::MAX,
+        max_validation_work: u64::MAX,
+        max_construction_values: u64::MAX,
+        max_construction_bytes: u64::MAX,
+        max_process_image_bytes: u64::MAX,
+        max_work: u64::MAX,
+        max_construction_work: u64::MAX,
+        max_call_depth: 1_024,
+    },
+    // The `[layout] application` region of `chips/esp32c6.toml`: the flash from `STBC_OFFSET` to
+    // the two checkpoint slots (owner decision O7).
+    application_slot_bytes: Some(STBC_BYTES as u64),
+};
 
 /// BOOT button GPIO: a strapping pin that is read only after boot, active low.
 pub const BUTTON_GPIO: u8 = 9;

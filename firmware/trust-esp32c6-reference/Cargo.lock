@@ -1361,23 +1361,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-board-fixture"
-version = "0.24.75"
-dependencies = [
- "critical-section",
- "embedded-alloc",
- "trust-platform-memory",
- "trust-runtime-core",
-]
-
-[[package]]
 name = "trust-esp32c6-reference"
 version = "0.1.0"
 dependencies = [
  "esp-bootloader-esp-idf",
  "esp-hal",
- "trust-board-fixture",
+ "smol_str",
  "trust-platform-esp32",
+ "trust-platform-memory",
+ "trust-runtime-core",
+ "trust-runtime-services",
 ]
 
 [[package]]
@@ -1387,6 +1380,8 @@ dependencies = [
  "critical-section",
  "esp-hal",
  "esp-storage",
+ "serde_json",
+ "smol_str",
  "trust-platform-memory",
  "trust-runtime-core",
  "trust-runtime-services",

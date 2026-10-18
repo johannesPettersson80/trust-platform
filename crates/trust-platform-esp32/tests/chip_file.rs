@@ -5,8 +5,10 @@
 
 use trust_chips::{Catalog, ChipFile, Family, Fpu};
 use trust_platform_esp32::profile::{
-    numeric_profile_ok, CHIP_ID, CPU_HZ, FACTORY_OFFSET, FLASH_KIB, STBC_BYTES, STBC_OFFSET,
+    numeric_profile_ok, CHIP_ID, CPU_HZ, DEVICE_DESCRIPTOR, FACTORY_OFFSET, FLASH_KIB, STBC_BYTES,
+    STBC_OFFSET,
 };
+use trust_runtime_core::deployment::DeviceDescriptor;
 
 fn chip_file() -> ChipFile {
     Catalog::embedded()
@@ -64,4 +66,21 @@ fn the_bench_module_flash_holds_the_whole_layout() {
         .max()
         .expect("a layout");
     assert!(end <= u64::from(FLASH_KIB) * 1024);
+}
+
+/// The device descriptor admission reads is the chip file's application region, and its maxima are
+/// trust-runtime's hosted maxima because `chips/esp32c6.toml` names no maxima yet (specification
+/// 34 §5.1.1: "Appendix H gains the keys for its maxima with the chip's firmware"). Catches a slot
+/// that is not the chip's application region (for example the 16 KiB bench bundle) and maxima that
+/// were invented instead of taken from the chip file or from trust-runtime.
+#[test]
+fn the_device_descriptor_matches_the_chip_file() {
+    let file = chip_file();
+    assert_eq!(
+        DEVICE_DESCRIPTOR.application_slot_bytes,
+        Some(file.layout.application.bytes())
+    );
+    // No maxima keys yet: the descriptor carries trust-runtime's hosted maxima, which the
+    // chip file will replace when Appendix H gains them.
+    assert_eq!(DEVICE_DESCRIPTOR.maxima, DeviceDescriptor::hosted().maxima);
 }

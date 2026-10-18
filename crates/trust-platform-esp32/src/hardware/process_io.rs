@@ -38,6 +38,13 @@ impl GpioPin {
     pub const fn number(self) -> u8 {
         self.0
     }
+
+    /// The pin with number `number`, for a number the caller already knows is a pin of the chip
+    /// (the reserved list of a chip file, for example).
+    #[must_use]
+    pub const fn from_number(number: u8) -> Self {
+        Self(number)
+    }
 }
 
 impl fmt::Display for GpioPin {
@@ -76,6 +83,8 @@ pub enum PinError {
     NoSuchPin(GpioPin),
     /// The chip's file reserves the pin for the firmware.
     Reserved(GpioPin),
+    /// Another line already claimed the pin.
+    Claimed(GpioPin),
 }
 
 impl fmt::Display for PinError {
@@ -84,6 +93,7 @@ impl fmt::Display for PinError {
             Self::Name(error) => fmt::Display::fmt(error, f),
             Self::NoSuchPin(pin) => write!(f, "{pin} is not a pin of this chip"),
             Self::Reserved(pin) => write!(f, "{pin} is reserved by the firmware"),
+            Self::Claimed(pin) => write!(f, "{pin} is already claimed by another line"),
         }
     }
 }
@@ -105,6 +115,15 @@ pub fn check_pin(name: &str, pins: u32, reserved: &[GpioPin]) -> Result<GpioPin,
     }
     Ok(pin)
 }
+
+/// The C6's GPIO count, from `chips/esp32c6.toml` `[gpio] pins`: GPIO0 to GPIO30. The firmware
+/// cannot read the chip file, so the host test `pin_lines.rs` keeps this equal to it.
+pub const CHIP_GPIO_PINS: u32 = 31;
+
+/// The pins the C6's firmware keeps, from `chips/esp32c6.toml` `[gpio] reserved`: GPIO12 and
+/// GPIO13 carry the USB-Serial/JTAG data lines. The host test `pin_lines.rs` keeps this equal to
+/// the chip file.
+pub const CHIP_GPIO_RESERVED: [u8; 2] = [12, 13];
 
 /// One input line: the bit of the flat input image it fills, and the pin it samples.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,12 +175,91 @@ mod gpio {
     use alloc::vec;
     use alloc::vec::Vec;
 
-    use esp_hal::gpio::{Flex, Input, Level};
+    use esp_hal::gpio::{AnyPin, Flex, Input, InputConfig, Level};
+    use trust_runtime_core::deployment::{GpioInput, GpioOutput};
     use trust_runtime_core::error::RuntimeError;
     use trust_runtime_services::runner::engine::ProcessIo;
     use trust_runtime_services::status::{IoDriverHealth, IoDriverStatus};
 
-    use super::{InputLine, OutputLine};
+    use super::{
+        check_pin, GpioPin, InputLine, OutputLine, PinError, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
+    };
+
+    /// The chip's GPIO bank, one entry per pin, taken once from the HAL's `Peripherals`. A line
+    /// claims its pin by name, so no board's pins are built in (specification 34, ARCH-10 and
+    /// TARGET-01).
+    pub struct GpioBank {
+        pins: [Option<AnyPin<'static>>; CHIP_GPIO_PINS as usize],
+    }
+
+    impl GpioBank {
+        /// The bank of every pin of the chip, in pin order.
+        #[must_use]
+        pub fn new(pins: [Option<AnyPin<'static>>; CHIP_GPIO_PINS as usize]) -> Self {
+            Self { pins }
+        }
+
+        /// The pin `pin`, or `None` when another line already claimed it.
+        fn take(&mut self, pin: GpioPin) -> Option<AnyPin<'static>> {
+            self.pins.get_mut(usize::from(pin.number()))?.take()
+        }
+    }
+
+    /// The claimed GPIO lines of the installed application: the esp-hal input pins with their
+    /// image lines, and the output pins with theirs, in `io.toml` order.
+    pub type ClaimedLines = (
+        Vec<(Input<'static>, InputLine)>,
+        Vec<(Flex<'static>, OutputLine)>,
+    );
+
+    /// Claims the record's GPIO lines by pin name, in `io.toml` order: each pin is checked against
+    /// the chip's file and taken from the bank, and an output is driven to its initial level
+    /// before its driver is enabled (specification 34, STATE-01 and TARGET-01).
+    ///
+    /// # Errors
+    ///
+    /// The [`PinError`] of a line that is not a pin name, a pin the chip lacks or keeps, or one
+    /// pin named by two lines.
+    pub fn claim_lines(
+        bank: &mut GpioBank,
+        inputs: &[GpioInput],
+        outputs: &[GpioOutput],
+    ) -> Result<ClaimedLines, PinError> {
+        let reserved = CHIP_GPIO_RESERVED.map(GpioPin::from_number);
+        let mut input_lines = Vec::with_capacity(inputs.len());
+        for input in inputs {
+            let pin = check_pin(&input.line, CHIP_GPIO_PINS, &reserved)?;
+            let any = bank.take(pin).ok_or(PinError::Claimed(pin))?;
+            input_lines.push((
+                Input::new(any, InputConfig::default()),
+                InputLine {
+                    byte: input.address.byte as usize,
+                    bit: input.address.bit,
+                    pin,
+                    invert: input.invert,
+                },
+            ));
+        }
+        let mut output_lines = Vec::with_capacity(outputs.len());
+        for output in outputs {
+            let pin = check_pin(&output.line, CHIP_GPIO_PINS, &reserved)?;
+            let any = bank.take(pin).ok_or(PinError::Claimed(pin))?;
+            let line = OutputLine {
+                byte: output.address.byte as usize,
+                bit: output.address.bit,
+                pin,
+                invert: output.invert,
+                initial: output.initial,
+            };
+            let mut handle = Flex::new(any);
+            handle.set_level(level(line.level(line.initial)));
+            handle.set_output_enable(true);
+            // The terminal fault path drives this pin to its safe level (design §1.1, R4).
+            crate::hardware::emergency::register_output(pin);
+            output_lines.push((handle, line));
+        }
+        Ok((input_lines, output_lines))
+    }
 
     /// The installed program's GPIO process image over esp-hal pins, one pin per configured line
     /// and in the same order.
@@ -272,4 +370,4 @@ mod gpio {
 }
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
-pub use gpio::GpioIo;
+pub use gpio::{claim_lines, ClaimedLines, GpioBank, GpioIo};

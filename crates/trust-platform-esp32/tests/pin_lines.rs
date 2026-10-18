@@ -3,7 +3,9 @@
 //! Both are pure, so a host test pins them without esp-hal.
 
 use trust_chips::Catalog;
-use trust_platform_esp32::process_io::{check_pin, GpioPin, InputLine, OutputLine};
+use trust_platform_esp32::process_io::{
+    check_pin, GpioPin, InputLine, OutputLine, PinError, CHIP_GPIO_PINS, CHIP_GPIO_RESERVED,
+};
 
 /// The C6's GPIO count and reserved pins, read from `chips/esp32c6.toml`.
 fn chip_pins() -> (u32, Vec<GpioPin>) {
@@ -39,6 +41,19 @@ fn pin_names_are_checked_against_the_chip_file() {
     assert_eq!(
         reserved_pin.to_string(),
         "GPIO12 is reserved by the firmware"
+    );
+    // The firmware cannot read the chip file, so its compiled-in count and reserved list are the
+    // chip file's `[gpio]`. Catches a firmware that counts the wrong number of pins or forgets a
+    // reserved pin.
+    assert_eq!(CHIP_GPIO_PINS, pins);
+    assert_eq!(
+        CHIP_GPIO_RESERVED.map(GpioPin::from_number).as_slice(),
+        reserved.as_slice()
+    );
+    // A pin two lines name is refused with its name.
+    assert_eq!(
+        PinError::Claimed(GpioPin::from_number(18)).to_string(),
+        "GPIO18 is already claimed by another line"
     );
 }
 

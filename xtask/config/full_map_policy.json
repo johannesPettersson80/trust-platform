@@ -2879,62 +2879,30 @@
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
         "line": 38,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Clears only mstatus.MIE in the terminal single-core halt; no suspended handler ever resumes.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 46,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Write-one-to-clear of GPIO18's bit only: latches the output low without touching another pin.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "invariant": "Clears only mstatus.MIE in the terminal single-core fault boundary; no suspended handler ever resumes.",
+        "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the reset record it writes is proven by cargo test -p trust-platform-memory.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
         "line": 49,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Write-one-to-set of GPIO18's output enable only, after its latch is low.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "invariant": "`out_w1tc` is write-one-to-clear: writing only the configured output pins clears their output latch and no other pin.",
+        "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the registered pins are the record's claimed outputs.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 58,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Writes the documented TIMG write-protect key to the watchdog write-protect register only.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 60,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Any write to WDTFEED restarts MWDT0 and touches nothing else.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 63,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Re-arms write protection on the TIMG watchdog registers.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 81,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Writes one byte into the USB-Serial/JTAG EP1 FIFO data field (every 8-bit value is valid); the halt never resumes the live console driver.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "line": 52,
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "invariant": "`enable_w1ts` is write-one-to-set: writing only the configured output pins enables their output driver, which is already latched low, and no other pin.",
+        "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the registered pins are the record's claimed outputs.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 152,
+        "line": 212,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2990,35 +2958,19 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/usb_link.rs",
-        "line": 105,
+        "line": 114,
         "owner": "runtime portability S1b",
         "invariant": "Writes one byte into the USB-Serial/JTAG EP1 FIFO data field (every eight-bit value is valid there), after the pass has checked that the IN FIFO has room for it and only while the reply in flight has unsent bytes.",
         "test_evidence": "cargo test -p trust-platform-esp32 (the fake-FIFO servicing tests, tests/usb_service.rs)",
         "review_date": "2026-10-18"
       },
       {
-        "path": "firmware/trust-esp32c6-reference/src/application.rs",
-        "line": 25,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "An AtomicBool once-flag admits a single caller per boot, so this is the only reference to the static 16 KiB bundle buffer ever created.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "firmware/trust-esp32c6-reference/src/main.rs",
-        "line": 165,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "wfi only suspends the core until an interrupt is pending; no memory or register is touched.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
-      },
-      {
         "path": "firmware/trust-esp32c6-reference/src/memory.rs",
-        "line": 34,
-        "owner": "runtime portability M2E board/firmware",
-        "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static is exclusively owned by the allocator.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "line": 42,
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "invariant": "Called exactly once before any allocation on a single core; the private 72 KiB HEAP_MEMORY static and the 64 KiB reclaimed static are exclusively owned by the allocator, and the slices cover exactly those statics.",
+        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the two-region allocator is proven by cargo test -p trust-platform-memory.",
+        "review_date": "2026-10-18"
       },
       {
         "path": "firmware/trust-stm32f407/src/application.rs",
@@ -3472,22 +3424,22 @@
         "review_date": "2026-10-15"
       },
       {
-        "path_prefix": "firmware/trust-esp32c6-reference/src/application.rs",
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/emergency.rs",
         "primitive": "Atomic",
-        "owner": "runtime portability M2E board/firmware",
-        "shared_state": "bundle read once-flag",
-        "invariant": "One AcqRel swap admits a single bundle read per boot; it guards the static buffer's only mutable reference and publishes no data.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "shared_state": "the configured output pins the terminal fault path drives",
+        "invariant": "One AtomicU32 holds the output pins claimed from the record; register_output fetches_or a bit before the pin is drivable and the fault path loads it with interrupts masked, so no other data is published through it.",
+        "test_evidence": "The chip build and the planned C6 bench run; the fault path is not exercised on the host.",
+        "review_date": "2026-10-18"
       },
       {
-        "path_prefix": "firmware/trust-esp32c6-reference/src/application.rs",
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/emergency.rs",
         "primitive": "Ordering::",
-        "owner": "runtime portability M2E board/firmware",
-        "shared_state": "bundle read once-flag",
-        "invariant": "One AcqRel swap admits a single bundle read per boot; it guards the static buffer's only mutable reference and publishes no data.",
-        "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
-        "review_date": "2026-10-15"
+        "owner": "runtime portability S1b-5 (C6 firmware)",
+        "shared_state": "the configured output pins the terminal fault path drives",
+        "invariant": "Relaxed accesses order nothing but the pin mask itself: the mask is a set of drivable pins that the fault path re-reads after masking interrupts, never a publication fence for program state.",
+        "test_evidence": "The chip build and the planned C6 bench run; the fault path is not exercised on the host.",
+        "review_date": "2026-10-18"
       }
     ],
     "tool_gates": [

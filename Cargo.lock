@@ -6730,6 +6730,8 @@ dependencies = [
  "critical-section",
  "esp-hal",
  "esp-storage",
+ "serde_json",
+ "smol_str",
  "trust-chips",
  "trust-platform-memory",
  "trust-runtime-core",
