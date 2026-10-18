@@ -70,6 +70,7 @@ fn search_of(session: &str, verb: SearchVerb) -> SearchCall {
         search_id: None,
         since: None,
         params: Value::Null,
+        targets: None,
         host: HostFacts::default(),
     }
 }
@@ -487,6 +488,7 @@ fn a_runtime_search_answers_at_once_when_the_runtime_stays_silent() {
         search_id: None,
         since: None,
         params: json!({ "only": ["modbus_tcp"], "targets": { "hosts": ["127.0.0.1:502"] } }),
+        targets: None,
         host: HostFacts::default(),
     };
 
@@ -727,6 +729,7 @@ fn start_at(origin: &str, params: Value) -> SearchCall {
         search_id: None,
         since: None,
         params,
+        targets: None,
         host: HostFacts::default(),
     }
 }

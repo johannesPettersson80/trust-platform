@@ -240,6 +240,59 @@ function leafTexts(container: any): string[] {
     .filter((text: string) => text !== "");
 }
 
+/**
+ * The idle Discover view, as Rust gives it before the first search (specification 25 §2): this computer, the first-run
+ * tick of ADS and TwinCAT, empty targets and the Search action, with no source row and no card.
+ */
+function idleView(): any {
+  return {
+    running: false,
+    breadcrumb: "Devices & Connections",
+    close_label: "Close",
+    heading_find: "What do you want to find?",
+    heading_scan_from: "Scan from",
+    heading_targets: "Known address or subnet",
+    heading_advanced: "Advanced scan settings",
+    heading_runtime: "Runtime hardware scans ⚠",
+    choose_text: "Choose what to find, then scan. Only the selected device types are searched.",
+    origins: [{ id: "this_host", label: "This computer", enabled: true, selected: true }],
+    only: [
+      {
+        source: "ads",
+        label: "ADS and TwinCAT",
+        checked: true,
+        enabled: true,
+        note: "network broadcast",
+        group: "find",
+      },
+    ],
+    targets: {
+      hosts_label: "Known address",
+      cidr_label: "Subnet",
+      hosts_placeholder: "host:port",
+      cidr_placeholder: "192.168.1.0/24",
+    },
+    sources: [],
+    cards: [],
+    actions: [
+      {
+        id: "search",
+        label: "Search",
+        enabled: true,
+        emphasis: "primary",
+        op: { kind: "search", request: { verb: "start", origin: "this_host", params: { only: ["ads"] } } },
+      },
+      {
+        id: "configure_ads_ports",
+        label: "Configure ADS ports to scan",
+        enabled: true,
+        emphasis: "secondary",
+        op: { kind: "host", effect: { kind: "open_settings", query: "trust.ads.discoveryPorts" } },
+      },
+    ],
+  };
+}
+
 suite("Devices & Connections Discover pane", () => {
   test("a_running_search_draws_its_title_running_mark_and_source_rows_in_their_words", async () => {
     const DiscoverPane = loadDiscoverPane();
@@ -749,7 +802,7 @@ suite("Devices & Connections Discover pane", () => {
       label: "Search",
       enabled: true,
       emphasis: "primary",
-      op: { kind: "rust", action: "search.start", payload: { verb: "start", origin: "this_host", only: ["ads"] } },
+      op: { kind: "search", request: { verb: "start", origin: "this_host", params: { only: ["ads"] } } },
     };
     view.actions = [search];
     const posted: unknown[][] = [];
@@ -784,7 +837,7 @@ suite("Devices & Connections Discover pane", () => {
       label: "Search",
       enabled: true,
       emphasis: "primary",
-      op: { kind: "rust", action: "search.start", payload: { verb: "start", origin: "this_host", only: ["ads"] } },
+      op: { kind: "search", request: { verb: "start", origin: "this_host", params: { only: ["ads"] } } },
     };
     view.actions = [search];
     const posted: unknown[][] = [];
@@ -814,6 +867,74 @@ suite("Devices & Connections Discover pane", () => {
         [[search, { hosts: "10.0.0.9:502", cidr: "192.168.1.0/24" }]],
         "Search carries the address and the subnet as the user typed them",
       );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("the_idle_view_draws_the_search_before_any_search_and_posts_it_as_given", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2: before the first search the pane draws its scan choices with the help above them, no source
+    // row and no card, and the enabled Search action, which is posted as the view gives it with the typed targets. A
+    // wrong implementation draws nothing when the pane opens, draws a source row or a card that no search found, or
+    // leaves Search out or disabled.
+    const view = idleView();
+    const posted: unknown[][] = [];
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: (...args: unknown[]) => posted.push(args),
+      onClose: () => undefined,
+    });
+    try {
+      assert.strictEqual(
+        textOf(rendered.container, '[data-role="discover-choose"]'),
+        "Choose what to find, then scan. Only the selected device types are searched.",
+        "the help above the scan choices is drawn",
+      );
+      assert.strictEqual(sourceRows(rendered.container).length, 0, "no source has run");
+      assert.strictEqual(
+        rendered.container.querySelectorAll('[data-role="discover-card"]').length,
+        0,
+        "no card is drawn before a search",
+      );
+      const search = actionButton(rendered.container.querySelector('[data-role="discover-footer"]'), "Search");
+      assert.strictEqual(search.disabled, false, "Search is enabled on the first run");
+      await click(search);
+      assert.deepStrictEqual(
+        posted,
+        [[view.actions[0], { hosts: "", cidr: "" }]],
+        "Search is posted as the view gives it, with the empty targets",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_failed_search_draws_its_error_text_and_offers_search_again", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2: a search that failed at a runtime draws the old pane's text in the pane, and Search stays
+    // offered so that the scan can run again. The text is the one `discoveryErrors.ts` gives for a failed request.
+    // A wrong implementation draws no text, draws a text of its own, or leaves Search out.
+    const view = {
+      ...idleView(),
+      error_text:
+        "The selected runtime could not complete truST runtime discovery. Reconnect or start the selected runtime, then scan again.",
+    };
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: () => undefined,
+      onClose: () => undefined,
+    });
+    try {
+      assert.strictEqual(
+        textOf(rendered.container, '[data-role="discover-error"]'),
+        "The selected runtime could not complete truST runtime discovery. Reconnect or start the selected runtime, then scan again.",
+        "the error text is drawn as the view gives it",
+      );
+      const search = actionButton(rendered.container.querySelector('[data-role="discover-footer"]'), "Search");
+      assert.strictEqual(search.disabled, false, "Search is offered again after the failure");
     } finally {
       await rendered.unmount();
     }

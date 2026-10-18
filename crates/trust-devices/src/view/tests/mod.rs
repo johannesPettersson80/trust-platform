@@ -8,6 +8,7 @@ mod computers;
 mod connections;
 mod devices;
 mod discover;
+mod discover_search;
 pub(crate) mod fixtures;
 mod golden;
 mod golden_discover;

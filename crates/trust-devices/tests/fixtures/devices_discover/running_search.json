@@ -6,15 +6,16 @@
       "id": "search",
       "label": "Scanning…",
       "op": {
-        "action": "search.start",
-        "kind": "rust",
-        "payload": {
-          "only": [
-            "trust_runtime",
-            "ads",
-            "modbus_tcp"
-          ],
+        "kind": "search",
+        "request": {
           "origin": "this_host",
+          "params": {
+            "only": [
+              "trust_runtime",
+              "ads",
+              "modbus_tcp"
+            ]
+          },
           "verb": "start"
         }
       },
@@ -26,9 +27,9 @@
       "id": "cancel",
       "label": "Cancel",
       "op": {
-        "action": "search.cancel",
-        "kind": "rust",
-        "payload": {
+        "kind": "search",
+        "request": {
+          "origin": "this_host",
           "search_id": "s-1",
           "verb": "cancel"
         }

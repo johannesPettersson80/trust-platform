@@ -66,9 +66,13 @@ export interface Action {
   op: Op;
 }
 
-/** What choosing an action does (design §2.1, `Op`): Rust's action, a VS Code call, or a view change. */
+/**
+ * What choosing an action does (design §2.1, `Op`): Rust's action, a search request, a VS Code call, or a view
+ * change. A search's `request` is the `trust-lsp.devicesSearch` body that Rust gives (specification 25 §2).
+ */
 export type Op =
   | { kind: "rust"; action: string; payload: unknown }
+  | { kind: "search"; request: unknown }
   | { kind: "host"; effect: { kind: string } }
   | { kind: "ui"; ui: { kind: string; pane?: { kind: string } } };
 
@@ -617,6 +621,8 @@ export interface DiscoverView {
   cards: DeviceCard[];
   /** What shows without finds. */
   empty_text?: string;
+  /** The text of a search that failed at a runtime, as the old pane gave it. */
+  error_text?: string;
   /** The pane's own actions: `search`, `cancel` while a scan runs, and `configure_ads_ports`. */
   actions: Action[];
 }

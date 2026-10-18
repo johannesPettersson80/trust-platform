@@ -6,11 +6,14 @@
       "id": "search",
       "label": "Search",
       "op": {
-        "action": "search.start",
-        "kind": "rust",
-        "payload": {
-          "only": [],
-          "origin": "runtime:cell",
+        "kind": "search",
+        "request": {
+          "origin": {
+            "runtime": "runtime:cell"
+          },
+          "params": {
+            "only": []
+          },
           "verb": "start"
         }
       },

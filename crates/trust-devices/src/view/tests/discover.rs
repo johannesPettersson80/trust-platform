@@ -713,11 +713,10 @@ fn discover_offers_search_and_cancel_and_disables_search_while_running() {
     );
     assert_eq!(
         running.actions[1].op,
-        Op::Rust {
-            action: "search.cancel".to_owned(),
-            payload: json!({ "verb": "cancel", "search_id": "s-1" }),
+        Op::Search {
+            request: json!({ "verb": "cancel", "origin": "this_host", "search_id": "s-1" }),
         },
-        "Cancel names the running search"
+        "Cancel names the running search and the origin it runs at"
     );
     assert_eq!(
         running.actions[2].op,
@@ -742,9 +741,12 @@ fn discover_offers_search_and_cancel_and_disables_search_while_running() {
     assert_eq!(search.reason, None, "an enabled Search has no reason");
     assert_eq!(
         search.op,
-        Op::Rust {
-            action: "search.start".to_owned(),
-            payload: json!({ "verb": "start", "origin": "this_host", "only": ["ads"] }),
+        Op::Search {
+            request: json!({
+                "verb": "start",
+                "origin": "this_host",
+                "params": { "only": ["ads"] },
+            }),
         },
         "Search starts a search from this computer with the ticked source ADS"
     );

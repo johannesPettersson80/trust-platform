@@ -6,15 +6,16 @@
       "id": "search",
       "label": "Search",
       "op": {
-        "action": "search.start",
-        "kind": "rust",
-        "payload": {
-          "only": [
-            "trust_runtime",
-            "ads",
-            "modbus_tcp"
-          ],
+        "kind": "search",
+        "request": {
           "origin": "this_host",
+          "params": {
+            "only": [
+              "trust_runtime",
+              "ads",
+              "modbus_tcp"
+            ]
+          },
           "verb": "start"
         }
       }

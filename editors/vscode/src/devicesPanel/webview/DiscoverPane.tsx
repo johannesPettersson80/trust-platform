@@ -376,6 +376,11 @@ export function DiscoverPane({
             {discover.progress_text}
           </p>
         )}
+        {discover.error_text !== undefined && (
+          <p data-role="discover-error" style={discoverWarningStyle}>
+            {discover.error_text}
+          </p>
+        )}
         <Heading text={discover.heading_find} />
         <OnlyChoices choices={discover.only} group={FIND} />
         <section data-role="discover-advanced" style={discoverSectionStyle}>

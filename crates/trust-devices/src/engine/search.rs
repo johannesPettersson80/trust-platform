@@ -43,19 +43,80 @@ pub struct SearchCall {
     /// itself refuses (specification 11, "Requests").
     #[serde(default)]
     pub params: Value,
+    /// The Known address and the subnet that the Discover pane's inputs hold (specification 25 §2): they
+    /// become the `targets` of the `start` verb, and a blank input is no target.
+    #[serde(default)]
+    pub targets: Option<TypedTargets>,
     /// The facts that only VS Code knows: the token of the runtime a forwarded search reaches.
     #[serde(default)]
     pub host: HostFacts,
 }
 
+/// The Known address and the subnet as the user typed them (specification 25 §2). Each is text, so the
+/// search reads them as it reads a request: a blank text is no target.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TypedTargets {
+    /// The Known address: one host name or IP address with an optional port, or blank.
+    #[serde(default)]
+    pub hosts: String,
+    /// The subnet: one IPv4 subnet of at most `/24`, or blank.
+    #[serde(default)]
+    pub cidr: String,
+}
+
+impl TypedTargets {
+    /// The `targets` of `comm.search.start` (specification 11, "Requests"): the Known address as one
+    /// entry, and the subnet, with `null` for a blank input.
+    #[must_use]
+    fn targets(&self) -> Value {
+        let hosts: Vec<&str> = match self.hosts.trim() {
+            "" => Vec::new(),
+            host => vec![host],
+        };
+        let cidr = match self.cidr.trim() {
+            "" => None,
+            cidr => Some(cidr),
+        };
+        json!({ "hosts": hosts, "cidr": cidr })
+    }
+}
+
 impl SearchCall {
     /// The `comm.search.start` parameters, or none when the request sends an empty body (which is
-    /// a search with every default, as `comm.search.start` reads it).
+    /// a search with every default, as `comm.search.start` reads it). The pane's typed targets replace
+    /// the parameters' `targets`.
     #[must_use]
     fn params(&self) -> Option<Value> {
-        match &self.params {
+        let params = match &self.params {
             Value::Null => None,
             params => Some(params.clone()),
+        };
+        match (&self.targets, params) {
+            (Some(typed), None) => Some(json!({ "targets": typed.targets() })),
+            (Some(typed), Some(Value::Object(mut params))) => {
+                params.insert("targets".to_owned(), typed.targets());
+                Some(Value::Object(params))
+            }
+            // Without typed targets, or with parameters that are not an object (which the search
+            // refuses, as it refuses every non-object parameter), the parameters pass unchanged.
+            (None | Some(_), params) => params,
+        }
+    }
+
+    /// Whether a `status` request names no search, which the pane's idle view answers (specification
+    /// 25 §2).
+    fn names_no_search(&self) -> bool {
+        self.search_id
+            .as_deref()
+            .map(str::trim)
+            .is_none_or(str::is_empty)
+    }
+
+    /// The origin the request names, as the Discover view names it.
+    fn scan(&self) -> Scan {
+        match &self.origin {
+            SearchOrigin::ThisHost => Scan::ThisHost,
+            SearchOrigin::Runtime(item) => Scan::Runtime(item.clone()),
         }
     }
 
@@ -322,9 +383,14 @@ impl Forward {
 impl DevicesEngine {
     /// One search (design §1.4.1): on this computer in the language-server process, or inside the
     /// runtime the session showed under the request's origin. A reply that carries a status also
-    /// carries the Discover view of it, of the whole search even for a poll with `since`.
+    /// carries the Discover view of it, of the whole search even for a poll with `since`; a failed
+    /// search that the old pane had a text for carries the view of its failure (specification 25 §2).
+    /// A status that names no search answers the idle view.
     #[must_use]
     pub fn search(&self, call: &SearchCall) -> SearchReply {
+        if call.verb == SearchVerb::Status && call.names_no_search() {
+            return self.idle(call);
+        }
         let reply = match &call.origin {
             SearchOrigin::ThisHost => self.search_here(call),
             SearchOrigin::Runtime(item) => self.search_at_runtime(call, item),
@@ -335,13 +401,23 @@ impl DevicesEngine {
         self.with_discover(call, reply)
     }
 
+    /// The Discover view before any search (specification 25 §2): the idle view of the origin the
+    /// request names, built from the panel's topology.
+    fn idle(&self, call: &SearchCall) -> SearchReply {
+        let runtimes = self.runtime_origins(call);
+        SearchReply {
+            discover: Some(Box::new(discover::idle(&call.scan(), &runtimes))),
+            ..SearchReply::default()
+        }
+    }
+
     /// A poll with `since` lists only the devices that changed after its cursor (specification 11,
     /// "One search"), while the pane keeps one card per device of the whole search (specification 25
     /// §2). So the Discover view of such a reply is projected from the whole status, which the search
     /// answers without `since`.
     fn with_whole_discover(&self, call: &SearchCall, reply: SearchReply) -> SearchReply {
         if reply.error.is_some() {
-            return reply;
+            return self.with_failure(call, reply);
         }
         let whole = self.search(&SearchCall {
             since: None,
@@ -359,20 +435,41 @@ impl DevicesEngine {
     /// Adds the Discover view to a reply that carries a status (specification 25 §2): the cards,
     /// the source rows and the scan choices that the pane draws from it.
     fn with_discover(&self, call: &SearchCall, reply: SearchReply) -> SearchReply {
-        if reply.error.is_some() || reply.status.is_empty() {
+        if reply.error.is_some() {
+            return self.with_failure(call, reply);
+        }
+        if reply.status.is_empty() {
             return reply;
         }
         let runtimes = self.runtime_origins(call);
-        let scan = match &call.origin {
-            SearchOrigin::ThisHost => Scan::ThisHost,
-            SearchOrigin::Runtime(item) => Scan::Runtime(item.clone()),
-        };
-        match discover::project(&reply.status, &scan, &runtimes, super::now_millis()) {
+        match discover::project(&reply.status, &call.scan(), &runtimes, super::now_millis()) {
             Ok(view) => SearchReply {
                 discover: Some(Box::new(view)),
                 ..reply
             },
             Err(error) => SearchReply::failed("search_status_unreadable", error.to_string()),
+        }
+    }
+
+    /// Adds the view of a search that failed at a runtime, with the text the old pane gave that failure
+    /// (specification 25 §2). A failure that the old pane had no text for, and a failed cancel, keep
+    /// only their error reply.
+    fn with_failure(&self, call: &SearchCall, reply: SearchReply) -> SearchReply {
+        let text = reply.error.as_ref().and_then(|error| match call.verb {
+            SearchVerb::Start | SearchVerb::Status => {
+                discover::failure_text(&error.code, &error.message)
+            }
+            SearchVerb::Cancel => None,
+        });
+        match text {
+            Some(text) => {
+                let runtimes = self.runtime_origins(call);
+                SearchReply {
+                    discover: Some(Box::new(discover::failed(&call.scan(), &runtimes, text))),
+                    ..reply
+                }
+            }
+            None => reply,
         }
     }
 

@@ -13,10 +13,10 @@
 
 use std::collections::BTreeSet;
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{json, Map, Value};
 use trust_runtime::connectors::DiscoveryConfidence;
-use trust_runtime::search::SourceId;
+use trust_runtime::search::{SourceId, BLUETOOTH_UNAVAILABLE};
 
 use super::health;
 use crate::gather::Gathered;
@@ -128,7 +128,7 @@ pub(crate) fn project(
         let (known, unknown): (Vec<FindAnswer>, Vec<FindAnswer>) = device
             .finds
             .into_iter()
-            .partition(|find| known_source(&find.protocol).is_some());
+            .partition(|find| known_source(&find.protocol).is_some() && find.confidence.is_some());
         left_out |= !unknown.is_empty();
         if had_finds && known.is_empty() {
             continue;
@@ -139,7 +139,16 @@ pub(crate) fn project(
         });
     }
     let running = answer.state == Run::Running;
-    let only = only_choices(&answer.sources, scan, runtimes);
+    let only = only_choices(
+        |source| {
+            answer
+                .sources
+                .iter()
+                .any(|given| given.id == source.as_str())
+        },
+        scan,
+        runtimes,
+    );
     let cards: Vec<DeviceCard> = devices
         .iter()
         .map(|device| card(device, scan, runtimes, now_ms))
@@ -150,10 +159,28 @@ pub(crate) fn project(
     let empty_text = (!running && cards.is_empty() && ran).then(|| empty_text(scan, runtimes));
     let unavailable_text = (only.is_empty() && !running && sources.is_empty() && cards.is_empty())
         .then(|| texts::NO_DISCOVERY_YET.to_owned());
+    let mut view = frame(running, answer.search_id, scan, runtimes, only);
+    view.unavailable_text = unavailable_text;
+    view.sources = sources;
+    view.update_text = left_out.then(|| texts::UPDATE_TRUST.to_owned());
+    view.cards = cards;
+    view.empty_text = empty_text;
+    Ok(view)
+}
+
+/// The view that every Discover view shares (specification 25 §2): the headings, the origins, the
+/// `Only search` choices, the empty targets and the pane's actions. The caller adds what its search found.
+fn frame(
+    running: bool,
+    search_id: Option<String>,
+    scan: &Scan,
+    runtimes: &[RuntimeOrigin],
+    only: Vec<OnlyChoice>,
+) -> DiscoverView {
     let choose_text = (!only.is_empty()).then(|| texts::CHOOSE_WHAT_TO_FIND.to_owned());
-    let actions = pane_actions(running, answer.search_id.as_deref(), scan, &only);
-    Ok(DiscoverView {
-        search_id: answer.search_id,
+    let actions = pane_actions(running, search_id.as_deref(), scan, &only);
+    DiscoverView {
+        search_id,
         running,
         progress_text: None,
         breadcrumb: texts::BREADCRUMB.to_owned(),
@@ -163,19 +190,83 @@ pub(crate) fn project(
         heading_targets: texts::HEADING_TARGETS.to_owned(),
         heading_advanced: texts::HEADING_ADVANCED.to_owned(),
         heading_runtime: texts::HEADING_RUNTIME.to_owned(),
-        unavailable_text,
+        unavailable_text: None,
         choose_text,
         origins: origin_choices(scan, runtimes),
         only,
         targets: targets(),
-        sources,
-        update_text: left_out.then(|| texts::UPDATE_TRUST.to_owned()),
+        sources: Vec::new(),
+        update_text: None,
         fieldbus: Vec::new(),
-        cards,
+        cards: Vec::new(),
         compare: None,
-        empty_text,
+        empty_text: None,
+        error_text: None,
         actions,
-    })
+    }
+}
+
+/// The Discover view before the first search, and after a search is cleared (specification 25 §2): the
+/// origins, every scan choice with its reason, empty targets and the Search action. On the first run ADS
+/// and `TwinCAT` is ticked where the origin can run it, as the old pane's first-run default was
+/// (`networkCanvas/webview/DiscoverPane.tsx` lines 136-150).
+#[must_use]
+pub(crate) fn idle(scan: &Scan, runtimes: &[RuntimeOrigin]) -> DiscoverView {
+    frame(
+        false,
+        None,
+        scan,
+        runtimes,
+        first_run_choices(scan, runtimes),
+    )
+}
+
+/// The Discover view of a search that failed at a runtime (specification 25 §2): the failure's text
+/// beside the pane's actions, so that Search can run again.
+#[must_use]
+pub(crate) fn failed(scan: &Scan, runtimes: &[RuntimeOrigin], text: String) -> DiscoverView {
+    let mut view = frame(
+        false,
+        None,
+        scan,
+        runtimes,
+        first_run_choices(scan, runtimes),
+    );
+    view.error_text = Some(text);
+    view
+}
+
+/// The `Only search` choices of the first run: ADS and `TwinCAT` is ticked where its origin can run it.
+fn first_run_choices(scan: &Scan, runtimes: &[RuntimeOrigin]) -> Vec<OnlyChoice> {
+    only_choices(
+        |source| source == SourceId::Ads && scan_reason(source, scan, runtimes).is_none(),
+        scan,
+        runtimes,
+    )
+}
+
+/// The text of a search that failed, as the old pane gave the same failure (specification 25 §2), or
+/// `None` for a failure that the old pane had no text for. `message` is the failure's own text: the old
+/// pane told an authentication failure and a timeout apart by it (`discoveryErrors.ts`).
+#[must_use]
+pub(crate) fn failure_text(code: &str, message: &str) -> Option<String> {
+    match code {
+        "unknown_runtime" | "runtime_without_endpoint" => {
+            Some(texts::NO_LONGER_REACHABLE.to_owned())
+        }
+        "runtime_unreachable" => {
+            let detail = message.to_lowercase();
+            let text = if detail.contains("auth") {
+                texts::REJECTED_AUTHENTICATION
+            } else if detail.contains("timeout") || detail.contains("timed out") {
+                texts::DISCOVERY_TIMED_OUT
+            } else {
+                texts::COULD_NOT_COMPLETE
+            };
+            Some(text.to_owned())
+        }
+        _ => None,
+    }
 }
 
 /// The source of `name`, or `None` for a name that this build does not know.
@@ -183,6 +274,16 @@ fn known_source(name: &str) -> Option<SourceId> {
     SourceId::ALL
         .into_iter()
         .find(|source| source.as_str() == name)
+}
+
+/// The confidence of a find, or `None` for a value that this build does not know. Such a find is left
+/// out of the view, as an unknown protocol is, and the view does not fail (specification 25 §2).
+fn lenient_confidence<'de, D>(deserializer: D) -> Result<Option<DiscoveryConfidence>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let name = Option::<String>::deserialize(deserializer)?;
+    Ok(name.and_then(|name| DiscoveryConfidence::deserialize(Value::String(name)).ok()))
 }
 
 // ---- the answer that `comm.search.status` gives (specification 11, "One search") ----
@@ -248,7 +349,9 @@ struct DeviceAnswer {
 struct FindAnswer {
     protocol: String,
     source: String,
-    confidence: DiscoveryConfidence,
+    /// The confidence, or `None` for a value that this build does not know (see `lenient_confidence`).
+    #[serde(default, deserialize_with = "lenient_confidence")]
+    confidence: Option<DiscoveryConfidence>,
     #[serde(default)]
     simulated: bool,
     #[serde(default)]
@@ -281,10 +384,10 @@ fn origin_choices(scan: &Scan, runtimes: &[RuntimeOrigin]) -> Vec<OriginChoice> 
         .collect()
 }
 
-/// The `Only search` choices, one per source in the order of the source table. A source is ticked
-/// when this search asked for it; a scan that cannot run from `scan` is disabled with its reason.
+/// The `Only search` choices, one per source in the order of the source table. `ticked` says whether a
+/// source is ticked; a scan that cannot run from `scan` is disabled with its reason.
 fn only_choices(
-    answered: &[SourceAnswer],
+    ticked: impl Fn(SourceId) -> bool,
     scan: &Scan,
     runtimes: &[RuntimeOrigin],
 ) -> Vec<OnlyChoice> {
@@ -295,7 +398,7 @@ fn only_choices(
             OnlyChoice {
                 source: source.as_str().to_owned(),
                 label: texts::source_name(source.as_str()),
-                checked: answered.iter().any(|answer| answer.id == source.as_str()),
+                checked: ticked(source),
                 enabled: reason.is_none(),
                 reason,
                 note: source_note(source).map(str::to_owned),
@@ -339,7 +442,7 @@ fn choice_group(source: SourceId) -> &'static str {
 /// disabled.
 fn scan_reason(source: SourceId, scan: &Scan, runtimes: &[RuntimeOrigin]) -> Option<String> {
     if source == SourceId::Bluetooth {
-        return Some(texts::BLUETOOTH_UNAVAILABLE.to_owned());
+        return Some(BLUETOOTH_UNAVAILABLE.to_owned());
     }
     let needs_runtime = matches!(source, SourceId::Ethercat | SourceId::Gpio);
     match scan {
@@ -420,8 +523,8 @@ fn targets() -> TargetsInput {
 /// The pane's own actions (specification 25 §2): `Search` starts one search with the origin, the
 /// ticked sources and the typed targets; `Cancel` shows while a scan runs; `Configure ADS ports to scan`
 /// opens the ADS port settings. A disabled `Search` carries its reason: a scan that runs, or no ticked
-/// source. The search actions are named `search.start` and `search.cancel`: the host sends them to
-/// `trust-lsp.devicesSearch` with the verb their payloads give, not to `trust-lsp.devicesAct`.
+/// source. The search actions are `search` operations: the host sends each request to
+/// `trust-lsp.devicesSearch`, not to `trust-lsp.devicesAct`, with the body specification 25 §2 names.
 fn pane_actions(
     running: bool,
     search_id: Option<&str>,
@@ -457,9 +560,12 @@ fn pane_actions(
             Emphasis::Quiet
         },
         confirm: None,
-        op: Op::Rust {
-            action: "search.start".to_owned(),
-            payload: json!({ "verb": "start", "origin": origin_id(scan), "only": ticked }),
+        op: Op::Search {
+            request: json!({
+                "verb": "start",
+                "origin": origin_body(scan),
+                "params": { "only": ticked },
+            }),
         },
     }];
     if let Some(search_id) = search_id.filter(|_| running) {
@@ -470,9 +576,12 @@ fn pane_actions(
             reason: None,
             emphasis: Emphasis::Secondary,
             confirm: None,
-            op: Op::Rust {
-                action: "search.cancel".to_owned(),
-                payload: json!({ "verb": "cancel", "search_id": search_id }),
+            op: Op::Search {
+                request: json!({
+                    "verb": "cancel",
+                    "origin": origin_body(scan),
+                    "search_id": search_id,
+                }),
             },
         });
     }
@@ -492,11 +601,12 @@ fn pane_actions(
     actions
 }
 
-/// The origin a search names: `this_host`, or the item ID of the runtime.
-fn origin_id(scan: &Scan) -> &str {
+/// The origin a search request names, as `trust-lsp.devicesSearch` reads an origin: `this_host`, or
+/// `{"runtime": <item ID>}` (specification 25 §2).
+fn origin_body(scan: &Scan) -> Value {
     match scan {
-        Scan::ThisHost => THIS_HOST,
-        Scan::Runtime(id) => id,
+        Scan::ThisHost => json!(THIS_HOST),
+        Scan::Runtime(id) => json!({ "runtime": id }),
     }
 }
 
@@ -545,7 +655,7 @@ fn card(device: &DeviceAnswer, scan: &Scan, runtimes: &[RuntimeOrigin], now_ms: 
             Some(endpoint) => vec![host_and_port(endpoint)],
             None => device.addresses.clone(),
         },
-        protocols: device.finds.iter().map(card_protocol).collect(),
+        protocols: device.finds.iter().filter_map(card_protocol).collect(),
         identity: identity_rows(device),
         last_seen: graph::ago(seconds_since(now_ms, device.last_seen_ms)),
         project: None,
@@ -561,15 +671,16 @@ fn card(device: &DeviceAnswer, scan: &Scan, runtimes: &[RuntimeOrigin], now_ms: 
 }
 
 /// A protocol line of a card: its name, how it was found, its confidence, and the mark of a simulated
-/// find.
-fn card_protocol(find: &FindAnswer) -> CardProtocol {
-    CardProtocol {
+/// find. A find whose confidence this build does not know has no line.
+fn card_protocol(find: &FindAnswer) -> Option<CardProtocol> {
+    let confidence = find.confidence?;
+    Some(CardProtocol {
         name: texts::source_name(&find.protocol),
         source: texts::discovery_source(&find.source),
-        confidence: health::confidence_word(find.confidence).to_owned(),
+        confidence: health::confidence_word(confidence).to_owned(),
         simulated: find.simulated,
         mark: find.simulated.then(|| texts::SIMULATED_MARK.to_owned()),
-    }
+    })
 }
 
 /// The control endpoint that a runtime's result names, as `tcp://host:port`.

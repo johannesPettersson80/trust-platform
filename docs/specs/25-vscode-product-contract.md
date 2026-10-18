@@ -105,8 +105,51 @@ package, or end-to-end evidence.
     ends it.
   - `Configure ADS ports to scan` (line 295) opens VS Code's settings at
     `trust.ads.discoveryPorts` (`networkCanvasPanel.ts` lines 661-665).
-  - The host sends `search.start` and `search.cancel` to `trust-lsp.devicesSearch`
-    with the verb their payloads give, not to `trust-lsp.devicesAct`.
+  - Search and Cancel are the `search` operation (`op.kind` `search`), not a
+    `devicesAct` action. The host posts the operation's `request` to
+    `trust-lsp.devicesSearch` with the panel's session. Search adds the typed
+    targets as `targets`, and both texts are sent as typed:
+    - Search: `{"verb": "start", "origin": <origin>, "params": {"only": [<the
+      ticked source IDs>]}, "targets": {"hosts": <the Known address text>, "cidr":
+      <the Subnet text>}}`.
+    - Cancel: `{"verb": "cancel", "origin": <origin>, "search_id": <the running
+      search>}`.
+    - `<origin>` is `"this_host"` or `{"runtime": <the runtime's item ID>}`, which
+      is how `trust-lsp.devicesSearch` reads an origin.
+
+    A blank text is no target. `targets.hosts` holds the Known address as one
+    entry, and `targets.cidr` holds the subnet; each follows the rule of its
+    `comm.search.start` member (specification 11, "Requests").
+  - Before the first search, and after the search is cleared, the pane shows the
+    idle view. The host asks `trust-lsp.devicesSearch` with the verb `status` and
+    no `search_id`, and the answer's `discover` is that view: the origins, every
+    scan choice with its reason (the scan rules above), empty `Known address or
+    subnet` inputs, the Search action, and no sources or cards. On the first run
+    the choice `ADS and TwinCAT` is ticked where the origin can run it, as the old
+    pane's first-run default was (`networkCanvas/webview/DiscoverPane.tsx` lines
+    136-150). Where it cannot, Search is disabled with `Select at least one
+    available scan type.`
+  - A search that fails at a runtime answers its error reply and also the view's
+    `error_text`. The texts are the old pane's, word for word:
+    - `unknown_runtime` and `runtime_without_endpoint`, when the origin is no
+      longer reachable: `The selected runtime is no longer reachable. Start or
+      reconnect it, then scan again.` (`networkCanvas/discoveryController.ts`
+      line 126).
+    - `runtime_unreachable` with a message that names authentication: `The
+      selected runtime rejected authentication for truST runtime discovery. Check
+      its auth token. Reconnect or start the selected runtime, then scan again.`
+      (`networkCanvas/discoveryErrors.ts` line 8).
+    - `runtime_unreachable` with a message that names a timeout: `truST runtime
+      discovery timed out on the selected runtime. Reconnect or start the selected
+      runtime, then scan again.` (`discoveryErrors.ts` line 11).
+    - any other `runtime_unreachable`: `The selected runtime could not complete
+      truST runtime discovery. Reconnect or start the selected runtime, then scan
+      again.` (`discoveryErrors.ts` line 13).
+
+    The old texts name one protocol, and a search has several, so the runtime's
+    own discovery carries the name the old pane gave it, `truST runtime`
+    (`discoveryErrors.ts` line 21). A failure that the old pane had no text for,
+    such as `search_busy`, keeps only its error reply.
 - The headings and labels: `Devices & Connections` (the breadcrumb, line 230),
   `Close` (the close button's name, line 233), `What do you want to find?` (line
   262), `Scan from` (line 275), `Known address or subnet` (line 300), `Advanced
@@ -133,9 +176,11 @@ package, or end-to-end evidence.
   part out, leaves out a device whose protocols are all unknown, and shows the
   line `This search reports a source or protocol that this version of truST does
   not know. Update truST to see its results.` (new; the old pane had no such
-  case)
-- The Bluetooth reason is the one that trust-runtime's search catalog gives, read
-  from that catalog rather than copied.
+  case). A find whose confidence this build does not know is left out in the same
+  way, and shows the same line.
+- The Bluetooth reason is the one that trust-runtime's search catalog gives
+  (`trust_runtime::search::BLUETOOTH_UNAVAILABLE`), read from that catalog rather
+  than copied.
 
 ## 3. Examples, project scaffolding, and packaged tools
 

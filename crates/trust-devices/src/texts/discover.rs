@@ -96,10 +96,6 @@ pub const CHOOSE_RUNTIME_FOR_HARDWARE: &str =
 /// Why `EtherCAT` and GPIO cannot scan from a stopped runtime (specification 25 §2).
 pub const START_RUNTIME_FOR_HARDWARE: &str =
     "Start or connect a runtime before scanning EtherCAT or GPIO.";
-/// Why Bluetooth cannot be scanned in this version of truST: the search skips it from every origin
-/// (specification 11, "Sources").
-pub const BLUETOOTH_UNAVAILABLE: &str =
-    "Bluetooth search is not available in this truST version yet.";
 /// Why a scan other than `EtherCAT` and GPIO cannot run from the stopped runtime `runtime`.
 #[must_use]
 pub fn start_or_connect(runtime: &str) -> String {
@@ -218,3 +214,16 @@ pub const GROUP_FIND: &str = "find";
 pub const GROUP_KNOWN_ADDRESS: &str = "known_address";
 /// The group of the choices under `Runtime hardware scans ⚠`.
 pub const GROUP_RUNTIME_HARDWARE: &str = "runtime_hardware";
+
+// ---- the search's error texts (specification 25 §2): the old pane's, word for word ----
+
+/// The text of an origin that the panel no longer reaches (`discoveryController.ts` line 126).
+pub const NO_LONGER_REACHABLE: &str =
+    "The selected runtime is no longer reachable. Start or reconnect it, then scan again.";
+/// The text of a runtime that rejected the token (`discoveryErrors.ts` line 8). The name is the old
+/// pane's `truST runtime` for the runtime's own discovery (`discoveryErrors.ts` line 21).
+pub const REJECTED_AUTHENTICATION: &str = "The selected runtime rejected authentication for truST runtime discovery. Check its auth token. Reconnect or start the selected runtime, then scan again.";
+/// The text of a runtime that did not answer in time (`discoveryErrors.ts` line 11).
+pub const DISCOVERY_TIMED_OUT: &str = "truST runtime discovery timed out on the selected runtime. Reconnect or start the selected runtime, then scan again.";
+/// The text of any other failed request to a runtime (`discoveryErrors.ts` line 13).
+pub const COULD_NOT_COMPLETE: &str = "The selected runtime could not complete truST runtime discovery. Reconnect or start the selected runtime, then scan again.";

@@ -45,7 +45,7 @@ use crate::targets::TargetKey;
 use crate::view;
 use crate::view::types::{ActReply, BrowseView, DevicesView, OperationDone, Refresh};
 
-pub use search::{SearchCall, SearchOrigin, SearchReply, SearchVerb};
+pub use search::{SearchCall, SearchOrigin, SearchReply, SearchVerb, TypedTargets};
 
 /// The version of a devices command's reply (design §1.4.1 and §2.1).
 pub const SCHEMA_VERSION: u32 = 1;

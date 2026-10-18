@@ -187,6 +187,12 @@ pub enum Op {
         /// Its arguments, chosen by Rust.
         payload: Value,
     },
+    /// A search, which the host sends to `trust-lsp.devicesSearch` with the panel's session and, for
+    /// Search, the typed targets the pane gives (specification 25 §2).
+    Search {
+        /// The body: the verb, the origin, and the `params` of a start or the `search_id` of a cancel.
+        request: Value,
+    },
     /// A VS Code call that decides nothing.
     Host {
         /// The call.

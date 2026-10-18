@@ -426,6 +426,9 @@ pub struct DiscoverView {
     /// What shows without finds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub empty_text: Option<String>,
+    /// The text of a search that failed at a runtime, as the old pane gave it (specification 25 §2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_text: Option<String>,
     /// Its actions: `Search`, `Cancel` while a scan runs, and `Configure ADS ports to scan`.
     pub actions: Vec<Action>,
 }

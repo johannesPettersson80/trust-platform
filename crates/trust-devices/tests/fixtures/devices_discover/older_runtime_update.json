@@ -6,21 +6,24 @@
       "id": "search",
       "label": "Search",
       "op": {
-        "action": "search.start",
-        "kind": "rust",
-        "payload": {
-          "only": [
-            "trust_runtime",
-            "ads",
-            "modbus_tcp",
-            "mqtt",
-            "opcua",
-            "ethercat",
-            "gpio",
-            "serial",
-            "usb"
-          ],
-          "origin": "runtime:old",
+        "kind": "search",
+        "request": {
+          "origin": {
+            "runtime": "runtime:old"
+          },
+          "params": {
+            "only": [
+              "trust_runtime",
+              "ads",
+              "modbus_tcp",
+              "mqtt",
+              "opcua",
+              "ethercat",
+              "gpio",
+              "serial",
+              "usb"
+            ]
+          },
           "verb": "start"
         }
       }
