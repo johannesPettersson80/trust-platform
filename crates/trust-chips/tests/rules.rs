@@ -527,6 +527,114 @@ fn layout_regions_do_not_overlap_and_the_chip_starts_from_the_first() {
     );
 }
 
+/// The program slots lie inside `application` and apart from one another and from the checkpoint
+/// slots (specification 34 Appendix H.2). The refusal names the two regions that overlap. Catches a
+/// check that compares a slot with `application` only, which lets the two slots share flash, and a
+/// slot that could erase a checkpoint unit.
+#[test]
+fn the_chip_file_refuses_overlapping_slots() {
+    let region = |text: &str| toml::Value::Table(table(text));
+    // application_b starts 0xC000 below application_a's end (0x4F_C000), inside application_a.
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_b",
+            region("start = 0x4F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "application_b",
+            second: "application_a"
+        })
+    );
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_a",
+            region("start = 0x4F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "application_b",
+            second: "application_a"
+        })
+    );
+    // From 0x7F_0000, 3,056 KiB reach past checkpoint_a, which begins at 0x7F_8000.
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_b",
+            region("start = 0x7F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "checkpoint_a",
+            second: "application_b"
+        })
+    );
+    assert_eq!(
+        c6(|file| set(
+            file,
+            "layout",
+            "application_a",
+            region("start = 0x7F_0000\nkib = 3056")
+        )),
+        Err(Problem::RegionsOverlap {
+            first: "checkpoint_a",
+            second: "application_a"
+        })
+    );
+}
+
+/// The program slots are named both or neither, have one size, and lie inside `application` on
+/// erase-unit boundaries (specification 34 §5.1 and Appendix H.2: "two application slots of equal
+/// size, which the chip file names"). Catches a file that gives the program store one slot, two
+/// slots of different sizes, a slot below `application`, an empty slot, and a slot that starts
+/// off an erase unit, whose erase would clear the bytes before it.
+#[test]
+fn the_program_slots_are_named_in_pairs_of_one_size_inside_application() {
+    assert_eq!(
+        c6(|file| remove(file, "layout", "application_b")),
+        Err(Problem::MissingRegion {
+            region: "application_b"
+        })
+    );
+    assert_eq!(
+        c6(|file| remove(file, "layout", "application_a")),
+        Err(Problem::MissingRegion {
+            region: "application_a"
+        })
+    );
+    // 3,000 KiB is 3,072,000 bytes: slot B then ends at 0x7E_A000, inside application.
+    assert_eq!(
+        c6(|file| set(file, "layout.application_b", "kib", 3000_i64)),
+        Err(Problem::UnequalSlots {
+            first: "application_a",
+            second: "application_b"
+        })
+    );
+    // Slot A starts 0x1_0000 below application, which begins at 0x20_0000.
+    assert_eq!(
+        c6(|file| set(file, "layout.application_a", "start", 0x1F_0000_i64)),
+        Err(Problem::OutsideApplication {
+            slot: "application_a"
+        })
+    );
+    assert_eq!(
+        c6(|file| set(file, "layout.application_b", "kib", 0_i64)),
+        Err(Problem::ZeroSize {
+            what: "layout.application_b".to_owned()
+        })
+    );
+    // 0x20_0800 is 2 KiB into an erase unit.
+    assert_eq!(
+        c6(|file| set(file, "layout.application_a", "start", 0x20_0800_i64)),
+        Err(Problem::RegionNotAligned {
+            region: "application_a"
+        })
+    );
+}
+
 #[test]
 fn each_interface_list_names_each_peripheral_once() {
     assert_eq!(

@@ -62,6 +62,10 @@ firmware = { start = 0x1_0000, kib = 1984 }
 # The installed application takes the flash the chip allows (owner decision O7): from its start
 # to the two checkpoint slots, which sit at the very end of the 8 MB module.
 application = { start = 0x20_0000, kib = 6112 }
+# The two program slots of the program store (specification 34 §5.1): the two halves of `application`,
+# of equal size, which an install writes in turn.
+application_a = { start = 0x20_0000, kib = 3056 }
+application_b = { start = 0x4F_C000, kib = 3056 }
 checkpoint_a = { start = 0x7F_8000, kib = 16 }
 checkpoint_b = { start = 0x7F_C000, kib = 16 }
 

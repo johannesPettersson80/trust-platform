@@ -3417,6 +3417,7 @@ KiB.
 | | `bootloader`, `partition_table` | `esp32` only: the second-stage boot loader and the partition table. |
 | | `firmware` | The truST firmware. |
 | | `application` | The separately installed application (DEPLOY-01). |
+| | `application_a`, `application_b` | The two program slots of the program store (§5.1): optional, and a file names both or neither. Each is `{ start, kib }` of the same size, inside `application`, on erase-unit boundaries and apart from the other slot and the checkpoint slots. |
 | | `checkpoint_a`, `checkpoint_b` | The two checkpoint slots of the retain store, so that an interrupted write keeps the last good checkpoint (RETAIN-02); §10.1 defines their contents. |
 | `[interfaces]` | `usb`, `ethernet`, `wifi`, `bluetooth`, `uart`, `can`, `spi`, `i2c`, `adc`, `dac`, `timers`, `pwm` | The chip's peripherals of each kind, by the manufacturer's names. An empty list means the chip has none. An Ethernet PHY and other wiring belong to the board. |
 | `[gpio]` | `ports` | `stm32f4` and `stm32u5` only: `{ port, pins }` for each GPIO port, its pins counted from 0; a pin is named like `PD12`. |

@@ -158,6 +158,20 @@ pub enum Problem {
         /// The later region's key.
         second: &'static str,
     },
+    /// A program slot lies outside `application`.
+    #[error("layout.{slot} lies outside layout.application")]
+    OutsideApplication {
+        /// The slot's key.
+        slot: &'static str,
+    },
+    /// The two program slots are not of one size.
+    #[error("layout.{first} and layout.{second} are not the same size")]
+    UnequalSlots {
+        /// The first slot's key.
+        first: &'static str,
+        /// The second slot's key.
+        second: &'static str,
+    },
     /// The region the chip starts from is not where the chip starts.
     #[error("layout.{region} does not start where the chip starts")]
     BootRegion {
