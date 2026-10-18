@@ -5,6 +5,7 @@ use super::dispatch_refs::dynamic_ref_type;
 use super::errors::VmTrap;
 use super::frames::VmFrame;
 use super::module::VmModule;
+use super::type_policy::is_wildcard_dim;
 
 pub fn apply_reference_attempt(
     runtime: &impl super::context::ReferenceContext,
@@ -247,10 +248,6 @@ fn array_bounds_accept(actual: &[(i64, i64)], target: &[(i64, i64)]) -> bool {
             .iter()
             .zip(target)
             .all(|(a, t)| is_wildcard_dim(*a) || is_wildcard_dim(*t) || a == t)
-}
-
-fn is_wildcard_dim(dim: (i64, i64)) -> bool {
-    dim == (0, i64::MAX)
 }
 
 fn resolved_type_idx(

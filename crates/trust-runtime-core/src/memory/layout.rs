@@ -18,6 +18,7 @@ use alloc::vec::Vec;
 use crate::bytecode::{TypeData, TypeKind, TypeTable, BYTECODE_MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::value::string_capacity;
+use crate::vm::type_policy::is_wildcard_dim;
 
 /// Bytes in one cell (design "Cells").
 pub const CELL_BYTES: usize = 16;
@@ -252,7 +253,13 @@ fn build_layout(
                 charge,
             )?;
             let stride = child.cells;
-            let count = array_count(dims)?;
+            // An `ARRAY[*]` has no cells of its own: its elements are the actual argument's
+            // (spec 12 §6.3), so its layout keeps the stride and the sentinel bounds and no count.
+            let count = if dims.iter().any(|dim| is_wildcard_dim(*dim)) {
+                0
+            } else {
+                array_count(dims)?
+            };
             let cells = u64::from(stride)
                 .checked_mul(count)
                 .and_then(|cells| u32::try_from(cells).ok())

@@ -6,6 +6,12 @@ use crate::error::RuntimeError;
 use crate::value::{normalize_assignment_for_target, RefSegment, Value};
 use alloc::string::String;
 
+/// Whether an array dimension is `ARRAY[*]`'s: `TYPE_TABLE` keeps the sentinel bounds
+/// `(0, i64::MAX)` for an open dimension (spec 12 §6.3).
+pub(crate) fn is_wildcard_dim(dim: (i64, i64)) -> bool {
+    dim == (0, i64::MAX)
+}
+
 /// Normalize assignment to a declared module type.
 pub fn normalize_vm_value_for_type(
     module: &VmModule,
