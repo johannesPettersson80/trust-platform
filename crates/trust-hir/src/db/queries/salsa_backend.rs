@@ -401,19 +401,21 @@ pub(super) fn analyze_query(
         project_files: project_files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let const_roots: Vec<(FileId, SyntaxNode)> = project_roots_from_inputs(db, &project_source_inputs);
-    let (mut symbols, mut diagnostics, pending_types) = SymbolCollector::with_project_types(&provider)
-        .with_temporal_storage(*target_input.temporal_storage(db))
-        .collect_for_project_with_const_roots(&root, file_id, &const_roots);
+    let const_roots: Vec<(FileId, SyntaxNode)> =
+        project_roots_from_inputs(db, &project_source_inputs);
+    let (mut symbols, mut diagnostics, pending_types) =
+        SymbolCollector::with_project_types(&provider)
+            .with_temporal_storage(*target_input.temporal_storage(db))
+            .collect_for_project_with_const_roots(&root, file_id, &const_roots);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
-    let project_roots: Vec<SyntaxNode> =
-        const_roots.iter().map(|(_, root)| root.clone()).collect();
-    let (checked_symbols, access_config_diagnostics) = SymbolCollector::validate_project_after_merge(
-        symbols,
-        &root,
-        &project_roots,
-        *target_input.temporal_storage(db),
-    );
+    let project_roots: Vec<SyntaxNode> = const_roots.iter().map(|(_, root)| root.clone()).collect();
+    let (checked_symbols, access_config_diagnostics) =
+        SymbolCollector::validate_project_after_merge(
+            symbols,
+            &root,
+            &project_roots,
+            *target_input.temporal_storage(db),
+        );
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);
 
