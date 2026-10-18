@@ -2,8 +2,8 @@
 /// device identity, and presence").
 #[derive(Debug, clap::Args)]
 pub struct DiscoverArgs {
-    /// Run the search inside the runtime at this control endpoint (tcp://host:port or
-    /// unix:///path) instead of on this computer.
+    /// Run the search inside the runtime at this control endpoint (tcp://host:port,
+    /// unix:///path or serial:///dev/ttyACM0 for a chip on USB) instead of on this computer.
     #[arg(long)]
     pub endpoint: Option<String>,
     /// Control auth token for --endpoint (defaults to TRUST_CTL_TOKEN).

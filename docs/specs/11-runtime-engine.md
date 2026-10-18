@@ -2606,6 +2606,46 @@ printed as a successful scripted result. A TCP connection attempt is bounded to
 after a TCP or Unix connection is established, reads and writes are bounded to
 750 milliseconds, and a response line may not exceed 1 MiB.
 
+`--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. The
+last reaches a chip over its USB serial port: `serial:///dev/ttyACM0` on Linux,
+`serial:///dev/cu.usbmodem1101` on macOS and `serial://COM5` on Windows. The text after
+`serial://`, trimmed, is the port name; it is not empty, and on Linux and macOS it is an
+absolute path. `ctl`, `ads server status`, `ads server symbols`, `ads server doctor` and
+`discover` take all three forms. Over a serial endpoint the same requests and responses
+travel as over a socket (specification 34, PORT-05, which also states the client's rules),
+with these differences. The command opens the port without resetting the chip. It refuses a
+request longer than the link's frame of 8,192 bytes before it sends it, with `invalid
+request: request longer than 8192 bytes`. A response longer than the frame comes as a reply
+head, and the command reads it whole with `transfer.get`, so the response that `ctl` prints
+is the one a computer's runtime writes; the 1 MiB limit of a response line applies to it. It
+waits at most 5 seconds for a response, where a socket gets 750 milliseconds. A port that
+went away, because the chip reset, lost power or was unplugged, ends the command with a
+message that says so. `ctl` also takes `--project`, `--endpoint` and `--token` after the
+action, so `ctl install --endpoint serial:///dev/ttyACM0 program.trsta` and `ctl --endpoint
+serial:///dev/ttyACM0 install program.trsta` are the same command.
+
+`ctl install <container> [--restart cold|warm]` installs a program on a chip and on a
+computer alike (specification 34, §11.2 and PORT-05). `<container>` is a file that holds a
+`TRSTA002` container. The command sends `transfer.begin {bytes, sha256}` with the file's
+length and SHA-256; one `transfer.part {transfer, offset, data, crc32}` for each part of the
+`part_bytes` that begin's reply names (4,096 bytes, and the last part is the rest), in order,
+with the part as standard base64 and its CRC-32 as 8 hexadecimal digits, each checked against
+the `next_offset` of its reply; and `program.install {transfer}`. A part whose reply does not
+arrive in time is sent again, at most twice: the runtime acknowledges the repeat of a part it
+has received (specification 34, PORT-05). The reply to `program.install` is awaited at most
+120 seconds on every endpoint, because the runtime writes the program before it replies (a
+chip one erase unit per loop pass, specification 34 §5.1); the other replies are awaited as
+above. The command prints the identity that the reply gives, on one line: `installed
+sequence=<n> program_sha256=<64 hex digits> bytes=<n>`. When a step after `transfer.begin`
+fails, the command sends `transfer.abort {transfer}` so that no upload stays open on the
+runtime, ignores a failure of that abort, and exits non-zero with the text of the first
+failure: the runtime's own text for a refusal, such as `resource_not_running` from
+`program.install` while the program runs (the program is stopped first with `ctl shutdown`,
+specification 34 STATE-08). With `--restart` the command then sends `restart {mode}` and
+`status` until `state` is `running`, for at most 10 seconds, and prints `restarted
+mode=<mode> state=running`; a `faulted` state ends the wait at once and fails with the
+fault. Without `--restart` the installed program does not start.
+
 `config.set` values trim surrounding whitespace and decode case-insensitive
 `null`, `true`, and `false`, followed by an in-range signed 64-bit decimal
 integer; every other value remains the trimmed string. Human-oriented rendering

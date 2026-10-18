@@ -329,7 +329,7 @@ fn run_server_control(
         "auth": target.auth_token,
         "params": params.unwrap_or_else(|| json!({})),
     });
-    let response = crate::ctl::send_control_request_value(&target.endpoint, &request)?;
+    let response = crate::ctl::send_request(&target.endpoint, &request)?;
     crate::ctl::ensure_control_response_ok(&response)?;
     if json_output {
         println!("{}", serde_json::to_string_pretty(&response)?);

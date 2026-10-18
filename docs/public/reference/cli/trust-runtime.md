@@ -349,6 +349,7 @@ Important control subcommands:
 - `io-force`
 - `io-unforce`
 - `restart`
+- `install <container> [--restart cold|warm]` (any `--endpoint`, also `serial:///dev/ttyACM0`)
 - `shutdown`
 - `config-get`
 - `config-set`

@@ -17,6 +17,8 @@ use crate::cli::DiscoverArgs;
 const POLL_PERIOD: Duration = Duration::from_millis(250);
 /// How long one control request to a runtime may wait.
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(2);
+/// How long one control request to a chip's serial port may wait (specification 11, 6.8.1).
+const SERIAL_CONTROL_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub fn run_discover(args: DiscoverArgs) -> anyhow::Result<()> {
     let memory = remembered(&args)?;
@@ -134,13 +136,21 @@ impl RunningSearch {
             });
         };
         let parsed = ControlEndpoint::parse(endpoint).with_context(|| {
-            format!("'{endpoint}' is not a control endpoint (tcp://host:port or unix:///path)")
+            format!(
+                "'{endpoint}' is not a control endpoint (tcp://host:port, unix:///path or \
+                 serial:///dev/ttyACM0)"
+            )
         })?;
         let token = args
             .token
             .clone()
             .or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
-        let mut client = ControlClient::connect(&parsed, token.as_deref(), CONTROL_TIMEOUT)
+        let timeout = if matches!(parsed, ControlEndpoint::Serial(_)) {
+            SERIAL_CONTROL_TIMEOUT
+        } else {
+            CONTROL_TIMEOUT
+        };
+        let mut client = ControlClient::connect(&parsed, token.as_deref(), timeout)
             .map_err(|error| anyhow!("connect control endpoint {endpoint}: {error}"))?
             .with_response_limit(RESPONSE_LINE_LIMIT);
         params["origin"] = json!("runtime");

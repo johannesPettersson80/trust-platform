@@ -6,6 +6,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- New: `--endpoint serial:///dev/ttyACM0` (`serial://COM5` on Windows) reaches a chip over its USB
+  port in `trust-runtime ctl`, `ads server` and `discover`, and `trust-runtime ctl install
+  <container> [--restart cold|warm]` installs a program on a chip or a computer.
 - Fixed: on the ESP32-C6 a firmware panic drove every configured output low before the chip
   reset, whatever `[[io.safe_state]]` named. It now drives each output to its safe value, as the
   STM32U5A9 and the stop and fault paths do.

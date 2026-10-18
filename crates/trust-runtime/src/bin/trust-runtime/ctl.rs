@@ -8,15 +8,48 @@ use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use trust_runtime::config::RuntimeConfig;
 use trust_runtime::control::ControlEndpoint;
+use trust_runtime_client::{ControlClient, ControlEndpoint as ClientEndpoint};
 
 use crate::cli::ControlAction;
 
+#[path = "ctl/install.rs"]
+mod install;
+
 const CONTROL_CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
 const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(750);
+/// How long a chip's serial port may take to answer one request (specification 11, 6.8.1).
+const SERIAL_IO_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
 
+/// Where `ctl` sends its requests (specification 11, 6.8.1).
+#[derive(Debug, Clone)]
+pub(crate) enum CtlEndpoint {
+    /// A runtime's socket on this computer: loopback TCP or a Unix socket.
+    Socket(ControlEndpoint),
+    /// A chip's USB serial port, reached through the shared control client (specification 34,
+    /// PORT-05).
+    Serial(ClientEndpoint),
+}
+
+impl CtlEndpoint {
+    /// Reads `--endpoint`, or the endpoint a project's `runtime.toml` names. A `serial://` endpoint
+    /// is read by the shared client; the others are the runtime's own endpoints.
+    fn parse(text: &str) -> anyhow::Result<Self> {
+        if text.starts_with("serial://") {
+            let serial = ClientEndpoint::parse(text).with_context(|| {
+                format!(
+                    "'{text}' is not a serial endpoint (serial:///dev/ttyACM0, or serial://COM5 \
+                     on Windows)"
+                )
+            })?;
+            return Ok(Self::Serial(serial));
+        }
+        Ok(Self::Socket(ControlEndpoint::parse(text)?))
+    }
+}
+
 pub(crate) struct ResolvedControlTarget {
-    pub(crate) endpoint: ControlEndpoint,
+    pub(crate) endpoint: CtlEndpoint,
     pub(crate) auth_token: Option<String>,
 }
 
@@ -27,7 +60,12 @@ pub fn run_control(
     action: ControlAction,
 ) -> anyhow::Result<()> {
     let target = resolve_control_target(bundle, endpoint, token)?;
-    send_control_request(&target, &action)
+    match action {
+        ControlAction::Install { container, restart } => {
+            install::run(&target, &container, restart.as_deref())
+        }
+        action => send_control_request(&target, &action),
+    }
 }
 
 pub(crate) fn resolve_control_target(
@@ -58,7 +96,7 @@ pub(crate) fn resolve_control_target(
     } else {
         anyhow::bail!("--endpoint or --project required");
     };
-    let endpoint = ControlEndpoint::parse(&endpoint_text)?;
+    let endpoint = CtlEndpoint::parse(&endpoint_text)?;
     Ok(ResolvedControlTarget {
         endpoint,
         auth_token,
@@ -70,9 +108,59 @@ fn send_control_request(
     action: &ControlAction,
 ) -> anyhow::Result<()> {
     let request = build_request(action, target.auth_token.as_deref());
-    let response = send_control_request_value(&target.endpoint, &request)?;
+    let response = send_request(&target.endpoint, &request)?;
     ensure_control_response_ok(&response)?;
     print_control_response(action, &response)
+}
+
+/// Sends one request to `endpoint` and returns the whole response object.
+pub(crate) fn send_request(
+    endpoint: &CtlEndpoint,
+    request: &JsonValue,
+) -> anyhow::Result<JsonValue> {
+    match endpoint {
+        CtlEndpoint::Socket(socket) => send_control_request_value(socket, request),
+        CtlEndpoint::Serial(serial) => send_serial_request(serial, request),
+    }
+}
+
+/// Sends one request over a chip's serial port, through the shared control client: it opens the
+/// port without resetting the chip, keeps the request within the link's frame, and reads a reply
+/// that is longer than the frame whole (specification 34, PORT-05).
+fn send_serial_request(
+    endpoint: &ClientEndpoint,
+    request: &JsonValue,
+) -> anyhow::Result<JsonValue> {
+    let auth = request.get("auth").and_then(JsonValue::as_str);
+    let mut client = ControlClient::connect(endpoint, auth, SERIAL_IO_TIMEOUT)?
+        .with_response_limit(MAX_CONTROL_RESPONSE_BYTES);
+    exchange_with(&mut client, request)
+}
+
+/// Sends `request`, a request of the command's shape (`id`, `type`, and `params` when the action
+/// has any), through `client` and returns the whole response object. The command checks the
+/// response's id as it does for a socket.
+fn exchange_with(client: &mut ControlClient, request: &JsonValue) -> anyhow::Result<JsonValue> {
+    let request_id = request
+        .get("id")
+        .and_then(JsonValue::as_u64)
+        .context("control request missing numeric 'id'")?;
+    let kind = request
+        .get("type")
+        .and_then(JsonValue::as_str)
+        .context("control request missing string 'type'")?;
+    let response = client.exchange(kind, request.get("params").cloned())?;
+    ensure_response_id(&response, request_id)?;
+    Ok(response)
+}
+
+/// A response must carry the id of its request: a missing, noninteger or other id is a protocol
+/// failure (specification 11, 6.8.1).
+fn ensure_response_id(response: &JsonValue, request_id: u64) -> anyhow::Result<()> {
+    if response.get("id").and_then(JsonValue::as_u64) != Some(request_id) {
+        anyhow::bail!("control response id is missing or does not match request id {request_id}");
+    }
+    Ok(())
 }
 
 pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {
@@ -154,9 +242,7 @@ fn exchange_control_request<S: Write, R: BufRead>(
         .get("id")
         .and_then(JsonValue::as_u64)
         .context("control request missing numeric 'id'")?;
-    if response.get("id").and_then(JsonValue::as_u64) != Some(request_id) {
-        anyhow::bail!("control response id is missing or does not match request id {request_id}");
-    }
+    ensure_response_id(&response, request_id)?;
     Ok(response)
 }
 
@@ -317,6 +403,9 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "auth": auth,
             "params": { "mode": mode }
         }),
+        ControlAction::Install { .. } => {
+            unreachable!("ctl install is several requests; run_control sends it through install")
+        }
         ControlAction::Shutdown { exit } => {
             let mut request = json!({"id": 1, "type": "shutdown", "auth": auth});
             if *exit {
@@ -753,3 +842,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "ctl/serial_tests.rs"]
+mod serial_tests;
