@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- The ESP32-C6 runs truST as a runtime, first on the ESP32-C6-DevKitC-1
+  (`firmware/trust-esp32c6`), with the same runtime code as `trust-runtime`. It starts the
+  installed project at power-on, claims the GPIO pins the project's `io.toml` names, and answers
+  the control connection on its USB port as `trust-runtime` does: `status`, `health`,
+  `tasks.stats`, `events.tail`, `faults`, `pause`, `resume`, `restart` and `shutdown`, and Live
+  Values (read, write, force and release). `shutdown` stops the program and the chip stays
+  reachable; `restart` starts it again. After a panic or a hardware-watchdog reset the chip reports
+  the cause as its last fault. `cargo xtask portability pack-project` packs a project for it.
+- New control operation `capabilities` (Viewer) on every runtime: the device descriptor that
+  program admission uses (bytecode versions, scheduling profiles, limits, the application slot,
+  the event store's default and maximum) and the last reset; a computer answers `null` where only
+  a chip has a value.
+
 - `[runtime.events] capacity` in `runtime.toml` sets how many events the event store keeps
   (1 to 1,000,000; 1,000 by default on a computer), as PLC vendors size their diagnostic buffer
   per device. `status` reports it as `event_capacity`, and a chip receives it in its deployment
