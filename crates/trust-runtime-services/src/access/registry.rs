@@ -30,6 +30,7 @@ const fn operation(kind: &'static str, role: RolePolicy, debug_surface: bool) ->
 
 pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("status", RolePolicy::Fixed(AccessRole::Viewer), false),
+    operation("capabilities", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation("health", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation("tasks.stats", RolePolicy::Fixed(AccessRole::Viewer), false),
     operation("events.tail", RolePolicy::Fixed(AccessRole::Viewer), false),

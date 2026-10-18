@@ -9,9 +9,11 @@ use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
+use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::events::{store_event, RuntimeEvent};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use trust_runtime_services::live_values::io_snapshot::IoSnapshot as PortableIoSnapshot;
@@ -173,6 +175,18 @@ impl StatusPort for ControlState {
 
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         status_handlers::openot_persistence_status_json(self).ok()
+    }
+
+    /// A computer's descriptor (specification 34, HOST-02); the `capabilities` operation reports
+    /// it (specification 11, the runtime device capabilities contract).
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        DeviceDescriptor::hosted()
+    }
+
+    /// A computer starts as a new process and has no last reset (specification 11, the runtime
+    /// device capabilities contract).
+    fn last_reset(&self) -> Option<LastReset> {
+        None
     }
 }
 

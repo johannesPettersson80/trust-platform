@@ -9,6 +9,7 @@ use core::cell::{Cell, RefCell};
 
 use serde_json::json;
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
@@ -18,6 +19,7 @@ use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
 use crate::access::{resolve_role, AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::events::{RuntimeEvent, EVENT_STORE_CAPACITY};
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{
@@ -98,6 +100,10 @@ pub(crate) struct FakeHost {
     pub(crate) generation: Generation,
     /// Why a device has no installed program, when it has none.
     pub(crate) missing_program: Option<&'static str>,
+    /// The device descriptor the `capabilities` operation reports; a computer's by default.
+    pub(crate) device_descriptor: DeviceDescriptor,
+    /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
+    pub(crate) last_reset: Option<LastReset>,
 }
 
 impl FakeHost {
@@ -131,6 +137,8 @@ impl FakeHost {
             io_snapshot: RefCell::new(IoSnapshotRead::Missing),
             generation: Generation::FIRST,
             missing_program: None,
+            device_descriptor: DeviceDescriptor::hosted(),
+            last_reset: None,
         }
     }
 
@@ -293,6 +301,14 @@ impl StatusPort for FakeHost {
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         self.readable("openot")
             .then(|| json!({"state": "disabled"}))
+    }
+
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        self.device_descriptor.clone()
+    }
+
+    fn last_reset(&self) -> Option<LastReset> {
+        self.last_reset.clone()
     }
 }
 

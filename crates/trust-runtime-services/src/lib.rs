@@ -2,8 +2,9 @@
 //! above the engine that every target runs, built without an operating system.
 //!
 //! [`protocol`] holds the control connection's request and response envelope, [`access`] its
-//! access rights and [`dispatch`] the request pipeline. [`status`], [`events`], [`metrics`] and
-//! [`resource`] answer the status, event and resource operations and hold the supervisor's
+//! access rights and [`dispatch`] the request pipeline. [`capabilities`] renders the device
+//! descriptor and last reset of the `capabilities` operation. [`status`], [`events`], [`metrics`]
+//! and [`resource`] answer the status, event and resource operations and hold the supervisor's
 //! decisions. [`live_values`] holds the queues of pending writes and active forces that a control
 //! surface applies at the next cycle boundary. [`ports`] names what a platform supplies.
 //! [`runner`] is the single-thread resource loop of a device without an operating system, and
@@ -20,6 +21,7 @@
 extern crate alloc;
 
 pub mod access;
+pub mod capabilities;
 pub mod dispatch;
 pub mod events;
 pub mod execution_backend;

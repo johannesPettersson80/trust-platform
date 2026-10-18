@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.31 — the call scratch that binds a call, the device runner's use of the checkpoint persister (§10), after 0.29's control link on a byte stream
+- **Version:** 0.32 — the C6's 24 KiB main-stack window (D.2) and the due-boundary rule for requests (STATE-08), after 0.31's call scratch that binds a call, the device runner's use of the checkpoint persister (§10), after 0.29's control link on a byte stream
 - **Date:** 18 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -209,7 +209,7 @@ firmware/
                                   bench board's wiring is its configuration
                                   (src/board.rs), not a firmware of its own
 
-  trust-esp32c6-reference/         NEW; proposed C6-DevKitC-1 composition
+  trust-esp32c6/                   NEW; the ESP32-C6 chip firmware (ARCH-10)
 ```
 
 Names inside the core are proposed ownership areas, not instructions to rename every existing module at once. Existing public host APIs shall remain available through wrappers or re-exports during migration.
@@ -829,7 +829,8 @@ artifact and 1,024 call levels, keeps the newest 1,000 events by default and adm
 1,000,000, and has no maximum for the other limits and no application slot (HOST-02). A chip's
 descriptor comes from its chip file (TARGET-03); Appendix H gains the keys for its maxima with the
 chip's firmware, and its `[events]` table gives the chip's event-store default and maximum. The
-control connection serves the descriptor in a later slice.
+control connection serves the descriptor with the `capabilities` operation (specification 11), the
+same operation on every runtime.
 
 ### 5.2 Compiler-free preparation
 
@@ -1711,9 +1712,9 @@ BOOT -> INITIALIZING -> STOPPED/NO_PROGRAM
 
 **STATE-07.** Writing, forcing, breakpoints, pause and stepping behave on every target as in trust-runtime (specification 11, debug and resource pause interaction; specification 13, run control), with the same access rights. A pause suspends the current cycle: the outputs keep their last committed values, and the pause does not count against the cycle watchdog. A hardware debug probe (JTAG/SWD) halts the whole processor; it is not a PLC breakpoint, and it must not be assumed to preserve watchdog or output supervision.
 
-**STATE-08.** Stop and Start on a device without an operating system (owner, 16 October 2026: "on a chip, Stop and Start are the existing `shutdown` and `restart`"). On a computer, `shutdown` ends the trust-runtime process and a new process is the start. A chip's firmware never ends, so the program takes the place of the process: `shutdown` stops the program as trust-runtime stops it (outputs to their stop policy, STATE-02, and the durable retain save), and the chip stays reachable in the Stopped state, serving the control connection; `restart` with `cold` or `warm` then starts the installed program as a new trust-runtime process would: its logical time and uptime start at zero, and its events, metrics and task statistics start empty. A `warm` start gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 Ed.3 §6.5.6.1: "the values the variables had when the resource or configuration was stopped"): the chip still holds them in its memory, where a new trust-runtime process without a retain store cannot, because the process that held them has ended. Power-on and reset start the installed program in the same way; its logical time starts when the program starts, not at the chip's reset. Every other request answers as trust-runtime answers it in the same state; a `restart` of a program that runs, is paused or is faulted restarts it in place as trust-runtime does, and its records stay. One control loop serves the link between cycles and while Stopped; it is shared code (ARCH-11), and only its wait and wake come from the platform adapter.
+**STATE-08.** Stop and Start on a device without an operating system (owner, 16 October 2026: "on a chip, Stop and Start are the existing `shutdown` and `restart`"). On a computer, `shutdown` ends the trust-runtime process and a new process is the start. A chip's firmware never ends, so the program takes the place of the process: `shutdown` stops the program as trust-runtime stops it (outputs to their stop policy, STATE-02, and the durable retain save), and the chip stays reachable in the Stopped state, serving the control connection; `restart` with `cold` or `warm` then starts the installed program as a new trust-runtime process would: its logical time and uptime start at zero, and its events, metrics and task statistics start empty. A `warm` start gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 Ed.3 §6.5.6.1: "the values the variables had when the resource or configuration was stopped"): the chip still holds them in its memory, where a new trust-runtime process without a retain store cannot, because the process that held them has ended. Power-on and reset start the installed program in the same way; its logical time starts when the program starts, not at the chip's reset. Every other request answers as trust-runtime answers it in the same state; a `restart` of a program that runs, is paused or is faulted restarts it in place as trust-runtime does, and its records stay. One control loop serves the link between cycles and while Stopped; it is shared code (ARCH-11), and only its wait and wake come from the platform adapter. A request that arrives while the program's next boundary is due waits for that boundary, so a due cycle waits at most for the request already being answered, and a boundary that is due again as soon as it is taken (a scan longer than its interval) lets one request through per boundary, so the link is never starved.
 
-Requests take effect where trust-runtime's scan thread takes them. The loop answers each request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next boundary, as trust-runtime's scan thread takes it at its next pass: while the program runs, when its next cycle is due, one cycle interval after the last cycle started; while it is paused, one cycle interval after the last boundary; while it is faulted, at the end of each 10 ms poll of the faulted wait. At a boundary the stop is taken first, then the queued pauses and resumes in order, then a pending restart, and then the cycle; at a poll of the faulted wait a pending restart is taken before the stop. Pauses and resumes wait in a queue of trust-runtime's size, and one beyond it is refused with `resource_busy`. Only these differences remain: the device serves requests between cycles, never during one, at most eight in one pass before a due cycle; trust-runtime starts each cycle later than it is due by its operating system's wake-up latency; and after `shutdown` the device stays reachable and a `restart` takes effect at once, where trust-runtime's process has ended. The loop feeds the platform's hardware watchdog once in every pass and waits no longer than the watchdog's feed interval, in every state, so a stopped, paused or faulted chip is never reset by it (TIME-04).
+Requests take effect where trust-runtime's scan thread takes them. The loop answers each request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next boundary, as trust-runtime's scan thread takes it at its next pass: while the program runs, when its next cycle is due, one cycle interval after the last cycle started; while it is paused, one cycle interval after the last boundary; while it is faulted, at the end of each 10 ms poll of the faulted wait. At a boundary the stop is taken first, then the queued pauses and resumes in order, then a pending restart, and then the cycle; at a poll of the faulted wait a pending restart is taken before the stop. Pauses and resumes wait in a queue of trust-runtime's size, and one beyond it is refused with `resource_busy`. Only these differences remain: the device serves requests between cycles, never during one, so a due cycle can wait for the one request being answered; trust-runtime starts each cycle later than it is due by its operating system's wake-up latency; and after `shutdown` the device stays reachable and a `restart` takes effect at once, where trust-runtime's process has ended. The loop feeds the platform's hardware watchdog once in every pass and waits no longer than the watchdog's feed interval, in every state, so a stopped, paused or faulted chip is never reset by it (TIME-04).
 
 A chip whose application region holds no program, or holds one that the chip refuses (DEPLOY-04; for example a program that calls `CURRENT_DT` on a chip without a wall clock, §5.2), runs the same loop without a program: it serves the control connection, `status` reports `stopped` without a fault, and every request answers as in the Stopped state, except that `restart` is refused with the stable code `resource_not_running` and the message `no installed program: <reason>`, which names why the chip has none. A program deployed to it (§11.2) is then started by `restart` as above.
 
@@ -2871,6 +2872,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.32 | 18 October 2026 | Appendix D.2, the C6 memory bullet: the main-stack window is 24 KiB, not 16 KiB, because the S1b-5b2 bench measured a 15,740 B high-water in the 16 KiB window, leaving 644 B untouched, below the 2 KiB headroom; the linker guard and the build check require the window plus a 4 KiB margin (28 KiB). Appendix D.4 keeps the STM32F407's 16 KiB window. STATE-08: a request that arrives while the next boundary is due waits for that boundary, and a boundary that is due again as soon as it is taken lets one request through per boundary, so a scan longer than its interval cannot starve the link; the list of remaining differences says a due cycle can wait for the one request being answered, where it said eight requests in one pass. |
 | 0.31 | 18 October 2026 | §6.3, after MEM-09: construction reserves, per call depth, the call scratch that binds a call — its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted outputs, sized for the largest call site and the largest POU — and a call takes its depth's scratch and returns it on every path (completion, trap, refusal and abort), so a scan allocates no argument, flag, output-binding, target or prepared-output vector. Every result, charge and refusal is unchanged (TIME-08). |
 | 0.30 | 18 October 2026 | §10, "The device runner": the chip's installed program holds the checkpoint persister over the checkpoint store its platform supplies; it captures the retained values and offers them at each scan's pre-output-sample checkpoint, the resource loop advances one step between scans with the store's per-step program budget so no step runs inside a scan, a stop or shutdown completes the save before the resource reports Stopped, and a latched failure fails the next scan with `RuntimeError::RetainStore` before physical outputs. A warm start decodes the newest committed checkpoint with the shared codec and applies it by name (specification 11 §6.7); an empty log or a `mode = "none"` project starts with the declared initial values. |
 | 0.29 | 17 October 2026 | §7.4 (PORT-05): the control link on a byte stream, such as a chip's USB serial port: line framing as trust-runtime's socket, frames of up to 8,192 bytes on every chip's USB link, an oversized request dropped to its line feed and answered once with `request longer than <frame> bytes`, a reply longer than the frame replaced by `reply longer than <frame> bytes` until requests and replies travel in parts with program loading's transfer, `events.tail` and `faults` written event by event within the frame, one reply in flight, a reply without progress for 1 second dropped with the line-feed repair, a new host session, and the link's counters. STATE-08: a chip without an installed program, or with one it refused, serves the control connection in the Stopped state and refuses `restart` with `no installed program: <reason>` until a program is installed; a warm start after `shutdown` gives the RETAIN variables the values they had when the program stopped (IEC 61131-3 §6.5.6.1). |
@@ -3170,27 +3172,29 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   cookie completes the run. With reason 0x15 or 0x01, a leftover cookie is discarded and a new run
   starts; that reset is the explicit new boot. Any other reason with a cookie present halts with a
   FAIL record. Beside it, both chips keep the same fixed-size reset record (a magic, a version, a
-  CRC-32 and a boot counter, with the cause and a short panic location): the panic and watchdog
-  paths write it before a reset, and the next boot reads and clears it once, so a damaged record
-  reads as no record.
+  CRC-32 and a boot counter, with the cause and a short panic location): the panic path writes it
+  before a reset, and the next boot reads and clears it once, so a damaged record reads as no
+  record. A watchdog reset runs no code, so when no record exists the next boot takes the cause
+  from the chip's reset reason, MWDT0 (0x07), as specification 11 defines it.
 - **GPIO.** The physical input is the BOOT button, GPIO9: active low with the internal pull-up. It
   is a strapping pin sampled only at reset, so the firmware reads it only after boot. The output is
   GPIO18, a plain pin with no board load, read back through its own pad input; the probe read back
   1, 0, 1, 0 as commanded. The RGB LED on GPIO8 is a WS2812, not a plain LED, so optical output
   stays unverified, as on F401.
 - **Memory.** The fixture keeps F401's 72 KiB allocator arena. The esp-hal stack region spans the
-  HP SRAM left after static data and RAM-resident code (about 51 KiB); the fixture measures and
-  budgets a 16 KiB window at its top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant
-  that inspection pins), with F401's 2 KiB minimum headroom, so the boards' heap and
-  stack evidence is directly comparable. Exceeding the window fails the run although the region
-  has room. The window ends where static data and RAM-resident code end, so a layout whose region
-  cannot hold it lets the boot-time stack paint overwrite the allocator's own state: the linker
-  script asserts `_stack_start - _stack_end` is at least the 16 KiB window plus a 4 KiB margin, and
+  HP SRAM left after static data and RAM-resident code (about 51 KiB). The C6 budgets a 24 KiB
+  window at its top, below esp-hal 1.2.2's `_stack_start` (0x4086E610, a constant that inspection
+  pins). The window was 16 KiB, as on F401, but the S1b-5b2 bench measured a 15,740 B high-water in
+  it, 644 B untouched, below the 2 KiB minimum headroom, so it is 24 KiB; the STM32F407 keeps
+  16 KiB (D.4). Exceeding the window fails the run although the region has room. The window ends
+  where static data and RAM-resident code end, so a layout whose region cannot hold it lets the
+  boot-time stack paint overwrite the allocator's own state: the linker script asserts
+  `_stack_start - _stack_end` is at least the 24 KiB window plus a 4 KiB margin (28 KiB), and
   `build-firmware esp32c6` reads the linked `.stack` region, reports it with its margin above the
-  window, and fails below that margin. Keeping only the scan's hot path in RAM leaves the region
-  about 8 KiB of margin above the window. Interrupts use the same stack on RISC-V, so the window
-  includes them. The allocator serves two heap regions on the C6: the 72 KiB arena and the boot
-  loader's reclaimed RAM.
+  window, and fails below that margin. The linked `.stack` region of the current C6 build is
+  42,064 bytes, which leaves 17,488 bytes above the 24 KiB window. Interrupts use the same stack on
+  RISC-V, so the window includes them. The allocator serves two heap regions on the C6: the 72 KiB
+  arena and the boot loader's reclaimed RAM.
 - **Code placement.** Executed from flash through the 32 KB cache, one task activation retired
   188,838 instructions in about 1.77 M cycles (11.07 ms, over the 10 ms period): the core stalled
   on code fetches. Scan-time code therefore executes from HP SRAM. The firmware enables esp-hal's
@@ -3383,8 +3387,10 @@ every target (ARCH-14):
 | `openot` | OpenOT telemetry (SERVICE-04). |
 | `simulation` | Simulation (SERVICE-05). |
 
-A firmware holds `engine` and lists each further component once it holds it, as measured. Today's
-firmware runs the M2E fixture and holds `engine` alone. Several resources in one configuration,
+A firmware holds `engine` and lists each further component once it holds it, as measured. The
+ESP32-C6 firmware holds `engine`, `control` and `live-values`, as its bench measured them on
+18 October 2026 (the control requests of S1b-5 and Live Values at the pins); the STM32F407
+firmware holds `engine` alone. Several resources in one configuration,
 and several runtimes on one chip (ARCH-15), are not components: every firmware runs them, and how
 many runtimes fit a chip is measured and reported (ARCH-13). Linux, macOS and Windows run every
 component and have no chip file. The tools offer what the device's chip file lists and refuse a

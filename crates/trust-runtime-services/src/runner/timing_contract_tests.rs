@@ -264,3 +264,32 @@ fn a_full_command_queue_refuses_a_command_with_resource_busy_as_trust_runtime_do
     let accepted = fixture.call(&mut runner, &request(5_001, "pause"));
     assert_eq!(accepted["result"], json!({"status": "paused"}));
 }
+
+#[test]
+fn a_scan_that_overruns_its_interval_still_lets_the_link_answer_one_request_per_scan() {
+    // Specification 34, STATE-08: a boundary that is due again as soon as it is taken (here a
+    // 15 ms scan on a 10 ms interval) must not hold every request back, or the link is starved.
+    let fixture = Fixture::board_probe();
+    fixture.script.borrow_mut().scan_time = ms(15);
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    let _ = fixture.take_calls();
+    for id in 0..3 {
+        fixture.link.send(&request(id, "health"));
+    }
+
+    // The boundary at 10 ms is overdue at 15 ms: request 0 is answered, then the next boundary
+    // runs the scan (15 ms to 30 ms) before request 1.
+    fixture.pass_at(&mut runner, 15);
+    assert_eq!(fixture.take_scan_times(), [15]);
+    let replies = fixture.link.take_replies();
+    assert_eq!(replies.len(), 1);
+    assert_eq!(replies[0]["id"], json!(0));
+
+    // The boundary at 25 ms is overdue at 30 ms: request 1 is answered, then the scan runs.
+    fixture.pass_at(&mut runner, 30);
+    assert_eq!(fixture.take_scan_times(), [30]);
+    let replies = fixture.link.take_replies();
+    assert_eq!(replies.len(), 1);
+    assert_eq!(replies[0]["id"], json!(1));
+}

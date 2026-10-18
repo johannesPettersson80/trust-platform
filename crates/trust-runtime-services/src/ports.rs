@@ -11,12 +11,14 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
 use crate::access::{AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::events::RuntimeEvent;
 use crate::live_values::io_requests::IoQueuePort;
 use crate::live_values::var_requests::VariableQueuePort;
@@ -132,11 +134,13 @@ pub trait ResourcePort {
     }
 }
 
-/// The values the platform knows that the status operations report: configuration, I/O driver
-/// health and the platform's posture.
+/// The values the platform knows that the status and `capabilities` operations report:
+/// configuration, I/O driver health, the platform's posture, the device descriptor admission
+/// reads and the reset a device without an operating system read at boot.
 ///
 /// A method that returns `None` reports a value that cannot be read, and the operation answers
-/// `<value> unavailable`.
+/// `<value> unavailable`. The descriptor and last-reset methods default to a computer's values,
+/// which a platform that composes the hosted runtime keeps.
 pub trait StatusPort {
     /// Name of the resource.
     fn resource_name(&self) -> &str;
@@ -156,6 +160,20 @@ pub trait StatusPort {
     /// The `openot_persistence` block of `status`: the state of the `OpenOT` document
     /// persistence.
     fn openot_persistence(&self) -> Option<serde_json::Value>;
+
+    /// The device descriptor admission reads (specification 34 §5.1.1, COMPAT-02); the
+    /// `capabilities` operation serves it. The default is a computer's descriptor
+    /// (specification 34, HOST-02).
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        DeviceDescriptor::hosted()
+    }
+
+    /// The reset a device without an operating system read at boot, or `None` on a computer, which
+    /// starts as a new process (specification 11, the runtime device capabilities contract). The
+    /// default is no last reset.
+    fn last_reset(&self) -> Option<LastReset> {
+        None
+    }
 }
 
 /// What the running resource records and the status operations report: the debugger hold, the

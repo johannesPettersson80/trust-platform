@@ -1,5 +1,5 @@
 [package]
-name = "trust-esp32c6-reference"
+name = "trust-esp32c6"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"

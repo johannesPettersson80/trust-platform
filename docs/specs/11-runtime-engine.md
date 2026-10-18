@@ -2618,6 +2618,40 @@ not claim wall-clock accuracy, lock-free concurrent collection,
 instrumentation completeness, a stable observer-overhead budget, or a general
 execution-time guarantee.
 
+###### Runtime device capabilities contract
+
+`capabilities` reports the device descriptor that admission reads (specification 34, COMPAT-02 and
+§5.1.1) and, on a device without an operating system, the reset its boot read. It takes no
+parameters and changes nothing; its minimum role is Viewer. Like every control operation it
+carries one audit record and, being a read of the device's own descriptor, no operation details.
+Its result is the same shape on every runtime, a computer or a device without an operating system:
+
+| Result field | Type | Value |
+|---|---|---|
+| `bytecode_versions` | array of strings | The STBC versions the device prepares, each `<major>.<minor>` |
+| `scheduling_profiles` | array of strings | The scheduling/I/O profiles the device runs (specification 34 §4.4) |
+| `numeric_contracts` | array of strings | The numeric contracts the device implements (specification 34 §12.1) |
+| `timing_evidence` | string | `unqualified`, `measured-qualified` or `analytically supported` (specification 34 §4.4) |
+| `capabilities` | array of strings | The platform capabilities the device supplies, by name: bit 0, the platform wall clock (specification 34 §5.2), is `wall_clock`; any other set bit `n` that the specification does not name is `capability_bit_<n>` |
+| `maxima` | object | The largest request the device admits for each preparation limit, under that `PreparationLimits` field's name (for example `validation.max_scratch_bytes`): an integer where the device bounds the limit, and `null` (no maximum) where it bounds nothing. A limit at or above `usize::MAX`, the largest value the platform holds, is no maximum: a chip writes it as `u64::MAX`, a computer as `usize::MAX`. |
+| `event_store_default` | integer | The newest events the device's event store keeps when a project sets none |
+| `event_store_max` | integer | The most a project may set for the device's event store |
+| `application_slot_bytes` | integer or null | The bytes of the device's application slot, or null when it has none |
+| `last_reset` | object or null | The reset the device's boot read (below), or null |
+
+A computer reports `last_reset` as null: it starts as a new process. A device without an operating
+system reports the reset its boot read once: the record the previous boot left (specification 34,
+the fixed-size reset record) or, when it left none, the boot's hardware reset reason. A hardware
+watchdog reset runs no code and so leaves no record; its reason (0x07 on the C6, specification 34)
+reports `watchdog` with empty text. Any other boot with no record, a power-on, a host (USB) reset or
+a reason the hardware cannot name, reports `power_on`:
+
+| `last_reset` field | Type | Value |
+|---|---|---|
+| `cause` | string | The record's cause: `panic`, `watchdog` or `requested`; without a record, `watchdog` for a watchdog reset reason and `power_on` for any other |
+| `text` | string | The record's text, for example a panic location, empty when the boot read no record |
+| `boot_count` | integer | The boot counter the chip keeps, counted for this boot, for every reset whether or not a record exists |
+
 ###### Runtime terminal console contract
 
 The optional `trust-runtime ui` terminal console is an operator-facing
@@ -4945,7 +4979,7 @@ The explicit operation matrix is:
 
 | Minimum role | Operations |
 |---|---|
-| Viewer | `status`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
+| Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced` |
 | Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
 | Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |

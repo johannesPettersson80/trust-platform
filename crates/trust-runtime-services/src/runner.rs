@@ -16,9 +16,11 @@
 //! `restart` is refused with the reason until a program is installed.
 //!
 //! Requests take effect where trust-runtime's scan thread takes them. The loop answers each
-//! request at once; a `pause`, `resume`, `restart` or `shutdown` then waits for the program's next
-//! boundary, as trust-runtime's scan thread takes it at its next pass: while running, when the
-//! next scan is due; while paused, one cycle interval after the last boundary; while faulted, at
+//! request at once, unless the program's next boundary is due: then it takes that boundary first,
+//! so a due cycle waits at most for the request already being answered (STATE-08). A `pause`,
+//! `resume`, `restart` or `shutdown` then waits for the program's next boundary, as
+//! trust-runtime's scan thread takes it at its next pass: while running, when the next scan is
+//! due; while paused, one cycle interval after the last boundary; while faulted, at
 //! the end of each poll period of the faulted wait. At a boundary the stop comes first, then the
 //! queued pause and resume, then a pending restart, and then the scan; at a poll of the faulted
 //! wait a restart comes before the stop. `shutdown` stops the program as trust-runtime stops it,
@@ -60,9 +62,10 @@ use host::RunnerHost;
 use program::Program;
 use state::{Records, ResourceCell};
 
-/// Requests the loop serves in one pass before it turns to the scan, so that a busy link cannot
-/// hold back a due scan. A pass that reaches the bound does not wait, and the next pass serves
-/// the rest.
+/// Requests the loop answers in one pass before it does the pass's other work (the retained
+/// checkpoint step, the platform's idle work and the watchdog feed), so that a busy link cannot
+/// hold that work back. A pass that reaches the bound does not wait, and the next pass serves the
+/// rest. A due boundary ends the serving sooner, so a busy link cannot hold back a due scan either.
 pub const FRAMES_PER_PASS: usize = 8;
 
 /// The longest the loop waits while its control link still holds reply bytes it has not handed to
@@ -79,8 +82,8 @@ pub const REPLY_SERVICE_INTERVAL: TimeSpan = TimeSpan::new(core::time::Duration:
 /// cycle interval while running or paused, within the automatic restart's backoff of at most one
 /// second after an automatic restart, and within the faulted wait's poll period
 /// ([`crate::resource::supervisor::FAULTED_WAIT_POLL`]) while faulted — and then within the pass
-/// that takes it: up to [`FRAMES_PER_PASS`] requests and the stop's outputs and retain save. A
-/// scan or callback that never returns is not ended by a stop but by the hardware watchdog
+/// that takes it, after at most the request being answered, with the stop's outputs and retain
+/// save. A scan or callback that never returns is not ended by a stop but by the hardware watchdog
 /// (TIME-04), which the loop then no longer feeds.
 pub struct Runner<L, W, Y, P, C> {
     link: L,
@@ -106,6 +109,13 @@ pub struct Runner<L, W, Y, P, C> {
     /// The program's current time: the logical time of its last scan, or of its last restart.
     program_time: value::Duration,
     restarts: AutomaticRestartLimiter,
+    /// A request taken from the link and held back because the next boundary was due. The next
+    /// pass answers it once that boundary has been taken.
+    held: Option<LinkFrame>,
+    /// Whether one request may be answered although the next boundary is due. The boundary is
+    /// due again as soon as it is taken after a scan that overran its interval, and without this
+    /// grant such a program would never let the link be answered (specification 34, STATE-08).
+    request_grant: bool,
 }
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
@@ -157,6 +167,8 @@ where
             cycle_count: 0,
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
+            held: None,
+            request_grant: false,
         }
     }
 
@@ -196,6 +208,8 @@ where
             cycle_count: 0,
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
+            held: None,
+            request_grant: false,
         }
     }
 
@@ -220,14 +234,15 @@ where
         }
     }
 
-    /// One pass of the loop: it reads the wake token, serves the requests that have arrived,
-    /// takes the program's boundary when it is due, advances a pending retained checkpoint by one
-    /// step, does the platform's idle work, feeds the hardware watchdog and waits until the next
-    /// boundary or a wake (PORT-03).
+    /// One pass of the loop: it reads the wake token, serves the requests that have arrived up to a
+    /// due boundary, takes the program's boundary when it is due, advances a pending retained
+    /// checkpoint by one step, does the platform's idle work, feeds the hardware watchdog and waits
+    /// until the next boundary or a wake (PORT-03).
     ///
     /// The wait never outlasts the watchdog's feed interval, so the loop feeds it in every state,
     /// also while the program is stopped, paused or faulted (TIME-04). A pass that served
-    /// [`FRAMES_PER_PASS`] requests returns without waiting.
+    /// [`FRAMES_PER_PASS`] requests, or that held a request back for a due boundary, returns
+    /// without waiting.
     ///
     /// # Errors
     ///
@@ -272,12 +287,20 @@ where
         }
     }
 
-    /// Serves up to [`FRAMES_PER_PASS`] requests; true when the bound was reached.
+    /// Serves up to [`FRAMES_PER_PASS`] requests, and returns true when it stops with the link not
+    /// yet dry: at the bound, or at a request it holds back. It starts no request while the next
+    /// boundary is due, so the boundary waits for at most the request being answered; the one
+    /// exception is a boundary that is due again as soon as it is taken, which lets one request
+    /// through (see `request_grant`).
     fn serve_link(&mut self) -> bool {
         for _ in 0..FRAMES_PER_PASS {
-            let Some(received) = self.link.poll_frame(&mut self.frame) else {
+            let Some(received) = self.next_frame() else {
                 return false;
             };
+            if self.boundary_due() && !core::mem::take(&mut self.request_grant) {
+                self.held = Some(received);
+                return true;
+            }
             let prepared = self.answer(received);
             // A reply the link cannot deliver is lost, as trust-runtime loses a reply to a
             // connection that has closed; so is one that does not fit a frame even as the error
@@ -288,6 +311,14 @@ where
             self.after_reply(prepared.after_response);
         }
         true
+    }
+
+    /// The request to answer next: the one held back for a due boundary, which goes first, else the
+    /// next frame the link has received.
+    fn next_frame(&mut self) -> Option<LinkFrame> {
+        self.held
+            .take()
+            .or_else(|| self.link.poll_frame(&mut self.frame))
     }
 
     /// The reply to one received frame, at most one frame long. A frame longer than the link
@@ -339,6 +370,12 @@ where
     /// The program's cycle interval as a span.
     fn interval(&self) -> TimeSpan {
         span(self.cycle.cycle_interval())
+    }
+
+    /// Whether the program's next boundary is due now; a program that has ended has none.
+    fn boundary_due(&self) -> bool {
+        self.next_boundary
+            .is_some_and(|boundary| boundary <= self.clock.now())
     }
 }
 

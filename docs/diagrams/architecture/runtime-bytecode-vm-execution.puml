@@ -222,7 +222,7 @@ package "MCU compositions and evidence boundary" as mcuPkg #Wheat {
     component "firmware/trust-stm32f407\nF407 chip firmware: identity, measured crystal, reset cookie, supervisor\nthe board's wiring is its configuration" as f407firmware
     component "trust-platform-stm32f4::Board\nfeature stm32f407: crystal measured against HSI, PLL 168 MHz / TIM2 / pins by name / USART2 / IWDG" as board
     node "STM32F407G-DISC1\n(bench example of the chip)" as f407device
-    component "firmware/trust-esp32c6-reference\nC6 composition: identity, reset cookie, supervisor" as c6firmware
+    component "firmware/trust-esp32c6\nC6 composition: identity, reset cookie, supervisor" as c6firmware
     component "trust-platform-esp32::Board\nSYSTIMER / GPIO9 / GPIO18 / USB-Serial-JTAG / MWDT0" as c6board
     node "ESP32-C6-DevKitC-1" as c6device
     artifact --> bundle : stopped installation

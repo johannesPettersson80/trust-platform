@@ -18,6 +18,7 @@ const VIEWER: &[&str] = &[
     "ads.server.symbols",
     "ads.status",
     "breakpoints.list",
+    "capabilities",
     "comm.capabilities",
     "comm.discover",
     "comm.schema",

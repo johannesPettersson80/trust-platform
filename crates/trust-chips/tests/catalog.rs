@@ -133,8 +133,13 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
         .map(|entry| entry.pin.as_str())
         .collect();
     assert_eq!(usb_pins, ["GPIO12", "GPIO13"]);
-    assert_eq!(chip.firmware.crate_dir, "firmware/trust-esp32c6-reference");
-    assert_eq!(chip.firmware.components, [Component::Engine]);
+    assert_eq!(chip.firmware.crate_dir, "firmware/trust-esp32c6");
+    assert_eq!(chip.firmware.bin, "trust-esp32c6");
+    // Appendix H.3: the components the C6 bench measured; the F407 holds the engine alone.
+    assert_eq!(
+        chip.firmware.components,
+        [Component::Engine, Component::Control, Component::LiveValues]
+    );
 }
 
 #[test]
@@ -164,12 +169,16 @@ fn both_files_record_what_was_measured_on_the_owners_chips() {
 #[test]
 fn a_component_names_the_chips_whose_firmware_holds_it() {
     let catalog = catalog();
-    // Today's firmware runs the M2E fixture and holds the engine alone.
+    // Appendix H.3: both firmwares hold the engine; the C6's bench measured the control requests
+    // and Live Values, which the F407 firmware does not serve. Catches a chip offered for a
+    // component its firmware lacks, or one left out for a component it holds.
     assert_eq!(
         catalog.chips_with(Component::Engine),
         ["stm32f407", "esp32c6"]
     );
-    for component in Component::ALL.into_iter().skip(1) {
+    assert_eq!(catalog.chips_with(Component::Control), ["esp32c6"]);
+    assert_eq!(catalog.chips_with(Component::LiveValues), ["esp32c6"]);
+    for component in Component::ALL.into_iter().skip(3) {
         assert!(
             catalog.chips_with(component).is_empty(),
             "{}",

@@ -594,6 +594,8 @@ fn the_device_runner_reports_the_records_control_mode() {
             ..TestPlatform::default()
         };
         let mut runner = fixture.runner_with(platform);
+        // The first scan, due at power-on, runs before a request that arrives then (STATE-08).
+        fixture.pass_at(&mut runner, 0);
         let status = fixture.call(&mut runner, &request(1, "status"));
         assert_eq!(status["result"]["control_mode"], json!(label), "{mode:?}");
     }

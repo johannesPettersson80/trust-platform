@@ -16,6 +16,7 @@ use smol_str::SmolStr;
 use crate::access::{
     is_debug_request, required_role_for_control_request, stamp_credential_channel_param, AccessRole,
 };
+use crate::capabilities;
 use crate::events::{wall_time, RuntimeEvent};
 use crate::live_values::{io_requests, var_requests};
 use crate::ports::{AuditRecord, ControlHost};
@@ -266,6 +267,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
     let id = request.id;
     let response = match request.r#type.as_str() {
         "status" => status::status(id, host),
+        "capabilities" => capabilities::capabilities(id, host),
         "health" => status::health(id, host),
         "tasks.stats" => status::task_stats(id, host),
         "events.tail" | "events" => status::events_tail(id, request.params.as_ref(), host),

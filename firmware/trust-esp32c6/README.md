@@ -16,7 +16,7 @@ its board composition (design §1.1):
 - `src/main.rs`: the boot sequence, the panic path and the runner composition.
 - `src/application.rs`: the header read, the total-length copy into the heap, and `installation::admit`
   against the C6's `DeviceDescriptor`.
-- `src/memory.rs`: the 72 KiB main heap, the boot loader's 64 KiB reclaimed region and the 16 KiB
+- `src/memory.rs`: the 72 KiB main heap, the boot loader's 64 KiB reclaimed region and the 24 KiB
   main-stack window.
 
 ## Boot sequence
@@ -76,7 +76,7 @@ board's USB port explicitly on every command. Its `/dev/serial/by-id` path conta
 
 ```
 espflash flash --port <devkit-serial-by-id> --partition-table partitions.csv \
-  target/riscv32imac-unknown-none-elf/release/trust-esp32c6-reference
+  target/riscv32imac-unknown-none-elf/release/trust-esp32c6
 espflash write-bin --port <devkit-serial-by-id> 0x200000 application.bin
 trust-runtime ctl --endpoint usb://<mac> status
 ```
@@ -102,7 +102,7 @@ espflash 4.6.0 (ESP-IDF v6.1-beta1); M5 qualification requires a released bootlo
 |---|---|---|
 | Main heap (`HEAP_MEMORY`) | 72 KiB static | the first measured-allocator region |
 | Reclaimed region (`RECLAIMED`) | 64 KiB | the boot loader's RAM, `#[esp_hal::ram(reclaimed)]` in `.dram2_uninit`, the second heap region |
-| Main-stack window | 16 KiB below the fixed stack top `0x4086E610` | measured, 2 KiB minimum headroom |
+| Main-stack window | 24 KiB below the fixed stack top `0x4086E610` | measured, 2 KiB minimum headroom; the linker refuses a stack region under 28 KiB |
 | Scan-time code (`.rwtext`) | about 300 KB | the interpreter and the engine's scan path, executed from RAM |
 
 Scan-time code runs from HP SRAM. From flash, through the 32 KB cache, one task activation took
@@ -116,7 +116,7 @@ servicing it calls are in RAM through esp-hal's `#[ram]` attribute, because they
 cache may be off. `xtask portability inspect` fails if the VM dispatch loop is not in HP SRAM.
 
 The esp-hal stack region spans the HP SRAM left after static data and RAM code. The firmware measures
-and budgets only the top 16 KiB, below `0x4086E610`, the `_stack_start` of esp-hal 1.2.2's C6 memory
+and budgets only the top 24 KiB, below `0x4086E610`, the `_stack_start` of esp-hal 1.2.2's C6 memory
 map; the window is a constant, as on the STM32F407, and `xtask portability inspect` fails if the
 linked `_stack_start` differs. Exceeding that window fails the run, although the region has room.
 Interrupts use the same stack on RISC-V, so the window includes them.

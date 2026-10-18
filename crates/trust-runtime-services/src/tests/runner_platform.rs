@@ -14,7 +14,7 @@ use core::time::Duration;
 
 use serde_json::json;
 use smol_str::SmolStr;
-use trust_runtime_core::deployment::ControlMode;
+use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{
@@ -25,6 +25,7 @@ use trust_runtime_core::value::Value;
 
 use super::runner_ports::{ms, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
+use crate::capabilities::LastReset;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
@@ -59,6 +60,10 @@ pub(crate) struct TestPlatform {
     pub(crate) checkpoint: Option<CheckpointStore>,
     /// The control mode the platform's deployment record carries, `production` by default.
     pub(crate) control_mode: ControlMode,
+    /// The device descriptor the `capabilities` operation reports; a computer's by default.
+    pub(crate) device_descriptor: DeviceDescriptor,
+    /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
+    pub(crate) last_reset: Option<LastReset>,
 }
 
 impl Default for TestPlatform {
@@ -75,6 +80,8 @@ impl Default for TestPlatform {
             live_values: Rc::new(EngineLiveValues::empty()),
             checkpoint: None,
             control_mode: ControlMode::Production,
+            device_descriptor: DeviceDescriptor::hosted(),
+            last_reset: None,
         }
     }
 }
@@ -160,6 +167,14 @@ impl StatusPort for TestPlatform {
     /// A device has no `OpenOT` persistence, the block every runtime reports without it.
     fn openot_persistence(&self) -> Option<serde_json::Value> {
         Some(disabled_openot_persistence())
+    }
+
+    fn device_descriptor(&self) -> DeviceDescriptor {
+        self.device_descriptor.clone()
+    }
+
+    fn last_reset(&self) -> Option<LastReset> {
+        self.last_reset.clone()
     }
 }
 
