@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
+  project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
+  `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
+  the requirement off, or name a keyring of its own, and install an unsigned program.
+
 - RETAIN variables on the ESP32-C6: with `[runtime.retain] mode = "file"` the chip saves them into
   its checkpoint flash at `save_interval_ms` and at `shutdown`, and power-on and a reset start the
   program warm with the newest saved values, so an interrupted save loses at most that save. The

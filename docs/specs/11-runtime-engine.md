@@ -4539,7 +4539,12 @@ When deployment signature policy is enabled, validation occurs before any
 bundle file or deployment pointer is changed. A payload signed by a currently
 trusted, unexpired key is accepted. A tampered payload, unknown key, expired
 key, malformed signature, or policy mismatch rejects the deployment without a
-partial install. Failure output may identify the key ID and failure class but
+partial install. The policy in force is the one in the project's installed
+`runtime.toml` (`[runtime.deploy] require_signed` and `keyring_path`), never the
+configuration the deployment carries: a deployment that changes the policy is
+checked against the policy it replaces, so it can neither turn the requirement
+off nor name a keyring of its own. Only a project with no installed
+`runtime.toml` takes the policy from the deployment's own configuration. Failure output may identify the key ID and failure class but
 must never echo key material or another configured secret. Source paths with an
 optional leading `src/` normalize to the same contained bundle destination;
 normalization never permits an absolute path, parent traversal, or platform
