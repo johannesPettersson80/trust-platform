@@ -1,6 +1,7 @@
 //! Output copy-back journals only physical destination slots.
 use super::destinations::Key;
 use super::*;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::MemoryLocation;
 use crate::value::ValueRefView;
 use crate::vm::VmTrap;
@@ -85,11 +86,19 @@ impl EngineState<'_> {
         key: Key,
     ) -> Result<&'s Value, RuntimeError> {
         if frame.is_some_and(|frame| key.0 == MemoryLocation::Local(frame.reference_frame_id())) {
-            frame.and_then(|frame| frame.locals.get(key.1))
-        } else {
-            self.data.storage.read_direct_slot_by_location(key.0, key.1)
+            return frame
+                .and_then(|frame| frame.locals.get(key.1))
+                .ok_or(RuntimeError::NullReference);
         }
-        .ok_or(RuntimeError::NullReference)
+        let view = self
+            .data
+            .storage
+            .read_slot(key.0, key.1)
+            .map_err(|_| RuntimeError::NullReference)?;
+        self.data
+            .storage
+            .borrow(&view)
+            .ok_or(RuntimeError::NullReference)
     }
 
     /// Resolve input destinations in their original order, then copy each root once into
@@ -189,9 +198,7 @@ impl EngineState<'_> {
             {
                 frame.locals[offset] = value;
             } else {
-                self.data
-                    .storage
-                    .restore_direct_slot(location, offset, value);
+                self.data.storage.restore_slot(location, offset, value);
             }
         }
     }

@@ -15,7 +15,7 @@
 //! tree). Each method forwards to the same storage function the engine calls today
 //! (C1-8a note §3), so no result, trap, error, charge or allocation changes.
 
-use super::{MemoryLocation, PreparedStorageWrite, VariableStorage};
+use super::{InstanceId, MemoryLocation, PreparedStorageWrite, VariableStorage};
 use crate::error::RuntimeError;
 use crate::value::{read_value_path_borrowed, RefSegment, Value, ValueRefView};
 use crate::vm::VmTrap;
@@ -103,6 +103,16 @@ pub trait StoreAccess {
     /// The view of a reference's slot and path, in this storage's generation.
     fn read_reference<'a>(&'a self, reference: ValueRefView<'a>) -> Result<ValueView<'a>, VmTrap>;
 
+    /// The view of one instance variable selected by its declared name.
+    ///
+    /// A C1-8b forwarding method: today's storage names an instance's variables by
+    /// string in an ordered map, which a computed cell range cannot carry, and a
+    /// built-in function-block executor holds no layout to resolve the name to an
+    /// offset. C1-9 resolves the name through the instance template's layout at
+    /// this boundary and retires the method (C1-8b note §5; specification 34 §6.2,
+    /// MEM-10). Callers: `vm::edge`, `stdlib::fbs::instance`.
+    fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>>;
+
     /// Step into one compound segment without cloning the parent.
     fn member<'a>(
         &'a self,
@@ -117,11 +127,17 @@ pub trait StoreAccess {
     ///
     /// This is the C1-8 compatibility read: it hands out a `&`[`Value`] into
     /// today's `Value`-tree storage, which the C1-9 cell store cannot serve. C1-9
-    /// removes it by moving its three callers to view-based reads and charges:
-    /// `read_storage_path` and `read_storage_slot` in `vm::dispatch_refs`, and
-    /// `charge_storage_path_write` in `vm::engine::path_write` (C1-8a note §4). The
-    /// engine reads the stored value through this for its copy charge and step-into
-    /// decisions while today's storage is a `Value` tree (C1-8a).
+    /// removes it by moving every caller to view-based reads and charges. The
+    /// C1-8a callers are `read_storage_path` and `read_storage_slot` in
+    /// `vm::dispatch_refs` and `charge_storage_path_write` in
+    /// `vm::engine::path_write` (C1-8a note §4); the C1-8b callers are
+    /// `peek_vm_reference_path` and `write_vm_reference` in `vm::call::bindings`,
+    /// `VmFbOutSource::read`, `VmFbFieldBinding::read` and `VmWriteTarget::peek` in
+    /// `vm::call::bindings::targets`, `EdgeInputTransaction::begin` in `vm::edge`,
+    /// `snapshot_root` in `vm::engine::output_transaction`, and the instance read
+    /// helper in `stdlib::fbs::instance`. The engine reads the stored value through
+    /// this for its copy charge and step-into decisions while today's storage is a
+    /// `Value` tree.
     fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value>;
 
     /// The owned `Value` of a view; the only allocating read.
@@ -150,6 +166,17 @@ pub trait StoreMutate {
         reference: ValueRefView<'_>,
         value: Value,
     ) -> Result<bool, RuntimeError>;
+
+    /// Replace, or insert, one instance variable selected by its declared name,
+    /// without normalizing it for a target.
+    ///
+    /// A C1-8b forwarding method, the write counterpart of
+    /// [`StoreAccess::read_instance_var`]: a name may name a member not yet present
+    /// in today's value map, so the seam's slot write (which requires an existing
+    /// offset) cannot express it. C1-9 resolves the name through the instance
+    /// template's layout at this boundary and retires the method. Callers:
+    /// `vm::edge`, `stdlib::fbs::instance`.
+    fn write_instance_var(&mut self, instance: InstanceId, name: &str, value: Value) -> bool;
 
     /// Publish the prepared patch once, applying the receiving text capacity.
     fn commit_write(
@@ -199,6 +226,12 @@ impl StoreAccess for VariableStorage {
         self.read_by_ref_parts(reference.location, reference.offset, reference.path)
             .map(ValueView::borrowed)
             .ok_or(VmTrap::NullReference)
+    }
+
+    #[inline]
+    fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
+        self.get_instance_var(instance, name)
+            .map(ValueView::borrowed)
     }
 
     #[inline]
@@ -254,6 +287,11 @@ impl StoreMutate for VariableStorage {
             return Err(RuntimeError::ReferenceLifetime);
         }
         self.write_by_ref_parts_checked(reference.location, reference.offset, reference.path, value)
+    }
+
+    #[inline]
+    fn write_instance_var(&mut self, instance: InstanceId, name: &str, value: Value) -> bool {
+        self.set_instance_var(instance, name, value)
     }
 
     #[inline]

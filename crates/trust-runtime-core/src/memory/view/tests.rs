@@ -296,3 +296,35 @@ fn view_read_of_a_foreign_generation_reference_reads_nothing() {
         Value::DInt(7)
     );
 }
+
+#[test]
+fn view_instance_var_forwarding_selects_the_named_member_and_writes_it_raw() {
+    // spec 34 §6.2 (MEM-10): an instance's member is selected by its declared
+    // name. The forwarding read lands on the wrong member if it ignores the name.
+    let mut storage = VariableStorage::new();
+    let instance = storage.create_instance("Probe");
+    storage.set_instance_var(instance, "number", Value::DInt(7));
+    storage.set_instance_var(instance, "level", Value::Int(3));
+
+    let view = storage
+        .read_instance_var(instance, "number")
+        .expect("the declared member resolves");
+    // A read that ignores the name returns the neighbouring member here.
+    assert_eq!(
+        storage.materialize(&view).expect("number materializes"),
+        Value::DInt(7)
+    );
+
+    assert!(storage.write_instance_var(instance, "number", Value::Int(42)));
+    // The forwarding write replaces the named member with the exact value; a
+    // forwarding write that normalizes for the target would store DInt(42), and a
+    // write that lands on the wrong member would leave `number` at 7.
+    assert_eq!(
+        storage.get_instance_var(instance, "number"),
+        Some(&Value::Int(42))
+    );
+    assert_eq!(
+        storage.get_instance_var(instance, "level"),
+        Some(&Value::Int(3))
+    );
+}

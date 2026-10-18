@@ -16,7 +16,7 @@
 use super::{EngineState, RuntimeState};
 use crate::error::RuntimeError;
 use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate, ValueView};
-use crate::memory::MemoryLocation;
+use crate::memory::{InstanceId, MemoryLocation};
 use crate::value::{RefSegment, Value, ValueRefView};
 use crate::vm::VmTrap;
 
@@ -43,6 +43,11 @@ impl StoreAccess for EngineState<'_> {
     #[inline]
     fn read_reference<'a>(&'a self, reference: ValueRefView<'a>) -> Result<ValueView<'a>, VmTrap> {
         self.data.storage.read_reference(reference)
+    }
+
+    #[inline]
+    fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
+        self.data.storage.read_instance_var(instance, name)
     }
 
     #[inline]
@@ -99,6 +104,11 @@ impl StoreMutate for EngineState<'_> {
     }
 
     #[inline]
+    fn write_instance_var(&mut self, instance: InstanceId, name: &str, value: Value) -> bool {
+        self.data.storage.write_instance_var(instance, name, value)
+    }
+
+    #[inline]
     fn commit_write(
         &mut self,
         path: &[RefSegment],
@@ -140,6 +150,11 @@ impl StoreAccess for RuntimeState<'_> {
     #[inline]
     fn read_reference<'a>(&'a self, reference: ValueRefView<'a>) -> Result<ValueView<'a>, VmTrap> {
         self.storage().read_reference(reference)
+    }
+
+    #[inline]
+    fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
+        self.storage().read_instance_var(instance, name)
     }
 
     #[inline]

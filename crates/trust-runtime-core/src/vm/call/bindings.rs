@@ -4,6 +4,7 @@ use alloc::{borrow::ToOwned, format, vec::Vec};
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
+use crate::memory::view::{StoreAccess, StoreMutate};
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
 use crate::value::{materialize_value_path, read_value_path_borrowed, RefSegment, Value, ValueRef};
 
@@ -1208,9 +1209,13 @@ fn peek_vm_reference_path<'a>(
         return read_value_path_borrowed(root, path)
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference));
     }
+    let view = runtime
+        .storage()
+        .read_path(reference.location, reference.offset as usize, path)
+        .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))?;
     runtime
         .storage()
-        .read_by_ref_parts(reference.location, reference.offset as usize, path)
+        .borrow(&view)
         .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))
 }
 
@@ -1292,9 +1297,13 @@ pub fn write_vm_reference(
         return Err(VmTrap::Runtime(RuntimeError::TypeMismatch));
     }
     {
+        let view = runtime
+            .storage()
+            .read_slot(reference.location, reference.offset as usize)
+            .map_err(|_| VmTrap::Runtime(RuntimeError::NullReference))?;
         let root = runtime
             .storage()
-            .read_direct_slot_by_location(reference.location, reference.offset as usize)
+            .borrow(&view)
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::NullReference))?;
         runtime
             .before_path_write(root, &reference.path, &value)
@@ -1305,7 +1314,7 @@ pub fn write_vm_reference(
         crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::StorageWrite);
     let prepared = runtime
         .storage()
-        .prepare_by_ref_parts_write(
+        .prepare_write(
             reference.location,
             reference.offset as usize,
             &reference.path,
@@ -1316,7 +1325,7 @@ pub fn write_vm_reference(
     runtime.before_write_commit().map_err(VmTrap::Runtime)?;
     if runtime
         .storage_mut()
-        .commit_prepared_write(&reference.path, value, prepared, capacity)
+        .commit_write(&reference.path, value, prepared, capacity)
     {
         Ok(())
     } else {
