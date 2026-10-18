@@ -19,6 +19,8 @@ use super::{
     Generation, InstanceData, InstanceId, MemoryLocation, PreparedStorageWrite, VariableStorage,
 };
 use crate::error::RuntimeError;
+use crate::memory::cell_access::CellsView;
+use crate::memory::layout::CellRange;
 use crate::value::{read_value_path_borrowed, RefSegment, Value, ValueRef, ValueRefView};
 use crate::vm::VmTrap;
 use smol_str::SmolStr;
@@ -28,36 +30,87 @@ use smol_str::SmolStr;
 /// Opaque: only [`StoreAccess`] observes a view, its field is private and, apart
 /// from the compatibility read [`StoreAccess::borrow`], no method hands out a
 /// `&`[`Value`] into storage.
-pub struct ValueView<'a> {
-    value: &'a Value,
+#[derive(Clone, Copy)]
+pub enum ValueView<'a> {
+    /// A value of today's `Value` tree, borrowed from storage (the `Values` arm).
+    Value(&'a Value),
+    /// The cells of one value of type `type_id` at `range`, read through `cells` (the cell arm,
+    /// C1-9b). The view carries what it reads through, so it needs no store to step, text or
+    /// materialize; it borrows nothing from the `Value` tree, so [`StoreAccess::borrow`] gives
+    /// `None` for it.
+    Cells {
+        /// The layouts and the region the cells are read from.
+        cells: CellsView<'a>,
+        /// The cell range the value occupies.
+        range: CellRange,
+        /// The `TYPE_TABLE` type the cells hold.
+        type_id: u32,
+    },
 }
 
 impl<'a> ValueView<'a> {
     /// A view borrowing `value` from storage.
     fn borrowed(value: &'a Value) -> Self {
-        Self { value }
+        Self::Value(value)
     }
 
     /// Step one compound segment into a child borrowed from the same storage, or
     /// `None` when the child is absent.
     fn member(&self, segment: &RefSegment) -> Option<Self> {
-        read_value_path_borrowed(self.value, core::slice::from_ref(segment)).map(Self::borrowed)
-    }
-
-    /// The stored text bytes of a text leaf, borrowed. `None` for any other value.
-    fn text(&self) -> Option<&'a str> {
-        match self.value {
-            Value::String(text) => Some(text.as_str()),
-            Value::WString(text) => Some(text.as_str()),
-            _ => None,
+        match *self {
+            Self::Value(value) => {
+                read_value_path_borrowed(value, core::slice::from_ref(segment)).map(Self::borrowed)
+            }
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells
+                .member(range, type_id, segment)
+                .map(|(range, type_id)| Self::Cells {
+                    cells,
+                    range,
+                    type_id,
+                }),
         }
     }
 
-    /// The owned `Value` of this view. The view already holds the resolved leaf,
-    /// so this is the clone `materialize_by_ref_parts`/`materialize_value_path`
-    /// end their walk with.
-    fn materialize(&self) -> Value {
-        self.value.clone()
+    /// The stored text bytes of a text leaf, borrowed. `None` for any other value. A cell
+    /// `WSTRING` has no UTF-8 text, so it gives `None` (specification 34 §6.2, C1-9b).
+    pub(crate) fn text(&self) -> Option<&'a str> {
+        match *self {
+            Self::Value(value) => match value {
+                Value::String(text) => Some(text.as_str()),
+                Value::WString(text) => Some(text.as_str()),
+                _ => None,
+            },
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells.string_text(range, type_id),
+        }
+    }
+
+    /// The `Value` this view borrows from storage, or `None` for a view of cells.
+    pub(crate) fn borrowed_value(&self) -> Option<&'a Value> {
+        match *self {
+            Self::Value(value) => Some(value),
+            Self::Cells { .. } => None,
+        }
+    }
+
+    /// The owned `Value` of this view. A `Value` view clones the leaf the walk resolved; a cell
+    /// view reads its cells (`read_value`), which is the only allocating read.
+    pub(crate) fn materialize(&self) -> Result<Value, RuntimeError> {
+        match *self {
+            Self::Value(value) => Ok(value.clone()),
+            Self::Cells {
+                cells,
+                range,
+                type_id,
+            } => cells.materialize(range, type_id),
+        }
     }
 }
 
@@ -475,12 +528,12 @@ impl StoreAccess for VariableStorage {
 
     #[inline]
     fn borrow<'a>(&'a self, view: &ValueView<'a>) -> Option<&'a Value> {
-        Some(view.value)
+        view.borrowed_value()
     }
 
     #[inline]
     fn materialize(&self, view: &ValueView<'_>) -> Result<Value, RuntimeError> {
-        Ok(view.materialize())
+        view.materialize()
     }
 
     #[inline]

@@ -13,11 +13,14 @@
 //! crate-visible accessor in `api.rs`, which this slice's file list does not
 //! include; C1-8c owns that engineering surface.
 
-use super::{EngineState, RuntimeState};
+use super::{EngineData, EngineState, EngineStore, RuntimeState};
 use crate::error::RuntimeError;
+use crate::memory::cell_access::CellReader;
 use crate::memory::view::{PreparedWrite, StoreAccess, StoreMutate, ValueView};
+use crate::memory::VariableStorage;
 use crate::memory::{Generation, InstanceData, InstanceId, MemoryLocation};
 use crate::value::{RefSegment, Value, ValueRef, ValueRefView};
+use crate::vm::PreparedModule;
 use crate::vm::VmTrap;
 use smol_str::SmolStr;
 
@@ -29,7 +32,10 @@ impl StoreAccess for EngineState<'_> {
         offset: usize,
         path: &[RefSegment],
     ) -> Result<ValueView<'a>, VmTrap> {
-        self.data.storage.read_path(location, offset, path)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.read_path(location, offset, path),
+            Routed::Cells(reader) => reader.read_path(location, offset, path),
+        }
     }
 
     #[inline]
@@ -38,27 +44,42 @@ impl StoreAccess for EngineState<'_> {
         location: MemoryLocation,
         offset: usize,
     ) -> Result<ValueView<'a>, VmTrap> {
-        self.data.storage.read_slot(location, offset)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.read_slot(location, offset),
+            Routed::Cells(reader) => reader.read_slot(location, offset),
+        }
     }
 
     #[inline]
     fn read_reference<'a>(&'a self, reference: ValueRefView<'a>) -> Result<ValueView<'a>, VmTrap> {
-        self.data.storage.read_reference(reference)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.read_reference(reference),
+            Routed::Cells(reader) => reader.read_reference(reference),
+        }
     }
 
     #[inline]
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
-        self.data.storage.read_instance_var(instance, name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.read_instance_var(instance, name),
+            Routed::Cells(reader) => reader.read_instance_var(instance, name),
+        }
     }
 
     #[inline]
     fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
-        self.data.storage.read_global(name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.read_global(name),
+            Routed::Cells(reader) => reader.read_global(name),
+        }
     }
 
     #[inline]
     fn global_name(&self, offset: usize) -> Option<&SmolStr> {
-        self.data.storage.global_name(offset)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.global_name(offset),
+            Routed::Cells(reader) => reader.global_name(offset),
+        }
     }
 
     #[inline]
@@ -67,22 +88,34 @@ impl StoreAccess for EngineState<'_> {
         instance: InstanceId,
         name: &str,
     ) -> Result<ValueView<'a>, VmTrap> {
-        self.data.storage.read_instance_field(instance, name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.read_instance_field(instance, name),
+            Routed::Cells(reader) => reader.read_instance_field(instance, name),
+        }
     }
 
     #[inline]
     fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
-        self.data.storage.ref_for_global(name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.ref_for_global(name),
+            Routed::Cells(reader) => reader.ref_for_global(name),
+        }
     }
 
     #[inline]
     fn ref_for_instance(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
-        self.data.storage.ref_for_instance(instance, name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.ref_for_instance(instance, name),
+            Routed::Cells(reader) => reader.ref_for_instance(instance, name),
+        }
     }
 
     #[inline]
     fn snapshot_instance(&self, instance: InstanceId) -> Option<InstanceData> {
-        self.data.storage.snapshot_instance(instance)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.snapshot_instance(instance),
+            Routed::Cells(reader) => reader.snapshot_instance(instance),
+        }
     }
 
     #[inline]
@@ -117,43 +150,58 @@ impl StoreAccess for EngineState<'_> {
         path: &[RefSegment],
         value: &Value,
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
-        self.data
-            .storage
-            .prepare_write(location, offset, path, value)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.prepare_write(location, offset, path, value),
+            Routed::Cells(_) => Err(RuntimeError::InvalidExecutionState),
+        }
     }
 
     #[inline]
     fn generation(&self) -> Generation {
-        self.data.storage.generation()
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.generation(),
+            Routed::Cells(reader) => reader.generation(),
+        }
     }
 
     #[inline]
     fn instance_type_name(&self, instance: InstanceId) -> Option<&SmolStr> {
-        self.data.storage.instance_type_name(instance)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.instance_type_name(instance),
+            Routed::Cells(reader) => reader.instance_type_name(instance),
+        }
     }
 
     #[inline]
     fn instance_parent(&self, instance: InstanceId) -> Result<Option<InstanceId>, VmTrap> {
-        self.data.storage.instance_parent(instance)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.instance_parent(instance),
+            Routed::Cells(reader) => reader.instance_parent(instance),
+        }
     }
 
     #[inline]
     fn ref_for_instance_recursive(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
-        self.data.storage.ref_for_instance_recursive(instance, name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.ref_for_instance_recursive(instance, name),
+            Routed::Cells(reader) => reader.ref_for_instance_recursive(instance, name),
+        }
     }
 
     #[inline]
     fn resolved_instance_field_ref(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
-        self.data
-            .storage
-            .resolved_instance_field_ref(instance, name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.resolved_instance_field_ref(instance, name),
+            Routed::Cells(reader) => reader.resolved_instance_field_ref(instance, name),
+        }
     }
 
     #[inline]
     fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize> {
-        self.data
-            .storage
-            .declared_instance_field_offset(instance, name)
+        match self.data.routed(self.prepared) {
+            Routed::Values(store) => store.declared_instance_field_offset(instance, name),
+            Routed::Cells(reader) => reader.declared_instance_field_offset(instance, name),
+        }
     }
 }
 
@@ -237,7 +285,10 @@ impl StoreAccess for RuntimeState<'_> {
         offset: usize,
         path: &[RefSegment],
     ) -> Result<ValueView<'a>, VmTrap> {
-        self.storage().read_path(location, offset, path)
+        match self.routed() {
+            Routed::Values(store) => store.read_path(location, offset, path),
+            Routed::Cells(reader) => reader.read_path(location, offset, path),
+        }
     }
 
     #[inline]
@@ -246,27 +297,42 @@ impl StoreAccess for RuntimeState<'_> {
         location: MemoryLocation,
         offset: usize,
     ) -> Result<ValueView<'a>, VmTrap> {
-        self.storage().read_slot(location, offset)
+        match self.routed() {
+            Routed::Values(store) => store.read_slot(location, offset),
+            Routed::Cells(reader) => reader.read_slot(location, offset),
+        }
     }
 
     #[inline]
     fn read_reference<'a>(&'a self, reference: ValueRefView<'a>) -> Result<ValueView<'a>, VmTrap> {
-        self.storage().read_reference(reference)
+        match self.routed() {
+            Routed::Values(store) => store.read_reference(reference),
+            Routed::Cells(reader) => reader.read_reference(reference),
+        }
     }
 
     #[inline]
     fn read_instance_var<'a>(&'a self, instance: InstanceId, name: &str) -> Option<ValueView<'a>> {
-        self.storage().read_instance_var(instance, name)
+        match self.routed() {
+            Routed::Values(store) => store.read_instance_var(instance, name),
+            Routed::Cells(reader) => reader.read_instance_var(instance, name),
+        }
     }
 
     #[inline]
     fn read_global<'a>(&'a self, name: &str) -> Option<ValueView<'a>> {
-        self.storage().read_global(name)
+        match self.routed() {
+            Routed::Values(store) => store.read_global(name),
+            Routed::Cells(reader) => reader.read_global(name),
+        }
     }
 
     #[inline]
     fn global_name(&self, offset: usize) -> Option<&SmolStr> {
-        self.storage().global_name(offset)
+        match self.routed() {
+            Routed::Values(store) => store.global_name(offset),
+            Routed::Cells(reader) => reader.global_name(offset),
+        }
     }
 
     #[inline]
@@ -275,22 +341,34 @@ impl StoreAccess for RuntimeState<'_> {
         instance: InstanceId,
         name: &str,
     ) -> Result<ValueView<'a>, VmTrap> {
-        self.storage().read_instance_field(instance, name)
+        match self.routed() {
+            Routed::Values(store) => store.read_instance_field(instance, name),
+            Routed::Cells(reader) => reader.read_instance_field(instance, name),
+        }
     }
 
     #[inline]
     fn ref_for_global(&self, name: &str) -> Option<ValueRef> {
-        self.storage().ref_for_global(name)
+        match self.routed() {
+            Routed::Values(store) => store.ref_for_global(name),
+            Routed::Cells(reader) => reader.ref_for_global(name),
+        }
     }
 
     #[inline]
     fn ref_for_instance(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
-        self.storage().ref_for_instance(instance, name)
+        match self.routed() {
+            Routed::Values(store) => store.ref_for_instance(instance, name),
+            Routed::Cells(reader) => reader.ref_for_instance(instance, name),
+        }
     }
 
     #[inline]
     fn snapshot_instance(&self, instance: InstanceId) -> Option<InstanceData> {
-        self.storage().snapshot_instance(instance)
+        match self.routed() {
+            Routed::Values(store) => store.snapshot_instance(instance),
+            Routed::Cells(reader) => reader.snapshot_instance(instance),
+        }
     }
 
     #[inline]
@@ -325,37 +403,83 @@ impl StoreAccess for RuntimeState<'_> {
         path: &[RefSegment],
         value: &Value,
     ) -> Result<Option<PreparedWrite>, RuntimeError> {
-        self.storage().prepare_write(location, offset, path, value)
+        match self.routed() {
+            Routed::Values(store) => store.prepare_write(location, offset, path, value),
+            Routed::Cells(_) => Err(RuntimeError::InvalidExecutionState),
+        }
     }
 
     #[inline]
     fn generation(&self) -> Generation {
-        self.storage().generation()
+        match self.routed() {
+            Routed::Values(store) => store.generation(),
+            Routed::Cells(reader) => reader.generation(),
+        }
     }
 
     #[inline]
     fn instance_type_name(&self, instance: InstanceId) -> Option<&SmolStr> {
-        self.storage().instance_type_name(instance)
+        match self.routed() {
+            Routed::Values(store) => store.instance_type_name(instance),
+            Routed::Cells(reader) => reader.instance_type_name(instance),
+        }
     }
 
     #[inline]
     fn instance_parent(&self, instance: InstanceId) -> Result<Option<InstanceId>, VmTrap> {
-        self.storage().instance_parent(instance)
+        match self.routed() {
+            Routed::Values(store) => store.instance_parent(instance),
+            Routed::Cells(reader) => reader.instance_parent(instance),
+        }
     }
 
     #[inline]
     fn ref_for_instance_recursive(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
-        self.storage().ref_for_instance_recursive(instance, name)
+        match self.routed() {
+            Routed::Values(store) => store.ref_for_instance_recursive(instance, name),
+            Routed::Cells(reader) => reader.ref_for_instance_recursive(instance, name),
+        }
     }
 
     #[inline]
     fn resolved_instance_field_ref(&self, instance: InstanceId, name: &str) -> Option<ValueRef> {
-        self.storage().resolved_instance_field_ref(instance, name)
+        match self.routed() {
+            Routed::Values(store) => store.resolved_instance_field_ref(instance, name),
+            Routed::Cells(reader) => reader.resolved_instance_field_ref(instance, name),
+        }
     }
 
     #[inline]
     fn declared_instance_field_offset(&self, instance: InstanceId, name: &str) -> Option<usize> {
-        self.storage()
-            .declared_instance_field_offset(instance, name)
+        match self.routed() {
+            Routed::Values(store) => store.declared_instance_field_offset(instance, name),
+            Routed::Cells(reader) => reader.declared_instance_field_offset(instance, name),
+        }
+    }
+}
+
+/// The store one engine state reads through, borrowed for one call (C1-9b).
+enum Routed<'a> {
+    /// Today's `Value` storage.
+    Values(&'a VariableStorage),
+    /// The cell arm, read through the prepared module that places its cells.
+    Cells(CellReader<'a>),
+}
+
+impl RuntimeState<'_> {
+    /// The store this runtime state reads through (C1-9b).
+    fn routed(&self) -> Routed<'_> {
+        let (data, prepared) = self.engine_parts();
+        data.routed(prepared)
+    }
+}
+
+impl EngineData {
+    /// The store the engine reads through: the arm `EngineStore` holds.
+    fn routed<'a>(&'a self, prepared: &'a PreparedModule) -> Routed<'a> {
+        match &self.store {
+            EngineStore::Values => Routed::Values(&self.storage),
+            EngineStore::Cells(arm) => Routed::Cells(CellReader::new(prepared, arm)),
+        }
     }
 }

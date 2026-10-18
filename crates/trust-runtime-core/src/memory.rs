@@ -239,6 +239,9 @@ pub type InstanceMap = FxHashMap<InstanceId, InstanceData>;
 pub type InstanceMap = live::LiveEntries<InstanceId, InstanceData>;
 
 mod access;
+/// The cell arm of the store-access seam: the reads over the cell store (specification 34 §6.2,
+/// MEM-10; C1-9b).
+pub mod cell_access;
 /// The cell, the unit of the bounded value store, and one region's cell store
 /// (specification 34 §6.2).
 pub mod cells;

@@ -303,3 +303,29 @@ impl Leaves {
 fn offset_of(base: u32, relative: u32) -> Result<u32, RuntimeError> {
     base.checked_add(relative).ok_or(RuntimeError::Overflow)
 }
+
+impl CellStorage {
+    /// The installation generation this store's references carry (specification 34 §11.3, MEM-07).
+    #[must_use]
+    pub fn generation(&self) -> Generation {
+        self.identities.generation
+    }
+}
+
+/// Test seams for the cell arm's reads (C1-9b). The write side (C1-9c) is what fills the cells in
+/// the engine; until then a fixture writes its initial values through these accessors.
+#[cfg(test)]
+impl CellStorage {
+    /// The regions, mutably.
+    pub(crate) fn regions_mut(&mut self) -> &mut CellRegions {
+        &mut self.regions
+    }
+}
+
+#[cfg(test)]
+impl CellRegions {
+    /// The persistent cells and the text buffers, mutably.
+    pub(crate) fn parts_mut(&mut self) -> (&mut CellStore, &mut TextStore) {
+        (&mut self.persistent, &mut self.text)
+    }
+}
