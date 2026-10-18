@@ -10,8 +10,10 @@ mod runtimes;
 pub use runtimes::{KnownConnection, KnownRuntime};
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use crate::browse::BrowseCache;
 use crate::gather::{Cache, Gathered};
 use crate::view::types::{DevicesView, OperationDone};
 
@@ -27,6 +29,10 @@ pub struct Session {
     operations: Operations,
     /// What the last view showed of each runtime, in the order the view showed them.
     runtimes: Vec<KnownRuntime>,
+    /// The open project's folder, which the offline browse reads (design §4.3 B8).
+    project: Option<PathBuf>,
+    /// The browse answers, filled by the background runs (design §4.3 B8).
+    browse: BrowseCache,
 }
 
 /// The slow actions a session started, and the results that a later request delivers.
@@ -46,6 +52,8 @@ impl Session {
             last_used: now,
             operations: Operations::default(),
             runtimes: Vec::new(),
+            project: None,
+            browse: BrowseCache::default(),
         }
     }
 
@@ -54,12 +62,32 @@ impl Session {
     /// §4.3 B7; specification 25 §5.14). `gathered` is the gather that the view was projected
     /// from, which also tells each runtime's served catalog; the view does not carry it.
     pub fn remember(&mut self, gathered: &Gathered, view: &DevicesView) {
+        self.project.clone_from(&gathered.project.chosen);
         self.runtimes = view
             .computers
             .iter()
             .flat_map(|computer| &computer.runtimes)
             .map(|runtime| KnownRuntime::of(gathered, runtime))
             .collect();
+    }
+
+    /// The open project's folder, as the last view gathered it (design §4.3 B8): the offline
+    /// browse reads a stopped project's files through it.
+    #[must_use]
+    pub(crate) fn project_folder(&self) -> Option<&Path> {
+        self.project.as_deref()
+    }
+
+    /// The browse answers of this session, filled by the background runs (design §4.3 B8).
+    #[must_use]
+    pub(crate) fn browse(&self) -> &BrowseCache {
+        &self.browse
+    }
+
+    /// Whether a browse run of this session is still out, so a test can wait for the next poll.
+    #[cfg(test)]
+    pub(crate) fn browse_asking(&self) -> bool {
+        self.browse.asking()
     }
 
     /// The runtime that the last view showed under the item ID `id`; `None` when the session has

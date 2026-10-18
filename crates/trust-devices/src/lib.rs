@@ -6,6 +6,9 @@
 
 /// The panel's action path: one action that a view offered, decoded and performed here.
 pub mod actions;
+/// The browse panes: opening a browse at the runtime that owns a connection, and adding its
+/// selection (specification 25 §5.4 and §11.2).
+pub mod browse;
 pub mod gather;
 mod inputs;
 /// The panes of the panel: the add dialog, the forms and the USB tray.

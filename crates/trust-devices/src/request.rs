@@ -260,5 +260,86 @@ pub struct ActOp {
     pub payload: serde_json::Value,
 }
 
+/// One `trust-lsp.devicesBrowse` request (design §4.3 B8, line 260): open or refresh a browse pane
+/// at the origin that owns the target. Unknown keys are refused.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BrowseRequest {
+    /// The panel's session.
+    pub session: String,
+    /// The request's number; each request of a session has a larger one (design §3.3 J52).
+    pub seq: u64,
+    /// What the pane browses.
+    pub source: BrowseSource,
+    /// What the origin is asked for: `symbols`, `nodes` or `channels`.
+    #[serde(default = "default_browse_kind")]
+    pub kind: String,
+    /// The ADS port, when the source names one.
+    #[serde(default)]
+    pub port: Option<u16>,
+    /// Whether the user trusts the server's certificate for this browse; it is saved only by
+    /// `Add` (design §3.3 J50).
+    #[serde(default)]
+    pub trust_server_certificate: bool,
+    /// The facts that only VS Code knows.
+    #[serde(default)]
+    pub host: HostFacts,
+}
+
+/// The default `kind` of a browse: symbols, which a connection's own protocol then refines.
+fn default_browse_kind() -> String {
+    "symbols".to_owned()
+}
+
+/// What a browse request browses (design §4.3 B8, line 261): a connection of the panel's own
+/// view, named by its item ID, or a device a search found, named by its card.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BrowseSource {
+    /// The connection's item ID.
+    #[serde(default)]
+    pub connection: Option<String>,
+    /// The connection's own name.
+    #[serde(default)]
+    pub connection_name: Option<String>,
+    /// The found device's card ID.
+    #[serde(default)]
+    pub found: Option<String>,
+    /// The found device's protocol.
+    #[serde(default)]
+    pub protocol: Option<String>,
+}
+
+impl BrowseSource {
+    /// The connection's item ID, when the source names one.
+    #[must_use]
+    pub fn connection(&self) -> Option<&str> {
+        trimmed(self.connection.as_deref())
+    }
+
+    /// The connection's own name, when the source names one.
+    #[must_use]
+    pub fn connection_name(&self) -> Option<&str> {
+        trimmed(self.connection_name.as_deref())
+    }
+
+    /// The found device's card ID, when the source names one.
+    #[must_use]
+    pub fn found(&self) -> Option<&str> {
+        trimmed(self.found.as_deref())
+    }
+
+    /// The found device's protocol, when the source names one.
+    #[must_use]
+    pub fn protocol(&self) -> Option<&str> {
+        trimmed(self.protocol.as_deref())
+    }
+}
+
+/// A trimmed, non-empty string.
+fn trimmed(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|text| !text.is_empty())
+}
+
 #[cfg(test)]
 mod tests;
