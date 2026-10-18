@@ -8,19 +8,22 @@
 
 use std::time::Instant;
 
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use super::{
     answer, browse_body, browse_request, connection_protocol, endpoint, inputs, report,
     requests_of, runtime_named, script, seen, wait_for_browse,
 };
+use crate::actions::act;
 use crate::browse::open;
 use crate::fake_runtime::FakeRuntime;
-use crate::request::BrowseRequest;
+use crate::request::{ActOp, ActRequest, BrowseRequest, HostFacts};
 use crate::session::Sessions;
 use crate::targets::TargetOrigin;
 use crate::view::tests::fixtures as fx;
-use crate::view::types::{AdsPortCard, BrowseKind, BrowseView, FieldOption, HostEffect, Op};
+use crate::view::types::{
+    AdsPortCard, BrowseKind, BrowseView, FieldKind, FieldOption, HostEffect, Op,
+};
 
 /// A session that has seen one ADS connection of a single-runtime project, the browse request
 /// that reads its port `port`, the owning runtime's item ID, and the scripted runtime itself.
@@ -294,11 +297,11 @@ fn ads_error_boxes_from_typed_wire_errors() {
 #[test]
 fn route_missing_port_card_has_help_and_create_route() {
     // Specification 25:387-394, design §3.3 J54 and N25/N26: a port whose route is missing shows
-    // the route help and its generated files, and `Create route` posts `ads.route_add` with the
-    // pane, the runtime, the route name and the plan's own target and local, exactly the payload
-    // the guarded operation reads (`crates/trust-devices/src/actions/tests/ads.rs:131-152`). A
-    // wrong implementation drops the runtime or the target, posts another action, or offers no
-    // help.
+    // the route help and its generated files, and `Create route` opens the login form with the
+    // pane, the runtime, the route name and the plan's own target and local, which the form's
+    // `Create route` then posts to `ads.route_add` (`create_route_asks_for_the_login_once_and_
+    // posts_route_add`). A wrong implementation drops the runtime or the target, posts another
+    // action, or offers no help.
     let plan = json!({
         "route_name": "trust-runtime-line-controller-1",
         "target": {
@@ -354,8 +357,104 @@ fn route_missing_port_card_has_help_and_create_route() {
     assert!(create.enabled);
     match &create.op {
         Op::Rust { action, payload } => {
+            assert_eq!(action, "form.open");
+            assert_eq!(
+                payload["form"],
+                json!(format!("ads.route@{owner}#trust-runtime-line-controller-1")),
+                "the login form is identified by its runtime and route name"
+            );
+            assert_eq!(payload["route"]["pane"], json!("browse:ads"));
+            assert_eq!(payload["route"]["runtime"], json!(owner));
+            assert_eq!(
+                payload["route"]["route_name"],
+                json!("trust-runtime-line-controller-1")
+            );
+            assert_eq!(payload["route"]["target"], plan["target"]);
+            assert_eq!(payload["route"]["local"], plan["local"]);
+        }
+        other => panic!("a Rust form.open, got {other:?}"),
+    }
+}
+
+#[test]
+fn create_route_asks_for_the_login_once_and_posts_route_add() {
+    // Specification 25:387-394 and design N26: `Create route` opens a form that asks **once** for
+    // the TwinCAT computer's administrator user name and password, and that form's `Create route`
+    // posts `ads.route_add` with the pane, the runtime, the route name and the plan's own target
+    // and local. A wrong implementation sends `ads.route_add` straight from the pane (asking for
+    // nothing), asks for the login twice or not as a secret, or posts another action.
+    let plan = json!({
+        "route_name": "trust-runtime-line-controller-1",
+        "target": {
+            "name": "CX-1234", "ip": "192.168.10.5", "ams_net_id": "5.23.91.12.1.1",
+            "ams_port": 851, "tc_version": "3.1.4024",
+        },
+        "local": {
+            "host_name": "line-controller-1", "chosen_ip": "192.168.10.20",
+            "ams_net_id": "192.168.10.20.1.1", "nic": "eth0", "candidates": [],
+            "classification": "lan",
+        },
+        "artifacts": [],
+    });
+    let (mut panel, body, owner, _runtime) = ads_setup(
+        &ads_params("192.168.10.5", "5.23.91.12.1.1", 851),
+        route_missing(&plan),
+        None,
+    );
+    let _ = open(panel.session("dc-test", Instant::now()), &body);
+    wait_for_browse(&mut panel);
+    let view = open(panel.session("dc-test", Instant::now()), &body);
+    let create = view.ports[0]
+        .route
+        .clone()
+        .expect("the missing route's help")
+        .create_route;
+    let Op::Rust { action, payload } = &create.op else {
+        panic!("Create route opens a form");
+    };
+    assert_eq!(action, "form.open");
+
+    let opened = act(
+        panel.session("dc-test", Instant::now()),
+        ActRequest {
+            session: "dc-test".to_owned(),
+            op: ActOp {
+                action: action.clone(),
+                payload: payload.clone(),
+            },
+            values: Map::new(),
+            project: None,
+            host: HostFacts::default(),
+        },
+    );
+
+    let form = opened.form.expect("the login form");
+    assert_eq!(form.title, "Create route");
+    let id = format!("ads.route@{owner}#trust-runtime-line-controller-1");
+    assert_eq!(form.id, id);
+    let fields: Vec<(&str, FieldKind, bool)> = form.sections[0]
+        .fields
+        .iter()
+        .map(|field| (field.id.as_str(), field.kind, field.required))
+        .collect();
+    assert_eq!(
+        fields,
+        vec![
+            ("username", FieldKind::Text, true),
+            ("password", FieldKind::Secret, true),
+        ],
+        "the form asks once for the login, and the password is a secret"
+    );
+    let submit = form
+        .buttons
+        .iter()
+        .find(|button| button.id == "create_route")
+        .expect("the Create route button");
+    assert_eq!(submit.label, "Create route");
+    match &submit.op {
+        Op::Rust { action, payload } => {
             assert_eq!(action, "ads.route_add");
-            assert_eq!(payload["pane"], json!("browse:ads"));
+            assert_eq!(payload["pane"], json!(format!("form:{id}")));
             assert_eq!(payload["runtime"], json!(owner));
             assert_eq!(
                 payload["route_name"],

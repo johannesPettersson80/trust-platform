@@ -12,6 +12,8 @@
 //!   and an ADS device add, each written through `comm.apply` to the runtime the session resolves.
 //! - `ads`: the browse pane's `Create route`, which sends the `TwinCAT` administrator login once to
 //!   the runtime's guarded `ads.route_add`.
+//! - `ads_tags`: the ADS tag browser's one add path, `ads.tags_set`, which imports the ticked tags
+//!   and removes the unticked ones at the owning runtime or offline in the open project.
 //! - `write`: the one write path of `config` and `plans`: the runtime that a payload names, resolved
 //!   from the session, written over its control endpoint or in process into the open project's
 //!   files, and refused when it is unknown or silent (design §4.3 B7).
@@ -21,6 +23,7 @@
 //! a name of the closed set that this task does not perform yet answers that it is not available.
 
 mod ads;
+mod ads_tags;
 mod config;
 mod effects;
 pub(crate) mod plans;
@@ -107,6 +110,7 @@ pub fn act_with(session: &mut Session, request: &ActRequest, fleet: &dyn Fleet) 
         "connection.opcua_add" => plans::opcua_add(session, request),
         "connection.ads_add" => plans::ads_add(session, request),
         "browse.add" => crate::browse::add(session, request),
+        "ads.tags_set" => ads_tags::tags_set(session, request),
         "ads.route_add" => ads::route_add(session, request),
         action if CLOSED_ACTIONS.contains(&action) => error(
             &pane(request),

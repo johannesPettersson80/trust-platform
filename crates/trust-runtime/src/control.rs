@@ -115,6 +115,15 @@ pub fn offline_ads_remove_symbols_json(
     ads_handlers::remove_symbols_from_project(project_root, params)
 }
 
+/// Import ADS tag points into a project's files offline, as the `ads.import_symbols.apply` control
+/// request and `trust-runtime ads import-symbols` do (design §4.3 B7; specification 25 §5.4).
+pub fn offline_ads_import_symbols_json(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ads_handlers::import_symbols_from_params(project_root, params)
+}
+
 /// Run a communication `comm.test` request from this host without a running runtime.
 ///
 /// `project_root` is accepted so the command has the same shape as the runtime request;

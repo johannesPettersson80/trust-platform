@@ -59,6 +59,9 @@ pub(crate) fn open(session: &Session, request: &ActRequest) -> ActReply {
     if let Some(setup) = form_request.setup {
         return form_reply(forms::setup_form(setup));
     }
+    if let Some(route) = &form_request.route {
+        return form_reply(forms::route_login_form(route));
+    }
     let target = match write::target(session, request) {
         Ok(target) => target,
         Err(message) => return super::error(&pane, &message),

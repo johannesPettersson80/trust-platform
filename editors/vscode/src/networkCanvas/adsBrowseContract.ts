@@ -39,24 +39,6 @@ export function buildOfflineAdsImportArgs(
   return args;
 }
 
-export function buildAdsGeneratedImportArgs(
-  configPath: string,
-  snapshotPaths: readonly string[],
-  outputPath: string,
-): string[] {
-  return [
-    "ads",
-    "import",
-    "--config",
-    configPath,
-    ...snapshotPaths.flatMap((snapshot) => ["--snapshot", snapshot]),
-    "--output",
-    outputPath,
-    "--force",
-    "--json",
-  ];
-}
-
 export function buildOfflineBrowseSymbolsArgs(
   protocol: string,
   target: Record<string, unknown>,

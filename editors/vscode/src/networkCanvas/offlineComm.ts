@@ -107,11 +107,6 @@ function stringField(
   return undefined;
 }
 
-function numberField(value: Record<string, unknown>, key: string): number | undefined {
-  const raw = value[key];
-  return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
-}
-
 export async function openGeneratedAdsDocuments(report: AdsImportSymbolsReport): Promise<void> {
   if (!report.generated_path || !path.isAbsolute(report.generated_path)) {
     return;

@@ -81,12 +81,8 @@ pub(in crate::control) fn handle_ads_import_symbols_apply(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let params: ImportSymbolsApplyControlParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(error) => return ControlResponse::error(id, format!("invalid params: {error}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
+    let Some(params) = params else {
+        return ControlResponse::error(id, "missing params".into());
     };
     let Some(project_root) = state.project_root.as_ref() else {
         return ControlResponse::error(
@@ -94,16 +90,25 @@ pub(in crate::control) fn handle_ads_import_symbols_apply(
             "ads.import_symbols.apply requires a runtime project_root".to_string(),
         );
     };
-    match apply_import_to_project(project_root, params) {
-        Ok(report) => match serde_json::to_value(report) {
-            Ok(value) => ControlResponse::ok(id, value),
-            Err(error) => ControlResponse::error(
-                id,
-                format!("ADS import-symbols apply serialization failed: {error}"),
-            ),
-        },
+    match import_symbols_from_params(project_root, params) {
+        Ok(value) => ControlResponse::ok(id, value),
         Err(error) => ControlResponse::error(id, error),
     }
+}
+
+/// Import the selected ADS symbols into a project's `ads.toml`, snapshot cache and generated ST.
+///
+/// The same function backs the `ads.import_symbols.apply` control request and the offline import
+/// of the panel's `ads.tags_set` (design §4.3 B7; specification 25 §5.4).
+pub(crate) fn import_symbols_from_params(
+    project_root: &Path,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let params: ImportSymbolsApplyControlParams =
+        serde_json::from_value(params).map_err(|error| format!("invalid params: {error}"))?;
+    let report = apply_import_to_project(project_root, params)?;
+    serde_json::to_value(report)
+        .map_err(|error| format!("ADS import-symbols apply serialization failed: {error}"))
 }
 
 #[cfg(feature = "ads-wire")]

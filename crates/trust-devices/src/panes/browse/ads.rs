@@ -17,6 +17,7 @@ use serde_json::{json, Map, Value};
 
 use super::{access_of, browse_body, pane_id, Browse};
 use crate::browse::{target_port, Browsed, BrowsedError, BrowsedNode};
+use crate::panes::forms::RouteForm;
 use crate::texts::browse as texts;
 use crate::texts::plans as plan_texts;
 use crate::view::types::{
@@ -237,8 +238,9 @@ fn artifacts(plan: Option<&Value>) -> Vec<Action> {
         .collect()
 }
 
-/// The `Create route` action: it posts `ads.route_add` with exactly the payload the guarded
-/// operation of specification 11 reads (`W/AdsMultiPortTagBrowser.tsx:535`; design §4.3 B7, N26).
+/// The `Create route` action: it opens the login form that asks once for the `TwinCAT`
+/// administrator login and posts `ads.route_add` with exactly the payload the guarded operation of
+/// specification 11 reads (`W/AdsMultiPortTagBrowser.tsx:535`; design §4.3 B7, N26).
 fn create_route(plan: Option<&Value>, data: &Browse<'_>) -> Action {
     let disabled = |reason: &str| Action {
         id: "create_route".to_owned(),
@@ -248,7 +250,7 @@ fn create_route(plan: Option<&Value>, data: &Browse<'_>) -> Action {
         emphasis: Emphasis::Quiet,
         confirm: None,
         op: Op::Rust {
-            action: "ads.route_add".to_owned(),
+            action: "form.open".to_owned(),
             payload: Value::Null,
         },
     };
@@ -269,6 +271,13 @@ fn create_route(plan: Option<&Value>, data: &Browse<'_>) -> Action {
     let (Some(route_name), Some(target), Some(local)) = (route_name, target, local) else {
         return disabled(plan_texts::ROUTE_NEEDS_TARGET);
     };
+    let route = RouteForm {
+        pane: pane_id(data.protocol),
+        runtime: runtime.0.clone(),
+        route_name: route_name.to_owned(),
+        target: target.clone(),
+        local: local.clone(),
+    };
     Action {
         id: "create_route".to_owned(),
         label: texts::CREATE_ROUTE.to_owned(),
@@ -277,14 +286,8 @@ fn create_route(plan: Option<&Value>, data: &Browse<'_>) -> Action {
         emphasis: Emphasis::Primary,
         confirm: None,
         op: Op::Rust {
-            action: "ads.route_add".to_owned(),
-            payload: json!({
-                "pane": pane_id(data.protocol),
-                "runtime": runtime.0,
-                "route_name": route_name,
-                "target": target,
-                "local": local,
-            }),
+            action: "form.open".to_owned(),
+            payload: json!({ "form": route.form_id(), "route": route }),
         },
     }
 }

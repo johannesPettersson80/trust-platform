@@ -200,6 +200,60 @@ fn route_add_never_echoes_the_login() {
         !reply_json.contains(PASSWORD),
         "the reply must not echo the password: {reply_json}"
     );
+
+    // A refused route: the runtime refuses the guarded operation, and neither the failure notice
+    // nor the reply holds any part of the login (specification 25:385-394). A wrong implementation
+    // echoes the login in the failure text, keeps it in the session for a retry, or sends it again.
+    let refusing = FakeRuntime::start(
+        Script::running()
+            .answer("status", Reply::Result(fx::status("running", "admin")))
+            .answer("fleet.topology", Reply::Result(topology()))
+            .answer("ads.route_add", Reply::Refuse("route_refused")),
+    );
+    let (mut refused_panel, refused_view) = seen(None, vec![project_target(&refusing)]);
+    let refused_session = refused_panel.session("dc-test", Instant::now());
+    let refused_item = named(&refused_view, "line").id.as_str().to_owned();
+    let mut refused = request("ads.route_add", payload(&refused_item));
+    refused
+        .values
+        .insert("username".to_owned(), json!(USERNAME));
+    refused
+        .values
+        .insert("password".to_owned(), json!(PASSWORD));
+    refused
+        .host
+        .tokens
+        .insert(refusing.endpoint.clone(), Token::new(TOKEN));
+
+    let refused_reply = act(refused_session, refused);
+
+    assert!(!refused_reply.ok, "the runtime refused the route");
+    assert_eq!(refused_reply.refresh, Refresh::None);
+    assert_eq!(
+        refused_reply
+            .notice
+            .as_ref()
+            .map(|notice| notice.pane.as_str()),
+        Some("browse:ads")
+    );
+    assert_eq!(
+        refused_reply
+            .notice
+            .as_ref()
+            .map(|notice| notice.text.as_str()),
+        Some("Could not create the TwinCAT route: route refused")
+    );
+    let refused_json = serde_json::to_string(&refused_reply).expect("the reply serializes");
+    assert!(
+        !refused_json.contains(USERNAME),
+        "the refusal must not echo the login: {refused_json}"
+    );
+    assert!(
+        !refused_json.contains(PASSWORD),
+        "the refusal must not echo the password: {refused_json}"
+    );
+    let refused_sent = route_adds(&refusing);
+    assert_eq!(refused_sent.len(), 1, "the login is sent exactly once");
 }
 
 #[test]

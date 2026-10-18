@@ -10,6 +10,8 @@
 //!   payload of every action that opens a form; `form_id` derives a form's identity from it, so
 //!   that the panel keeps an edit in progress until the protocol, the runtime or the prefill
 //!   changes.
+//! - `route_login_form`: the browse pane's `Create route` login form, which asks once for the
+//!   `TwinCAT` administrator login and posts `ads.route_add` (specification 25 §5.4).
 //! - `submit`: what a submitted form saves, `visible` and `coerce_submission`.
 
 mod catalog;
@@ -25,6 +27,7 @@ pub use catalog::{
 };
 pub use submit::{coerce_submission, visible};
 
+use crate::texts::browse as browse_texts;
 use crate::texts::forms as texts;
 use crate::view::types::{
     Action, Confirm, Emphasis, FieldKind, FieldOption, Form, FormField, FormSection, GhostTile,
@@ -52,6 +55,35 @@ pub struct FormRequest {
     /// The values that a quick start or a find fills in.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prefill: Option<Map<String, Value>>,
+    /// The login form of the browse pane's `Create route` (specification 25 §5.4; design N26).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub route: Option<RouteForm>,
+}
+
+/// What the browse pane's `Create route` needs to open its login form (specification 25 §5.4, its
+/// lines 387-394; design N26): the pane that started it, the runtime that creates the route, and
+/// the route plan's own route name, `TwinCAT` target and host identity. The administrator login is
+/// never part of this: the form collects it once and sends it straight to `ads.route_add`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RouteForm {
+    /// The pane that started the action, such as `browse:ads`.
+    pub pane: String,
+    /// The runtime that creates the route.
+    pub runtime: String,
+    /// The route's name.
+    pub route_name: String,
+    /// The `TwinCAT` target, as the route plan described it.
+    pub target: Value,
+    /// This host's identity, as the route plan described it.
+    pub local: Value,
+}
+
+impl RouteForm {
+    /// The identity of its form: its runtime and route name.
+    #[must_use]
+    pub fn form_id(&self) -> String {
+        format!("ads.route@{}#{}", self.runtime, self.route_name)
+    }
 }
 
 impl FormRequest {
@@ -89,6 +121,9 @@ impl RuntimeSetup {
 pub fn form_id(request: &FormRequest) -> String {
     if let Some(setup) = request.setup {
         return setup.form_id().to_owned();
+    }
+    if let Some(route) = &request.route {
+        return route.form_id();
     }
     let mut id = format!(
         "{}@{}",
@@ -170,6 +205,7 @@ pub fn connection_form(protocol: &str, inputs: &FormInputs<'_>) -> Result<Form, 
         connection: edited.map(|connection| connection.id.0.clone()),
         prefill: inputs.prefill.filter(|_| edited.is_none()).cloned(),
         setup: None,
+        route: None,
     };
     let id = form_id(&request);
     let (basic, advanced): (Vec<&CatalogField>, Vec<&CatalogField>) =
@@ -523,6 +559,73 @@ fn button(id: &str, label: &str, emphasis: Emphasis, op: Op) -> Action {
 }
 
 // ---- the forms of `Runtimes` ----
+
+/// The login form of the browse pane's `Create route` (specification 25 §5.4, its lines 387-394;
+/// design N26): one `TwinCAT` administrator user name and one password, asked once, and the
+/// `Create route` button that posts `ads.route_add` with the route plan's own pane, runtime, route
+/// name, target and identity. The login lives only in the form's values and the one request they
+/// make; nothing here stores it (specification 25:389-394).
+#[must_use]
+pub fn route_login_form(route: &RouteForm) -> Form {
+    let id = route.form_id();
+    let payload = json!({
+        "pane": format!("form:{id}"),
+        "runtime": route.runtime,
+        "route_name": route.route_name,
+        "target": route.target,
+        "local": route.local,
+    });
+    Form {
+        id: id.clone(),
+        protocol: "ads".to_owned(),
+        title: browse_texts::CREATE_ROUTE.to_owned(),
+        breadcrumb: texts::CREATE_ROUTE_BREADCRUMB.to_owned(),
+        owner_line: String::new(),
+        purpose: Some(texts::CREATE_ROUTE_PURPOSE.to_owned()),
+        runtime: None,
+        runtime_choices: Vec::new(),
+        sections: vec![FormSection {
+            heading: None,
+            fields: vec![
+                setup_field(
+                    "username",
+                    texts::TWINCAT_USERNAME,
+                    FieldKind::Text,
+                    "",
+                    texts::TWINCAT_LOGIN_HELP,
+                ),
+                setup_field(
+                    "password",
+                    texts::TWINCAT_PASSWORD,
+                    FieldKind::Secret,
+                    "",
+                    texts::TWINCAT_LOGIN_HELP,
+                ),
+            ],
+        }],
+        buttons: vec![
+            button(
+                "create_route",
+                browse_texts::CREATE_ROUTE,
+                Emphasis::Primary,
+                Op::Rust {
+                    action: "ads.route_add".to_owned(),
+                    payload,
+                },
+            ),
+            button(
+                "cancel",
+                texts::CANCEL,
+                Emphasis::Secondary,
+                Op::Ui {
+                    ui: UiOp::CloseInspector,
+                },
+            ),
+        ],
+        note: Some(texts::LOGIN_NOT_STORED.to_owned()),
+        ghost: None,
+    }
+}
 
 /// The form of a `Runtimes` entry (specification 25 §5.2): the address and token of a runtime
 /// that already runs elsewhere, or the name and template of another runtime on this computer.

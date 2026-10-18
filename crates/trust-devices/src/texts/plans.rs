@@ -135,3 +135,51 @@ pub fn route_failed(reason: Option<&str>) -> String {
     let reason = reason.unwrap_or("check the TwinCAT target and try again.");
     format!("Could not create the TwinCAT route: {reason}")
 }
+
+/// The `Start runtime` action of an offline ADS tag import (I22 and I72; `START_RUNTIME_ACTION`,
+/// `NC/adsImportUx.ts:1`): the open project's runtime is stopped, so starting it applies the
+/// generated Structured Text.
+pub const START_RUNTIME: &str = "Start runtime";
+
+/// Why `ads.tags_set` cannot run: the ADS connection names no route, so its symbols have nowhere to
+/// go (specification 25 §5.4).
+pub const TAGS_NEED_ROUTE: &str =
+    "The ADS connection names no route, so its tags cannot be added or removed.";
+
+/// The result of one `ads.tags_set`, such as `Added 2 ADS tags from ADS port 851.`
+/// (`adsTagBatchSummary`, `NC/adsTagBatch.ts:119-138`; design §3.3 J58; specification 25 §5.4).
+#[must_use]
+pub fn ads_tags_notice(added: usize, removed: usize, port: u16) -> String {
+    match (added, removed) {
+        (0, 0) => "No ADS tags were added or removed.".to_owned(),
+        (added, 0) => format!(
+            "Added {added} ADS {} from ADS port {port}.",
+            tag_label(added)
+        ),
+        (0, removed) => format!(
+            "Removed {removed} ADS {} from ADS port {port}.",
+            tag_label(removed)
+        ),
+        (added, removed) => format!(
+            "Added {added} ADS {} and removed {removed} ADS {} from ADS port {port}.",
+            tag_label(added),
+            tag_label(removed)
+        ),
+    }
+}
+
+/// Why `ads.tags_set` failed, with the origin's reason when it gave one (design §3.3 I19 and I21).
+#[must_use]
+pub fn ads_tags_failed(reason: Option<&str>) -> String {
+    let reason = reason.unwrap_or("check the ADS connection and try again.");
+    format!("Could not change the ADS tags: {reason}")
+}
+
+/// `tag` or `tags` for `count` (`tagLabel`, `NC/adsTagBatch.ts:127-136`).
+fn tag_label(count: usize) -> &'static str {
+    if count == 1 {
+        "tag"
+    } else {
+        "tags"
+    }
+}

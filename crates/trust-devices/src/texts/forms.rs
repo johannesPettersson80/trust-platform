@@ -195,6 +195,24 @@ pub const GHOST_NAME: &str = "New device";
 /// The draft tile's detail.
 pub const GHOST_DETAIL: &str = "Draft: configure and Apply";
 
+// ---- the browse pane's `Create route` login form (specification 25 §5.4, its lines 387-394) ----
+
+/// The breadcrumb of the login form that creates the `TwinCAT` route.
+pub const CREATE_ROUTE_BREADCRUMB: &str = "Devices & Connections / Create route";
+/// What the form does, as `TwinCAT`'s own Add Route does.
+pub const CREATE_ROUTE_PURPOSE: &str =
+    "Create the TwinCAT route from this computer, as TwinCAT's own Add Route does.";
+/// The `TwinCAT` computer's administrator user name.
+pub const TWINCAT_USERNAME: &str = "TwinCAT administrator user name";
+/// The `TwinCAT` computer's administrator password.
+pub const TWINCAT_PASSWORD: &str = "TwinCAT administrator password";
+/// The help under both login fields: the login is used once and never stored.
+pub const TWINCAT_LOGIN_HELP: &str =
+    "The TwinCAT computer's administrator login. It is sent once to create the route and is never stored.";
+/// The note that the login is not kept (specification 25:389-394).
+pub const LOGIN_NOT_STORED: &str =
+    "The login is used only to create this route. truST never stores or shows it again.";
+
 // ---- list editors ----
 
 /// A list whose value is not a list.

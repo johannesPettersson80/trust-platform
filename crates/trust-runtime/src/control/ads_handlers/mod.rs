@@ -11,6 +11,7 @@ pub(super) use discover::handle_ads_discover;
 pub use doctor::AdsDoctorJobStore;
 pub(super) use doctor::{handle_ads_doctor, handle_ads_doctor_start, handle_ads_doctor_status};
 pub(super) use identity::handle_ads_identity;
+pub(crate) use import_symbols::import_symbols_from_params;
 pub(super) use import_symbols::{handle_ads_import_symbols, handle_ads_import_symbols_apply};
 pub(super) use remove_symbols::handle_ads_import_symbols_remove;
 pub(crate) use remove_symbols::remove_symbols_from_project;
