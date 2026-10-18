@@ -152,3 +152,69 @@ pub const TARGET_CIDR_LABEL: &str = "Subnet";
 pub const TARGET_HOSTS_PLACEHOLDER: &str = "host:port";
 /// The placeholder of the subnet input.
 pub const TARGET_CIDR_PLACEHOLDER: &str = "192.168.1.0/24";
+
+// ---- the pane's own words (specification 25 §2): the old pane's `DiscoverPane.tsx`, line by line ----
+
+/// The breadcrumb of the pane (`DiscoverPane.tsx` line 230).
+pub const BREADCRUMB: &str = super::graph::PANEL;
+/// The accessible name of the close button (`DiscoverPane.tsx` line 233).
+pub const CLOSE_LABEL: &str = super::browse::CLOSE;
+/// The heading of the scan choices (`DiscoverPane.tsx` line 262).
+pub const HEADING_FIND: &str = "What do you want to find?";
+/// The heading of the origin choices (`DiscoverPane.tsx` line 275).
+pub const HEADING_SCAN_FROM: &str = "Scan from";
+/// The heading of the known address and subnet inputs (`DiscoverPane.tsx` line 300).
+pub const HEADING_TARGETS: &str = "Known address or subnet";
+/// The heading of the advanced settings (`DiscoverPane.tsx` line 271).
+pub const HEADING_ADVANCED: &str = "Advanced scan settings";
+/// The heading of the runtime's hardware scans (`DiscoverPane.tsx` line 306).
+pub const HEADING_RUNTIME: &str = "Runtime hardware scans ⚠";
+/// The help that shows when no discovery is available (`DiscoverPane.tsx` lines 251-252).
+pub const NO_DISCOVERY_YET: &str = "No discovery is available yet. Load a project or connect a runtime that advertises discoverable protocols.";
+/// The help that shows above the scan choices (`DiscoverPane.tsx` line 257).
+pub const CHOOSE_WHAT_TO_FIND: &str =
+    "Choose what to find, then scan. Only the selected device types are searched.";
+/// The note of the ADS scan (`DiscoverPane.tsx` line 33).
+pub const NOTE_NETWORK_BROADCAST: &str = "network broadcast";
+/// The note of the truST runtime scan (`DiscoverPane.tsx` line 34).
+pub const NOTE_MDNS: &str = "mDNS";
+/// The note of the Modbus TCP scan (`DiscoverPane.tsx` line 35).
+pub const NOTE_LOCAL_NETWORK_SCAN: &str = "local network scan";
+/// The note of a scan from a known host (`DiscoverPane.tsx` lines 39, 42-44).
+pub const NOTE_AT_HOST: &str = "at host";
+/// The note of the `EtherCAT` scan (`DiscoverPane.tsx` line 48).
+pub const NOTE_BUS_ENUMERATION: &str = "bus enumeration";
+/// The note of the GPIO scan (`DiscoverPane.tsx` line 49).
+pub const NOTE_LOCAL_PINS: &str = "local pins on the runtime";
+/// The label of a device's host in its details (`DiscoverPane.tsx` line 379, `Host:`).
+pub const ROW_HOST: &str = super::browse::HOST;
+/// The label of the search action (`DiscoverPane.tsx` line 425 says `Scan`; specification 25 §2
+/// names the action `Search`).
+pub const SEARCH: &str = "Search";
+/// The label of the search action while a scan runs (`DiscoverPane.tsx` line 425).
+pub const SCANNING: &str = "Scanning…";
+/// Why the search action cannot run while a scan runs (specification 25 §2: disabled with its
+/// reason while a scan runs; the old pane gave no reason here).
+pub const SEARCH_RUNNING: &str = "A scan is running. Wait for it to end, or cancel it.";
+/// Why the search action cannot run when no source that the origin can scan is ticked
+/// (`DiscoverPane.tsx` line 421).
+pub const SELECT_A_SCAN_TYPE: &str = "Select at least one available scan type.";
+/// The label of the cancel action, which shows while a scan runs.
+pub const CANCEL: &str = super::forms::CANCEL;
+/// The label of the action that opens the ADS port settings (`DiscoverPane.tsx` line 295).
+pub const CONFIGURE_ADS_PORTS: &str = "Configure ADS ports to scan";
+/// The VS Code setting that `Configure ADS ports to scan` opens (`networkCanvasPanel.ts` lines
+/// 661-665).
+pub const ADS_PORTS_SETTING: &str = "trust.ads.discoveryPorts";
+/// The mark of a simulated result, which is never presented as hardware (specification 11,
+/// "Confidence").
+pub const SIMULATED_MARK: &str = "Simulated";
+/// The line that asks to update truST when a status names a source or protocol that this build does
+/// not know (specification 25 §2).
+pub const UPDATE_TRUST: &str = "This search reports a source or protocol that this version of truST does not know. Update truST to see its results.";
+/// The group of the choices under `What do you want to find?`.
+pub const GROUP_FIND: &str = "find";
+/// The group of the choices under `Known address or subnet`.
+pub const GROUP_KNOWN_ADDRESS: &str = "known_address";
+/// The group of the choices under `Runtime hardware scans ⚠`.
+pub const GROUP_RUNTIME_HARDWARE: &str = "runtime_hardware";

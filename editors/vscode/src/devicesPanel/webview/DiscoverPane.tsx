@@ -1,13 +1,14 @@
 // The Discover pane of Devices & Connections: one search, drawn from the Rust view of the search status
-// (design §4.5 "D4: Discover pane"; specification 25 §2). Rust gives every text and every rule: the origin
-// choices, the `Only search` choices with the reason of each scan that cannot run, the labels and placeholders
-// of the known address and subnet inputs, the source rows with their words and reasons, one card per device
-// with its protocols, address, identity and actions, and the text of an empty result. This component draws
-// them as given and posts a chosen action exactly as the view gives it. Its only state is what the user types
-// into the two inputs. The origin and the ticks are the view's own, because the search that would use them is
-// not in the view yet, so a change to them reports nothing here.
+// (design §4.5 "D4: Discover pane"; specification 25 §2). Rust gives every text and every rule: the breadcrumb,
+// the headings and help texts, the origin choices, the `Only search` choices with their notes, groups and the
+// reason of each scan that cannot run, the labels and placeholders of the known address and subnet inputs, the
+// source rows with their words and reasons, one card per device with its protocols, address, identity and
+// actions, the empty text, and the pane's own actions. This component draws them as given and posts a chosen
+// action exactly as the view gives it. The one exception is `Search`: it also carries the known address and
+// subnet the user typed, as its values. Its only state is what the user types into those two inputs. The origin
+// and the ticks are the view's own: a change to them reports nothing here yet.
 
-import React from "react";
+import React, { useState } from "react";
 
 import { BrowseNotice } from "./BrowsePane";
 import { InspectorAction } from "./Inspector";
@@ -49,12 +50,35 @@ import type {
   TargetsInput,
 } from "./types";
 
+/** The values the search action carries: the known address and the subnet, as the user typed them. */
+interface TypedTargets {
+  hosts: string;
+  cidr: string;
+}
+
+/** The group names of the `Only search` choices, as Rust gives them (`OnlyChoice.group`). */
+const FIND = "find";
+const KNOWN_ADDRESS = "known_address";
+const RUNTIME_HARDWARE = "runtime_hardware";
+
+/** The name of the action that starts a search; it is the one action that carries the typed targets. */
+const SEARCH_ACTION = "search";
+
 /**
  * The origin and the ticks are the view's: the next view says which origin and sources a search uses. A change
- * needs the Search action, which the view does not carry yet, so the control reports nothing.
+ * reports nothing here, so the control is drawn as the view gives it.
  */
 function viewDecides(): void {
   // Nothing to do: the control is drawn as the view gives it.
+}
+
+/** A heading of the pane, as the view gives it. */
+function Heading({ text }: { text: string }) {
+  return (
+    <div data-role="discover-heading" style={headingStyle}>
+      {text}
+    </div>
+  );
 }
 
 /** `Scan from`: this computer, then each runtime, with the chosen one as the view says. */
@@ -89,38 +113,60 @@ function OriginChoices({ origins }: { origins: OriginChoice[] }) {
   );
 }
 
-/** `Only search`: one tick per source, disabled with its reason when a scan from the origin cannot run. */
-function OnlyChoices({ choices }: { choices: OnlyChoice[] }) {
+/**
+ * The `Only search` choices of one group: one tick per source, its note under its name, and disabled with its
+ * reason when a scan from the origin cannot run.
+ */
+function OnlyChoices({ choices, group }: { choices: OnlyChoice[]; group: string }) {
   return (
-    <section data-role="discover-only" style={discoverSectionStyle}>
-      {choices.map((choice) => (
-        <label
-          key={choice.source}
-          data-role="discover-only-choice"
-          data-source={choice.source}
-          style={discoverChoiceStyle(choice.enabled)}
-        >
-          <input
-            type="checkbox"
-            data-role="discover-only-tick"
-            checked={choice.checked}
-            disabled={!choice.enabled}
-            onChange={viewDecides}
-          />
-          <span data-role="discover-only-label">{choice.label}</span>
-          {choice.reason !== undefined && (
-            <span data-role="discover-only-reason" style={discoverReasonStyle}>
-              {choice.reason}
-            </span>
-          )}
-        </label>
-      ))}
+    <section data-role="discover-only" data-group={group} style={discoverSectionStyle}>
+      {choices
+        .filter((choice) => choice.group === group)
+        .map((choice) => (
+          <label
+            key={choice.source}
+            data-role="discover-only-choice"
+            data-source={choice.source}
+            style={discoverChoiceStyle(choice.enabled)}
+          >
+            <input
+              type="checkbox"
+              data-role="discover-only-tick"
+              checked={choice.checked}
+              disabled={!choice.enabled}
+              onChange={viewDecides}
+            />
+            <span data-role="discover-only-label">{choice.label}</span>
+            {choice.note !== undefined && (
+              <span data-role="discover-only-note" style={discoverReasonStyle}>
+                {choice.note}
+              </span>
+            )}
+            {choice.reason !== undefined && (
+              <span data-role="discover-only-reason" style={discoverReasonStyle}>
+                {choice.reason}
+              </span>
+            )}
+          </label>
+        ))}
     </section>
   );
 }
 
-/** `Known address or subnet`: the two inputs, with the labels and placeholders the view gives. */
-function Targets({ targets }: { targets: TargetsInput }) {
+/**
+ * `Known address or subnet`: the two inputs, with the labels and placeholders the view gives. The text is read from
+ * `input` as well as from `onChange`, as the browse search field is (BrowsePane.tsx): React answers `onChange` to an
+ * `input` event only when its input-event check passed as React loaded.
+ */
+function Targets({
+  targets,
+  typed,
+  onType,
+}: {
+  targets: TargetsInput;
+  typed: TypedTargets;
+  onType: (key: keyof TypedTargets, value: string) => void;
+}) {
   return (
     <section data-role="discover-targets" style={discoverSectionStyle}>
       <label data-role="discover-target" style={discoverFieldStyle}>
@@ -129,6 +175,9 @@ function Targets({ targets }: { targets: TargetsInput }) {
           type="text"
           data-role="discover-hosts"
           placeholder={targets.hosts_placeholder}
+          value={typed.hosts}
+          onInput={(event) => onType("hosts", event.currentTarget.value)}
+          onChange={(event) => onType("hosts", event.currentTarget.value)}
           style={discoverInputStyle}
         />
       </label>
@@ -138,6 +187,9 @@ function Targets({ targets }: { targets: TargetsInput }) {
           type="text"
           data-role="discover-cidr"
           placeholder={targets.cidr_placeholder}
+          value={typed.cidr}
+          onInput={(event) => onType("cidr", event.currentTarget.value)}
+          onChange={(event) => onType("cidr", event.currentTarget.value)}
           style={discoverInputStyle}
         />
       </label>
@@ -175,7 +227,7 @@ function SourceRows({ rows }: { rows: SourceRow[] }) {
   );
 }
 
-/** A protocol line of a card: its name, how it was found and its confidence. */
+/** A protocol line of a card: its name, how it was found, its confidence and, when simulated, its mark. */
 function ProtocolLine({ protocol }: { protocol: CardProtocol }) {
   return (
     <div
@@ -190,6 +242,11 @@ function ProtocolLine({ protocol }: { protocol: CardProtocol }) {
       <span data-role="discover-card-protocol-confidence" style={discoverReasonStyle}>
         {protocol.confidence}
       </span>
+      {protocol.mark !== undefined && (
+        <span data-role="discover-card-protocol-mark" style={pillStyle("warning")}>
+          {protocol.mark}
+        </span>
+      )}
     </div>
   );
 }
@@ -245,8 +302,9 @@ function Card({ card, onAction }: { card: DeviceCard; onAction: (action: Action)
 }
 
 /**
- * The Discover pane: its title and close button, its origin, `Only search` and known address choices, its
- * source rows and cards, its empty text, and its footer with the pane's actions and the result of the last one.
+ * The Discover pane: its breadcrumb, title and close button; its `Only search` choices, its scan settings with the
+ * origin, the known address and subnet, and the runtime's hardware scans; its source rows and cards; its empty
+ * text; and its footer with the pane's actions and the result of the last one.
  */
 export function DiscoverPane({
   title,
@@ -261,11 +319,21 @@ export function DiscoverPane({
   discover: DiscoverView;
   /** The result of the last action, when it names this pane. */
   notice?: Notice;
-  /** Called with a chosen action, unchanged. */
-  onAction: (action: Action) => void;
+  /** Called with a chosen action; `Search` also gets the known address and subnet the user typed. */
+  onAction: (action: Action, values?: Record<string, unknown>) => void;
   /** Called when the close button is chosen. */
   onClose: () => void;
 }) {
+  const [typed, setTyped] = useState<TypedTargets>({ hosts: "", cidr: "" });
+  const onType = (key: keyof TypedTargets, value: string) =>
+    setTyped((current) => ({ ...current, [key]: value }));
+  const chooseFooterAction = (action: Action) => {
+    if (action.id === SEARCH_ACTION) {
+      onAction(action, { ...typed });
+    } else {
+      onAction(action);
+    }
+  };
   return (
     <div
       data-role="discover-view"
@@ -273,24 +341,59 @@ export function DiscoverPane({
       style={addDialogStyle}
     >
       <header style={addHeaderStyle}>
-        <span data-role="discover-title" title={title} style={addTitleStyle}>
-          {title}
-        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div data-role="discover-breadcrumb" style={discoverReasonStyle}>
+            {discover.breadcrumb}
+          </div>
+          <span data-role="discover-title" title={title} style={addTitleStyle}>
+            {title}
+          </span>
+        </div>
         {discover.running && <span data-role="discover-running" style={loadingDotStyle} />}
-        <button type="button" data-role="discover-close" onClick={onClose} style={addCloseStyle}>
+        <button
+          type="button"
+          data-role="discover-close"
+          aria-label={discover.close_label}
+          onClick={onClose}
+          style={addCloseStyle}
+        >
           ✕
         </button>
       </header>
       <div style={addBodyStyle}>
+        {discover.unavailable_text !== undefined && (
+          <p data-role="discover-unavailable" style={discoverReasonStyle}>
+            {discover.unavailable_text}
+          </p>
+        )}
+        {discover.choose_text !== undefined && (
+          <p data-role="discover-choose" style={discoverReasonStyle}>
+            {discover.choose_text}
+          </p>
+        )}
         {discover.progress_text !== undefined && (
           <p data-role="discover-progress" style={discoverReasonStyle}>
             {discover.progress_text}
           </p>
         )}
-        <OriginChoices origins={discover.origins} />
-        <OnlyChoices choices={discover.only} />
-        <Targets targets={discover.targets} />
+        <Heading text={discover.heading_find} />
+        <OnlyChoices choices={discover.only} group={FIND} />
+        <section data-role="discover-advanced" style={discoverSectionStyle}>
+          <Heading text={discover.heading_advanced} />
+          <Heading text={discover.heading_scan_from} />
+          <OriginChoices origins={discover.origins} />
+          <Heading text={discover.heading_targets} />
+          <OnlyChoices choices={discover.only} group={KNOWN_ADDRESS} />
+          <Targets targets={discover.targets} typed={typed} onType={onType} />
+          <Heading text={discover.heading_runtime} />
+          <OnlyChoices choices={discover.only} group={RUNTIME_HARDWARE} />
+        </section>
         <SourceRows rows={discover.sources} />
+        {discover.update_text !== undefined && (
+          <p data-role="discover-update" style={discoverWarningStyle}>
+            {discover.update_text}
+          </p>
+        )}
         {discover.cards.length > 0 && (
           <section data-role="discover-cards" style={discoverSectionStyle}>
             {discover.cards.map((card) => (
@@ -305,7 +408,7 @@ export function DiscoverPane({
         )}
         <div data-role="discover-footer" style={addRowStyle}>
           {discover.actions.map((action) => (
-            <InspectorAction key={action.id} action={action} onAction={onAction} />
+            <InspectorAction key={action.id} action={action} onAction={chooseFooterAction} />
           ))}
           {notice !== undefined && <BrowseNotice notice={notice} onAction={onAction} />}
         </div>
@@ -313,3 +416,11 @@ export function DiscoverPane({
     </div>
   );
 }
+
+const headingStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: "var(--trust-text-subtle)",
+  letterSpacing: 0.2,
+  margin: "10px 0 4px",
+};

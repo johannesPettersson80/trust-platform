@@ -585,6 +585,24 @@ export interface DiscoverView {
   running: boolean;
   /** Its progress. */
   progress_text?: string;
+  /** The breadcrumb: `Devices & Connections`. */
+  breadcrumb: string;
+  /** The accessible name of the close button. */
+  close_label: string;
+  /** The heading of the scan choices. */
+  heading_find: string;
+  /** The heading of the origin choices. */
+  heading_scan_from: string;
+  /** The heading of the known address and subnet inputs. */
+  heading_targets: string;
+  /** The heading of the advanced settings. */
+  heading_advanced: string;
+  /** The heading of the runtime's hardware scans. */
+  heading_runtime: string;
+  /** The help that shows when no discovery is available. */
+  unavailable_text?: string;
+  /** The help that shows above the scan choices. */
+  choose_text?: string;
   /** `Scan from`: this computer, then each runtime. */
   origins: OriginChoice[];
   /** `Only search`: one choice per source. */
@@ -593,11 +611,13 @@ export interface DiscoverView {
   targets: TargetsInput;
   /** The state of each source. */
   sources: SourceRow[];
+  /** The line that asks to update truST, when a source or protocol was left out. */
+  update_text?: string;
   /** One card per device. */
   cards: DeviceCard[];
   /** What shows without finds. */
   empty_text?: string;
-  /** The pane's own actions. */
+  /** The pane's own actions: `search`, `cancel` while a scan runs, and `configure_ads_ports`. */
   actions: Action[];
 }
 
@@ -627,6 +647,10 @@ export interface OnlyChoice {
   enabled: boolean;
   /** Why it cannot. */
   reason?: string;
+  /** The note under its name. */
+  note?: string;
+  /** The group it is drawn in: `find`, `known_address` or `runtime_hardware`. */
+  group: string;
 }
 
 /** The inputs of `Known address or subnet` (panes.rs `TargetsInput`). */
@@ -689,4 +713,6 @@ export interface CardProtocol {
   confidence: string;
   /** Whether the find is simulated. */
   simulated: boolean;
+  /** The visible mark of a simulated find. */
+  mark?: string;
 }

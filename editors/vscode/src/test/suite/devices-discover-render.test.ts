@@ -333,7 +333,9 @@ suite("Devices & Connections Discover pane", () => {
                 simulated: "false",
               },
             ],
-            identity: [],
+            // A card that is not a runtime shows its host, as the old pane's "Host:" line did
+            // (spec 25 §2).
+            identity: [{ label: "Host", value: "192.168.1.20" }],
             lastSeen: "3 s ago",
           },
         ],
@@ -527,16 +529,14 @@ suite("Devices & Connections Discover pane", () => {
       );
       const anyScan = "Start or connect Cell before scanning from it.";
       const hardware = "Start or connect a runtime before scanning EtherCAT or GPIO.";
+      // The choices are drawn in the old pane's groups, in this order: `What do you want to find?`, then
+      // `Known address or subnet` (MQTT, OPC UA), then `Runtime hardware scans ⚠` (EtherCAT, GPIO).
       assert.deepStrictEqual(
         onlyChoices(container),
         [
           { source: "trust_runtime", checked: true, enabled: false, reason: anyScan },
           { source: "ads", checked: false, enabled: false, reason: anyScan },
           { source: "modbus_tcp", checked: false, enabled: false, reason: anyScan },
-          { source: "mqtt", checked: false, enabled: false, reason: anyScan },
-          { source: "opcua", checked: false, enabled: false, reason: anyScan },
-          { source: "ethercat", checked: false, enabled: false, reason: hardware },
-          { source: "gpio", checked: true, enabled: false, reason: hardware },
           { source: "serial", checked: false, enabled: false, reason: anyScan },
           { source: "usb", checked: false, enabled: false, reason: anyScan },
           {
@@ -545,6 +545,10 @@ suite("Devices & Connections Discover pane", () => {
             enabled: false,
             reason: "Bluetooth search is not available in this truST version yet.",
           },
+          { source: "mqtt", checked: false, enabled: false, reason: anyScan },
+          { source: "opcua", checked: false, enabled: false, reason: anyScan },
+          { source: "ethercat", checked: false, enabled: false, reason: hardware },
+          { source: "gpio", checked: true, enabled: false, reason: hardware },
         ],
         "every scan from the stopped runtime is disabled, each with its reason",
       );
@@ -733,19 +737,19 @@ suite("Devices & Connections Discover pane", () => {
     }
   });
 
-  test("a_pane_action_the_view_offers_is_drawn_in_the_footer_and_posted_unchanged", async () => {
+  test("a_pane_action_the_view_offers_is_drawn_in_the_footer_and_posted_as_given", async () => {
     const DiscoverPane = loadDiscoverPane();
     // Specification 25 §2: `Search` runs one search. The view carries the pane's own actions, and the pane draws
-    // them in its footer, so that a Search action needs no change to the pane. `search.start` is a stand-in name:
-    // the test checks only that the pane draws the action and posts it unchanged. A wrong implementation drops the
-    // pane's actions, or posts a rebuilt action.
+    // them in its footer. A Search action is posted as the view gives it, with the known address and subnet the
+    // user typed as its values (the next test checks the values). A wrong implementation drops the pane's actions,
+    // or posts a rebuilt action.
     const view = goldenView("running_search");
     const search = {
       id: "search",
       label: "Search",
       enabled: true,
       emphasis: "primary",
-      op: { kind: "rust", action: "search.start", payload: {} },
+      op: { kind: "rust", action: "search.start", payload: { verb: "start", origin: "this_host", only: ["ads"] } },
     };
     view.actions = [search];
     const posted: unknown[][] = [];
@@ -759,7 +763,125 @@ suite("Devices & Connections Discover pane", () => {
       await click(
         actionButton(rendered.container.querySelector('[data-role="discover-footer"]'), "Search"),
       );
-      assert.deepStrictEqual(posted, [[search]], "Search is posted exactly as the view gives it");
+      assert.deepStrictEqual(
+        posted,
+        [[search, { hosts: "", cidr: "" }]],
+        "Search is posted as the view gives it, with the typed targets, which are empty here",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("search_posts_the_known_address_and_subnet_the_user_typed", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2: `Search` starts a search with the chosen targets, which are the known address and the
+    // subnet typed into the two inputs. A wrong implementation posts the Search action without them, or posts the
+    // subnet in the address input's value.
+    const view = goldenView("running_search");
+    const search = {
+      id: "search",
+      label: "Search",
+      enabled: true,
+      emphasis: "primary",
+      op: { kind: "rust", action: "search.start", payload: { verb: "start", origin: "this_host", only: ["ads"] } },
+    };
+    view.actions = [search];
+    const posted: unknown[][] = [];
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: (...args: unknown[]) => posted.push(args),
+      onClose: () => undefined,
+    });
+    try {
+      const setValue = async (selector: string, value: string) => {
+        const input = rendered.container.querySelector(selector);
+        assert.ok(input, `${selector} is drawn`);
+        await act(async () => {
+          const setter = Object.getOwnPropertyDescriptor(rendered.window.HTMLInputElement.prototype, "value")?.set;
+          setter?.call(input, value);
+          input.dispatchEvent(new rendered.window.Event("input", { bubbles: true }));
+        });
+      };
+      await setValue('[data-role="discover-hosts"]', "10.0.0.9:502");
+      await setValue('[data-role="discover-cidr"]', "192.168.1.0/24");
+      await click(
+        actionButton(rendered.container.querySelector('[data-role="discover-footer"]'), "Search"),
+      );
+      assert.deepStrictEqual(
+        posted,
+        [[search, { hosts: "10.0.0.9:502", cidr: "192.168.1.0/24" }]],
+        "Search carries the address and the subnet as the user typed them",
+      );
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("the_headings_and_notes_are_drawn_from_the_view", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 25 §2 (the old pane's headings, lines 262-306, and its notes, lines 33-49): the pane draws each
+    // heading and note the view gives, in the order of the old pane. A wrong implementation draws a heading of its
+    // own, or puts a note under the wrong source.
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: goldenView("running_search"),
+      onAction: () => undefined,
+      onClose: () => undefined,
+    });
+    try {
+      const headings = [...rendered.container.querySelectorAll('[data-role="discover-heading"]')].map(
+        (heading: any) => heading.textContent,
+      );
+      assert.deepStrictEqual(headings, [
+        "What do you want to find?",
+        "Advanced scan settings",
+        "Scan from",
+        "Known address or subnet",
+        "Runtime hardware scans ⚠",
+      ]);
+      const notes = [...rendered.container.querySelectorAll('[data-role="discover-only-choice"]')].map(
+        (choice: any) => [
+          choice.getAttribute("data-source"),
+          optionalText(choice, '[data-role="discover-only-note"]') ?? null,
+        ],
+      );
+      assert.deepStrictEqual(notes.find(([source]) => source === "trust_runtime"), ["trust_runtime", "mDNS"]);
+      assert.deepStrictEqual(notes.find(([source]) => source === "ads"), ["ads", "network broadcast"]);
+      assert.deepStrictEqual(notes.find(([source]) => source === "serial"), ["serial", null]);
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  test("a_simulated_find_draws_the_mark_and_an_unknown_source_draws_the_update_line", async () => {
+    const DiscoverPane = loadDiscoverPane();
+    // Specification 11, "Confidence" (a simulated result is never presented as hardware) and specification 25 §2
+    // (one line asks to update truST when a source or protocol is left out). A wrong implementation draws the
+    // simulated flag only as an attribute, or draws no update line.
+    const view = goldenView("running_search");
+    view.cards[0].protocols[0].simulated = true;
+    view.cards[0].protocols[0].mark = "Simulated";
+    view.update_text =
+      "This search reports a source or protocol that this version of truST does not know. Update truST to see its results.";
+    const rendered = await render(DiscoverPane, {
+      title: "Discover",
+      discover: view,
+      onAction: () => undefined,
+      onClose: () => undefined,
+    });
+    try {
+      assert.strictEqual(
+        textOf(rendered.container, '[data-role="discover-card-protocol-mark"]'),
+        "Simulated",
+        "the simulated find shows its mark",
+      );
+      assert.strictEqual(
+        textOf(rendered.container, '[data-role="discover-update"]'),
+        "This search reports a source or protocol that this version of truST does not know. Update truST to see its results.",
+        "the update line is drawn",
+      );
     } finally {
       await rendered.unmount();
     }

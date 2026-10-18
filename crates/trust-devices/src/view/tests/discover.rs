@@ -6,7 +6,7 @@
 use serde_json::{json, Value};
 
 use crate::view::discover::{project, RuntimeOrigin, Scan};
-use crate::view::types::{DiscoverView, Op, SourceRow, Tone};
+use crate::view::types::{DiscoverView, HostEffect, Op, SourceRow, Tone};
 
 /// The time of the view, in milliseconds since the Unix epoch.
 const NOW_MS: u64 = 1_760_000_000_000;
@@ -678,4 +678,352 @@ fn origins_offer_this_computer_then_each_runtime() {
     assert!(origins
         .iter()
         .all(|choice| choice.enabled && choice.reason.is_none()));
+}
+
+#[test]
+fn discover_offers_search_and_cancel_and_disables_search_while_running() {
+    // Specification 25 §2: `Search` starts one search with the origin and the ticked sources, is
+    // disabled with its reason while a scan runs, and `Cancel` shows only while it runs (old pane:
+    // `DiscoverPane.tsx` lines 421 and 425; `Configure ADS ports to scan` is line 295). A wrong
+    // implementation enables `Search` while a scan runs, drops `Cancel`, shows `Cancel` after the
+    // search ended, sends the origin of another search, or keeps `Search` enabled with no ticked source.
+    let running = view_of(
+        &status("running", json!([found("ads", 1)]), json!([])),
+        &Scan::ThisHost,
+        &ready_cell(),
+    );
+    let shown: Vec<(&str, &str, bool)> = running
+        .actions
+        .iter()
+        .map(|action| (action.id.as_str(), action.label.as_str(), action.enabled))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            ("search", "Scanning…", false),
+            ("cancel", "Cancel", true),
+            ("configure_ads_ports", "Configure ADS ports to scan", true),
+        ],
+        "a running search shows its disabled Search, Cancel, and the ADS port settings"
+    );
+    assert_eq!(
+        running.actions[0].reason.as_deref(),
+        Some("A scan is running. Wait for it to end, or cancel it."),
+        "Search says why it is disabled while a scan runs"
+    );
+    assert_eq!(
+        running.actions[1].op,
+        Op::Rust {
+            action: "search.cancel".to_owned(),
+            payload: json!({ "verb": "cancel", "search_id": "s-1" }),
+        },
+        "Cancel names the running search"
+    );
+    assert_eq!(
+        running.actions[2].op,
+        Op::Host {
+            effect: HostEffect::OpenSettings {
+                query: "trust.ads.discoveryPorts".to_owned(),
+            },
+        },
+        "Configure ADS ports to scan opens the ADS discovery ports setting"
+    );
+
+    let done = view_of(
+        &status("done", json!([found("ads", 1)]), json!([])),
+        &Scan::ThisHost,
+        &ready_cell(),
+    );
+    let search = &done.actions[0];
+    assert_eq!(
+        (search.id.as_str(), search.label.as_str(), search.enabled),
+        ("search", "Search", true)
+    );
+    assert_eq!(search.reason, None, "an enabled Search has no reason");
+    assert_eq!(
+        search.op,
+        Op::Rust {
+            action: "search.start".to_owned(),
+            payload: json!({ "verb": "start", "origin": "this_host", "only": ["ads"] }),
+        },
+        "Search starts a search from this computer with the ticked source ADS"
+    );
+    assert_eq!(
+        done.actions
+            .iter()
+            .map(|action| action.id.as_str())
+            .collect::<Vec<_>>(),
+        ["search", "configure_ads_ports"],
+        "a finished search offers no Cancel"
+    );
+
+    let unticked = view_of(
+        &status("done", json!([]), json!([])),
+        &Scan::ThisHost,
+        &ready_cell(),
+    );
+    assert!(
+        !unticked.actions[0].enabled,
+        "no ticked source: Search is disabled"
+    );
+    assert_eq!(
+        unticked.actions[0].reason.as_deref(),
+        Some("Select at least one available scan type."),
+        "the old pane's reason for a search with nothing selected (line 421)"
+    );
+}
+
+#[test]
+fn every_heading_and_help_text_of_the_old_pane_is_in_the_view() {
+    // Specification 25 §2 and the old pane's `DiscoverPane.tsx`: the breadcrumb (line 230), the close
+    // button's name (line 233), the headings (lines 262, 271, 275, 300, 306) and the help that
+    // shows above the scan choices (line 257), word for word. A wrong implementation changes a word,
+    // such as `Scan from` for `Scan source`, or shows the help text of an empty pane for a search that lists sources.
+    let view = view_of(
+        &status("done", json!([found("ads", 1)]), json!([])),
+        &Scan::ThisHost,
+        &ready_cell(),
+    );
+    assert_eq!(view.breadcrumb, "Devices & Connections");
+    assert_eq!(view.close_label, "Close");
+    assert_eq!(view.heading_find, "What do you want to find?");
+    assert_eq!(view.heading_scan_from, "Scan from");
+    assert_eq!(view.heading_targets, "Known address or subnet");
+    assert_eq!(view.heading_advanced, "Advanced scan settings");
+    assert_eq!(view.heading_runtime, "Runtime hardware scans ⚠");
+    assert_eq!(
+        view.choose_text.as_deref(),
+        Some("Choose what to find, then scan. Only the selected device types are searched."),
+        "the choose help shows above the scan choices"
+    );
+    assert_eq!(
+        view.unavailable_text, None,
+        "sources are listed, so the no-discovery help does not show"
+    );
+}
+
+#[test]
+fn per_source_notes_follow_the_old_pane() {
+    // Specification 25 §2 and the old pane's source rows (`DiscoverPane.tsx` lines 33-49): each
+    // note sits under its source's name, and each choice sits in the group of the old pane. A wrong
+    // implementation puts `at host` on ADS, drops the note of GPIO, or puts EtherCAT under
+    // `What do you want to find?`.
+    let view = view_of(
+        &status("done", json!([]), json!([])),
+        &Scan::ThisHost,
+        &ready_cell(),
+    );
+    let placed: Vec<(&str, Option<&str>, &str)> = view
+        .only
+        .iter()
+        .map(|choice| {
+            (
+                choice.source.as_str(),
+                choice.note.as_deref(),
+                choice.group.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        placed,
+        [
+            ("trust_runtime", Some("mDNS"), "find"),
+            ("ads", Some("network broadcast"), "find"),
+            ("modbus_tcp", Some("local network scan"), "find"),
+            ("mqtt", Some("at host"), "known_address"),
+            ("opcua", Some("at host"), "known_address"),
+            ("ethercat", Some("bus enumeration"), "runtime_hardware"),
+            (
+                "gpio",
+                Some("local pins on the runtime"),
+                "runtime_hardware"
+            ),
+            ("serial", None, "find"),
+            ("usb", None, "find"),
+            ("bluetooth", None, "find"),
+        ],
+        "each source has its note of the old pane, and serial, USB and Bluetooth none"
+    );
+}
+
+#[test]
+fn a_card_that_is_not_a_runtime_shows_its_host() {
+    // Specification 25 §2 and the old pane's `Host:` line (`DiscoverPane.tsx` line 379): a card that is not
+    // a truST runtime shows its host, and a runtime card shows its endpoint instead of a host row. A wrong
+    // implementation leaves the host off a Modbus card, or adds a host row to a runtime card.
+    let answer = status(
+        "done",
+        json!([found("modbus_tcp", 1), found("trust_runtime", 1)]),
+        json!([
+            device(
+                "dev:ip:192.168.1.20",
+                &["192.168.1.20"],
+                &[modbus_find("192.168.1.20")]
+            ),
+            device(
+                "dev:ip:10.0.0.6",
+                &["10.0.0.6"],
+                &[runtime_find("tcp://10.0.0.6:5680")]
+            ),
+        ]),
+    );
+    let view = view_of(&answer, &Scan::ThisHost, &ready_cell());
+    let hosts: Vec<(String, String)> = view.cards[0]
+        .identity
+        .iter()
+        .filter(|row| row.label == "Host")
+        .map(|row| (row.label.clone(), row.value.clone()))
+        .collect();
+    assert_eq!(
+        hosts,
+        [("Host".to_owned(), "192.168.1.20".to_owned())],
+        "the Modbus card shows its host"
+    );
+    assert!(
+        view.cards[1].identity.iter().all(|row| row.label != "Host"),
+        "a runtime card has no host row"
+    );
+}
+
+#[test]
+fn a_simulated_result_is_marked() {
+    // Specification 11, "Confidence" (lines 1576-1578): a simulated result carries `simulated = true`
+    // and is never presented as hardware, so the view gives it a visible mark. A wrong implementation
+    // draws the flag only as a data attribute, marks a result from hardware, or drops the mark.
+    let simulated = json!({
+        "protocol": "modbus_tcp",
+        "source": "tcp_connect",
+        "confidence": "port_reachable",
+        "simulated": true,
+        "identity": { "kind": "modbus", "unit_id": 1 },
+        "params": { "host": "192.168.1.30", "port": 502, "unit_id": 1 },
+        "warnings": []
+    });
+    let answer = status(
+        "done",
+        json!([found("modbus_tcp", 2)]),
+        json!([
+            device("dev:ip:192.168.1.30", &["192.168.1.30"], &[simulated]),
+            device(
+                "dev:ip:192.168.1.20",
+                &["192.168.1.20"],
+                &[modbus_find("192.168.1.20")]
+            ),
+        ]),
+    );
+    let view = view_of(&answer, &Scan::ThisHost, &ready_cell());
+    assert!(
+        view.cards[0].protocols[0].simulated,
+        "the find is simulated"
+    );
+    assert_eq!(
+        view.cards[0].protocols[0].mark.as_deref(),
+        Some("Simulated"),
+        "a simulated find carries the visible mark"
+    );
+    assert_eq!(
+        view.cards[1].protocols[0].mark, None,
+        "a find from hardware carries no mark"
+    );
+}
+
+#[test]
+fn an_older_runtime_empty_text_claims_no_running_scan() {
+    // Specification 34 TARGET-05 and design §1.4.1: a runtime that is older than this search skips
+    // every source with the update it needs. No source ran, so the empty text must not claim that the
+    // hardware scans run from the selected runtime (the old pane's line 436 is for a search that ran).
+    // A wrong implementation keeps that sentence for every ready runtime.
+    let reason = "This runtime's truST version cannot search; update it to 0.24.75 or later.";
+    let skipped_everywhere = Value::Array(SOURCES.iter().map(|id| skipped(id, reason)).collect());
+    let runtimes = [origin("runtime:old", "Old runtime", true)];
+    let older = view_of(
+        &status("done", skipped_everywhere, json!([])),
+        &Scan::Runtime("runtime:old".to_owned()),
+        &runtimes,
+    );
+    assert_eq!(
+        older.empty_text, None,
+        "no source ran, so the view gives no empty text"
+    );
+    assert_eq!(
+        older.sources.len(),
+        10,
+        "each source still shows its reason"
+    );
+
+    let ran = view_of(
+        &status("done", json!([found("trust_runtime", 0)]), json!([])),
+        &Scan::Runtime("runtime:old".to_owned()),
+        &runtimes,
+    );
+    assert_eq!(
+        ran.empty_text.as_deref(),
+        Some("Nothing found. Check that the device is powered on, on the same network, and not blocked by a port or firewall. Verify the address or subnet for known-address scans. Hardware scans are running from the selected runtime."),
+        "once a source ran, the hardware sentence is drawn as before"
+    );
+}
+
+#[test]
+fn an_unknown_source_is_left_out_with_an_update_line() {
+    // Specification 25 §2 (the update line, which names no version): a status that names a source or a
+    // protocol this build does not know leaves that part out, leaves out a device whose protocols are all
+    // unknown, and shows one line that asks to update truST. A wrong implementation fails the whole view
+    // (`search_status_unreadable`), keeps the unknown source as a row, or keeps a card with no protocol.
+    let unknown_find = json!({
+        "protocol": "hologram",
+        "source": "mdns",
+        "confidence": "confirmed",
+        "simulated": false,
+        "identity": { "kind": "hologram" },
+        "params": {},
+        "warnings": []
+    });
+    let answer = status(
+        "done",
+        json!([
+            found("trust_runtime", 1),
+            { "id": "hologram", "state": "found", "count": 2 }
+        ]),
+        json!([
+            device(
+                "dev:ip:10.0.0.6",
+                &["10.0.0.6"],
+                &[runtime_find("tcp://10.0.0.6:5680")]
+            ),
+            device(
+                "dev:ip:192.168.1.20",
+                &["192.168.1.20"],
+                &[modbus_find("192.168.1.20"), unknown_find.clone()]
+            ),
+            device("dev:x:hologram", &[], &[unknown_find]),
+        ]),
+    );
+    let view = view_of(&answer, &Scan::ThisHost, &ready_cell());
+    let rows: Vec<&str> = view.sources.iter().map(|row| row.id.as_str()).collect();
+    assert_eq!(rows, ["trust_runtime"], "the unknown source is not a row");
+    assert_eq!(
+        view.cards.len(),
+        2,
+        "the device whose only protocol is unknown is left out"
+    );
+    assert_eq!(
+        view.cards[1].protocols.len(),
+        1,
+        "the unknown protocol of a known device is left out"
+    );
+    assert_eq!(
+        view.update_text.as_deref(),
+        Some("This search reports a source or protocol that this version of truST does not know. Update truST to see its results."),
+        "one line asks to update truST"
+    );
+
+    let known = view_of(
+        &status("done", json!([found("trust_runtime", 1)]), json!([])),
+        &Scan::ThisHost,
+        &ready_cell(),
+    );
+    assert_eq!(
+        known.update_text, None,
+        "a status of known names shows no update line"
+    );
 }

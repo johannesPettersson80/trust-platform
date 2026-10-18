@@ -92,6 +92,51 @@ package, or end-to-end evidence.
 - Adopting a discovered runtime MUST retain its discovered label, refresh the
   fleet topology, and select and focus the adopted runtime node.
 
+- The pane's own actions are the view's `actions` (the old pane's
+  `networkCanvas/webview/DiscoverPane.tsx` line numbers are given):
+  - `Search` (old `Scan`, line 425; this name is the one this section gives the
+    action) starts one search with the origin, the ticked sources and the typed
+    known address and subnet. While a scan runs it is disabled with the reason
+    `A scan is running. Wait for it to end, or cancel it.` (the old pane gave no
+    reason) and reads `Scanning…` (line 425). With no ticked source that the
+    origin can scan it is disabled with `Select at least one available scan
+    type.` (line 421).
+  - `Cancel` (new: the old pane had no cancel) shows only while a scan runs, and
+    ends it.
+  - `Configure ADS ports to scan` (line 295) opens VS Code's settings at
+    `trust.ads.discoveryPorts` (`networkCanvasPanel.ts` lines 661-665).
+  - The host sends `search.start` and `search.cancel` to `trust-lsp.devicesSearch`
+    with the verb their payloads give, not to `trust-lsp.devicesAct`.
+- The headings and labels: `Devices & Connections` (the breadcrumb, line 230),
+  `Close` (the close button's name, line 233), `What do you want to find?` (line
+  262), `Scan from` (line 275), `Known address or subnet` (line 300), `Advanced
+  scan settings` (line 271) and `Runtime hardware scans ⚠` (line 306).
+- The help texts: `No discovery is available yet. Load a project or connect a
+  runtime that advertises discoverable protocols.` (lines 251-252) when no source
+  is listed, and `Choose what to find, then scan. Only the selected device types
+  are searched.` (line 257) above the scan choices.
+- The notes under the source names (lines 33-49): `network broadcast` (ADS),
+  `mDNS` (truST runtimes), `local network scan` (Modbus TCP), `at host` (MQTT and
+  OPC UA), `bus enumeration` (EtherCAT) and `local pins on the runtime` (GPIO).
+  Serial, USB and Bluetooth had no row in the old pane and have no note. The
+  choices sit in the groups of the old pane: `What do you want to find?`,
+  `Known address or subnet` (MQTT, OPC UA) and `Runtime hardware scans ⚠`
+  (EtherCAT, GPIO). The note `discoverable` belongs to protocols beyond these ten
+  sources, which the view does not list yet.
+- A card that is not a truST runtime shows its `Host` (line 379).
+- A simulated find carries the mark `Simulated` (new; specification 11,
+  "Confidence").
+- An empty result is drawn only when a source ran. A search in which every source
+  was skipped, such as the search of an older runtime, shows the reason of each
+  source and no empty text, so no hardware scan is claimed.
+- A status that names a source or a protocol this build does not know leaves that
+  part out, leaves out a device whose protocols are all unknown, and shows the
+  line `This search reports a source or protocol that this version of truST does
+  not know. Update truST to see its results.` (new; the old pane had no such
+  case)
+- The Bluetooth reason is the one that trust-runtime's search catalog gives, read
+  from that catalog rather than copied.
+
 ## 3. Examples, project scaffolding, and packaged tools
 
 ### 3.1 Curated gallery
