@@ -6854,6 +6854,7 @@ dependencies = [
 name = "trust-runtime-services"
 version = "0.24.75"
 dependencies = [
+ "indexmap 2.14.2",
  "serde",
  "serde_json",
  "smol_str",

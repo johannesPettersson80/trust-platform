@@ -1,17 +1,15 @@
 //! Host adapters at the shared scheduler's established transaction boundaries.
 
 use super::{
-    ads_subsystem::AdsSubsystem, io_subsystem::is_cycle_operational_error,
-    io_subsystem::IoSubsystem, metrics_subsystem::MetricsSubsystem,
+    ads_subsystem::AdsSubsystem, io_subsystem::IoSubsystem, metrics_subsystem::MetricsSubsystem,
     opcua_client_subsystem::OpcUaClientSubsystem, RetainSnapshot, Runtime, RuntimeMetadata,
 };
 use crate::{
-    debug::{DebugControl, ForcedVarTarget, PendingVarTarget, RuntimeEvent},
+    debug::{DebugControl, RuntimeEvent},
     error::RuntimeError,
-    memory::{Generation, InstanceId, VariableStorage},
     program_model::{Expr, LValue},
     task::TaskConfig,
-    value::{Duration, Value, ValueRef},
+    value::Value,
     watchdog::{FaultAction, FaultDecision},
 };
 use std::time::{Duration as PhysicalDuration, Instant};
@@ -234,7 +232,12 @@ impl CycleHooks for HostedCycle<'_> {
             CyclePhase::CycleStart => {
                 if let Some(debug) = self.debug.clone() {
                     debug.begin_cycle();
-                    self.pending_writes(&debug, access)?;
+                    let metadata = self.metadata;
+                    debug.apply_live_values_cycle_start(
+                        access,
+                        metadata,
+                        |access, target, value| write_lvalue(access, metadata, target, value),
+                    )?;
                     debug.push_runtime_event(RuntimeEvent::CycleStart {
                         cycle: self.cycle,
                         time,
@@ -244,14 +247,7 @@ impl CycleHooks for HostedCycle<'_> {
             CyclePhase::BeforeInputSample => {
                 self.io.sample_inputs_with_cycle(access)?;
                 if let Some(debug) = self.debug.clone() {
-                    for (address, value) in debug.drain_io_writes() {
-                        self.management_result(
-                            access.write_admitted_image(&address, value),
-                            format!("{address:?}"),
-                            time,
-                        )?;
-                    }
-                    self.forces(&debug, access)?;
+                    debug.apply_live_values_before_input_sample(access, self.metadata)?;
                 }
             }
             CyclePhase::AfterInputSample => {
@@ -323,7 +319,7 @@ impl CycleHooks for HostedCycle<'_> {
             }
             CyclePhase::AfterOutputSample => {
                 if let Some(debug) = self.debug.clone() {
-                    self.forces(&debug, access)?;
+                    debug.apply_live_values_after_output_sample(access, self.metadata)?;
                 }
                 self.ads.capture_outputs_with_cycle(access, now_ms)?;
                 self.opcua.capture_outputs_with_cycle(access, now_ms)?;
@@ -371,149 +367,6 @@ impl HostedCycle<'_> {
             Ok(())
         }
     }
-    fn management_result(
-        &self,
-        result: Result<(), RuntimeError>,
-        target: String,
-        time: Duration,
-    ) -> Result<(), RuntimeError> {
-        if let Err(error) = result {
-            if let Some(debug) = &self.debug {
-                debug.push_runtime_event(RuntimeEvent::WriteRejected {
-                    target: target.into(),
-                    error: error.to_string(),
-                    time,
-                });
-            }
-            // Invalid requests remain local. Deadline and resource exhaustion
-            // fault the enclosing cycle regardless of which operation saw them.
-            if is_cycle_operational_error(&error) {
-                return Err(error);
-            }
-        }
-        Ok(())
-    }
-    fn pending_writes(
-        &mut self,
-        debug: &DebugControl,
-        access: &mut CycleAccess<'_, '_>,
-    ) -> Result<(), RuntimeError> {
-        for write in debug.drain_var_writes() {
-            let (target, result) = match write.target {
-                PendingVarTarget::Global(name) => {
-                    let result = access.write_admitted_global(&name, write.value);
-                    (name.to_string(), result)
-                }
-                PendingVarTarget::Retain(name) => {
-                    let result = access
-                        .charge_management_name(&name)
-                        .and_then(|()| {
-                            self.metadata
-                                .retained_reference(access.storage(), &name)
-                                .ok_or(RuntimeError::ReferenceLifetime)
-                        })
-                        .and_then(|reference| {
-                            access.write_admitted_reference(reference.as_view(), write.value)
-                        });
-                    (name.to_string(), result)
-                }
-                PendingVarTarget::Instance(generation, id, name) => {
-                    let result = instance_reference(access.storage(), generation, id, &name)
-                        .and_then(|reference| {
-                            access.write_admitted_reference(reference.as_view(), write.value)
-                        });
-                    (format!("{}.{name}", id.0), result)
-                }
-                PendingVarTarget::Local(id, name) => (
-                    format!("{}.{name}", id.0),
-                    Err(RuntimeError::ReferenceLifetime),
-                ),
-            };
-            self.management_result(result, target, access.logical_time())?;
-        }
-        for write in debug.drain_lvalue_writes() {
-            let result = if write.frame_id.is_some() {
-                Err(RuntimeError::ReferenceLifetime)
-            } else {
-                write_lvalue(access, self.metadata, &write.target, write.value)
-            };
-            self.management_result(result, format!("{:?}", write.target), access.logical_time())?;
-        }
-        Ok(())
-    }
-    fn forces(
-        &mut self,
-        debug: &DebugControl,
-        access: &mut CycleAccess<'_, '_>,
-    ) -> Result<(), RuntimeError> {
-        let forces = debug.forced_snapshot();
-        for (address, value) in forces.io {
-            let result = access.write_admitted_image(&address, value.clone());
-            if is_refused_request(&result) {
-                debug.discard_rejected_io_force(&address, &value);
-            }
-            self.management_result(result, format!("{address:?}"), access.logical_time())?;
-        }
-        for forced in forces.vars {
-            let (target, result) = match forced.target.clone() {
-                ForcedVarTarget::Global(name) => {
-                    let result = access.write_admitted_global(&name, forced.value.clone());
-                    (name.to_string(), result)
-                }
-                ForcedVarTarget::Retain(name) => {
-                    let result = access
-                        .charge_management_name(&name)
-                        .and_then(|()| {
-                            self.metadata
-                                .retained_reference(access.storage(), &name)
-                                .ok_or(RuntimeError::ReferenceLifetime)
-                        })
-                        .and_then(|reference| {
-                            access
-                                .write_admitted_reference(reference.as_view(), forced.value.clone())
-                        });
-                    (name.to_string(), result)
-                }
-                ForcedVarTarget::Instance(generation, id, name) => {
-                    let result = instance_reference(access.storage(), generation, id, &name)
-                        .and_then(|reference| {
-                            access
-                                .write_admitted_reference(reference.as_view(), forced.value.clone())
-                        });
-                    (format!("{}.{name}", id.0), result)
-                }
-            };
-            if is_refused_request(&result) {
-                debug.discard_rejected_var_force(&forced.target, &forced.value);
-            }
-            self.management_result(result, target, access.logical_time())?;
-        }
-        Ok(())
-    }
-}
-
-/// Whether the scan boundary refused a queued or forced write as an invalid request. Operational
-/// errors fault the cycle instead, so their requests are not withdrawn here.
-fn is_refused_request(result: &Result<(), RuntimeError>) -> bool {
-    matches!(result, Err(error) if !is_cycle_operational_error(error))
-}
-
-/// Resolve a staged request that names an instance by identity. The identity belongs to the
-/// generation the request was resolved in; another installed generation rejects it, so a restart
-/// or replacement in between cannot redirect it to the instance that now has that identity
-/// (specification 34 §4.3.1).
-fn instance_reference(
-    storage: &VariableStorage,
-    generation: Generation,
-    id: InstanceId,
-    name: &str,
-) -> Result<ValueRef, RuntimeError> {
-    if generation != storage.generation() {
-        return Err(RuntimeError::ReferenceLifetime);
-    }
-    storage
-        .ref_for_instance_recursive(id, name)
-        .ok_or(RuntimeError::ReferenceLifetime)
 }
 
 fn write_lvalue(

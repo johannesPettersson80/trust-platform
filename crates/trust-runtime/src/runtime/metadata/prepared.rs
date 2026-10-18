@@ -3,8 +3,8 @@
 //! HIR identities never enter the engine. Source text, USING lists and executable
 //! AST bodies absent from the artifact are deliberately not reconstructed.
 use super::{
-    AccessMap, DateTimeProfile, GlobalDeclarationInfo, IndexMap, InterfaceDef, RetainedBinding,
-    RetainedLabel, RuntimeMetadata, SmolStr, StandardLibrary, TaskConfig,
+    AccessMap, DateTimeProfile, GlobalDeclarationInfo, IndexMap, InterfaceDef, RuntimeMetadata,
+    SmolStr, StandardLibrary, TaskConfig,
 };
 use crate::{error::RuntimeError, program_model::MethodDef};
 use trust_runtime_core::{
@@ -21,56 +21,12 @@ impl RuntimeMetadata {
         &mut self,
         prepared: &PreparedModule,
     ) -> Result<(), RuntimeError> {
-        let mut bindings = IndexMap::new();
-        let name = |id: u32| {
-            prepared
-                .strings()
-                .get(id as usize)
-                .cloned()
-                .ok_or(RuntimeError::InvalidExecutionState)
-        };
-        for declaration in prepared.storage_declarations() {
-            if declaration.owner == StorageOwner::Global
-                && declaration.is_retained()
-                && declaration.role != StorageRole::ProgramRoot
-                && declaration.owns_storage()
-            {
-                let name = name(declaration.name_idx)?;
-                insert_retained_binding(
-                    &mut bindings,
-                    RetainedLabel(name.clone()),
-                    RetainedBinding { root: None, name },
-                )?;
-            }
-        }
-        for root in prepared.construction_roots() {
-            let declaration = prepared
-                .storage_declarations()
-                .get(root.declaration_idx as usize)
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            if root.parent_root_idx.is_some() || declaration.role != StorageRole::ProgramRoot {
-                continue;
-            }
-            let program = name(declaration.name_idx)?;
-            let template = root
-                .template_pou_id
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            for member in prepared.instance_declarations(template) {
-                if !member.is_retained() || !member.owns_storage() {
-                    continue;
-                }
-                let member = name(member.name_idx)?;
-                insert_retained_binding(
-                    &mut bindings,
-                    RetainedLabel(format!("@program/{program}/{member}").into()),
-                    RetainedBinding {
-                        root: Some(program.clone()),
-                        name: member,
-                    },
-                )?;
-            }
-        }
-        self.retained_bindings = bindings;
+        // The labels and their resolution are shared Live Values code
+        // (specification 11, "Live Values"; specification 34 §4.3.1).
+        self.retained_bindings =
+            trust_runtime_services::live_values::retained_names::bind_retained_declarations(
+                prepared,
+            )?;
         Ok(())
     }
 
@@ -294,22 +250,6 @@ impl RuntimeMetadata {
     #[must_use]
     pub fn has_source_text(&self) -> bool {
         !self.source_text_index.is_empty()
-    }
-}
-
-fn insert_retained_binding(
-    bindings: &mut IndexMap<RetainedLabel, RetainedBinding>,
-    label: RetainedLabel,
-    binding: RetainedBinding,
-) -> Result<(), RuntimeError> {
-    match bindings.entry(label) {
-        indexmap::map::Entry::Vacant(entry) => {
-            entry.insert(binding);
-            Ok(())
-        }
-        indexmap::map::Entry::Occupied(entry) => Err(RuntimeError::InvalidConfig(
-            format!("ambiguous retained management label '{}'", entry.key().0).into(),
-        )),
     }
 }
 

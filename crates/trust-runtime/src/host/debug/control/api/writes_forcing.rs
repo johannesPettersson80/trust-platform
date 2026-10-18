@@ -1,3 +1,9 @@
+use crate::error::RuntimeError;
+use crate::runtime::RuntimeMetadata;
+use crate::value::Duration;
+use trust_runtime_core::vm::CycleAccess;
+use trust_runtime_services::live_values::apply::{self, WriteSink};
+
 impl DebugControl {
     /// Queue a one-shot I/O write. A refused write is reported as `write_rejected` and queues
     /// nothing; protocol and control producers use `try_enqueue_io_write` to receive the refusal.
@@ -152,16 +158,20 @@ impl DebugControl {
         Ok(Ok(()))
     }
 
-    /// Drain pending variable writes.
+    /// Drain pending variable writes. The scan applies the queue in place through the shared Live
+    /// Values code, so only the control tests read the queued writes directly.
     #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn drain_var_writes(&self) -> Vec<PendingVarWrite> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
         state.live_values.drain_var_writes()
     }
 
-    /// Drain pending lvalue writes.
+    /// Drain pending lvalue writes. As for [`Self::drain_var_writes`], only the control tests read
+    /// the queued writes directly.
     #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn drain_lvalue_writes(&self) -> Vec<PendingLValueWrite<LValue>> {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
@@ -176,7 +186,7 @@ impl DebugControl {
     }
 
     fn enqueue_var_write(&self, target: PendingVarTarget, value: Value) {
-        let label = pending_var_label(&target);
+        let label = apply::pending_var_label(&target);
         if self.try_enqueue_var_write(target, value).is_err() {
             self.report_refused_request(label);
         }
@@ -363,25 +373,8 @@ impl DebugControl {
         state.live_values.forced_snapshot()
     }
 
-    /// Remove an I/O force whose application the scan boundary rejected, so the rejected value is
-    /// not applied again. The entry goes only while it still holds the rejected value: a newer
-    /// force on the same address survives.
-    pub(crate) fn discard_rejected_io_force(&self, address: &IoAddress, value: &Value) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.live_values.discard_rejected_io_force(address, value);
-    }
-
-    /// Remove a variable force whose application the scan boundary rejected. As for I/O forces,
-    /// the entry goes only while it still holds the rejected value.
-    pub(crate) fn discard_rejected_var_force(&self, target: &ForcedVarTarget, value: &Value) {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().expect("debug state poisoned");
-        state.live_values.discard_rejected_var_force(target, value);
-    }
-
     fn set_forced_var(&self, target: ForcedVarTarget, value: Value) {
-        let label = forced_var_label(&target);
+        let label = apply::forced_var_label(&target);
         if self.try_set_forced_var(target, value).is_err() {
             self.report_refused_request(label);
         }
@@ -422,19 +415,80 @@ impl DebugControl {
     }
 }
 
-/// The destination label of a pending write, as the runtime reports it in events.
-fn pending_var_label(target: &PendingVarTarget) -> SmolStr {
-    match target {
-        PendingVarTarget::Global(name) | PendingVarTarget::Retain(name) => name.clone(),
-        PendingVarTarget::Instance(_, id, name) => SmolStr::new(format!("{}.{name}", id.0)),
-        PendingVarTarget::Local(id, name) => SmolStr::new(format!("{}.{name}", id.0)),
+/// The refusals one shared Live Values apply reported. They are held until the debug state lock is
+/// released, so the report reuses the normal event path instead of taking the lock again.
+#[derive(Default)]
+struct RejectedEvents {
+    events: Vec<RuntimeEvent>,
+}
+
+impl WriteSink for RejectedEvents {
+    fn refused(&mut self, target: &str, error: &RuntimeError, time: Duration) {
+        self.events.push(RuntimeEvent::WriteRejected {
+            target: SmolStr::new(target),
+            error: error.to_string(),
+            time,
+        });
     }
 }
 
-/// The destination label of a variable force, as the runtime reports it in events.
-fn forced_var_label(target: &ForcedVarTarget) -> SmolStr {
-    match target {
-        ForcedVarTarget::Global(name) | ForcedVarTarget::Retain(name) => name.clone(),
-        ForcedVarTarget::Instance(_, id, name) => SmolStr::new(format!("{}.{name}", id.0)),
+impl DebugControl {
+    /// Apply the queued Live Values writes at the cycle start through the shared code. The queued
+    /// lvalue writes use the platform's HIR expression evaluation through `write_lvalue`.
+    pub(crate) fn apply_live_values_cycle_start(
+        &self,
+        access: &mut CycleAccess<'_, '_>,
+        metadata: &RuntimeMetadata,
+        write_lvalue: impl FnMut(&mut CycleAccess<'_, '_>, &LValue, Value) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        self.run_live_values_apply(|queues, sink| {
+            apply::cycle_start(
+                queues,
+                metadata.retained_names(),
+                access,
+                sink,
+                write_lvalue,
+            )
+        })
+    }
+
+    /// Apply the queued I/O writes and then every active force before the input sample.
+    pub(crate) fn apply_live_values_before_input_sample(
+        &self,
+        access: &mut CycleAccess<'_, '_>,
+        metadata: &RuntimeMetadata,
+    ) -> Result<(), RuntimeError> {
+        self.run_live_values_apply(|queues, sink| {
+            apply::io_writes_and_forces(queues, metadata.retained_names(), access, sink)
+        })
+    }
+
+    /// Apply every active force again after the output sample.
+    pub(crate) fn apply_live_values_after_output_sample(
+        &self,
+        access: &mut CycleAccess<'_, '_>,
+        metadata: &RuntimeMetadata,
+    ) -> Result<(), RuntimeError> {
+        self.run_live_values_apply(|queues, sink| {
+            apply::forces(queues, metadata.retained_names(), access, sink)
+        })
+    }
+
+    /// Run one shared Live Values apply under the debug state lock, then report every refusal it
+    /// collected through the normal event path.
+    fn run_live_values_apply(
+        &self,
+        run: impl FnOnce(&mut LiveValueQueues<LValue>, &mut RejectedEvents) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        let mut sink = RejectedEvents::default();
+        let result = {
+            let (lock, _) = &*self.state;
+            let mut state = lock.lock().expect("debug state poisoned");
+            run(&mut state.live_values, &mut sink)
+        };
+        for event in sink.events {
+            self.push_runtime_event(event);
+        }
+        result
     }
 }
