@@ -17,7 +17,11 @@ cargo run --locked -p trust-runtime --example portability_fixture
 
 The revised `program-v2.stbc` and explicit-field disassembly were generated in A3
 run 5. The 6,164-byte artifact was decoded, admitted and compared with fresh
-production by the passing run-6 authoring suite.
+production by the passing run-6 authoring suite. On 18 October 2026 (S3b1) the
+compiler began writing the optional LINE_TABLE section (`0x0011`, specification 12
+§6.13), and the three artifacts here were regenerated with the command above. The
+S3b1 review same day dropped the section's per-line extents and reordered nested
+statements, so they were regenerated again; `program-v2.stbc` is now 6,412 bytes.
 They are saved worktree artifacts pending commit. The native test decodes the
 artifact through the portable consumer and compares it with fresh explicit 2.0
 production. Regeneration belongs in a recorded validation batch. A4 must execute it with exact 10 ms logical samples and

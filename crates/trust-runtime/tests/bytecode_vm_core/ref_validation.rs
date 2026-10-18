@@ -164,6 +164,7 @@ fn vm_validator_accepts_local_path_ref_for_pou_owned_local_slot() {
     module.sections.retain(|section| {
         section.id != SectionId::DebugMap.as_raw()
             && section.id != SectionId::DebugStringTable.as_raw()
+            && section.id != LINE_TABLE_SECTION_ID
     });
 
     let bytes = module.encode().expect("encode module");

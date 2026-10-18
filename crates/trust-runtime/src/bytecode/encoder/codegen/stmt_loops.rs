@@ -6,27 +6,27 @@ impl<'a> BytecodeEncoder<'a> {
         condition: &crate::program_model::Expr,
         body: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
-        debug_entries: &mut Vec<DebugEntry>,
+        statements: &mut EmittedStatements,
     ) -> Result<bool, BytecodeError> {
         let code_start = code.len();
-        let debug_start = debug_entries.len();
+        let debug_start = statements.len();
         if !expr_supported(condition) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         let loop_start = code.len();
         if !self.emit_expr(ctx, condition, code)? {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         let jump_false = self.emit_jump_placeholder(code, 0x04);
         ctx.push_loop();
-        if let Err(err) = self.emit_block(ctx, pou_id, body, code, debug_entries) {
+        if let Err(err) = self.emit_block(ctx, pou_id, body, code, statements) {
             let _ = ctx.pop_loop();
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Err(err);
         }
         let loop_patches = ctx.pop_loop().unwrap_or_default();
@@ -50,21 +50,21 @@ impl<'a> BytecodeEncoder<'a> {
         body: &[crate::program_model::Stmt],
         until: &crate::program_model::Expr,
         code: &mut Vec<u8>,
-        debug_entries: &mut Vec<DebugEntry>,
+        statements: &mut EmittedStatements,
     ) -> Result<bool, BytecodeError> {
         let code_start = code.len();
-        let debug_start = debug_entries.len();
+        let debug_start = statements.len();
         if !expr_supported(until) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         let loop_start = code.len();
         ctx.push_loop();
-        if let Err(err) = self.emit_block(ctx, pou_id, body, code, debug_entries) {
+        if let Err(err) = self.emit_block(ctx, pou_id, body, code, statements) {
             let _ = ctx.pop_loop();
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Err(err);
         }
         let loop_patches = ctx.pop_loop().unwrap_or_default();
@@ -74,7 +74,7 @@ impl<'a> BytecodeEncoder<'a> {
         }
         if !self.emit_expr(ctx, until, code)? {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         let jump_false = self.emit_jump_placeholder(code, 0x04);
@@ -97,18 +97,18 @@ impl<'a> BytecodeEncoder<'a> {
         step: &crate::program_model::Expr,
         body: &[crate::program_model::Stmt],
         code: &mut Vec<u8>,
-        debug_entries: &mut Vec<DebugEntry>,
+        statements: &mut EmittedStatements,
     ) -> Result<bool, BytecodeError> {
         let code_start = code.len();
-        let debug_start = debug_entries.len();
+        let debug_start = statements.len();
         if !expr_supported(start) || !expr_supported(end) || !expr_supported(step) {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         let Some((end_temp, step_temp)) = ctx.next_for_temp_pair() else {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         };
         let control_access = match self
@@ -131,18 +131,18 @@ impl<'a> BytecodeEncoder<'a> {
 
         if !self.emit_expr(ctx, start, code)? {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         if !self.emit_expr(ctx, end, code)? {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         self.emit_store_ref(&end_ref, code)?;
         if !self.emit_expr(ctx, step, code)? {
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Ok(false);
         }
         self.emit_store_ref(&step_ref, code)?;
@@ -176,10 +176,10 @@ impl<'a> BytecodeEncoder<'a> {
         let body_start = code.len();
         self.patch_jump(code, jump_to_body, body_start)?;
         ctx.push_loop();
-        if let Err(err) = self.emit_block(ctx, pou_id, body, code, debug_entries) {
+        if let Err(err) = self.emit_block(ctx, pou_id, body, code, statements) {
             let _ = ctx.pop_loop();
             code.truncate(code_start);
-            debug_entries.truncate(debug_start);
+            statements.truncate(debug_start);
             return Err(err);
         }
         let loop_patches = ctx.pop_loop().unwrap_or_default();

@@ -2,7 +2,7 @@ use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime::bytecode::{
     BytecodeModule, PouKind, RefEntry, RefLocation, RefSegment, SectionData, SectionId, TypeData,
-    TypeEntry, TypeKind,
+    TypeEntry, TypeKind, LINE_TABLE_SECTION_ID,
 };
 use trust_runtime::error::RuntimeError;
 use trust_runtime::execution_backend::ExecutionBackend;
@@ -85,10 +85,12 @@ fn replace_main_body(module: &mut BytecodeModule, new_body: &[u8]) {
         panic!("missing POU_INDEX");
     }
 
-    // Debug map offsets may no longer align after manual body patching.
+    // Debug map and line table offsets may no longer align after manual body
+    // patching, so all three debug sections are stripped (§6.13).
     module.sections.retain(|section| {
         section.id != SectionId::DebugMap.as_raw()
             && section.id != SectionId::DebugStringTable.as_raw()
+            && section.id != LINE_TABLE_SECTION_ID
     });
 }
 
