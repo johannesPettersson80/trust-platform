@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Security: a web deployment (`/api/deploy`) is now checked against the signature policy of the
+  project's installed `runtime.toml`. Before, the check read `[runtime.deploy] require_signed` and
+  `keyring_path` from the `runtime.toml` the deployment itself carried, so a deployment could turn
+  the requirement off, or name a keyring of its own, and install an unsigned program.
 - The ESP32-C6 runs truST as a runtime, first on the ESP32-C6-DevKitC-1
   (`firmware/trust-esp32c6`), with the same runtime code as `trust-runtime`. It starts the
   installed project at power-on, claims the GPIO pins the project's `io.toml` names, and answers
@@ -18,6 +22,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   program admission uses (bytecode versions, scheduling profiles, limits, the application slot,
   the event store's default and maximum) and the last reset; a computer answers `null` where only
   a chip has a value.
+- RETAIN variables on the ESP32-C6: with `[runtime.retain] mode = "file"` the chip saves them into
+  its checkpoint flash at `save_interval_ms` and at `shutdown`, and power-on and a reset start the
+  program warm with the newest saved values, so an interrupted save loses at most that save. The
+  `path` key has no meaning on a chip. Retained values the program no longer declares, or whose
+  type changed, are reported in the event log at the start, as on a computer.
 
 - `[runtime.events] capacity` in `runtime.toml` sets how many events the event store keeps
   (1 to 1,000,000; 1,000 by default on a computer), as PLC vendors size their diagnostic buffer

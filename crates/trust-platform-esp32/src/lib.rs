@@ -8,6 +8,7 @@
 
 extern crate alloc;
 
+pub mod checkpoint;
 mod console_budget;
 pub use console_budget::ConsoleError;
 mod cookie;

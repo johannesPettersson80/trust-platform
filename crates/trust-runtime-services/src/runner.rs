@@ -49,6 +49,7 @@ use trust_runtime_core::ports::{
 };
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
+use trust_runtime_core::vm::RetainApplyEvent;
 
 pub use cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
@@ -223,6 +224,14 @@ where
     #[must_use]
     pub fn last_error(&self) -> Option<RuntimeError> {
         self.resource.last_error()
+    }
+
+    /// Records the retained values that the boot's warm start dropped or migrated, at the program's
+    /// time zero, as a restart in place records them (specification 34 STATE-08; specification 11
+    /// §6.7). The composition restarts the program before it builds the loop and passes that
+    /// restart's events here, so a boot's events reach the event store as a restart's do.
+    pub fn record_boot_retain_events(&self, events: Vec<RetainApplyEvent>) {
+        self.record_retain_events(events);
     }
 
     /// Runs passes until a port fails, and returns that failure.

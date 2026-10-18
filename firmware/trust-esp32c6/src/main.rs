@@ -5,8 +5,9 @@
 //! reset record read once, this boot counted); then the installed application (its header read,
 //! only its total length copied into the heap, and `installation::admit` against the C6's
 //! descriptor); then the record's GPIO lines claimed by pin name, each output driven to its
-//! initial value before it becomes an output; then the program prepared, instantiated and started;
-//! then the runner serves the control link over USB.
+//! initial value before it becomes an output; then the program prepared, instantiated and started
+//! (with `mode = "file"`, warm from the newest committed checkpoint); then the runner serves the
+//! control link over USB.
 //!
 //! With no valid application, or one the device refuses, the same loop runs Stopped and serves the
 //! link with the refusal's text (design §1.1, R2). A panic drives every configured output to its
@@ -36,15 +37,19 @@ use trust_platform_esp32::{
 };
 use trust_runtime_core::deployment::{Configuration, ControlMode, GpioInput, GpioOutput};
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
+use trust_runtime_core::ports::{CheckpointStorage, MonotonicClock, MonotonicInstant};
+use trust_runtime_core::retain::checkpoint::CheckpointIdentity;
+use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::PreparedModule;
+use trust_runtime_core::vm::{PreparedModule, RetainApplyEvent};
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
 };
-use trust_runtime_services::runner::{EngineLiveValues, Runner};
+use trust_runtime_services::runner::{
+    EngineLiveValues, ResourceCycle, RetainConfig, RetainSource, Runner,
+};
 use trust_runtime_services::status::StatusSettings;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -78,19 +83,9 @@ fn main() -> ! {
         Err(reason) => stop(board, wait_alarm, last_reset, reason),
     };
     let program = admitted.program;
+    // The identity every checkpoint of this program carries (specification 34 §10.1).
+    let identity = admitted.record.checkpoint_identity();
     let config = admitted.record.configuration;
-
-    // Retain mode `none` until the C6 checkpoint driver exists (design §1.2).
-    if config.retain_mode != RetainMode::None {
-        stop(
-            board,
-            wait_alarm,
-            last_reset,
-            String::from(
-                "the installed application requests a retain mode, which the C6 does not carry out yet",
-            ),
-        );
-    }
 
     // The record's GPIO lines, claimed by pin name, each output driven to its initial value
     // before it becomes an output (design §1.1, R1).
@@ -122,6 +117,18 @@ fn main() -> ! {
             String::from("the installed application's watchdog timeout is outside the C6's range"),
         );
     }
+
+    // The chip's checkpoint flash, which the platform hands to the installed program (specification
+    // 34 §10.1). It is taken after the application is read, which uses the same flash driver.
+    let checkpoint_flash = match board.take_checkpoint_flash() {
+        Ok(checkpoint_flash) => checkpoint_flash,
+        Err(error) => stop(
+            board,
+            wait_alarm,
+            last_reset,
+            format!("the chip's checkpoint flash is not available: {error:?}"),
+        ),
+    };
 
     // Prepare the program with the limits its region and the heap allow (design §1.1).
     let limits = device_limits(DeviceMemory {
@@ -168,28 +175,45 @@ fn main() -> ! {
             .collect(),
     };
     let io = GpioIo::new(lines.0, lines.1);
-    let cycle = match EngineCycle::start(prepared, services, io, settings) {
-        Ok(cycle) => cycle,
-        Err(error) => serve_stopped(
-            parts,
-            last_reset,
-            format!("the installed application cannot be started: {error}"),
-        ),
-    };
     let Some(alarm) = parts.wait_alarm.take() else {
         emergency_halt("wait-alarm");
     };
+    // The watchdog runs from here: the platform takes it, and starting the program takes far less
+    // than its 4 s interval.
     parts.watchdog.start();
-    let platform = Platform::new(
+    let mut platform = Platform::new(
         parts.watchdog,
         config.resource_name.clone(),
         status_settings(),
         config.control_debug_enabled,
         config.control_mode,
         live,
-        last_reset,
+        last_reset.clone(),
         parts.runtime_id.clone(),
-    );
+    )
+    .with_checkpoint(config.retain_mode, checkpoint_flash);
+    let (cycle, boot_events) = match start_cycle(
+        &mut platform,
+        prepared,
+        services,
+        io,
+        settings,
+        identity,
+        config.retain_save_interval,
+    ) {
+        Ok(started) => started,
+        // The platform keeps the watchdog, which the stopped loop takes back.
+        Err(reason) => serve_stopped(
+            Parts {
+                watchdog: platform.into_watchdog(),
+                clock,
+                wait_alarm: Some(alarm),
+                runtime_id: parts.runtime_id.clone(),
+            },
+            last_reset,
+            reason,
+        ),
+    };
     let mut runner = Box::new(Runner::new(
         UsbLink::bind(),
         Wait::new(alarm),
@@ -198,6 +222,9 @@ fn main() -> ! {
         clock,
         event_capacity(&config),
     ));
+    // The boot's warm start dropped or migrated retained values: the runner records them as a
+    // restart's events are recorded, at the program's time zero.
+    runner.record_boot_retain_events(boot_events);
     let _ = runner.run();
     emergency_halt("runner")
 }
@@ -233,16 +260,18 @@ fn stop(
     last_reset: LastReset,
     reason: String,
 ) -> ! {
-    serve_stopped(Parts::take(board, wait_alarm), last_reset, reason)
+    let mut parts = Parts::take(board, wait_alarm);
+    parts.watchdog.start();
+    serve_stopped(parts, last_reset, reason)
 }
 
 /// Runs the resource loop without a program: the resource is Stopped, the loop serves the link
-/// and feeds the hardware watchdog, and `restart` is refused with `reason` (design §1.1, R2).
+/// and feeds the hardware watchdog, and `restart` is refused with `reason` (design §1.1, R2). The
+/// caller has started the watchdog.
 fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
     let Some(alarm) = parts.wait_alarm.take() else {
         emergency_halt("wait-alarm");
     };
-    parts.watchdog.start();
     let platform = Platform::new(
         parts.watchdog,
         SmolStr::new_static("Controller"),
@@ -268,6 +297,63 @@ fn serve_stopped(mut parts: Parts, last_reset: LastReset, reason: String) -> ! {
     );
     let _ = runner.run();
     emergency_halt("runner-stopped")
+}
+
+/// Starts the installed program on the engine (specification 34 §10 and STATE-08). A platform with a
+/// checkpoint store saves the retained values into it: the program starts cold, and a warm start then
+/// restores the newest committed checkpoint, as a power-on or a reset does. Without a store the
+/// program starts cold, with its retained values at their declared initial values.
+///
+/// # Errors
+///
+/// The program's cycle, and the retain events of its warm start for the runner to record.
+///
+/// # Errors
+///
+/// The refusal's text: the program cannot start, the checkpoint log cannot be read, or the newest
+/// committed checkpoint is damaged, which fails the warm start as a damaged retain file does
+/// (specification 11 §6.7).
+fn start_cycle(
+    platform: &mut Platform<Watchdog>,
+    prepared: &'static PreparedModule,
+    services: &'static DeviceServices<ChipClock>,
+    io: GpioIo,
+    settings: CycleSettings,
+    identity: CheckpointIdentity,
+    save_interval: Duration,
+) -> Result<
+    (
+        EngineCycle<'static, ChipClock, GpioIo>,
+        Vec<RetainApplyEvent>,
+    ),
+    String,
+> {
+    let Some(store) = platform.take_checkpoint_store() else {
+        let cycle = EngineCycle::start(prepared, services, io, settings)
+            .map_err(|error| format!("the installed application cannot be started: {error}"))?;
+        return Ok((cycle, Vec::new()));
+    };
+    // The largest payload one slot takes: a retained image is saved whole or not at all.
+    let image_bytes = usize::try_from(store.flash.geometry().max_payload_len()).map_err(|_| {
+        String::from("the checkpoint's largest payload exceeds the platform's address range")
+    })?;
+    let retain = RetainConfig {
+        mode: RetainMode::File,
+        store,
+        identity,
+        save_interval,
+        image_bytes,
+    };
+    let mut cycle =
+        EngineCycle::with_retain(prepared, services, io, settings, retain).map_err(|error| {
+            format!("the installed application's checkpoint cannot be opened: {error}")
+        })?;
+    let events = cycle
+        .restart(RestartMode::Warm, RetainSource::Checkpoint)
+        .map_err(|error| {
+            format!("the retained values cannot be restored from the checkpoint: {error}")
+        })?;
+    Ok((cycle, events))
 }
 
 /// The resource loop's clock: the C6's SYSTIMER through the adapter's [`Monotonic`]. The adapter

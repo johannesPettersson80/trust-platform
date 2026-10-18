@@ -155,23 +155,28 @@ pub fn apply_deploy(
 }
 
 fn preflight_deploy(bundle_root: &Path, request: &DeployRequest) -> Result<(), RuntimeError> {
-    let runtime_text = if let Some(text) = request.runtime_toml.as_deref() {
-        Some(text.to_string())
-    } else {
-        let existing = bundle_root.join("runtime.toml");
+    let existing = bundle_root.join("runtime.toml");
+    let installed_text =
         if existing.is_file() {
             Some(std::fs::read_to_string(&existing).map_err(|err| {
                 RuntimeError::InvalidConfig(format!("runtime.toml: {err}").into())
             })?)
         } else {
             None
-        }
-    };
-    let runtime_text = runtime_text.ok_or_else(|| {
-        RuntimeError::InvalidConfig("deploy preflight requires runtime.toml".into())
-    })?;
+        };
+    let runtime_text = request
+        .runtime_toml
+        .clone()
+        .or_else(|| installed_text.clone())
+        .ok_or_else(|| {
+            RuntimeError::InvalidConfig("deploy preflight requires runtime.toml".into())
+        })?;
     validate_runtime_toml_text(&runtime_text)?;
-    verify_signature_policy(bundle_root, &runtime_text, request)?;
+    // The signature policy in force is the installed configuration's, so a deployment cannot
+    // lift it, or name its own keyring, with the runtime.toml it carries (spec 11, deployment
+    // signature policy). Only a project with nothing installed takes the deployment's policy.
+    let policy_text = installed_text.as_deref().unwrap_or(&runtime_text);
+    verify_signature_policy(bundle_root, policy_text, request)?;
 
     let io_text = if let Some(text) = request.io_toml.as_deref() {
         Some(text.to_string())
