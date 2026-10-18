@@ -7,5 +7,7 @@
 //! resolver.
 
 pub mod line_resolve;
+pub mod statement_index;
 
 pub use line_resolve::{LineResolver, ResolvedStatement};
+pub use statement_index::StatementIndex;

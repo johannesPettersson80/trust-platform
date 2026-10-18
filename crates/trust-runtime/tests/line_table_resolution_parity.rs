@@ -19,7 +19,7 @@ use trust_runtime::bytecode::{
 };
 use trust_runtime::debug::{location_to_line_col, resolve_breakpoint_location, SourceLocation};
 use trust_runtime::harness::CompileSession;
-use trust_runtime_core::debug::LineResolver;
+use trust_runtime_core::debug::{LineResolver, StatementIndex};
 
 /// One source file with an IF, a FOR and a function call (mirrors
 /// `line_table_emission.rs`'s `SOURCE`, so the parity covers the emission program).
@@ -67,6 +67,7 @@ struct Report {
     name: String,
     columns: usize,
     offsets: usize,
+    index_offsets: usize,
     differences: usize,
     shown: Vec<String>,
 }
@@ -81,6 +82,7 @@ impl Report {
             name: name.to_string(),
             columns: 0,
             offsets: 0,
+            index_offsets: 0,
             differences: 0,
             shown: Vec::new(),
         }
@@ -333,6 +335,46 @@ impl Context<'_> {
             )),
         }
     }
+
+    /// R3 against the statement index: each POU's statement starts, and each of its code offsets
+    /// plus the offset one past its end, name the statement that `LineResolver` names
+    /// (specification 12 §6.13).
+    fn compare_index(&self, index: &StatementIndex, pou_index: &PouIndex, report: &mut Report) {
+        for pou in &pou_index.entries {
+            let starts: Vec<u32> = self.resolver.statement_starts(pou.id).collect();
+            if index.starts(pou.id) != starts.as_slice() {
+                report.difference(format!(
+                    "POU {} statement starts: index {:?}, line table {starts:?}",
+                    pou.id,
+                    index.starts(pou.id)
+                ));
+            }
+            let end = pou
+                .code_offset
+                .checked_add(pou.code_length)
+                .unwrap_or_else(|| panic!("{}: POU {} body range", report.name, pou.id));
+            for offset in pou.code_offset..=end {
+                report.index_offsets += 1;
+                let expected = self.resolver.location_of(pou.id, offset);
+                let actual = index
+                    .statement_containing(pou.id, offset)
+                    .and_then(|statement| self.position(statement));
+                if actual != expected {
+                    report.difference(format!(
+                        "POU {} offset {offset}: index names {actual:?}, line table {expected:?}",
+                        pou.id
+                    ));
+                }
+            }
+        }
+    }
+
+    /// The file label and 1-based start of table statement `statement`: the position that
+    /// `LineResolver::location_of` names for it.
+    fn position(&self, statement: u32) -> Option<(&str, u32, u32)> {
+        let entry = self.table.statements.get(statement as usize)?;
+        Some((self.file_label, entry.start_line, entry.start_column))
+    }
 }
 
 /// Build one program's context and compare both resolvers.
@@ -401,6 +443,7 @@ fn check_program(name: &str, text: &str) -> Report {
         by_offset.insert((entry.pou_id, entry.code_offset), entry);
     }
 
+    let index = StatementIndex::new(table);
     let mut report = Report::new(name);
     let context = Context {
         text,
@@ -418,6 +461,7 @@ fn check_program(name: &str, text: &str) -> Report {
     };
     context.compare_breakpoints(&mut report);
     context.compare_offsets(pou_index, &mut report);
+    context.compare_index(&index, pou_index, &mut report);
     report
 }
 
@@ -425,6 +469,7 @@ fn check_program(name: &str, text: &str) -> Report {
 fn line_table_resolution_matches_the_source_based_resolver() {
     let mut columns = 0usize;
     let mut offsets = 0usize;
+    let mut index_offsets = 0usize;
     let mut programs_checked = 0usize;
     let mut differences = 0usize;
     let mut differing = 0usize;
@@ -433,6 +478,7 @@ fn line_table_resolution_matches_the_source_based_resolver() {
         let report = check_program(&name, &text);
         columns += report.columns;
         offsets += report.offsets;
+        index_offsets += report.index_offsets;
         programs_checked += 1;
         if report.differ() {
             differing += 1;
@@ -442,6 +488,9 @@ fn line_table_resolution_matches_the_source_based_resolver() {
     }
     println!(
         "line-table parity: {programs_checked} programs, {columns} (line, column) cases, {offsets} code offsets"
+    );
+    println!(
+        "statement index parity: {programs_checked} programs, {index_offsets} code offsets (one past each POU's end included)"
     );
     assert_eq!(
         differences,
