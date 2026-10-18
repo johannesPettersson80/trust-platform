@@ -1207,6 +1207,15 @@ reserved lists, returning the payload when its frame is popped on every path (re
 and abort); a scan allocates no locals, presence, edge-input or restore vector, and every result,
 charge and refusal is unchanged (MEM-02, MEM-03, MEM-09; TIME-08).
 
+**Call scratch.** Construction also reserves, per call depth, the call scratch that binds a call —
+its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted
+outputs, sized for the largest call site — and a call takes its depth's scratch and returns it on
+every path (completion, trap, refusal and abort), so a scan allocates no argument, flag,
+output-binding, target or prepared-output vector, and every charge is unchanged (MEM-09;
+TIME-08). A standard function's arguments and a split function's outputs are bound into the call
+depth's reserved values, and a named argument is matched without building an uppercase name, with
+every result, count, charge and refusal unchanged (MEM-09; TIME-08).
+
 ### 6.4 Physical memory
 
 The BSP shall identify memory regions available to the engine, CPU stack, DMA, communication, and boot/update storage. Capacity shall be checked per usable region, not only as a sum of all SRAM on the chip. Cache maintenance, DMA ownership, alignment, and interrupt-stack reservations are platform obligations.
@@ -2727,6 +2736,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.29 | 18 October 2026 | §6.3, after MEM-09: construction reserves, per call depth, the call scratch that binds a call — its evaluated argument list, parameter flags, output bindings, preflighted targets and preflighted outputs, sized for the largest call site and the largest POU — and a call takes its depth's scratch and returns it on every path (completion, trap, refusal and abort), so a scan allocates no argument, flag, output-binding, target or prepared-output vector. Every result, charge and refusal is unchanged (TIME-08). |
 | 0.28 | 18 October 2026 | §6.3, after MEM-09: construction reserves one frame payload per call depth (that depth's local slots and parameter-presence bits, sized for the largest POU) and one edge-input list and restore list, and a user or method call takes the locals of its frame from the reserved payloads; an activation binds its arguments into the payload, reads edge inputs and their restores from the reserved lists and returns the payload when its frame is popped on every path, and a scan allocates no locals, presence, edge-input or restore vector. Construction also reserves the bookkeeping scratch: initializer result slots, seed lists and owned-instance snapshots, the lifetime check's visited set, and `SIZEOF(type)` walks a fixed stack. Every result, charge and refusal is unchanged (TIME-08). §10, "Between scans": a chip's checkpoint persister starts a checkpoint when the save is due and the image changed, advances it one log step at a time between scans, completes it at a stop, and latches a failure as `RuntimeError::RetainStore`. |
 | 0.27 | 17 October 2026 | §6.3, after MEM-09: preparation resolves every `CALL_NATIVE` site once into a call plan (each actual's formal index, the presence pattern, the output descriptors, and the callee: a function's prepared POU, a function block's POU, a method through the prepared owner and method table, a built-in function block's kind and parameters); a scan resolves no argument names and builds no uppercase type-name key, and an interface attempt compares prepared POUs while still charging the type-name bytes TIME-08 prescribes. Every result, charge and refusal is unchanged (TIME-08). |
 | 0.26 | 17 October 2026 | §6.3 (MEM-02, MEM-09): construction sizes the per-call reservations to the program's static call depth instead of `max_call_depth`, counting every call target from every entry, a method and interface call over every implementing POU, and a nested instance declaration as the initialization it runs; a recursive call graph has no static depth and reserves for `max_call_depth`. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged. |

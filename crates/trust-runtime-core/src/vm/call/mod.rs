@@ -25,14 +25,15 @@ pub(super) mod bindings;
 pub(super) mod continuation;
 use continuation::{NativeCall, PreparedCall};
 pub(super) mod context;
+pub(crate) mod scratch;
 pub(super) mod stdlib;
 #[cfg(test)]
 mod tests;
 
 use self::bindings::{
     bind_builtin_function_block_arguments, bind_builtin_function_block_arguments_planned,
-    bind_vm_function_block_arguments, normalize_output_copyback_value, unpack_native_call_payload,
-    VmFbOutBinding, VmNativeArg,
+    bind_vm_function_block_arguments, normalize_output_copyback_value,
+    unpack_native_call_payload_into, VmFbOutBinding, VmNativeArg, VmWriteTarget,
 };
 use self::stdlib::dispatch_native_stdlib_call;
 
@@ -181,7 +182,9 @@ pub(super) fn prepare_native_call(
 }
 
 /// Dispatch an encoded call through its prepared plan when the site has one (spec 34
-/// MEM-09). A site without a plan keeps the call-time resolution.
+/// MEM-09). A site without a plan keeps the call-time resolution. The evaluated arguments come
+/// from the call's reserved scratch and are returned once the binding has consumed them (census
+/// C1).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_native_call_planned(
     runtime: &mut impl ExecutionContext,
@@ -192,6 +195,38 @@ pub(super) fn prepare_native_call_planned(
     symbol_idx: u32,
     arg_count: u32,
     plan: Option<&CallPlan>,
+) -> Result<NativeCall, VmTrap> {
+    let mut args = runtime.take_call_args();
+    let result = prepare_native_call_with_args(
+        runtime,
+        module,
+        frame,
+        operand_stack,
+        kind,
+        symbol_idx,
+        arg_count,
+        plan,
+        &mut args,
+    );
+    runtime.recycle_call_args(args);
+    result
+}
+
+/// The dispatch of [`prepare_native_call_planned`], binding into the reserved argument list.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the shared dispatcher keeps its prepared-call signature"
+)]
+fn prepare_native_call_with_args(
+    runtime: &mut impl ExecutionContext,
+    module: &VmModule,
+    frame: &mut VmFrame,
+    operand_stack: &mut OperandStack,
+    kind: u32,
+    symbol_idx: u32,
+    arg_count: u32,
+    plan: Option<&CallPlan>,
+    args: &mut Vec<VmNativeArg>,
 ) -> Result<NativeCall, VmTrap> {
     let plan = plan.filter(|plan| u32::from(plan.kind) == kind && plan.symbol_idx == symbol_idx);
     #[cfg(all(feature = "std", feature = "test-support"))]
@@ -240,8 +275,8 @@ pub(super) fn prepare_native_call_planned(
         ));
     }
 
-    let (receiver_value, mut vm_args) =
-        unpack_native_call_payload(operand_stack, arg_specs, receiver_count)?;
+    let receiver_value =
+        unpack_native_call_payload_into(args, operand_stack, arg_specs, receiver_count)?;
 
     match kind {
         NATIVE_CALL_KIND_FUNCTION | NATIVE_CALL_KIND_STDLIB => {
@@ -274,7 +309,7 @@ pub(super) fn prepare_native_call_planned(
             target_name,
             normalized_target_name,
             conversion_spec,
-            &vm_args,
+            args.as_slice(),
         )
         .map(NativeCall::Immediate),
         NATIVE_CALL_KIND_FUNCTION | NATIVE_CALL_KIND_FUNCTION_BLOCK | NATIVE_CALL_KIND_METHOD => {
@@ -287,7 +322,7 @@ pub(super) fn prepare_native_call_planned(
                 normalized_target_name,
                 resolved_function_pou_id,
                 receiver_value,
-                &mut vm_args,
+                args.as_mut_slice(),
                 plan,
             )
         }
@@ -500,6 +535,33 @@ fn execute_native_builtin_function_block_call(
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _timing =
         crate::vm::diagnostic_timing::begin(crate::vm::diagnostic_timing::Phase::BuiltinExecute);
+    // The output bindings and the copy-back group come from the call's reserved scratch and are
+    // returned on every path (spec 34 MEM-09; census C3, C7).
+    let mut out_bindings = out_bindings;
+    let mut prepared_outputs = runtime.take_call_prepared_outputs();
+    let result = execute_builtin_and_stage_outputs(
+        runtime,
+        caller_frame,
+        instance_id,
+        kind,
+        &mut out_bindings,
+        &mut prepared_outputs,
+    );
+    runtime.recycle_call_fb_outputs(out_bindings);
+    runtime.recycle_call_prepared_outputs(prepared_outputs);
+    result
+}
+
+/// Run a built-in function block and stage its outputs as one copy-back group (spec 34 MEM-09;
+/// census C3, C7). The caller owns the scratch vectors and returns them.
+fn execute_builtin_and_stage_outputs(
+    runtime: &mut impl ExecutionContext,
+    caller_frame: &mut VmFrame,
+    instance_id: InstanceId,
+    kind: fbs::BuiltinFbKind,
+    out_bindings: &mut Vec<VmFbOutBinding>,
+    prepared_outputs: &mut Vec<(VmWriteTarget, Value)>,
+) -> Result<(), VmTrap> {
     runtime
         .check_builtin_call(instance_id)
         .map_err(VmTrap::Runtime)?;
@@ -507,8 +569,7 @@ fn execute_native_builtin_function_block_call(
     fbs::execute_builtin_in_storage(runtime.storage_mut(), now, instance_id, kind)
         .map_err(VmTrap::Runtime)?;
 
-    let mut prepared_outputs = Vec::with_capacity(out_bindings.len());
-    for binding in out_bindings {
+    for binding in out_bindings.drain(..) {
         runtime.record_call_op(RegisterCallOpKind::OutputCopyBack);
         let value = {
             let value = binding
@@ -527,13 +588,12 @@ fn execute_native_builtin_function_block_call(
     }
     if !prepared_outputs.is_empty() {
         runtime.with_output_transaction(caller_frame, |runtime, caller_frame| {
-            for (target, value) in prepared_outputs {
+            for (target, value) in prepared_outputs.drain(..) {
                 target.write(runtime, caller_frame, value)?;
             }
             Ok(())
         })?;
     }
-
     Ok(())
 }
 

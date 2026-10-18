@@ -1,7 +1,7 @@
 use super::context::CallContext;
 #[cfg(all(feature = "std", feature = "test-support"))]
 use crate::vm::diagnostic_timing::attribution::{self, CopyConsumerKind};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
@@ -57,11 +57,19 @@ pub fn dispatch_native_stdlib_call(
     if let Some(entry) = runtime.stdlib().get(normalized_target_name.as_str()) {
         let params = entry.params.clone();
         let func = entry.func;
-        let values = bind_stdlib_values(runtime, frame, &params, args)?;
-        charge_text_arguments(runtime, &values)?;
-        let result = func(&values).map_err(VmTrap::Runtime)?;
-        charge_text_return(runtime, &result)?;
-        return Ok(result);
+        // The evaluated arguments come from the call depth's reserved values and return to it on
+        // every path: success, a binding refusal and a refusal by the function (spec 34 MEM-09;
+        // census C9).
+        let mut values = runtime.take_call_stdlib_values();
+        let result =
+            bind_stdlib_values_into(runtime, frame, &params, args, &mut values).and_then(|()| {
+                charge_text_arguments(runtime, &values)?;
+                let result = func(&values).map_err(VmTrap::Runtime)?;
+                charge_text_return(runtime, &result)?;
+                Ok(result)
+            });
+        runtime.recycle_call_stdlib_values(values);
+        return result;
     }
     Err(VmTrap::Runtime(RuntimeError::UndefinedFunction(
         target_name.clone(),
@@ -136,6 +144,40 @@ pub fn bind_conversion_value(
     resolve_vm_arg_value(runtime, frame, arg)
 }
 
+/// The widest output list of a `SPLIT_*` function: `SPLIT_DT`'s and `SPLIT_LDT`'s seven
+/// (spec 34 MEM-09; census C10).
+const MAX_SPLIT_OUTPUTS: usize = 7;
+/// The widest formal list of a `SPLIT_*` function: an input plus `SPLIT_DT`'s seven outputs.
+const MAX_SPLIT_FORMALS: usize = MAX_SPLIT_OUTPUTS + 1;
+
+/// One `SPLIT_*` call's bound output targets in declared order (spec 34 MEM-09; census C10). The
+/// list is a fixed array, so binding a split call allocates no output vector; the binder fills
+/// the first `count` slots, where `count` is the called function's declared output count.
+struct SplitOutputs {
+    targets: [Option<VmWriteTarget>; MAX_SPLIT_OUTPUTS],
+    count: usize,
+}
+
+impl SplitOutputs {
+    /// An empty output list.
+    fn empty() -> Self {
+        Self {
+            targets: core::array::from_fn(|_| None),
+            count: 0,
+        }
+    }
+
+    /// Append a bound output target. The widest split has [`MAX_SPLIT_OUTPUTS`] outputs.
+    fn push(&mut self, target: VmWriteTarget) -> Result<(), VmTrap> {
+        let Some(slot) = self.targets.get_mut(self.count) else {
+            return Err(VmTrap::InvalidNativeCall("split output count".into()));
+        };
+        *slot = Some(target);
+        self.count += 1;
+        Ok(())
+    }
+}
+
 fn dispatch_native_split_call(
     runtime: &mut impl CallContext,
     frame: &mut VmFrame,
@@ -149,10 +191,10 @@ fn dispatch_native_split_call(
     runtime.with_output_transaction(frame, |runtime, frame| {
         match name {
             "SPLIT_DATE" => {
-                let [year_output, month_output, day_output] = outputs.as_slice() else {
-                    return Err(VmTrap::InvalidNativeCall(
-                        "split output count".into(),
-                    ));
+                let [Some(year_output), Some(month_output), Some(day_output)] =
+                    &outputs.targets[..outputs.count]
+                else {
+                    return Err(VmTrap::InvalidNativeCall("split output count".into()));
                 };
                 let (year, month, day) = time::split_date(&input, *runtime.profile())?;
                 write_output_int(runtime, frame, year_output, year)?;
@@ -160,12 +202,10 @@ fn dispatch_native_split_call(
                 write_output_int(runtime, frame, day_output, day)?;
             }
             "SPLIT_TOD" => {
-                let [hour_output, minute_output, second_output, millis_output] =
-                    outputs.as_slice()
+                let [Some(hour_output), Some(minute_output), Some(second_output), Some(millis_output)] =
+                    &outputs.targets[..outputs.count]
                 else {
-                    return Err(VmTrap::InvalidNativeCall(
-                        "split output count".into(),
-                    ));
+                    return Err(VmTrap::InvalidNativeCall("split output count".into()));
                 };
                 let (hour, minute, second, millis) = time::split_tod(&input, *runtime.profile())?;
                 write_output_int(runtime, frame, hour_output, hour)?;
@@ -174,12 +214,10 @@ fn dispatch_native_split_call(
                 write_output_int(runtime, frame, millis_output, millis)?;
             }
             "SPLIT_LTOD" => {
-                let [hour_output, minute_output, second_output, millis_output] =
-                    outputs.as_slice()
+                let [Some(hour_output), Some(minute_output), Some(second_output), Some(millis_output)] =
+                    &outputs.targets[..outputs.count]
                 else {
-                    return Err(VmTrap::InvalidNativeCall(
-                        "split output count".into(),
-                    ));
+                    return Err(VmTrap::InvalidNativeCall("split output count".into()));
                 };
                 let (hour, minute, second, millis) = time::split_ltod(&input)?;
                 write_output_int(runtime, frame, hour_output, hour)?;
@@ -189,18 +227,16 @@ fn dispatch_native_split_call(
             }
             "SPLIT_DT" => {
                 let [
-                    year_output,
-                    month_output,
-                    day_output,
-                    hour_output,
-                    minute_output,
-                    second_output,
-                    millis_output,
-                ] = outputs.as_slice()
+                    Some(year_output),
+                    Some(month_output),
+                    Some(day_output),
+                    Some(hour_output),
+                    Some(minute_output),
+                    Some(second_output),
+                    Some(millis_output),
+                ] = &outputs.targets[..outputs.count]
                 else {
-                    return Err(VmTrap::InvalidNativeCall(
-                        "split output count".into(),
-                    ));
+                    return Err(VmTrap::InvalidNativeCall("split output count".into()));
                 };
                 let (year, month, day, hour, minute, second, millis) =
                     time::split_dt(&input, *runtime.profile())?;
@@ -214,18 +250,16 @@ fn dispatch_native_split_call(
             }
             "SPLIT_LDT" => {
                 let [
-                    year_output,
-                    month_output,
-                    day_output,
-                    hour_output,
-                    minute_output,
-                    second_output,
-                    millis_output,
-                ] = outputs.as_slice()
+                    Some(year_output),
+                    Some(month_output),
+                    Some(day_output),
+                    Some(hour_output),
+                    Some(minute_output),
+                    Some(second_output),
+                    Some(millis_output),
+                ] = &outputs.targets[..outputs.count]
                 else {
-                    return Err(VmTrap::InvalidNativeCall(
-                        "split output count".into(),
-                    ));
+                    return Err(VmTrap::InvalidNativeCall("split output count".into()));
                 };
                 let (year, month, day, hour, minute, second, millis) = time::split_ldt(&input)?;
                 write_output_int(runtime, frame, year_output, year)?;
@@ -251,7 +285,10 @@ fn bind_split_vm_args(
     frame: &VmFrame,
     params: &[&str],
     args: &[VmNativeArg],
-) -> Result<(Value, Vec<VmWriteTarget>), VmTrap> {
+) -> Result<(Value, SplitOutputs), VmTrap> {
+    if params.len() > MAX_SPLIT_FORMALS {
+        return Err(VmTrap::InvalidNativeCall("split formals count".into()));
+    }
     let positional = args.iter().all(|arg| arg.name.is_none());
     if positional {
         if args.len() != params.len() {
@@ -260,12 +297,12 @@ fn bind_split_vm_args(
                 got: args.len(),
             }));
         }
-        let mut outputs = Vec::with_capacity(params.len().saturating_sub(1));
+        let mut outputs = SplitOutputs::empty();
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _parameter = attribution::parameter(0, 3, false);
         let input = resolve_vm_arg_value(runtime, frame, &args[0])?;
         for arg in &args[1..] {
-            outputs.push(require_output_target(arg)?);
+            outputs.push(require_output_target(arg)?)?;
         }
         return Ok((input, outputs));
     }
@@ -282,17 +319,16 @@ fn bind_split_vm_args(
         }));
     }
 
-    let mut assigned: Vec<Option<&VmNativeArg>> = vec![None; params.len()];
+    let mut assigned: [Option<&VmNativeArg>; MAX_SPLIT_FORMALS] = [None; MAX_SPLIT_FORMALS];
     for arg in args {
         let Some(name) = arg.name.as_ref() else {
             return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
                 "<unnamed>".into(),
             )));
         };
-        let key = name.to_ascii_uppercase();
         let position = params
             .iter()
-            .position(|param| param.eq_ignore_ascii_case(&key))
+            .position(|param| param.eq_ignore_ascii_case(name))
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidArgumentName(name.clone())))?;
         if assigned[position].is_some() {
             return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
@@ -312,44 +348,66 @@ fn bind_split_vm_args(
             })
         })
         .and_then(|arg| resolve_vm_arg_value(runtime, frame, arg))?;
-    let mut outputs = Vec::with_capacity(params.len().saturating_sub(1));
-    for arg in assigned.into_iter().skip(1) {
+    let mut outputs = SplitOutputs::empty();
+    for arg in assigned
+        .into_iter()
+        .skip(1)
+        .take(params.len().saturating_sub(1))
+    {
         let arg = arg.ok_or({
             VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
                 expected: params.len(),
                 got: args.len(),
             })
         })?;
-        outputs.push(require_output_target(arg)?);
+        outputs.push(require_output_target(arg)?)?;
     }
     Ok((input, outputs))
 }
 
-fn bind_stdlib_values(
+/// Bind standard-function arguments into the call depth's reserved value vector (spec 34
+/// MEM-09; census C9).
+fn bind_stdlib_values_into(
     runtime: &mut impl CallContext,
     frame: &VmFrame,
     params: &StdParams,
     args: &[VmNativeArg],
-) -> Result<Vec<Value>, VmTrap> {
+    values: &mut Vec<Value>,
+) -> Result<(), VmTrap> {
     let positional = args.iter().all(|arg| arg.name.is_none());
     if positional {
-        return bind_stdlib_positional_values(runtime, frame, params, args);
+        return bind_stdlib_positional_values_into(runtime, frame, params, args, values);
     }
     if args.iter().any(|arg| arg.name.is_none()) {
         return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
             "<unnamed>".into(),
         )));
     }
-    bind_stdlib_named_values(runtime, frame, params, args)
+    bind_stdlib_named_values_into(runtime, frame, params, args, values)
 }
 
-/// Bind standard-function arguments by declared positional order.
+/// Bind standard-function arguments by declared positional order into a fresh vector. The hosted
+/// facade and its tests use this form; the engine binds into its reserved values (spec 34
+/// MEM-09; census C9).
+#[cfg(any(feature = "hir", test))]
 pub fn bind_stdlib_positional_values(
     runtime: &mut impl CallContext,
     frame: &VmFrame,
     params: &StdParams,
     args: &[VmNativeArg],
 ) -> Result<Vec<Value>, VmTrap> {
+    let mut values = Vec::new();
+    bind_stdlib_positional_values_into(runtime, frame, params, args, &mut values)?;
+    Ok(values)
+}
+
+fn bind_stdlib_positional_values_into(
+    runtime: &mut impl CallContext,
+    frame: &VmFrame,
+    params: &StdParams,
+    args: &[VmNativeArg],
+    values: &mut Vec<Value>,
+) -> Result<(), VmTrap> {
     match params {
         StdParams::Fixed(expected) => {
             if args.len() != expected.len() {
@@ -369,7 +427,7 @@ pub fn bind_stdlib_positional_values(
             }
         }
     }
-    let mut values = Vec::with_capacity(args.len());
+    values.clear();
     #[cfg(all(feature = "std", feature = "test-support"))]
     let mut diagnostic_formals = 0..;
     for arg in args {
@@ -378,33 +436,53 @@ pub fn bind_stdlib_positional_values(
             attribution::parameter(diagnostic_formals.next().unwrap_or(usize::MAX), 3, false);
         values.push(resolve_vm_arg_value(runtime, frame, arg)?);
     }
-    Ok(values)
+    Ok(())
 }
 
-/// Bind standard-function arguments by their declared names.
+/// Bind standard-function arguments by their declared names into a fresh vector. The hosted
+/// facade and its tests use this form; the engine binds into its reserved values (spec 34
+/// MEM-09; census C9).
+#[cfg(any(feature = "hir", test))]
 pub fn bind_stdlib_named_values(
     runtime: &mut impl CallContext,
     frame: &VmFrame,
     params: &StdParams,
     args: &[VmNativeArg],
 ) -> Result<Vec<Value>, VmTrap> {
+    let mut values = Vec::new();
+    bind_stdlib_named_values_into(runtime, frame, params, args, &mut values)?;
+    Ok(values)
+}
+
+fn bind_stdlib_named_values_into(
+    runtime: &mut impl CallContext,
+    frame: &VmFrame,
+    params: &StdParams,
+    args: &[VmNativeArg],
+    values: &mut Vec<Value>,
+) -> Result<(), VmTrap> {
     match params {
-        StdParams::Fixed(params) => bind_stdlib_named_values_fixed(runtime, frame, params, args),
+        StdParams::Fixed(params) => {
+            bind_stdlib_named_values_fixed_into(runtime, frame, params, args, values)
+        }
         StdParams::Variadic {
             fixed,
             prefix,
             start,
             min,
-        } => bind_stdlib_named_values_variadic(runtime, frame, fixed, prefix, *start, *min, args),
+        } => bind_stdlib_named_values_variadic_into(
+            runtime, frame, fixed, prefix, *start, *min, args, values,
+        ),
     }
 }
 
-fn bind_stdlib_named_values_fixed(
+fn bind_stdlib_named_values_fixed_into(
     runtime: &mut impl CallContext,
     frame: &VmFrame,
     params: &[SmolStr],
     args: &[VmNativeArg],
-) -> Result<Vec<Value>, VmTrap> {
+    values: &mut Vec<Value>,
+) -> Result<(), VmTrap> {
     if args.len() != params.len() {
         return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
             expected: params.len(),
@@ -412,42 +490,60 @@ fn bind_stdlib_named_values_fixed(
         }));
     }
 
-    let mut values: Vec<Option<Value>> = vec![None; params.len()];
+    values.clear();
+    values.resize(params.len(), Value::Null);
+    let mut assigned = runtime.take_call_flags(params.len());
+    let result =
+        bind_stdlib_named_values_fixed_inner(runtime, frame, params, args, values, &mut assigned);
+    runtime.recycle_call_flags(assigned);
+    result
+}
+
+/// The binding loop of [`bind_stdlib_named_values_fixed_into`], writing the reserved values and
+/// marking the formals they fill with the call depth's flags.
+fn bind_stdlib_named_values_fixed_inner(
+    runtime: &mut impl CallContext,
+    frame: &VmFrame,
+    params: &[SmolStr],
+    args: &[VmNativeArg],
+    values: &mut [Value],
+    assigned: &mut [bool],
+) -> Result<(), VmTrap> {
     for arg in args {
         let Some(name) = arg.name.as_ref() else {
             return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
                 "<unnamed>".into(),
             )));
         };
-        let key = name.to_ascii_uppercase();
         let position = params
             .iter()
-            .position(|param| param.as_str() == key)
+            .position(|param| formal_matches(param.as_str(), name))
             .ok_or_else(|| VmTrap::Runtime(RuntimeError::InvalidArgumentName(name.clone())))?;
-        if values[position].is_some() {
+        if assigned[position] {
             return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
                 name.clone(),
             )));
         }
         #[cfg(all(feature = "std", feature = "test-support"))]
         let _parameter = attribution::parameter(position, 3, false);
-        values[position] = Some(resolve_vm_arg_value(runtime, frame, arg)?);
+        values[position] = resolve_vm_arg_value(runtime, frame, arg)?;
+        assigned[position] = true;
     }
 
-    let mut resolved = Vec::with_capacity(values.len());
-    for value in values {
-        let Some(value) = value else {
-            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
-                expected: params.len(),
-                got: args.len(),
-            }));
-        };
-        resolved.push(value);
+    if assigned.iter().any(|assigned| !*assigned) {
+        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
+            expected: params.len(),
+            got: args.len(),
+        }));
     }
-    Ok(resolved)
+    Ok(())
 }
 
-fn bind_stdlib_named_values_variadic(
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the variadic binding plan and the call depth's reserved values and flags"
+)]
+fn bind_stdlib_named_values_variadic_into(
     runtime: &mut impl CallContext,
     frame: &VmFrame,
     fixed: &[SmolStr],
@@ -455,9 +551,45 @@ fn bind_stdlib_named_values_variadic(
     start: usize,
     min: usize,
     args: &[VmNativeArg],
-) -> Result<Vec<Value>, VmTrap> {
-    let mut fixed_values: Vec<Option<Value>> = vec![None; fixed.len()];
-    let mut variadic_values: Vec<Option<Value>> = Vec::new();
+    values: &mut Vec<Value>,
+) -> Result<(), VmTrap> {
+    values.clear();
+    values.resize(fixed.len(), Value::Null);
+    let mut assigned = runtime.take_call_flags(fixed.len());
+    let result = bind_stdlib_named_values_variadic_inner(
+        runtime,
+        frame,
+        fixed,
+        prefix.as_str(),
+        start,
+        min,
+        args,
+        values,
+        &mut assigned,
+    );
+    runtime.recycle_call_flags(assigned);
+    result
+}
+
+/// The binding loop of [`bind_stdlib_named_values_variadic_into`], writing the reserved values
+/// and marking the formals they fill with the call depth's flags. A variadic index beyond the
+/// reservation grows both vectors, as a fresh binding vector grew today; only a refused call
+/// reaches it.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the variadic binding plan and the call depth's reserved values and flags"
+)]
+fn bind_stdlib_named_values_variadic_inner(
+    runtime: &mut impl CallContext,
+    frame: &VmFrame,
+    fixed: &[SmolStr],
+    prefix: &str,
+    start: usize,
+    min: usize,
+    args: &[VmNativeArg],
+    values: &mut Vec<Value>,
+    assigned: &mut Vec<bool>,
+) -> Result<(), VmTrap> {
     let mut max_index: Option<usize> = None;
 
     for arg in args {
@@ -466,65 +598,66 @@ fn bind_stdlib_named_values_variadic(
                 "<unnamed>".into(),
             )));
         };
-        let key = name.to_ascii_uppercase();
-        if let Some(position) = fixed.iter().position(|param| param.as_str() == key) {
-            if fixed_values[position].is_some() {
+        if let Some(position) = fixed
+            .iter()
+            .position(|param| formal_matches(param.as_str(), name))
+        {
+            if assigned[position] {
                 return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
                     name.clone(),
                 )));
             }
             #[cfg(all(feature = "std", feature = "test-support"))]
             let _parameter = attribution::parameter(position, 3, false);
-            fixed_values[position] = Some(resolve_vm_arg_value(runtime, frame, arg)?);
+            values[position] = resolve_vm_arg_value(runtime, frame, arg)?;
+            assigned[position] = true;
             continue;
         }
 
-        let prefix_str = prefix.as_str();
-        if let Some(suffix) = key.strip_prefix(prefix_str) {
-            if suffix.is_empty() {
-                return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
-                    name.clone(),
-                )));
-            }
-            let index = suffix
-                .parse::<usize>()
-                .map_err(|_| VmTrap::Runtime(RuntimeError::InvalidArgumentName(name.clone())))?;
-            if index < start {
-                return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
-                    name.clone(),
-                )));
-            }
-            let offset = index - start;
-            if variadic_values.len() <= offset {
-                variadic_values.resize(offset + 1, None);
-            }
-            if variadic_values[offset].is_some() {
-                return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
-                    name.clone(),
-                )));
-            }
-            #[cfg(all(feature = "std", feature = "test-support"))]
-            let _parameter = attribution::variadic_parameter(fixed.len(), offset);
-            variadic_values[offset] = Some(resolve_vm_arg_value(runtime, frame, arg)?);
-            max_index = Some(max_index.map_or(offset, |max| max.max(offset)));
-            continue;
+        let Some(suffix) = variadic_suffix(name.as_str(), prefix) else {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+                name.clone(),
+            )));
+        };
+        if suffix.is_empty() {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+                name.clone(),
+            )));
         }
-
-        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
-            name.clone(),
-        )));
+        let index = suffix
+            .parse::<usize>()
+            .map_err(|_| VmTrap::Runtime(RuntimeError::InvalidArgumentName(name.clone())))?;
+        if index < start {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+                name.clone(),
+            )));
+        }
+        let offset = index - start;
+        let slot = fixed.len() + offset;
+        if values.len() <= slot {
+            values.resize(slot + 1, Value::Null);
+            assigned.resize(slot + 1, false);
+        }
+        if assigned[slot] {
+            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentName(
+                name.clone(),
+            )));
+        }
+        #[cfg(all(feature = "std", feature = "test-support"))]
+        let _parameter = attribution::variadic_parameter(fixed.len(), offset);
+        values[slot] = resolve_vm_arg_value(runtime, frame, arg)?;
+        assigned[slot] = true;
+        max_index = Some(max_index.map_or(offset, |max| max.max(offset)));
     }
 
-    for value in &fixed_values {
-        if value.is_none() {
-            return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
-                expected: fixed.len() + min,
-                got: args.len(),
-            }));
-        }
+    if assigned.iter().take(fixed.len()).any(|assigned| !*assigned) {
+        return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
+            expected: fixed.len() + min,
+            got: args.len(),
+        }));
     }
 
-    let count = max_index.map(|idx| idx + 1).unwrap_or(0);
+    let count = max_index.map_or(0, |index| index + 1);
     if count < min {
         return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
             expected: fixed.len() + min,
@@ -532,11 +665,7 @@ fn bind_stdlib_named_values_variadic(
         }));
     }
     for idx in 0..count {
-        if variadic_values
-            .get(idx)
-            .and_then(|value| value.as_ref())
-            .is_none()
-        {
+        if !assigned[fixed.len() + idx] {
             return Err(VmTrap::Runtime(RuntimeError::InvalidArgumentCount {
                 expected: fixed.len() + count,
                 got: args.len(),
@@ -544,17 +673,36 @@ fn bind_stdlib_named_values_variadic(
         }
     }
 
-    let mut resolved = Vec::with_capacity(fixed.len() + count);
-    resolved.extend(
-        fixed_values
-            .into_iter()
-            .map(|value| value.expect("fixed variadic values were validated")),
-    );
-    resolved.extend(
-        variadic_values
-            .into_iter()
-            .take(count)
-            .map(|value| value.expect("variadic values were validated")),
-    );
-    Ok(resolved)
+    Ok(())
+}
+
+/// Whether a formal name equals the actual argument name with its ASCII letters made uppercase,
+/// compared byte by byte (spec 34 MEM-09, §6.3; census C9). The comparison builds no uppercase
+/// name, and a lowercase formal never matches, exactly as a named argument never matched one when
+/// the actual name was uppercased into a new string.
+#[inline]
+fn formal_matches(formal: &str, actual: &str) -> bool {
+    formal.len() == actual.len()
+        && formal
+            .bytes()
+            .zip(actual.bytes())
+            .all(|(formal, actual)| formal == actual.to_ascii_uppercase())
+}
+
+/// The suffix of `name` after `prefix`, matching the prefix with its ASCII letters made
+/// uppercase, or `None` when it does not match (spec 34 MEM-09, §6.3; census C9). The matched
+/// prefix bytes are ASCII, so the suffix starts on a character boundary.
+#[inline]
+fn variadic_suffix<'a>(name: &'a str, prefix: &str) -> Option<&'a str> {
+    let bytes = name.as_bytes();
+    let prefix_bytes = prefix.as_bytes();
+    if bytes.len() < prefix_bytes.len()
+        || !prefix_bytes
+            .iter()
+            .zip(bytes)
+            .all(|(prefix, byte)| *prefix == byte.to_ascii_uppercase())
+    {
+        return None;
+    }
+    Some(&name[prefix_bytes.len()..])
 }

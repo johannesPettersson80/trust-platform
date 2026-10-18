@@ -1,6 +1,6 @@
 #[cfg(all(feature = "std", feature = "test-support"))]
 use crate::vm::diagnostic_timing::attribution::{self, CopyConsumerKind, CopyReadKind};
-use alloc::{borrow::ToOwned, format, vec, vec::Vec};
+use alloc::{borrow::ToOwned, format, vec::Vec};
 use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
@@ -14,7 +14,9 @@ use super::super::materialize_borrowed_value;
 use super::super::module::{VmModule, VmNativeArgSpec, VmParamMeta};
 use super::super::stack::OperandStack;
 use super::super::type_policy::{vm_string_primitive_for_type, vm_string_shape_for_type};
-use super::context::{BuiltinParamDirection, CallContext, RegisterCallOpKind, RegisterValueOpKind};
+use super::context::{
+    BuiltinParam, BuiltinParamDirection, CallContext, RegisterCallOpKind, RegisterValueOpKind,
+};
 use super::VM_LOCAL_SENTINEL_FRAME_ID;
 use crate::vm::prepared::call_plans::CallArguments;
 
@@ -78,12 +80,29 @@ pub fn clone_value_with_profile(
     Ok(value)
 }
 
-/// Decode argument descriptors from the native-call operand payload.
+/// Decode argument descriptors from the native-call operand payload into a new vector. The
+/// engine decodes into its reserved scratch instead; this form serves the hosted facade and the
+/// tests.
+#[cfg(any(feature = "hir", test))]
 pub fn unpack_native_call_payload(
     operand_stack: &mut OperandStack,
     arg_specs: &[VmNativeArgSpec],
     receiver_count: usize,
 ) -> Result<(Option<Value>, Vec<VmNativeArg>), VmTrap> {
+    let mut args = Vec::new();
+    let receiver =
+        unpack_native_call_payload_into(&mut args, operand_stack, arg_specs, receiver_count)?;
+    Ok((receiver, args))
+}
+
+/// Decode argument descriptors from the native-call operand payload into `args`, the argument
+/// vector of the call's reserved scratch (spec 34 MEM-09; census C1).
+pub fn unpack_native_call_payload_into(
+    args: &mut Vec<VmNativeArg>,
+    operand_stack: &mut OperandStack,
+    arg_specs: &[VmNativeArgSpec],
+    receiver_count: usize,
+) -> Result<Option<Value>, VmTrap> {
     let total = arg_specs.len().saturating_add(receiver_count);
     let mut payload = operand_stack.drain_top(total)?;
 
@@ -95,7 +114,7 @@ pub fn unpack_native_call_payload(
         None
     };
 
-    let mut vm_args = Vec::with_capacity(arg_specs.len());
+    args.clear();
     for spec in arg_specs {
         let value = payload.next().ok_or_else(|| {
             VmTrap::InvalidNativeCall("missing native call payload while decoding args".into())
@@ -114,13 +133,13 @@ pub fn unpack_native_call_payload(
         } else {
             VmNativeArgValue::Expr(value)
         };
-        vm_args.push(VmNativeArg {
+        args.push(VmNativeArg {
             name: spec.name.clone(),
             value,
         });
     }
 
-    Ok((receiver_value, vm_args))
+    Ok(receiver_value)
 }
 
 #[cfg(test)]
@@ -164,7 +183,9 @@ pub fn resolve_named_arg_index(
     })
 }
 
-/// Bind input and output arguments for a native function block.
+/// Bind input and output arguments for a native function block. The consumption flags and the
+/// output bindings come from the call's reserved scratch and are returned on every path (spec 34
+/// MEM-09; census C3).
 pub fn bind_builtin_function_block_arguments(
     runtime: &mut impl CallContext,
     caller_frame: &VmFrame,
@@ -176,17 +197,46 @@ pub fn bind_builtin_function_block_arguments(
     let params = runtime.builtin_params(fb_type_key).ok_or_else(|| {
         VmTrap::Runtime(RuntimeError::UndefinedFunctionBlock(fb_type_name.clone()))
     })?;
+    let mut consumed = runtime.take_call_flags(args.len());
+    let mut out_bindings = runtime.take_call_fb_outputs();
+    let result = bind_builtin_function_block_arguments_inner(
+        runtime,
+        caller_frame,
+        &params,
+        instance_id,
+        args,
+        &mut consumed,
+        &mut out_bindings,
+    );
+    runtime.recycle_call_flags(consumed);
+    match result {
+        Ok(()) => Ok(out_bindings),
+        Err(error) => {
+            runtime.recycle_call_fb_outputs(out_bindings);
+            Err(error)
+        }
+    }
+}
+
+/// The binding loop of [`bind_builtin_function_block_arguments`], writing the reserved vectors.
+fn bind_builtin_function_block_arguments_inner(
+    runtime: &mut impl CallContext,
+    caller_frame: &VmFrame,
+    params: &[BuiltinParam],
+    instance_id: InstanceId,
+    args: &[VmNativeArg],
+    consumed: &mut [bool],
+    out_bindings: &mut Vec<VmFbOutBinding>,
+) -> Result<(), VmTrap> {
     let positional = args.iter().all(|arg| arg.name.is_none());
     let mut positional_index = 0usize;
     let mut ordered_named_index = 0usize;
-    let mut consumed = vec![false; args.len()];
-    let mut out_bindings = Vec::new();
 
     #[cfg(all(feature = "std", feature = "test-support"))]
     let mut diagnostic_formals = 0..;
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _consumer = attribution::consumer(CopyConsumerKind::BuiltinFunctionBlock, None);
-    for param in &params {
+    for param in params {
         runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
         let arg_index = if positional {
             let next = (positional_index < args.len()).then_some(positional_index);
@@ -195,7 +245,7 @@ pub fn bind_builtin_function_block_arguments(
             }
             next
         } else {
-            resolve_named_arg_index(args, &consumed, &param.name, &mut ordered_named_index)
+            resolve_named_arg_index(args, consumed, &param.name, &mut ordered_named_index)
         };
         if let Some(index) = arg_index {
             consumed[index] = true;
@@ -298,11 +348,12 @@ pub fn bind_builtin_function_block_arguments(
         }
     }
 
-    Ok(out_bindings)
+    Ok(())
 }
 
 /// Bind input and output arguments for a native function block from its prepared plan
 /// (spec 34 MEM-09). The plan resolved each formal once, so no argument names are compared.
+/// The output bindings come from the call's reserved scratch and are returned on refusal.
 pub(super) fn bind_builtin_function_block_arguments_planned(
     runtime: &mut impl CallContext,
     caller_frame: &VmFrame,
@@ -311,11 +362,39 @@ pub(super) fn bind_builtin_function_block_arguments_planned(
     args: &[VmNativeArg],
     arguments: &CallArguments,
 ) -> Result<Vec<VmFbOutBinding>, VmTrap> {
+    let mut out_bindings = runtime.take_call_fb_outputs();
+    let result = bind_builtin_function_block_arguments_planned_inner(
+        runtime,
+        caller_frame,
+        params,
+        instance_id,
+        args,
+        arguments,
+        &mut out_bindings,
+    );
+    match result {
+        Ok(()) => Ok(out_bindings),
+        Err(error) => {
+            runtime.recycle_call_fb_outputs(out_bindings);
+            Err(error)
+        }
+    }
+}
+
+/// The binding loop of [`bind_builtin_function_block_arguments_planned`].
+fn bind_builtin_function_block_arguments_planned_inner(
+    runtime: &mut impl CallContext,
+    caller_frame: &VmFrame,
+    params: &[VmParamMeta],
+    instance_id: InstanceId,
+    args: &[VmNativeArg],
+    arguments: &CallArguments,
+    out_bindings: &mut Vec<VmFbOutBinding>,
+) -> Result<(), VmTrap> {
     #[cfg(all(feature = "std", feature = "test-support"))]
     let mut diagnostic_formals = 0..;
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _consumer = attribution::consumer(CopyConsumerKind::BuiltinFunctionBlock, None);
-    let mut out_bindings = Vec::new();
     for (index, param) in params.iter().enumerate() {
         runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
         let arg = arguments
@@ -387,7 +466,7 @@ pub(super) fn bind_builtin_function_block_arguments_planned(
             }
         }
     }
-    Ok(out_bindings)
+    Ok(())
 }
 
 /// Resolved formal-to-actual indices: from the prepared plan or resolved at the call.
@@ -455,6 +534,46 @@ fn bind_vm_function_block_arguments_with(
     args: &[VmNativeArg],
     arguments: Option<&CallArguments>,
 ) -> Result<Vec<VmFbOutBinding>, VmTrap> {
+    let mut prepared_targets = runtime.take_call_prepared_targets();
+    let mut out_bindings = runtime.take_call_fb_outputs();
+    let result = bind_vm_function_block_arguments_inner(
+        runtime,
+        module,
+        caller_frame,
+        pou_id,
+        instance_id,
+        args,
+        arguments,
+        &mut prepared_targets,
+        &mut out_bindings,
+    );
+    runtime.recycle_call_prepared_targets(prepared_targets);
+    match result {
+        Ok(()) => Ok(out_bindings),
+        Err(error) => {
+            runtime.recycle_call_fb_outputs(out_bindings);
+            Err(error)
+        }
+    }
+}
+
+/// The binding of [`bind_vm_function_block_arguments_with`], writing the reserved vectors
+/// (spec 34 MEM-09; census C4).
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one binder per call kind keeps the reserved scratch explicit"
+)]
+fn bind_vm_function_block_arguments_inner(
+    runtime: &mut impl CallContext,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    pou_id: u32,
+    instance_id: InstanceId,
+    args: &[VmNativeArg],
+    arguments: Option<&CallArguments>,
+    prepared_targets: &mut Vec<Option<(VmWriteTarget, Option<u32>)>>,
+    out_bindings: &mut Vec<VmFbOutBinding>,
+) -> Result<(), VmTrap> {
     #[cfg(all(feature = "std", feature = "test-support"))]
     let _consumer = attribution::consumer(CopyConsumerKind::FunctionBlock, Some(pou_id));
     let params = module.pou_params(pou_id).ok_or_else(|| {
@@ -464,7 +583,8 @@ fn bind_vm_function_block_arguments_with(
         Some(arguments) => CallArgIndices::Planned(arguments),
         None => CallArgIndices::Resolved(resolve_vm_arg_indices(params, args)?),
     };
-    let mut prepared_targets = Vec::with_capacity(params.len());
+    prepared_targets.clear();
+    prepared_targets.resize(params.len(), None);
     for (param_index, param) in params.iter().enumerate() {
         let arg = arg_indices
             .get(param_index)
@@ -483,9 +603,8 @@ fn bind_vm_function_block_arguments_with(
         } else {
             None
         };
-        prepared_targets.push(prepared);
+        prepared_targets[param_index] = prepared;
     }
-    let mut out_bindings = Vec::new();
 
     for (param_index, param) in params.iter().enumerate() {
         runtime.record_call_op(RegisterCallOpKind::ParameterBinding);
@@ -540,7 +659,7 @@ fn bind_vm_function_block_arguments_with(
             1 => {
                 if arg.is_some() {
                     let (target, target_type_idx) = prepared_targets[param_index]
-                        .clone()
+                        .take()
                         .expect("output target preflight must produce a binding");
                     out_bindings.push(VmFbOutBinding {
                         source: field_binding.out_source(),
@@ -554,7 +673,7 @@ fn bind_vm_function_block_arguments_with(
                     continue;
                 }
                 let (target, target_type_idx) = prepared_targets[param_index]
-                    .clone()
+                    .take()
                     .expect("IN_OUT target preflight must produce a binding");
                 let value = target.snapshot(runtime, caller_frame)?;
                 let value = runtime
@@ -578,7 +697,7 @@ fn bind_vm_function_block_arguments_with(
         }
     }
 
-    Ok(out_bindings)
+    Ok(())
 }
 
 /// Prepared locals, output destinations and explicit parameter presence.
@@ -719,19 +838,66 @@ fn bind_vm_call_arguments_from_source(
     args: &mut impl VmCallArgumentSource,
     arguments: Option<&CallArguments>,
 ) -> Result<(BoundVmCall, bool), VmTrap> {
-    #[cfg(all(feature = "std", feature = "test-support"))]
-    let _consumer = attribution::consumer(CopyConsumerKind::UserCall, Some(pou_id));
+    // The POU identity is checked before any parameter metadata, exactly as before.
     let pou = module
         .pou(pou_id)
         .ok_or_else(|| VmTrap::MissingPou(pou_id))?;
+    let mut locals = runtime.take_optimized_call_locals(pou.local_ref_count as usize);
+    // The output bindings and the presence bits come from the call's reserved scratch and are
+    // returned on a refusal (spec 34 MEM-09; census C5).
+    let mut out_bindings = runtime.take_call_function_outputs();
+    let mut present = runtime.take_call_flags(locals.len());
+    let capture_return = module.pou_has_return_slot(pou_id);
+    let result = bind_vm_call_arguments_inner(
+        runtime,
+        module,
+        caller_frame,
+        pou_id,
+        args,
+        arguments,
+        &mut locals,
+        &mut out_bindings,
+        &mut present,
+    );
+    match result {
+        Ok(()) => Ok((
+            BoundVmCall {
+                locals,
+                out_bindings,
+                present,
+            },
+            capture_return,
+        )),
+        Err(error) => {
+            runtime.recycle_call_function_outputs(out_bindings);
+            runtime.recycle_call_flags(present);
+            Err(error)
+        }
+    }
+}
+
+/// The binding of [`bind_vm_call_arguments_from_source`], writing the reserved vectors.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one binder per call kind keeps the reserved scratch explicit"
+)]
+fn bind_vm_call_arguments_inner(
+    runtime: &mut impl CallContext,
+    module: &VmModule,
+    caller_frame: &VmFrame,
+    pou_id: u32,
+    args: &mut impl VmCallArgumentSource,
+    arguments: Option<&CallArguments>,
+    locals: &mut [Value],
+    out_bindings: &mut Vec<VmOutBinding>,
+    present: &mut [bool],
+) -> Result<(), VmTrap> {
+    #[cfg(all(feature = "std", feature = "test-support"))]
+    let _consumer = attribution::consumer(CopyConsumerKind::UserCall, Some(pou_id));
     let params = module.pou_params(pou_id).ok_or_else(|| {
         VmTrap::InvalidNativeCall(format!("missing parameter metadata for pou id {pou_id}").into())
     })?;
-    let mut locals = runtime.take_optimized_call_locals(pou.local_ref_count as usize);
-    let mut out_bindings = Vec::new();
-    let mut present = vec![false; locals.len()];
-    let capture_return = module.pou_has_return_slot(pou_id);
-    let return_slots = usize::from(capture_return);
+    let return_slots = usize::from(module.pou_has_return_slot(pou_id));
     let arg_indices = match arguments {
         Some(arguments) => CallArgIndices::Planned(arguments),
         None => CallArgIndices::Resolved(resolve_vm_arg_indices(params, args.arguments())?),
@@ -851,14 +1017,7 @@ fn bind_vm_call_arguments_from_source(
         }
     }
 
-    Ok((
-        BoundVmCall {
-            locals,
-            out_bindings,
-            present,
-        },
-        capture_return,
-    ))
+    Ok(())
 }
 
 /// Require an argument to designate writable storage.
